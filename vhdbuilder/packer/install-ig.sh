@@ -12,16 +12,16 @@ IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 # Debs are only published to the 20.04 repo on PMC; the 20.04 deb is compatible
 # with 22.04 and 24.04. Maintainers: ebpf-tools within Azure org on GitHub.
 #
-# Dependency constraints differ by OS (defined in the ig-gadgets Dalec spec):
-#   Ubuntu (deb-based): ig >= <gadgets_version>  — ig can be newer than gadgets
-#   AzureLinux (azl3):  ig == <gadgets_version>  — ig must match gadgets exactly
-# This means on AzureLinux, ig and ig-gadgets MUST be bumped together or the
-# RPM install will fail with "conflicting requests".
-# Since ig-gadgets is NOT in components.json (no Renovate coverage), its version
-# must be updated manually here whenever ig is bumped for AzureLinux.
-# testInspektorGadgetAssets should catch this behavior if we're off.
-IG_GADGETS_DEB_VERSION="0.49.1-ubuntu20.04u1"
-IG_GADGETS_RPM_VERSION="0.49.1-1.azl3"
+# ig and ig-gadgets must share the same upstream IG version (X.Y.Z), but their
+# distro/package revisions can differ. The PMC feeds typically publish multiple
+# ig revisions per OS while ig-gadgets is published once per upstream release.
+# Example: ig 0.51.0-4.azl3 is compatible with ig-gadgets 0.51.0-1.azl3.
+# Since ig-gadgets has a different publishing pattern, keep it out of
+# components.json and let Renovate track the upstream version in the PMC feeds.
+# renovate: datasource=custom.deb2004 depName=ig-gadgets versioning=deb
+IG_GADGETS_DEB_VERSION="0.56.0"
+# renovate: datasource=rpm depName=ig-gadgets registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
+IG_GADGETS_RPM_VERSION="0.56.0"
 
 ig_detect_arch() {
     CPU_ARCH=$(getCPUArch)
@@ -39,6 +39,36 @@ ig_detect_arch() {
             return 1
             ;;
     esac
+}
+
+ig_extract_upstream_version() {
+    local version="${1:-}"
+
+    if [[ "${version}" =~ ^([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    fi
+
+    echo "[ig] Could not parse upstream version from '${version}'" >&2
+    return 1
+}
+
+ig_validate_version_compatibility() {
+    local ig_gadgets_version ig_upstream ig_gadgets_upstream
+
+    if [[ "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
+        ig_gadgets_version="${IG_GADGETS_RPM_VERSION}"
+    else
+        ig_gadgets_version="${IG_GADGETS_DEB_VERSION}"
+    fi
+
+    ig_upstream=$(ig_extract_upstream_version "${IG_VERSION}") || return 1
+    ig_gadgets_upstream=$(ig_extract_upstream_version "${ig_gadgets_version}") || return 1
+
+    if [[ "${ig_upstream}" != "${ig_gadgets_upstream}" ]]; then
+        echo "[ig] ig (${IG_VERSION}) and ig-gadgets (${ig_gadgets_version}) must share upstream version, found ${ig_upstream} vs ${ig_gadgets_upstream}" >&2
+        return 1
+    fi
 }
 
 ig_download_file() {
@@ -78,6 +108,27 @@ ig_enable_service_unit() {
     return 0
 }
 
+ig_disable_service_unit() {
+    local unit_path="/usr/lib/systemd/system/${IG_SERVICE_NAME}"
+
+    if [[ ! -f "${unit_path}" ]]; then
+        echo "[ig] ${IG_SERVICE_NAME} not present; skipping disablement"
+        return 0
+    fi
+
+    if ! systemctl daemon-reload; then
+        echo "[ig] systemctl daemon-reload failed"
+        return 1
+    fi
+
+    if ! systemctl disable --now "${IG_SERVICE_NAME}"; then
+        echo "[ig] Failed to disable ${IG_SERVICE_NAME}"
+        return 1
+    fi
+
+    return 0
+}
+
 ig_import_gadgets() {
     if [[ ! -x /usr/share/inspektor-gadget/import_gadgets.sh ]]; then
         echo "[ig] import_gadgets.sh not found"
@@ -93,15 +144,41 @@ ig_import_gadgets() {
 
 ig_install_deb_stack() {
     # ig deb was already downloaded via downloadPkgFromVersion to IG_BUILD_ROOT
-    local ig_deb="${IG_BUILD_ROOT}/ig_${IG_VERSION}_${IG_DEB_ARCH}.deb"
-    if [[ ! -f "${ig_deb}" ]]; then
-        echo "[ig] ig deb not found at ${ig_deb}"
+    local version_regex="${IG_VERSION//./\\.}"
+    local ig_deb
+    ig_deb=$(find "${IG_BUILD_ROOT}" -maxdepth 1 -type f -name "ig_*_${IG_DEB_ARCH}.deb" |
+        grep -E "/ig_${version_regex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || ig_deb=""
+    if [[ -z "${ig_deb}" ]]; then
+        echo "[ig] ig deb not found for upstream version ${IG_VERSION}"
         return 1
     fi
 
     # ig-gadgets: always from ubuntu 20.04 repo, version managed independently
-    local ig_gadgets_deb="${IG_BUILD_ROOT}/ig-gadgets_${IG_GADGETS_DEB_VERSION}_${IG_DEB_ARCH}.deb"
-    local ig_gadgets_url="https://packages.microsoft.com/ubuntu/20.04/prod/pool/main/i/ig-gadgets/ig-gadgets_${IG_GADGETS_DEB_VERSION}_${IG_DEB_ARCH}.deb"
+    local ig_gadgets_repo="https://packages.microsoft.com/ubuntu/20.04/prod/pool/main/i/ig-gadgets"
+    local ig_gadgets_index="${IG_BUILD_ROOT}/ig-gadgets-index.html"
+    local ig_gadgets_full_version
+    local ig_gadgets_deb
+    local ig_gadgets_url
+
+    retrycmd_curl_file 10 5 60 "${ig_gadgets_index}" "${ig_gadgets_repo}/" || return 1
+    ig_gadgets_full_version=$(grep -oE "ig-gadgets_[^\"<]+_${IG_DEB_ARCH}\\.deb" "${ig_gadgets_index}" |
+        sed -E "s/^ig-gadgets_(.*)_${IG_DEB_ARCH}\\.deb$/\\1/" |
+        awk -v desired="${IG_GADGETS_DEB_VERSION}" '
+            $0 == desired || index($0, desired "-") == 1 || index($0, desired "+") == 1
+        ' |
+        sort -V |
+        tail -n 1) || ig_gadgets_full_version=""
+    rm -f "${ig_gadgets_index}"
+    if [[ -z "${ig_gadgets_full_version}" ]]; then
+        echo "[ig] Failed to resolve ig-gadgets deb revision for ${IG_GADGETS_DEB_VERSION}"
+        return 1
+    fi
+
+    logResolvedPackageVersion "ig-gadgets" "${IG_GADGETS_DEB_VERSION}" "${ig_gadgets_full_version}"
+    ig_gadgets_deb="${IG_BUILD_ROOT}/ig-gadgets_${ig_gadgets_full_version}_${IG_DEB_ARCH}.deb"
+    ig_gadgets_url="${ig_gadgets_repo}/ig-gadgets_${ig_gadgets_full_version}_${IG_DEB_ARCH}.deb"
 
     ig_download_file "${ig_gadgets_url}" "${ig_gadgets_deb}" || return 1
 
@@ -118,14 +195,20 @@ ig_install_rpm_stack() {
     local rpm_arch_dir="${IG_RPM_ARCH}"
     local rpm_repo="https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native"
 
-    # IG_VERSION is the full version tag from components.json (e.g. "0.45.0-1.azl3")
-    local ig_rpm="${download_dir}/ig-${IG_VERSION}.${IG_RPM_ARCH}.rpm"
-    local ig_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-${IG_VERSION}.${IG_RPM_ARCH}.rpm"
+    local ig_full_version
+    local ig_gadgets_full_version
+    ig_full_version=$(getLatestRPMPackageVersion "ig" "${IG_VERSION}") || return 1
+    ig_gadgets_full_version=$(getLatestRPMPackageVersion "ig-gadgets" "${IG_GADGETS_RPM_VERSION}") || return 1
+
+    logResolvedPackageVersion "ig" "${IG_VERSION}" "${ig_full_version}"
+    logResolvedPackageVersion "ig-gadgets" "${IG_GADGETS_RPM_VERSION}" "${ig_gadgets_full_version}"
+    local ig_rpm="${download_dir}/ig-${ig_full_version}.${IG_RPM_ARCH}.rpm"
+    local ig_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-${ig_full_version}.${IG_RPM_ARCH}.rpm"
     ig_download_file "${ig_url}" "${ig_rpm}" || return 1
 
     # ig-gadgets: version managed independently from ig
-    local ig_gadgets_rpm="${download_dir}/ig-gadgets-${IG_GADGETS_RPM_VERSION}.${IG_RPM_ARCH}.rpm"
-    local ig_gadgets_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-gadgets-${IG_GADGETS_RPM_VERSION}.${IG_RPM_ARCH}.rpm"
+    local ig_gadgets_rpm="${download_dir}/ig-gadgets-${ig_gadgets_full_version}.${IG_RPM_ARCH}.rpm"
+    local ig_gadgets_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-gadgets-${ig_gadgets_full_version}.${IG_RPM_ARCH}.rpm"
     ig_download_file "${ig_gadgets_url}" "${ig_gadgets_rpm}" || return 1
 
     if ! dnf_install 30 1 600 "${ig_rpm}" "${ig_gadgets_rpm}"; then
@@ -156,6 +239,7 @@ installIG() {
     fi
 
     IG_VERSION="${version}"
+    ig_validate_version_compatibility || return 1
 
     IG_BUILD_ROOT="${download_dir}"
     if [[ -z "${IG_BUILD_ROOT}" || "${IG_BUILD_ROOT}" == "null" ]]; then
@@ -189,8 +273,8 @@ installIG() {
         fi
     fi
 
-    # Enable the systemd service (baseline files copied by packer_source.sh)
-    ig_enable_service_unit || echo "[ig] Failed to enable ${IG_SERVICE_NAME}"
+    # disable the systemd service (baseline files copied by packer_source.sh)
+    ig_disable_service_unit || echo "[ig] Failed to disable ${IG_SERVICE_NAME}"
     ig_import_gadgets || echo "[ig] Gadget import failed during build"
 
     # Create skip sentinel file to indicate IG was installed from VHD

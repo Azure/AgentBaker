@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 )
 
@@ -257,13 +257,19 @@ preReleases=true means that we include pre-release versions in the list.
 func GetVersionsGt(versions []string, version string, inclusive, preReleases bool) []string {
 	// Try to get latest version matching the release.
 	var ret []string
-	minVersion, _ := semver.Make(version)
+	minVersion, err := semver.NewVersion(version)
+	if err != nil {
+		return ret
+	}
 	for _, v := range versions {
-		sv, _ := semver.Make(v)
-		if !preReleases && len(sv.Pre) != 0 {
+		sv, err := semver.NewVersion(v)
+		if err != nil {
 			continue
 		}
-		if (inclusive && sv.GTE(minVersion)) || (!inclusive && sv.GT(minVersion)) {
+		if !preReleases && sv.Prerelease() != "" {
+			continue
+		}
+		if (inclusive && sv.GreaterThanEqual(minVersion)) || (!inclusive && sv.GreaterThan(minVersion)) {
 			ret = append(ret, v)
 		}
 	}
@@ -278,13 +284,19 @@ preReleases=true means that we include pre-release versions in the list.
 func GetVersionsLt(versions []string, version string, inclusive, preReleases bool) []string {
 	// Try to get latest version matching the release.
 	var ret []string
-	minVersion, _ := semver.Make(version)
+	minVersion, err := semver.NewVersion(version)
+	if err != nil {
+		return ret
+	}
 	for _, v := range versions {
-		sv, _ := semver.Make(v)
-		if !preReleases && len(sv.Pre) != 0 {
+		sv, err := semver.NewVersion(v)
+		if err != nil {
 			continue
 		}
-		if (inclusive && sv.LTE(minVersion)) || (!inclusive && sv.LT(minVersion)) {
+		if !preReleases && sv.Prerelease() != "" {
+			continue
+		}
+		if (inclusive && sv.LessThanEqual(minVersion)) || (!inclusive && sv.LessThan(minVersion)) {
 			ret = append(ret, v)
 		}
 	}
@@ -298,7 +310,7 @@ preReleases=true means that we include pre-release versions in the list.
 */
 func GetVersionsBetween(versions []string, versionMin, versionMax string, inclusive, preReleases bool) []string {
 	var ret []string
-	if minV, _ := semver.Make(versionMin); len(minV.Pre) != 0 {
+	if minV, err := semver.NewVersion(versionMin); err == nil && minV.Prerelease() != "" {
 		preReleases = true
 	}
 	greaterThan := GetVersionsGt(versions, versionMin, inclusive, preReleases)
@@ -320,6 +332,9 @@ func GetMinVersion(versions []string, preRelease bool) string {
 		return ""
 	}
 	semverVersions := getSortedSemverVersions(versions, preRelease)
+	if len(semverVersions) == 0 {
+		return ""
+	}
 	return semverVersions[0].String()
 }
 
@@ -330,18 +345,24 @@ func GetMaxVersion(versions []string, preRelease bool) string {
 		return ""
 	}
 	semverVersions := getSortedSemverVersions(versions, preRelease)
+	if len(semverVersions) == 0 {
+		return ""
+	}
 	return semverVersions[len(semverVersions)-1].String()
 }
 
-func getSortedSemverVersions(versions []string, preRelease bool) []semver.Version {
-	var semverVersions []semver.Version
+func getSortedSemverVersions(versions []string, preRelease bool) []*semver.Version {
+	var semverVersions []*semver.Version
 	for _, v := range versions {
-		sv, _ := semver.Make(v)
-		if len(sv.Pre) == 0 || preRelease {
+		sv, err := semver.NewVersion(v)
+		if err != nil {
+			continue
+		}
+		if sv.Prerelease() == "" || preRelease {
 			semverVersions = append(semverVersions, sv)
 		}
 	}
-	semver.Sort(semverVersions)
+	sort.Sort(semver.Collection(semverVersions))
 	return semverVersions
 }
 
@@ -402,11 +423,11 @@ func GetValidPatchVersion(orchType, orchVer string, isUpdate, hasWindows bool) s
 		hasWindows)
 
 	if version == "" {
-		sv, err := semver.Make(orchVer)
+		sv, err := semver.NewVersion(orchVer)
 		if err != nil {
 			return ""
 		}
-		sr := fmt.Sprintf("%d.%d", sv.Major, sv.Minor)
+		sr := fmt.Sprintf("%d.%d", sv.Major(), sv.Minor())
 
 		version = RationalizeReleaseAndVersion(
 			orchType,
@@ -452,8 +473,11 @@ func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate, h
 	// Try to get latest version matching the release.
 	version = ""
 	for _, ver := range supportedVersions {
-		sv, _ := semver.Make(ver)
-		sr := fmt.Sprintf("%d.%d", sv.Major, sv.Minor)
+		sv, err := semver.NewVersion(ver)
+		if err != nil {
+			continue
+		}
+		sr := fmt.Sprintf("%d.%d", sv.Major(), sv.Minor())
 		if sr == orchRel && ver == orchVer {
 			version = ver
 			break
@@ -477,15 +501,15 @@ func IsValidMinVersion(orchType, orchRelease, orchVersion, minVersion string) (b
 			orchRelease,
 			orchVersion)
 	}
-	sv, err := semver.Make(version)
+	sv, err := semver.NewVersion(version)
 	if err != nil {
 		return false, errors.Errorf("could not validate version %s", version)
 	}
-	m, err := semver.Make(minVersion)
+	m, err := semver.NewVersion(minVersion)
 	if err != nil {
 		return false, errors.New("could not validate version")
 	}
-	if sv.LT(m) {
+	if sv.LessThan(m) {
 		return false, nil
 	}
 	return true, nil
@@ -493,9 +517,15 @@ func IsValidMinVersion(orchType, orchRelease, orchVersion, minVersion string) (b
 
 // IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
 func IsKubernetesVersionGe(actualVersion, version string) bool {
-	v1, _ := semver.Make(actualVersion)
-	v2, _ := semver.Make(version)
-	return v1.GE(v2)
+	v1, err := semver.NewVersion(actualVersion)
+	if err != nil {
+		return false
+	}
+	v2, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	return v1.GreaterThanEqual(v2)
 }
 
 /*
@@ -506,17 +536,17 @@ func GetLatestPatchVersion(majorMinor string, versionsList []string) string {
 	// Try to get latest version matching the release.
 	var version string
 	for _, ver := range versionsList {
-		sv, err := semver.Make(ver)
+		sv, err := semver.NewVersion(ver)
 		if err != nil {
-			return ""
+			continue
 		}
-		sr := fmt.Sprintf("%d.%d", sv.Major, sv.Minor)
+		sr := fmt.Sprintf("%d.%d", sv.Major(), sv.Minor())
 		if sr == majorMinor {
 			if version == "" {
 				version = ver
 			} else {
-				current, _ := semver.Make(version)
-				if sv.GT(current) {
+				current, err := semver.NewVersion(version)
+				if err != nil || sv.GreaterThan(current) {
 					version = ver
 				}
 			}

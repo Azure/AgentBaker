@@ -16,6 +16,8 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # -------------------------------------------------------------------------------------------------
 # Localdns script path.
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+# Cgroup v2 directory for the localdns service (matches Slice=localdns.slice in localdns.service).
+LOCALDNS_CGROUP_DIR="/sys/fs/cgroup/localdns.slice/localdns.service"
 
 # Localdns corefile is created only when localdns profile has state enabled.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
@@ -52,11 +54,19 @@ RESOLV_CONF="/run/systemd/resolve/resolv.conf"
 
 # Curl check if localdns is running.
 # This is used by start_localdns_watchdog and wait_for_localdns_ready.
-CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
+# Declared as an array so it expands with correct word-splitting/quoting; --noproxy ensures
+# the request to the node-local listener bypasses any system-wide HTTP proxy (inherited via
+# systemd DefaultEnvironment on http-proxy clusters), which cannot route to a link-local address.
+CURL_COMMAND=(curl -s --noproxy "${LOCALDNS_NODE_LISTENER_IP}" --connect-timeout 5 --max-time 10 "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")
 
 # Constant for networkctl reload command.
 # This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
 NETWORKCTL_RELOAD_CMD="networkctl reload"
+
+# Maximum time in seconds to wait for a networkctl reload to converge before giving up.
+# Matches the budget wait_for_localdns_removed_from_resolv_conf gets for the mirror-image
+# reload on the cleanup path.
+NETWORK_RELOAD_SETTLE_TIMEOUT=5
 
 START_LOCALDNS_TIMEOUT=10
 
@@ -127,15 +137,18 @@ verify_localdns_binary() {
 # Regenerate the localdns corefile from base64 encoded content.
 # This is used when the corefile goes missing.
 regenerate_localdns_corefile() {
-    if [ -z "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
-        echo "LOCALDNS_BASE64_ENCODED_COREFILE is not set. Cannot regenerate corefile."
+    local corefile_to_use
+    corefile_to_use=$(select_localdns_corefile) || true
+    if [ -z "${corefile_to_use}" ]; then
+        echo "No corefile selected. Cannot regenerate corefile."
         return 1
     fi
+
     echo "Regenerating localdns corefile at ${LOCALDNS_CORE_FILE}"
 
     mkdir -p "$(dirname "${LOCALDNS_CORE_FILE}")"
     # Decode base64 corefile content and write to corefile.
-    if ! echo "${LOCALDNS_BASE64_ENCODED_COREFILE}" | base64 -d > "${LOCALDNS_CORE_FILE}"; then
+    if ! echo "${corefile_to_use}" | base64 -d > "${LOCALDNS_CORE_FILE}"; then
         echo "Failed to decode and write corefile."
         return 1
     fi
@@ -204,6 +217,94 @@ replace_azurednsip_in_corefile() {
         echo "Failed to set permissions on ${UPDATED_LOCALDNS_CORE_FILE}"
         return 1
     }
+
+    # Export forward IPs to .prom file for metrics exporter (best-effort)
+    # This avoids parsing the corefile on every metrics scrape
+    # Metrics export is non-fatal - if it fails, log warning and continue so DNS service isn't affected
+    local FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+
+    # Parse forward IPs from ALL server blocks in the corefile.
+    # Each metric line includes a "block" label identifying which zone the forward came from
+    # (e.g., block=".:53", block="cluster.local:53").
+    #
+    # Single-pass awk outputs "bind_ip|zone|forward_ip" triples:
+    #   - Tracks current zone from block headers like ".:53 {" or "cluster.local:53 {"
+    #   - Tracks bind IP from "bind 169.254.10.10" or "bind 169.254.10.11"
+    #   - Extracts forward IPs from "forward . <ip> ..." lines
+    #   - Resets state on block close "}"
+    local forward_entries bind_ip block fwd_ip
+    local vnetdns_found=false kubedns_found=false
+    forward_entries=$(awk '
+        /^[^ #].*:53 / {
+            block = $1
+            bind_ip = ""
+        }
+        /bind / {
+            for (i=2; i<=NF; i++) {
+                if ($i ~ /^169\.254\.10\.(10|11)$/) bind_ip = $i
+            }
+        }
+        /forward \. / && bind_ip != "" {
+            for (i=3; i<=NF; i++) {
+                if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/)
+                    print bind_ip "|" block "|" $i
+            }
+        }
+        /^}/ { block = ""; bind_ip = "" }
+    ' "${UPDATED_LOCALDNS_CORE_FILE}")
+
+    # Write Prometheus metrics to temp file, then atomically rename
+    # This prevents the exporter from reading a partially-written file during scrapes
+    # Generate one metric line per IP+block combination
+    local tmp
+    if ! tmp="$(mktemp "${FORWARD_IPS_PROM_FILE}.XXXXXX")"; then
+        echo "WARNING: Failed to create temp file for ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
+    elif ! {
+        echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_vnetdns_forward_info gauge"
+        while IFS='|' read -r bind_ip block fwd_ip; do
+            [ "$bind_ip" = "${LOCALDNS_NODE_LISTENER_IP}" ] || continue
+            echo "localdns_vnetdns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
+            vnetdns_found=true
+        done <<< "$forward_entries"
+        if [ "$vnetdns_found" = false ]; then
+            echo 'localdns_vnetdns_forward_info{ip="unknown",block="none",status="missing"} 0'
+        fi
+        echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_kubedns_forward_info gauge"
+        while IFS='|' read -r bind_ip block fwd_ip; do
+            [ "$bind_ip" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ] || continue
+            echo "localdns_kubedns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
+            kubedns_found=true
+        done <<< "$forward_entries"
+        if [ "$kubedns_found" = false ]; then
+            echo 'localdns_kubedns_forward_info{ip="unknown",block="none",status="missing"} 0'
+        fi
+    } > "$tmp"; then
+        echo "WARNING: Failed to write metrics to temp file $tmp. Metrics export skipped."
+        rm -f "$tmp"
+    elif ! chmod 0644 "$tmp"; then
+        echo "WARNING: Failed to set permissions on temp file $tmp. Metrics export skipped."
+        rm -f "$tmp"
+    elif ! mv -f "$tmp" "${FORWARD_IPS_PROM_FILE}"; then
+        echo "WARNING: Failed to move temp file to ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
+        rm -f "$tmp"
+    else
+        echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
+    fi
+
+    # Persist the upstream DNS server(s) so aks-localdns-hosts-setup.sh can resolve against them
+    # directly, bypassing localdns. Without this, the timer's dig queries would go through
+    # localdns (169.254.10.10) → hosts plugin → stale answers from /etc/localdns/hosts,
+    # creating a self-referential loop where IPs can never refresh.
+    local upstream_dns_file="/etc/localdns/upstream-dns"
+    mkdir -p "$(dirname "${upstream_dns_file}")" 2>/dev/null || true
+    echo "${UPSTREAM_VNET_DNS_SERVERS}" > "${upstream_dns_file}" || {
+        echo "WARNING: Failed to write upstream DNS to ${upstream_dns_file}"
+        # Non-fatal: if this file is missing or empty, aks-localdns-hosts-setup.sh falls back to the system resolver.
+    }
+    chmod 0644 "${upstream_dns_file}" 2>/dev/null || true
+    echo "Persisted upstream DNS servers to ${upstream_dns_file}: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     return 0
 }
@@ -349,7 +450,7 @@ wait_for_localdns_ready() {
     local starttime=$(date +%s)
 
     echo "Waiting for localdns to start and be able to serve traffic."
-    until [ "$($CURL_COMMAND)" = "OK" ]; do
+    until [ "$("${CURL_COMMAND[@]}")" = "OK" ]; do
         if [ $attempts -ge $maxattempts ]; then
             echo "Localdns failed to come online after $maxattempts attempts."
             return 1
@@ -365,6 +466,119 @@ wait_for_localdns_ready() {
         ((attempts++))
     done
     echo "Localdns is online and ready to serve traffic."
+    return 0
+}
+
+# Sentinel file: presence means "this node may already have the hosts-plugin annotation,
+# so reconcile it on startup." Created after a successful annotation set, removed after
+# a successful annotation removal. Avoids unnecessary kubeconfig waits on nodes that
+# never used the feature.
+LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER="${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER:-/opt/azure/containers/localdns-hosts-plugin-annotation.present}"
+
+# Set node annotation to indicate hosts plugin is in use if the hosts file has contents.
+annotate_node_with_hosts_plugin_status() {
+    # Check if the running localdns corefile actually contains the hosts plugin block.
+    # This is the ground truth - we check the actual corefile being used by the service,
+    # not just what was selected during CSE, in case the file was modified or regenerated.
+    local corefile_path="${UPDATED_LOCALDNS_CORE_FILE:-/opt/azure/containers/localdns/updated.localdns.corefile}"
+    local should_annotate=false
+
+    if [ ! -f "${corefile_path}" ]; then
+        echo "Localdns corefile not found at ${corefile_path}, skipping annotation."
+        return 0
+    fi
+
+    # Determine whether hosts plugin is active based on corefile and hosts file state
+    if grep -q "hosts /etc/localdns/hosts" "${corefile_path}"; then
+        # Additionally verify that the hosts file exists and has content
+        local hosts_file="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+        if [ -f "${hosts_file}" ] && grep -qE '^[0-9a-fA-F.:]+[[:space:]]+[[:alnum:]]' "${hosts_file}"; then
+            echo "Localdns is using hosts plugin and hosts file has $(grep -cE '^[0-9a-fA-F.:]+[[:space:]]+[[:alnum:]]' "${hosts_file}" 2>/dev/null || echo 0) entries."
+            should_annotate=true
+        else
+            echo "Corefile has hosts plugin block but hosts file is missing or empty, skipping annotation."
+            return 0
+        fi
+    else
+        echo "Localdns corefile does not contain hosts plugin block."
+    fi
+
+    # Only proceed if we have the necessary kubectl binary and configuration
+    if [ ! -x /opt/bin/kubectl ]; then
+        echo "kubectl binary not found at /opt/bin/kubectl, skipping annotation."
+        return 0
+    fi
+
+    local kubeconfig="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
+    # Wait for kubelet to finish TLS bootstrapping and create the kubeconfig file
+    # This is necessary because localdns starts in basePrep(), before kubelet starts in nodePrep()
+    local wait_count=0
+    local max_wait="${KUBECONFIG_WAIT_ATTEMPTS:-60}"  # Default: wait up to 3 minutes (60 * 3 seconds), but configurable for testing
+    while [ ! -f "${kubeconfig}" ]; do
+        if [ $wait_count -ge $max_wait ]; then
+            echo "Timeout waiting for kubeconfig at ${kubeconfig} after ${max_wait} attempts, skipping annotation."
+            return 0
+        fi
+        echo "Waiting for TLS bootstrapping to complete (attempt $((wait_count + 1))/${max_wait})..."
+        sleep 3
+        wait_count=$((wait_count + 1))
+    done
+    echo "Kubeconfig found at ${kubeconfig}"
+
+    # Get node name
+    local node_name
+    node_name=$(hostname)
+    if [ -z "${node_name}" ]; then
+        echo "Cannot get node name, skipping annotation."
+        return 0
+    fi
+
+    # Azure cloud provider assigns node name as the lower case of the hostname
+    node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
+    # Wait for node to be registered in the cluster
+    # The kubeconfig exists but the node might not be registered yet
+    echo "Waiting for node ${node_name} to be registered in the cluster..."
+    local node_wait_count=0
+    local max_node_wait="${NODE_REGISTRATION_WAIT_ATTEMPTS:-30}"  # Default: wait up to 90 seconds (30 * 3 seconds)
+    while [ $node_wait_count -lt $max_node_wait ]; do
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" get node "${node_name}" >/dev/null 2>&1; then
+            echo "Node ${node_name} is registered in the cluster."
+            break
+        fi
+        echo "Waiting for node registration (attempt $((node_wait_count + 1))/${max_node_wait})..."
+        sleep 3
+        node_wait_count=$((node_wait_count + 1))
+    done
+
+    # Check if we timed out waiting for node registration
+    if [ $node_wait_count -ge $max_node_wait ]; then
+        echo "Timeout waiting for node ${node_name} to be registered after ${max_node_wait} attempts, skipping annotation."
+        return 0
+    fi
+
+    # Set or remove annotation based on hosts plugin state
+    if [ "${should_annotate}" = "true" ]; then
+        echo "Setting annotation to indicate hosts plugin is in use for node ${node_name}."
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin=enabled; then
+            echo "Successfully set hosts plugin annotation."
+            touch "${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER}"
+        else
+            echo "Warning: Failed to set hosts plugin annotation (this is non-fatal)."
+        fi
+    else
+        # Remove stale annotation after rollback to avoid advertising hosts plugin as enabled
+        # when it's no longer in use. The - suffix tells kubectl to remove the annotation.
+        echo "Removing hosts plugin annotation for node ${node_name} (hosts plugin not active)."
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" kubernetes.azure.com/localdns-hosts-plugin-; then
+            echo "Successfully removed hosts plugin annotation."
+            rm -f "${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER}"
+        else
+            # Keep marker so the next restart retries removal
+            echo "Warning: Failed to remove hosts plugin annotation (this is non-fatal, annotation may not have existed)."
+        fi
+    fi
+
     return 0
 }
 
@@ -404,7 +618,7 @@ wait_for_localdns_removed_from_resolv_conf() {
         current_dns=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')
 
         # Use word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
-        if ! grep -qwF "$LOCALDNS_NODE_LISTENER_IP" <<< "$current_dns"; then
+        if [ -n "$current_dns" ] && ! grep -qwF "$LOCALDNS_NODE_LISTENER_IP" <<< "$current_dns"; then
             echo "DNS configuration refreshed successfully. Current DNS: ${current_dns}"
             return 0
         fi
@@ -445,19 +659,152 @@ EOF
     return 0
 }
 
-# Remove iptables rules and revert DNS configuration.
-cleanup_iptables_and_dns() {
-    # Ensure network variables are initialized if not already set.
-    # This is needed here because this function can be called from cleanup traps or systemd restarts initiated by watchdog.
-    if [ -z "${NETWORK_DROPIN_FILE:-}" ] || [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
-        echo "Network variables not initialized, attempting to determine them..."
-        if ! initialize_network_variables; then
-            echo "Failed to initialize network variables during cleanup."
+# Return 0 only if every upstream DNS server in $1 currently has a usable route.
+# 'ip route get' exits non-zero ("Network is unreachable") while networkd has the link's
+# DHCP state torn down, which is exactly the window this is here to observe.
+# Arguments:
+#   $1: upstream_dns_servers - Space separated upstream DNS server IPs.
+upstream_dns_servers_routable() {
+    local upstream_dns_servers="$1"
+    local server
+    for server in ${upstream_dns_servers}; do
+        if ! ip route get "${server}" > /dev/null 2>&1; then
             return 1
         fi
+    done
+    return 0
+}
+
+# Return 0 if any upstream DNS server in $1 is still listed in the nameserver list $2.
+# Arguments:
+#   $1: upstream_dns_servers - Space separated upstream DNS server IPs.
+#   $2: current_dns - Space separated nameserver IPs currently in resolv.conf.
+upstream_dns_servers_listed() {
+    local upstream_dns_servers="$1"
+    local current_dns="$2"
+    local server
+    for server in ${upstream_dns_servers}; do
+        # Word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
+        if grep -qwF "${server}" <<< "${current_dns}"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Wait for systemd-networkd to finish applying the localdns drop-in after a reload.
+#
+# 'networkctl reload' is asynchronous - it returns as soon as networkd accepts the request.
+# networkd then re-configures the default route interface, which drops and re-acquires its DHCP
+# lease and so briefly removes the route to the upstream DNS servers. By that point localdns is
+# already listening and resolv.conf already points at it, so any query arriving in that gap is
+# forwarded onto an unreachable network and fails immediately. Since localdns.service is
+# Type=notify, returning from startup here is what unblocks 'systemctl start localdns' - which
+# is why a freshly provisioned node can see a SERVFAIL on its very first DNS query.
+#
+# The reload is treated as converged once resolv.conf shows the state the drop-in asks for AND
+# the upstream servers are routable again:
+#   - resolv.conf is non-empty, lists the localdns listener, and no longer lists any upstream
+#     server. 'DNS=<listener>' plus 'UseDNS=false' makes that networkd's deterministic end
+#     state, so this is the applied-the-drop-in signal, not a heuristic.
+#   - every upstream server has a route, so localdns has egress to forward to.
+#
+# The non-empty requirement carries its weight: during a reload resolv.conf can transiently
+# contain no nameservers at all. Returning then would signal ready with no resolver configured
+# and release containerd and kubelet (both ordered After= this unit) onto a node that cannot
+# resolve anything. See PR #9361 for the same bug on the teardown path.
+#
+# One limit worth naming: nothing observable here separates "the reload already converged" from
+# "the reload has not started yet". If networkd has written the post-drop-in resolv.conf but has
+# not yet begun re-configuring the link, both conditions hold on the very first sample and this
+# returns immediately with the tear-down still ahead of it. That is why the wait is bounded and
+# advisory rather than a gate: when it misfires the result is exactly the pre-fix ordering - one
+# transient SERVFAIL - so the worst case is that it fails to help, not a new failure mode.
+#
+# This is best effort. The caller logs and continues on failure: traffic is already pointed at
+# localdns by this point, so failing the unit would be a far worse outcome than a brief gap.
+#
+# Arguments:
+#   $1: upstream_dns_servers - Space separated upstream DNS server IPs to check routes for.
+#   $2: max_wait_seconds - Maximum time to wait for the reload to converge (default: 5).
+wait_for_network_reload_settled() {
+    local upstream_dns_servers="$1"
+    local max_wait_seconds="${2:-5}"
+    local sleep_interval=0.25
+    local max_iterations=$((max_wait_seconds * 4))  # 4 iterations per second with 0.25s sleep
+    local iteration=0
+    local current_dns=""
+
+    if [ -z "${upstream_dns_servers}" ]; then
+        echo "No upstream DNS servers to check, skipping wait for systemd-networkd reload."
+        return 0
+    fi
+
+    echo "Waiting for systemd-networkd reload to converge. Upstream DNS servers: ${upstream_dns_servers}"
+
+    while [ "$iteration" -lt "$max_iterations" ]; do
+        current_dns=$(awk '/^nameserver/ {print $2}' "$RESOLV_CONF" 2>/dev/null | paste -sd' ')
+
+        # Word boundary matching (-w) with fixed string (-F) to avoid partial IP matches.
+        if [ -n "$current_dns" ] &&
+           grep -qwF "$LOCALDNS_NODE_LISTENER_IP" <<< "$current_dns" &&
+           ! upstream_dns_servers_listed "$upstream_dns_servers" "$current_dns" &&
+           upstream_dns_servers_routable "$upstream_dns_servers"; then
+            echo "systemd-networkd reload converged, upstream DNS servers are routable. Current DNS: ${current_dns}"
+            return 0
+        fi
+
+        sleep $sleep_interval
+        iteration=$((iteration + 1))
+    done
+
+    echo "Timed out after ${max_wait_seconds} seconds waiting for the systemd-networkd reload to converge."
+    echo "Current DNS: ${current_dns}"
+    return 1
+}
+
+# Remove iptables rules and revert DNS configuration.
+cleanup_iptables_and_dns() {
+    # Track failures across all cleanup steps so that a failure in one step
+    # (e.g. removing an iptables rule) does not skip the more important DNS
+    # restoration steps below. Restoring node DNS is the priority: if we return
+    # early on an iptables error we could leave the node pointed at a dead
+    # localdns listener via the network drop-in.
+    local cleanup_failed=false
+
+    # Do not derive the route/interface during post-exit cleanup. At this point
+    # network state may already be torn down, so ip route/networkctl discovery
+    # can fail and leave the node pointed at the dead LocalDNS listener. Remove
+    # the configured drop-in and any matching drop-ins directly; this also works
+    # when NETWORK_DROPIN_FILE was never initialized in this process.
+    # Revert DNS configuration before touching iptables. Keep the dummy interface
+    # and its .10/.11 addresses here: if an orphaned CoreDNS child survived a
+    # failed cgroup teardown, removing the interface would break a listener
+    # that may still be serving pods. The service-recovery path handles the
+    # next-start interface lifecycle separately.
+    local network_dropin_file
+    for network_dropin_file in "${NETWORK_DROPIN_FILE:-}" /run/systemd/network/*.d/70-localdns.conf; do
+        [ -e "$network_dropin_file" ] || continue
+        echo "Removing network drop-in file ${network_dropin_file}."
+        if ! rm -f "$network_dropin_file"; then
+            echo "Failed to remove network drop-in file ${network_dropin_file}."
+            cleanup_failed=true
+        else
+            echo "Successfully removed network drop-in file."
+        fi
+    done
+
+    echo "Attempt to reload network configuration."
+    if ! eval "$NETWORKCTL_RELOAD_CMD"; then
+        echo "Failed to reload network after removing the DNS configuration."
+        cleanup_failed=true
+    else
+        echo "Reloading network configuration succeeded."
     fi
 
     # Remove any existing localdns iptables rules by searching for our comment.
+    # This runs after DNS restoration so an xtables lock cannot delay removal of
+    # the network drop-in that points the node at the LocalDNS listener.
     echo "Cleaning up any existing localdns iptables rules..."
 
     # Get list of existing localdns rules by searching for our comment.
@@ -479,36 +826,43 @@ cleanup_iptables_and_dns() {
             done
         done
         if [ "$failure_occurred" = true ]; then
-            return 1
+            cleanup_failed=true
         fi
     else
         echo "No existing localdns iptables rules found."
     fi
 
-    # Revert DNS configuration and network reload.
-    echo "Removing network drop-in file ${NETWORK_DROPIN_FILE}."
-    rm -f "$NETWORK_DROPIN_FILE"
-    if [ "$?" -ne 0 ]; then
-        echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
+    if [ "$cleanup_failed" = true ]; then
         return 1
     fi
-    echo "Successfully removed network drop-in file."
-
-    echo "Attempt to reload network configuration."
-    eval "$NETWORKCTL_RELOAD_CMD"
-    if [ "$?" -ne 0 ]; then
-        echo "Failed to reload network after removing the DNS configuration."
-        return 1
-    fi
-    echo "Reloading network configuration succeeded."
 
     return 0
+}
+
+# localdns_cleanup_mode is the entry point for `localdns.sh cleanup`, invoked by
+# localdns.service ExecStopPost after both graceful and unexpected exits. It only
+# restores node DNS configuration. It intentionally does not delete the dummy
+# localdns interface or its .10/.11 addresses: if an orphaned CoreDNS child
+# survives a failed cgroup teardown, removing the interface could break a
+# listener that is still serving pods and turn a fast failure into default-route
+# DNS timeouts. Service/process recovery handles the next-start interface
+# lifecycle separately. It always exits 0 so that a best-effort cleanup failure
+# cannot wedge systemd's recovery. Cleanup failures are logged.
+localdns_cleanup_mode() {
+    cleanup_iptables_and_dns || echo "LocalDNS cleanup failed: network drop-in may not have been removed; node DNS may still point at the dead listener ${LOCALDNS_NODE_LISTENER_IP}."
+    exit 0
 }
 
 # Cleanup function to remove localdns related configurations.
 cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
     set +e
+
+    # Kill orphaned background annotation process if still running.
+    if [ -n "${ANNOTATION_PID:-}" ] && kill -0 "${ANNOTATION_PID}" 2>/dev/null; then
+        echo "Killing background annotation process (PID: ${ANNOTATION_PID})"
+        kill "${ANNOTATION_PID}" 2>/dev/null || true
+    fi
 
     # Remove iptables rules and revert DNS configuration
     cleanup_iptables_and_dns || return 1
@@ -561,6 +915,76 @@ cleanup_localdns_configs() {
     return 0
 }
 
+# Export resource metrics (CPU, memory, status) to a .prom file for the metrics exporter.
+# Reads CPU and memory directly from the cgroup v2 filesystem to avoid the
+# systemctl → D-Bus → systemd overhead. The exporter (DynamicUser=yes) cannot
+# query systemd over D-Bus, so we write a world-readable .prom file from the
+# root-privileged localdns.sh — the same pattern used for forward_ips.prom.
+# This function is called once at startup and periodically from the watchdog loop.
+# Failures are non-fatal to avoid affecting DNS service availability.
+export_resource_metrics() {
+    local resources_prom_file="${LOCALDNS_SCRIPT_PATH}/resources.prom"
+    local raw_cpu raw_mem cpu_sec mem_bytes service_status tmp
+
+    # Determine service status by checking if the CoreDNS child process is alive.
+    # Note: systemctl is-active would always return "active" here because this function
+    # runs inside localdns.sh which IS the localdns.service ExecStart process.
+    if [ -n "${COREDNS_PID:-}" ] && kill -0 "$COREDNS_PID" 2>/dev/null; then
+        service_status="active"
+    else
+        service_status="inactive"
+    fi
+
+    # Read resource values directly from cgroup v2 filesystem (all supported distros use cgroupv2).
+    # This avoids the systemctl → D-Bus → systemd → cgroup round-trip.
+    # localdns.service runs in localdns.slice (see localdns.service Slice= directive).
+    local cgroup_dir="${LOCALDNS_CGROUP_DIR}"
+    raw_cpu=$(awk '/^usage_usec/ {print $2}' "$cgroup_dir/cpu.stat" 2>/dev/null || echo "0")
+    raw_mem=$(cat "$cgroup_dir/memory.current" 2>/dev/null || echo "0")
+
+    # Convert CPU microseconds → seconds (%.9f preserves sub-microsecond precision for rate() calculations)
+    # Memory is already in bytes from cgroup — expose as-is per Prometheus base-unit convention
+    cpu_sec=$(awk -v val="$raw_cpu" 'BEGIN {printf "%.9f", val / 1000000}')
+    mem_bytes="$raw_mem"
+
+    # Write Prometheus metrics to temp file, then atomically rename
+    if ! tmp="$(mktemp "${resources_prom_file}.XXXXXX")"; then
+        echo "WARNING: Failed to create temp file for ${resources_prom_file}. Resource metrics export skipped."
+        return 0
+    elif ! {
+        echo "# HELP localdns_service_status CoreDNS process status (1=active, 0=inactive)"
+        echo "# TYPE localdns_service_status gauge"
+        if [ "$service_status" = "active" ]; then
+            echo "localdns_service_status{status=\"active\"} 1"
+        else
+            echo "localdns_service_status{status=\"inactive\"} 0"
+        fi
+        echo "# HELP localdns_memory_usage_bytes Current memory usage in bytes"
+        echo "# TYPE localdns_memory_usage_bytes gauge"
+        echo "localdns_memory_usage_bytes $mem_bytes"
+        echo "# HELP localdns_cpu_usage_seconds_total Total CPU time consumed in Seconds"
+        echo "# TYPE localdns_cpu_usage_seconds_total counter"
+        echo "localdns_cpu_usage_seconds_total $cpu_sec"
+        echo "# HELP localdns_metrics_last_update_timestamp_seconds Unix timestamp of last metrics generation"
+        echo "# TYPE localdns_metrics_last_update_timestamp_seconds gauge"
+        echo "localdns_metrics_last_update_timestamp_seconds $(date +%s)"
+    } > "$tmp"; then
+        echo "WARNING: Failed to write resource metrics to temp file $tmp. Export skipped."
+        rm -f "$tmp"
+        return 0
+    elif ! chmod 0644 "$tmp"; then
+        echo "WARNING: Failed to set permissions on temp file $tmp. Export skipped."
+        rm -f "$tmp"
+        return 0
+    elif ! mv -f "$tmp" "${resources_prom_file}"; then
+        echo "WARNING: Failed to move temp file to ${resources_prom_file}. Export skipped."
+        rm -f "$tmp"
+        return 0
+    fi
+
+    return 0
+}
+
 # Start the localdns watchdog.
 # This function is used to check the health of localdns and restart it if necessary.
 # It uses systemd-notify to send a watchdog ping to the systemd service manager.
@@ -585,7 +1009,7 @@ start_localdns_watchdog() {
         # If health check failed 5 consecutive times or failed 10 times in a 10 minute sliding window, watchdog restarts the systemd unit.
         while true; do
             health_check_passed=true
-            if [ "$($CURL_COMMAND)" != "OK" ]; then
+            if [ "$("${CURL_COMMAND[@]}")" != "OK" ]; then
                 echo "Health check failed: HTTP ready endpoint not responding."
                 health_check_passed=false
             fi
@@ -619,16 +1043,101 @@ start_localdns_watchdog() {
                     exit $ERR_LOCALDNS_FAIL
                 fi
             fi
+            # Update resource metrics .prom file for the exporter (best-effort, non-fatal)
+            export_resource_metrics
+
+            # Wait for the next watchdog interval.
             sleep "${HEALTH_CHECK_INTERVAL}"
         done
     else
+        # No watchdog configured — write metrics once then wait for CoreDNS to exit
+        export_resource_metrics
         wait "${COREDNS_PID}"
     fi
 }
 
+# Selects the appropriate corefile variant based on feature flags.
+# Reads globals from the localdns environment file:
+#   LOCALDNS_COREFILE_BASE         — base corefile (no hosts plugin)
+#   LOCALDNS_COREFILE_WITH_HOSTS   — corefile with hosts plugin
+#   SHOULD_ENABLE_HOSTS_PLUGIN       — whether hosts plugin is enabled
+#
+# Selection logic:
+#   1. If both BASE and WITH_HOSTS are available, select based on SHOULD_ENABLE_HOSTS_PLUGIN.
+#      The WITH_HOSTS corefile includes `hosts /etc/localdns/hosts { reload 5s; fallthrough }`,
+#      so CoreDNS will start immediately and hot-reload the hosts file when it's populated
+#      by aks-localdns-hosts-setup (no need to poll/wait here).
+#   2. If only BASE is available, use it (no dynamic selection).
+#   3. If nothing is available, return failure (caller handles error).
+#
+# Echoes the selected base64-encoded corefile to stdout.
+# All diagnostic messages go to stderr.
+select_localdns_corefile() {
+    # Case 1: Both corefile variants available — feature-flag-based selection
+    if [ -n "${LOCALDNS_COREFILE_WITH_HOSTS:-}" ] && \
+       [ -n "${LOCALDNS_COREFILE_BASE:-}" ]; then
+        echo "Both corefile variants available, selecting based on feature flag..." >&2
+        echo "LocalDNS corefile selection: SHOULD_ENABLE_HOSTS_PLUGIN=${SHOULD_ENABLE_HOSTS_PLUGIN:-<unset>}" >&2
+
+        if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-}" = "true" ]; then
+            # Defensive guard: if the hosts file doesn't exist on disk,
+            # enableAKSLocalDNSHostsSetup may have bailed early (e.g. LOCALDNS_CRITICAL_FQDNS
+            # was empty, or touch failed) without creating the file, while generateLocalDNSFiles
+            # still wrote SHOULD_ENABLE_HOSTS_PLUGIN=true to the env file. Fall back to BASE
+            # corefile to avoid CoreDNS referencing a missing hosts file.
+            local hosts_file="${LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
+            if [ ! -f "${hosts_file}" ]; then
+                echo "SHOULD_ENABLE_HOSTS_PLUGIN=true but ${hosts_file} is missing — falling back to BASE corefile" >&2
+                echo "${LOCALDNS_COREFILE_BASE}"
+                return 0
+            fi
+            echo "Hosts plugin is enabled, using corefile with hosts plugin (reload will pick up hosts file when populated)" >&2
+            echo "${LOCALDNS_COREFILE_WITH_HOSTS}"
+            return 0
+        else
+            echo "Hosts plugin is not enabled, using corefile without hosts plugin" >&2
+            echo "${LOCALDNS_COREFILE_BASE}"
+            return 0
+        fi
+    fi
+
+    # Case 2: Only BASE available — no dynamic selection
+    if [ -n "${LOCALDNS_COREFILE_BASE:-}" ]; then
+        echo "Using LOCALDNS_COREFILE_BASE (no dynamic selection)" >&2
+        echo "${LOCALDNS_COREFILE_BASE}"
+        return 0
+    fi
+
+    # Case 2.5: Legacy fallback — support older CSE versions that only set
+    # LOCALDNS_BASE64_ENCODED_COREFILE (new VHD + old CSE compatibility).
+    if [ -n "${LOCALDNS_BASE64_ENCODED_COREFILE:-}" ]; then
+        echo "Using legacy LOCALDNS_BASE64_ENCODED_COREFILE" >&2
+        echo "${LOCALDNS_BASE64_ENCODED_COREFILE}"
+        return 0
+    fi
+
+    # Case 3: Nothing available — signal failure so callers don't proceed with empty corefile
+    echo "No corefile variants available in environment." >&2
+    return 1
+}
+
 ${__SOURCED__:+return}
 
+# ExecStopPost invokes this mode after both graceful and unexpected exits.
+# Only restore node DNS configuration here; systemd owns process cleanup.
+# Always exit successfully so a cleanup error cannot wedge systemd recovery.
+if [ "${1:-}" = "cleanup" ]; then
+    localdns_cleanup_mode
+fi
+
 # --------------------------------------- Main Execution starts here --------------------------------------------------
+
+# Regenerate corefile on every startup to enable dynamic variant selection.
+# ---------------------------------------------------------------------------------------------------------------------
+# This allows switching between WITH_HOSTS and BASE corefile variants based on feature flags.
+# When the hosts plugin is enabled, the WITH_HOSTS corefile uses `reload 5s` so CoreDNS
+# will hot-reload the hosts file when aks-localdns-hosts-setup populates it — no polling needed.
+regenerate_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
 
 # Verify localdns required files exists.
 # ---------------------------------------------------------------------------------------------------------------------
@@ -706,7 +1215,29 @@ wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
 # --------------------------------------------------------------------------------------------------------------------
 echo "Updating network DNS configuration to point to localdns via ${NETWORK_DROPIN_FILE}."
 disable_dhcp_use_clusterlistener || exit $ERR_LOCALDNS_FAIL
+
+# The reload above is asynchronous, and re-configuring the link briefly takes out the route to
+# the upstream DNS servers. Hold off on declaring startup complete until that has settled, so we
+# do not hand traffic to localdns while its egress is still down.
+wait_for_network_reload_settled "${UPSTREAM_VNET_DNS_SERVERS}" "${NETWORK_RELOAD_SETTLE_TIMEOUT}" ||
+    echo "WARNING: Could not confirm the systemd-networkd reload converged, DNS queries may fail briefly."
+
 echo "Startup complete - serving node and pod DNS traffic."
+
+# Export initial resource metrics so the exporter has data before the first watchdog tick.
+export_resource_metrics
+
+# Set node annotation to indicate hosts plugin is in use (if applicable).
+# --------------------------------------------------------------------------------------------------------------------
+# Only run when hosts plugin is currently enabled or was previously enabled (marker exists).
+# The marker avoids unnecessary kubeconfig waits on nodes that never used the feature.
+if [ "${SHOULD_ENABLE_HOSTS_PLUGIN:-false}" = "true" ] || [ -f "${LOCALDNS_HOSTS_PLUGIN_ANNOTATION_MARKER}" ]; then
+    annotate_node_with_hosts_plugin_status &
+    ANNOTATION_PID=$!
+    echo "Started hosts plugin annotation in background (PID: ${ANNOTATION_PID})"
+else
+    echo "Hosts plugin not enabled and no prior annotation marker found, skipping annotation."
+fi
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------

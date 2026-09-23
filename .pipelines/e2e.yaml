@@ -2,6 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
+  E2E_FAILED_TESTS_RETRY_COUNT: 0
 schedules:
   - cron: "0 8 * * *"
     displayName: Daily midnight PST
@@ -16,7 +17,8 @@ trigger:
   paths:
     include:
       - e2e/**
-      - '**/*.go'
+      - .pipelines/e2e.yaml
+      - .pipelines/templates/e2e-template.yaml
 pr:
   branches:
     include:
@@ -26,9 +28,11 @@ pr:
   paths:
     include:
       - e2e/**
-      - '**/*.go'
+      - .pipelines/e2e.yaml
+      - .pipelines/templates/e2e-template.yaml
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
       name: Linux Tests
       IgnoreScenariosWithMissingVhd: false
+      failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}

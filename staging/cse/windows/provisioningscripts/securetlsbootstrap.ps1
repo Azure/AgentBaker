@@ -18,7 +18,19 @@ Param(
     [Parameter(Mandatory=$false)][string]
     $LogFilePath = [Io.path]::Combine("$KubeDir", "secure-tls-bootstrap.log"),
     [Parameter(Mandatory=$false)][string]
-    $Deadline = "120s" # default deadline of 2 minutes
+    $ValidateKubeconfigTimeout = "",
+    [Parameter(Mandatory=$false)][string]
+    $GetAccessTokenTimeout = "",
+    [Parameter(Mandatory=$false)][string]
+    $GetInstanceDataTimeout = "",
+    [Parameter(Mandatory=$false)][string]
+    $GetNonceTimeout = "",
+    [Parameter(Mandatory=$false)][string]
+    $GetAttestedDataTimeout = "",
+    [Parameter(Mandatory=$false)][string]
+    $GetCredentialTimeout = "",
+    [Parameter(Mandatory=$false)][string]
+    $Deadline = ""
 )
 
 $global:BootstrapClientPath = [Io.path]::Combine("$KubeDir", "aks-secure-tls-bootstrap-client.exe")
@@ -46,13 +58,40 @@ $BootstrapClientArgList = @(
     "--cloud-provider-config=$AzureConfigPath",
     "--cert-dir=$CertDir",
     "--kubeconfig=$KubeconfigPath",
-    "--log-file=$LogFilePath",
-    "--deadline=$Deadline"
+    "--log-file=$LogFilePath"
 )
 
 if (![string]::IsNullOrEmpty($UserAssignedIdentityID)) {
     Write-Log "secure TLS bootstrapping user-assigned identity ID is specified: $UserAssignedIdentityID"
     $BootstrapClientArgList += "--user-assigned-identity-id=$UserAssignedIdentityID"
+}
+if (![string]::IsNullOrEmpty($ValidateKubeconfigTimeout)) {
+    Write-Log "secure TLS bootstrapping validate kubeconfig timeout is specified: $ValidateKubeconfigTimeout"
+    $BootstrapClientArgList += "--validate-kubeconfig-timeout=$ValidateKubeconfigTimeout"
+}
+if (![string]::IsNullOrEmpty($GetAccessTokenTimeout)) {
+    Write-Log "secure TLS bootstrapping get access token timeout is specified: $GetAccessTokenTimeout"
+    $BootstrapClientArgList += "--get-access-token-timeout=$GetAccessTokenTimeout"
+}
+if (![string]::IsNullOrEmpty($GetInstanceDataTimeout)) {
+    Write-Log "secure TLS bootstrapping get instance data timeout is specified: $GetInstanceDataTimeout"
+    $BootstrapClientArgList += "--get-instance-data-timeout=$GetInstanceDataTimeout"
+}
+if (![string]::IsNullOrEmpty($GetNonceTimeout)) {
+    Write-Log "secure TLS bootstrapping get nonce timeout is specified: $GetNonceTimeout"
+    $BootstrapClientArgList += "--get-nonce-timeout=$GetNonceTimeout"
+}
+if (![string]::IsNullOrEmpty($GetAttestedDataTimeout)) {
+    Write-Log "secure TLS bootstrapping get attested data timeout is specified: $GetAttestedDataTimeout"
+    $BootstrapClientArgList += "--get-attested-data-timeout=$GetAttestedDataTimeout"
+}
+if (![string]::IsNullOrEmpty($GetCredentialTimeout)) {
+    Write-Log "secure TLS bootstrapping get credential timeout is specified: $GetCredentialTimeout"
+    $BootstrapClientArgList += "--get-credential-timeout=$GetCredentialTimeout"
+}
+if (![string]::IsNullOrEmpty($Deadline)) {
+    Write-Log "secure TLS bootstrapping deadline is specified: $Deadline"
+    $BootstrapClientArgList += "--deadline=$Deadline"
 }
 
 Write-Log "Starting secure TLS bootstrapping: invoking aks-secure-tls-bootstrap-client.exe"

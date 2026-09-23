@@ -19,10 +19,10 @@
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "captured_sig_version": "{{env `CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
-    "img_sku": "",
-    "sig_source_gallery_unique_name": "{{env `SIG_SOURCE_GALLERY_UNIQUE_NAME`}}",
-    "sig_source_image_name": "{{env `SIG_SOURCE_IMAGE_NAME`}}",
-    "sig_source_image_version": "{{env `SIG_SOURCE_IMAGE_VERSION`}}",
+    "img_publisher": "{{env `IMG_PUBLISHER`}}",
+    "img_offer": "{{env `IMG_OFFER`}}",
+    "img_sku": "{{env `IMG_SKU`}}",
+    "img_version": "{{env `IMG_VERSION`}}",
     "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
@@ -41,9 +41,10 @@
       "ssh_read_write_timeout": "5m",
       "os_type": "Linux",
       "os_disk_size_gb": 60,
-      "shared_image_gallery": {
-        "direct_shared_gallery_image_id": "/SharedGalleries/{{user `sig_source_gallery_unique_name`}}/Images/{{user `sig_source_image_name`}}/Versions/{{user `sig_source_image_version`}}"
-      },
+      "image_publisher": "{{user `img_publisher`}}",
+      "image_offer": "{{user `img_offer`}}",
+      "image_sku": "{{user `img_sku`}}",
+      "image_version": "{{user `img_version`}}",
       "azure_tags": {
         "buildDefinitionName": "{{user `build_definition_name`}}",
         "buildNumber": "{{user `build_number`}}",
@@ -103,8 +104,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh",
-      "destination": "/home/packer/aks-node-controller-wrapper.sh"
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh",
+      "destination": "/home/packer/aks-node-controller-launcher.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh",
+      "destination": "/home/packer/aks-node-controller-hotfix.sh"
     },
     {
       "type": "file",
@@ -158,8 +164,38 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_gpu.sh",
+      "destination": "/home/packer/provision_configs_gpu.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_localdns.sh",
+      "destination": "/home/packer/provision_configs_localdns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_kubelet.sh",
+      "destination": "/home/packer/provision_configs_kubelet.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_network.sh",
+      "destination": "/home/packer/provision_configs_network.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
+      "destination": "/home/packer/provision_configs_addons.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
       "destination": "/home/packer/provision.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_preload.sh",
+      "destination": "/home/packer/provision_preload.sh"
     },
     {
       "type": "file",
@@ -208,6 +244,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.sh",
+      "destination": "/home/packer/emit-kubelet-active-flags.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.service",
+      "destination": "/home/packer/emit-kubelet-active-flags.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
       "destination": "/home/packer/validate-kubelet-credentials.sh"
     },
@@ -223,8 +269,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
-      "destination": "/home/packer/init-aks-custom-cloud.sh"
+      "source": "parts/linux/cloud-init/artifacts/fetch_provision_config.py",
+      "destination": "/home/packer/fetch_provision_config.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/init-aks-cloud.sh",
+      "destination": "/home/packer/init-aks-cloud.sh"
     },
     {
       "type": "file",
@@ -630,6 +681,36 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
       "destination": "/home/packer/localdns-delegate.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns_exporter.sh",
+      "destination": "/home/packer/localdns_exporter.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-exporter.socket",
+      "destination": "/home/packer/localdns-exporter.socket"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-exporter@.service",
+      "destination": "/home/packer/localdns-exporter@.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh",
+      "destination": "/home/packer/aks-localdns-hosts-setup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.service",
+      "destination": "/home/packer/aks-localdns-hosts-setup.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.timer",
+      "destination": "/home/packer/aks-localdns-hosts-setup.timer"
     },
     {
       "type": "file",

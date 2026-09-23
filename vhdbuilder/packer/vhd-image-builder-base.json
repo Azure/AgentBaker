@@ -107,8 +107,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh",
-      "destination": "/home/packer/aks-node-controller-wrapper.sh"
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh",
+      "destination": "/home/packer/aks-node-controller-launcher.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh",
+      "destination": "/home/packer/aks-node-controller-hotfix.sh"
     },
     {
       "type": "file",
@@ -172,8 +177,38 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_gpu.sh",
+      "destination": "/home/packer/provision_configs_gpu.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_localdns.sh",
+      "destination": "/home/packer/provision_configs_localdns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_kubelet.sh",
+      "destination": "/home/packer/provision_configs_kubelet.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_network.sh",
+      "destination": "/home/packer/provision_configs_network.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
+      "destination": "/home/packer/provision_configs_addons.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
       "destination": "/home/packer/provision.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_preload.sh",
+      "destination": "/home/packer/provision_preload.sh"
     },
     {
       "type": "file",
@@ -222,6 +257,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.sh",
+      "destination": "/home/packer/emit-kubelet-active-flags.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.service",
+      "destination": "/home/packer/emit-kubelet-active-flags.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
       "destination": "/home/packer/validate-kubelet-credentials.sh"
     },
@@ -237,8 +282,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
-      "destination": "/home/packer/init-aks-custom-cloud.sh"
+      "source": "parts/linux/cloud-init/artifacts/fetch_provision_config.py",
+      "destination": "/home/packer/fetch_provision_config.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/init-aks-cloud.sh",
+      "destination": "/home/packer/init-aks-cloud.sh"
     },
     {
       "type": "file",
@@ -709,6 +759,36 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
       "destination": "/home/packer/localdns-delegate.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns_exporter.sh",
+      "destination": "/home/packer/localdns_exporter.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-exporter.socket",
+      "destination": "/home/packer/localdns-exporter.socket"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-exporter@.service",
+      "destination": "/home/packer/localdns-exporter@.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh",
+      "destination": "/home/packer/aks-localdns-hosts-setup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.service",
+      "destination": "/home/packer/aks-localdns-hosts-setup.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.timer",
+      "destination": "/home/packer/aks-localdns-hosts-setup.timer"
     },
     {
       "type": "file",

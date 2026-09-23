@@ -23,10 +23,15 @@ const (
 	cseInstallScriptFilepath             = "/opt/azure/containers/provision_installs.sh"
 	cseInstallScriptDistroFilepath       = "/opt/azure/containers/provision_installs_distro.sh"
 	cseConfigScriptFilepath              = "/opt/azure/containers/provision_configs.sh"
+	cseConfigGPUScriptFilepath           = "/opt/azure/containers/provision_configs_gpu.sh"
+	cseConfigLocalDNSScriptFilepath      = "/opt/azure/containers/provision_configs_localdns.sh"
+	cseConfigKubeletScriptFilepath       = "/opt/azure/containers/provision_configs_kubelet.sh"
+	cseConfigNetworkScriptFilepath       = "/opt/azure/containers/provision_configs_network.sh"
+	cseConfigAddonsScriptFilepath        = "/opt/azure/containers/provision_configs_addons.sh"
 	customSearchDomainsCSEScriptFilepath = "/opt/azure/containers/setup-custom-search-domains.sh"
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
-	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
+	initAKSCloudFilepath                 = "/opt/azure/containers/init-aks-cloud.sh"
 )
 
 const (
@@ -41,6 +46,8 @@ const (
 	defaultNetIpv4NeighDefaultGcThresh1 = 4096
 	defaultNetIpv4NeighDefaultGcThresh2 = 8192
 	defaultNetIpv4NeighDefaultGcThresh3 = 16384
+	maxCSETimeout                       = 21600
+	defaultCSETimeout                   = 900
 )
 
 const (

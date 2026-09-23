@@ -19,11 +19,13 @@ package parser
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,8 +33,8 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
+	"github.com/Masterminds/semver/v3"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -51,6 +53,18 @@ var (
 	containerdConfigNoGPUTemplate = template.Must(
 		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
+	//go:embed  templates/containerd_v2.toml.gtpl
+	containerdV2ConfigTemplateText string
+	//nolint:gochecknoglobals
+	containerdV2ConfigTemplate = template.Must(
+		template.New("containerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigTemplateText),
+	)
+	//go:embed  templates/containerd_v2_no_GPU.toml.gtpl
+	containerdV2ConfigNoGPUTemplateText string
+	//nolint:gochecknoglobals
+	containerdV2ConfigNoGPUTemplate = template.Must(
+		template.New("nogpucontainerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigNoGPUTemplateText),
+	)
 
 	//go:embed templates/localdns.toml.gtpl
 	localDnsCorefileTemplateText string
@@ -62,8 +76,9 @@ var (
 
 func getFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"getInitAKSCustomCloudFilepath": getInitAKSCustomCloudFilepath,
-		"getIsAksCustomCloud":           getIsAksCustomCloud,
+		"getInitAKSCloudFilepath": getInitAKSCloudFilepath,
+		"getIsAksCustomCloud":     getIsAksCustomCloud,
+		"getCloudLocation":        getCloudLocation,
 	}
 }
 
@@ -71,7 +86,7 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 	return template.FuncMap{
 		"derefBool":                        deref[bool],
 		"getEnsureNoDupePromiscuousBridge": getEnsureNoDupePromiscuousBridge,
-		"isKubernetesVersionGe":            helpers.IsKubernetesVersionGe,
+		"isKubernetesVersionGe":            IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
 	}
@@ -90,28 +105,36 @@ func getStringFromVMType(enum aksnodeconfigv1.VmType) string {
 	}
 }
 
-//nolint:exhaustive // NetworkPlugin_NETWORK_PLUGIN_NONE and NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED should both return ""
 func getStringFromNetworkPluginType(enum aksnodeconfigv1.NetworkPlugin) string {
 	switch enum {
 	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE:
 		return helpers.NetworkPluginAzure
 	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET:
 		return helpers.NetworkPluginKubenet
-	default:
+	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE:
+		// The scriptful (NBC/CSE) path emits the raw "none" string for the network
+		// plugin; mirror it here so NETWORK_PLUGIN matches for BYO-CNI clusters.
+		return helpers.NetworkPluginNone
+	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED:
 		return ""
 	}
+	return ""
 }
 
-//nolint:exhaustive // NetworkPolicy_NETWORK_POLICY_NONE and NetworkPolicy_NETWORK_POLICY_UNSPECIFIED should both return ""
 func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 	switch enum {
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE:
 		return helpers.NetworkPolicyAzure
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO:
 		return helpers.NetworkPolicyCalico
-	default:
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE:
+		// The scriptful (NBC/CSE) path emits the raw "none" string for the network
+		// policy; mirror it here so NETWORK_POLICY matches when policy is "none".
+		return helpers.NetworkPolicyNone
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED:
 		return ""
 	}
+	return ""
 }
 
 //nolint:exhaustive // Default and LoadBalancerConfig_UNSPECIFIED should both return ""
@@ -149,12 +172,12 @@ func getKubenetTemplate() string {
 }
 
 // getContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false, containerdVersion)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -163,12 +186,12 @@ func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) str
 }
 
 // getNoGPUContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true, containerdVersion)
 	if err != nil {
 		return fmt.Sprintf("error getting No GPU containerd config from node bootstrap variables: %v", err)
 	}
@@ -176,15 +199,25 @@ func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool) (string, error) {
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool, containerdVersion string) (string, error) {
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
-	// the containerd config template is different based on whether the node is with GPU or not.
-	_template := containerdConfigTemplate
-	if noGPU {
-		_template = containerdConfigNoGPUTemplate
+	// Select the appropriate containerd config template based on version and GPU presence.
+	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
+	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
+	var _template *template.Template
+	if isContainerdV2(containerdVersion) {
+		_template = containerdV2ConfigTemplate
+		if noGPU {
+			_template = containerdV2ConfigNoGPUTemplate
+		}
+	} else {
+		_template = containerdConfigTemplate
+		if noGPU {
+			_template = containerdConfigNoGPUTemplate
+		}
 	}
 
 	var buffer bytes.Buffer
@@ -195,8 +228,30 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	return buffer.String(), nil
 }
 
-func getIsMIGNode(gpuInstanceProfile string) bool {
-	return gpuInstanceProfile != ""
+// detectContainerdVersion runs "containerd --version" and parses the version string.
+// The expected output format is: "containerd <source> <version> <commit>"
+// e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 v2.0.0 ..."
+// Returns the semver version without the leading "v" prefix, or empty string if detection fails.
+func detectContainerdVersion(ctx context.Context) (string, error) {
+	out, err := exec.CommandContext(ctx, "containerd", "--version").Output()
+	if err != nil {
+		return "", fmt.Errorf("running containerd --version: %w", err)
+	}
+	return parseContainerdVersionOutput(string(out)), nil
+}
+
+// isContainerdV2 returns true if the containerd version string indicates a 2.x release.
+// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images and
+// io.containerd.cri.v1.runtime) compared to 1.x (io.containerd.grpc.v1.cri).
+func isContainerdV2(version string) bool {
+	if version == "" {
+		return false
+	}
+	return IsKubernetesVersionGe(version, "2.0.0")
+}
+
+func getIsMIGNode(gpuInstanceProfile string, migProfileLayout []string) bool {
+	return gpuInstanceProfile != "" || len(migProfileLayout) > 0
 }
 
 func getCustomCACertsStatus(customCACerts []string) bool {
@@ -237,6 +292,26 @@ func getCSEDistroInstallFilepath() string {
 
 func getCSEConfigFilepath() string {
 	return cseConfigScriptFilepath
+}
+
+func getCSEConfigGPUFilepath() string {
+	return cseConfigGPUScriptFilepath
+}
+
+func getCSEConfigLocalDNSFilepath() string {
+	return cseConfigLocalDNSScriptFilepath
+}
+
+func getCSEConfigKubeletFilepath() string {
+	return cseConfigKubeletScriptFilepath
+}
+
+func getCSEConfigNetworkFilepath() string {
+	return cseConfigNetworkScriptFilepath
+}
+
+func getCSEConfigAddonsFilepath() string {
+	return cseConfigAddonsScriptFilepath
 }
 
 func getCustomSearchDomainFilepath() string {
@@ -402,7 +477,7 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		m["vm.vfs_cache_pressure"] = s.GetVmVfsCachePressure()
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n")))
+	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n") + "\n"))
 }
 
 func getShouldConfigContainerdUlimits(u *aksnodeconfigv1.UlimitConfig) bool {
@@ -415,7 +490,8 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		return ""
 	}
 
-	header := "[Service]\n"
+	// spaces are used here because they are converted to newlines in scripts
+	header := "[Service] "
 	m := make(map[string]string)
 	if u.NoFile != nil {
 		m["LimitNOFILE"] = u.GetNoFile()
@@ -425,7 +501,11 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		m["LimitMEMLOCK"] = u.GetMaxLockedMemory()
 	}
 
-	return header + createSortedKeyValuePairs(m, " ")
+	if len(m) == 0 {
+		return header
+	}
+
+	return header + createSortedKeyValuePairs(m, " ") + " "
 }
 
 // getPortRangeEndValue returns the end value of the port range where the input is in the format of "start end".
@@ -471,24 +551,18 @@ func getPortRangeEndValue(portRange string) int {
 
 // createSortedKeyValuePairs creates a string with key=value pairs, sorted by key, with custom delimiter.
 func createSortedKeyValuePairs[T any](m map[string]T, delimiter string) string {
-	keys := []string{}
+	keys := make([]string, 0, len(m))
 	for key := range m {
 		keys = append(keys, key)
 	}
 
 	// we are sorting the keys for deterministic output for readability and testing.
 	sort.Strings(keys)
-	var buf bytes.Buffer
-	i := 0
+	pairs := make([]string, 0, len(keys))
 	for _, key := range keys {
-		i++
-		// set the last delimiter to empty string
-		if i == len(keys) {
-			delimiter = ""
-		}
-		buf.WriteString(fmt.Sprintf("%s=%v%s", key, m[key], delimiter))
+		pairs = append(pairs, fmt.Sprintf("%s=%v", key, m[key]))
 	}
-	return buf.String()
+	return strings.Join(pairs, delimiter)
 }
 
 func getExcludeMasterFromStandardLB(lb *aksnodeconfigv1.LoadBalancerConfig) bool {
@@ -505,16 +579,20 @@ func getMaxLBRuleCount(lb *aksnodeconfigv1.LoadBalancerConfig) int32 {
 	return lb.GetMaxLoadBalancerRuleCount()
 }
 
-func getGpuImageSha(vmSize string) string {
-	return agent.GetAKSGPUImageSHA(vmSize)
+// getGpuImageSha is nil-safe with respect to gpuConfig: it returns "" when no
+// GPU configuration was loaded (e.g. on older VHDs without components.json).
+func getGpuImageSha(vmSize string, gpuConfig *gpu.GPUConfiguration) string {
+	return gpuConfig.GetAKSGPUImageSHA(vmSize)
 }
 
 func getGpuDriverType(vmSize string) string {
-	return agent.GetGPUDriverType(vmSize)
+	return gpu.GetGPUDriverType(vmSize)
 }
 
-func getGpuDriverVersion(vmSize string) string {
-	return agent.GetGPUDriverVersion(vmSize)
+// getGpuDriverVersion is nil-safe with respect to gpuConfig: it returns "" when no
+// GPU configuration was loaded (e.g. on older VHDs without components.json).
+func getGpuDriverVersion(vmSize string, gpuConfig *gpu.GPUConfiguration) string {
+	return gpuConfig.GetGPUDriverVersion(vmSize)
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
@@ -538,18 +616,22 @@ func getIsAksCustomCloud(customCloudConfig *aksnodeconfigv1.CustomCloudConfig) b
 	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), helpers.AksCustomCloudName)
 }
 
+func getCloudLocation(v *aksnodeconfigv1.Configuration) string {
+	return strings.ToLower(strings.Join(strings.Fields(v.GetClusterConfig().GetLocation()), ""))
+}
+
 /* GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
 have their own data compliance regulations (China/Germany/USGov) or standard.  */
 // Azure public cloud.
 func getCloudTargetEnv(v *aksnodeconfigv1.Configuration) string {
-	loc := strings.ToLower(strings.Join(strings.Fields(v.GetClusterConfig().GetLocation()), ""))
+	loc := getCloudLocation(v)
 	switch {
 	case strings.HasPrefix(loc, "china"):
-		return "AzureChinaCloud"
+		return helpers.AzureChinaCloud
 	case loc == "germanynortheast" || loc == "germanycentral":
-		return "AzureGermanCloud"
+		return helpers.AzureGermanCloud
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
-		return "AzureUSGovernmentCloud"
+		return helpers.AzureUSGovernmentCloud
 	default:
 		return helpers.DefaultCloudName
 	}
@@ -567,6 +649,36 @@ func getTargetCloud(v *aksnodeconfigv1.Configuration) string {
 		return helpers.AzureStackCloud
 	}
 	return getTargetEnvironment(v)
+}
+
+// getArmResourceEndpoint returns the ARM resource endpoint to use as the IMDS
+// "resource" parameter when acquiring an AAD token.
+//   - For AKS custom clouds (Azure Stack): sourced from
+//     CustomEnvJsonContent.resourceManagerEndpoint, which is populated by AKS RP.
+//   - For public sovereign clouds (Fairfax / Mooncake): mapped by cloud name.
+//     These endpoints are public knowledge so hardcoding is acceptable.
+//   - Default (Azure public cloud and any unknown): https://management.azure.com/.
+func getArmResourceEndpoint(v *aksnodeconfigv1.Configuration) string {
+	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
+		raw := v.GetCustomCloudConfig().GetCustomEnvJsonContent()
+		if raw == "" {
+			return ""
+		}
+		var env struct {
+			ResourceManagerEndpoint string `json:"resourceManagerEndpoint"`
+		}
+		if err := json.Unmarshal([]byte(raw), &env); err != nil {
+			return ""
+		}
+		return env.ResourceManagerEndpoint
+	}
+	switch getCloudTargetEnv(v) {
+	case helpers.AzureUSGovernmentCloud:
+		return "https://management.usgovcloudapi.net/"
+	case helpers.AzureChinaCloud:
+		return "https://management.chinacloudapi.cn/"
+	}
+	return "https://management.azure.com/"
 }
 
 func getAzureEnvironmentFilepath(v *aksnodeconfigv1.Configuration) string {
@@ -622,7 +734,7 @@ func marshalToJSON(v any) ([]byte, error) {
 		}
 
 		var rawMessage json.RawMessage = data
-		jsonByte, err := json.MarshalIndent(rawMessage, "", "  ")
+		jsonByte, err := json.MarshalIndent(rawMessage, "", "    ")
 		if err != nil {
 			log.Printf("error marshalling kubelet config file content: %v", err)
 			return nil, err
@@ -660,19 +772,18 @@ func getShouldConfigTransparentHugePage(v *aksnodeconfigv1.CustomLinuxOsConfig) 
 }
 
 func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
-	proxyVars := ""
-	if proxyConfig.GetHttpProxy() != "" {
-		// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-		proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", proxyConfig.GetHttpProxy())
+	if proxyConfig == nil {
+		return ""
 	}
-	if proxyConfig.GetHttpsProxy() != "" {
-		proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", proxyConfig.GetHttpsProxy(), proxyVars)
+	if proxyConfig.GetHttpProxy() == "" && proxyConfig.GetHttpsProxy() == "" && proxyConfig.GetNoProxyEntries() == nil {
+		return ""
 	}
-	if proxyConfig.GetNoProxyEntries() != nil {
-		proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(proxyConfig.GetNoProxyEntries(), ","), proxyVars)
-	}
-	return proxyVars
+
+	// Older VHDs evaluate PROXY_VARS. Keep this payload free of customer-controlled values;
+	// those values are passed through the dedicated *_PROXY_URLS environment variables.
+	return `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi; ` +
+		`if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi; ` +
+		`if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi`
 }
 
 func getHasDataDir(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
@@ -683,12 +794,12 @@ func getHasKubeletDiskType(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
 	return kubeletConfig.GetKubeletDiskType() == aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
 }
 
-func getInitAKSCustomCloudFilepath() string {
-	return initAKSCustomCloudFilepath
+func getInitAKSCloudFilepath() string {
+	return initAKSCloudFilepath
 }
 
 func getGPUNeedsFabricManager(vmSize string) bool {
-	return agent.GPUNeedsFabricManager(vmSize)
+	return gpu.GPUNeedsFabricManager(vmSize)
 }
 
 func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
@@ -702,6 +813,41 @@ func removeNewlines(str string) string {
 	sanitizedStr := strings.ReplaceAll(str, "\n", "")
 	sanitizedStr = strings.ReplaceAll(sanitizedStr, "\r", "")
 	return sanitizedStr
+}
+
+// parseContainerdVersionOutput extracts the semver version from containerd --version output.
+// The output format is: "containerd <source> <version> <commit>"
+// e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 2.0.0 ..."
+// The version (3rd field) could be in the format "1.6.24-11-ubuntu1~24.04.1" or "2.0.0-6.azl3" or just "2.0.0",
+// we extract the major.minor.patch version only.
+func parseContainerdVersionOutput(output string) string {
+	fields := strings.Fields(strings.TrimSpace(output))
+	if len(fields) < 3 {
+		return ""
+	}
+	// Take the 3rd field and strip any leading "v" prefix.
+	version := strings.TrimPrefix(fields[2], "v")
+	// Strip everything after the first "-" (package revision or pre-release suffix).
+	// e.g. "2.3.2-1" -> "2.3.2", "2.0.0-beta.1" -> "2.0.0"
+	if idx := strings.Index(version, "-"); idx > 0 {
+		version = version[:idx]
+	}
+	// Validate the result is a valid major.minor.patch version.
+	parts := strings.Split(version, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	for _, p := range parts {
+		if len(p) == 0 {
+			return ""
+		}
+		for _, c := range p {
+			if c < '0' || c > '9' {
+				return ""
+			}
+		}
+	}
+	return version
 }
 
 // ---------------------- Start of localdns related helper code ----------------------//
@@ -719,11 +865,20 @@ func getFuncMapForLocalDnsCorefileTemplate() template.FuncMap {
 	}
 }
 
-// getLocalDnsCorefileBase64 returns the base64 encoded LocalDns corefile.
-// base64 encoded corefile returned from this function will decoded and written
-// to /opt/azure/containers/localdns/localdns.corefile in cse_config.sh
-// and then used by localdns systemd unit to start localdns systemd unit.
-func getLocalDnsCorefileBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+// getLocalDnsCorefileBase64WithHostsPlugin generates a LocalDns corefile from the AKS node config
+// and returns it as a base64-encoded string. The includeHostsPlugin parameter controls whether
+// the hosts plugin block (hosts /etc/localdns/hosts { reload 5s; fallthrough }) is included in root-domain
+// server blocks.
+//
+// The caller (parser.go) assigns the result to the appropriate environment variable:
+//   - LOCALDNS_COREFILE_BASE (includeHostsPlugin=false)
+//   - LOCALDNS_COREFILE_WITH_HOSTS (includeHostsPlugin=true)
+//   - LOCALDNS_GENERATED_COREFILE (kept for backward compat with old VHDs, same as BASE)
+//
+// Runtime selection between BASE and WITH_HOSTS happens in localdns.sh
+// (via select_localdns_corefile(), invoked on localdns service start/restart) based on
+// SHOULD_ENABLE_HOSTS_PLUGIN and the availability of the corresponding corefile environment variables.
+func getLocalDnsCorefileBase64WithHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
@@ -737,17 +892,34 @@ func getLocalDnsCorefileBase64(aksnodeconfig *aksnodeconfigv1.Configuration) str
 		return ""
 	}
 
-	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig)
+	variant := "with hosts plugin"
+	if !includeHostsPlugin {
+		variant = "without hosts plugin"
+	}
+
+	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig, includeHostsPlugin)
 	if err != nil {
-		return fmt.Sprintf("error getting localdns corfile from aks node config: %v", err)
+		log.Printf("error getting localdns corefile (%s) from aks node config: %v", variant, err)
+		return ""
 	}
 	return base64.StdEncoding.EncodeToString([]byte(localDnsConfig))
 }
 
+// localDnsCorefileTemplateData wraps the AKS node config with additional template control flags.
+type localDnsCorefileTemplateData struct {
+	Config             *aksnodeconfigv1.Configuration
+	IncludeHostsPlugin bool
+}
+
 // Corefile is created using localdns.toml.gtpl template and aksnodeconfig values.
-func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
+// includeHostsPlugin controls whether the hosts plugin block is included in the generated Corefile.
+func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) (string, error) {
 	var corefileBuffer bytes.Buffer
-	if err := localDnsCorefileTemplate.Execute(&corefileBuffer, aksnodeconfig); err != nil {
+	templateData := localDnsCorefileTemplateData{
+		Config:             aksnodeconfig,
+		IncludeHostsPlugin: includeHostsPlugin,
+	}
+	if err := localDnsCorefileTemplate.Execute(&corefileBuffer, templateData); err != nil {
 		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
 	}
 	return corefileBuffer.String(), nil
@@ -785,6 +957,13 @@ func shouldEnableLocalDns(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return fmt.Sprintf("%v", aksnodeconfig != nil && aksnodeconfig.GetLocalDnsProfile() != nil && aksnodeconfig.GetLocalDnsProfile().GetEnableLocalDns())
 }
 
+// shouldEnableHostsPlugin returns true if LocalDNS is enabled and the hosts plugin
+// is explicitly enabled. When true, the localdns Corefile will include a hosts plugin
+// block that serves cached DNS entries from /etc/localdns/hosts for critical AKS FQDNs.
+func shouldEnableHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	return fmt.Sprintf("%v", shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetEnableHostsPlugin())
+}
+
 // getLocalDnsCpuLimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
 func getLocalDnsCpuLimitInPercentage(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetCpuLimitInMilliCores() != 0 {
@@ -803,17 +982,75 @@ func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) st
 	return defaultLocalDnsMemoryLimitInMb
 }
 
+// getLocalDnsCriticalFqdns returns the comma-separated list of critical FQDNs
+// from the LocalDnsProfile. These FQDNs are passed from the RP so the hosts
+// setup script doesn't need cloud-specific logic.
+func getLocalDnsCriticalFqdns(config *aksnodeconfigv1.Configuration) string {
+	if config == nil {
+		return ""
+	}
+	fqdns := config.GetLocalDnsProfile().GetCriticalFqdns()
+	trimmed := make([]string, 0, len(fqdns))
+	for _, fqdn := range fqdns {
+		f := strings.TrimSpace(fqdn)
+		if f != "" {
+			trimmed = append(trimmed, f)
+		}
+	}
+	return getStringifiedStringArray(trimmed, ",")
+}
+
+// getLocalDnsHostsPluginRefreshIntervalInSeconds returns the refresh interval in seconds
+// for the LocalDNS hosts plugin timer. Empty string means use the default timer cadence.
+func getLocalDnsHostsPluginRefreshIntervalInSeconds(config *aksnodeconfigv1.Configuration) string {
+	refreshIntervalInSeconds := config.GetLocalDnsProfile().GetHostsPluginRefreshIntervalInSeconds()
+	if refreshIntervalInSeconds <= 0 {
+		return ""
+	}
+	return strconv.FormatInt(int64(refreshIntervalInSeconds), 10)
+}
+
 // ---------------------- End of localdns related helper code ----------------------//
 
 // ---------------------- Start of cse timeout helper code ----------------------//
 
-// getCSETimeout returns the CSE timeout value in minutes.
+// getCSETimeout returns the CSE timeout value in seconds.
 func getCSETimeout(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	cseTimeout := 0
 	if aksnodeconfig != nil {
 		cseTimeout = int(aksnodeconfig.GetCseTimeout())
 	}
-	return datamodel.GetCSETimeout(cseTimeout)
+	return GetCSETimeout(cseTimeout)
+}
+
+func getRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if getIsAksCustomCloud(aksnodeconfig.GetCustomCloudConfig()) {
+		return aksnodeconfig.GetCustomCloudConfig().GetRepoDepotEndpoint()
+	}
+	return ""
 }
 
 // ---------------------- End of cse timeout helper code ----------------------//
+
+// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
+func IsKubernetesVersionGe(actualVersion, version string) bool {
+	v1, err := semver.NewVersion(actualVersion)
+	if err != nil {
+		return false
+	}
+	v2, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	return v1.GreaterThanEqual(v2)
+}
+
+// returns the CSE timeout value in seconds.
+// if empty or invalid value is provided, it returns the default timeout value of 15minutes or 900 seconds.
+// Maximum allowed timeout is 360 minutes or 6 hours or 21600 seconds.
+func GetCSETimeout(cseTimeout int) string {
+	if cseTimeout <= 0 || cseTimeout > maxCSETimeout {
+		cseTimeout = defaultCSETimeout
+	}
+	return fmt.Sprintf("%d", cseTimeout)
+}

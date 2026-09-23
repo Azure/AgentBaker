@@ -282,7 +282,7 @@ Describe 'cse_helpers.sh'
             The status should be success
             The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         End
-        It 'should fail if access token is an error'
+        It 'should fail if access token fails for all endpoints'
             retrycmd_can_oras_ls_acr_anonymously() {
                 return 1
             }
@@ -296,9 +296,10 @@ Describe 'cse_helpers.sh'
             local tenant_id="mytenantID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "failed to retrieve kubelet identity token"
+            The stdout should include "failed to get access token with endpoint"
+            The stdout should include "failed to obtain tokens with all endpoints"
         End
-        It 'should fail if refresh token is an error'
+        It 'should fail if refresh token is an error for all endpoints'
             retrycmd_can_oras_ls_acr_anonymously() {
                 return 1
             }
@@ -313,7 +314,94 @@ Describe 'cse_helpers.sh'
             local tenant_id="failureID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "failed to retrieve refresh token"
+            The stdout should include "failed to retrieve refresh token with endpoint"
+            The stdout should include "failed to obtain tokens with all endpoints"
+        End
+        It 'should fallback to ARM endpoint when ACR endpoint fails access token'
+            retrycmd_can_oras_ls_acr_anonymously() {
+                return 1
+            }
+            retrycmd_get_aad_access_token(){
+                url=$3
+                # Use the URL to distinguish which endpoint is being called (subshell-safe)
+                if echo "$url" | grep -q "containerregistry.azure.net"; then
+                    echo "failed for acr endpoint"
+                    return $ERR_ORAS_PULL_UNAUTHORIZED
+                fi
+                echo "{\"access_token\":\"armAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 0
+            }
+            local acr_url="fallback.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "failed to get access token with endpoint https://containerregistry.azure.net"
+            The stdout should include "successfully obtained acr refresh tokens with endpoint: https://management.azure.com/"
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+            The stderr should be present
+        End
+        It 'should fallback to ARM endpoint when ACR endpoint fails refresh token'
+            retrycmd_can_oras_ls_acr_anonymously() {
+                return 1
+            }
+            retrycmd_get_aad_access_token(){
+                url=$3
+                # Return different tokens based on endpoint so refresh token mock can distinguish
+                if echo "$url" | grep -q "containerregistry.azure.net"; then
+                    echo "{\"access_token\":\"acrAccessToken\"}"
+                else
+                    echo "{\"access_token\":\"armAccessToken\"}"
+                fi
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                access_token=$5
+                # Use the access token value to distinguish which endpoint is being used
+                if [ "$access_token" = "acrAccessToken" ]; then
+                    echo "{\"error\":\"invalid_request\"}"
+                    return 0
+                fi
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 0
+            }
+            local acr_url="fallback.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "failed to retrieve refresh token with endpoint https://containerregistry.azure.net"
+            The stdout should include "successfully obtained acr refresh tokens with endpoint: https://management.azure.com/"
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+            The stderr should be present
+        End
+        It 'should succeed with ACR endpoint on first try'
+            retrycmd_can_oras_ls_acr_anonymously() {
+                return 1
+            }
+            retrycmd_get_aad_access_token(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 0
+            }
+            local acr_url="success.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "successfully obtained acr refresh tokens with endpoint: https://containerregistry.azure.net"
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+            The stderr should be present
         End
         It 'should fail if oras cannot login'
             retrycmd_can_oras_ls_acr_anonymously() {
@@ -335,25 +423,35 @@ Describe 'cse_helpers.sh'
             The status should be failure
             The stdout should include "failed to login to acr '$acr_url' with identity token"
         End
-        It 'should succeed if oras can login'
+        It 'should fallback to ARM endpoint when refresh token retrieval returns non-zero for ACR endpoint'
+            retrycmd_can_oras_ls_acr_anonymously() {
+                return 1
+            }
             retrycmd_get_aad_access_token(){
-                echo "{\"access_token\":\"myAccessToken\"}"
+                url=$3
+                if echo "$url" | grep -q "containerregistry.azure.net"; then
+                    echo "{\"access_token\":\"acrAccessToken\"}"
+                else
+                    echo "{\"access_token\":\"armAccessToken\"}"
+                fi
             }
             retrycmd_get_refresh_token_for_oras(){
+                access_token=$5
+                if [ "$access_token" = "acrAccessToken" ]; then
+                    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+                fi
                 echo "{\"refresh_token\":\"myRefreshToken\"}"
             }
             retrycmd_oras_login(){
                 return 0
             }
-            retrycmd_can_oras_ls_acr_anonymously() {
-                return 1
-            }
-
-            local acr_url="success.azurecr.io"
+            local acr_url="fallback.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be success
+            The stdout should include "failed to retrieve refresh token with endpoint https://containerregistry.azure.net"
+            The stdout should include "successfully obtained acr refresh tokens with endpoint: https://management.azure.com/"
             The stdout should include "successfully logged in to acr '$acr_url' with identity token"
             The stderr should be present
         End
@@ -705,5 +803,187 @@ EOF
             When call getSystemdArch
             The output should equal "unknown"
         End
+    End
+
+    Describe 'resolveKubeletReservedCgroups'
+        It 'is a no-op when neither config-file mode nor flags carry the cgroup names'
+            KUBELET_CONFIG_FILE_ENABLED="false"
+            KUBELET_CONFIG_FILE_CONTENT=""
+            KUBELET_FLAGS="--node-ip=10.0.0.1 --rotate-certificates=true"
+            When call resolveKubeletReservedCgroups
+            The variable KUBE_RESERVED_CGROUP should equal ""
+            The variable SYSTEM_RESERVED_CGROUP should equal ""
+            The status should be success
+        End
+
+        It 'extracts cgroup names from KUBELET_FLAGS in flag mode'
+            KUBELET_CONFIG_FILE_ENABLED="false"
+            KUBELET_CONFIG_FILE_CONTENT=""
+            KUBELET_FLAGS="--kube-reserved-cgroup=/kubereserved.slice --system-reserved-cgroup=/system.slice --node-ip=10.0.0.1"
+            When call resolveKubeletReservedCgroups
+            The variable KUBE_RESERVED_CGROUP should equal "/kubereserved.slice"
+            The variable SYSTEM_RESERVED_CGROUP should equal "/system.slice"
+            The status should be success
+        End
+
+        It 'extracts cgroup names from KUBELET_CONFIG_FILE_CONTENT in config-file mode'
+            KUBELET_CONFIG_FILE_ENABLED="true"
+            KUBELET_CONFIG_FILE_CONTENT=$(cat spec/parts/linux/cloud-init/artifacts/kubelet_mocks/config_file/node_hardening_enabled.json | base64 -w 0)
+            # Even though flags carry the values, config-file mode must win.
+            KUBELET_FLAGS="--kube-reserved-cgroup=/wrong.slice --system-reserved-cgroup=/wrong.slice"
+            When call resolveKubeletReservedCgroups
+            The variable KUBE_RESERVED_CGROUP should equal "/kubereserved.slice"
+            The variable SYSTEM_RESERVED_CGROUP should equal "/system.slice"
+            The status should be success
+        End
+
+        It 'returns empty strings in config-file mode when the JSON does not opt into hardening'
+            KUBELET_CONFIG_FILE_ENABLED="true"
+            KUBELET_CONFIG_FILE_CONTENT=$(cat spec/parts/linux/cloud-init/artifacts/kubelet_mocks/config_file/server_tls_bootstrap_enabled.json | base64 -w 0)
+            KUBELET_FLAGS=""
+            When call resolveKubeletReservedCgroups
+            The variable KUBE_RESERVED_CGROUP should equal ""
+            The variable SYSTEM_RESERVED_CGROUP should equal ""
+            The status should be success
+        End
+    End
+
+    Describe 'ensureKubeletCgroupHierarchy'
+        # Use a per-test temp directory and point the function's path overrides at
+        # it so the slice unit file and drop-in are created in a sandbox rather
+        # than under /etc/systemd. The cgroupv2 marker is similarly redirected to
+        # a temp file so we can toggle its presence without touching the host.
+        setup_paths() {
+            ENSURE_CGROUP_TMPDIR=$(mktemp -d)
+            export CGROUPV2_MARKER_PATH="${ENSURE_CGROUP_TMPDIR}/cgroup.controllers"
+            export KUBE_RESERVED_SLICE_UNIT_PATH="${ENSURE_CGROUP_TMPDIR}/kubereserved.slice"
+            export KUBELET_SERVICE_DROPIN_DIR="${ENSURE_CGROUP_TMPDIR}/kubelet.service.d"
+            export CONTAINERD_SERVICE_DROPIN_DIR="${ENSURE_CGROUP_TMPDIR}/containerd.service.d"
+            : > "${CGROUPV2_MARKER_PATH}" # cgroupv2 present by default
+        }
+        cleanup_paths() {
+            [ -n "${ENSURE_CGROUP_TMPDIR:-}" ] && rm -rf "${ENSURE_CGROUP_TMPDIR}"
+        }
+
+        It 'is a no-op when neither cgroup is configured'
+            KUBE_RESERVED_CGROUP=""
+            SYSTEM_RESERVED_CGROUP=""
+            When call ensureKubeletCgroupHierarchy
+            The status should be success
+            The output should equal ""
+        End
+
+        It 'rejects unsupported KUBE_RESERVED_CGROUP values'
+            setup_paths
+            KUBE_RESERVED_CGROUP="/custom.slice"
+            SYSTEM_RESERVED_CGROUP=""
+            When call ensureKubeletCgroupHierarchy
+            cleanup_paths
+            The status should be failure
+            The output should include "unsupported KUBE_RESERVED_CGROUP=/custom.slice"
+        End
+
+        It 'rejects unsupported SYSTEM_RESERVED_CGROUP values'
+            setup_paths
+            KUBE_RESERVED_CGROUP=""
+            SYSTEM_RESERVED_CGROUP="/custom.slice"
+            When call ensureKubeletCgroupHierarchy
+            cleanup_paths
+            The status should be failure
+            The output should include "unsupported SYSTEM_RESERVED_CGROUP=/custom.slice"
+        End
+
+        It 'fails when the cgroupv2 unified hierarchy is not detected'
+            setup_paths
+            rm -f "${CGROUPV2_MARKER_PATH}"
+            KUBE_RESERVED_CGROUP="/kubereserved.slice"
+            SYSTEM_RESERVED_CGROUP=""
+            When call ensureKubeletCgroupHierarchy
+            cleanup_paths
+            The status should be failure
+            The output should include "cgroupv2 unified hierarchy not detected"
+        End
+
+        It 'creates kubereserved.slice and the kubelet.service and containerd.service drop-ins'
+            setup_paths
+            systemctl() { return 0; }
+            systemctlEnableAndStart() { return 0; }
+            KUBE_RESERVED_CGROUP="/kubereserved.slice"
+            SYSTEM_RESERVED_CGROUP="/system.slice"
+            When call ensureKubeletCgroupHierarchy
+            slice_contents=$(cat "${KUBE_RESERVED_SLICE_UNIT_PATH}" 2>/dev/null)
+            dropin_contents=$(cat "${KUBELET_SERVICE_DROPIN_DIR}/10-kubereserved-slice.conf" 2>/dev/null)
+            containerd_dropin_contents=$(cat "${CONTAINERD_SERVICE_DROPIN_DIR}/10-kubereserved-slice.conf" 2>/dev/null)
+            cleanup_paths
+            The status should be success
+            The variable slice_contents should include "Description=Slice for kube-reserved enforcement"
+            The variable slice_contents should include "WantedBy=slices.target"
+            The variable dropin_contents should include "Wants=kubereserved.slice"
+            The variable dropin_contents should include "After=kubereserved.slice"
+            The variable dropin_contents should include "Slice=kubereserved.slice"
+            The variable containerd_dropin_contents should include "Wants=kubereserved.slice"
+            The variable containerd_dropin_contents should include "After=kubereserved.slice"
+            The variable containerd_dropin_contents should include "Slice=kubereserved.slice"
+        End
+
+        It 'returns failure when systemctlEnableAndStart kubereserved.slice fails'
+            setup_paths
+            systemctl() { return 0; }
+            systemctlEnableAndStart() { return 1; }
+            KUBE_RESERVED_CGROUP="/kubereserved.slice"
+            SYSTEM_RESERVED_CGROUP=""
+            When call ensureKubeletCgroupHierarchy
+            cleanup_paths
+            The status should be failure
+            The output should include "failed to enable and start kubereserved.slice"
+        End
+    End
+End
+
+Describe 'GPU driver image reference resolution'
+    # Both references are computed when cse_helpers.sh is sourced, so each case re-sources the
+    # script in a clean child shell with the environment the RP would supply.
+    resolve_driver_refs() {
+        env -u NVIDIA_DRIVER_IMAGE -u NVIDIA_DRIVER_IMAGE_PULL_REF -u MCR_REPOSITORY_BASE "$@" bash -c \
+            'source ./parts/linux/cloud-init/artifacts/cse_helpers.sh >/dev/null 2>&1; echo "$NVIDIA_DRIVER_IMAGE $NVIDIA_DRIVER_IMAGE_PULL_REF"'
+    }
+
+    It 'uses public MCR for both references when MCR_REPOSITORY_BASE is unset'
+        When call resolve_driver_refs GPU_DRIVER_TYPE=grid
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-grid mcr.microsoft.com/aks/aks-gpu-grid"
+    End
+
+    It 'uses public MCR for both references when MCR_REPOSITORY_BASE is empty'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE= GPU_DRIVER_TYPE=grid
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-grid mcr.microsoft.com/aks/aks-gpu-grid"
+    End
+
+    It 'pulls from the sovereign MCR endpoint and strips the trailing slash'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE=mcr.microsoft.scloud/ GPU_DRIVER_TYPE=grid
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-grid mcr.microsoft.scloud/aks/aks-gpu-grid"
+    End
+
+    It 'pulls from the sovereign MCR endpoint supplied without a trailing slash'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE=mcr.microsoft.eaglex.ic.gov GPU_DRIVER_TYPE=grid
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-grid mcr.microsoft.eaglex.ic.gov/aks/aks-gpu-grid"
+    End
+
+    It 'applies the cloud-aware base to every driver type'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE=mcr.azure.cn/ GPU_DRIVER_TYPE=cuda-lts
+        The status should be success
+        The output should eq "mcr.microsoft.com/aks/aks-gpu-cuda-lts mcr.azure.cn/aks/aks-gpu-cuda-lts"
+    End
+
+    # Regression guard: the VHD bakes aks-gpu-cuda-lts under its mcr.microsoft.com name and
+    # configGPUDrivers matches it exactly, so a cloud-specific value here would break every
+    # sovereign CUDA node's cache hit.
+    It 'keeps the cache-facing reference on public MCR regardless of cloud'
+        When call resolve_driver_refs MCR_REPOSITORY_BASE=mcr.microsoft.scloud/ GPU_DRIVER_TYPE=cuda-lts
+        The status should be success
+        The output should start with "mcr.microsoft.com/aks/aks-gpu-cuda-lts "
     End
 End

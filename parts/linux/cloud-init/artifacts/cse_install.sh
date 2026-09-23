@@ -15,8 +15,8 @@ K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
-OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
-OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
+OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]'; fi)
+OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]'; fi)
 SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
 SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/opt/bin"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
@@ -86,15 +86,7 @@ installContainerdWithComponentsJson() {
         last_index=$((array_size - 1))
     fi
     packageVersion=${sortedPackageVersions[${last_index}]}
-    # containerd version is expected to be in the format major.minor.patch-hotfix
-    # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
-    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
-    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" = "null" ] || [ "$containerdHotFixVersion" = "null" ]; then
-        echo "invalid containerd version: $packageVersion"
-        exit $ERR_CONTAINERD_VERSION_INVALID
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${packageVersion}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 
 }
@@ -109,14 +101,8 @@ installContainerdWithManifestJson() {
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
-    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" = "null" ] || [ "$containerd_revision" = "null" ]; then
-        echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_version}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_version}"
 }
 
 installContainerRuntime() {
@@ -149,7 +135,7 @@ installNetworkPlugin() {
     fi
     # Check if required CNI plugins are already cached
     local required_plugins=("bridge" "host-local" "loopback")
-       local all_plugins_exist=true
+    local all_plugins_exist=true
     for plugin in "${required_plugins[@]}"; do
         if [ ! -f "$CNI_BIN_DIR/$plugin" ]; then
             all_plugins_exist=false
@@ -159,8 +145,11 @@ installNetworkPlugin() {
     if [ "$all_plugins_exist" = "false" ]; then
         echo "One or more required CNI plugins not found in $CNI_BIN_DIR; installing fixed CNI plugins without removing existing binaries"
         installFixedCNI
-        rm -rf "${CNI_DOWNLOADS_DIR:?}" &
     fi
+    # The required CNI binaries are now in CNI_BIN_DIR, either pre-baked on
+    # the VHD or freshly installed by installFixedCNI above. Clean up the
+    # downloads scratch space to reclaim disk (~50MB of extracted cni-plugins).
+    rm -rf "${CNI_DOWNLOADS_DIR:?}" &
 }
 
 # downloadCredentialProvider is always called during build time by install-dependencies.sh.
@@ -203,7 +192,13 @@ downloadCredentialProvider() {
 
     CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
     echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
-    retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    # Only apply per-operation budget during real CSE runs (CSE_STARTTIME_SECONDS set).
+    # During VHD build, use 0 (unlimited) to avoid flakiness from transient network issues.
+    local cred_budget=0
+    if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+        cred_budget=300
+    fi
+    retrycmd_get_tarball 120 5 60 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL $cred_budget || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
     echo "Credential Provider downloaded successfully"
 }
 
@@ -228,7 +223,7 @@ installOras() {
 
     echo "Installing Oras version $ORAS_VERSION..."
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_ERROR
+    retrycmd_get_tarball 120 5 60 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} 300 || exit $ERR_ORAS_DOWNLOAD_ERROR
 
     if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
         echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
@@ -246,11 +241,14 @@ installOras() {
 # if secure TLS bootstrapping is disabled, this will simply remove the client binary from disk.
 # otherwise, if a custom URL is provided, it will use the custom URL to overwrite the existing installation
 installSecureTLSBootstrapClient() {
-    # TODO(cameissner): can probably remove this once we get to preview
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" != "true" ]; then
         echo "secure TLS bootstrapping is disabled, will remove secure TLS bootstrap client binary installation"
         rm -f "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}/aks-secure-tls-bootstrap-client" &
         rm -rf "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}" &
+        if isFlatcar || isACL; then
+            rm -f /etc/extensions/aks-secure-tls-bootstrap-client.raw
+            (systemd-sysext --no-reload refresh || echo "WARNING: systemd-sysext refresh failed after removing aks-secure-tls-bootstrap-client sysext") &
+        fi
         return 0
     fi
 
@@ -263,13 +261,11 @@ installSecureTLSBootstrapClient() {
         return 0
     fi
 
-    downloadSecureTLSBootstrapClient "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+    downloadSecureTLSBootstrapClientFromURL "${SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}" "${CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL}" || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 }
 
-downloadSecureTLSBootstrapClient() {
-    # TODO(cameissner): have this managed by renovate, migrate from github to MCR/packages.microsoft.com
-
-    local CLIENT_EXTRACTED_DIR=${1-$:SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}
+downloadSecureTLSBootstrapClientFromURL() {
+    local CLIENT_EXTRACTED_DIR=${1:-$SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR}
     local CLIENT_DOWNLOAD_URL=$2
 
     mkdir -p $SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR
@@ -279,7 +275,7 @@ downloadSecureTLSBootstrapClient() {
 
     echo "installing aks-secure-tls-bootstrap-client from: $CLIENT_DOWNLOAD_URL"
     CLIENT_TGZ_TMP=${CLIENT_DOWNLOAD_URL##*/}
-    retrycmd_get_tarball 120 5 "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ${CLIENT_DOWNLOAD_URL} || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
+    retrycmd_get_tarball 120 5 60 "${SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR}/${CLIENT_TGZ_TMP}" ${CLIENT_DOWNLOAD_URL} 300 || exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_ERROR
 
     if [ -f "${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client" ]; then
         echo "aks-secure-tls-bootstrap-client already exists in $CLIENT_EXTRACTED_DIR, will overwrite existing aks-secure-tls-bootstrap-client installation at ${CLIENT_EXTRACTED_DIR}/aks-secure-tls-bootstrap-client"
@@ -319,7 +315,7 @@ downloadAzureCNI() {
     VNET_CNI_PLUGINS_URL=$(update_base_url $VNET_CNI_PLUGINS_URL)
 
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    retrycmd_get_tarball 120 5 60 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} 300 || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 # Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
@@ -336,7 +332,7 @@ installCNILegacy() {
         if [ -z "${CPU_ARCH:-}" ]; then
             CPU_ARCH="$(getCPUArch)"
         fi
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-${CPU_ARCH}-v1.4.1.tgz" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+        retrycmd_get_tarball 120 5 60 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-${CPU_ARCH}-v1.4.1.tgz" 300 || exit $ERR_CNI_DOWNLOAD_TIMEOUT
         extract_tarball "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "$CNI_BIN_DIR"
         return
     fi
@@ -390,7 +386,7 @@ downloadCrictl() {
     logs_to_events "AKS.CSE.logDownloadURL" "echo $url"
     url=$(update_base_url $url)
     crictlTgzTmp=${url##*/}
-    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} 300 || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
 
 installCrictl() {
@@ -499,7 +495,7 @@ extractKubeBinaries() {
             fi
         else
             # download the kube package from the default URL
-            retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+            retrycmd_get_tarball 120 5 60 "${k8s_tgz_tmp}" ${kube_binary_url} 300 || exit $ERR_K8S_DOWNLOAD_TIMEOUT
             if [ ! -f "${k8s_tgz_tmp}" ] ; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
@@ -517,6 +513,18 @@ installToolFromBootstrapProfileRegistry() {
 
     # Try to pull distro-specific packages (e.g., .deb for Ubuntu) from registry
     local download_root="/tmp/kubernetes/downloads" # /opt folder will return permission error
+
+    if [ "${NETWORK_ISOLATED_CLUSTER_TEST_MODE}" = "true" ]; then
+        echo "NETWORK_ISOLATED_CLUSTER_TEST_MODE=true, skipping installPackageFromCache for ${tool_name}"
+    else
+        if installPackageFromCache "$tool_name" "$version"; then
+            if [ -n "$install_path" ]; then
+                mv "$(which "$tool_name")" "$install_path"
+            fi
+            return 0
+        fi
+    fi
+    echo "install from cache failed for ${tool_name}, start to pull from registry"
 
     version_tag="${version}"
     if [ "${version}" != "v*" ]; then
@@ -555,6 +563,7 @@ installToolFromBootstrapProfileRegistry() {
 
     # All tools installed successfully
     rm -rf "${download_root}"
+    rm -f /opt/bin/"${tool_name}"-* &
     return 0
 }
 

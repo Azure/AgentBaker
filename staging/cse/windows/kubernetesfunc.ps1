@@ -69,6 +69,36 @@ function Register-NodeResetScriptTask {
     Register-ScheduledTask -TaskName "k8s-restart-job" -InputObject $definition
 }
 
+function Register-CACertificatesRefreshTask {
+    Param(
+        [Parameter(Mandatory = $false)][string]
+        $Location = ""
+    )
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.RegisterCACertificatesRefreshTask" -TaskMessage "Start to register CA certificates refresh task"
+    Write-Log "Creating a scheduled task to refresh custom cloud CA certificates"
+
+    $taskName = "aks-ca-certs-refresh-task"
+    if (Get-ScheduledTask -TaskName $taskName -ErrorAction Ignore) {
+        Write-Log "Scheduled task $taskName already exists, skipping registration"
+        return
+    }
+
+    # Include -Location only when it was provided, so older VHDs whose Get-CACertificates
+    # does not accept -Location can still execute the scheduled task successfully.
+    if ([string]::IsNullOrEmpty($Location)) {
+        $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates | Out-Null }"
+    } else {
+        $escapedLocation = $Location -replace "'", "''"
+        $refreshCommand = "& { . 'C:\AzureData\windows\windowscsehelper.ps1'; . 'C:\AzureData\windows\kubernetesfunc.ps1'; Get-CACertificates -Location '$escapedLocation' | Out-Null }"
+    }
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"$refreshCommand`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-JobTrigger -Daily -At "19:00" -DaysInterval 1
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-ca-certs-refresh-task"
+    Register-ScheduledTask -TaskName $taskName -InputObject $definition
+}
+
 # TODO ksubrmnn parameterize this fully
 function Write-KubeClusterConfig {
     param(
@@ -85,7 +115,7 @@ function Write-KubeClusterConfig {
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Cri -Value @{
         Name   = "containerd";
         Images = @{
-            # e.g. "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6"
+            # e.g. "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"
             "Pause" = $global:WindowsPauseImageURL
         }
     }
@@ -126,10 +156,15 @@ function Write-KubeClusterConfig {
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
             SecureTLSBootstrapArgs = @{
-                Enabled                = $global:EnableSecureTLSBootstrapping;
-                Deadline               = $global:SecureTLSBootstrappingDeadline;
-                AADResource            = $global:SecureTLSBootstrappingAADResource;
-                UserAssignedIdentityID = $global:SecureTLSBootstrappingUserAssignedIdentityID
+                Enabled                   = $global:EnableSecureTLSBootstrapping;
+                AADResource               = $global:SecureTLSBootstrappingAADResource;
+                UserAssignedIdentityID    = $global:SecureTLSBootstrappingUserAssignedIdentityID;
+                ValidateKubeconfigTimeout = $global:SecureTLSBootstrappingValidateKubeconfigTimeout;
+                GetAccessTokenTimeout     = $global:SecureTLSBootstrappingGetAccessTokenTimeout;
+                GetInstanceDataTimeout    = $global:SecureTLSBootstrappingGetInstanceDataTimeout;
+                GetNonceTimeout           = $global:SecureTLSBootstrappingGetNonceTimeout;
+                GetAttestedDataTimeout    = $global:SecureTLSBootstrappingGetAttestedDataTimeout;
+                GetCredentialTimeout      = $global:SecureTLSBootstrappingGetCredentialTimeout
             };
         };
         Kubeproxy    = @{
@@ -240,38 +275,251 @@ function Check-APIServerConnectivity {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY -ErrorMessage "Failed to connect to API server $MasterIP after $retryCount retries. Last exception: $lastExceptionMessage"
 }
 
-function Get-CACertificates {
-    try {
-        Write-Log "Get CA certificates"
-        $caFolder = "C:\ca"
-        $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
+function Get-CertEndpointModeFromLocation {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $Location
+    )
 
-        Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
+    # ussec/usnat regions still use the legacy certificate endpoint contract.
+    $normalizedLocation = $Location.ToLowerInvariant()
+    if ($normalizedLocation.StartsWith("ussec") -or $normalizedLocation.StartsWith("usnat")) {
+        return "legacy"
+    }
 
-        Write-Log "Download CA certificates rawdata"
-        # This is required when the root CA certs are different for some clouds.
+    # All other regions use the rcv1p endpoint mode with opt-in gating.
+    return "rcv1p"
+}
+
+function Invoke-CACertificatesRequest {
+    Param(
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]
+        $Command,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][hashtable]
+        $Args,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][int]
+        $Retries,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][int]
+        $RetryDelaySeconds
+    )
+
+    # Keep CA refresh's normal requests quiet without changing shared Retry-Command logging.
+    for ($i=0; ; ) {
         try {
-            $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true} -Retries 5 -RetryDelaySeconds 10
+            if ($i -gt 0) {
+                Write-Log "Retry $i : $command"
+            }
+            return & $Command @Args
         } catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES -ErrorMessage "Failed to download CA certificates rawdata. Error: $_"
-        }
-
-        Write-Log "Convert CA certificates rawdata"
-        $caCerts=($rawData.Content) | ConvertFrom-Json
-        if ([string]::IsNullOrEmpty($caCerts)) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES -ErrorMessage "CA certificates rawdata is empty"
-        }
-
-        $certificates = $caCerts.Certificates
-        for ($index = 0; $index -lt $certificates.Length ; $index++) {
-            $name=$certificates[$index].Name
-            $certFilePath = Join-Path $caFolder $name
-            Write-Log "Write certificate $name to $certFilePath"
-            $certificates[$index].CertBody > $certFilePath
+            $i++
+            if ($i -ge $Retries) {
+                throw $_
+            }
+            Start-Sleep -Seconds $RetryDelaySeconds
         }
     }
+}
+
+function Should-InstallCACertificatesRefreshTask {
+    Param(
+        [Parameter(Mandatory = $false)][string]
+        $Location = ""
+    )
+
+    # When Location is not supplied (older callers), default to legacy mode.
+    if ([string]::IsNullOrEmpty($Location)) {
+        return $true
+    }
+    $certEndpointMode = Get-CertEndpointModeFromLocation -Location $Location
+    if ($certEndpointMode -eq "legacy") {
+        return $true
+    }
+
+    try {
+        $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
+        # Use 10 retries to match Linux make_request_with_retry resilience against
+        # transient wireserver unavailability and rate limiting.
+        # TimeoutSec=30 bounds worst-case wall time to ~400s (10 * (30 + 10)) so a
+        # single hanging wireserver endpoint cannot exhaust Windows OS provisioning.
+        $optInResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
+        $optInJson = $optInResponse.Content | ConvertFrom-Json
+        Write-Log "CA certificates opt-in: $($optInJson.IsOptedInForRootCerts -eq $true)"
+        return ($optInJson.IsOptedInForRootCerts -eq $true)
+    } catch {
+        $statusCode = "N/A"
+        $responseBody = ""
+        if ($_.Exception -and $_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+            try {
+                $stream = $_.Exception.Response.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($stream)
+                $responseBody = $reader.ReadToEnd()
+            } catch { }
+        }
+        Write-Log "Skipping CA refresh task registration because IsOptedInForRootCerts could not be determined (HTTP $statusCode): $_"
+        if ($responseBody) {
+            Write-Log "Wireserver error response body: $responseBody"
+        }
+        return $false
+    }
+}
+
+function Get-CACertificates {
+    Param(
+        [Parameter(Mandatory = $false)][string]
+        $Location = "",
+        [Parameter(Mandatory = $false)][switch]
+        $FailOnError
+    )
+
+    $caFolder = "C:\ca"
+    Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
+    $importedCount = 0
+
+    # When Location is not supplied (older callers), fall back to the legacy endpoint
+    # which was the original behavior before the rcv1p changes.
+    if ([string]::IsNullOrEmpty($Location)) {
+        $certEndpointMode = "legacy"
+        Write-Log "Get CA certificates. Location not provided, defaulting to legacy endpoint mode"
+    } else {
+        $certEndpointMode = Get-CertEndpointModeFromLocation -Location $Location
+        Write-Log "Get CA certificates. Location: $Location. EndpointMode: $certEndpointMode"
+    }
+
+    # C:\ca is a staging location; installing WireServer certificates into LocalMachine trust
+    # stores is intentional and matches the system-wide trust behavior on Linux.
+    # When called with -FailOnError, wireserver unreachable
+    # after retries is fatal — silently falling back to the OS default trust store would be a
+    # security hole if the customer intended hardened root certs. This matches the Linux
+    # behavior in init-aks-cloud.sh (is_opted_in_for_root_certs return code 2 = fatal).
+    try {
+        if ($certEndpointMode -eq "legacy") {
+            $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
+            # TimeoutSec=30 bounds a stalled response so 10 retries cannot exceed ~400s.
+            $rawData = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
+            $caCerts = ($rawData.Content) | ConvertFrom-Json
+            if ($null -eq $caCerts -or $null -eq $caCerts.Certificates -or $caCerts.Certificates.Length -eq 0) {
+                if ($FailOnError) {
+                    throw "CA certificates rawdata is empty for legacy endpoint"
+                }
+                Write-Log "Warning: CA certificates rawdata is empty for legacy endpoint"
+                return $false
+            }
+
+            foreach ($certificate in $caCerts.Certificates) {
+                $name = $certificate.Name
+                $certFilePath = Join-Path $caFolder $name
+                $certificate.CertBody | Out-File -Encoding ascii -FilePath $certFilePath
+                # The legacy endpoint returns trusted root certificates only.
+                try {
+                    Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -ErrorAction Stop | Out-Null
+                    $importedCount++
+                } catch {
+                    throw "Failed to import CA certificate '$name' into Cert:\LocalMachine\Root. Error: $_"
+                }
+            }
+
+            Write-Log "CA certificates refresh completed: imported $importedCount certificates."
+            return $true
+        }
+
+        $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
+        # Wireserver opt-in check: 10 retries to match Linux make_request_with_retry.
+        # TimeoutSec=30 bounds a stalled response so retries cannot exceed ~400s.
+        $optInResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
+        $optInJson = $optInResponse.Content | ConvertFrom-Json
+        Write-Log "CA certificates opt-in: $($optInJson.IsOptedInForRootCerts -eq $true)"
+        if ($optInJson.IsOptedInForRootCerts -ne $true) {
+            Write-Log "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"
+            return $false
+        }
+
+        $operationRequestTypes = @("operationrequestsroot", "operationrequestsintermediate")
+        $downloadedAny = $false
+
+        foreach ($requestType in $operationRequestTypes) {
+            # Keep intermediates out of the trusted root store while making both chains system-wide.
+            $certStoreLocation = if ($requestType -eq "operationrequestsroot") {
+                'Cert:\LocalMachine\Root'
+            } else {
+                'Cert:\LocalMachine\CA'
+            }
+            $operationRequestUri = "http://168.63.129.16/machine?comp=acmspackage&type=$requestType&ext=json"
+            $operationResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
+            $operationJson = ($operationResponse.Content) | ConvertFrom-Json
+
+            if ($null -eq $operationJson -or $null -eq $operationJson.OperationsInfo) {
+                Write-Log "Warning: no operation requests found for $requestType"
+                continue
+            }
+
+            foreach ($operation in $operationJson.OperationsInfo) {
+                $resourceFileName = $operation.ResouceFileName
+                if ([string]::IsNullOrEmpty($resourceFileName)) {
+                    continue
+                }
+
+                # Defense-in-depth: sanitize filename to a basename to prevent path
+                # traversal if wireserver ever returns a value containing path separators.
+                $sanitizedFileName = [IO.Path]::GetFileName($resourceFileName)
+                if ($sanitizedFileName -ne $resourceFileName) {
+                    Write-Log "Warning: rejecting certificate filename with path separators: $resourceFileName"
+                    continue
+                }
+                $resourceFileName = $sanitizedFileName
+
+                $resourceType = [IO.Path]::GetFileNameWithoutExtension($resourceFileName)
+                $resourceExt = [IO.Path]::GetExtension($resourceFileName).TrimStart('.')
+                $resourceUri = "http://168.63.129.16/machine?comp=acmspackage&type=$resourceType&ext=$resourceExt"
+
+                $certContentResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$resourceUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
+                if ([string]::IsNullOrEmpty($certContentResponse.Content)) {
+                    Write-Log "Warning: empty certificate content for $resourceFileName"
+                    continue
+                }
+
+                $certFilePath = Join-Path $caFolder $resourceFileName
+                $certContentResponse.Content | Out-File -Encoding ascii -FilePath $certFilePath
+                try {
+                    Import-Certificate -FilePath $certFilePath -CertStoreLocation $certStoreLocation -ErrorAction Stop | Out-Null
+                    $importedCount++
+                } catch {
+                    throw "Failed to import CA certificate '$resourceFileName' into $certStoreLocation. Error: $_"
+                }
+                $downloadedAny = $true
+            }
+        }
+
+        if (-not $downloadedAny) {
+            if ($FailOnError) {
+                throw "No CA certificates were downloaded in rcv1p mode despite IsOptedInForRootCerts=true"
+            }
+            Write-Log "Warning: no CA certificates were downloaded in rcv1p mode"
+        }
+
+        if ($downloadedAny) {
+            Write-Log "CA certificates refresh completed: imported $importedCount certificates."
+        }
+        return $downloadedAny
+    }
     catch {
-        # Catch all exceptions in this function. NOTE: exit cannot be caught.
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES -ErrorMessage $_
+        $statusCode = "N/A"
+        $responseBody = ""
+        if ($_.Exception -and $_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+            try {
+                $stream = $_.Exception.Response.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($stream)
+                $responseBody = $reader.ReadToEnd()
+            } catch { }
+        }
+        if ($responseBody) {
+            Write-Log "Wireserver error response body: $responseBody"
+        }
+        if ($FailOnError) {
+            throw "Failed to process CA certificates (HTTP $statusCode). Error: $_"
+        }
+        Write-Log "Warning: failed to process CA certificates (HTTP $statusCode). Error: $_"
+        return $false
     }
 }

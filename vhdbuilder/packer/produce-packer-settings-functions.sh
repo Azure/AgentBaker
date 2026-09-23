@@ -1,17 +1,22 @@
 #!/bin/bash
 
-function enforce_azcli_version() {
-	AZ_VER_REQUIRED=$1
-	AZ_DIST=$(lsb_release -cs)
-	echo "Enforcing az cli version to ${AZ_VER_REQUIRED} for ${AZ_DIST}"
-	sudo DEBIAN_FRONTEND=noninteractive dpkg --configure -a
-	sudo DEBIAN_FRONTEND=noninteractive apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --no-install-recommends --allow-downgrades
-	AZ_VER_INSTALLED=$(az version --query "[\"azure-cli\"]" -o tsv)
-	if [ "${AZ_VER_INSTALLED}" != "${AZ_VER_REQUIRED}" ]; then
-		echo "Failed to install required az cli version ${AZ_VER_REQUIRED}, installed version is ${AZ_VER_INSTALLED}"
-		exit 1
+function compute_msi_resource_strings() {
+	# Populates the caller-declared array named by $1 (an explicit output parameter, via
+	# nameref) with the UAMI resource string to attach to the VHD build VM, or leaves it
+	# empty. All other variables here are scratch and kept local to this function.
+	local -n _msi_resource_strings_out="${1:?compute_msi_resource_strings requires the name of the array variable to populate}"
+	local COMPONENTS_JSON="${COMPONENTS_JSON:-./parts/common/components.json}"
+	local windows_azcopy_private_package_present="false"
+	if [ -f "${COMPONENTS_JSON}" ] && jq -e '[.. | objects | select(has("windowsDownloadRequiresAzCopy")) | select(.windowsDownloadRequiresAzCopy == true)] | length > 0' "${COMPONENTS_JSON}" >/dev/null 2>&1; then
+		windows_azcopy_private_package_present="true"
+	fi
+
+	_msi_resource_strings_out=()
+	if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && { [ -n "${PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_BASE_IMAGE_URL}" ] || [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ] || [ "${windows_azcopy_private_package_present}" = "true" ]; }; then
+		echo "AZURE_MSI_RESOURCE_STRING is set and at least one of PRIVATE_PACKAGES_URL, WINDOWS_PRIVATE_PACKAGES_URL, WINDOWS_BASE_IMAGE_URL, WINDOWS_CONTAINERIMAGE_JSON_URL is set, or ${COMPONENTS_JSON} has a package with windowsDownloadRequiresAzCopy=true. Assigning UAMI to Packer VM for VHD Build."
+		_msi_resource_strings_out+=(${AZURE_MSI_RESOURCE_STRING})
 	else
-		echo "Successfully installed az cli version ${AZ_VER_INSTALLED}"
+		echo "AZURE_MSI_RESOURCE_STRING is not set, none of PRIVATE_PACKAGES_URL/WINDOWS_PRIVATE_PACKAGES_URL/WINDOWS_BASE_IMAGE_URL is set, and no package in ${COMPONENTS_JSON} sets windowsDownloadRequiresAzCopy=true. Skipping UAMI assignment to Packer VM for VHD Build."
 	fi
 }
 
@@ -32,6 +37,20 @@ function produce_ua_token() {
 	else
 		echo "UA_TOKEN only used for Ubuntu"
 		UA_TOKEN="notused"
+	fi
+}
+
+function resolve_security_type_feature() {
+	if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+		# TODO: remove once all relevant images have been updated to TrustedLaunchSupported
+		# Note that ordering matters here - ENABLE_TRUSTED_LAUNCH -> TrustedLaunch takes precedence over TRUSTED_LAUNCH_SUPPORTED -> TrustedLaunchSupported
+		SECURITY_TYPE_FEATURE="TrustedLaunch"
+	elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+		SECURITY_TYPE_FEATURE="TrustedLaunchSupported"
+	elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
+		SECURITY_TYPE_FEATURE="ConfidentialVMSupported"
+	else
+		SECURITY_TYPE_FEATURE="Standard"
 	fi
 }
 
@@ -57,8 +76,11 @@ function ensure_sig_image_name_linux() {
 			else
 				SIG_IMAGE_NAME="CBLMariner${SIG_IMAGE_NAME}"
 			fi
-		elif [ "${IMG_OFFER,,}" = "azure-linux-3" ]; then
-			# for Azure Linux 3.0, only use AzureLinux prefix
+		elif [ "${IMG_OFFER,,}" = "azure-linux-3" ] && [ "${OS_SKU,,}" != "azurecontainerlinux" ]; then
+			# for Azure Linux 3.0, only use AzureLinux prefix.
+			# AzureContainerLinux (ACL) shares the azure-linux-3 marketplace offer but its destination
+			# SIG image definitions (e.g. aclgen2TL, aclgen2arm64TL) intentionally have no AzureLinux prefix,
+			# so it falls through to the no-prefix branch below.
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		elif [ "${OS_SKU,,}" = "azurelinuxosguard" ]; then
 			SIG_IMAGE_NAME="AzureLinuxOSGuard${SIG_IMAGE_NAME}"
@@ -73,31 +95,31 @@ function ensure_sig_image_name_linux() {
 
 function download_windows_json_artifact() {
 	filename=$(basename "$WINDOWS_CONTAINERIMAGE_JSON_URL")
-	echo "Downloading $filename from wcct storage account using AzCopy with Managed Identity Auth"
+	echo "Downloading $filename from wcct storage account using Azure CLI auth"
 
 	# The JSON blob is formatted where each build image name is mapped to its corresponding image URL.
 	# For details on the expected format and how to manually retrieve the JSON blob,
 	# see: [WINDOWS-CONTAINERIMAGE-JSON.MD](vhdbuilder/packer/WINDOWS-CONTAINERIMAGE-JSON.MD)
-	if azcopy copy "${WINDOWS_CONTAINERIMAGE_JSON_URL}" "${BUILD_ARTIFACTSTAGINGDIRECTORY}/"; then
+
+	# Parse storage account, container, and blob path from the URL
+	# URL format: https://<account>.blob.core.windows.net/<container>/<blob_path>
+	local storage_account container blob_path
+	storage_account=$(echo "$WINDOWS_CONTAINERIMAGE_JSON_URL" | sed -n 's|https://\([^.]*\)\.blob\.core\.windows\.net/.*|\1|p')
+	container=$(echo "$WINDOWS_CONTAINERIMAGE_JSON_URL" | sed -n 's|https://[^/]*/\([^/]*\)/.*|\1|p')
+	blob_path=$(echo "$WINDOWS_CONTAINERIMAGE_JSON_URL" | sed -n 's|https://[^/]*/[^/]*/\(.*\)|\1|p')
+
+	echo "Storage account: $storage_account, Container: $container, Blob: $blob_path"
+
+	if az storage blob download \
+		--account-name "$storage_account" \
+		--container-name "$container" \
+		--name "$blob_path" \
+		--file "${BUILD_ARTIFACTSTAGINGDIRECTORY}/$filename" \
+		--auth-mode login; then
 		echo "Successfully downloaded the latest artifact: $filename"
 	else
-		# loop through azcopy log files
-		for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
-			echo "Azcopy log file: $f"
-			# upload the log file as an attachment to vso
-			set +x
-			echo "##vso[build.uploadlog]$f"
-			set -x
-			# check if the log file contains any errors
-			if grep -q '"level":"Error"' "$f"; then
-				echo "log file $f contains errors"
-				set +x
-				echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
-				set -x
-				# print the log file
-				cat "$f"
-			fi
-		done
+		echo "##vso[task.logissue type=error]Failed to download $filename from storage account $storage_account"
+		echo "Error: az storage blob download failed for ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	fi
 
 	# Parse the json artifact to get the image urls
@@ -131,7 +153,7 @@ function extract_windows_image_urls() {
 		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
 		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
 		;;
-	"2025-gen2")
+	"2025-gen2" | "2025-gen2-tl")
 		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
 		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
 		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
@@ -153,6 +175,7 @@ function extract_windows_image_urls() {
 }
 
 function create_windows_storage_account() {
+	local mirs_classification_tag="ms-resiliency-classification=Non-Recovery Critical"
 
 	avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
 	if $avail; then
@@ -161,7 +184,7 @@ function create_windows_storage_account() {
 			-n "$STORAGE_ACCOUNT_NAME" \
 			-g "$AZURE_RESOURCE_GROUP_NAME" \
 			--sku "Standard_RAGRS" \
-			--tags "now=${CREATE_TIME}" \
+			--tags "now=${CREATE_TIME}" "${mirs_classification_tag}" \
 			--allow-shared-key-access false \
 			--min-tls-version TLS1_2 \
 			--location "${AZURE_LOCATION}"
@@ -255,14 +278,21 @@ function create_new_base_image() {
 
 	# Use imported sig image to create the build VM
 	WINDOWS_IMAGE_URL=""
-	windows_sigmode_source_subscription_id=$SUBSCRIPTION_ID
-	windows_sigmode_source_resource_group_name=$AZURE_RESOURCE_GROUP_NAME
-	windows_sigmode_source_gallery_name=$SIG_GALLERY_NAME
-	windows_sigmode_source_image_name=$IMPORTED_IMAGE_NAME
-	windows_sigmode_source_image_version="1.0.0"
+	windows_sigmode_source_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${IMPORTED_IMAGE_NAME}/versions/1.0.0"
 }
 
 function prepare_windows_vhd() {
+	local skip_vhd
+	skip_vhd=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".skip_vhd // false" <$CDIR/windows/windows_settings.json)
+	if [ "${skip_vhd}" = "true" ]; then
+		echo "skip_vhd is set to true for ${WINDOWS_SKU}, skipping VHD build."
+		echo "##vso[task.setvariable variable=skipping_vhd_build;isOutput=true]true"
+		echo "##vso[task.setvariable variable=skipping_vhd_build]true"
+		exit 0
+	fi
+	echo "##vso[task.setvariable variable=skipping_vhd_build;isOutput=true]false"
+	echo "##vso[task.setvariable variable=skipping_vhd_build]false"
+
 	echo "Set the base image sku and version from windows_settings.json"
 
 	WINDOWS_IMAGE_SKU=$(jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku" <$CDIR/windows/windows_settings.json)
@@ -306,12 +336,59 @@ function prepare_windows_vhd() {
 		exit 1
 	fi
 
-	# Create the sig image from the official images defined in windows-settings.json by default
-	windows_sigmode_source_subscription_id=""
-	windows_sigmode_source_resource_group_name=""
-	windows_sigmode_source_gallery_name=""
-	windows_sigmode_source_image_name=""
-	windows_sigmode_source_image_version=""
+	# By default, packer uses marketplace source (image_publisher/offer/sku/version).
+	# For VHD imports, we use shared_image_gallery.id (full ARM resource ID).
+	# For embargo builds, we use direct_shared_gallery_image_id to source from a 1P shared gallery.
+	windows_sigmode_source_id=""
+	windows_sigmode_direct_shared_gallery_image_id=""
+
+	local sig_source_gallery_name
+	if sig_source_gallery_name=$(jq -re ".WindowsBaseVersions.\"${WINDOWS_SKU}\".sig_source_gallery_name" <$CDIR/windows/windows_settings.json); then
+		if [ -n "${sig_source_gallery_name}" ] && [ "${sig_source_gallery_name}" != "null" ]; then
+			local sig_image_name="${WINDOWS_IMAGE_SKU}"
+			# Use AZURE_LOCATION for gallery queries — PACKER_BUILD_LOCATION may not be normalized yet for Windows
+			local gallery_location="${AZURE_LOCATION:-${PACKER_BUILD_LOCATION}}"
+
+			# List latest 3 available versions for this image in the shared gallery
+			echo "  Latest 3 available versions in gallery:"
+			az sig image-version list-shared \
+				--gallery-unique-name "${sig_source_gallery_name}" \
+				--gallery-image-definition "${sig_image_name}" \
+				--location "${gallery_location}" \
+				--shared-to tenant \
+				--query "[-3:].name" -o tsv | while read -r ver; do
+				echo "    - ${ver}"
+			done
+
+			# Resolve version dynamically if base_image_version is empty
+			if [ -z "${WINDOWS_IMAGE_VERSION}" ] || [ "${WINDOWS_IMAGE_VERSION}" = "null" ]; then
+				echo "base_image_version is empty, resolving latest from shared gallery ${sig_source_gallery_name}/${sig_image_name}..."
+				WINDOWS_IMAGE_VERSION=$(az sig image-version list-shared \
+					--gallery-unique-name "${sig_source_gallery_name}" \
+					--gallery-image-definition "${sig_image_name}" \
+					--location "${gallery_location}" \
+					--shared-to tenant \
+					--query "sort_by(@, &name)[-1].name" -o tsv)
+				if [ -z "${WINDOWS_IMAGE_VERSION}" ]; then
+					echo "ERROR: Failed to resolve latest image version from gallery ${sig_source_gallery_name}/${sig_image_name}"
+					exit 1
+				fi
+				echo "Resolved base_image_version: ${WINDOWS_IMAGE_VERSION}"
+			fi
+
+			windows_sigmode_direct_shared_gallery_image_id="/SharedGalleries/${sig_source_gallery_name}/Images/${sig_image_name}/Versions/${WINDOWS_IMAGE_VERSION}"
+			# Clear marketplace and raw VHD source fields — packer requires exactly one source type
+			WINDOWS_IMAGE_URL=""
+			WINDOWS_BASE_IMAGE_URL=""
+			WINDOWS_IMAGE_PUBLISHER=""
+			WINDOWS_IMAGE_OFFER=""
+			WINDOWS_IMAGE_SKU=""
+			WINDOWS_IMAGE_VERSION=""
+			echo "Using direct shared gallery source:"
+			echo "  ID: ${windows_sigmode_direct_shared_gallery_image_id}"
+
+		fi
+	fi
 
 	# default: build VHD images from a marketplace base image
 	export AZCOPY_AUTO_LOGIN_TYPE="AZCLI" # use AZCLI for AzCopy authentication
@@ -320,8 +397,8 @@ function prepare_windows_vhd() {
 	mkdir -p "${AZCOPY_LOG_LOCATION}"
 	mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-	echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 	if [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ]; then
+		echo "VALID IMAGE URL: ${WINDOWS_CONTAINERIMAGE_JSON_URL}"
 		download_windows_json_artifact
 		extract_windows_image_urls
 	else
@@ -330,14 +407,14 @@ function prepare_windows_vhd() {
 	fi
 
 	# Check if base, nano, and servercore urls are set
-	if [ -z "${windows_nanoserver_image_url}" ] || [ -z "${windows_servercore_image_url}" ] || [ -z "${WINDOWS_BASE_IMAGE_URL}" ]; then
-		echo "Error: One of the Windows image URLs are not set."
+	if [ -n "${windows_nanoserver_image_url}" ] && [ -n "${windows_servercore_image_url}" ] && [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
+		echo "All Windows image URLs are set."
 	else
-		# If all URLs are set, print them
-		echo "Using Windows base image URL: ${WINDOWS_BASE_IMAGE_URL}"
-		echo "Using Windows Nano Server image URL: ${windows_nanoserver_image_url}"
-		echo "Using Windows Server Core image URL: ${windows_servercore_image_url}"
+		echo "At least one of the Windows image URLs are not set:"
 	fi
+		echo "  Windows base image URL: ${WINDOWS_BASE_IMAGE_URL}"
+		echo "  Windows Nano Server image URL: ${windows_nanoserver_image_url}"
+		echo "  Windows Server Core image URL: ${windows_servercore_image_url}"
 
 	# build from a pre-supplied VHD blob a.k.a. external raw VHD
 	if [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; then
@@ -451,7 +528,10 @@ function ensure_sig_vhd_exists() {
 		# shellcheck disable=SC3010
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-				if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+				# This path must be used for images that are built on VMs with TrustedLaunch enabled (e.g. images that ONLY are designed to run on VMs with TrustedLaunch enabled).
+				# At the time of writing, all "TL" images are built using the "Standard" security type, and thus can be snapshotted into image definitions with the "TrustedLaunchSupported" security type.
+				# TODO: revisit whether we can remove this image definition creation path if we plan on continuing to always build trusted launch capable images on standard VMs.
+				if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 						--gallery-name ${SIG_GALLERY_NAME} \
@@ -464,6 +544,19 @@ function ensure_sig_vhd_exists() {
 						--location ${AZURE_LOCATION} \
 						--architecture Arm64 \
 						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+				elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--architecture Arm64 \
+						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
 				else
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -505,7 +598,10 @@ function ensure_sig_vhd_exists() {
 			fi
 		else
 			# TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
-			if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+			# This path must be used for images that are built on VMs with TrustedLaunch enabled (e.g. images that ONLY are designed to run on VMs with TrustedLaunch enabled).
+			# At the time of writing, all "TL" images are built using the "Standard" security type, and thus can be snapshotted into image definitions with the "TrustedLaunchSupported" security type.
+			# TODO: revisit whether we can remove this image definition creation path if we plan on continuing to always build trusted launch capable images on standard VMs.
+			if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 					--gallery-name ${SIG_GALLERY_NAME} \
@@ -517,6 +613,18 @@ function ensure_sig_vhd_exists() {
 					--hyper-v-generation ${HYPERV_GENERATION} \
 					--location ${AZURE_LOCATION} \
 					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+			elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION} \
+					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
 			else
 				# For vanilla Gen2, mark only NVMe
 				az sig image-definition create \

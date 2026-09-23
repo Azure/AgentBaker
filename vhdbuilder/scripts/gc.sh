@@ -54,7 +54,9 @@ function delete_group() {
         return 0
     fi
 
-    az group delete -g $group --yes --no-wait || return $?
+    if ! az group delete -g $group --yes --no-wait; then
+        echo "failed to delete resource group: ${group}, continuing..."
+    fi
 }
 
 main "$@"

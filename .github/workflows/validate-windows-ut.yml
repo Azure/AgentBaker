@@ -1,6 +1,13 @@
 name: Windows Powershell Unit Test
 on: pull_request
 
+# Cancel a superseded run when a new commit is pushed to the same PR, so its (now stale)
+# results never race the newer push's publisher for the test-results/coverage comments - see
+# windows-ut-publish.yml for the belt-and-braces check on the publishing side too.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # To run these tests on a Windows machine, you can use the commands below. However, most people have their git repo
 # stored in WSL. So you'll need to change directory to whereever you have the repo checked out in WSL. Something like this:
 # cd \\wsl$\Ubuntu\home\tim\git\AgentBaker
@@ -9,21 +16,127 @@ jobs:
   pester-test:
     name: Pester test
     runs-on: windows-latest
+    permissions:
+      contents: read
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
-      - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
-        shell: powershell
-        run: |
-          Invoke-Pester parts/windows/*.tests.ps1 -Passthru
-      - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
+          persist-credentials: false
+
+      - name: Setup
         shell: pwsh
         run: |
-          Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru
-      - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
-        shell: powershell
+
+          Get-Module -ListAvailable -Name Pester
+
+          if (-not (Test-Path test-results)) { New-Item -ItemType Directory -Force test-results | Out-Null }
+          if (-not (Test-Path coverage)) { New-Item -ItemType Directory -Force coverage | Out-Null }
+          Install-Module -Name powershell-yaml -Scope CurrentUser -Force
+
+      - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
+        if: (!cancelled())
+        shell: pwsh
         run: |
-          Install-Module -Name powershell-yaml -Force
-          Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru
+
+          $config = New-PesterConfiguration
+          $config.Run.Path = "parts/windows/"
+          $config.Run.PassThru = $true
+          #$config.CodeCoverage.CoveragePercentTarget = 80
+          $config.CodeCoverage.OutputPath = "coverage/parts_windows.xml"
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.ExcludeTests = $true
+          $config.CodeCoverage.OutputFormat = "Cobertura"
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = "JUnitXml"
+          $config.TestResult.OutputPath = "test-results/parts_windows.xml"
+
+          # Because you're looking here, you might want to know how to run a single test. Add "-Tag Focus" to
+          # the test, then set this filter to only run tests with that tag. Don't forget to remove the tag and
+          # filter when you're done!
+          # $config.Filter.Tag = "Focus"
+
+          $result = Invoke-Pester -Configuration $config
+
+          $result
+          $result.Failed | Format-Table
+
+      - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
+        if: (!cancelled())
+        shell: pwsh
+        run: |
+
+          $config = New-PesterConfiguration
+          # Also runs windows-files-check.tests.ps1, which lives under vhdbuilder/packer/test/
+          # (colocated with the windows-files-check.ps1 script it tests) rather than under
+          # vhdbuilder/packer/windows/ - include it explicitly so it's not silently skipped by CI.
+          $config.Run.Path = @("vhdbuilder/packer/windows/", "vhdbuilder/packer/test/windows-files-check.tests.ps1", "vhdbuilder/packer/test/windows-vhd-content-test.tests.ps1")
+          $config.Run.PassThru = $true
+          #$config.CodeCoverage.CoveragePercentTarget = 80
+          $config.CodeCoverage.OutputPath = "coverage/vhdbuilder_packer_windows.xml"
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.ExcludeTests = $true
+          $config.CodeCoverage.OutputFormat = "Cobertura"
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = "JUnitXml"
+          $config.TestResult.OutputPath = "test-results/vhdbuilder_packer_windows.xml"
+
+          # Because you're looking here, you might want to know how to run a single test. Add "-Tag Focus" to
+          # the test, then set this filter to only run tests with that tag. Don't forget to remove the tag and
+          # filter when you're done!
+          # $config.Filter.Tag = "Focus"
+
+          $result = Invoke-Pester -Configuration $config
+
+          $result
+          $result.Failed | Format-Table
+
+      - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
+        if: (!cancelled())
+        shell: pwsh
+        run: |
+
+          $config = New-PesterConfiguration
+          $config.Run.Path = "staging/cse/windows/"
+          $config.Run.PassThru = $true
+          #$config.CodeCoverage.CoveragePercentTarget = 80
+          $config.CodeCoverage.OutputPath = "coverage/staging_cse_windows.xml"
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.ExcludeTests = $true
+          $config.CodeCoverage.OutputFormat = "Cobertura"
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = "JUnitXml"
+          $config.TestResult.OutputPath = "test-results/staging_cse_windows.xml"
+
+          # Because you're looking here, you might want to know how to run a single test. Add "-Tag Focus" to
+          # the test, then set this filter to only run tests with that tag. Don't forget to remove the tag and
+          # filter when you're done!
+          # $config.Filter.Tag = "Focus"
+
+          $result = Invoke-Pester -Configuration $config
+
+          $result
+          $result.Failed | Format-Table
+
+      # EnricoMi/publish-unit-test-result-action needs pull-requests: write (to post its
+      # summary comment) and checks: write (to create the check run). Keeping those scopes
+      # out of this job (which executes PR-controlled PowerShell) matters here: this repo
+      # only accepts PRs from branches within Azure/AgentBaker (no forks), so the "fork PRs
+      # get a read-only token" GitHub Actions safety net doesn't apply. Upload the test
+      # results (and Cobertura reports) as artifacts and publish both from
+      # windows-ut-publish.yml, a separate workflow_run-triggered workflow, instead - see
+      # that file for why this can't just be a second job here.
+      - name: Upload test results and coverage reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: (!cancelled())
+        with:
+          name: pester-coverage
+          # Whole directories, not globs: upload-artifact strips everything before the first
+          # wildcard in a glob (e.g. `coverage/*.xml` -> bare filenames), which would collide
+          # with `test-results/*.xml`'s bare filenames once both share one artifact. Directory
+          # paths instead use the least-common-ancestor rule, keeping both subtrees intact.
+          path: |
+            test-results/
+            coverage/
+          retention-days: 5

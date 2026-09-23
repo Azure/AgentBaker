@@ -1,0 +1,27 @@
+Release notes for security patch 20260524T000000Z timestamp
+Package difference between 20260511T000000Z and 20260524T000000Z
+
+Reboot required (kernel update)
+
+=== New Packages ===
+kernel  6.6.139.1-1.azl3  azurelinux-official-base
+
+=== Package Updates ===
+python3-urllib3  2.0.7-5.azl3  azurelinux-official-base
+postgresql-libs  16.14-1.azl3  azurelinux-official-base
+node-exporter-kubernetes  1.11.1-4.azl3  azurelinux-official-cloud-native
+libcap  2.69-15.azl3  azurelinux-official-base
+ig  0.52.0-5.azl3  azurelinux-official-cloud-native
+hyperv-daemons-license  6.6.139.1-1.azl3  azurelinux-official-base
+hypervvssd  6.6.139.1-1.azl3  azurelinux-official-base
+hypervkvpd  6.6.139.1-1.azl3  azurelinux-official-base
+hypervfcopyd  6.6.139.1-1.azl3  azurelinux-official-base
+hyperv-daemons  6.6.139.1-1.azl3  azurelinux-official-base
+gnutls  3.8.3-9.azl3  azurelinux-official-base
+glibc  2.38-20.azl3  azurelinux-official-base
+binutils-devel  2.41-12.azl3  azurelinux-official-base
+binutils  2.41-12.azl3  azurelinux-official-base
+bind-utils  9.20.23-1.azl3  azurelinux-official-base
+bind-license  9.20.23-1.azl3  azurelinux-official-base
+bind-libs  9.20.23-1.azl3  azurelinux-official-base
+azurelinux-release  3.0-44.azl3  azurelinux-official-base

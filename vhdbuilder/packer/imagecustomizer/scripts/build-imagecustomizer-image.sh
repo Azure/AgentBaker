@@ -51,8 +51,8 @@ if [ ! -f "$BUILD_DIR/$CONFIG/image.vhdx" ]; then
         --interactive \
         --privileged=true \
         -v "$BUILD_DIR:/container/build" \
-        $IMG_CUSTOMIZER_CONTAINER:$IMG_CUSTOMIZER_VERSION \
-        oras pull $BASE_IMAGE_ORAS -o /container/build/$CONFIG
+        mcr.microsoft.com/azurelinux/base/core:3.0 \
+        sh -c "tdnf install -y oras && oras pull $BASE_IMAGE_ORAS -o /container/build/$CONFIG"
 else
     echo "Base image already exists, skipping pull."
 fi

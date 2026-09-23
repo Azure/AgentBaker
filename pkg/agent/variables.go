@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -31,6 +30,11 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"provisionInstallsFlatcar":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstallFlatcar, config),
 			"provisionInstallsACL":                  getBase64EncodedGzippedCustomScript(kubernetesCSEInstallACL, config),
 			"provisionConfigs":                      getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
+			"provisionConfigsGPU":                   getBase64EncodedGzippedCustomScript(kubernetesCSEConfigGPU, config),
+			"provisionConfigsLocalDNS":              getBase64EncodedGzippedCustomScript(kubernetesCSEConfigLocalDNS, config),
+			"provisionConfigsKubelet":               getBase64EncodedGzippedCustomScript(kubernetesCSEConfigKubelet, config),
+			"provisionConfigsNetwork":               getBase64EncodedGzippedCustomScript(kubernetesCSEConfigNetwork, config),
+			"provisionConfigsAddons":                getBase64EncodedGzippedCustomScript(kubernetesCSEConfigAddons, config),
 			"provisionSendLogs":                     getBase64EncodedGzippedCustomScript(kubernetesCSESendLogs, config),
 			"provisionRedactCloudConfig":            getBase64EncodedGzippedCustomScript(kubernetesCSERedactCloudConfig, config),
 			"customSearchDomainsScript":             getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
@@ -64,24 +68,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap) //nolint:errcheck // no error is actually here
-	if cs.IsAKSCustomCloud() {
-		switch {
-		// AGC still uses the old initAKSCustomCloudScript logic to grab certificates from WireServer
-		// TODO: align initializtion script logic for all clouds (such as Bleu) when able
-		case datamodel.GetCloudTargetEnv(cs.Location) == datamodel.USSecCloud || datamodel.GetCloudTargetEnv(cs.Location) == datamodel.USNatCloud:
-			if config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU) {
-				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
-			} else {
-				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
-			}
-		default: // covers all custom clouds other than USSecCloud and USNatCloud, such as Bleu
-			if config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU) {
-				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudOperationRequestsMarinerScript, config)
-			} else {
-				cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudOperationRequestsScript, config)
-			}
-		}
-	}
+	cloudInitData["initAKSCloud"] = getBase64EncodedGzippedCustomScript(initAKSCloudScript, config)
 
 	if config.IsFlatcar() || config.IsACL() {
 		cloudInitData["provisionRedactCloudConfig"] = "" // Flatcar and ACL do not have cloud-init
@@ -104,6 +91,18 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
+	httpProxy, httpsProxy, noProxy := "", "", ""
+	if config.HTTPProxyConfig != nil {
+		if config.HTTPProxyConfig.HTTPProxy != nil {
+			httpProxy = *config.HTTPProxyConfig.HTTPProxy
+		}
+		if config.HTTPProxyConfig.HTTPSProxy != nil {
+			httpsProxy = *config.HTTPProxyConfig.HTTPSProxy
+		}
+		if config.HTTPProxyConfig.NoProxy != nil {
+			noProxy = strings.Join(*config.HTTPProxyConfig.NoProxy, ",")
+		}
+	}
 
 	// this method is called for both windows and linux. If there's no windows profile, then let's just
 	// use a blank one.
@@ -141,8 +140,9 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"sgxNode":                                strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"configGPUDriverIfNeeded":                config.ConfigGPUDriverIfNeeded,
 		"enableGPUDevicePluginIfNeeded":          config.EnableGPUDevicePluginIfNeeded,
-		"migNode":                                strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
+		"migNode":                                strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile, config.MIGProfileLayout)),
 		"gpuInstanceProfile":                     config.GPUInstanceProfile,
+		"migProfileLayout":                       strings.Join(config.MIGProfileLayout, ","),
 		"windowsEnableCSIProxy":                  windowsProfile.IsCSIProxyEnabled(),
 		"windowsPauseImageURL":                   windowsProfile.WindowsPauseImageURL,
 		"windowsCSIProxyURL":                     windowsProfile.CSIProxyURL,
@@ -161,6 +161,9 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"serviceAccountImagePullDefaultClientID": getServiceAccountImagePullDefaultClientID(cs),
 		"serviceAccountImagePullDefaultTenantID": getServiceAccountImagePullDefaultTenantID(cs),
 		"identityBindingsLocalAuthoritySNI":      getServiceAccountImagePullLocalAuthoritySNI(cs),
+		"httpProxyShellQuoted":                   shellQuote(httpProxy),
+		"httpsProxyShellQuoted":                  shellQuote(httpsProxy),
+		"noProxyShellQuoted":                     shellQuote(noProxy),
 	}
 }
 
@@ -246,20 +249,19 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	return connectivityCheckCommand
 }
 
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
+}
+
 func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
-	proxyVars := ""
-	if nbc.HTTPProxyConfig != nil {
-		if nbc.HTTPProxyConfig.HTTPProxy != nil {
-			// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-			proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", *nbc.HTTPProxyConfig.HTTPProxy)
-		}
-		if nbc.HTTPProxyConfig.HTTPSProxy != nil {
-			proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
-		}
-		if nbc.HTTPProxyConfig.NoProxy != nil {
-			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
-		}
+	if nbc.HTTPProxyConfig == nil ||
+		(nbc.HTTPProxyConfig.HTTPProxy == nil && nbc.HTTPProxyConfig.HTTPSProxy == nil && nbc.HTTPProxyConfig.NoProxy == nil) {
+		return ""
 	}
-	return proxyVars
+
+	// Older VHDs evaluate PROXY_VARS. Keep this payload free of customer-controlled values;
+	// those values are shell-quoted separately and referenced only through variables here.
+	return `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi; ` +
+		`if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi; ` +
+		`if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi`
 }

@@ -16,8 +16,15 @@ e2e/scenario-logs
 **/vhd-publishing-info.json
 out/
 build/
+coverage/
+test-results/
+.devcontainer/devcontainer-lock.json
+.copilot-tracking/
 
 test/junit/
+coverage/
+coverage.xml
+test-results/
 test/e2e/kubernetes/junit.xml
 _logs/
 *.swp
@@ -27,6 +34,9 @@ cmd/_test_output
 *.test
 *.coverprofile
 **/junit.xml
+test-results
+coverage
+staging/cse/windows/containerdfunc.tests.suites
 
 .idea
 .vs

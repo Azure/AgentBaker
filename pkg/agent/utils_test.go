@@ -4,7 +4,15 @@
 package agent
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -18,35 +26,34 @@ import (
 
 func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	kc := map[string]string{
-		"--address":                           "0.0.0.0",
-		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-		"--cluster-domain":                    "cluster.local",
-		"--cluster-dns":                       "10.0.0.10",
-		"--cgroups-per-qos":                   "true",
-		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-		"--max-pods":                          "110",
-		"--node-status-update-frequency":      "10s",
-		"--image-gc-high-threshold":           "85",
-		"--image-gc-low-threshold":            "80",
-		"--event-qps":                         "0",
-		"--pod-max-pids":                      "-1",
-		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
-		"--rotate-certificates":               "true",
-		"--rotate-server-certificates":        "true",
-		"--read-only-port":                    "10255",
-		"--protect-kernel-defaults":           "true",
-		"--resolv-conf":                       "/etc/resolv.conf",
-		"--anonymous-auth":                    "false",
-		"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-		"--authentication-token-webhook":      "true",
-		"--authorization-mode":                "Webhook",
-		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
-		"--system-reserved":                   "cpu=2,memory=1Gi",
-		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+		"--address":                      "0.0.0.0",
+		"--pod-manifest-path":            "/etc/kubernetes/manifests",
+		"--cluster-domain":               "cluster.local",
+		"--cluster-dns":                  "10.0.0.10",
+		"--cgroups-per-qos":              "true",
+		"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
+		"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
+		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--max-pods":                     "110",
+		"--node-status-update-frequency": "10s",
+		"--image-gc-high-threshold":      "85",
+		"--image-gc-low-threshold":       "80",
+		"--event-qps":                    "0",
+		"--pod-max-pids":                 "-1",
+		"--enforce-node-allocatable":     "pods",
+		"--rotate-certificates":          "true",
+		"--rotate-server-certificates":   "true",
+		"--read-only-port":               "10255",
+		"--protect-kernel-defaults":      "true",
+		"--resolv-conf":                  "/etc/resolv.conf",
+		"--anonymous-auth":               "false",
+		"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+		"--authentication-token-webhook": "true",
+		"--authorization-mode":           "Webhook",
+		"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+		"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", // what if you turn off dynamic kubelet using dynamic kubelet?
+		"--system-reserved":              "cpu=2,memory=1Gi",
+		"--kube-reserved":                "cpu=100m,memory=1638Mi",
 	}
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
@@ -69,73 +76,161 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	}
 }
 
+func TestGetKubeletConfigFileContentDoesNotActivateFlagMigration(t *testing.T) {
+	flags := map[string]string{
+		"--max-pods":                   "110",
+		"--enable-server":              "false",
+		"--volume-plugin-dir":          "/etc/kubernetes/volumeplugins",
+		"--cgroup-driver":              "systemd",
+		"--runtime-request-timeout":    "0s",
+		"--container-runtime-endpoint": "unix:///run/containerd/containerd.sock",
+		"--register-with-taints":       "workload=batch:NoSchedule",
+		"--hairpin-mode":               "promiscuous-bridge",
+	}
+	want := GetKubeletConfigFileContent(map[string]string{"--max-pods": "110"}, nil)
+	assert.Equal(t, want, GetKubeletConfigFileContent(flags, nil))
+}
+
+func TestGetKubeletConfigFileContent_MergesFlagsWithoutOverwritingContent(t *testing.T) {
+	kc := map[string]string{
+		"--image-gc-high-threshold": "85",
+		"--max-pods":                "110",
+	}
+	customKc := &datamodel.CustomKubeletConfig{
+		ImageGcHighThreshold: to.Int32Ptr(90),
+	}
+
+	configFileStr := GetKubeletConfigFileContent(kc, customKc)
+
+	var merged datamodel.AKSKubeletConfiguration
+	err := json.Unmarshal([]byte(configFileStr), &merged)
+	if err != nil {
+		t.Fatalf("failed to parse generated kubelet config json: %v", err)
+	}
+
+	if merged.ImageGCHighThresholdPercent == nil || *merged.ImageGCHighThresholdPercent != 90 {
+		t.Fatalf("expected content value to win for imageGCHighThresholdPercent, got %v", merged.ImageGCHighThresholdPercent)
+	}
+	if merged.MaxPods != 110 {
+		t.Fatalf("expected missing content field maxPods to be backfilled from flags, got %v", merged.MaxPods)
+	}
+}
+
+// TestGetKubeletConfigFileContent_PrecedenceRules validates precedence when generating kubelet config file content:
+// Priority 1 (highest): CustomKubeletConfig — user-specified values via AKS API.
+// Priority 2: KubeletConfig flags — RP-provided defaults, backfills fields not set by CustomKC.
+// Priority 3: kubelet v1beta1 defaults — applied by kubelet for remaining unset fields.
+func TestGetKubeletConfigFileContent_PrecedenceRules(t *testing.T) {
+	kc := map[string]string{
+		"--image-gc-high-threshold": "85",
+		"--image-gc-low-threshold":  "80",
+		"--max-pods":                "110",
+		"--event-qps":               "0",
+		"--cluster-dns":             "172.16.0.10",
+		"--eviction-hard":           "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+	}
+	customKc := &datamodel.CustomKubeletConfig{
+		ImageGcHighThreshold: to.Int32Ptr(90), // conflicts with flag value 85
+		ImageGcLowThreshold:  to.Int32Ptr(70), // conflicts with flag value 80
+		// maxPods, eventRecordQPS, clusterDNS, evictionHard NOT set — must come from flags
+	}
+
+	configFileStr := GetKubeletConfigFileContent(kc, customKc)
+
+	var merged datamodel.AKSKubeletConfiguration
+	err := json.Unmarshal([]byte(configFileStr), &merged)
+	if err != nil {
+		t.Fatalf("failed to parse generated kubelet config json: %v", err)
+	}
+
+	// Priority 1: CustomKC wins over flags when both set the same field.
+	if merged.ImageGCHighThresholdPercent == nil || *merged.ImageGCHighThresholdPercent != 90 {
+		t.Errorf("Priority 1 violated: expected imageGCHighThresholdPercent=90 (CustomKC), got %v", merged.ImageGCHighThresholdPercent)
+	}
+	if merged.ImageGCLowThresholdPercent == nil || *merged.ImageGCLowThresholdPercent != 70 {
+		t.Errorf("Priority 1 violated: expected imageGCLowThresholdPercent=70 (CustomKC), got %v", merged.ImageGCLowThresholdPercent)
+	}
+
+	// Priority 2: Flags backfill fields not set by CustomKC.
+	if merged.MaxPods != 110 {
+		t.Errorf("Priority 2 violated: expected maxPods=110 (from flags), got %v", merged.MaxPods)
+	}
+	if merged.EventRecordQPS == nil || *merged.EventRecordQPS != 0 {
+		t.Errorf("Priority 2 violated: expected eventRecordQPS=0 (from flags), got %v", merged.EventRecordQPS)
+	}
+	if len(merged.ClusterDNS) == 0 || merged.ClusterDNS[0] != "172.16.0.10" {
+		t.Errorf("Priority 2 violated: expected clusterDNS=[172.16.0.10] (from flags), got %v", merged.ClusterDNS)
+	}
+	if merged.EvictionHard == nil || merged.EvictionHard["memory.available"] != "750Mi" {
+		t.Errorf("Priority 2 violated: expected evictionHard to be backfilled from flags, got %v", merged.EvictionHard)
+	}
+}
+
 func getExampleKcWithNodeStatusReportFrequency() map[string]string {
 	kc := map[string]string{
-		"--address":                           "0.0.0.0",
-		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-		"--cluster-domain":                    "cluster.local",
-		"--cluster-dns":                       "10.0.0.10",
-		"--cgroups-per-qos":                   "true",
-		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-		"--max-pods":                          "110",
-		"--node-status-update-frequency":      "10s",
-		"--node-status-report-frequency":      "5m0s",
-		"--image-gc-high-threshold":           "85",
-		"--image-gc-low-threshold":            "80",
-		"--event-qps":                         "0",
-		"--pod-max-pids":                      "-1",
-		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
-		"--rotate-certificates":               "true",
-		"--read-only-port":                    "10255",
-		"--protect-kernel-defaults":           "true",
-		"--resolv-conf":                       "/etc/resolv.conf",
-		"--anonymous-auth":                    "false",
-		"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-		"--authentication-token-webhook":      "true",
-		"--authorization-mode":                "Webhook",
-		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false",
-		"--system-reserved":                   "cpu=2,memory=1Gi",
-		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+		"--address":                      "0.0.0.0",
+		"--pod-manifest-path":            "/etc/kubernetes/manifests",
+		"--cluster-domain":               "cluster.local",
+		"--cluster-dns":                  "10.0.0.10",
+		"--cgroups-per-qos":              "true",
+		"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
+		"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
+		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--max-pods":                     "110",
+		"--node-status-update-frequency": "10s",
+		"--node-status-report-frequency": "5m0s",
+		"--image-gc-high-threshold":      "85",
+		"--image-gc-low-threshold":       "80",
+		"--event-qps":                    "0",
+		"--pod-max-pids":                 "-1",
+		"--enforce-node-allocatable":     "pods",
+		"--rotate-certificates":          "true",
+		"--read-only-port":               "10255",
+		"--protect-kernel-defaults":      "true",
+		"--resolv-conf":                  "/etc/resolv.conf",
+		"--anonymous-auth":               "false",
+		"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+		"--authentication-token-webhook": "true",
+		"--authorization-mode":           "Webhook",
+		"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+		"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false",
+		"--system-reserved":              "cpu=2,memory=1Gi",
+		"--kube-reserved":                "cpu=100m,memory=1638Mi",
 	}
 	return kc
 }
 
 func getExampleKcWithContainerLogMaxSize() map[string]string {
 	kc := map[string]string{
-		"--address":                           "0.0.0.0",
-		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-		"--cluster-domain":                    "cluster.local",
-		"--cluster-dns":                       "10.0.0.10",
-		"--cgroups-per-qos":                   "true",
-		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-		"--max-pods":                          "110",
-		"--node-status-update-frequency":      "10s",
-		"--image-gc-high-threshold":           "85",
-		"--image-gc-low-threshold":            "80",
-		"--event-qps":                         "0",
-		"--pod-max-pids":                      "-1",
-		"--enforce-node-allocatable":          "pods",
-		"--streaming-connection-idle-timeout": "4h0m0s",
-		"--rotate-certificates":               "true",
-		"--rotate-server-certificates":        "true",
-		"--read-only-port":                    "10255",
-		"--protect-kernel-defaults":           "true",
-		"--resolv-conf":                       "/etc/resolv.conf",
-		"--anonymous-auth":                    "false",
-		"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-		"--authentication-token-webhook":      "true",
-		"--authorization-mode":                "Webhook",
-		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false",
-		"--system-reserved":                   "cpu=2,memory=1Gi",
-		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
-		"--container-log-max-size":            "50M",
+		"--address":                      "0.0.0.0",
+		"--pod-manifest-path":            "/etc/kubernetes/manifests",
+		"--cluster-domain":               "cluster.local",
+		"--cluster-dns":                  "10.0.0.10",
+		"--cgroups-per-qos":              "true",
+		"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
+		"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
+		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--max-pods":                     "110",
+		"--node-status-update-frequency": "10s",
+		"--image-gc-high-threshold":      "85",
+		"--image-gc-low-threshold":       "80",
+		"--event-qps":                    "0",
+		"--pod-max-pids":                 "-1",
+		"--enforce-node-allocatable":     "pods",
+		"--rotate-certificates":          "true",
+		"--rotate-server-certificates":   "true",
+		"--read-only-port":               "10255",
+		"--protect-kernel-defaults":      "true",
+		"--resolv-conf":                  "/etc/resolv.conf",
+		"--anonymous-auth":               "false",
+		"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+		"--authentication-token-webhook": "true",
+		"--authorization-mode":           "Webhook",
+		"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+		"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false",
+		"--system-reserved":              "cpu=2,memory=1Gi",
+		"--kube-reserved":                "cpu=100m,memory=1638Mi",
+		"--container-log-max-size":       "50M",
 	}
 	return kc
 }
@@ -178,7 +273,6 @@ var expectedKubeletJSON = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -259,7 +353,6 @@ var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "nodeStatusReportFrequency": "5m0s",
     "imageGCHighThresholdPercent": 90,
@@ -339,7 +432,6 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -506,6 +598,197 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 	}
 }
 
+func TestGetKubeletConfigFileNodeMemoryHardeningFields(t *testing.T) {
+	// Verifies AgentBaker renders the new Node Memory Hardening kubelet args
+	// (soft eviction + cgroup tiering) into the generated kubelet config file.
+	// Uses JSON unmarshaling rather than a brittle text snapshot so that future
+	// non-related additions to AKSKubeletConfiguration do not break this test.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+	kc["--eviction-soft"] = "memory.available<500Mi,nodefs.available<15%,imagefs.available<20%"
+	kc["--eviction-soft-grace-period"] = "memory.available=30s,nodefs.available=2m,imagefs.available=2m"
+	kc["--eviction-max-pod-grace-period"] = "60"
+	kc["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
+	kc["--kube-reserved-cgroup"] = "/kubereserved.slice"
+	kc["--system-reserved-cgroup"] = "/system.slice"
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	var got struct {
+		EvictionSoft              map[string]string `json:"evictionSoft"`
+		EvictionSoftGracePeriod   map[string]string `json:"evictionSoftGracePeriod"`
+		EvictionMaxPodGracePeriod int32             `json:"evictionMaxPodGracePeriod"`
+		EnforceNodeAllocatable    []string          `json:"enforceNodeAllocatable"`
+		KubeReservedCgroup        string            `json:"kubeReservedCgroup"`
+		SystemReservedCgroup      string            `json:"systemReservedCgroup"`
+	}
+	if err := json.Unmarshal([]byte(configFileStr), &got); err != nil {
+		t.Fatalf("failed to unmarshal generated kubelet config: %v\nconfig: %s", err, configFileStr)
+	}
+
+	wantSoft := map[string]string{
+		"memory.available":  "500Mi",
+		"nodefs.available":  "15%",
+		"imagefs.available": "20%",
+	}
+	if diff := cmp.Diff(wantSoft, got.EvictionSoft); diff != "" {
+		t.Errorf("evictionSoft mismatch (-want +got):\n%s", diff)
+	}
+
+	wantSoftGrace := map[string]string{
+		"memory.available":  "30s",
+		"nodefs.available":  "2m",
+		"imagefs.available": "2m",
+	}
+	if diff := cmp.Diff(wantSoftGrace, got.EvictionSoftGracePeriod); diff != "" {
+		t.Errorf("evictionSoftGracePeriod mismatch (-want +got):\n%s", diff)
+	}
+
+	if got.EvictionMaxPodGracePeriod != 60 {
+		t.Errorf("evictionMaxPodGracePeriod=%d, want 60", got.EvictionMaxPodGracePeriod)
+	}
+
+	wantEnforce := []string{"pods", "kube-reserved", "system-reserved"}
+	if diff := cmp.Diff(wantEnforce, got.EnforceNodeAllocatable); diff != "" {
+		t.Errorf("enforceNodeAllocatable mismatch (-want +got):\n%s", diff)
+	}
+
+	if got.KubeReservedCgroup != "/kubereserved.slice" {
+		t.Errorf("kubeReservedCgroup=%q, want %q", got.KubeReservedCgroup, "/kubereserved.slice")
+	}
+	if got.SystemReservedCgroup != "/system.slice" {
+		t.Errorf("systemReservedCgroup=%q, want %q", got.SystemReservedCgroup, "/system.slice")
+	}
+}
+
+func TestSetNodeHardeningCgroupFlags(t *testing.T) {
+	// AgentBaker, not the RP, must own the cgroup slice names: it overwrites
+	// --kube-reserved-cgroup/--system-reserved-cgroup based solely on whether
+	// --enforce-node-allocatable signals hardening is on, regardless of any
+	// (possibly stale or wrong) value the RP put on those two keys directly.
+	cases := []struct {
+		name                     string
+		enforceNodeAllocatable   string
+		rpKubeReservedCgroup     string
+		rpSystemReservedCgroup   string
+		wantKubeReservedCgroup   string
+		wantSystemReservedCgroup string
+	}{
+		{
+			name:                     "hardening enabled overwrites RP-supplied legacy value",
+			enforceNodeAllocatable:   "pods,kube-reserved,system-reserved",
+			rpKubeReservedCgroup:     "/kubelet.slice", // stale/legacy value the RP might still send
+			rpSystemReservedCgroup:   "/system.slice",
+			wantKubeReservedCgroup:   "/kubereserved.slice",
+			wantSystemReservedCgroup: "/system.slice",
+		},
+		{
+			name:                     "hardening enabled with no RP value set",
+			enforceNodeAllocatable:   "pods,kube-reserved,system-reserved",
+			wantKubeReservedCgroup:   "/kubereserved.slice",
+			wantSystemReservedCgroup: "/system.slice",
+		},
+		{
+			name:                     "hardening disabled clears any stale RP value",
+			enforceNodeAllocatable:   "pods",
+			rpKubeReservedCgroup:     "/kubereserved.slice",
+			rpSystemReservedCgroup:   "/system.slice",
+			wantKubeReservedCgroup:   "",
+			wantSystemReservedCgroup: "",
+		},
+		{
+			name:                     "hardening flags absent entirely",
+			wantKubeReservedCgroup:   "",
+			wantSystemReservedCgroup: "",
+		},
+		{
+			name:                     "hardening enabled with bracketed list format",
+			enforceNodeAllocatable:   "[pods,kube-reserved,system-reserved]",
+			wantKubeReservedCgroup:   "/kubereserved.slice",
+			wantSystemReservedCgroup: "/system.slice",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			kubeletFlags := map[string]string{}
+			if c.enforceNodeAllocatable != "" {
+				kubeletFlags["--enforce-node-allocatable"] = c.enforceNodeAllocatable
+			}
+			if c.rpKubeReservedCgroup != "" {
+				kubeletFlags["--kube-reserved-cgroup"] = c.rpKubeReservedCgroup
+			}
+			if c.rpSystemReservedCgroup != "" {
+				kubeletFlags["--system-reserved-cgroup"] = c.rpSystemReservedCgroup
+			}
+
+			setNodeHardeningCgroupFlags(kubeletFlags)
+
+			if got := kubeletFlags["--kube-reserved-cgroup"]; got != c.wantKubeReservedCgroup {
+				t.Errorf("--kube-reserved-cgroup=%q, want %q", got, c.wantKubeReservedCgroup)
+			}
+			if got := kubeletFlags["--system-reserved-cgroup"]; got != c.wantSystemReservedCgroup {
+				t.Errorf("--system-reserved-cgroup=%q, want %q", got, c.wantSystemReservedCgroup)
+			}
+		})
+	}
+}
+
+func TestGetKubeletConfigFileNodeMemoryHardeningFieldsOmittedByDefault(t *testing.T) {
+	// Backward-compat: when the RP does not pass the new flags, the generated
+	// kubelet config must NOT contain the new fields. This guards the 6-month
+	// VHD support window — non-hardened pools must see no change to these fields.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	for _, field := range []string{
+		`"evictionSoft"`,
+		`"evictionSoftGracePeriod"`,
+		`"evictionMaxPodGracePeriod"`,
+		`"kubeReservedCgroup"`,
+		`"systemReservedCgroup"`,
+	} {
+		if strings.Contains(configFileStr, field) {
+			t.Errorf("expected %s to be omitted from kubelet config when not set, got:\n%s", field, configFileStr)
+		}
+	}
+}
+
+func TestGetKubeletConfigFileFiltersUnknownEvictionSignals(t *testing.T) {
+	// Kubelet only accepts a fixed set of eviction signals; any unknown key would
+	// cause it to fail to start. Verify we drop unknowns from --eviction-hard,
+	// --eviction-soft, and --eviction-soft-grace-period before rendering.
+	kc := getExampleKcWithNodeStatusReportFrequency()
+	kc["--eviction-hard"] = "memory.available<750Mi,bogus.signal<1Gi,nodefs.available<10%"
+	kc["--eviction-soft"] = "memory.available<500Mi,not-a-signal<1Gi"
+	kc["--eviction-soft-grace-period"] = "memory.available=30s,not-a-signal=1m"
+
+	configFileStr := GetKubeletConfigFileContent(kc, nil)
+
+	var got struct {
+		EvictionHard            map[string]string `json:"evictionHard"`
+		EvictionSoft            map[string]string `json:"evictionSoft"`
+		EvictionSoftGracePeriod map[string]string `json:"evictionSoftGracePeriod"`
+	}
+	if err := json.Unmarshal([]byte(configFileStr), &got); err != nil {
+		t.Fatalf("failed to unmarshal generated kubelet config: %v\nconfig: %s", err, configFileStr)
+	}
+
+	for _, m := range []map[string]string{got.EvictionHard, got.EvictionSoft, got.EvictionSoftGracePeriod} {
+		for _, bad := range []string{"bogus.signal", "not-a-signal"} {
+			if _, present := m[bad]; present {
+				t.Errorf("expected unknown eviction signal %q to be filtered, got map %v", bad, m)
+			}
+		}
+	}
+	if _, ok := got.EvictionHard["memory.available"]; !ok {
+		t.Errorf("expected memory.available in evictionHard, got %v", got.EvictionHard)
+	}
+	if _, ok := got.EvictionSoft["memory.available"]; !ok {
+		t.Errorf("expected memory.available in evictionSoft, got %v", got.EvictionSoft)
+	}
+}
+
 func TestIsTLSBootstrappingEnabledWithHardCodedToken(t *testing.T) {
 	cases := []struct {
 		tlsBootstrapToken *string
@@ -555,6 +838,33 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 	}
 }
 
+func TestGetCloudTargetEnv(t *testing.T) {
+	cases := []struct {
+		location string
+		expected string
+	}{
+		{location: "chinaeast", expected: "AzureChinaCloud"},
+		{location: "chinanorth2", expected: "AzureChinaCloud"},
+		{location: "germanynortheast", expected: "AzureGermanCloud"},
+		{location: "germanycentral", expected: "AzureGermanCloud"},
+		{location: "usgovvirginia", expected: "AzureUSGovernmentCloud"},
+		{location: "usdodcentral", expected: "AzureUSGovernmentCloud"},
+		{location: "bleufrancecentral", expected: "AzureBleuCloud"},
+		{location: "deloseast", expected: "AzureGermanyCloud"},
+		{location: "singaporenorth", expected: "AzureSingaporeCloud"},
+		{location: "Singapore North", expected: "AzureSingaporeCloud"},
+		{location: "westus2", expected: "AzurePublicCloud"},
+		{location: "", expected: "AzurePublicCloud"},
+	}
+
+	for _, c := range cases {
+		actual := GetCloudTargetEnv(c.location)
+		if actual != c.expected {
+			t.Errorf("GetCloudTargetEnv(%q): expected=%s, actual=%s", c.location, c.expected, actual)
+		}
+	}
+}
+
 var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 	It("should return expected kubelet config when custom configuration is not set", func() {
 		config := &datamodel.NodeBootstrappingConfiguration{
@@ -573,7 +883,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 		actucalStr := GetOrderedKubeletConfigFlagString(config)
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s "
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s"
 		Expect(expectStr).To(Equal(actucalStr))
 	})
 
@@ -593,9 +903,8 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
 							"kubelet": {
 								Config: map[string]string{
-									"--node-status-update-frequency":      "20s",
-									"--streaming-connection-idle-timeout": "4h0m0s",
-									"--seccomp-default":                   "true",
+									"--node-status-update-frequency": "20s",
+									"--seccomp-default":              "true",
 								},
 							},
 						},
@@ -606,7 +915,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true --streaming-connection-idle-timeout=4h0m0s "
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true"
 		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
@@ -634,7 +943,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 
-		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus "
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus"
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
@@ -669,7 +978,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			},
 		}
 
-		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true "
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true"
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
@@ -690,7 +999,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 
 	It("When cse output format is correct and contains call known fields", func() {
 		testMessage := `{"ExitCode": "51", "Output": "test", "Error": "",
-		"ExecDuration": "39", "KernelStartTime": "kernel start time", 
+		"ExecDuration": "39", "KernelStartTime": "kernel start time",
 		"SystemdSummary": "systemd summary", "CSEStartTime": "cse start time",
 		"GuestAgentStartTime": "guest agent start time", "BootDatapoints": {"dp1": "1"}}`
 		var cseStatus datamodel.CSEStatus
@@ -733,7 +1042,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When Error is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "Error": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -749,7 +1058,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When SystemdSummary is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "SystemdSummary": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -765,7 +1074,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When GuestAgentStartTime is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "GuestAgentStartTime": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -773,7 +1082,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When BootDatapoints is missing", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": "39", "BootDatapoints": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -789,7 +1098,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("when ExecDuration is an integer", func() {
-		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		testMessage := `{ "ExitCode": "51", "Output": "test",
 		"Error": "", "ExecDuration": 39}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
@@ -837,3 +1146,665 @@ var _ = Describe("Test removeComments", func() {
 	})
 
 })
+
+// repoRoot returns the path to the AgentBaker repository root by walking up from the
+// current test file until we find go.mod. This avoids hard-coding absolute paths.
+func repoRoot() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("unable to determine test file path")
+	}
+	dir := filepath.Dir(filename)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			panic("could not find repo root (go.mod)")
+		}
+		dir = parent
+	}
+}
+
+// TestRemoveComments_ShellPatterns tests removeComments against realistic shell script
+// patterns that have historically caused issues, particularly patterns where '#' appears
+// inside string literals or in non-comment contexts.
+//
+// TestRemoveComments_ShellPatterns validates that removeComments correctly handles
+// various shell script patterns without breaking functional code.
+//
+// Background: removeComments is a "best-effort" comment stripper (utils.go:202) that runs on
+// all CSE shell scripts before template execution. It must not mangle code that contains
+// '#' characters in non-comment contexts (string literals, variable expansions, grep patterns).
+func TestRemoveComments_ShellPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "pure comment lines are removed",
+			input: strings.Join([]string{
+				"#!/bin/bash",
+				"# This is a comment",
+				"echo hello",
+				"## Another comment",
+				"echo world",
+			}, "\n"),
+			expected: strings.Join([]string{
+				"#!/bin/bash",
+				"echo hello",
+				"echo world",
+			}, "\n"),
+		},
+		{
+			name: "hash inside quoted grep pattern is preserved",
+			input: strings.Join([]string{
+				`    if grep -q "^#${mod} " /proc/modules 2>/dev/null; then`,
+				`        modprobe -r "$mod"`,
+				`    fi`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    if grep -q "^#${mod} " /proc/modules 2>/dev/null; then`,
+				`        modprobe -r "$mod"`,
+				`    fi`,
+			}, "\n"),
+		},
+		{
+			name: "trailing comments are trimmed but code is preserved",
+			input: strings.Join([]string{
+				`    local mod="$1" # module name`,
+				`    modprobe -r "$mod" # try to unload`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    local mod="$1" `,
+				`    modprobe -r "$mod" `,
+			}, "\n"),
+		},
+		{
+			name:     "shebang line is preserved",
+			input:    "#!/bin/bash\nset -euo pipefail",
+			expected: "#!/bin/bash\nset -euo pipefail",
+		},
+		{
+			name: "hash in variable expansion is not a comment",
+			input: strings.Join([]string{
+				`    local count=${#array[@]}`,
+				`    echo "${str#prefix}"`,
+				`    echo "${str##*/}"`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`    local count=${#array[@]}`,
+				`    echo "${str#prefix}"`,
+				`    echo "${str##*/}"`,
+			}, "\n"),
+		},
+		{
+			// Documents the DOA regression from PR #8475: a line starting with "# "
+			// inside a multi-line printf format string gets stripped by removeComments,
+			// breaking the script. The fix (PR #8486) was to not emit "# " lines from
+			// code. This test asserts the current (known-limitation) behavior.
+			name: "line starting with hash-space is stripped even inside string context",
+			input: strings.Join([]string{
+				`myFunc() {`,
+				`    local desc="$1"`,
+				`    printf '# %s\ninstall %s /bin/false\n' "$desc" "$mod"`,
+				`}`,
+			}, "\n"),
+			expected: strings.Join([]string{
+				`myFunc() {`,
+				`    local desc="$1"`,
+				`    printf '`,
+				`}`,
+			}, "\n"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := removeComments([]byte(tt.input))
+			if diff := cmp.Diff(tt.expected, string(result)); diff != "" {
+				t.Errorf("removeComments() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestCSEScriptRoundTrip exercises the full CSE assembly pipeline for each embedded shell
+// script: removeComments → gzip → base64 → base64-decode → gunzip, then validates:
+//   - byte-for-byte round-trip integrity (decoded output == stripped input)
+//   - bash -n syntax check on the decoded output (catches broken scripts)
+//
+// This exercises the comment-stripping and encoding stages of the production pipeline
+// in getBase64EncodedGzippedCustomScript() (pkg/agent/utils.go). The Go template
+// execution step is not included here since it requires a full NodeBootstrappingConfiguration.
+// The comment stripping happens BEFORE template execution, so the stripped output must
+// still be syntactically valid bash — a node cannot provision if any CSE script has a
+// syntax error after stripping.
+//
+// The script list is dynamically derived by parsing variables.go and const.go source
+// to find all .sh files passed to getBase64EncodedGzippedCustomScript(). If a new script
+// is added to the CSE pipeline, it is automatically covered by this test.
+func TestCSEScriptRoundTrip(t *testing.T) {
+	cseScripts := discoverCSEScripts(t)
+	if len(cseScripts) == 0 {
+		t.Fatal("no CSE scripts discovered — check variables.go and const.go parsing")
+	}
+	t.Logf("discovered %d CSE shell scripts", len(cseScripts))
+
+	artifactsDir := filepath.Join(repoRoot(), "parts")
+
+	for _, script := range cseScripts {
+		t.Run(filepath.Base(script), func(t *testing.T) {
+			decoded := cseRoundTrip(t, filepath.Join(artifactsDir, script))
+			cseValidateBashSyntax(t, script, decoded)
+		})
+	}
+}
+
+// discoverCSEScripts parses variables.go to find all constant names passed to
+// getBase64EncodedGzippedCustomScript(), then resolves those constants to file
+// paths from const.go, filtering to .sh files only.
+func discoverCSEScripts(t *testing.T) []string {
+	t.Helper()
+	root := repoRoot()
+
+	// Step 1: Read variables.go and extract constant names from getBase64EncodedGzippedCustomScript() calls
+	variablesPath := filepath.Join(root, "pkg", "agent", "variables.go")
+	variablesBytes, err := os.ReadFile(variablesPath)
+	if err != nil {
+		t.Fatalf("failed to read variables.go: %v", err)
+	}
+
+	// Match: getBase64EncodedGzippedCustomScript(constantName, config)
+	callRe := regexp.MustCompile(`getBase64EncodedGzippedCustomScript\((\w+),`)
+	matches := callRe.FindAllStringSubmatch(string(variablesBytes), -1)
+	constNames := make(map[string]bool)
+	for _, m := range matches {
+		constNames[m[1]] = true
+	}
+
+	// Step 2: Read const.go and resolve constant names to file paths
+	constPath := filepath.Join(root, "pkg", "agent", "const.go")
+	constBytes, err := os.ReadFile(constPath)
+	if err != nil {
+		t.Fatalf("failed to read const.go: %v", err)
+	}
+
+	// Match: constantName = "linux/cloud-init/artifacts/..."
+	constRe := regexp.MustCompile(`(\w+)\s*=\s*"([^"]+)"`)
+	constMatches := constRe.FindAllStringSubmatch(string(constBytes), -1)
+	constMap := make(map[string]string)
+	for _, m := range constMatches {
+		constMap[m[1]] = m[2]
+	}
+
+	// Step 3: Resolve and filter to .sh files
+	var scripts []string
+	seen := make(map[string]bool)
+	for name := range constNames {
+		path, ok := constMap[name]
+		if !ok {
+			continue
+		}
+		if !strings.HasSuffix(path, ".sh") {
+			continue
+		}
+		if seen[path] {
+			continue
+		}
+		seen[path] = true
+		scripts = append(scripts, path)
+	}
+	sort.Strings(scripts)
+	return scripts
+}
+
+// cseRoundTrip reads a shell script, runs it through the production CSE pipeline
+// (removeComments → gzip → base64 → decode → gunzip), validates byte-for-byte
+// round-trip integrity, and returns the decoded output.
+func cseRoundTrip(t *testing.T, path string) []byte {
+	t.Helper()
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", path, err)
+	}
+
+	stripped := removeComments(raw)
+	encoded := getBase64EncodedGzippedCustomScriptFromStr(string(stripped))
+
+	gzipped, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("base64 decode failed: %v", err)
+	}
+
+	decoded, err := getGzipDecodedValue(gzipped)
+	if err != nil {
+		t.Fatalf("gzip decode failed: %v", err)
+	}
+
+	if diff := cmp.Diff(string(stripped), string(decoded)); diff != "" {
+		t.Errorf("round-trip mismatch (-stripped +decoded):\n%s", diff)
+	}
+
+	return decoded
+}
+
+func TestGzipWriterPoolDoesNotMixPayloads(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		payload := strings.Repeat(string(rune('a'+i)), 4096)
+		t.Run(string(rune('a'+i)), func(t *testing.T) {
+			t.Parallel()
+
+			compressed := getGzippedBufferFromBytes([]byte(payload))
+			decoded, err := getGzipDecodedValue(compressed)
+			if err != nil {
+				t.Fatalf("gzip decode failed: %v", err)
+			}
+			if string(decoded) != payload {
+				t.Fatal("gzip payload was corrupted")
+			}
+		})
+	}
+}
+
+// cseValidateBashSyntax runs bash -n on the decoded script to catch syntax errors
+// introduced by comment stripping. Skips scripts with Go template directives.
+func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
+	t.Helper()
+
+	if strings.Contains(string(decoded), "{{") {
+		t.Logf("skipping bash -n for %s (contains Go template directives)", script)
+		return
+	}
+
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available, skipping syntax check")
+	}
+
+	tmpFile, err := os.CreateTemp("", "cse-roundtrip-*.sh")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	_, writeErr := tmpFile.Write(decoded)
+	tmpFile.Close()
+	if writeErr != nil {
+		t.Fatalf("failed to write temp file: %v", writeErr)
+	}
+
+	cmd := exec.Command(bashPath, "-O", "extglob", "-n", tmpFile.Name())
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Errorf("bash -n syntax check FAILED for %s after removeComments + round-trip:\n%s\n%s",
+			script, string(output), err)
+	}
+}
+
+func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTimeout(t *testing.T) { //nolint:gocognit
+	testCases := []struct {
+		name          string
+		version       string
+		isWindows     bool
+		expectRemoved bool
+	}{
+		{
+			name:          "linux k8s 1.33 keeps streaming-connection-idle-timeout",
+			version:       "1.33.0",
+			isWindows:     false,
+			expectRemoved: false,
+		},
+		{
+			name:          "linux k8s 1.34.0 removes streaming-connection-idle-timeout",
+			version:       "1.34.0",
+			isWindows:     false,
+			expectRemoved: true,
+		},
+		{
+			name:          "linux k8s 1.35.0 removes streaming-connection-idle-timeout",
+			version:       "1.35.0",
+			isWindows:     false,
+			expectRemoved: true,
+		},
+		{
+			name:          "windows k8s 1.33 keeps streaming-connection-idle-timeout",
+			version:       "1.33.0",
+			isWindows:     true,
+			expectRemoved: false,
+		},
+		{
+			name:          "windows k8s 1.34.0 removes streaming-connection-idle-timeout",
+			version:       "1.34.0",
+			isWindows:     true,
+			expectRemoved: true,
+		},
+		{
+			name:          "windows k8s 1.35.0 removes streaming-connection-idle-timeout",
+			version:       "1.35.0",
+			isWindows:     true,
+			expectRemoved: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &datamodel.NodeBootstrappingConfiguration{
+				ContainerService: &datamodel.ContainerService{
+					Properties: &datamodel.Properties{
+						OrchestratorProfile: &datamodel.OrchestratorProfile{
+							OrchestratorVersion: tc.version,
+						},
+					},
+				},
+				KubeletConfig: map[string]string{
+					"--streaming-connection-idle-timeout": "4h0m0s",
+					"--feature-gates":                     "",
+				},
+			}
+
+			if tc.isWindows {
+				validateAndSetWindowsNodeBootstrappingConfiguration(config)
+			} else {
+				if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
+			}
+
+			_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
+			if tc.expectRemoved && exists {
+				t.Fatalf("expected --streaming-connection-idle-timeout to be removed for k8s %s (%s)", tc.version, map[bool]string{true: "windows", false: "linux"}[tc.isWindows])
+			}
+			if !tc.expectRemoved && !exists {
+				t.Fatalf("expected --streaming-connection-idle-timeout to be kept for k8s %s (%s)", tc.version, map[bool]string{true: "windows", false: "linux"}[tc.isWindows])
+			}
+		})
+	}
+
+	// Verify that when RP already omits the flag (>= 1.34 behavior),
+	// AgentBaker does not re-introduce it.
+	t.Run("linux k8s 1.34 with flag absent from input - not re-introduced", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+				},
+			},
+			KubeletConfig: map[string]string{
+				"--event-qps":     "0",
+				"--feature-gates": "",
+			},
+		}
+
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
+
+		_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
+		if exists {
+			t.Fatalf("AgentBaker should not re-introduce --streaming-connection-idle-timeout when RP already omits it")
+		}
+	})
+
+	t.Run("windows k8s 1.34 with flag absent from input - not re-introduced", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+				},
+			},
+			KubeletConfig: map[string]string{
+				"--event-qps":     "0",
+				"--feature-gates": "",
+			},
+		}
+
+		validateAndSetWindowsNodeBootstrappingConfiguration(config)
+
+		_, exists := config.KubeletConfig["--streaming-connection-idle-timeout"]
+		if exists {
+			t.Fatalf("AgentBaker should not re-introduce --streaming-connection-idle-timeout when RP already omits it")
+		}
+	})
+
+	// End-to-end: verify the flag does not appear in the final command line string
+	// generated by GetOrderedKubeletConfigFlagString after baker removes it.
+	t.Run("linux k8s 1.34 streaming flag absent from final command line output", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{
+						{Name: "pool1"},
+					},
+				},
+			},
+			AgentPoolProfile: &datamodel.AgentPoolProfile{Name: "pool1"},
+			KubeletConfig: map[string]string{
+				"--streaming-connection-idle-timeout": "4h0m0s",
+				"--event-qps":                         "0",
+				"--feature-gates":                     "",
+			},
+		}
+
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
+
+		cmdLine := GetOrderedKubeletConfigFlagString(config)
+		if strings.Contains(cmdLine, "streaming-connection-idle-timeout") {
+			t.Fatalf("streaming-connection-idle-timeout must not appear in final kubelet command line for k8s >= 1.34, got: %s", cmdLine)
+		}
+	})
+
+	// Verify streaming flag is also removed from CustomConfiguration path
+	t.Run("linux k8s 1.34 streaming flag removed from custom configuration", func(t *testing.T) {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.34.0",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{
+						{Name: "pool1"},
+					},
+					CustomConfiguration: &datamodel.CustomConfiguration{
+						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+							"kubelet": {
+								Config: map[string]string{
+									"--streaming-connection-idle-timeout": "4h0m0s",
+									"--event-qps":                         "0",
+								},
+							},
+						},
+					},
+				},
+			},
+			AgentPoolProfile: &datamodel.AgentPoolProfile{Name: "pool1"},
+			KubeletConfig: map[string]string{
+				"--event-qps":     "0",
+				"--feature-gates": "",
+			},
+		}
+
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
+
+		cmdLine := GetOrderedKubeletConfigFlagString(config)
+		if strings.Contains(cmdLine, "streaming-connection-idle-timeout") {
+			t.Fatalf("streaming-connection-idle-timeout must not appear in final kubelet command line via custom configuration for k8s >= 1.34, got: %s", cmdLine)
+		}
+	})
+}
+
+func TestValidateAndSetLinuxNodeBootstrappingConfiguration_TransparentHugePageValues(t *testing.T) {
+	testCases := []struct {
+		name        string
+		enabled     string
+		defrag      string
+		expectedErr string
+	}{
+		{
+			name: "accepts empty values",
+		},
+		{
+			name:    "accepts supported enabled values",
+			enabled: "always",
+		},
+		{
+			name:   "accepts supported defrag values",
+			defrag: "defer+madvise",
+		},
+		{
+			name:        "rejects unsupported enabled values",
+			enabled:     "within_size",
+			expectedErr: "customLinuxOSConfig.transparentHugePageEnabled",
+		},
+		{
+			name:        "rejects unsupported defrag values",
+			defrag:      "within_size",
+			expectedErr: "customLinuxOSConfig.transparentHugePageDefrag",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &datamodel.NodeBootstrappingConfiguration{
+				AgentPoolProfile: &datamodel.AgentPoolProfile{
+					CustomLinuxOSConfig: &datamodel.CustomLinuxOSConfig{
+						TransparentHugePageEnabled: tc.enabled,
+						TransparentHugePageDefrag:  tc.defrag,
+					},
+				},
+			}
+
+			err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)
+			if tc.expectedErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected validation error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected validation error containing %q", tc.expectedErr)
+			}
+			if !strings.Contains(err.Error(), tc.expectedErr) {
+				t.Fatalf("expected validation error containing %q, got %q", tc.expectedErr, err.Error())
+			}
+		})
+	}
+}
+
+func TestEncodePowerShellBase64Literal(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"plain key", "ssh-rsa AAAAB3 user@host",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlckBob3N0'))"},
+		{"embedded apostrophe", "ssh-rsa AAAAB3 user's key",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlcidzIGtleQ=='))"},
+		{"subexpression and semicolon", "ssh-rsa AAAAB3 ;$(cmd)",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgOyQoY21kKQ=='))"},
+		{"unicode right single quote U+2019", "ssh-rsa AAAAB3 user\u2019s key",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlcuKAmXMga2V5'))"},
+		{"empty string", "",
+			"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(''))"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := encodePowerShellBase64Literal(tc.input)
+			if got != tc.expected {
+				t.Errorf("encodePowerShellBase64Literal(%q)\ngot:  %s\nwant: %s", tc.input, got, tc.expected)
+			}
+			// Round-trip: extract payload and decode back to original.
+			const prefix = "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('"
+			const suffix = "'))"
+			if !strings.HasPrefix(got, prefix) || !strings.HasSuffix(got, suffix) {
+				t.Fatalf("output does not match expected format")
+			}
+			payload := got[len(prefix) : len(got)-len(suffix)]
+			decoded, err := base64.StdEncoding.DecodeString(payload)
+			if err != nil {
+				t.Fatalf("base64 decode failed: %v", err)
+			}
+			if string(decoded) != tc.input {
+				t.Errorf("round-trip mismatch: got %q, want %q", string(decoded), tc.input)
+			}
+		})
+	}
+}
+
+func TestGetSSHPublicKeysPowerShell(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  *datamodel.LinuxProfile
+		expected string
+	}{
+		{
+			name:     "nil profile",
+			profile:  nil,
+			expected: "",
+		},
+		{
+			name: "single key with whitespace trimmed",
+			profile: &datamodel.LinuxProfile{
+				SSH: struct {
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+				}{
+					PublicKeys: []datamodel.PublicKey{
+						{KeyData: "  ssh-rsa AAAAB3 user@host  "},
+					},
+				},
+			},
+			expected: "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlckBob3N0'))",
+		},
+		{
+			name: "multiple keys",
+			profile: &datamodel.LinuxProfile{
+				SSH: struct {
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+				}{
+					PublicKeys: []datamodel.PublicKey{
+						{KeyData: "ssh-rsa AAAAB3 key1"},
+						{KeyData: "ssh-rsa AAAAC4 key2"},
+					},
+				},
+			},
+			expected: "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMga2V5MQ=='))" +
+				", " + "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQzQga2V5Mg=='))",
+		},
+		{
+			name: "key with special chars preserved",
+			profile: &datamodel.LinuxProfile{
+				SSH: struct {
+					PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+				}{
+					PublicKeys: []datamodel.PublicKey{
+						{KeyData: "ssh-rsa AAAAB3 user's $(key)"},
+					},
+				},
+			},
+			expected: "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('c3NoLXJzYSBBQUFBQjMgdXNlcidzICQoa2V5KQ=='))",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getSSHPublicKeysPowerShell(tc.profile)
+			if got != tc.expected {
+				t.Errorf("getSSHPublicKeysPowerShell()\ngot:  %s\nwant: %s", got, tc.expected)
+			}
+		})
+	}
+}

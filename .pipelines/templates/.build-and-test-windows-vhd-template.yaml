@@ -1,7 +1,7 @@
 parameters:
   - name: stageName
     type: string
-    displayName: Stage name for the created stages. Must contain only alphanmumeric values and _
+    displayName: Stage name for the created stages. Must contain only alphanumeric values and _
   - name: imageName
     type: string
     displayName: The value of the imageName tag to run E2E tests on
@@ -32,6 +32,14 @@ parameters:
   - name: architecture
     type: string
     displayName: CPU Architecture - X86_64 or ARM64
+  - name: enableTrustedLaunch
+    type: boolean
+    displayName: Enable Trusted Launch on the SIG image definition
+    default: False
+  - name: trustedLaunchSupported
+    type: boolean
+    displayName: Determines if the image is capable of supporting Trusted Launch
+    default: False
   - name: skipExtensionCheck
     displayName: Skip Extension Check
     type: boolean
@@ -65,7 +73,6 @@ parameters:
   - name: cseFileName
     type: string
     displayName: CSE package filename.
-
 stages:
   - stage: build_${{ parameters.stageName }}
     # Put the artifact name first so it doesn't get truncated as much in ADO
@@ -83,6 +90,8 @@ stages:
               windowsSku: ${{ parameters.windowsSku }}
               hyperVGeneration: ${{ parameters.hyperVGeneration }}
               architecture: ${{ parameters.architecture }}
+              enableTrustedLaunch: ${{ parameters.enableTrustedLaunch }}
+              trustedLaunchSupported: ${{ parameters.trustedLaunchSupported }}
               buildVmSize: ${{ parameters.buildVmSize }}
               build: ${{ parameters.build }}
               vhddebug: ${{ parameters.vhddebug }}
@@ -101,7 +110,7 @@ stages:
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})
     dependsOn: build_${{ parameters.stageName }}
-    condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'))
+    condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'), ne(dependencies.build_${{ parameters.stageName }}.outputs['build_${{ parameters.stageName }}.skipVhd.skipping_vhd_build'], 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
@@ -111,4 +120,3 @@ stages:
         parameters:
           name: For image ${{ parameters.imageName }}
           IgnoreScenariosWithMissingVhd: false
-

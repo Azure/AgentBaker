@@ -1,16 +1,8 @@
 #!/bin/bash
 set -e
 
-echo "Installing previous version of azcli in order to mitigate az compute bug"
-source parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
-
 SCRIPT_DIR=$(dirname "$0")
 source "$SCRIPT_DIR/produce-packer-settings-functions.sh"
-
-if [ -n "${AZCLI_VERSION_OVERRIDE}" ]; then
-  echo "Overriding azcli version to ${AZCLI_VERSION_OVERRIDE}"
-  enforce_azcli_version "${AZCLI_VERSION_OVERRIDE}"
-fi
 
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
@@ -88,10 +80,10 @@ if grep -q "cvm" <<< "$FEATURE_FLAGS" && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; 
 	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
 fi
 
-# GB200 specific build location handling (if needed in future)
-if grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-	echo "GB200: Using standard ARM64 build location ${PACKER_BUILD_LOCATION}"
-	# Additional GB200-specific configuration can be added here
+# NVIDIA GB specific build location handling (if needed in future)
+if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+	echo "NVIDIA GB: Using standard ARM64 build location ${PACKER_BUILD_LOCATION}"
+	# Additional NVIDIA GB-specific configuration can be added here
 fi
 
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
@@ -184,15 +176,12 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 
-# msi_resource_strings is an array that will be used to build VHD build vm
-# test pipelines may not set it
+# msi_resource_strings is an array that will be used to build VHD build vm; test pipelines
+# may not set it. See compute_msi_resource_strings in produce-packer-settings-functions.sh for
+# the UAMI-attachment logic and its ShellSpec coverage in
+# spec/vhdbuilder/packer/compute_msi_resource_strings_spec.sh.
 msi_resource_strings=()
-if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && { [ -n "${PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_BASE_IMAGE_URL}" ]; }; then
-	echo "AZURE_MSI_RESOURCE_STRING is set and at least one of PRIVATE_PACKAGES_URL, WINDOWS_PRIVATE_PACKAGES_URL, or WINDOWS_BASE_IMAGE_URL is set. Assigning UAMI to Packer VM for VHD Build."
-	msi_resource_strings+=(${AZURE_MSI_RESOURCE_STRING})
-else
-	echo "AZURE_MSI_RESOURCE_STRING or PRIVATE_PACKAGES_URL/WINDOWS_PRIVATE_PACKAGES_URL/WINDOWS_BASE_IMAGE_URL is not set. Skipping UAMI assignment to Packer VM for VHD Build."
-fi
+compute_msi_resource_strings msi_resource_strings
 
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" = "Windows" ]; then
@@ -213,6 +202,8 @@ fi
 if [ "$MODE" = "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" = "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
+
+resolve_security_type_feature
 
 produce_ua_token
 
@@ -236,6 +227,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
   "windows_image_url": "${WINDOWS_IMAGE_URL}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
+  "security_type_feature": "${SECURITY_TYPE_FEATURE}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "sig_gallery_name": "${SIG_GALLERY_NAME}",
   "captured_sig_version": "${CAPTURED_SIG_VERSION}",
@@ -243,11 +235,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
   "windows_private_packages_url": "${windows_private_packages_url}",
-  "windows_sigmode_source_subscription_id": "${windows_sigmode_source_subscription_id}",
-  "windows_sigmode_source_resource_group_name": "${windows_sigmode_source_resource_group_name}",
-  "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
-  "windows_sigmode_source_image_name": "${windows_sigmode_source_image_name}",
-  "windows_sigmode_source_image_version": "${windows_sigmode_source_image_version}",
+  "windows_sigmode_source_id": "${windows_sigmode_source_id}",
+  "windows_sigmode_direct_shared_gallery_image_id": "${windows_sigmode_direct_shared_gallery_image_id}",
   "vnet_name": "${VNET_NAME}",
   "subnet_name": "${SUBNET_NAME}",
   "vnet_resource_group_name": "${VNET_RG_NAME}",

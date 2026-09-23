@@ -6,15 +6,22 @@
   "enabledManagers": [
     "custom.regex"
   ],
-  "prConcurrentLimit": 50,
-  "prHourlyLimit": 50,
-  "branchConcurrentLimit": 50,
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 1,
+  "branchConcurrentLimit": 0,
+  "commitHourlyLimit": 1,
   "separateMinorPatch": true,
-  "recreateWhen": "never",
+  "recreateWhen": "auto",
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "automerging",
+  "rebaseWhen": "never",
+  "hostRules": [
+    {
+      "matchHost": "packages.microsoft.com",
+      "concurrentRequestLimit": 1
+    }
+  ],
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
@@ -23,43 +30,6 @@
   ],
   "packageRules": [
     {
-      "matchPackageNames": [
-        "*/kubernetes/autoscaler/addon-resizer",
-        "*/kubernetes/autoscaler/cluster-proportional-autoscaler",
-        "*/kubernetes/coredns",
-        "oss/v2/kubernetes/pause",
-        "containernetworking/azure-cni",
-        "containernetworking/azure-cns",
-        "containernetworking/azure-ipam",
-        "containernetworking/cilium/cilium",
-        "containernetworking/cilium/cilium-distroless-init",
-        "containernetworking/cilium/cilium-distroless",
-        "oss/kubernetes/apiserver-network-proxy/agent",
-        "oss/kubernetes-csi/secrets-store/driver",
-        "oss/azure/secrets-store/provider-azure",
-        "azuremonitor/containerinsights/ciprod",
-        "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-        "oss/kubernetes/azure-cloud-node-manager",
-        "oss/v2/kubernetes/azure-cloud-node-manager",
-        "aks/ip-masq-agent-v2",
-        "oss/v2/azure/ip-masq-agent-v2",
-        "oss/kubernetes-csi/azuredisk-csi",
-        "oss/v2/kubernetes-csi/azuredisk-csi",
-        "oss/kubernetes-csi/azurefile-csi",
-        "oss/v2/kubernetes-csi/azurefile-csi",
-        "oss/kubernetes-csi/blob-csi",
-        "oss/kubernetes-csi/livenessprobe",
-        "oss/kubernetes-csi/csi-node-driver-registrar",
-        "oss/v2/open-policy-agent/gatekeeper",
-        "azure-policy/policy-kubernetes-addon-prod",
-        "azure-policy/policy-kubernetes-webhook",
-        "oss/kubernetes/kube-proxy",
-        "oss/v2/kubernetes/kube-proxy",
-        "oss/binaries/kubernetes/kubernetes-node",
-        "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "containernetworking/azure-npm",
-        "azure-acr-credential-provider"
-      ],
       "matchUpdateTypes": [
         "minor"
       ],
@@ -88,7 +58,8 @@
         "custom.deb2004",
         "custom.deb2204",
         "custom.deb2404",
-        "custom.deb2404-test"
+        "custom.deb2404-test",
+        "custom.deb2604"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -101,9 +72,71 @@
         "rpm"
       ],
       "versioning": "regex:(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "ignoreUnstable": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "enabled": false
+    },
+    {
+      "matchDatasources": [
+        "rpm"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "automerge": false,
-      "enabled": true,
-      "ignoreUnstable": false
+      "enabled": true
+    },
+    {
+      "matchDatasources": [
+        "custom.deb2004",
+        "custom.deb2204",
+        "custom.deb2404",
+        "custom.deb2604",
+        "custom.nvidia-deb2204",
+        "custom.nvidia-deb2404",
+        "custom.nvidia-deb2604",
+        "custom.nvidia-rpm-azl3",
+        "rpm"
+      ],
+      "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client",
+        "azure-acr-credential-provider",
+        "containernetworking-plugins",
+        "containerd2",
+        "datacenter-gpu-manager-4-core",
+        "datacenter-gpu-manager-4-proprietary",
+        "dcgm-exporter",
+        "dra-driver-nvidia-gpu",
+        "ig",
+        "kubelet",
+        "kubectl",
+        "kubernetes-cri-tools",
+        "moby-containerd",
+        "moby-runc",
+        "node-exporter-kubernetes",
+        "nvidia-device-plugin"
+      ],
+      "extractVersion": "^(?:\\d+:)?(?<version>\\d+\\.\\d+\\.\\d+)(?:[-+].*)?$",
+      "versioning": "semver"
+    },
+    {
+      "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd",
+        "containerd2",
+        "aks/aks-node-ca-watcher",
+        "Azure/WALinuxAgent"
+      ],
+      "allowedVersions": "!/~(alpha|beta|rc)/"
     },
     {
       "matchPackageNames": [
@@ -120,24 +153,10 @@
       "enabled": true,
       "groupName": "runc-containerd-ca_watcher",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -154,30 +173,31 @@
       "enabled": true,
       "groupName": "runc-containerd-minor",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok",
-        "mxj220"
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "trivy"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
       ]
     },
     {
       "matchPackageNames": [
         "kubelet",
-        "kubectl"
+        "kubectl",
+        "oss/v2/kubernetes/kubelet-sysext",
+        "oss/v2/kubernetes/kubectl-sysext"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -186,39 +206,16 @@
       "enabled": true,
       "groupName": "kubelet-kubectl",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "azure-acr-credential-provider-pmc"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true,
-      "groupName": "credential-provider-pmc",
-      "assignees": [
-        "nilo19"
-      ],
-      "reviewers": [
-        "nilo19"
+        "haitch",
+        "wenhug",
+        "gaopenghigh",
+        "jack4it"
       ]
     },
     {
@@ -234,8 +231,11 @@
     },
     {
       "matchPackageNames": [
-        "containernetworking/azure-cni"
+        "azure-cni",
+        "containernetworking/azure-cni",
+        "containernetworking/v2/azure-cni"
       ],
+      "groupName": "azure-cni",
       "reviewers": [
         "team:acn-cni-reviewers"
       ],
@@ -251,10 +251,14 @@
         "oss/v2/azure/ip-masq-agent-v2"
       ],
       "reviewers": [
-        "robogatikov"
+        "robogatikov",
+        "jumpinthefire",
+        "levimm"
       ],
       "assignees": [
-        "robogatikov"
+        "robogatikov",
+        "jumpinthefire",
+        "levimm"
       ]
     },
     {
@@ -284,6 +288,10 @@
       "matchPackageNames": [
         "azuremonitor/containerinsights/ciprod"
       ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-ci-prod-(?<prerelease>\\d{2}-\\d{2}-\\d{4}-[0-9a-f]+))?$",
       "groupName": "ciprod",
       "ignoreUnstable": false,
       "reviewers": [
@@ -299,8 +307,19 @@
     },
     {
       "matchPackageNames": [
+        "azuremonitor/containerinsights/ciprod"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "enabled": true
+    },
+    {
+      "matchPackageNames": [
         "azure-cns",
-        "containernetworking/azure-cns"
+        "containernetworking/azure-cns",
+        "containernetworking/v2/azure-cns"
       ],
       "groupName": "azure-cns",
       "reviewers": [
@@ -329,10 +348,14 @@
     },
     {
       "matchPackageNames": [
-        "**/kubernetes/autoscaler/addon-resizer",
-        "**/kubernetes/autoscaler/cluster-proportional-autoscaler",
         "**/kubernetes/coredns"
       ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "coredns",
       "assignees": [
         "ashokobulapuram7"
       ],
@@ -342,30 +365,32 @@
     },
     {
       "matchPackageNames": [
-        "oss/v2/open-policy-agent/gatekeeper",
-        "azure-policy/policy-kubernetes-addon-prod"
+        "**/kubernetes/autoscaler/addon-resizer",
+        "**/kubernetes/autoscaler/cluster-proportional-autoscaler"
       ],
+      "groupName": "autoscaler",
       "assignees": [
-        "kevinhwangkr-msft",
-        "anlandu",
-        "nreisch"
+        "ashokobulapuram7"
       ],
       "reviewers": [
-        "kevinhwangkr-msft",
-        "anlandu",
-        "nreisch"
+        "ashokobulapuram7"
       ]
     },
     {
       "matchPackageNames": [
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "azure-acr-credential-provider"
+        "azure-acr-credential-provider",
+        "oss/v2/kubernetes/azure-acr-credential-provider-sysext"
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ]
     },
@@ -375,27 +400,16 @@
       ],
       "groupName": "kubernetes-cri-tools",
       "assignees": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "devinwong",
-        "anujmaheshwari1",
-        "cameronmeissner",
-        "lilypan26",
-        "djsly",
-        "zachary-bailey",
-        "ganeshkumarashok"
+        "team:aks-node-lifecycle"
       ]
     },
     {
       "matchPackageNames": [
-        "ig"
+        "ig",
+        "ig-gadgets"
       ],
       "matchUpdateTypes": [
         "patch"
@@ -412,7 +426,8 @@
     },
     {
       "matchPackageNames": [
-        "ig"
+        "ig",
+        "ig-gadgets"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -433,19 +448,80 @@
       ],
       "groupName": "nvidia-device-plugin",
       "assignees": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ],
       "reviewers": [
-        "djsly",
         "ganeshkumarashok",
-        "surajssd"
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
       ]
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes-csi/**"
+        "dra-driver-nvidia-gpu"
+      ],
+      "groupName": "dra-driver-nvidia-gpu",
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client",
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
+      ],
+      "groupName": "aks-secure-tls-bootstrap-client",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "datacenter-gpu-manager-4-core",
+        "datacenter-gpu-manager-4-proprietary",
+        "dcgm-exporter"
+      ],
+      "groupName": "nvidia-dcgm",
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/kubernetes-csi/**",
+        "oss/v2/kubernetes-csi/**",
+        "oss/v2/azure/secrets-store/provider-azure"
       ],
       "groupName": "csi",
       "assignees": [
@@ -479,14 +555,31 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes/azure-cloud-node-manager"
+        "**/azure-cloud-node-manager"
       ],
       "groupName": "azure-cloud-node-manager",
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>windows-hpc))?-(?<prerelease>\\d+)$",
       "assignees": [
+        "anndono",
+        "Liunardy",
         "nilo19"
       ],
       "reviewers": [
+        "anndono",
+        "Liunardy",
         "nilo19"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oras-project/oras"
+      ],
+      "groupName": "oras",
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -494,27 +587,48 @@
         "windows/nanoserver",
         "windows/servercore"
       ],
-      "groupName": "windowsbase",
+      "groupName": "windows_nanoserver_servercore",
       "assignees": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
       ],
       "enabled": true,
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<compatibility>\\d+)\\.(?<patch>\\d+)$"
     },
     {
       "matchPackageNames": [
-        "windows/servercore/iis",
-        "oss/v2/kubernetes/windows-gmsa-webhook"
+        "windows/servercore/iis"
       ],
-      "groupName": "windowscached",
+      "groupName": "windows_cached_iis",
+      "enabled": true,
+      "automerge": true,
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "assignees": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "timmy-wright"
+        "team:aks-node-lifecycle"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/kubernetes/windows-gmsa-webhook"
+      ],
+      "groupName": "windows_cached_gmsa",
+      "enabled": true,
+      "automerge": true,
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
       ]
     },
     {
@@ -525,37 +639,116 @@
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
-      "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
+      "extractVersion": "^(?<version>.*?)-[^-]*-[^-]*$"
     },
     {
       "matchDatasources": [
         "docker"
       ],
       "matchPackageNames": [
-        "oss/v2/kubernetes/*-sysext"
+        "oss/v2/kubernetes/*-sysext",
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
-      "extractVersion": "^(?P<version>.+-azlinux3)-"
+      "extractVersion": "^(?<version>.+-azlinux3)-x86-64$",
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<compatibility>azlinux3)$"
+    },
+    {
+      "matchPackageNames": [
+        "aks/aks-gpu-cuda-lts"
+      ],
+      "groupName": "nvidia-gpu-cuda-lts",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
         "aks/aks-gpu-cuda"
       ],
-      "groupName": "nvidia-gpu-cuda",
+      "groupName": "nvidia-gpu-cuda-legacy",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "automerge": true,
+      "allowedVersions": "/^580\\./",
+      "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
         "aks/aks-gpu-grid"
       ],
       "groupName": "nvidia-gpu-grid",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?-(?<prerelease>\\d{14})$",
+      "automerge": false,
+      "enabled": true,
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "aks/aks-gpu-grid-v20"
+      ],
+      "groupName": "nvidia-gpu-grid-v20",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
-      "ignoreUnstable": false
+      "ignoreUnstable": false,
+      "assignees": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ],
+      "reviewers": [
+        "ganeshkumarashok",
+        "sulixu",
+        "xuexu6666",
+        "runzhen",
+        "karenychen"
+      ]
     },
     {
       "matchPackageNames": [
@@ -564,10 +757,11 @@
       "matchDatasources": [
         "docker"
       ],
-      "versioning": "regex:^(\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)?-(\\w+)-(\\d+)-(\\d+)-(\\d+)-(\\w+-*)(?<compatibility>.*)$",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-main-(?<prerelease>\\d{2}-\\d{2}-\\d{4}-[0-9a-f]+)(?:-(?<compatibility>cfg|targetallocator|ccp|win))?$",
       "groupName": "ama-metrics",
       "automerge": false,
       "enabled": true,
+      "ignoreUnstable": false,
       "assignees": [
         "gracewehner",
         "vishiy",
@@ -681,6 +875,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update Nvidia DCGM packages for OS ubuntu 26.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>datacenter-gpu-manager-4-core|datacenter-gpu-manager-4-proprietary), repository=nvidia, os=ubuntu, release=26\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.nvidia-deb2604",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=nvidia, os=ubuntu, release=26.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "auto update packages for OS ubuntu 24.04 (test registry) in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -692,6 +900,20 @@
       "datasourceTemplate": "custom.deb2404-test",
       "versioningTemplate": "deb",
       "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=test, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update packages for OS ubuntu 26.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), repository=production, os=ubuntu, release=26\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.deb2604",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=production, os=ubuntu, release=26.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
@@ -721,6 +943,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update Nvidia packages for OS AzureLinux 3.0 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^,]+), repository=nvidia, os=azurelinux, release=3\\.0\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.nvidia-rpm-azl3",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=nvidia, os=azurelinux, release=3.0\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "auto update GitHub release versions in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -735,6 +971,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update buf version in aks-node-controller/.buf-version",
+      "managerFilePatterns": [
+        "/aks-node-controller/\\.buf-version/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "(?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "bufbuild/buf",
+      "datasourceTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
       "description": "update version line in any cse_*.sh",
       "managerFilePatterns": [
         "/^.*cse_.*\\.sh/"
@@ -742,6 +992,29 @@
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "auto update ig-gadgets versions in install-ig.sh from PMC",
+      "managerFilePatterns": [
+        "/install-ig\\.sh/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*IG_GADGETS_[A-Z_]+_VERSION=\\\"(?<currentValue>[^\\\"]+)\\\""
+      ],
+      "extractVersionTemplate": "^(?<version>\\d+\\.\\d+\\.\\d+).*$"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update trivy version in trivy-scan.sh from PMC",
+      "managerFilePatterns": [
+        "/trivy-scan\\.sh/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*VERSION=\"(?<currentValue>[^\"]+)\""
       ]
     }
   ],
@@ -781,8 +1054,29 @@
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     },
+    "nvidia-deb2604": {
+      "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
+    "nvidia-rpm-azl3": {
+      "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/azl3/x86_64/",
+      "format": "html",
+      "transformTemplates": [
+        "{\"releases\": [releases[$contains(version, \"{{packageName}}-\") and $contains(version, \".x86_64.rpm\") and $not($contains(version, \"debuginfo\")) and $match($substringAfter(version, \"{{packageName}}-\"), /^[0-9]/)].{\"version\": \"1:\" & $substringBefore($substringAfter(version, \"{{packageName}}-\"), \".x86_64.rpm\")}]}"
+      ]
+    },
     "deb2404-test": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
+    "deb2604": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/26.04/prod/dists/resolute/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"

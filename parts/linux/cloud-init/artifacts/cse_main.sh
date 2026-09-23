@@ -4,8 +4,9 @@ ERR_FILE_WATCH_TIMEOUT=6
 set -x
 
 if [ -f /opt/azure/containers/provision.complete ]; then
-    echo "Already ran to success exiting..."
-    exit 0
+    EXIT_CODE=$(jq -r '.ExitCode' /var/log/azure/aks/provision.json)
+    echo "Already ran provisioning, exiting with code ${EXIT_CODE}..."
+    exit "${EXIT_CODE}"
 fi
 
 # Cleanup cache file to force fetch fresh instance metadata from IMDS
@@ -46,8 +47,124 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
-get_ubuntu_release() {
-    lsb_release -r -s 2>/dev/null || echo ""
+# configureEtcEnvironment persists these values, but the current CSE process needs them immediately.
+if [ -n "${HTTP_PROXY_URLS}" ]; then
+    export HTTP_PROXY="${HTTP_PROXY_URLS}"
+    export http_proxy="${HTTP_PROXY_URLS}"
+fi
+if [ -n "${HTTPS_PROXY_URLS}" ]; then
+    export HTTPS_PROXY="${HTTPS_PROXY_URLS}"
+    export https_proxy="${HTTPS_PROXY_URLS}"
+fi
+if [ -n "${NO_PROXY_URLS}" ]; then
+    export NO_PROXY="${NO_PROXY_URLS}"
+    export no_proxy="${NO_PROXY_URLS}"
+fi
+
+# Disable a single kernel module with a known LPE vulnerability.
+# Writes a modprobe blacklist rule and unloads the module if loaded.
+# Safe to run repeatedly during VHD build or provisioning; idempotent (overwrites with same content if already present).
+# Defined in cse_main.sh (not sourced) to support scriptless provisioning.
+#
+# Usage: disableVulnerableKernelModule <module_name> <description>
+disableVulnerableKernelModule() {
+    local mod="$1"
+    local desc="$2"
+
+    printf 'install %s /bin/false\nblacklist %s\n' "$mod" "$mod" > "/etc/modprobe.d/disable-${mod}.conf"
+
+    if grep -q "^${mod} " /proc/modules 2>/dev/null; then
+        if modprobe -r "$mod" 2>/dev/null; then
+            echo "${desc}: successfully unloaded ${mod}"
+        else
+            echo "${desc}: failed to unload ${mod} (in use), reboot required for full mitigation"
+        fi
+    fi
+}
+
+removeVulnerableKernelModuleDenyRules() {
+    local modprobe_file
+    local tmp_file
+    local deny_pattern
+
+    deny_pattern='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
+
+    for modprobe_file in /etc/modprobe.d/*.conf; do
+        [ -f "$modprobe_file" ] || continue
+
+        tmp_file="${modprobe_file}.tmp.$$"
+        sed -E "/$deny_pattern/d" "$modprobe_file" > "$tmp_file" || {
+            rm -f "$tmp_file"
+            return 1
+        }
+
+        if cmp -s "$modprobe_file" "$tmp_file"; then
+            rm -f "$tmp_file"
+        else
+            cat "$tmp_file" > "$modprobe_file" || {
+                rm -f "$tmp_file"
+                return 1
+            }
+            rm -f "$tmp_file"
+            echo "Removed Copy Fail / DirtyFrag / Fragnesia module deny rules from ${modprobe_file}"
+        fi
+    done
+
+    if grep -qsE "$deny_pattern" /etc/modprobe.d/*.conf 2>/dev/null; then
+        echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d"
+        return 1
+    fi
+}
+
+reconcileVulnerableKernelModuleMitigation() {
+    # Disable kernel modules with known LPE vulnerabilities (CVE-2026-31431, DirtyFrag, Fragnesia).
+    # Reconciled during both basePrep and nodePrep: basePrep bakes the intended state into
+    # future VHDs, while nodePrep covers PIS-cached or already-released VHDs that may skip
+    # basePrep or carry stale modprobe files.
+    # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
+    #
+    # Ubuntu 20.04 remains in scope except 5.4.0-1164-azure-fips and newer ABIs in the
+    # 5.4 Azure FIPS stream: linux-azure-fips 5.4.0-1164.170+fips1 fixes Copy Fail and
+    # DirtyFrag; Focal 5.4 is not affected by Fragnesia. Other 20.04 streams stay blocked.
+    # Future Ubuntu releases are intentionally skipped
+    # unless explicitly added here so they do not inherit this deny mitigation by default.
+    # Ubuntu 22.04 picked up the fixes in linux-azure 5.15.0-1116-azure (generic
+    # fallback 5.15.0-181-generic); Ubuntu 24.04 picked up the fixes in linux-azure
+    # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the apply for older
+    # or unknown 22.04 / 24.04 kernel flavors. Fixed 22.04 / 24.04 kernels remove stale
+    # deny rules so in-support VHDs no longer block legitimate module use after the fix.
+    #
+    # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
+    # Fail / DirtyFrag / Fragnesia upstream, so the modprobe blacklist is no longer
+    # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf;
+    # customers reported the blacklist actively blocks legitimate workloads that use
+    # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
+    # (built before this change) still have the bake-in until they are rolled; no CSE-time active
+    # removal is performed, so customers get the unblocked configuration on their next AzL3
+    # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
+    # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
+    # the affected kernel modules.
+    #
+    # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
+    # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
+    # Keep the runtime apply enabled for AzL2/Mariner while those images remain supported.
+    # See https://github.com/Azure/AKS/issues/5753.
+    #
+    if isUbuntu "$OS"; then
+        if ubuntuKernelNeedsVulnerableModuleMitigation; then
+            disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+            disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+            disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+            disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
+        else
+            removeVulnerableKernelModuleDenyRules || exit $ERR_MODPROBE_FAIL
+        fi
+    elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
+        disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
+        disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
+        disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
+        disableVulnerableKernelModule "rxrpc" "DirtyFrag (RxRPC page-cache write, bypasses AppArmor userns)"
+    fi
 }
 
 # ====== BASE PREP: BASE IMAGE PREPARATION ======
@@ -56,10 +173,20 @@ get_ubuntu_release() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
+    # Start the hosts-setup timer as the very first action in basePrep.
+    # The timer spawns a systemd service (with After=network-online.target) that uses dig
+    # to resolve critical AKS FQDNs and populate /etc/localdns/hosts. Starting it first
+    # maximizes the time for DNS resolution to complete in the background while the rest
+    # of basePrep runs. By the time enableLocalDNS() starts CoreDNS (end of basePrep),
+    # the hosts file should already be populated.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && [ "${SHOULD_ENABLE_HOSTS_PLUGIN}" = "true" ]; then
+        logs_to_events "AKS.CSE.enableAKSLocalDNSHostsSetup" enableAKSLocalDNSHostsSetup
+    fi
+
     if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
         echo "Skipping holding walinuxagent"
     else
-        logs_to_events "AKS.CSE.aptmarkWALinuxAgent" aptmarkWALinuxAgent hold &
+        logs_to_events "AKS.CSE.holdWALinuxAgent" holdWALinuxAgent hold
     fi
 
     logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
@@ -71,31 +198,18 @@ function basePrep {
         systemctl restart systemd-timesyncd
     fi
 
-    # Eval proxy vars to ensure curl commands use proxy if configured.
-    # e.g. PROXY_VARS=`export HTTPS_PROXY="https://proxy.example.com:8080"; export http_proxy="http://proxy.example.com:8080"; export NO_PROXY="127.0.0.1,localhost";`
-    # Setting vars in etc environment (configureEtcEnvironment) won't take effect in current shell session.
-    if [ -n "${PROXY_VARS}" ]; then
-        eval $PROXY_VARS
-    fi
-
     resolve_packages_source_url
     logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
 
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
-    # This function creates the /etc/kubernetes/azure.json file. It also creates the custom
-    # cloud configuration file if running in a custom cloud environment.
-    logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
-
-    logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
 
-    logs_to_events "AKS.CSE.configureSSHPubkeyAuth" configureSSHPubkeyAuth "${DISABLE_PUBKEY_AUTH}"
-
-
     if [ "${DISABLE_SSH}" = "true" ]; then
-        disableSSH || exit $ERR_DISABLE_SSH
+        disableSSH || exit "$ERR_DISABLE_SSH"
+    elif [ "${DISABLE_PUBKEY_AUTH}" = "true" ]; then
+        logs_to_events "AKS.CSE.disableSSHPubkeyAuth" disableSSHPubkeyAuth
     fi
 
     # This involves using proxy, log the config before fetching packages
@@ -279,11 +393,7 @@ EOF
 
     logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-        if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
-            logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
-        fi
-    fi
+    reconcileVulnerableKernelModuleMitigation
 
     if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
         if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
@@ -297,6 +407,11 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
+    # If hosts plugin is enabled, enableAKSLocalDNSHostsSetup() was already called at the
+    # very start of basePrep (before disableSystemdResolved) to give the timer a head start
+    # on DNS resolution. By now, /etc/localdns/hosts should be populated, so CoreDNS can start
+    # with the hosts-plugin corefile via select_localdns_corefile().
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
         logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $ERR_LOCALDNS_FAIL
     fi
@@ -304,7 +419,7 @@ EOF
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
         echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
         createManDbAutoUpdateFlagFile
-        /usr/bin/mandb && echo "man-db finished updates at $(date)" &
+        /usr/bin/mandb >/dev/null 2>&1 && echo "man-db finished updates at $(date)" &
     fi
 }
 
@@ -313,7 +428,21 @@ EOF
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
+    logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
+    logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
+
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
+    reconcileVulnerableKernelModuleMitigation
+
+    if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" = "true" ]; then
+        logs_to_events "AKS.CSE.applyTransparentHugePageValues" applyTransparentHugePageValues
+        logs_to_events "AKS.CSE.reconcileTransparentHugePagePersistence" reconcileTransparentHugePagePersistence
+    fi
+
+    if [ "${SHOULD_CONFIG_SWAP_FILE}" = "true" ]; then
+        logs_to_events "AKS.CSE.reconcileSwapFilePersistence" reconcileSwapFilePersistence
+    fi
+
     # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
     # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
     logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
@@ -324,14 +453,11 @@ function nodePrep {
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
-        logs_to_events "AKS.CSE.configureAndStartSecureTLSBootstrapping" configureAndStartSecureTLSBootstrapping
+        logs_to_events "AKS.CSE.configureAndEnableSecureTLSBootstrapping" configureAndEnableSecureTLSBootstrapping
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
-        if [ -n "${PROXY_VARS}" ]; then
-            eval $PROXY_VARS
-        fi
-        retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+        retrycmd_if_failure 20 1 15 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
     fi
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
@@ -341,6 +467,12 @@ function nodePrep {
 
     # Configure Azure network settings (udev rules for NIC configuration)
     logs_to_events "AKS.CSE.ensureAzureNetworkConfig" ensureAzureNetworkConfig
+
+    # Bring up secondary Standard-type NICs (if any) via IMDS metadata.
+    # Only runs when the RP signals that secondary NICs were attached.
+    if [ "${STANDARD_SECONDARY_NIC_COUNT:-0}" -gt 0 ]; then
+        logs_to_events "AKS.CSE.configureSecondaryNICs" configureSecondaryNICs || exit $ERR_SECONDARY_NIC_CONFIG_FAIL
+    fi
 
     # Determine if GPU driver installation should be skipped
     export -f should_skip_nvidia_drivers
@@ -404,8 +536,6 @@ function nodePrep {
             REBOOTREQUIRED=true
 
             # this service applies the partitioning scheme with nvidia-smi.
-            # we should consider moving to mig-parted which is simpler/newer.
-            # we couldn't because of old drivers but that has long been fixed.
             logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
         fi
 
@@ -422,6 +552,12 @@ function nodePrep {
             ENABLE_MANAGED_GPU_EXPERIENCE="true"
         fi
 
+        if [ "${ENABLE_MANAGED_GPU_DRA,,}" = "true" ]; then
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+        fi
+
+        echo "Fully Managed GPU device plugin mode: ${ENABLE_MANAGED_GPU_EXPERIENCE}, DRA mode: ${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}"
+
         logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
 
         echo $(date),$(hostname), "End configuring GPU drivers"
@@ -432,23 +568,20 @@ function nodePrep {
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
-    VALIDATION_ERR=0
-
-    # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
 
     # Edge case scenarios:
     # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
     # high timeout to address high latency for private dns server to forward request to Azure DNS
     # dns check will be done only if we use FQDN for API_SERVER_NAME
-    API_SERVER_CONN_RETRIES=50
-    # shellcheck disable=SC3010
-    if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-        API_SERVER_CONN_RETRIES=100
-    fi
+    # TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
+    VALIDATION_ERR=0
     # shellcheck disable=SC3010
     if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        API_SERVER_CONN_RETRIES=34
         API_SERVER_DNS_RETRY_TIMEOUT=300
+        # shellcheck disable=SC3010
         if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
+           API_SERVER_CONN_RETRIES=68
            API_SERVER_DNS_RETRY_TIMEOUT=600
         fi
         if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
@@ -466,7 +599,7 @@ function nodePrep {
                 VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
             fi
         else
-            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 15 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
         fi
     else
         # an IP address is provided for the API server, skip the DNS lookup
@@ -476,7 +609,6 @@ function nodePrep {
         API_SERVER_CONN_RETRIES=300
         logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
-
     echo "API server connection check code: $VALIDATION_ERR"
     if [ "$VALIDATION_ERR" -ne 0 ]; then
         exit $VALIDATION_ERR
@@ -484,10 +616,25 @@ function nodePrep {
 
     checkServiceHealth containerd || exit $ERR_SYSTEMCTL_START_FAIL
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
-        checkServiceHealth secure-tls-bootstrap || exit $ERR_SYSTEMCTL_START_FAIL
+        checkServiceHealth secure-tls-bootstrap || true
+    fi
+
+    # Add localdns-exporter kubelet node label before ensureKubelet so it's
+    # included in --node-labels at kubelet startup (~0ms, just a variable append).
+    # Only add the label if the exporter socket unit exists on this VHD — otherwise
+    # the node would advertise exporter=enabled but have no exporter to scrape.
+    # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && systemctl cat localdns-exporter.socket &>/dev/null; then
+        addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
+    # Configure localdns metrics exporter socket after ensureKubelet.
+    # This is optional observability — don't block provisioning if it fails.
+    if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureLocalDNSExporterSocket" configureLocalDNSExporterSocket || true
+    fi
 
     if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
         logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
@@ -503,6 +650,23 @@ function nodePrep {
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
 
+    # defer starting DRA driver services after kubelet.
+    if [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $?
+    fi
+
+    if systemctl cat aks-log-collector.timer &>/dev/null; then
+        systemctlEnableAndStartNoBlock aks-log-collector.timer 30 || echo "Warning: Could not start aks-log-collector.timer"
+    else
+        echo "aks-log-collector.timer not found on this VHD, skipping"
+    fi
+
+    if ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
+            logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
+        fi
+    fi
+
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
         /bin/bash -c "shutdown -r 1 &"
@@ -511,7 +675,7 @@ function nodePrep {
                 echo "Skipping unholding walinuxagent"
             else
                 # logs_to_events should not be run on & commands
-                aptmarkWALinuxAgent unhold &
+                holdWALinuxAgent unhold &
             fi
         fi
     else
@@ -537,7 +701,7 @@ function nodePrep {
             if [ "${SKIP_WAAGENT_HOLD}" = "true" ]; then
                 echo "Skipping unholding walinuxagent"
             else
-                aptmarkWALinuxAgent unhold &
+                holdWALinuxAgent unhold &
             fi
         elif isMarinerOrAzureLinux "$OS"; then
             if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then

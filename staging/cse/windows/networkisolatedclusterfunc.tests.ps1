@@ -53,7 +53,7 @@ Describe "Install-Oras" {
     }
 
     Mock Get-ChildItem -MockWith {
-      return [pscustomobject]@{ Name = "oras_1.3.0_windows_amd64.zip"; FullName = "C:\akse-cache\oras\oras_1.3.0_windows_amd64.zip" }
+      return [pscustomobject]@{ Name = "oras_1.3.3_windows_amd64.zip"; FullName = "C:\akse-cache\oras\oras_1.3.3_windows_amd64.zip" }
     }
 
     Mock Expand-Archive -MockWith {
@@ -95,7 +95,7 @@ Describe "Install-Oras" {
     }
 
     Mock Get-ChildItem -MockWith {
-      return [pscustomobject]@{ Name = "oras_1.3.0_windows_amd64.tar.gz"; FullName = "C:\akse-cache\oras\oras_1.3.0_windows_amd64.tar.gz" }
+      return [pscustomobject]@{ Name = "oras_1.3.3_windows_amd64.tar.gz"; FullName = "C:\akse-cache\oras\oras_1.3.3_windows_amd64.tar.gz" }
     }
 
     Mock tar -MockWith { $global:LASTEXITCODE = 1 }
@@ -143,7 +143,7 @@ Describe "Set-PodInfraContainerImage" {
 {
   "Cri": {
     "Images": {
-      "Pause": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"
+      "Pause": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"
     }
   }
 }
@@ -176,7 +176,7 @@ Describe "Set-PodInfraContainerImage" {
   It "returns early when image already exists locally" {
     $script:CtrExeMock = {
       param($Args)
-      return @("mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1")
+      return @("mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2")
     }
 
     function global:Mock-OrasCli {
@@ -229,6 +229,47 @@ Describe "Set-PodInfraContainerImage" {
     Assert-MockCalled -CommandName 'Start-Sleep' -Times 9
     $script:CtrExeInvocations.Count | Should -Be 1
   }
+  It "should replace MCR base (default mcr.microsoft.com) with bootstrap profile registry" {
+    $script:CtrExeMock = { param($Args) return @() }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $script:orasImageArg = $Args[1]
+      $global:LASTEXITCODE = 0
+      return "oras ok"
+    }
+
+    $global:MCRRepositoryBase = $null
+    { Set-PodInfraContainerImage } | Should -Not -Throw
+    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
+  }
+
+  It "should use MCRRepositoryBase (and trim trailing slash) for image replacement" {
+    Mock Get-Content -MockWith {
+      @'
+{
+  "Cri": {
+    "Images": {
+      "Pause": "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.2"
+    }
+  }
+}
+'@
+    }
+
+    $script:CtrExeMock = { param($Args) return @() }
+
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+      $script:orasImageArg = $Args[1]
+      $global:LASTEXITCODE = 0
+      return "oras ok"
+    }
+
+    $global:MCRRepositoryBase = "mcr.microsoft.us/"
+    { Set-PodInfraContainerImage } | Should -Not -Throw
+    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
+  }
 }
 
 Describe "Invoke-OrasLogin" {
@@ -245,24 +286,6 @@ Describe "Invoke-OrasLogin" {
       throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
     }
 
-    $script:RetryCommandMock = {
-      param($Command, $Args, $Retries, $RetryDelaySeconds)
-      throw "Retry-Command was not configured for this test"
-    }
-    function global:Retry-Command {
-      param(
-        [Parameter(Mandatory = $true)][string]$Command,
-        [Parameter(Mandatory = $true)][hashtable]$Args,
-        [Parameter(Mandatory = $true)][int]$Retries,
-        [Parameter(Mandatory = $true)][int]$RetryDelaySeconds
-      )
-
-      return & $script:RetryCommandMock $Command $Args $Retries $RetryDelaySeconds
-    }
-  }
-
-  AfterEach {
-    Remove-Item Function:\global:Retry-Command -ErrorAction SilentlyContinue
   }
 
   It "should return unauthorized error code when ClientID is missing" {
@@ -297,16 +320,62 @@ Describe "Invoke-OrasLogin" {
       }
       throw "unexpected Invoke-RestMethod Uri: $Uri"
     }
-    $script:RetryCommandMock = {
-      param($Command, $Args, $Retries, $RetryDelaySeconds)
-      $requestUri = [string]$Args['Uri']
-      if ($requestUri -like "*metadata/identity/oauth2/token*") {
-        return [pscustomobject]@{ access_token = "imds-token" }
+    Mock Assert-RefreshToken -MockWith { 0 }
+
+    $global:OrasPath = {
+      $null = $input
+      $null = $args
+      $global:LASTEXITCODE = 0
+      return "login ok"
+    }
+
+    { Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id" } | Should -Not -Throw
+    Assert-MockCalled -CommandName 'Assert-RefreshToken' -Times 1 -ParameterFilter { $RefreshToken -eq 'refresh-token' }
+  }
+
+  It "should succeed with ACR endpoint on first try" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    $script:invokeRestMethodUrls = @()
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      $script:invokeRestMethodUrls += $Uri
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        return [pscustomobject]@{ access_token = "acr-token" }
       }
-      if ($requestUri -like "*/oauth2/exchange") {
+      if ($Uri -like "*/oauth2/exchange") {
         return [pscustomobject]@{ refresh_token = "refresh-token" }
       }
-      throw "unexpected Retry-Command Uri: $requestUri"
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
+    }
+    Mock Assert-RefreshToken -MockWith { 0 }
+
+    $global:OrasPath = {
+      $null = $input
+      $null = $args
+      $global:LASTEXITCODE = 0
+      return "login ok"
+    }
+
+    { Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id" } | Should -Not -Throw
+    # Should have used ACR endpoint (containerregistry.azure.net), not ARM
+    $script:invokeRestMethodUrls[0] | Should -BeLike "*containerregistry.azure.net*"
+  }
+
+  It "should fallback to ARM endpoint when ACR endpoint fails access token" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        if ($Uri -like "*containerregistry.azure.net*") {
+          throw "IMDS error for ACR endpoint"
+        }
+        # ARM endpoint succeeds
+        return [pscustomobject]@{ access_token = "arm-token" }
+      }
+      if ($Uri -like "*/oauth2/exchange") {
+        return [pscustomobject]@{ refresh_token = "refresh-token" }
+      }
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
     }
     Mock Assert-RefreshToken -MockWith { 0 }
 
@@ -321,6 +390,76 @@ Describe "Invoke-OrasLogin" {
     Assert-MockCalled -CommandName 'Assert-RefreshToken' -Times 1 -ParameterFilter { $RefreshToken -eq 'refresh-token' }
   }
 
+  It "should fallback to ARM endpoint when ACR endpoint fails refresh token" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    $script:currentEndpoint = $null
+    $script:exchangeCallCount = 0
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        if ($Uri -like "*containerregistry.azure.net*") {
+          $script:currentEndpoint = "acr"
+        } else {
+          $script:currentEndpoint = "arm"
+        }
+        return [pscustomobject]@{ access_token = "some-token" }
+      }
+      if ($Uri -like "*/oauth2/exchange") {
+        $script:exchangeCallCount++
+        if ($script:currentEndpoint -eq "acr") {
+          throw "Exchange error for ACR endpoint"
+        }
+        return [pscustomobject]@{ refresh_token = "refresh-token" }
+      }
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
+    }
+    Mock Assert-RefreshToken -MockWith { 0 }
+
+    $global:OrasPath = {
+      $null = $input
+      $null = $args
+      $global:LASTEXITCODE = 0
+      return "login ok"
+    }
+
+    { Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id" } | Should -Not -Throw
+    Assert-MockCalled -CommandName 'Assert-RefreshToken' -Times 1
+    $script:exchangeCallCount | Should -BeGreaterOrEqual 2
+  }
+
+  It "should fail when both endpoints fail to get tokens" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        throw "IMDS error"
+      }
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
+    }
+
+    {
+      Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id"
+    } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_IMDS_TIMEOUT):failed to obtain IMDS tokens with all endpoints*"
+  }
+
+  It "should fail when both endpoints return empty refresh token" {
+    Mock Assert-AnonymousAcrAccess -MockWith { 1 }
+    Mock Invoke-RestMethod -MockWith {
+      param($Uri, $Method, $Headers, $TimeoutSec, $ContentType, $Body)
+      if ($Uri -like "*metadata/identity/oauth2/token*") {
+        return [pscustomobject]@{ access_token = "some-token" }
+      }
+      if ($Uri -like "*/oauth2/exchange") {
+        return [pscustomobject]@{ refresh_token = $null }
+      }
+      throw "unexpected Invoke-RestMethod Uri: $Uri"
+    }
+
+    {
+      Invoke-OrasLogin -Acr_Url "contoso.azurecr.io" -ClientID "client-id" -TenantID "tenant-id"
+    } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_ORAS_PULL_UNAUTHORIZED):failed to obtain tokens with all endpoints*"
+  }
+
   It "should fail after three unsuccessful oras login attempts" {
     Mock Assert-AnonymousAcrAccess -MockWith { 1 }
     Mock Invoke-RestMethod -MockWith {
@@ -332,17 +471,6 @@ Describe "Invoke-OrasLogin" {
         return [pscustomobject]@{ refresh_token = "refresh-token" }
       }
       throw "unexpected Invoke-RestMethod Uri: $Uri"
-    }
-    $script:RetryCommandMock = {
-      param($Command, $Args, $Retries, $RetryDelaySeconds)
-      $requestUri = [string]$Args['Uri']
-      if ($requestUri -like "*metadata/identity/oauth2/token*") {
-        return [pscustomobject]@{ access_token = "imds-token" }
-      }
-      if ($requestUri -like "*/oauth2/exchange") {
-        return [pscustomobject]@{ refresh_token = "refresh-token" }
-      }
-      throw "unexpected Retry-Command Uri: $requestUri"
     }
     Mock Assert-RefreshToken -MockWith { 0 }
 
@@ -380,6 +508,32 @@ Describe "Get-BootstrapRegistryDomainName" {
     $global:BootstrapProfileContainerRegistryServer = "mybootstrap.azurecr.io/repo/path"
 
     Get-BootstrapRegistryDomainName | Should -Be "mybootstrap.azurecr.io"
+  }
+}
+
+Describe "Get-FileNameFromUrl" {
+  It "should return file name for url without query string" {
+    $url = "https://contoso.blob.core.windows.net/packages/windowszip.zip"
+
+    Get-FileNameFromUrl -Url $url | Should -Be "windowszip.zip"
+  }
+
+  It "should strip query string before extracting file name" {
+    $url = "https://contoso.blob.core.windows.net/packages/windowszip.zip?sv=2025-01-01&sig=token"
+
+    Get-FileNameFromUrl -Url $url | Should -Be "windowszip.zip"
+  }
+
+  It "should return the last segment for nested paths" {
+    $url = "https://contoso.blob.core.windows.net/packages/release/v1.30.0/kubernetes-node-image.tar.gz"
+
+    Get-FileNameFromUrl -Url $url | Should -Be "kubernetes-node-image.tar.gz"
+  }
+
+  It "should return empty when url ends with slash" {
+    $url = "https://contoso.blob.core.windows.net/packages/release/v1.30.0/"
+
+    Get-FileNameFromUrl -Url $url | Should -Be ""
   }
 }
 
@@ -471,5 +625,68 @@ Describe "DownloadFileWithOras" {
     $destPath = "c:\test.zip"
 
     { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -Platform "linux/amd64" } | Should -Not -Throw
+  }
+
+  It "should copy from cache and skip oras pull when CachedFile is provided" {
+    $cacheRoot = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+    $cacheSubDir = Join-Path $cacheRoot "nested"
+    $cachedFileName = "windowszip.zip"
+    $cachedFilePath = Join-Path $cacheSubDir $cachedFileName
+    $destPath = "c:\k.zip"
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+
+    New-Item -ItemType Directory -Path $cacheSubDir -Force | Out-Null
+    Set-Content -Path $cachedFilePath -Value "cached-content" -NoNewline
+
+    $global:CacheDir = $cacheRoot
+    $script:orasInvoked = $false
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $script:orasInvoked = $true
+      $global:LASTEXITCODE = 0
+    }
+
+    Mock Copy-Item -MockWith {}
+
+    try {
+      { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -CachedFile $cachedFileName } | Should -Not -Throw
+      Assert-MockCalled -CommandName 'Copy-Item' -Exactly -Times 1 -ParameterFilter {
+        $Path -eq $cachedFilePath -and $Destination -eq $destPath -and $Force
+      }
+      Assert-MockCalled -CommandName 'Move-Item' -Times 0
+      $script:orasInvoked | Should -Be $false
+    }
+    finally {
+      Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
+      $global:CacheDir = "c:\akse-cache"
+    }
+  }
+
+  It "should invoke oras pull and skip cache copy when CachedFile is provided but missing from cache" {
+    $cacheRoot = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+    $cachedFileName = "windowszip.zip"
+    $destPath = "c:\k.zip"
+    $reference = "myregistry.azurecr.io/aks/packages/kubernetes/windowszip:1.29.2"
+
+    New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
+
+    $global:CacheDir = $cacheRoot
+    $script:orasInvoked = $false
+    function global:Mock-OrasCli {
+      param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+      $script:orasInvoked = $true
+      $global:LASTEXITCODE = 0
+    }
+
+    Mock Copy-Item -MockWith {}
+
+    try {
+      { DownloadFileWithOras -Reference $reference -DestinationPath $destPath -CachedFile $cachedFileName } | Should -Not -Throw
+      Assert-MockCalled -CommandName 'Copy-Item' -Times 0
+      $script:orasInvoked | Should -Be $true
+    }
+    finally {
+      Remove-Item -Path $cacheRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
   }
 }

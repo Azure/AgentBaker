@@ -589,3 +589,120 @@ Describe "Update-BaseUrl" {
     $result | Should -Be "https://packages.aks.azure.com/path/to/resource"
   }
 }
+
+Describe "Start-NodeResetScriptTask" {
+  BeforeEach {
+    $script:taskInfoCallCount = 0
+    $global:KubeletHealthzEndpoint = "http://127.0.0.1:10248/healthz"
+    Mock Start-ScheduledTask -MockWith {}
+    Mock Get-ScheduledTask -MockWith { return [pscustomobject]@{ State = "Ready" } }
+    Mock Get-ScheduledTaskInfo -MockWith {
+      $script:taskInfoCallCount++
+      if ($script:taskInfoCallCount -eq 1) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-01"; LastTaskResult = 0 }
+      }
+      return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
+    }
+    Mock Invoke-WebRequest -MockWith { return [pscustomobject]@{ StatusCode = 200 } }
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Running" } }
+    Mock Start-Sleep -MockWith {}
+    Mock Write-Log -MockWith {}
+    Mock Set-ExitCode -MockWith {
+      Param($ExitCode, $ErrorMessage)
+      throw $ErrorMessage
+    }
+  }
+
+  It "waits for a new successful run and healthy kubelet" {
+    Start-NodeResetScriptTask
+    Assert-MockCalled -CommandName Start-ScheduledTask -Exactly -Times 1
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 1 -ParameterFilter {
+      $Uri -eq "http://127.0.0.1:10248/healthz" -and $TimeoutSec -eq 1 -and $ErrorAction -eq "Stop"
+    }
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
+  }
+
+  It "does not accept Ready before the new run starts" {
+    Mock Get-ScheduledTaskInfo -MockWith {
+      $script:taskInfoCallCount++
+      if ($script:taskInfoCallCount -le 2) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-01"; LastTaskResult = 0 }
+      }
+      return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
+    }
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 1
+  }
+
+  It "does not accept stale Ready while the task is running" {
+    Mock Get-ScheduledTaskInfo -MockWith {
+      $script:taskInfoCallCount++
+      if ($script:taskInfoCallCount -eq 1) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-01"; LastTaskResult = 0 }
+      }
+      if ($script:taskInfoCallCount -le 3) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0x00041301 }
+      }
+      return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 0 }
+    }
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 1
+  }
+
+  It "fails when the task result is nonzero" {
+    Mock Get-ScheduledTaskInfo -MockWith {
+      $script:taskInfoCallCount++
+      if ($script:taskInfoCallCount -eq 1) {
+        return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-01"; LastTaskResult = 0 }
+      }
+      return [pscustomobject]@{ LastRunTime = [datetime]"2026-01-02"; LastTaskResult = 1 }
+    }
+
+    { Start-NodeResetScriptTask } | Should -Throw "*failed with result 1*"
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
+  }
+
+  It "retries until kubelet becomes healthy" {
+    $script:healthCheckCallCount = 0
+    Mock Invoke-WebRequest -MockWith {
+      $script:healthCheckCallCount++
+      if ($script:healthCheckCallCount -lt 3) {
+        throw "connection refused"
+      }
+      return [pscustomobject]@{ StatusCode = 200 }
+    }
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 3
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2 -ParameterFilter { $Seconds -eq 1 }
+  }
+
+  It "fails when kubelet does not become healthy" {
+    Mock Invoke-WebRequest -MockWith { throw "connection refused" }
+
+    { Start-NodeResetScriptTask } | Should -Throw "*kubelet did not become healthy*connection refused*"
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 30
+  }
+
+  It "checks the service state when the health endpoint is disabled" {
+    $global:KubeletHealthzEndpoint = ""
+
+    Start-NodeResetScriptTask
+
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
+  }
+
+  It "fails when the health endpoint is disabled and kubelet is not running" {
+    $global:KubeletHealthzEndpoint = ""
+    Mock Get-Service -MockWith { return [pscustomobject]@{ Status = "Stopped" } }
+
+    { Start-NodeResetScriptTask } | Should -Throw "*kubelet service is not running*"
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
+  }
+}

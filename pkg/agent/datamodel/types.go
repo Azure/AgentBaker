@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"net"
 	neturl "net/url"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -142,58 +144,65 @@ type Distro string
 
 // Distro string consts.
 const (
-	Ubuntu                                Distro = "ubuntu"
-	AKSCBLMarinerV1                       Distro = "aks-cblmariner-v1"
-	AKSCBLMarinerV2                       Distro = "aks-cblmariner-v2"
-	AKSAzureLinuxV2                       Distro = "aks-azurelinux-v2"
-	AKSAzureLinuxV3                       Distro = "aks-azurelinux-v3"
-	AKSCBLMarinerV2Gen2                   Distro = "aks-cblmariner-v2-gen2"
-	AKSAzureLinuxV2Gen2                   Distro = "aks-azurelinux-v2-gen2"
-	AKSAzureLinuxV3Gen2                   Distro = "aks-azurelinux-v3-gen2"
-	AKSCBLMarinerV2FIPS                   Distro = "aks-cblmariner-v2-fips"
-	AKSAzureLinuxV2FIPS                   Distro = "aks-azurelinux-v2-fips"
-	AKSAzureLinuxV3FIPS                   Distro = "aks-azurelinux-v3-fips"
-	AKSCBLMarinerV2Gen2FIPS               Distro = "aks-cblmariner-v2-gen2-fips"
-	AKSAzureLinuxV2Gen2FIPS               Distro = "aks-azurelinux-v2-gen2-fips"
-	AKSAzureLinuxV3Gen2FIPS               Distro = "aks-azurelinux-v3-gen2-fips"
-	AKSCBLMarinerV2Gen2Kata               Distro = "aks-cblmariner-v2-gen2-kata"
-	AKSAzureLinuxV2Gen2Kata               Distro = "aks-azurelinux-v2-gen2-kata"
-	AKSAzureLinuxV3Gen2Kata               Distro = "aks-azurelinux-v3-gen2-kata"
-	AKSCBLMarinerV2Gen2TL                 Distro = "aks-cblmariner-v2-gen2-tl"
-	AKSAzureLinuxV2Gen2TL                 Distro = "aks-azurelinux-v2-gen2-tl"
-	AKSAzureLinuxV3Gen2TL                 Distro = "aks-azurelinux-v3-gen2-tl"
-	AKSAzureLinuxV3OSGuardGen2FIPSTL      Distro = "aks-azurelinux-v3-osguard-gen2-fips-tl"
-	AKSCBLMarinerV2KataGen2TL             Distro = "aks-cblmariner-v2-kata-gen2-tl"
-	AKSUbuntuFipsContainerd2004           Distro = "aks-ubuntu-fips-containerd-20.04"
-	AKSUbuntuFipsContainerd2004Gen2       Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
-	AKSUbuntuFipsContainerd2204           Distro = "aks-ubuntu-fips-containerd-22.04"
-	AKSUbuntuFipsContainerd2204Gen2       Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
-	AKSUbuntuFipsContainerd2204TLGen2     Distro = "aks-ubuntu-fips-containerd-22.04-tl-gen2"
-	AKSUbuntuEdgeZoneContainerd2204       Distro = "aks-ubuntu-edgezone-containerd-22.04"
-	AKSUbuntuEdgeZoneContainerd2204Gen2   Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
-	AKSUbuntuContainerd2204               Distro = "aks-ubuntu-containerd-22.04"
-	AKSUbuntuContainerd2204Gen2           Distro = "aks-ubuntu-containerd-22.04-gen2"
-	AKSUbuntuContainerd2004CVMGen2        Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
-	AKSUbuntuArm64Containerd2204Gen2      Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
-	AKSUbuntuArm64Containerd2404Gen2      Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
-	AKSUbuntuArm64GB200Containerd2404Gen2 Distro = "aks-ubuntu-arm64-gb200-containerd-24.04-gen2"
-	AKSUbuntuContainerd2404CVMGen2        Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
-	AKSCBLMarinerV2Arm64Gen2              Distro = "aks-cblmariner-v2-arm64-gen2"
-	AKSAzureLinuxV2Arm64Gen2              Distro = "aks-azurelinux-v2-arm64-gen2"
-	AKSAzureLinuxV3Arm64Gen2              Distro = "aks-azurelinux-v3-arm64-gen2"
-	AKSAzureLinuxV3Arm64Gen2FIPS          Distro = "aks-azurelinux-v3-arm64-gen2-fips"
-	AKSUbuntuContainerd2204TLGen2         Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
-	AKSUbuntuMinimalContainerd2204        Distro = "aks-ubuntu-minimal-containerd-22.04"
-	AKSUbuntuMinimalContainerd2204Gen2    Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
-	AKSUbuntuEgressContainerd2204Gen2     Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
-	AKSUbuntuContainerd2404               Distro = "aks-ubuntu-containerd-24.04"
-	AKSUbuntuContainerd2404Gen2           Distro = "aks-ubuntu-containerd-24.04-gen2"
-	AKSAzureLinuxV3CVMGen2                Distro = "aks-azurelinux-v3-cvm-gen2"
-	AKSUbuntuContainerd2404TLGen2         Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
-	AKSFlatcarGen2                        Distro = "aks-flatcar-gen2"
-	AKSFlatcarArm64Gen2                   Distro = "aks-flatcar-arm64-gen2"
-	AKSACLGen2TL                          Distro = "aks-acl-gen2-tl"
-	AKSACLArm64Gen2TL                     Distro = "aks-acl-arm64-gen2-tl"
+	Ubuntu                                  Distro = "ubuntu"
+	AKSCBLMarinerV1                         Distro = "aks-cblmariner-v1"
+	AKSCBLMarinerV2                         Distro = "aks-cblmariner-v2"
+	AKSAzureLinuxV2                         Distro = "aks-azurelinux-v2"
+	AKSAzureLinuxV3                         Distro = "aks-azurelinux-v3"
+	AKSCBLMarinerV2Gen2                     Distro = "aks-cblmariner-v2-gen2"
+	AKSAzureLinuxV2Gen2                     Distro = "aks-azurelinux-v2-gen2"
+	AKSAzureLinuxV3Gen2                     Distro = "aks-azurelinux-v3-gen2"
+	AKSAzureLinuxV3EdgeZone                 Distro = "aks-azurelinux-v3-edgezone"
+	AKSAzureLinuxV3EdgeZoneGen2             Distro = "aks-azurelinux-v3-edgezone-gen2"
+	AKSCBLMarinerV2FIPS                     Distro = "aks-cblmariner-v2-fips"
+	AKSAzureLinuxV2FIPS                     Distro = "aks-azurelinux-v2-fips"
+	AKSAzureLinuxV3FIPS                     Distro = "aks-azurelinux-v3-fips"
+	AKSCBLMarinerV2Gen2FIPS                 Distro = "aks-cblmariner-v2-gen2-fips"
+	AKSAzureLinuxV2Gen2FIPS                 Distro = "aks-azurelinux-v2-gen2-fips"
+	AKSAzureLinuxV3Gen2FIPS                 Distro = "aks-azurelinux-v3-gen2-fips"
+	AKSCBLMarinerV2Gen2Kata                 Distro = "aks-cblmariner-v2-gen2-kata"
+	AKSAzureLinuxV2Gen2Kata                 Distro = "aks-azurelinux-v2-gen2-kata"
+	AKSAzureLinuxV3Gen2Kata                 Distro = "aks-azurelinux-v3-gen2-kata"
+	AKSCBLMarinerV2Gen2TL                   Distro = "aks-cblmariner-v2-gen2-tl"
+	AKSAzureLinuxV2Gen2TL                   Distro = "aks-azurelinux-v2-gen2-tl"
+	AKSAzureLinuxV3Gen2TL                   Distro = "aks-azurelinux-v3-gen2-tl"
+	AKSAzureLinuxV3OSGuardGen2FIPSTL        Distro = "aks-azurelinux-v3-osguard-gen2-fips-tl"
+	AKSCBLMarinerV2KataGen2TL               Distro = "aks-cblmariner-v2-kata-gen2-tl"
+	AKSUbuntuFipsContainerd2004             Distro = "aks-ubuntu-fips-containerd-20.04"
+	AKSUbuntuFipsContainerd2004Gen2         Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
+	AKSUbuntuFipsContainerd2204             Distro = "aks-ubuntu-fips-containerd-22.04"
+	AKSUbuntuFipsContainerd2204Gen2         Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
+	AKSUbuntuFipsContainerd2204TLGen2       Distro = "aks-ubuntu-fips-containerd-22.04-tl-gen2"
+	AKSUbuntuEdgeZoneContainerd2204         Distro = "aks-ubuntu-edgezone-containerd-22.04"
+	AKSUbuntuEdgeZoneContainerd2204Gen2     Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
+	AKSUbuntuEdgeZoneContainerd2404         Distro = "aks-ubuntu-edgezone-containerd-24.04"
+	AKSUbuntuEdgeZoneContainerd2404Gen2     Distro = "aks-ubuntu-edgezone-containerd-24.04-gen2"
+	AKSUbuntuContainerd2204                 Distro = "aks-ubuntu-containerd-22.04"
+	AKSUbuntuContainerd2204Gen2             Distro = "aks-ubuntu-containerd-22.04-gen2"
+	AKSUbuntuContainerd2004CVMGen2          Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
+	AKSUbuntuArm64Containerd2204Gen2        Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+	AKSUbuntuArm64Containerd2404Gen2        Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
+	AKSUbuntuArm64GB200Containerd2404Gen2   Distro = "aks-ubuntu-arm64-gb200-containerd-24.04-gen2"
+	AKSUbuntuContainerd2404CVMGen2          Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
+	AKSCBLMarinerV2Arm64Gen2                Distro = "aks-cblmariner-v2-arm64-gen2"
+	AKSAzureLinuxV2Arm64Gen2                Distro = "aks-azurelinux-v2-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2                Distro = "aks-azurelinux-v3-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2FIPS            Distro = "aks-azurelinux-v3-arm64-gen2-fips"
+	AKSUbuntuContainerd2204TLGen2           Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
+	AKSUbuntuEgressContainerd2204Gen2       Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
+	AKSUbuntuContainerd2404                 Distro = "aks-ubuntu-containerd-24.04"
+	AKSUbuntuContainerd2404Gen2             Distro = "aks-ubuntu-containerd-24.04-gen2"
+	AKSUbuntuMinimalContainerd2604Gen2      Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
+	AKSUbuntuMinimalArm64Containerd2604Gen2 Distro = "aks-ubuntu-minimal-arm64-containerd-26.04-gen2"
+	AKSUbuntuMinimalContainerd2604CVMGen2   Distro = "aks-ubuntu-minimal-containerd-26.04-cvm-gen2"
+	AKSAzureLinuxV3CVMGen2                  Distro = "aks-azurelinux-v3-cvm-gen2"
+	AKSUbuntuContainerd2404TLGen2           Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
+	AKSFlatcarGen2                          Distro = "aks-flatcar-gen2"
+	AKSFlatcarArm64Gen2                     Distro = "aks-flatcar-arm64-gen2"
+	AKSACLGen2TL                            Distro = "aks-acl-gen2-tl"
+	AKSACLArm64Gen2TL                       Distro = "aks-acl-arm64-gen2-tl"
+	AKSACLGen2FIPSTL                        Distro = "aks-acl-gen2-fips-tl"
+	AKSACLArm64Gen2FIPSTL                   Distro = "aks-acl-arm64-gen2-fips-tl"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -212,12 +221,15 @@ const (
 	AKSWindows2025 Distro = "aks-windows-2025"
 	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
 	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
+	// AKSWindows2025Gen2TL stands for distro for windows server 2025 Gen 2 Trusted Launch SIG image.
+	AKSWindows2025Gen2TL Distro = "aks-windows-2025-gen2-tl"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
-	AKSWindows2019PIR         Distro = "aks-windows-2019-pir"
-	CustomizedImage           Distro = "CustomizedImage"
-	CustomizedImageKata       Distro = "CustomizedImageKata"
-	CustomizedImageLinuxGuard Distro = "CustomizedImageLinuxGuard"
-	CustomizedWindowsOSImage  Distro = "CustomizedWindowsOSImage"
+	AKSWindows2019PIR            Distro = "aks-windows-2019-pir"
+	CustomizedImage              Distro = "CustomizedImage"
+	CustomizedImageKata          Distro = "CustomizedImageKata"
+	CustomizedImageLinuxGuard    Distro = "CustomizedImageLinuxGuard"
+	CustomizedImageTrustedLaunch Distro = "CustomizedImageTrustedLaunch"
+	CustomizedWindowsOSImage     Distro = "CustomizedWindowsOSImage"
 
 	// USNatCloud is a const string reference identifier for USNat.
 	USNatCloud = "USNatCloud"
@@ -254,6 +266,10 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuFipsContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuEdgeZoneContainerd2404,
+	AKSUbuntuEdgeZoneContainerd2404Gen2,
+	AKSAzureLinuxV3EdgeZone,
+	AKSAzureLinuxV3EdgeZoneGen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
@@ -267,15 +283,18 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV3Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2FIPS,
 	AKSUbuntuContainerd2204TLGen2,
-	AKSUbuntuMinimalContainerd2204,
-	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuContainerd2404TLGen2,
+	AKSUbuntuMinimalContainerd2604Gen2,
+	AKSUbuntuMinimalArm64Containerd2604Gen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
 	AKSACLArm64Gen2TL,
+	AKSACLGen2FIPSTL,
+	AKSACLArm64Gen2FIPSTL,
 }
 
 type CustomConfigurationComponent string
@@ -286,40 +305,24 @@ const (
 )
 
 func (d Distro) IsVHDDistro() bool {
-	for _, distro := range AKSDistrosAvailableOnVHD {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AKSDistrosAvailableOnVHD, d)
 }
 
 func (d Distro) Is2204VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2204Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2204Distros, d)
 }
 
 // This function will later be consumed by CSE to determine cgroupv2 usage.
 func (d Distro) Is2404VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2404Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableUbuntu2404Distros, d)
+}
+
+func (d Distro) Is2604VHDDistro() bool {
+	return slices.Contains(AvailableUbuntu2604Distros, d)
 }
 
 func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
-	for _, distro := range AvailableAzureLinuxCgroupV2Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxCgroupV2Distros, d)
 }
 
 func (d Distro) IsKataDistro() bool {
@@ -327,30 +330,19 @@ func (d Distro) IsKataDistro() bool {
 }
 
 func (d Distro) IsFlatcarDistro() bool {
-	for _, distro := range AvailableFlatcarDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableFlatcarDistros, d)
 }
 
 func (d Distro) IsACLDistro() bool {
-	for _, distro := range AvailableACLDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableACLDistros, d)
 }
 
 func (d Distro) IsAzureLinuxOSGuardDistro() bool {
-	for _, distro := range AvailableAzureLinuxOSGuardDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxOSGuardDistros, d)
+}
+
+func (d Distro) IsAzureLinuxV3Distro() bool {
+	return slices.Contains(AvailableAzureLinuxV3Distros, d)
 }
 
 /*
@@ -1182,7 +1174,7 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%t\", ", key, featureGates[key]))
+		fmt.Fprintf(&buf, "\"%s=%t\", ", key, featureGates[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1200,6 +1192,18 @@ func (a *AgentPoolProfile) Is2204VHDDistro() bool {
 // Is2404VHDDistro returns true if the distro uses 2404 VHD.
 func (a *AgentPoolProfile) Is2404VHDDistro() bool {
 	return a.Distro.Is2404VHDDistro()
+}
+
+// Is2604VHDDistro returns true if the distro uses 2604 VHD.
+func (a *AgentPoolProfile) Is2604VHDDistro() bool {
+	return a.Distro.Is2604VHDDistro()
+}
+
+func (a *AgentPoolProfile) IsContainerdV2Distro() bool {
+	if a.Distro.IsKataDistro() {
+		return false
+	}
+	return a.Distro.Is2604VHDDistro() || a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
 }
 
 // IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.
@@ -1248,8 +1252,8 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
 func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
-	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
+	fmt.Fprintf(&buf, "agentpool=%s", a.Name)
+	fmt.Fprintf(&buf, ",kubernetes.azure.com/agentpool=%s", a.Name)
 
 	keys := []string{}
 	for key := range a.CustomNodeLabels {
@@ -1257,7 +1261,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
+		fmt.Fprintf(&buf, ",%s=%s", key, a.CustomNodeLabels[key])
 	}
 	return buf.String()
 }
@@ -1572,33 +1576,30 @@ func setCustomKubletConfigFromSettings(customKc *CustomKubeletConfig, kubeletCon
 	return kubeletConfig
 }
 
-/*
-GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
-script consumption.
-*/
-func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+func (config *NodeBootstrappingConfiguration) getWindowsKubeletConfig(customKc *CustomKubeletConfig) map[string]string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
 	}
 
-	// override default kubelet configuration with customzied ones.
 	if config.ContainerService != nil && config.ContainerService.Properties != nil {
 		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
 		if kubeletCustomConfiguration != nil {
-			config := kubeletCustomConfiguration.Config
-			for k, v := range config {
+			for k, v := range kubeletCustomConfiguration.Config {
 				kubeletConfig[k] = v
 			}
 		}
 	}
 
-	// Settings from customKubeletConfig, only take if it's set.
-	kubeletConfig = setCustomKubletConfigFromSettings(customKc, kubeletConfig)
+	return setCustomKubletConfigFromSettings(customKc, kubeletConfig)
+}
 
-	if len(kubeletConfig) == 0 {
-		return ""
-	}
+/*
+GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
+script consumption.
+*/
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.getWindowsKubeletConfig(customKc)
 
 	commandLineOmmittedKubeletConfigFlags := GetCommandLineOmittedKubeletConfigFlags()
 	keys := []string{}
@@ -1611,9 +1612,32 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeletConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeletConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
+}
+
+// GetKubeletHealthzEndpoint returns the local URL matching the effective Windows kubelet configuration.
+func (config *NodeBootstrappingConfiguration) GetKubeletHealthzEndpoint(customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.getWindowsKubeletConfig(customKc)
+
+	address := kubeletConfig["--healthz-bind-address"]
+	port := kubeletConfig["--healthz-port"]
+	if port == "" {
+		port = "10248"
+	}
+	if port == "0" {
+		return ""
+	}
+
+	switch address {
+	case "", "0.0.0.0":
+		address = "127.0.0.1"
+	case "::":
+		address = "::1"
+	}
+
+	return fmt.Sprintf("http://%s/healthz", net.JoinHostPort(address, port))
 }
 
 /*
@@ -1652,7 +1676,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeproxyConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeproxyConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1695,7 +1719,7 @@ func FormatProdFQDNByLocation(fqdnPrefix string, location string, cloudSpecConfi
 
 type K8sComponents struct {
 	// Full path to the "pause" image. Used for --pod-infra-container-image.
-	// For example: "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6".
+	// For example: "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2".
 	PodInfraContainerImageURL string
 
 	// Full path to the hyperkube image.
@@ -1747,7 +1771,9 @@ type NodeBootstrappingConfiguration struct {
 	EnableAMDGPU                    bool
 	ManagedGPUExperienceAFECEnabled bool
 	EnableManagedGPU                bool
+	EnableManagedGPUDRA             bool
 	MigStrategy                     string
+	MIGProfileLayout                []string
 	EnableArtifactStreaming         bool
 	ContainerdVersion               string
 	RuncVersion                     string
@@ -1782,6 +1808,12 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+	// EnabledFeatures is a generic set of feature toggles delivered to the node as KEY=VALUE
+	// lines in enabled_features.sh, which the aks-node-controller wrapper reads and exports as
+	// environment variables (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true") to gate provisioning
+	// steps such as check-hotfix. Using a map lets RP add new toggles without producer-side code
+	// changes. Empty/nil => no file is written and scriptless custom data is byte-identical to today.
+	EnabledFeatures map[string]string
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
 
@@ -1796,6 +1828,28 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessCSECmd uses the CSE command to run the CSE logic without replacing scripts on the node using custom data.
 	// When EnableScriptlessCSECmd is true, the rendered CSE commands are executed directly on the node.
 	EnableScriptlessCSECmd bool
+
+	// EnableScriptlessNBCCSECmd enables scriptless phase 2 in which the cse cmd generated from NBC is passed to
+	// AKS Node Controller and uses the NBC cmd to start provisioning.
+	EnableScriptlessNBCCSECmd bool
+
+	// ScriptlessCSEProvisionMode specifies the provisioning mode for scriptless phase 2,
+	// which uses CSE to provide provision nbc or aks nc configs
+	ScriptlessCSEProvisionMode bool
+
+	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
+	AKSNodeConfigJSON string
+
+	// StandardSecondaryNICCount is the number of Standard-type secondary network
+	// interfaces configured on the agent pool. The node bootstrapping scripts use
+	// this to detect and configure the additional NICs at the OS level.
+	// Dynamic-type secondary NICs are not included in this count as they are
+	// configured by CNS rather than the node bootstrapping scripts.
+	StandardSecondaryNICCount int
+}
+
+func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {
+	return config.OSSKU == OSSKUAzureLinux || config.AgentPoolProfile.IsAzureLinuxCgroupV2VHDDistro()
 }
 
 func (config *NodeBootstrappingConfiguration) IsFlatcar() bool {
@@ -1842,24 +1896,46 @@ type CustomCATrustConfig struct {
 type SecureTLSBootstrappingConfig struct {
 	// Enabled indicates whether secure TLS bootstrapping is enabled.
 	Enabled bool `json:"secureTLSBootstrappingEnabled"`
-	// Deadline is an optional override passed to the secure TLS bootstrap client during provisioning.
-	// This is the amount of time we let secure TLS bootstrapping attempt to succeed before falling back
-	// to using the bootstrap token. This will be removed once bootstrap tokens are no longer a viable fall-back.
-	// A default value is specified directly within the bootstrapping scripts.
-	Deadline string `json:"secureTLSBootstrappingDeadline,omitempty"`
+
 	// AADResource is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This determines the resource used to request access tokens from Entra ID.
 	// Defaults to the AKS AAD server APP ID within bootstrapping scripts.
 	AADResource string `json:"secureTLSBootstrappingAADResource,omitempty"`
+
 	// UserAssignedIdentityID is an optional override passed to the secure TLS bootstrap client during provisioning.
 	// This determines the client ID of the user assigned identity attached to the node which will be
 	// used to fetch access tokens from Entra ID via IMDS if the node has one or more user-assigned managed identities.
 	// Defaults to the kubelet identity within bootstrapping scripts.
 	UserAssignedIdentityID string `json:"secureTLSBootstrappingUserAssignedIdentityID,omitempty"`
+
 	// CustomClientDownloadURL is an optional override which will have the bootstrap scripts
 	// overwrite the existing secure TLS bootstrap client installation on the node image using
 	// the version specified by the URL before bootstrapping.
-	CustomClientDownloadURL string `json:"secureTLSBootstrappingCustomClientDownloadURL"`
+	CustomClientDownloadURL string `json:"secureTLSBootstrappingCustomClientDownloadURL,omitempty"`
+
+	// ValidateKubeconfigTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to perform kubeconfig validation against the cluster's API server.
+	ValidateKubeconfigTimeout string `json:"secureTLSBootstrappingValidateKubeconfigTimeout,omitempty"`
+
+	// GetAccessTokenTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve an access token from IMDS/Entra ID.
+	GetAccessTokenTimeout string `json:"secureTLSBootstrappingGetAccessTokenTimeout,omitempty"`
+
+	// GetInstanceDataTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve VM instance data from IMDS.
+	GetInstanceDataTimeout string `json:"secureTLSBootstrappingGetInstanceDataTimeout,omitempty"`
+
+	// GetNonceTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve a unique nonce from the bootstrap server.
+	GetNonceTimeout string `json:"secureTLSBootstrappingGetNonceTimeout,omitempty"`
+
+	// GetAttestedDataTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve VM attested data from IMDS.
+	GetAttestedDataTimeout string `json:"secureTLSBootstrappingGetAttestedDataTimeout,omitempty"`
+
+	// GetCredentialTimeout is an optional override passed to the secure TLS bootstrap client during provisioning.
+	// This is the amount of time given to the bootstrap client to retrieve a credential from the bootstrap server.
+	GetCredentialTimeout string `json:"secureTLSBootstrappingGetCredentialTimeout,omitempty"`
 }
 
 func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
@@ -1867,13 +1943,6 @@ func (c *SecureTLSBootstrappingConfig) GetEnabled() bool {
 		return false
 	}
 	return c.Enabled
-}
-
-func (c *SecureTLSBootstrappingConfig) GetDeadline() string {
-	if c == nil {
-		return ""
-	}
-	return c.Deadline
 }
 
 func (c *SecureTLSBootstrappingConfig) GetAADResource() string {
@@ -1895,6 +1964,48 @@ func (c *SecureTLSBootstrappingConfig) GetCustomClientDownloadURL() string {
 		return ""
 	}
 	return c.CustomClientDownloadURL
+}
+
+func (c *SecureTLSBootstrappingConfig) GetValidateKubeconfigTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.ValidateKubeconfigTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetAccessTokenTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetAccessTokenTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetInstanceDataTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetInstanceDataTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetNonceTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetNonceTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetAttestedDataTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetAttestedDataTimeout
+}
+
+func (c *SecureTLSBootstrappingConfig) GetGetCredentialTimeout() string {
+	if c == nil {
+		return ""
+	}
+	return c.GetCredentialTimeout
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.
@@ -2025,13 +2136,11 @@ type AKSKubeletConfiguration struct {
 	Default: nil
 	+optional. */
 	ClusterDNS []string `json:"clusterDNS,omitempty"`
-	/* streamingConnectionIdleTimeout is the maximum time a streaming connection
-	can be idle before the connection is automatically closed.
-	Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-	it may impact components that rely on infrequent updates over streaming
-	connections to the Kubelet server.
-	Default: "4h"
-	+optional. */
+	/* Deprecated: streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34.
+		Retained for backward compatibility with k8s < 1.34. Do not use for new code.
+		For k8s >= 1.34, this field is cleared by baker/ANC and omitted from the config file via omitempty.
+		Default: "4h"
+	   +optional. */
 	StreamingConnectionIdleTimeout Duration `json:"streamingConnectionIdleTimeout,omitempty"`
 	/* nodeStatusUpdateFrequency is the frequency that kubelet computes node
 	status. If node lease feature is not enabled, it is also the frequency that
@@ -2145,6 +2254,24 @@ type AKSKubeletConfiguration struct {
 	  imagefs.available: "15%"
 	+optional. */
 	EvictionHard map[string]string `json:"evictionHard,omitempty"`
+	/* evictionSoft is a map of signal names to quantities that defines soft eviction thresholds.
+	For example: {"memory.available": "300Mi"}.
+	Each signal listed here must also have a corresponding entry in evictionSoftGracePeriod.
+	Soft eviction terminates pods gracefully (respecting terminationGracePeriodSeconds, capped by
+	evictionMaxPodGracePeriod) once the threshold is breached for the configured grace period.
+	+optional. */
+	EvictionSoft map[string]string `json:"evictionSoft,omitempty"`
+	/* evictionSoftGracePeriod is a map of signal names to durations defining how long the soft
+	eviction threshold must be breached before triggering eviction. Example:
+	{"memory.available": "30s", "nodefs.available": "2m"}.
+	Each entry must correspond to a signal listed in evictionSoft.
+	+optional. */
+	EvictionSoftGracePeriod map[string]string `json:"evictionSoftGracePeriod,omitempty"`
+	/* evictionMaxPodGracePeriod is the maximum allowed grace period (in seconds) to use when
+	terminating pods in response to a soft eviction threshold being met. Setting this value
+	caps the pod's terminationGracePeriodSeconds during soft eviction.
+	+optional. */
+	EvictionMaxPodGracePeriod int32 `json:"evictionMaxPodGracePeriod,omitempty"`
 	/* protectKernelDefaults, if true, causes the Kubelet to error if kernel
 	flags are not as it expects. Otherwise the Kubelet will attempt to modify
 	kernel flags to match its expectation.
@@ -2224,6 +2351,16 @@ type AKSKubeletConfiguration struct {
 	Default: ["pods"]
 	+optional. */
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
+	/* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage
+	for the kube-reserved compute resources. When enforce-node-allocatable contains
+	this cgroup must exist before kubelet starts. Example: "/kubereserved.slice".
+	+optional. */
+	KubeReservedCgroup string `json:"kubeReservedCgroup,omitempty"`
+	/* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage
+	for the system-reserved compute resources. When enforce-node-allocatable contains
+	"system-reserved", this cgroup must exist before kubelet starts. Example: "/system.slice".
+	+optional. */
+	SystemReservedCgroup string `json:"systemReservedCgroup,omitempty"`
 	/* A comma separated whitelist of unsafe sysctls or sysctl patterns (ending in *).
 	Unsafe sysctl groups are kernel.shm*, kernel.msg*, kernel.sem, fs.mqueue.*, and net.*.
 	These sysctls are namespaced but not allowed by default.
@@ -2241,7 +2378,21 @@ type AKSKubeletConfiguration struct {
 	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
 	// Default: false
 	// +optional
-	SeccompDefault *bool `json:"seccompDefault,omitempty"`
+	SeccompDefault           *bool          `json:"seccompDefault,omitempty"`
+	EnableServer             *bool          `json:"enableServer,omitempty"`
+	VolumePluginDir          string         `json:"volumePluginDir,omitempty"`
+	CgroupDriver             string         `json:"cgroupDriver,omitempty"`
+	RuntimeRequestTimeout    Duration       `json:"runtimeRequestTimeout,omitempty"`
+	ContainerRuntimeEndpoint string         `json:"containerRuntimeEndpoint,omitempty"`
+	RegisterWithTaints       []KubeletTaint `json:"registerWithTaints,omitempty"`
+	HairpinMode              string         `json:"hairpinMode,omitempty"`
+}
+
+type KubeletTaint struct {
+	Key       string `json:"key,omitempty"`
+	Value     string `json:"value,omitempty"`
+	Effect    string `json:"effect,omitempty"`
+	TimeAdded string `json:"timeAdded,omitempty"`
 }
 
 type Duration string
@@ -2460,23 +2611,67 @@ const (
 // LocalDNSProfile represents localdns configuration for agentpool nodes.
 type LocalDNSProfile struct {
 	EnableLocalDNS       bool                          `json:"enableLocalDNS,omitempty"`
+	EnableHostsPlugin    bool                          `json:"enableHostsPlugin,omitempty"`
 	CPULimitInMilliCores *int32                        `json:"cpuLimitInMilliCores,omitempty"`
 	MemoryLimitInMB      *int32                        `json:"memoryLimitInMB,omitempty"`
 	VnetDNSOverrides     map[string]*LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
 	KubeDNSOverrides     map[string]*LocalDNSOverrides `json:"kubeDNSOverrides,omitempty"`
+	// CriticalFQDNs is the list of critical FQDNs to resolve for the hosts plugin.
+	// Passed from RP so the script doesn't need cloud-specific logic.
+	CriticalFQDNs []string `json:"criticalFQDNs,omitempty"`
+
+	// HostsPluginRefreshIntervalInSeconds overrides the default hosts plugin timer cadence.
+	HostsPluginRefreshIntervalInSeconds *int32 `json:"hostsPluginRefreshIntervalInSeconds,omitempty"`
 }
 
 type LocalDNSCoreFileData struct {
 	LocalDNSProfile
-	NodeListenerIP    string
-	ClusterListenerIP string
-	CoreDNSServiceIP  string
-	AzureDNSIP        string
+	NodeListenerIP     string
+	ClusterListenerIP  string
+	CoreDNSServiceIP   string
+	AzureDNSIP         string
+	IncludeHostsPlugin bool
+}
+
+// LocalDNSHealthCheck represents CoreDNS forward plugin health check settings.
+type LocalDNSHealthCheck struct {
+	// Duration is the health check interval as a Go duration string, for example "500ms" or "1s".
+	Duration *string `json:"duration,omitempty"`
+	// Sets the RecursionDesired flag of the health check query to false.
+	NoRec *bool `json:"noRec,omitempty"`
+	// Domain name used for health check queries.
+	Domain *string `json:"domain,omitempty"`
 }
 
 // LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
 // VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
 // KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+func (h *LocalDNSHealthCheck) GetDuration() string {
+	if h != nil && h.Duration != nil {
+		return *h.Duration
+	}
+	return ""
+}
+func (h *LocalDNSHealthCheck) GetNoRec() bool {
+	if h != nil && h.NoRec != nil {
+		return *h.NoRec
+	}
+	return false
+}
+func (h *LocalDNSHealthCheck) GetDomain() string {
+	if h != nil && h.Domain != nil {
+		return *h.Domain
+	}
+	return ""
+}
+
+func (o *LocalDNSOverrides) GetFailfastAllUnhealthyUpstreams() bool {
+	if o != nil && o.FailfastAllUnhealthyUpstreams != nil {
+		return *o.FailfastAllUnhealthyUpstreams
+	}
+	return false
+}
+
 type LocalDNSOverrides struct {
 	QueryLogging                string `json:"queryLogging,omitempty"`
 	Protocol                    string `json:"protocol,omitempty"`
@@ -2486,6 +2681,10 @@ type LocalDNSOverrides struct {
 	CacheDurationInSeconds      *int32 `json:"cacheDurationInSeconds,omitempty"`
 	ServeStaleDurationInSeconds *int32 `json:"serveStaleDurationInSeconds,omitempty"`
 	ServeStale                  string `json:"serveStale,omitempty"`
+	// Determines the handling of requests when all upstream servers are unhealthy.
+	FailfastAllUnhealthyUpstreams *bool `json:"failfastAllUnhealthyUpstreams,omitempty"`
+	// Configures CoreDNS forward plugin health checking behavior for upstream servers.
+	HealthCheck *LocalDNSHealthCheck `json:"healthCheck,omitempty"`
 }
 
 // ShouldEnableLocalDNS returns true if AgentPoolProfile, LocalDNSProfile is not nil and
@@ -2494,6 +2693,13 @@ type LocalDNSOverrides struct {
 // If this function returns true only then we generate localdns systemd unit and corefile.
 func (a *AgentPoolProfile) ShouldEnableLocalDNS() bool {
 	return a != nil && a.LocalDNSProfile != nil && a.LocalDNSProfile.EnableLocalDNS
+}
+
+// ShouldEnableHostsPlugin returns true if LocalDNS is enabled and the hosts plugin
+// is explicitly enabled. When true, the localdns Corefile will include a hosts plugin
+// block that serves cached DNS entries from /etc/localdns/hosts for critical AKS FQDNs.
+func (a *AgentPoolProfile) ShouldEnableHostsPlugin() bool {
+	return a.ShouldEnableLocalDNS() && a.LocalDNSProfile.EnableHostsPlugin
 }
 
 // GetLocalDNSNodeListenerIP returns APIPA-IP address that will be used in localdns systemd unit.

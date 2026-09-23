@@ -55,7 +55,6 @@ var expectedKubeletConfigFlags = "--address=0.0.0.0" +
 	" --resolv-conf=/etc/resolv.conf" +
 	" --rotate-certificates=true" +
 	" --rotate-server-certificates=true" +
-	" --streaming-connection-idle-timeout=4h0m0s" +
 	" --system-reserved=cpu=2,memory=1Gi" +
 	" --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt" +
 	" --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256," +
@@ -99,7 +98,6 @@ var expectedKubeletJSON = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -166,7 +164,8 @@ net.ipv4.neigh.default.gc_thresh1=4096
 net.ipv4.neigh.default.gc_thresh2=8192
 net.ipv4.neigh.default.gc_thresh3=16384
 net.ipv4.tcp_max_syn_backlog=16384
-net.ipv4.tcp_retries2=8`)),
+net.ipv4.tcp_retries2=8
+`)),
 		},
 		{
 			name: "SysctlConfig with custom values",
@@ -187,7 +186,8 @@ net.ipv4.neigh.default.gc_thresh1=4096
 net.ipv4.neigh.default.gc_thresh2=8192
 net.ipv4.neigh.default.gc_thresh3=16384
 net.ipv4.tcp_max_syn_backlog=9999
-net.ipv4.tcp_retries2=8`)),
+net.ipv4.tcp_retries2=8
+`)),
 		},
 	}
 	for _, tt := range tests {
@@ -214,7 +214,7 @@ func Test_getUlimitContent(t *testing.T) {
 			args: args{
 				u: &aksnodeconfigv1.UlimitConfig{},
 			},
-			want: "[Service]\n",
+			want: "[Service] ",
 		},
 		{
 			name: "UlimitConfig with custom values",
@@ -224,7 +224,7 @@ func Test_getUlimitContent(t *testing.T) {
 					MaxLockedMemory: &str9999,
 				},
 			},
-			want: "[Service]\nLimitMEMLOCK=9999 LimitNOFILE=9999",
+			want: "[Service] LimitMEMLOCK=9999 LimitNOFILE=9999 ",
 		},
 	}
 	for _, tt := range tests {
@@ -497,7 +497,168 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfigBase64(tt.args.aksnodeconfig); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
+				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getContainerdConfigV2(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+		noGpu         bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Containerd v2 default config",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.0.0",
+					},
+				},
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd v2 with GPU",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(true),
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.0.1",
+					},
+					GpuConfig: &aksnodeconfigv1.GpuConfig{
+						EnableNvidia: to.Ptr(true),
+					},
+				},
+				noGpu: false,
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd v2 no GPU template",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "2.0.0",
+					},
+					GpuConfig: &aksnodeconfigv1.GpuConfig{
+						EnableNvidia: to.Ptr(true),
+					},
+				},
+				noGpu: true,
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+  [plugins."io.containerd.cri.v1.images".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd v1 still uses old templates",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: to.Ptr(true),
+					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+						ContainerdVersion: "1.7.22",
+					},
+				},
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  enable_cdi = true
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			containerdVersion := tt.args.aksnodeconfig.GetContainerdConfig().GetContainerdVersion()
+			var got string
+			if tt.args.noGpu {
+				got = getNoGPUContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
+			} else {
+				got = getContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
+			}
+			if got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -851,7 +1012,7 @@ func TestIsKubernetesVersionGe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := helpers.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
+			if got := IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
 				t.Errorf("IsKubernetesVersionGe() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1011,6 +1172,55 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 	}
 }
 
+func Test_getProxyVariables(t *testing.T) {
+	const expectedProxyVars = `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi; ` +
+		`if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi; ` +
+		`if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi`
+
+	t.Run("empty config has no compatibility payload", func(t *testing.T) {
+		if got := getProxyVariables(nil); got != "" {
+			t.Errorf("getProxyVariables() = %q, want empty string", got)
+		}
+		if got := getProxyVariables(&aksnodeconfigv1.HttpProxyConfig{}); got != "" {
+			t.Errorf("getProxyVariables() = %q, want empty string", got)
+		}
+	})
+
+	t.Run("exports uppercase and lowercase proxy variables", func(t *testing.T) {
+		got := getProxyVariables(&aksnodeconfigv1.HttpProxyConfig{
+			HttpProxy:      "http://proxy.example.com:8080",
+			HttpsProxy:     "https://proxy.example.com:8443",
+			NoProxyEntries: []string{"127.0.0.1", "localhost", ".svc"},
+		})
+
+		if got != expectedProxyVars {
+			t.Errorf("getProxyVariables() = %q, want %q", got, expectedProxyVars)
+		}
+		for _, proxyVar := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"} {
+			if !strings.Contains(got, proxyVar) {
+				t.Errorf("getProxyVariables() missing %s in %q", proxyVar, got)
+			}
+		}
+	})
+
+	t.Run("does not embed customer controlled shell content", func(t *testing.T) {
+		httpProxy := `http://user:p'ass"word/$(touch http-injected);` + "`touch http-injected`" + `/*?[x]\value`
+		httpsProxy := `https://proxy.example/$(touch https-injected)`
+		noProxyEntry := `$(touch no-proxy-injected)`
+		got := getProxyVariables(&aksnodeconfigv1.HttpProxyConfig{
+			HttpProxy:      httpProxy,
+			HttpsProxy:     httpsProxy,
+			NoProxyEntries: []string{"localhost", noProxyEntry, ".svc"},
+		})
+
+		for _, unsafeValue := range []string{httpProxy, httpsProxy, noProxyEntry} {
+			if strings.Contains(got, unsafeValue) {
+				t.Errorf("getProxyVariables() embedded unsafe value %q in %q", unsafeValue, got)
+			}
+		}
+	})
+}
+
 func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 	type args struct {
 		httpProxyConfig *aksnodeconfigv1.HttpProxyConfig
@@ -1105,7 +1315,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureChinaCloud",
+			want: helpers.AzureChinaCloud,
 		},
 		{
 			name: "Germany location cluster config",
@@ -1117,7 +1327,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureGermanCloud",
+			want: helpers.AzureGermanCloud,
 		},
 		{
 			name: "usgov location cluster config",
@@ -1129,7 +1339,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureUSGovernmentCloud",
+			want: helpers.AzureUSGovernmentCloud,
 		},
 	}
 	for _, tt := range tests {
@@ -1180,6 +1390,77 @@ func Test_getTargetCloud(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getTargetCloud(tt.args.v); got != tt.want {
 				t.Errorf("getTargetCloud() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getArmResourceEndpoint(t *testing.T) {
+	tests := []struct {
+		name string
+		v    *aksnodeconfigv1.Configuration
+		want string
+	}{
+		{
+			name: "Empty config returns public cloud default",
+			v:    &aksnodeconfigv1.Configuration{},
+			want: "https://management.azure.com/",
+		},
+		{
+			name: "Public cloud location returns public cloud default",
+			v: &aksnodeconfigv1.Configuration{
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "eastus"},
+			},
+			want: "https://management.azure.com/",
+		},
+		{
+			name: "China cloud by location returns Mooncake endpoint",
+			v: &aksnodeconfigv1.Configuration{
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "chinaeast2"},
+			},
+			want: "https://management.chinacloudapi.cn/",
+		},
+		{
+			name: "US Gov by location returns Fairfax endpoint",
+			v: &aksnodeconfigv1.Configuration{
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "usgovvirginia"},
+			},
+			want: "https://management.usgovcloudapi.net/",
+		},
+		{
+			name: "AKS custom cloud with resourceManagerEndpoint in CustomEnvJsonContent",
+			v: &aksnodeconfigv1.Configuration{
+				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+					CustomCloudEnvName:   helpers.AksCustomCloudName,
+					CustomEnvJsonContent: `{"resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/"}`,
+				},
+			},
+			want: "https://management.azure.microsoft.fakecustomcloud/",
+		},
+		{
+			name: "AKS custom cloud with empty CustomEnvJsonContent returns empty",
+			v: &aksnodeconfigv1.Configuration{
+				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+					CustomCloudEnvName: helpers.AksCustomCloudName,
+				},
+			},
+			want: "",
+		},
+		{
+			name: "AKS custom cloud with malformed JSON returns empty",
+			v: &aksnodeconfigv1.Configuration{
+				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+					CustomCloudEnvName:   helpers.AksCustomCloudName,
+					CustomEnvJsonContent: `{not-json`,
+				},
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getArmResourceEndpoint(tt.v); got != tt.want {
+				t.Errorf("getArmResourceEndpoint() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1307,18 +1588,17 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 						ClusterDns: []string{
 							"10.0.0.10",
 						},
-						StreamingConnectionIdleTimeout: "4h0m0s",
-						NodeStatusUpdateFrequency:      "10s",
-						ImageGcHighThresholdPercent:    to.Ptr(int32(90)),
-						ImageGcLowThresholdPercent:     to.Ptr(int32(70)),
-						CgroupsPerQos:                  to.Ptr(true),
-						CpuManagerPolicy:               "static",
-						TopologyManagerPolicy:          "best-effort",
-						MaxPods:                        to.Ptr(int32(110)),
-						PodPidsLimit:                   to.Ptr(int32(12345)),
-						ResolvConf:                     "/etc/resolv.conf",
-						CpuCfsQuota:                    to.Ptr(false),
-						CpuCfsQuotaPeriod:              "200ms",
+						NodeStatusUpdateFrequency:   "10s",
+						ImageGcHighThresholdPercent: to.Ptr(int32(90)),
+						ImageGcLowThresholdPercent:  to.Ptr(int32(70)),
+						CgroupsPerQos:               to.Ptr(true),
+						CpuManagerPolicy:            "static",
+						TopologyManagerPolicy:       "best-effort",
+						MaxPods:                     to.Ptr(int32(110)),
+						PodPidsLimit:                to.Ptr(int32(12345)),
+						ResolvConf:                  "/etc/resolv.conf",
+						CpuCfsQuota:                 to.Ptr(false),
+						CpuCfsQuotaPeriod:           "200ms",
 						EvictionHard: map[string]string{
 							"memory.available":  "750Mi",
 							"nodefs.available":  "10%",
@@ -1390,35 +1670,34 @@ func Test_getKubeletFlags(t *testing.T) {
 			args: args{
 				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					KubeletFlags: map[string]string{
-						"--address":                           "0.0.0.0",
-						"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-						"--cluster-domain":                    "cluster.local",
-						"--cluster-dns":                       "10.0.0.10",
-						"--cgroups-per-qos":                   "true",
-						"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-						"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-						"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-						"--max-pods":                          "110",
-						"--node-status-update-frequency":      "10s",
-						"--image-gc-high-threshold":           "85",
-						"--image-gc-low-threshold":            "80",
-						"--event-qps":                         "0",
-						"--pod-max-pids":                      "-1",
-						"--enforce-node-allocatable":          "pods",
-						"--streaming-connection-idle-timeout": "4h0m0s",
-						"--rotate-certificates":               "true",
-						"--rotate-server-certificates":        "true",
-						"--read-only-port":                    "10255",
-						"--protect-kernel-defaults":           "true",
-						"--resolv-conf":                       "/etc/resolv.conf",
-						"--anonymous-auth":                    "false",
-						"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-						"--authentication-token-webhook":      "true",
-						"--authorization-mode":                "Webhook",
-						"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-						"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
-						"--system-reserved":                   "cpu=2,memory=1Gi",
-						"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+						"--address":                      "0.0.0.0",
+						"--pod-manifest-path":            "/etc/kubernetes/manifests",
+						"--cluster-domain":               "cluster.local",
+						"--cluster-dns":                  "10.0.0.10",
+						"--cgroups-per-qos":              "true",
+						"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
+						"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
+						"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+						"--max-pods":                     "110",
+						"--node-status-update-frequency": "10s",
+						"--image-gc-high-threshold":      "85",
+						"--image-gc-low-threshold":       "80",
+						"--event-qps":                    "0",
+						"--pod-max-pids":                 "-1",
+						"--enforce-node-allocatable":     "pods",
+						"--rotate-certificates":          "true",
+						"--rotate-server-certificates":   "true",
+						"--read-only-port":               "10255",
+						"--protect-kernel-defaults":      "true",
+						"--resolv-conf":                  "/etc/resolv.conf",
+						"--anonymous-auth":               "false",
+						"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+						"--authentication-token-webhook": "true",
+						"--authorization-mode":           "Webhook",
+						"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+						"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
+						"--system-reserved":              "cpu=2,memory=1Gi",
+						"--kube-reserved":                "cpu=100m,memory=1638Mi",
 					},
 				},
 			},
@@ -1446,7 +1725,14 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
     forward . 168.63.129.16 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -1491,6 +1777,7 @@ testdomain456.com:53 {
     log
     bind 169.254.10.10
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -1509,7 +1796,14 @@ testdomain456.com:53 {
 .:53 {
     errors
     bind 169.254.10.11
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 2000
     }
@@ -1533,26 +1827,69 @@ testdomain456.com:53 {
     }
 }`
 
+// normalizeCorefileString normalizes a corefile string for comparison by collapsing
+// blank lines and whitespace runs.
+func normalizeCorefileString(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.TrimSpace(s)
+	s = regexp.MustCompile(`\n\s*\n+`).ReplaceAllString(s, "\n")
+	s = regexp.MustCompile(`[ \t]+`).ReplaceAllString(s, " ")
+	return s
+}
+
+// assertCorefileBase64Contains decodes a base64 corefile and checks it contains (or does not contain) the expected substrings.
+func assertCorefileBase64Contains(t *testing.T, got, wantContains, wantNotContains string) {
+	t.Helper()
+	if wantContains == "" && wantNotContains == "" {
+		if got != "" {
+			t.Errorf("expected empty string, got %q", got)
+		}
+		return
+	}
+	if wantContains != "" {
+		decoded, err := base64.StdEncoding.DecodeString(got)
+		if err != nil {
+			t.Fatalf("failed to decode base64: %v", err)
+		}
+		if !strings.Contains(normalizeCorefileString(string(decoded)), normalizeCorefileString(wantContains)) {
+			t.Errorf("expected decoded corefile to contain %q, got:\n%s", wantContains, string(decoded))
+		}
+	}
+	if wantNotContains != "" {
+		decoded, err := base64.StdEncoding.DecodeString(got)
+		if err != nil {
+			t.Fatalf("failed to decode base64: %v", err)
+		}
+		if strings.Contains(string(decoded), wantNotContains) {
+			t.Errorf("expected decoded corefile NOT to contain %q, got:\n%s", wantNotContains, string(decoded))
+		}
+	}
+}
+
 func Test_getLocalDNSCorefileBase64(t *testing.T) {
 	type args struct {
-		aksnodeconfig *aksnodeconfigv1.Configuration
+		aksnodeconfig      *aksnodeconfigv1.Configuration
+		includeHostsPlugin bool
 	}
 	tests := []struct {
-		name         string
-		args         args
-		wantContains string
+		name            string
+		args            args
+		wantContains    string
+		wantNotContains string
 	}{
 		{
 			name: "aksnodeconfig is nil, should return empty string",
 			args: args{
-				aksnodeconfig: nil,
+				aksnodeconfig:      nil,
+				includeHostsPlugin: true,
 			},
 			wantContains: "",
 		},
 		{
 			name: "LocalDNSProfile is nil, should return empty string",
 			args: args{
-				aksnodeconfig: &aksnodeconfigv1.Configuration{},
+				aksnodeconfig:      &aksnodeconfigv1.Configuration{},
+				includeHostsPlugin: true,
 			},
 			wantContains: "",
 		},
@@ -1564,11 +1901,12 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 						EnableLocalDns: false,
 					},
 				},
+				includeHostsPlugin: true,
 			},
 			wantContains: "",
 		},
 		{
-			name: "LocalDNSProfile enabled returns base64 string",
+			name: "LocalDNSProfile enabled returns base64 string with hosts plugin",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
@@ -1621,45 +1959,209 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 						},
 					},
 				},
+				includeHostsPlugin: true,
 			},
 			wantContains: expectedlocalDNSCorefile,
+		},
+		{
+			name: "LocalDNSProfile enabled returns base64 string without hosts plugin",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+						EnableLocalDns:       true,
+						CpuLimitInMilliCores: to.Ptr(int32(2008)),
+						MemoryLimitInMb:      to.Ptr(int32(512)),
+						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+							".": {
+								QueryLogging:                "Log",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "VnetDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(1000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								ServeStale:                  "Immediate",
+							},
+						},
+						KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
+							".": {
+								QueryLogging:                "Error",
+								Protocol:                    "PreferUDP",
+								ForwardDestination:          "ClusterCoreDNS",
+								ForwardPolicy:               "Sequential",
+								MaxConcurrent:               to.Ptr(int32(2000)),
+								CacheDurationInSeconds:      to.Ptr(int32(3600)),
+								ServeStaleDurationInSeconds: to.Ptr(int32(72000)),
+								ServeStale:                  "Verify",
+							},
+						},
+					},
+				},
+				includeHostsPlugin: false,
+			},
+			wantNotContains: "hosts /etc/localdns/hosts",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getLocalDnsCorefileBase64(tt.args.aksnodeconfig)
+			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, tt.args.includeHostsPlugin)
+			assertCorefileBase64Contains(t, got, tt.wantContains, tt.wantNotContains)
+		})
+	}
+}
 
-			if tt.wantContains == "" && got != "" {
-				t.Errorf("expected empty string, got %q", got)
-				return
+func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
+	tests := []struct {
+		name            string
+		healthCheck     *aksnodeconfigv1.LocalDnsHealthCheck
+		failfast        *bool
+		kubeDNS         bool
+		wantContains    string
+		wantNotContains []string
+	}{
+		{
+			name:            "no health check config omits health_check",
+			wantNotContains: []string{"health_check", "failfast_all_unhealthy_upstreams"},
+		},
+		{
+			name:            "empty health check config omits health_check",
+			healthCheck:     &aksnodeconfigv1.LocalDnsHealthCheck{},
+			wantNotContains: []string{"health_check", "failfast_all_unhealthy_upstreams"},
+		},
+		{
+			name: "empty duration omits health_check",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr(""),
+			},
+			wantNotContains: []string{"health_check"},
+		},
+		{
+			name: "no_rec without duration omits health_check",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				NoRec: to.Ptr(true),
+			},
+			wantNotContains: []string{"health_check", "no_rec"},
+		},
+		{
+			name: "domain without duration omits health_check",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Domain: to.Ptr("health.local."),
+			},
+			wantNotContains: []string{"health_check", "domain health.local."},
+		},
+		{
+			name: "duration only relies on CoreDNS default recursive domain",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+			},
+			wantContains: "health_check 1s",
+			wantNotContains: []string{
+				"no_rec",
+				"domain .",
+				"domain health.local.",
+			},
+		},
+		{
+			name: "duration with explicit no_rec false omits no_rec",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				NoRec:    to.Ptr(false),
+			},
+			wantContains:    "health_check 1s",
+			wantNotContains: []string{"no_rec"},
+		},
+		{
+			name: "duration with explicit failfast false omits failfast",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+			},
+			failfast:        to.Ptr(false),
+			wantContains:    "health_check 1s",
+			wantNotContains: []string{"failfast_all_unhealthy_upstreams"},
+		},
+		{
+			name: "duration and no_rec",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				NoRec:    to.Ptr(true),
+			},
+			wantContains:    "health_check 1s no_rec",
+			wantNotContains: []string{"domain health.local."},
+		},
+		{
+			name: "duration and domain",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				Domain:   to.Ptr("health.local."),
+			},
+			wantContains:    "health_check 1s domain health.local.",
+			wantNotContains: []string{"no_rec"},
+		},
+		{
+			name: "duration with empty domain omits domain",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				Domain:   to.Ptr(""),
+			},
+			wantContains:    "health_check 1s",
+			wantNotContains: []string{"domain "},
+		},
+		{
+			name: "duration renders in KubeDNS overrides",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+			},
+			kubeDNS:      true,
+			wantContains: "health_check 1s",
+		},
+		{
+			name: "duration no_rec domain and failfast",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				NoRec:    to.Ptr(true),
+				Domain:   to.Ptr("health.local."),
+			},
+			failfast: to.Ptr(true),
+			wantContains: strings.Join([]string{
+				"health_check 1s no_rec domain health.local.",
+				"failfast_all_unhealthy_upstreams",
+			}, "\n        "),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			override := &aksnodeconfigv1.LocalDnsOverrides{
+				QueryLogging:                  "Log",
+				Protocol:                      "PreferUDP",
+				ForwardDestination:            "VnetDNS",
+				ForwardPolicy:                 "Sequential",
+				MaxConcurrent:                 to.Ptr(int32(1000)),
+				CacheDurationInSeconds:        to.Ptr(int32(3600)),
+				ServeStaleDurationInSeconds:   to.Ptr(int32(3600)),
+				ServeStale:                    "Immediate",
+				FailfastAllUnhealthyUpstreams: tt.failfast,
+				HealthCheck:                   tt.healthCheck,
 			}
-
-			normalize := func(s string) string {
-				s = strings.ReplaceAll(s, "\r\n", "\n")
-				s = strings.TrimSpace(s)
-
-				// Collapse multiple blank lines into one
-				re := regexp.MustCompile(`\n\s*\n+`)
-				s = re.ReplaceAllString(s, "\n")
-
-				// Remove extra indentation
-				re = regexp.MustCompile(`[ \t]+`)
-				s = re.ReplaceAllString(s, " ")
-
-				return s
+			profile := &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true}
+			if tt.kubeDNS {
+				profile.KubeDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{".": override}
+			} else {
+				profile.VnetDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{".": override}
 			}
+			got := getLocalDnsCorefileBase64WithHostsPlugin(&aksnodeconfigv1.Configuration{LocalDnsProfile: profile}, false)
 
-			if tt.wantContains != "" {
-				decoded, err := base64.StdEncoding.DecodeString(got)
-				if err != nil {
-					t.Fatalf("failed to decode base64: %v", err)
-				}
-
-				decodedNorm := normalize(string(decoded))
-				wantNorm := normalize(tt.wantContains)
-
-				if !strings.Contains(decodedNorm, wantNorm) {
-					t.Errorf("expected decoded corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
+			decoded, err := base64.StdEncoding.DecodeString(got)
+			if err != nil {
+				t.Fatalf("failed to decode generated corefile: %v", err)
+			}
+			corefile := normalizeCorefileString(string(decoded))
+			if tt.wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(tt.wantContains)) {
+				t.Fatalf("expected generated corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
+			}
+			for _, wantNotContains := range tt.wantNotContains {
+				if strings.Contains(corefile, normalizeCorefileString(wantNotContains)) {
+					t.Fatalf("expected generated corefile not to contain %q, got:\n%s", wantNotContains, string(decoded))
 				}
 			}
 		})
@@ -1706,6 +2208,71 @@ func Test_shouldEnableLocalDns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := shouldEnableLocalDns(tt.args.aksnodeconfig); got != tt.want {
 				t.Errorf("shouldEnableLocalDns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_shouldEnableHostsPlugin(t *testing.T) {
+	type args struct {
+		aksnodeconfig *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "nil config",
+			args: args{aksnodeconfig: nil},
+			want: "false",
+		},
+		{
+			name: "nil LocalDnsProfile",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{}},
+			want: "false",
+		},
+		{
+			name: "LocalDns disabled, HostsPlugin enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    false,
+					EnableHostsPlugin: true},
+			}},
+			want: "false",
+		},
+		{
+			name: "LocalDns enabled, HostsPlugin disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: false},
+			}},
+			want: "false",
+		},
+		{
+			name: "both LocalDns and HostsPlugin enabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    true,
+					EnableHostsPlugin: true},
+			}},
+			want: "true",
+		},
+		{
+			name: "both disabled",
+			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns:    false,
+					EnableHostsPlugin: false},
+			}},
+			want: "false",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldEnableHostsPlugin(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("shouldEnableHostsPlugin() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1807,6 +2374,173 @@ func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getLocalDnsMemoryLimitInMb(tt.args.aksnodeconfig); got != tt.want {
 				t.Errorf("getLocalDnsMemoryLimitInMb() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDnsCriticalFqdns(t *testing.T) {
+	type args struct {
+		config *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "returns empty string when config is nil",
+			args: args{config: nil},
+			want: "",
+		},
+		{
+			name: "returns empty string when LocalDnsProfile is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{}},
+			want: "",
+		},
+		{
+			name: "returns empty string when CriticalFqdns is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns empty string when CriticalFqdns is empty",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+					CriticalFqdns:  []string{},
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns comma-separated FQDNs",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+					CriticalFqdns: []string{
+						"mcr.microsoft.com",
+						"packages.microsoft.com",
+						"login.microsoftonline.com",
+					},
+				},
+			}},
+			want: "mcr.microsoft.com,packages.microsoft.com,login.microsoftonline.com",
+		},
+		{
+			name: "returns single FQDN without trailing comma",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					EnableLocalDns: true,
+					CriticalFqdns:  []string{"mcr.microsoft.com"},
+				},
+			}},
+			want: "mcr.microsoft.com",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsCriticalFqdns(tt.args.config); got != tt.want {
+				t.Errorf("getLocalDnsCriticalFqdns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getLocalDnsHostsPluginRefreshIntervalInSeconds(t *testing.T) {
+	type args struct {
+		config *aksnodeconfigv1.Configuration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "returns empty string when config is nil",
+			args: args{config: nil},
+			want: "",
+		},
+		{
+			name: "returns empty string when LocalDnsProfile is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{}},
+			want: "",
+		},
+		{
+			name: "returns empty string when refresh interval is nil",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{},
+			}},
+			want: "",
+		},
+		{
+			name: "returns empty string when refresh interval is non-positive",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(0)),
+				},
+			}},
+			want: "",
+		},
+		{
+			name: "returns the refresh interval in seconds",
+			args: args{config: &aksnodeconfigv1.Configuration{
+				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(45)),
+				},
+			}},
+			want: "45",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLocalDnsHostsPluginRefreshIntervalInSeconds(tt.args.config); got != tt.want {
+				t.Errorf("getLocalDnsHostsPluginRefreshIntervalInSeconds() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getStringFromNetworkPluginType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPlugin
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE, helpers.NetworkPluginAzure},
+		{"kubenet", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET, helpers.NetworkPluginKubenet},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE, helpers.NetworkPluginNone},
+		{"unspecified", aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPluginType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPluginType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getStringFromNetworkPolicyType(t *testing.T) {
+	tests := []struct {
+		name string
+		enum aksnodeconfigv1.NetworkPolicy
+		want string
+	}{
+		{"azure", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE, helpers.NetworkPolicyAzure},
+		{"calico", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO, helpers.NetworkPolicyCalico},
+		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE, helpers.NetworkPolicyNone},
+		{"unspecified", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getStringFromNetworkPolicyType(tt.enum); got != tt.want {
+				t.Errorf("getStringFromNetworkPolicyType() = %q, want %q", got, tt.want)
 			}
 		})
 	}

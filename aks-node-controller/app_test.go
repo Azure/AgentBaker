@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +18,59 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// logRecord holds a captured slog record for test assertions.
+type logRecord struct {
+	Level   slog.Level
+	Message string
+	Attrs   map[string]string
+}
+
+// logCapturer is a slog.Handler that captures log records for test verification.
+type logCapturer struct {
+	mu      sync.Mutex
+	records []logRecord
+}
+
+func (c *logCapturer) Enabled(_ context.Context, _ slog.Level) bool { return true }
+
+func (c *logCapturer) Handle(_ context.Context, r slog.Record) error {
+	rec := logRecord{
+		Level:   r.Level,
+		Message: r.Message,
+		Attrs:   make(map[string]string),
+	}
+	r.Attrs(func(a slog.Attr) bool {
+		rec.Attrs[a.Key] = a.Value.String()
+		return true
+	})
+	c.mu.Lock()
+	c.records = append(c.records, rec)
+	c.mu.Unlock()
+	return nil
+}
+
+func (c *logCapturer) WithAttrs(_ []slog.Attr) slog.Handler { return c }
+func (c *logCapturer) WithGroup(_ string) slog.Handler      { return c }
+
+func (c *logCapturer) getRecords() []logRecord {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]logRecord, len(c.records))
+	copy(out, c.records)
+	return out
+}
+
+// installLogCapturer replaces the default slog logger with a capturing handler
+// and returns the capturer. It restores the original logger when the test ends.
+func installLogCapturer(t *testing.T) *logCapturer {
+	t.Helper()
+	logCap := &logCapturer{}
+	orig := slog.Default()
+	slog.SetDefault(slog.New(logCap))
+	t.Cleanup(func() { slog.SetDefault(orig) })
+	return logCap
+}
 
 type testExitError struct {
 	Code int
@@ -37,6 +93,27 @@ type TestApp struct {
 	eventLogger *helpers.EventLogger
 }
 
+// testGPUComponentsJSON is minimal valid components.json content. GPU config loading
+// is fatal (see loadGPUConfig), so any test that builds a CSE command via
+// buildCmdFromProvisionConfig needs a valid file to read.
+const testGPUComponentsJSON = `{
+	"GPUContainerImages": [
+		{
+			"downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda-lts:580.11.07-20240101120000",
+			"gpuVersion": {"renovateTag": "name=aks-gpu-cuda-lts", "latestVersion": "580.11.07-20240101120000"}
+		}
+	]
+}`
+
+// writeTestGPUComponentsFile writes a minimal valid components.json to a temp file
+// and returns its path.
+func writeTestGPUComponentsFile(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "components.json")
+	require.NoError(t, os.WriteFile(path, []byte(testGPUComponentsJSON), 0o600))
+	return path
+}
+
 func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 	eventsDir := t.TempDir()
 	runFunc := cfg.RunFunc
@@ -47,8 +124,9 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 	return &TestApp{
 		eventLogger: eventLogger,
 		App: &App{
-			cmdRun:      runFunc,
-			eventLogger: eventLogger,
+			cmdRun:                runFunc,
+			eventLogger:           eventLogger,
+			gpuComponentsFilePath: writeTestGPUComponentsFile(t),
 		},
 	}
 }
@@ -66,6 +144,50 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	})
 
+	t.Run("--version flag returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "--version"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("version command returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "version"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("--help flag returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "--help"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("help command returns success exit code", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "help"})
+		assert.Equal(t, 0, exitCode)
+	})
+
+	t.Run("download-hotfix rejects unexpected arguments", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "download-hotfix", "extra"})
+		assert.Equal(t, 1, exitCode)
+	})
+
+	t.Run("download-hotfix returns success when VHD version already matches target", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		origVersion := Version
+		Version = "202604.01.1"
+		defer func() { Version = origVersion }()
+
+		configPath := filepath.Join(t.TempDir(), "hotfix-config.json")
+		require.NoError(t, os.WriteFile(configPath, []byte(`{"version": "202604.01.1"}`), 0o644))
+		tt.App.hotfixVersionPath = configPath
+
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "download-hotfix"})
+		assert.Equal(t, 0, exitCode)
+	})
+
 	t.Run("provision command with missing flag", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "provision"})
@@ -75,6 +197,18 @@ func TestApp_Run(t *testing.T) {
 	t.Run("provision command with valid flag", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"})
+		assert.Equal(t, 0, exitCode)
+
+		events := tt.eventLogger.Events()
+		assert.Len(t, events, 2)
+		assert.Contains(t, events[0].Message, "Starting")
+		assert.Contains(t, events[1].Message, "Completed")
+	})
+
+	t.Run("provision command with provision-config and nbc-cmd flag", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		params := []string{"aks-node-controller", "provision", "--nbc-cmd=parser/testdata/test_nbccmd.sh"}
+		exitCode := tt.App.Run(context.Background(), params)
 		assert.Equal(t, 0, exitCode)
 
 		events := tt.eventLogger.Events()
@@ -96,7 +230,65 @@ func TestApp_Run(t *testing.T) {
 	})
 }
 
+func TestApp_ApplyHotfix(t *testing.T) {
+	t.Run("apply embedded hotfix payload", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			applied = true
+			return nil
+		}
+
+		err := tt.App.runApplyHotfixCommand(context.Background())
+
+		require.NoError(t, err)
+		assert.True(t, applied)
+	})
+
+	t.Run("embedded hotfix failure is logged ", func(t *testing.T) {
+		logs := installLogCapturer(t)
+		executed := false
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(*exec.Cmd) error {
+				executed = true
+				return nil
+			},
+		})
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			return errors.New("rendered nodecustomdata application failed")
+		}
+
+		err := tt.App.runApplyHotfixCommand(context.Background())
+
+		require.Error(t, err)
+		assert.False(t, executed)
+		assert.Contains(t, logs.getRecords(), logRecord{
+			Level:   slog.LevelError,
+			Message: "aks-node-controller failed to apply embedded hotfix payload",
+			Attrs:   map[string]string{"error": "rendered nodecustomdata application failed"},
+		})
+	})
+}
+
 func TestApp_Provision(t *testing.T) {
+	t.Run("dry-run does not apply embedded hotfix payload", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		applied := false
+		tt.App.applyEmbeddedHotfix = func(string) error {
+			applied = true
+			return nil
+		}
+
+		_, err := tt.App.runProvision(
+			context.Background(),
+			ProvisionFlags{NBCCmd: "parser/testdata/test_nbccmd.sh"},
+			true,
+		)
+
+		require.NoError(t, err)
+		assert.False(t, applied)
+	})
+
 	t.Run("valid provision config", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		_, err := tt.App.Provision(context.Background(), ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"})
@@ -115,6 +307,100 @@ func TestApp_Provision(t *testing.T) {
 		})
 		_, err := tt.App.Provision(context.Background(), ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"})
 		assert.Error(t, err)
+	})
+
+	t.Run("nbc cmd is executed by passing the script path to bash", func(t *testing.T) {
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho success running nbc_cmd.sh\n"), 0o600))
+
+		var gotCmd *exec.Cmd
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(cmd *exec.Cmd) error {
+				gotCmd = cmd
+				return cmdRunner(cmd)
+			},
+		})
+
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{NBCCmd: scriptPath})
+		require.NoError(t, err)
+		require.NotNil(t, gotCmd)
+		assert.Equal(t, "/bin/bash", gotCmd.Path)
+		assert.Equal(t, []string{"/bin/bash", "--", scriptPath}, gotCmd.Args)
+		assert.Equal(t, "0", result.ExitCode)
+		assert.Contains(t, result.Output, "success running nbc_cmd.sh")
+	})
+
+	t.Run("nbc cmd is always passed as a script path, even when it starts with a dash", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Chdir(tempDir)
+		scriptPath := "-test_nbccmd.sh"
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho success running dashed nbc_cmd.sh\n"), 0o600))
+
+		var gotCmd *exec.Cmd
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(cmd *exec.Cmd) error {
+				gotCmd = cmd
+				return cmdRunner(cmd)
+			},
+		})
+
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{NBCCmd: scriptPath})
+		require.NoError(t, err)
+		require.NotNil(t, gotCmd)
+		assert.Equal(t, []string{"/bin/bash", "--", scriptPath}, gotCmd.Args)
+		assert.Equal(t, "0", result.ExitCode)
+		assert.Contains(t, result.Output, "success running dashed nbc_cmd.sh")
+	})
+
+	t.Run("nbc cmd file read errors are wrapped", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		scriptPath := filepath.Join(t.TempDir(), "missing.sh")
+
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{NBCCmd: scriptPath})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		assert.Equal(t, "240", result.ExitCode)
+		assert.Contains(t, result.Error, "read NBC command file "+scriptPath)
+	})
+
+	t.Run("compareEnvs failure does not block nbc-cmd provisioning", func(t *testing.T) {
+		// Use an invalid provision-config path so compareEnvs will fail internally.
+		// Provisioning via nbc-cmd should still succeed.
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho provisioned\n"), 0o600))
+
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: cmdRunner,
+		})
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{
+			ProvisionConfig: "/nonexistent/invalid_config.json",
+			NBCCmd:          scriptPath,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "0", result.ExitCode)
+		assert.Contains(t, result.Output, "provisioned")
+	})
+
+	t.Run("compareEnvs panic does not block nbc-cmd provisioning", func(t *testing.T) {
+		// Use a nil eventLogger so that compareEnvs panics with a nil pointer
+		// dereference when it calls eventLogger.LogEvent after parsing succeeds.
+		// The defer/recover inside compareEnvs must catch this and allow
+		// provisioning to proceed normally.
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho provisioned after panic\n"), 0o600))
+
+		app := &App{
+			cmdRun:                cmdRunner,
+			eventLogger:           nil, // nil to trigger panic inside compareEnvs
+			gpuComponentsFilePath: writeTestGPUComponentsFile(t),
+		}
+		result, err := app.Provision(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          scriptPath,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "0", result.ExitCode)
+		assert.Contains(t, result.Output, "provisioned after panic")
 	})
 }
 
@@ -236,10 +522,11 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 	})
 
 	t.Run("non-zero ExitCode returns error", func(t *testing.T) {
-		p := writeTemp(t, `{"ExitCode":"7","Output":"boom","Error":"bad"}`)
+		p := writeTemp(t, `{"ExitCode":"50","Output":"boom","Error":"bad"}`)
 		_, err := readAndEvaluateProvision(p)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "provision failed")
+		assert.Equal(t, 50, errToExitCode(err))
 	})
 
 	t.Run("invalid ExitCode returns error", func(t *testing.T) {
@@ -255,4 +542,313 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "missing ExitCode")
 	})
+}
+
+func TestParseEnvVarsFromNBCCmdContent(t *testing.T) {
+	t.Run("simple unquoted vars", func(t *testing.T) {
+		content := `ADMINUSER=azureuser KUBERNETES_VERSION=1.33.7 MOBY_VERSION=`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "azureuser", got["ADMINUSER"])
+		assert.Equal(t, "1.33.7", got["KUBERNETES_VERSION"])
+		assert.Equal(t, "", got["MOBY_VERSION"])
+	})
+
+	t.Run("quoted values", func(t *testing.T) {
+		content := `ENABLE_MANAGED_GPU="false" DISABLE_SSH="false"`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "false", got["ENABLE_MANAGED_GPU"])
+		assert.Equal(t, "false", got["DISABLE_SSH"])
+	})
+
+	t.Run("url values", func(t *testing.T) {
+		content := `KUBE_BINARY_URL=https://packages.aks.azure.com/kubernetes/v1.33.7/binaries/kubernetes-node-linux-amd64.tar.gz`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "https://packages.aks.azure.com/kubernetes/v1.33.7/binaries/kubernetes-node-linux-amd64.tar.gz", got["KUBE_BINARY_URL"])
+	})
+
+	t.Run("skips shell commands", func(t *testing.T) {
+		content := `echo hello; ADMINUSER=azureuser /usr/bin/nohup /bin/bash -c "script"`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "azureuser", got["ADMINUSER"])
+		assert.NotContains(t, got, "echo")
+	})
+
+	t.Run("handles missing space between assignments", func(t *testing.T) {
+		content := `KUBELET_CONFIG_FILE_ENABLED="true"PRE_PROVISION_ONLY="false"`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "true", got["KUBELET_CONFIG_FILE_ENABLED"])
+		assert.Equal(t, "false", got["PRE_PROVISION_ONLY"])
+	})
+
+	t.Run("semicolons as delimiters", func(t *testing.T) {
+		content := `PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log"; echo foo; ADMINUSER=azureuser`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "/var/log/azure/cluster-provision-cse-output.log", got["PROVISION_OUTPUT"])
+		assert.Equal(t, "azureuser", got["ADMINUSER"])
+	})
+
+	t.Run("real nbc command snippet", func(t *testing.T) {
+		content := `PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log";` +
+			` echo $(date),$(hostname) > ${PROVISION_OUTPUT};` +
+			` ADMINUSER=azureuser MOBY_VERSION= TENANT_ID=72f988bf-86f1-41af-91ab-2d7cd011db47` +
+			` KUBERNETES_VERSION=1.33.7` +
+			` KUBE_BINARY_URL=https://packages.aks.azure.com/kubernetes/v1.33.7/binaries/kubernetes-node-linux-amd64.tar.gz` +
+			` VM_TYPE=vmss NETWORK_PLUGIN=kubenet ENABLE_MANAGED_GPU="false"` +
+			` GPU_NEEDS_FABRIC_MANAGER="false" CSE_TIMEOUT="900"` +
+			` /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, "/var/log/azure/cluster-provision-cse-output.log", got["PROVISION_OUTPUT"])
+		assert.Equal(t, "azureuser", got["ADMINUSER"])
+		assert.Equal(t, "", got["MOBY_VERSION"])
+		assert.Equal(t, "72f988bf-86f1-41af-91ab-2d7cd011db47", got["TENANT_ID"])
+		assert.Equal(t, "1.33.7", got["KUBERNETES_VERSION"])
+		assert.Equal(t, "vmss", got["VM_TYPE"])
+		assert.Equal(t, "kubenet", got["NETWORK_PLUGIN"])
+		assert.Equal(t, "false", got["ENABLE_MANAGED_GPU"])
+		assert.Equal(t, "false", got["GPU_NEEDS_FABRIC_MANAGER"])
+		assert.Equal(t, "900", got["CSE_TIMEOUT"])
+	})
+
+	t.Run("single-quoted values", func(t *testing.T) {
+		content := `PROXY_VARS='export HTTPS_PROXY="https://proxy:8443"; export http_proxy="http://proxy:8080";'`
+		got := parseEnvVarsFromNBCCmdContent(content)
+		assert.Equal(t, `export HTTPS_PROXY="https://proxy:8443"; export http_proxy="http://proxy:8080";`, got["PROXY_VARS"])
+	})
+}
+
+// compareEnvsConfigEnv builds a CSE env map from the test provision config,
+// filtering out OS env vars (same as compareEnvs does).
+func compareEnvsConfigEnv(t *testing.T) map[string]string {
+	t.Helper()
+	cmd, err := buildCmdFromProvisionConfig(context.Background(), "parser/testdata/test_aksnodeconfig.json", writeTestGPUComponentsFile(t))
+	require.NoError(t, err)
+	osEnv := envSliceToMap(os.Environ())
+	allEnv := envSliceToMap(cmd.Env)
+	configEnv := make(map[string]string, len(allEnv))
+	for k, v := range allEnv {
+		if osVal, inOS := osEnv[k]; !inOS || osVal != v {
+			configEnv[k] = v
+		}
+	}
+	return configEnv
+}
+
+// compareEnvsWriteNBCCmd writes an NBC command script to a temp file and returns its path.
+func compareEnvsWriteNBCCmd(t *testing.T, content string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "nbc_cmd.sh")
+	require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
+	return p
+}
+
+// compareEnvsBuildNBCContent builds NBC cmd content from configEnv with optional exclusions and modifications.
+func compareEnvsBuildNBCContent(configEnv map[string]string, exclude map[string]bool, modify map[string]string, extra []string) string {
+	var parts []string
+	for k, v := range configEnv {
+		if exclude[k] {
+			continue
+		}
+		if newVal, ok := modify[k]; ok {
+			parts = append(parts, k+"="+newVal)
+			continue
+		}
+		if v == "" {
+			parts = append(parts, k+"=")
+		} else {
+			parts = append(parts, k+"=\""+v+"\"")
+		}
+	}
+	parts = append(parts, extra...)
+	return strings.Join(parts, " ")
+}
+
+func TestCompareEnvs_MatchingEnvs(t *testing.T) {
+	tt := NewTestApp(t, TestAppConfig{})
+	logCap := installLogCapturer(t)
+	configEnv := compareEnvsConfigEnv(t)
+
+	nbcContent := compareEnvsBuildNBCContent(configEnv, nil, nil, nil)
+	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
+
+	compareEnvs(context.Background(), ProvisionFlags{
+		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+		NBCCmd:          nbcPath,
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
+
+	records := logCap.getRecords()
+	var foundNoOp bool
+	for _, r := range records {
+		if strings.Contains(r.Message, "env compare: no differences found") {
+			foundNoOp = true
+		}
+		assert.NotContains(t, r.Message, "env var differences", "expected no differences logged")
+	}
+	assert.True(t, foundNoOp, "expected 'no differences' log message")
+
+	events := tt.eventLogger.Events()
+	require.NotEmpty(t, events)
+	var found bool
+	for _, e := range events {
+		if strings.Contains(e.TaskName, "CompareEnvs") {
+			assert.Contains(t, e.Message, "env vars match")
+			found = true
+		}
+	}
+	assert.True(t, found, "expected CompareEnvs guest agent event")
+}
+
+func TestCompareEnvs_OnlyInProvisionConfig(t *testing.T) {
+	tt := NewTestApp(t, TestAppConfig{})
+	logCap := installLogCapturer(t)
+	configEnv := compareEnvsConfigEnv(t)
+
+	nbcContent := compareEnvsBuildNBCContent(configEnv, map[string]bool{"ADMINUSER": true}, nil, nil)
+	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
+
+	compareEnvs(context.Background(), ProvisionFlags{
+		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+		NBCCmd:          nbcPath,
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
+
+	records := logCap.getRecords()
+	var foundDiff bool
+	for _, r := range records {
+		if strings.Contains(r.Message, "only-in-pc: ADMINUSER") {
+			foundDiff = true
+		}
+	}
+	assert.True(t, foundDiff, "expected summary log containing 'only-in-pc: ADMINUSER'")
+
+	events := tt.eventLogger.Events()
+	var found bool
+	for _, e := range events {
+		if strings.Contains(e.TaskName, "CompareEnvs") {
+			assert.Contains(t, e.Message, "only-in-pc: ADMINUSER")
+			found = true
+		}
+	}
+	assert.True(t, found, "expected CompareEnvs guest agent event")
+}
+
+func TestCompareEnvs_OnlyInNBCCmd(t *testing.T) {
+	tt := NewTestApp(t, TestAppConfig{})
+	logCap := installLogCapturer(t)
+	configEnv := compareEnvsConfigEnv(t)
+
+	nbcContent := compareEnvsBuildNBCContent(configEnv, nil, nil, []string{`EXTRA_NBC_ONLY="extra_value"`})
+	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
+
+	compareEnvs(context.Background(), ProvisionFlags{
+		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+		NBCCmd:          nbcPath,
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
+
+	records := logCap.getRecords()
+	var foundDiff bool
+	for _, r := range records {
+		if strings.Contains(r.Message, "only-in-nbc: EXTRA_NBC_ONLY") {
+			foundDiff = true
+		}
+	}
+	assert.True(t, foundDiff, "expected summary log containing 'only-in-nbc: EXTRA_NBC_ONLY'")
+
+	events := tt.eventLogger.Events()
+	var found bool
+	for _, e := range events {
+		if strings.Contains(e.TaskName, "CompareEnvs") {
+			assert.Contains(t, e.Message, "only-in-nbc: EXTRA_NBC_ONLY")
+			found = true
+		}
+	}
+	assert.True(t, found, "expected CompareEnvs guest agent event")
+}
+
+func TestCompareEnvs_DifferingValues(t *testing.T) {
+	tt := NewTestApp(t, TestAppConfig{})
+	logCap := installLogCapturer(t)
+	configEnv := compareEnvsConfigEnv(t)
+
+	nbcContent := compareEnvsBuildNBCContent(configEnv, nil, map[string]string{"VM_TYPE": "standard"}, nil)
+	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
+
+	compareEnvs(context.Background(), ProvisionFlags{
+		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+		NBCCmd:          nbcPath,
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
+
+	records := logCap.getRecords()
+	var foundDiff bool
+	for _, r := range records {
+		if strings.Contains(r.Message, "differs: VM_TYPE") {
+			foundDiff = true
+		}
+	}
+	assert.True(t, foundDiff, "expected summary log containing 'differs: VM_TYPE'")
+
+	events := tt.eventLogger.Events()
+	var found bool
+	for _, e := range events {
+		if strings.Contains(e.TaskName, "CompareEnvs") {
+			assert.Contains(t, e.Message, "differs: VM_TYPE")
+			found = true
+		}
+	}
+	assert.True(t, found, "expected CompareEnvs guest agent event")
+}
+
+func TestCompareEnvs_MultipleDifferences(t *testing.T) {
+	tt := NewTestApp(t, TestAppConfig{})
+	logCap := installLogCapturer(t)
+	configEnv := compareEnvsConfigEnv(t)
+
+	nbcContent := compareEnvsBuildNBCContent(
+		configEnv,
+		map[string]bool{"ADMINUSER": true},
+		map[string]string{"VM_TYPE": "changed"},
+		[]string{`EXTRA_VAR="new"`},
+	)
+	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
+
+	compareEnvs(context.Background(), ProvisionFlags{
+		ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+		NBCCmd:          nbcPath,
+	}, tt.eventLogger, tt.App.gpuComponentsFilePath)
+
+	records := logCap.getRecords()
+	var foundSummary bool
+	for _, r := range records {
+		if strings.Contains(r.Message, "env var differences (3)") {
+			foundSummary = true
+			assert.Contains(t, r.Message, "only-in-pc: ADMINUSER")
+			assert.Contains(t, r.Message, "only-in-nbc: EXTRA_VAR")
+			assert.Contains(t, r.Message, "differs: VM_TYPE")
+		}
+	}
+	assert.True(t, foundSummary, "expected summary log with all 3 differences")
+
+	events := tt.eventLogger.Events()
+	var found bool
+	for _, e := range events {
+		if strings.Contains(e.TaskName, "CompareEnvs") {
+			assert.Contains(t, e.Message, "env var differences (3)")
+			assert.Contains(t, e.Message, "only-in-pc: ADMINUSER")
+			assert.Contains(t, e.Message, "only-in-nbc: EXTRA_VAR")
+			assert.Contains(t, e.Message, "differs: VM_TYPE")
+			found = true
+		}
+	}
+	assert.True(t, found, "expected CompareEnvs guest agent event")
+}
+
+func TestDiffEnvMaps_IgnoresProxyVarsCompatibilityDifference(t *testing.T) {
+	pcEnv := map[string]string{
+		"PROXY_VARS": `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}"; fi`,
+		"VM_TYPE":    "vmss",
+	}
+	nbcEnv := map[string]string{
+		"PROXY_VARS": `export http_proxy="http://proxy.example:8080";`,
+		"VM_TYPE":    "standard",
+	}
+
+	assert.Equal(t, []string{"differs: VM_TYPE"}, diffEnvMaps(pcEnv, nbcEnv))
 }

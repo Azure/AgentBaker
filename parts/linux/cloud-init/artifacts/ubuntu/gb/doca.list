@@ -1,0 +1,2 @@
+deb [arch=arm64 signed-by=/etc/apt/keyrings/doca-net.pub] https://linux.mellanox.com/public/repo/doca/latest/ubuntu24.04/arm64-sbsa/ ./
+deb [arch=amd64 signed-by=/etc/apt/keyrings/doca-net.pub] https://linux.mellanox.com/public/repo/doca/latest/ubuntu24.04/x86_64/ ./

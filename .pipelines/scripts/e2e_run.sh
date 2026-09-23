@@ -4,25 +4,42 @@
 set -euo pipefail
 
 # This script runs the AgentBaker e2e tests for a VHD. It uses the following environment variables:
-# * E2E_SUBSCRIPTION_ID: this variable contains the subscription to run the e2e tests in
+# * SUBSCRIPTION_ID: this variable contains the subscription to run the e2e tests in
+# * SUBSCRIPTION_ID_OVERRIDE: optional. When non-empty it takes precedence over
+#   SUBSCRIPTION_ID. This lets a calling pipeline override the subscription at runtime
+#   (e.g. a queue-time variable) since compile-time template expressions cannot see such overrides.
 # * DefaultWorkingDirectory: this variable contains the default working directory. Likely "." is sufficient
 # * VHD_BUILD_ID - the build identifier for the pipeline. This is optional and if it is missing then the latest build from
 #   the main branch is used.
 # * IGNORE_SCENARIOS_WITH_MISSING_VHD: a true/false flag that indicates if the build should fail if the VHD is missing.
 # * BUILD_SRC_DIR: the src directory for the repository. Probably the same as DefaultWorkingDirectory.
+# * E2E_FAILED_TESTS_RETRY_COUNT: the number of times the runner retries failed scenarios. Defaults to 0.
 
 # In addition, the e2e test framework reads a whole lot of environment variables.
 # These are defined in: e2e/config/config.go
 
-az account set -s "${E2E_SUBSCRIPTION_ID}"
-echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
+# Prefer an explicit subscription override (e.g. a queue-time variable passed by the calling
+# pipeline) over the variable group default. This is resolved here at runtime because
+# compile-time template expressions cannot see queue-time variable overrides.
+SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-}"
+SUBSCRIPTION_ID_OVERRIDE="${SUBSCRIPTION_ID_OVERRIDE:-}"
+if [ -n "${SUBSCRIPTION_ID_OVERRIDE}" ]; then
+  SUBSCRIPTION_ID="${SUBSCRIPTION_ID_OVERRIDE}"
+fi
+
+SUBSCRIPTION_ID="${SUBSCRIPTION_ID:?SUBSCRIPTION_ID or SUBSCRIPTION_ID_OVERRIDE must be set}"
+az account set -s "${SUBSCRIPTION_ID}"
+echo "Using subscription ${SUBSCRIPTION_ID} for e2e tests"
 
 # Setup go
-export GOPATH="$(go env GOPATH)"
+GOPATH="$(go env GOPATH)"
+export GOPATH
 go version
 
 # specify the logging directory so logs go to the right place
-export LOGGING_DIR="scenario-logs-$(date +%s)"
+DefaultWorkingDirectory="${DefaultWorkingDirectory:?DefaultWorkingDirectory must be set}"
+LOGGING_DIR="scenario-logs-$(date +%s)"
+export LOGGING_DIR
 echo "setting logging dir to $LOGGING_DIR"
 # tell DevOps to set the variable so later pipeline steps can use it.
 
@@ -34,25 +51,33 @@ mkdir -p "${DefaultWorkingDirectory}/e2e/${LOGGING_DIR}"
 VHD_BUILD_ID="${VHD_BUILD_ID:-}"
 IGNORE_SCENARIOS_WITH_MISSING_VHD="${IGNORE_SCENARIOS_WITH_MISSING_VHD:-}"
 LOGGING_DIR="${LOGGING_DIR:-}"
-E2E_SUBSCRIPTION_ID="${E2E_SUBSCRIPTION_ID:-}"
-ENABLE_SECURE_TLS_BOOTSTRAPPING="${ENABLE_SECURE_TLS_BOOTSTRAPPING:-true}"
+ENABLE_SECURE_TLS_BOOTSTRAPPING="${ENABLE_SECURE_TLS_BOOTSTRAPPING:-false}"
 TAGS_TO_SKIP="${TAGS_TO_SKIP:-}"
 TAGS_TO_RUN="${TAGS_TO_RUN:-}"
-E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-90m}"
+E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-80m}"
+E2E_FAILED_TESTS_RETRY_COUNT="${E2E_FAILED_TESTS_RETRY_COUNT:-0}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
+
+case "${E2E_FAILED_TESTS_RETRY_COUNT}" in
+  '' | *[!0-9]*)
+    echo "##vso[task.logissue type=error]E2E_FAILED_TESTS_RETRY_COUNT must be a non-negative integer, got: ${E2E_FAILED_TESTS_RETRY_COUNT}" >&2
+    exit 1
+    ;;
+esac
 
 # echo some variables so that we have a chance of debugging if things fail due to a pipeline issue
 echo "VHD_BUILD_ID: ${VHD_BUILD_ID}"
 echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: ${IGNORE_SCENARIOS_WITH_MISSING_VHD}"
 echo "LOGGING_DIR: ${LOGGING_DIR}"
-echo "E2E_SUBSCRIPTION_ID: ${E2E_SUBSCRIPTION_ID}"
+echo "SUBSCRIPTION_ID: ${SUBSCRIPTION_ID}"
 echo "ENABLE_SECURE_TLS_BOOTSTRAPPING: ${ENABLE_SECURE_TLS_BOOTSTRAPPING}"
 echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP}"
 echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
 echo "GALLERY_NAME: ${GALLERY_NAME}"
 echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 echo "E2E_GO_TEST_TIMEOUT: ${E2E_GO_TEST_TIMEOUT}"
+echo "E2E_FAILED_TESTS_RETRY_COUNT: ${E2E_FAILED_TESTS_RETRY_COUNT}"
 
 # set variables that the go program expects if we are running a specific build
 if [ -n "${VHD_BUILD_ID}" ]; then
@@ -70,37 +95,13 @@ fi
 
 az extension add --name bastion
 
-# this software is used to take the output of "go test" and produce a junit report that we can upload to the pipeline
-# and see fancy test results.
 cd e2e
-mkdir -p bin
-architecture=$(uname -m)
+go test -count=1 ./...
 
-case "$architecture" in
-  x86_64 | amd64) architecture="amd64" ;;
-  aarch64 | arm64) architecture="arm64" ;;
-  *)
-    echo "Unsupported architecture: $architecture"
-    exit 1
-    ;;
-esac
-
-gotestsum_version="1.13.0"
-gotestsum_archive="gotestsum_${gotestsum_version}_linux_${architecture}.tar.gz"
-gotestsum_url="https://github.com/gotestyourself/gotestsum/releases/download/v${gotestsum_version}/${gotestsum_archive}"
-
-temp_file="$(mktemp)"
-curl -fsSL "$gotestsum_url" -o "$temp_file"
-tar -xzf "$temp_file" -C bin
-chmod +x bin/gotestsum
-rm -f "$temp_file"
-
-# gotestsum configure to only show logs for failed tests, json file for detailed logs
-# Run the tests! Yey!
-test_exit_code=0
-./bin/gotestsum --format testdox --junitfile "${BUILD_SRC_DIR}/e2e/report.xml" --jsonfile "${BUILD_SRC_DIR}/e2e/test-log.json" -- -parallel 150 -timeout "${E2E_GO_TEST_TIMEOUT}" || test_exit_code=$?
-
-# Upload test results as Azure DevOps artifacts
-echo "##vso[artifact.upload containerfolder=test-results;artifactname=e2e-test-log]${BUILD_SRC_DIR}/e2e/test-log.json"
-
-exit $test_exit_code
+go run . run \
+  --parallel 60 \
+  --suite-timeout "${E2E_GO_TEST_TIMEOUT}" \
+  --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \
+  --log-dir "${LOGGING_DIR}" \
+  --junit-file "${BUILD_SRC_DIR}/e2e/report.xml" \
+  --output grouped
