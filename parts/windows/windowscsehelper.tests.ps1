@@ -111,7 +111,7 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     }
 
     It 'full URL is set' {
-      $expectedURL = "https://privatecontainer.com/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
+      $expectedURL = "https://privatecontainer.com/v2.3.0-azure.1/binaries/containerd-v2.3.0-azure.1-windows-amd64.tar.gz"
       & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://privatecontainer.com/v1.7.0-azure.1/binaries/containerd-v1.7.0-azure.1-windows-amd64.tar.gz" -KubernetesVersion "1.32.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
     }
