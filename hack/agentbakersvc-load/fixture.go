@@ -6,6 +6,11 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
+const (
+	syntheticID   = "00000000-0000-0000-0000-000000000000"
+	syntheticName = "synthetic"
+)
+
 func syntheticLinuxFixture() ([]byte, error) {
 	linuxProfile := &datamodel.LinuxProfile{AdminUsername: "syntheticuser"}
 	linuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{KeyData: "ssh-rsa SYNTHETIC-LOAD-TEST-KEY"}}
@@ -14,7 +19,7 @@ func syntheticLinuxFixture() ([]byte, error) {
 		VMSize:              "Standard_DS2_v2",
 		StorageProfile:      "ManagedDisks",
 		OSType:              datamodel.Linux,
-		VnetSubnetID:        "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/synthetic/providers/Microsoft.Network/virtualNetworks/synthetic/subnets/nodes",
+		VnetSubnetID:        "/subscriptions/" + syntheticID + "/resourceGroups/synthetic/providers/Microsoft.Network/virtualNetworks/synthetic/subnets/nodes",
 		AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 		Distro:              datamodel.AKSUbuntuContainerd2204Gen2,
 	}
@@ -27,32 +32,32 @@ func syntheticLinuxFixture() ([]byte, error) {
 				OrchestratorVersion: "1.32.1",
 				KubernetesConfig:    &datamodel.KubernetesConfig{},
 			},
-			HostedMasterProfile: &datamodel.HostedMasterProfile{DNSPrefix: "synthetic"},
+			HostedMasterProfile: &datamodel.HostedMasterProfile{DNSPrefix: syntheticName},
 			AgentPoolProfiles:   []*datamodel.AgentPoolProfile{agentPool},
 			LinuxProfile:        linuxProfile,
 			ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
-				ClientID: "00000000-0000-0000-0000-000000000000",
+				ClientID: syntheticID,
 				Secret:   "synthetic-not-a-secret",
 			},
 		},
 	}
 	galleries := map[string]datamodel.SIGGalleryConfig{
-		"AKSUbuntu":         {GalleryName: "aksubuntu", ResourceGroup: "synthetic"},
-		"AKSCBLMariner":     {GalleryName: "akscblmariner", ResourceGroup: "synthetic"},
-		"AKSAzureLinux":     {GalleryName: "aksazurelinux", ResourceGroup: "synthetic"},
-		"AKSWindows":        {GalleryName: "akswindows", ResourceGroup: "synthetic"},
-		"AKSFlatcar":        {GalleryName: "aksflatcar", ResourceGroup: "synthetic"},
-		"AKSUbuntuEdgeZone": {GalleryName: "aksubuntuedgezone", ResourceGroup: "synthetic"},
+		"AKSUbuntu":         {GalleryName: "aksubuntu", ResourceGroup: syntheticName},
+		"AKSCBLMariner":     {GalleryName: "akscblmariner", ResourceGroup: syntheticName},
+		"AKSAzureLinux":     {GalleryName: "aksazurelinux", ResourceGroup: syntheticName},
+		"AKSWindows":        {GalleryName: "akswindows", ResourceGroup: syntheticName},
+		"AKSFlatcar":        {GalleryName: "aksflatcar", ResourceGroup: syntheticName},
+		"AKSUbuntuEdgeZone": {GalleryName: "aksubuntuedgezone", ResourceGroup: syntheticName},
 	}
 	configuration := &datamodel.NodeBootstrappingConfiguration{
 		ContainerService:             containerService,
 		CloudSpecConfig:              datamodel.AzurePublicCloudSpecForTest,
 		K8sComponents:                &datamodel.K8sComponents{},
 		AgentPoolProfile:             agentPool,
-		TenantID:                     "00000000-0000-0000-0000-000000000000",
-		SubscriptionID:               "00000000-0000-0000-0000-000000000000",
-		ResourceGroupName:            "synthetic",
-		UserAssignedIdentityClientID: "00000000-0000-0000-0000-000000000000",
+		TenantID:                     syntheticID,
+		SubscriptionID:               syntheticID,
+		ResourceGroupName:            syntheticName,
+		UserAssignedIdentityClientID: syntheticID,
 		ConfigGPUDriverIfNeeded:      true,
 		KubeletConfig: map[string]string{
 			"--address":                           "0.0.0.0",

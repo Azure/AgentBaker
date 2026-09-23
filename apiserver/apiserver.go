@@ -127,7 +127,7 @@ func (api *APIServer) ListenAndServe(ctx context.Context) error {
 		return shutdownServers(servers)
 	case err := <-serverErrors:
 		if shutdownErr := shutdownServers(servers); shutdownErr != nil {
-			return fmt.Errorf("server failed: %w; shutdown failed: %v", err, shutdownErr)
+			return fmt.Errorf("server failed: %w; shutdown failed: %w", err, shutdownErr)
 		}
 		return err
 	}

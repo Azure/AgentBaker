@@ -96,41 +96,33 @@ type percentiles struct {
 }
 
 func main() {
-	cfg := parseFlags()
-	if err := validateConfig(cfg); err != nil {
+	if err := execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		os.Exit(1)
+	}
+}
+
+func execute() error {
+	cfg := parseFlags()
+	if validationErr := validateConfig(cfg); validationErr != nil {
+		return validationErr
 	}
 
 	body, err := requestBody(cfg.bodyPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "prepare request body: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("prepare request body: %w", err)
 	}
 	if !json.Valid(body) {
-		fmt.Fprintln(os.Stderr, "request body must be valid JSON")
-		os.Exit(2)
+		return errors.New("request body must be valid JSON")
 	}
 	arrivals, scheduleDuration, err := buildSchedule(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "prepare schedule: %v\n", err)
-		os.Exit(2)
+		return fmt.Errorf("prepare schedule: %w", err)
 	}
-
-	output, err := os.Create(cfg.outputPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "create output: %v\n", err)
-		os.Exit(1)
-	}
-	defer output.Close()
 
 	results := run(context.Background(), http.DefaultClient, cfg, body, arrivals)
-	encoder := json.NewEncoder(output)
-	for _, item := range results {
-		if err := encoder.Encode(item); err != nil {
-			fmt.Fprintf(os.Stderr, "write result: %v\n", err)
-			os.Exit(1)
-		}
+	if writeErr := writeResults(cfg.outputPath, results); writeErr != nil {
+		return writeErr
 	}
 
 	report := summarize(results)
@@ -142,10 +134,28 @@ func main() {
 	}
 	formatted, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "format summary: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("format summary: %w", err)
 	}
-	fmt.Println(string(formatted))
+	_, err = fmt.Fprintln(os.Stdout, string(formatted))
+	return err
+}
+
+func writeResults(path string, results []result) error {
+	output, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("create output: %w", err)
+	}
+	encoder := json.NewEncoder(output)
+	for _, item := range results {
+		if encodeErr := encoder.Encode(item); encodeErr != nil {
+			_ = output.Close()
+			return fmt.Errorf("write result: %w", encodeErr)
+		}
+	}
+	if err := output.Close(); err != nil {
+		return fmt.Errorf("close output: %w", err)
+	}
+	return nil
 }
 
 func parseFlags() config {
@@ -200,8 +210,8 @@ func buildSchedule(cfg config) ([]arrival, time.Duration, error) {
 		return nil, 0, err
 	}
 	var specification scheduleFile
-	if err := json.Unmarshal(data, &specification); err != nil {
-		return nil, 0, err
+	if unmarshalErr := json.Unmarshal(data, &specification); unmarshalErr != nil {
+		return nil, 0, unmarshalErr
 	}
 	if len(specification.Phases) == 0 {
 		return nil, 0, errors.New("schedule must contain at least one phase")
@@ -210,32 +220,40 @@ func buildSchedule(cfg config) ([]arrival, time.Duration, error) {
 	arrivals := make([]arrival, 0)
 	var elapsed time.Duration
 	for _, item := range specification.Phases {
-		duration, err := time.ParseDuration(item.Duration)
-		if err != nil || duration <= 0 {
-			return nil, 0, fmt.Errorf("phase %q duration must be positive: %q", item.Name, item.Duration)
-		}
-		if (item.RPS > 0) == (item.Concurrency > 0) {
-			return nil, 0, fmt.Errorf("phase %q must set exactly one of rps or concurrency", item.Name)
-		}
-		repeat := item.Repeat
-		if repeat == 0 {
-			repeat = 1
-		}
-		if repeat < 0 {
-			return nil, 0, fmt.Errorf("phase %q repeat must not be negative", item.Name)
-		}
-		for repetition := 0; repetition < repeat; repetition++ {
-			if item.RPS > 0 {
-				arrivals = appendRateArrivals(arrivals, item.Name, item.RPS, duration, elapsed)
-			} else {
-				for request := 0; request < item.Concurrency; request++ {
-					arrivals = append(arrivals, arrival{Phase: item.Name, Offset: elapsed})
-				}
-			}
-			elapsed += duration
+		arrivals, elapsed, err = appendPhase(arrivals, item, elapsed)
+		if err != nil {
+			return nil, 0, err
 		}
 	}
 	assignSequences(arrivals)
+	return arrivals, elapsed, nil
+}
+
+func appendPhase(arrivals []arrival, item phase, elapsed time.Duration) ([]arrival, time.Duration, error) {
+	duration, err := time.ParseDuration(item.Duration)
+	if err != nil || duration <= 0 {
+		return nil, 0, fmt.Errorf("phase %q duration must be positive: %q", item.Name, item.Duration)
+	}
+	if (item.RPS > 0) == (item.Concurrency > 0) {
+		return nil, 0, fmt.Errorf("phase %q must set exactly one of rps or concurrency", item.Name)
+	}
+	repeat := item.Repeat
+	if repeat == 0 {
+		repeat = 1
+	}
+	if repeat < 0 {
+		return nil, 0, fmt.Errorf("phase %q repeat must not be negative", item.Name)
+	}
+	for repetition := 0; repetition < repeat; repetition++ {
+		if item.RPS > 0 {
+			arrivals = appendRateArrivals(arrivals, item.Name, item.RPS, duration, elapsed)
+		} else {
+			for request := 0; request < item.Concurrency; request++ {
+				arrivals = append(arrivals, arrival{Phase: item.Name, Offset: elapsed})
+			}
+		}
+		elapsed += duration
+	}
 	return arrivals, elapsed, nil
 }
 
@@ -280,7 +298,10 @@ func run(ctx context.Context, client *http.Client, cfg config, body []byte, arri
 				results <- executeRequest(ctx, client, cfg, body, planned, scheduledAt, outstandingAtStart)
 			}(planned, scheduledAt, current)
 		default:
-			results <- result{Sequence: planned.Sequence, Phase: planned.Phase, ScheduledAt: scheduledAt, Dropped: true, Error: "client max outstanding reached", ErrorKind: "client_capacity"}
+			results <- result{
+				Sequence: planned.Sequence, Phase: planned.Phase, ScheduledAt: scheduledAt,
+				Dropped: true, Error: "client max outstanding reached", ErrorKind: "client_capacity",
+			}
 		}
 	}
 
@@ -354,52 +375,68 @@ func waitUntil(ctx context.Context, target time.Time) bool {
 
 func summarize(results []result) summary {
 	report := summary{StatusCodes: make(map[int]int64)}
-	serviceLatencies := make([]float64, 0, len(results))
-	successLatencies := make([]float64, 0, len(results))
-	endToEndLatencies := make([]float64, 0, len(results))
-	scheduleDelays := make([]float64, 0, len(results))
+	samples := latencySamples{
+		service:       make([]float64, 0, len(results)),
+		success:       make([]float64, 0, len(results)),
+		endToEnd:      make([]float64, 0, len(results)),
+		scheduleDelay: make([]float64, 0, len(results)),
+	}
 
 	for _, item := range results {
-		report.Offered++
-		if item.Dropped {
-			report.Dropped++
-			continue
-		}
-		report.Started++
-		if item.Outstanding > report.MaxOutstanding {
-			report.MaxOutstanding = item.Outstanding
-		}
-		if !item.CompletedAt.IsZero() {
-			report.Completed++
-		}
-		report.ResponseBytes += item.ResponseBytes
-		if item.StatusCode != 0 {
-			report.HTTPResponses++
-			report.StatusCodes[item.StatusCode]++
-			if item.StatusCode >= http.StatusOK && item.StatusCode < http.StatusMultipleChoices {
-				report.Successful++
-				successLatencies = append(successLatencies, item.ServiceLatencyMS)
-			}
-			if item.StatusCode == http.StatusServiceUnavailable {
-				report.Overloaded++
-			}
-		}
-		if item.ErrorKind != "" {
-			if item.ErrorKind == "timeout" {
-				report.Timeouts++
-			} else {
-				report.TransportErrors++
-			}
-		}
-		serviceLatencies = append(serviceLatencies, item.ServiceLatencyMS)
-		endToEndLatencies = append(endToEndLatencies, item.EndToEndLatencyMS)
-		scheduleDelays = append(scheduleDelays, item.ScheduleDelayMS)
+		report.observe(item, &samples)
 	}
-	report.ServiceLatency = calculatePercentiles(serviceLatencies)
-	report.SuccessLatency = calculatePercentiles(successLatencies)
-	report.EndToEndLatency = calculatePercentiles(endToEndLatencies)
-	report.ScheduleDelay = calculatePercentiles(scheduleDelays)
+	report.ServiceLatency = calculatePercentiles(samples.service)
+	report.SuccessLatency = calculatePercentiles(samples.success)
+	report.EndToEndLatency = calculatePercentiles(samples.endToEnd)
+	report.ScheduleDelay = calculatePercentiles(samples.scheduleDelay)
 	return report
+}
+
+type latencySamples struct {
+	service       []float64
+	success       []float64
+	endToEnd      []float64
+	scheduleDelay []float64
+}
+
+func (report *summary) observe(item result, samples *latencySamples) {
+	report.Offered++
+	if item.Dropped {
+		report.Dropped++
+		return
+	}
+	report.Started++
+	if item.Outstanding > report.MaxOutstanding {
+		report.MaxOutstanding = item.Outstanding
+	}
+	if !item.CompletedAt.IsZero() {
+		report.Completed++
+	}
+	report.ResponseBytes += item.ResponseBytes
+	report.observeResponse(item, samples)
+	if item.ErrorKind == "timeout" {
+		report.Timeouts++
+	} else if item.ErrorKind != "" {
+		report.TransportErrors++
+	}
+	samples.service = append(samples.service, item.ServiceLatencyMS)
+	samples.endToEnd = append(samples.endToEnd, item.EndToEndLatencyMS)
+	samples.scheduleDelay = append(samples.scheduleDelay, item.ScheduleDelayMS)
+}
+
+func (report *summary) observeResponse(item result, samples *latencySamples) {
+	if item.StatusCode == 0 {
+		return
+	}
+	report.HTTPResponses++
+	report.StatusCodes[item.StatusCode]++
+	if item.StatusCode >= http.StatusOK && item.StatusCode < http.StatusMultipleChoices {
+		report.Successful++
+		samples.success = append(samples.success, item.ServiceLatencyMS)
+	}
+	if item.StatusCode == http.StatusServiceUnavailable {
+		report.Overloaded++
+	}
 }
 
 func calculatePercentiles(values []float64) percentiles {

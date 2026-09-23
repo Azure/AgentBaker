@@ -105,9 +105,19 @@ func TestBuildScheduleSupportsRatePhasesAndConcurrencyWaves(t *testing.T) {
 func TestSummarize(t *testing.T) {
 	now := time.Now()
 	results := []result{
-		{StartedAt: now, CompletedAt: now.Add(time.Millisecond), StatusCode: http.StatusOK, ServiceLatencyMS: 1, EndToEndLatencyMS: 2, ScheduleDelayMS: 1, ResponseBytes: 10},
-		{StartedAt: now, CompletedAt: now.Add(3 * time.Millisecond), StatusCode: http.StatusServiceUnavailable, RetryAfter: "3", ServiceLatencyMS: 3, EndToEndLatencyMS: 4, ScheduleDelayMS: 1},
-		{StartedAt: now, CompletedAt: now.Add(5 * time.Millisecond), Error: "context deadline exceeded", ErrorKind: "timeout", ServiceLatencyMS: 5, EndToEndLatencyMS: 6, ScheduleDelayMS: 1},
+		{
+			StartedAt: now, CompletedAt: now.Add(time.Millisecond), StatusCode: http.StatusOK,
+			ServiceLatencyMS: 1, EndToEndLatencyMS: 2, ScheduleDelayMS: 1, ResponseBytes: 10,
+		},
+		{
+			StartedAt: now, CompletedAt: now.Add(3 * time.Millisecond), StatusCode: http.StatusServiceUnavailable,
+			RetryAfter: "3", ServiceLatencyMS: 3, EndToEndLatencyMS: 4, ScheduleDelayMS: 1,
+		},
+		{
+			StartedAt: now, CompletedAt: now.Add(5 * time.Millisecond),
+			Error: "context deadline exceeded", ErrorKind: "timeout",
+			ServiceLatencyMS: 5, EndToEndLatencyMS: 6, ScheduleDelayMS: 1,
+		},
 		{Dropped: true},
 	}
 
@@ -149,8 +159,8 @@ func TestSyntheticLinuxFixtureGeneratesBootstrapData(t *testing.T) {
 		t.Fatal(err)
 	}
 	var configuration datamodel.NodeBootstrappingConfiguration
-	if err := json.Unmarshal(body, &configuration); err != nil {
-		t.Fatal(err)
+	if unmarshalErr := json.Unmarshal(body, &configuration); unmarshalErr != nil {
+		t.Fatal(unmarshalErr)
 	}
 	if configuration.ContainerService == nil || configuration.AgentPoolProfile == nil || configuration.CloudSpecConfig == nil {
 		t.Fatal("synthetic fixture is missing required bootstrap configuration")
