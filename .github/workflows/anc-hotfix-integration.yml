@@ -217,6 +217,7 @@ jobs:
           expect 'ANC download-hotfix completed'
           expect 'Using hotfix binary'
           expect 'aks-node-controller completed successfully'
+          expect 'ANC_NBC_CMD_STUB_RAN'
           # Assert the authenticated-repository fast path specifically: the generic "downloaded
           # ANC hotfix" line is also emitted by the package-manager fallback, so on its own it
           # cannot tell the two apart.
