@@ -344,6 +344,9 @@ func (d Distro) IsAzureLinuxOSGuardDistro() bool {
 func (d Distro) IsAzureLinuxV3Distro() bool {
 	return slices.Contains(AvailableAzureLinuxV3Distros, d)
 }
+func (d Distro) IsUbuntuDistro() bool {
+	return slices.Contains(AvailableUbuntuDistros, d)
+}
 
 /*
 KeyvaultSecretRef specifies path to the Azure keyvault along with secret name and (optionaly) version

@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -117,6 +118,14 @@ var AvailableUbuntu2604Distros = []Distro{
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
 	AKSUbuntuMinimalContainerd2604CVMGen2,
 }
+
+//nolint:gochecknoglobals
+var AvailableUbuntuDistros = slices.Concat(
+	AvailableUbuntu2004Distros,
+	AvailableUbuntu2204Distros,
+	AvailableUbuntu2404Distros,
+	AvailableUbuntu2604Distros,
+)
 
 //nolint:gochecknoglobals
 var AvailableContainerdDistros = []Distro{
