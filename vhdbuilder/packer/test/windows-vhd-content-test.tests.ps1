@@ -11,7 +11,119 @@ BeforeAll {
     $content = Get-Content "$PSScriptRoot\windows-vhd-content-test.ps1" -Raw
     $content = $content -replace [regex]::Escape(". c:\k\windows-vhd-configuration.ps1"), ""
     $content = $content -replace '(?s)Write-OutputWithTimestamp "Starting Tests".*', ""
+    $content = $content -replace '(?m)^\$testVMPublicIPAddress = .*', '$testVMPublicIPAddress = "127.0.0.1"'
     Invoke-Expression $content
+}
+
+Describe 'Test-FilesToCacheOnVHD hash retries' {
+    BeforeEach {
+        $script:cacheDir = Join-Path $TestDrive 'cache'
+        New-Item -ItemType Directory -Path $script:cacheDir -Force | Out-Null
+        $script:fileName = "vhd-cache-test-$(New-Guid).zip"
+        $script:cachedFile = Join-Path $script:cacheDir $script:fileName
+        $script:downloadedFile = Join-Path ([System.IO.Path]::GetTempPath()) $script:fileName
+        Set-Content -LiteralPath $script:cachedFile -Value 'cached bytes'
+        $script:url = "https://packages.aks.azure.com/kubernetes/$script:fileName"
+        $script:map = @{ $script:cacheDir = @($script:url) }
+        $global:azCopyUrls = @{}
+        $script:downloads = 0
+        Mock Write-OutputWithTimestamp {}
+        Mock Write-Warning {}
+        Mock Start-Sleep {}
+        Mock Test-Path { $false } -ParameterFilter { $Path -eq 'c:\akse-cache\private-packages' }
+    }
+
+    It 'succeeds on attempt <matchingAttempt> without changing the cached file' -TestCases @(
+        @{ matchingAttempt = 1 }
+        @{ matchingAttempt = 2 }
+        @{ matchingAttempt = 3 }
+    ) {
+        param($matchingAttempt)
+        $script:matchingAttempt = $matchingAttempt
+        Mock DownloadFileWithRetry {
+            $script:downloads++
+            $bytes = if ($script:downloads -ge $script:matchingAttempt) { 'cached bytes' } else { 'different bytes' }
+            Set-Content -LiteralPath $Dest -Value $bytes
+        }
+
+        Test-FilesToCacheOnVHD
+
+        Should -Invoke DownloadFileWithRetry -Times $matchingAttempt -Exactly -ParameterFilter { $URL -eq $script:url -and $Dest -eq $script:downloadedFile }
+        Should -Invoke Start-Sleep -Times ($matchingAttempt - 1) -Exactly
+        Should -Invoke Write-Warning -Times ($matchingAttempt - 1) -Exactly
+        if ($matchingAttempt -ge 2) {
+            Should -Invoke Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 10 }
+            Should -Invoke Write-Warning -Times 1 -Exactly -ParameterFilter { $Message -like '*attempt 1/3*local SHA256*remote SHA256*' }
+        }
+        if ($matchingAttempt -eq 3) {
+            Should -Invoke Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 30 }
+        }
+        Get-Content -LiteralPath $script:cachedFile | Should -Be 'cached bytes'
+        Test-Path -LiteralPath $script:downloadedFile | Should -BeFalse
+    }
+
+    It 'cleans up a partial download and propagates download failures' {
+        Mock DownloadFileWithRetry {
+            Set-Content -LiteralPath $Dest -Value 'partial bytes'
+            throw 'download failed'
+        }
+
+        { Test-FilesToCacheOnVHD } | Should -Throw '*download failed*'
+
+        Should -Invoke DownloadFileWithRetry -Times 1 -Exactly
+        Should -Invoke Start-Sleep -Times 0
+        Test-Path -LiteralPath $script:downloadedFile | Should -BeFalse
+    }
+
+    It 'cleans up the download and propagates hash failures' {
+        Mock DownloadFileWithRetry { Set-Content -LiteralPath $Dest -Value 'downloaded bytes' }
+        Mock Get-FileHash { throw 'hash failed' } -ParameterFilter { $LiteralPath -eq $script:downloadedFile }
+
+        { Test-FilesToCacheOnVHD } | Should -Throw '*hash failed*'
+
+        Should -Invoke DownloadFileWithRetry -Times 1 -Exactly
+        Should -Invoke Start-Sleep -Times 0
+        Test-Path -LiteralPath $script:downloadedFile | Should -BeFalse
+    }
+
+    It 'preserves the remote hash comparison skip for authenticated packages' {
+        $global:azCopyUrls = @{ $script:url = $true }
+        Mock DownloadFileWithRetry {}
+
+        Test-FilesToCacheOnVHD
+
+        Should -Invoke DownloadFileWithRetry -Times 0
+        Should -Invoke Start-Sleep -Times 0
+    }
+
+    It 'exits with code 1 after three mismatches and cleans up the download' {
+        $childScript = @"
+`$content = Get-Content '$PSScriptRoot/windows-vhd-content-test.ps1' -Raw
+`$content = `$content -replace [regex]::Escape('. c:\k\windows-vhd-configuration.ps1'), ''
+`$content = `$content -replace '(?s)Write-OutputWithTimestamp "Starting Tests".*', ''
+`$content = `$content -replace '(?m)^\`$testVMPublicIPAddress = .*', ''
+Invoke-Expression `$content
+function DownloadFileWithRetry {
+    param(`$URL, `$Dest, [switch]`$redactUrl)
+    Write-Output 'DOWNLOAD_ATTEMPT'
+    Set-Content -LiteralPath `$Dest -Value 'different bytes'
+}
+function Start-Sleep { param(`$Seconds) Write-Output "RETRY_DELAY=`$Seconds" }
+`$map = @{ '$script:cacheDir' = @('$script:url') }
+`$global:azCopyUrls = @{}
+Test-FilesToCacheOnVHD
+"@
+        $result = & pwsh -NoProfile -Command $childScript 2>&1
+
+        $LASTEXITCODE | Should -Be 1
+        ($result | Where-Object { "$_" -eq 'DOWNLOAD_ATTEMPT' }).Count | Should -Be 3
+        ($result -join "`n") | Should -Match 'RETRY_DELAY=10'
+        ($result -join "`n") | Should -Match 'RETRY_DELAY=30'
+        ($result -join "`n") | Should -Match 'after 3 attempts'
+        ($result -join "`n") | Should -Match 'cached files .* are invalid'
+        Test-Path -LiteralPath $script:downloadedFile | Should -BeFalse
+        Get-Content -LiteralPath $script:cachedFile | Should -Be 'cached bytes'
+    }
 }
 
 Describe 'Test-PrivatePackageSignature' {

@@ -3,6 +3,7 @@
         verify the content of Windows image built
     .DESCRIPTION
         This script is used to verify the content of Windows image built
+        Cached file hash mismatches are retried twice, after 10 and 30 seconds.
 #>
 
 param (
@@ -160,10 +161,30 @@ function Test-FilesToCacheOnVHD {
 
             $fileName = [IO.Path]::GetFileName($URL.Split("?")[0])
             $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
-            DownloadFileWithRetry -URL $URL -Dest $tmpDest -redactUrl
-            $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash.Trim()
-            $localFileHash = (Get-FileHash  -Algorithm SHA256 -Path $dest).Hash.Trim()
-            Remove-Item -Path $tmpDest
+            $localFileHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $dest -ErrorAction Stop).Hash.Trim()
+            $logURL = $URL.Split("?")[0].Trim()
+            $retryDelays = @(10, 30)
+            $maxAttempts = $retryDelays.Count + 1
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+                try {
+                    DownloadFileWithRetry -URL $URL -Dest $tmpDest -redactUrl
+                    $remoteFileHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $tmpDest -ErrorAction Stop).Hash.Trim()
+                }
+                finally {
+                    if (Test-Path -LiteralPath $tmpDest) {
+                        Remove-Item -LiteralPath $tmpDest -ErrorAction Stop
+                    }
+                }
+
+                if ($localFileHash -eq $remoteFileHash) {
+                    break
+                }
+                if ($attempt -lt $maxAttempts) {
+                    $delay = $retryDelays[$attempt - 1]
+                    Write-Warning ("Hash mismatch for $dest from $logURL (attempt $attempt/$maxAttempts): local SHA256 $localFileHash, remote SHA256 $remoteFileHash. Retrying in $delay seconds." | Timestamp)
+                    Start-Sleep -Seconds $delay
+                }
+            }
 
             # We have to ignore them since sizes on disk are same but the sizes are different. We are investigating this issue
             $excludeHashComparisionListInGlobal = @()
@@ -176,8 +197,7 @@ function Test-FilesToCacheOnVHD {
                     }
                 }
                 if (-not $isIgnore) {
-                    $logURL = $URL.Split("?")[0].Trim()
-                    Write-ErrorWithTimestamp "$dest <--> $tmpDest : Local file hash is $localFileHash but remote file hash from $logURL is $remoteFileHash"
+                    Write-ErrorWithTimestamp "$dest <--> $tmpDest : Local file hash is $localFileHash but remote file hash from $logURL is $remoteFileHash after $maxAttempts attempts"
                     $invalidFiles = $invalidFiles + $dest
                     continue
                 }
