@@ -94,7 +94,16 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 					ValidateFileHasContent(ctx, s, ancHotfixPointerPath, fmt.Sprintf(`"%s":"%s"`, hotfixBaseVersion(ancHotfixFlowBaseVersion), ancHotfixFlowTargetVersion)),
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "Found ANC hotfix config"),
 					ValidateFileHasContent(ctx, s, ancLogPath, "downloading ANC hotfix"),
-					ValidateFileHasContent(ctx, s, ancLogPath, "downloaded ANC hotfix"),
+					// Assert the fast path's full message rather than the "downloaded ANC hotfix"
+					// prefix it shares with the package-manager path (hotfix.go:135). The prefix
+					// matches either route, so it cannot show which one ran - and since
+					// downloadBinaryHotfixIfNeeded returns as soon as tryRepositoryDownload
+					// succeeds (hotfix.go:104), the route exercised here is the repository fast
+					// path, which extracts and stages the package itself without apt/dnf/tdnf.
+					ValidateFileHasContent(ctx, s, ancLogPath, "downloaded ANC hotfix through authenticated repository fast path"),
+					// Catch a silent regression into the package-manager fallback: both fallback
+					// branches log this before handing off (hotfix.go:119 and :123).
+					ValidateFileExcludesContent(ctx, s, ancLogPath, "falling back to package manager"),
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "ANC download-hotfix completed"),
 					ValidateFileExists(ctx, s, ancHotfixBinaryPath),
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "Using hotfix binary"),

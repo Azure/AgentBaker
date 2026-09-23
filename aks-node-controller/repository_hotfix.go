@@ -32,7 +32,7 @@ const (
 	repositoryPackageMaxBytes    = 512 << 20
 	repositoryBinaryMaxBytes     = 128 << 20
 	repositoryCommandTimeout     = 60 * time.Second
-	ancPackageName               = "aks-node-controller"
+hotfix.go	ancPackageName               = "aks-node-controller"
 	ancPackageBinaryRelativePath = "usr/bin/aks-node-controller"
 
 	archAMD64 = "amd64"
