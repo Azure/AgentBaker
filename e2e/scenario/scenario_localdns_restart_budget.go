@@ -137,8 +137,14 @@ printf '[Service]\nExecStart=\nExecStart=/bin/false\n' | sudo tee "$DROPIN" >/de
 sudo systemctl daemon-reload
 sudo systemctl reset-failed localdns.service 2>/dev/null || true
 
+fault_start=$(date +%s)
+
+# restart, not start: validateLocalDNSLifecycle runs immediately before this
+# (scenario_localdns_hosts.go) and can only exit with the unit active -- its EXIT trap
+# retries 'systemctl start' until is-active. daemon-reload does not restart anything, so
+# 'start' on an active unit is a no-op and the faulted ExecStart would never run.
 # --no-block: the start fails immediately, but do not depend on that to return.
-sudo systemctl start localdns.service --no-block 2>/dev/null || true
+sudo systemctl restart localdns.service --no-block 2>/dev/null || true
 
 state=""
 result=""
@@ -157,7 +163,11 @@ echo "diagnostic: Result=$result NRestarts=$nrestarts"
 
 # The limiter, not some other failure, is what stopped it. systemd reports the underlying
 # cause in Result, so the refusal only shows up in the journal.
-sudo journalctl -u localdns.service --since "-5 min" --no-pager |
+#
+# Anchored to fault_start rather than a wall-clock window: the lifecycle validator runs
+# three kill/recovery cycles on this same unit just before, and a refusal from those would
+# otherwise satisfy this grep.
+sudo journalctl -u localdns.service --since "@$fault_start" --no-pager |
     grep -q "Start request repeated too quickly" ||
     fail "localdns reached 'failed' but the journal has no 'Start request repeated too quickly'. It failed for some other reason, so this run did not exercise the budget."
 
