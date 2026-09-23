@@ -51,15 +51,56 @@ runcmd:
 `
 
 	flatcarTemplate = `{
-     "ignition": { "version": "3.4.0" },
+     "ignition": { "version": "3.4.0" }%[2]s,
      "storage": {
        "files": [{
          "path": "/opt/azure/containers/aks-node-controller-config.json",
          "mode": 384,
-         "contents": { "source": "data:;base64,%s" }
+         "contents": { "source": "data:;base64,%[1]s" }
        }]
      }
     }`
+
+	artifactStreamingUnit = `[Unit]
+Description=Configure AKS artifact streaming
+Requires=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+After=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+Before=aks-node-controller.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/acr/tools/mirror/setup.sh aks
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+`
+
+	artifactStreamingSystemd = `,
+     "systemd": {
+       "units": [
+         {
+           "name": "acr-mirror.service",
+           "enabled": true,
+           "mask": false
+         },
+         {
+           "name": "overlaybd-tcmu.service",
+           "enabled": true,
+           "mask": false
+         },
+         {
+           "name": "overlaybd-snapshotter.service",
+           "enabled": true,
+           "mask": false
+         },
+         {
+           "name": "aks-artifact-streaming.service",
+           "enabled": true,
+           "contents": %q
+         }
+       ]
+     }`
 )
 
 // CustomData builds a base64-encoded MIME multipart document to be used as VM custom data for cloud-init.
@@ -107,7 +148,11 @@ func CustomDataFlatcar(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON)
+	var artifactStreamingConfig string
+	if cfg.GetEnableArtifactStreaming() {
+		artifactStreamingConfig = fmt.Sprintf(artifactStreamingSystemd, artifactStreamingUnit)
+	}
+	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON, artifactStreamingConfig)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 

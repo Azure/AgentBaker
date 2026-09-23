@@ -665,6 +665,44 @@ oom_score = -999
 	}
 }
 
+func TestACLArtifactStreamingContainerdConfig(t *testing.T) {
+	tests := []struct {
+		name              string
+		containerdVersion string
+		noGPU             bool
+	}{
+		{name: "containerd v1", containerdVersion: "1.7.22"},
+		{name: "containerd v1 no GPU", containerdVersion: "1.7.22", noGPU: true},
+		{name: "containerd v2", containerdVersion: "2.0.0"},
+		{name: "containerd v2 no GPU", containerdVersion: "2.0.0", noGPU: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := containerdConfigFromAKSNodeConfig(&aksnodeconfigv1.Configuration{
+				EnableArtifactStreaming: true,
+			}, tt.noGPU, tt.containerdVersion)
+			if err != nil {
+				t.Fatalf("containerdConfigFromAKSNodeConfig() error = %v", err)
+			}
+
+			if count := strings.Count(config, `snapshotter = "overlaybd"`); count != 1 {
+				t.Errorf("expected exactly one overlaybd snapshotter, got %d in:\n%s", count, config)
+			}
+			for _, expected := range []string{
+				`disable_snapshot_annotations = false`,
+				`[proxy_plugins.overlaybd]`,
+				`type = "snapshot"`,
+				`address = "/run/overlaybd-snapshotter/overlaybd.sock"`,
+			} {
+				if !strings.Contains(config, expected) {
+					t.Errorf("expected rendered config to contain %q:\n%s", expected, config)
+				}
+			}
+		})
+	}
+}
+
 func Test_getKubenetTemplate(t *testing.T) {
 	tests := []struct {
 		name string

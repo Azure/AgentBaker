@@ -93,6 +93,7 @@ Please refer to [components.cue](../../../../schemas/components.cue) for the mos
 	mariner?:      #MarinerOSDistro
 	marinerkata?:  #MarinerOSDistro
 	azurelinux?:   #AzureLinuxOSDistro
+	azurecontainerlinux?: #AzureContainerLinuxOSDistro
 }
 ```
 
@@ -113,6 +114,9 @@ Please refer to [components.cue](../../../../schemas/components.cue) for the mos
   "v3.0"?:  #ReleaseDownloadURI
 	"DEFAULT/v3.0"?: #ReleaseDownloadURI
 	"OSGUARD/v3.0"?: #ReleaseDownloadURI
+	current?: #ReleaseDownloadURI
+}
+#AzureContainerLinuxOSDistro: {
 	current?: #ReleaseDownloadURI
 }
 ```
@@ -139,6 +143,7 @@ Here are the explanation of the above schema.
     - In `UbuntuOSDistro`, we can define different OS release versions. For example, `r2404` implies release 24.04.
      - In `MarinerOSDistro`, we only have `current` now, which implies that single configurations will be applied to all Mariner release versions. We can distinguish them in needed. Note, we confirmed with Mariner team, Azure Linux 2.0 is reporting itself as `mariner` in the file `/etc/os-release`. So for Azure Linux 2.0 case, it will still read the package versions from `mariner` block.
     - In `AzureLinuxOSDistro`, `v3.0` is for Azure Linux v3.0. `current` is for otherwise but we are not using it now. Azure Linux 2.0 case is described in the `MarinerOSDistro` above. 
+    - In `AzureContainerLinuxOSDistro`, `current` defines ACL-specific metadata. When it is absent, ACL falls back to `flatcar.current`, then `default.current`.
     - `DefaultOSDistro` means the default case of OS Distro. If an OSDistro metadata is not defined, it will fetch it from `default`. For example, if a node is Ubuntu 20.04, but we don't specify `ubuntu` in components.json, then it will fetch `default.current`. For another example, if only `default.current` is specified in the components.json, No matter what OSDistro is the node running, it will only fetch `default.current` because it's the default metadata. This provides flexibility while elimiating unnecessary duplication when defining the metadata.
 1. The OS release version can optionally be prefixed with the OS variant. `OSGUARD/v3.0` and `DEFAULT/v3.0` are currently supported for `azurelinux`. The latter specifically matches Azure Linux 3.0 without a variant, i.e. not OS Guard.
 1. In `ReleaseDownloadURI`, you can see 2 keys.

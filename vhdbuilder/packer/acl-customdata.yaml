@@ -12,6 +12,10 @@ storage:
       inline: |
         ID=azurelinux
         SYSEXT_LEVEL=1.0
+  - path: /etc/flatcar/enabled-sysext.conf
+    contents:
+      inline: |
+        overlaybd
   - path: /etc/flatcar/update.conf
     overwrite: true
     contents:
@@ -40,3 +44,9 @@ storage:
 # NOTE: ACL does NOT have update-ca-certificates.service (Flatcar-specific).
 # ACL uses update-ca-trust (Azure Linux style) which is invoked on-demand by CSE scripts.
 # The Flatcar customdata has a dropin for update-ca-certificates.service that is omitted here.
+systemd:
+  units:
+  - name: overlaybd-tcmu.service
+    mask: true
+  - name: overlaybd-snapshotter.service
+    mask: true
