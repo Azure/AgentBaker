@@ -56,16 +56,12 @@ Describe 'installAndConfigureArtifactStreaming'
     echo "install $*" >> "$ARTIFACT_STREAMING_CALLS"
     return "${INSTALL_RC:-0}"
   }
-  env() {
-    echo "env $*" >> "$ARTIFACT_STREAMING_CALLS"
-    return "${ACR_INIT_RC:-0}"
-  }
   rm() {
     echo "rm $*" >> "$ARTIFACT_STREAMING_CALLS"
     command rm "$@"
   }
 
-  It 'extracts the rpm payload and initializes acr on Azure Container Linux'
+  It 'extracts the rpm payload on Azure Container Linux'
     OS="AZURECONTAINERLINUX"
     When call installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "python3 -"
@@ -74,7 +70,6 @@ Describe 'installAndConfigureArtifactStreaming'
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "/opt/. /opt/"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "install -m 0644"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "/usr/lib/systemd/system/acr-mirror.service /etc/systemd/system/acr-mirror.service"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "env -C /opt/acr/bin ./acr init --min-init"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should not include "dnf_install"
     The status should be success
   End
@@ -95,7 +90,6 @@ Describe 'installAndConfigureArtifactStreaming'
     When call installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "python3 -"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "cpio -idm"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "env -C /opt/acr/bin ./acr init --min-init"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should not include "dnf_install"
     The status should be success
   End
@@ -105,16 +99,15 @@ Describe 'installAndConfigureArtifactStreaming'
     PYTHON3_RC=1
     When run installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
     The contents of file "$ARTIFACT_STREAMING_CALLS" should include "python3 -"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should not include "acr init --min-init"
     The status should equal "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
   End
 
-  It 'fails when acr initialization fails on ACL'
+  It 'fails when the acr-mirror service cannot be installed on ACL'
     OS="AZURECONTAINERLINUX"
-    ACR_INIT_RC=1
+    INSTALL_RC=1
     When run installAndConfigureArtifactStreaming "https://example/acr-mirror.rpm" "1.0.0"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "env -C /opt/acr/bin ./acr init --min-init"
-    The contents of file "$ARTIFACT_STREAMING_CALLS" should not include "rm ./acr-mirror.rpm"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "install -m 0644"
+    The contents of file "$ARTIFACT_STREAMING_CALLS" should include "/usr/lib/systemd/system/acr-mirror.service /etc/systemd/system/acr-mirror.service"
     The status should equal "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
   End
 End

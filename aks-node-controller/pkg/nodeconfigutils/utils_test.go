@@ -295,17 +295,17 @@ func TestCustomDataFlatcarOmitsArtifactStreamingWhenDisabled(t *testing.T) {
 func TestCustomDataFlatcarEnablesArtifactStreaming(t *testing.T) {
 	ignition := decodeFlatcarCustomData(t, &aksnodeconfigv1.Configuration{EnableArtifactStreaming: true})
 
-	systemd, ok := ignition["systemd"].(map[string]any)
-	require.True(t, ok)
-	units, ok := systemd["units"].([]any)
-	require.True(t, ok)
+	systemd, systemdOK := ignition["systemd"].(map[string]any)
+	require.True(t, systemdOK)
+	units, unitsOK := systemd["units"].([]any)
+	require.True(t, unitsOK)
 
 	unitsByName := make(map[string]map[string]any, len(units))
 	for _, item := range units {
-		unit, ok := item.(map[string]any)
-		require.True(t, ok)
-		name, ok := unit["name"].(string)
-		require.True(t, ok)
+		unit, unitOK := item.(map[string]any)
+		require.True(t, unitOK)
+		name, nameOK := unit["name"].(string)
+		require.True(t, nameOK)
 		unitsByName[name] = unit
 	}
 
@@ -328,7 +328,7 @@ func TestCustomDataFlatcarEnablesArtifactStreaming(t *testing.T) {
 	require.Contains(t, contents, "Requires=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service")
 	require.Contains(t, contents, "After=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service")
 	require.Contains(t, contents, "Before=aks-node-controller.service")
-	require.Contains(t, contents, "ExecStart=/opt/acr/bin/acr-config --enable-containerd azurecr.io")
+	require.Contains(t, contents, "ExecStart=/opt/acr/tools/mirror/setup.sh aks")
 	require.Contains(t, contents, "WantedBy=multi-user.target")
 }
 

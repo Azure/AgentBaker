@@ -281,7 +281,6 @@ installAndConfigureArtifactStreaming() {
       exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
     }
     rm -rf "$extract_dir"
-    env -C /opt/acr/bin ./acr init --min-init || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
   else
     case "$downloadURL" in
       *.deb)

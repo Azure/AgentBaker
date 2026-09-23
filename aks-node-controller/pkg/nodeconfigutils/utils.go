@@ -61,6 +61,21 @@ runcmd:
      }
     }`
 
+	artifactStreamingUnit = `[Unit]
+Description=Configure AKS artifact streaming
+Requires=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+After=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+Before=aks-node-controller.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/acr/tools/mirror/setup.sh aks
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+`
+
 	artifactStreamingSystemd = `,
      "systemd": {
        "units": [
@@ -82,7 +97,7 @@ runcmd:
          {
            "name": "aks-artifact-streaming.service",
            "enabled": true,
-           "contents": "[Unit]\nDescription=Configure AKS artifact streaming\nRequires=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service\nAfter=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service\nBefore=aks-node-controller.service\n\n[Service]\nType=oneshot\nExecStart=/opt/acr/bin/acr-config --enable-containerd azurecr.io\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target\n"
+           "contents": %q
          }
        ]
      }`
@@ -135,7 +150,7 @@ func CustomDataFlatcar(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
 	var artifactStreamingConfig string
 	if cfg.GetEnableArtifactStreaming() {
-		artifactStreamingConfig = artifactStreamingSystemd
+		artifactStreamingConfig = fmt.Sprintf(artifactStreamingSystemd, artifactStreamingUnit)
 	}
 	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON, artifactStreamingConfig)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
