@@ -6,9 +6,11 @@ For CA refresh logging and Linux opt-in certificate diagnostics, see
 ## SSH-disable telemetry
 
 When `DISABLE_SSH=true` and `basePrep` runs, `disableSSH` emits structured
-guest-agent events. Existing stop/disable retries, unit ordering, missing-unit
-handling, and CSE exit code 172 are unchanged. Telemetry failures are warnings,
-not new provisioning failures. Other `systemctlDisableAndStop` callers and
+guest-agent events. Stop/disable retry parameters and missing-unit handling are
+unchanged, a unit that is not installed is still skipped without error. Stop and
+disable failures are now propagated after every SSH unit has been attempted, and
+surface as CSE exit code 172. Telemetry failures remain warnings, not new
+provisioning failures. Other `systemctlDisableAndStop` callers and
 `logs_to_events` keep their existing telemetry behavior.
 
 | TaskName | Scope |

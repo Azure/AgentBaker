@@ -15,20 +15,24 @@ func TestSSHServiceDisabledScript(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		osID      string
-		variant   string
-		active    string
-		enabled   string
-		stateUnit string
-		listeners string
-		ssStatus  string
-		want      string
-		wantError bool
+		name         string
+		osID         string
+		variant      string
+		active       string
+		enabled      string
+		stateUnit    string
+		listeners    string
+		ssStatus     string
+		ubuntuSocket string
+		want         string
+		wantError    bool
 	}{
 		{name: "ACL", osID: "azurelinux", variant: "azurecontainerlinux", want: "sshd.socket: active=inactive enabled=disabled"},
 		{name: "legacy ACL", osID: "azurecontainerlinux", want: "sshd.socket: active=inactive enabled=disabled"},
 		{name: "Ubuntu", osID: "ubuntu", want: "ssh.service: active=inactive enabled=disabled"},
+		{name: "Ubuntu with socket activation", osID: "ubuntu", ubuntuSocket: "true", want: "ssh.socket: active=inactive enabled=disabled"},
+		{name: "Ubuntu socket enabled but inactive", osID: "ubuntu", ubuntuSocket: "true", enabled: "enabled", stateUnit: "ssh.socket", want: "ssh.socket is not disabled", wantError: true},
+		{name: "Ubuntu socket active", osID: "ubuntu", ubuntuSocket: "true", active: "active", stateUnit: "ssh.socket", want: "ssh.socket is not inactive", wantError: true},
 		{name: "Azure Linux", osID: "azurelinux", want: "sshd.service: active=inactive enabled=disabled"},
 		{name: "Mariner", osID: "mariner", want: "sshd.service: active=inactive enabled=disabled"},
 		{name: "active socket", active: "active", want: "sshd.socket is not inactive", wantError: true},
@@ -58,11 +62,16 @@ systemctl() {
 		enabled=disabled
 	fi
     if [[ "$ID" == ubuntu ]]; then
-        [[ "$2" == ssh.service ]] || return 1
+        if [[ "$2" == ssh.socket ]]; then
+            [[ "${TEST_UBUNTU_SOCKET:-}" == true ]] || return 1
+        else
+            [[ "$2" == ssh.service ]] || return 1
+        fi
     elif [[ "$ID" != azurecontainerlinux && "$VARIANT_ID" != azurecontainerlinux ]]; then
         [[ "$2" == sshd.service ]] || return 1
     fi
     case "$1" in
+        cat) return 0 ;;
 		is-active) printf '%s\n' "$active"; [[ "$active" == active ]] && return 0; return 3 ;;
 		is-enabled) printf '%s\n' "$enabled"; [[ "$enabled" == enabled ]] && return 0; return 1 ;;
         *) return 1 ;;
@@ -83,6 +92,7 @@ ss() {
 				"TEST_OS="+test.osID, "TEST_VARIANT="+test.variant,
 				"TEST_ACTIVE="+test.active, "TEST_ENABLED="+test.enabled,
 				"TEST_STATE_UNIT="+test.stateUnit,
+				"TEST_UBUNTU_SOCKET="+test.ubuntuSocket,
 				"TEST_LISTENERS="+test.listeners, "TEST_SS_STATUS="+test.ssStatus)
 			output, err := command.CombinedOutput()
 			if (err != nil) != test.wantError {
