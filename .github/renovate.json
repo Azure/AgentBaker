@@ -519,7 +519,9 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes-csi/**"
+        "oss/kubernetes-csi/**",
+        "oss/v2/kubernetes-csi/**",
+        "oss/v2/azure/secrets-store/provider-azure"
       ],
       "groupName": "csi",
       "assignees": [
