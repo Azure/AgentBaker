@@ -140,7 +140,7 @@ jobs:
             install -m 0755 /probe/aks-node-controller /opt/azure/containers/aks-node-controller
             install -m 0755 /probe/aks-node-controller-launcher.sh /opt/azure/containers/
             install -m 0755 /probe/aks-node-controller-hotfix.sh /opt/azure/containers/
-            printf "#!/bin/bash\necho ANC_NBC_CMD_STUB_RAN\n" > /opt/azure/containers/aks-node-controller-nbc-cmd.sh
+            printf "#!/bin/bash\nif [ ! \"/proc/\$PPID/exe\" -ef \"/opt/azure/containers/aks-node-controller-hotfix\" ]; then echo ANC_NBC_CMD_WRONG_PARENT; exit 1; fi\necho ANC_NBC_CMD_STUB_RAN\n" > /opt/azure/containers/aks-node-controller-nbc-cmd.sh
             chmod 0755 /opt/azure/containers/aks-node-controller-nbc-cmd.sh
             install -m 0644 /probe/aks-node-controller.service /etc/systemd/system/
             systemctl daemon-reload
