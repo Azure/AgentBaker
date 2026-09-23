@@ -170,6 +170,14 @@ var (
 		Gallery: &Config.GalleryLinux,
 	}
 
+	VHDUbuntu2404ArmGBContainerd = &Image{
+		Name:    "2404gen2arm64gbcontainerd",
+		OS:      OSUbuntu,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSUbuntuArm64GB200Containerd2404Gen2,
+		Gallery: &Config.GalleryLinux,
+	}
+
 	VHDUbuntu2604MinimalGen2Containerd = &Image{
 		Name:    "2604minimalgen2containerd",
 		OS:      OSUbuntu,

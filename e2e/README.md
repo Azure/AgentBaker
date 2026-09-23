@@ -218,6 +218,16 @@ Give more than one name to run multiple scenarios:
 ./e2e-local.sh AzureLinuxV2 Ubuntu2204
 ```
 
+The GB200 NVMe kubelet scenario requires a real GB200 SKU with four local NVMe disks. Set
+`GB200_VM_SIZE` explicitly so normal E2E environments skip the hardware-specific scenario:
+
+```bash
+E2E_LOCATION=<gb200-region> \
+VHD_BUILD_ID=<build-id> \
+GB200_VM_SIZE=<gb200-vm-size> \
+./e2e-local.sh Ubuntu2404_ARM64_GB200_KubeletNVMePermissions
+```
+
 ### Debugging
 
 Set `KEEP_VMSS=true` to retain bootstrapped VMs for debugging. Setting this will also have the VM's private SSH key
