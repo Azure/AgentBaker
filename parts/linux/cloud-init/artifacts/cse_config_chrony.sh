@@ -209,8 +209,7 @@ configure_ubuntu_2604_cvm_time_sync() {
         sev-snp)
             echo "AMD SEV-SNP detected; preserving the existing Hyper-V PHC Chrony configuration"
             if ! configure_chrony; then
-                echo "ERROR: failed to configure Chrony with the Hyper-V PHC source for AMD SEV-SNP" >&2
-                return "$ERR_CHRONY_CONFIG_FAIL"
+                echo "WARNING: failed to reapply the Hyper-V PHC Chrony configuration for AMD SEV-SNP; continuing provisioning" >&2
             fi
             ;;
         tdx)

@@ -759,7 +759,7 @@ if [ "$chronyExitCode" -ne 0 ]; then
             chronyErrorMessage="NTP not reachable; Chrony synchronization failed with exit code ${chronyExitCode}"
             ;;
         "$ERR_CHRONY_CONFIG_FAIL")
-            chronyErrorMessage="Chrony configuration failed with exit code ${chronyExitCode}"
+            chronyErrorMessage="TDX Chrony configuration failed with exit code ${chronyExitCode}"
             ;;
         *)
             chronyErrorMessage="Unexpected Chrony configuration failure with exit code ${chronyExitCode}"

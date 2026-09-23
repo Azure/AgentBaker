@@ -378,7 +378,7 @@ EOF
             The status should be success
         End
 
-        It 'returns the Chrony configuration failure code when SEV-SNP PHC setup fails'
+        It 'continues provisioning when SEV-SNP PHC setup fails'
             Mock detect_confidential_vm_platform
                 echo "sev-snp"
             End
@@ -387,8 +387,9 @@ EOF
             End
             When call configure_ubuntu_2604_cvm_time_sync
             The output should include "AMD SEV-SNP detected"
-            The error should include "failed to configure Chrony with the Hyper-V PHC source"
-            The status should equal 246
+            The error should include "failed to reapply the Hyper-V PHC Chrony configuration"
+            The error should include "continuing provisioning"
+            The status should be success
         End
 
         It 'defines exactly the four approved Ubuntu NTP pools'
