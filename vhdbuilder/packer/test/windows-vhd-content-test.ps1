@@ -114,7 +114,7 @@ function DownloadFileWithRetry {
     try {
         $requestedUrlForLog = if ($redactUrl) { $URL.Split("?")[0] } else { $URL }
         Write-OutputWithTimestamp "Downloading file $requestedUrlForLog"
-        $curlMetadata = curl.exe -sS -f --retry $retryCount --retry-delay $retryDelay -L -D $headerPath -w $writeOutFormat $URL -o $Dest
+        $curlMetadata = curl.exe -s -f --retry $retryCount --retry-delay $retryDelay -L -D $headerPath -w $writeOutFormat $URL -o $Dest
         $curlExitCode = $LASTEXITCODE
         Write-DownloadResponseDiagnostics -RequestedUrl $URL -HeaderPath $headerPath -CurlMetadata $curlMetadata -RedactUrl:$redactUrl
 
