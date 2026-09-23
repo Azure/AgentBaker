@@ -46,10 +46,9 @@ getServiceCPUUsage() {
 }
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
-# WALinuxAgent only collects event files matching ^(\d+)\.json$, so the name must stay
-# digits-only. The random suffix avoids collisions with the other collectors, whose timers
-# fire on the same schedule.
-EVENTS_FILE_NAME="$(date +%s%3N)$(printf '%03d' $((RANDOM % 1000)))"
+# WALinuxAgent only collects event files matching ^[0-9]+\.json$ and silently drops
+# anything else, so the name must stay digits-only.
+EVENTS_FILE_NAME=$(date +%s%3N)
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
