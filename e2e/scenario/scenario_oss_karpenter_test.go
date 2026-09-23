@@ -74,6 +74,10 @@ func TestNewOSSKarpenterNodePoolTargetsRunAndVMSize(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found)
 	assert.Equal(t, "Never", consolidateAfter)
+	terminationGracePeriod, found, err := unstructuredString(nodePool.Object, "spec", "template", "spec", "terminationGracePeriod")
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, "0s", terminationGracePeriod)
 
 	requirements, found, err := unstructuredSlice(nodePool.Object, "spec", "template", "spec", "requirements")
 	require.NoError(t, err)
@@ -137,6 +141,45 @@ func TestNewOSSKarpenterWorkloadCannotUseSystemPool(t *testing.T) {
 	assert.Equal(t, "mcr.microsoft.com/oss/kubernetes/pause:3.6", pod.Spec.Containers[0].Image)
 	assert.Equal(t, "1", pod.Spec.Containers[0].Resources.Requests.Cpu().String())
 	assert.Equal(t, "256Mi", pod.Spec.Containers[0].Resources.Requests.Memory().String())
+}
+
+func TestNewOSSKarpenterLogCollectorPodTargetsNodeAndMountsHostReadOnly(t *testing.T) {
+	pod := newOSSKarpenterLogCollectorPod("workload", "karpenter-node")
+
+	assert.Equal(t, "workload", pod.Namespace)
+	assert.Equal(t, "karpenter-node", pod.Spec.NodeName)
+	assert.True(t, pod.Spec.HostPID)
+	require.Len(t, pod.Spec.Containers, 1)
+	container := pod.Spec.Containers[0]
+	assert.Contains(t, container.Args, "tdnf install -y tar && touch /tmp/collector-ready && exec sleep infinity")
+	require.NotNil(t, container.ReadinessProbe)
+	require.NotNil(t, container.ReadinessProbe.Exec)
+	assert.Equal(t, []string{"test", "-f", "/tmp/collector-ready"}, container.ReadinessProbe.Exec.Command)
+	require.NotNil(t, container.SecurityContext)
+	require.NotNil(t, container.SecurityContext.Privileged)
+	assert.True(t, *container.SecurityContext.Privileged)
+	require.Len(t, container.VolumeMounts, 1)
+	assert.Equal(t, "/host", container.VolumeMounts[0].MountPath)
+	assert.True(t, container.VolumeMounts[0].ReadOnly)
+	require.Len(t, pod.Spec.Volumes, 1)
+	require.NotNil(t, pod.Spec.Volumes[0].HostPath)
+	assert.Equal(t, "/", pod.Spec.Volumes[0].HostPath.Path)
+}
+
+func TestHostRootCommandEncodesCommandWithoutShellInterpolation(t *testing.T) {
+	command := hostRootCommand(`printf '%s' "$value"`)
+
+	assert.Contains(t, command, "chroot /host /bin/bash")
+	assert.NotContains(t, command, "$value")
+}
+
+func TestOSSKarpenterNodeLogCommandsIncludesProvisioningLogs(t *testing.T) {
+	commands := ossKarpenterNodeLogCommands()
+
+	assert.Contains(t, commands, "cluster-provision.log")
+	assert.Contains(t, commands, "cluster-provision-cse-output.log")
+	assert.Contains(t, commands, "kubelet.log")
+	assert.Contains(t, commands, "containerd.log")
 }
 
 func TestSameAzureResourceIDIsCaseAndTrailingSlashInsensitive(t *testing.T) {

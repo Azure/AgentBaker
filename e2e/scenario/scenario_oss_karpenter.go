@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -167,7 +168,124 @@ func runOSSKarpenterCompatibility(ctx context.Context, s *Scenario) (retErr erro
 
 	logging.Logf(ctx, "OSS Karpenter provisioned Ready node %s from %s and scheduled pod %s/%s",
 		node.Name, imageID.Short(), runningPod.Namespace, runningPod.Name)
+	if err := collectOSSKarpenterNodeLogs(ctx, s, run.Namespace, node.Name); err != nil {
+		logging.Logf(ctx, "failed to collect OSS Karpenter node logs: %v", err)
+	}
 	return nil
+}
+
+func collectOSSKarpenterNodeLogs(ctx context.Context, s *Scenario, namespace, nodeName string) error {
+	defer logging.LogStep(ctx, "collecting OSS Karpenter node logs")()
+
+	pod := newOSSKarpenterLogCollectorPod(namespace, nodeName)
+	created, err := s.Runtime.Kube.Typed.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("create OSS Karpenter log collector pod: %w", err)
+	}
+	defer func() {
+		deleteCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		gracePeriod := int64(0)
+		if err := s.Runtime.Kube.Typed.CoreV1().Pods(namespace).Delete(deleteCtx, created.Name, metav1.DeleteOptions{
+			GracePeriodSeconds: &gracePeriod,
+		}); err != nil && !apierrors.IsNotFound(err) {
+			logging.Logf(deleteCtx, "failed to delete OSS Karpenter log collector pod %s: %v", created.Name, err)
+		}
+	}()
+
+	if _, err := s.Runtime.Kube.WaitUntilPodRunning(ctx, namespace, "", "metadata.name="+created.Name); err != nil {
+		return fmt.Errorf("wait for OSS Karpenter log collector pod: %w", err)
+	}
+
+	return collectCommandLogs(ctx, s.artifactName, ossKarpenterNodeLogCommands(), func(ctx context.Context, command string) (*podExecResult, error) {
+		return execOnPod(ctx, s.Runtime.Kube, namespace, created.Name, []string{"bash", "-c", command})
+	})
+}
+
+func ossKarpenterNodeLogCommands() map[string]string {
+	return map[string]string{
+		"cluster-provision.log":            hostRootCommand("cat /var/log/azure/cluster-provision.log"),
+		"kubelet.log":                      hostRootCommand("journalctl -u kubelet --no-pager"),
+		"aks-log-collector.log":            hostRootCommand("journalctl -u aks-log-collector --no-pager"),
+		"containerd.log":                   hostRootCommand("journalctl -u containerd --no-pager"),
+		"cluster-provision-cse-output.log": hostRootCommand("cat /var/log/azure/cluster-provision-cse-output.log"),
+		"sysctl-out.log":                   hostRootCommand("sysctl -a"),
+		"waagent.log":                      hostRootCommand("cat /var/log/waagent.log"),
+		"aks-node-controller.log":          hostRootCommand("cat /var/log/azure/aks-node-controller.log"),
+		"aks-node-controller.output":       hostRootCommand("cat /var/log/azure/aks-node-controller.output"),
+		"aks-node-controller-config.json":  hostRootCommand("cat /opt/azure/containers/aks-node-controller-config.json"),
+		"aks-early-boothook.log":           hostRootCommand("cat /var/log/azure/aks-early-boothook.log"),
+		"syslog":                           hostRootCommand("cat /var/log/syslog"),
+		"journalctl":                       hostRootCommand("journalctl --boot=0 --no-pager"),
+		"azure.json":                       hostRootCommand("cat /etc/kubernetes/azure.json"),
+		"azure-vnet.log":                   hostRootCommand("cat /var/log/azure-vnet.log"),
+		"azure-vnet-ipam.log":              hostRootCommand("cat /var/log/azure-vnet-ipam.log"),
+		"provision.json":                   hostRootCommand("cat /var/log/azure/aks/provision.json"),
+		"cloud-init.log":                   hostRootCommand("cat /var/log/cloud-init.log"),
+		"cloud-init-output.log":            hostRootCommand("cat /var/log/cloud-init-output.log"),
+		"cloud-init-analyze.log":           hostRootCommand(cloudInitAnalyzeCommand),
+		"systemd-analyze.log":              hostRootCommand("systemd-analyze critical-chain cloud-init-local.service"),
+		"systemd-analyze-blame.log":        hostRootCommand("systemd-analyze blame"),
+	}
+}
+
+func newOSSKarpenterLogCollectorPod(namespace, nodeName string) *corev1.Pod {
+	hostPathType := corev1.HostPathDirectory
+	readOnly := true
+	privileged := true
+	mountPropagation := corev1.MountPropagationHostToContainer
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      uniqueKubernetesResourceName("ab-karpenter-logs"),
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			NodeName:      nodeName,
+			HostPID:       true,
+			RestartPolicy: corev1.RestartPolicyNever,
+			Tolerations: []corev1.Toleration{
+				{Operator: corev1.TolerationOpExists},
+			},
+			Containers: []corev1.Container{
+				{
+					Name:    "collector",
+					Image:   "mcr.microsoft.com/cbl-mariner/base/core:2.0",
+					Command: []string{"bash", "-c"},
+					Args:    []string{"tdnf install -y tar && touch /tmp/collector-ready && exec sleep infinity"},
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							Exec: &corev1.ExecAction{Command: []string{"test", "-f", "/tmp/collector-ready"}},
+						},
+						PeriodSeconds: 1,
+					},
+					SecurityContext: &corev1.SecurityContext{
+						Privileged: &privileged,
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:             "host-root",
+							MountPath:        "/host",
+							ReadOnly:         readOnly,
+							MountPropagation: &mountPropagation,
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "host-root",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{Path: "/", Type: &hostPathType},
+					},
+				},
+			},
+		},
+	}
+}
+
+func hostRootCommand(command string) string {
+	encoded := base64.StdEncoding.EncodeToString([]byte(command))
+	return fmt.Sprintf(`chroot /host /bin/bash -c "$(printf %%s %s | base64 -d)"`, encoded)
 }
 
 func newOSSKarpenterNodeClass(name, imageID string) *unstructured.Unstructured {
@@ -215,7 +333,8 @@ func newOSSKarpenterNodePool(run ossKarpenterRun, vmSize string) *unstructured.U
 					},
 				},
 				"spec": map[string]any{
-					"expireAfter": "Never",
+					"expireAfter":            "Never",
+					"terminationGracePeriod": "0s",
 					"nodeClassRef": map[string]any{
 						"group": "karpenter.azure.com",
 						"kind":  "AKSNodeClass",
