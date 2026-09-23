@@ -77,6 +77,16 @@ Describe 'cgroup telemetry'
             ./parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh > "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
     }
 
+    emitted_event_file_name_class() {
+        local name
+        name="$(basename "$(ls "${EVENTS_ROOT}"/*)")"
+        if printf '%s' "${name}" | grep -Eq '^[0-9]+\.json$'; then
+            echo collectable
+        else
+            echo "not-collectable:${name}"
+        fi
+    }
+
     BeforeEach 'setup_cgroup_telemetry_test'
     AfterEach 'cleanup_cgroup_telemetry_test'
 
@@ -171,6 +181,17 @@ Describe 'cgroup telemetry'
         The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_cpu_usage\":{\"usage_usec\":\"100\",\"user_usec\":\"60\",\"system_usec\":\"40\",\"nr_periods\":\"20\",\"nr_throttled\":\"3\",\"throttled_usec\":\"7\"}'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_cpu_usage\":\"Not Found\"'
         The contents of file "${EVENTS_ROOT}"/* should include 'downstream rates must discard negative deltas'
+    End
+
+    It 'names the event file so WALinuxAgent collects it'
+        create_cpu_stat_v2 system.slice/containerd.service
+        prepare_cpu_script
+
+        When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+        The status should be success
+        # WALinuxAgent only collects event files matching ^(\d+)\.json$; any other name is dropped
+        # silently and the observation never reaches telemetry.
+        The result of function emitted_event_file_name_class should equal collectable
     End
 
     It 'rejects cgroup v1'
