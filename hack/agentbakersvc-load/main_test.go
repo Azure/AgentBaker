@@ -37,6 +37,11 @@ func TestRunUsesOpenLoopArrivals(t *testing.T) {
 	if len(results) != 5 {
 		t.Fatalf("expected 5 offered requests, got %d", len(results))
 	}
+	for index, item := range results {
+		if item.Sequence != int64(index) {
+			t.Fatalf("expected sequence %d, got %d", index, item.Sequence)
+		}
+	}
 	if results[4].StartedAt.Sub(results[0].StartedAt) >= 200*time.Millisecond {
 		t.Fatalf("requests were serialized: first=%s last=%s", results[0].StartedAt, results[4].StartedAt)
 	}
@@ -110,6 +115,9 @@ func TestSummarize(t *testing.T) {
 	if report.Offered != 4 || report.Started != 3 || report.Completed != 3 || report.Dropped != 1 {
 		t.Fatalf("unexpected counts: %+v", report)
 	}
+	if report.HTTPResponses != 2 || report.Successful != 1 || report.Overloaded != 1 {
+		t.Fatalf("unexpected outcome counts: %+v", report)
+	}
 	if report.StatusCodes[http.StatusOK] != 1 || report.StatusCodes[http.StatusServiceUnavailable] != 1 {
 		t.Fatalf("unexpected status counts: %+v", report.StatusCodes)
 	}
@@ -118,6 +126,9 @@ func TestSummarize(t *testing.T) {
 	}
 	if report.ServiceLatency.P50 != 3 || report.ServiceLatency.P99 != 5 {
 		t.Fatalf("unexpected service latency percentiles: %+v", report.ServiceLatency)
+	}
+	if report.SuccessLatency.P50 != 1 || report.SuccessLatency.P99 != 1 {
+		t.Fatalf("unexpected success latency percentiles: %+v", report.SuccessLatency)
 	}
 }
 

@@ -69,6 +69,9 @@ type summary struct {
 	Offered         int64         `json:"offered"`
 	Started         int64         `json:"started"`
 	Completed       int64         `json:"completed"`
+	HTTPResponses   int64         `json:"httpResponses"`
+	Successful      int64         `json:"successful"`
+	Overloaded      int64         `json:"overloaded"`
 	Dropped         int64         `json:"dropped"`
 	Timeouts        int64         `json:"timeouts"`
 	TransportErrors int64         `json:"transportErrors"`
@@ -76,11 +79,13 @@ type summary struct {
 	MaxOutstanding  int64         `json:"maxOutstanding"`
 	StatusCodes     map[int]int64 `json:"statusCodes"`
 	ServiceLatency  percentiles   `json:"serviceLatencyMs"`
+	SuccessLatency  percentiles   `json:"successLatencyMs"`
 	EndToEndLatency percentiles   `json:"endToEndLatencyMs"`
 	ScheduleDelay   percentiles   `json:"scheduleDelayMs"`
 	ElapsedSeconds  float64       `json:"elapsedSeconds"`
 	OfferedRPS      float64       `json:"offeredRps"`
 	CompletedRPS    float64       `json:"completedRps"`
+	SuccessfulRPS   float64       `json:"successfulRps"`
 }
 
 type percentiles struct {
@@ -133,6 +138,7 @@ func main() {
 	if report.ElapsedSeconds > 0 {
 		report.OfferedRPS = float64(report.Offered) / report.ElapsedSeconds
 		report.CompletedRPS = float64(report.Completed) / report.ElapsedSeconds
+		report.SuccessfulRPS = float64(report.Successful) / report.ElapsedSeconds
 	}
 	formatted, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
@@ -184,7 +190,9 @@ func requestBody(path string) ([]byte, error) {
 
 func buildSchedule(cfg config) ([]arrival, time.Duration, error) {
 	if cfg.schedulePath == "" {
-		return appendRateArrivals(nil, "steady", cfg.rate, cfg.duration, 0), cfg.duration, nil
+		arrivals := appendRateArrivals(nil, "steady", cfg.rate, cfg.duration, 0)
+		assignSequences(arrivals)
+		return arrivals, cfg.duration, nil
 	}
 
 	data, err := os.ReadFile(cfg.schedulePath)
@@ -227,10 +235,14 @@ func buildSchedule(cfg config) ([]arrival, time.Duration, error) {
 			elapsed += duration
 		}
 	}
+	assignSequences(arrivals)
+	return arrivals, elapsed, nil
+}
+
+func assignSequences(arrivals []arrival) {
 	for index := range arrivals {
 		arrivals[index].Sequence = int64(index)
 	}
-	return arrivals, elapsed, nil
 }
 
 func appendRateArrivals(arrivals []arrival, name string, rate float64, duration, offset time.Duration) []arrival {
@@ -343,6 +355,7 @@ func waitUntil(ctx context.Context, target time.Time) bool {
 func summarize(results []result) summary {
 	report := summary{StatusCodes: make(map[int]int64)}
 	serviceLatencies := make([]float64, 0, len(results))
+	successLatencies := make([]float64, 0, len(results))
 	endToEndLatencies := make([]float64, 0, len(results))
 	scheduleDelays := make([]float64, 0, len(results))
 
@@ -361,7 +374,15 @@ func summarize(results []result) summary {
 		}
 		report.ResponseBytes += item.ResponseBytes
 		if item.StatusCode != 0 {
+			report.HTTPResponses++
 			report.StatusCodes[item.StatusCode]++
+			if item.StatusCode >= http.StatusOK && item.StatusCode < http.StatusMultipleChoices {
+				report.Successful++
+				successLatencies = append(successLatencies, item.ServiceLatencyMS)
+			}
+			if item.StatusCode == http.StatusServiceUnavailable {
+				report.Overloaded++
+			}
 		}
 		if item.ErrorKind != "" {
 			if item.ErrorKind == "timeout" {
@@ -375,6 +396,7 @@ func summarize(results []result) summary {
 		scheduleDelays = append(scheduleDelays, item.ScheduleDelayMS)
 	}
 	report.ServiceLatency = calculatePercentiles(serviceLatencies)
+	report.SuccessLatency = calculatePercentiles(successLatencies)
 	report.EndToEndLatency = calculatePercentiles(endToEndLatencies)
 	report.ScheduleDelay = calculatePercentiles(scheduleDelays)
 	return report
