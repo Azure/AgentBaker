@@ -212,23 +212,7 @@ installAndConfigureArtifactStreaming() {
   retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit "${ERR_ARTIFACT_STREAMING_DOWNLOAD}"
 
   if isACL "$OS" "$OS_VARIANT"; then
-    local extract_dir
-    local mirror_download_path_absolute
-    extract_dir="$(mktemp -d)" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
-    mirror_download_path_absolute="$(readlink -f "$MIRROR_DOWNLOAD_PATH")"
-    if ! (cd "$extract_dir" && rpm2cpio "$mirror_download_path_absolute" | cpio -idm); then
-      rm -rf "$extract_dir"
-      exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
-    fi
-    cp -a "$extract_dir/opt/." /opt/ || {
-      rm -rf "$extract_dir"
-      exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
-    }
-    install -m 0644 "$extract_dir/usr/lib/systemd/system/acr-mirror.service" /etc/systemd/system/acr-mirror.service || {
-      rm -rf "$extract_dir"
-      exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
-    }
-    rm -rf "$extract_dir"
+    retrycmd_if_failure 10 2 120 dnf install -y "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
   else
     case "$downloadURL" in
       *.deb)
