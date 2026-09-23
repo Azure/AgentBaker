@@ -8,12 +8,37 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: enableCosiPublishing
+    type: boolean
+    default: false
 
 steps:
   - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+
+  # For arm64 ACL: publish a source bundle for the separate native-arm64 COSI
+  # convert job (the arm64 pool has no git, so its `checkout: self` is disabled
+  # and it downloads this bundle instead). Must run AFTER the checkout above but
+  # BEFORE Download CIS scanner (which drops binaries into vhdbuilder/ that
+  # would otherwise bloat the tarball).
+  - ${{ if parameters.enableCosiPublishing }}:
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.SourcesDirectory)"
+        tar --exclude='./.git' \
+            -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
+        ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+      displayName: Bundle source for arm64 COSI convert
+
+    - task: PublishPipelineArtifact@1
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
+      displayName: Publish source bundle for arm64 COSI convert
+      inputs:
+        artifactName: agentbaker-sources-${{ parameters.artifactName }}
+        targetPath: $(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz
 
   - task: UniversalPackages@0
     displayName: Download CIS scanner
@@ -63,7 +88,7 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
 
   - bash: |
-      set -x
+      set -ex
       GOPATH="$(go env GOPATH)"
       echo "GOPATH is currently set to $GOPATH"
       export PATH="$PATH:$GOPATH/bin"
@@ -72,6 +97,7 @@ steps:
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: Setup Cue
+    retryCountOnTaskFailure: 3
 
   - bash: |
       SKU_NAME=${OS_VERSION} && \
@@ -164,6 +190,21 @@ steps:
       echo "##vso[task.setvariable variable=VHD_DEBUG]False"
     condition: always()
     displayName: Set Post-Build Variables
+
+  - ${{ if parameters.enableCosiPublishing }}:
+    - bash: |
+        image_version="${IMAGE_VERSION:-$(date -u +%Y%m.%d.0)}"
+        echo "##vso[task.setvariable variable=IMAGE_VERSION]${image_version}"
+        echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${image_version}"
+      name: resolveCosiImageVersion
+      displayName: Resolve COSI Image Version
+      condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+
+    - bash: |
+        echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
+      name: exportCapturedSigVersion
+      displayName: Export Captured SIG Version for arm64 COSI convert
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))
 
   - bash: |
       set -euo pipefail
@@ -434,6 +475,63 @@ steps:
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
 
+  - ${{ if parameters.enableCosiPublishing }}:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          make -f packer.mk convert-vhd-to-cosi
+      # ARM64 conversion runs in the separate native-arm64 jobs.
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          ne(variables['ARCHITECTURE'], 'ARM64')
+        )
+      displayName: Convert ACL VHD to COSI
+      env:
+        RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+        OFFER_NAME: $(OS_SKU)
+        IMG_CUSTOMIZER_ALLOW_FALLBACK: "true"
+        AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
+        COSI_CONTAINER: $(COSI_CONTAINER)
+
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          make -f packer.mk upload-cosi-to-pmc
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          ne(variables['ARCHITECTURE'], 'ARM64')
+        )
+      displayName: Upload COSI to PMC
+      env:
+        AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
+        COSI_CONTAINER: $(COSI_CONTAINER)
+
+    - task: PublishPipelineArtifact@1
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          ne(variables['ARCHITECTURE'], 'ARM64')
+        )
+      displayName: Publish COSI Publishing Info
+      inputs:
+        artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
+        targetPath: 'cosi-publishing-info.json'
+
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
@@ -447,17 +545,44 @@ steps:
         echo "Successfully copied to immutable container"
         # Remove old VHD from staging container after copy to immutable container is complete
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+    # arm64 ACL is handled by the dedicated step below (immutable copy + SAS
+    # handoff on this x64 pool) because its native-arm64 convert pool is
+    # Conditional-Access-blocked from acquiring storage tokens.
     condition: |
       and(
         succeeded(),
         eq(variables.ENVIRONMENT, 'tme'),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+        not(and(eq('${{ parameters.enableCosiPublishing }}', true), eq(variables['OS_SKU'], 'AzureContainerLinux'), eq(variables['ARCHITECTURE'], 'ARM64'))),
         or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.PREFETCH_COMPATIBLE, 'False')
         )
       )
     displayName: Copy to Immutable Storage Container
+
+  # arm64 ACL: its native-arm64 convert pool is Conditional-Access-blocked from
+  # acquiring storage tokens, so copy the VHD to the immutable container and drop
+  # the staging copy here (this x64 pool has storage auth), then hand the convert
+  # job a short read-only SAS so it downloads the VHD with no storage login.
+  - ${{ if parameters.enableCosiPublishing }}:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+      name: exportVhdSas
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.ENVIRONMENT, 'tme'),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          eq(variables['ARCHITECTURE'], 'ARM64')
+        )
+      displayName: Copy arm64 ACL VHD to Immutable + mint convert SAS
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program

@@ -257,6 +257,8 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -280,6 +282,8 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -303,6 +307,8 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -326,6 +332,8 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
+            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:

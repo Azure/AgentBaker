@@ -104,6 +104,24 @@ generate-publishing-info: az-login
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
+convert-vhd-to-cosi: az-login
+	@./vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh "$${IMG_CUSTOMIZER_ALLOW_FALLBACK:-false}"
+
+# Go 1.27 enables cgo-less OpenSSL by default and rejects the old experiment.
+build-cosi-upload:
+	@echo "Building cosi-upload binary"
+	@mkdir -p bin
+	@go_experiment=""; \
+	if GOEXPERIMENT=ms_nocgo_opensslcrypto go env GOEXPERIMENT >/dev/null 2>&1; then \
+		go_experiment=ms_nocgo_opensslcrypto; \
+	fi; \
+	GOEXPERIMENT="$$go_experiment" CGO_ENABLED=0 go build -o bin/cosi-upload ./cmd/cosi-upload
+	@go version -m bin/cosi-upload | grep -q 'microsoft_systemcrypto=1$$' || \
+		{ echo "cosi-upload must be built with Microsoft Go system crypto" >&2; exit 1; }
+
+upload-cosi-to-pmc: build-cosi-upload
+	@./vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh
+
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
