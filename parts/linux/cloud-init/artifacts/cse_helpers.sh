@@ -162,7 +162,9 @@ ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
 ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT=241 # Timeout downloading aznfs RPM from PMC
 ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
 ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network interface
-# Exit codes 244-246 are reserved by init-aks-cloud.sh and propagated by cse_cmd.sh.
+ERR_CVM_PLATFORM_DETECTION_FAIL=244 # Unable to distinguish SEV-SNP from TDX
+ERR_NTP_UNREACHABLE=245 # Chrony could not synchronize with the configured NTP pools
+ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for the detected CVM platform
 # -----------------------------------------------------------------------------
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.

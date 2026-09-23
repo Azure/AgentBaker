@@ -18,18 +18,7 @@ fi;
 {{end}}
 INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
 if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
-	PRE_PROVISION_ONLY="{{GetPreProvisionOnly}}" REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
-	initAKSCloudExitCode=$?;
-	if [ "$initAKSCloudExitCode" -eq 246 ]; then
-		echo "Chrony configuration failed; init-aks-cloud failed with exit code ${initAKSCloudExitCode}" >> ${PROVISION_OUTPUT};
-		exit ${initAKSCloudExitCode};
-	elif [ "$initAKSCloudExitCode" -eq 245 ]; then
-		echo "NTP not reachable; init-aks-cloud failed with NTP synchronization error code ${initAKSCloudExitCode}" >> ${PROVISION_OUTPUT};
-		exit ${initAKSCloudExitCode};
-	elif [ "$initAKSCloudExitCode" -eq 244 ]; then
-		echo "Unable to determine confidential VM platform; init-aks-cloud failed with exit code ${initAKSCloudExitCode}" >> ${PROVISION_OUTPUT};
-		exit ${initAKSCloudExitCode};
-	fi;
+	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
 fi;
 {{/* Keep the environment assignments below contiguous through the nohup invocation at the end of this file. */ -}}
 {{/* The CSE command is flattened into one shell command, so all assignments below are passed to nohup. */ -}}
@@ -144,6 +133,7 @@ CSE_CONFIG_LOCALDNS_FILEPATH="{{GetCSEConfigLocalDNSScriptFilepath}}"
 CSE_CONFIG_KUBELET_FILEPATH="{{GetCSEConfigKubeletScriptFilepath}}"
 CSE_CONFIG_NETWORK_FILEPATH="{{GetCSEConfigNetworkScriptFilepath}}"
 CSE_CONFIG_ADDONS_FILEPATH="{{GetCSEConfigAddonsScriptFilepath}}"
+CSE_CONFIG_CHRONY_FILEPATH="{{GetCSEConfigChronyScriptFilepath}}"
 AZURE_PRIVATE_REGISTRY_SERVER="{{GetPrivateAzureRegistryServer}}"
 HAS_CUSTOM_SEARCH_DOMAIN="{{HasCustomSearchDomain}}"
 CUSTOM_SEARCH_DOMAIN_FILEPATH="{{GetCustomSearchDomainsCSEScriptFilepath}}"

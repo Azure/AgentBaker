@@ -68,24 +68,23 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 End
 
-Describe 'init-aks-cloud.sh Chrony distro routing'
-    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+Describe 'cse_config_chrony.sh distro routing'
+    script_path='./parts/linux/cloud-init/artifacts/cse_config_chrony.sh'
 
     chrony_routing_block() {
-        sed -n '/^if \[ "\$IS_ACL" -eq 1 \]; then$/,/^#EOF$/p' "$script_path"
+        sed -n '/^configureChrony() {$/,/^}$/p' "$script_path"
     }
 
     It 'keeps Azure Linux and Mariner on their native chronyd configuration path'
         When call chrony_routing_block
-        The output should include 'elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then'
-        The output should include 'cat > /etc/chrony.conf <<EOF'
-        The output should include 'refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0'
-        The output should include 'systemctl restart chronyd'
+        The output should include 'elif isMarinerOrAzureLinux "$OS"; then'
+        The output should include 'configure_mariner_azurelinux_chrony || true'
     End
 
-    It 'keeps Ubuntu and Flatcar on configure_chrony unless the CVM path already configured it'
+    It 'keeps Ubuntu and Flatcar on configure_chrony unless the CVM path is selected'
         When call chrony_routing_block
-        The output should include 'if [ "$ubuntu_2604_cvm_chrony_configured" -eq 0 ]; then'
+        The output should include 'elif should_configure_ubuntu_2604_cvm_time_sync; then'
+        The output should include 'configure_ubuntu_2604_cvm_time_sync'
         The output should include 'configure_chrony || true'
     End
 End
@@ -107,6 +106,13 @@ Describe 'init-aks-cloud.sh functional tests'
         echo "fake-bundle" > "${SSL_CERTS_DIR}/ca-certificates.crt"
         # shellcheck disable=SC1090
         __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
+        UBUNTU_OS_NAME="UBUNTU"
+        FLATCAR_OS_NAME="FLATCAR"
+        ERR_CVM_PLATFORM_DETECTION_FAIL=244
+        ERR_NTP_UNREACHABLE=245
+        ERR_CHRONY_CONFIG_FAIL=246
+        # shellcheck disable=SC1091
+        . "./parts/linux/cloud-init/artifacts/cse_config_chrony.sh"
     }
 
     cleanup() {
@@ -245,8 +251,8 @@ EOF
     Describe 'Ubuntu 26.04 CVM Chrony configuration'
         setup_chrony_test() {
             export CHRONY_CONF="${TEST_DIR}/chrony.conf"
-            IS_UBUNTU=1
-            VERSION_ID="26.04"
+            OS="$UBUNTU_OS_NAME"
+            OS_VERSION="26.04"
             touch "$CHRONY_CONF"
         }
 
@@ -255,8 +261,8 @@ EOF
         End
 
         It 'scopes the platform-specific behavior to Ubuntu 26.04 FDE images'
-            IS_UBUNTU=1
-            VERSION_ID="26.04"
+            OS="$UBUNTU_OS_NAME"
+            OS_VERSION="26.04"
             Mock uname
                 echo "7.0.0-1011-azure-fde"
             End
@@ -266,8 +272,8 @@ EOF
         End
 
         It 'does not select an Ubuntu 26.04 non-FDE image'
-            IS_UBUNTU=1
-            VERSION_ID="26.04"
+            OS="$UBUNTU_OS_NAME"
+            OS_VERSION="26.04"
             Mock uname
                 echo "7.0.0-1011-azure"
             End
@@ -277,8 +283,8 @@ EOF
         End
 
         It 'does not select another Ubuntu release even when it has an FDE kernel'
-            IS_UBUNTU=1
-            VERSION_ID="24.04"
+            OS="$UBUNTU_OS_NAME"
+            OS_VERSION="24.04"
             Mock uname
                 echo "6.8.0-1065-azure-fde"
             End
@@ -288,8 +294,8 @@ EOF
         End
 
         It 'skips platform-specific time sync during pre-provision image preparation'
-            IS_UBUNTU=1
-            VERSION_ID="26.04"
+            OS="$UBUNTU_OS_NAME"
+            OS_VERSION="26.04"
             PRE_PROVISION_ONLY="true"
             Mock uname
                 echo "7.0.0-1011-azure-fde"
@@ -300,8 +306,8 @@ EOF
         End
 
         It 'selects platform-specific time sync when provisioning the real node'
-            IS_UBUNTU=1
-            VERSION_ID="26.04"
+            OS="$UBUNTU_OS_NAME"
+            OS_VERSION="26.04"
             PRE_PROVISION_ONLY="false"
             Mock uname
                 echo "7.0.0-1011-azure-fde"
@@ -313,7 +319,7 @@ EOF
 
         It 'preserves the PHC default for another Ubuntu release'
             setup_chrony_test
-            VERSION_ID="24.04"
+            OS_VERSION="24.04"
 
             When call configure_chrony
             The output should include "systemctl restart chrony"
@@ -356,7 +362,7 @@ EOF
             Mock detect_confidential_vm_platform
                 return 1
             End
-            Mock emit_event
+            Mock chrony_emit_event
                 echo "event: $*" >&2
             End
 
@@ -371,7 +377,7 @@ EOF
             Mock detect_confidential_vm_platform
                 echo "sev-snp"
             End
-            Mock emit_event
+            Mock chrony_emit_event
                 echo "event: $*"
             End
 
@@ -389,7 +395,7 @@ EOF
             Mock configure_chrony
                 return 1
             End
-            Mock emit_event
+            Mock chrony_emit_event
                 echo "event: $*" >&2
             End
 
@@ -418,7 +424,7 @@ EOF
             Mock verify_chrony_ntp_sync
                 echo "verified NTP synchronization"
             End
-            Mock emit_event
+            Mock chrony_emit_event
                 echo "event: $*"
             End
 
@@ -516,7 +522,7 @@ EOF
             Mock verify_chrony_ntp_sync
                 echo "unexpected NTP verification"
             End
-            Mock emit_event
+            Mock chrony_emit_event
                 echo "event: $*" >&2
             End
 
@@ -531,7 +537,7 @@ EOF
             Mock chronyc
                 echo "$*"
             End
-            Mock emit_event
+            Mock chrony_emit_event
                 echo "event: $*"
             End
 
@@ -556,7 +562,7 @@ EOF
                         ;;
                 esac
             End
-            Mock emit_event
+            Mock chrony_emit_event
                 echo "event: $*" >&2
             End
 
@@ -581,7 +587,7 @@ EOF
             Mock verify_chrony_ntp_sync
                 exit 245
             End
-            Mock emit_event
+            Mock chrony_emit_event
                 :
             End
 

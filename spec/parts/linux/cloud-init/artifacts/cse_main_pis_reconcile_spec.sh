@@ -40,6 +40,15 @@ Describe 'cse_main.sh PIS-safe configuration'
             grep -E '^if .*base_prep.complete|^[[:space:]]*(basePrep|nodePrep)$|^if .*PRE_PROVISION_ONLY'
     }
 
+    chrony_dispatch_calls() {
+        awk '
+            $0 == "chronyExitCode=0" { inside = 1 }
+            inside { print }
+        ' "${CSE_MAIN}" |
+            code_lines |
+            grep -E 'AKS.CSE.configureChrony|^if .*base_prep.complete|^[[:space:]]*(basePrep|nodePrep)$|^if .*PRE_PROVISION_ONLY'
+    }
+
     Describe 'cloud provider config and cluster CA'
         It 'does not write per-cluster files in basePrep'
             base_prep_counts() {
@@ -106,6 +115,16 @@ Describe 'cse_main.sh PIS-safe configuration'
     End
 
     Describe 'stage gate'
+        It 'configures Chrony before either provisioning stage'
+            When call chrony_dispatch_calls
+            The line 1 of output should include 'AKS.CSE.configureChrony'
+            The line 2 of output should equal 'if [ ! -f /opt/azure/containers/base_prep.complete ]; then'
+            The line 3 of output should equal '    basePrep'
+            The line 4 of output should equal 'if [ "${PRE_PROVISION_ONLY}" != "true" ]; then'
+            The line 5 of output should equal '    nodePrep'
+            The lines of output should equal 5
+        End
+
         It 'skips basePrep for cached images and nodePrep for image creation'
             When call dispatch_calls
             The line 1 of output should equal 'if [ ! -f /opt/azure/containers/base_prep.complete ]; then'

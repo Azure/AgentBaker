@@ -377,7 +377,7 @@ copyPackerFiles() {
   cpAndMode $CSE_CONFIG_SRC $CSE_CONFIG_DEST 0744
 
   local config_module
-  for config_module in provision_configs_gpu.sh provision_configs_localdns.sh provision_configs_kubelet.sh provision_configs_network.sh provision_configs_addons.sh; do
+  for config_module in provision_configs_gpu.sh provision_configs_localdns.sh provision_configs_kubelet.sh provision_configs_network.sh provision_configs_addons.sh provision_configs_chrony.sh; do
     cpAndMode "/home/packer/${config_module}" "/opt/azure/containers/${config_module}" 0744
   done
 
