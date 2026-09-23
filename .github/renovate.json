@@ -96,6 +96,39 @@
       "enabled": true
     },
     {
+      "matchDatasources": [
+        "custom.deb2004",
+        "custom.deb2204",
+        "custom.deb2404",
+        "custom.deb2604",
+        "custom.nvidia-deb2204",
+        "custom.nvidia-deb2404",
+        "custom.nvidia-deb2604",
+        "custom.nvidia-rpm-azl3",
+        "rpm"
+      ],
+      "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client",
+        "azure-acr-credential-provider",
+        "containernetworking-plugins",
+        "containerd2",
+        "datacenter-gpu-manager-4-core",
+        "datacenter-gpu-manager-4-proprietary",
+        "dcgm-exporter",
+        "dra-driver-nvidia-gpu",
+        "ig",
+        "kubelet",
+        "kubectl",
+        "kubernetes-cri-tools",
+        "moby-containerd",
+        "moby-runc",
+        "node-exporter-kubernetes",
+        "nvidia-device-plugin"
+      ],
+      "extractVersion": "^(?:\\d+:)?(?<version>\\d+\\.\\d+\\.\\d+)(?:[-+].*)?$",
+      "versioning": "semver"
+    },
+    {
       "matchPackageNames": [
         "moby-runc",
         "moby-containerd",
@@ -199,7 +232,8 @@
     {
       "matchPackageNames": [
         "azure-cni",
-        "containernetworking/azure-cni"
+        "containernetworking/azure-cni",
+        "containernetworking/v2/azure-cni"
       ],
       "groupName": "azure-cni",
       "reviewers": [
@@ -254,6 +288,10 @@
       "matchPackageNames": [
         "azuremonitor/containerinsights/ciprod"
       ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-ci-prod-(?<prerelease>\\d{2}-\\d{2}-\\d{4}-[0-9a-f]+))?$",
       "groupName": "ciprod",
       "ignoreUnstable": false,
       "reviewers": [
@@ -280,7 +318,8 @@
     {
       "matchPackageNames": [
         "azure-cns",
-        "containernetworking/azure-cns"
+        "containernetworking/azure-cns",
+        "containernetworking/v2/azure-cns"
       ],
       "groupName": "azure-cns",
       "reviewers": [
@@ -666,7 +705,7 @@
         "aks/aks-gpu-grid"
       ],
       "groupName": "nvidia-gpu-grid",
-      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?-(?<prerelease>\\d{14})$",
       "automerge": false,
       "enabled": true,
       "ignoreUnstable": false,
@@ -834,6 +873,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update Nvidia DCGM packages for OS ubuntu 26.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>datacenter-gpu-manager-4-core|datacenter-gpu-manager-4-proprietary), repository=nvidia, os=ubuntu, release=26\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.nvidia-deb2604",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=nvidia, os=ubuntu, release=26.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "auto update packages for OS ubuntu 24.04 (test registry) in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -948,7 +1001,8 @@
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*IG_GADGETS_[A-Z_]+_VERSION=\\\"(?<currentValue>[^\\\"]+)\\\""
-      ]
+      ],
+      "extractVersionTemplate": "^(?<version>\\d+\\.\\d+\\.\\d+).*$"
     },
     {
       "customType": "regex",
@@ -993,6 +1047,13 @@
     },
     "nvidia-deb2404": {
       "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+      ]
+    },
+    "nvidia-deb2604": {
+      "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/Packages",
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"

@@ -632,6 +632,27 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	return expandedTemplate, nil
 }
 
+// RenderLinuxNodeCustomDataTemplate renders a nodecustomdata template with the
+// same variables and functions used by the production AgentBaker path.
+// Callers must supply a complete configuration, as required by the production
+// rendering helpers.
+func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	templ := template.New("nodecustomdata template").
+		Option("missingkey=zero").
+		Funcs(getBakerFuncMap(config, parameters, variables))
+	if _, err := templ.Parse(string(removeComments(templateContent))); err != nil {
+		return "", fmt.Errorf("error parsing nodecustomdata template: %w", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := templ.Execute(&buffer, config.AgentPoolProfile); err != nil {
+		return "", fmt.Errorf("error executing nodecustomdata template: %w", err)
+	}
+	return buffer.String(), nil
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
@@ -939,6 +960,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.SecureTLSBootstrappingConfig.GetGetCredentialTimeout()
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
+			if config.PreProvisionOnly {
+				return ""
+			}
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
 		"EnableKubeletServingCertificateRotation": func() bool {
@@ -949,6 +973,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
+		},
+		"GetKubeletHealthzEndpoint": func() string {
+			return config.GetKubeletHealthzEndpoint(profile.CustomKubeletConfig)
 		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
@@ -1008,13 +1035,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			var sb strings.Builder
 			sb.WriteString("[Service]\n")
 			if ulimitConfig.MaxLockedMemory != "" {
-				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
+				fmt.Fprintf(&sb, "LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory)
 			}
 			if ulimitConfig.NoFile != "" {
 				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404/ubuntu2604 distros
 				// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
 				if !profile.Is2404VHDDistro() && !profile.Is2604VHDDistro() {
-					sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
+					fmt.Fprintf(&sb, "LimitNOFILE=%s\n", ulimitConfig.NoFile)
 				}
 			}
 			return sb.String()
@@ -1384,6 +1411,21 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCSEConfigScriptFilepath": func() string {
 			return cseConfigScriptFilepath
+		},
+		"GetCSEConfigGPUScriptFilepath": func() string {
+			return cseConfigGPUScriptFilepath
+		},
+		"GetCSEConfigLocalDNSScriptFilepath": func() string {
+			return cseConfigLocalDNSScriptFilepath
+		},
+		"GetCSEConfigKubeletScriptFilepath": func() string {
+			return cseConfigKubeletScriptFilepath
+		},
+		"GetCSEConfigNetworkScriptFilepath": func() string {
+			return cseConfigNetworkScriptFilepath
+		},
+		"GetCSEConfigAddonsScriptFilepath": func() string {
+			return cseConfigAddonsScriptFilepath
 		},
 		"GetCustomSearchDomainsCSEScriptFilepath": func() string {
 			return customSearchDomainsCSEScriptFilepath
@@ -2012,12 +2054,14 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+	pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2105,12 +2149,14 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+	pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2185,12 +2231,14 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+	runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+	pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2263,12 +2311,14 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+	runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+	pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"

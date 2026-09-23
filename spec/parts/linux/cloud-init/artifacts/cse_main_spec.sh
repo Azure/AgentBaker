@@ -127,7 +127,118 @@ Describe 'select_localdns_corefile()'
     End
 End
 
+Describe 'proxy environment exports'
+    setup() {
+        unset HTTP_PROXY http_proxy HTTPS_PROXY https_proxy NO_PROXY no_proxy
+        HTTP_PROXY_URLS=""
+        HTTPS_PROXY_URLS=""
+        NO_PROXY_URLS=""
+        proxy_exports="$(sed -n '/^# configureEtcEnvironment persists/,/^# Disable a single kernel module/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
+    }
+
+    cleanup() {
+        unset HTTP_PROXY http_proxy HTTPS_PROXY https_proxy NO_PROXY no_proxy
+        unset HTTP_PROXY_URLS HTTPS_PROXY_URLS NO_PROXY_URLS
+    }
+
+    exported_proxy_environment() {
+        eval "${proxy_exports}"
+        /bin/bash -c 'printf "%s\n" "${HTTP_PROXY-<unset>}" "${http_proxy-<unset>}" "${HTTPS_PROXY-<unset>}" "${https_proxy-<unset>}" "${NO_PROXY-<unset>}" "${no_proxy-<unset>}"'
+    }
+
+    proxy_environment_matches() {
+        actual="$(exported_proxy_environment)"
+        expected="$(printf '%s\n' "$@")"
+        [ "${actual}" = "${expected}" ]
+    }
+
+    BeforeEach 'setup'
+    AfterEach 'cleanup'
+
+    It 'exports HTTP proxy values only'
+        HTTP_PROXY_URLS="http://proxy.example.com:8080"
+
+        When call proxy_environment_matches \
+            "http://proxy.example.com:8080" "http://proxy.example.com:8080" \
+            "<unset>" "<unset>" "<unset>" "<unset>"
+        The status should be success
+    End
+
+    It 'exports HTTPS proxy values only'
+        HTTPS_PROXY_URLS="https://proxy.example.com:8443"
+
+        When call proxy_environment_matches \
+            "<unset>" "<unset>" \
+            "https://proxy.example.com:8443" "https://proxy.example.com:8443" \
+            "<unset>" "<unset>"
+        The status should be success
+    End
+
+    It 'exports no-proxy values only'
+        NO_PROXY_URLS="127.0.0.1,localhost,.svc"
+
+        When call proxy_environment_matches \
+            "<unset>" "<unset>" "<unset>" "<unset>" \
+            "127.0.0.1,localhost,.svc" "127.0.0.1,localhost,.svc"
+        The status should be success
+    End
+
+    It 'exports all proxy values simultaneously'
+        HTTP_PROXY_URLS="http://proxy.example.com:8080"
+        HTTPS_PROXY_URLS="https://proxy.example.com:8443"
+        NO_PROXY_URLS="127.0.0.1,localhost,.svc"
+
+        When call proxy_environment_matches \
+            "http://proxy.example.com:8080" "http://proxy.example.com:8080" \
+            "https://proxy.example.com:8443" "https://proxy.example.com:8443" \
+            "127.0.0.1,localhost,.svc" "127.0.0.1,localhost,.svc"
+        The status should be success
+    End
+
+    It 'leaves existing values unchanged when proxy URLs are empty'
+        export HTTP_PROXY="existing-http-upper"
+        export http_proxy="existing-http-lower"
+        export HTTPS_PROXY="existing-https-upper"
+        export https_proxy="existing-https-lower"
+        export NO_PROXY="existing-no-proxy-upper"
+        export no_proxy="existing-no-proxy-lower"
+
+        When call proxy_environment_matches \
+            "existing-http-upper" "existing-http-lower" \
+            "existing-https-upper" "existing-https-lower" \
+            "existing-no-proxy-upper" "existing-no-proxy-lower"
+        The status should be success
+    End
+End
+
 Describe 'connectivity preflight timeouts'
+    It 'exports proxy values before package resolution and the outbound check'
+        proxy_consumer_order() {
+            awk '
+                /export HTTP_PROXY=/ && !proxy_exports { proxy_exports = NR }
+                /^[[:space:]]*resolve_packages_source_url$/ { package_resolution = NR }
+                /retrycmd_if_failure 20 1 15 \$OUTBOUND_COMMAND/ { outbound_check = NR }
+                END {
+                    if (proxy_exports > 0 && package_resolution > 0 && outbound_check > 0 &&
+                        proxy_exports < package_resolution && proxy_exports < outbound_check) {
+                        print "true"
+                    } else {
+                        print "false"
+                    }
+                }
+            ' parts/linux/cloud-init/artifacts/cse_main.sh
+        }
+
+        When call proxy_consumer_order
+        The output should equal "true"
+    End
+
+    It 'does not evaluate PROXY_VARS'
+        When run grep -F 'eval $PROXY_VARS' parts/linux/cloud-init/artifacts/cse_main.sh
+        The status should be failure
+        The output should equal ""
+    End
+
     It 'allows DNS failover during the outbound check'
         When run awk '/retrycmd_if_failure [0-9]+ [0-9]+ [0-9]+ \$OUTBOUND_COMMAND/ { print $2, $3, $4 }' parts/linux/cloud-init/artifacts/cse_main.sh
         The output should eq "20 1 15"

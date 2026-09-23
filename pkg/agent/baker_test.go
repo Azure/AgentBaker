@@ -9,8 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"testing"
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -20,6 +24,7 @@ import (
 	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	"github.com/vincent-petithory/dataurl"
 )
 
@@ -41,6 +46,135 @@ health-check.localdns.local:53 {
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
 # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
 `
+
+func TestRenderLinuxNodeCustomDataTemplateUsesBakerPlatformFunctions(t *testing.T) {
+	template := []byte(`#cloud-config
+write_files:
+{{if IsACL}}
+- path: /acl
+{{else if IsAzlOSGuard}}
+- path: /azlosguard
+{{else if IsMariner}}
+- path: /mariner
+{{else if IsFlatcar}}
+- path: /flatcar
+{{else}}
+- path: /ubuntu
+{{end}}
+`)
+	tests := []struct {
+		name     string
+		distro   datamodel.Distro
+		expected string
+	}{
+		{name: "Ubuntu", distro: datamodel.AKSUbuntuContainerd2204Gen2, expected: "/ubuntu"},
+		{name: "Mariner", distro: datamodel.AKSAzureLinuxV3Gen2, expected: "/mariner"},
+		{name: "ACL", distro: datamodel.AKSACLGen2TL, expected: "/acl"},
+		{name: "OS Guard", distro: datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL, expected: "/azlosguard"},
+		{name: "Flatcar", distro: datamodel.AKSFlatcarGen2, expected: "/flatcar"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rendered, err := RenderLinuxNodeCustomDataTemplate(
+				template,
+				newNodeCustomDataRenderConfig(test.distro),
+			)
+
+			require.NoError(t, err)
+			require.Contains(t, rendered, "- path: "+test.expected)
+			require.False(t, strings.Contains(rendered, "{{"))
+		})
+	}
+}
+
+func newNodeCustomDataRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {
+	profile := &datamodel.AgentPoolProfile{
+		Name:   "hotfix-render-test",
+		OSType: datamodel.Linux,
+		Distro: distro,
+	}
+	return &datamodel.NodeBootstrappingConfiguration{
+		ContainerService: &datamodel.ContainerService{
+			Location: "eastus",
+			Properties: &datamodel.Properties{
+				OrchestratorProfile: &datamodel.OrchestratorProfile{
+					OrchestratorVersion: "1.29.0",
+					OrchestratorType:    datamodel.Kubernetes,
+					KubernetesConfig: &datamodel.KubernetesConfig{
+						ContainerRuntimeConfig: map[string]string{},
+					},
+				},
+				HostedMasterProfile: &datamodel.HostedMasterProfile{
+					FQDN: "hotfix-render.invalid",
+				},
+				AgentPoolProfiles: []*datamodel.AgentPoolProfile{profile},
+			},
+		},
+		AgentPoolProfile: profile,
+		CloudSpecConfig:  datamodel.AzurePublicCloudSpecForTest,
+		K8sComponents:    &datamodel.K8sComponents{},
+		KubeletConfig:    map[string]string{},
+	}
+}
+
+func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
+	const bootstrapToken = "bake00.0123456789abcdef"
+
+	newConfig := func(preProvisionOnly bool) *datamodel.NodeBootstrappingConfiguration {
+		profile := &datamodel.AgentPoolProfile{
+			Name:   "windowspool",
+			OSType: datamodel.Windows,
+			Distro: datamodel.AKSWindows2022Containerd,
+		}
+		return &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						OrchestratorType:    datamodel.Kubernetes,
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{profile},
+					WindowsProfile:    &datamodel.WindowsProfile{},
+				},
+			},
+			AgentPoolProfile:               profile,
+			CloudSpecConfig:                datamodel.AzurePublicCloudSpecForTest,
+			K8sComponents:                  &datamodel.K8sComponents{},
+			KubeletConfig:                  map[string]string{},
+			KubeletClientTLSBootstrapToken: to.StringPtr(bootstrapToken),
+			SecureTLSBootstrappingConfig:   &datamodel.SecureTLSBootstrappingConfig{},
+			PreProvisionOnly:               preProvisionOnly,
+		}
+	}
+	templateGenerator := InitializeTemplateGenerator()
+	render := func(preProvisionOnly bool) string {
+		t.Helper()
+		config := newConfig(preProvisionOnly)
+		payload := templateGenerator.getWindowsNodeBootstrappingPayload(config)
+		decoded, err := base64.StdEncoding.DecodeString(payload)
+		require.NoError(t, err)
+		require.Equal(t, bootstrapToken, *config.KubeletClientTLSBootstrapToken)
+		return string(decoded)
+	}
+
+	bakeCustomData := render(true)
+	provisionCustomData := render(false)
+
+	require.NotContains(t, bakeCustomData, bootstrapToken)
+	require.Contains(t, bakeCustomData, `$global:TLSBootstrapToken=""`)
+	require.Contains(t, bakeCustomData, "function NodePrep")
+	require.Contains(t, bakeCustomData, "Write-BootstrapKubeConfig")
+	require.Contains(t, bakeCustomData, "if (-not $PreProvisionOnly)")
+	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken="%s"`, bootstrapToken))
+}
 
 type decodedValue struct {
 	value string
@@ -1172,6 +1306,59 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).To(ContainSubstring("bash"))
 	})
 
+	It("should safely preserve proxy values for older VHD scripts in scriptless mode", func() {
+		tempDir, err := os.MkdirTemp("", "agentbaker-proxy-test")
+		Expect(err).NotTo(HaveOccurred())
+		defer os.RemoveAll(tempDir)
+
+		httpMarker := filepath.Join(tempDir, "http-injected")
+		httpsMarker := filepath.Join(tempDir, "https-injected")
+		noProxyMarker := filepath.Join(tempDir, "no-proxy-injected")
+		httpProxy := `http://user:p'ass"word/$(touch ` + httpMarker + ");`touch " + httpMarker + "`/*?[x]\\value"
+		httpsProxy := `https://proxy.example/$(touch ` + httpsMarker + ")"
+		noProxyValues := []string{"localhost", `$(touch ` + noProxyMarker + ")", ".svc"}
+		baseConfig.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
+			HTTPProxy:  &httpProxy,
+			HTTPSProxy: &httpsProxy,
+			NoProxy:    &noProxyValues,
+		}
+
+		var encodedNBCCmd string
+		for _, file := range templateGenerator.getScriptlessConfiguration(baseConfig) {
+			if file.path == aksNbcCmdFilepath {
+				encodedNBCCmd = file.content
+				break
+			}
+		}
+		Expect(encodedNBCCmd).NotTo(BeEmpty())
+		compressedNBCCmd, err := base64.StdEncoding.DecodeString(encodedNBCCmd)
+		Expect(err).NotTo(HaveOccurred())
+		cseCmdBytes, err := getGzipDecodedValue(compressedNBCCmd)
+		Expect(err).NotTo(HaveOccurred())
+		cseCmd := string(cseCmdBytes)
+		start := strings.Index(cseCmd, "HTTP_PROXY_URLS=")
+		Expect(start).To(BeNumerically(">=", 0))
+		end := strings.Index(cseCmd[start:], " ENABLE_SECURE_TLS_BOOTSTRAPPING=")
+		Expect(end).To(BeNumerically(">", 0))
+		proxyAssignments := cseCmd[start : start+end]
+		command := proxyAssignments + ` /bin/bash -c 'eval $PROXY_VARS; printf "%s\n" "$HTTP_PROXY" "$http_proxy" "$HTTPS_PROXY" "$https_proxy" "$NO_PROXY" "$no_proxy"'`
+
+		output, err := exec.Command("/bin/bash", "-c", command).CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), string(output))
+		Expect(strings.Split(strings.TrimSuffix(string(output), "\n"), "\n")).To(Equal([]string{
+			httpProxy,
+			httpProxy,
+			httpsProxy,
+			httpsProxy,
+			strings.Join(noProxyValues, ","),
+			strings.Join(noProxyValues, ","),
+		}))
+		Expect(httpMarker).NotTo(BeAnExistingFile())
+		Expect(httpsMarker).NotTo(BeAnExistingFile())
+		Expect(noProxyMarker).NotTo(BeAnExistingFile())
+		Expect(getProxyVariables(baseConfig)).NotTo(ContainSubstring(tempDir))
+	})
+
 	It("should embed cloud-init status checks when custom data is enabled", func() {
 		Expect(baseConfig.DisableCustomData).To(BeFalse())
 
@@ -1261,16 +1448,33 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars["CUSTOM_ENV_JSON"]).NotTo(BeEmpty())
 	})
 
-	It("should handle TLS bootstrapping configuration", func() {
-		baseConfig.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+	It("should omit TLS bootstrap token from classic Linux pre-provision CSE only", func() {
+		const bootstrapToken = "07401b.f395accd246ae52d"
 
-		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+		render := func(preProvisionOnly bool) (string, map[string]string) {
+			config, err := deepcopy.Anything(baseConfig)
+			Expect(err).NotTo(HaveOccurred())
+			typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+			Expect(ok).To(BeTrue())
+			typedConfig.KubeletClientTLSBootstrapToken = to.StringPtr(bootstrapToken)
+			typedConfig.PreProvisionOnly = preProvisionOnly
 
-		Expect(cseCmd).NotTo(BeEmpty())
-		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+			cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
 
-		vars := decodeCSEVars(cseCmd)
-		Expect(vars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", "07401b.f395accd246ae52d"))
+			Expect(cseCmd).NotTo(BeEmpty())
+			Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+			Expect(*typedConfig.KubeletClientTLSBootstrapToken).To(Equal(bootstrapToken))
+			return cseCmd, decodeCSEVars(cseCmd)
+		}
+
+		// Direct ANC/AKSNodeConfig JSON serialization bypasses the template getter and
+		// remains a separate Linux follow-up.
+		bakeCSE, bakeVars := render(true)
+		provisionCSE, provisionVars := render(false)
+		Expect(bakeCSE).NotTo(ContainSubstring(bootstrapToken))
+		Expect(bakeVars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", ""))
+		Expect(provisionCSE).To(ContainSubstring(bootstrapToken))
+		Expect(provisionVars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", bootstrapToken))
 	})
 
 	It("should handle secure TLS bootstrapping configuration", func() {

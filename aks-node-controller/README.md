@@ -149,3 +149,53 @@ Key components:
         ```
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
+
+### Provisioning script hotfix payloads
+
+Patched ANC binaries can embed selected Linux provisioning scripts generated from
+`parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC writes the
+rendered nodecustomdata matching the local platform to
+`/opt/azure/containers/embedded-nodecustomdata.yml` (mode `0600` on creation)
+and calls the existing `applyNodeCustomData` function before constructing the
+normal CSE command. This file is retained for debugging, separate from the legacy
+`nodecustomdata.yml`. It contains the most recently written payload, including
+when application fails; the `applied embedded hotfix payload` log confirms
+successful application. If no payload is selected, any previously retained file
+is left untouched. Application errors are logged and provisioning continues.
+
+The embedded nodecustomdata coordinator distinguishes these script hotfixes from
+updates to the ANC binary itself. The generated files live under
+`aks-node-controller/generated/` as
+`rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
+hotfixable entries from `nodecustomdata.yml`, then renders only Ubuntu and
+standard Azure Linux variants through AgentBaker's production Go-template
+functions. Azure Linux retains the `mariner` payload filename; the legacy
+`ID=mariner` OS is no longer supported. OS Guard, ACL, and Flatcar are explicitly skipped during embedded
+application, including variants that share the `azurelinux` OS ID. Their
+distro-specific source changes do not trigger payload generation.
+
+The repository keeps a README placeholder so `go:embed` builds without any
+script hotfix payloads. Generation replaces it with Ubuntu and Azure Linux YAMLs.
+ANC skips application when the local platform's YAML is absent; no separate
+activation flag is needed. Other payload read errors are logged.
+
+When a PR has no new script hotfix, generation leaves the existing rendered
+payload unchanged. The active ANC version pointer is likewise retained until it
+is retired explicitly.
+
+The existing applier writes entries sequentially and creates missing destination
+files and parent directories. There is no transactional rollback: if an entry
+fails, earlier writes remain. Generation selects by distro only; hotfix authors
+must separately account for non-distro template conditions such as custom-image
+exclusions.
+
+`cse_start.sh` (`provision_start.sh` on the node) is excluded from embedded
+hotfixes to preserve custom-image wrappers. Generation fails explicitly if this
+script differs from the VHD baseline, even when other scripts also changed.
+Wrapper fixes require a new node image until runtime eligibility is available.
+
+Script hotfix delivery is package-only. The existing base-to-version hotfix map
+selects the ANC package for the node's baked `YYYYMM.DD` version base; the package
+contains its corresponding rendered scripts. If the package cannot be installed,
+provisioning fails open to the original VHD scripts. The operational fallback is
+to upgrade the node image.
