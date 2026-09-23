@@ -41,7 +41,7 @@ pool 2.ubuntu.pool.ntp.org iburst maxsources 2
 EOF
 }
 
-configure_chrony() {
+apply_chrony_configuration() {
     local time_sources="${1:-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0}"
     local chrony_conf="${CHRONY_CONF:-/etc/chrony/chrony.conf}"
     local timesyncd_load_state
@@ -208,30 +208,30 @@ configure_ubuntu_2604_cvm_time_sync() {
     case "$platform" in
         sev-snp)
             echo "AMD SEV-SNP detected; preserving the existing Hyper-V PHC Chrony configuration"
-            if ! configure_chrony; then
+            if ! logs_to_events "AKS.CSE.configureChronySEVSNP" apply_chrony_configuration; then
                 echo "WARNING: failed to reapply the Hyper-V PHC Chrony configuration for AMD SEV-SNP; continuing provisioning" >&2
             fi
             ;;
         tdx)
             echo "Intel TDX detected; configuring Chrony to use the Ubuntu NTP pools"
             ntp_pools="$(ubuntu_ntp_pools)"
-            if ! configure_chrony "$ntp_pools"; then
+            if ! logs_to_events "AKS.CSE.configureChronyTDX" apply_chrony_configuration "$ntp_pools"; then
                 echo "ERROR: failed to configure Chrony with the Ubuntu NTP pools for Intel TDX" >&2
                 return "$ERR_CHRONY_CONFIG_FAIL"
             fi
-            verify_chrony_ntp_sync
+            logs_to_events "AKS.CSE.verifyChronyNTPSync" verify_chrony_ntp_sync
             ;;
     esac
 }
 
-configureChrony() {
+configure_node_time_sync() {
     if isACL "$OS" "$OS_VARIANT"; then
         echo "Skipping chrony configuration for ACL (PTP clock baked into chronyd, no external NTP sources)"
     elif isMarinerOrAzureLinux "$OS"; then
-        configure_mariner_azurelinux_chrony || true
+        logs_to_events "AKS.CSE.configureChronyMarinerAzureLinux" configure_mariner_azurelinux_chrony || true
     elif should_configure_ubuntu_2604_cvm_time_sync; then
         configure_ubuntu_2604_cvm_time_sync
     else
-        configure_chrony || true
+        logs_to_events "AKS.CSE.configureChronyDefaultPHC" apply_chrony_configuration || true
     fi
 }

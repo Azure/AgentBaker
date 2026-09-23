@@ -72,20 +72,30 @@ Describe 'cse_config_chrony.sh distro routing'
     script_path='./parts/linux/cloud-init/artifacts/cse_config_chrony.sh'
 
     chrony_routing_block() {
-        sed -n '/^configureChrony() {$/,/^}$/p' "$script_path"
+        sed -n '/^configure_node_time_sync() {$/,/^}$/p' "$script_path"
     }
 
     It 'keeps Azure Linux and Mariner on their native chronyd configuration path'
         When call chrony_routing_block
         The output should include 'elif isMarinerOrAzureLinux "$OS"; then'
+        The output should include 'AKS.CSE.configureChronyMarinerAzureLinux'
         The output should include 'configure_mariner_azurelinux_chrony || true'
     End
 
-    It 'keeps Ubuntu and Flatcar on configure_chrony unless the CVM path is selected'
+    It 'keeps Ubuntu and Flatcar on the default PHC configuration unless the CVM path is selected'
         When call chrony_routing_block
         The output should include 'elif should_configure_ubuntu_2604_cvm_time_sync; then'
         The output should include 'configure_ubuntu_2604_cvm_time_sync'
-        The output should include 'configure_chrony || true'
+        The output should include 'AKS.CSE.configureChronyDefaultPHC'
+        The output should include 'apply_chrony_configuration || true'
+    End
+
+    It 'logs the CVM platform configuration and TDX synchronization sub-operations'
+        When run grep -E 'AKS.CSE.configureChrony(SEVSNP|TDX)|AKS.CSE.verifyChronyNTPSync' "$script_path"
+        The line 1 of output should include 'AKS.CSE.configureChronySEVSNP'
+        The line 2 of output should include 'AKS.CSE.configureChronyTDX'
+        The line 3 of output should include 'AKS.CSE.verifyChronyNTPSync'
+        The lines of output should equal 3
     End
 End
 
@@ -113,6 +123,10 @@ Describe 'init-aks-cloud.sh functional tests'
         ERR_CHRONY_CONFIG_FAIL=246
         # shellcheck disable=SC1091
         . "./parts/linux/cloud-init/artifacts/cse_config_chrony.sh"
+        logs_to_events() {
+            shift
+            "$@"
+        }
     }
 
     cleanup() {
@@ -321,7 +335,7 @@ EOF
             setup_chrony_test
             OS_VERSION="24.04"
 
-            When call configure_chrony
+            When call apply_chrony_configuration
             The output should include "systemctl restart chrony"
             The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
             The status should be success
@@ -382,7 +396,7 @@ EOF
             Mock detect_confidential_vm_platform
                 echo "sev-snp"
             End
-            Mock configure_chrony
+            Mock apply_chrony_configuration
                 return 1
             End
             When call configure_ubuntu_2604_cvm_time_sync
@@ -429,7 +443,7 @@ EOF
                 fi
             End
 
-            When call configure_chrony
+            When call apply_chrony_configuration
             The error should include "failed to restart Chrony"
             The status should equal 1
         End
@@ -447,7 +461,7 @@ EOF
                 fi
             End
 
-            When call configure_chrony
+            When call apply_chrony_configuration
             The output should include "systemd-timesyncd is removed, no need to disable"
             The output should not include "unexpected systemd-timesyncd operation"
             The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
@@ -464,7 +478,7 @@ EOF
                 fi
             End
 
-            When call configure_chrony
+            When call apply_chrony_configuration
             The output should include "systemctl stop systemd-timesyncd"
             The output should include "systemctl disable systemd-timesyncd"
             The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
@@ -483,7 +497,7 @@ EOF
                 fi
             End
 
-            When call configure_chrony
+            When call apply_chrony_configuration
             The error should include "failed to stop systemd-timesyncd"
             The output should include "systemctl disable systemd-timesyncd"
             The output should include "systemctl restart chrony"
@@ -498,7 +512,7 @@ EOF
             Mock ubuntu_ntp_pools
                 echo "fixed pools"
             End
-            Mock configure_chrony
+            Mock apply_chrony_configuration
                 return 1
             End
             Mock verify_chrony_ntp_sync
@@ -548,7 +562,7 @@ EOF
             Mock ubuntu_ntp_pools
                 echo "fixed pools"
             End
-            Mock configure_chrony
+            Mock apply_chrony_configuration
                 :
             End
             Mock verify_chrony_ntp_sync
