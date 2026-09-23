@@ -337,41 +337,81 @@ SIG_VERSION_TAG_NAME=buildId SIG_VERSION_TAG_VALUE=123456789 TAGS_TO_RUN="os=ubu
 
 ## OSS Karpenter CSE Compatibility
 
-`Ubuntu2204_OSS_Karpenter_CSE_Compatibility` is a cluster-level scenario. Unlike
-the normal AgentBaker scenarios, it does not ask AgentBaker to render CSE and
-create a raw VMSS. It:
+`Ubuntu2204_OSS_Karpenter_CSE_Compatibility` is a normal node-level E2E
+scenario: it goes through AgentBaker's standard VMSS lifecycle (create the
+VMSS, wait for the node to become Ready, run the default pod-scheduling and
+common-Linux validation). The only difference from any other scenario is
+*what CSE is used to provision the node*.
 
-1. creates or reuses a dedicated AKS cluster with Azure CNI Overlay, Cilium,
-   OIDC issuer, and workload identity enabled;
-2. clones the pinned `Azure/karpenter-provider-azure` release declared in
-   `scenario/oss_karpenter_controller.go` and verifies its commit;
-3. applies the CRDs from that checkout and builds/runs the upstream controller
-   on the E2E runner;
-4. creates an `AKSNodeClass`, `NodePool`, and scheduling demand;
-5. waits for the Karpenter-created node to become Ready and verifies that the
-   workload runs on it.
+Instead of asking AgentBaker to render its own CSE, the scenario sets
+`Config.CustomDataOverride` to `renderOSSKarpenterCustomData`
+(`scenario/oss_karpenter_render.go`), which calls the pinned
+`Azure/karpenter-provider-azure` release's exported
+`bootstrap.AKS{}.Script()` directly — the same call
+`imagefamily.Ubuntu2204.ScriptlessCustomData` makes internally when the real
+Karpenter controller provisions a node. Every input to that call (cluster
+name/endpoint, CA bundle, subnet, NSG/route table names, kubelet identity,
+network plugin/policy, Kubernetes version, ...) is sourced directly from the
+`NodeBootstrappingConfiguration`/`Cluster` values AgentBaker's own E2E
+framework already computes for the test cluster (see
+`scenario/oss_karpenter_render.go` for the exact field mapping); no extra
+Azure ARM calls are made. The result is set as the VM's `CustomData` with no
+CSE VM extension, matching Karpenter's own scriptless provisioning mode.
 
-The public `AKSNodeClass` API in the pinned provider release does not expose its
-internal image-ID field. The E2E therefore applies the narrow source patch in
-`scenario/oss_karpenter_v1.14.2.patch`. The patch only:
+This means the scenario:
 
-- makes the out-of-cluster test controller use the authenticated Azure CLI
-  identity and supplied kubeconfig;
-- accepts the selected AgentBaker VHD resource ID from a test-only
-  `AKSNodeClass` annotation; and
-- places private Azure Compute Gallery IDs in the correct ARM image-reference
-  field.
+- needs **no** git clone, patch, or build of `karpenter-provider-azure` — the
+  module is a normal (test-only) Go dependency of `e2e/go.mod`, pinned to the
+  same commit as `ossKarpenterAzureCommit`
+  (`scenario/scenario_oss_karpenter.go`);
+- runs **no** live Karpenter controller, installs no CRDs, and creates no
+  `AKSNodeClass`/`NodePool`/`NodeClaim` objects;
+- still exercises the real thing under test: whether the CSE template
+  Karpenter maintains independently still produces a working node against the
+  scripts baked into the current AgentBaker VHD.
 
-The patch does **not** modify, copy, or render Karpenter's
-`cse_cmd.sh.gtpl`. The node is provisioned by Karpenter's own controller using
-the CSE template embedded directly from its pinned source checkout. This is what
-allows the scenario to detect compatibility failures when scripts baked into
-the AgentBaker VHD change but Karpenter's independently maintained CSE template
-has not been updated.
+To bump the pinned Karpenter version, update `ossKarpenterAzureVersion` /
+`ossKarpenterAzureCommit` in `scenario/scenario_oss_karpenter.go` and run
+`go get github.com/Azure/karpenter-provider-azure@<new commit> && go mod tidy`
+inside `e2e/`.
 
-Controller logs and Kubernetes diagnostics are written into the scenario log
-directory. The pinned source checkout and built controller are cached for the
-lifetime of the E2E process, so scenario retries do not rebuild it.
+### Rendering the CSE script without a cluster
+
+`e2e/render-karpenter-cse` is a small standalone tool that renders the same
+`cse_cmd.sh` Karpenter's controller would produce, by calling the pinned
+`karpenter-provider-azure` module's exported `bootstrap.AKS{}.Script()`
+directly (the same call `imagefamily.Ubuntu2204.ScriptlessCustomData` makes
+internally). It needs no cluster, no CRDs, and no source patch — just the same
+input values the scenario above derives from the AKS cluster (see
+`renderOSSKarpenterCustomData` in `scenario/oss_karpenter_render.go`). Use it
+for a fast, offline text diff of the rendered script, e.g. across two pinned
+Karpenter versions, or to inspect exactly what would be sent to a node without
+provisioning one:
+
+```bash
+go run ./e2e/render-karpenter-cse \
+  -cluster-name my-cluster \
+  -cluster-endpoint https://my-cluster.hcp.eastus.azmk8s.io:443 \
+  -kubernetes-version 1.31.1 \
+  -location eastus \
+  -resource-group MC_rg_my-cluster_eastus \
+  -cluster-resource-group rg \
+  -subscription-id 00000000-0000-0000-0000-000000000000 \
+  -tenant-id 00000000-0000-0000-0000-000000000000 \
+  -subnet-id /subscriptions/.../resourceGroups/.../providers/Microsoft.Network/virtualNetworks/.../subnets/... \
+  -nsg-name aks-agentpool-<clusterid>-nsg \
+  -route-table-name aks-agentpool-<clusterid>-routetable \
+  -api-server-name my-cluster-dns-<hash>.hcp.eastus.azmk8s.io \
+  -kubelet-identity-client-id 00000000-0000-0000-0000-000000000000 \
+  -ca-bundle-file /path/to/ca.crt \
+  -tls-bootstrap-token abcdef.0123456789abcdef \
+  -out cse_cmd.sh
+```
+
+This is a complement to, not a replacement for, the scenario above: it does not
+prove a node actually reaches Ready, only that the CSE render itself is
+well-formed and matches expectations.
+
 
 ### Registering New VHD SKUs
 

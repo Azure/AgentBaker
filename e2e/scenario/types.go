@@ -144,6 +144,18 @@ type Config struct {
 	// Karpenter, rather than an AgentBaker-generated VMSS model.
 	ClusterTest func(ctx context.Context, s *Scenario) error
 
+	// CustomDataOverride, when set, replaces AgentBaker's own rendered CSE/CustomData
+	// with the returned (customData, cseCmd) pair, bypassing NBC rendering,
+	// AKSNodeConfigMutator, ScriptHotfixFixture, scriptless ANC compilation,
+	// CustomDataWriteFiles injection, and the scriptless-content assertion entirely.
+	// The rest of the AgentBaker raw-VMSS provisioning path (VM creation, waiting
+	// for Ready, default validation) still runs unmodified. Use this for
+	// compatibility scenarios that need a third-party CSE render (e.g. OSS
+	// Karpenter's) exercised through AgentBaker's own node lifecycle, instead of
+	// building/running an external controller. cseCmd should normally be empty:
+	// a scriptless-style CustomData needs no separate CSE VM extension.
+	CustomDataOverride func(ctx context.Context, s *Scenario) (customData string, cseCmd string, err error)
+
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
