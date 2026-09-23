@@ -47,7 +47,7 @@ installGPUDriverImageWithFallback() {
         local attempts=1
         local retry_delay_seconds=0
         local timeout_seconds=240
-        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage \
+        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImageSkipBuild" installGPUDriverImage \
             "${gpu_install_action}" "${attempts}" "${retry_delay_seconds}" "${timeout_seconds}"
     else
         logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage "${gpu_install_action}"
@@ -128,7 +128,8 @@ configureNvidiaCDIRefresh() {
 
 configGPUDrivers() {
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-        waitForContainerdReady || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.configGPUDrivers.waitForContainerdReady" waitForContainerdReady ||
+            exit $ERR_GPU_DRIVERS_START_FAIL
         mkdir -p /opt/{actions,gpu}
         # Must precede the install: the toolkit's post-install starts nvidia-cdi-refresh from
         # inside the install container, and on newer aks-gpu images its failure aborts the install.
@@ -139,7 +140,7 @@ configGPUDrivers() {
         if [ -z "$(ctr -n k8s.io images ls -q "name==${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")" ]; then
             logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage || exit $ERR_GPU_DRIVERS_START_FAIL
         fi
-        selectGPUDriverInstallAction
+        logs_to_events "AKS.CSE.configGPUDrivers.selectGPUDriverInstallAction" selectGPUDriverInstallAction
         installGPUDriverImageWithFallback "${GPU_INSTALL_ACTION}"
         ret=$?
         if [ "$ret" -ne 0 ]; then
@@ -164,7 +165,8 @@ configGPUDrivers() {
 
     logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaModprobe" "retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0" || exit $ERR_GPU_DRIVERS_START_FAIL
     logs_to_events "AKS.CSE.configGPUDrivers.waitForNvidiaSmi" "retrycmd_if_failure 120 5 30 nvidia-smi" || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+    logs_to_events "AKS.CSE.configGPUDrivers.waitForLdconfig" "retrycmd_if_failure 120 5 25 ldconfig" ||
+        exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue (Mariner/AzureLinux only)
     if isMarinerOrAzureLinux "$OS"; then

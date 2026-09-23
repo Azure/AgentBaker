@@ -124,6 +124,18 @@ install:5:10:600"
             The output should equal "install:5:10:600"
         End
 
+        It 'emits a distinct timing event for skip-build'
+            installGPUDriverImage() { return 0; }
+            logs_to_events() {
+                echo "$1"
+                shift
+                "$@"
+            }
+            When call installGPUDriverImageWithFallback install-skip-build
+            The status should be success
+            The output should equal "AKS.CSE.configGPUDrivers.installGPUDriverImageSkipBuild"
+        End
+
         Parameters
             "valid" "install-skip-build"
             "missing" "install"
@@ -575,8 +587,11 @@ install:5:10:600"
             The status should be success
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.pullGPUDriverImage"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForContainerdReady"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.selectGPUDriverInstallAction"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForLdconfig"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh"
         End
 
@@ -694,6 +709,7 @@ install:5:10:600"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installNvidiaContainerToolkit"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForLdconfig"
         End
 
         It 'times the sysext pulls on Azure Container Linux (ACL)'
@@ -710,6 +726,7 @@ install:5:10:600"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverSysext"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForLdconfig"
         End
     End
     Describe 'managedGPUPackageList on Ubuntu'
