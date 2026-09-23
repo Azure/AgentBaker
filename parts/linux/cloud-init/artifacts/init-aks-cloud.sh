@@ -541,8 +541,6 @@ function determine_cert_endpoint_mode {
 # shellcheck disable=SC2317
 ${__SOURCED__:+return}
 
-action=${1:-init}
-
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
@@ -633,6 +631,7 @@ fi
 # Action values:
 # - init (default): full provisioning path
 # - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
+action=${1:-init}
 if [ "$action" = "ca-refresh" ] || [ "$install_ca_refresh_schedule" -eq 0 ]; then
     exit 0
 fi
