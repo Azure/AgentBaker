@@ -10,9 +10,8 @@ mkdir -p $EVENTS_LOGGING_DIR
 timeout -k5s "${CSE_TIMEOUT:-15m}" /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 
-finalizeProvisioning() {
+finalizeBasePrep() {
     local base_prep_complete_file="${BASE_PREP_COMPLETE_FILE:-/opt/azure/containers/base_prep.complete}"
-    local provision_complete_file="${PROVISION_COMPLETE_FILE:-/opt/azure/containers/provision.complete}"
     local provision_log_file="${PROVISION_LOG_FILE:-/var/log/azure/cluster-provision.log}"
 
     if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
@@ -24,16 +23,13 @@ finalizeProvisioning() {
             printf '%s\n' "Stage 1 complete - kubelet configuration skipped, Stage 2 required" \
                 "Created base_prep.complete marker file" >> "${provision_log_file}" || true
         fi
-    else
-        { mkdir -p "$(dirname "${provision_complete_file}")" && touch "${provision_complete_file}"; } ||
-            printf '%s\n' "Failed to create provision.complete marker file" >> "${provision_log_file}" || true
     fi
 
     return "$EXIT_CODE"
 }
 
-# Completion-marker failures must be reflected in provision.json and the CSE event.
-finalizeProvisioning
+# BasePrep marker failures must be reflected in provision.json and the CSE event.
+finalizeBasePrep
 
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
@@ -120,6 +116,19 @@ EVENT_JSON=$( jq -n \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
+
+publishProvisionComplete() {
+    local provision_complete_file="${PROVISION_COMPLETE_FILE:-/opt/azure/containers/provision.complete}"
+    local provision_log_file="${PROVISION_LOG_FILE:-/var/log/azure/cluster-provision.log}"
+
+    if [ "${PRE_PROVISION_ONLY}" != "true" ]; then
+        { mkdir -p "$(dirname "${provision_complete_file}")" && touch "${provision_complete_file}"; } ||
+            printf '%s\n' "Failed to create provision.complete marker file" >> "${provision_log_file}" || true
+    fi
+}
+
+# provision-wait reads provision.json as soon as it observes this marker.
+publishProvisionComplete
 
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove

@@ -5,15 +5,17 @@ Describe 'cse_start.sh completion markers'
         BASE_PREP_COMPLETE_FILE="${TEST_DIR}/base_prep.complete"
         PROVISION_COMPLETE_FILE="${TEST_DIR}/provision.complete"
         PROVISION_LOG_FILE="${TEST_DIR}/cluster-provision.log"
-        eval "$(sed -n '/^finalizeProvisioning()/,/^}/p' ./parts/linux/cloud-init/artifacts/cse_start.sh)"
+        eval "$(sed -n '/^finalizeBasePrep()/,/^}/p' ./parts/linux/cloud-init/artifacts/cse_start.sh)"
+        eval "$(sed -n '/^publishProvisionComplete()/,/^}/p' ./parts/linux/cloud-init/artifacts/cse_start.sh)"
     }
     cleanup_completion_test() { rm -rf "${TEST_DIR}"; }
     BeforeEach 'setup_completion_test'
     AfterEach 'cleanup_completion_test'
     touch() { [ "${FAIL_MARKER:-false}" != "true" ] && command touch "$@"; }
     completion_result() {
-        finalizeProvisioning
+        finalizeBasePrep
         local rc=$?
+        publishProvisionComplete
         printf 'rc=%s base=%s provision=%s\n' \
             "${rc}" "$([ -f "${BASE_PREP_COMPLETE_FILE}" ] && echo true || echo false)" \
             "$([ -f "${PROVISION_COMPLETE_FILE}" ] && echo true || echo false)"
@@ -34,14 +36,15 @@ Describe 'cse_start.sh completion markers'
         The output should equal "$4"
     End
 
-    It 'finalizes markers before status and event payloads'
+    It 'records BasePrep completion before status and publishes NodePrep completion after it'
         finalization_order() {
-            grep -n -E '^finalizeProvisioning$|^JSON_STRING=|^message_string=' \
+            grep -n -E '^finalizeBasePrep$|^JSON_STRING=|^echo .*EVENT_JSON|^publishProvisionComplete$' \
                 ./parts/linux/cloud-init/artifacts/cse_start.sh
         }
         When call finalization_order
-        The line 1 of output should include "finalizeProvisioning"
+        The line 1 of output should include "finalizeBasePrep"
         The line 2 of output should include "JSON_STRING="
-        The line 3 of output should include "message_string="
+        The line 3 of output should include "EVENT_JSON"
+        The line 4 of output should include "publishProvisionComplete"
     End
 End
