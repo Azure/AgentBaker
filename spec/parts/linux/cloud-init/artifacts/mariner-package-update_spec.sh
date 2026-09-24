@@ -3,6 +3,10 @@
 Describe 'mariner-package-update.sh'
     setup_azurelinux3() {
         node_name="test-node"
+        export DUAL_KERNEL=false
+        export MOCK_KERNEL_VERSION="6.6.150.1-1.azl3"
+        export MOCK_HWE_VERSION="6.18.43.1-2.azl3"
+        export MOCK_GRUB_VERSION="2.06-27.azl3"
         cat <<EOF > "${OS_RELEASE_FILE}"
 NAME="Microsoft Azure Linux"
 VERSION="3.0.20250702"
@@ -249,6 +253,27 @@ EOF
             echo "tdnf mock called with args: $@"
         End
 
+        Mock uname
+            echo "aarch64"
+        End
+
+        Mock rpm
+            if [[ "$1" == "-q" && "$2" == "kernel" && "$3" == "kernel-hwe" ]]; then
+                [[ "$DUAL_KERNEL" == "true" ]]
+            elif [[ "$1" == "-q" && "$2" == "--queryformat" ]]; then
+                shift 3
+                for package in "$@"; do
+                    case "$package" in
+                        kernel) echo "$MOCK_KERNEL_VERSION" ;;
+                        kernel-hwe) echo "$MOCK_HWE_VERSION" ;;
+                        grub2|grub2-efi-binary|grub2-efi) echo "$MOCK_GRUB_VERSION" ;;
+                    esac
+                done
+            else
+                return 1
+            fi
+        End
+
         repo_config=$(cat <<'EOF'
 [azurelinux-official-base]
 name=Azure Linux Official Base $releasever $basearch
@@ -337,6 +362,44 @@ EOF
             The output should include "tdnf mock called with args: --snapshottime 1755216000 update --exclude mshv-linuxloader --exclude kernel-mshv --repo azurelinux-official-base --repo azurelinux-official-ms-non-oss --repo azurelinux-official-ms-oss --repo azurelinux-official-nvidia -y --refresh"
             The output should include "Executed dnf update -y --refresh 1 times"
             The contents of file "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo" should eq "${repo_config}"
+        End
+
+        It 'should reconcile dual-kernel boot files without copying package-owned modules'
+            export DUAL_KERNEL=true
+            export BOOT_DIR="${TEST_DIR}/boot"
+            export GRUB_MODULE_SOURCE="${TEST_DIR}/grub-modules"
+            Mock kubectl
+                if [[ "$@" == *"live-patching-golden-timestamp"* ]]; then
+                    echo "20250815T000000Z"
+                fi
+            End
+            Mock grub2-mkconfig
+                printf 'linux /vmlinuz-%s\nlinux /vmlinuz-%s\n' "$MOCK_KERNEL_VERSION" "$MOCK_HWE_VERSION" > "$2"
+                echo "grub2-mkconfig mock called with args: $@"
+            End
+            Mock grub2-script-check
+                echo "grub2-script-check mock called with args: $@"
+            End
+
+            echo "${repo_config}" > "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo"
+            mkdir -p "${BOOT_DIR}/grub2" "$GRUB_MODULE_SOURCE"
+            for boot_file in \
+                "${BOOT_DIR}/vmlinuz-${MOCK_KERNEL_VERSION}" \
+                "${BOOT_DIR}/initramfs-${MOCK_KERNEL_VERSION}.img" \
+                "${BOOT_DIR}/vmlinuz-${MOCK_HWE_VERSION}" \
+                "${BOOT_DIR}/initramfs-${MOCK_HWE_VERSION}.img"; do
+                echo "boot" > "$boot_file"
+            done
+            echo "smbios" > "${GRUB_MODULE_SOURCE}/smbios.mod"
+
+            When run main
+            The status should be success
+            The output should include "tdnf mock called with args: --snapshottime 1755216000 update --exclude mshv-linuxloader --exclude kernel-mshv --repo azurelinux-official-base --repo azurelinux-official-ms-non-oss --repo azurelinux-official-ms-oss --repo azurelinux-official-nvidia -y --refresh"
+            The output should include "grub2-mkconfig mock called"
+            The output should include "grub2-script-check mock called"
+            The output should include "Executed dnf update -y --refresh 1 times"
+            The contents of file "${GRUB_MODULE_SOURCE}/smbios.mod" should eq "smbios"
+            The path "${BOOT_DIR}/grub2/arm64-efi" should not be exist
         End
 
         It 'should update successfully for ni cluster'

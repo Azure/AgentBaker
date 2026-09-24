@@ -108,10 +108,6 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
 
     if which nvidia-smi; then
@@ -189,8 +185,12 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
+    local cpu_arch
+    cpu_arch=$(getCPUArch)
+    if [ "$cpu_arch" = "arm64" ]; then
+        if [ "$OS_VERSION" != "3.0" ] || [ "${ENABLE_FIPS,,}" = "true" ] || ! isAzureLinuxArm64BaseImage "$OS" "$cpu_arch" "$OS_VARIANT"; then
+            return
+        fi
     fi
 
     # Tear down a mismatched cuda-lts VHD prebake before a GRID node installs its own driver, or the
