@@ -189,8 +189,16 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
+    # arm64 == Grace-Blackwell (GB200/GB300). Its only GPU-driver path is the AKS-managed
+    # container install, and only when the customer requested it (--gpu-driver Install /
+    # managed GPU experience, both of which the RP collapses into CONFIG_GPU_DRIVER_IF_NEEDED).
+    # Every other arm64 case (non-Ubuntu, or driver-install off / --gpu-driver none / BYOI)
+    # keeps skipping exactly as before. GB has no node-local fabric manager and no VHD driver
+    # prebake, so this always runs the full container build+install at boot.
     if [ "$(isARM64)" -eq 1 ]; then
-        return
+        if [ "$OS" != "$UBUNTU_OS_NAME" ] || [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" != true ]; then
+            return
+        fi
     fi
 
     # Tear down a mismatched cuda-lts VHD prebake before a GRID node installs its own driver, or the

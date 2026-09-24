@@ -574,6 +574,76 @@ Describe 'cse_config_gpu.sh'
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
         End
     End
+    Describe 'ensureGPUDrivers arm64 gate'
+        # ensureGPUDrivers no-ops on arm64 EXCEPT for Ubuntu with the managed driver install
+        # requested (CONFIG_GPU_DRIVER_IF_NEEDED=true) -- the Grace-Blackwell (GB200/GB300) path.
+        # RP collapses both --gpu-driver Install and the managed GPU experience into that flag.
+        # logs_to_events is mocked to print only the event name, so the branch targets never run;
+        # the tests assert the DISPATCH decision (configGPUDrivers vs validateGPUDrivers vs return).
+        logs_to_events() { echo "logs_to_events $1"; }
+        # observability-only; called directly at the end on Ubuntu -- silence it.
+        logGPUDriverPrebakeReadiness() { :; }
+        UBUNTU_OS_NAME="UBUNTU"
+        ERR_GPU_DRIVERS_START_FAIL=88
+
+        It 'installs on arm64 Ubuntu when the managed driver install is requested (GB200/GB300)'
+            isARM64() { echo 1; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'no-ops on arm64 Ubuntu when driver install is not requested (BYOI / --gpu-driver none)'
+            isARM64() { echo 1; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            # early return: neither the prebake cleanup nor either driver dispatch is reached.
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'no-ops on non-Ubuntu arm64 even when driver install is requested (no arm64 GPU path there)'
+            isARM64() { echo 1; }
+            OS="MARINER"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+
+        It 'is unaffected on x86 Ubuntu: installs when driver install is requested'
+            isARM64() { echo 0; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+
+            When call ensureGPUDrivers
+
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+
+        It 'is unaffected on x86 Ubuntu: validates (not installs) when driver install is off (prebaked VHD path)'
+            isARM64() { echo 0; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+
+            When call ensureGPUDrivers
+
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+    End
     Describe 'managedGPUPackageList on Ubuntu'
         Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 
