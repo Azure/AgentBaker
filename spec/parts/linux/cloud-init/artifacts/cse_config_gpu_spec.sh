@@ -81,13 +81,17 @@ Describe 'cse_config_gpu.sh'
         cleanup_gpu_artifact_reconcile() {
             rm -rf "${GPU_ARTIFACT_TEST_DIR}"
             unset MOCK_KERNEL MOCK_DKMS_STATUS MOCK_DKMS_VERSION MOCK_MODINFO_STATUS MOCK_MODULE_VERSION
+            unset MOCK_GPU_IMAGE_DIGEST_STATUS
         }
 
         BeforeEach 'setup_gpu_artifact_reconcile'
         AfterEach 'cleanup_gpu_artifact_reconcile'
 
         uname() { [ "$1" = "-m" ] && echo "x86_64" || echo "${MOCK_KERNEL:-test-kernel}"; }
-        getGPUDriverImageDigest() { echo "${MOCK_GPU_IMAGE_DIGEST}"; }
+        getGPUDriverImageDigest() {
+            echo "${MOCK_GPU_IMAGE_DIGEST}"
+            return "${MOCK_GPU_IMAGE_DIGEST_STATUS:-0}"
+        }
         dkms() {
             [ "${MOCK_DKMS_STATUS:-0}" -eq 0 ] &&
                 echo "nvidia/${MOCK_DKMS_VERSION:-580.159.04}, test-kernel, x86_64: installed"
@@ -114,6 +118,25 @@ Describe 'cse_config_gpu.sh'
 AKS_GPU_ARTIFACT event=nodeprep status=fast_path_failed action=install
 install:5:10:600"
             The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
+        End
+
+        It 'falls back from skip-build when errexit is enabled'
+            write_reconcile_manifest
+            installGPUDriverImage() {
+                echo "$1"
+                [ "$1" = "install" ]
+            }
+            logs_to_events() { shift; "$@"; }
+            install_with_errexit() {
+                export -f installGPUDriverImageWithFallback installGPUDriverImage logs_to_events
+                GPU_ARTIFACT_MANIFEST_FILE="${GPU_ARTIFACT_MANIFEST_FILE}" \
+                    bash -euo pipefail -c 'installGPUDriverImageWithFallback install-skip-build'
+            }
+            When call install_with_errexit
+            The status should be success
+            The output should equal "install-skip-build
+AKS_GPU_ARTIFACT event=nodeprep status=fast_path_failed action=install
+install"
         End
 
         It 'does not add a second fallback budget to a normal install'
@@ -164,6 +187,25 @@ install:5:10:600"
             esac
             selectGPUDriverInstallAction >/dev/null
             The variable GPU_INSTALL_ACTION should equal "$2"
+        End
+
+        It 'selects the full install when digest lookup fails under errexit'
+            MOCK_GPU_IMAGE_DIGEST_STATUS=1
+            select_with_errexit() {
+                export -f selectGPUDriverInstallAction getGPUDriverImageDigest gpuDriverArtifactContextMatches
+                OS="${OS}" \
+                    UBUNTU_OS_NAME="${UBUNTU_OS_NAME}" \
+                    NVIDIA_GPU_DRIVER_TYPE="${NVIDIA_GPU_DRIVER_TYPE}" \
+                    NVIDIA_DRIVER_IMAGE="${NVIDIA_DRIVER_IMAGE}" \
+                    NVIDIA_DRIVER_IMAGE_TAG="${NVIDIA_DRIVER_IMAGE_TAG}" \
+                    MOCK_GPU_IMAGE_DIGEST="${MOCK_GPU_IMAGE_DIGEST}" \
+                    MOCK_GPU_IMAGE_DIGEST_STATUS="${MOCK_GPU_IMAGE_DIGEST_STATUS}" \
+                    bash -euo pipefail -c 'selectGPUDriverInstallAction; printf "action=%s\n" "${GPU_INSTALL_ACTION}"'
+            }
+            When call select_with_errexit
+            The status should be success
+            The output should include "status=invalid_or_unavailable action=install"
+            The output should include "action=install"
         End
     End
 
@@ -654,8 +696,12 @@ install:5:10:600"
                 echo "INSTALL_ACTION=$1"
                 return 1
             }
+            config_with_errexit() {
+                set -e
+                configGPUDrivers
+            }
 
-            When run configGPUDrivers
+            When run config_with_errexit
 
             The status should equal 88
             The output should include "INSTALL_ACTION=install-skip-build"

@@ -47,17 +47,27 @@ installGPUDriverImageWithFallback() {
         local attempts=1
         local retry_delay_seconds=0
         local timeout_seconds=240
-        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImageSkipBuild" installGPUDriverImage \
-            "${gpu_install_action}" "${attempts}" "${retry_delay_seconds}" "${timeout_seconds}"
+        if logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImageSkipBuild" installGPUDriverImage \
+            "${gpu_install_action}" "${attempts}" "${retry_delay_seconds}" "${timeout_seconds}"; then
+            ret=0
+        else
+            ret=$?
+        fi
     else
-        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage "${gpu_install_action}"
+        if logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImage" installGPUDriverImage "${gpu_install_action}"; then
+            ret=0
+        else
+            ret=$?
+        fi
     fi
-    ret=$?
     if [ "${ret}" -ne 0 ] && [ "${gpu_install_action}" = "install-skip-build" ]; then
         echo "AKS_GPU_ARTIFACT event=nodeprep status=fast_path_failed action=install"
         rm -f "${GPU_ARTIFACT_MANIFEST_FILE}"
-        logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImageFallback" installGPUDriverImage install
-        ret=$?
+        if logs_to_events "AKS.CSE.configGPUDrivers.installGPUDriverImageFallback" installGPUDriverImage install; then
+            ret=0
+        else
+            ret=$?
+        fi
     fi
 
     return "${ret}"
@@ -100,7 +110,9 @@ selectGPUDriverInstallAction() {
     fi
 
     local source_digest
-    source_digest=$(getGPUDriverImageDigest "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}")
+    if ! source_digest=$(getGPUDriverImageDigest "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}"); then
+        source_digest=""
+    fi
     if [ -n "${source_digest}" ] && gpuDriverArtifactContextMatches "${source_digest}"; then
         GPU_INSTALL_ACTION="install-skip-build"
         echo "AKS_GPU_ARTIFACT event=nodeprep status=ready action=install-skip-build"
@@ -141,8 +153,11 @@ configGPUDrivers() {
             logs_to_events "AKS.CSE.configGPUDrivers.pullGPUDriverImage" pullGPUDriverImage || exit $ERR_GPU_DRIVERS_START_FAIL
         fi
         logs_to_events "AKS.CSE.configGPUDrivers.selectGPUDriverInstallAction" selectGPUDriverInstallAction
-        installGPUDriverImageWithFallback "${GPU_INSTALL_ACTION}"
-        ret=$?
+        if installGPUDriverImageWithFallback "${GPU_INSTALL_ACTION}"; then
+            ret=0
+        else
+            ret=$?
+        fi
         if [ "$ret" -ne 0 ]; then
             echo "Failed to install GPU driver, exiting..."
             exit $ERR_GPU_DRIVERS_START_FAIL
