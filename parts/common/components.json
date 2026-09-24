@@ -1563,14 +1563,14 @@
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.35.8-4-azlinux3",
-                "previousLatestVersion": "v1.35.7-9-azlinux3"
+                "latestVersion": "v1.35.8-6-azlinux3",
+                "previousLatestVersion": "v1.35.8-4-azlinux3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.36.4-4-azlinux3",
-                "previousLatestVersion": "v1.36.3-5-azlinux3"
+                "latestVersion": "v1.36.4-6-azlinux3",
+                "previousLatestVersion": "v1.36.4-4-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:${version}-${SYSTEMD_ARCH}"
