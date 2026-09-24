@@ -308,6 +308,109 @@ removeNvidiaRepos() {
     fi
 }
 
+# A parked registration is still tied to its driver sources. Moving it does not build modules
+# for another kernel. Paths are owned by AgentBaker, never read from the prebake marker.
+validatePrebakedNvidiaDKMS() {
+    local tree="$1"
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local version kind
+    if [ ! -f "${marker}" ] || [ -L "${marker}" ]; then
+        echo "AKS_GPU_PREBAKE event=dkms_error reason=missing_or_invalid_marker"
+        return 1
+    fi
+    version="$(sed -n 's/^driver_version=//p' "${marker}")"
+    kind="$(sed -n 's/^driver_kind=//p' "${marker}")"
+    # shellcheck disable=SC3010
+    if [[ ! "${version}" =~ ^[0-9]+(\.[0-9]+)+$ ]] || [ "${kind}" != cuda ]; then
+        echo "AKS_GPU_PREBAKE event=dkms_error reason=invalid_driver_metadata"
+        return 1
+    fi
+    if [ ! -d "${tree}" ] || [ -L "${tree}" ] || [ ! -s "${tree}/${version}/source/dkms.conf" ]; then
+        echo "AKS_GPU_PREBAKE event=dkms_error reason=missing_or_invalid_registration"
+        return 1
+    fi
+}
+
+restorePrebakedNvidiaDKMS() {
+    local active="${GPU_DKMS_ACTIVE_DIR:-/var/lib/dkms/nvidia}"
+    local parked="${GPU_DKMS_PARKED_DIR:-/opt/azure/aks-gpu/dkms/nvidia}"
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local layout=""
+    if [ -f "${marker}" ]; then
+        layout="$(sed -n '/^dkms_registration=/p' "${marker}")"
+    fi
+    # Old VHDs have no layout field and keep their existing install/validation behavior.
+    if [ -z "${layout}" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
+        return 0
+    fi
+    if [ "${layout}" != "dkms_registration=parked-v1" ]; then
+        echo "AKS_GPU_PREBAKE event=dkms_error reason=unsupported_registration_layout"
+        return 1
+    fi
+    if [ -e "${parked}" ] || [ -L "${parked}" ]; then
+        if [ -e "${active}" ] || [ -L "${active}" ]; then
+            echo "AKS_GPU_PREBAKE event=dkms_error reason=active_and_parked_registration"
+            return 1
+        fi
+        validatePrebakedNvidiaDKMS "${parked}" || return 1
+        # GNU mv -T prevents directory nesting; -n protects a destination created concurrently.
+        # Check the postcondition too: mv -n can report success without moving anything.
+        if ! mkdir -p "$(dirname "${active}")" || ! mv -T -n -- "${parked}" "${active}" ||
+            [ -e "${parked}" ] || [ -L "${parked}" ]; then
+            echo "AKS_GPU_PREBAKE event=dkms_error reason=restore_failed"
+            return 1
+        fi
+        validatePrebakedNvidiaDKMS "${active}" || return 1
+        echo "AKS_GPU_PREBAKE event=dkms_restored"
+    else
+        # Retain the layout field after activation so a retry with neither tree fails closed.
+        validatePrebakedNvidiaDKMS "${active}" || return 1
+        echo "AKS_GPU_PREBAKE event=dkms_already_active"
+    fi
+}
+
+parkPrebakedNvidiaDKMS() {
+    local active="${GPU_DKMS_ACTIVE_DIR:-/var/lib/dkms/nvidia}"
+    local parked="${GPU_DKMS_PARKED_DIR:-/opt/azure/aks-gpu/dkms/nvidia}"
+    local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    local layout=""
+    local updated_marker="${marker}.parked.$$"
+    if [ -f "${marker}" ]; then
+        layout="$(sed -n '/^dkms_registration=/p' "${marker}")"
+    fi
+    if [ -n "${layout}" ] && [ "${layout}" != "dkms_registration=parked-v1" ]; then
+        echo "AKS_GPU_PREBAKE event=dkms_error reason=unsupported_registration_layout"
+        return 1
+    fi
+    if [ -e "${parked}" ] || [ -L "${parked}" ]; then
+        if [ -e "${active}" ] || [ -L "${active}" ] || [ "${layout}" != "dkms_registration=parked-v1" ]; then
+            echo "AKS_GPU_PREBAKE event=dkms_error reason=park_destination_exists"
+            return 1
+        fi
+        validatePrebakedNvidiaDKMS "${parked}" || return 1
+        echo "AKS_GPU_PREBAKE event=dkms_already_parked"
+        return 0
+    fi
+    validatePrebakedNvidiaDKMS "${active}" || return 1
+    # This is a format capability, not a deletion path or a skip-build instruction. Keep all
+    # existing marker fields intact. Writing it first also makes an interrupted move detectable.
+    if [ -z "${layout}" ]; then
+        if ! { cat "${marker}" && printf '\ndkms_registration=parked-v1\n'; } > "${updated_marker}" ||
+            ! mv -f -- "${updated_marker}" "${marker}"; then
+            rm -f "${updated_marker}"
+            echo "AKS_GPU_PREBAKE event=dkms_error reason=marker_update_failed"
+            return 1
+        fi
+    fi
+    if ! mkdir -p "$(dirname "${parked}")" || ! mv -T -n -- "${active}" "${parked}" ||
+        [ -e "${active}" ] || [ -L "${active}" ]; then
+        echo "AKS_GPU_PREBAKE event=dkms_error reason=park_failed"
+        return 1
+    fi
+    validatePrebakedNvidiaDKMS "${parked}" || return 1
+    echo "AKS_GPU_PREBAKE event=dkms_parked"
+}
+
 # cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
 # NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
 # skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
@@ -319,15 +422,25 @@ removeNvidiaRepos() {
 # is resident even though ensureGPUDrivers never ran. (grid prebakes do not auto-load, so grid nodes
 # arrive here with no module.) Deleting the on-disk .ko then leaves a stale loaded module -- unused
 # (refcnt 0, no /dev/nvidia*) but resident until reboot, and a landmine for a subsequent GPU Operator
-# install. So we rmmod it first, when idle, before removing the files. No-op unless the marker exists.
+# install. So we rmmod it first, when idle, before removing the files. No-op without a marker or
+# parked cache; an orphaned cache still needs removal.
 cleanUpPrebakedGPUDriver() {
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
-    if [ ! -f "${marker}" ]; then
+    local active="${GPU_DKMS_ACTIVE_DIR:-/var/lib/dkms/nvidia}"
+    local parked="${GPU_DKMS_PARKED_DIR:-/opt/azure/aks-gpu/dkms/nvidia}"
+    if [ ! -f "${marker}" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
+        return 0
+    fi
+    if { [ -e "${parked}" ] || [ -L "${parked}" ]; } &&
+        { [ -e "${active}" ] || [ -L "${active}" ]; }; then
+        # The active tree may belong to a separate installation. Preserve both rather than
+        # removing its driver artifacts; GRID provisioning also checks that cleanup completed.
+        echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=incomplete reason=active_and_parked_registration dkms_after=true parked_after=true"
         return 0
     fi
     echo "Removing pre-baked NVIDIA driver inherited from shared VHD (node does not install the managed driver)"
     local dkms_before=false module_before=false module_after=false
-    [ -d /var/lib/dkms/nvidia ] && dkms_before=true
+    [ -e "${active}" ] && dkms_before=true
 
     # Unload the prebaked nvidia module if it auto-loaded at boot (cuda/cuda-lts SKUs). Only when idle
     # (refcnt 0 and no device nodes) -- this node doesn't install a driver, so nothing should be using
@@ -346,7 +459,8 @@ cleanUpPrebakedGPUDriver() {
 
     # Deregister the nvidia DKMS module by removing its source tree (avoids the slow `dkms remove
     # --all`, ~35s). Any loaded module was unloaded above, so no depmod/initramfs refresh is needed.
-    rm -rf /var/lib/dkms/nvidia || true
+    rm -rf "${active}" || true
+    rm -rf "${parked}" || true
     rm -f /lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
     # The prebake stages libs under the aks-gpu *container's* GPU_DEST=/usr/bin (aks-gpu config.sh),
     # NOT this script's GPU_DEST=/usr/local/nvidia -- so clear /usr/bin.
@@ -366,17 +480,19 @@ cleanUpPrebakedGPUDriver() {
     # module lingered (a security-coverage alert). On an incomplete teardown we KEEP the marker so the
     # next provision re-runs this cleanup (the marker is the "still needs cleanup" flag); on a clean
     # teardown we drop it. status=cleaned counts toward fleet-wide coverage. Greppable AKS_GPU_PREBAKE.
-    local dkms_after=false modprobe_after=false marker_after=true status=cleaned
-    [ -d /var/lib/dkms/nvidia ] && dkms_after=true
+    local dkms_after=false parked_after=false modprobe_after=false marker_after=false status=cleaned
+    [ -f "${marker}" ] && marker_after=true
+    if [ -e "${active}" ] || [ -L "${active}" ]; then dkms_after=true; fi
+    if [ -e "${parked}" ] || [ -L "${parked}" ]; then parked_after=true; fi
     [ -e /usr/bin/nvidia-modprobe ] && modprobe_after=true
-    if [ "${dkms_after}" = false ] && [ "${modprobe_after}" = false ] && [ "${module_after}" = false ]; then
+    if [ "${dkms_after}" = false ] && [ "${parked_after}" = false ] && [ "${modprobe_after}" = false ] && [ "${module_after}" = false ]; then
         rm -f "${marker}" || true
         [ -f "${marker}" ] || marker_after=false
     fi
-    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${modprobe_after}" = true ] || [ "${module_after}" = true ]; then
+    if [ "${marker_after}" = true ] || [ "${dkms_after}" = true ] || [ "${parked_after}" = true ] || [ "${modprobe_after}" = true ] || [ "${module_after}" = true ]; then
         status=incomplete
     fi
-    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} modprobe_after=${modprobe_after}"
+    echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} parked_after=${parked_after} modprobe_after=${modprobe_after}"
 }
 
 cleanUpGPUDrivers() {
@@ -389,7 +505,7 @@ cleanUpGPUDrivers() {
     # A CUDA driver pre-baked into a shared Ubuntu VHD is dead weight on a node that doesn't install
     # the managed driver (non-GPU, or GPU opted out via --gpu-driver None / skip), and while
     # DKMS-registered it forces an nvidia.ko rebuild on every kernel patch. Tear it down here.
-    # No-op on VHDs without the aks-gpu prebake marker.
+    # No-op on VHDs without an aks-gpu prebake marker or parked registration.
     cleanUpPrebakedGPUDriver
 }
 

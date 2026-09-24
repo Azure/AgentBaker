@@ -165,30 +165,43 @@ logGPUDriverPrebakeReadiness() {
 # with "Failed to initialize NVML: Driver/library version mismatch". This is a pure driver-KIND
 # mismatch (grid vs cuda), so no version comparison is needed. A legacy marker with no driver_kind=
 # line is treated as a cuda prebake (the only kind the VHD bakes today). No-op unless the node is
-# GRID and a prebake marker exists. Reuses cleanUpPrebakedGPUDriver (from cse_install_ubuntu.sh) for
+# GRID and a prebake marker or parked cache exists. Reuses cleanUpPrebakedGPUDriver (from cse_install_ubuntu.sh) for
 # the actual removal. NAP/agentpool cuda nodes are intentionally untouched here.
 cleanUpGridNodeCudaPrebake() {
     [ "$OS" = "$UBUNTU_OS_NAME" ] || return 0
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
-    [ -f "${marker}" ] || return 0
+    local parked="${GPU_DKMS_PARKED_DIR:-/opt/azure/aks-gpu/dkms/nvidia}"
+    if [ ! -f "${marker}" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
+        return 0
+    fi
 
-    local node_kind m_kind
+    local node_kind m_kind=""
     case "${NVIDIA_GPU_DRIVER_TYPE:-}" in
         grid*) node_kind=grid ;;
         *) return 0 ;;
     esac
-    m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+    if [ -f "${marker}" ]; then
+        m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+    fi
 
     # Keep only when the prebake is explicitly grid (matches this grid node). An empty marker kind is
     # a legacy cuda prebake; a "cuda" marker is a cuda prebake -- both mismatch a grid node, tear down.
-    if [ "${m_kind}" = "grid" ]; then
+    if [ "${m_kind}" = "grid" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ]; then
         return 0
     fi
     echo "AKS_GPU_PREBAKE event=grid_cuda_prebake_teardown driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_kind=${m_kind:-none} node_kind=${node_kind} action=teardown"
-    cleanUpPrebakedGPUDriver
+    cleanUpPrebakedGPUDriver || return 1
+    if [ -e "${parked}" ] || [ -L "${parked}" ]; then
+        echo "AKS_GPU_PREBAKE event=dkms_error reason=grid_parked_cleanup_failed"
+        return 1
+    fi
 }
 
 ensureGPUDrivers() {
+    # nodePrep resolves opt-out from the live node, including on PIS images that skip basePrep.
+    if [ "${GPU_NODE:-}" != true ] || [ "${skip_nvidia_driver_install:-}" = true ]; then
+        return 0
+    fi
     if [ "$(isARM64)" -eq 1 ]; then
         return
     fi
@@ -198,6 +211,13 @@ ensureGPUDrivers() {
     # below so it covers both the configGPUDrivers and validateGPUDrivers paths.
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
+        case "${NVIDIA_GPU_DRIVER_TYPE:-}" in
+            cuda*)
+                # Restore before BOTH dispatches. Loading an installed .ko alone does not prove
+                # that DKMS is registered. Corrupt/colliding state must not take validation's shortcut.
+                logs_to_events "AKS.CSE.ensureGPUDrivers.restorePrebakedNvidiaDKMS" restorePrebakedNvidiaDKMS || exit "$ERR_GPU_DRIVERS_START_FAIL"
+                ;;
+        esac
     fi
 
     if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
