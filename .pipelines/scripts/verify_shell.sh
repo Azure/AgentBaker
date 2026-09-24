@@ -29,19 +29,12 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -
 
 # Known bash-only scripts that intentionally use bash specific syntax.
 BASH_ONLY_LIST=$(cat <<'EOF'
+./e2e/scenario/validate_anc_hotfix.sh
 ./vhdbuilder/packer/install-ig.sh
+./vhdbuilder/packer/ubuntu-2604-cvm/trim-2604-cvm-packages.sh
+./parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh
 EOF
 )
-
-# also shell-check generated test data
-generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
-for file in $generatedTestData; do
-    firstLine=$(awk 'NR==1 {print; exit}' ${file})
-    # shellcheck disable=SC3010
-    if [[ "${firstLine}" =~ "#!/bin/bash" || "${firstLine}" =~ "#!/usr/bin/env bash" ]]; then
-        filesToCheck+=(${file})
-    fi
-done
 
 # couple of blank lines between the skipped files and the shellchecked files.
 echo

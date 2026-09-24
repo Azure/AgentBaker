@@ -1,0 +1,83 @@
+name: Check for internal hostname leaks
+on: pull_request
+
+jobs:
+  no-internal-hostnames:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Ensure this PR doesn't introduce internal-only hostnames
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          git fetch --quiet origin "$BASE_SHA" "$HEAD_SHA"
+
+          # Use the merge-base (three-dot semantics), not the raw base tip: if main advances
+          # after this branch forked, a plain two-dot diff would attribute main's own changes
+          # to this PR and could flag pre-existing content that this PR never touched.
+          MERGE_BASE="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+
+          # Internal-only hostnames/keywords that must never appear in this public repo.
+          # This list mirrors the categories called out by internal security takedown audits
+          # (internal source-control hosts, corp hostnames, internal messaging endpoints).
+          # Dots are written as [.] (not \.) so this declaration is not itself a literal
+          # match of the hostnames below -- this file is intentionally NOT exempted from
+          # the scan, so a future edit smuggling a real hostname in here still gets caught.
+          PATTERN='eng[.]ms|dev[.]azure[.]com|[a-z0-9-]*[.]visualstudio[.]com|corp[.]microsoft[.]com|substrate[.]office[.]com|redmond[.]corp'
+
+          # Only flag lines ADDED by this PR, so pre-existing (already tracked) occurrences
+          # elsewhere in the repo don't block unrelated PRs. Reports each match with its
+          # exact file:line so failures are actionable instead of just naming the pattern.
+          # Matching is case-insensitive since DNS hostnames are case-insensitive.
+          # --text forces every file to be diffed as text: without it, git silently emits
+          # "Binary files ... differ" (no hunks at all) for anything it detects as binary,
+          # or anything marked `binary` via .gitattributes, creating an unscanned path.
+          report=$(git diff --unified=0 --text "$MERGE_BASE" "$HEAD_SHA" | awk -v pattern="$PATTERN" '
+            /^diff --git / {
+              in_hunk = 0
+              next
+            }
+            /^\+\+\+ / && !in_hunk {
+              file = $2
+              sub(/^b\//, "", file)
+              next
+            }
+            /^@@/ {
+              line = $0
+              sub(/^@@ -[0-9]+(,[0-9]+)? \+/, "", line)
+              sub(/[, ].*/, "", line)
+              lineno = line + 0
+              in_hunk = 1
+              next
+            }
+            in_hunk && /^\+/ {
+              content = substr($0, 2)
+              if (tolower(content) ~ pattern) {
+                printf "%s\t%d\t%s\n", file, lineno, content
+              }
+              lineno++
+              next
+            }
+            in_hunk && /^-/ { next }
+          ')
+
+          if [ -n "$report" ]; then
+            echo "::error::This PR appears to introduce internal-only hostnames/links (internal source control, corp hostnames, or internal messaging endpoints). Public repo content must not reference these. See annotations below for exact locations."
+            echo ""
+            while IFS=$'\t' read -r file lineno content; do
+              echo "::error file=${file},line=${lineno}::Internal hostname reference: ${content}"
+            done <<< "$report"
+            echo ""
+            echo "Please remove or genericize these references before merging."
+            exit 1
+          fi
+
+          echo "No new internal hostname references found in this PR's diff."

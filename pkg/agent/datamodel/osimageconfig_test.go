@@ -16,6 +16,7 @@ func TestOSImageConfigForCloudSettings(t *testing.T) {
 		AzureGermanCloud,
 		AzureGermanyCloud,
 		AzurePublicCloud,
+		AzureSingaporeCloud,
 		AzureUSGovernmentCloud,
 		USNatCloud,
 		USSecCloud,

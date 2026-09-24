@@ -78,24 +78,34 @@ VM_SIZE="Standard_D8ds_v5"
 VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_SIZE="Standard_D8pds_v5"
+    # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+    # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
+    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+        VM_SIZE="Standard_D8pds_v6"
+    else
+        VM_SIZE="Standard_D8pds_v5"
+    fi
     VM_OPTIONS="--size $VM_SIZE"
 fi
 
-if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+# TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
+if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    VM_SIZE="Standard_DC8ads_v5"
+    VM_SIZE="${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5}"
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
-    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+    if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
+        VM_OPTIONS+=" --specialized true"
+    fi
 fi
 
-# GB200 specific VM options for scanning (uses standard ARM64 VM for now)
-if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-    echo "GB200: Using standard ARM64 VM options for scanning"
-    # Additional GB200-specific VM options can be added here when GB200 SKUs are available
+# NVIDIA GB specific VM options for scanning (uses standard ARM64 VM for now)
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+    echo "NVIDIA GB: Using standard ARM64 VM options for scanning"
+    # Additional NVIDIA GB-specific VM options can be added here when GB SKUs are available
 fi
 
 SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning${CURRENT_TIME}${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')
@@ -113,7 +123,15 @@ if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s
 
     # Register FIPS feature and create VM using REST API. Exit if any step fails.
     ensure_fips_feature_registered || exit $?
-    create_fips_vm "$VM_SIZE" || exit $?
+    create_fips_vm \
+        "$VM_SIZE" \
+        "$SCAN_VM_NAME" \
+        "$SCAN_VM_ADMIN_USERNAME" \
+        SCAN_VM_ADMIN_PASSWORD \
+        "$VHD_IMAGE" \
+        "$SCANNING_NIC_ID" \
+        "$UMSI_RESOURCE_ID" \
+        "$RESOURCE_GROUP_NAME" || exit $?
 else
     echo "Creating VM using standard az vm create command..."
 
@@ -176,7 +194,6 @@ az vm run-command invoke \
         "ARCHITECTURE=${ARCHITECTURE}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
         "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
-        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH} \
         "VHD_ARTIFACT_NAME"=${VHD_ARTIFACT_NAME} \
         "SKU_NAME"=${SKU_NAME} \
         "KUSTO_ENDPOINT"=${KUSTO_ENDPOINT} \
@@ -244,10 +261,17 @@ isCISUnsupportedUbuntu() {
     local os="$1"
     local version="$2"
 
-    # Only 22.04+ are supported
-    if [ "$os" = "Ubuntu" ] && { [ "$version" = "20.04" ]; }; then
+    # Only 22.04+ are supported.
+    if [ "$os" = "Ubuntu" ] && [ "$version" = "20.04" ]; then
         return 0
     fi
+
+    # No CIS benchmarks yet available for Ubuntu 26.04 (resolute)
+    # TODO(2604): enable 26.04 CIS scanning when support is added by upstream CIS.
+    if [ "$os" = "Ubuntu" ] && [ "$version" = "26.04" ]; then
+        return 0
+    fi
+
     return 1
 }
 isFlatcar() {
@@ -500,6 +524,18 @@ ret=$(az vm run-command invoke \
 echo "$ret"
 msg=$(echo -E "$ret" | jq -r '.value[].message')
 echo "$msg"
+
+if printf '%s\n' "$msg" | grep -q "The selected assessment content is limited by the terms of the associated CIS license key" && \
+    printf '%s\n' "$msg" | grep -q "Assessment 1 Exit Value: 122"; then
+    printf '##vso[task.logissue type=warning]Skipping CIS report comparison because CIS-CAT license does not allow the selected assessment content.\n'
+    printf 'CIS assessment skipped: CIS-CAT license does not allow the selected assessment content.\n' > cis-report.txt
+    printf '<html><body>CIS assessment skipped: CIS-CAT license does not allow the selected assessment content.</body></html>\n' > cis-report.html
+    az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login
+    capture_benchmark "${SCRIPT_NAME}_cis_report_license_limited"
+    capture_benchmark "${SCRIPT_NAME}_overall" true
+    process_benchmarks
+    exit 0
+fi
 
 # Download CIS report files to working directory
 az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --file "${CIS_REPORT_L1_LOCAL}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login

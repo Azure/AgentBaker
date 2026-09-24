@@ -1,0 +1,1313 @@
+#shellcheck shell=bash
+#shellcheck disable=SC2148
+
+Describe 'aks-localdns-hosts-setup.sh'
+    SCRIPT_PATH="parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh"
+
+    # Helper to build a test script that uses the real system dig.
+    # Overrides only HOSTS_FILE and LOCALDNS_CRITICAL_FQDNS, preserving everything else
+    # (resolution loop, atomic write) from the real script.
+    # Uses sed to strip the shebang, set -euo pipefail, and HOSTS_FILE= lines
+    # so the test is not brittle to comment changes at the top of the script.
+    build_test_script() {
+        local test_dir="$1"
+        local hosts_file="$2"
+        local fqdns="${3:-mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com}"
+        local test_script="${test_dir}/aks-localdns-hosts-setup-test.sh"
+
+        cat > "${test_script}" << EOF
+#!/usr/bin/env bash
+set -uo pipefail
+HOSTS_FILE="${hosts_file}"
+UPSTREAM_DNS_FILE="${test_dir}/upstream-dns"
+LOCALDNS_COREFILE="${test_dir}/updated.localdns.corefile"
+export LOCALDNS_CRITICAL_FQDNS="${fqdns}"
+EOF
+        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' -e '/^LOCALDNS_COREFILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+        chmod +x "${test_script}"
+        echo "${test_script}"
+    }
+
+    # Helper to build a test script with a mock dig prepended to PATH.
+    # Used only for edge-case tests that need controlled DNS output
+    # (failure handling, invalid response filtering).
+    build_mock_test_script() {
+        local test_dir="$1"
+        local hosts_file="$2"
+        local mock_bin_dir="$3"
+        local fqdns="${4:-mcr.microsoft.com,packages.microsoft.com,management.azure.com,login.microsoftonline.com,acs-mirror.azureedge.net,packages.aks.azure.com}"
+        local test_script="${test_dir}/aks-localdns-hosts-setup-test.sh"
+
+        # Mock date to return a fixed timestamp that won't collide with test
+        # assertion substrings (e.g., "1:2" appears in times like "21:28").
+        cat > "${mock_bin_dir}/date" << 'MOCK_EOF'
+#!/usr/bin/env bash
+echo "Thu Jan  1 00:00:00 UTC 2099"
+MOCK_EOF
+        chmod +x "${mock_bin_dir}/date"
+
+        cat > "${test_script}" << EOF
+#!/usr/bin/env bash
+set -uo pipefail
+export PATH="${mock_bin_dir}:\$PATH"
+HOSTS_FILE="${hosts_file}"
+UPSTREAM_DNS_FILE="${test_dir}/upstream-dns"
+LOCALDNS_COREFILE="${test_dir}/updated.localdns.corefile"
+export LOCALDNS_CRITICAL_FQDNS="${fqdns}"
+EOF
+        sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' -e '/^LOCALDNS_COREFILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+        chmod +x "${test_script}"
+        echo "${test_script}"
+    }
+
+    # Creates a mock dig executable that simulates DNS failure (empty output).
+    # Also mocks timeout and sleep for macOS compatibility and fast retries.
+    create_failure_mock() {
+        local mock_bin_dir="$1"
+        mkdir -p "${mock_bin_dir}"
+        cat > "${mock_bin_dir}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+# Simulate DNS failure: dig +short returns empty output
+exit 0
+MOCK_EOF
+        chmod +x "${mock_bin_dir}/dig"
+        cat > "${mock_bin_dir}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+        chmod +x "${mock_bin_dir}/timeout"
+        cat > "${mock_bin_dir}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+        chmod +x "${mock_bin_dir}/sleep"
+    }
+
+    # -----------------------------------------------------------------------
+    # Tests verifying production constants match expected paths
+    # -----------------------------------------------------------------------
+
+    Describe 'Production path constants'
+        It 'has the correct corefile path matching localdns.sh'
+            # Verify that the hardcoded LOCALDNS_COREFILE path in the hosts-setup script
+            # matches the UPDATED_LOCALDNS_CORE_FILE path used by localdns.sh.
+            # This catches path mismatches that unit tests mask by overriding to temp dirs.
+            When run command grep '^LOCALDNS_COREFILE=' "${SCRIPT_PATH}"
+            The output should include '/opt/azure/containers/localdns/updated.localdns.corefile'
+        End
+
+        It 'has the correct upstream DNS file path'
+            When run command grep '^UPSTREAM_DNS_FILE=' "${SCRIPT_PATH}"
+            The output should include '/etc/localdns/upstream-dns'
+        End
+    End
+
+    # -----------------------------------------------------------------------
+    # Tests using real dig (no mocks)
+    # -----------------------------------------------------------------------
+
+    Describe 'DNS resolution and hosts file creation (public cloud FQDNs)'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}")
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'creates hosts file with resolved addresses for all critical FQDNs'
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The file "$HOSTS_FILE" should be exist
+            The output should include "Starting AKS critical FQDN hosts resolution"
+            The output should include "AKS critical FQDN hosts resolution completed"
+        End
+
+        It 'reports the number of FQDNs received from RP'
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Received 6 critical FQDNs from RP"
+        End
+
+        It 'resolves all public cloud FQDNs'
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # Verify the script attempts to resolve all expected public cloud FQDNs
+            The output should include "Dispatching resolution for mcr.microsoft.com"
+            The output should include "Dispatching resolution for packages.microsoft.com"
+            The output should include "Dispatching resolution for management.azure.com"
+            The output should include "Dispatching resolution for login.microsoftonline.com"
+            The output should include "Dispatching resolution for acs-mirror.azureedge.net"
+            The output should include "Dispatching resolution for packages.aks.azure.com"
+            # Verify hosts file contains real resolved entries
+            The contents of file "$HOSTS_FILE" should include "mcr.microsoft.com"
+            The contents of file "$HOSTS_FILE" should include "packages.microsoft.com"
+        End
+
+        It 'writes valid hosts file format'
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The file "$HOSTS_FILE" should be exist
+            The output should include "Writing addresses"
+        End
+
+        It 'includes header comments in hosts file'
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "AKS critical FQDN hosts resolution"
+            The contents of file "$HOSTS_FILE" should include "# AKS critical FQDN addresses resolved at"
+            The contents of file "$HOSTS_FILE" should include "# This file is automatically generated by aks-localdns-hosts-setup.service"
+        End
+    End
+
+    Describe 'FQDN list parsing'
+        # These tests verify the script resolves whatever FQDNs the RP passes.
+        # No cloud-specific logic in the script — the RP controls the FQDN list.
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'resolves China cloud FQDNs when passed by RP'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "mcr.azure.cn,mcr.azk8s.cn,login.partner.microsoftonline.cn,management.chinacloudapi.cn,packages.microsoft.com")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Received 5 critical FQDNs from RP"
+            # Should resolve China-specific endpoints
+            The output should include "Dispatching resolution for mcr.azure.cn"
+            The output should include "Dispatching resolution for mcr.azk8s.cn"
+            The output should include "Dispatching resolution for login.partner.microsoftonline.cn"
+            The output should include "Dispatching resolution for management.chinacloudapi.cn"
+            The output should include "Dispatching resolution for packages.microsoft.com"
+            # Should NOT attempt public cloud endpoints (they weren't passed)
+            The output should not include "Dispatching resolution for login.microsoftonline.com"
+            The output should not include "Dispatching resolution for management.azure.com"
+        End
+
+        It 'resolves US Gov cloud FQDNs when passed by RP'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "mcr.microsoft.com,login.microsoftonline.us,management.usgovcloudapi.net,packages.aks.azure.com,acs-mirror.azureedge.net,packages.microsoft.com")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Received 6 critical FQDNs from RP"
+            The output should include "Dispatching resolution for mcr.microsoft.com"
+            The output should include "Dispatching resolution for login.microsoftonline.us"
+            The output should include "Dispatching resolution for management.usgovcloudapi.net"
+            The output should include "Dispatching resolution for packages.aks.azure.com"
+            The output should not include "Dispatching resolution for login.microsoftonline.com"
+            The output should not include "Dispatching resolution for management.azure.com"
+        End
+
+        It 'resolves arbitrary sovereign cloud FQDNs when passed by RP'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "mcr.microsoft.com,login.microsoftonline.com")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Received 2 critical FQDNs from RP"
+            The output should include "Dispatching resolution for mcr.microsoft.com"
+            The output should include "Dispatching resolution for login.microsoftonline.com"
+        End
+
+        It 'exits gracefully when LOCALDNS_CRITICAL_FQDNS is unset'
+            local test_script="${TEST_DIR}/aks-localdns-hosts-setup-test-nofqdns.sh"
+            cat > "${test_script}" << EOF
+#!/usr/bin/env bash
+set -uo pipefail
+HOSTS_FILE="${HOSTS_FILE}"
+UPSTREAM_DNS_FILE="${TEST_DIR}/upstream-dns"
+LOCALDNS_COREFILE="${TEST_DIR}/updated.localdns.corefile"
+unset LOCALDNS_CRITICAL_FQDNS
+EOF
+            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' -e '/^LOCALDNS_COREFILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+            chmod +x "${test_script}"
+
+            When run command bash "${test_script}"
+            The status should be success
+            The output should include "LOCALDNS_CRITICAL_FQDNS is not set or empty"
+            The output should include "Exiting without modifying hosts file"
+        End
+
+        It 'exits gracefully when LOCALDNS_CRITICAL_FQDNS is empty string'
+            local test_script="${TEST_DIR}/aks-localdns-hosts-setup-test-empty.sh"
+            cat > "${test_script}" << EOF
+#!/usr/bin/env bash
+set -uo pipefail
+HOSTS_FILE="${HOSTS_FILE}"
+UPSTREAM_DNS_FILE="${TEST_DIR}/upstream-dns"
+LOCALDNS_COREFILE="${TEST_DIR}/updated.localdns.corefile"
+export LOCALDNS_CRITICAL_FQDNS=""
+EOF
+            sed -e '/^#!\/bin\/bash/d' -e '/^set -euo pipefail/d' -e '/^HOSTS_FILE=/d' -e '/^UPSTREAM_DNS_FILE=/d' -e '/^LOCALDNS_COREFILE=/d' "${SCRIPT_PATH}" >> "${test_script}"
+            chmod +x "${test_script}"
+
+            When run command bash "${test_script}"
+            The status should be success
+            The output should include "LOCALDNS_CRITICAL_FQDNS is not set or empty"
+            The output should include "Exiting without modifying hosts file"
+        End
+
+        It 'handles single FQDN correctly'
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}" "mcr.microsoft.com")
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Received 1 critical FQDNs from RP"
+            The output should include "Dispatching resolution for mcr.microsoft.com"
+        End
+    End
+
+    Describe 'Atomic file write'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            TEST_SCRIPT=$(build_test_script "${TEST_DIR}" "${HOSTS_FILE}")
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'does not leave a temp file behind after successful write'
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "AKS critical FQDN hosts resolution"
+            The file "$HOSTS_FILE" should be exist
+        End
+
+        It 'verifies no leftover temp files exist'
+            bash "${TEST_SCRIPT}" >/dev/null 2>&1
+            # The temp file (hosts.testing.tmp.<pid>) should have been renamed away
+            When run command find "${TEST_DIR}" -name 'hosts.testing.tmp.*'
+            The output should equal ""
+        End
+
+        It 'sets correct permissions on the hosts file'
+            bash "${TEST_SCRIPT}" >/dev/null 2>&1
+            When run command stat -c '%a' "${HOSTS_FILE}"
+            The output should equal "644"
+        End
+    End
+
+    # -----------------------------------------------------------------------
+    # Mock-based tests below
+    # These require controlled dig output to verify error handling
+    # and response filtering logic that cannot be triggered with real DNS.
+    # -----------------------------------------------------------------------
+
+    Describe 'DNS resolution failure handling (mock)'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            MOCK_BIN="${TEST_DIR}/mock_bin"
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            create_failure_mock "${MOCK_BIN}"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'exits gracefully when no DNS records are resolved'
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "WARNING: Failed to resolve"
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            The output should include "This is likely a temporary DNS issue"
+        End
+
+        It 'does not create hosts file when no DNS records are resolved'
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            The file "$HOSTS_FILE" should not be exist
+        End
+
+        It 'preserves existing hosts file when no DNS records are resolved'
+            echo "# old hosts content" > "${HOSTS_FILE}"
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            # Original hosts file should still be intact
+            The contents of file "$HOSTS_FILE" should include "# old hosts content"
+        End
+    End
+
+    Describe 'Partial DNS failure preserves existing entries (mock)'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            MOCK_BIN="${TEST_DIR}/mock_bin"
+            mkdir -p "${MOCK_BIN}"
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            # Mock sleep for fast retries
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'preserves existing entries for FQDNs that fail to resolve'
+            # Mock dig: mcr.microsoft.com resolves, packages.aks.azure.com fails
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+# Check if mcr.microsoft.com is in the arguments
+for arg in "$@"; do
+    if [[ "$arg" == "mcr.microsoft.com" ]]; then
+        # Check record type
+        for a2 in "$@"; do
+            if [[ "$a2" == "AAAA" ]]; then
+                exit 0
+            fi
+        done
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+# All other domains return empty (simulate failure)
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            # Mock timeout to just exec the command (macOS doesn't have timeout)
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            chmod +x "${MOCK_BIN}/dig"
+            # Pre-populate hosts file with entries for both domains
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+# mcr.microsoft.com
+10.0.0.1 mcr.microsoft.com
+# packages.aks.azure.com
+10.0.0.2 packages.aks.azure.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com,packages.aks.azure.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # mcr.microsoft.com should have the NEW resolved IP
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 mcr.microsoft.com"
+            # packages.aks.azure.com should have the OLD preserved IP
+            The contents of file "$HOSTS_FILE" should include "10.0.0.2 packages.aks.azure.com"
+            The output should include "preserving existing entries"
+            The output should include "Preserved"
+        End
+
+        It 'preserves multiple existing entries for a failed FQDN'
+            # Mock dig: all domains fail
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            # Mock timeout (macOS compat)
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Pre-populate hosts file with multiple IPs for mcr.microsoft.com
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+# mcr.microsoft.com
+10.0.0.1 mcr.microsoft.com
+10.0.0.2 mcr.microsoft.com
+2001:db8::1 mcr.microsoft.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The contents of file "$HOSTS_FILE" should include "10.0.0.1 mcr.microsoft.com"
+            The contents of file "$HOSTS_FILE" should include "10.0.0.2 mcr.microsoft.com"
+            The contents of file "$HOSTS_FILE" should include "2001:db8::1 mcr.microsoft.com"
+            The output should include "Preserved"
+        End
+
+        It 'marks preserved entries with resolution failed comment'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            # Mock timeout (macOS compat)
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+10.0.0.1 mcr.microsoft.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "preserving existing entries"
+            The contents of file "$HOSTS_FILE" should include "preserved"
+            The contents of file "$HOSTS_FILE" should include "resolution failed"
+        End
+
+        It 'does not preserve when no existing entries exist for failed FQDN'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            # Mock timeout (macOS compat)
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Hosts file exists but has no entry for the FQDN we're resolving
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+10.0.0.1 other.domain.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No existing entries to preserve for mcr.microsoft.com"
+        End
+
+        It 'preserves existing AAAA entries when only A records are returned'
+            # Mock dig: mcr.microsoft.com returns A but not AAAA
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "mcr.microsoft.com" ]]; then
+        for a2 in "$@"; do
+            if [[ "$a2" == "AAAA" ]]; then
+                exit 0  # No AAAA response
+            fi
+        done
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Pre-populate hosts file with both A and AAAA entries
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+# mcr.microsoft.com
+10.0.0.1 mcr.microsoft.com
+2001:db8::1 mcr.microsoft.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # New A record should be present
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 mcr.microsoft.com"
+            # Old AAAA record should be preserved
+            The contents of file "$HOSTS_FILE" should include "2001:db8::1 mcr.microsoft.com"
+            The output should include "Preserved"
+            The output should include "existing IPv6"
+        End
+
+        It 'preserves existing A entries when only AAAA records are returned'
+            # Mock dig: mcr.microsoft.com returns AAAA but not A
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "mcr.microsoft.com" ]]; then
+        for a2 in "$@"; do
+            if [[ "$a2" == "AAAA" ]]; then
+                echo "2001:db8::99"
+                exit 0
+            fi
+        done
+        # No A response
+        exit 0
+    fi
+done
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Pre-populate hosts file with both A and AAAA entries
+            cat > "${HOSTS_FILE}" << 'EXISTING'
+# mcr.microsoft.com
+10.0.0.1 mcr.microsoft.com
+2001:db8::1 mcr.microsoft.com
+EXISTING
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # New AAAA record should be present
+            The contents of file "$HOSTS_FILE" should include "2001:db8::99 mcr.microsoft.com"
+            # Old A record should be preserved
+            The contents of file "$HOSTS_FILE" should include "10.0.0.1 mcr.microsoft.com"
+            The output should include "Preserved"
+            The output should include "existing IPv4"
+        End
+    End
+
+    Describe 'Retry logic for transient DNS failures (mock)'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            MOCK_BIN="${TEST_DIR}/mock_bin"
+            mkdir -p "${MOCK_BIN}"
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'retries only failed domains and succeeds on second attempt'
+            # Mock dig: uses a state file to fail on first call per domain, succeed on second.
+            # mcr.microsoft.com always succeeds. packages.aks.azure.com fails first, succeeds on retry.
+            local state_dir="${TEST_DIR}/dig_state"
+            mkdir -p "${state_dir}"
+            cat > "${MOCK_BIN}/dig" << MOCK_EOF
+#!/usr/bin/env bash
+domain=""
+record_type=""
+for arg in "\$@"; do
+    if [[ "\$arg" == "A" ]]; then
+        record_type="A"
+    elif [[ "\$arg" == "AAAA" ]]; then
+        record_type="AAAA"
+    elif [[ "\$arg" != +* ]] && [[ "\$arg" != @* ]] && [[ "\$arg" != "-t" ]]; then
+        domain="\$arg"
+    fi
+done
+
+if [[ "\$domain" == "mcr.microsoft.com" && "\$record_type" == "A" ]]; then
+    echo "1.2.3.4"
+    exit 0
+fi
+
+if [[ "\$domain" == "packages.aks.azure.com" && "\$record_type" == "A" ]]; then
+    STATE_FILE="${state_dir}/packages.aks.azure.com"
+    if [ ! -f "\$STATE_FILE" ]; then
+        touch "\$STATE_FILE"
+        # First attempt: fail
+        exit 0
+    fi
+    # Retry: succeed
+    echo "5.6.7.8"
+    exit 0
+fi
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            # Override RETRY_DELAY to 0 so test doesn't sleep
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com,packages.aks.azure.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Retry 2/3: re-resolving 1 failed domain(s)"
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 mcr.microsoft.com"
+            The contents of file "$HOSTS_FILE" should include "5.6.7.8 packages.aks.azure.com"
+        End
+
+        It 'does not retry domains that succeeded on first attempt'
+            # Mock dig: all domains succeed immediately
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+record_type=""
+for arg in "$@"; do
+    if [[ "$arg" == "A" ]]; then
+        record_type="A"
+    fi
+done
+if [[ "$record_type" == "A" ]]; then
+    echo "1.2.3.4"
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com,packages.aks.azure.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            # Should NOT retry since all succeeded
+            The output should not include "Retry"
+            The output should not include "WARNING: Failed to resolve"
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 mcr.microsoft.com"
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4 packages.aks.azure.com"
+        End
+
+        It 'reports failure after exhausting all retries'
+            create_failure_mock "${MOCK_BIN}"
+            # Mock sleep to avoid delay
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Retry 2/3"
+            The output should include "Retry 3/3"
+            The output should include "WARNING: Failed to resolve mcr.microsoft.com after 3 attempts"
+            The output should include "WARNING: No IP addresses resolved for any domain"
+        End
+    End
+
+    Describe 'Invalid DNS response filtering (mock)'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            MOCK_BIN="${TEST_DIR}/mock_bin"
+            mkdir -p "${MOCK_BIN}"
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            # Mock timeout and sleep for macOS compatibility and fast retries
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'filters out NXDOMAIN responses from hosts file'
+            create_failure_mock "${MOCK_BIN}"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            The file "$HOSTS_FILE" should not be exist
+        End
+
+        It 'filters out SERVFAIL responses from hosts file'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+# Simulate SERVFAIL: dig +short returns empty output
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            The file "$HOSTS_FILE" should not be exist
+        End
+
+        It 'does not write non-IP strings to hosts file'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+record_type=""
+for arg in "$@"; do
+    if [[ "$arg" == "A" ]]; then
+        record_type="A"
+    elif [[ "$arg" == "AAAA" ]]; then
+        record_type="AAAA"
+    fi
+done
+
+# dig +short outputs one result per line, no prefix
+if [[ "$record_type" == "A" ]]; then
+    echo "1.2.3.4"
+    echo "not-an-ip"
+    echo "NXDOMAIN"
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Writing addresses"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+            The contents of file "$HOSTS_FILE" should not include "not-an-ip"
+            The contents of file "$HOSTS_FILE" should not include "NXDOMAIN"
+        End
+
+        It 'does not write invalid IPv6 strings to hosts file'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+record_type=""
+for arg in "$@"; do
+    if [[ "$arg" == "A" ]]; then
+        record_type="A"
+    elif [[ "$arg" == "AAAA" ]]; then
+        record_type="AAAA"
+    fi
+done
+
+# dig +short outputs one result per line, no prefix
+if [[ "$record_type" == "AAAA" ]]; then
+    echo "2001:db8::1"
+    echo "not-an-ipv6"
+    echo "SERVFAIL"
+    echo "fe80::1"
+    echo "1:2"
+    echo ":ff"
+    echo ":::::::"
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Writing addresses"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "2001:db8::1"
+            The contents of file "$HOSTS_FILE" should include "fe80::1"
+            The contents of file "$HOSTS_FILE" should not include "not-an-ipv6"
+            The contents of file "$HOSTS_FILE" should not include "SERVFAIL"
+            # Tightened IPv6 validation rejects too-short strings with fewer than 2 colons
+            The contents of file "$HOSTS_FILE" should not include "1:2"
+            The contents of file "$HOSTS_FILE" should not include ":ff"
+            # Rejects all-colon strings with no hex digits
+            The contents of file "$HOSTS_FILE" should not include ":::::::"
+        End
+
+        It 'rejects IPv4 addresses with out-of-range octets'
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+record_type=""
+for arg in "$@"; do
+    if [[ "$arg" == "A" ]]; then
+        record_type="A"
+    elif [[ "$arg" == "AAAA" ]]; then
+        record_type="AAAA"
+    fi
+done
+
+# dig +short outputs one result per line, no prefix
+if [[ "$record_type" == "A" ]]; then
+    echo "10.0.0.1"
+    echo "999.999.999.999"
+    echo "256.1.1.1"
+    echo "1.2.3.400"
+    echo "255.255.255.255"
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}")
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Writing addresses"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "10.0.0.1"
+            The contents of file "$HOSTS_FILE" should include "255.255.255.255"
+            The contents of file "$HOSTS_FILE" should not include "999.999.999.999"
+            The contents of file "$HOSTS_FILE" should not include "256.1.1.1"
+            The contents of file "$HOSTS_FILE" should not include "1.2.3.400"
+        End
+    End
+
+    Describe 'Upstream DNS server selection (mock)'
+        setup() {
+            TEST_DIR=$(mktemp -d)
+            MOCK_BIN="${TEST_DIR}/mock_bin"
+            mkdir -p "${MOCK_BIN}"
+            export HOSTS_FILE="${TEST_DIR}/hosts.testing"
+            # Mock timeout and sleep for macOS compatibility and fast retries
+            cat > "${MOCK_BIN}/timeout" << 'MOCK_EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/timeout"
+            cat > "${MOCK_BIN}/sleep" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 0
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/sleep"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'uses system resolver when upstream-dns file does not exist'
+            # Mock dig that returns a valid IP
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+echo "1.2.3.4"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Do NOT create upstream-dns file
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No valid upstream DNS servers configured, using system resolver"
+        End
+
+        It 'uses upstream DNS server from file when available'
+            # Mock dig that checks for @server and logs it to stdout
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == @10.0.0.4 ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+# If no @server matched, return nothing (simulates not being called correctly)
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with a single server
+            echo "10.0.0.4" > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers: 10.0.0.4"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'tries multiple upstream DNS servers and uses first that succeeds'
+            # Mock dig that fails for first server, succeeds for second
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+server=""
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        server="${arg}"
+    fi
+done
+echo "USED_SERVER=${server}" >&2
+if [[ "$server" == "@10.0.0.4" ]]; then
+    # First server fails (timeout simulation)
+    exit 1
+elif [[ "$server" == "@10.0.0.5" ]]; then
+    # Second server succeeds
+    echo "5.6.7.8"
+    exit 0
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with two servers
+            echo "10.0.0.4 10.0.0.5" > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers: 10.0.0.4 10.0.0.5"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "5.6.7.8"
+        End
+
+        It 'falls back to system resolver when upstream-dns file is empty'
+            # Mock dig that returns a valid IP without requiring @server
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+# Reject if @server is passed — empty file should NOT produce @server args
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        echo "ERROR: unexpected @server argument: ${arg}" >&2
+        exit 1
+    fi
+done
+echo "1.2.3.4"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file but leave it empty
+            : > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No valid upstream DNS servers configured, using system resolver"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'falls back to system resolver when upstream-dns file contains only whitespace'
+            # Whitespace-only file is normalized to empty string, so script falls back
+            # to system resolver instead of silently making zero dig calls.
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+# Reject if @server is passed — whitespace-only file should NOT produce @server args
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        echo "ERROR: unexpected @server argument: ${arg}" >&2
+        exit 1
+    fi
+done
+echo "1.2.3.4"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with only whitespace
+            printf '   \n  \n' > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No valid upstream DNS servers configured, using system resolver"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'handles newline-separated DNS servers in upstream-dns file'
+            # Mock dig that checks for correct @server arguments
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.4" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    elif [[ "$arg" == "@10.0.0.5" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with newline-separated servers (tr '\n' ' ' should normalise)
+            printf '10.0.0.4\n10.0.0.5\n' > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers:"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'resolves no IPs when all upstream DNS servers fail'
+            # Mock dig that always fails regardless of @server
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Create upstream-dns file with two servers, both will fail
+            echo "10.0.0.4 10.0.0.5" > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers: 10.0.0.4 10.0.0.5"
+            The output should include "WARNING: No IP addresses resolved for any domain"
+            The file "$HOSTS_FILE" should not be exist
+        End
+
+        It 'passes @server to AAAA queries when upstream-dns file exists'
+            # Mock dig that returns IPv6 only when @10.0.0.4 is used, validates both A and AAAA paths
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+record_type=""
+server=""
+for arg in "$@"; do
+    if [[ "$arg" == "A" ]]; then
+        record_type="A"
+    elif [[ "$arg" == "AAAA" ]]; then
+        record_type="AAAA"
+    elif [[ "$arg" == @* ]]; then
+        server="${arg}"
+    fi
+done
+# Only respond when @10.0.0.4 is specified — verifies @server is passed for both A and AAAA
+if [[ "$server" != "@10.0.0.4" ]]; then
+    exit 1
+fi
+if [[ "$record_type" == "A" ]]; then
+    echo "1.2.3.4"
+elif [[ "$record_type" == "AAAA" ]]; then
+    echo "2001:db8::1"
+fi
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            echo "10.0.0.4" > "${TEST_DIR}/upstream-dns"
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Using upstream DNS servers: 10.0.0.4"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+            The contents of file "$HOSTS_FILE" should include "2001:db8::1"
+        End
+
+        It 'does not pass @server when upstream-dns file does not exist'
+            # Mock dig that fails if any @server argument is present
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        echo "ERROR: unexpected @server argument when no upstream file: ${arg}" >&2
+        exit 1
+    fi
+done
+echo "1.2.3.4"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Do NOT create upstream-dns file
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No valid upstream DNS servers configured, using system resolver"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'falls back to corefile when upstream-dns file is missing'
+            # Mock dig that only succeeds with @10.0.0.4 (the upstream from corefile)
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.4" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+# No @server or wrong server — fail
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Do NOT create upstream-dns file, but create a corefile with root domain block
+            cat > "${TEST_DIR}/updated.localdns.corefile" << 'COREFILE'
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    whoami
+}
+.:53 {
+    errors
+    bind 169.254.10.10
+    forward . 10.0.0.4 {
+        policy sequential
+        max_concurrent 1000
+    }
+    cache 30 {
+        success 9984
+        denial 9984
+        servfail 0
+    }
+}
+cluster.local:53 {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+        max_concurrent 1000
+    }
+}
+COREFILE
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Upstream DNS file unavailable, parsed upstream from corefile: 10.0.0.4"
+            The output should include "Using upstream DNS servers: 10.0.0.4"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'falls back to corefile with multiple upstream DNS servers'
+            # Mock dig that succeeds with either @10.0.0.4 or @10.0.0.5
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.4" || "$arg" == "@10.0.0.5" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Corefile with two upstream servers in root domain forward
+            cat > "${TEST_DIR}/updated.localdns.corefile" << 'COREFILE'
+.:53 {
+    bind 169.254.10.10
+    forward . 10.0.0.4 10.0.0.5 {
+        policy sequential
+    }
+}
+cluster.local:53 {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+    }
+}
+COREFILE
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Upstream DNS file unavailable, parsed upstream from corefile:"
+            The output should include "Using upstream DNS servers:"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'does not use cluster.local forward IP from corefile'
+            # Mock dig that fails if @10.0.0.10 (CoreDNS service VIP) is used
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.10" ]]; then
+        echo "ERROR: should not use CoreDNS service VIP" >&2
+        exit 1
+    fi
+    if [[ "$arg" == "@168.63.129.16" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Corefile where root domain uses Azure DNS and cluster.local uses CoreDNS VIP
+            cat > "${TEST_DIR}/updated.localdns.corefile" << 'COREFILE'
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        policy sequential
+    }
+}
+cluster.local:53 {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+        policy sequential
+    }
+}
+COREFILE
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Upstream DNS file unavailable, parsed upstream from corefile: 168.63.129.16"
+            The output should include "Using upstream DNS servers: 168.63.129.16"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'falls back to corefile when upstream-dns file contains only whitespace'
+            # Mock dig that succeeds with @10.0.0.4 from corefile fallback
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == "@10.0.0.4" ]]; then
+        echo "1.2.3.4"
+        exit 0
+    fi
+done
+exit 1
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Whitespace-only upstream-dns file triggers corefile fallback
+            printf '   \n  \n' > "${TEST_DIR}/upstream-dns"
+            cat > "${TEST_DIR}/updated.localdns.corefile" << 'COREFILE'
+.:53 {
+    bind 169.254.10.10
+    forward . 10.0.0.4 {
+        policy sequential
+    }
+}
+COREFILE
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "Upstream DNS file unavailable, parsed upstream from corefile: 10.0.0.4"
+            The output should include "Using upstream DNS servers: 10.0.0.4"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+
+        It 'uses system resolver when both upstream-dns file and corefile are missing'
+            # Mock dig that succeeds without @server (system resolver)
+            cat > "${MOCK_BIN}/dig" << 'MOCK_EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == @* ]]; then
+        echo "ERROR: unexpected @server argument" >&2
+        exit 1
+    fi
+done
+echo "1.2.3.4"
+MOCK_EOF
+            chmod +x "${MOCK_BIN}/dig"
+            TEST_SCRIPT=$(build_mock_test_script "${TEST_DIR}" "${HOSTS_FILE}" "${MOCK_BIN}" "mcr.microsoft.com")
+            # Do NOT create upstream-dns file or corefile
+
+            When run command bash "${TEST_SCRIPT}"
+            The status should be success
+            The output should include "No valid upstream DNS servers configured, using system resolver"
+            The file "$HOSTS_FILE" should be exist
+            The contents of file "$HOSTS_FILE" should include "1.2.3.4"
+        End
+    End
+End

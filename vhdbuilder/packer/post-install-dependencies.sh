@@ -1,9 +1,11 @@
 #!/bin/bash
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
+OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 UBUNTU_OS_NAME="UBUNTU"
 FLATCAR_OS_NAME="FLATCAR"
 ACL_OS_NAME="AZURECONTAINERLINUX"
 
+source /home/packer/packer_source.sh
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
@@ -17,7 +19,7 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
-if [ "$OS" = "$FLATCAR_OS_NAME" ] || [ "$OS" = "$ACL_OS_NAME" ]; then
+if [ "$OS" = "$FLATCAR_OS_NAME" ] || isACL "$OS" "$OS_VARIANT" || grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
   MAX_BLOCK_COUNT=60397977 # 60 GB
   DISK_SIZE_GB=60
 else
@@ -27,7 +29,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
-  # We do not purge extra kernels from the Ubuntu 24.04 ARM image, since that image must dual-boot for GB200.
+  # We do not purge extra kernels from the Ubuntu 24.04 ARM images, since those images must dual-boot for NVIDIA GB.
   if [ $CPU_ARCH != "arm64" ] || [ $UBUNTU_RELEASE != "24.04" ]; then
     # shellcheck disable=SC2021
     current_kernel="$(uname -r | cut -d- -f-2)"
@@ -37,15 +39,35 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
     else
       dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
     fi
+  elif grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+    # However, for the 24.04 ARM images, we MUST have both -azure and -azure-nvidia kernels, so that we can run on either vanilla ARM64 hardware or NVIDIA GB.
+    if [ $(dpkg --get-selections | grep -c "linux-image") -lt 2 ]; then
+      echo "ERROR: Ubuntu 24.04 ARM image is missing either the -azure or -azure-nvidia kernel, cannot continue!" && exit 1
+    fi
   fi
 
   # remove apport
   retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
 
+  if ! isMinimalImage; then
+    # Remove PackageKit: an unused desktop D-Bus package manager whose apt hook (/etc/apt/apt.conf.d/20packagekit)
+    # runs `gdbus call --system` after every apt update. During early-boot CSE the system bus isn't ready yet, so
+    # that benign `Error connecting: ... Broken pipe` stderr trips the node-bootstrap apt error-check -> CSE exit 99
+    # -> node never joins. Purging it also drops packagekit-tools + software-properties-common (add-apt-repository,
+    # unused at node runtime; the build's only add-apt-repository usage is earlier in pre-install-dependencies.sh).
+    # No-op on the minimal image, which does not ship these.
+    retrycmd_if_failure 10 2 60 apt-get purge --auto-remove packagekit packagekit-tools software-properties-common -y || exit 1
+  fi
+
   # strip old kernels/packages
   retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
+
+  # Re-apply custom login banners after all apt operations.
+  # apt_get_dist_upgrade uses --force-confnew which overwrites /etc/issue and /etc/issue.net
+  # with the default content from the base-files package whenever it is upgraded.
+  reapplyBanners
   capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernels_and_packages"
 
   # Final step, FIPS, log ua status, detach UA and clean up
@@ -53,6 +75,10 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
     # 'ua status' for logging
     ua status
     detachAndCleanUpUA
+  fi
+
+  if [ "${UBUNTU_RELEASE}" = "26.04" ] && isMinimalImage && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    /bin/bash /home/packer/trim-2604-cvm-packages.sh --verify-only || exit 1
   fi
   capture_benchmark "${SCRIPT_NAME}_log_and_detach_ua"
 fi

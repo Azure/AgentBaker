@@ -76,6 +76,7 @@ $kLogFiles = @(
     "kubeproxy.err.log",
     "azure-vnet-telemetry.log",
     "azure-vnet.log",
+    "azure-vnet-ipam.log",
     "csi-proxy.log",
     "csi-proxy.err.log",
     "containerd.log",
@@ -84,6 +85,8 @@ $kLogFiles = @(
     "windowslogscleanup.log",
     "windowsnodereset.log",
     "credential-provider-config.yaml",
+    "aks-windows-exporter.err.log",
+    "aks-windows-exporter.log",
     "windows-exporter.err.log",
     "windows-exporter.log",
     "secure-tls-bootstrap.log"
@@ -150,7 +153,7 @@ if ($res) {
 
     Write-Log "Generating containerd-tasks.txt"
     ctr.exe -n k8s.io t ls > (Join-Path $aksLogFolder "containerd-tasks.txt")
-  
+
     Write-Log "Generating containerd-snapshot.txt"
     ctr.exe -n k8s.io snapshot ls > (Join-Path $aksLogFolder "containerd-snapshot.txt")
 }

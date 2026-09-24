@@ -8,9 +8,10 @@ storage:
   - path: /opt/aks-sysext-rw/usr/local/bin
   files:
   - path: /opt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
+    overwrite: true
     contents:
       inline: |
-        ID=azurecontainerlinux
+        ID=azurelinux
         SYSEXT_LEVEL=1.0
   - path: /etc/flatcar/update.conf
     overwrite: true
@@ -18,6 +19,7 @@ storage:
       inline: |
         SERVER=disabled
   - path: /etc/systemd/system/containerd.service.d/50-default-config.conf
+    overwrite: true
     contents:
       inline: |
         [Service]

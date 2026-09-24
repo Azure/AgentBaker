@@ -16,8 +16,16 @@ Describe 'cse_install_mariner.sh'
         function systemctl() {
             return 0
         }
+        function logs_to_events() {
+            echo "$2"
+            return 0
+        }
+        function fallbackToKubeBinaryInstall() {
+            return 1
+        }
     }
     BeforeAll 'setup'
+    Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
     Describe 'installDeps'
         It 'installs the required packages with installDeps for Mariner 2.0'
@@ -44,14 +52,10 @@ Describe 'cse_install_mariner.sh'
             rm -rf "$rpm_cache_root"
         }
 
-        ln() {
-            echo "ln $@"
-        }
-
         BeforeEach 'setup_rpm_cache'
         AfterEach 'cleanup_rpm_cache'
 
-        It 'installs cached dependency RPMs when they are present'
+        It 'extracts the requested RPM when cached dependency RPMs are present'
             desiredVersion="1.34.0-5.azl3"
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
@@ -61,25 +65,19 @@ Describe 'cse_install_mariner.sh'
             touch "$dependencyRpm"
             touch "$conflictRpm"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            The output should include "Skipping cached kubelet rpm $(basename "$conflictRpm") because it does not match desired version $desiredVersion"
-            The output should include "Installing kubelet with cached dependency RPMs"
-            The output should include "$dependencyRpm"
-            The output should include "$kubeletRpm"
-            The output should include "dnf install 30 1 600"
-            The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
         End
 
-        It 'installs only the requested RPM when no cached dependencies exist'
+        It 'extracts only the requested RPM when no cached dependencies exist'
             desiredVersion="1.34.0-5.azl3"
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             kubeletRpm="$rpmDir/kubelet-${desiredVersion}.x86_64.rpm"
             touch "$kubeletRpm"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            The output should include "dnf install 30 1 600 $kubeletRpm"
-            The output should include "ln -snf /usr/bin/kubelet /opt/bin/kubelet"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
         End
 
-        It 'does not pass duplicate release versions to dnf causing conflicts'
+        It 'selects the latest matching release when multiple cached RPMs exist'
             desiredVersion="1.34.3"
             rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
             release1="$rpmDir/kubelet-1.34.3-1.azl3.x86_64.rpm"
@@ -87,10 +85,7 @@ Describe 'cse_install_mariner.sh'
             touch "$release1"
             touch "$release2"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
-            # sort -V | tail -n 1 should pick the latest release as the primary RPM
-            The output should include "dnf install 30 1 600 $release2"
-            # the older release should be skipped, not added as a dependency
-            The output should include "Skipping cached kubelet rpm"
+            The output should include "extractBinaryFromRPM $release2 kubelet /opt/bin/kubelet"
             The output should not include "$release1"
         End
 
@@ -100,7 +95,193 @@ Describe 'cse_install_mariner.sh'
             desiredVersion="1.99.0"
             When call installRPMPackageFromFile kubelet "$desiredVersion"
             The output should include "Failed to find valid kubelet version for 1.99.0"
+            The error should include "Failed to query kubelet versions (non-retryable error):"
             The status should equal 1
+        End
+
+        It 'strips RPM epoch before matching and downloading package version'
+            fallbackToKubeBinaryInstall() { return 1; }
+            dnf() {
+                echo "kubelet.x86_64 1:1.34.8-2.azl3 azurelinux-official-cloud-native"
+                return 0
+            }
+            desiredVersion="1.34.8"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}-2.azl3.x86_64.rpm"
+            downloadPkgFromVersion() {
+                echo "downloadPkgFromVersion $1 $2 $3"
+                touch "$kubeletRpm"
+            }
+
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+
+            The output should include "downloadPkgFromVersion kubelet 1.34.8-2.azl3 $rpmDir"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
+            The output should not include "1:1.34.8-2.azl3"
+            The status should equal 0
+        End
+
+        It 'retries dnf list after a transient repo metadata GPG error'
+            fallbackToKubeBinaryInstall() { return 1; }
+            dnf_makecache() { echo "dnf makecache"; }
+            sleep() { echo "sleep $1"; }
+            dnfListCallsFile="$RPM_PACKAGE_CACHE_BASE_DIR/dnf-list-calls"
+            echo 0 > "$dnfListCallsFile"
+            dnf() {
+                if [ "$1" = "clean" ]; then
+                    echo "dnf clean $2"
+                    return 0
+                fi
+
+                if [ "$1" = "list" ]; then
+                    dnfListCalls=$(cat "$dnfListCallsFile")
+                    dnfListCalls=$((dnfListCalls + 1))
+                    echo "$dnfListCalls" > "$dnfListCallsFile"
+                    if [ "$dnfListCalls" -eq 1 ]; then
+                        echo "Error: Failed to download metadata for repo 'azurelinux-official-cloud-native': repomd.xml GPG signature verification error: Bad GPG signature"
+                        return 1
+                    fi
+                    echo "kubelet.x86_64 1.34.8-2.azl3 azurelinux-official-cloud-native"
+                    return 0
+                fi
+            }
+            desiredVersion="1.34.8"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            kubeletRpm="$rpmDir/kubelet-${desiredVersion}-2.azl3.x86_64.rpm"
+            downloadPkgFromVersion() { touch "$kubeletRpm"; }
+
+            When call installRPMPackageFromFile kubelet "$desiredVersion"
+
+            The output should include "sleep 10"
+            The error should include "repo metadata error"
+            The error should include "dnf clean metadata"
+            The error should include "dnf makecache"
+            The output should include "extractBinaryFromRPM $kubeletRpm kubelet /opt/bin/kubelet"
+            The status should equal 0
+        End
+    End
+
+    Describe 'getLatestRPMPackageVersion'
+        It 'selects the latest revision for the requested upstream version'
+            dnf() {
+                cat <<'EOF'
+kubelet.x86_64 1.34.10-1.azl3 azurelinux-official-cloud-native
+kubelet.x86_64 1.34.10-9.azl3 azurelinux-official-cloud-native
+kubelet.x86_64 1.34.11-1.azl3 azurelinux-official-cloud-native
+EOF
+            }
+
+            When call getLatestRPMPackageVersion kubelet 1.34.10
+            The output should equal "1.34.10-9.azl3"
+        End
+
+        It 'accepts an exact revision without matching a longer value'
+            dnf() {
+                cat <<'EOF'
+kubelet.x86_64 1.34.10-1.azl3 azurelinux-official-cloud-native
+kubelet.x86_64 1.34.10-10.azl3 azurelinux-official-cloud-native
+EOF
+            }
+
+            When call getLatestRPMPackageVersion kubelet 1.34.10-1.azl3
+            The output should equal "1.34.10-1.azl3"
+        End
+    End
+
+    Describe 'logResolvedPackageVersion'
+        resolved_version_log="$PWD/spec/tmp/cse-install-mariner-resolved-version"
+
+        cleanup_resolved_version_log() {
+            rm -f "${resolved_version_log}"
+        }
+
+        BeforeEach 'cleanup_resolved_version_log'
+        AfterEach 'cleanup_resolved_version_log'
+
+        It 'does not create the VHD completion marker during node provisioning'
+            VHD_LOGS_FILEPATH="${resolved_version_log}"
+
+            When call logResolvedPackageVersion containerd2 2.2.4 2.2.4-8.azl3
+
+            The output should equal "Resolved containerd2 package version 2.2.4 -> 2.2.4-8.azl3"
+            The path "${resolved_version_log}" should not be exist
+        End
+
+        It 'appends the resolved version when the VHD completion marker exists'
+            VHD_LOGS_FILEPATH="${resolved_version_log}"
+            touch "${VHD_LOGS_FILEPATH}"
+
+            When call logResolvedPackageVersion containerd2 2.2.4 2.2.4-8.azl3
+
+            The output should equal "Resolved containerd2 package version 2.2.4 -> 2.2.4-8.azl3"
+            The contents of file "${resolved_version_log}" should include "containerd2 package version 2.2.4-8.azl3 (requested 2.2.4)"
+        End
+    End
+
+    Describe 'installStandaloneContainerd revision resolution'
+        semverCompare() {
+            [ "$1" = "$2" ] && return 0
+            [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+        }
+
+        containerd() {
+            echo "containerd github.com/containerd/containerd/v2 v2.2.4 abcdef"
+        }
+
+        removeContainerd() {
+            echo "removeContainerd"
+        }
+
+        dnf() {
+            cat <<'EOF'
+containerd2.x86_64 2.2.4-1.azl3 azurelinux-official-cloud-native
+containerd2.x86_64 2.2.4-8.azl3 azurelinux-official-cloud-native
+containerd2.x86_64 2.2.5-1.azl3 azurelinux-official-cloud-native
+EOF
+        }
+
+        It 'updates an installed package when a newer revision has the same upstream version'
+            OS_VERSION="3.0"
+            VHD_LOGS_FILEPATH="$PWD/spec/tmp/missing-vhd-marker"
+            rpm() {
+                echo "2.2.4-1.azl3"
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "installed containerd2 package version 2.2.4-1.azl3 does not match latest revision 2.2.4-8.azl3"
+            The output should include "dnf install 30 1 600 containerd2-2.2.4-8.azl3"
+            The output should not include "containerd2-2.2.5-1.azl3"
+        End
+
+        It 'skips installation when the latest package revision is installed'
+            OS_VERSION="3.0"
+            VHD_LOGS_FILEPATH="$PWD/spec/tmp/missing-vhd-marker"
+            rpm() {
+                echo "2.2.4-8.azl3"
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "satisfies target package version 2.2.4-8.azl3"
+            The output should not include "dnf install"
+        End
+
+        It 'does not query or downgrade when a newer upstream version is installed'
+            OS_VERSION="3.0"
+            containerd() {
+                echo "containerd github.com/containerd/containerd/v2 v2.3.0 abcdef"
+            }
+            dnf() {
+                echo "unexpected dnf query"
+                return 1
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "currently installed containerd version 2.3.0 satisfies target package version 2.2.4"
+            The output should not include "unexpected dnf query"
+            The output should not include "dnf install"
         End
     End
 
@@ -257,6 +438,22 @@ Describe 'cse_install_mariner.sh'
             The variable GRID_CALLED should equal "true"
         End
 
+        It 'fails fast for grid-v20 (Ubuntu-only) instead of installing a CUDA driver'
+            # RTX PRO 6000 BSE v6 maps to grid-v20, which ships only as the
+            # aks-gpu-grid-v20 container image consumed on Ubuntu. There is no
+            # nvidia-vgpu-guest-driver v20 RPM for Mariner/AzureLinux, so the guard
+            # must exit with ERR_NVIDIA_DRIVER_INSTALL rather than silently falling
+            # through to the cuda path on a vGPU node. Use 'run' so the guard's exit
+            # is captured as a status instead of aborting the example.
+            ERR_NVIDIA_DRIVER_INSTALL=224
+            NVIDIA_GPU_DRIVER_TYPE="grid-v20"
+            MOCK_VM_SKU="Standard_NC144ds_xl_RTXPRO6000BSE_v6"
+            When run downloadGPUDrivers
+            The status should equal "$ERR_NVIDIA_DRIVER_INSTALL"
+            The output should include "only supported on Ubuntu"
+            The output should not include "converged"
+        End
+
         It 'selects cuda-open path for A100 when NVIDIA_GPU_DRIVER_TYPE is cuda'
             NVIDIA_GPU_DRIVER_TYPE="cuda"
             MOCK_VM_SKU="Standard_ND96asr_v4"
@@ -285,6 +482,210 @@ Describe 'cse_install_mariner.sh'
             When call downloadGPUDrivers
             The output should not include "NVIDIA GRID driver"
             The variable GRID_CALLED should not equal "true"
+        End
+    End
+
+    Describe 'Azure Linux NVIDIA driver release notes'
+        uname() { echo "6.6.121.1-1.azl3"; }
+
+        It 'selects the latest package matching the current kernel'
+            dnf() {
+                echo "cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+                echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                echo "cuda-open-590.1.0-1_6x6x121x1x1xazl3.x86_64"
+                echo "cuda-open-580.126.09-2_6.6.120.1.1.azl3.x86_64"
+            }
+
+            When call getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open-[0-9]" "6.6.121.1.1.azl3"
+
+            The status should be success
+            The output should equal "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+        End
+
+        It 'strips the RPM epoch when formatting a driver version'
+            When call getAzureLinuxNvidiaDriverVersionFromPackage "cuda-open-0:580.159.04-1_6.6.143.1.1.azl3.x86_64" "cuda-open-"
+
+            The status should be success
+            The output should equal "580.159.04"
+        End
+
+        It 'formats CUDA open, CUDA proprietary, and GRID driver package versions for release notes'
+            dnf() {
+                case "$4" in
+                    "cuda-open*")
+                        echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                    "cuda")
+                        echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                    "nvidia-vgpu-guest-driver*")
+                        echo "nvidia-vgpu-guest-driver-570.211.01-1_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                esac
+            }
+
+            When call getAzureLinuxNvidiaDriverReleaseNotes
+
+            The status should be success
+            The output should include "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
+            The output should include "  - nvidia-cuda-open-driver version 580.126.09"
+            The output should include "  - nvidia-cuda-driver version 570.195.03"
+            The output should include "  - nvidia-grid-driver version 570.211.01"
+            The output should include "build-time snapshot only"
+            The output should include "the installed version is not pinned to this VHD"
+        End
+
+        It 'emits no release-note section when no driver packages match the current kernel'
+            dnf() { return 0; }
+
+            When call getAzureLinuxNvidiaDriverReleaseNotes
+
+            The status should be success
+            The output should equal ""
+        End
+    End
+
+    Describe 'installAznfsPackage'
+        ERR_AZNFS_INSTALL_FAIL=242
+        aznfs_test_dir="$PWD/spec/tmp/aznfs-test"
+
+        setup_aznfs() {
+            mkdir -p "${aznfs_test_dir}/opt/aznfs/downloads"
+            # Create a fake aznfs RPM file
+            touch "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+        }
+
+        cleanup_aznfs() {
+            rm -rf "${aznfs_test_dir}"
+        }
+
+        # Mock gpg/rpm to avoid 'command not found' on CI
+        gpg() {
+            return 0
+        }
+        rpm() {
+            return 0
+        }
+
+        BeforeEach 'setup_aznfs'
+        AfterEach 'cleanup_aznfs'
+
+        It 'skips install on non-AzureLinux 3.0'
+            OS_VERSION="2.0"
+            When call installAznfsPackage
+            The output should include "only supported on Azure Linux 3.0"
+        End
+
+        It 'installs pre-downloaded RPM on AzureLinux 3.0'
+            OS_VERSION="3.0"
+            # Override findAznfsRpm to return our test RPM
+            findAznfsRpm() {
+                echo "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+            }
+            When call installAznfsPackage
+            The output should include "Installing aznfs from pre-downloaded RPM"
+        End
+
+        It 'fails when pre-downloaded RPM is not found'
+            OS_VERSION="3.0"
+            # Override findAznfsRpm to return empty (no RPM found)
+            findAznfsRpm() {
+                echo ""
+            }
+            When call installAznfsPackage
+            The output should include "aznfs RPM not found"
+            The status should equal 242
+        End
+    End
+
+    Describe 'managedGPUPackageList on Mariner'
+        BeforeEach 'setup'
+        setup() {
+            ENABLE_MANAGED_GPU_EXPERIENCE=""
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=""
+        }
+
+        It 'returns base managed GPU packages by default'
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should equal 'datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary dcgm-exporter'
+            The output should not include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes nvidia-device-plugin when managed GPU experience is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes dra-driver-nvidia-gpu when DRA mode is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'dra-driver-nvidia-gpu'
+            The output should not include 'nvidia-device-plugin'
+        End
+    End
+
+    Describe 'installPackageFromCache version matching'
+        rpm_version_cache="/tmp/shellspec-rpm-version-cache-$$"
+
+        setup_version_cache() {
+            RPM_PACKAGE_CACHE_BASE_DIR="$rpm_version_cache"
+            mkdir -p "$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+        }
+
+        cleanup_version_cache() {
+            rm -rf "$rpm_version_cache"
+        }
+
+        BeforeEach 'setup_version_cache'
+        AfterEach 'cleanup_version_cache'
+
+        It 'does not match version 1.34.10 when requesting 1.34.1'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.1-5.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.11-1.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "extractBinaryFromRPM $rpmDir/kubelet-1.34.1-5.azl3.x86_64.rpm kubelet /opt/bin/kubelet"
+            The output should not include "1.34.10"
+            The output should not include "1.34.11"
+        End
+
+        It 'selects the latest release of the exact version requested'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.1-1.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.1-3.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "extractBinaryFromRPM $rpmDir/kubelet-1.34.1-3.azl3.x86_64.rpm kubelet /opt/bin/kubelet"
+        End
+
+        It 'returns failure when only a longer version exists in cache'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.12-1.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "Failed to find cached rpm file for kubelet version 1.34.1"
+            The status should equal 1
         End
     End
 End

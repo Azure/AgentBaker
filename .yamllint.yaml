@@ -1,0 +1,12 @@
+---
+# yamllint config for Azure DevOps pipeline YAML under .pipelines/.
+# Extends the "relaxed" preset: real mistakes (trailing whitespace, missing
+# EOF newline, non-unix line endings, duplicate keys) are gated as errors;
+# stylistic nits (line length, spacing) are reported as warnings only and do
+# not fail CI. See: https://yamllint.readthedocs.io/en/stable/configuration.html
+extends: relaxed
+
+rules:
+  # ADO pipeline YAML frequently has long inline script/condition lines;
+  # don't fail the gate on these, just the real structural mistakes above.
+  line-length: disable

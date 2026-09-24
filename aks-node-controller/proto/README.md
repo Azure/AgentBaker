@@ -20,12 +20,11 @@ This table is describing the all the `AKSNodeConfig` Fields converted to .go fil
 | `AuthConfig` | `AuthConfig` | Authentication configuration                                                                                                                                                                                                                                             | `TENANT_ID`, `SUBSCRIPTION_ID`, `SERVICE_PRINCIPAL_CLIENT_ID`, `SERVICE_PRINCIPAL_FILE_CONTENT`, `USER_ASSIGNED_IDENTITY_ID`, `USE_MANAGED_IDENTITY_EXTENSION` |
 | `RuncConfig` | `RuncConfig` | The CLI tool runc configuration                                                                                                                                                                                                                                          | `RUNC_VERSION`, `RUNC_PACKAGE_URL` |
 | `ContainerdConfig` | `ContainerdConfig` | Containerd configuration                                                                                                                                                                                                                                                 | `CONTAINERD_DOWNLOAD_URL_BASE`, `CONTAINERD_VERSION`, `CONTAINERD_PACKAGE_URL`, `CONTAINERD_CONFIG_CONTENT`,  `CONTAINERD_CONFIG_NO_GPU_CONTENT` |
-| `TeleportConfig` | `TeleportConfig` | Teleport configuration                                                                                                                                                                                                                                                   | `TELEPORT_ENABLED`, `TELEPORTD_PLUGIN_DOWNLOAD_URL` |
 | `KubeletConfig` | `KubeletConfig` | Kubelet configuration. Note that `KubeletConfig.KubeletConfigFileConfig` contains the complete contents that should be stored in the Kubelet config file /etc/default/kubeletconfig.json. The flags in `KubeletConfig.KubeletFlags` should be the same as KubeletConfig.KubeletConfigFileConfig but with different format. For example, ```KubeletFlags: map[string]string{"--address": "0.0.0.0", "--pod-manifest-path": "/etc/kubernetes/manifests"}```                                                                                                                                                                                            | `KUBELET_FLAGS`, `KUBELET_NODE_LABELS`, `HAS_KUBELET_DISK_TYPE`, `KUBELET_CONFIG_FILE_ENABLED`, `KUBELET_CONFIG_FILE_CONTENT`, `KUBELET_CLIENT_CONTENT`, `KUBELET_CLIENT_CERT_CONTENT`, `ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION` |
 | `CustomSearchDomainConfig` | `CustomSearchDomainConfig` | Custom search domain configuration                                                                                                                                                                                                                                       | `CUSTOM_SEARCH_DOMAIN_NAME`, `CUSTOM_SEARCH_REALM_USER`, `CUSTOM_SEARCH_REALM_PASSWORD` |
 | `CustomLinuxOSConfig` | `CustomLinuxOSConfig` | Custom Linux OS configurations including SwapFile, SysCtl configs, etc.                                                                                                                                                                                                  | `SYSCTL_CONTENT`, `CONTAINERD_ULIMITS`, `SHOULD_CONFIG_SWAP_FILE`, `SWAP_FILE_SIZE_MB`, `THP_ENABLED`, `THP_DEFRAG`, `SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE`, `SHOULD_CONFIG_CONTAINERD_ULIMITS` |
 | `HTTPProxyConfig` | `HTTPProxyConfig` | HTTP/HTTPS proxy configuration for the node                                                                                                                                                                                                                              | `SHOULD_CONFIGURE_HTTP_PROXY`, `SHOULD_CONFIGURE_HTTP_PROXY_CA`, `HTTP_PROXY_TRUSTED_CA`, `HTTP_PROXY_URLS`, `HTTPS_PROXY_URLS`, `NO_PROXY_URLS`, `PROXY_VARS` |
-| `GPUConfig` | `GPUConfig` | GPU configuration for the node                                                                                                                                                                                                                                           | `GPU_NODE`, `CONFIG_GPU_DRIVER_IF_NEEDED`, `ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED`, `MIG_NODE`, `GPU_INSTANCE_PROFILE` |
+| `GPUConfig` | `GPUConfig` | GPU configuration for the node                                                                                                                                                                                                                                           | `GPU_NODE`, `CONFIG_GPU_DRIVER_IF_NEEDED`, `ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED`, `MIG_NODE`, `GPU_INSTANCE_PROFILE`, `NVIDIA_MIG_PROFILE_LAYOUT` |
 | `NetworkConfig` | `NetworkConfig` | Network configuration for the node                                                                                                                                                                                                                                       | `NETWORK_PLUGIN`, `NETWORK_POLICY`, `VNET_CNI_PLUGINS_URL`, `ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE` |
 | `KubernetesCaCert` | `string` | Kubernetes certificate authority (CA) certificate, required by the node to establish TLS with the API server                                                                                                                                                             | `KUBE_CA_CRT` |
 | `KubernetesVersion` | `string` | Kubernetes version                                                                                                                                                                                                                                                       | `KUBERNETES_VERSION` |
@@ -56,6 +55,49 @@ Removed old environment variables from cse_cmd.sh:
 `CSE_HELPERS_FILEPATH`, `CSE_DISTRO_HELPERS_FILEPATH`, `CSE_INSTALL_FILEPATH`, `CSE_DISTRO_INSTALL_FILEPATH`, `CSE_CONFIG_FILEPATH`, `DHCPV6_SERVICE_FILEPATH`, `DHCPV6_CONFIG_FILEPATH`, `CLI_TOOL`, `MOBY_VERSION`, `HYPERKUBE_URL`, `SGX_NODE`, `GPU_DRIVER_TYPE` and more.
 
 Many variables are changed to optional and we have a builder function as a helper to provide default values. For example, the builder function defaults `LinuxAdminUsername` to value `azureuser`, `OutboundCommand` to a default outbound command `curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/`.
+
+## Additional kubelet configuration fields
+
+`KubeletConfigFileConfig` can carry the following fields through the node configuration
+payload into the existing kubelet JSON serializer:
+
+| Proto field | Kubelet JSON field | Type |
+| --- | --- | --- |
+| `enable_server` | `enableServer` | Optional boolean |
+| `volume_plugin_dir` | `volumePluginDir` | String |
+| `cgroup_driver` | `cgroupDriver` | String |
+| `runtime_request_timeout` | `runtimeRequestTimeout` | Duration string, such as `2m` |
+| `container_runtime_endpoint` | `containerRuntimeEndpoint` | String |
+| `register_with_taints` | `registerWithTaints` | List of `KubeletTaint` objects |
+| `hairpin_mode` | `hairpinMode` | String |
+
+The Go `datamodel.AKSKubeletConfiguration` in
+[`pkg/agent/datamodel/types.go`](../../pkg/agent/datamodel/types.go) exposes the
+same seven JSON fields for the AgentBaker service. It uses `*bool` for
+`EnableServer`, the existing string-backed `Duration` for `RuntimeRequestTimeout`,
+and `[]KubeletTaint` for `RegisterWithTaints`. Both schemas preserve the same
+presence and serialization behavior for these fields; keep them aligned when
+extending kubelet configuration support.
+
+The JSON names and types match the upstream
+[KubeletConfiguration API](https://github.com/kubernetes/kubelet/blob/v0.37.0/config/v1beta1/types.go).
+`KubeletTaint` preserves `key`, `value`, `effect`, and optional `timeAdded`
+(an RFC3339 timestamp string), matching the upstream
+[Taint type](https://github.com/kubernetes/api/blob/v0.37.0/core/v1/types.go).
+
+Leaving the new fields unset does not change existing serialized output.
+`enable_server` has explicit presence: unset is omitted, while `false` is emitted
+as `"enableServer": false`. Duration values remain strings, including `"0s"`;
+serialization does not apply kubelet defaults or validate runtime settings.
+Empty strings and empty taint lists are omitted, consistent with the existing
+proto3 contract. Taint list order and duplicate keys with different effects are preserved.
+
+This is schema support only: it does not populate these fields from flags, remove
+any flags, or enable config-file delivery. Older node-controller consumers ignore
+unknown fields; successfully decoding a payload does not mean they can apply the
+new settings. Producers must retain existing behavior until compatible consumers
+are available. Any subsequent flag migration must be separately gated to stable
+Kubernetes agent-pool versions >=1.38; versions below 1.38 remain unchanged.
 
 # Guideline to add a new variable to AKSNodeConfig
 ## Why Protobuf? (Feel free to skip)
@@ -152,10 +194,10 @@ If the client (such as AKS-RP) doesn't specify a value for `EnableImdsRestrictio
 4. Add comprehensive tests to cover your changes.
 
    **Testing with AKSNodeConfig approach:**
-   - Add test cases using the `AKSNodeConfig` approach, such as `Test_AzureLinuxV2_ARM64_Scriptless` in `e2e/scenario_test.go`
+   - Add scenarios that use the `AKSNodeConfig` approach in `e2e/scenario/scenario.go`.
    - The key difference between the legacy and new approaches is the configuration interface:
      - **Legacy approach:** Uses `datamodel.NodeBootstrappingConfiguration`
      - **New approach:** Uses `AKSNodeConfig`
-   - In e2e tests (`scenario_test.go`), this means:
+   - In E2E scenarios (`e2e/scenario/scenario.go`), this means:
      - **Legacy:** Use `BootstrapConfigMutator` to set configurations
      - **New:** Use `AKSNodeConfigMutator` to set configurations

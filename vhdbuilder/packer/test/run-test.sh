@@ -9,6 +9,13 @@ LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
+FULL_PATH=$(realpath "$0")
+CDIR=$(dirname "$FULL_PATH")
+
+if [ "${OS_TYPE,,}" = "linux" ]; then
+  ENABLE_FIPS="${ENABLE_FIPS:-}"
+  [ -z "${ENABLE_FIPS// }" ] && ENABLE_FIPS="false"
+fi
 
 if [ -z "${MANAGED_SIG_ID}" ]; then
   echo "SIG image version ID from packer output is empty, unable to proceed..."
@@ -60,14 +67,21 @@ set -x
 # In SIG mode, Windows VM requires admin-username and admin-password to be set,
 # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
+VM_SIZE="Standard_D2ds_v5"
 TARGET_COMMAND_STRING=""
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-  TARGET_COMMAND_STRING="--size Standard_D2pds_V5"
-else
-  TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
+  # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+  # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
+  if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+    VM_SIZE="Standard_D2pds_v6"
+  else
+    VM_SIZE="Standard_D2pds_v5"
+  fi
 fi
+TARGET_COMMAND_STRING="--size $VM_SIZE"
 
-if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+# TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
+if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
   if [ -n "$TARGET_COMMAND_STRING" ]; then
     # To take care of Mariner Kata TL images
     TARGET_COMMAND_STRING+=" "
@@ -77,14 +91,24 @@ fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_SIZE="${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5}"
+    TARGET_COMMAND_STRING="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+    # ACL publishes a generalized CVM image; other SKUs still capture specialized.
+    if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
+      TARGET_COMMAND_STRING+=" --specialized true"
+    fi
 fi
 
-# GB200 specific test VM configuration (uses standard ARM64 VM for now)
-if [ "${OS_TYPE}" = "Linux" ] && grep -q "GB200" <<< "$FEATURE_FLAGS"; then
-    echo "GB200: Using ARM64 VM size for testing"
-    # GB200 will use standard ARM64 VM for testing until GB200 SKUs are available
-    # Additional GB200-specific test parameters can be added here
+TEST_VM_USER_DATA_ARGS=()
+if [ "${OS_TYPE}" = "Linux" ] && [ "${OS_SKU:-}" = "AzureContainerLinux" ]; then
+  TEST_VM_USER_DATA_ARGS=(--user-data "@./vhdbuilder/packer/acl-customdata.json")
+fi
+
+# NVIDIA GB specific test VM configuration (uses standard ARM64 VM for now)
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+    echo "NVIDIA GB: Using ARM64 VM size for testing"
+    # NVIDIA GB will use standard ARM64 VM for testing until GB SKUs are available
+    # Additional NVIDIA GB-specific test parameters can be added here
 fi
 
 if [ "${OS_TYPE,,}" = "linux" ]; then
@@ -99,14 +123,29 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       echo "unable to create new NIC for test VM"
       exit 1
   fi
-  az vm create \
-      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
-      --name "$VM_NAME" \
-      --image "$MANAGED_SIG_ID" \
-      --admin-username "$TEST_VM_ADMIN_USERNAME" \
-      --admin-password "$TEST_VM_ADMIN_PASSWORD" \
-      --nics "$TESTING_NIC_ID" \
-      ${TARGET_COMMAND_STRING}
+  if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s "${ENABLE_FIPS}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+    source "$CDIR/../fips-helper.sh"
+    ensure_fips_feature_registered || exit $?
+    create_fips_vm \
+      "$VM_SIZE" \
+      "$VM_NAME" \
+      "$TEST_VM_ADMIN_USERNAME" \
+      TEST_VM_ADMIN_PASSWORD \
+      "$MANAGED_SIG_ID" \
+      "$TESTING_NIC_ID" \
+      "" \
+      "$TEST_VM_RESOURCE_GROUP_NAME" || exit $?
+  else
+    az vm create \
+        --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+        --name "$VM_NAME" \
+        --image "$MANAGED_SIG_ID" \
+        --admin-username "$TEST_VM_ADMIN_USERNAME" \
+        --admin-password "$TEST_VM_ADMIN_PASSWORD" \
+        --nics "$TESTING_NIC_ID" \
+        "${TEST_VM_USER_DATA_ARGS[@]}" \
+        ${TARGET_COMMAND_STRING}
+  fi
 else
   az vm create \
       --debug \
@@ -125,11 +164,7 @@ time az vm wait -g "$TEST_VM_RESOURCE_GROUP_NAME" -n "$VM_NAME" --created
 capture_benchmark "${SCRIPT_NAME}_create_test_vm"
 set -x
 
-FULL_PATH=$(realpath $0)
-CDIR=$(dirname "$FULL_PATH")
-
 if [ "${OS_TYPE,,}" = "linux" ]; then
-  [ -z "${ENABLE_FIPS// }" ] && ENABLE_FIPS="false"
   # Default to empty; ACL builder release template does not set IMG_SKU
   IMG_SKU="${IMG_SKU:-}"
 
@@ -143,6 +178,10 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --scripts "@$SCRIPT_PATH" \
       --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}") && break
+    if [ "$i" -eq 3 ]; then
+      echo "Linux content-test Run Command failed after ${i} attempts." >&2
+      exit 1
+    fi
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:

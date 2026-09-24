@@ -7,7 +7,7 @@ health-check.localdns.local:53 {
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
-{{- range $domain, $override := $.LocalDnsProfile.VnetDnsOverrides -}}
+{{- range $domain, $override := $.Config.LocalDnsProfile.VnetDnsOverrides -}}
 {{- $isRootDomain := eq $domain "." -}}
 {{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
 {{- $forwardPolicy := "sequential" -}}
@@ -23,11 +23,19 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{getLocalDnsNodeListenerIp}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
+    {{- end}}
     {{- if $isRootDomain}}
     forward . {{getAzureDnsIp}} {
     {{- else}}
     {{- if $fwdToClusterCoreDNS}}
-    forward . {{getCoreDnsServiceIp $}} {
+    forward . {{getCoreDnsServiceIp $.Config}} {
     {{- else}}
     forward . {{getAzureDnsIp}} {
     {{- end}}
@@ -35,8 +43,20 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{getLocalDnsNodeListenerIp}}:8181
     cache {{$override.CacheDurationInSeconds}} {
@@ -67,7 +87,7 @@ health-check.localdns.local:53 {
 }
 {{- end}}
 # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
-{{- range $domain, $override := $.LocalDnsProfile.KubeDnsOverrides}}
+{{- range $domain, $override := $.Config.LocalDnsProfile.KubeDnsOverrides}}
 {{- $isRootDomain := eq $domain "." -}}
 {{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
 {{- $forwardPolicy := "" }}
@@ -84,16 +104,36 @@ health-check.localdns.local:53 {
     log
     {{- end }}
     bind {{getLocalDnsClusterListenerIp}}
+    {{- if and $isRootDomain $.IncludeHostsPlugin}}
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
+    {{- end}}
     {{- if $fwdToClusterCoreDNS}}
-    forward . {{getCoreDnsServiceIp $}} {
+    forward . {{getCoreDnsServiceIp $.Config}} {
     {{- else}}
     forward . {{getAzureDnsIp}} {
     {{- end}}
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{getLocalDnsClusterListenerIp}}:8181
     cache {{$override.CacheDurationInSeconds}} {
@@ -115,9 +155,7 @@ health-check.localdns.local:53 {
     template ANY ANY internal.cloudapp.net {
         match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
         rcode NXDOMAIN
-
         fallthrough
-
     }
     template ANY ANY reddog.microsoft.com {
         rcode NXDOMAIN

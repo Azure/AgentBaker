@@ -22,8 +22,7 @@ Describe 'cse_install.sh'
             UBUNTU_RELEASE="20.04"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime
-            The variable containerdMajorMinorPatchVersion should equal "1.2.3"
-            The variable containerdHotFixVersion should equal ""
+            The variable packageVersion should equal "1.2.3"
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
             The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.2.3"
         End
@@ -32,8 +31,7 @@ Describe 'cse_install.sh'
             OS="MARINER"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime
-            The variable containerdMajorMinorPatchVersion should equal "1.2.3"
-            The variable containerdHotFixVersion should equal "5.fake"
+            The variable packageVersion should equal "1.2.3-5.fake"
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
             The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.2.3-5.fake"
         End
@@ -60,8 +58,7 @@ Describe 'cse_install.sh'
             OS="AZURELINUX"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime
-            The variable containerdMajorMinorPatchVersion should equal "2.0.0"
-            The variable containerdHotFixVersion should equal "1.fake"
+            The variable packageVersion should equal "2.0.0-1.fake"
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
             The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 2.0.0-1.fake"
         End
@@ -242,11 +239,73 @@ Describe 'cse_install.sh'
             ENABLE_SECURE_TLS_BOOTSTRAPPING="true"
             When call installSecureTLSBootstrapClient
             The output should include "installing aks-secure-tls-bootstrap-client from: https://packages/custom-client-binary-url.tar.gz"
-            The output should include "retrycmd_get_tarball 120 5 downloads/custom-client-binary-url.tar.gz https://packages/custom-client-binary-url.tar.gz"
+            The output should include "retrycmd_get_tarball 120 5 60 downloads/custom-client-binary-url.tar.gz https://packages/custom-client-binary-url.tar.gz 300"
             The output should include "tar -xvzf downloads/custom-client-binary-url.tar.gz -C downloads/"
             The output should include "mv downloads/aks-secure-tls-bootstrap-client bin"
             The output should include "chmod 755 bin/aks-secure-tls-bootstrap-client"
             The output should include "aks-secure-tls-bootstrap-client installed successfully"
+            The status should be success
+        End
+
+        It 'should remove sysext and refresh on ACL when secure TLS bootstrapping is disabled'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
+            OS="AZURECONTAINERLINUX"
+            OS_VARIANT=""
+            ACL_OS_NAME="AZURECONTAINERLINUX"
+            ACL_OS_VARIANT="AZURECONTAINERLINUX"
+            FLATCAR_OS_NAME="FLATCAR"
+            rm() {
+                echo "mock rm $*" >&2
+            }
+            systemd-sysext() {
+                echo "mock systemd-sysext $*" >&2
+            }
+            # systemd-sysext refresh is backgrounded; wait so its output is captured.
+            installAndWait() {
+                installSecureTLSBootstrapClient
+                wait
+            }
+            When call installAndWait
+            The output should include "secure TLS bootstrapping is disabled"
+            The error should include "mock rm -f /etc/extensions/aks-secure-tls-bootstrap-client.raw"
+            The error should include "mock systemd-sysext --no-reload refresh"
+            The error should not include "WARNING: systemd-sysext refresh failed"
+            The status should be success
+        End
+
+        It 'should log a warning if systemd-sysext refresh fails on ACL when secure TLS bootstrapping is disabled'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
+            OS="AZURECONTAINERLINUX"
+            OS_VARIANT=""
+            ACL_OS_NAME="AZURECONTAINERLINUX"
+            ACL_OS_VARIANT="AZURECONTAINERLINUX"
+            FLATCAR_OS_NAME="FLATCAR"
+            rm() {
+                echo "mock rm $*" >&2
+            }
+            systemd-sysext() {
+                return 1
+            }
+            installAndWait() {
+                installSecureTLSBootstrapClient
+                wait
+            }
+            When call installAndWait
+            The output should include "WARNING: systemd-sysext refresh failed after removing aks-secure-tls-bootstrap-client sysext"
+            The error should include "mock rm -f /etc/extensions/aks-secure-tls-bootstrap-client.raw"
+            The status should be success
+        End
+
+        It 'should be a no-op on ACL when secure TLS bootstrapping is enabled and no custom URL'
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="true"
+            CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL=""
+            OS="AZURECONTAINERLINUX"
+            OS_VARIANT=""
+            ACL_OS_NAME="AZURECONTAINERLINUX"
+            ACL_OS_VARIANT="AZURECONTAINERLINUX"
+            FLATCAR_OS_NAME="FLATCAR"
+            When call installSecureTLSBootstrapClient
+            The output should include "secure TLS bootstrapping is enabled but no custom client download URL was provided, nothing to download"
             The status should be success
         End
     End

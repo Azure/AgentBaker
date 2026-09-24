@@ -1,9 +1,352 @@
 #!/bin/bash
 
+check_test_fstab_permissions() {
+    printf "0%s" "$(getFileMode "$TEST_FSTAB_FILE")"
+}
+
 Describe 'cse_config.sh'
+    CSE_CONFIG_GPU_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_gpu.sh"
+    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
+    CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
+    CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
+    CSE_CONFIG_ADDONS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_addons.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'configureTransparentHugePageSystemdService'
+        setup_thp_service() {
+            THP_ENABLED="never"
+            THP_DEFRAG="madvise"
+            unset FAIL_MKDIR FAIL_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
+        }
 
+        cleanup_thp_service() {
+            unset THP_ENABLED THP_DEFRAG FAIL_MKDIR FAIL_TEE_PATH CAPTURE_TEE_PATH FAIL_CHMOD FAIL_DAEMON_RELOAD FAIL_SYSTEMCTL_ENABLE
+        }
+
+        mkdir() {
+            echo "mkdir $*"
+            [ "${FAIL_MKDIR:-}" = "true" ] && return 1
+            return 0
+        }
+
+        tee() {
+            if [ "${1:-}" = "${FAIL_TEE_PATH:-__none__}" ]; then
+                return 1
+            fi
+            if [ "${1:-}" = "${CAPTURE_TEE_PATH:-__none__}" ]; then
+                cat >&2
+                return 0
+            fi
+            cat > /dev/null
+        }
+
+        chmod() {
+            echo "chmod $*"
+            [ "${FAIL_CHMOD:-}" = "true" ] && return 1
+            return 0
+        }
+
+        systemctl() {
+            echo "systemctl $*"
+            [ "${1:-}" = "daemon-reload" ] && [ "${FAIL_DAEMON_RELOAD:-}" = "true" ] && return 1
+            return 0
+        }
+
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart $*"
+            [ "${FAIL_SYSTEMCTL_ENABLE:-}" = "true" ] && return 1
+            return 0
+        }
+
+        BeforeEach 'setup_thp_service'
+        AfterEach 'cleanup_thp_service'
+
+        It 'writes helper files, reloads systemd, and enables the service'
+            When run configureTransparentHugePageSystemdService
+
+            The status should be success
+            The output should include "mkdir -p /opt/azure/containers /opt/azure/containers/aks-transparent-hugepage"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should include "systemctl daemon-reload"
+            The output should include "systemctlEnableAndStart aks-transparent-hugepage 30"
+        End
+
+        It 'exits when helper directory creation fails'
+            FAIL_MKDIR="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should not include "chmod"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when helper script write fails'
+            FAIL_TEE_PATH="/opt/azure/containers/aks-transparent-hugepage.sh"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should not include "chmod"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when helper script chmod fails'
+            FAIL_CHMOD="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when service unit write fails'
+            FAIL_TEE_PATH="/etc/systemd/system/aks-transparent-hugepage.service"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSCTL_RELOAD"
+            The output should include "chmod 0755 /opt/azure/containers/aks-transparent-hugepage.sh"
+            The output should not include "systemctl daemon-reload"
+        End
+
+        It 'exits when systemd daemon reload fails'
+            FAIL_DAEMON_RELOAD="true"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should equal "$ERR_SYSTEMCTL_START_FAIL"
+            The output should include "systemctl daemon-reload"
+            The output should not include "systemctlEnableAndStart"
+        End
+
+        It 'does not embed raw THP values in the generated helper script'
+            THP_ENABLED='never"; touch /tmp/aks-thp-injection #'
+            CAPTURE_TEE_PATH="/opt/azure/containers/aks-transparent-hugepage.sh"
+
+            When run configureTransparentHugePageSystemdService
+
+            The status should be success
+            The output should include "systemctlEnableAndStart aks-transparent-hugepage 30"
+            The error should include 'cat "${thp_enabled_config}" > /sys/kernel/mm/transparent_hugepage/enabled'
+            The error should not include "touch /tmp/aks-thp-injection"
+        End
+    End
+    Describe 'swapFileIsActive'
+        swapon() {
+            if [ "$*" != "--show --noheadings" ]; then
+                return 1
+            fi
+            printf '%b' "${SWAPON_OUTPUT}"
+        }
+
+        It 'matches an active swap file when swapon output has leading whitespace'
+            SWAPON_OUTPUT='    /swapfile\n'
+
+            When call swapFileIsActive "/swapfile"
+            The status should be success
+        End
+
+        It 'matches only the exact swap file path'
+            SWAPON_OUTPUT='    /swapfile-extra\n'
+
+            When call swapFileIsActive "/swapfile"
+            The status should be failure
+        End
+    End
+    Describe 'ensureSwapFileFstabEntry'
+        setup() {
+            TEST_FSTAB_DIR="$(mktemp -d)"
+            TEST_FSTAB_FILE="${TEST_FSTAB_DIR}/fstab"
+            : > "${TEST_FSTAB_FILE}"
+        }
+
+        cleanup() {
+            rm -rf "${TEST_FSTAB_DIR}"
+            unset TEST_FSTAB_FILE
+            unset TEST_FSTAB_DIR
+            unset FAIL_MV
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        mv() {
+            if [ "${FAIL_MV:-false}" = "true" ]; then
+                return 1
+            fi
+
+            command mv "$@"
+        }
+
+        It 'replaces existing fstab entries for the same swap file'
+            chmod 0644 "${TEST_FSTAB_FILE}"
+            printf '/swapfile none swap sw 0 0\n/other none swap sw 0 0\n/swapfile none swap defaults 0 0\n' > "${TEST_FSTAB_FILE}"
+            expected_fstab='/other none swap sw 0 0
+/swapfile none swap noauto,nofail 0 0'
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+
+        It 'preserves the fstab file mode when replacing entries'
+            chmod 0640 "${TEST_FSTAB_FILE}"
+            printf '/other none swap sw 0 0\n' > "${TEST_FSTAB_FILE}"
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The path "${TEST_FSTAB_FILE}" should be file
+            The result of function check_test_fstab_permissions should equal "0640"
+        End
+
+        It 'keeps one canonical fstab entry when it already exists'
+            printf '/other none swap sw 0 0\n/swapfile none swap noauto,nofail 0 0\n' > "${TEST_FSTAB_FILE}"
+            expected_fstab='/other none swap sw 0 0
+/swapfile none swap noauto,nofail 0 0'
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be success
+            The contents of file "${TEST_FSTAB_FILE}" should equal "${expected_fstab}"
+        End
+
+        It 'leaves the existing fstab untouched when atomic replace fails'
+            printf '/other none swap sw 0 0\n' > "${TEST_FSTAB_FILE}"
+            FAIL_MV=true
+
+            When call ensureSwapFileFstabEntry "/swapfile" "${TEST_FSTAB_FILE}"
+
+            The status should be failure
+            The contents of file "${TEST_FSTAB_FILE}" should equal '/other none swap sw 0 0'
+        End
+    End
+    Describe 'disableSSHPubkeyAuth'
+        setup() {
+            SSHD_CONFIG_FILE="$(mktemp)"
+            SSH_SERVICE_ACTIVE="true"
+            SSH_SERVICE_EXISTS="true"
+        }
+
+        cleanup() {
+            rm -f "${SSHD_CONFIG_FILE}"
+            unset SSHD_CONFIG_FILE
+            unset SSH_SERVICE_ACTIVE
+            unset SSH_SERVICE_EXISTS
+        }
+
+        systemctl() {
+            echo "systemctl $*" >&2
+            if [ "$1" = "cat" ] && [ "${SSH_SERVICE_EXISTS}" != "true" ]; then
+                return 1
+            fi
+            if [ "$1" = "is-active" ] && [ "${SSH_SERVICE_ACTIVE}" != "true" ]; then
+                return 3
+            fi
+            return 0
+        }
+
+        sshd() {
+            echo "sshd $*" >&2
+            return 0
+        }
+
+        install() {
+            while [ "$#" -gt 2 ]; do
+                shift
+            done
+            command cp "$1" "$2"
+        }
+
+        run_disable_ssh_pubkey_auth() {
+            disableSSHPubkeyAuth
+            cat "${SSHD_CONFIG_FILE}"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'disables the global setting without changing a Match block'
+            cat > "${SSHD_CONFIG_FILE}" <<'EOF'
+PasswordAuthentication no
+PubkeyAuthentication yes
+Match User entra
+  AuthenticationMethods publickey
+  PubkeyAuthentication yes
+EOF
+            expected='PasswordAuthentication no
+PubkeyAuthentication no
+Match User entra
+  AuthenticationMethods publickey
+  PubkeyAuthentication yes'
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "${expected}"
+            The stderr should include "sshd -t -f"
+        End
+
+        It 'inserts the global setting before the first Match block'
+            cat > "${SSHD_CONFIG_FILE}" <<'EOF'
+PasswordAuthentication no
+Match User entra
+  PubkeyAuthentication yes
+EOF
+            expected='PasswordAuthentication no
+PubkeyAuthentication no
+Match User entra
+  PubkeyAuthentication yes'
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "${expected}"
+            The stderr should include "sshd -t -f"
+        End
+
+        It 'appends the setting when the config has no Match block'
+            echo "PasswordAuthentication no" > "${SSHD_CONFIG_FILE}"
+            expected='PasswordAuthentication no
+PubkeyAuthentication no'
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "${expected}"
+            The stderr should include "sshd -t -f"
+        End
+
+        It 'starts ssh.service when the Ubuntu service is not active'
+            echo "PasswordAuthentication no" > "${SSHD_CONFIG_FILE}"
+            SSH_SERVICE_ACTIVE="false"
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "PasswordAuthentication no
+PubkeyAuthentication no"
+            The stderr should include "systemctl start ssh.service"
+        End
+
+        It 'starts sshd.service when ssh.service does not exist'
+            echo "PasswordAuthentication no" > "${SSHD_CONFIG_FILE}"
+            SSH_SERVICE_ACTIVE="false"
+            SSH_SERVICE_EXISTS="false"
+
+            When call run_disable_ssh_pubkey_auth
+
+            The status should be success
+            The output should equal "PasswordAuthentication no
+PubkeyAuthentication no"
+            The stderr should include "systemctl start sshd.service"
+        End
+    End
     Describe 'configureAzureJson'
         AZURE_JSON_PATH="azure.json"
         AKS_CUSTOM_CLOUD_JSON_PATH="customcloud.json"
@@ -120,202 +463,58 @@ Describe 'cse_config.sh'
             The status should be success
         End
     End
+    Describe 'ensureContainerd'
+        It 'should not overwrite an existing NVIDIA containerd config'
+            grep() {
+                echo "grep $@"
+                return 0
+            }
 
-    Describe 'getPrimaryNicIP'
-        It 'should return the correct IP when a single network interface is attached to the VM'
-            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/single_nic.json"
-            When call getPrimaryNicIP
-            The output should equal "0.0.0.0"
-        End
+            mkdir() {
+                echo "mkdir $@"
+            }
 
-        It 'should return the correct IP when multiple network interfaces are attached to the VM'
-            IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/multi_nic.json"
-            When call getPrimaryNicIP
-            The output should equal "0.0.0.0"
+            rm() {
+                echo "rm $@"
+            }
+
+            tee() {
+                echo "tee $@"
+                cat >/dev/null
+            }
+
+            retrycmd_if_failure() {
+                echo "retrycmd_if_failure $@"
+                return 0
+            }
+
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 0
+            }
+
+            should_e2e_mock_azure_china_cloud() {
+                echo "false"
+            }
+
+            GPU_NODE="false"
+            TARGET_CLOUD="AzurePublicCloud"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            ERR_SYSCTL_RELOAD=1
+            ERR_SYSTEMCTL_START_FAIL=1
+
+            When call ensureContainerd
+
+            The output should include 'grep -q BinaryName = "/usr/bin/nvidia-container-runtime" /etc/containerd/config.toml'
+            The output should include "NVIDIA containerd config already exists at /etc/containerd/config.toml, skipping generation"
+            The output should not include "rm -f /etc/containerd/config.toml"
+            The output should not include "Generating containerd config"
+            The output should not include "Generating GPU containerd config"
+            The output should not include "Generating non-GPU containerd config"
+            The output should include "systemctlEnableAndStartNoBlock containerd 30"
+            The status should be success
         End
     End
-
-    Describe 'configureKubeletServing'
-        preserve_vars() {
-            %preserve KUBELET_FLAGS
-            %preserve KUBELET_NODE_LABELS
-            %preserve KUBELET_CONFIG_FILE_CONTENT
-        }
-        # preserve contents of variables on which to assert since we need to run configureKubeletServing
-        # in a subshell due to it modfiying shell opts (set +/-x), which would otherwise conflict with shellspec
-        AfterRun preserve_vars
-
-        Mock openssl
-            echo "$@"
-        End
-        Mock mkdir
-            echo "mkdir $@"
-        End
-
-        It 'should only generate the self-signed serving cert when EnableKubeletServingCertificateRotation is false'
-            should_disable_kubelet_serving_certificate_rotation() { # for mocking IMDS calls
-                echo "false"
-            }
-            KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="false"
-            When run configureKubeletServing
-            The stdout should include 'kubelet serving certificate rotation is disabled, generating self-signed serving certificate with openssl'
-            The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
-            The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
-            The stdout should include 'mkdir -p /etc/kubernetes/certs'
-            The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
-        End
-
-        It 'should reconfigure kubelet flags to disable kubelet serving certificate rotation if opt-out tag is set'
-            should_disable_kubelet_serving_certificate_rotation() {
-                echo "true"
-            }
-            KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
-            When run configureKubeletServing
-            The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
-            The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
-            The stdout should include 'mkdir -p /etc/kubernetes/certs'
-            The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
-        End
-
-        It 'should reconfigure kubelet flags to disable kubelet serving certificate rotation if opt-out tag is set and kubelet config file is enabled'
-            should_disable_kubelet_serving_certificate_rotation() {
-                echo "true"
-            }
-            kubelet_config_file() {
-                [ "$(echo "${kubelet_config_file:?}" | base64 -d | jq -r '.serverTLSBootstrap')" == "false" ] && \
-                [ "$(echo "${kubelet_config_file:?}" | base64 -d | jq -r '.tlsCertFile')" == "/etc/kubernetes/certs/kubeletserver.crt" ] && \
-                [ "$(echo "${kubelet_config_file:?}" | base64 -d | jq -r '.tlsPrivateKeyFile')" == "/etc/kubernetes/certs/kubeletserver.key" ]
-            }
-            KUBELET_CONFIG_FILE_ENABLED="true"
-            KUBELET_CONFIG_FILE_CONTENT=$(cat spec/parts/linux/cloud-init/artifacts/kubelet_mocks/config_file/server_tls_bootstrap_enabled.json | base64)
-            KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
-            When run configureKubeletServing
-            The stderr should not eq ''
-            The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
-            The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
-            The stdout should include 'mkdir -p /etc/kubernetes/certs'
-            The variable KUBELET_CONFIG_FILE_CONTENT should satisfy kubelet_config_file
-            The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
-        End
-
-        It 'should reconfigure kubelet flags and node labels to disable kubelet serving certificate rotation if opt-out tag is set'
-            should_disable_kubelet_serving_certificate_rotation() {
-                echo "true"
-            }
-            KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
-            When run configureKubeletServing
-            The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
-            The stdout should include 'mkdir -p /etc/kubernetes/certs'
-            The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
-            The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
-        End
-
-        It 'should no-op if kubelet flags and node labels are already correct when the opt-out tag is set'
-            should_disable_kubelet_serving_certificate_rotation() {
-                echo "true"
-            }
-            KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
-            When run configureKubeletServing
-            The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
-            The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
-            The stdout should include 'mkdir -p /etc/kubernetes/certs'
-            The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
-        End
-
-        It 'should no-op if kubelet flags and node labels are already correct when the opt-out tag is set and kubelet config file is enabled'
-            should_disable_kubelet_serving_certificate_rotation() {
-                echo "true"
-            }
-            kubelet_config_file() {
-                [ "$(echo "${kubelet_config_file:?}" | base64 -d | jq -r 'has("serverTLSBootstrap")')" == "false" ] && \
-                [ "$(echo "${kubelet_config_file:?}" | base64 -d | jq -r '.tlsCertFile')" == "/etc/kubernetes/certs/kubeletserver.crt" ] && \
-                [ "$(echo "${kubelet_config_file:?}" | base64 -d | jq -r '.tlsPrivateKeyFile')" == "/etc/kubernetes/certs/kubeletserver.key" ]
-            }
-            KUBELET_CONFIG_FILE_ENABLED="true"
-            KUBELET_CONFIG_FILE_CONTENT=$(cat spec/parts/linux/cloud-init/artifacts/kubelet_mocks/config_file/server_tls_bootstrap_disabled.json | base64)
-            KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
-            When run configureKubeletServing
-            The stderr should not eq ''
-            The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
-            The stdout should include 'mkdir -p /etc/kubernetes/certs'
-            The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
-            The variable KUBELET_CONFIG_FILE_CONTENT should satisfy kubelet_config_file
-            The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
-        End
-
-        It 'should reconfigure kubelet flags node labels to enable kubelet serving certificate rotation if opt-out tag is not set'
-            should_disable_kubelet_serving_certificate_rotation() {
-                echo "false"
-            }
-            KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
-            When run configureKubeletServing
-            The stdout should include 'kubelet serving certificate rotation is enabled'
-            The stdout should include 'removing --tls-cert-file and --tls-private-key-file from kubelet flags'
-            The stdout should include 'adding node label'
-            The variable KUBELET_FLAGS should equal '--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster'
-        End
-
-        It 'should reconfigure kubelet flags and node labels to enable kubelet serving certificate rotation if opt-out tag is not set and kubelet config file is enabled'
-            should_disable_kubelet_serving_certificate_rotation() {
-                echo "false"
-            }
-            kubelet_config_file() {
-                [ "$(echo "${kubelet_config_file:?}" | base64 -d | jq -r '.serverTLSBootstrap')" == "true" ] && \
-                [ "$(echo "${kubelet_config_file:?}" | base64 -d | jq -r 'has("tlsCertFile")')" == "false" ] && \
-                [ "$(echo "${kubelet_config_file:?}" | base64 -d | jq -r 'has("tlsPrivateKeyFile")')" == "false" ]
-            }
-            KUBELET_CONFIG_FILE_ENABLED="true"
-            KUBELET_CONFIG_FILE_CONTENT=$(cat spec/parts/linux/cloud-init/artifacts/kubelet_mocks/config_file/server_tls_bootstrap_enabled.json | base64)
-            KUBELET_FLAGS="--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
-            When run configureKubeletServing
-            The stderr should not eq ''
-            The stdout should include 'kubelet serving certificate rotation is enabled'
-            The stdout should include 'removing --tls-cert-file and --tls-private-key-file from kubelet flags'
-            The stdout should include 'adding node label'
-            The variable KUBELET_CONFIG_FILE_CONTENT should satisfy kubelet_config_file
-            The variable KUBELET_FLAGS should equal '--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster'
-        End
-
-        It 'should no-op if kubelet flags and node labels are already correct when the opt-out tag is not set'
-            should_disable_kubelet_serving_certificate_rotation() {
-                echo "false"
-            }
-            KUBELET_FLAGS="--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
-            When run configureKubeletServing
-            The stdout should include 'kubelet serving certificate rotation is enabled'
-            The stdout should include 'removing --tls-cert-file and --tls-private-key-file from kubelet flags'
-            The stdout should include 'adding node label'
-            The variable KUBELET_FLAGS should equal '--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster'
-        End
-    End
-
     Describe 'configureContainerdRegistryHost'
         It 'should configure registry host correctly if MCR_REPOSITORY_BASE is unset'
             mkdir() {
@@ -428,7 +627,6 @@ Describe 'cse_config.sh'
             The output should not include "tee"
         End
     End
-
     Describe 'configureContainerdLegacyMooncakeMcrHost'
         It 'should configure registry host correctly'
             mkdir() {
@@ -450,872 +648,210 @@ Describe 'cse_config.sh'
             The output should include "chmod 0644 /etc/containerd/certs.d/mcr.azk8s.cn/hosts.toml"
         End
     End
+    Describe 'configureSSHPubkeyAuth CIS-compliant sshd_config permissions'
+        # These are static assertions on cse_config.sh to guard against a
+        # regression of the CIS Benchmark 5.1.1 fix, which requires
+        # /etc/ssh/sshd_config to be mode 0600 (or more restrictive) and
+        # owned by root:root. Previously, configureSSHPubkeyAuth used
+        # `install -m 644 ...` which overwrote the VHD-hardened 0600 mode
+        # from configureSsh() in cis.sh, causing CIS control 5.1.1 to fail
+        # on Ubuntu 22.04 and 24.04 nodes.
+        #
+        # If configureSSHPubkeyAuth ever reverts to a non-compliant mode
+        # (e.g. 644, 640, 660, 755) when replacing $SSHD_CONFIG, these
+        # tests will fail and flag the regression before it ships.
+        cse_config_path="./parts/linux/cloud-init/artifacts/cse_config.sh"
 
-    Describe 'writeCredentialProviderConfig'
-        setup() {
-            TMP_DIR=$(mktemp -d)
-            # Reset all related variables before each test
-            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED=""
-            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI=""
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID=""
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID=""
-            API_SERVER_NAME=""
-            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=""
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
-        }
-        cleanup() {
-            rm -rf "$TMP_DIR"
-        }
-        BeforeEach 'setup'
-        AfterEach 'cleanup'
-
-        It 'should configure credential provider with default settings when no special flags are set'
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - /etc/kubernetes/azure.json'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        It 'replaces sshd_config with mode 0600 (CIS Benchmark 5.1.1)'
+            When call grep -E '^[[:space:]]*install[[:space:]]+-m[[:space:]]+0?600[[:space:]]+-o[[:space:]]+root[[:space:]]+-g[[:space:]]+root[[:space:]]+"\$TMP"[[:space:]]+"\$SSHD_CONFIG"' "$cse_config_path"
+            The status should be success
+            The output should include 'install'
+            The output should include 'SSHD_CONFIG'
         End
 
-        It 'should configure credential provider for network isolated cluster'
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "mcr.microsoft.com"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - /etc/kubernetes/azure.json
-      - --registry-mirror=mcr.microsoft.com:test.azurecr.io'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
-        End
-
-        It 'should configure credential provider for custom cloud'
-            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=".custom.registry.io"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "*.custom.registry.io"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - /etc/kubernetes/azure.json'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for custom cloud"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
-        End
-
-        It 'should configure credential provider with identity binding enabled and all args'
-            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
-            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID="my-tenant-id"
-            API_SERVER_NAME="apiserver.example.com"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    tokenAttributes:
-      serviceAccountTokenAudience: api://AKSIdentityBinding
-      requireServiceAccount: false
-      cacheType: ServiceAccount
-      optionalServiceAccountAnnotationKeys:
-        - kubernetes.azure.com/acr-client-id
-    args:
-      - /etc/kubernetes/azure.json
-      - --ib-sni-name=test.sni.local
-      - --ib-default-client-id=my-client-id
-      - --ib-default-tenant-id=my-tenant-id
-      - --ib-apiserver-ip=apiserver.example.com'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
-        End
-
-        It 'should configure credential provider with identity binding enabled without optional client-id'
-            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
-            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID=""
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID="my-tenant-id"
-            API_SERVER_NAME="apiserver.example.com"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    tokenAttributes:
-      serviceAccountTokenAudience: api://AKSIdentityBinding
-      requireServiceAccount: false
-      cacheType: ServiceAccount
-      optionalServiceAccountAnnotationKeys:
-        - kubernetes.azure.com/acr-client-id
-    args:
-      - /etc/kubernetes/azure.json
-      - --ib-sni-name=test.sni.local
-      - --ib-default-tenant-id=my-tenant-id
-      - --ib-apiserver-ip=apiserver.example.com'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
-        End
-
-        It 'should configure credential provider with identity binding enabled without optional tenant-id'
-            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
-            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID=""
-            API_SERVER_NAME="apiserver.example.com"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    tokenAttributes:
-      serviceAccountTokenAudience: api://AKSIdentityBinding
-      requireServiceAccount: false
-      cacheType: ServiceAccount
-      optionalServiceAccountAnnotationKeys:
-        - kubernetes.azure.com/acr-client-id
-    args:
-      - /etc/kubernetes/azure.json
-      - --ib-sni-name=test.sni.local
-      - --ib-default-client-id=my-client-id
-      - --ib-apiserver-ip=apiserver.example.com'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
-        End
-
-        It 'should configure credential provider with identity binding enabled with only required args'
-            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
-            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID=""
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID=""
-            API_SERVER_NAME="apiserver.example.com"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    tokenAttributes:
-      serviceAccountTokenAudience: api://AKSIdentityBinding
-      requireServiceAccount: false
-      cacheType: ServiceAccount
-      optionalServiceAccountAnnotationKeys:
-        - kubernetes.azure.com/acr-client-id
-    args:
-      - /etc/kubernetes/azure.json
-      - --ib-sni-name=test.sni.local
-      - --ib-apiserver-ip=apiserver.example.com'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
-        End
-
-        It 'should configure credential provider for network isolated cluster with identity binding enabled'
-            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
-            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID="my-tenant-id"
-            API_SERVER_NAME="apiserver.example.com"
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "mcr.microsoft.com"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    tokenAttributes:
-      serviceAccountTokenAudience: api://AKSIdentityBinding
-      requireServiceAccount: false
-      cacheType: ServiceAccount
-      optionalServiceAccountAnnotationKeys:
-        - kubernetes.azure.com/acr-client-id
-    args:
-      - /etc/kubernetes/azure.json
-      - --registry-mirror=mcr.microsoft.com:test.azurecr.io
-      - --ib-sni-name=test.sni.local
-      - --ib-default-client-id=my-client-id
-      - --ib-default-tenant-id=my-tenant-id
-      - --ib-apiserver-ip=apiserver.example.com'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for network isolated cluster"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
-        End
-
-        It 'should configure credential provider for custom cloud with identity binding enabled'
-            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="true"
-            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_TENANT_ID="my-tenant-id"
-            API_SERVER_NAME="apiserver.example.com"
-            AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX=".custom.registry.io"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "*.custom.registry.io"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    tokenAttributes:
-      serviceAccountTokenAudience: api://AKSIdentityBinding
-      requireServiceAccount: false
-      cacheType: ServiceAccount
-      optionalServiceAccountAnnotationKeys:
-        - kubernetes.azure.com/acr-client-id
-    args:
-      - /etc/kubernetes/azure.json
-      - --ib-sni-name=test.sni.local
-      - --ib-default-client-id=my-client-id
-      - --ib-default-tenant-id=my-tenant-id
-      - --ib-apiserver-ip=apiserver.example.com'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider for custom cloud"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
-        End
-
-        It 'should not add identity binding config when SERVICE_ACCOUNT_IMAGE_PULL_ENABLED is false'
-            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED="false"
-            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
-            API_SERVER_NAME="apiserver.example.com"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - /etc/kubernetes/azure.json'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
-        End
-
-        It 'should not add identity binding config when SERVICE_ACCOUNT_IMAGE_PULL_ENABLED is empty'
-            SERVICE_ACCOUNT_IMAGE_PULL_ENABLED=""
-            IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI="test.sni.local"
-            SERVICE_ACCOUNT_IMAGE_PULL_DEFAULT_CLIENT_ID="my-client-id"
-            API_SERVER_NAME="apiserver.example.com"
-            expected_config='apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - /etc/kubernetes/azure.json'
-            When call writeCredentialProviderConfig "$TMP_DIR/credential-provider-config.yaml"
-            The output should include "configure credential provider with default settings"
-            The contents of file "$TMP_DIR/credential-provider-config.yaml" should equal "$expected_config"
+        It 'does not replace sshd_config with a world/group-readable mode'
+            When call grep -E '^[[:space:]]*install[[:space:]]+-m[[:space:]]+(0?(644|640|660|755|777))[[:space:]].*"\$SSHD_CONFIG"' "$cse_config_path"
+            The status should be failure
         End
     End
+    Describe 'configureSwapFile'
+        SWAP_FILE_SIZE_MB=1
 
-    Describe 'enableLocalDNS'
-        setup() {
-            TMP_DIR=$(mktemp -d)
-            LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
-
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
+        function [ {
+            if test "$1" = "-L" && test "$2" = "/dev/disk/azure/resource-part1"; then
                 return 0
-            }
-        }
-        cleanup() {
-            rm -rf "$TMP_DIR"
-        }
-        BeforeEach 'setup'
-        AfterEach 'cleanup'
-
-        It 'should enable localdns successfully'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
-            When run enableLocalDNS
-            The status should be success
-            The output should include "localdns should be enabled."
-            The output should include "Enable localdns succeeded."
-        End
-
-        It 'should return error when systemctl fails to start localdns'
-            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
-                return 1
-            }
-            When run enableLocalDNS
-            The status should equal 216
-            The output should include "localdns should be enabled."
-        End
-    End
-
-    Describe 'shouldEnableLocalDns'
-        setup() {
-            TMP_DIR=$(mktemp -d)
-            LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
-            LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
-            LOCALDNS_GENERATED_COREFILE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
-            LOCALDNS_MEMORY_LIMIT="512M"
-            LOCALDNS_CPU_LIMIT="250%"
-
-            systemctlEnableAndStart() {
-                echo "systemctlEnableAndStart $@"
-                return 0
-            }
-        }
-        cleanup() {
-            rm -rf "$TMP_DIR"
-        }
-        BeforeEach 'setup'
-        AfterEach 'cleanup'
-
-        # Success case.
-        It 'should enable localdns successfully'
-            When call enableLocalDNS
-            The status should be success
-            The output should include "localdns should be enabled."
-            The output should include "Enable localdns succeeded."
-        End
-
-        # Corefile file creation.
-        It 'should create localdns.corefile with correct data'
-            When call enableLocalDNS
-            The status should be success
-            The output should include "localdns should be enabled."
-            The path "$LOCALDNS_CORE_FILE" should be file
-            The contents of file "$LOCALDNS_CORE_FILE" should include "localdns corefile"
-            The output should include "localdns should be enabled."
-            The output should include "Enable localdns succeeded."
-        End
-
-        # Corefile already exists (idempotency).
-        It 'should overwrite existing localdns.corefile'
-            echo "wrong data" > "$LOCALDNS_CORE_FILE"
-            When call enableLocalDNS
-            The status should be success
-            The path "$LOCALDNS_CORE_FILE" should be file
-            The contents of file "$LOCALDNS_CORE_FILE" should include "localdns corefile"
-            The output should include "localdns should be enabled."
-            The output should include "Enable localdns succeeded."
-        End
-
-        # Slice file creation.
-        It 'should create localdns.slice with correct CPU and Memory limits'
-            When call enableLocalDNS
-            The status should be success
-            The output should include "localdns should be enabled."
-            The path "$LOCALDNS_SLICE_FILE" should be file
-            The contents of file "$LOCALDNS_SLICE_FILE" should include "MemoryMax=${LOCALDNS_MEMORY_LIMIT}"
-            The contents of file "$LOCALDNS_SLICE_FILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
-            The output should include "localdns should be enabled."
-            The output should include "Enable localdns succeeded."
-        End
-    End
-
-    Describe 'configureAndStartSecureTLSBootstrapping'
-        SECURE_TLS_BOOTSTRAPPING_DROP_IN="secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
-        API_SERVER_NAME="fqdn"
-        AZURE_JSON_PATH="/etc/kubernetes/azure.json"
-
-        chmod() {
-            echo "chmod $@"
-        }
-
-        cleanup() {
-            rm -rf "$SECURE_TLS_BOOTSTRAPPING_DROP_IN"
-        }
-
-        AfterEach 'cleanup'
-
-        It 'should configure and start secure TLS bootstrapping'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
-            When call configureAndStartSecureTLSBootstrapping
-            The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=2m0s --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630 --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json"'
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
-            The status should be success
-        End
-
-        It 'should configure and start secure TLS bootstrapping using provided overrides'
-            systemctlEnableAndStartNoBlock() {
-                echo "systemctlEnableAndStartNoBlock $@"
-            }
-            SECURE_TLS_BOOTSTRAPPING_DEADLINE="custom-deadline"
-            SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE="custom-resource"
-            SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID="custom-identity-id"
-            When call configureAndStartSecureTLSBootstrapping
-            The output should include "chmod 0600 secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
-            The output should include "systemctlEnableAndStartNoBlock secure-tls-bootstrap 30"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Unit]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "Before=kubelet.service"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Service]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include 'Environment="BOOTSTRAP_FLAGS=--deadline=custom-deadline --aad-resource=custom-resource --apiserver-fqdn=fqdn --cloud-provider-config=/etc/kubernetes/azure.json --user-assigned-identity-id=custom-identity-id"'
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "[Install]"
-            The contents of file "secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf" should include "WantedBy=kubelet.service"
-            The status should be success
-        End
-    End
-
-    Describe 'configureKubeletAndKubectl'
-        # Mock required functions and variables
-        logs_to_events() {
-            echo "logs_to_events $1 $2"
-            # Execute the actual function that was passed
-            eval "$2"
-        }
-
-        installKubeletKubectlFromURL() {
-            echo "installKubeletKubectlFromURL"
-        }
-
-        installKubeletKubectlFromBootstrapProfileRegistry() {
-            echo "installKubeletKubectlFromBootstrapProfileRegistry $1 $2"
-        }
-
-        # Set default values for common variables
-        BeforeEach 'setup'
-        setup() {
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
-            CUSTOM_KUBE_BINARY_DOWNLOAD_URL=""
-            PRIVATE_KUBE_BINARY_DOWNLOAD_URL=""
-            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
-            OS_VERSION=""
-            KUBERNETES_VERSION=""
-        }
-
-        Describe 'on Ubuntu'
-            OS="UBUNTU"
-            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
-            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
-
-            # Test cases for URL installation (first condition)
-            It 'should install from URL if CUSTOM_KUBE_BINARY_DOWNLOAD_URL is set'
-                CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromURL"
-                The output should not include "installKubeletKubectlFromPkg"
-            End
-
-            It 'should install from URL if PRIVATE_KUBE_BINARY_DOWNLOAD_URL is set'
-                PRIVATE_KUBE_BINARY_DOWNLOAD_URL="https://private-kube-url.com/kube.tar.gz"
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromURL"
-                The output should not include "installKubeletKubectlFromPkg"
-            End
-
-            It 'should not install from PMC if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
-                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should not include "installKubeletKubectlFromPkg"
-            End
-
-            # Test cases for version-based logic (second condition)
-            It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is not true and k8s version < 1.34'
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
-                KUBERNETES_VERSION="1.33.5"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromURL"
-                The output should not include "installKubeletKubectlFromPkg"
-            End
-
-            It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s version < 1.34'
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
-                KUBERNETES_VERSION="1.33.5"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromURL"
-                The output should not include "installKubeletKubectlFromPkg"
-            End
-
-            It 'should install from PMC if k8s version >= 1.34'
-                installKubeletKubectlFromPkg() {
-                    echo "installKubeletKubectlFromPkg $1"
-                }
-
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromPkg"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-
-            It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s version < 1.34'
-                installKubeletKubectlFromPkg() {
-                    echo "installKubeletKubectlFromPkg $1"
-                }
-
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-                KUBERNETES_VERSION="1.32.5"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromPkg"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-
-            # Test edge cases
-            It 'should prioritize custom URL over version-based logic'
-                CUSTOM_KUBE_BINARY_DOWNLOAD_URL="https://custom-kube-url.com/kube.tar.gz"
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromURL"
-                The output should not include "installKubeletKubectlFromPkg"
-            End
-
-            It 'should handle version exactly at boundary (1.34.0)'
-                installKubeletKubectlFromPkg() {
-                    echo "installKubeletKubectlFromPkg $1"
-                }
-
-                KUBERNETES_VERSION="1.34.0"
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromPkg"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-
-            # Test BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER scenarios
-            It 'should call installKubeletKubectlFromBootstrapProfileRegistry when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s >= 1.34.0 and succeeds'
-                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.0"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-
-            It 'should call installKubeletKubectlFromURL when BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set and k8s < 1.34.0'
-                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-                KUBERNETES_VERSION="1.33.5"
-                When call configureKubeletAndKubectl
-                The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
-                The output should include "installKubeletKubectlFromURL"
-            End
-
-            It 'should call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and k8s < 1.34.0 and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
-                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-                KUBERNETES_VERSION="1.33.5"
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromBootstrapProfileRegistry myregistry.azurecr.io 1.33.5"
-                The output should not include "installKubeletKubectlFromURL"
-                The output should not include "installKubeletKubectlFromPkg"
-            End
-
-            It 'should not call installKubeletKubectlFromBootstrapProfileRegistry when SHOULD_ENFORCE_KUBE_PMC_INSTALL is false and k8s < 1.34.0 and BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set'
-                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
-                KUBERNETES_VERSION="1.33.5"
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
-                When call configureKubeletAndKubectl
-                The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
-                The output should include "installKubeletKubectlFromURL"
-            End
-
-            It 'should fallback to kube binary install when version uncached'
-                ls() {
-                    echo ""
-                }
-                fallbackToKubeBinaryInstall() {
-                    echo "fallbackToKubeBinaryInstall $1 $2"
-                }
-                updatePMCRepository() {
-                    echo "updatePMCRepository"
-                }
-
-                KUBERNETES_VERSION="1.34.0"
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
-                When call configureKubeletAndKubectl
-                The output should include "fallbackToKubeBinaryInstall"
-                The output should not include "updatePMCRepository"
-            End
-        End
-
-        Describe 'on Flatcar'
-            OS="FLATCAR"
-            Include "./parts/linux/cloud-init/artifacts/flatcar/cse_helpers_flatcar.sh"
-            Include "./parts/linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh"
-
-            installKubeletKubectlFromPkg() {
-                echo "installKubeletKubectlFromPkg $@"
-            }
-
-            It 'should install from MAR if k8s version >= 1.34'
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromPkg"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-        End
-
-        Describe 'on Mariner'
-            OS="MARINER"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
-
-            It 'should install from PMC if k8s version >= 1.34 and OS_VERSION != 2.0'
-                installKubeletKubectlFromPkg() {
-                    echo "installKubeletKubectlFromPkg $1"
-                }
-
-                OS_VERSION="3.0"
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromPkg"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-
-            It 'should install from PMC if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and OS_VERSION != 2.0'
-                installKubeletKubectlFromPkg() {
-                    echo "installKubeletKubectlFromPkg $1"
-                }
-
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-                OS_VERSION="3.0"
-                KUBERNETES_VERSION="1.32.5"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromPkg"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-
-            It 'should install from URL if SHOULD_ENFORCE_KUBE_PMC_INSTALL is true and OS_VERSION = 2.0'
-                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-                OS_VERSION="2.0"
-                KUBERNETES_VERSION="1.32.5"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromURL"
-                The output should not include "installKubeletKubectlFromPkg"
-            End
-        End
-
-        Describe 'on Azure Linux'
-            OS="AZURELINUX"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
-
-            It 'should install from PMC if k8s version >= 1.34 and OS_VERSION != 2.0'
-                installKubeletKubectlFromPkg() {
-                    echo "installKubeletKubectlFromPkg $1"
-                }
-
-                OS_VERSION="3.0"
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromPkg"
-                The output should not include "installKubeletKubectlFromURL"
-            End
-
-            It 'should install from URL if OS_VERSION = 2.0'
-                OS_VERSION="2.0"
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should include "installKubeletKubectlFromURL"
-                The output should not include "installKubeletKubectlFromPkg"
-            End
-        End
-
-        Describe 'on Windows'
-            OS="Windows"  # Unsupported OS
-
-            It 'should not call any install function for unsupported OS'
-                exit() {
-                    echo "mock exit $1"
-                }
-
-                KUBERNETES_VERSION="1.34.0"
-                When call configureKubeletAndKubectl
-                The output should not include "installKubeletKubectlFromURL"
-                The output should include "installKubeletKubectlFromPkg is not defined"
-            End
-        End
-    End
-
-    Describe 'configureManagedGPUExperience'
-        # Mock the helper functions
-        logs_to_events() {
-            echo "logs_to_events $1 $2"
-            eval "$2"
-        }
-
-        installNvidiaManagedExpPkgFromCache() {
-            echo "installNvidiaManagedExpPkgFromCache called"
-            return 0
-        }
-
-        startNvidiaManagedExpServices() {
-            echo "startNvidiaManagedExpServices called"
-            return 0
-        }
-
-        systemctlDisableAndStop() {
-            echo "systemctlDisableAndStop $1"
-            return 0
-        }
-
-        addKubeletNodeLabel() {
-            echo "addKubeletNodeLabel $1"
-            if [[ -z "$KUBELET_NODE_LABELS" ]]; then
-                KUBELET_NODE_LABELS="$1"
+            fi
+            local last_arg=""
+            for last_arg in "$@"; do :; done
+            if test "${last_arg}" = "]"; then
+                command [ "$@"
             else
-                KUBELET_NODE_LABELS="$KUBELET_NODE_LABELS,$1"
+                command [ "$@" ]
             fi
         }
 
-        mkdir() {
-            echo "mkdir $@"
+        readlink() {
+            case "$2" in
+                /dev/disk/azure/resource-part1) echo "/dev/sdb1" ;;
+                /dev/disk/azure/root) echo "/dev/sda1" ;;
+            esac
         }
 
-        touch() {
-            echo "touch $@"
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $*"
         }
 
-        rm() {
-            echo "rm $@"
+        chmod() {
+            echo "chmod $*"
         }
 
-        BeforeEach 'KUBELET_NODE_LABELS=""'
+        swapFileIsActive() {
+            echo "swapFileIsActive $1"
+        }
 
-        It 'should not enable managed GPU experience if not GPU node'
-            GPU_NODE="false"
+        reconcileSwapFilePersistence() {
+            echo "reconcileSwapFilePersistence $1"
+        }
 
-            When call configureManagedGPUExperience
+        It 'falls back to OS disk when resource disk mountpoint cannot be determined'
+            findmnt() {
+                return 1
+            }
+            df() {
+                printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 1000000 0%% /\n'
+            }
 
-            The output should not include "installNvidiaManagedExpPkgFromCache called"
-            The output should not include "startNvidiaManagedExpServices called"
-            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
-            The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
-            The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+            When call configureSwapFile
+
+            The status should be success
+            The output should include "Could not determine resource disk mountpoint, attempting to fall back to OS disk..."
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
+            The output should include "reconcileSwapFilePersistence /swapfile"
         End
 
-        It 'should not enable managed GPU experience when skip_nvidia_driver_install is true'
-            GPU_NODE="true"
-            skip_nvidia_driver_install="true"
-            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+        It 'falls back to OS disk when resource disk free space cannot be determined'
+            findmnt() {
+                echo "/mnt/resource"
+            }
+            df() {
+                case "$2" in
+                    /mnt/resource)
+                        printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n'
+                        ;;
+                    /)
+                        printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 1000000 0%% /\n'
+                        ;;
+                esac
+            }
 
-            When call configureManagedGPUExperience
+            When call configureSwapFile
 
-            The output should not include "installNvidiaManagedExpPkgFromCache called"
-            The output should not include "startNvidiaManagedExpServices called"
-            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
-            The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
-            The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+            The status should be success
+            The output should include "Could not determine free space on resource disk, attempting to fall back to OS disk..."
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
+            The output should include "reconcileSwapFilePersistence /swapfile"
         End
 
-        It 'should not enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is unspecified'
-            GPU_NODE="true"
-            skip_nvidia_driver_install="false"
-            ENABLE_MANAGED_GPU_EXPERIENCE=""
+        It 'waits for the OS filesystem resize before creating the swap file'
+            DISK_FREE_KB=500
+            findmnt() {
+                return 1
+            }
+            df() {
+                printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 %s 0%% /\n' "${DISK_FREE_KB}"
+            }
+            sleep() {
+                echo "sleep $1"
+                DISK_FREE_KB=1000000
+            }
 
-            When call configureManagedGPUExperience
+            When call configureSwapFile
 
-            The output should not include "installNvidiaManagedExpPkgFromCache called"
-            The output should not include "startNvidiaManagedExpServices called"
-            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
-            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+            The status should be success
+            The output should include "waiting up to 30 seconds for filesystem resize"
+            The output should include "sleep 1"
+            The output should include "Will use OS disk for swap file"
+            The output should include "Swap file will be saved to: /swapfile"
         End
 
-        It 'should enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is true'
-            GPU_NODE="true"
-            skip_nvidia_driver_install="false"
-            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+        It 'fails after waiting 30 seconds when the OS disk remains too small'
+            DISK_FREE_KB=500
+            findmnt() {
+                return 1
+            }
+            df() {
+                printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 1000000 0 %s 0%% /\n' "${DISK_FREE_KB}"
+            }
+            sleep() {
+                echo "sleep $1"
+            }
 
-            When call configureManagedGPUExperience
+            When run configureSwapFile
 
-            The output should include "installNvidiaManagedExpPkgFromCache called"
-            The output should include "startNvidiaManagedExpServices called"
-            The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=enabled'
-            The output should include "mkdir -p /opt/azure/containers"
-            The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            The status should equal "$ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE"
+            The output should include "waiting up to 30 seconds for filesystem resize"
+            The output should include "after waiting for filesystem resize"
+            The output should not include "Swap file will be saved to"
+        End
+    End
+    Describe 'reconcileSwapFilePersistence'
+        findExistingSwapFileLocation() {
+            return 1
+        }
+
+        configureSwapFile() {
+            echo "createSwapFile"
+        }
+
+        ensureSwapFileFstabEntry() {
+            echo "ensureSwapFileFstabEntry $1"
+        }
+
+        configureSwapFileSystemdService() {
+            echo "configureSwapFileSystemdService $1"
+        }
+
+        It 'creates the requested swap file when no existing swap file is present'
+            When call reconcileSwapFilePersistence
+
+            The status should be success
+            The output should include "No existing AKS swap file found; creating swap file for persistence reconciliation"
+            The output should include "createSwapFile"
+            The output should not include "ensureSwapFileFstabEntry"
+            The output should not include "configureSwapFileSystemdService"
         End
 
-        It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
-            GPU_NODE="true"
-            skip_nvidia_driver_install="false"
-            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+        It 'reconciles persistence for an existing swap file without recreating it'
+            When call reconcileSwapFilePersistence "/swapfile"
 
-            When call configureManagedGPUExperience
+            The status should be success
+            The output should include "ensureSwapFileFstabEntry /swapfile"
+            The output should include "configureSwapFileSystemdService /swapfile"
+            The output should not include "createSwapFile"
+        End
 
-            The output should include "systemctlDisableAndStop nvidia-device-plugin"
-            The output should include "systemctlDisableAndStop nvidia-dcgm"
-            The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
-            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
-            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        It 'exits when fstab reconciliation fails'
+            ensureSwapFileFstabEntry() {
+                return 1
+            }
+
+            When run reconcileSwapFilePersistence "/swapfile"
+
+            The status should equal "$ERR_SWAP_CREATE_FAIL"
+            The output should not include "configureSwapFileSystemdService"
+        End
+
+        It 'exits when swap systemd service reconciliation fails'
+            configureSwapFileSystemdService() {
+                return 1
+            }
+
+            When run reconcileSwapFilePersistence "/swapfile"
+
+            The status should equal "$ERR_SWAP_CREATE_FAIL"
+            The output should include "ensureSwapFileFstabEntry /swapfile"
         End
     End
 End

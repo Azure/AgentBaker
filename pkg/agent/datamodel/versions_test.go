@@ -595,8 +595,16 @@ func Test_IsValidMinVersion(t *testing.T) {
 		}
 	})
 
-	t.Run("Minimum version is invalid", func(t *testing.T) {
+	t.Run("Minimum version accepts v prefix", func(t *testing.T) {
 		minVersion := "v1.15.0"
+		_, err := IsValidMinVersion(Kubernetes, orchestratorRelease, orchestratorVersion, minVersion)
+		if err != nil {
+			t.Errorf("version should be valid: %v", err)
+		}
+	})
+
+	t.Run("Minimum version is invalid", func(t *testing.T) {
+		minVersion := "invalid"
 		_, err := IsValidMinVersion(Kubernetes, orchestratorRelease, orchestratorVersion, minVersion)
 		if err == nil {
 			t.Errorf("version should be invalid: %v", err)

@@ -1,6 +1,7 @@
 #!/bin/bash
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
@@ -24,7 +25,7 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 cat components.json > ${COMPONENTS_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
-if isMarinerOrAzureLinux "$OS" || isACL "$OS"; then
+if isMarinerOrAzureLinux "$OS" || isACL "$OS" "$OS_VARIANT"; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
@@ -35,6 +36,11 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
 
+# Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
+if isMinimalImage && isUbuntu "$OS"; then
+  installMinimalBuildDeps
+fi
+
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
 if isMarinerOrAzureLinux "$OS"; then
@@ -44,7 +50,7 @@ else
 fi
 systemctl daemon-reload
 systemctlEnableAndStart systemd-journald 30 || exit 1
-if ! isFlatcar "$OS" && ! isACL "$OS" ; then
+if ! isFlatcar "$OS" && ! isACL "$OS" "$OS_VARIANT" ; then
     systemctlEnableAndStart rsyslog 30 || exit 1
 fi
 
@@ -60,14 +66,15 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
-if isFlatcar "$OS" || isACL "$OS"; then
+if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}
     mv /etc/waagent.conf{.new,}
 fi
-# enable AKS log collector
+# disable AKS log collector and waagent collection
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
-systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
+systemctl disable --now aks-log-collector.service || exit 1
+systemctl disable --now aks-log-collector.timer || exit 1
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer 30 || exit 1
@@ -76,8 +83,20 @@ rm -f /etc/cron.daily/logrotate
 systemctlEnableAndStart sync-container-logs.service 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_enable_and_configure_logging_services"
 
-# enable aks-node-controller.service
-systemctl enable aks-node-controller.service
+# Keep aks-node-controller.service disabled in the VHD image. The unit now has
+# DefaultDependencies=no (see aks-node-controller.service), so if it were enabled
+# via WantedBy=basic.target it could be auto-started by systemd before the
+# boothook has written the provision config/nbc-cmd files, causing the wrapper's
+# graceful no-op exit to mark the oneshot unit "active (exited)" - after which
+# the boothook's own explicit "systemctl start" would be a no-op and ANC would
+# never actually run with the real config. The boothook's explicit
+# "systemctl start --no-block aks-node-controller.service" call (issued only
+# after those files exist) remains the sole trigger for this unit.
+# Sometimes its also started diretly in boothook
+systemctl disable aks-node-controller.service
+
+# Pulled in by kubelet.service via WantedBy=kubelet.service, so CSE does not need to start it.
+systemctl enable emit-kubelet-active-flags.service
 
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
@@ -86,6 +105,11 @@ if isMarinerOrAzureLinux "$OS"; then
   if [ "${ENABLE_FIPS,,}" = "true" ] && [ "${IMG_SKU,,}" != "azure-linux-3-arm64-gen2-fips" ]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
+    installFIPS
+  fi
+elif isACL "$OS" "$OS_VARIANT"; then
+  if [ "${ENABLE_FIPS,,}" = "true" ]; then
+    echo "Install FIPS for AzureContainerLinux SKU"
     installFIPS
   fi
 else
@@ -105,6 +129,13 @@ else
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
+  if isUbuntu "$OS" &&
+    [ "$OS_VERSION" = "26.04" ] &&
+    isMinimalImage &&
+    grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    /bin/bash /home/packer/trim-2604-cvm-packages.sh
+  fi
+
   # shellcheck disable=SC3010
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
@@ -122,31 +153,43 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
 fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
+if { isUbuntu "$OS" || isAzureLinux "$OS"; }; then
+  echo "nodelay" | tee -a /etc/dhcpcd.conf
+  tee /etc/systemd/system/cache-warmup.service > /dev/null << 'EOF'
+[Unit]
+Description=Preload Critical Binaries into Page Cache
+DefaultDependencies=no
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /opt/azure/containers/provision_preload.sh
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable cache-warmup.service
+fi
+
+# Remove lockdown=integrity from kernel cmdline for Azure Linux 3.0
+# The kernel has an OOT patch that auto-enables lockdown when secure boot is detected
+if isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
+  disableKernelLockdownCmdline
+fi
+capture_benchmark "${SCRIPT_NAME}_disable_kernel_lockdown_cmdline"
+
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
   # Choose kernel packages based on Ubuntu version and architecture
   if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    KERNEL_IMAGE="linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
+    KERNEL_IMAGE="linux-azure-fde-lts-${UBUNTU_RELEASE}"
     KERNEL_PACKAGES=(
-      "linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
-      "linux-tools-azure-lts-${UBUNTU_RELEASE}"
-      "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
-      "linux-headers-azure-lts-${UBUNTU_RELEASE}"
-      "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+      "${KERNEL_IMAGE}"
     )
+    MODULES_EXTRA_PKG="linux-modules-extra-azure-fde-lts-${UBUNTU_RELEASE}"
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
-  elif [ "${UBUNTU_RELEASE}" = "22.04" ]; then
-    # Pin to 5.15.0-1102-azure to avoid regression in 5.15.0-1103-azure
-    KERNEL_IMAGE="linux-image-5.15.0-1102-azure"
-    KERNEL_PACKAGES=(
-      "linux-image-5.15.0-1102-azure"
-      "linux-tools-5.15.0-1102-azure"
-      "linux-cloud-tools-5.15.0-1102-azure"
-      "linux-headers-5.15.0-1102-azure"
-      "linux-modules-extra-5.15.0-1102-azure"
-    )
-    echo "Installing pinned LTS kernel 5.15.0-1102-azure for Ubuntu 22.04 (regression in 1103)"
   else
     # Use LTS kernel for other versions
     KERNEL_IMAGE="linux-image-azure-lts-${UBUNTU_RELEASE}"
@@ -155,9 +198,16 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       "linux-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-headers-azure-lts-${UBUNTU_RELEASE}"
-      "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     )
+    MODULES_EXTRA_PKG="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     echo "Installing LTS kernel for Ubuntu ${UBUNTU_RELEASE}"
+  fi
+
+  # Add modules-extra only when the package exists in the current apt repo
+  if apt-cache show "${MODULES_EXTRA_PKG}" &>/dev/null; then
+    KERNEL_PACKAGES+=("${MODULES_EXTRA_PKG}")
+  else
+    echo "Package ${MODULES_EXTRA_PKG} not available - skipping"
   fi
 
   echo "Logging the currently running kernel: $(uname -r)"
@@ -196,18 +246,60 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
   NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
   if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
-    # This is the ubuntu 2404arm64gen2containerd image.
+    # This is the ubuntu 2404arm64gen2containerd image or the 2404arm64gb image
+    # The Ubuntu PPA has early access to new kernels, such as the one in the GB300 CRD.
     # Uncomment if we have trouble finding the kernel package.
-    # sudo add-apt-repository ppa:canonical-kernel-team/ppa
-    sudo apt update
-    if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
-      echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
-      wait_for_apt_locks
-      sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
-      echo "after installation:"
-      dpkg -l | grep "linux-.*-azure-nvidia" || true
+    # add-apt-repository ppa:canonical-kernel-team/ppa
+    if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+      add-apt-repository ppa:canonical-kernel-team/ppa
+      apt-get update
+      BOM_PATH="gb-mai-bom.json"
+      if [ -n "$(jq -r '.["kernel-versions"] | keys[]' $BOM_PATH)" ]; then
+        NVIDIA_KERNEL_PACKAGE=$(jq -r '.["kernel-versions"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+      fi
+      if apt-get install -s "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
+      	echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
+      	  wait_for_apt_locks
+      	  apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
+      	  echo "after installation:"
+      	  dpkg -l | grep "linux-.*-azure-nvidia" || true
+    	else
+    	  echo "ARM64 image. NVIDIA kernel not available from repo, fetching and installing dpkgs by hand"
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb > /tmp/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb > /tmp/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb > /tmp/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb > /tmp/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+
+    	  curl -fsSL https://ports.ubuntu.com/pool/main/l/linux-azure-nvidia-6.14/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb > /tmp/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+
+    	  dpkg -i /tmp/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb
+    	  dpkg -i /tmp/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb
+    	  dpkg -i /tmp/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+    	  dpkg -i /tmp/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
+
+    	  rm /tmp/*.deb
+      fi
+      add-apt-repository --remove ppa:canonical-kernel-team/ppa
     else
-      echo "ARM64 image. NVIDIA kernel not available, skipping installation."
+      apt-get update
+      if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
+        echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
+        wait_for_apt_locks
+        apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
+        echo "after installation:"
+        dpkg -l | grep "linux-.*-azure-nvidia" || true
+      else
+        echo "ARM64 image. NVIDIA kernel not available, skipping installation."
+      fi
     fi
   fi
   wait_for_apt_locks

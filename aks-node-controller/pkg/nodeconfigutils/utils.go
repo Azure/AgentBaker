@@ -1,32 +1,169 @@
 package nodeconfigutils
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
+	"mime/multipart"
+	"net/textproto"
+	"regexp"
+	"sort"
+	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (
-	cloudConfigTemplate = `#cloud-config
-write_files:
-- path: /opt/azure/containers/aks-node-controller-config.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s`
 	CSE = "/opt/azure/containers/aks-node-controller provision-wait"
+
+	AKSNodeConfigFilePath = "/opt/azure/containers/aks-node-controller-config.json"
+
+	// EnabledFeaturesFilePath is read by the wrapper; must match its FEATURES_PATH.
+	EnabledFeaturesFilePath = "/opt/azure/containers/enabled_features.sh"
+
+	boothookTemplate = `#cloud-boothook
+#!/bin/bash
+set -euo pipefail
+
+logger -t aks-boothook "boothook start $(date -Ins)"
+
+mkdir -p /opt/azure/containers /var/log/azure
+
+nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
+
+cat <<'EOF' | base64 -d >%[1]s
+%[2]s
+EOF
+chmod 0600 %[1]s
+%[3]s
+logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
+if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
+	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
+else
+	systemctl start --no-block aks-node-controller.service
+fi
+`
+
+	cloudConfigTemplate = `#cloud-config
+runcmd:
+- echo "AKS Node Controller cloud-init completed at $(date)"
+`
+
+	flatcarTemplate = `{
+     "ignition": { "version": "3.4.0" },
+     "storage": {
+       "files": [{
+         "path": "/opt/azure/containers/aks-node-controller-config.json",
+         "mode": 384,
+         "contents": { "source": "data:;base64,%s" }
+       }]
+     }
+    }`
 )
 
+// CustomData builds a base64-encoded MIME multipart document to be used as VM custom data for cloud-init.
+// It encodes the node configuration as JSON, embeds it in a cloud-boothook script that writes the config
+// to disk and starts the aks-node-controller service, then pairs it with a cloud-config part. Cloud-init
+// processes each MIME part according to its Content-Type during the VM's first boot.
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
+
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedAksNodeConfigJSON)
+	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, enabledFeaturesBlock(cfg))
+
+	var customData bytes.Buffer
+	writer := multipart.NewWriter(&customData)
+
+	fmt.Fprintf(&customData, "MIME-Version: 1.0\r\n")
+	fmt.Fprintf(&customData, "Content-Type: multipart/mixed; boundary=%q\r\n\r\n", writer.Boundary())
+
+	if err := writeMIMEPart(writer, "text/cloud-boothook", boothook); err != nil {
+		return "", fmt.Errorf("failed to write boothook part: %w", err)
+	}
+	if err := writeMIMEPart(writer, "text/cloud-config", cloudConfigTemplate); err != nil {
+		return "", fmt.Errorf("failed to write cloud-config part: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return "", fmt.Errorf("failed to finalize multipart custom data: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(customData.Bytes()), nil
+}
+
+// CustomDataFlatcar builds base64-encoded custom data for Flatcar Container Linux nodes.
+// Unlike Ubuntu/Azure Linux which use cloud-init and expect MIME multipart custom data,
+// Flatcar uses Ignition (configured via Butane) to process machine configuration. Ignition
+// consumes a JSON document that declaratively specifies files to write to disk, so we embed
+// the node config directly as a base64 data URI in an Ignition storage entry instead of
+// wrapping it in a MIME multipart boothook script.
+func CustomDataFlatcar(cfg *aksnodeconfigv1.Configuration) (string, error) {
+	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
+	}
+
+	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
+}
+
+// writeMIMEPart writes a single part to a MIME multipart message. Cloud-init expects custom data
+// as a MIME multipart document where each part carries a Content-Type that tells cloud-init how to
+// process it (e.g. "text/cloud-boothook" for early-boot scripts, "text/cloud-config" for declarative
+// cloud-config YAML). This helper creates one such part with the appropriate headers.
+func writeMIMEPart(writer *multipart.Writer, contentType, content string) error {
+	header := textproto.MIMEHeader{}
+	header.Set("Content-Type", contentType)
+	header.Set("MIME-Version", "1.0")
+	header.Set("Content-Transfer-Encoding", "7bit")
+
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		return err
+	}
+
+	_, err = part.Write([]byte(content))
+	return err
+}
+
+// enabledFeaturesBlock returns the boothook snippet writing the enabled-features file, or ""
+// when no valid feature is set (keeping custom data byte-identical to the default for VHD
+// compat). Keys are sorted for deterministic output and filtered to valid shell identifiers -
+// the same set the wrapper parses. Entries whose value contains a newline or carriage return
+// are dropped so a single entry can never expand into multiple lines in the heredoc.
+func enabledFeaturesBlock(cfg *aksnodeconfigv1.Configuration) string {
+	features := cfg.GetEnabledFeatures()
+	keys := make([]string, 0, len(features))
+	for k, v := range features {
+		if isValidFeatureKey(k) && !strings.ContainsAny(v, "\n\r") {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) == 0 {
+		return ""
+	}
+	sort.Strings(keys)
+	var lines strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&lines, "%s=%s\n", k, features[k])
+	}
+	return fmt.Sprintf(`cat <<'EOF' >%[1]s
+%[2]sEOF
+chmod 0600 %[1]s
+`, EnabledFeaturesFilePath, lines.String())
+}
+
+// featureKeyRe matches a valid shell identifier ([a-zA-Z_][a-zA-Z0-9_]*) - the same set the
+// aks-node-controller wrapper parses out of enabled_features.sh.
+var featureKeyRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// isValidFeatureKey reports whether k is a valid shell identifier the wrapper would accept.
+func isValidFeatureKey(k string) bool {
+	return featureKeyRe.MatchString(k)
 }
 
 func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {

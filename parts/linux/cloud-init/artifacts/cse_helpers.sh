@@ -79,12 +79,11 @@ ERR_ENABLE_MANAGED_GPU_EXPERIENCE=123 # Error confguring managed GPU experience
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
 ERR_NODE_EXPORTER_START_FAIL=128 # Error starting or enabling node-exporter service
+ERR_DRA_DRIVER_START_FAIL=129 # dra-driver-nvidia-gpu could not be started by systemctl
 
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
 
-ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
-ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
 ERR_ARTIFACT_STREAMING_ACR_NODEMON_START_FAIL=154 # Error starting acr-nodemon service -- this will not be used going forward. Keeping for older nodes.
@@ -125,7 +124,7 @@ ERR_ORAS_IMDS_TIMEOUT=210 # Error timeout waiting for IMDS response
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
-ERR_IMDS_FETCH_FAILED=231 # Error fetching or caching IMDS instance metadata
+ERR_IMDS_FETCH_FAILED=234 # Error fetching or caching IMDS instance metadata
 
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
@@ -142,22 +141,27 @@ ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
 ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # ----------------------------------------------------------------------------------
 
-ERR_SECURE_TLS_BOOTSTRAP_START_FAILURE=220 # Error starting the secure TLS bootstrap systemd service
+ERR_SECURE_TLS_BOOTSTRAP_ENABLE_FAILURE=220 # Error enabling the secure TLS bootstrap systemd service
 
 ERR_CLOUD_INIT_FAILED=223 # Error indicating that cloud-init returned exit code 1 in cse_cmd.sh
 ERR_NVIDIA_DRIVER_INSTALL=224 # Error determining if nvidia driver install should be skipped
 ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT=225 # Timeout waiting for NVIDIA GPG key download
 ERR_NVIDIA_AZURELINUX_REPO_FILE_DOWNLOAD_TIMEOUT=226 # Timeout waiting for NVIDIA AzureLinux repo file download
 ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL=227 # Error installing Managed NVIDIA GPU experience packages
+ERR_NVIDIA_DCGM_INSTALL=235 # Error installing Managed NVIDIA GPU experience packages from cache
 ERR_NVIDIA_DCGM_FAIL=228 # Error starting or enabling NVIDIA DCGM service
 ERR_NVIDIA_DCGM_EXPORTER_FAIL=229 # Error starting or enabling NVIDIA DCGM Exporter service
 ERR_LOOKUP_ENABLE_MANAGED_GPU_EXPERIENCE_TAG=230 # Error checking nodepool tags for whether we need to enable managed GPU experience
 
-ERR_PULL_POD_INFRA_CONTAINER_IMAGE=225 # Error pulling pause image
+ERR_PULL_POD_INFRA_CONTAINER_IMAGE=233 # Error pulling pause image
 ERR_ORAS_PULL_SYSEXT_FAIL=231 # Error pulling systemd system extension artifact via oras from registry
+ERR_SYSEXT_VERSION_ID_NOT_FOUND=232 # VERSION_ID not found in /etc/os-release, required for sysext tag resolution
 
 # ----------------------- AKS Node Controller----------------------------------
 ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
+ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT=241 # Timeout downloading aznfs RPM from PMC
+ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
+ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network interface
 # -----------------------------------------------------------------------------
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
@@ -167,11 +171,11 @@ ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
-    OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
-    OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
+    OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+    OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+    OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 else
-# This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
+    # This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
     echo "/etc/*-release not found"
 fi
 
@@ -182,6 +186,7 @@ AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 FLATCAR_OS_NAME="FLATCAR"
 ACL_OS_NAME="AZURECONTAINERLINUX"
+ACL_OS_VARIANT="AZURECONTAINERLINUX"
 AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 KUBECTL=/opt/bin/kubectl
 DOCKER=/usr/bin/docker
@@ -194,7 +199,14 @@ export GPU_DEST=/usr/local/nvidia
 export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
+# Canonical ref: the VHD bakes CUDA LTS under this exact name and configGPUDrivers matches it
+# exactly, so it must stay mcr.microsoft.com in every cloud.
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+# GRID is never baked, so it is pulled at provision time from this cloud's own MCR (sovereign clouds
+# cannot reach mcr.microsoft.com). The base may carry a trailing slash and is unset during VHD build,
+# where this file is sourced under `set -o nounset`, hence the default.
+NVIDIA_DRIVER_IMAGE_MCR_BASE="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+export NVIDIA_DRIVER_IMAGE_PULL_REF="${NVIDIA_DRIVER_IMAGE_MCR_BASE%/}/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
@@ -214,10 +226,10 @@ AKS_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
 # Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context.
 check_cse_timeout() {
     shouldLog="${1:-true}"
-    maxDurationSeconds=780 # 780 seconds = 13 minutes
+    maxDurationSeconds=${CSE_MAX_DURATION_SECONDS:-780}
     if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
         if [ "$shouldLog" = "true" ]; then
-            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
+            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set." >&2
         fi
         # Return 0 to avoid in case CSE_STARTTIME_SECONDS is not set - for example during image build or if something went wrong in cse_start.sh
         return 0
@@ -246,15 +258,43 @@ _retrycmd_internal() {
     local exitStatus=0
 
     for i in $(seq 1 "$retries"); do
-        timeout "$timeoutVal" "${@}"
-        exitStatus=$?
+        # Only apply CSE timeout guards when CSE_STARTTIME_SECONDS is set (i.e. in a real CSE run).
+        # Skipping the guard during VHD build or other non-CSE callers avoids noisy
+        # "CSE_STARTTIME_SECONDS is not set" warnings in those contexts.
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+            # Check CSE timeout BEFORE starting each attempt. This prevents launching a new long-running
+            # operation (e.g. a 300-600s GPU install) when we are already near the global provisioning
+            # timeout, which would push total CSE execution past the 16-minute client window.
+            if ! check_cse_timeout "$shouldLog"; then
+                echo "CSE timeout approaching, exiting early." >&2
+                return 2
+            fi
+        fi
+
+        # Cap per-attempt timeout to remaining CSE budget so a single attempt cannot overrun
+        # the global provisioning window even when per-attempt timeouts are large.
+        local effectiveTimeout="$timeoutVal"
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+            local remainingCseTime=$(( ${CSE_MAX_DURATION_SECONDS:-780} - ( $(date +%s) - CSE_STARTTIME_SECONDS ) ))
+            if [ "$remainingCseTime" -lt 1 ]; then
+                echo "No CSE time remaining, exiting early." >&2
+                return 2
+            fi
+            if [ "$effectiveTimeout" -gt "$remainingCseTime" ]; then
+                effectiveTimeout="$remainingCseTime"
+            fi
+        fi
+
+        # Capture via `||` so callers running under `set -e` don't abort before the loop can retry.
+        exitStatus=0
+        timeout "$effectiveTimeout" "${@}" || exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
             break
         fi
 
-        # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
-        if ! check_cse_timeout "$shouldLog"; then
+        # Check again after failure, before sleeping, to exit as early as possible.
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout "$shouldLog"; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         fi
@@ -307,39 +347,117 @@ retrycmd_nslookup() {
 
 _retry_file_curl_internal() {
     # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
-    retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
+    # maxBudget (4th arg): if > 0, the total wall-clock seconds this operation is allowed to spend across all retries.
+    # A value of 0 disables the per-operation budget (falls back to the global CSE timeout guard only).
+    local retries=$1 waitSleep=$2 timeout=$3 maxBudget=${4:-0} filePath=$5 url=$6
+    local checksToRun=( "${@:7}" )
+    local opStartTime i
+    opStartTime=$(date +%s)
     echo "${retries} file curl retries"
     for i in $(seq 1 $retries); do
-        # Use eval to execute the checksToRun string as a command
-        ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
-            return 1
+        # Check if the result is already valid (from a previous attempt or pre-existing file)
+        ( eval "$checksToRun" ) && break
+        # Check per-operation budget if set -- prevents a single download from consuming the entire CSE window.
+        # Also cap the per-attempt timeout to the remaining budget so a single curl can't overrun it.
+        local effectiveTimeout=$timeout
+        if [ "${maxBudget}" -gt 0 ]; then
+            local opElapsed
+            opElapsed=$(( $(date +%s) - opStartTime ))
+            if [ "$opElapsed" -ge "$maxBudget" ]; then
+                echo "Operation budget of ${maxBudget}s exceeded after ${opElapsed}s, exiting early." >&2
+                return 2
+            fi
+            local remainingBudget=$(( maxBudget - opElapsed ))
+            if [ "$effectiveTimeout" -gt "$remainingBudget" ]; then
+                effectiveTimeout=$remainingBudget
+            fi
         fi
-        # check if global cse timeout is approaching
-        if ! check_cse_timeout; then
+        # check if global cse timeout is approaching (only in real CSE runs)
+        if [ -n "${CSE_STARTTIME_SECONDS:-}" ] && ! check_cse_timeout; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
-        else
-            if [ "$i" -gt 1 ]; then
-                sleep $waitSleep
+        fi
+
+        if [ "$i" -gt 1 ]; then
+            local sleepDuration=$waitSleep
+            if [ "${maxBudget}" -gt 0 ]; then
+                local preSleepElapsed
+                preSleepElapsed=$(( $(date +%s) - opStartTime ))
+                local preSleepRemaining=$(( maxBudget - preSleepElapsed ))
+                if [ "$preSleepRemaining" -le 0 ]; then
+                    echo "Operation budget of ${maxBudget}s exceeded after ${preSleepElapsed}s, exiting early." >&2
+                    return 2
+                fi
+                if [ "$sleepDuration" -gt "$preSleepRemaining" ]; then
+                    sleepDuration=$preSleepRemaining
+                fi
             fi
-            timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
-            if [ "$?" -ne 0 ]; then
-                cat $CURL_OUTPUT
+            sleep $sleepDuration
+        fi
+
+        # Re-check budget after sleep and cap timeout accordingly
+        if [ "${maxBudget}" -gt 0 ]; then
+            local postSleepElapsed
+            postSleepElapsed=$(( $(date +%s) - opStartTime ))
+            if [ "$postSleepElapsed" -ge "$maxBudget" ]; then
+                echo "Operation budget of ${maxBudget}s exceeded after ${postSleepElapsed}s, exiting early." >&2
+                return 2
+            fi
+            local postSleepRemaining=$(( maxBudget - postSleepElapsed ))
+            if [ "$effectiveTimeout" -gt "$postSleepRemaining" ]; then
+                effectiveTimeout=$postSleepRemaining
+            fi
+        fi
+
+        timeout $effectiveTimeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
+        if [ "$?" -ne 0 ]; then
+            cat $CURL_OUTPUT
+        fi
+
+        # On the last attempt, do a final check so every retry gets a curl attempt
+        if [ "$i" -eq "$retries" ]; then
+            if ! ( eval "$checksToRun" ); then
+                return 1
             fi
         fi
     done
 }
 
+# Usage: retrycmd_get_tarball <retries> <wait_sleep> <timeout_seconds> <tarball> <url> [max_budget_s=0]
+# Backward-compatible with old 4-arg callers: <retries> <wait_sleep> <tarball> <url>
+# When the 3rd arg is non-numeric (i.e. a file path), the old signature is assumed and timeout defaults to 60s.
+# timeout_seconds: integer seconds only (do not use duration suffixes like 60s or 5m)
+# max_budget_s: optional per-operation budget in seconds (0 = no cap). Ignored when CSE_STARTTIME_SECONDS is unset.
 retrycmd_get_tarball() {
-    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
-    _retry_file_curl_internal "$tar_retries" "$wait_sleep" 60 "$tarball" "$url" "$check_tarball_valid"
+    local tar_retries=$1; local wait_sleep=$2
+    case "$3" in
+        ''|*[!0-9]*)
+            # Non-numeric 3rd arg: old 4-arg signature <retries> <wait_sleep> <tarball> <url>
+            local timeout=60; local tarball=$3; local url=$4; local max_budget=0
+            ;;
+        *)
+            # Numeric 3rd arg: new 5-arg signature <retries> <wait_sleep> <timeout> <tarball> <url> [max_budget]
+            local timeout=$3; local tarball=$4; local url=$5; local max_budget=${6:-0}
+            ;;
+    esac
+    # Only apply a per-operation budget during real CSE runs; during VHD build (CSE_STARTTIME_SECONDS unset) use no cap.
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        max_budget=0
+    fi
+    local check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
+    _retry_file_curl_internal "$tar_retries" "$wait_sleep" "$timeout" "$max_budget" "$tarball" "$url" "$check_tarball_valid"
 }
 
+# Usage: retrycmd_curl_file <retries> <wait_sleep> <timeout> <filepath> <url> [max_budget_s=0]
+# max_budget_s: optional per-operation budget in seconds (0 = no cap). Ignored when CSE_STARTTIME_SECONDS is unset.
 retrycmd_curl_file() {
-    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
-    check_file_exists="[ -f \"$filepath\" ]"
-    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$filepath" "$url" "$check_file_exists"
+    local curl_retries=$1 wait_sleep=$2 timeout=$3 filepath=$4 url=$5 max_budget=${6:-0}
+    # Only apply a per-operation budget during real CSE runs; during VHD build (CSE_STARTTIME_SECONDS unset) use no cap.
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        max_budget=0
+    fi
+    local check_file_exists="[ -f \"$filepath\" ]"
+    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$max_budget" "$filepath" "$url" "$check_file_exists"
 }
 
 retrycmd_pull_from_registry_with_oras() {
@@ -507,53 +625,67 @@ systemctlEnableAndStart() {
     service=$1; timeout=$2
     systemctl_restart 100 5 $timeout $service
     RESTART_STATUS=$?
-    systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
         echo "$service could not be started"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
     if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
         echo "$service could not be enabled by systemctl"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
     fi
 }
 
 systemctlEnableAndStartNoBlock() {
-    service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
+    local service=$1 timeout=$2
 
-    systemctl_restart_no_block 100 5 $timeout $service
-    RESTART_STATUS=$?
-    if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$service could not be enqueued for startup"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
-        return 1
-    fi
-
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+    if ! retrycmd_if_failure 120 5 25 systemctl enable --no-reload "$service"; then
         echo "$service could not be enabled by systemctl"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+        systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
         return 1
     fi
 
-    # wait for the specified delay seconds before checking the service status to make sure
-    # it hasn't gone into a failed state
-    sleep $status_check_delay_seconds
+    if ! systemctl_restart_no_block 100 5 "$timeout" "$service"; then
+        echo "$service could not be enqueued for startup"
+        systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
+        return 1
+    fi
+}
 
-    if systemctl is-failed $service; then
+checkServiceHealth() {
+    local service=$1
+    local state=$(systemctl show -p ActiveState --value "$service")
+
+    if [ "$state" = "active" ]; then
+       return 0
+    fi
+
+    systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
+
+    if [ "$state" = "failed" ]; then
         echo "$service is in a failed state"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
         return 1
-    fi
-
-    # systemctl status only exits with code 0 iff the service is "active",
-    # thus we handle the "activating" case by checking for a non-zero exit code
-    if ! systemctl status $service --no-pager -l > /var/log/azure/$service-status.log; then
+    elif [ "$state" = "activating" ]; then
         echo "$service is still activating, continuing anyway..."
     fi
 }
 
+waitForContainerdReady() {
+    local ret=0
+
+    echo "Waiting for containerd to become ready..."
+    retrycmd_if_failure 240 0.1 1 bash -c 'ctr version >/dev/null 2>&1'
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+        echo "containerd did not become ready"
+        systemctl status containerd --no-pager -l > /var/log/azure/containerd-status.log || true
+        return 1
+    fi
+}
+
 systemctlDisableAndStop() {
-    if systemctl list-units --full --all | grep -q "$1.service"; then
+    if systemctl cat "$1" &>/dev/null; then
         systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
         systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
     fi
@@ -561,14 +693,107 @@ systemctlDisableAndStop() {
 
 # return true if a >= b
 semverCompare() {
-    VERSION_A=$(echo $1 | cut -d "+" -f 1 | cut -d "~" -f 1)
-    VERSION_B=$(echo $2 | cut -d "+" -f 1 | cut -d "~" -f 1)
+    local VERSION_A
+    local VERSION_B
+    local sorted
+    local highestVersion
+
+    VERSION_A=$(printf "%s" "$1" | cut -d "+" -f 1 | cut -d "~" -f 1)
+    VERSION_B=$(printf "%s" "$2" | cut -d "+" -f 1 | cut -d "~" -f 1)
 
     [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
-    sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
-    highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
-    [ "${VERSION_A}" = ${highestVersion} ] && return 0
+    sorted=$(printf "%s\n%s\n" "${VERSION_A}" "${VERSION_B}" | sort -V)
+    highestVersion=$(printf "%s\n" "${sorted}" | tail -n 1)
+    [ "${VERSION_A}" = "${highestVersion}" ] && return 0
     return 1
+}
+
+get_ubuntu_release() {
+    local ubuntu_release
+
+    if [ -r /etc/os-release ]; then
+        ubuntu_release="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release)"
+        if [ -n "$ubuntu_release" ]; then
+            echo "$ubuntu_release"
+            return 0
+        fi
+    fi
+
+    if command -v lsb_release >/dev/null 2>&1; then
+        lsb_release -r -s 2>/dev/null || true
+        return 0
+    fi
+
+    echo ""
+}
+
+# Return 0 when the running Ubuntu kernel still needs the Copy Fail / DirtyFrag /
+# Fragnesia module deny mitigation. Future Ubuntu releases are not in scope by
+# default; add them explicitly only if they ship a vulnerable kernel. If release
+# detection fails, keep the mitigation enabled.
+ubuntuKernelNeedsVulnerableModuleMitigation() {
+    local ubuntu_release
+    local kernel_release
+    local fixed_kernel
+
+    ubuntu_release="$(get_ubuntu_release)"
+    kernel_release="$(uname -r 2>/dev/null || echo "")"
+
+    if [ -z "$ubuntu_release" ]; then
+        echo "Unable to detect Ubuntu release; keeping vulnerable kernel module mitigation enabled"
+        return 0
+    fi
+
+    if [ -z "$kernel_release" ]; then
+        echo "Unable to detect Ubuntu kernel version; keeping vulnerable kernel module mitigation enabled"
+        return 0
+    fi
+
+    case "$ubuntu_release" in
+        20.04)
+            # Only linux-azure-fips 5.4 has a verified Focal fix for all applicable CVEs.
+            if printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$'; then
+                fixed_kernel="5.4.0-1164-azure-fips"
+            else
+                echo "Ubuntu 20.04 remains in scope for Copy Fail / DirtyFrag / Fragnesia vulnerable kernel module mitigation on ${kernel_release}"
+                return 0
+            fi
+            ;;
+        22.04)
+            case "$kernel_release" in
+                # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+                *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
+                *-generic) fixed_kernel="5.15.0-181-generic" ;;
+                *)
+                    echo "Unknown Ubuntu 22.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"
+                    return 0
+                    ;;
+            esac
+            ;;
+        24.04)
+            case "$kernel_release" in
+                # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+                *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
+                *-generic) fixed_kernel="6.8.0-124-generic" ;;
+                *)
+                    echo "Unknown Ubuntu 24.04 kernel flavor '${kernel_release}'; keeping vulnerable kernel module mitigation enabled"
+                    return 0
+                    ;;
+            esac
+            ;;
+        *)
+            echo "Ubuntu release '${ubuntu_release}' is not in the Copy Fail / DirtyFrag / Fragnesia mitigation scope; skipping vulnerable kernel module mitigation"
+            return 1
+            ;;
+    esac
+
+    if semverCompare "$kernel_release" "$fixed_kernel"; then
+        echo "Ubuntu ${ubuntu_release} kernel ${kernel_release} includes Copy Fail / DirtyFrag / Fragnesia fixes; skipping vulnerable kernel module mitigation"
+        return 1
+    fi
+
+    echo "Ubuntu ${ubuntu_release} kernel ${kernel_release} is older than fixed kernel ${fixed_kernel}; keeping vulnerable kernel module mitigation enabled"
+    return 0
 }
 
 getCPUArch() {
@@ -587,6 +812,21 @@ getSystemdArch() {
         amd64) echo x86-64 ;;
         *) echo "${seArch}" ;;
     esac
+}
+
+maskKubeletSysextUpholds() {
+    local dropinDir="/etc/systemd/system/multi-user.target.d"
+    local dropinPath="${dropinDir}/10-kubelet-kubelet.conf"
+
+    # AgentBaker owns kubelet activation, so suppress the sysext policy that starts it before CSE writes its configuration.
+    if ! mkdir -p "${dropinDir}"; then
+        echo "Failed to create kubelet sysext systemd drop-in directory ${dropinDir}" >&2
+        return 1
+    fi
+    if ! ln -sfn /dev/null "${dropinPath}"; then
+        echo "Failed to mask kubelet sysext systemd drop-in ${dropinPath}" >&2
+        return 1
+    fi
 }
 
 isARM64() {
@@ -774,6 +1014,11 @@ should_enable_managed_gpu_experience() {
 
 isMarinerOrAzureLinux() {
     local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -799,6 +1044,11 @@ isMariner() {
 
 isAzureLinux() {
     local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
+    # ACL has ID=azurelinux but is Flatcar-based and does not necessarily match AzureLinux code paths
+    if isACL "$os" "$os_variant"; then
+        return 1
+    fi
     if [ "$os" = "$AZURELINUX_OS_NAME" ] || [ "$os" = "$AZURELINUX_KATA_OS_NAME" ]; then
         return 0
     fi
@@ -815,7 +1065,12 @@ isFlatcar() {
 
 isACL() {
     local os=${1-$OS}
+    local os_variant=${2-$OS_VARIANT}
     if [ "$os" = "$ACL_OS_NAME" ]; then
+        return 0
+    fi
+    # Also match when OS is AZURELINUX with VARIANT_ID=AZURECONTAINERLINUX (new os-release format)
+    if [ "$os" = "$AZURELINUX_OS_NAME" ] && [ "$os_variant" = "$ACL_OS_VARIANT" ]; then
         return 0
     fi
     return 1
@@ -824,6 +1079,13 @@ isACL() {
 isUbuntu() {
     local os=${1-$OS}
     if [ "$os" = "$UBUNTU_OS_NAME" ]; then
+        return 0
+    fi
+    return 1
+}
+
+isMinimalImage() {
+    if grep -q "minimal" <<< "$FEATURE_FLAGS"; then
         return 0
     fi
     return 1
@@ -874,9 +1136,9 @@ getPackageJSON() {
         search=".downloadURIs.${osLowerCase}.\"${osVariant}/r${osVersion//.}\" // .downloadURIs.${osLowerCase}.\"r${osVersion//.}\" // ${search}"
     fi
 
-    # ACL is Flatcar-based; fall back to flatcar entries when acl-specific entries are not found.
-    if isACL "${os}"; then
-        search=".downloadURIs.${osLowerCase}.\"${osVariant}/current\" // .downloadURIs.${osLowerCase}.current // .downloadURIs.flatcar.current // .downloadURIs.default.current"
+    # ACL is Flatcar-based; use flatcar download entries.
+    if isACL "${os}" "${osVariant}"; then
+        search=".downloadURIs.flatcar.current // .downloadURIs.default.current"
     fi
 
     jq -r -c "${search}" <<< "${package}"
@@ -937,14 +1199,16 @@ getLatestPkgVersionFromK8sVersion() {
 fallbackToKubeBinaryInstall() {
     packageName="${1:-}"
     packageVersion="${2:-}"
+    local targetPath="${3:-/opt/bin/${packageName}}"
     if [ "${packageName}" = "kubelet" ] || [ "${packageName}" = "kubectl" ]; then
         if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" = "true" ]; then
             echo "Kube PMC install is enforced, skipping fallback to kube binary install for ${packageName}"
             return 1
         elif [ -f "/opt/bin/${packageName}-${packageVersion}" ]; then
-            mv "/opt/bin/${packageName}-${packageVersion}" "/opt/bin/${packageName}"
-            chmod a+x /opt/bin/${packageName}
-            rm -rf /opt/bin/${packageName}-* &
+            mv "/opt/bin/${packageName}-${packageVersion}" "${targetPath}"
+            chown root:root "${targetPath}"
+            chmod 0755 "${targetPath}"
+            rm -rf /opt/bin/"${packageName}"-* &
             return 0
         else
             echo "No binary fallback found for ${packageName} version ${packageVersion}"
@@ -1141,33 +1405,61 @@ oras_login_with_kubelet_identity() {
     fi
 
     set +x
-    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
-    raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
-    ret_code=$?
-    if [ "$ret_code" -ne 0 ]; then
-        echo $raw_access_token
-        return $ret_code
-    fi
-    ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
-    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
-        echo "failed to parse access token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
+    # Try ACR endpoint (containerregistry.azure.net) first, fall back to ARM endpoint (management.azure.com)
+    local acr_endpoint="https://containerregistry.azure.net"
+    local arm_endpoint="${ARM_RESOURCE_ENDPOINT:-https://management.azure.com/}"
+    local endpoints=("$acr_endpoint" "$arm_endpoint")
+    local ACCESS_TOKEN=""
+    local REFRESH_TOKEN=""
+    local last_ret_code=0
 
-    raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
-    ret_code=$?
-    if [ "$ret_code" -ne 0 ]; then
-        echo "failed to retrieve refresh token: $ret_code"
-        return $ret_code
-    fi
-    # shellcheck disable=SC3010
-    if [[ "$raw_refresh_token" == *"error"* ]]; then
-        echo "failed to retrieve refresh token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
-    REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
-    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
-        echo "failed to parse refresh token"
+    for endpoint in "${endpoints[@]}"; do
+        last_ret_code=0
+        echo "attempting to get access token with endpoint: $endpoint"
+        access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${endpoint}&client_id=$client_id"
+        raw_access_token=$(retrycmd_get_aad_access_token 5 15 $access_url)
+        ret_code=$?
+        if [ "$ret_code" -ne 0 ]; then
+            echo "failed to get access token with endpoint $endpoint, ret_code: $ret_code"
+            last_ret_code=$ret_code
+            continue
+        fi
+        ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
+        if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+            echo "failed to parse access token with endpoint $endpoint"
+            continue
+        fi
+
+        raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
+        ret_code=$?
+        if [ "$ret_code" -ne 0 ]; then
+            echo "failed to retrieve refresh token with endpoint $endpoint, ret_code: $ret_code"
+            last_ret_code=$ret_code
+            ACCESS_TOKEN=""
+            continue
+        fi
+        # shellcheck disable=SC3010
+        if [[ "$raw_refresh_token" == *"error"* ]]; then
+            echo "failed to retrieve refresh token with endpoint $endpoint: $(echo "$raw_refresh_token" | jq -r '.error // empty'): $(echo "$raw_refresh_token" | jq -r '.error_description // empty')"
+            ACCESS_TOKEN=""
+            continue
+        fi
+        REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
+        if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
+            echo "failed to parse refresh token with endpoint $endpoint"
+            ACCESS_TOKEN=""
+            continue
+        fi
+
+        echo "successfully obtained acr refresh tokens with endpoint: $endpoint"
+        break
+    done
+
+    if [ -z "$ACCESS_TOKEN" ] || [ -z "$REFRESH_TOKEN" ]; then
+        echo "failed to obtain tokens with all endpoints"
+        if [ "$last_ret_code" -ne 0 ]; then
+            return $last_ret_code
+        fi
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
@@ -1309,5 +1601,144 @@ function get_sandbox_image_from_containerd_config() {
     fi
 
     echo "$sandbox_image"
+}
+
+# ensureKubeletCgroupHierarchy creates the systemd slices used by kubelet for the
+# kube-reserved and system-reserved enforcement tiers (Node Memory Hardening F2/F5).
+# It MUST be called before kubelet starts so that /kubereserved.slice and /system.slice
+# exist and are managed by systemd before the first kubelet enforcement pass.
+#
+# The function:
+#   - Asserts cgroupv2 unified hierarchy (cgroupv1 is not supported by this feature
+#     because mixed/legacy hierarchies cannot reliably enforce per-slice MemoryMax).
+#   - Drops a /etc/systemd/system/kubereserved.slice unit (system.slice ships with systemd).
+#   - Triggers `systemctl daemon-reload` and `systemctl start kubereserved.slice` so the
+#     cgroup is materialised at /sys/fs/cgroup/kubereserved.slice prior to kubelet boot.
+#
+# Inputs (env, all optional — the function is a no-op if the RP did not opt in):
+#   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kubereserved.slice"
+#   SYSTEM_RESERVED_CGROUP  — absolute cgroup name, e.g. "/system.slice"
+
+# resolveKubeletReservedCgroups exports KUBE_RESERVED_CGROUP and SYSTEM_RESERVED_CGROUP
+# from either the kubelet config-file JSON (when KUBELET_CONFIG_FILE_ENABLED=true) or
+# from KUBELET_FLAGS as a fallback. Both vars are unset (empty string) when the RP did
+# not opt the pool into Node Memory Hardening, which keeps ensureKubeletCgroupHierarchy
+# a no-op for non-hardened pools.
+#
+# When kubelet config-file mode is enabled, --kube-reserved-cgroup /
+# --system-reserved-cgroup are filtered out of KUBELET_FLAGS by the RP
+# (TranslatedKubeletConfigFlags) and rendered into kubeletconfig.json instead, so
+# we must source the cgroup names from the JSON in that mode.
+resolveKubeletReservedCgroups() {
+    KUBE_RESERVED_CGROUP=""
+    SYSTEM_RESERVED_CGROUP=""
+    if [ "${KUBELET_CONFIG_FILE_ENABLED:-}" = "true" ] && [ -n "${KUBELET_CONFIG_FILE_CONTENT:-}" ]; then
+        KUBE_RESERVED_CGROUP=$(echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d | jq -r '.kubeReservedCgroup // ""')
+        SYSTEM_RESERVED_CGROUP=$(echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d | jq -r '.systemReservedCgroup // ""')
+    else
+        KUBE_RESERVED_CGROUP=$(extract_value_from_kubelet_flags "${KUBELET_FLAGS:-}" "kube-reserved-cgroup")
+        SYSTEM_RESERVED_CGROUP=$(extract_value_from_kubelet_flags "${KUBELET_FLAGS:-}" "system-reserved-cgroup")
+    fi
+    export KUBE_RESERVED_CGROUP SYSTEM_RESERVED_CGROUP
+}
+
+ensureKubeletCgroupHierarchy() {
+    if [ -z "${KUBE_RESERVED_CGROUP:-}" ] && [ -z "${SYSTEM_RESERVED_CGROUP:-}" ]; then
+        return 0
+    fi
+
+    # Path overrides exist for ShellSpec coverage; production callers leave them at
+    # their defaults.
+    local cgroupv2_marker="${CGROUPV2_MARKER_PATH:-/sys/fs/cgroup/cgroup.controllers}"
+    local kube_reserved_slice_unit="${KUBE_RESERVED_SLICE_UNIT_PATH:-/etc/systemd/system/kubereserved.slice}"
+    local kubelet_dropin_dir="${KUBELET_SERVICE_DROPIN_DIR:-/etc/systemd/system/kubelet.service.d}"
+    local containerd_dropin_dir="${CONTAINERD_SERVICE_DROPIN_DIR:-/etc/systemd/system/containerd.service.d}"
+
+    # Assert cgroupv2 unified hierarchy. The canonical marker is the presence of
+    # /sys/fs/cgroup/cgroup.controllers, which only exists under cgroupv2.
+    if [ ! -f "${cgroupv2_marker}" ]; then
+        echo "ensureKubeletCgroupHierarchy: cgroupv2 unified hierarchy not detected; node memory hardening cgroup enforcement requires cgroupv2"
+        return 1
+    fi
+
+    # Validate supported values: /kubereserved.slice (or bare kubereserved.slice) is
+    # the only value accepted for KUBE_RESERVED_CGROUP. Only /system.slice (or bare system.slice)
+    # is supported for SYSTEM_RESERVED_CGROUP (a built-in systemd slice). Reject any other value
+    # explicitly so kubelet doesn't fail later with an opaque enforcement error.
+    case "${KUBE_RESERVED_CGROUP:-}" in
+        ""|"/kubereserved.slice"|"kubereserved.slice") ;;
+        *)
+            echo "ensureKubeletCgroupHierarchy: unsupported KUBE_RESERVED_CGROUP=${KUBE_RESERVED_CGROUP}; only /kubereserved.slice is supported"
+            return 1
+            ;;
+    esac
+    case "${SYSTEM_RESERVED_CGROUP:-}" in
+        ""|"/system.slice"|"system.slice") ;;
+        *)
+            echo "ensureKubeletCgroupHierarchy: unsupported SYSTEM_RESERVED_CGROUP=${SYSTEM_RESERVED_CGROUP}; only /system.slice is supported"
+            return 1
+            ;;
+    esac
+
+    # /system.slice is a built-in systemd slice; we only need to create kubereserved.slice.
+    if [ "${KUBE_RESERVED_CGROUP:-}" = "/kubereserved.slice" ] || [ "${KUBE_RESERVED_CGROUP:-}" = "kubereserved.slice" ]; then
+        # Write all unit/drop-in files unconditionally (idempotent). This ensures
+        # upgraded nodes that already have an older version of these files get the
+        # latest content (e.g. the Slice= directive added for kubelet/containerd).
+        mkdir -p "$(dirname "${kube_reserved_slice_unit}")"
+        tee "${kube_reserved_slice_unit}" > /dev/null <<'EOF'
+[Unit]
+Description=Slice for kube-reserved enforcement (AKS Node Memory Hardening)
+Before=slices.target
+DefaultDependencies=no
+
+[Slice]
+
+[Install]
+WantedBy=slices.target
+EOF
+        chmod 0644 "${kube_reserved_slice_unit}"
+
+        # Drop-in on kubelet.service so systemd starts kubereserved.slice first
+        # on every boot and places kubelet inside the slice.
+        mkdir -p "${kubelet_dropin_dir}"
+        tee "${kubelet_dropin_dir}/10-kubereserved-slice.conf" > /dev/null <<'EOF'
+[Unit]
+Wants=kubereserved.slice
+After=kubereserved.slice
+
+[Service]
+Slice=kubereserved.slice
+EOF
+        chmod 0644 "${kubelet_dropin_dir}/10-kubereserved-slice.conf"
+
+        # Drop-in on containerd.service to place it in kubereserved.slice.
+        mkdir -p "${containerd_dropin_dir}"
+        tee "${containerd_dropin_dir}/10-kubereserved-slice.conf" > /dev/null <<'EOF'
+[Unit]
+Wants=kubereserved.slice
+After=kubereserved.slice
+
+[Service]
+Slice=kubereserved.slice
+EOF
+        chmod 0644 "${containerd_dropin_dir}/10-kubereserved-slice.conf"
+
+        if ! systemctl daemon-reload; then
+            echo "ensureKubeletCgroupHierarchy: failed to daemon-reload systemd"
+            return 1
+        fi
+
+        # Enable the slice for subsequent boots AND materialise the cgroup tree
+        # at /sys/fs/cgroup/kubereserved.slice on this boot before kubelet starts.
+        # systemctlEnableAndStart wraps both operations with retry logic to
+        # survive transient systemd failures during CSE.
+        if ! systemctlEnableAndStart kubereserved.slice 30; then
+            echo "ensureKubeletCgroupHierarchy: failed to enable and start kubereserved.slice"
+            return 1
+        fi
+    fi
+
+    return 0
 }
 #HELPERSEOF

@@ -30,7 +30,7 @@ const (
 	// kubernetesWindowsAgentCSECommandPS1 privides the command of Windows CSE.
 	kubernetesWindowsAgentCSECommandPS1 = "windows/csecmd.ps1"
 	// kubernetesWindowsAgentCustomDataPS1 is used for generating the customdata of Windows VM.
-	kubernetesWindowsAgentCustomDataPS1 = "windows/kuberneteswindowssetup.ps1"
+	kubernetesWindowsAgentCustomDataPS1 = "windows/kuberneteswindowssetup.ps1.template"
 	/* Windows CSE helper scripts. These should all be listed in
 	baker.go:func GetKubernetesWindowsAgentFunctions. */
 	kubernetesWindowsCSEHelperPS1 = "windows/windowscsehelper.ps1"
@@ -42,6 +42,7 @@ const (
 // cloud-init (i.e. ARM customData) source file references.
 const (
 	kubernetesFlatcarNodeCustomDataYaml   = "linux/cloud-init/flatcar.yml"
+	kubernetesACLNodeCustomDataYaml       = "linux/cloud-init/acl.yml"
 	kubernetesNodeCustomDataYaml          = "linux/cloud-init/nodecustomdata.yml"
 	kubernetesCSECommandString            = "linux/cloud-init/artifacts/cse_cmd.sh"
 	kubernetesCSEStartScript              = "linux/cloud-init/artifacts/cse_start.sh"
@@ -59,6 +60,11 @@ const (
 	kubernetesCSEInstallFlatcar           = "linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh"
 	kubernetesCSEInstallACL               = "linux/cloud-init/artifacts/acl/cse_install_acl.sh"
 	kubernetesCSEConfig                   = "linux/cloud-init/artifacts/cse_config.sh"
+	kubernetesCSEConfigGPU                = "linux/cloud-init/artifacts/cse_config_gpu.sh"
+	kubernetesCSEConfigLocalDNS           = "linux/cloud-init/artifacts/cse_config_localdns.sh"
+	kubernetesCSEConfigKubelet            = "linux/cloud-init/artifacts/cse_config_kubelet.sh"
+	kubernetesCSEConfigNetwork            = "linux/cloud-init/artifacts/cse_config_network.sh"
+	kubernetesCSEConfigAddons             = "linux/cloud-init/artifacts/cse_config_addons.sh"
 	kubernetesCSESendLogs                 = "linux/cloud-init/artifacts/cse_send_logs.py"
 	kubernetesCSERedactCloudConfig        = "linux/cloud-init/artifacts/cse_redact_cloud_config.py"
 	kubernetesCustomSearchDomainsScript   = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
@@ -89,13 +95,8 @@ const (
 	dhcpv6SystemdService      = "linux/cloud-init/artifacts/dhcpv6.service"
 	dhcpv6ConfigurationScript = "linux/cloud-init/artifacts/enable-dhcpv6.sh"
 
-	// scripts for initializing specifically within AKS stack cloud environments (AGC).
-	initAKSCustomCloudScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
-	initAKSCustomCloudMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh"
-
-	// scripts for initializing specifically within AKS custom cloud environments other than stack cloud (e.g. Bleu).
-	initAKSCustomCloudOperationRequestsScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests.sh"
-	initAKSCustomCloudOperationRequestsMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-operation-requests-mariner.sh"
+	// script for initializing the AKS node cloud environment (cert bootstrap + repo init); runs on all clouds.
+	initAKSCloudScript = "linux/cloud-init/artifacts/init-aks-cloud.sh"
 
 	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
 	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
@@ -105,6 +106,8 @@ const (
 	azureNetworkUdevRule        = "linux/cloud-init/artifacts/99-azure-network.rules"
 
 	componentManifestFile = "linux/cloud-init/artifacts/manifest.json"
+
+	hotfixJSONFile = "linux/cloud-init/artifacts/aks-node-controller-hotfix.json"
 )
 
 // cloud-init destination file references.
@@ -114,10 +117,22 @@ const (
 	cseInstallScriptFilepath             = "/opt/azure/containers/provision_installs.sh"
 	cseInstallScriptDistroFilepath       = "/opt/azure/containers/provision_installs_distro.sh"
 	cseConfigScriptFilepath              = "/opt/azure/containers/provision_configs.sh"
+	cseConfigGPUScriptFilepath           = "/opt/azure/containers/provision_configs_gpu.sh"
+	cseConfigLocalDNSScriptFilepath      = "/opt/azure/containers/provision_configs_localdns.sh"
+	cseConfigKubeletScriptFilepath       = "/opt/azure/containers/provision_configs_kubelet.sh"
+	cseConfigNetworkScriptFilepath       = "/opt/azure/containers/provision_configs_network.sh"
+	cseConfigAddonsScriptFilepath        = "/opt/azure/containers/provision_configs_addons.sh"
 	customSearchDomainsCSEScriptFilepath = "/opt/azure/containers/setup-custom-search-domains.sh"
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
-	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
+	initAKSCloudFilepath                 = "/opt/azure/containers/init-aks-cloud.sh"
+	aksNbcCmdFilepath                    = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+	aksNodeCustomDataFilepath            = "/opt/azure/containers/nodecustomdata.yml"
+	aksNodeConfigFilepath                = "/opt/azure/containers/aks-node-controller-config.json"
+	aksHotfixJSONFilepath                = "/opt/azure/containers/aks-node-controller-hotfix.json"
+	// enabledFeaturesFilepath is the KEY=VALUE feature-flag file the aks-node-controller wrapper
+	// reads (its FEATURES_PATH). Scriptless custom data drops it only when a feature toggle is set.
+	enabledFeaturesFilepath = "/opt/azure/containers/enabled_features.sh"
 )
 
 const (

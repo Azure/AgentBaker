@@ -15,12 +15,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 )
 
 /*
@@ -44,6 +45,9 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--cluster-domain":                    true,
 	"--max-pods":                          true,
 	"--eviction-hard":                     true,
+	"--eviction-soft":                     true,
+	"--eviction-soft-grace-period":        true,
+	"--eviction-max-pod-grace-period":     true,
 	"--node-status-update-frequency":      true,
 	"--node-status-report-frequency":      true,
 	"--image-gc-high-threshold":           true,
@@ -51,6 +55,8 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--event-qps":                         true,
 	"--pod-max-pids":                      true,
 	"--enforce-node-allocatable":          true,
+	"--kube-reserved-cgroup":              true,
+	"--system-reserved-cgroup":            true,
 	"--streaming-connection-idle-timeout": true,
 	"--rotate-certificates":               true,
 	"--rotate-server-certificates":        true,
@@ -245,23 +251,34 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
-func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
-	writer, err := gzip.NewWriterLevel(buf, gzip.BestCompression)
-	if err == nil {
+//nolint:gochecknoglobals
+var gzipWriterPool = sync.Pool{
+	New: func() interface{} {
+		writer, err := gzip.NewWriterLevel(io.Discard, gzip.BestCompression)
+		if err != nil {
+			panic(fmt.Sprintf("BUG: %s", err.Error()))
+		}
 		return writer
-	}
-	return gzip.NewWriter(buf)
+	},
 }
 
 func getGzippedBufferFromBytes(b []byte) []byte {
 	var gzipB bytes.Buffer
-	w := newGzipWriter(&gzipB)
+	w, ok := gzipWriterPool.Get().(*gzip.Writer)
+	if !ok {
+		panic("BUG: gzip writer pool returned an unexpected type")
+	}
+	w.Reset(&gzipB)
 	_, err := w.Write(b)
 	if err != nil {
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		panic(fmt.Sprintf("BUG: %s", err.Error()))
+	}
+	w.Reset(io.Discard)
+	gzipWriterPool.Put(w)
 	return gzipB.Bytes()
 }
 
@@ -301,13 +318,23 @@ func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
 	if linuxProfile != nil {
 		lastItem := len(linuxProfile.SSH.PublicKeys) - 1
 		for i, publicKey := range linuxProfile.SSH.PublicKeys {
-			str += `"` + strings.TrimSpace(publicKey.KeyData) + `"`
+			str += encodePowerShellBase64Literal(strings.TrimSpace(publicKey.KeyData))
 			if i < lastItem {
 				str += ", "
 			}
 		}
 	}
 	return str
+}
+
+// encodePowerShellBase64Literal returns a PowerShell expression that decodes
+// the given string from base64 at runtime. The encoded payload is placed inside
+// a single-quoted PowerShell literal; since the base64 alphabet (A-Za-z0-9+/=)
+// cannot contain a single quote, the literal cannot be terminated early,
+// making the output safe by construction regardless of input content.
+func encodePowerShellBase64Literal(value string) string {
+	encoded := base64.StdEncoding.EncodeToString([]byte(value))
+	return "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('" + encoded + "'))"
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
@@ -336,6 +363,8 @@ func GetCloudTargetEnv(location string) string {
 		return "AzureBleuCloud"
 	case strings.HasPrefix(loc, "delos"):
 		return "AzureGermanyCloud"
+	case strings.HasPrefix(loc, "singapore"):
+		return "AzureSingaporeCloud"
 	default:
 		return "AzurePublicCloud"
 	}
@@ -343,9 +372,15 @@ func GetCloudTargetEnv(location string) string {
 
 // IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
 func IsKubernetesVersionGe(actualVersion, version string) bool {
-	v1, _ := semver.Make(actualVersion)
-	v2, _ := semver.Make(version)
-	return v1.GE(v2)
+	v1, err := semver.NewVersion(actualVersion)
+	if err != nil {
+		return false
+	}
+	v2, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	return v1.GreaterThanEqual(v2)
 }
 
 func getCustomDataFromJSON(jsonStr string) string {
@@ -369,7 +404,11 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	configuration with the customized one. */
 	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
 	if kubeletCustomConfigurations != nil {
-		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k)
+		var version string
+		if cs.Properties.OrchestratorProfile != nil {
+			version = cs.Properties.OrchestratorProfile.OrchestratorVersion
+		}
+		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k, version)
 	}
 
 	if k == nil {
@@ -387,14 +426,14 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 		}
 	}
 	sort.Strings(keys)
-	var buf bytes.Buffer
+	pairs := make([]string, 0, len(keys))
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, k[key]))
+		pairs = append(pairs, fmt.Sprintf("%s=%s", key, k[key]))
 	}
-	return buf.String()
+	return strings.Join(pairs, " ")
 }
 
-func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string) string {
+func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string, k8sVersion string) string {
 	config := customConfig
 
 	for k, v := range defaultConfig {
@@ -404,19 +443,22 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 		}
 	}
 
+	// Filter out deprecated flags at output time rather than mutating the caller's CustomConfiguration.
+	deprecatedFlags := getDeprecatedKubeletFlags(k8sVersion)
+
 	keys := []string{}
 	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
 	for key := range config {
-		if !ommitedKubletConfigFlags[key] {
+		if !ommitedKubletConfigFlags[key] && !deprecatedFlags[key] {
 			keys = append(keys, key)
 		}
 	}
 	sort.Strings(keys)
-	var buf bytes.Buffer
+	pairs := make([]string, 0, len(keys))
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, config[key]))
+		pairs = append(pairs, fmt.Sprintf("%s=%s", key, config[key]))
 	}
-	return buf.String()
+	return strings.Join(pairs, " ")
 }
 
 func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]string {
@@ -435,6 +477,17 @@ func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]
 		return nil
 	}
 	return kubeletConfigurations.Config
+}
+
+// getDeprecatedKubeletFlags returns flags that have been removed from KubeletConfiguration
+// at the given k8s version and must not appear on the command line.
+func getDeprecatedKubeletFlags(k8sVersion string) map[string]bool {
+	flags := map[string]bool{}
+	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
+	if IsKubernetesVersionGe(k8sVersion, "1.34.0") {
+		flags["--streaming-connection-idle-timeout"] = true
+	}
+	return flags
 }
 
 // IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on.
@@ -471,6 +524,62 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 	return config.KubeletConfig["--rotate-server-certificates"] == "true"
 }
 
+// Node Hardening cgroup slice names. AgentBaker is the single
+// source of truth for these values: cse_helpers.sh::ensureKubeletCgroupHierarchy
+// is what actually creates (or validates) the systemd slice unit on the node, so
+// the name must be decided here rather than accepted verbatim from the RP.
+const (
+	nodeHardeningKubeReservedCgroup   = "/kubereserved.slice"
+	nodeHardeningSystemReservedCgroup = "/system.slice"
+)
+
+// isNodeHardeningEnabled reports whether the RP has requested Node Hardening
+// cgroup enforcement for this node. The RP signals intent solely via
+// --enforce-node-allocatable containing both "kube-reserved" and "system-reserved"
+// (see ApplyNodeAllocatableEnforcement in aks-rp); any values it may additionally
+// send for --kube-reserved-cgroup/--system-reserved-cgroup are ignored, since
+// AgentBaker owns those slice names (see setNodeHardeningCgroupFlags).
+//
+// TODO: this detection is a proxy inferred from a flag the RP happens to set
+// today. If/when Node Hardening's own logic (the enable/disable decision,
+// --system-reserved formula, etc.) moves into AgentBaker, this should be
+// replaced with a real, explicit signal (e.g. a typed field on
+// CustomKubeletConfig) instead of inferring intent from --enforce-node-allocatable.
+func isNodeHardeningEnabled(kubeletFlags map[string]string) bool {
+	raw := strings.TrimSpace(kubeletFlags["--enforce-node-allocatable"])
+	raw = strings.TrimPrefix(raw, "[")
+	raw = strings.TrimSuffix(raw, "]")
+	enforced := strings.Split(raw, ",")
+	hasKubeReserved, hasSystemReserved := false, false
+	for _, v := range enforced {
+		switch strings.TrimSpace(v) {
+		case "kube-reserved":
+			hasKubeReserved = true
+		case "system-reserved":
+			hasSystemReserved = true
+		}
+	}
+	return hasKubeReserved && hasSystemReserved
+}
+
+// setNodeHardeningCgroupFlags assigns (or clears) --kube-reserved-cgroup and
+// --system-reserved-cgroup based solely on whether Node Hardening is
+// enabled (isNodeHardeningEnabled), overwriting/deleting any value the RP
+// may have set for these two keys directly.
+func setNodeHardeningCgroupFlags(kubeletFlags map[string]string) {
+	if isNodeHardeningEnabled(kubeletFlags) {
+		kubeletFlags["--kube-reserved-cgroup"] = nodeHardeningKubeReservedCgroup
+		kubeletFlags["--system-reserved-cgroup"] = nodeHardeningSystemReservedCgroup
+		// TODO: this is currently the only piece of Node Hardening logic owned by
+		// AgentBaker; --enforce-node-allocatable, --system-reserved, --kube-reserved,
+		// and the eviction-soft* flags are still computed and sent as raw values by
+		// the RP. If/when that logic moves into AgentBaker too, set those flags here.
+		return
+	}
+	delete(kubeletFlags, "--kube-reserved-cgroup")
+	delete(kubeletFlags, "--system-reserved-cgroup")
+}
+
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
@@ -494,6 +603,8 @@ func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfi
 		EventRecordQPS:                 strToInt32Ptr(kc["--event-qps"]),
 		PodPidsLimit:                   strToInt64Ptr(kc["--pod-max-pids"]),
 		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
+		KubeReservedCgroup:             kc["--kube-reserved-cgroup"],
+		SystemReservedCgroup:           kc["--system-reserved-cgroup"],
 		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
 		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
 		ServerTLSBootstrap:             strToBool(kc["--rotate-server-certificates"]),
@@ -586,7 +697,22 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	// EvictionHard.
 	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
 	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
-		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
+		kubeletConfig.EvictionHard = filterEvictionSignals(strKeyValToMap(eh, "<"))
+	}
+
+	// EvictionSoft (e.g. "memory.available<500Mi,nodefs.available<15%,imagefs.available<20%").
+	if es, ok := kc["--eviction-soft"]; ok && es != "" {
+		kubeletConfig.EvictionSoft = filterEvictionSignals(strKeyValToMap(es, "<"))
+	}
+
+	// EvictionSoftGracePeriod (e.g. "memory.available=30s,nodefs.available=2m,imagefs.available=2m").
+	if esg, ok := kc["--eviction-soft-grace-period"]; ok && esg != "" {
+		kubeletConfig.EvictionSoftGracePeriod = filterEvictionSignals(strKeyValToMap(esg, "="))
+	}
+
+	// EvictionMaxPodGracePeriod (integer seconds, e.g. "60").
+	if v, ok := kc["--eviction-max-pod-grace-period"]; ok && v != "" {
+		kubeletConfig.EvictionMaxPodGracePeriod = strToInt32(v)
 	}
 
 	// feature gates.
@@ -595,8 +721,8 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 
 	// system reserve and kube reserve.
 	// looks like "cpu=100m,memory=1638Mi".
-	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
-	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
+	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], "=")
+	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], "=")
 
 	// Settings from customKubeletConfig, only take if it's set.
 	setCustomKubeletConfig(customKc, kubeletConfig)
@@ -647,9 +773,9 @@ func strToInt64Ptr(str string) *int64 {
 	return &i
 }
 
-func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]string {
+func strKeyValToMap(str string, pairDelim string) map[string]string {
 	m := make(map[string]string)
-	pairs := strings.Split(str, strDelim)
+	pairs := strings.Split(str, ",")
 	for _, pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
 		if len(pair) == numInPair {
@@ -659,6 +785,44 @@ func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]st
 		}
 	}
 	return m
+}
+
+// isValidEvictionSignal reports whether the given key is an eviction signal recognized by kubelet.
+// See https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#eviction-signals.
+func isValidEvictionSignal(signal string) bool {
+	switch signal {
+	case "memory.available",
+		"nodefs.available",
+		"nodefs.inodesFree",
+		"imagefs.available",
+		"imagefs.inodesFree",
+		"pid.available",
+		"allocatableMemory.available":
+		return true
+	default:
+		return false
+	}
+}
+
+// filterEvictionSignals drops any keys not recognized by the kubelet so we never pass it an invalid value.
+func filterEvictionSignals(signals map[string]string) map[string]string {
+	if len(signals) == 0 {
+		return nil
+	}
+
+	// Copy only the entries whose key is a kubelet-recognized eviction signal.
+	validSignals := make(map[string]string, len(signals))
+	for signal, threshold := range signals {
+		if isValidEvictionSignal(signal) {
+			validSignals[signal] = threshold
+		}
+	}
+
+	// Every key was invalid, so return nil instead of an empty json object.
+	if len(validSignals) == 0 {
+		return nil
+	}
+	return validSignals
 }
 
 func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {

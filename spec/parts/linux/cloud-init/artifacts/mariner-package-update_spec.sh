@@ -540,7 +540,6 @@ KUBELET_EOF
 
                 # Create a mock RPM file (just a marker)
                 touch "$download_dir/${package_name}.x86_64.rpm"
-                echo "Executed dnf install $package_name -y 1 times"
             else
                 echo "tdnf mock called with args: $@"
             fi
@@ -624,13 +623,48 @@ KUBELET_EOF
                         # Copy the same kubelet to simulate same binary
                         cp "${KUBELET_EXECUTABLE}" "$download_dir/usr/bin/kubelet"
                         touch "$download_dir/kubelet-1.29.10.x86_64.rpm"
-                        echo "Executed dnf install kubelet-1.29.10 -y 1 times"
                     fi
                 End
 
                 When run kubelet_update
                 The status should be success
+                The output should include "Executed tdnf download kubelet-1.29.10 -y 1 times"
                 The output should include "kubelet binary is the same, no need to update"
+            End
+
+            It 'should fall back to reinstall when package is already installed'
+                setup_kubelet_executable "1.29.10"
+                setup_target_kubelet_version "1.29.11" ""
+
+                # Mock tdnf: install says "already installed", reinstall creates the files
+                Mock tdnf
+                    if [[ "$@" == *"reinstall"* ]] && [[ "$@" == *"kubelet"* ]]; then
+                        download_dir=$(echo "$@" | grep -oP -- '--downloaddir \K[^ ]+')
+                        mkdir -p "$download_dir/usr/bin"
+                        version=$(echo "$@" | grep -oP 'kubelet-\K[\d.]+')
+                        cat <<KUBELET_EOF > "$download_dir/usr/bin/kubelet"
+#!/bin/bash
+if [ "\\\$1" = "--version" ]; then
+    echo "Kubernetes v${version}"
+elif [ "\\\$1" = "--version=raw" ]; then
+    echo "{\"major\":\"1\",\"minor\":\"29\",\"gitVersion\":\"v${version}\",\"gitCommit\":\"def456\",\"gitTreeState\":\"clean\",\"buildDate\":\"2024-02-01T00:00:00Z\",\"goVersion\":\"go1.21.5\",\"compiler\":\"gc\",\"platform\":\"linux/amd64\"}"
+fi
+KUBELET_EOF
+                        chmod +x "$download_dir/usr/bin/kubelet"
+                        touch "$download_dir/kubelet-${version}.x86_64.rpm"
+                    elif [[ "$@" == *"install"* ]] && [[ "$@" == *"kubelet"* ]]; then
+                        echo "Package kubelet-1.29.11 is already installed. Nothing to do."
+                    else
+                        echo "tdnf mock called with args: $@"
+                    fi
+                End
+
+                When run kubelet_update
+                The status should be success
+                The output should include "package already installed, falling back to tdnf reinstall"
+                The output should include "updating kubelet from 1.29.10"
+                The output should include "to version 1.29.11"
+                The output should include "kubelet update completed successfully"
             End
 
             It 'should successfully update kubelet to newer patch version'

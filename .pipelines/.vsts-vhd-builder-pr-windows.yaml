@@ -34,14 +34,15 @@ pr:
       - parts/windows
       - go.mod
       - go.sum
-      - e2e/
+      - e2e/scenario/scenario_win.go
       - staging/cse/windows/
 
     exclude:
       - vhdbuilder/release-notes
       - /**/*.md
       - .github/**
-      - e2e/scenario_test.go
+      - e2e/scenario/scenario.go
+      - .pipelines/scripts/verify_shell.sh
 
 pool:
   name: $(POOL_NAME)
@@ -73,12 +74,10 @@ stages:
       # 2022 gen1 is the default, so build that for PRs
       build2022containerd: True
       build2022containerdgen2: False
-      # 23H2 gen1 is the default, so build that for PRs
-      build23H2: True
-      build23H2gen2: False
       # 2025 gen2 is the default, so build that for PRs
       build2025: False
       build2025gen2: True
+      build2025gen2tl: True
 
   - stage: delete_old_windows_vhds
     dependsOn: [ ]

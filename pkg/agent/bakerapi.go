@@ -40,7 +40,9 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
-		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
+		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
+			return nil, err
+		}
 	}
 
 	templateGenerator := InitializeTemplateGenerator()
@@ -53,7 +55,8 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if distro == datamodel.CustomizedWindowsOSImage ||
 		distro == datamodel.CustomizedImage ||
 		distro == datamodel.CustomizedImageKata ||
-		distro == datamodel.CustomizedImageLinuxGuard {
+		distro == datamodel.CustomizedImageLinuxGuard ||
+		distro == datamodel.CustomizedImageTrustedLaunch {
 		return nodeBootstrapping, nil
 	}
 
@@ -156,6 +159,14 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 		allDistros[distro] = sigConfig
 	}
 
+	for distro, sigConfig := range allAzureSigConfig.SigAzureLinuxEdgeZoneImageConfig {
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
+		}
+		allDistros[distro] = sigConfig
+	}
+
 	for distro, sigConfig := range allAzureSigConfig.SigFlatcarImageConfig {
 		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
 		if imageVersion != "" {
@@ -181,6 +192,9 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 		return &imageConfig
 	}
 	if imageConfig, ok := sigConfig.SigUbuntuEdgeZoneImageConfig[distro]; ok {
+		return &imageConfig
+	}
+	if imageConfig, ok := sigConfig.SigAzureLinuxEdgeZoneImageConfig[distro]; ok {
 		return &imageConfig
 	}
 	if imageConfig, ok := sigConfig.SigFlatcarImageConfig[distro]; ok {

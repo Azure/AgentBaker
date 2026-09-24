@@ -30,6 +30,15 @@ SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 EVENTS_FILE_NAME=$(date +%s%3N)
 EXECUTION_DURATION=$(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s)))
+SCRIPTLESS_MODE="none"
+
+if [ -f "/opt/azure/containers/scriptless-cse-overrides.txt" ]; then
+    SCRIPTLESS_MODE="cse_cmd"
+fi
+
+if [ -f "/opt/azure/containers/aks-node-controller-nbc-cmd.sh" ]; then
+    SCRIPTLESS_MODE="nbc_cse_cmd"
+fi
 
 JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \
@@ -52,18 +61,6 @@ echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 # Cleanup cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json || true
 
-# Create stage marker for two-stage workflow
-if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-    # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
-    echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
-    echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-    exit 0
-fi
-
-# provision.complete is the marker for the second stage of the workflow
-mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
-
 # messsage_string is here because GA only accepts strings in Message.
 message_string=$( jq -n \
 --arg EXECUTION_DURATION                  "${EXECUTION_DURATION}" \
@@ -75,8 +72,9 @@ message_string=$( jq -n \
 --arg NETWORKD_STARTTIME_FORMATTED        "${NETWORKD_STARTTIME_FORMATTED}" \
 --arg GUEST_AGENT_STARTTIME_FORMATTED     "${GUEST_AGENT_STARTTIME_FORMATTED}" \
 --arg KUBELET_START_TIME_FORMATTED        "${KUBELET_START_TIME_FORMATTED}" \
---arg KUBELET_READY_TIME_FORMATTED       "${KUBELET_READY_TIME_FORMATTED}" \
-'{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, CloudInitLocalStartTime: $CLOUDINITLOCAL_STARTTIME_FORMATTED, CloudInitStartTime: $CLOUDINIT_STARTTIME_FORMATTED, CloudFinalStartTime: $CLOUDINITFINAL_STARTTIME_FORMATTED, NetworkdStartTime: $NETWORKD_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED, KubeletReadyTime: $KUBELET_READY_TIME_FORMATTED } | tostring'
+ --arg KUBELET_READY_TIME_FORMATTED       "${KUBELET_READY_TIME_FORMATTED}" \
+ --arg SCRIPTLESS_MODE                    "${SCRIPTLESS_MODE}" \
+ '{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, CloudInitLocalStartTime: $CLOUDINITLOCAL_STARTTIME_FORMATTED, CloudInitStartTime: $CLOUDINIT_STARTTIME_FORMATTED, CloudFinalStartTime: $CLOUDINITFINAL_STARTTIME_FORMATTED, NetworkdStartTime: $NETWORKD_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED, KubeletReadyTime: $KUBELET_READY_TIME_FORMATTED, ScriptlessMode: $SCRIPTLESS_MODE} | tostring'
 )
 # this clean up brings me no joy, but removing extra "\" and then removing quotes at the end of the string
 # allows parsing to happening without additional manipulation
@@ -99,8 +97,7 @@ echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove
-# the VM before it finishes. if we succeeded, upload in the background
-# so that the provisioning script returns success more quickly
+# the VM before it finishes.
 upload_logs() {
     # if the VHD has the AKS log collector installed, use it instead. Otherwise
     # fall back to WALA collector
@@ -115,10 +112,19 @@ upload_logs() {
         python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
     fi
 }
+# Create the marker for the completed provisioning stage.
+if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
+    # Stage 1: Create marker indicating Stage 2 is needed
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
+    echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
+    echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
+else
+    # provision.complete signals that a normal provisioning attempt finished.
+    mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
+fi
+
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs
-else
-    upload_logs &
 fi
 
 exit "$EXIT_CODE"

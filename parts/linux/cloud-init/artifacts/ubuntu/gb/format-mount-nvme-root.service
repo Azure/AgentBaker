@@ -1,0 +1,13 @@
+[Unit]
+Description=Format NVMe local disk and mount Kubelet there
+Requires=mnt.mount
+After=mnt.mount
+
+[Service]
+Restart=on-failure
+RemainAfterExit=yes
+Type=oneshot
+ExecStart=/bin/bash /opt/azure/containers/format-mount-nvme-root.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -14,9 +14,13 @@ jobs:
   check-files-for-ws2022:
     name: Check for Windows 2022
     runs-on: windows-latest
+    permissions:
+      contents: read
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Run check script for 2022-containerd
         shell: powershell
         run: |
@@ -25,21 +29,14 @@ jobs:
   check-files-for-ws2025:
     name: Check for Windows 2025
     runs-on: windows-latest
+    permissions:
+      contents: read
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Run check script for 2025
         shell: powershell
         run: |
           ./vhdbuilder/packer/test/windows-files-check.ps1 2025
-
-  check-files-for-ws23H2:
-    name: Check for Windows 23H2
-    runs-on: windows-latest
-    steps:
-      - name: Check out repository code
-        uses: actions/checkout@v6
-      - name: Run check script for 23H2
-        shell: powershell
-        run: |
-          ./vhdbuilder/packer/test/windows-files-check.ps1 23H2
