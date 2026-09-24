@@ -125,7 +125,9 @@ Describe 'init-aks-cloud.sh functional tests'
         . "./parts/linux/cloud-init/artifacts/cse_config_chrony.sh"
         logs_to_events() {
             shift
-            "$@"
+            # Match the production helper's argument expansion.
+            # shellcheck disable=SC2068
+            ${@}
         }
     }
 

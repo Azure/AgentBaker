@@ -41,6 +41,10 @@ pool 2.ubuntu.pool.ntp.org iburst maxsources 2
 EOF
 }
 
+apply_ubuntu_ntp_chrony_configuration() {
+    apply_chrony_configuration "$(ubuntu_ntp_pools)"
+}
+
 apply_chrony_configuration() {
     local time_sources="${1:-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0}"
     local chrony_conf="${CHRONY_CONF:-/etc/chrony/chrony.conf}"
@@ -208,7 +212,6 @@ verify_chrony_ntp_sync() {
 
 configure_ubuntu_2604_cvm_time_sync() {
     local platform
-    local ntp_pools
 
     if ! platform="$(detect_confidential_vm_platform)"; then
         echo "ERROR: unable to determine Ubuntu 26.04 CVM platform with systemd-detect-virt --cvm" >&2
@@ -224,8 +227,7 @@ configure_ubuntu_2604_cvm_time_sync() {
             ;;
         tdx)
             echo "Intel TDX detected; configuring Chrony to use the Ubuntu NTP pools"
-            ntp_pools="$(ubuntu_ntp_pools)"
-            if ! logs_to_events "AKS.CSE.configureChronyTDX" apply_chrony_configuration "$ntp_pools"; then
+            if ! logs_to_events "AKS.CSE.configureChronyTDX" apply_ubuntu_ntp_chrony_configuration; then
                 echo "ERROR: failed to configure Chrony with the Ubuntu NTP pools for Intel TDX" >&2
                 return "$ERR_CHRONY_CONFIG_FAIL"
             fi
