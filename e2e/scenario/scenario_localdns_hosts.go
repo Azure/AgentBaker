@@ -50,42 +50,149 @@ func init() {
 					// unexpected-exit DNS teardown this PR fixes) on the target
 					// distros. The hosts-plugin functionality itself is covered by
 					// the scenario's default provisioning validation.
-					if tt.name == "Ubuntu2204" || tt.name == "Ubuntu2404" || tt.name == "AzureLinuxV3" {
-						return validateLocalDNSLifecycle(ctx, s)
+					if tt.name != "Ubuntu2204" && tt.name != "Ubuntu2404" && tt.name != "AzureLinuxV3" {
+						return nil
 					}
-					return nil
+					if err := validateLocalDNSLifecycle(ctx, s); err != nil {
+						return err
+					}
+					// Then assert the restart budget actually bounds failures.
+					return validateLocalDNSRestartBudget(ctx, s)
 				},
 			},
 		})
 	}
 }
 
+// validateLocalDNSLifecycle exercises localdns.service end to end on the node: a normal
+// stop/start, three supervisor kills recovered by Restart=on-failure, and the terminal
+// dead-service case that #9360's ExecStopPost hook exists to handle.
+//
+// # Why the shell below is sparsely commented
+//
+// The script is SCP'd to the node, and the e2e's Bastion tunnel (bastionssh.go) forwards
+// each SSH packet as a single websocket message with no chunking, against an 8,192-byte
+// service cap. go-scp emits the body as a 4,096-byte chunk then the remainder, so
+// max_write = script_size - 4096 + 45, and any script over 12,242 bytes kills the tunnel
+// mid-run with StatusMessageTooBig. Build 181818040 lost three lanes to exactly that, after
+// this script grew 512 bytes past a margin of 380. The size guard for every script this
+// package sends lands separately, with the tunnelSession.Write chunking fix.
+//
+// Comments cost the same as code on that wire and buy nothing at runtime, so the reasoning
+// lives here instead. Keep the shell terse; put the "why" in this comment.
+//
+// # Lane gating (EXPECT_EXECSTOPPOST)
+//
+// Set from the lane's own image selection rather than probed from the node. Asking
+// 'systemctl show -p ExecStopPost' whether to test ExecStopPost means the assertion only
+// runs where it is already guaranteed to pass, and deleting the hook would silently turn
+// the block off everywhere instead of failing it. See laneResolvedMainBuiltImage.
+//
+// # The EXIT trap
+//
+// Installed before any service mutation so 'set -e' cannot leave the node carrying the
+// temporary Restart=no override or a failed unit.
+//
+// The override is removed unconditionally rather than behind '[ -f "$NORESTART" ]'. That
+// test runs unprivileged, but sudo creates the drop-in inside a directory that root's umask
+// makes 0750 root:root, so the guard could not stat the file, returned false, and skipped
+// its own removal -- leaving Restart=no in effect for everything that ran afterwards on the
+// node. 'rm -f' is already a no-op when the file is absent, so the guard bought nothing.
+// The post-removal check uses 'sudo test -f' for the same reason.
+//
+// The restore retries rather than firing a single start. The kill block above can leave an
+// orphaned CoreDNS holding 169.254.10.10:53 for a moment (the "Failed to kill control
+// group" warning this test tolerates), and an immediate start then fails to bind. That is
+// the exact transient RestartSec=2 exists to wait out in production, so wait for it here
+// rather than failing the scenario on a cleanup race.
+//
+// # Kill/recovery cycles
+//
+// reset-failed runs before every kill. The budget (StartLimitBurst=5 within
+// StartLimitIntervalSec=720) belongs to the unit and is shared by every actor that starts
+// it -- CSE at provisioning, the validations above, and systemd's own Restart=on-failure.
+// Without the reset, too few slots remain and the third kill's restart is refused with
+// "Start request repeated too quickly", failing this loop for the wrong reason. What is
+// under test here is Restart=on-failure, not the rate limiter.
+//
+// Recovery requires a genuinely new MainPID: immediately after kill -9 systemd may still
+// report the killed invocation as active/running until it processes SIGCHLD, so checking
+// active/running alone can observe the old process and falsely declare recovery.
+//
+// NRestarts is asserted >=1, not 3, because reset-failed zeroes it too -- it therefore
+// reports the final cycle only. The three cycles are already proven individually by the
+// new-MainPID requirement; this is a last check that the final kill was recovered by
+// Restart=on-failure and not by something else.
+//
+// The StartLimit journal check is scoped with --since to these cycles: deliberately
+// exhausting the budget is the expected outcome of validateLocalDNSRestartBudget, which
+// runs after this returns. The cgroup teardown warning is surfaced but not failed on --
+// fixing it is out of scope for this PR.
+//
+// # Terminal dead-service case
+//
+// The dead state is reached with a transient Restart=no drop-in and one kill, rather than
+// by tripping StartLimit with rapid kills, which is timing-dependent and flaky.
+// ExecStopPost runs on the SIGKILL path regardless of Restart=.
+//
+// Termination is awaited on ActiveState, not SubState: SubState passes through transitional
+// values such as stop-post while ExecStopPost is still running the cleanup under test, so
+// asserting on drop-in removal then would race it. ActiveState only becomes failed/inactive
+// after ExecStopPost completes.
+//
+// The drop-in absence check uses 'sudo ls' because it concludes "absent" from a failed
+// glob. If that directory were ever created root-only -- as this test's own drop-in
+// directory is -- an unprivileged ls would fail, the check would read that as success, and
+// the regression under test would pass silently. It is 0755 today; the assertion should not
+// depend on that.
+//
+// The resolver check polls because networkctl reload propagates to systemd-resolved
+// asynchronously, and it rejects empty or unreadable snapshots rather than treating them as
+// "restored" -- a failed read would otherwise mask the regression. Removing the address is
+// not sufficient on its own, so a working resolver is verified with getent afterwards.
 func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
-	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `
+	expectExecStopPost := "true"
+	if laneResolvedMainBuiltImage() {
+		expectExecStopPost = "false"
+	}
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		localdnsLifecycleScript(expectExecStopPost), 0, "LocalDNS lifecycle validation failed")
+	return err
+}
+
+// localdnsLifecycleScript renders the script validateLocalDNSLifecycle runs on the node.
+// Split out from the caller so the assembled result can be measured by a size guard -- see
+// this file's doc comment for why the size matters.
+func localdnsLifecycleScript(expectExecStopPost string) string {
+	return `
 set -eu
+
+EXPECT_EXECSTOPPOST=` + expectExecStopPost + `
 
 NORESTART=/run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
 
-# Install cleanup before any service mutation so set -e cannot leave the node
-# with the temporary Restart=no override or a failed LocalDNS unit.
 restore_localdns_test_state() {
     test_status=$?
     trap - EXIT
     set +e
     cleanup_status=0
-    if [ -f "$NORESTART" ]; then
-        sudo rm -f "$NORESTART" || { echo "ERROR: failed to remove $NORESTART"; cleanup_status=1; }
-        sudo systemctl daemon-reload || { echo "ERROR: systemd daemon-reload failed during test cleanup"; cleanup_status=1; }
+    # Unconditional: an unprivileged [ -f ] cannot stat inside the 0750 root-owned dir.
+    sudo rm -f "$NORESTART" || { echo "ERROR: failed to remove $NORESTART"; cleanup_status=1; }
+    sudo systemctl daemon-reload || { echo "ERROR: systemd daemon-reload failed during test cleanup"; cleanup_status=1; }
+    if sudo test -f "$NORESTART"; then
+        echo "ERROR: $NORESTART still present after cleanup"
+        cleanup_status=1
     fi
-    # The restart loop can hit systemd's start limit without creating NORESTART.
-    # Clear any failed state before trying to start LocalDNS; this is best-effort
-    # so a reset failure does not prevent the rest of cleanup.
-    sudo systemctl reset-failed localdns.service || true
-    if ! sudo systemctl is-active --quiet localdns.service; then
-        sudo systemctl start localdns.service || { echo "ERROR: failed to restart localdns.service during test cleanup"; cleanup_status=1; }
-    fi
+    # Retry: an orphaned CoreDNS can still hold 169.254.10.10:53 for a moment.
+    for cleanup_attempt in 1 2 3 4 5 6; do
+        sudo systemctl is-active --quiet localdns.service && break
+        sudo systemctl reset-failed localdns.service || true
+        sudo systemctl start localdns.service && break
+        sleep 3
+    done
     if ! sudo systemctl is-active --quiet localdns.service; then
         echo "ERROR: localdns.service is not active after test cleanup"
+        sudo systemctl status localdns.service --no-pager -l || true
         cleanup_status=1
     fi
     if [ "$test_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
@@ -102,7 +209,7 @@ test "$control_group" = "/localdns.slice/localdns.service" || {
     exit 1
 }
 
-# Normal systemd stop must complete cleanup and return success.
+# A normal stop must complete cleanup and return success.
 sudo systemctl restart localdns.service
 sudo systemctl is-active --quiet localdns.service
 sudo systemctl stop localdns.service
@@ -110,18 +217,11 @@ test "$(sudo systemctl show localdns.service -p ActiveState --value)" = inactive
 sudo systemctl start localdns.service
 sudo systemctl is-active --quiet localdns.service
 
-# Repeatedly kill the supervisor and wait for Restart=on-failure recovery.
-# This verifies that systemd can restart LocalDNS; startup cleanup may restore
-# DNS on this path, so it does not by itself validate the ExecStopPost fix.
-# The terminal dead-service block below validates that fix directly.
-# Require a genuinely new MainPID after each kill: immediately after kill -9,
-# systemd may still report the killed invocation as active/running until it
-# processes SIGCHLD, so checking active/running alone can observe the old
-# process and falsely declare recovery. Save the killed PID and require the
-# new MainPID to be nonzero and different from it.
+# Kill the supervisor three times; each must recover with a new MainPID.
 test_start=$(date +%s)
 
 for i in 1 2 3; do
+    sudo systemctl reset-failed localdns.service || true
     killed=$(sudo systemctl show -p MainPID --value localdns.service)
     test "$killed" -gt 0
     sudo kill -9 "$killed"
@@ -139,11 +239,10 @@ for i in 1 2 3; do
     test "$recovered" = true
 done
 
+# reset-failed zeroes NRestarts too, so this reports the final cycle only.
 restarts_after=$(sudo systemctl show localdns.service -p NRestarts --value)
-# The loop above performs three kill/restart cycles. The manual start before
-# the loop resets NRestarts to zero, so assert the absolute restart count.
-test "$restarts_after" -ge 3 || {
-    echo "FAIL: expected >=3 systemd restarts, got $restarts_after"
+test "$restarts_after" -ge 1 || {
+    echo "FAIL: expected >=1 systemd restart after the final kill, got $restarts_after"
     exit 1
 }
 
@@ -152,26 +251,25 @@ printf '%s\n' "$state"
 printf '%s\n' "$state" | grep -q '^ActiveState=active$'
 printf '%s\n' "$state" | grep -q '^SubState=running$'
 printf '%s\n' "$state" | grep -q '^Result=success$'
-# The cgroup teardown warning is diagnostic only: fixing it is out of scope for
-# this PR (which is about restoring node DNS after an unexpected exit), so we
-# surface it but do not fail on it.
+# Diagnostic only; not failed on.
 if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Failed to kill control group'; then
     echo "WARNING: LocalDNS cgroup teardown warning observed"
 fi
+# Scoped by --since: budget exhaustion belongs to the restart-budget validation, not here.
 if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep -q 'Start request repeated too quickly'; then
-    echo "LocalDNS reached systemd StartLimit"
+    echo "LocalDNS reached systemd StartLimit during the kill/recovery cycles"
     exit 1
 fi
 dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
 
-if sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
-# Terminal dead-service case: this is the incident scenario the PR fixes.
-# When localdns ends up dead (systemd exhausts restart attempts), ExecStopPost
-# must still revert node DNS so the node does not keep pointing at the dead
-# localdns listener (169.254.10.10). We reach the dead state deterministically
-# by disabling auto-restart with a transient drop-in, then killing the
-# supervisor -- tripping StartLimit via rapid kills is timing dependent and
-# flaky. ExecStopPost runs on the SIGKILL path regardless of Restart=.
+if [ "$EXPECT_EXECSTOPPOST" = true ]; then
+# Assert the hook; do not use its presence as permission to look.
+if ! sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
+    echo "FAIL: ExecStopPost=localdns.sh cleanup is missing from localdns.service"
+    sudo systemctl show localdns.service -p ExecStopPost || true
+    exit 1
+fi
+# Terminal dead-service case: Restart=no drop-in, then one kill.
 sudo mkdir -p "$(dirname "$NORESTART")"
 printf '[Service]\nRestart=no\n' | sudo tee "$NORESTART" >/dev/null
 sudo systemctl daemon-reload
@@ -180,11 +278,7 @@ dead_main=$(sudo systemctl show -p MainPID --value localdns.service)
 test "$dead_main" -gt 0
 sudo kill -9 "$dead_main"
 
-# Wait for the service to reach a terminal ActiveState (failed or inactive).
-# A non-running SubState is not sufficient: SubState passes through transitional
-# values such as stop-post while ExecStopPost is still running the cleanup under
-# test, so asserting on drop-in removal then could race the cleanup. ActiveState
-# only becomes failed/inactive after ExecStopPost has completed.
+# ActiveState, not SubState: SubState passes through stop-post mid-cleanup.
 dead=false
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     active_state=$(sudo systemctl show localdns.service -p ActiveState --value)
@@ -196,22 +290,13 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
 done
 test "$dead" = true
 
-# The localdns network drop-in must have been removed by ExecStopPost. This is
-# the authoritative signal that DNS was reverted: the drop-in is what points the
-# link's DNS at the localdns listener.
-if ls /run/systemd/network/*.d/70-localdns.conf >/dev/null 2>&1; then
+# sudo ls: "absent" concluded from a failed glob must not come from a permission error.
+if sudo ls /run/systemd/network/*.d/70-localdns.conf >/dev/null 2>&1; then
     echo "FAIL: 70-localdns.conf still present after localdns died"
     exit 1
 fi
 
-# The live link DNS must no longer include the localdns node listener. This is
-# eventually consistent: networkctl reload propagates to systemd-resolved
-# asynchronously, so poll (like wait_for_localdns_removed_from_resolv_conf does)
-# until the listener IP is gone rather than checking once. Prefer resolvectl
-# (the per-link view the drop-in configures); fall back to the resolved stub.
-# Only accept a successful, non-empty resolver snapshot: an errored or empty
-# read must not be treated as "restored", or a failed read would mask the very
-# regression under test. Retry those instead.
+# Poll: networkctl reload reaches systemd-resolved asynchronously. Empty reads are retried.
 dns_reverted=false
 resolver_state_readable=false
 localdns_listener_present=false
@@ -246,18 +331,13 @@ if [ "$dns_reverted" != true ]; then
     exit 1
 fi
 
-# Removing the LocalDNS address is not sufficient: verify the node has a
-# working resolver after cleanup.
+# Address removal alone is not sufficient; the node must actually resolve.
 if ! getent hosts mcr.microsoft.com >/dev/null 2>&1; then
     echo "FAIL: node cannot resolve DNS after localdns died"
     exit 1
 fi
 else
-    echo "SKIP: VHD predates the ExecStopPost cleanup hook"
+    echo "SKIP: this lane resolved a main-built image, which predates the ExecStopPost cleanup hook"
 fi
-
-# The EXIT trap removes the temporary override and restores LocalDNS even if
-# an assertion above exits the validation early.
-`, 0, "LocalDNS lifecycle validation failed")
-	return err
+`
 }

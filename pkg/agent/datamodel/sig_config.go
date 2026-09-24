@@ -131,6 +131,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSACLArm64Gen2TL,
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
+	AKSACLCVMGen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -205,6 +206,7 @@ var AvailableGen2Distros = []Distro{
 	AKSACLArm64Gen2TL,
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
+	AKSACLCVMGen2,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
 	AKSAzureLinuxV3Gen2,
@@ -315,6 +317,7 @@ var AvailableACLDistros = []Distro{
 	AKSACLArm64Gen2TL,
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
+	AKSACLCVMGen2,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -839,6 +842,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGACLCVMGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "aclgen2CVM",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -1003,6 +1013,7 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSACLArm64Gen2TL:                SIGACLArm64Gen2TLImageConfigTemplate.WithOptions(opts...),
 		AKSACLGen2FIPSTL:                 SIGACLGen2FIPSTLImageConfigTemplate.WithOptions(opts...),
 		AKSACLArm64Gen2FIPSTL:            SIGACLArm64Gen2FIPSTLImageConfigTemplate.WithOptions(opts...),
+		AKSACLCVMGen2:                    SIGACLCVMGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

@@ -41,6 +41,9 @@ LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
 LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
 
 # Localdns shutdown delay.
+# Paid on every exit that finds CoreDNS still running, which since the SIGTERM trap
+# (see the trap block near the end of this file) includes every systemd stop, not just
+# the script's own error exits. Measured contribution to a stop: 5-6s of a 6-8s restart.
 LOCALDNS_SHUTDOWN_DELAY=5
 
 # Localdns pid file.
@@ -992,6 +995,23 @@ export_resource_metrics() {
 # The health check is a DNS request to the localdns service IPs.
 # The health check is run at 20% of the WATCHDOG_USEC interval.
 # If the health check fails, the script will exit and systemd will restart the service.
+# Kill the backgrounded watchdog sleep, if one is in flight.
+#
+# start_localdns_watchdog waits by backgrounding 'sleep' and waiting on it, so that a
+# signal can interrupt the wait rather than being deferred until the sleep returns. With
+# KillMode=mixed systemd sends SIGTERM to this script only, so without killing the child
+# explicitly the sleep survives as an orphan in the unit's cgroup: systemd then holds the
+# unit in stop-sigterm until the sleep finishes on its own (up to HEALTH_CHECK_INTERVAL)
+# or TimeoutStopSec expires and it is SIGKILLed -- delaying the stop, and with it the
+# next start.
+stop_watchdog_sleep() {
+    if [ -n "${WATCHDOG_SLEEP_PID:-}" ]; then
+        kill "${WATCHDOG_SLEEP_PID}" 2>/dev/null || true
+        wait "${WATCHDOG_SLEEP_PID}" 2>/dev/null || true
+        WATCHDOG_SLEEP_PID=""
+    fi
+}
+
 start_localdns_watchdog() {
     if [ -n "${NOTIFY_SOCKET:-}" ] && [ -n "${WATCHDOG_USEC:-}" ]; then
         # Health check at 20% of WATCHDOG_USEC; this means that we should check.
@@ -1046,8 +1066,14 @@ start_localdns_watchdog() {
             # Update resource metrics .prom file for the exporter (best-effort, non-fatal)
             export_resource_metrics
 
-            # Wait for the next watchdog interval.
-            sleep "${HEALTH_CHECK_INTERVAL}"
+            # Wait for the next watchdog interval. Run sleep in a child so SIGTERM can
+            # interrupt the wait and let the service's signal/exit cleanup run promptly.
+            # The pid is recorded so the SIGTERM handler can reap the child instead of
+            # leaving it in the cgroup holding the unit's stop open.
+            sleep "${HEALTH_CHECK_INTERVAL}" &
+            WATCHDOG_SLEEP_PID=$!
+            wait "${WATCHDOG_SLEEP_PID}"
+            WATCHDOG_SLEEP_PID=""
         done
     else
         # No watchdog configured — write metrics once then wait for CoreDNS to exit
@@ -1190,6 +1216,31 @@ build_localdns_iptable_rules
 trap 'echo "Error occurred. Cleaning up..."; cleanup_localdns_configs; exit $ERR_LOCALDNS_FAIL' ABRT ERR INT PIPE
 
 # Always cleanup when exiting.
+# SIGTERM is how systemd stops this unit. It was previously untrapped, so bash died on the
+# default action: the EXIT cleanup below never ran, and any in-flight watchdog sleep was
+# left orphaned in the cgroup. Handle it so the child is reaped and cleanup runs. Exit 0
+# because a requested stop is not a failure -- Restart=on-failure must not fire for it.
+#
+# Deliberate consequence: 'exit 0' fires the EXIT trap below, so cleanup_localdns_configs now
+# runs IN-PROCESS on every stop, where previously bash died first and only ExecStopPost ran.
+# A stop takes 5-6s instead of being immediate -- essentially all of it LOCALDNS_SHUTDOWN_DELAY
+# draining connections before CoreDNS is SIGINTed -- against the 'timeout 30' bound that
+# _systemctl_retry_svc_operation (cse_helpers.sh) puts on a restart, leaving ~22-24s of headroom.
+# It does not affect the restart-budget cycle math: the worst cycle is a hung start, where this
+# trap cannot run at all because bash defers a trapped signal until the foreground command
+# returns, so systemd spends the full TimeoutStopSec regardless.
+#
+# It also means the dummy interface carrying 169.254.10.10/.11 is now torn down on a stop.
+# It was not before: localdns_cleanup_mode (the ExecStopPost path) deliberately leaves the link
+# alone in case an orphaned CoreDNS is still answering on .11. Note this for the pod-DNS
+# fallback (#9486): its idempotent-interface-creation requirement is now the common case on a
+# clean stop, not the exception.
+#
+# The graceful path is kept rather than trimmed because the cost is affordable at the only
+# bound that matters and the behaviour is better than the alternative -- without it CoreDNS
+# is SIGKILLed by the cgroup on every stop, dropping in-flight queries.
+trap 'echo "Received SIGTERM, shutting down."; stop_watchdog_sleep; exit 0' TERM
+
 trap 'echo "Executing cleanup function."; cleanup_localdns_configs || echo "Cleanup failed with error code: $ERR_LOCALDNS_FAIL."' EXIT
 
 # Configure interface listening on Node listener and cluster listener IPs.
