@@ -1260,7 +1260,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return output
 		},
 		"GetContainerdConfigVersion": func() int {
-			return getContainerdConfigVersion(config, profile)
+			return getContainerdConfigVersion(config)
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
 			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
@@ -1967,15 +1967,12 @@ const kubenetCniTemplate = `{
 
 type ContainerdConfigTemplate string
 
-func getContainerdConfigVersion(config *datamodel.NodeBootstrappingConfiguration, profile *datamodel.AgentPoolProfile) int {
+func getContainerdConfigVersion(config *datamodel.NodeBootstrappingConfiguration) int {
 	if config.ContainerdVersion != "" {
 		if IsKubernetesVersionGe(config.ContainerdVersion, "2.3.0") {
 			return 4
 		}
 		return 3
-	}
-	if profile.Is2404VHDDistro() || profile.Is2604VHDDistro() {
-		return 4
 	}
 	return 3
 }
