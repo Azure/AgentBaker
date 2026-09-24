@@ -31,17 +31,23 @@ func TestGetContainerdConfigVersion(t *testing.T) {
 	tests := []struct {
 		name       string
 		version    string
+		distro     datamodel.Distro
 		wantSchema int
 	}{
 		{name: "containerd 2.0 uses schema v3", version: "2.0.0", wantSchema: 3},
 		{name: "containerd 2.2 uses schema v3", version: "2.2.4", wantSchema: 3},
 		{name: "containerd 2.3 uses schema v4", version: "2.3.5", wantSchema: 4},
-		{name: "omitted version defaults to schema v3", wantSchema: 3},
+		{name: "omitted version on Ubuntu 24.04 uses schema v4", distro: datamodel.AKSUbuntuContainerd2404Gen2, wantSchema: 4},
+		{name: "omitted version on Ubuntu 26.04 uses schema v4", distro: datamodel.AKSUbuntuMinimalContainerd2604Gen2, wantSchema: 4},
+		{name: "omitted version on Azure Linux 3 uses schema v3", distro: datamodel.AKSAzureLinuxV3Gen2, wantSchema: 3},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &datamodel.NodeBootstrappingConfiguration{ContainerdVersion: tt.version}
+			config := &datamodel.NodeBootstrappingConfiguration{
+				ContainerdVersion: tt.version,
+				AgentPoolProfile:  &datamodel.AgentPoolProfile{Distro: tt.distro},
+			}
 			if got := getContainerdConfigVersion(config); got != tt.wantSchema {
 				t.Fatalf("getContainerdConfigVersion() = %d, want %d", got, tt.wantSchema)
 			}

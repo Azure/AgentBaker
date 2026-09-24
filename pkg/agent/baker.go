@@ -1971,6 +1971,10 @@ func getContainerdConfigVersion(config *datamodel.NodeBootstrappingConfiguration
 	if config.ContainerdVersion != "" && IsKubernetesVersionGe(config.ContainerdVersion, "2.3.0") {
 		return 4
 	}
+	if config.ContainerdVersion == "" && config.AgentPoolProfile != nil &&
+		(config.AgentPoolProfile.Distro.Is2404VHDDistro() || config.AgentPoolProfile.Distro.Is2604VHDDistro()) {
+		return 4
+	}
 	return 3
 }
 
