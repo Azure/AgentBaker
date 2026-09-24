@@ -89,6 +89,7 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"isKubernetesVersionGe":            IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
+		"getContainerdConfigVersion":       func() int { return 3 },
 	}
 }
 
@@ -213,6 +214,14 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
 		}
+		cloned, err := _template.Clone()
+		if err != nil {
+			return "", fmt.Errorf("cloning containerd config template: %w", err)
+		}
+		configVersion := getContainerdConfigVersion(containerdVersion)
+		_template = cloned.Funcs(template.FuncMap{
+			"getContainerdConfigVersion": func() int { return configVersion },
+		})
 	} else {
 		_template = containerdConfigTemplate
 		if noGPU {
@@ -248,6 +257,13 @@ func isContainerdV2(version string) bool {
 		return false
 	}
 	return IsKubernetesVersionGe(version, "2.0.0")
+}
+
+func getContainerdConfigVersion(version string) int {
+	if IsKubernetesVersionGe(version, "2.3.0") {
+		return 4
+	}
+	return 3
 }
 
 func getIsMIGNode(gpuInstanceProfile string, migProfileLayout []string) bool {

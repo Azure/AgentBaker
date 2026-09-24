@@ -1259,6 +1259,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return output
 		},
+		"GetContainerdConfigVersion": func() int {
+			return getContainerdConfigVersion(config, profile)
+		},
 		"GetContainerdConfigNoGPUContent": func() string {
 			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
 				if profile.IsContainerdV2Distro() {
@@ -1964,6 +1967,19 @@ const kubenetCniTemplate = `{
 
 type ContainerdConfigTemplate string
 
+func getContainerdConfigVersion(config *datamodel.NodeBootstrappingConfiguration, profile *datamodel.AgentPoolProfile) int {
+	if config.ContainerdVersion != "" {
+		if IsKubernetesVersionGe(config.ContainerdVersion, "2.3.0") {
+			return 4
+		}
+		return 3
+	}
+	if profile.Is2404VHDDistro() || profile.Is2604VHDDistro() {
+		return 4
+	}
+	return 3
+}
+
 // this pains me, but to make it respect mutability of vmss tags,
 // we cannot use go templates at runtime.
 // CSE needs to be able to generate the full config, with all params,
@@ -2075,7 +2091,7 @@ root = "{{GetDataDir}}"{{- end}}
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 3
+	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = {{GetContainerdConfigVersion}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
@@ -2170,7 +2186,7 @@ root = "{{GetDataDir}}"{{- end}}
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 3
+	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = {{GetContainerdConfigVersion}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}

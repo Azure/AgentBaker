@@ -665,6 +665,27 @@ oom_score = -999
 	}
 }
 
+func TestGetContainerdConfigVersion(t *testing.T) {
+	tests := []struct {
+		version string
+		want    int
+	}{
+		{version: "", want: 3},
+		{version: "2.0.0", want: 3},
+		{version: "2.2.4", want: 3},
+		{version: "2.3.0", want: 4},
+		{version: "2.3.5", want: 4},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			if got := getContainerdConfigVersion(tt.version); got != tt.want {
+				t.Fatalf("getContainerdConfigVersion(%q) = %d, want %d", tt.version, got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_getKubenetTemplate(t *testing.T) {
 	tests := []struct {
 		name string
