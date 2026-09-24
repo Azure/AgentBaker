@@ -566,7 +566,6 @@ fi
 
 echo "Running on $NAME"
 
-
 # Certificate refresh behavior summary:
 # - legacy mode directly attempts certificate download from wireserver and only in ussec and usnat regions.
 # - rcv1p mode first checks IsOptedInForRootCerts, then downloads only when opted in.
@@ -717,109 +716,6 @@ elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
             init_azurelinux_repo_depot ${marinerRepoDepotEndpoint}
             dnf_makecache || { echo "ERROR: dnf_makecache failed after retries; aborting custom cloud repo init (Azure Linux)"; emit_event "AKS.CSE.customCloudRepoInit.dnfMakecacheFailed" "dnf_makecache failed after retries (Azure Linux)" "Error"; exit 1; }
         fi
-    fi
-fi
-
-# Disable systemd-timesyncd and install chrony and uses local time source
-# ACL has PTP clock config compiled into chronyd with no config file or sourcedir directives,
-# so it uses only the local PTP clock and has no DHCP-injectable NTP sources.
-if [ "$IS_ACL" -eq 1 ]; then
-    echo "Skipping chrony configuration for ACL (PTP clock baked into chronyd, no external NTP sources)"
-elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-    cat > /etc/chrony.conf <<EOF
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
-keyfile /etc/chrony.keys
-
-# This directive specify the file into which chronyd will store the rate
-# information.
-driftfile /var/lib/chrony/drift
-
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
-logdir /var/log/chrony
-
-# Stop bad estimates upsetting machine clock.
-maxupdateskew 100.0
-
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
-rtcsync
-
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-    systemctl restart chronyd
-else
-    chrony_conf="/etc/chrony/chrony.conf"
-    if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl stop systemd-timesyncd
-        systemctl disable systemd-timesyncd
-
-        if [ ! -e "$chrony_conf" ]; then
-            apt-get update
-            apt-get install chrony -y
-        fi
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        rm -f ${chrony_conf}
-    fi
-
-    cat > $chrony_conf <<EOF
-# Welcome to the chrony configuration file. See chrony.conf(5) for more
-# information about usuable directives.
-
-# This will use (up to):
-# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
-# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
-# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
-# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
-# sources will be used.
-# At the same time it retains some protection against one of the entries being
-# down (compare to just using one of the lines). See (LP: #1754358) for the
-# discussion.
-#
-# About using servers from the NTP Pool Project in general see (LP: #104525).
-# Approved by Ubuntu Technical Board on 2011-02-08.
-# See http://www.pool.ntp.org/join.html for more information.
-#pool ntp.ubuntu.com        iburst maxsources 4
-#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
-
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
-keyfile /etc/chrony/chrony.keys
-
-# This directive specify the file into which chronyd will store the rate
-# information.
-driftfile /var/lib/chrony/chrony.drift
-
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
-logdir /var/log/chrony
-
-# Stop bad estimates upsetting machine clock.
-maxupdateskew 100.0
-
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
-rtcsync
-
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-    if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl restart chrony
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        systemctl restart chronyd
     fi
 fi
 
