@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -511,17 +512,11 @@ func TestRepositoryArchitectureAndReleaseMappings(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// The fast path is Ubuntu/deb only for now. RPM packages carry their own GPG signature and
-// Azure Linux repositories set gpgcheck=1, so dnf/tdnf verify it on install; this path
-// authenticates only the metadata chain, which would make it weaker than the fallback it is
-// meant to accelerate. Every Azure Linux node -- plain or image-based -- must therefore be
-// turned away here and left to dnf/tdnf.
-func TestTryRepositoryDownloadRejectsAzureLinuxRPMPlatforms(t *testing.T) {
+func TestTryRepositoryDownloadRejectsImageBasedAzureLinuxRPMPlatforms(t *testing.T) {
 	tests := []struct {
 		name      string
 		variantID string
 	}{
-		{name: "Azure Linux", variantID: ""},
 		{name: "Azure Container Linux variant", variantID: osReleaseIDAzureContainerLinux},
 		{name: "OS Guard variant", variantID: osVariantIDOSGuard},
 	}
@@ -542,9 +537,112 @@ func TestTryRepositoryDownloadRejectsAzureLinuxRPMPlatforms(t *testing.T) {
 			err := app.tryRepositoryDownload(context.Background(), "202607.20.2")
 			require.Error(t, err)
 			assert.False(t, isIntegrityError(err), "an unsupported platform is not tampering")
-			assert.Contains(t, err.Error(), "repository fast path is not supported for RPM platforms yet")
+			assert.Contains(t, err.Error(), "repository fast path is not supported on image-based OS")
 		})
 	}
+}
+
+func TestAzureLinuxRepositoryFastPathVerifiesSignatureAndStagesBinary(t *testing.T) {
+	const (
+		hotfixVersion  = "202607.20.2"
+		releaseSuffix  = "1.azl3"
+		rpmArch        = "x86_64"
+		packageContent = "authenticated-rpm-package-bytes"
+	)
+	packageLocation := fmt.Sprintf(
+		"Packages/a/%s-%s-%s.%s.rpm", ancPackageName, hotfixVersion, releaseSuffix, rpmArch)
+	packageSHA := sha256Hex([]byte(packageContent))
+	primaryXML := []byte(fmt.Sprintf(`
+<metadata xmlns="http://linux.duke.edu/metadata/common" packages="1">
+  <package type="rpm">
+    <name>aks-node-controller</name>
+    <arch>%s</arch>
+    <version epoch="0" ver="%s" rel="%s"/>
+    <checksum type="sha256" pkgid="YES">%s</checksum>
+    <location href="%s"/>
+  </package>
+</metadata>`, rpmArch, hotfixVersion, releaseSuffix, packageSHA, packageLocation))
+	primaryBytes := gzipBytes(t, primaryXML)
+	primaryLocation := "repodata/test-primary.xml.gz"
+	repomd := []byte(fmt.Sprintf(`
+<repomd xmlns="http://linux.duke.edu/metadata/repo">
+  <data type="primary">
+    <checksum type="sha256">%s</checksum>
+    <open-checksum type="sha256">%s</open-checksum>
+    <location href="%s"/>
+    <size>%d</size>
+    <open-size>%d</open-size>
+  </data>
+</repomd>`,
+		sha256Hex(primaryBytes), sha256Hex(primaryXML), primaryLocation,
+		len(primaryBytes), len(primaryXML)))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/azurelinux/3.0/prod/ms-oss/x86_64/" + packageLocation:
+			_, _ = w.Write([]byte(packageContent))
+		case "/azurelinux/3.0/prod/ms-oss/x86_64/repodata/repomd.xml":
+			_, _ = w.Write(repomd)
+		case "/azurelinux/3.0/prod/ms-oss/x86_64/repodata/repomd.xml.asc":
+			_, _ = w.Write([]byte("detached-signature"))
+		case "/azurelinux/3.0/prod/ms-oss/x86_64/" + primaryLocation:
+			_, _ = w.Write(primaryBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "ms-oss.repo"), []byte(fmt.Sprintf(`
+[azurelinux-official-ms-oss]
+baseurl=%s/azurelinux/$releasever/prod/ms-oss/$basearch
+gpgkey=file:///keys/ms-rpm.gpg
+enabled=1
+`, server.URL)), 0o644))
+	osReleasePath := filepath.Join(dir, "os-release")
+	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=azurelinux\nVERSION_ID=3.0\n"), 0o644))
+
+	var verifiedPackagePath string
+	app := NewTestApp(t, TestAppConfig{}).App
+	app.yumReposDir = dir
+	app.osReleasePath = osReleasePath
+	app.goArch = "amd64"
+	app.repositoryTempDir = dir
+	app.vhdBinaryPath = filepath.Join(dir, "aks-node-controller")
+	app.hotfixBinaryPath = filepath.Join(dir, "aks-node-controller-hotfix")
+	require.NoError(t, os.WriteFile(app.vhdBinaryPath, []byte("vhd-binary"), 0o755))
+	app.verifyRepositorySignature = func(
+		_ context.Context, signedPath, signaturePath string, keyrings []string,
+	) error {
+		assert.Equal(t, []string{"/keys/ms-rpm.gpg"}, keyrings)
+		assert.NotEmpty(t, signedPath)
+		assert.NotEmpty(t, signaturePath)
+		return nil
+	}
+	app.verifyRPMPackageSignature = func(_ context.Context, packagePath string) error {
+		verifiedPackagePath = packagePath
+		body, err := os.ReadFile(packagePath)
+		require.NoError(t, err)
+		assert.Equal(t, packageContent, string(body))
+		return nil
+	}
+	app.extractRepositoryPackage = func(
+		_ context.Context, format, packagePath, destination string,
+	) error {
+		assert.Equal(t, "rpm", format)
+		assert.Equal(t, verifiedPackagePath, packagePath, "signature must be verified before extraction")
+		extracted := filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath))
+		require.NoError(t, os.MkdirAll(filepath.Dir(extracted), 0o755))
+		return os.WriteFile(extracted, []byte("extracted-anc-binary"), 0o644)
+	}
+
+	require.NoError(t, app.tryRepositoryDownload(context.Background(), hotfixVersion))
+
+	assert.NotEmpty(t, verifiedPackagePath)
+	staged, err := os.ReadFile(app.hotfixBinaryPath)
+	require.NoError(t, err)
+	assert.Equal(t, "extracted-anc-binary", string(staged))
 }
 
 func TestRPMMetadataParsing(t *testing.T) {
@@ -724,14 +822,23 @@ func TestRepositoryFastPathCancelsPeerBranchOnFailure(t *testing.T) {
 	packageLocation := "pool/main/a/aks-node-controller/aks-node-controller_" +
 		fullVersion + "_amd64.deb"
 
+	metadataStarted := make(chan struct{})
 	metadataCtxDone := make(chan struct{})
+	var metadataOnce sync.Once
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, ".deb") {
+			select {
+			case <-metadataStarted:
+			case <-time.After(2 * time.Second):
+				http.Error(w, "metadata did not start concurrently", http.StatusInternalServerError)
+				return
+			}
 			http.NotFound(w, r) // fails fast, cancelling the metadata branch
 			return
 		}
 		// Stand in for a slow InRelease fetch: block until cancelled, or give up well
 		// before the 30s request timeout so a regression fails loudly instead of hanging.
+		metadataOnce.Do(func() { close(metadataStarted) })
 		select {
 		case <-r.Context().Done():
 			close(metadataCtxDone)
@@ -812,6 +919,48 @@ func TestPreferredRPMExtractionErrorPreservesBothCommandFailures(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rpm2cpio: bad rpm payload")
 	assert.Contains(t, err.Error(), "cpio: cpio read failed")
+}
+
+func TestVerifyRPMPackage(t *testing.T) {
+	t.Run("uses rpmkeys checksig verbose", func(t *testing.T) {
+		app := NewTestApp(t, TestAppConfig{}).App
+		app.cmdRun = func(cmd *exec.Cmd) error {
+			assert.Equal(t, "rpmkeys", filepath.Base(cmd.Path))
+			assert.Equal(t, []string{
+				"--define", "_pkgverify_level signature",
+				"--checksig",
+				"--verbose",
+				"package.rpm",
+			}, cmd.Args[1:])
+			return nil
+		}
+
+		require.NoError(t, app.verifyRPMPackage(context.Background(), "package.rpm"))
+	})
+
+	t.Run("missing rpmkeys is unsupported", func(t *testing.T) {
+		app := NewTestApp(t, TestAppConfig{}).App
+		app.cmdRun = func(*exec.Cmd) error {
+			return exec.ErrNotFound
+		}
+
+		err := app.verifyRPMPackage(context.Background(), "package.rpm")
+		require.Error(t, err)
+		assert.False(t, isIntegrityError(err))
+		assert.Contains(t, err.Error(), "rpmkeys is not installed")
+	})
+
+	t.Run("signature failure is integrity", func(t *testing.T) {
+		app := NewTestApp(t, TestAppConfig{}).App
+		app.cmdRun = func(*exec.Cmd) error {
+			return errors.New("NOKEY")
+		}
+
+		err := app.verifyRPMPackage(context.Background(), "package.rpm")
+		require.Error(t, err)
+		assert.True(t, isIntegrityError(err))
+		assert.Contains(t, err.Error(), "RPM package signature verification failed")
+	})
 }
 
 // Legacy Mariner is out of scope for ANC self-update: detectPackageManager rejects
@@ -1246,72 +1395,122 @@ func TestDownloadRepositoryFileUsesEnvironmentProxy(t *testing.T) {
 	assert.Equal(t, "proxied-body", string(body))
 }
 
-// extractRPM shells out to cpio, which writes whatever member type the archive declares.
-// The deb path screens the tar header before copying; the rpm path has no equivalent
-// pre-write hook, so a malformed package must be caught after extraction -- before
-// copyBinaryAlongside's os.ReadFile follows a symlink or stages an oversized blob.
-func TestExtractRPMValidatesExtractedBinary(t *testing.T) {
-	// plant simulates what cpio leaves at the ANC binary path for a given package.
-	newAppExtracting := func(t *testing.T, plant func(t *testing.T, binaryPath string)) *App {
-		t.Helper()
-		app := NewTestApp(t, TestAppConfig{}).App
-		app.cmdRun = func(cmd *exec.Cmd) error {
-			// Only cpio writes to the destination; rpm2cpio just feeds the pipe.
-			if filepath.Base(cmd.Path) != "cpio" {
-				return nil
-			}
-			binaryPath := filepath.Join(cmd.Dir, filepath.FromSlash(ancPackageBinaryRelativePath))
-			require.NoError(t, os.MkdirAll(filepath.Dir(binaryPath), 0o755))
-			plant(t, binaryPath)
-			return nil
-		}
-		return app
-	}
-
-	t.Run("rejects a symlink", func(t *testing.T) {
-		outside := filepath.Join(t.TempDir(), "outside-the-package")
-		require.NoError(t, os.WriteFile(outside, []byte("bytes from elsewhere"), 0o755))
-
-		app := newAppExtracting(t, func(t *testing.T, binaryPath string) {
-			require.NoError(t, os.Symlink(outside, binaryPath))
-		})
+func TestExtractRPMStreamsSelectedBinaryWithSizeLimit(t *testing.T) {
+	t.Run("closes rpm2cpio input when cpio exits early", func(t *testing.T) {
+		inputClosed := make(chan struct{})
+		app := newAppWithEarlyCpioExit(t, inputClosed)
 
 		err := app.extractRPM(context.Background(), "package.rpm", t.TempDir())
 		require.Error(t, err)
-		assert.True(t, isIntegrityError(err), "a non-regular member is an integrity failure")
-		assert.Contains(t, err.Error(), "is not a regular file")
+		assert.Contains(t, err.Error(), "cpio exits before reading payload")
+		select {
+		case <-inputClosed:
+		case <-time.After(2 * time.Second):
+			t.Fatal("rpm2cpio input was not closed promptly after cpio exited")
+		}
 	})
 
 	t.Run("rejects an oversized binary", func(t *testing.T) {
-		app := newAppExtracting(t, func(t *testing.T, binaryPath string) {
-			f, err := os.Create(binaryPath)
-			require.NoError(t, err)
-			defer f.Close()
-			// Sparse: sets the size without writing repositoryBinaryMaxBytes of data.
-			require.NoError(t, f.Truncate(repositoryBinaryMaxBytes+1))
+		app := newAppExtractingRPMMember(t, func(_ *testing.T, w io.Writer) error {
+			chunk := bytes.Repeat([]byte("x"), 64*1024)
+			var written int64
+			for written <= repositoryBinaryMaxBytes {
+				n, err := w.Write(chunk)
+				written += int64(n)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 
-		err := app.extractRPM(context.Background(), "package.rpm", t.TempDir())
+		destination := t.TempDir()
+		err := app.extractRPM(context.Background(), "package.rpm", destination)
 		require.Error(t, err)
 		assert.True(t, isIntegrityError(err), "an oversized member is an integrity failure")
 		assert.Contains(t, err.Error(), "exceeds")
+		assert.NoFileExists(t, filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath)))
 	})
 
 	t.Run("reports a package missing the binary", func(t *testing.T) {
-		app := newAppExtracting(t, func(_ *testing.T, _ string) {})
+		app := newAppExtractingRPMMember(t, func(_ *testing.T, _ io.Writer) error {
+			return errors.New("cpio: pattern not matched")
+		})
 
 		err := app.extractRPM(context.Background(), "package.rpm", t.TempDir())
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cpio: pattern not matched")
+	})
+
+	t.Run("rejects empty output as missing binary", func(t *testing.T) {
+		app := newAppExtractingRPMMember(t, func(_ *testing.T, _ io.Writer) error {
+			return nil
+		})
+
+		destination := t.TempDir()
+		err := app.extractRPM(context.Background(), "package.rpm", destination)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not contain")
+		assert.NoFileExists(t, filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath)))
 	})
 
 	t.Run("accepts a regular binary", func(t *testing.T) {
-		app := newAppExtracting(t, func(t *testing.T, binaryPath string) {
-			require.NoError(t, os.WriteFile(binaryPath, []byte("ELF-ish"), 0o755))
+		app := newAppExtractingRPMMember(t, func(_ *testing.T, w io.Writer) error {
+			_, err := w.Write([]byte("ELF-ish"))
+			return err
 		})
 
-		require.NoError(t, app.extractRPM(context.Background(), "package.rpm", t.TempDir()))
+		destination := t.TempDir()
+		require.NoError(t, app.extractRPM(context.Background(), "package.rpm", destination))
+		staged, err := os.ReadFile(filepath.Join(destination, filepath.FromSlash(ancPackageBinaryRelativePath)))
+		require.NoError(t, err)
+		assert.Equal(t, "ELF-ish", string(staged))
 	})
+}
+
+func newAppExtractingRPMMember(t *testing.T, writeMember func(t *testing.T, w io.Writer) error) *App {
+	t.Helper()
+	app := NewTestApp(t, TestAppConfig{}).App
+	app.cmdRun = func(cmd *exec.Cmd) error {
+		switch filepath.Base(cmd.Path) {
+		case "rpm2cpio":
+			return nil
+		case "cpio":
+			assert.Equal(t, []string{"-i", "--to-stdout", "--quiet", "./" + ancPackageBinaryRelativePath}, cmd.Args[1:])
+			return writeMember(t, cmd.Stdout)
+		default:
+			return fmt.Errorf("unexpected command %s", cmd.Path)
+		}
+	}
+	return app
+}
+
+func newAppWithEarlyCpioExit(t *testing.T, inputClosed chan<- struct{}) *App {
+	t.Helper()
+	var closeInputClosed sync.Once
+	app := NewTestApp(t, TestAppConfig{}).App
+	app.cmdRun = func(cmd *exec.Cmd) error {
+		switch filepath.Base(cmd.Path) {
+		case "rpm2cpio":
+			err := writeUntilBrokenPipe(cmd.Stdout)
+			closeInputClosed.Do(func() { close(inputClosed) })
+			return err
+		case "cpio":
+			return errors.New("cpio exits before reading payload")
+		default:
+			return fmt.Errorf("unexpected command %s", cmd.Path)
+		}
+	}
+	return app
+}
+
+func writeUntilBrokenPipe(writer io.Writer) error {
+	buf := []byte("payload")
+	for {
+		if _, err := writer.Write(buf); err != nil {
+			return err
+		}
+	}
 }
 
 // extractRPM shells out to rpm2cpio | cpio, so the argument list and the member path it asks
@@ -1323,6 +1522,10 @@ func TestExtractRPMValidatesExtractedBinary(t *testing.T) {
 func TestExtractRPMStagesOnlyTheANCBinary(t *testing.T) {
 	if _, err := exec.LookPath("cpio"); err != nil {
 		t.Skip("cpio is required to exercise rpm extraction")
+	}
+	help, err := exec.Command("cpio", "--help").CombinedOutput()
+	if err != nil || !bytes.Contains(help, []byte("--to-stdout")) {
+		t.Skip("cpio --to-stdout support is required to exercise rpm extraction")
 	}
 
 	const binaryContent = "ELF-ish ANC payload"

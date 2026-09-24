@@ -522,10 +522,11 @@ func Test_readAndEvaluateProvision(t *testing.T) {
 	})
 
 	t.Run("non-zero ExitCode returns error", func(t *testing.T) {
-		p := writeTemp(t, `{"ExitCode":"7","Output":"boom","Error":"bad"}`)
+		p := writeTemp(t, `{"ExitCode":"50","Output":"boom","Error":"bad"}`)
 		_, err := readAndEvaluateProvision(p)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "provision failed")
+		assert.Equal(t, 50, errToExitCode(err))
 	})
 
 	t.Run("invalid ExitCode returns error", func(t *testing.T) {

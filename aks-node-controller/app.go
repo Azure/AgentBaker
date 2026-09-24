@@ -67,6 +67,8 @@ type App struct {
 	pkgBinaryPath    string
 	// verifyRepositorySignature overrides gpgv-backed repository signature verification.
 	verifyRepositorySignature func(ctx context.Context, signedPath, signaturePath string, keyrings []string) error
+	// verifyRPMPackageSignature overrides rpmkeys-backed package signature verification.
+	verifyRPMPackageSignature func(ctx context.Context, packagePath string) error
 	// extractRepositoryPackage overrides package extraction for deterministic unit tests.
 	extractRepositoryPackage func(ctx context.Context, format, packagePath, destination string) error
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
@@ -246,7 +248,7 @@ func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles 
 		a.eventLogger.LogEvent("ProvisionWait", "Completed", helpers.EventLevelInformational, startTime, endTime)
 		slog.Info("aks-node-controller finished successfully.")
 	}
-	slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+	slog.Info("provision-wait finished")
 	return provisionOutput, err
 }
 
@@ -837,7 +839,10 @@ func evaluateProvisionStatus(data []byte) error {
 	}
 	if code != 0 {
 		outSnippet := result.Output
-		return fmt.Errorf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet)
+		return cli.Exit(
+			fmt.Sprintf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet),
+			code,
+		)
 	}
 	return nil
 }

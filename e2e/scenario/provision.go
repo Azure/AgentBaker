@@ -56,6 +56,9 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 			validationErr = errors.Join(
 				ValidateFileExists(ctx, scenario, "C:\\AzureData\\base_prep.complete"),
 				ValidateFileDoesNotExist(ctx, scenario, "C:\\AzureData\\provision.complete"),
+				ValidateFileDoesNotExist(ctx, scenario, "C:\\k\\bootstrap-config"),
+				ValidateWindowsFileExcludesBootstrapToken(ctx, scenario, "C:\\AzureData\\CustomData.bin"),
+				ValidateWindowsFileExcludesBootstrapToken(ctx, scenario, "C:\\AzureData\\CustomDataSetupScript.ps1"),
 				ValidateWindowsServiceIsNotRunning(ctx, scenario, "kubelet"),
 				ValidateWindowsServiceIsRunning(ctx, scenario, "containerd"),
 			)
@@ -194,7 +197,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	s.Location = strings.ToLower(s.Location)
 
 	if s.K8sSystemPoolSKU == "" {
-		s.K8sSystemPoolSKU = config.Config.DefaultVMSKU
+		s.K8sSystemPoolSKU = config.Config.VMSKU()
 	}
 
 	defer func() {
@@ -239,7 +242,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.Cluster = cluster
-	s.Runtime.VMSize = config.Config.DefaultVMSKU
+	s.Runtime.VMSize = config.Config.VMSKU()
 	s.Runtime.VMSSName = generateVMSSName(s)
 
 	testKube, err := cluster.NewKubeclientForTest()
@@ -363,7 +366,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		}
 	}
 
-	start := time.Now() // Record the start time
+	start := time.Now()
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
 	// Expected failures are checked by the runner; cleanup still collects debug information.
 	if s.ExpectedError != "" {
@@ -381,15 +384,18 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 
 	if !s.Config.SkipDefaultValidation {
-		vmssCreatedAt := time.Now()         // Record the start time
-		creationElapse := time.Since(start) // Calculate the elapsed time
+		readinessWaitStarted := time.Now()
+		provisioningElapsed := readinessWaitStarted.Sub(start)
 		scenarioVM.KubeName, err = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Runtime.VMSSName)
 		if err != nil {
 			return scenarioVM, err
 		}
-		readyElapse := time.Since(vmssCreatedAt) // Calculate the elapsed time
-		totalElapse := time.Since(start)
-		logging.LogDuration(ctx, totalElapse, 3*time.Minute, fmt.Sprintf("Node %s took %s to be created and %s to be ready", s.Runtime.VMSSName, creationElapse, readyElapse))
+		readyObservedAt := time.Now()
+		logging.Logf(ctx, "Node %s observed Ready after %s (VMSS provisioning and CSE status check: %s; additional readiness wait: %s)",
+			scenarioVM.KubeName,
+			readyObservedAt.Sub(start).Round(time.Millisecond),
+			provisioningElapsed.Round(time.Millisecond),
+			readyObservedAt.Sub(readinessWaitStarted).Round(time.Millisecond))
 	}
 
 	return scenarioVM, nil

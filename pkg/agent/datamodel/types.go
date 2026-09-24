@@ -194,6 +194,7 @@ const (
 	AKSUbuntuContainerd2404Gen2             Distro = "aks-ubuntu-containerd-24.04-gen2"
 	AKSUbuntuMinimalContainerd2604Gen2      Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
 	AKSUbuntuMinimalArm64Containerd2604Gen2 Distro = "aks-ubuntu-minimal-arm64-containerd-26.04-gen2"
+	AKSUbuntuMinimalContainerd2604CVMGen2   Distro = "aks-ubuntu-minimal-containerd-26.04-cvm-gen2"
 	AKSAzureLinuxV3CVMGen2                  Distro = "aks-azurelinux-v3-cvm-gen2"
 	AKSUbuntuContainerd2404TLGen2           Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 	AKSFlatcarGen2                          Distro = "aks-flatcar-gen2"
@@ -202,6 +203,7 @@ const (
 	AKSACLArm64Gen2TL                       Distro = "aks-acl-arm64-gen2-tl"
 	AKSACLGen2FIPSTL                        Distro = "aks-acl-gen2-fips-tl"
 	AKSACLArm64Gen2FIPSTL                   Distro = "aks-acl-arm64-gen2-fips-tl"
+	AKSACLCVMGen2                           Distro = "aks-acl-cvm-gen2"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -287,12 +289,14 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
 	AKSACLArm64Gen2TL,
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
+	AKSACLCVMGen2,
 }
 
 type CustomConfigurationComponent string
@@ -1172,7 +1176,7 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%t\", ", key, featureGates[key]))
+		fmt.Fprintf(&buf, "\"%s=%t\", ", key, featureGates[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1250,8 +1254,8 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
 func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
-	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
+	fmt.Fprintf(&buf, "agentpool=%s", a.Name)
+	fmt.Fprintf(&buf, ",kubernetes.azure.com/agentpool=%s", a.Name)
 
 	keys := []string{}
 	for key := range a.CustomNodeLabels {
@@ -1259,7 +1263,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
+		fmt.Fprintf(&buf, ",%s=%s", key, a.CustomNodeLabels[key])
 	}
 	return buf.String()
 }
@@ -1610,7 +1614,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeletConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeletConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1674,7 +1678,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeproxyConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeproxyConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -2376,7 +2380,21 @@ type AKSKubeletConfiguration struct {
 	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
 	// Default: false
 	// +optional
-	SeccompDefault *bool `json:"seccompDefault,omitempty"`
+	SeccompDefault           *bool          `json:"seccompDefault,omitempty"`
+	EnableServer             *bool          `json:"enableServer,omitempty"`
+	VolumePluginDir          string         `json:"volumePluginDir,omitempty"`
+	CgroupDriver             string         `json:"cgroupDriver,omitempty"`
+	RuntimeRequestTimeout    Duration       `json:"runtimeRequestTimeout,omitempty"`
+	ContainerRuntimeEndpoint string         `json:"containerRuntimeEndpoint,omitempty"`
+	RegisterWithTaints       []KubeletTaint `json:"registerWithTaints,omitempty"`
+	HairpinMode              string         `json:"hairpinMode,omitempty"`
+}
+
+type KubeletTaint struct {
+	Key       string `json:"key,omitempty"`
+	Value     string `json:"value,omitempty"`
+	Effect    string `json:"effect,omitempty"`
+	TimeAdded string `json:"timeAdded,omitempty"`
 }
 
 type Duration string

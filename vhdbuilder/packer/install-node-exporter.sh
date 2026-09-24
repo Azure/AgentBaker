@@ -13,13 +13,26 @@ set -euo pipefail
 installNodeExporter() {
     local version="$1"
     local pkg="node-exporter-kubernetes"
+    local fullPackageVersion
 
     echo "[node-exporter] Installing ${pkg} version ${version}"
 
     if isUbuntu; then
-        apt_get_install 30 1 600 "${pkg}=${version}" || exit $ERR_APT_INSTALL_TIMEOUT
+        fullPackageVersion=$(getLatestDebPackageVersion "${pkg}" "${version}") || fullPackageVersion=""
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "[node-exporter] Failed to find valid ${pkg} version for ${version}"
+            exit "$ERR_APT_INSTALL_TIMEOUT"
+        fi
+        logResolvedPackageVersion "${pkg}" "${version}" "${fullPackageVersion}"
+        apt_get_install 30 1 600 "${pkg}=${fullPackageVersion}" || exit "$ERR_APT_INSTALL_TIMEOUT"
     elif isAzureLinux; then
-        dnf_install 30 1 600 "${pkg}-${version}" || exit $ERR_APT_INSTALL_TIMEOUT
+        fullPackageVersion=$(getLatestRPMPackageVersion "${pkg}" "${version}") || fullPackageVersion=""
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "[node-exporter] Failed to find valid ${pkg} version for ${version}"
+            exit "$ERR_APT_INSTALL_TIMEOUT"
+        fi
+        logResolvedPackageVersion "${pkg}" "${version}" "${fullPackageVersion}"
+        dnf_install 30 1 600 "${pkg}-${fullPackageVersion}" || exit "$ERR_APT_INSTALL_TIMEOUT"
     else
         echo "[node-exporter] Unsupported OS for node-exporter install"
         return 1

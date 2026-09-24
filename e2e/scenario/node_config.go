@@ -229,7 +229,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 		BootstrappingConfig: bootstrappingConfig,
 		DisableCustomData:   true,
 		LinuxAdminUsername:  "azureuser",
-		VmSize:              config.Config.DefaultVMSKU,
+		VmSize:              config.Config.VMSKU(),
 		// The scriptless/aks-node-controller path gates its Kata containerd config blocks on
 		// this field alone, whereas the NBC/baker path derives Kata from the agent pool distro
 		// (see Distro.IsKataDistro and the IsKata template func in pkg/agent/baker.go). Without
@@ -497,7 +497,7 @@ func baseTemplateLinux(location string, k8sVersion string, arch string) (*datamo
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "nodepool2",
-						VMSize:              config.Config.DefaultVMSKU,
+						VMSize:              config.Config.VMSKU(),
 						KubeletDiskType:     "",
 						WorkloadRuntime:     "",
 						DNSPrefix:           "",
@@ -711,7 +711,7 @@ func baseTemplateLinux(location string, k8sVersion string, arch string) (*datamo
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
-			VMSize:              config.Config.DefaultVMSKU,
+			VMSize:              config.Config.VMSKU(),
 			KubeletDiskType:     "",
 			WorkloadRuntime:     "",
 			DNSPrefix:           "",
@@ -933,7 +933,7 @@ func baseTemplateWindows(location string) (*datamodel.NodeBootstrappingConfigura
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "winnp",
-						VMSize:              config.Config.DefaultVMSKU,
+						VMSize:              config.Config.VMSKU(),
 						OSType:              "Windows",
 						AvailabilityProfile: "VirtualMachineScaleSets",
 						StorageProfile:      "ManagedDisks",

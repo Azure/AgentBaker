@@ -13,7 +13,8 @@ FULL_PATH=$(realpath "$0")
 CDIR=$(dirname "$FULL_PATH")
 
 if [ "${OS_TYPE,,}" = "linux" ]; then
-  ENABLE_FIPS="${ENABLE_FIPS:-false}"
+  ENABLE_FIPS="${ENABLE_FIPS:-}"
+  [ -z "${ENABLE_FIPS// }" ] && ENABLE_FIPS="false"
 fi
 
 if [ -z "${MANAGED_SIG_ID}" ]; then
@@ -66,19 +67,20 @@ set -x
 # In SIG mode, Windows VM requires admin-username and admin-password to be set,
 # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
+VM_SIZE="Standard_D2ds_v5"
 TARGET_COMMAND_STRING=""
 if [ "${ARCHITECTURE,,}" = "arm64" ]; then
   # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+  # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
   if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
     VM_SIZE="Standard_D2pds_v6"
   else
     VM_SIZE="Standard_D2pds_v5"
   fi
-else
-  VM_SIZE="Standard_D2ds_v5"
 fi
 TARGET_COMMAND_STRING="--size $VM_SIZE"
 
+# TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
 if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
   if [ -n "$TARGET_COMMAND_STRING" ]; then
     # To take care of Mariner Kata TL images
@@ -89,8 +91,17 @@ fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-    VM_SIZE="Standard_DC8ads_v5"
-    TARGET_COMMAND_STRING="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_SIZE="${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5}"
+    TARGET_COMMAND_STRING="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+    # ACL publishes a generalized CVM image; other SKUs still capture specialized.
+    if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
+      TARGET_COMMAND_STRING+=" --specialized true"
+    fi
+fi
+
+TEST_VM_USER_DATA_ARGS=()
+if [ "${OS_TYPE}" = "Linux" ] && [ "${OS_SKU:-}" = "AzureContainerLinux" ]; then
+  TEST_VM_USER_DATA_ARGS=(--user-data "@./vhdbuilder/packer/acl-customdata.json")
 fi
 
 # NVIDIA GB specific test VM configuration (uses standard ARM64 VM for now)
@@ -122,7 +133,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       TEST_VM_ADMIN_PASSWORD \
       "$MANAGED_SIG_ID" \
       "$TESTING_NIC_ID" \
-      "$UMSI_RESOURCE_ID" \
+      "" \
       "$TEST_VM_RESOURCE_GROUP_NAME" || exit $?
   else
     az vm create \
@@ -132,6 +143,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
         --admin-username "$TEST_VM_ADMIN_USERNAME" \
         --admin-password "$TEST_VM_ADMIN_PASSWORD" \
         --nics "$TESTING_NIC_ID" \
+        "${TEST_VM_USER_DATA_ARGS[@]}" \
         ${TARGET_COMMAND_STRING}
   fi
 else

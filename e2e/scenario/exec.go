@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/klog/v2"
 )
 
 type podExecResult struct {
@@ -201,7 +202,11 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 // isRetryableConnectionError checks if the error is a transient connection issue that should be retried
 func isRetryableConnectionError(err error) bool {
 	errorMsg := err.Error()
-	return strings.Contains(errorMsg, "error dialing backend") ||
+	// client-go flattens proxy failures received after HTTP 101 into plain text.
+	proxy502 := strings.Contains(errorMsg, "proxy error from ") &&
+		strings.Contains(errorMsg, "while dialing ") &&
+		strings.Contains(errorMsg, ", code 502:")
+	return proxy502 || strings.Contains(errorMsg, "error dialing backend") ||
 		strings.Contains(errorMsg, "connection refused") ||
 		strings.Contains(errorMsg, "dial tcp") ||
 		strings.Contains(errorMsg, "i/o timeout") ||
@@ -237,6 +242,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 }
 
 func attemptExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
+	ctx = klog.NewContext(ctx, klog.FromContext(ctx).WithValues("operation", "pod exec", "namespace", namespace, "pod", podName))
 	req := kube.Typed.CoreV1().RESTClient().Get().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{

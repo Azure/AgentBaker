@@ -16,6 +16,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
@@ -64,6 +65,35 @@ func TestRetrySSHSessionOpen(t *testing.T) {
 	})
 }
 
+func TestRetrySSHSessionOpenLogsOutcome(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		err     error
+		outcome string
+	}{
+		{"success", nil, "succeeded"},
+		{"failure", io.EOF, "failed"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				logger := &executionLogger{}
+				attempts := 0
+				err := retrySSHSessionOpen(logging.WithLogger(t.Context(), logger), func() error {
+					attempts++
+					if attempts < 4 {
+						return &ssh.OpenChannelError{Reason: ssh.ResourceShortage}
+					}
+					return test.err
+				})
+				require.ErrorIs(t, err, test.err)
+				require.Len(t, logger.logs, 2)
+				assert.Contains(t, logger.logs[0], "retrying with backoff")
+				assert.Contains(t, logger.logs[1], "SSH session open "+test.outcome+" after 4 attempts in ")
+			})
+		})
+	}
+}
+
 func TestRetrySSHSessionOpenReturnsOtherErrors(t *testing.T) {
 	for _, failure := range []error{
 		io.EOF,
@@ -82,7 +112,8 @@ func TestRetrySSHSessionOpenReturnsOtherErrors(t *testing.T) {
 
 func TestRetrySSHSessionOpenCancellation(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
+		logger := &executionLogger{}
+		ctx, cancel := context.WithCancel(logging.WithLogger(t.Context(), logger))
 		defer cancel()
 		attempts := 0
 		done := make(chan error, 1)
@@ -98,6 +129,9 @@ func TestRetrySSHSessionOpenCancellation(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 		assert.ErrorContains(t, err, "last rejection: ssh: rejected: resource shortage (full)")
 		assert.Equal(t, 1, attempts)
+		require.Len(t, logger.logs, 2)
+		assert.Contains(t, logger.logs[1], "SSH session open stopped after 1 attempts in ")
+		assert.Contains(t, logger.logs[1], "context canceled")
 	})
 }
 
