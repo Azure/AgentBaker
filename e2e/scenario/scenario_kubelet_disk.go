@@ -104,8 +104,35 @@ func validateKubeletDiskAfterReboot(ctx context.Context, s *Scenario, temporary 
 	if err := RebootVMAndWaitForSSH(ctx, s); err != nil {
 		return fmt.Errorf("reboot VM: %w", err)
 	}
+	if err := waitForKubeletAfterReboot(ctx, s); err != nil {
+		return err
+	}
 	if err := validateKubeletDisk(ctx, s, temporary); err != nil {
 		return fmt.Errorf("validate %s disk after reboot: %w", diskType, err)
+	}
+	return nil
+}
+
+func waitForKubeletAfterReboot(ctx context.Context, s *Scenario) error {
+	_, err := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		`set -eux
+attempt=0
+while [ "${attempt}" -lt 60 ]; do
+    if systemctl is-active --quiet kubelet; then
+        exit 0
+    fi
+    attempt=$((attempt + 1))
+    sleep 2
+done
+systemctl --no-pager -n 20 status kubelet || true
+exit 1`,
+		0,
+		"kubelet did not become active within 2 minutes after reboot",
+	)
+	if err != nil {
+		return fmt.Errorf("wait for kubelet after reboot: %w", err)
 	}
 	return nil
 }
