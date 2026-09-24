@@ -111,3 +111,33 @@ func TestANCLauncherOverrideRoundTrips(t *testing.T) {
 		t.Errorf("decoded launcher differs from %s", ancLauncherRepoPath)
 	}
 }
+
+// The guard has to key off the real repo path, not a path the test invented, so this drives it
+// against the actual working tree: absent today, present once a file is placed there.
+func TestSkipIfRepoShipsHotfixPointer(t *testing.T) {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pointer := filepath.Join(repoRoot, ancHotfixPointerRepoPath)
+	if _, err := os.Stat(pointer); err == nil {
+		t.Skipf("%s already exists on this branch", ancHotfixPointerRepoPath)
+	}
+
+	if reason := skipIfRepoShipsHotfixPointer(); reason != "" {
+		t.Fatalf("expected no skip while the pointer is absent, got %q", reason)
+	}
+
+	if err := os.WriteFile(pointer, []byte(`{"version":"202609.23.1"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Remove(pointer) })
+
+	reason := skipIfRepoShipsHotfixPointer()
+	if reason == "" {
+		t.Fatal("expected a skip reason once the repo ships the pointer")
+	}
+	if !strings.Contains(reason, ancHotfixPointerRepoPath) {
+		t.Errorf("skip reason should name the offending file, got %q", reason)
+	}
+}

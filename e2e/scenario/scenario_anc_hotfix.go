@@ -30,6 +30,11 @@ const (
 	ancLauncherRepoPath     = "parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh"
 	ancHotfixHelperRepoPath = "parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh"
 
+	// ancHotfixPointerRepoPath is the embedded production pointer. It is absent on main and
+	// written onto official/** PR branches by hotfix-generate.yml; baker.go embeds whatever it
+	// finds there into the boothook. See skipIfRepoShipsHotfixPointer.
+	ancHotfixPointerRepoPath = "parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json"
+
 	// ancHotfixFlowTargetVersion is a real published ANC hotfix (git tag
 	// aks-node-controller/hotfix/v202608.21.1), so download-hotfix performs a real PMC
 	// download and a real package-manager install rather than hitting a synthetic artifact.
@@ -81,7 +86,7 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 			if config.Config.DisableScriptless || config.Config.DisableScriptLessCompilation {
 				return "ANC hotfix flow E2E requires scriptless ANC compilation"
 			}
-			return ""
+			return skipIfRepoShipsHotfixPointer()
 		},
 		Config: Config{
 			Cluster:              ClusterKubenet,
@@ -121,6 +126,35 @@ func hotfixBaseVersion(version string) string {
 		return version
 	}
 	return parts[0] + "." + parts[1]
+}
+
+// skipIfRepoShipsHotfixPointer returns a skip reason when the repo carries the embedded
+// production hotfix pointer, and "" otherwise.
+//
+// The fixture seeds its pointer by splicing at #hotfix-marker (pkg/agent/baker.go:70), but
+// baker expands its own file writes into the %s that immediately follows that marker. So when
+// parts/ ships a pointer, baker's copy is written after - and on top of - the fixture's. The
+// scenario cannot pass in that state: the generated pointer names the version being cut by that
+// very PR, which shares no base with the fixture's stamped binary and is not on PMC yet, so
+// download-hotfix skips and every assertion below the pointer fails.
+//
+// hotfix-generate.yml only writes that file on official/** PRs, so this is dormant on main. Skip
+// rather than fail: the scenario has nothing to prove once the pointer it seeded is gone. This
+// mirrors how the baker unit tests branch on the same file (pkg/agent/baker_test.go:1798).
+func skipIfRepoShipsHotfixPointer() string {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		// Fail open. Losing the skip only risks the official/**-only failure this guards
+		// against, whereas skipping here would silently drop coverage on every branch.
+		return ""
+	}
+	if _, err := os.Stat(filepath.Join(repoRoot, ancHotfixPointerRepoPath)); err != nil {
+		return ""
+	}
+	return fmt.Sprintf(
+		"repo ships %s; baker embeds it after #hotfix-marker and would overwrite the seeded pointer",
+		ancHotfixPointerRepoPath,
+	)
 }
 
 // ValidateANCLauncherMatchesRepo proves the fixture's launcher override actually landed.
