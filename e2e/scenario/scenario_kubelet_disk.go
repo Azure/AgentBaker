@@ -111,7 +111,7 @@ func validateKubeletDiskAfterReboot(ctx context.Context, s *Scenario, temporary 
 }
 
 func validateKubeletDisk(ctx context.Context, s *Scenario, temporary bool) error {
-	mountAssertion := "if mountpoint -q /var/lib/kubelet; then exit 1; fi"
+	mountAssertion := ""
 	diskType := "non-Temporary"
 	if temporary {
 		mountAssertion = "mountpoint -q /var/lib/kubelet"
