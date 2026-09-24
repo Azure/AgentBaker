@@ -755,8 +755,8 @@ if [ "$chronyExitCode" -ne 0 ]; then
         "$ERR_CVM_PLATFORM_DETECTION_FAIL")
             chronyErrorMessage="Unable to determine confidential VM platform; Chrony configuration failed with exit code ${chronyExitCode}"
             ;;
-        "$ERR_NTP_UNREACHABLE")
-            chronyErrorMessage="NTP not reachable; Chrony synchronization failed with exit code ${chronyExitCode}"
+        "$ERR_CHRONY_NTP_SYNC_FAIL")
+            chronyErrorMessage="Chrony failed to synchronize with the configured NTP pools; exit code ${chronyExitCode}"
             ;;
         "$ERR_CHRONY_CONFIG_FAIL")
             chronyErrorMessage="TDX Chrony configuration failed with exit code ${chronyExitCode}"

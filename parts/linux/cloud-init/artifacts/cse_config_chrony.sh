@@ -215,12 +215,12 @@ verify_chrony_ntp_sync() {
         return 0
     fi
 
-    echo "ERROR: NTP not reachable; Chrony did not synchronize" >&2
+    echo "ERROR: Chrony failed to synchronize with the configured NTP pools" >&2
     echo "Chrony source diagnostics:" >&2
     chronyc sources -v >&2 || echo "ERROR: unable to retrieve Chrony source diagnostics" >&2
     echo "Chrony tracking diagnostics:" >&2
     chronyc tracking >&2 || echo "ERROR: unable to retrieve Chrony tracking diagnostics" >&2
-    return "$ERR_NTP_UNREACHABLE"
+    return "$ERR_CHRONY_NTP_SYNC_FAIL"
 }
 
 configure_ubuntu_cvm_time_sync() {

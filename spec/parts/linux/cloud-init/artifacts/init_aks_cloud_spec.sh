@@ -119,7 +119,7 @@ Describe 'init-aks-cloud.sh functional tests'
         UBUNTU_OS_NAME="UBUNTU"
         FLATCAR_OS_NAME="FLATCAR"
         ERR_CVM_PLATFORM_DETECTION_FAIL=244
-        ERR_NTP_UNREACHABLE=245
+        ERR_CHRONY_NTP_SYNC_FAIL=245
         ERR_CHRONY_CONFIG_FAIL=246
         # shellcheck disable=SC1091
         . "./parts/linux/cloud-init/artifacts/cse_config_chrony.sh"
@@ -593,7 +593,7 @@ EOF
                 esac
             End
             When call verify_chrony_ntp_sync
-            The error should include "NTP not reachable"
+            The error should include "Chrony failed to synchronize with the configured NTP pools"
             The error should include "mock Chrony sources"
             The error should include "mock Chrony tracking"
             The status should equal 245
