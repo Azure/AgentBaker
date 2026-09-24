@@ -285,8 +285,9 @@ _retrycmd_internal() {
             fi
         fi
 
-        timeout "$effectiveTimeout" "${@}"
-        exitStatus=$?
+        # Capture via `||` so callers running under `set -e` don't abort before the loop can retry.
+        exitStatus=0
+        timeout "$effectiveTimeout" "${@}" || exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
             break
