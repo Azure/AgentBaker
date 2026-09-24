@@ -35,10 +35,17 @@ parameters:
       because they cannot verify the not-opted-in behavior on such subscriptions.
       Msft tenant E2E subs auto-inject; the RCV1P subscription does not.
     default: true
+  - name: dependsOn
+    type: object
+    default: []
+  - name: jobCondition
+    type: string
+    default: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
 
 jobs:
   - job: e2e
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    dependsOn: ${{ parameters.dependsOn }}
+    condition: ${{ parameters.jobCondition }}
     variables:
       - group: ${{parameters.variableGroup}} # all variables prefixed with E2E_* come from this variable group
     pool:
