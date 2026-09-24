@@ -2690,14 +2690,10 @@ type LocalDNSOverrides struct {
 	FailfastAllUnhealthyUpstreams *bool `json:"failfastAllUnhealthyUpstreams,omitempty"`
 	// Configures CoreDNS forward plugin health checking behavior for upstream servers.
 	HealthCheck *LocalDNSHealthCheck `json:"healthCheck,omitempty"`
-	// Policy applied on top of serve_stale when selecting between a stale positive
-	// answer and a cached negative one. Only meaningful when serve_stale is active.
-	// Requires CoreDNS >= 1.14.7. An older binary rejects the directive at parse
-	// time and localdns fails to start, so callers must set this only for node
-	// pools known to run a node image whose cache carries CoreDNS 1.14.7 or
-	// newer. AgentBaker does not verify this.
-	// Only honored on the default (".") server block - it is not rendered into
-	// per-domain override blocks.
+	// Policy applied on top of serve_stale when choosing between a stale
+	// positive answer and a cached negative one, on the default server block
+	// only. Valid values - PreferPositive. Empty leaves CoreDNS on its default.
+	// Requires a node image with CoreDNS >= 1.14.7.
 	ServeStalePolicy string `json:"serveStalePolicy,omitempty"`
 }
 
