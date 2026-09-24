@@ -897,12 +897,16 @@ buildNVIDIAKernelModule() {
     # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
     # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
     # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
-    # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
-    # when that marker matches, running only the device-dependent steps.
+    # /opt/azure/aks-gpu/dkms-marker. Node boot still uses the normal installer/validation;
+    # this does not enable install-skip-build.
     # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
     # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
     # Dropping the image is a separate, deferred size optimization.
     if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
+      # Separate opt-in; existing NVIDIA_CUDA_PREBAKE images keep the registered layout.
+      case ",${FEATURE_FLAGS}," in
+        *,NVIDIA_PREBAKE_STAGE,*) prepareStagedGPUDriver || exit 1 ;;
+      esac
       echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
       # nvidia-installer needs gcc/make + libc6-dev to compile; the builder lacks them here, so install
       # them. A boot-time fallback recompile (marker mismatch) still has them: the VHD ships
@@ -915,6 +919,9 @@ buildNVIDIAKernelModule() {
         echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
         exit 1
       fi
+      case ",${FEATURE_FLAGS}," in
+        *,NVIDIA_PREBAKE_STAGE,*) stageGPUDriver || exit 1 ;;
+      esac
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
 EOF
