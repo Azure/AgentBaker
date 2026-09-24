@@ -2156,15 +2156,23 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 				t.Fatalf("failed to decode generated corefile: %v", err)
 			}
 			corefile := normalizeCorefileString(string(decoded))
-			if tt.wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(tt.wantContains)) {
-				t.Fatalf("expected generated corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
-			}
-			for _, wantNotContains := range tt.wantNotContains {
-				if strings.Contains(corefile, normalizeCorefileString(wantNotContains)) {
-					t.Fatalf("expected generated corefile not to contain %q, got:\n%s", wantNotContains, string(decoded))
-				}
-			}
+			assertCorefileContents(t, corefile, string(decoded), tt.wantContains, tt.wantNotContains)
 		})
+	}
+}
+
+// assertCorefileContents checks a normalized corefile against inclusion and exclusion
+// expectations. raw is the un-normalized corefile, reported on failure so the message
+// shows the template's real output.
+func assertCorefileContents(t *testing.T, corefile, raw, wantContains string, wantNotContains []string) {
+	t.Helper()
+	if wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(wantContains)) {
+		t.Fatalf("expected generated corefile to contain %q, got:\n%s", wantContains, raw)
+	}
+	for _, want := range wantNotContains {
+		if strings.Contains(corefile, normalizeCorefileString(want)) {
+			t.Fatalf("expected generated corefile not to contain %q, got:\n%s", want, raw)
+		}
 	}
 }
 
@@ -2299,14 +2307,7 @@ func Test_getLocalDNSCorefileBase64ServeStalePolicy(t *testing.T) {
 				t.Fatalf("failed to decode generated corefile: %v", err)
 			}
 			corefile := normalizeCorefileString(string(decoded))
-			if tt.wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(tt.wantContains)) {
-				t.Fatalf("expected generated corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
-			}
-			for _, wantNotContains := range tt.wantNotContains {
-				if strings.Contains(corefile, normalizeCorefileString(wantNotContains)) {
-					t.Fatalf("expected generated corefile not to contain %q, got:\n%s", wantNotContains, string(decoded))
-				}
-			}
+			assertCorefileContents(t, corefile, string(decoded), tt.wantContains, tt.wantNotContains)
 		})
 	}
 }
