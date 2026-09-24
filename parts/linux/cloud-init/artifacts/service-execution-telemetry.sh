@@ -23,6 +23,30 @@ numericOrNull() {
     fi
 }
 
+# Runs from ExecStopPost of a monitored unit, inside that unit's own cgroup and
+# before systemd releases it. Systemd keeps CPU accounting of an exited unit but
+# only retains memory accounting from version 256, so on older systemd the peak
+# has to be read straight from the cgroup while it still exists.
+snapshotMemoryPeak() {
+    local unit_name="${1:-}"
+    local snapshot_dir="${MEMORY_PEAK_DIR:-/run/aks-service-telemetry}"
+    local cgroup_proc_file="${CGROUP_PROC_FILE:-/proc/self/cgroup}"
+    local cgroup_root="${CGROUP_ROOT:-/sys/fs/cgroup}"
+    local cgroup_path
+    local peak
+
+    isAllowedService "${unit_name}" || return 0
+
+    cgroup_path=$(sed -n 's|^0::||p' "${cgroup_proc_file}" 2>/dev/null)
+    [ -n "${cgroup_path}" ] || return 0
+
+    peak=$(cat "${cgroup_root%/}${cgroup_path}/memory.peak" 2>/dev/null)
+    isNonNegativeInteger "${peak}" || return 0
+
+    mkdir -p "${snapshot_dir}" 2>/dev/null || return 0
+    printf '%s\n' "${peak}" > "${snapshot_dir%/}/${unit_name}.peak" 2>/dev/null || return 0
+}
+
 main() {
     local service_name="${1:-}"
     local systemctl_bin="${SYSTEMCTL_BIN:-systemctl}"
@@ -39,6 +63,8 @@ main() {
     local exec_main_status=""
     local cpu_usage_nsec=""
     local memory_peak=""
+    local memory_peak_dir="${MEMORY_PEAK_DIR:-/run/aks-service-telemetry}"
+    local memory_peak_file
     local duration_usec="null"
     local exec_main_code_json
     local exec_main_status_json
@@ -83,6 +109,16 @@ main() {
     done <<< "${properties}"
 
     memory_peak=$("${systemctl_bin}" show "${service_name}" --property=MemoryPeak --value 2>/dev/null || true)
+
+    # Before systemd 256 the memory accounting of a unit is discarded together with
+    # its cgroup, so MemoryPeak reads empty once the unit has exited. The monitored
+    # units therefore snapshot cgroup memory.peak from ExecStopPost, while the cgroup
+    # still exists. Consume that snapshot when systemd itself has nothing left.
+    memory_peak_file="${memory_peak_dir%/}/${service_name}.peak"
+    if ! isNonNegativeInteger "${memory_peak}" && [ -r "${memory_peak_file}" ]; then
+        memory_peak=$(cat "${memory_peak_file}" 2>/dev/null || true)
+    fi
+    rm -f "${memory_peak_file}" 2>/dev/null || true
 
     if isNonNegativeInteger "${start_timestamp_monotonic}" &&
         isNonNegativeInteger "${exit_timestamp_monotonic}" &&
@@ -165,4 +201,8 @@ main() {
     [ "${collection_complete}" = "true" ]
 }
 
-main "$@"
+if [ "${1:-}" = "--snapshot-memory-peak" ]; then
+    snapshotMemoryPeak "${2:-}"
+else
+    main "$@"
+fi

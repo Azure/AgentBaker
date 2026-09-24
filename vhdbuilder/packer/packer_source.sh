@@ -145,6 +145,15 @@ configureServiceExecutionTelemetryForSystemdVersion() {
         ;;
     esac
 
+    # Systemd retains the memory accounting of an exited unit from version 256, so the
+    # ExecStopPost snapshot is only needed below that. Dropping it elsewhere also keeps
+    # the snapshot process out of the very cgroup whose peak it would otherwise inflate.
+    if [ "$systemd_version" -ge 256 ]; then
+      sed -i \
+        -e '/^ExecStopPost=-\/opt\/scripts\/service-execution-telemetry\.sh --snapshot-memory-peak %n$/d' \
+        "$service_path" || return 1
+    fi
+
     if [ "$systemd_version" -ge 258 ]; then
       sed -i \
         -e '/^CPUAccounting=true$/d' \

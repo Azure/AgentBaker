@@ -8,3 +8,4 @@ Type=oneshot
 CPUAccounting=true
 MemoryAccounting=true
 ExecStart=/bin/bash /opt/scripts/cgroup-pressure-telemetry.sh
+ExecStopPost=-/opt/scripts/service-execution-telemetry.sh --snapshot-memory-peak %n
