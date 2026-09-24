@@ -2463,7 +2463,7 @@ health-check.localdns.local:53 {
         {{- else if eq $override.ServeStale "Immediate"}}
         serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
         {{- end }}
-        {{- if and (eq $override.ServeStalePolicy "PreferPositive") (or (eq $override.ServeStale "Verify") (eq $override.ServeStale "Immediate"))}}
+        {{- if and $isRootDomain (eq $override.ServeStalePolicy "PreferPositive") (or (eq $override.ServeStale "Verify") (eq $override.ServeStale "Immediate"))}}
         serve_stale_policy prefer_positive
         {{- end }}
         {{- end }}
@@ -2543,7 +2543,7 @@ health-check.localdns.local:53 {
         {{- else if eq $override.ServeStale "Immediate"}}
         serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
         {{- end }}
-        {{- if and (eq $override.ServeStalePolicy "PreferPositive") (or (eq $override.ServeStale "Verify") (eq $override.ServeStale "Immediate"))}}
+        {{- if and $isRootDomain (eq $override.ServeStalePolicy "PreferPositive") (or (eq $override.ServeStale "Verify") (eq $override.ServeStale "Immediate"))}}
         serve_stale_policy prefer_positive
         {{- end }}
         {{- end }}

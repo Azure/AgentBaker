@@ -2170,10 +2170,12 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 
 // Test_getLocalDNSCorefileBase64ServeStalePolicy covers the serve_stale_policy directive
 // (CoreDNS >= 1.14.7). The directive is only valid alongside an emitted serve_stale line,
-// so the template must never render it on its own.
+// so the template must never render it on its own, and it is restricted to the default
+// (".") server block, so it must never render in a per-domain block.
 func Test_getLocalDNSCorefileBase64ServeStalePolicy(t *testing.T) {
 	tests := []struct {
 		name            string
+		domain          string // defaults to "." when empty
 		serveStale      string
 		policy          string
 		kubeDNS         bool
@@ -2236,6 +2238,35 @@ func Test_getLocalDNSCorefileBase64ServeStalePolicy(t *testing.T) {
 				"serve_stale_policy prefer_positive",
 			}, "\n        "),
 		},
+		{
+			// The policy is restricted to the default (".") server block. A per-domain
+			// block still gets its serve_stale line, but never the policy.
+			name:            "omitted in a cluster.local VnetDNS block",
+			domain:          "cluster.local",
+			serveStale:      "Immediate",
+			policy:          "PreferPositive",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:            "omitted in a cluster.local KubeDNS block",
+			domain:          "cluster.local",
+			serveStale:      "Verify",
+			policy:          "PreferPositive",
+			kubeDNS:         true,
+			wantContains:    "serve_stale 3600s verify",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			// A custom domain takes a different path through the template than
+			// cluster.local, which is special-cased by $fwdToClusterCoreDNS.
+			name:            "omitted in a custom-domain VnetDNS block",
+			domain:          "testdomain.com",
+			serveStale:      "Immediate",
+			policy:          "PreferPositive",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -2252,10 +2283,14 @@ func Test_getLocalDNSCorefileBase64ServeStalePolicy(t *testing.T) {
 				ServeStalePolicy:            tt.policy,
 			}
 			profile := &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true}
+			domain := tt.domain
+			if domain == "" {
+				domain = "."
+			}
 			if tt.kubeDNS {
-				profile.KubeDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{".": override}
+				profile.KubeDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{domain: override}
 			} else {
-				profile.VnetDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{".": override}
+				profile.VnetDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{domain: override}
 			}
 			got := getLocalDnsCorefileBase64WithHostsPlugin(&aksnodeconfigv1.Configuration{LocalDnsProfile: profile}, false)
 

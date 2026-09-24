@@ -2688,6 +2688,8 @@ type LocalDNSOverrides struct {
 	// Policy applied on top of serve_stale when selecting between a stale positive
 	// answer and a cached negative one. Only meaningful when serve_stale is active.
 	// Requires CoreDNS >= 1.14.7; older binaries fail to parse the directive.
+	// Only honored on the default (".") server block - it is not rendered into
+	// per-domain override blocks.
 	ServeStalePolicy string `json:"serveStalePolicy,omitempty"`
 }
 

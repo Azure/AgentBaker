@@ -167,6 +167,8 @@ type LocalDnsOverrides struct {
 	// answer and a cached negative one. Only meaningful when serve_stale is active,
 	// and only rendered into the Corefile when serve_stale itself is.
 	// Requires CoreDNS >= 1.14.7; older binaries fail to parse the directive.
+	// Only honored on the default (".") server block - it is not rendered into
+	// per-domain override blocks.
 	// Valid values - PreferPositive. Empty leaves CoreDNS on its default behavior.
 	ServeStalePolicy string `protobuf:"bytes,11,opt,name=serve_stale_policy,json=serveStalePolicy,proto3" json:"serve_stale_policy,omitempty"`
 }

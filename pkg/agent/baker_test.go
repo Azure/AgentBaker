@@ -1036,6 +1036,22 @@ testdomain567.com:53 {
 				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
 				Expect(err).To(BeNil())
 				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale"))
+
+				By("omitting the directive outside the default (\".\") server block")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						"cluster.local":  newOverride("Immediate", "PreferPositive"),
+						"testdomain.com": newOverride("Immediate", "PreferPositive"),
+					},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{"cluster.local": newOverride("Verify", "PreferPositive")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				// The per-domain blocks still get serve_stale; only the policy is withheld.
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s immediate"))
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s verify"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale_policy"))
 			})
 
 			// Expect a valid corefile WITHOUT hosts plugin blocks when includeHostsPlugin=false.
