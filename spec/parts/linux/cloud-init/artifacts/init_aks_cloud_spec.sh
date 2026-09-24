@@ -292,6 +292,14 @@ EOF
             The status should be success
         End
 
+        It 'selects Ubuntu 26.04 with an additional version component'
+            OS="$UBUNTU_OS_NAME"
+            OS_VERSION="26.04.1"
+
+            When call is_ubuntu_2604_or_later
+            The status should be success
+        End
+
         It 'selects a later Ubuntu release'
             OS="$UBUNTU_OS_NAME"
             OS_VERSION="28.04"

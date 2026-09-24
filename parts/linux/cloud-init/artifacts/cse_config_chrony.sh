@@ -3,18 +3,16 @@
 is_ubuntu_2604_or_later() {
     local version_major
     local version_minor
-    local version_rest
 
     [ "$OS" = "$UBUNTU_OS_NAME" ] || return 1
 
-    IFS='.' read -r version_major version_minor version_rest <<< "${OS_VERSION:-}"
+    IFS='.' read -r version_major version_minor _ <<< "${OS_VERSION:-}"
     case "$version_major" in
         ''|*[!0-9]*) return 1 ;;
     esac
     case "$version_minor" in
         ''|*[!0-9]*) return 1 ;;
     esac
-    [ -z "$version_rest" ] || return 1
 
     [ "$version_major" -gt 26 ] ||
         { [ "$version_major" -eq 26 ] && [ "$version_minor" -ge 4 ]; }
