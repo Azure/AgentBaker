@@ -260,3 +260,29 @@ configure_node_time_sync() {
         logs_to_events "AKS.CSE.configureChronyDefaultPHC" apply_chrony_configuration || true
     fi
 }
+
+configure_node_time_sync_or_report_error() {
+    local exit_code=0
+    local error_message
+
+    configure_node_time_sync || exit_code=$?
+    [ "$exit_code" -ne 0 ] || return 0
+
+    case "$exit_code" in
+        "$ERR_CVM_PLATFORM_DETECTION_FAIL")
+            error_message="Unable to determine confidential VM platform; Chrony configuration failed with exit code ${exit_code}"
+            ;;
+        "$ERR_CHRONY_NTP_SYNC_FAIL")
+            error_message="Chrony failed to synchronize with the configured NTP pools; exit code ${exit_code}"
+            ;;
+        "$ERR_CHRONY_CONFIG_FAIL")
+            error_message="TDX Chrony configuration failed with exit code ${exit_code}"
+            ;;
+        *)
+            error_message="Unexpected Chrony configuration failure with exit code ${exit_code}"
+            ;;
+    esac
+
+    echo "$error_message" | tee -a /var/log/azure/cluster-provision-cse-output.log >&2
+    return "$exit_code"
+}

@@ -748,26 +748,7 @@ function nodePrep {
 # In typical deployments, both stages run sequentially during node provisioning.
 # For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
 # when nodes are created from that VHD image.
-chronyExitCode=0
-logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync || chronyExitCode=$?
-if [ "$chronyExitCode" -ne 0 ]; then
-    case "$chronyExitCode" in
-        "$ERR_CVM_PLATFORM_DETECTION_FAIL")
-            chronyErrorMessage="Unable to determine confidential VM platform; Chrony configuration failed with exit code ${chronyExitCode}"
-            ;;
-        "$ERR_CHRONY_NTP_SYNC_FAIL")
-            chronyErrorMessage="Chrony failed to synchronize with the configured NTP pools; exit code ${chronyExitCode}"
-            ;;
-        "$ERR_CHRONY_CONFIG_FAIL")
-            chronyErrorMessage="TDX Chrony configuration failed with exit code ${chronyExitCode}"
-            ;;
-        *)
-            chronyErrorMessage="Unexpected Chrony configuration failure with exit code ${chronyExitCode}"
-            ;;
-    esac
-    echo "$chronyErrorMessage" | tee -a /var/log/azure/cluster-provision-cse-output.log >&2
-    exit "$chronyExitCode"
-fi
+logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync_or_report_error || exit $?
 
 if [ ! -f /opt/azure/containers/base_prep.complete ]; then
     basePrep

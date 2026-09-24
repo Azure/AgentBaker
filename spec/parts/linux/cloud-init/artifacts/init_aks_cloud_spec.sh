@@ -616,6 +616,32 @@ EOF
             The output should include "Intel TDX detected"
             The status should equal 245
         End
+
+        It 'reports a customer-facing message and preserves the Chrony failure code'
+            Mock configure_node_time_sync
+                return 245
+            End
+            Mock tee
+                cat
+            End
+
+            When call configure_node_time_sync_or_report_error
+            The error should include "Chrony failed to synchronize with the configured NTP pools"
+            The status should equal 245
+        End
+
+        It 'returns success without reporting an error when Chrony configuration succeeds'
+            Mock configure_node_time_sync
+                return 0
+            End
+            Mock tee
+                echo "unexpected error reporting"
+            End
+
+            When call configure_node_time_sync_or_report_error
+            The output should not include "unexpected error reporting"
+            The status should be success
+        End
     End
 
     Describe 'Mariner and Azure Linux Chrony configuration'

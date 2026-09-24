@@ -42,7 +42,7 @@ Describe 'cse_main.sh PIS-safe configuration'
 
     chrony_dispatch_calls() {
         awk '
-            $0 == "chronyExitCode=0" { inside = 1 }
+            /AKS.CSE.configureNodeTimeSync/ { inside = 1 }
             inside { print }
         ' "${CSE_MAIN}" |
             code_lines |
