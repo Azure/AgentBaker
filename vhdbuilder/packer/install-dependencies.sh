@@ -893,12 +893,12 @@ buildNVIDIAKernelModule() {
   if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then # No ARM64 SKU with GPU now
     gpu_action="copy"
 
-    # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
-    # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
-    # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
+    # Opt-in: pre-build the NVIDIA kernel module into the VHD. This safety-only stage
+    # does not enable skip-build at node boot. In "build-only" mode, aks-gpu compiles
+    # the kernel module + stages userspace libs without registering NVIDIA with DKMS,
     # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
-    # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
-    # when that marker matches, running only the device-dependent steps.
+    # /opt/azure/aks-gpu/dkms-marker. Managed CUDA nodes still use the normal
+    # "install" action with --dkms to establish a complete installation.
     # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
     # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
     # Dropping the image is a separate, deferred size optimization.
@@ -913,6 +913,14 @@ buildNVIDIAKernelModule() {
       retrycmd_if_failure 3 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || exit 1
       if [ ! -f /opt/azure/aks-gpu/dkms-marker ]; then
         echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
+        exit 1
+      fi
+      # Also enforce this in the builder: an older aks-gpu image can still register
+      # NVIDIA. Shared-image safety must not depend on successful node-time cleanup.
+      local nvidia_dkms_status
+      nvidia_dkms_status="$(dkms status -m nvidia)" || exit 1
+      if [ -n "${nvidia_dkms_status}" ] || [ -e /var/lib/dkms/nvidia ] || [ -L /var/lib/dkms/nvidia ]; then
+        echo "Error: CUDA prebake must not register NVIDIA with DKMS; update the aks-gpu build image"
         exit 1
       fi
       cat << EOF >> ${VHD_LOGS_FILEPATH}
