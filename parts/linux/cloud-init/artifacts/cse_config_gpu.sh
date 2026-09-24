@@ -189,8 +189,14 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
+    # arm64 == Grace-Blackwell: run the managed container install only on an AKS-managed Ubuntu VHD
+    # (IS_VHD) when a driver was requested (CONFIG_GPU_DRIVER_IF_NEEDED = --gpu-driver Install /
+    # managed experience). BYOI/custom images are IS_VHD=false (e.g. MAI's driver-baked GB image) --
+    # skip so we never run the runfile install over a customer-baked driver.
     if [ "$(isARM64)" -eq 1 ]; then
-        return
+        if [ "$OS" != "$UBUNTU_OS_NAME" ] || [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" != true ] || [ "${IS_VHD,,}" != "true" ]; then
+            return
+        fi
     fi
 
     # Tear down a mismatched cuda-lts VHD prebake before a GRID node installs its own driver, or the

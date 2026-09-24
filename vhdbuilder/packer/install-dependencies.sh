@@ -846,8 +846,11 @@ cacheGPUContainerImageComponents() {
     fi
   done <<< "$GPUContainerImages"
 
-  # For Ubuntu, pre-pull the CUDA driver image
-  if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
+  # For Ubuntu, pre-pull the CUDA driver image so node provisioning is a cache hit instead of an MCR
+  # pull. arm64 (Grace-Blackwell) is included: the aks-gpu-cuda-lts image is multi-arch and GB nodes
+  # install the driver from it at boot. Only the kernel-module PREBAKE below stays x86-only -- GB has
+  # no VHD driver prebake, so this caches the image without baking a driver (no dkms-marker).
+  if [ $OS = $UBUNTU_OS_NAME ]; then
     gpu_action="copy"
 
     while IFS= read -r imageToBePulled; do
