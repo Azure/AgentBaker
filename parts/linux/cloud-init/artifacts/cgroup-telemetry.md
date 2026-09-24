@@ -82,6 +82,13 @@ does run inside the monitored cgroup and adds its own small footprint to the
 reported peak; the VHD build removes it on systemd 256 and newer, where it is
 both unnecessary and a source of bias.
 
+The snapshot depends on `memory.peak`, which the kernel exposes only from
+version 5.19. Ubuntu 22.04 ships a 5.15 kernel, so the file is absent and the
+snapshot returns without writing anything: 22.04 reports no `MemoryPeakBytes`
+regardless of the systemd version. Every other supported image runs a 6.x
+kernel and is unaffected. cgroup v2 exposes no alternative peak counter below
+5.19, so this is a limitation of the image rather than a gap in the collector.
+
 The completion handlers run after both successful and failed executions. A
 telemetry failure belongs to the separate collector unit and therefore cannot
 change the result of the monitored workload.
@@ -90,8 +97,9 @@ Ubuntu 20.04 uses systemd 245, before `OnSuccess` was introduced. During the VHD
 build, `packer_source.sh` replaces the completion handlers on systemd versions
 older than 249 with an asynchronous `ExecStopPost` that starts the same separate
 collector unit. Peak memory relies on the `ExecStopPost` snapshot described
-above on these older versions; the small legacy trigger overhead can affect
-`CPUUsageNSec` and is an explicit limitation of the compatibility path.
+above on these older versions, and therefore on a 5.19 or newer kernel; the
+small legacy trigger overhead can affect `CPUUsageNSec` and is an explicit
+limitation of the compatibility path.
 
 Starting with systemd 258, cgroup v2 accounting is always enabled and the
 `CPUAccounting` and `MemoryAccounting` unit directives are obsolete. The VHD
