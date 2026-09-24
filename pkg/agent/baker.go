@@ -1968,11 +1968,8 @@ const kubenetCniTemplate = `{
 type ContainerdConfigTemplate string
 
 func getContainerdConfigVersion(config *datamodel.NodeBootstrappingConfiguration) int {
-	if config.ContainerdVersion != "" {
-		if IsKubernetesVersionGe(config.ContainerdVersion, "2.3.0") {
-			return 4
-		}
-		return 3
+	if config.ContainerdVersion != "" && IsKubernetesVersionGe(config.ContainerdVersion, "2.3.0") {
+		return 4
 	}
 	return 3
 }
