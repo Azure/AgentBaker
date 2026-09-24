@@ -2560,6 +2560,37 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+testKneadSecurityPatchingAssets() {
+  local test="testKneadSecurityPatchingAssets"
+  local os_sku="$1"
+  local file
+  local permissions
+  local -A expected_files=(
+    ["/etc/systemd/system/snapshot-update.service"]=644
+    ["/etc/systemd/system/snapshot-update.timer"]=644
+    ["/opt/azure/containers/security-update.sh"]=544
+    ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=544
+  )
+
+  if [ "$os_sku" != "Ubuntu" ]; then
+    return 0
+  fi
+
+  for file in "${!expected_files[@]}"; do
+    if [ ! -f "$file" ]; then
+      err "$test" "Expected file not found: $file"
+    fi
+    permissions=$(stat -c "%a" "$file")
+    if [ "$permissions" != "${expected_files[$file]}" ]; then
+      err "$test" "Incorrect permissions for $file. Expected ${expected_files[$file]}, got $permissions"
+    fi
+  done
+
+  if ! grep -Fxq 'ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh' /etc/systemd/system/snapshot-update.service; then
+    err "$test" "snapshot-update.service does not execute the generic reconciler"
+  fi
+}
+
 # Basic sanity check for Inspektor Gadget artifacts baked into the image.
 testInspektorGadgetAssets() {
   local test="testInspektorGadgetAssets"
@@ -2748,6 +2779,33 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
+testMarinerLivePatchingArtifacts() {
+  local test="testMarinerLivePatchingArtifacts"
+  local update_script="/opt/azure/containers/mariner-package-update.sh"
+  local service="/etc/systemd/system/snapshot-update.service"
+  local timer="/etc/systemd/system/snapshot-update.timer"
+
+  echo "$test: Start"
+  if [ "$OS_SKU" != "CBLMariner" ] && [ "$OS_SKU" != "AzureLinux" ]; then
+    echo "$test: Skipping for non-Mariner/AzureLinux image"
+    return 0
+  fi
+
+  if [ "$(stat -c '%a' "$update_script" 2>/dev/null)" != "544" ]; then
+    err $test "$update_script must exist with mode 0544"
+  fi
+  if [ "$(stat -c '%a' "$service" 2>/dev/null)" != "644" ]; then
+    err $test "$service must exist with mode 0644"
+  fi
+  if [ "$(stat -c '%a' "$timer" 2>/dev/null)" != "644" ]; then
+    err $test "$timer must exist with mode 0644"
+  fi
+  if [ "$(grep -E '^ExecStart=' "$service" 2>/dev/null)" != "ExecStart=/opt/azure/containers/mariner-package-update.sh" ]; then
+    err $test "$service must execute the Mariner package update script"
+  fi
+  echo "$test: Finish"
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -2804,6 +2862,7 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
+testMarinerLivePatchingArtifacts
 testNodeExporter $OS_SKU
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
@@ -2812,6 +2871,7 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs $OS_SKU
+testKneadSecurityPatchingAssets $OS_SKU
 testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU

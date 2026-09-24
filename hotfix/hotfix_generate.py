@@ -81,6 +81,12 @@ SOURCE_TO_VARKEY = {
     # Other scripts present in traditional nodecustomdata
     "configure-azure-network.sh": "configureAzureNetworkScript",
     "init-aks-cloud.sh": "initAKSCloud",
+    # Distro-specific scripts
+    # The updater and handler share one nodecustomdata block, so a change to
+    # either file hotfix-delivers both atomically.
+    "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
+    "ubuntu/security-update.sh": "securityUpdateScript",
+    "mariner/mariner-package-update.sh": "packageUpdateScriptMariner",
     # Systemd files present in traditional nodecustomdata
     "kubelet.service": "kubeletSystemdService",
     "reconcile-private-hosts.service": "reconcilePrivateHostsService",
