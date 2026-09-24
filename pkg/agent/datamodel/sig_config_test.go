@@ -31,6 +31,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV3FIPS:                     SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2FIPS:                 SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2Kata:                 SIGAzureLinuxV3KataImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2KataFIPS:             SIGAzureLinuxV3KataFIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Arm64Gen2:                SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Arm64Gen2FIPS:            SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2TL:                   SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
@@ -360,6 +361,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV3Gen2Kata.Gallery).To(Equal("aksazurelinux"))
 		Expect(azurelinuxV3Gen2Kata.Definition).To(Equal("V3katagen2"))
 		Expect(azurelinuxV3Gen2Kata.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3Gen2KataFIPS := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Gen2KataFIPS]
+		Expect(azurelinuxV3Gen2KataFIPS.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Gen2KataFIPS.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Gen2KataFIPS.Definition).To(Equal("V3katagen2fips"))
+		Expect(azurelinuxV3Gen2KataFIPS.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntuEgressContainerd2204Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuEgressContainerd2204Gen2]
 		Expect(aksUbuntuEgressContainerd2204Gen2.ResourceGroup).To(Equal("resourcegroup"))
