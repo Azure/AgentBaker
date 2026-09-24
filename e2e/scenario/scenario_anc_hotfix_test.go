@@ -13,7 +13,14 @@ import (
 )
 
 func TestRenderANCHotfixFlowFixture(t *testing.T) {
-	in := base64.StdEncoding.EncodeToString([]byte("prefix\n#hotfix-marker\nsuffix\n"))
+	// Mirror the real custom data layout. baker expands its own file writes at the boothook
+	// template's %s, which sits *after* #hotfix-marker, and only then concatenates
+	// serviceStartTemplate. On official/** branches one of those writes is a hotfix pointer
+	// committed by hotfix-generate, so the stub includes it: the fixture has to win that race.
+	bakerPointerWrite := "cat <<'EOF' | base64 -d | gzip -d >" + ancHotfixPointerPath + "\nQkFLRVI=\nEOF\nchmod 0600 " + ancHotfixPointerPath
+	in := base64.StdEncoding.EncodeToString([]byte(
+		"prefix\n#hotfix-marker\n" + bakerPointerWrite + "\n" +
+			`logger -t aks-boothook "launching aks-node-controller $(date -Ins)"` + "\nsuffix\n"))
 	out, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc")
 	if err != nil {
 		t.Fatal(err)
@@ -28,8 +35,20 @@ func TestRenderANCHotfixFlowFixture(t *testing.T) {
 	if strings.Contains(rendered, "ENABLE_PROVISIONING_HOTFIX") {
 		t.Error("fixture must not enable the provisioning hotfix feature flag")
 	}
-	if strings.Contains(rendered, "#hotfix-marker") {
-		t.Error("marker was not substituted")
+
+	// The fixture's own writes use `cat >path`, baker's use `gzip -d >path`, so the two are
+	// distinguishable even though they target the same file.
+	bakerWrite := strings.Index(rendered, "gzip -d >"+ancHotfixPointerPath)
+	fixtureWrite := strings.Index(rendered, "cat >"+ancHotfixPointerPath)
+	anchor := strings.Index(rendered, ancFixtureAnchor)
+	if bakerWrite < 0 || fixtureWrite < 0 || anchor < 0 {
+		t.Fatalf("expected baker write, fixture write and anchor; got %d, %d, %d", bakerWrite, fixtureWrite, anchor)
+	}
+	if fixtureWrite < bakerWrite {
+		t.Error("fixture pointer write must land after baker's, otherwise the pointer hotfix-generate commits on official/** branches clobbers it")
+	}
+	if fixtureWrite > anchor {
+		t.Error("fixture must be spliced before the launcher starts")
 	}
 
 	// the heredoc body must be valid JSON matching the hotfixConfig shape
@@ -57,8 +76,20 @@ func TestRenderANCHotfixFlowFixture(t *testing.T) {
 	if !strings.Contains(rendered, "chmod 0755 "+ancLauncherPath) {
 		t.Errorf("launcher override must be installed executable")
 	}
-	if strings.Index(rendered, ancLauncherPath) > strings.Index(rendered, ancHotfixPointerPath) {
+	if strings.Index(rendered, ancLauncherPath) > fixtureWrite {
 		t.Error("launcher override must be written before the hotfix pointer")
+	}
+}
+
+// TestRenderANCHotfixFlowFixtureWithoutAnchor pins the failure mode when custom data carries no
+// serviceStartTemplate, which is the ScriptlessCSEProvisionMode shape. The fixture must refuse
+// loudly instead of silently producing custom data that never seeds the pointer.
+func TestRenderANCHotfixFlowFixtureWithoutAnchor(t *testing.T) {
+	in := base64.StdEncoding.EncodeToString([]byte("prefix\n#hotfix-marker\nsuffix\n"))
+	if _, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc"); err == nil {
+		t.Fatal("expected an error when the splice anchor is absent")
+	} else if !strings.Contains(err.Error(), "splice anchor") {
+		t.Errorf("error should name the missing anchor, got %v", err)
 	}
 }
 
@@ -109,35 +140,5 @@ func TestANCLauncherOverrideRoundTrips(t *testing.T) {
 	}
 	if !bytes.Equal(got, want) {
 		t.Errorf("decoded launcher differs from %s", ancLauncherRepoPath)
-	}
-}
-
-// The guard has to key off the real repo path, not a path the test invented, so this drives it
-// against the actual working tree: absent today, present once a file is placed there.
-func TestSkipIfRepoShipsHotfixPointer(t *testing.T) {
-	repoRoot, err := findRepoRoot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	pointer := filepath.Join(repoRoot, ancHotfixPointerRepoPath)
-	if _, err := os.Stat(pointer); err == nil {
-		t.Skipf("%s already exists on this branch", ancHotfixPointerRepoPath)
-	}
-
-	if reason := skipIfRepoShipsHotfixPointer(); reason != "" {
-		t.Fatalf("expected no skip while the pointer is absent, got %q", reason)
-	}
-
-	if err := os.WriteFile(pointer, []byte(`{"version":"202609.23.1"}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.Remove(pointer) })
-
-	reason := skipIfRepoShipsHotfixPointer()
-	if reason == "" {
-		t.Fatal("expected a skip reason once the repo ships the pointer")
-	}
-	if !strings.Contains(reason, ancHotfixPointerRepoPath) {
-		t.Errorf("skip reason should name the offending file, got %q", reason)
 	}
 }
