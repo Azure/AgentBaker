@@ -9,4 +9,5 @@ Slice=aks-log-collector.slice
 CPUAccounting=true
 MemoryAccounting=true
 ExecStart=/opt/azure/containers/aks-log-collector.sh
+ExecStopPost=-/opt/scripts/service-execution-telemetry.sh --snapshot-memory-peak %n
 RemainAfterExit=no
