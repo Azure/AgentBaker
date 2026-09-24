@@ -40,7 +40,6 @@ Describe 'cse_install_mariner.sh'
             The output line 1 should include "Installing azurelinux-repos-cloud-native"
         End
     End
-
     Describe 'installRPMPackageFromFile'
         rpm_cache_root="$PWD/spec/tmp/rpm-cache"
 
@@ -816,6 +815,21 @@ EOF
             When call installPackageFromCache kubelet "$desiredVersion"
             The output should include "Failed to find cached rpm file for kubelet version 1.34.1"
             The status should equal 1
+        End
+    End
+
+    Describe 'installKataDeps'
+        It 'installs the Kata CC host package on Azure Linux 3.0'
+            OS_VERSION="3.0"
+            When call installKataDeps
+            The output line 1 should equal "dnf install 30 1 600 kata-packages-host"
+            The output line 2 should equal "dnf install 30 1 600 kata-containers-cc"
+        End
+        It 'does not install the Kata CC host package on Azure Linux 2.0'
+            OS_VERSION="2.0"
+            When call installKataDeps
+            The output line 1 should equal "dnf install 30 1 600 kata-packages-host"
+            The output line 2 should be undefined
         End
     End
 End
