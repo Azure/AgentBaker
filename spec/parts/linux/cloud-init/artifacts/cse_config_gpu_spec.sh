@@ -585,16 +585,33 @@ Describe 'cse_config_gpu.sh'
         logGPUDriverPrebakeReadiness() { :; }
         UBUNTU_OS_NAME="UBUNTU"
         ERR_GPU_DRIVERS_START_FAIL=88
+        # default to an AKS-managed VHD; the BYOI example overrides this.
+        BeforeEach 'IS_VHD="true"'
 
-        It 'installs on arm64 Ubuntu when the managed driver install is requested (GB200/GB300)'
+        It 'installs on an AKS-managed arm64 Ubuntu VHD when the managed install is requested (GB200/GB300)'
             isARM64() { echo 1; }
             OS="UBUNTU"
             CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            IS_VHD="true"
 
             When call ensureGPUDrivers
 
             The status should be success
             The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'skips on a BYOI/custom arm64 image (IS_VHD=false) to preserve a customer-baked driver (MAI dedicated GB VHD)'
+            isARM64() { echo 1; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            # UseCustomizedOSImage header -> Distro=CustomizedImage -> IsVHDDistro()=false -> IS_VHD=false.
+            IS_VHD="false"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
             The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
         End
 
