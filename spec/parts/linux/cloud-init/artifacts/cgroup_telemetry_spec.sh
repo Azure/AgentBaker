@@ -5,6 +5,8 @@ Describe 'cgroup telemetry'
         TEST_ROOT=$(mktemp -d)
         CGROUP_ROOT="${TEST_ROOT}/cgroup"
         EVENTS_ROOT="${TEST_ROOT}/events"
+        export MOCK_WALINUXAGENT_CGROUP="/system.slice/walinuxagent.service"
+        export MOCK_SYSTEMCTL_STATUS=0
         mkdir -p "${CGROUP_ROOT}" "${EVENTS_ROOT}"
         printf 'MemTotal: 1000 kB\n' > "${TEST_ROOT}/meminfo"
     }
@@ -90,6 +92,15 @@ Describe 'cgroup telemetry'
     BeforeEach 'setup_cgroup_telemetry_test'
     AfterEach 'cleanup_cgroup_telemetry_test'
 
+    Mock systemctl
+        if [ "$*" != "show walinuxagent.service -p ControlGroup --value" ]; then
+            echo "Unexpected systemctl arguments: $*" >&2
+            exit 1
+        fi
+        printf '%s\n' "${MOCK_WALINUXAGENT_CGROUP}"
+        exit "${MOCK_SYSTEMCTL_STATUS}"
+    End
+
     It 'emits memory for the additional services and tolerates an unavailable service'
         for cgroup_path in \
             memory.stat \
@@ -134,7 +145,8 @@ Describe 'cgroup telemetry'
         done
         printf 'max\n' > "${CGROUP_ROOT}/kubepods/memory.limit_in_bytes"
         create_memory_stat_v1 system.slice/node-exporter.service 30 40
-        create_memory_stat_v1 system.slice/walinuxagent.service 20 30
+        MOCK_WALINUXAGENT_CGROUP="/azure.slice/walinuxagent.service"
+        create_memory_stat_v1 azure.slice/walinuxagent.service 20 30
         prepare_memory_script tmpfs
 
         When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
@@ -176,7 +188,8 @@ Describe 'cgroup telemetry'
     It 'emits cgroup v2 CPU usage and throttling counters with explicit units'
         create_cpu_stat_v2 system.slice/containerd.service
         create_cpu_stat_v2 system.slice/kubelet.service
-        create_cpu_stat_v2 system.slice/walinuxagent.service
+        MOCK_WALINUXAGENT_CGROUP="/azure.slice/walinuxagent.service"
+        create_cpu_stat_v2 azure.slice/walinuxagent.service
         prepare_cpu_script
 
         When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
@@ -218,5 +231,46 @@ Describe 'cgroup telemetry'
         When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_cpu_usage\":{\"usage_usec\":\"Not Found\",\"user_usec\":\"60\",\"system_usec\":\"Not Found\",\"nr_periods\":\"Not Found\",\"nr_throttled\":\"3\",\"throttled_usec\":\"Not Found\"}'
+    End
+
+    Describe 'unavailable WALinuxAgent cgroup'
+        Parameters
+            '' 0
+            '/' 0
+            '' 1
+        End
+
+        It 'does not report root cgroup CPU counters as WALinuxAgent usage'
+            MOCK_WALINUXAGENT_CGROUP="$1"
+            MOCK_SYSTEMCTL_STATUS="$2"
+            create_cpu_stat_v2 .
+            prepare_cpu_script
+
+            When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+            The status should be success
+            The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_cpu_usage\":\"Not Found\"'
+        End
+
+        It 'does not report root cgroup v2 memory as WALinuxAgent usage'
+            MOCK_WALINUXAGENT_CGROUP="$1"
+            MOCK_SYSTEMCTL_STATUS="$2"
+            create_memory_stat . 20 30
+            prepare_memory_script
+
+            When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+            The status should be success
+            The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_memory\":\"Not Found\"'
+        End
+
+        It 'does not report root cgroup v1 memory as WALinuxAgent usage'
+            MOCK_WALINUXAGENT_CGROUP="$1"
+            MOCK_SYSTEMCTL_STATUS="$2"
+            create_memory_stat_v1 . 20 30
+            prepare_memory_script tmpfs
+
+            When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+            The status should be success
+            The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_memory\":\"Not Found\"'
+        End
     End
 End
