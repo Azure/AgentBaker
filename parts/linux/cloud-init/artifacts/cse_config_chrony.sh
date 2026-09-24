@@ -148,8 +148,9 @@ EOF
 
 configure_mariner_azurelinux_chrony() {
     local chrony_conf="${CHRONY_CONF:-/etc/chrony.conf}"
+    local chrony_failed=0
 
-    cat > "$chrony_conf" <<'EOF'
+    if ! cat > "$chrony_conf" <<'EOF'
 # This directive specifies the location of the file containing ID/key pairs for
 # NTP authentication.
 keyfile /etc/chrony.keys
@@ -175,8 +176,17 @@ rtcsync
 refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
+    then
+        echo "ERROR: failed to write Chrony configuration to ${chrony_conf}" >&2
+        chrony_failed=1
+    fi
 
-    systemctl restart chronyd
+    if ! systemctl restart chronyd; then
+        echo "ERROR: failed to restart chronyd" >&2
+        chrony_failed=1
+    fi
+
+    return "$chrony_failed"
 }
 
 verify_chrony_ntp_sync() {

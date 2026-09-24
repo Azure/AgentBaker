@@ -590,6 +590,27 @@ EOF
         End
     End
 
+    Describe 'Mariner and Azure Linux Chrony configuration'
+        It 'returns failure when the Chrony configuration cannot be written'
+            CHRONY_CONF="${TEST_DIR}/missing/chrony.conf"
+
+            When call configure_mariner_azurelinux_chrony
+            The error should include "failed to write Chrony configuration"
+            The status should equal 1
+        End
+
+        It 'returns failure when chronyd cannot restart'
+            CHRONY_CONF="${TEST_DIR}/chrony.conf"
+            Mock systemctl
+                return 1
+            End
+
+            When call configure_mariner_azurelinux_chrony
+            The error should include "failed to restart chronyd"
+            The status should equal 1
+        End
+    End
+
     Describe 'init_mariner_repo_depot'
         It 'creates extended, nvidia, and cloud-native repos and points all at RepoDepot'
             export YUM_REPOS_DIR="${TEST_DIR}/yum.repos.d"
