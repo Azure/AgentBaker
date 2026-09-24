@@ -4,6 +4,15 @@ set -e
 SCRIPT_DIR=$(dirname "$0")
 source "$SCRIPT_DIR/produce-packer-settings-functions.sh"
 
+if [ "${MODE}" = "linuxVhdMode" ]; then
+  case "${FEATURE_FLAGS:-}" in
+    *AMD_GPU*)
+      source "$SCRIPT_DIR/amd-gpu-build-settings.sh"
+      validate_amd_gpu_build
+      ;;
+  esac
+fi
+
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"

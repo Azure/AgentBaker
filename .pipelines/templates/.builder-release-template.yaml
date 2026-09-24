@@ -8,6 +8,9 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: packerBuildRetryCount
+    type: number
+    default: 3
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -74,18 +77,30 @@ steps:
     displayName: Setup Cue
 
   - bash: |
-      SKU_NAME=${OS_VERSION} && \
-      if grep -q "minimal" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}minimal"; fi && \
-      if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
-      if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
-      if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb"; fi && \
-      if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
-      if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
-      if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
-      if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && ${OS_SKU} != "AzureLinuxOSGuard" && ${OS_SKU} != "Flatcar" && ${OS_SKU} != "AzureContainerLinux" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
-      SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
-      echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
-      echo "Set SKU_NAME to $SKU_NAME"
+      if [[ "${FEATURE_FLAGS}" == *AMD_GPU* ]]; then
+        "$(go env GOPATH)/bin/cue" vet -c ./schemas/amd-gpu-components.cue ./vhdbuilder/packer/amd-gpu-components.json || exit 1
+        source vhdbuilder/packer/amd-gpu-build-settings.sh
+        SKU_NAME=$(get_amd_gpu_sku_name) || exit 1
+        # Prepare only this AMD worker checkout after the template's checkout step.
+        prepare_amd_gpu_packer_template \
+          vhdbuilder/packer/vhd-image-builder-base.json \
+          vhdbuilder/packer/amd-gpu-packer-files.json || exit 1
+        echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
+        echo "Set SKU_NAME to $SKU_NAME"
+      else
+        SKU_NAME=${OS_VERSION} && \
+        if grep -q "minimal" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}minimal"; fi && \
+        if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
+        if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
+        if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb"; fi && \
+        if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
+        if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+        if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
+        if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && ${OS_SKU} != "AzureLinuxOSGuard" && ${OS_SKU} != "Flatcar" && ${OS_SKU} != "AzureContainerLinux" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
+        SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
+        echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
+        echo "Set SKU_NAME to $SKU_NAME"
+      fi
     displayName: Set SKU Name
 
   - task: AzureCLI@2
@@ -97,7 +112,7 @@ steps:
         make -f packer.mk run-packer
     condition: ne(variables['BUILDER'], 'imagecustomizer')
     displayName: Build VHD
-    retryCountOnTaskFailure: 3
+    retryCountOnTaskFailure: ${{ parameters.packerBuildRetryCount }}
     env:
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
@@ -391,7 +406,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
-    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'NVIDIA_GB', 'NVIDIA_CUDA_PREBAKE'))
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'NVIDIA_GB', 'NVIDIA_CUDA_PREBAKE', 'AMD_GPU'))
     displayName: Copy CIS Reports
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'

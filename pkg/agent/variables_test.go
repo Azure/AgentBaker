@@ -438,6 +438,15 @@ var _ = Describe("Windows CSE variables check", func() {
 		config = getDefaultNBC()
 	})
 
+	It("keeps AMD GPU bootstrap explicitly opt-in and independent of NVIDIA", func() {
+		vars := getCSECommandVariables(config)
+		Expect(vars["amdGpuNode"]).To(Equal("false"))
+		config.EnableAMDGPU = true
+		vars = getCSECommandVariables(config)
+		Expect(vars["amdGpuNode"]).To(Equal("true"))
+		Expect(vars["gpuNode"]).To(Equal("false"))
+	})
+
 	It("sets maximumLoadBalancerRuleCount", func() {
 		config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.MaximumLoadBalancerRuleCount = 5
 		vars := getCSECommandVariables(config)

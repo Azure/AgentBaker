@@ -1,0 +1,83 @@
+# Register this manual pipeline with the existing nonproduction Linux VHD
+# builder's pool, service connection and build-environment variables.
+# Its single image job is independent of the shared PR and release pipelines.
+name: $(Date:yyyyMMdd)$(Rev:.r)_AMD_$(BuildID)
+trigger: none
+pr: none
+
+parameters:
+  - name: replicationRegions
+    displayName: Capture replication targets (region=replicas, comma separated)
+    type: string
+    default: francecentral=1
+
+pool:
+  name: $(POOL_NAME)
+
+variables:
+  - name: MODE
+    value: linuxVhdMode
+  - group: aks-vuln-to-kusto
+  - group: "AKS Node SIG UA Token (KV)"
+  - group: build_performance
+  - group: aks-vuln-to-kusto-tme
+  - name: BUILDER
+    value: packer
+  # Capture a test image and retain it for explicit MI300X qualification.
+  # Publishing/export and shared-gallery garbage collection are not part of this pipeline.
+  - name: GENERATE_PUBLISHING_INFO
+    value: 'False'
+  - name: RUN_PREFETCH_OPTIMIZATION
+    value: 'False'
+  - name: DRY_RUN
+    value: 'False'
+  - name: SKIP_CLEANUP
+    # Shared cleanup includes subscription-wide garbage collection. The final
+    # step below removes only this build's recorded and ownership-verified group.
+    value: 'True'
+  - name: REPLICATIONS
+    value: ${{ parameters.replicationRegions }}
+
+stages:
+  - stage: build_amd
+    displayName: Build dedicated AMD GPU VHD
+    jobs:
+      - job: build2404amdgpugen2containerd
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+              echo '##vso[task.setvariable variable=OS_VERSION]24.04'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]server'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]AMD_GPU'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]False'
+            displayName: Setup AMD Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: 2404-amdgpu-gen2-containerd
+              # Retries overwrite the Packer output used for scoped cleanup.
+              packerBuildRetryCount: 0
+          - task: AzureCLI@2
+            displayName: Clean up this AMD build's Packer resource group
+            condition: always()
+            inputs:
+              azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                source vhdbuilder/packer/cleanup-amd-gpu-build.sh
+                cleanup_amd_gpu_build_resource_group \
+                  vhdbuilder/packer/settings.json \
+                  "${PACKER_RESOURCE_GROUP}" "${AMD_BUILD_ID}"
+            env:
+              PACKER_RESOURCE_GROUP: $(PKR_RG_NAME)
+              AMD_BUILD_ID: $(Build.BuildId)

@@ -265,6 +265,10 @@ unit-tests:
 update-windows-base-versions:
 	./vhdbuilder/packer/windows/update_windows_base_versions.sh
 
+.PHONY: validate-amd-components
+validate-amd-components:
+	@./hack/tools/bin/cue vet -c ./schemas/amd-gpu-components.cue ./vhdbuilder/packer/amd-gpu-components.json
+
 .PHONY: validate-components
 validate-components:
 	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/common/components.json

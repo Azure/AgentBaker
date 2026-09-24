@@ -487,7 +487,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		return armcompute.VirtualMachineScaleSet{}, err
 	}
 
-	if s.Config.UseNVMe {
+	if s.Config.UseNVMe && !s.Config.SkipNVMeOSDiskPlacement {
 		if model.Properties == nil || model.Properties.VirtualMachineProfile == nil ||
 			model.Properties.VirtualMachineProfile.StorageProfile == nil ||
 			model.Properties.VirtualMachineProfile.StorageProfile.OSDisk == nil ||

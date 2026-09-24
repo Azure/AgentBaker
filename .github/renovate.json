@@ -774,6 +774,30 @@
         "rashmichandrashekar",
         "bragi92"
       ]
+    },
+    {
+      "description": "AMD image updates always require coordinated pin review and fresh MI300X qualification",
+      "matchFileNames": [
+        "vhdbuilder/packer/amd-gpu-components.json"
+      ],
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "enabled": true,
+      "automerge": false,
+      "ignoreUnstable": false,
+      "groupName": "amd-gpu-image",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "assignees": [
+        "team:aks-node-lifecycle"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle"
+      ],
+      "prBodyNotes": [
+        "Update AMD repository, driver, firmware, module and DKMS pins together; AMD CUE validation rejects mismatches. Rebuild the separate AMD VHD and qualify it on MI300X before merging."
+      ]
     }
   ],
   "customManagers": [
@@ -1016,6 +1040,78 @@
       "matchStrings": [
         "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*VERSION=\"(?<currentValue>[^\"]+)\""
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "Track amdgpu-dkms in the isolated AMD VHD manifest",
+      "managerFilePatterns": [
+        "/^vhdbuilder/packer/amd-gpu-components\\.json$/"
+      ],
+      "matchStrings": [
+        "\"AMDGPUDriver\":\\s*\\{[^}]*?\"repositoryURL\":\\s*\"(?<amdRepository>https://repo\\.radeon\\.com/amdgpu/[0-9.]+/ubuntu)\"[^}]*\\}",
+        "\"packageVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "amdgpu-dkms",
+      "datasourceTemplate": "deb",
+      "versioningTemplate": "deb",
+      "registryUrlTemplate": "{{{amdRepository}}}?suite=noble&components=main&binaryArch=amd64",
+      "matchStringsStrategy": "recursive"
+    },
+    {
+      "customType": "regex",
+      "description": "Track amdgpu-dkms-firmware in the isolated AMD VHD manifest",
+      "managerFilePatterns": [
+        "/^vhdbuilder/packer/amd-gpu-components\\.json$/"
+      ],
+      "matchStrings": [
+        "\"AMDGPUDriver\":\\s*\\{[^}]*?\"repositoryURL\":\\s*\"(?<amdRepository>https://repo\\.radeon\\.com/amdgpu/[0-9.]+/ubuntu)\"[^}]*\\}",
+        "\"firmwarePackageVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "amdgpu-dkms-firmware",
+      "datasourceTemplate": "deb",
+      "versioningTemplate": "deb",
+      "registryUrlTemplate": "{{{amdRepository}}}?suite=noble&components=main&binaryArch=amd64",
+      "matchStringsStrategy": "recursive"
+    },
+    {
+      "customType": "regex",
+      "description": "Track AMD amdsmi in the isolated AMD VHD manifest",
+      "managerFilePatterns": [
+        "/^vhdbuilder/packer/amd-gpu-components\\.json$/"
+      ],
+      "matchStrings": [
+        "\"amdsmiPackage\":\\s*\"(?<depName>amdrocm-amdsmi[0-9]+\\.[0-9]+)\"[^}]*?\"amdsmiVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "deb",
+      "versioningTemplate": "deb",
+      "registryUrlTemplate": "https://stable.repo.amd.com/rocm/core/packages/ubuntu2404/?suite=stable&components=main&binaryArch=amd64"
+    },
+    {
+      "customType": "regex",
+      "description": "Track AMD sysdeps in the isolated AMD VHD manifest",
+      "managerFilePatterns": [
+        "/^vhdbuilder/packer/amd-gpu-components\\.json$/"
+      ],
+      "matchStrings": [
+        "\"sysdepsPackage\":\\s*\"(?<depName>amdrocm-sysdeps[0-9]+\\.[0-9]+)\"[^}]*?\"sysdepsVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "deb",
+      "versioningTemplate": "deb",
+      "registryUrlTemplate": "https://stable.repo.amd.com/rocm/core/packages/ubuntu2404/?suite=stable&components=main&binaryArch=amd64"
+    },
+    {
+      "customType": "regex",
+      "description": "Detect new AMD driver release directories; coordinated pins require review",
+      "managerFilePatterns": [
+        "/^vhdbuilder/packer/amd-gpu-components\\.json$/"
+      ],
+      "matchStrings": [
+        "\"repositoryURL\":\\s*\"https://repo\\.radeon\\.com/amdgpu/(?<currentValue>[0-9.]+)/ubuntu\""
+      ],
+      "depNameTemplate": "amdgpu-repository",
+      "datasourceTemplate": "custom.amdgpu-releases",
+      "versioningTemplate": "loose",
+      "extractVersionTemplate": "^(?<version>[0-9]+(?:\\.[0-9]+)+)/$"
     }
   ],
   "customDatasources": {
@@ -1081,6 +1177,10 @@
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
+    },
+    "amdgpu-releases": {
+      "defaultRegistryUrlTemplate": "https://repo.radeon.com/amdgpu/",
+      "format": "html"
     }
   }
 }

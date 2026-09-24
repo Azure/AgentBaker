@@ -27,6 +27,27 @@ func TestBuildCSECmd(t *testing.T) {
 		validator            func(cmd *exec.Cmd)
 	}{
 		{
+			name:       "AMD GPU uses the baked driver and the standard container runtime",
+			folder:     "AKSUbuntu2204+Containerd+MIG",
+			k8sVersion: "1.36.3",
+			aksNodeConfigUpdator: func(config *aksnodeconfigv1.Configuration) {
+				config.GpuConfig.EnableNvidia = to.Ptr(false)
+				config.GpuConfig.EnableAmdGpu = to.Ptr(true)
+				config.GpuConfig.GpuInstanceProfile = ""
+				config.VmSize = "Standard_ND96isr_MI300X_v5"
+			},
+			validator: func(cmd *exec.Cmd) {
+				vars := environToMap(cmd.Env)
+				assert.Equal(t, "true", vars["AMD_GPU_NODE"])
+				assert.Equal(t, "false", vars["GPU_NODE"])
+				assert.Equal(t, "false", vars["GPU_NEEDS_FABRIC_MANAGER"])
+				containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+				require.NoError(t, err)
+				assert.NotContains(t, containerdConfig, "nvidia")
+				assert.Contains(t, containerdConfig, `default_runtime_name = "runc"`)
+			},
+		},
+		{
 			name:       "AKSUbuntu2204 containerd with multi-instance GPU",
 			folder:     "AKSUbuntu2204+Containerd+MIG",
 			k8sVersion: "1.19.13",
@@ -41,6 +62,7 @@ func TestBuildCSECmd(t *testing.T) {
 				vars := environToMap(cmd.Env)
 				assertHasKeyWithValue(t, vars, "LOCATION", "southcentralus")
 				assert.Equal(t, "false", vars["GPU_NODE"])
+				assert.Equal(t, "false", vars["AMD_GPU_NODE"])
 				assertHasKeyWithValue(t, vars, "MIG_NODE", "true")
 				assertHasKeyWithValue(t, vars, "GPU_INSTANCE_PROFILE", "MIG7g")
 				assertHasKeyWithValue(t, vars, "NVIDIA_MIG_PROFILE_LAYOUT", "")

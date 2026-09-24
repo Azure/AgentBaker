@@ -162,6 +162,8 @@ ERR_AKS_NODE_CONTROLLER_ERROR=240 # Generic error in AKS Node Controller
 ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT=241 # Timeout downloading aznfs RPM from PMC
 ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
 ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network interface
+ERR_AMD_GPU_UNSUPPORTED=244 # AMD GPU image is only supported on Ubuntu 24.04 amd64 MI300X nodes
+ERR_AMD_GPU_VALIDATE_FAIL=245 # Baked AMD GPU driver or device validation failed
 # -----------------------------------------------------------------------------
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.

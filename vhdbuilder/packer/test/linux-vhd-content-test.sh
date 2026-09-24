@@ -239,6 +239,9 @@ testPackagesInstalled() {
 
   while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
+    if [ "${FEATURE_FLAGS:-}" = "AMD_GPU" ]; then
+      case "${name}" in nvidia-*|dra-driver-nvidia-*|datacenter-gpu-manager-*|dcgm-exporter) continue ;; esac
+    fi
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
     if [ "$downloadLocation" = "" ] || [ "$downloadLocation" = "null" ]; then
       continue
@@ -2856,3 +2859,7 @@ testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
 testVulnerableKernelModulesDisabled $OS_SKU $OS_VERSION
 testArtifactStreamingPackagesCleanedUp
+if [ "${FEATURE_FLAGS:-}" = "AMD_GPU" ]; then
+  source ./AgentBaker/vhdbuilder/packer/test/amd-gpu-vhd-content-test.sh &&
+    testAMDGPUImage || err testAMDGPUImage "AMD VHD content validation failed"
+fi
