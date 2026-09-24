@@ -1,18 +1,33 @@
 #!/bin/bash
 
-is_ubuntu_2604_cvm() {
+is_ubuntu_2604_or_later() {
+    local version_major
+    local version_minor
+    local version_rest
+
     [ "$OS" = "$UBUNTU_OS_NAME" ] || return 1
-    [ "${OS_VERSION:-}" = "26.04" ] || return 1
+
+    IFS='.' read -r version_major version_minor version_rest <<< "${OS_VERSION:-}"
+    case "$version_major" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    case "$version_minor" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ -z "$version_rest" ] || return 1
+
+    [ "$version_major" -gt 26 ] ||
+        { [ "$version_major" -eq 26 ] && [ "$version_minor" -ge 4 ]; }
+}
+
+should_configure_ubuntu_cvm_time_sync() {
+    [ "${PRE_PROVISION_ONLY:-false}" != "true" ] || return 1
+    is_ubuntu_2604_or_later || return 1
 
     case "$(uname -r)" in
         *-azure-fde*) return 0 ;;
         *) return 1 ;;
     esac
-}
-
-should_configure_ubuntu_2604_cvm_time_sync() {
-    [ "${PRE_PROVISION_ONLY:-false}" != "true" ] || return 1
-    is_ubuntu_2604_cvm
 }
 
 detect_confidential_vm_platform() {
@@ -210,11 +225,11 @@ verify_chrony_ntp_sync() {
     return "$ERR_NTP_UNREACHABLE"
 }
 
-configure_ubuntu_2604_cvm_time_sync() {
+configure_ubuntu_cvm_time_sync() {
     local platform
 
     if ! platform="$(detect_confidential_vm_platform)"; then
-        echo "ERROR: unable to determine Ubuntu 26.04 CVM platform with systemd-detect-virt --cvm" >&2
+        echo "ERROR: unable to determine Ubuntu 26.04 or later CVM platform with systemd-detect-virt --cvm" >&2
         return "$ERR_CVM_PLATFORM_DETECTION_FAIL"
     fi
 
@@ -241,8 +256,8 @@ configure_node_time_sync() {
         echo "Skipping chrony configuration for ACL (PTP clock baked into chronyd, no external NTP sources)"
     elif isMarinerOrAzureLinux "$OS"; then
         logs_to_events "AKS.CSE.configureChronyMarinerAzureLinux" configure_mariner_azurelinux_chrony || true
-    elif should_configure_ubuntu_2604_cvm_time_sync; then
-        configure_ubuntu_2604_cvm_time_sync
+    elif should_configure_ubuntu_cvm_time_sync; then
+        configure_ubuntu_cvm_time_sync
     else
         logs_to_events "AKS.CSE.configureChronyDefaultPHC" apply_chrony_configuration || true
     fi

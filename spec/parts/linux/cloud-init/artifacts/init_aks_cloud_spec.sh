@@ -84,8 +84,8 @@ Describe 'cse_config_chrony.sh distro routing'
 
     It 'keeps Ubuntu and Flatcar on the default PHC configuration unless the CVM path is selected'
         When call chrony_routing_block
-        The output should include 'elif should_configure_ubuntu_2604_cvm_time_sync; then'
-        The output should include 'configure_ubuntu_2604_cvm_time_sync'
+        The output should include 'elif should_configure_ubuntu_cvm_time_sync; then'
+        The output should include 'configure_ubuntu_cvm_time_sync'
         The output should include 'AKS.CSE.configureChronyDefaultPHC'
         The output should include 'apply_chrony_configuration || true'
     End
@@ -264,7 +264,7 @@ EOF
         End
     End
 
-    Describe 'Ubuntu 26.04 CVM Chrony configuration'
+    Describe 'Ubuntu 26.04 or later CVM Chrony configuration'
         setup_chrony_test() {
             export CHRONY_CONF="${TEST_DIR}/chrony.conf"
             OS="$UBUNTU_OS_NAME"
@@ -276,36 +276,54 @@ EOF
             echo "systemctl $*"
         End
 
-        It 'scopes the platform-specific behavior to Ubuntu 26.04 FDE images'
+        It 'selects Ubuntu 26.04'
             OS="$UBUNTU_OS_NAME"
             OS_VERSION="26.04"
-            Mock uname
-                echo "7.0.0-1011-azure-fde"
-            End
 
-            When call is_ubuntu_2604_cvm
+            When call is_ubuntu_2604_or_later
+            The status should be success
+        End
+
+        It 'selects a later Ubuntu 26.x release'
+            OS="$UBUNTU_OS_NAME"
+            OS_VERSION="26.10"
+
+            When call is_ubuntu_2604_or_later
+            The status should be success
+        End
+
+        It 'selects a later Ubuntu release'
+            OS="$UBUNTU_OS_NAME"
+            OS_VERSION="28.04"
+
+            When call is_ubuntu_2604_or_later
             The status should be success
         End
 
         It 'does not select an Ubuntu 26.04 non-FDE image'
             OS="$UBUNTU_OS_NAME"
             OS_VERSION="26.04"
+            PRE_PROVISION_ONLY="false"
             Mock uname
                 echo "7.0.0-1011-azure"
             End
 
-            When call is_ubuntu_2604_cvm
+            When call should_configure_ubuntu_cvm_time_sync
             The status should be failure
         End
 
-        It 'does not select another Ubuntu release even when it has an FDE kernel'
+        It 'does not select an Ubuntu release before 26.04 even when it has an FDE kernel'
             OS="$UBUNTU_OS_NAME"
             OS_VERSION="24.04"
-            Mock uname
-                echo "6.8.0-1065-azure-fde"
-            End
+            When call is_ubuntu_2604_or_later
+            The status should be failure
+        End
 
-            When call is_ubuntu_2604_cvm
+        It 'does not select a non-Ubuntu release'
+            OS="$FLATCAR_OS_NAME"
+            OS_VERSION="28.04"
+
+            When call is_ubuntu_2604_or_later
             The status should be failure
         End
 
@@ -317,7 +335,7 @@ EOF
                 echo "7.0.0-1011-azure-fde"
             End
 
-            When call should_configure_ubuntu_2604_cvm_time_sync
+            When call should_configure_ubuntu_cvm_time_sync
             The status should be failure
         End
 
@@ -329,7 +347,7 @@ EOF
                 echo "7.0.0-1011-azure-fde"
             End
 
-            When call should_configure_ubuntu_2604_cvm_time_sync
+            When call should_configure_ubuntu_cvm_time_sync
             The status should be success
         End
 
@@ -394,8 +412,8 @@ EOF
             Mock detect_confidential_vm_platform
                 return 1
             End
-            When call configure_ubuntu_2604_cvm_time_sync
-            The error should include "unable to determine Ubuntu 26.04 CVM platform"
+            When call configure_ubuntu_cvm_time_sync
+            The error should include "unable to determine Ubuntu 26.04 or later CVM platform"
             The status should equal 244
         End
 
@@ -404,7 +422,7 @@ EOF
             Mock detect_confidential_vm_platform
                 echo "sev-snp"
             End
-            When call configure_ubuntu_2604_cvm_time_sync
+            When call configure_ubuntu_cvm_time_sync
             The output should include "preserving the existing Hyper-V PHC Chrony configuration"
             The contents of file "$CHRONY_CONF" should include "refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0"
             The status should be success
@@ -417,7 +435,7 @@ EOF
             Mock apply_chrony_configuration
                 return 1
             End
-            When call configure_ubuntu_2604_cvm_time_sync
+            When call configure_ubuntu_cvm_time_sync
             The output should include "AMD SEV-SNP detected"
             The error should include "failed to reapply the Hyper-V PHC Chrony configuration"
             The error should include "continuing provisioning"
@@ -442,7 +460,7 @@ EOF
             Mock verify_chrony_ntp_sync
                 echo "verified NTP synchronization"
             End
-            When call configure_ubuntu_2604_cvm_time_sync
+            When call configure_ubuntu_cvm_time_sync
             The output should include "Intel TDX detected"
             The output should include "verified NTP synchronization"
             The contents of file "$CHRONY_CONF" should include "pool ntp.ubuntu.com        iburst maxsources 4"
@@ -536,7 +554,7 @@ EOF
             Mock verify_chrony_ntp_sync
                 echo "unexpected NTP verification"
             End
-            When call configure_ubuntu_2604_cvm_time_sync
+            When call configure_ubuntu_cvm_time_sync
             The output should not include "unexpected NTP verification"
             The error should include "failed to configure Chrony with the Ubuntu NTP pools"
             The status should equal 246
@@ -586,7 +604,7 @@ EOF
             Mock verify_chrony_ntp_sync
                 exit 245
             End
-            When call configure_ubuntu_2604_cvm_time_sync
+            When call configure_ubuntu_cvm_time_sync
             The output should include "Intel TDX detected"
             The status should equal 245
         End
