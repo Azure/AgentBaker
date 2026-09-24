@@ -2,6 +2,51 @@ BeforeAll {
     . "$PSScriptRoot/containerd_helpers.ps1"
 }
 
+Describe "Test-ContainerdReady" {
+    AfterEach {
+        Remove-Item Function:\ctr.exe -ErrorAction SilentlyContinue
+    }
+
+    It "returns ready when ctr connects successfully" {
+        function global:ctr.exe {
+            $global:LASTEXITCODE = 0
+            return "server version"
+        }
+
+        $result = Test-ContainerdReady
+
+        $result.Ready | Should -BeTrue
+        $result.Output | Should -Be "server version"
+    }
+
+    It "returns not ready when Windows PowerShell promotes native stderr to NativeCommandError" {
+        function global:ctr.exe {
+            $global:LASTEXITCODE = 1
+            $exception = [System.Management.Automation.RemoteException]::new("pipe unavailable")
+            $errorRecord = [System.Management.Automation.ErrorRecord]::new(
+                $exception,
+                "NativeCommandError",
+                [System.Management.Automation.ErrorCategory]::NotSpecified,
+                $null
+            )
+            throw $errorRecord
+        }
+
+        $result = Test-ContainerdReady
+
+        $result.Ready | Should -BeFalse
+        $result.Output | Should -Match "pipe unavailable"
+    }
+
+    It "does not hide unexpected ctr invocation errors" {
+        function global:ctr.exe {
+            throw "unexpected failure"
+        }
+
+        { Test-ContainerdReady } | Should -Throw "*unexpected failure*"
+    }
+}
+
 Describe "Invoke-WithContainerd" {
     BeforeEach {
         $script:job = [pscustomobject]@{

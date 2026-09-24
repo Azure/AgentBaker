@@ -1,8 +1,23 @@
 function Test-ContainerdReady
 {
-    $output = & ctr.exe -n k8s.io version 2>&1
+    try
+    {
+        $output = & ctr.exe -n k8s.io version 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    catch
+    {
+        if ($_.FullyQualifiedErrorId -notlike "NativeCommandError*")
+        {
+            throw
+        }
+
+        $output = $_
+        $exitCode = $LASTEXITCODE
+    }
+
     return [pscustomobject]@{
-        Ready = ($LASTEXITCODE -eq 0)
+        Ready = ($exitCode -eq 0)
         Output = ($output | Out-String).Trim()
     }
 }
