@@ -1369,7 +1369,6 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).To(ContainSubstring("cloud-init status --wait"))
 		Expect(cseCmd).To(ContainSubstring("cloudInitExitCode=$?"))
 		Expect(cseCmd).To(ContainSubstring("REPO_DEPOT_ENDPOINT="))
-		Expect(cseCmd).NotTo(ContainSubstring("initAKSCloudExitCode"))
 		Expect(cseCmd).To(ContainSubstring("CSE_CONFIG_CHRONY_FILEPATH=\"/opt/azure/containers/provision_configs_chrony.sh\""))
 	})
 

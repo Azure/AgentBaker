@@ -749,7 +749,7 @@ function nodePrep {
 # For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
 # when nodes are created from that VHD image.
 chronyExitCode=0
-logs_to_events "AKS.CSE.configureChrony" configure_node_time_sync || chronyExitCode=$?
+logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync || chronyExitCode=$?
 if [ "$chronyExitCode" -ne 0 ]; then
     case "$chronyExitCode" in
         "$ERR_CVM_PLATFORM_DETECTION_FAIL")

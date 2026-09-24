@@ -46,7 +46,7 @@ Describe 'cse_main.sh PIS-safe configuration'
             inside { print }
         ' "${CSE_MAIN}" |
             code_lines |
-            grep -E 'AKS.CSE.configureChrony|^if .*base_prep.complete|^[[:space:]]*(basePrep|nodePrep)$|^if .*PRE_PROVISION_ONLY'
+            grep -E 'AKS.CSE.configureNodeTimeSync|^if .*base_prep.complete|^[[:space:]]*(basePrep|nodePrep)$|^if .*PRE_PROVISION_ONLY'
     }
 
     Describe 'cloud provider config and cluster CA'
@@ -117,7 +117,7 @@ Describe 'cse_main.sh PIS-safe configuration'
     Describe 'stage gate'
         It 'configures Chrony before either provisioning stage'
             When call chrony_dispatch_calls
-            The line 1 of output should include 'AKS.CSE.configureChrony'
+            The line 1 of output should include 'AKS.CSE.configureNodeTimeSync'
             The line 2 of output should equal 'if [ ! -f /opt/azure/containers/base_prep.complete ]; then'
             The line 3 of output should equal '    basePrep'
             The line 4 of output should equal 'if [ "${PRE_PROVISION_ONLY}" != "true" ]; then'

@@ -341,6 +341,22 @@ EOF
             The status should be success
         End
 
+        It 'uses the retrying APT helpers when Chrony is not installed'
+            setup_chrony_test
+            rm -f "$CHRONY_CONF"
+            Mock apt_get_update
+                echo "apt_get_update"
+            End
+            Mock apt_get_install
+                echo "apt_get_install $*"
+            End
+
+            When call apply_chrony_configuration
+            The output should include "apt_get_update"
+            The output should include "apt_get_install 30 1 600 chrony"
+            The status should be success
+        End
+
         It 'detects AMD SEV-SNP with the systemd confidential VM signal'
             Mock systemd-detect-virt
                 [ "$1" = "--cvm" ] || return 1

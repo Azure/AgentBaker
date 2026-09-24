@@ -63,11 +63,11 @@ apply_chrony_configuration() {
         fi
 
         if [ ! -e "$chrony_conf" ]; then
-            if ! apt-get update; then
+            if ! apt_get_update; then
                 echo "ERROR: failed to update package metadata before installing Chrony" >&2
                 chrony_failed=1
             fi
-            if ! apt-get install chrony -y; then
+            if ! apt_get_install 30 1 600 chrony; then
                 echo "ERROR: failed to install Chrony" >&2
                 chrony_failed=1
             fi
@@ -101,11 +101,11 @@ apply_chrony_configuration() {
 #pool 1.ubuntu.pool.ntp.org iburst maxsources 1
 #pool 2.ubuntu.pool.ntp.org iburst maxsources 2
 
-# This directive specify the location of the file containing ID/key pairs for
+# This directive specifies the location of the file containing ID/key pairs for
 # NTP authentication.
 keyfile /etc/chrony/chrony.keys
 
-# This directive specify the file into which chronyd will store the rate
+# This directive specifies the file into which chronyd will store the rate
 # information.
 driftfile /var/lib/chrony/chrony.drift
 
@@ -150,11 +150,11 @@ configure_mariner_azurelinux_chrony() {
     local chrony_conf="${CHRONY_CONF:-/etc/chrony.conf}"
 
     cat > "$chrony_conf" <<'EOF'
-# This directive specify the location of the file containing ID/key pairs for
+# This directive specifies the location of the file containing ID/key pairs for
 # NTP authentication.
 keyfile /etc/chrony.keys
 
-# This directive specify the file into which chronyd will store the rate
+# This directive specifies the file into which chronyd will store the rate
 # information.
 driftfile /var/lib/chrony/drift
 
