@@ -19,6 +19,11 @@ fi;
 INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
 if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
 	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
+	initAKSCloudExitCode=$?;
+	if [ "$initAKSCloudExitCode" -eq 50 ]; then
+		echo "init-aks-cloud failed because NTP was unavailable" >> ${PROVISION_OUTPUT};
+		exit ${initAKSCloudExitCode};
+	fi;
 fi;
 {{/* Keep the environment assignments below contiguous through the nohup invocation at the end of this file. */ -}}
 {{/* The CSE command is flattened into one shell command, so all assignments below are passed to nohup. */ -}}
