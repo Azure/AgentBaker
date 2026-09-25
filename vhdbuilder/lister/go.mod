@@ -3,7 +3,7 @@ module github.com/Azure/agentbaker/vhdbuilder/lister
 go 1.26.0
 
 require (
-	github.com/containerd/containerd v1.7.35
+	github.com/containerd/containerd v1.7.36
 	github.com/containerd/platforms v0.2.1
 	github.com/stretchr/testify v1.11.1
 )
