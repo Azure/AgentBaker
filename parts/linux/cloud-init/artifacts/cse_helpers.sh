@@ -200,12 +200,14 @@ export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
-# === TEST-ONLY OVERRIDE (DO NOT MERGE): validate aks-gpu#170 on GB300 ===
-# Points the managed driver install at our locally-built arm64 image (FM skipped +
-# nvidia-imex installed on arm64) in an anonymous-pull ACR, instead of the MCR-baked
-# buggy one. Remove after test.
-export NVIDIA_DRIVER_IMAGE="gb300imgeuapxuxue.azurecr.io/public/aks/aks-gpu-cuda-lts"
-export NVIDIA_DRIVER_IMAGE_TAG="580.159.04-test2"
+# === TEST-ONLY OVERRIDE (DO NOT MERGE): pin the post-aks-gpu#170 driver image ===
+# aks-gpu#170 (arm64: skip fabric-manager + install nvidia-imex) merged 2026-09-18 and is
+# now published to MCR as a multi-arch (arm64+amd64) image, so we no longer need the
+# anonymous-pull test ACR. Pin the known-good post-#170 tag explicitly (the default tag
+# construction on line 200 doesn't match MCR's date-suffixed tags). Drop this whole
+# override once components.json's GPU_DV/SHA resolve to a post-#170 tag.
+export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda-lts"
+export NVIDIA_DRIVER_IMAGE_TAG="580.159.04-20260918140533"
 # TEST-ONLY (DO NOT MERGE): fetch the dra-driver-nvidia-gpu 0.5.0 deb at boot and dpkg -i it --
 # no VHD rebake. As of u5 the deb ships BOTH /usr/bin/compute-domain-kubelet-plugin
 # (dalec-build-defs#20861) AND the /templates/*.tmpl.* files (dalec-build-defs#23977), so the
