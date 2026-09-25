@@ -37,20 +37,58 @@ func Test_Ubuntu2404Arm64_GB300_ManagedDriver(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			// The plain 2404gen2arm64containerd definition is the UNIFIED dual-kernel
-			// arm64 24.04 image: its release notes bake both linux-azure (6.8 LTS) and
-			// linux-azure-nvidia (6.14.0-1007) — the same kernel a real GB300 node runs
-			// (verified: gb300-test-rg/gb300 booted this definition on 6.14.0-1007-azure-nvidia).
-			// grub's 10_azure_nvidia selects the -azure-nvidia kernel on GB hardware.
-			// Unpinned → resolves in-tenant (test gallery, latest branch=main); no prod
-			// cross-tenant gallery, so no InvalidAuthenticationTokenTenant.
-			VHD: config.VHDUbuntu2404ArmContainerd,
+			// Only run the default subtest — the scriptless_nbc subtest would provision a
+			// SECOND 18-node GB300 rack (quota/capacity blow-up), and this scenario forces
+			// the legacy CSE path anyway (EnableScriptlessCSECmd=false).
+			SkipScriptlessNBC: true,
+			// The "drv" VHD: the arm64 2404 image built from THIS branch (PR #8950 — the
+			// ensureGPUDrivers arm64 fix baked in), copied into the euap gallery
+			// (gb300e2euap / gb300-img-euap-rg, sub e941f974) with the NVMe capability tag
+			// GB300 requires (image def features: DiskControllerTypes: SCSI, NVMe).
+			// Pinning Version + Gallery routes GetVHDResourceID -> EnsureSIGImageVersion at
+			// our gallery (not the shared abe2e test gallery), so the baked-in cse_config.sh
+			// fix is what actually runs. Same dual-kernel image (linux-azure 6.8 +
+			// linux-azure-nvidia 6.14.0-1007) a real GB300 node boots.
+			VHD: &config.Image{
+				Name:    "2404gen2arm64containerd",
+				OS:      config.OSUbuntu,
+				Arch:    "arm64",
+				Distro:  datamodel.AKSUbuntuArm64Containerd2404Gen2,
+				Version: "1.1789003081.19599",
+				Gallery: &config.Gallery{
+					SubscriptionID:    "e941f974-6d4e-442b-a866-e8bdcdf428b4",
+					ResourceGroupName: "gb300-img-euap-rg",
+					Name:              "gb300e2euap",
+				},
+			},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_ND128isr_GB300_v6"
 				// GPU_NODE=true (variables.go: gpuNode <- EnableNvidia) + run the
 				// aks-gpu install; GB300 falls through GetGPUDriverVersion to cuda-lts.
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableNvidia = true
+				// Managed-DRA experience: run gpu-kubelet-plugin AND (this PR)
+				// compute-domain-kubelet-plugin as systemd units, so the node
+				// publishes both gpu.nvidia.com and compute-domain.nvidia.com
+				// ResourceSlices. The ComputeDomain controller is deployed
+				// separately (upstream Helm) post-provision.
+				nbc.EnableManagedGPUDRA = true
+				// Force the LEGACY CSE cmd path. The e2e default (EnableScriptlessCSECmd,
+				// set when DISABLE_SCRIPTLESS is unset) derives GPU_NODE from the scriptless
+				// AKSNodeConfig's GpuConfig.EnableNvidia, which the converter never populates
+				// (e2e/node_config.go builds GpuConfig without EnableNvidia) -> getEnableNvidia
+				// returns false -> GPU_NODE=false -> the whole GPU-driver install is gated out
+				// and ensureGPUDrivers (our arm64 fix) never runs. The legacy path uses
+				// variables.go: gpuNode = FormatBool(EnableNvidia), which honors the flag above.
+				nbc.EnableScriptlessCSECmd = false
+				// Pin kubelet to 1.35.6 — the 1.35.x version CACHED in the drv image
+				// (/opt/bin/kubelet-1.35.6). CSE then installs from cache
+				// (installKubeletKubectlFromCache) and never touches apt, avoiding the
+				// apt-get-update ESM-stderr exit-99 and the firewalled-network flakiness
+				// (Connection reset by peer to packages.microsoft.com). The base cluster's
+				// own version is 1.35.5, which is NOT cached in this drv snapshot; 1.35.6
+				// kubelet on a 1.35.5 control plane is within skew (same minor).
+				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.35.6"
 				// localdns fails to start on GB300 and CSE retries it ~100× (basePrep),
 				// exhausting the provisioning window before the GPU install runs. It's
 				// not needed for the driver test — disable it so CSE reaches nodePrep.
@@ -112,6 +150,15 @@ func ValidateGB300ManagedDriverOpenR580(ctx context.Context, s *Scenario) {
 		"ver=$(cat /proc/driver/nvidia/version)",
 		"echo \"$ver\"",
 		"echo \"$ver\" | grep -qi 'Open Kernel Module' || { echo 'expected NVIDIA OPEN kernel module (Blackwell is open-only)'; exit 1; }",
+		// aks-gpu#170 gap-2: the managed install must land nvidia-imex on arm64 (GB uses
+		// IMEX, not a node-local fabric manager). Assert the daemon binary is on the host
+		// (DRA ComputeDomains CDI-injects it) and version-matches the driver.
+		"imex_ver=$(sudo /usr/bin/nvidia-imex --version 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1)",
+		"echo \"nvidia-imex version=$imex_ver\"",
+		"[ -n \"$imex_ver\" ] || { echo 'nvidia-imex not installed (aks-gpu#170 gap-2: install IMEX on arm64)'; exit 1; }",
+		"[ \"$imex_ver\" = \"$driver_version\" ] || { echo \"nvidia-imex ($imex_ver) should match driver ($driver_version)\"; exit 1; }",
+		// aks-gpu#170 gap-1: fabric manager must NOT be installed on arm64 (GB has no node-local FM).
+		"! command -v nv-fabricmanager >/dev/null 2>&1 || { echo 'nv-fabricmanager should NOT be present on arm64/GB'; exit 1; }",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected managed R580 open-module GPU driver on GB300")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "expected managed R580 open-module GPU driver + nvidia-imex (no FM) on GB300")
 }

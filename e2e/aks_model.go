@@ -259,6 +259,22 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 		TargetFqdns: []*string{to.Ptr("download.microsoft.com")},
 	}
 
+	// TEST-ONLY (aks-gpu#170 GB300 validation): allow pulling the test aks-gpu image and the
+	// compute-domain DRA plugin from our anonymous-pull ACR (registry FQDN + its blob-backed
+	// layer data endpoint), so the managed driver install can fetch
+	// gb300imgeuapxuxue.azurecr.io/public/aks/aks-gpu-cuda-lts:580.159.04-test2.
+	acrRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("gb300-euap-acr"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		TargetFqdns: []*string{to.Ptr("gb300imgeuapxuxue.azurecr.io"), to.Ptr("*.blob.core.windows.net"), to.Ptr("packages.microsoft.com")},
+	}
+
 	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
 		Name: to.Ptr("aksfwar"),
 		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
@@ -266,7 +282,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule, &acrRule},
 		},
 	}
 

@@ -204,12 +204,15 @@ export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TY
 # Points the managed driver install at our locally-built arm64 image (FM skipped +
 # nvidia-imex installed on arm64) in an anonymous-pull ACR, instead of the MCR-baked
 # buggy one. Remove after test.
-export NVIDIA_DRIVER_IMAGE="gb300gpufmtest.azurecr.io/aks-gpu-cuda-lts"
-export NVIDIA_DRIVER_IMAGE_TAG="imexfix"
-# TEST-ONLY (DO NOT MERGE): side-load the compute-domain-kubelet-plugin v25.12.0 binary (extracted
-# from the DRA driver image) so the managed-DRA path can start compute-domain-nvidia-gpu.service.
-# Anonymous-pull ACR (no secret); removed once the deb ships the binary.
-export COMPUTE_DOMAIN_PLUGIN_IMAGE="gb300gpufmtest.azurecr.io/k8s-dra-driver-gpu:v25.12.0"
+export NVIDIA_DRIVER_IMAGE="gb300imgeuapxuxue.azurecr.io/public/aks/aks-gpu-cuda-lts"
+export NVIDIA_DRIVER_IMAGE_TAG="580.159.04-test2"
+# TEST-ONLY (DO NOT MERGE): fetch the dra-driver-nvidia-gpu 0.5.0 deb at boot and dpkg -i it --
+# no VHD rebake. As of u5 the deb ships BOTH /usr/bin/compute-domain-kubelet-plugin
+# (dalec-build-defs#20861) AND the /templates/*.tmpl.* files (dalec-build-defs#23977), so the
+# plugin's NodePrepareResources works and the ComputeDomain reaches Ready -- no separate templates
+# staging needed. Requires packages.microsoft.com allowlisted on abe2e-fw. Production path: bump the
+# dra-driver-nvidia-gpu version in components.json (baked deb) instead of this boot-time fetch.
+export COMPUTE_DOMAIN_PLUGIN_DEB_URL="https://packages.microsoft.com/ubuntu/24.04/prod/pool/main/d/dra-driver-nvidia-gpu/dra-driver-nvidia-gpu_0.5.0-ubuntu24.04u5_arm64.deb"
 export COMPUTE_DOMAIN_NAMESPACE="nvidia"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
