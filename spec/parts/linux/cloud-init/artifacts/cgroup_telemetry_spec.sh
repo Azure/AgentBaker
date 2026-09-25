@@ -87,6 +87,34 @@ Describe 'cgroup telemetry'
         fi
     }
 
+    freeze_event_timestamp() {
+        mkdir -p "${TEST_ROOT}/bin"
+        cat > "${TEST_ROOT}/bin/date" <<'STUB'
+#!/bin/bash
+if [ "$1" = "+%s%N" ]; then
+    echo 1700000000000000000
+    exit 0
+fi
+exec /bin/date "$@"
+STUB
+        chmod +x "${TEST_ROOT}/bin/date"
+    }
+
+    emitted_event_file_count() {
+        find "${EVENTS_ROOT}" -maxdepth 1 -type f | wc -l | tr -d ' '
+    }
+
+    emitted_event_file_names_class() {
+        local path
+        for path in "${EVENTS_ROOT}"/*; do
+            if ! printf '%s' "$(basename "${path}")" | grep -Eq '^[0-9]+\.json$'; then
+                echo "not-collectable:$(basename "${path}")"
+                return
+            fi
+        done
+        echo collectable
+    }
+
     BeforeEach 'setup_cgroup_telemetry_test'
     AfterEach 'cleanup_cgroup_telemetry_test'
 
@@ -212,5 +240,30 @@ Describe 'cgroup telemetry'
         When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_cpu_usage\":{\"usage_usec\":\"Not Found\",\"user_usec\":\"60\",\"system_usec\":\"Not Found\",\"nr_periods\":\"Not Found\",\"nr_throttled\":\"3\",\"throttled_usec\":\"Not Found\"}'
+    End
+
+    It 'gives collectors distinct event file names within the same millisecond'
+        for cgroup_path in \
+            . \
+            system.slice \
+            azure.slice \
+            kubepods.slice \
+            user.slice \
+            system.slice/containerd.service \
+            system.slice/kubelet.service; do
+            create_memory_stat "${cgroup_path}" 1 2
+            create_pressure_files "${cgroup_path}"
+        done
+        create_cpu_stat_v2 system.slice/containerd.service
+        create_cpu_stat_v2 system.slice/kubelet.service
+        prepare_memory_script
+        prepare_pressure_script
+        prepare_cpu_script
+        freeze_event_timestamp
+
+        When run env PATH="${TEST_ROOT}/bin:${PATH}" bash -c 'bash "$1" && bash "$2" && bash "$3"' _ "${TEST_ROOT}/cgroup-memory-telemetry.sh" "${TEST_ROOT}/cgroup-pressure-telemetry.sh" "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+        The status should be success
+        The result of function emitted_event_file_count should equal 3
+        The result of function emitted_event_file_names_class should equal collectable
     End
 End

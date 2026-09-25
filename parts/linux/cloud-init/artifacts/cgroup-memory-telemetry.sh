@@ -18,7 +18,10 @@ getServiceMemory() {
 }
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
-EVENTS_FILE_NAME=$(date +%s%3N)
+# The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+# timestamp plus the emitting process's PID is unique by construction: two live
+# processes cannot share a PID, and two forks of date cannot share a nanosecond.
+EVENTS_FILE_NAME="$(date +%s%N)${BASHPID}"
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
