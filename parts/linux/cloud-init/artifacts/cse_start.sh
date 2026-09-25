@@ -28,7 +28,10 @@ KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N" )
 KUBELET_READY_TIME_FORMATTED="$(date -d "$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)" +"%F %T.%3N")"
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
-EVENTS_FILE_NAME=$(date +%s%3N)
+# The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+# timestamp plus the emitting process's PID is unique by construction: two live
+# processes cannot share a PID, and two forks of date cannot share a nanosecond.
+EVENTS_FILE_NAME="$(date +%s%N)${BASHPID}"
 EXECUTION_DURATION=$(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s)))
 SCRIPTLESS_MODE="none"
 
