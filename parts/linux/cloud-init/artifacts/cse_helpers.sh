@@ -851,7 +851,10 @@ logs_to_events() {
     # local vars here allow for nested function tracking
     # installContainerRuntime for example
     local task=$1; shift
-    local eventsFileName=$(date +%s%3N)
+    # The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+    # timestamp plus the emitting process's PID is unique by construction: two live
+    # processes cannot share a PID, and two forks of date cannot share a nanosecond.
+    local eventsFileName="$(date +%s%N)${BASHPID}"
 
     local startTime=$(date +"%F %T.%3N")
     ${@}
