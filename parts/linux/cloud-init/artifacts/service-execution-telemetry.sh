@@ -175,9 +175,10 @@ main() {
         } + if $MEMORY_PEAK_AVAILABLE then {MemoryPeakBytes: $MEMORY_PEAK_BYTES} else {} end')
 
     event_timestamp=$(date +"%F %T.%3N")
-    # WALinuxAgent only collects extension event files matching ^[0-9]+\.json$ and
-    # silently drops anything else, so the name must stay digits-only.
-    event_file_name="$(date +%s%3N).json"
+    # The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+    # timestamp plus the emitting process's PID is unique by construction: two live
+    # processes cannot share a PID, and two forks of date cannot share a nanosecond.
+    event_file_name="$(date +%s%N)${BASHPID}.json"
     event_json=$(jq -n \
         --arg Timestamp "${event_timestamp}" \
         --arg OperationId "${event_timestamp}" \
