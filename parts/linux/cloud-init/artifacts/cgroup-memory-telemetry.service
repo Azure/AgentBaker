@@ -1,5 +1,6 @@
 [Unit]
 Description=Emit system cgroup memory telemetry
+After=kubelet.service containerd.service
 OnSuccess=service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service
 OnFailure=service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service
 
