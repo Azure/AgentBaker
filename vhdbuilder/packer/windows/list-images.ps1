@@ -13,9 +13,16 @@ $ErrorActionPreference = "Stop"
 $imageBomJsonFilePath = "c:\image-bom.json"
 $bomList = @()
 
-# starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1
-Start-Job -Name containerd -ScriptBlock { containerd.exe }
-$imageList=$(ctr.exe -n k8s.io image ls | select -Skip 1)
+. c:/k/containerd_helpers.ps1
+
+$imageList = Invoke-WithContainerd -ScriptBlock {
+    $images = ctr.exe -n k8s.io image ls
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "Failed to list containerd images with exit code $LASTEXITCODE."
+    }
+    return $images | Select-Object -Skip 1
+}
 foreach($image in $imageList) {
     $splitResult=($image -split '\s+')
     if ($splitResult[0].StartsWith("sha256:")) {
@@ -95,9 +102,6 @@ foreach($image in $imageList) {
         }
     }
 }
-
-Stop-Job  -Name containerd
-Remove-Job -Name containerd
 
 $imageBom=$(echo $bomList | ConvertTo-Json)
 
