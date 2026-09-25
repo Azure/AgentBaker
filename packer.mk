@@ -93,7 +93,7 @@ init-packer:
 	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-packer: az-login
-	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+	@bash ./vhdbuilder/packer/init-azure-plugin.sh && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-imagecustomizer: az-login
 	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
