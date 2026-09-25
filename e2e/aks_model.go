@@ -275,6 +275,23 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 		TargetFqdns: []*string{to.Ptr("gb300imgeuapxuxue.azurecr.io"), to.Ptr("*.blob.core.windows.net"), to.Ptr("packages.microsoft.com")},
 	}
 
+	// Public MCR (mcr.microsoft.com) is NOT allowlisted by default on abe2e-fw (only the
+	// mooncake mcr.azure.cn is). GB300 pulls the managed aks-gpu driver image from public MCR
+	// (mcr.microsoft.com/aks/aks-gpu-cuda-lts, post aks-gpu#170), so allow it + its blob-backed
+	// layer data endpoint. Without this, the node's ctr pull is silently blocked and CSE hangs
+	// ~45min in ProvisioningState/creating then fails.
+	publicMARRule := armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("public-mar-fqdn"),
+		SourceAddresses: []*string{to.Ptr("*")},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{
+			{
+				ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+				Port:         to.Ptr[int32](443),
+			},
+		},
+		TargetFqdns: []*string{to.Ptr("mcr.microsoft.com"), to.Ptr("*.data.mcr.microsoft.com")},
+	}
+
 	appRuleCollection := armnetwork.AzureFirewallApplicationRuleCollection{
 		Name: to.Ptr("aksfwar"),
 		Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
@@ -282,7 +299,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule, &acrRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule, &acrRule, &publicMARRule},
 		},
 	}
 
