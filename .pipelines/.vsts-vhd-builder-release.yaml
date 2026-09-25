@@ -831,7 +831,7 @@ stages:
             parameters:
               aclBaseImageSource: acldevel
               variant: amd64
-              sigSourceImageVersionOverride: 0.20260912.1202056
+              sigSourceImageVersionOverride: 0.20260925.1209921
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -857,7 +857,7 @@ stages:
             parameters:
               aclBaseImageSource: acldevel
               variant: arm64
-              sigSourceImageVersionOverride: 0.20260912.1202056
+              sigSourceImageVersionOverride: 0.20260925.1209921
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -883,7 +883,7 @@ stages:
             parameters:
               aclBaseImageSource: acldevel
               variant: amd64
-              sigSourceImageVersionOverride: 0.20260912.1202056
+              sigSourceImageVersionOverride: 0.20260925.1209921
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -909,7 +909,7 @@ stages:
             parameters:
               aclBaseImageSource: acldevel
               variant: arm64
-              sigSourceImageVersionOverride: 0.20260912.1202056
+              sigSourceImageVersionOverride: 0.20260925.1209921
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
