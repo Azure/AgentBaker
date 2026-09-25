@@ -34,6 +34,24 @@ lookup fails or returns an empty or root cgroup. The metric names remain
 `walinuxagent_service_cpu_usage` and `walinuxagent_service_memory` for either
 unit name.
 
+# Collector unit activation
+
+All three cgroup collector units order themselves with
+`After=kubelet.service containerd.service`. Ordering only applies when the
+units share a start transaction, so this affects the `OnBootSec=0min`
+invocation alone: it stops the first observation from reporting `"Not Found"`
+for services whose cgroup does not exist yet. The five-minute invocations are
+unaffected, and no `Wants=` or `Requires=` is declared, so a collector still
+runs when kubelet or containerd never start.
+
+The CPU and pressure collectors additionally declare
+`ConditionPathExists=/sys/fs/cgroup/cgroup.controllers`. Both require cgroup
+v2 and exit non-zero otherwise, which would surface as a failed unit on a node
+that boots cgroup v1 even though the VHD was built on v2. The condition makes
+systemd skip the unit instead. The memory collector carries no such condition
+because it supports cgroup v1 and emits
+`AKS.Runtime.memory_telemetry_cgroupv1` there.
+
 # Recurring service execution telemetry
 
 `service-execution-telemetry.sh` emits one
