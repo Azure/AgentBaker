@@ -6,9 +6,11 @@ Describe 'cse_install_ubuntu.sh'
     Describe 'cleanUpPrebakedGPUDriver'
         It 'is a no-op when the prebake marker is absent'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            GPU_ARTIFACT_MANIFEST_FILE="$(mktemp)"
             When call cleanUpPrebakedGPUDriver
             The status should be success
             The output should equal ""
+            The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
         End
 
         It 'deregisters the nvidia DKMS module and removes baked artifacts (libs, binaries, marker) when present'
@@ -39,10 +41,12 @@ Describe 'cse_install_ubuntu.sh'
         It 'reports status=cleaned once the marker and DKMS state are actually gone'
             marker="$(mktemp)"
             GPU_DKMS_MARKER_FILE="${marker}"
+            GPU_ARTIFACT_MANIFEST_FILE="$(mktemp)"
             ldconfig() { echo "mock ldconfig"; }
             lsmod() { echo ""; }  # no nvidia module loaded (grid-style prebake)
             When call cleanUpPrebakedGPUDriver
             The status should be success
+            The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
             The output should include "AKS_GPU_PREBAKE event=teardown"
             The output should include "status=cleaned"
             The output should include "marker_after=false"

@@ -129,6 +129,152 @@ Describe 'cse_config_gpu.sh'
             rm -f "$marker"
         End
     End
+
+    Describe 'Ubuntu CUDA-LTS artifact reconciliation'
+        setup_gpu_artifact_reconcile() {
+            GPU_ARTIFACT_TEST_DIR="$(mktemp -d)"
+            GPU_DKMS_MARKER_FILE="${GPU_ARTIFACT_TEST_DIR}/dkms-marker"
+            GPU_ARTIFACT_MANIFEST_FILE="${GPU_ARTIFACT_TEST_DIR}/artifact-manifest-v1"
+            printf 'kernel=test-kernel\ndriver_version=580.159.04\ndriver_kind=cuda\narch=x86_64\n' > "${GPU_DKMS_MARKER_FILE}"
+            OS="UBUNTU"
+            OS_VERSION="24.04"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            GPU_DV="580.159.04"
+            NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda-lts"
+            NVIDIA_DRIVER_IMAGE_TAG="580.159.04-build"
+            MOCK_GPU_IMAGE_DIGEST="sha256:abc123"
+        }
+        cleanup_gpu_artifact_reconcile() {
+            rm -rf "${GPU_ARTIFACT_TEST_DIR}"
+            unset MOCK_KERNEL MOCK_DKMS_STATUS MOCK_DKMS_VERSION MOCK_MODINFO_STATUS MOCK_MODULE_VERSION
+            unset MOCK_GPU_IMAGE_DIGEST_STATUS
+        }
+
+        BeforeEach 'setup_gpu_artifact_reconcile'
+        AfterEach 'cleanup_gpu_artifact_reconcile'
+
+        uname() { [ "$1" = "-m" ] && echo "x86_64" || echo "${MOCK_KERNEL:-test-kernel}"; }
+        getGPUDriverImageDigest() {
+            echo "${MOCK_GPU_IMAGE_DIGEST}"
+            return "${MOCK_GPU_IMAGE_DIGEST_STATUS:-0}"
+        }
+        dkms() {
+            [ "${MOCK_DKMS_STATUS:-0}" -eq 0 ] &&
+                echo "nvidia/${MOCK_DKMS_VERSION:-580.159.04}, test-kernel, x86_64: installed"
+            return "${MOCK_DKMS_STATUS:-0}"
+        }
+        modinfo() {
+            [ "${MOCK_MODINFO_STATUS:-0}" -eq 0 ] && echo "${MOCK_MODULE_VERSION:-580.159.04}"
+            return "${MOCK_MODINFO_STATUS:-0}"
+        }
+        write_reconcile_manifest() {
+            writeGPUDriverArtifactManifest "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}" "sha256:abc123"
+        }
+
+        It 'bounds skip-build and falls back to the normal install'
+            write_reconcile_manifest
+            installGPUDriverImage() {
+                echo "$1:${2:-5}:${3:-10}:${4:-600}"
+                [ "$1" = "install" ]
+            }
+            logs_to_events() { shift; "$@"; }
+            When call installGPUDriverImageWithFallback install-skip-build
+            The status should be success
+            The output should equal "install-skip-build:1:0:240
+AKS_GPU_ARTIFACT event=nodeprep status=fast_path_failed action=install
+install:5:10:600"
+            The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
+        End
+
+        It 'falls back from skip-build when errexit is enabled'
+            write_reconcile_manifest
+            installGPUDriverImage() {
+                echo "$1"
+                [ "$1" = "install" ]
+            }
+            logs_to_events() { shift; "$@"; }
+            install_with_errexit() {
+                export -f installGPUDriverImageWithFallback installGPUDriverImage logs_to_events
+                GPU_ARTIFACT_MANIFEST_FILE="${GPU_ARTIFACT_MANIFEST_FILE}" \
+                    bash -euo pipefail -c 'installGPUDriverImageWithFallback install-skip-build'
+            }
+            When call install_with_errexit
+            The status should be success
+            The output should equal "install-skip-build
+AKS_GPU_ARTIFACT event=nodeprep status=fast_path_failed action=install
+install"
+        End
+
+        It 'does not add a second fallback budget to a normal install'
+            installGPUDriverImage() { echo "$1:${2:-5}:${3:-10}:${4:-600}"; return 1; }
+            logs_to_events() { shift; "$@"; }
+            When call installGPUDriverImageWithFallback install
+            The status should be failure
+            The output should equal "install:5:10:600"
+        End
+
+        It 'emits a distinct timing event for skip-build'
+            installGPUDriverImage() { return 0; }
+            logs_to_events() {
+                echo "$1"
+                shift
+                "$@"
+            }
+            When call installGPUDriverImageWithFallback install-skip-build
+            The status should be success
+            The output should equal "AKS.CSE.configGPUDrivers.installGPUDriverImageSkipBuild"
+        End
+
+        Parameters
+            "valid" "install-skip-build"
+            "missing" "install"
+            "corrupt" "install"
+            "kernel" "install"
+            "digest" "install"
+            "dkms" "install"
+            "dkms-version" "install"
+            "module" "install"
+            "module-version" "install"
+            "grid" "install"
+        End
+
+        Example "$1 artifact selects $2"
+            write_reconcile_manifest
+            case "$1" in
+                missing) rm -f "${GPU_ARTIFACT_MANIFEST_FILE}" ;;
+                corrupt) printf 'corrupt=true\n' >> "${GPU_ARTIFACT_MANIFEST_FILE}" ;;
+                kernel) MOCK_KERNEL="custom-kernel" ;;
+                digest) MOCK_GPU_IMAGE_DIGEST="sha256:different" ;;
+                dkms) MOCK_DKMS_STATUS=1 ;;
+                dkms-version) MOCK_DKMS_VERSION="570.237" ;;
+                module) MOCK_MODINFO_STATUS=1 ;;
+                module-version) MOCK_MODULE_VERSION="570.237" ;;
+                grid) NVIDIA_GPU_DRIVER_TYPE="grid" ;;
+            esac
+            selectGPUDriverInstallAction >/dev/null
+            The variable GPU_INSTALL_ACTION should equal "$2"
+        End
+
+        It 'selects the full install when digest lookup fails under errexit'
+            MOCK_GPU_IMAGE_DIGEST_STATUS=1
+            select_with_errexit() {
+                export -f selectGPUDriverInstallAction getGPUDriverImageDigest gpuDriverArtifactContextMatches
+                OS="${OS}" \
+                    UBUNTU_OS_NAME="${UBUNTU_OS_NAME}" \
+                    NVIDIA_GPU_DRIVER_TYPE="${NVIDIA_GPU_DRIVER_TYPE}" \
+                    NVIDIA_DRIVER_IMAGE="${NVIDIA_DRIVER_IMAGE}" \
+                    NVIDIA_DRIVER_IMAGE_TAG="${NVIDIA_DRIVER_IMAGE_TAG}" \
+                    MOCK_GPU_IMAGE_DIGEST="${MOCK_GPU_IMAGE_DIGEST}" \
+                    MOCK_GPU_IMAGE_DIGEST_STATUS="${MOCK_GPU_IMAGE_DIGEST_STATUS}" \
+                    bash -euo pipefail -c 'selectGPUDriverInstallAction; printf "action=%s\n" "${GPU_INSTALL_ACTION}"'
+            }
+            When call select_with_errexit
+            The status should be success
+            The output should include "status=invalid_or_unavailable action=install"
+            The output should include "action=install"
+        End
+    End
+
     Describe 'ensureArtifactStreaming'
         # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
         # runs the version-appropriate enablement path:
@@ -549,8 +695,11 @@ Describe 'cse_config_gpu.sh'
             The status should be success
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.pullGPUDriverImage"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForContainerdReady"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.selectGPUDriverInstallAction"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForLdconfig"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh"
         End
 
@@ -573,6 +722,56 @@ Describe 'cse_config_gpu.sh'
             # drop-in must already be on disk by then.
             The line 1 of output should equal "CONFIGURE_RAN"
             The output should include "INSTALL_RAN"
+        End
+
+        It 'passes the selected prebake action to the installer'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() { shift; eval "$@"; }
+            ctr() {
+                if [ "$3" = "images" ] && [ "$4" = "ls" ]; then
+                    echo "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}"
+                fi
+                return 0
+            }
+            selectGPUDriverInstallAction() { GPU_INSTALL_ACTION="install-skip-build"; }
+            installGPUDriverImageWithFallback() { echo "INSTALL_ACTION=$1"; return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "INSTALL_ACTION=install-skip-build"
+        End
+
+        It 'returns the GPU driver error when the selected action and fallback fail'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() { shift; eval "$@"; }
+            ctr() {
+                if [ "$3" = "images" ] && [ "$4" = "ls" ]; then
+                    echo "${NVIDIA_DRIVER_IMAGE}:${NVIDIA_DRIVER_IMAGE_TAG}"
+                fi
+                return 0
+            }
+            selectGPUDriverInstallAction() { GPU_INSTALL_ACTION="install-skip-build"; }
+            installGPUDriverImageWithFallback() {
+                echo "INSTALL_ACTION=$1"
+                return 1
+            }
+            config_with_errexit() {
+                set -e
+                configGPUDrivers
+            }
+
+            When run config_with_errexit
+
+            The status should equal 88
+            The output should include "INSTALL_ACTION=install-skip-build"
+            The output should include "Failed to install GPU driver, exiting..."
         End
 
         It 'exits without installing the driver when the CDI drop-in cannot be installed'
@@ -622,6 +821,7 @@ Describe 'cse_config_gpu.sh'
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installNvidiaContainerToolkit"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForLdconfig"
         End
 
         It 'times the sysext pulls on Azure Container Linux (ACL)'
@@ -638,6 +838,7 @@ Describe 'cse_config_gpu.sh'
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverSysext"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForLdconfig"
         End
     End
     Describe 'managedGPUPackageList on Ubuntu'
