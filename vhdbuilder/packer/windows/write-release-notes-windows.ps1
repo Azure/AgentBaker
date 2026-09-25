@@ -77,6 +77,7 @@ foreach ($update in $updates)
 Log ""
 
 . c:/k/windows-vhd-configuration.ps1
+. c:/k/containerd_helpers.ps1
 
 Log "Windows Update Registry Settings"
 Log "`thttps://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings"
@@ -129,14 +130,21 @@ LogReleaseNotesForWindowsRegistryKeys $windowsSettingsJson | ForEach-Object { Lo
 Log ""
 
 Log "ContainerD Info"
-# starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1
-Start-Job -Name containerd -ScriptBlock { containerd.exe }
-$containerDVersion = (ctr.exe --version) | Out-String
-Log ("Version: {0}" -f $containerDVersion)
-Log "Images:"
-Log (ctr.exe -n k8s.io image ls)
-Stop-Job  -Name containerd
-Remove-Job -Name containerd
+Invoke-WithContainerd -ScriptBlock {
+    $containerDVersion = (ctr.exe --version) | Out-String
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "Failed to get the containerd version with exit code $LASTEXITCODE."
+    }
+    Log ("Version: {0}" -f $containerDVersion)
+    Log "Images:"
+    $images = ctr.exe -n k8s.io image ls
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "Failed to list containerd images with exit code $LASTEXITCODE."
+    }
+    Log $images
+}
 Log ""
 
 Log "Cached Files:"
