@@ -445,10 +445,10 @@ Describe "Containerd Functions Tests" {
       }
 
       It "Should extract correct version tag for containerd 2.x" {
-        $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
+        $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v2.3.0-azure.1/binaries/containerd-v2.3.0-azure.1-windows-amd64.tar.gz"
         Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
         Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 1 -ParameterFilter {
-          $Reference -eq 'myregistry.azurecr.io/aks/packages/containerd/containerd:v2.0.4'
+          $Reference -eq 'myregistry.azurecr.io/aks/packages/containerd/containerd:v2.3.0'
         }
       }
 

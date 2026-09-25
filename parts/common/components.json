@@ -1202,10 +1202,11 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v2.0.4-azure.1"
+                "latestVersion": "v2.3.0-azure.1"
               }
             ],
-            "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+            "windowsDownloadURL": "https://templogsup.blob.core.windows.net/containerd-test/containerd-${version}-windows-amd64.tar.gz",
+            "windowsDownloadRequiresAzCopy": true
           },
           "default": {
             "versionsV2": [

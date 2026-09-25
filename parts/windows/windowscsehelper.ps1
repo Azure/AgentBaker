@@ -200,7 +200,7 @@ $global:ContainerdPackageTemplate="v{0}-azure.1/binaries/containerd-v{0}-azure.1
 # Version numbers only - used in various places
 $global:StableContainerdVersion="1.6.35"
 $global:LatestContainerdVersion="1.7.20"
-$global:LatestContainerd2Version="2.0.4"
+$global:LatestContainerd2Version="2.3.0"
 
 $global:WindowsVersion2025="2025"
 
@@ -541,7 +541,7 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     Write-Log "Install Containerd with request URL : $ContainerdUrl, Kubernetes version: $KubernetesVersion, Windows version: $windowsVersion."
 
     if ($ContainerdUrl.EndsWith("/")) {
-        # for now we only preview containerd 2.0 for Windows 2025
+        # for now we only preview containerd 2.x for Windows 2025
         if ($windowsVersion -eq $global:WindowsVersion2025) {
             $containerdVersion=$global:LatestContainerd2Version
         } elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
