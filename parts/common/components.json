@@ -1824,7 +1824,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.56.0"
+                "latestVersion": "0.56.1"
               }
             ]
           },
@@ -1832,7 +1832,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.56.0"
+                "latestVersion": "0.56.1"
               }
             ]
           },
@@ -1840,7 +1840,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.56.0"
+                "latestVersion": "0.56.1"
               }
             ]
           },
