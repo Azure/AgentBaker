@@ -1,7 +1,5 @@
 [Unit]
 Description=Emit per-service cgroup CPU usage and throttling telemetry
-After=kubelet.service containerd.service
-ConditionPathExists=/sys/fs/cgroup/cgroup.controllers
 
 [Service]
 Type=oneshot
