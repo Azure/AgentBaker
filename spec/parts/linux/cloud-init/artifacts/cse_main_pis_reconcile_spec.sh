@@ -115,4 +115,20 @@ Describe 'cse_main.sh PIS-safe configuration'
             The lines of output should equal 4
         End
     End
+
+    Describe 'Kata CPU profile label'
+        It 'measures only Kata nodes during nodePrep and before kubelet starts'
+            kata_cpu_profile_wiring() {
+                phase_body "basePrep" | code_lines | grep -c 'addKataCPUProfileNodeLabel' || true
+                phase_body "nodePrep" | code_lines | awk '{ print } /ensureKubelet$/ { exit }' |
+                    grep -E 'IS_KATA|addKataCPUProfileNodeLabel|ensureKubelet$'
+            }
+            When call kata_cpu_profile_wiring
+            The line 1 of output should equal '0'
+            The line 2 of output should equal '    if [ "${IS_KATA}" = "true" ]; then'
+            The line 3 of output should include 'addKataCPUProfileNodeLabel'
+            The line 4 of output should include 'ensureKubelet'
+            The lines of output should equal 4
+        End
+    End
 End
