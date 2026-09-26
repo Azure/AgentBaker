@@ -57,6 +57,20 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	return uploadAKSNodeController(ctx, binary)
 }
 
+type CompileAKSNodeControllerRequest struct {
+	Arch    string
+	Version string
+}
+
+func compileAndUploadAKSNodeControllerWithVersion(ctx context.Context, request CompileAKSNodeControllerRequest) (string, error) {
+	binary, err := compileAKSNodeControllerWithVersion(ctx, request.Arch, request.Version)
+	if err != nil {
+		return "", err
+	}
+	defer binary.Close()
+	return uploadAKSNodeController(ctx, binary)
+}
+
 func compileAndUploadAKSNodeControllerWithScriptHotfix(
 	ctx context.Context,
 	arch string,
@@ -100,24 +114,41 @@ func uploadAKSNodeController(ctx context.Context, binary *os.File) (string, erro
 }
 
 func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error) {
+	return compileAKSNodeControllerWithVersion(ctx, arch, "")
+}
+
+func compileAKSNodeControllerWithVersion(ctx context.Context, arch, version string) (*os.File, error) {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		return nil, err
 	}
-	return compileAKSNodeControllerInDir(
-		ctx,
-		arch,
-		filepath.Join(repoRoot, "aks-node-controller"),
-	)
+	return compileAKSNodeControllerInDirWithVersion(ctx, arch, filepath.Join(repoRoot, "aks-node-controller"), version)
 }
 
 func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (*os.File, error) {
+	return compileAKSNodeControllerInDirWithVersion(ctx, arch, buildDir, "")
+}
+
+func compileAKSNodeControllerInDirWithVersion(ctx context.Context, arch, buildDir, version string) (*os.File, error) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
 	}
-	binName := "aks-node-controller-" + arch
-	cmd := exec.CommandContext(ctx, goBin, "build", "-o", binName, "-v")
+	// Each build gets its own output directory. Scenarios compile concurrently (see
+	// --parallel, default 60) and the caches in cache.go are per-function, so a shared
+	// output path lets an unversioned build and a version-stamped build overwrite each
+	// other between `go build` and the upload's read - handing a scenario the wrong
+	// binary. A unique directory removes the shared path entirely.
+	outDir, err := os.MkdirTemp("", "aks-node-controller-out-*")
+	if err != nil {
+		return nil, fmt.Errorf("create aks-node-controller output directory: %w", err)
+	}
+	outPath := filepath.Join(outDir, "aks-node-controller-"+arch)
+	args := []string{"build", "-o", outPath, "-v"}
+	if version != "" {
+		args = append(args, "-ldflags", "-X main.Version="+version)
+	}
+	cmd := exec.CommandContext(ctx, goBin, args...)
 	cmd.Dir = buildDir
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
@@ -127,9 +158,14 @@ func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (
 	logging.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
+		os.RemoveAll(outDir)
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
 	}
-	f, err := os.Open(filepath.Join(cmd.Dir, binName))
+	f, err := os.Open(outPath)
+	// The caller only needs the open handle, so drop the directory now rather than
+	// relying on every caller to clean up. On unix the unlinked file stays readable
+	// through the descriptor; elsewhere this is best-effort and at worst leaks a temp dir.
+	defer os.RemoveAll(outDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open compiled aks-node-controller binary: %w", err)
 	}
@@ -339,6 +375,126 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
+// ancFixtureAnchor is the opening line of baker's serviceStartTemplate, which is concatenated
+// onto custom data after every file write and immediately precedes the launcher start.
+//
+// The fixture splices here rather than at #hotfix-marker because the marker sits *before* the
+// boothook template's %s, where baker expands its own file writes. A marker-anchored splice is
+// therefore overwritten by baker whenever it emits the same path, which is exactly what happens
+// on official/** branches: hotfix-generate commits a real pointer, baker embeds it, and its
+// write lands on top of the fixture's. That pointer names the version being cut by the release
+// PR, which is not published to PMC yet, so the scenario would fail deterministically with a
+// misleading "no hotfix binary" error. Splicing after baker's writes keeps the fixture
+// authoritative on every branch without adding another anchor to the production template.
+const ancFixtureAnchor = `logger -t aks-boothook "launching aks-node-controller`
+
+// ancFixtureFileEntry mirrors baker's boothookFileEntry so fixture-delivered files land on
+// disk through the same gzip+base64 heredoc idiom production custom data uses.
+const ancFixtureFileEntry = `cat <<'EOF' | base64 -d | gzip -d >%[1]s
+%[2]s
+EOF
+chmod %[3]s %[1]s
+`
+
+func gzipBase64(content []byte) (string, error) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	if _, err := gw.Write(content); err != nil {
+		return "", fmt.Errorf("gzip fixture file: %w", err)
+	}
+	if err := gw.Close(); err != nil {
+		return "", fmt.Errorf("close gzip writer: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+// ancLauncherOverrideCmd renders shell that replaces the VHD-baked launcher, and the hotfix
+// helper it sources on branches that ship one, with the working-tree copies.
+//
+// Without this the scenario exercises whichever launcher the E2E VHD was built from, so a PR
+// that changes the launcher or its hotfix helper is validated against the old code rather than
+// the code under review. The helper is optional because branches that predate it carry the same
+// flow inline in the launcher.
+func ancLauncherOverrideCmd() (string, error) {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return "", fmt.Errorf("locate repo root for launcher override: %w", err)
+	}
+
+	files := []struct {
+		repoPath string
+		destPath string
+		required bool
+	}{
+		{ancLauncherRepoPath, ancLauncherPath, true},
+		{ancHotfixHelperRepoPath, ancHotfixHelperPath, false},
+	}
+
+	var b strings.Builder
+	for _, f := range files {
+		content, err := os.ReadFile(filepath.Join(repoRoot, f.repoPath))
+		if err != nil {
+			if !f.required && errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return "", fmt.Errorf("read %s: %w", f.repoPath, err)
+		}
+		encoded, err := gzipBase64(content)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(fmt.Sprintf(ancFixtureFileEntry, f.destPath, encoded, "0755"))
+	}
+	return b.String(), nil
+}
+
+// CustomDataWithANCHotfixFlowFixture seeds the hotfix pointer that download-hotfix reads,
+// replaces the VHD-baked ANC with a PR-built binary stamped to the hotfix base version, and
+// overwrites the VHD-baked launcher with the working-tree copy.
+//
+// Stamping the binary is what keeps the scenario honest: download-hotfix only upgrades when the
+// running binary shares the pointer's YYYYMM.DD base and sits at a strictly lower patch, so an
+// unstamped node would silently log "ANC version not targeted by hotfix" and still pass.
+//
+// It deliberately does not write enabled_features.sh: the launcher runs download-hotfix purely
+// on the presence of the pointer file, so leaving ENABLE_PROVISIONING_HOTFIX unset keeps
+// check-hotfix (and its live-patching-service round trip) out of the scenario entirely.
+func CustomDataWithANCHotfixFlowFixture(customData, binaryURL string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	if err != nil {
+		return "", fmt.Errorf("decode custom data: %w", err)
+	}
+
+	launcherOverride, err := ancLauncherOverrideCmd()
+	if err != nil {
+		return "", err
+	}
+
+	fixtureCmd := fmt.Sprintf(`%[6]scat >%[1]s <<'EOF'
+{"hotfixes":{%[2]q:%[3]q}}
+EOF
+chmod 0644 %[1]s
+
+curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[4]q -o %[5]s
+chmod +x %[5]s`,
+		ancHotfixPointerPath,
+		hotfixBaseVersion(ancHotfixFlowBaseVersion),
+		ancHotfixFlowTargetVersion,
+		binaryURL,
+		ancBakedBinaryPath,
+		launcherOverride,
+	)
+
+	rendered := string(decoded)
+	anchor := strings.Index(rendered, ancFixtureAnchor)
+	if anchor < 0 {
+		return "", fmt.Errorf("splice anchor %q not found in custom data: the fixture must run after baker's file writes", ancFixtureAnchor)
+	}
+
+	customData = rendered[:anchor] + fixtureCmd + "\n\n" + rendered[anchor:]
+	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
+}
+
 func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachineScaleSet, error) {
 	if s == nil || s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Name == nil || s.Runtime.Cluster.Model.Properties == nil ||
@@ -380,7 +536,24 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
-	if s.Config.ScriptHotfixFixture != nil {
+	if s.Config.ANCHotfixFlowFixture {
+		if !enableScriptlessCompilation(s) {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+				"ANC hotfix flow fixture requires scriptless ANC compilation",
+			)
+		}
+		binaryURL, err := CachedCompileAndUploadAKSNodeControllerWithVersion(ctx, CompileAKSNodeControllerRequest{
+			Arch:    s.VHD.Arch,
+			Version: ancHotfixFlowBaseVersion,
+		})
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload version-stamped aks-node-controller binary: %w", err)
+		}
+		customData, err = CustomDataWithANCHotfixFlowFixture(customData, binaryURL)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with ANC hotfix flow fixture: %w", err)
+		}
+	} else if s.Config.ScriptHotfixFixture != nil {
 		if !enableScriptlessCompilation(s) {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
 				"script-hotfix fixture requires scriptless ANC compilation",
