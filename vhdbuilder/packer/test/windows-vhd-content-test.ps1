@@ -108,21 +108,141 @@ function DownloadFileWithRetry {
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
-    Write-OutputWithTimestamp "Downloading file $URL"
-    curl.exe -s -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    $curlExitCode = $LASTEXITCODE
-    if ($curlExitCode) {
-        $logURL = $URL
-        if ($redactUrl) {
-            $logURL = $logURL.Split("?")[0]
+
+    $headerPath = "$Dest.headers"
+    $writeOutFormat = "effectiveUrl=%{url_effective}`nhttpStatus=%{http_code}`ndownloadedBytes=%{size_download}"
+    try {
+        $requestedUrlForLog = if ($redactUrl) { $URL.Split("?")[0] } else { $URL }
+        Write-OutputWithTimestamp "Downloading file $requestedUrlForLog"
+        $curlMetadata = curl.exe -s -f --retry $retryCount --retry-delay $retryDelay -L -D $headerPath -w $writeOutFormat $URL -o $Dest
+        $curlExitCode = $LASTEXITCODE
+        Write-DownloadResponseDiagnostics -RequestedUrl $URL -HeaderPath $headerPath -CurlMetadata $curlMetadata -RedactUrl:$redactUrl
+
+        if ($curlExitCode) {
+            if (Test-Path $Dest) {
+                Write-FileDiagnostics -Path $Dest -Label "Downloaded file"
+            }
+            $logURL = $URL
+            if ($redactUrl) {
+                $logURL = $logURL.Split("?")[0]
+            }
+            Log-VHDFreeSize
+            curl.exe --version
+            if ("$curlExitCode" -eq "23") {
+                throw "Curl exited with '$curlExitCode' while attemping to download '$logURL' to '$Dest'. This often means VHD out of space."
+            }
+            throw "Curl exited with '$curlExitCode' while attemping to download '$logURL' to '$Dest'"
         }
-        Log-VHDFreeSize
-        curl.exe --version
-        if ("$curlExitCode" -eq "23") {
-            throw "Curl exited with '$curlExitCode' while attemping to download '$logURL' to '$Dest'. This often means VHD out of space."
-        }
-        throw "Curl exited with '$curlExitCode' while attemping to download '$logURL' to '$Dest'"
+
+        Write-FileDiagnostics -Path $Dest -Label "Downloaded file"
     }
+    finally {
+        Remove-Item -Path $headerPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Get-FinalResponseHeaders {
+    param (
+        $HeaderPath
+    )
+
+    $headers = @{}
+    if (!(Test-Path $HeaderPath)) {
+        return $headers
+    }
+
+    foreach ($line in Get-Content $HeaderPath) {
+        if ($line -match '^HTTP/\S+\s+\d+') {
+            $headers = @{}
+            continue
+        }
+        if ($line -match '^([^:]+):\s*(.*)$') {
+            $headers[$matches[1].Trim()] = $matches[2].Trim()
+        }
+    }
+
+    return $headers
+}
+
+function Write-DownloadResponseDiagnostics {
+    param (
+        $RequestedUrl,
+        $HeaderPath,
+        $CurlMetadata,
+        [Switch]$RedactUrl = $false
+    )
+
+    $metadata = @{}
+    foreach ($line in $CurlMetadata) {
+        if ($line -match '^([^=]+)=(.*)$') {
+            $metadata[$matches[1]] = $matches[2]
+        }
+    }
+
+    $requestedUrlForLog = $RequestedUrl
+    $effectiveUrlForLog = $metadata["effectiveUrl"]
+    if ($RedactUrl) {
+        $requestedUrlForLog = $requestedUrlForLog.Split("?")[0]
+        if ($effectiveUrlForLog) {
+            $effectiveUrlForLog = $effectiveUrlForLog.Split("?")[0]
+        }
+    }
+
+    Write-OutputWithTimestamp "Download response: requested URL=$requestedUrlForLog; effective URL=$effectiveUrlForLog; HTTP status=$($metadata["httpStatus"]); downloaded bytes=$($metadata["downloadedBytes"])"
+
+    $headers = Get-FinalResponseHeaders -HeaderPath $HeaderPath
+    $headersToLog = @(
+        "Content-Length",
+        "Content-Type",
+        "Content-Range",
+        "Accept-Ranges",
+        "ETag",
+        "Last-Modified",
+        "Cache-Control",
+        "Age",
+        "X-Cache",
+        "X-Cache-Remote",
+        "Via",
+        "Server",
+        "X-Ms-Request-Id",
+        "X-Ms-Version",
+        "Akamai-GRN"
+    )
+    $headerValues = foreach ($headerName in $headersToLog) {
+        if ($headers.ContainsKey($headerName)) {
+            "$headerName=$($headers[$headerName])"
+        }
+    }
+    Write-OutputWithTimestamp "Download response headers: $($headerValues -join '; ')"
+}
+
+function Write-FileDiagnostics {
+    param (
+        $Path,
+        $Label
+    )
+
+    $file = Get-Item $Path -ErrorAction Stop
+    $message = "$Label diagnostics: path=$Path; size bytes=$($file.Length)"
+
+    if ($file.Extension -ieq ".zip") {
+        $archive = $null
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $archive = [System.IO.Compression.ZipFile]::OpenRead($file.FullName)
+            $message += "; ZIP valid=True; entries=$($archive.Entries.Count)"
+        }
+        catch {
+            $message += "; ZIP valid=False; error=$($_.Exception.Message)"
+        }
+        finally {
+            if ($archive) {
+                $archive.Dispose()
+            }
+        }
+    }
+
+    Write-OutputWithTimestamp $message
 }
 
 function Test-FilesToCacheOnVHD {
@@ -161,6 +281,7 @@ function Test-FilesToCacheOnVHD {
             $fileName = [IO.Path]::GetFileName($URL.Split("?")[0])
             $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
             DownloadFileWithRetry -URL $URL -Dest $tmpDest -redactUrl
+            Write-FileDiagnostics -Path $dest -Label "Cached file"
             $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash.Trim()
             $localFileHash = (Get-FileHash  -Algorithm SHA256 -Path $dest).Hash.Trim()
             Remove-Item -Path $tmpDest

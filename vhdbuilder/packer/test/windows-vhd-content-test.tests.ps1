@@ -14,6 +14,106 @@ BeforeAll {
     Invoke-Expression $content
 }
 
+Describe 'Download diagnostics' {
+    BeforeEach {
+        Mock Write-OutputWithTimestamp {}
+        $script:realTempDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-vhd-download-diagnostics-$(New-Guid)"
+        New-Item -ItemType Directory -Path $script:realTempDir -Force | Out-Null
+    }
+
+    AfterEach {
+        if ($script:realTempDir)
+        {
+            try { [System.IO.Directory]::Delete($script:realTempDir, $true) } catch { }
+        }
+    }
+
+    It 'uses the final response headers after redirects' {
+        $headerPath = Join-Path $script:realTempDir "headers.txt"
+        @"
+HTTP/1.1 302 Found
+Location: https://cdn.example.com/package.zip
+X-Cache: TCP_MISS
+
+HTTP/2 200
+Content-Length: 1234
+ETag: "final-etag"
+Last-Modified: Tue, 22 Sep 2026 21:47:42 GMT
+X-Cache: TCP_HIT
+Akamai-GRN: test-grn
+
+"@ | Set-Content $headerPath
+
+        $headers = Get-FinalResponseHeaders -HeaderPath $headerPath
+
+        $headers["Content-Length"] | Should -Be "1234"
+        $headers["ETag"] | Should -Be '"final-etag"'
+        $headers["Last-Modified"] | Should -Be "Tue, 22 Sep 2026 21:47:42 GMT"
+        $headers["X-Cache"] | Should -Be "TCP_HIT"
+        $headers["Akamai-GRN"] | Should -Be "test-grn"
+        $headers.ContainsKey("Location") | Should -BeFalse
+    }
+
+    It 'logs transport metadata, selected cache headers, and redacted URLs' {
+        $headerPath = Join-Path $script:realTempDir "headers.txt"
+        @"
+HTTP/2 200
+Content-Length: 1234
+ETag: "etag-value"
+Last-Modified: Tue, 22 Sep 2026 21:47:42 GMT
+Cache-Control: public, max-age=60
+Age: 42
+X-Cache: TCP_HIT
+X-Ms-Request-Id: request-id
+Akamai-GRN: test-grn
+
+"@ | Set-Content $headerPath
+
+        Write-DownloadResponseDiagnostics `
+            -RequestedUrl "https://example.com/package.zip?secret=request" `
+            -HeaderPath $headerPath `
+            -CurlMetadata @(
+                "effectiveUrl=https://cdn.example.com/package.zip?secret=response",
+                "httpStatus=200",
+                "downloadedBytes=1234"
+            ) `
+            -RedactUrl
+
+        Should -Invoke Write-OutputWithTimestamp -Times 1 -ParameterFilter {
+            $Message -eq "Download response: requested URL=https://example.com/package.zip; effective URL=https://cdn.example.com/package.zip; HTTP status=200; downloaded bytes=1234"
+        }
+        Should -Invoke Write-OutputWithTimestamp -Times 1 -ParameterFilter {
+            $Message -like 'Download response headers:*Content-Length=1234*ETag="etag-value"*Last-Modified=Tue, 22 Sep 2026 21:47:42 GMT*Cache-Control=public, max-age=60*Age=42*X-Cache=TCP_HIT*X-Ms-Request-Id=request-id*Akamai-GRN=test-grn*'
+        }
+    }
+
+    It 'records a valid ZIP and its entry count' {
+        $sourceDir = Join-Path $script:realTempDir "source"
+        $zipPath = Join-Path $script:realTempDir "valid.zip"
+        New-Item -ItemType Directory -Path $sourceDir | Out-Null
+        Set-Content -Path (Join-Path $sourceDir "file.txt") -Value "content"
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($sourceDir, $zipPath)
+
+        Write-FileDiagnostics -Path $zipPath -Label "Downloaded file"
+
+        Should -Invoke Write-OutputWithTimestamp -Times 1 -ParameterFilter {
+            $Message -like "Downloaded file diagnostics: path=$zipPath; size bytes=*; ZIP valid=True; entries=1"
+        }
+    }
+
+    It 'records an invalid ZIP without throwing' {
+        $zipPath = Join-Path $script:realTempDir "invalid.zip"
+        Set-Content -Path $zipPath -Value "not a zip"
+
+        { Write-FileDiagnostics -Path $zipPath -Label "Downloaded file" } | Should -Not -Throw
+
+        Should -Invoke Write-OutputWithTimestamp -Times 1 -ParameterFilter {
+            $Message -like "Downloaded file diagnostics: path=$zipPath; size bytes=*; ZIP valid=False; error=*"
+        }
+    }
+}
+
 Describe 'Test-PrivatePackageSignature' {
     BeforeEach {
         Mock Write-ErrorWithTimestamp {}

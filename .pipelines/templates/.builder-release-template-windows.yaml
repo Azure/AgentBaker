@@ -172,6 +172,11 @@ steps:
         fi
         echo "CONTAINTER_BASE_URLS_EXISTING is $CONTAINTER_BASE_URLS_EXISTING"
 
+        export PACKER_VNET_RESOURCE_GROUP_NAME
+        PACKER_VNET_RESOURCE_GROUP_NAME="$(jq -r '.vnet_resource_group_name' vhdbuilder/packer/settings.json)"
+        export PACKER_VNET_NAME
+        PACKER_VNET_NAME="$(jq -r '.vnet_name' vhdbuilder/packer/settings.json)"
+
         ./vhdbuilder/packer/test/run-test.sh
     displayName: Run VHD cache test
     # I've seen some transient failures which seem timeing related so let's retry for now
@@ -193,6 +198,7 @@ steps:
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
       ARCHITECTURE: ${{ parameters.architecture }}
       GIT_BRANCH: $(Build.SourceBranch)
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
 
   # We can upload release notes for check-in pr and sig mode to validate whether it is expected.
   # Use jq to reformat the image-bom.json file

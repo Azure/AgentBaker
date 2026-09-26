@@ -111,8 +111,7 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
     # Additional NVIDIA GB-specific test parameters can be added here
 fi
 
-if [ "${OS_TYPE,,}" = "linux" ]; then
-  # in linux mode, explicitly create the NIC referencing the existing packer subnet to be attached to the testing VM so we avoid creating ephemeral vnets
+function create_test_vm_nic() {
   PACKER_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/packer"
   if [ -z "$(az network vnet subnet show --ids "$PACKER_SUBNET_ID" | jq -r '.id')" ]; then
       echo "packer subnet $PACKER_SUBNET_ID seems to be missing, unable to create test VM"
@@ -123,6 +122,11 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       echo "unable to create new NIC for test VM"
       exit 1
   fi
+}
+
+create_test_vm_nic
+
+if [ "${OS_TYPE,,}" = "linux" ]; then
   if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s "${ENABLE_FIPS}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
     source "$CDIR/../fips-helper.sh"
     ensure_fips_feature_registered || exit $?
@@ -154,7 +158,7 @@ else
       --image "$MANAGED_SIG_ID" \
       --admin-username "$TEST_VM_ADMIN_USERNAME" \
       --admin-password "$TEST_VM_ADMIN_PASSWORD" \
-      --public-ip-address "" \
+      --nics "$TESTING_NIC_ID" \
       ${TARGET_COMMAND_STRING}
 fi
 
