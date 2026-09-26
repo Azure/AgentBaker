@@ -1148,7 +1148,17 @@ func runScenarioUbuntu2404GPUNPD(name, vmSize, location, k8sSystemPoolSKU string
 				if err := ValidateNPDIBLinkFlappingCondition(ctx, s); err != nil {
 					return err
 				}
-				return ValidateNPDIBLinkFlappingAfterFailure(ctx, s)
+				if err := ValidateNPDIBLinkFlappingAfterFailure(ctx, s); err != nil {
+					return err
+				}
+
+				if err := ValidateNPDGPUECCPlugin(ctx, s); err != nil {
+					return err
+				}
+				if err := ValidateNPDGPUECCCondition(ctx, s); err != nil {
+					return err
+				}
+				return ValidateNPDGPUECCConditionAfterFailure(ctx, s)
 			},
 		}}
 }

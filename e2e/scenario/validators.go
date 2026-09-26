@@ -1762,6 +1762,47 @@ func ValidateNPDIBLinkFlappingAfterFailure(ctx context.Context, s *Scenario) err
 		expectedMessage, "expected IBLinkFlapping message to indicate flapping")
 }
 
+func ValidateNPDGPUECCPlugin(ctx context.Context, s *Scenario) error {
+	command := "test -f /etc/node-problem-detector.d/custom-plugin-monitor/gpu_checks/custom-plugin-gpu-ecc.json"
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "NPD GPU ECC plugin configuration does not exist"); err != nil {
+		return fmt.Errorf("check NPD GPU ECC plugin configuration: %w", err)
+	}
+	return nil
+}
+
+func ValidateNPDGPUECCCondition(ctx context.Context, s *Scenario) error {
+	return validateNPDCondition(ctx, s, "GPUECCError", "GPUECCErrorIsNotPresent", corev1.ConditionFalse,
+		"No GPU ECC errors detected", "expected GPUECCError message to indicate no ECC errors")
+}
+
+func ValidateNPDGPUECCConditionAfterFailure(ctx context.Context, s *Scenario) error {
+	const eccPluginScript = "/etc/node-problem-detector.d/plugin/check_gpu_ecc.sh"
+
+	// Exercise NPD's condition reporting without changing the GPU's hardware state.
+	injectCmd := []string{
+		"set -ex",
+		fmt.Sprintf("sudo cp %s %s.bak", eccPluginScript, eccPluginScript),
+		fmt.Sprintf(`printf '#!/usr/bin/env bash\necho "GPU DRAM ECC errors detected. FaultCode: NHC2019"\necho "GPU 0: DRAM uncorrected ECC errors detected (volatile: 1, aggregate: 1)"\nexit 1\n' | sudo tee %s > /dev/null`, eccPluginScript),
+		fmt.Sprintf("sudo chmod +x %s", eccPluginScript),
+	}
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(injectCmd, "\n"), 0, "failed to inject ECC check script fault"); err != nil {
+		return fmt.Errorf("inject ECC check script fault: %w", err)
+	}
+
+	conditionErr := validateNPDCondition(ctx, s, "GPUECCError", "GPUECCErrorIsPresent", corev1.ConditionTrue,
+		"GPU DRAM ECC errors detected. FaultCode: NHC2019", "expected GPUECCError message to indicate DRAM ECC errors")
+
+	restoreCmd := []string{
+		"set -ex",
+		fmt.Sprintf("sudo mv %s.bak %s", eccPluginScript, eccPluginScript),
+		fmt.Sprintf("sudo chmod +x %s", eccPluginScript),
+	}
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(restoreCmd, "\n"), 0, "failed to restore ECC check script after fault injection"); err != nil {
+		return errors.Join(conditionErr, fmt.Errorf("restore ECC check script: %w", err))
+	}
+	return errors.Join(conditionErr, ValidateNPDGPUECCCondition(ctx, s))
+}
+
 func ValidateNPDUnhealthyNvidiaDevicePlugin(ctx context.Context, s *Scenario) error {
 	command := []string{
 		"set -ex",
