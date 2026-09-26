@@ -160,28 +160,42 @@ logGPUDriverPrebakeReadiness() {
 # cuda module + its /usr/bin/lib64 userspace libs collide with the grid driver -> nvidia-smi fails
 # with "Failed to initialize NVML: Driver/library version mismatch". This is a pure driver-KIND
 # mismatch (grid vs cuda), so no version comparison is needed. A legacy marker with no driver_kind=
-# line is treated as a cuda prebake (the only kind the VHD bakes today). No-op unless the node is
-# GRID and a prebake marker exists. Reuses cleanUpPrebakedGPUDriver (from cse_install_ubuntu.sh) for
-# the actual removal. NAP/agentpool cuda nodes are intentionally untouched here.
+# line is treated as a cuda prebake (the only kind the VHD bakes today). A parked CUDA tree also
+# identifies the prebake if the marker was lost. Reuses cleanUpPrebakedGPUDriver (from
+# cse_install_ubuntu.sh) without restoring CUDA registration. Returns failure if parked CUDA state
+# remains, so GRID setup cannot continue with conflicting driver state. CUDA nodes are untouched.
 cleanUpGridNodeCudaPrebake() {
     [ "$OS" = "$UBUNTU_OS_NAME" ] || return 0
     local marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
-    [ -f "${marker}" ] || return 0
+    local parked="${marker%/*}/dkms/nvidia"
+    local payload="${marker%/*}/prebake"
+    if [ ! -f "${marker}" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ] &&
+        [ ! -e "${payload}" ] && [ ! -L "${payload}" ]; then
+        return 0
+    fi
 
-    local node_kind m_kind
+    local node_kind m_kind=""
     case "${NVIDIA_GPU_DRIVER_TYPE:-}" in
         grid*) node_kind=grid ;;
         *) return 0 ;;
     esac
-    m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+    if [ -f "${marker}" ]; then
+        m_kind="$(sed -n 's/^driver_kind=//p' "${marker}" | head -n1)"
+    fi
 
-    # Keep only when the prebake is explicitly grid (matches this grid node). An empty marker kind is
-    # a legacy cuda prebake; a "cuda" marker is a cuda prebake -- both mismatch a grid node, tear down.
-    if [ "${m_kind}" = "grid" ]; then
+    # A GRID install can replace the marker, but any remaining parked tree is still the CUDA
+    # prebake. Preserve an existing GRID driver only when no parked CUDA state remains.
+    if [ "${m_kind}" = "grid" ] && [ ! -e "${parked}" ] && [ ! -L "${parked}" ] &&
+        [ ! -e "${payload}" ] && [ ! -L "${payload}" ]; then
         return 0
     fi
     echo "AKS_GPU_PREBAKE event=grid_cuda_prebake_teardown driver_type=${NVIDIA_GPU_DRIVER_TYPE:-} marker_kind=${m_kind:-none} node_kind=${node_kind} action=teardown"
-    cleanUpPrebakedGPUDriver
+    cleanUpPrebakedGPUDriver || return 1
+    if [ -e "${parked}" ] || [ -L "${parked}" ] || [ -e "${payload}" ] || [ -L "${payload}" ]; then
+        echo "AKS_GPU_PREBAKE event=dkms_error reason=grid_parked_cleanup_failed"
+        return 1
+    fi
+    return 0
 }
 
 ensureGPUDrivers() {
@@ -193,14 +207,23 @@ ensureGPUDrivers() {
         fi
     fi
 
+    local prebake_status=0
     # Tear down a mismatched cuda-lts VHD prebake before a GRID node installs its own driver, or the
     # stale module/libs collide with the grid driver (NVML version mismatch). Runs before the dispatch
     # below so it covers both the configGPUDrivers and validateGPUDrivers paths.
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake" cleanUpGridNodeCudaPrebake || exit $ERR_GPU_DRIVERS_START_FAIL
+        # Called only by nodePrep. Restore the full CUDA payload (or the legacy registration)
+        # before validation. A cache mismatch requests a normal install, not a validation retry.
+        case "${NVIDIA_GPU_DRIVER_TYPE:-}" in
+            cuda*)
+                logs_to_events "AKS.CSE.ensureGPUDrivers.restorePrebakedGPUDriver" setPrebakedGPUDriverState restore || prebake_status=$?
+                case "${prebake_status}" in 0|2) ;; *) exit $ERR_GPU_DRIVERS_START_FAIL ;; esac
+                ;;
+        esac
     fi
 
-    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
+    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ] || [ "${prebake_status}" -eq 2 ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
     else
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers

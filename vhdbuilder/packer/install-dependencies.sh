@@ -893,21 +893,20 @@ buildNVIDIAKernelModule() {
   if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then # No ARM64 SKU with GPU now
     gpu_action="copy"
 
-    # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
-    # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
-    # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
-    # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
-    # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
-    # when that marker matches, running only the device-dependent steps.
+    # Opt-in: cache the NVIDIA kernel module and userspace in the shared VHD without device access.
+    # build-only registers DKMS against the VHD kernel and writes /opt/azure/aks-gpu/dkms-marker.
+    # Park the whole prebake (DKMS, modules, userspace and installer metadata) outside active paths.
+    # setPrebakedGPUDriverState owns the inventory and rebuilds affected module/library indexes.
+    # Deploy compatible CSE before publishing this layout. Managed CUDA nodePrep restores matching
+    # payloads; a kernel/driver mismatch uses the normal installer. Skip-build is not enabled.
     # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
     # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
     # Dropping the image is a separate, deferred size optimization.
     if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
       echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
       # nvidia-installer needs gcc/make + libc6-dev to compile; the builder lacks them here, so install
-      # them. A boot-time fallback recompile (marker mismatch) still has them: the VHD ships
-      # build-essential -> libc6-dev (release-notes manifests) -- the toolchain baseline GPU nodes compile
-      # with at boot (installDeps runs apt --no-install-recommends, so gcc alone doesn't pull libc6-dev).
+      # them. The normal node-time installer also needs this toolchain. installDeps uses apt with
+      # --no-install-recommends, so gcc alone does not pull in libc6-dev.
       apt_get_install 10 2 300 gcc make libc6-dev || exit 1
       CTR_GPU_PREBUILD_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
       retrycmd_if_failure 3 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || exit 1
@@ -915,6 +914,7 @@ buildNVIDIAKernelModule() {
         echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
         exit 1
       fi
+      setPrebakedGPUDriverState park || exit 1
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
 EOF
