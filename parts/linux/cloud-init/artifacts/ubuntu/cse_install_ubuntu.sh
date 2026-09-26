@@ -192,10 +192,10 @@ updatePMCRepository() {
 }
 
 updateAptWithNvidiaPkg() {
-    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.gpg"
+    local nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.gpg"
     mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
 
-    readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
+    local nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
     local cpu_arch=$(getCPUArch)  # Returns amd64 or arm64
     local repo_arch=""
     local nvidia_ubuntu_release=""
@@ -215,6 +215,13 @@ updateAptWithNvidiaPkg() {
         nvidia_ubuntu_release="ubuntu2404"
     elif [ "${UBUNTU_RELEASE}" = "26.04" ]; then
         nvidia_ubuntu_release="ubuntu2604"
+        if [ "${cpu_arch}" = "amd64" ]; then
+            # The ubuntu2604/x86_64 index contains records without Package headers.
+            # DCGM 4.6.0's payloads and control metadata are identical in ubuntu2404.
+            # Use its signed repository until NVIDIA repairs the ubuntu2604 index.
+            nvidia_ubuntu_release="ubuntu2404"
+            echo "Using NVIDIA ubuntu2404 repository for Ubuntu 26.04 amd64 DCGM packages"
+        fi
     else
         echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
         return
