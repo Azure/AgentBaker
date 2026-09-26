@@ -351,6 +351,84 @@ Set `SIG_VERSION_TAG_NAME` and `SIG_VERSION_TAG_VALUE` to specify custom VHD bui
 SIG_VERSION_TAG_NAME=buildId SIG_VERSION_TAG_VALUE=123456789 TAGS_TO_RUN="os=ubuntu2204" ./e2e-local.sh
 ```
 
+## OSS Karpenter CSE Compatibility
+
+`Ubuntu2204_OSS_Karpenter_CSE_Compatibility` is a normal node-level E2E
+scenario: it goes through AgentBaker's standard VMSS lifecycle (create the
+VMSS, wait for the node to become Ready, run the default pod-scheduling and
+common-Linux validation). The only difference from any other scenario is
+*what CSE is used to provision the node*.
+
+Instead of asking AgentBaker to render its own CSE, the scenario sets
+`Config.CustomDataOverride` to `renderOSSKarpenterCustomData`
+(`scenario/oss_karpenter_render.go`), which calls the pinned
+`Azure/karpenter-provider-azure` release's exported
+`bootstrap.AKS{}.Script()` directly — the same call
+`imagefamily.Ubuntu2204.ScriptlessCustomData` makes internally when the real
+Karpenter controller provisions a node. Every input to that call (cluster
+name/endpoint, CA bundle, subnet, NSG/route table names, kubelet identity,
+network plugin/policy, Kubernetes version, ...) is sourced directly from the
+`NodeBootstrappingConfiguration`/`Cluster` values AgentBaker's own E2E
+framework already computes for the test cluster (see
+`scenario/oss_karpenter_render.go` for the exact field mapping); no extra
+Azure ARM calls are made. The result is set as the VM's `CustomData` with no
+CSE VM extension, matching Karpenter's own scriptless provisioning mode.
+
+This means the scenario:
+
+- needs **no** git clone, patch, or build of `karpenter-provider-azure` — the
+  module is a normal (test-only) Go dependency of `e2e/go.mod`, pinned to the
+  same commit as `ossKarpenterAzureCommit`
+  (`scenario/scenario_oss_karpenter.go`);
+- runs **no** live Karpenter controller, installs no CRDs, and creates no
+  `AKSNodeClass`/`NodePool`/`NodeClaim` objects;
+- still exercises the real thing under test: whether the CSE template
+  Karpenter maintains independently still produces a working node against the
+  scripts baked into the current AgentBaker VHD.
+
+To bump the pinned Karpenter version, update `ossKarpenterAzureVersion` /
+`ossKarpenterAzureCommit` in `scenario/scenario_oss_karpenter.go` and run
+`go get github.com/Azure/karpenter-provider-azure@<new commit> && go mod tidy`
+inside `e2e/`.
+
+### Rendering the CSE script without a cluster
+
+`e2e/render-karpenter-cse` is a small standalone tool that renders the same
+`cse_cmd.sh` Karpenter's controller would produce, by calling the pinned
+`karpenter-provider-azure` module's exported `bootstrap.AKS{}.Script()`
+directly (the same call `imagefamily.Ubuntu2204.ScriptlessCustomData` makes
+internally). It needs no cluster, no CRDs, and no source patch — just the same
+input values the scenario above derives from the AKS cluster (see
+`renderOSSKarpenterCustomData` in `scenario/oss_karpenter_render.go`). Use it
+for a fast, offline text diff of the rendered script, e.g. across two pinned
+Karpenter versions, or to inspect exactly what would be sent to a node without
+provisioning one:
+
+```bash
+go run ./e2e/render-karpenter-cse \
+  -cluster-name my-cluster \
+  -cluster-endpoint https://my-cluster.hcp.eastus.azmk8s.io:443 \
+  -kubernetes-version 1.31.1 \
+  -location eastus \
+  -resource-group MC_rg_my-cluster_eastus \
+  -cluster-resource-group rg \
+  -subscription-id 00000000-0000-0000-0000-000000000000 \
+  -tenant-id 00000000-0000-0000-0000-000000000000 \
+  -subnet-id /subscriptions/.../resourceGroups/.../providers/Microsoft.Network/virtualNetworks/.../subnets/... \
+  -nsg-name aks-agentpool-<clusterid>-nsg \
+  -route-table-name aks-agentpool-<clusterid>-routetable \
+  -api-server-name my-cluster-dns-<hash>.hcp.eastus.azmk8s.io \
+  -kubelet-identity-client-id 00000000-0000-0000-0000-000000000000 \
+  -ca-bundle-file /path/to/ca.crt \
+  -tls-bootstrap-token abcdef.0123456789abcdef \
+  -out cse_cmd.sh
+```
+
+This is a complement to, not a replacement for, the scenario above: it does not
+prove a node actually reaches Ready, only that the CSE render itself is
+well-formed and matches expectations.
+
+
 ### Registering New VHD SKUs
 
 When adding tests for a new VHD image, ensure to add a delete-lock to prevent the garbage collector from deleting the

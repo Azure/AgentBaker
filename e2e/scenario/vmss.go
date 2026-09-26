@@ -347,100 +347,109 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("scenario runtime is incomplete for VMSS model creation")
 	}
 	cluster := s.Runtime.Cluster
-	var nodeBootstrapping *datamodel.NodeBootstrapping
-	ab, err := agent.NewAgentBaker()
-	if err != nil {
-		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("create AgentBaker: %w", err)
-	}
 	var cse, customData, aksNodeConfig string
 
-	if s.Runtime.AKSNodeConfig != nil {
-		aksNodeConfigBytes, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+	if s.Config.CustomDataOverride != nil {
+		var err error
+		customData, cse, err = s.Config.CustomDataOverride(ctx, s)
 		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("marshal AKS node config: %w", err)
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get custom data override: %w", err)
 		}
-		aksNodeConfig = string(aksNodeConfigBytes)
-		if s.Runtime.NBC == nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("AKS node config is set without an NBC")
+	} else {
+		var nodeBootstrapping *datamodel.NodeBootstrapping
+		ab, err := agent.NewAgentBaker()
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("create AgentBaker: %w", err)
 		}
-		s.Runtime.NBC.AKSNodeConfigJSON = aksNodeConfig
-	}
 
-	if s.Runtime.NBC != nil {
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get node bootstrapping artifacts: %w", err)
+		if s.Runtime.AKSNodeConfig != nil {
+			aksNodeConfigBytes, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("marshal AKS node config: %w", err)
+			}
+			aksNodeConfig = string(aksNodeConfigBytes)
+			if s.Runtime.NBC == nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("AKS node config is set without an NBC")
+			}
+			s.Runtime.NBC.AKSNodeConfigJSON = aksNodeConfig
 		}
-	}
-	if nodeBootstrapping == nil {
-		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("node bootstrapping artifacts are nil")
-	}
 
-	scriptlessNBCCSECmdEnabled := usesScriptlessNBCCSECmd(s)
+		if s.Runtime.NBC != nil {
+			nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get node bootstrapping artifacts: %w", err)
+			}
+		}
+		if nodeBootstrapping == nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("node bootstrapping artifacts are nil")
+		}
 
-	cse = nodeBootstrapping.CSE
-	customData = nodeBootstrapping.CustomData
-	if s.Config.ScriptHotfixFixture != nil {
-		if !enableScriptlessCompilation(s) {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
-				"script-hotfix fixture requires scriptless ANC compilation",
+		scriptlessNBCCSECmdEnabled := usesScriptlessNBCCSECmd(s)
+
+		cse = nodeBootstrapping.CSE
+		customData = nodeBootstrapping.CustomData
+		if s.Config.ScriptHotfixFixture != nil {
+			if !enableScriptlessCompilation(s) {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+					"script-hotfix fixture requires scriptless ANC compilation",
+				)
+			}
+			binaryURL, err := compileAndUploadAKSNodeControllerWithScriptHotfix(
+				ctx,
+				s.VHD.Arch,
+				*s.Config.ScriptHotfixFixture,
 			)
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+					"compile and upload ANC with script-hotfix fixture: %w",
+					err,
+				)
+			}
+			customData, err = CustomDataWithNBCCmdHack(customData, binaryURL)
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+					"generate custom data with script-hotfix ANC: %w",
+					err,
+				)
+			}
+		} else if enableScriptlessCompilation(s) {
+			binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload aks-node-controller binary: %w", err)
+			}
+			customData, err = CustomDataWithNBCCmdHack(customData, binaryURL)
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with NBC cmd hack: %w", err)
+			}
 		}
-		binaryURL, err := compileAndUploadAKSNodeControllerWithScriptHotfix(
-			ctx,
-			s.VHD.Arch,
-			*s.Config.ScriptHotfixFixture,
-		)
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
-				"compile and upload ANC with script-hotfix fixture: %w",
-				err,
-			)
+		if len(s.Config.CustomDataWriteFiles) > 0 {
+			customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
+			}
 		}
-		customData, err = CustomDataWithNBCCmdHack(customData, binaryURL)
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
-				"generate custom data with script-hotfix ANC: %w",
-				err,
-			)
-		}
-	} else if enableScriptlessCompilation(s) {
-		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload aks-node-controller binary: %w", err)
-		}
-		customData, err = CustomDataWithNBCCmdHack(customData, binaryURL)
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with NBC cmd hack: %w", err)
-		}
-	}
-	if len(s.Config.CustomDataWriteFiles) > 0 {
-		customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
-		}
-	}
-	if !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
-		// Validate that the custom data doesn't contain any script content,
-		// which indicates that the scriptless CSE is working as intended
-		decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("decode custom data: %w", err)
-		}
-		reader, err := gzip.NewReader(bytes.NewReader(decodedCustomData))
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("create custom data gzip reader: %w", err)
-		}
-		result, err := io.ReadAll(reader)
-		closeErr := reader.Close()
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("read gzip custom data: %w", err)
-		}
-		if closeErr != nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("close custom data gzip reader: %w", closeErr)
-		}
-		if !strings.Contains(string(result), "/opt/azure/containers/scriptless-cse-overrides.txt") {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("custom data contains other script content, but scriptless CSE CMD is enabled")
+		if !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
+			// Validate that the custom data doesn't contain any script content,
+			// which indicates that the scriptless CSE is working as intended
+			decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("decode custom data: %w", err)
+			}
+			reader, err := gzip.NewReader(bytes.NewReader(decodedCustomData))
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("create custom data gzip reader: %w", err)
+			}
+			result, err := io.ReadAll(reader)
+			closeErr := reader.Close()
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("read gzip custom data: %w", err)
+			}
+			if closeErr != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("close custom data gzip reader: %w", closeErr)
+			}
+			if !strings.Contains(string(result), "/opt/azure/containers/scriptless-cse-overrides.txt") {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("custom data contains other script content, but scriptless CSE CMD is enabled")
+			}
 		}
 	}
 
