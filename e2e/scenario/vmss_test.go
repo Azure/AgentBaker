@@ -480,3 +480,61 @@ func TestParseLinuxCSEMessageOutboundExitCode(t *testing.T) {
 		})
 	}
 }
+
+func TestAllocationRetryRecreatesFailedVMSS(t *testing.T) {
+	for _, tc := range []struct {
+		name                           string
+		code                           string
+		status                         int
+		keep, deleteFails, alwaysFails bool
+		creates, deletes               int
+	}{
+		{name: "fresh allocation succeeds", code: "AllocationFailed", status: 200, creates: 2, deletes: 1},
+		{name: "deletion failure stops retry", code: "AllocationFailed", status: 200, deleteFails: true, creates: 1, deletes: 1},
+		{name: "preserve debug VM", code: "AllocationFailed", status: 200, keep: true, creates: 1},
+		{name: "bounded allocation failures", code: "AllocationFailed", status: 200, alwaysFails: true, creates: 10, deletes: 9},
+		{name: "image propagation does not recreate", code: "GalleryImageNotFound", status: 404, creates: 2},
+		{name: "CSE failure is not an allocation retry", code: "VMExtensionProvisioningError", status: 200, creates: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				previous := config.Config.KeepVMSS
+				config.Config.KeepVMSS = tc.keep
+				defer func() { config.Config.KeepVMSS = previous }()
+				ctx := logging.WithLogger(context.Background(), &vmssCreationTestLogger{T: t})
+				vm := &ScenarioVM{}
+				armErr := &azcore.ResponseError{ErrorCode: tc.code, StatusCode: tc.status}
+				deleteErr := errors.New("delete denied")
+				creates, deletes := 0, 0
+				result, err := retryVMSSCreation(ctx, func() (*ScenarioVM, error) {
+					creates++
+					if creates == 1 || tc.alwaysFails {
+						return vm, fmt.Errorf("provision: %w", armErr)
+					}
+					if tc.code == "AllocationFailed" {
+						require.Equal(t, creates-1, deletes, "delete must complete before recreation")
+					}
+					return vm, nil
+				}, func(got *ScenarioVM) error {
+					require.Same(t, vm, got)
+					deletes++
+					if tc.deleteFails {
+						return deleteErr
+					}
+					return nil
+				})
+				require.Same(t, vm, result)
+				require.Equal(t, tc.creates, creates)
+				require.Equal(t, tc.deletes, deletes)
+				if tc.creates == 2 {
+					require.NoError(t, err)
+				} else {
+					require.ErrorIs(t, err, armErr)
+				}
+				if tc.deleteFails {
+					require.ErrorIs(t, err, deleteErr)
+				}
+			})
+		})
+	}
+}

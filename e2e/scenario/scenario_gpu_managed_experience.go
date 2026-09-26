@@ -886,10 +886,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2404"),
 				ValidateContainerRuntimePlugins(ctx, s),
 			); err != nil {
 				return err
@@ -938,10 +937,9 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateRuncVersion(ctx, s, "r2404"),
 				ValidateContainerRuntimePlugins(ctx, s),
 			); err != nil {
 				return err
