@@ -268,6 +268,23 @@ Give more than one name to run multiple scenarios:
 ./e2e-local.sh AzureLinuxV2 Ubuntu2204_CustomLinuxOSConfig_Taints_ANC
 ```
 
+### Network-isolated managed GPU
+
+`Ubuntu2404_FullyManagedGPU_NetworkIsolated` uses the four-vCPU
+`Standard_NC4as_T4_v3` SKU and the VHD-cached CUDA driver. It verifies that direct
+public MCR access times out while managed device plugin, GPU workloads, DCGM
+exporter and NPD checks work through the network-isolated configuration and private
+ACR mirror. A10 is not interchangeable here: its GRID driver image is downloaded
+from public MCR at provisioning time rather than cached on the Ubuntu VHD.
+
+```bash
+./e2e-local.sh --location westus3 --skip-capacity-errors=false Ubuntu2404_FullyManagedGPU_NetworkIsolated
+```
+
+Check regional T4 quota before running. An allocation skip is not a passing
+compatibility result. The `gpu=true,networkisolated=true` tag selector also selects
+this scenario in the GPU pipeline.
+
 ### Debugging
 
 Set `KEEP_VMSS=true` to retain bootstrapped VMs for debugging. Setting this will also have the VM's private SSH key
