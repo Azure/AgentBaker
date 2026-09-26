@@ -351,6 +351,44 @@ Set `SIG_VERSION_TAG_NAME` and `SIG_VERSION_TAG_VALUE` to specify custom VHD bui
 SIG_VERSION_TAG_NAME=buildId SIG_VERSION_TAG_VALUE=123456789 TAGS_TO_RUN="os=ubuntu2204" ./e2e-local.sh
 ```
 
+## OSS Karpenter CSE Compatibility
+
+`Ubuntu2204_OSS_Karpenter_CSE_Compatibility` is a cluster-level scenario. Unlike
+the normal AgentBaker scenarios, it does not ask AgentBaker to render CSE and
+create a raw VMSS. It:
+
+1. creates or reuses a dedicated AKS cluster with Azure CNI Overlay, Cilium,
+   OIDC issuer, and workload identity enabled;
+2. clones the pinned `Azure/karpenter-provider-azure` release declared in
+   `scenario/oss_karpenter_controller.go` and verifies its commit;
+3. applies the CRDs from that checkout and builds/runs the upstream controller
+   on the E2E runner;
+4. creates an `AKSNodeClass`, `NodePool`, and scheduling demand;
+5. waits for the Karpenter-created node to become Ready and verifies that the
+   workload runs on it.
+
+The public `AKSNodeClass` API in the pinned provider release does not expose its
+internal image-ID field. The E2E therefore applies the narrow source patch in
+`scenario/oss_karpenter_v1.14.2.patch`. The patch only:
+
+- makes the out-of-cluster test controller use the authenticated Azure CLI
+  identity and supplied kubeconfig;
+- accepts the selected AgentBaker VHD resource ID from a test-only
+  `AKSNodeClass` annotation; and
+- places private Azure Compute Gallery IDs in the correct ARM image-reference
+  field.
+
+The patch does **not** modify, copy, or render Karpenter's
+`cse_cmd.sh.gtpl`. The node is provisioned by Karpenter's own controller using
+the CSE template embedded directly from its pinned source checkout. This is what
+allows the scenario to detect compatibility failures when scripts baked into
+the AgentBaker VHD change but Karpenter's independently maintained CSE template
+has not been updated.
+
+Controller logs and Kubernetes diagnostics are written into the scenario log
+directory. The pinned source checkout and built controller are cached for the
+lifetime of the E2E process, so scenario retries do not rebuild it.
+
 ### Registering New VHD SKUs
 
 When adding tests for a new VHD image, ensure to add a delete-lock to prevent the garbage collector from deleting the
