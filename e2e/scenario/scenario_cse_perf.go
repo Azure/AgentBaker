@@ -27,7 +27,7 @@ var cachedCSEThresholds = CSETimingThresholds{
 		// Core kubelet/containerd install
 		"installDebPackageFromFile":   22 * time.Second, // prod p50=3.88s p95=21.55s p99=42.88s
 		"holdWALinuxAgent":            24 * time.Second, // prod p50=0.49s p90=23.32s p95=37.47s (bimodal: apt lock)
-		"configureKubeletAndKubectl":  27 * time.Second, // prod p50=6.56s p95=26.06s p99=44.39s
+		"configureKubeletAndKubectl":  38 * time.Second, // includes installKubeletKubectlFromPkg; match its PMC budget
 		"ensureContainerd":            3 * time.Second,  // prod p50=0.94s p95=1.99s  p99=2.80s
 		"ensureKubelet":               10 * time.Second, // prod p50=3.27s p95=6.20s  p99=10.01s
 		"installContainerRuntime":     2 * time.Second,  // prod p50=0.26s p95=0.50s  p99=0.85s

@@ -108,10 +108,6 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
 
     if which nvidia-smi; then
@@ -189,13 +185,21 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
-    # arm64 == Grace-Blackwell: run the managed container install only on an AKS-managed Ubuntu VHD
-    # (IS_VHD) when a driver was requested (CONFIG_GPU_DRIVER_IF_NEEDED = --gpu-driver Install /
-    # managed experience). BYOI/custom images are IS_VHD=false (e.g. MAI's driver-baked GB image) --
-    # skip so we never run the runfile install over a customer-baked driver.
-    if [ "$(isARM64)" -eq 1 ]; then
-        if [ "$OS" != "$UBUNTU_OS_NAME" ] || [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" != true ] || [ "${IS_VHD,,}" != "true" ]; then
-            return
+    # arm64 GPU is supported in two cases; skip otherwise:
+    #  - AzureLinux 3.0 arm64 base image (non-FIPS) -- the existing arm64 GPU path.
+    #  - Grace-Blackwell (GB200/GB300): managed install on an AKS-managed Ubuntu VHD when the driver
+    #    was requested (CONFIG_GPU_DRIVER_IF_NEEDED = --gpu-driver Install / managed experience).
+    #    BYOI/custom images are IS_VHD=false (e.g. MAI's driver-baked GB image) -- skip so we never
+    #    run the aks-gpu install over a customer-baked driver.
+    local cpu_arch
+    cpu_arch=$(getCPUArch)
+    if [ "$cpu_arch" = "arm64" ]; then
+        if [ "$OS_VERSION" = "3.0" ] && [ "${ENABLE_FIPS,,}" != "true" ] && isAzureLinuxArm64BaseImage "$OS" "$cpu_arch" "$OS_VARIANT"; then
+            : # AzureLinux 3.0 arm64 GPU base image
+        elif [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ] && [ "${IS_VHD,,}" = "true" ]; then
+            : # Grace-Blackwell managed driver install on an AKS-managed Ubuntu VHD
+        else
+            return 0
         fi
     fi
 

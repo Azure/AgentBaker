@@ -8,20 +8,8 @@ CVE_DIFF_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-diff.txt
 CVE_LIST_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-list.txt
 TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
-# renovate: datasource=custom.deb2004 depName=trivy versioning=deb
-TRIVY_DEB_2004_VERSION="0.72.0-ubuntu20.04u12"
-
-# renovate: datasource=custom.deb2204 depName=trivy versioning=deb
-TRIVY_DEB_2204_VERSION="0.72.0-ubuntu22.04u12"
-
-# renovate: datasource=custom.deb2404 depName=trivy versioning=deb
-TRIVY_DEB_2404_VERSION="0.72.0-ubuntu24.04u12"
-
-# renovate: datasource=custom.deb2604 depName=trivy versioning=deb
-TRIVY_DEB_2604_VERSION="0.72.0-ubuntu26.04u12"
-
 # renovate: datasource=rpm depName=trivy registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
-TRIVY_RPM_VERSION="0.72.0-12.azl3"
+TRIVY_PMC_VERSION="0.72.0"
 
 # Fallback version for SKUs without PMC packages (Flatcar, AzureContainerLinux, AzureLinuxOSGuard).
 # This MUST match an actual upstream GitHub release tag — PMC versions (0.68.x) don't exist on GitHub.
@@ -199,28 +187,39 @@ install_trivy_from_github() {
 install_trivy() {
     local os_sku=$1
     local os_version=$2
+    local full_package_version
     case "$os_sku" in
         Ubuntu)
             # trivy debs are published to the Microsoft PMC prod repo,
             # which is already configured on the VHD via packages-microsoft-prod.deb.
-            local deb_version
             case "$os_version" in
-                20.04) deb_version="${TRIVY_DEB_2004_VERSION}" ;;
-                22.04) deb_version="${TRIVY_DEB_2204_VERSION}" ;;
-                24.04) deb_version="${TRIVY_DEB_2404_VERSION}" ;;
-                26.04) deb_version="${TRIVY_DEB_2604_VERSION}" ;;
+                20.04|22.04|24.04|26.04) ;;
                 *)
                     echo "No tracked trivy deb version for Ubuntu $os_version, downloading from GitHub"
                     install_trivy_from_github
                     return
                     ;;
             esac
+            source /opt/azure/containers/provision_installs_distro.sh
             apt_get_update
-            apt_get_install 5 1 60 trivy="${deb_version}"
+            full_package_version=$(getLatestDebPackageVersion trivy "${TRIVY_PMC_VERSION}") || return 1
+            if [ -z "${full_package_version}" ]; then
+                echo "Failed to resolve trivy deb revision for ${TRIVY_PMC_VERSION}" >&2
+                return 1
+            fi
+            logResolvedPackageVersion trivy "${TRIVY_PMC_VERSION}" "${full_package_version}"
+            apt_get_install 5 1 60 "trivy=${full_package_version}"
             ;;
         AzureLinux)
             # trivy RPMs are published in the AzureLinux 3.0 cloud-native PMC repo
-            dnf_install 5 1 60 "trivy-${TRIVY_RPM_VERSION}"
+            source /opt/azure/containers/provision_installs_distro.sh
+            full_package_version=$(getLatestRPMPackageVersion trivy "${TRIVY_PMC_VERSION}") || return 1
+            if [ -z "${full_package_version}" ]; then
+                echo "Failed to resolve trivy RPM revision for ${TRIVY_PMC_VERSION}" >&2
+                return 1
+            fi
+            logResolvedPackageVersion trivy "${TRIVY_PMC_VERSION}" "${full_package_version}"
+            dnf_install 5 1 60 "trivy-${full_package_version}"
             ;;
         *)
             echo "No PMC trivy package for $os_sku, downloading from GitHub"

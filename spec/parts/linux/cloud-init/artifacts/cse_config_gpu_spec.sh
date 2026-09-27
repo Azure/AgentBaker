@@ -8,6 +8,72 @@ Describe 'cse_config_gpu.sh'
     CSE_CONFIG_ADDONS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_addons.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'GPU driver dispatch'
+        getCPUArch() { echo "$MOCK_CPU_ARCH"; }
+        logs_to_events() {
+            shift
+            eval "$@"
+        }
+        configGPUDrivers() { echo "configGPUDrivers called"; }
+        validateGPUDrivers() { echo "validateGPUDrivers called"; }
+        cleanUpGridNodeCudaPrebake() { :; }
+        systemctlEnableAndStart() { :; }
+        logGPUDriverPrebakeReadiness() { :; }
+
+        Parameters
+            "$AZURELINUX_OS_NAME" "3.0" "" false true  "configGPUDrivers called"   "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" false false "validateGPUDrivers called" "arm64"
+            "$UBUNTU_OS_NAME"     "24.04" "" false true "" "arm64"
+            "$UBUNTU_OS_NAME"     "24.04" "" false false "" "arm64"
+            "$AZURELINUX_OS_NAME" "2.0" "" false true "" "arm64"
+            "$AZURELINUX_OS_NAME" "2.0" "" false false "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false true "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false false "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "$ACL_OS_VARIANT" false true "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" true true "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" TRUE false "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" false true  "configGPUDrivers called"   "amd64"
+            "$AZURELINUX_OS_NAME" "3.0" "" false false "validateGPUDrivers called" "amd64"
+            "$AZURELINUX_OS_NAME" "2.0" "" false true  "configGPUDrivers called"   "amd64"
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false true "configGPUDrivers called" "amd64"
+            "$AZURELINUX_OS_NAME" "3.0" "" true false "validateGPUDrivers called" "amd64"
+            "$UBUNTU_OS_NAME"     "24.04" "" false true  "configGPUDrivers called"   "amd64"
+            "$UBUNTU_OS_NAME"     "24.04" "" false false "validateGPUDrivers called" "amd64"
+        End
+
+        It "dispatches driver setup for OS=$1 version=$2 variant=$3 fips=$4 install=$5 arch=$7"
+            OS=$1
+            OS_VERSION=$2
+            OS_VARIANT=$3
+            ENABLE_FIPS=$4
+            CONFIG_GPU_DRIVER_IF_NEEDED=$5
+            MOCK_CPU_ARCH=$7
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should equal "$6"
+        End
+    End
+
+    Describe 'ARM64 GPU driver validation'
+        isARM64() { echo 1; }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $*" >&2
+            return 0
+        }
+        which() { return 0; }
+
+        It 'checks modprobe and nvidia-smi'
+            When call validateGPUDrivers
+
+            The status should be success
+            The output should include "gpu driver loaded"
+            The stderr should include "retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0"
+            The stderr should include "retrycmd_if_failure 24 5 30 nvidia-smi"
+        End
+    End
+
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
@@ -589,7 +655,7 @@ Describe 'cse_config_gpu.sh'
         BeforeEach 'IS_VHD="true"'
 
         It 'installs on an AKS-managed arm64 Ubuntu VHD when the managed install is requested (GB200/GB300)'
-            isARM64() { echo 1; }
+            getCPUArch() { echo "arm64"; }
             OS="UBUNTU"
             CONFIG_GPU_DRIVER_IF_NEEDED="true"
             IS_VHD="true"
@@ -606,7 +672,7 @@ Describe 'cse_config_gpu.sh'
         End
 
         It 'skips on arm64 Ubuntu when IS_VHD is empty/unset (fail-safe: do not install without a confirmed AKS VHD)'
-            isARM64() { echo 1; }
+            getCPUArch() { echo "arm64"; }
             OS="UBUNTU"
             CONFIG_GPU_DRIVER_IF_NEEDED="true"
             IS_VHD=""
@@ -619,7 +685,7 @@ Describe 'cse_config_gpu.sh'
         End
 
         It 'skips on a BYOI/custom arm64 image (IS_VHD=false) to preserve a customer-baked driver (MAI dedicated GB VHD)'
-            isARM64() { echo 1; }
+            getCPUArch() { echo "arm64"; }
             OS="UBUNTU"
             CONFIG_GPU_DRIVER_IF_NEEDED="true"
             # UseCustomizedOSImage header -> Distro=CustomizedImage -> IsVHDDistro()=false -> IS_VHD=false.
@@ -633,7 +699,7 @@ Describe 'cse_config_gpu.sh'
         End
 
         It 'no-ops on arm64 Ubuntu when driver install is not requested (BYOI / --gpu-driver none)'
-            isARM64() { echo 1; }
+            getCPUArch() { echo "arm64"; }
             OS="UBUNTU"
             CONFIG_GPU_DRIVER_IF_NEEDED="false"
 
@@ -647,7 +713,7 @@ Describe 'cse_config_gpu.sh'
         End
 
         It 'no-ops on non-Ubuntu arm64 even when driver install is requested (no arm64 GPU path there)'
-            isARM64() { echo 1; }
+            getCPUArch() { echo "arm64"; }
             OS="MARINER"
             CONFIG_GPU_DRIVER_IF_NEEDED="true"
 
@@ -658,7 +724,7 @@ Describe 'cse_config_gpu.sh'
         End
 
         It 'is unaffected on x86 Ubuntu: installs when driver install is requested'
-            isARM64() { echo 0; }
+            getCPUArch() { echo "amd64"; }
             OS="UBUNTU"
             CONFIG_GPU_DRIVER_IF_NEEDED="true"
 
@@ -668,7 +734,7 @@ Describe 'cse_config_gpu.sh'
         End
 
         It 'is unaffected on x86 Ubuntu: validates (not installs) when driver install is off (prebaked VHD path)'
-            isARM64() { echo 0; }
+            getCPUArch() { echo "amd64"; }
             OS="UBUNTU"
             CONFIG_GPU_DRIVER_IF_NEEDED="false"
 
