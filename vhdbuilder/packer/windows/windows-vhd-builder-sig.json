@@ -1,4 +1,5 @@
 {
+    "_comment_sysprep_pause_after": "sysprep.ps1 removes the WinRM listener and Packer temp scripts from a scheduled task that waits up to 2m for Packer's WinRM shell to close (removing them inline breaks WinRM, see https://github.com/hashicorp/packer-plugin-azure/issues/560). The sysprep provisioner's pause_after must exceed that wait so cleanup finishes before power-off and capture.",
     "variables": {
         "build_branch": "{{env `GIT_BRANCH`}}",
         "build_commit": "{{env `GIT_VERSION`}}",
@@ -215,6 +216,7 @@
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
             "type": "powershell",
+            "pause_after": "3m",
             "script": "vhdbuilder/packer/windows/sysprep.ps1"
         }
     ]
