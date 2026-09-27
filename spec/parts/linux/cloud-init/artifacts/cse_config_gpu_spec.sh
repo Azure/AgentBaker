@@ -23,8 +23,8 @@ Describe 'cse_config_gpu.sh'
         Parameters
             "$AZURELINUX_OS_NAME" "3.0" "" false true  "configGPUDrivers called"   "arm64"
             "$AZURELINUX_OS_NAME" "3.0" "" false false "validateGPUDrivers called" "arm64"
-            "$UBUNTU_OS_NAME"     "24.04" "" false true "" "arm64"
-            "$UBUNTU_OS_NAME"     "24.04" "" false false "" "arm64"
+            # arm64 Ubuntu (Grace-Blackwell) is IS_VHD-gated -- covered by the dedicated
+            # "ensureGPUDrivers arm64 GB (Ubuntu VHD) gate" block below (this block sets no IS_VHD).
             "$AZURELINUX_OS_NAME" "2.0" "" false true "" "arm64"
             "$AZURELINUX_OS_NAME" "2.0" "" false false "" "arm64"
             "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false true "" "arm64"
