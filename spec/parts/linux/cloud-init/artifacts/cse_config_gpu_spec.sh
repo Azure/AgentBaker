@@ -599,6 +599,23 @@ Describe 'cse_config_gpu.sh'
             The status should be success
             The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
             The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+            # GB nodes now fall into the full Ubuntu install sequence, not just the dispatch:
+            # the prebake cleanup runs before, and nvidia-modprobe is enabled after.
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake"
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.nvidia-modprobe"
+        End
+
+        It 'skips on arm64 Ubuntu when IS_VHD is empty/unset (fail-safe: do not install without a confirmed AKS VHD)'
+            isARM64() { echo 1; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            IS_VHD=""
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
         End
 
         It 'skips on a BYOI/custom arm64 image (IS_VHD=false) to preserve a customer-baked driver (MAI dedicated GB VHD)'
