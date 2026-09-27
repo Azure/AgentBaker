@@ -3,7 +3,7 @@ module github.com/Azure/agentbaker/image-fetcher
 go 1.26.0
 
 require (
-	github.com/containerd/containerd/v2 v2.2.8
+	github.com/containerd/containerd/v2 v2.2.9
 	github.com/containerd/platforms v1.0.0-rc.2
 	github.com/opencontainers/image-spec v1.1.1
 )
