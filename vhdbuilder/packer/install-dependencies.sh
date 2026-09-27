@@ -851,7 +851,7 @@ cacheGPUContainerImageComponents() {
   # arm64 Ubuntu VHDs (e.g. 22.04, 26.04-minimal) have no GPU consumer and shouldn't carry the image.
   # x86 keeps caching on all Ubuntu versions as before. The kernel-module PREBAKE below stays x86-only
   # -- GB has no VHD driver prebake, so this caches the image without baking a driver (no dkms-marker).
-  if [ $OS = $UBUNTU_OS_NAME ] && { [ "$(isARM64)" -ne 1 ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; }; then
+  if [ $OS = $UBUNTU_OS_NAME ] && { [ "$(isARM64)" -ne 1 ] || { [ "$(isARM64)" -eq 1 ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; }; }; then
     gpu_action="copy"
 
     while IFS= read -r imageToBePulled; do
