@@ -236,7 +236,7 @@ writeGPUDriverArtifactManifest() {
 
     mkdir -p "$(dirname "${GPU_ARTIFACT_MANIFEST_FILE}")" || return 1
     tmp_manifest="${GPU_ARTIFACT_MANIFEST_FILE}.tmp.$$"
-    cat > "${tmp_manifest}" <<EOF
+    if ! cat > "${tmp_manifest}" <<EOF
 schema_version=${GPU_ARTIFACT_SCHEMA_VERSION}
 recipe_version=${GPU_ARTIFACT_RECIPE_VERSION}
 complete=true
@@ -246,6 +246,10 @@ driver_family=nvidia
 source_identity=${source_identity}
 source_digest=${source_digest}
 EOF
+    then
+        rm -f "${tmp_manifest}"
+        return 1
+    fi
     chmod 0644 "${tmp_manifest}" || {
         rm -f "${tmp_manifest}"
         return 1

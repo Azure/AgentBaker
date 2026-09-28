@@ -944,7 +944,8 @@ Describe 'GPU artifact manifest'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
     setup_gpu_artifact_manifest() {
-        GPU_ARTIFACT_TEST_DIR="$(mktemp -d)"
+        GPU_ARTIFACT_TEST_DIR="${SHELLSPEC_WORKDIR}/gpu-artifact-manifest"
+        mkdir -p "${GPU_ARTIFACT_TEST_DIR}"
         GPU_DKMS_MARKER_FILE="${GPU_ARTIFACT_TEST_DIR}/dkms-marker"
         GPU_ARTIFACT_MANIFEST_FILE="${GPU_ARTIFACT_TEST_DIR}/artifact-manifest-v1"
         OS="UBUNTU"
@@ -979,6 +980,30 @@ source_digest=sha256:abc123"
         When call writeGPUDriverArtifactManifest "image:tag" "sha256:abc123"
         The status should be failure
         The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
+    End
+
+    It 'rejects a partial write in a conditional and preserves the existing manifest'
+        printf 'existing manifest\n' > "${GPU_ARTIFACT_MANIFEST_FILE}"
+        write_manifest_with_partial_write_failure() {
+            set -e
+            cat() {
+                printf 'schema_version=1\n'
+                return 1
+            }
+            local ret=0
+            if ! writeGPUDriverArtifactManifest "image:tag" "sha256:abc123"; then
+                ret=1
+            fi
+            unset -f cat
+            find "${GPU_ARTIFACT_TEST_DIR}" -name 'artifact-manifest-v1.tmp.*' -print
+            return "${ret}"
+        }
+
+        When run write_manifest_with_partial_write_failure
+
+        The status should be failure
+        The output should equal ""
+        The contents of file "${GPU_ARTIFACT_MANIFEST_FILE}" should equal "existing manifest"
     End
 
     It 'removes the temporary manifest when the atomic rename fails'
