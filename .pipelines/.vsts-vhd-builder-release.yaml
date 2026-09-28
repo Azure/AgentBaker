@@ -33,6 +33,22 @@ parameters:
     displayName: Build AzureLinuxV3 Gen2 Kata
     type: boolean
     default: true
+  - name: buildAzureLinuxV3gen2kataL1VHPreview
+    displayName: Build AzureLinuxV3 Gen2 Kata L1VH preview
+    type: boolean
+    default: false
+  - name: l1vhSourceImageVersionId
+    displayName: L1VH preview pinned private gallery base image version ARM ID
+    type: string
+    default: ''
+  - name: l1vhSchedulerType
+    displayName: L1VH scheduler (confirm with Compute and Azure Linux)
+    type: string
+    default: Unspecified
+    values:
+      - Unspecified
+      - AzureManaged
+      - GuestManaged
   - name: buildAzureLinuxV3ARM64
     displayName: Build AzureLinuxV3 Gen2 - ARM64
     type: boolean
@@ -331,6 +347,37 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv3-gen2-kata
+      - job: buildAzureLinuxV3gen2kataL1VHPreview
+        condition: eq('${{ parameters.buildAzureLinuxV3gen2kataL1VHPreview }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        variables:
+          OS_SKU: AzureLinux
+          OS_VERSION: V3kata
+          # OS identity is still used for Kata UVM downloads and build provisioning.
+          # The L1VH builder replaces only Packer's Marketplace source fields.
+          IMG_PUBLISHER: MicrosoftCBLMariner
+          IMG_OFFER: azure-linux-3
+          IMG_SKU: azure-linux-3-gen2
+          IMG_VERSION: latest
+          HYPERV_GENERATION: V2
+          AZURE_VM_SIZE: Standard_D16ads_v5
+          FEATURE_FLAGS: kata
+          ARCHITECTURE: X86_64
+          ENABLE_FIPS: 'false'
+          ENABLE_TRUSTED_LAUNCH: 'False'
+          TRUSTED_LAUNCH_SUPPORTED: 'False'
+          ENABLE_CGROUPV2: 'True'
+          ENABLE_L1VH: 'True'
+          L1VH_SOURCE_IMAGE_VERSION_ID: ${{ parameters.l1vhSourceImageVersionId }}
+          L1VH_SCHEDULER_TYPE: ${{ parameters.l1vhSchedulerType }}
+          SIG_IMAGE_NAME: AzureLinuxV3katagen2l1vhpreview
+        steps:
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: azurelinuxv3-gen2-kata-l1vhpreview
       - job: buildAzureLinuxV3gen2TrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV3gen2TrustedLaunch }}', true)
         dependsOn: [ ]
