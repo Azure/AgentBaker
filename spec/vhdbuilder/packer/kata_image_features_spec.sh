@@ -120,7 +120,7 @@ Describe 'Kata image definition features'
 
   It 'replaces stale virtualization features rather than creating duplicates'
     local_definition=$(jq '.properties.features += [
-      {name:"VirtualizationType",value:"Undefined"},
+      {name:"virtualizationtype",value:"Undefined"},
       {name:"DirectVirtualizationSchedulerType",value:"AzureManaged",startsAtVersion:"9.0.0"}
     ]' "$mock_definition_file")
     printf '%s\n' "$local_definition" > "$mock_definition_file"

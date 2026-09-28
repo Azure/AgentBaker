@@ -39,7 +39,8 @@ ensure_kata_image_features() {
     # Merge only the two virtualization features, preserving NVMe, security, and future features.
     features=$(jq -c --argjson required "$(kata_image_features)" '
         [ .properties.features[]? |
-          select(.name != "VirtualizationType" and .name != "DirectVirtualizationSchedulerType") ] + $required
+          select((.name | ascii_downcase) != "virtualizationtype" and
+                 (.name | ascii_downcase) != "directvirtualizationschedulertype") ] + $required
     ' <<< "$definition") || return 1
     if jq -e --argjson features "$features" '
         ((.properties.features // []) | sort_by(.name)) == ($features | sort_by(.name))

@@ -31,7 +31,14 @@ the two `{name, value}` entries, to the existing Kata artifact. Marketplace prov
 the publishing SKU `V3katagen2`, and versioning are retained. Other SKUs do not get this
 field or the feature-update calls.
 
+The artifact field is an additive contract: an absent/empty array requests no feature
+changes. Consumers merge feature names case-insensitively and retain unrelated entries.
+Each entry has string `name`/`value` fields; the optional `startsAtVersion` can be used
+for version-scoped features. These two Kata entries intentionally have no version boundary.
+
 ## Required RP publishing integration
+
+Companion implementation: [AKS RP PR 17322640](https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-rp/pullrequest/17322640).
 
 AgentBaker creates the intermediate build image; the RP release publisher creates or
 updates the final AKS gallery definitions. **Exporting a gallery image to a VHD blob
@@ -40,6 +47,7 @@ does not carry its definition features.** The downstream publisher must consume
 definition in each destination gallery, preserving features such as NVMe/security.
 It must update existing definitions as well as newly created ones and read back the
 features after publishing. Merely ignoring the new artifact field is insufficient.
+Deploy the RP consumer before promoting the feature-bearing AgentBaker release.
 
 No separate preview pipeline, gallery-source selection, or new RP image family is
 needed. L1VH SKU support, test quota, and preview enrollment remain separate concerns.
