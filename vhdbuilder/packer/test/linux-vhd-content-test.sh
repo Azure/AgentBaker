@@ -2834,7 +2834,7 @@ testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings
-testCronPermissions $IMG_SKU $OS_SKU
+testCronPermissions "$IMG_SKU" "$OS_SKU"
 testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
