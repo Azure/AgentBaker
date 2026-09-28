@@ -20,6 +20,8 @@ validate_l1vh_kata_preview() {
     fi
 
     local source_pattern='^/subscriptions/[[:xdigit:]-]+/resourceGroups/[^/[:space:]]+/providers/Microsoft\.Compute/galleries/[[:alnum:]_.-]+/images/[[:alnum:]_.-]+/versions/[0-9]+\.[0-9]+\.[0-9]+$'
+    # The repository lint pass also checks Bash helpers in POSIX mode.
+    # shellcheck disable=SC3010
     if [[ ! ${L1VH_SOURCE_IMAGE_VERSION_ID:-} =~ $source_pattern ]]; then
         echo "L1VH_SOURCE_IMAGE_VERSION_ID must be a full private gallery image version ARM ID with a pinned numeric version (not latest)." >&2
         return 1
