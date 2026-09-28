@@ -54,6 +54,14 @@ needed. L1VH SKU support, test quota, and preview enrollment remain separate con
 
 ## Validation
 
+AgentBaker E2E now checks the actual selected Kata image definition and runs BusyBox
+with both Kata runtime handlers. The existing `AzureLinuxV3Gen2Kata` covers the usual
+SKU; `AzureLinuxV3Gen2Kata_DirectVirtualization` uses an explicitly configured L1VH
+SKU via `KATA_DIRECT_VIRTUALIZATION_VM_SKU`. See the
+[E2E instructions](../../e2e/README.md#kata-direct-virtualization-l1vh) for running both
+against the same PR-built VHD. The direct scenario is skipped until a SKU with test
+quota is configured; missing image features or an unsupported configured SKU fail.
+
 Use the existing Kata build and development/E2E galleries. Verify a Kata workload on
 both a nested-virtualization SKU and an official L1VH SKU, including the intended
 scheduler selection. A BusyBox pod must explicitly use the Kata RuntimeClass; a
