@@ -605,13 +605,14 @@ Describe 'cse_config_gpu.sh'
                 "/dev/null"
             End
 
-            It 'fails without changing the image'
+            It 'keeps the legacy GRID image without failing'
                 COMPONENTS_FILEPATH="$1"
                 When call selectGPUDriverImage
 
-                The status should be failure
-                The stderr should include "Ubuntu GRID requires a valid aks-gpu-grid-v20 pin"
+                The status should be success
+                The stderr should include "keeping legacy Ubuntu GRID selection for backward compatibility"
                 The variable NVIDIA_GPU_DRIVER_TYPE should equal "grid"
+                The variable NVIDIA_DRIVER_IMAGE should equal "mcr.microsoft.com/aks/aks-gpu-grid"
                 The variable NVIDIA_DRIVER_IMAGE_TAG should equal "570.237-20260817204535"
             End
         End
@@ -633,13 +634,14 @@ Describe 'cse_config_gpu.sh'
                 '.GPUContainerImages += [.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-grid-v20:*")]'
             End
 
-            It 'rejects invalid documents and missing, malformed, wrong-branch, or duplicate pins'
+            It 'keeps the legacy GRID image for invalid documents and missing, malformed, wrong-branch, or duplicate pins'
                 setup_invalid_pin "$1"
                 When call selectGPUDriverImage
 
-                The status should be failure
-                The stderr should include "Ubuntu GRID requires a valid aks-gpu-grid-v20 pin"
+                The status should be success
+                The stderr should include "keeping legacy Ubuntu GRID selection for backward compatibility"
                 The variable NVIDIA_GPU_DRIVER_TYPE should equal "grid"
+                The variable NVIDIA_DRIVER_IMAGE should equal "mcr.microsoft.com/aks/aks-gpu-grid"
                 The variable NVIDIA_DRIVER_IMAGE_TAG should equal "570.237-20260817204535"
             End
         End
@@ -688,15 +690,23 @@ Describe 'cse_config_gpu.sh'
             The stderr should include "images rm mcr.microsoft.com/aks/aks-gpu-grid-v20:$expected_grid_v20_tag"
         End
 
-        It 'does not pull or install an old GRID driver when the v20 pin is missing'
+        It 'installs the legacy GRID driver when the v20 pin is missing'
             OS="UBUNTU"
             NVIDIA_GPU_DRIVER_TYPE="grid"
             COMPONENTS_FILEPATH="missing-grid-v20-components.json"
-            When run configGPUDrivers
+            NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-grid"
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.microsoft.com/aks/aks-gpu-grid"
+            NVIDIA_DRIVER_IMAGE_TAG="570.237-20260817204535"
+            logs_to_events() { shift; eval "$@"; }
+            ctr() { echo "ctr $*" >&2; }
+            pullGPUDriverImage() { echo "pull $NVIDIA_DRIVER_IMAGE_PULL_REF:$NVIDIA_DRIVER_IMAGE_TAG"; }
+            installGPUDriverImage() { echo "install $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"; }
+            When call configGPUDrivers
 
-            The status should equal 88
-            The stderr should include "Ubuntu GRID requires a valid aks-gpu-grid-v20 pin"
-            The output should be blank
+            The status should be success
+            The stderr should include "keeping legacy Ubuntu GRID selection for backward compatibility"
+            The output should include "pull mcr.microsoft.com/aks/aks-gpu-grid:570.237-20260817204535"
+            The output should include "install mcr.microsoft.com/aks/aks-gpu-grid:570.237-20260817204535"
         End
 
         It 'uses the cached v20 image without pulling the legacy GRID image'

@@ -29,9 +29,9 @@ selectGPUDriverImage() {
             .gpuVersion.latestVersion] |
         select(length == 1) | .[0] |
         select(test("^595\\.[0-9]+\\.[0-9]+-[0-9]+$"))
-    ' "$COMPONENTS_FILEPATH") || [ -z "$grid_v20_tag" ]; then
-        echo "Ubuntu GRID requires a valid aks-gpu-grid-v20 pin in $COMPONENTS_FILEPATH" >&2
-        return 1
+    ' "$COMPONENTS_FILEPATH" 2>/dev/null) || [ -z "$grid_v20_tag" ]; then
+        echo "No valid aks-gpu-grid-v20 pin in $COMPONENTS_FILEPATH; keeping legacy Ubuntu GRID selection for backward compatibility" >&2
+        return 0
     fi
 
     export GPU_DRIVER_TYPE="grid-v20"
