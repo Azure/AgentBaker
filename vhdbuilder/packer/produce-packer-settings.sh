@@ -3,10 +3,6 @@ set -e
 
 SCRIPT_DIR=$(dirname "$0")
 source "$SCRIPT_DIR/produce-packer-settings-functions.sh"
-source "$SCRIPT_DIR/l1vh-kata-preview.sh"
-
-# Fail before creating resources when the preview inputs or image family are invalid.
-validate_l1vh_kata_preview
 
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
@@ -20,7 +16,7 @@ CREATE_TIME="$(date +%s)"
 VHD_BUILD_TIMESTAMP=""
 
 # Check if the file exists, if it does, the build is triggered from an official branch
-if [ "${ENABLE_L1VH:-False}" != "True" ] && [ -f "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
+if [ -f "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
   # Ensure that the file is not empty, this will never happen since automation generates the file after each build but still have this check in place
   if [ -s "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
     # For IMG_SKUs that dont exist in the file, this is a no-op, therefore Windows/Mariner wont be affected and their IMG_VERSION will always be 'latest'

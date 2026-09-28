@@ -520,13 +520,6 @@ function ensure_sig_vhd_exists() {
 		az sig create --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} --location ${AZURE_LOCATION}
 	fi
 
-	if [ "${ENABLE_L1VH:-False}" = "True" ]; then
-		# Features must be on the build definition before Packer publishes a version.
-		source "$(dirname "${BASH_SOURCE[0]}")/l1vh-kata-preview.sh"
-		ensure_l1vh_image_definition
-		return $?
-	fi
-
 	id=$(az sig image-definition show \
 		--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 		--gallery-name ${SIG_GALLERY_NAME} \
@@ -665,4 +658,8 @@ function ensure_sig_vhd_exists() {
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
+
+	# Apply to both newly created and existing Kata definitions before publishing a version.
+	source "$(dirname "${BASH_SOURCE[0]}")/kata-image-features.sh"
+	ensure_kata_image_features
 }

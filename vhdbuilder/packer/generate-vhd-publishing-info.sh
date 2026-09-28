@@ -13,14 +13,8 @@ required_env_vars=(
 
 # Higher the replication_inverse, lower is the usage and number of replicas
 set -x
-if [ "${ENABLE_L1VH:-False}" = "True" ]; then
-    source "$(dirname "${BASH_SOURCE[0]}")/l1vh-kata-preview.sh"
-    validate_l1vh_kata_preview
-    PUBLISHER_BASE_IMAGE_VERSION=""
-else
-    PUBLISHER_BASE_IMAGE_VERSION=$(az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU} --query "[?offer=='${IMG_OFFER}'].version" -o tsv --all | sort -u | tail -n 1)
-    echo "Latest ${IMG_PUBLISHER} base image version for offer ${IMG_OFFER} and sku ${IMG_SKU} is ${BASE_IMAGE_VERSION}"
-fi
+PUBLISHER_BASE_IMAGE_VERSION=$(az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU} --query "[?offer=='${IMG_OFFER}'].version" -o tsv --all | sort -u | tail -n 1)
+echo "Latest ${IMG_PUBLISHER} base image version for offer ${IMG_OFFER} and sku ${IMG_SKU} is ${BASE_IMAGE_VERSION}"
 
 REPLICATION_INVERSE=1
 
@@ -131,8 +125,10 @@ fi
 
 # The downstream publisher must apply these features to the FINAL gallery definition;
 # exporting the intermediate gallery image as a VHD does not carry definition metadata.
-if [ "${ENABLE_L1VH:-False}" = "True" ]; then
-    publishing_info=$(add_l1vh_publishing_info "$(<vhd-publishing-info.json)")
+source "$(dirname "${BASH_SOURCE[0]}")/kata-image-features.sh"
+if is_azurelinux3_kata_image; then
+    publishing_info=$(jq --argjson features "$(kata_image_features)" \
+        '.gallery_image_features = $features' vhd-publishing-info.json)
     printf '%s\n' "$publishing_info" > vhd-publishing-info.json
 fi
 
