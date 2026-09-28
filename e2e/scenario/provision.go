@@ -166,7 +166,11 @@ func freshScenario(s *Scenario) *Scenario {
 }
 
 func runScenarioCleanup(ctx context.Context, cleanup *scenarioCleanup) error {
-	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), CleanupTimeout)
+	timeout := CleanupTimeout
+	if cleanup.timeout > timeout {
+		timeout = cleanup.timeout
+	}
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	defer cancel()
 	if err := cleanup.runCleanups(cleanupCtx); err != nil {
 		return fmt.Errorf("scenario cleanup failed: %w", err)
@@ -200,6 +204,17 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	defer func() {
 		markScenarioOutcome(s, runErr, recover())
 	}()
+	var approvedCluster *Cluster
+	if s.Name == "ACL" && os.Getenv(aclIPETransitionEnv) != "" {
+		if err := aclIPETransitionGate(s); err != nil {
+			return err
+		}
+		var err error
+		approvedCluster, err = aclIPEPrepareApprovedCluster(ctx, s)
+		if err != nil {
+			return err
+		}
+	}
 	if err := maybeSkipScenario(ctx, scenarioName, s); err != nil {
 		return err
 	}
@@ -212,7 +227,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	}
 	defer logging.LogStep(ctx, "running scenario")()
 
-	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
+	cluster, err := aclIPESelectCluster(ctx, s, approvedCluster, ClusterRequest{
 		Location:         s.Location,
 		K8sSystemPoolSKU: s.K8sSystemPoolSKU,
 	})
@@ -402,19 +417,29 @@ func annotateVMSSCreateError(s *Scenario, err error) error {
 
 func maybeSkipScenario(ctx context.Context, name string, s *Scenario) error {
 	s.Tags = s.EffectiveTags()
+	if _, err := aclIPEExpectedMode(s); err != nil {
+		return err
+	}
+	if err := aclIPETransitionGate(s); err != nil {
+		return err
+	}
 
 	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
 		Image:    *s.VHD,
 		Location: s.Location,
 	})
 	if err != nil {
-		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
+		if shouldSkipMissingVHD(s, err) {
 			return &skipError{message: fmt.Sprintf("scenario %q image for VHD %s was not found: %s", name, s.VHD.Distro, err)}
 		}
 		return fmt.Errorf("failing scenario %q: could not find image for VHD %s: %w", name, s.VHD.Distro, err)
 	}
 	logging.Logf(ctx, "TAGS %+v", s.Tags)
 	return nil
+}
+
+func shouldSkipMissingVHD(s *Scenario, err error) bool {
+	return config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) && !aclIPEValidationRequested(s)
 }
 
 func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) error {

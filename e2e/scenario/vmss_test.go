@@ -3,6 +3,7 @@ package scenario
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -45,22 +46,31 @@ func (f vmssCreationTestPolicy) Do(req *policy.Request) (*http.Response, error) 
 }
 
 type vmssCreationTestCase struct {
-	name          string
-	provisionCode string
-	running       bool
-	sshFails      bool
-	skipSSH       bool
-	viewFails     bool
-	noVM          bool
-	noNetwork     bool
-	listFails     bool
-	noNIC         bool
-	vmAfterPoll   bool
-	pendingPolls  int
-	pollCount     int
-	wantErr       string
-	wantSSH       bool
-	polled        bool
+	name             string
+	provisionCode    string
+	running          bool
+	sshFails         bool
+	skipSSH          bool
+	viewFails        bool
+	noVM             bool
+	noNetwork        bool
+	listFails        bool
+	noNIC            bool
+	vmAfterPoll      bool
+	ipeMode          bool
+	preexisting      bool
+	beginFails       bool
+	receiptReadFails bool
+	foreignReceipt   bool
+	created          bool
+	creationToken    string
+	deleted          bool
+	deletePolled     bool
+	pendingPolls     int
+	pollCount        int
+	wantErr          string
+	wantSSH          bool
+	polled           bool
 }
 
 func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
@@ -82,17 +92,31 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 		{name: "CSE failed with guest diagnostics available", provisionCode: "VMExtensionProvisioningError", running: true, wantSSH: true},
 		{name: "CSE failed with SSH validation disabled", provisionCode: "VMExtensionProvisioningError", running: true, skipSSH: true},
 		{name: "instance view unavailable", provisionCode: "AllocationFailed", viewFails: true, sshFails: true},
-		{name: "creation succeeded but SSH failed", running: true, sshFails: true, wantSSH: true},
+		{name: "ACL transition provisioning fails without instance", provisionCode: "VMExtensionProvisioningError", noVM: true, ipeMode: true},
+		{name: "ACL transition VM has no NIC", noNIC: true, wantErr: "no network interfaces found", ipeMode: true},
+		{name: "creation succeeded but SSH failed", running: true, sshFails: true, wantSSH: true, ipeMode: true},
 		{name: "creation and SSH succeeded", running: true, wantSSH: true},
 		{name: "network available before creation completes", running: true, pendingPolls: 2, wantSSH: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.ipeMode {
+				t.Setenv(aclIPEModeEnv, "off")
+				t.Setenv(aclIPETransitionEnv, "off-to-audit")
+				previousSubscription, previousKeep := config.Config.SubscriptionID, config.Config.KeepVMSS
+				config.Config.SubscriptionID, config.Config.KeepVMSS = "test", false
+				t.Cleanup(func() {
+					config.Config.SubscriptionID, config.Config.KeepVMSS = previousSubscription, previousKeep
+				})
+			}
 			synctest.Test(t, func(t *testing.T) {
 				previousAzure := config.Azure
 				config.Azure = tt.client(t)
 				t.Cleanup(func() { config.Azure = previousAzure })
 				s := &Scenario{
-					Config: Config{SkipSSHConnectivityValidation: tt.skipSSH},
+					// Avoid unrelated Linux boot-log collection while exercising the real cleanup callback.
+					Config: Config{SkipSSHConnectivityValidation: tt.skipSSH,
+						VHD: &config.Image{OS: config.OSWindows}},
+					cleanup: &scenarioCleanup{},
 					Runtime: &ScenarioRuntime{
 						VMSSName: "vmss",
 						Cluster: &Cluster{Model: &armcontainerservice.ManagedCluster{
@@ -102,6 +126,9 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 							},
 						}},
 					},
+				}
+				if tt.ipeMode {
+					s.Name = "ACL"
 				}
 				sshErr := errors.New("SSH handshake failed")
 				sshClient := &SSHClient{}
@@ -121,7 +148,11 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 				}
 				ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 				defer cancel()
-				vm, err := createVMSS(logging.WithLogger(ctx, logger), s, "rg", armcompute.VirtualMachineScaleSet{}, dialSSH)
+				model := armcompute.VirtualMachineScaleSet{}
+				if tt.ipeMode {
+					model.Tags = map[string]*string{"owner": to.Ptr("e2e")}
+				}
+				vm, err := createVMSS(logging.WithLogger(ctx, logger), s, "rg", model, dialSSH)
 				require.NotNil(t, vm)
 				assert.Equal(t, tt.wantSSH, sshCalled)
 				if tt.provisionCode != "" {
@@ -147,7 +178,80 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 				if tt.wantSSH && !tt.sshFails {
 					assert.Same(t, sshClient, vm.SSHClient, "retain the connection for guest diagnostics")
 				}
+				if tt.ipeMode {
+					require.NotNil(t, vm.ipeCreationReceipt, "SSH failure must preserve verified ARM creation ownership")
+					require.NotNil(t, vm.VMSS)
+					require.Equal(t, *vm.VMSS.ID, vm.ipeCreationReceipt.resourceID)
+					require.Equal(t, tt.creationToken, vm.ipeCreationReceipt.token)
+					s.Runtime.VM = vm
+					registerVMSSCleanup(s, vm)
+					require.Equal(t, aclIPETransitionCleanTime, s.cleanup.timeout)
+					require.NoError(t, s.cleanup.runCleanups(logging.WithLogger(ctx, logger)))
+					require.True(t, tt.deleted, "owned teardown must dispatch ARM DELETE even when SSH failed")
+					require.True(t, tt.deletePolled, "owned teardown must await ARM DELETE")
+				}
 			})
+		})
+	}
+}
+
+func TestACLIPECreationOwnershipOnAmbiguousFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name, wantError                                                      string
+		preexisting, beginFails, receiptReadFails, foreignReceipt, wantOwned bool
+	}{
+		{name: "preexisting VMSS", preexisting: true, wantError: "already exists"},
+		{name: "ambiguous create recovered", beginFails: true, wantOwned: true, wantError: "ambiguous create response"},
+		{name: "ambiguous create cannot read", beginFails: true, receiptReadFails: true, wantError: "cannot verify ACL IPE VMSS creation ownership"},
+		{name: "ambiguous create foreign marker", beginFails: true, foreignReceipt: true, wantError: "refuse ownership of ambiguous ACL IPE VMSS"},
+		{name: "successful create cannot read", receiptReadFails: true, wantError: "cannot verify ACL IPE VMSS creation ownership"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(aclIPEModeEnv, "off")
+			t.Setenv(aclIPETransitionEnv, "off-to-audit")
+			oldAzure, oldSub, oldKeep := config.Azure, config.Config.SubscriptionID, config.Config.KeepVMSS
+			t.Cleanup(func() {
+				config.Azure, config.Config.SubscriptionID, config.Config.KeepVMSS = oldAzure, oldSub, oldKeep
+			})
+			config.Config.SubscriptionID, config.Config.KeepVMSS = "test", false
+			tt := &vmssCreationTestCase{
+				ipeMode: true, preexisting: tc.preexisting, beginFails: tc.beginFails,
+				receiptReadFails: tc.receiptReadFails, foreignReceipt: tc.foreignReceipt,
+			}
+			config.Azure = tt.client(t)
+			s := &Scenario{
+				Name: "ACL", Config: Config{VHD: &config.Image{OS: config.OSWindows}}, cleanup: &scenarioCleanup{},
+				Runtime: &ScenarioRuntime{VMSSName: "vmss", Cluster: &Cluster{
+					Model: &armcontainerservice.ManagedCluster{
+						Location:   to.Ptr("southeastasia"),
+						Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr("rg")},
+					},
+				}},
+			}
+			model := armcompute.VirtualMachineScaleSet{Tags: map[string]*string{"owner": to.Ptr("e2e")}}
+			vm, err := createVMSS(t.Context(), s, "rg", model,
+				func(context.Context, *Bastion, string, []byte) (*SSHClient, error) {
+					t.Fatal("must not dial SSH after failed VMSS creation")
+					return nil, nil
+				})
+			require.ErrorContains(t, err, tc.wantError)
+			require.NotNil(t, vm)
+			require.Equal(t, tc.wantOwned, vm.ipeCreationReceipt != nil)
+			s.Runtime.VM = vm
+			registerVMSSCleanup(s, vm)
+			cleanupErr := s.cleanup.runCleanups(t.Context())
+			if tc.wantOwned {
+				require.NoError(t, cleanupErr)
+				require.True(t, tt.deleted, "verified creation receipt must dispatch awaited owned deletion")
+				require.True(t, tt.deletePolled)
+			} else {
+				require.False(t, tt.deleted, "unknown or foreign VMSS must not be deleted")
+				if tt.created {
+					require.ErrorContains(t, cleanupErr, "ownership unverified")
+				} else {
+					require.NoError(t, cleanupErr)
+				}
+			}
 		})
 	}
 }
@@ -249,9 +353,21 @@ func (tt *vmssCreationTestCase) respond(t *testing.T, req *http.Request) *http.R
 	var body string
 	switch {
 	case req.Method == http.MethodPut && req.URL.Path == vmssPath:
+		if tt.ipeMode {
+			require.Equal(t, "*", req.Header.Get("If-None-Match"), "create-only write must not overwrite a competing VMSS")
+			var submitted armcompute.VirtualMachineScaleSet
+			require.NoError(t, json.NewDecoder(req.Body).Decode(&submitted))
+			require.NotNil(t, submitted.Tags[aclIPECreationTag])
+			tt.creationToken = *submitted.Tags[aclIPECreationTag]
+			tt.created = true
+		}
 		status = http.StatusCreated
 		header.Set("Azure-AsyncOperation", "https://management.azure.com/operations/create")
 		body = `{"properties":{"provisioningState":"Creating"}}`
+		if tt.beginFails {
+			status = http.StatusConflict
+			body = `{"error":{"code":"Conflict","message":"ambiguous create response"}}`
+		}
 	case req.Method == http.MethodGet && req.URL.Path == "/operations/create":
 		tt.polled = true
 		tt.pollCount++
@@ -267,8 +383,34 @@ func (tt *vmssCreationTestCase) respond(t *testing.T, req *http.Request) *http.R
 		if tt.pollCount <= tt.pendingPolls {
 			body = `{"status":"InProgress"}`
 		}
+	case req.Method == http.MethodGet && req.URL.Path == "/operations/delete":
+		tt.deletePolled = true
+		body = `{"status":"Succeeded"}`
 	case req.Method == http.MethodGet && req.URL.Path == vmssPath:
 		body = fmt.Sprintf(`{"id":%q,"properties":{"provisioningState":"Succeeded"}}`, vmssPath)
+		if tt.ipeMode {
+			switch {
+			case (!tt.created && !tt.preexisting) || tt.deleted:
+				status = http.StatusNotFound
+				body = `{"error":{"code":"ResourceNotFound"}}`
+			case tt.receiptReadFails:
+				status = http.StatusForbidden
+				body = `{"error":{"code":"AuthorizationFailed"}}`
+			default:
+				_, owned := aclIPEFixture()
+				owned.ID, owned.Name = to.Ptr(vmssPath), to.Ptr("vmss")
+				owned.Tags[aclIPECreationTag] = to.Ptr(tt.creationToken)
+				if tt.foreignReceipt {
+					owned.Tags[aclIPECreationTag] = to.Ptr("someone-else")
+				}
+				body = aclIPEModelJSON(t, owned)
+			}
+		}
+	case req.Method == http.MethodDelete && req.URL.Path == vmssPath:
+		require.True(t, tt.ipeMode, "legacy deletion must not be used in the transition test")
+		tt.deleted = true
+		status = http.StatusAccepted
+		header.Set("Azure-AsyncOperation", "https://management.azure.com/operations/delete")
 	case req.Method == http.MethodGet && req.URL.Path == vmssPath+"/virtualMachines":
 		body = `{"value":[` + vmBody(true) + `]}`
 		if tt.noVM || (tt.vmAfterPoll && !tt.polled) {

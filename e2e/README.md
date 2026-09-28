@@ -16,6 +16,95 @@ From a high-level, for each scenario,
 3. Liveness and health checks and then run to make sure the new VM's kubelet is posting NodeReady, and that workload
    pods can successfully be scheduled and run on the new node.
 
+### Opt-in ACL IPE first-boot checks on an AKS-registered VMSS node
+
+For two separate signed-image runs in the VHD release pipeline, queue
+`aclIpeExpectedMode=off` for the default-off image and
+`aclIpeExpectedMode=audit` for the separately signed audit-default image
+(`PR head + 05a5719`). The parameter defaults to `none`; the release E2E task
+passes the selected mode as `ACL_IPE_EXPECTED_MODE`. For standalone E2E runs,
+set that environment variable explicitly. Select the existing `ACL` scenario
+(AMD64 TL); the release opt-in passes `ACL` as the sole scenario selector, so
+other Linux and ACL scenarios do not run even if E2E would otherwise be skipped.
+With mode `none`, the release keeps its ordinary E2E selection.
+With the variable set, an invalid mode, absent/filtered/skipped ACL, missing
+VHD, or missing mode-specific validation evidence fails the run even when
+missing-VHD skips are enabled. **Neither** run sets an IPE profile
+tag: the creation model, created VMSS/instance tags, and live IMDS must lack
+`acl-node-security-profile` before audit validation. The off image must load
+the policy inactive; the separately published audit-default image must
+activate it without a tag.
+Both checks require the exact PR52 policy and rules loaded in securityfs
+(active with `enforce=0` for audit), matching IMDS VM/VMSS identity, an empty
+successful initrd profile cache, the first-boot UKI addon marker and policy
+hash on the kernel command line, a current-boot loader journal reporting the
+expected mode and loaded policy, and kubelet/containerd health.
+Missing evidence fails; the journal verifies the initrd credential hash,
+not a post-boot read of its transient initrd path. The empty cache records
+the profile **value**, not historical tag absence by itself; the creation
+model, VMSS/instance response, live IMDS, and current-boot journal provide
+the additional evidence. If provisioning rebooted the node and the first-boot
+marker is absent, the first-boot measurement fails. In audit
+mode it follows the [PR52 permissive probe](https://github.com/microsoft/azure-container-linux/blob/e7aff50e946d9693545ed91c7170a3951a998a55/acl/tests/ipe/run-ipe-permissive-test.sh):
+copy `/usr/bin/true` into an isolated `/var/tmp` directory, execute it, and
+require a matching current-boot IPE EXECUTE audit record (native journald
+`_TRANSPORT=audit`, `_AUDIT_TYPE=1420`, or kernel-log fallback) for the
+`DEFAULT op=EXECUTE action=DENY` rule. Confirm
+`ACL_IPE_FirstBoot_<mode>` passes in **both** runs and `ACL_IPE_AuditDeny`
+passes in the audit run; E2E alone does not prove the ACL scenario executed.
+
+The `ACL` scenario uses a standalone, scenario-owned Compute VMSS, not an
+AKS-managed agent pool. Its VM joins the existing cluster as a Kubernetes
+Ready node and runs a targeted workload. These checks do not validate
+AKS-managed pool image selection. The cluster's `nodepool1` is shared and
+must not be changed.
+
+For a separate **empirical** off-to-audit check on the default-off signed
+image, set `ACL_IPE_EXPECTED_MODE=off`, `ACL_IPE_TRANSITION=off-to-audit`, and
+`ACL_IPE_TRANSITION_APPROVED_CLUSTER_ID` to the exact resource ID of the
+reused AKS cluster, **only with its owner's approval**. Keep `KEEP_VMSS=false`.
+The approved cluster must already be Succeeded with the expected E2E kubenet
+identity; the opt-in reads it before image/resource preparation and never
+uses the generic cluster create/reconcile path. VHD caching/pre-provisioning
+is not supported in this opt-in.
+If that node is expected to run system DaemonSets, explicitly list their
+exact `kube-system` names in `ACL_IPE_TRANSITION_ALLOWED_SYSTEM_DAEMONSETS`
+(comma-separated); an empty list permits none. This opt-in creates a
+one-instance scenario VMSS with Manual upgrade policy and a pre-registration
+NoSchedule isolation taint. Only the scenario's targeted probe is given the
+new toleration; broadly tolerated workloads can still land there, so the
+all-namespace guard rejects unexpected workloads before and after restart.
+The Azure CLI caller must match the VMSS owner tag and have effective
+`Microsoft.Compute/virtualMachineScaleSets/{read,write,delete}` and
+`Microsoft.Compute/virtualMachineScaleSets/virtualMachines/{read,restart/action}`
+on that VMSS. Kubernetes access must include nodes `get/list`, node Leases
+`get` in `kube-node-lease`, cluster-wide pods `list`, and default-namespace
+pods `create/get/delete`. No grants or shared pool changes are made.
+
+The opt-in uses a create-only ARM precondition and confirms a unique creation
+tag in an ARM read before VM discovery or SSH; it does not retry an ambiguous
+create. Bounded owned-VMSS teardown is armed from that receipt even when
+provisioning or SSH fails. If ownership cannot be read and verified, cleanup
+refuses name-only diagnostics/deletion and reports the uncertainty rather than
+touching an unknown VMSS. After verifying untagged first boot
+and a fresh targeted Pod, the check
+records VM/image/ephemeral OS-disk configuration, a disk-backed guest nonce,
+Node identity and a fresh Lease. It PATCHes only VMSS model tags with an
+ETag, preserving all original keys and setting
+`acl-node-security-profile=ipe=audit`; then it restarts only that instance.
+The post-restart check requires the same VM/image/disk configuration and
+nonce, new boot ID, unchanged Node UID/providerID, a Ready node and Lease
+renewed after the observed new boot, exact IMDS
+profile, current-boot initrd cache/credential/loader evidence, active
+permissive PR52 policy and audit denial, recovered services, and a newly
+executed targeted Pod (matching the Create-response UID). The existing VMSS
+cleanup callback collects logs,
+conditionally restores original model tags, then deletes **only** the
+verified owned VMSS and waits for deletion; any failure is reported.
+If `/var/lib` cannot be proved disk-backed or model tags do not reach the
+existing instance on restart, the test fails explicitly. No manual upgrade,
+reimage, deallocate, AKS AgentPool update, or claim of live AKS success.
+
 ## Writing and extending scenarios
 
 Extend an existing scenario's `Validator` when its node has the required settings.

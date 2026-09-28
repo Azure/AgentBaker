@@ -935,6 +935,13 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	if s.Tags.MockAzureChinaCloud {
 		image = "mcr.azk8s.cn/cbl-mariner/busybox:2.0"
 	}
+	tolerations := getPodTolerations()
+	if s.Name == "ACL" && aclIPETransitionEnabled() {
+		tolerations = append(tolerations, corev1.Toleration{
+			Key: aclIPETransitionTaintKey, Operator: corev1.TolerationOpEqual,
+			Value: "true", Effect: corev1.TaintEffectNoSchedule,
+		})
+	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.VM.KubeName),
@@ -959,7 +966,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
 			// This is to ensure that the pod can be scheduled on the node with the taints.
 			// It won't affect other pods running on the same node.
-			Tolerations:  getPodTolerations(),
+			Tolerations:  tolerations,
 			NodeSelector: getNodeSelectorForScenario(s),
 		},
 	}

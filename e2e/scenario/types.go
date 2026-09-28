@@ -105,11 +105,14 @@ type ScenarioRuntime struct {
 }
 
 type ScenarioVM struct {
-	KubeName  string
-	VMSS      *armcompute.VirtualMachineScaleSet
-	VM        *armcompute.VirtualMachineScaleSetVM
-	PrivateIP string
-	SSHClient *SSHClient
+	KubeName             string
+	VMSS                 *armcompute.VirtualMachineScaleSet
+	VM                   *armcompute.VirtualMachineScaleSetVM
+	PrivateIP            string
+	SSHClient            *SSHClient
+	ipeCreationAttempted bool
+	ipeCreationReceipt   *aclIPECreationReceipt
+	ipeTransitionCleanup func(context.Context) error
 }
 
 // CustomDataWriteFile defines an e2e-only cloud-init write_files entry.
@@ -257,6 +260,11 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 	}
 
 	s.updateTags(ctx, vmss)
+	if aclIPEValidationRequested(s) {
+		if err := validateACLIPEVMSSNoProfileTag(vmss.Tags); err != nil {
+			return fmt.Errorf("ACL IPE scenario VMSS creation model: %w", err)
+		}
+	}
 	return nil
 }
 

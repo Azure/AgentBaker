@@ -118,13 +118,23 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	default:
 		return &usageError{message: "--output must be auto, grouped, or stream"}
 	}
+	ipeMode, err := scenario.ACLIPEExpectedMode()
+	if err != nil {
+		return &usageError{message: err.Error()}
+	}
 
 	scenarios := selectScenarios(scenario.List(), opts.selectors)
+	if err := requireACLIPEOnly(scenarios, ipeMode); err != nil {
+		return err
+	}
 	if len(scenarios) == 0 {
 		return &usageError{message: "no scenarios matched the requested names"}
 	}
 	runnable, filtered, err := partitionScenarios(scenarios, opts.tagFilter)
 	if err != nil {
+		return err
+	}
+	if err := requireACLIPEOnly(runnable, ipeMode); err != nil {
 		return err
 	}
 	if len(runnable) == 0 {
@@ -159,6 +169,9 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	}
 	summary := exec.printSummary(results)
 
+	if err := requireACLIPEPassed(results, ipeMode); err != nil {
+		return err
+	}
 	if waitErr != nil {
 		return waitErr
 	}
@@ -166,6 +179,50 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 		return fmt.Errorf("%d scenario(s) failed", summary.Failed)
 	}
 	return nil
+}
+
+func requireACLIPEOnly(scenarios []*scenario.Scenario, mode string) error {
+	if mode == "" {
+		return nil
+	}
+	if len(scenarios) == 1 && scenarios[0].Name == "ACL" {
+		return nil
+	}
+	return fmt.Errorf("ACL_IPE_EXPECTED_MODE=%s requires exactly the ACL scenario, selected and not filtered", mode)
+}
+
+func requireACLIPEPassed(results []scenarioResult, mode string) error {
+	if mode == "" {
+		return nil
+	}
+	for _, result := range results {
+		if result.Name != "ACL" {
+			continue
+		}
+		if result.Status != statusPassed && result.Status != statusFlaky {
+			return fmt.Errorf("ACL IPE %s validation did not run successfully: ACL scenario %s", mode, result.Status)
+		}
+		if len(result.Attempts) == 0 || result.Attempts[len(result.Attempts)-1].Status != statusPassed {
+			return fmt.Errorf("ACL IPE %s validation has no passing ACL attempt", mode)
+		}
+		required := []string{"ACL_IPE_FirstBoot_" + mode}
+		if mode == "audit" {
+			required = append(required, "ACL_IPE_AuditDeny")
+		}
+		for _, name := range required {
+			found := false
+			for _, measurement := range result.Attempts[len(result.Attempts)-1].ADOTestCases {
+				if measurement.Name == name && measurement.Message == "" {
+					found = true
+				}
+			}
+			if !found {
+				return fmt.Errorf("ACL IPE %s validation lacks passing %s evidence in the final ACL attempt", mode, name)
+			}
+		}
+		return nil
+	}
+	return fmt.Errorf("ACL IPE %s validation has no ACL scenario result", mode)
 }
 
 func resetLogDirectory(path string) error {

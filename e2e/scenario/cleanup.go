@@ -17,6 +17,7 @@ type scenarioCleanup struct {
 	mu       sync.Mutex
 	cleanups []func(context.Context) error
 	closed   bool
+	timeout  time.Duration
 }
 
 // Cleanup registers an independent callback. Keep dependent operations in one callback.

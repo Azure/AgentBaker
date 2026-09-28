@@ -46,6 +46,123 @@ func TestPartitionScenariosAcceptsLegacyTestNameFilter(t *testing.T) {
 	assert.Equal(t, "Ubuntu2204", filtered[0].Name)
 }
 
+func TestACLIPEOptInRequiresOnlyUnfilteredACL(t *testing.T) {
+	cases := []struct {
+		name, mode, filter, want string
+		selectors                []string
+		child                    bool
+	}{
+		{name: "ordinary run selects all"},
+		{name: "ordinary run without ACL", selectors: []string{"ACL_CustomCA"}},
+		{name: "off selects only ACL", mode: "off", selectors: []string{"ACL"}},
+		{name: "audit selects only ACL", mode: "audit", selectors: []string{"ACL"}},
+		{name: "off rejects all Linux", mode: "off", want: "requires exactly the ACL scenario"},
+		{name: "audit rejects all Linux", mode: "audit", want: "requires exactly the ACL scenario"},
+		{name: "off rejects other ACL scenario", mode: "off", selectors: []string{"ACL", "ACL_CustomCA"}, want: "requires exactly the ACL scenario"},
+		{name: "audit rejects other ACL scenario", mode: "audit", selectors: []string{"ACL", "ACL_AzureCNI"}, want: "requires exactly the ACL scenario"},
+		{name: "off rejects nested ACL", mode: "off", selectors: []string{"ACL"}, child: true, want: "requires exactly the ACL scenario"},
+		{name: "off missing ACL", mode: "off", selectors: []string{"ACL_CustomCA"}, want: "requires exactly the ACL scenario"},
+		{name: "audit filtered ACL", mode: "audit", selectors: []string{"ACL"}, filter: "Name=ACL", want: "not filtered"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			registry := []*scenario.Scenario{
+				{Name: "ACL"}, {Name: "ACL_CustomCA"}, {Name: "ACL_AzureCNI"},
+				{Name: "ACL_NetworkIsolatedCluster_NonAnonymousACR"}, {Name: "Ubuntu2204"},
+			}
+			if tc.child {
+				registry = append(registry, &scenario.Scenario{Name: "ACL/child"})
+			}
+			scenarios := selectScenarios(registry, tc.selectors)
+			err := requireACLIPEOnly(scenarios, tc.mode)
+			if err == nil {
+				runnable, _, partitionErr := partitionScenarios(scenarios, tagFilter{skip: tc.filter})
+				require.NoError(t, partitionErr)
+				err = requireACLIPEOnly(runnable, tc.mode)
+			}
+			if tc.want == "" {
+				require.NoError(t, err)
+				if tc.mode != "" {
+					require.Len(t, scenarios, 1)
+					require.Equal(t, "ACL", scenarios[0].Name)
+				}
+			} else {
+				require.ErrorContains(t, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestACLIPEOptInRequiresPassingMeasurements(t *testing.T) {
+	firstBoot := func(mode string) scenario.Measurement {
+		return scenario.Measurement{Name: "ACL_IPE_FirstBoot_" + mode}
+	}
+	auditDeny := scenario.Measurement{Name: "ACL_IPE_AuditDeny"}
+	tests := []struct {
+		name, mode, want string
+		results          []scenarioResult
+	}{
+		{name: "ordinary run may skip ACL", results: []scenarioResult{{Name: "ACL", Status: statusSkipped}}},
+		{name: "off passes", mode: "off", results: []scenarioResult{{Name: "ACL", Status: statusPassed,
+			Attempts: []attemptResult{{Status: statusPassed, ADOTestCases: []scenario.Measurement{firstBoot("off")}}}}}},
+		{name: "audit passes", mode: "audit", results: []scenarioResult{{Name: "ACL", Status: statusPassed,
+			Attempts: []attemptResult{{Status: statusPassed, ADOTestCases: []scenario.Measurement{firstBoot("audit"), auditDeny}}}}}},
+		{name: "off absent", mode: "off", want: "no ACL scenario result", results: []scenarioResult{{Name: "ACL_CustomCA", Status: statusPassed}}},
+		{name: "off skipped missing image", mode: "off", want: "ACL scenario skipped", results: []scenarioResult{{Name: "ACL", Status: statusSkipped,
+			Attempts: []attemptResult{{Status: statusSkipped, Message: "image aclgen2TL missing"}}}}},
+		{name: "audit filtered", mode: "audit", want: "ACL scenario skipped", results: []scenarioResult{{Name: "ACL", Status: statusSkipped,
+			Attempts: []attemptResult{{Status: statusSkipped, Message: "filtered: Name=ACL"}}}}},
+		{name: "off failed missing image", mode: "off", want: "ACL scenario failed", results: []scenarioResult{{Name: "ACL", Status: statusFailed,
+			Attempts: []attemptResult{{Status: statusFailed, Message: "image aclgen2TL missing"}}}}},
+		{name: "off missing first boot", mode: "off", want: "ACL_IPE_FirstBoot_off", results: []scenarioResult{{Name: "ACL", Status: statusPassed,
+			Attempts: []attemptResult{{Status: statusPassed}}}}},
+		{name: "off wrong mode", mode: "off", want: "ACL_IPE_FirstBoot_off", results: []scenarioResult{{Name: "ACL", Status: statusPassed,
+			Attempts: []attemptResult{{Status: statusPassed, ADOTestCases: []scenario.Measurement{firstBoot("audit")}}}}}},
+		{name: "audit missing deny", mode: "audit", want: "ACL_IPE_AuditDeny", results: []scenarioResult{{Name: "ACL", Status: statusPassed,
+			Attempts: []attemptResult{{Status: statusPassed, ADOTestCases: []scenario.Measurement{firstBoot("audit")}}}}}},
+		{name: "off failed measurement", mode: "off", want: "ACL_IPE_FirstBoot_off", results: []scenarioResult{{Name: "ACL", Status: statusPassed,
+			Attempts: []attemptResult{{Status: statusPassed, ADOTestCases: []scenario.Measurement{{Name: firstBoot("off").Name, Message: "policy failed"}}}}}}},
+		{name: "off flaky final pass", mode: "off", results: []scenarioResult{{Name: "ACL", Status: statusFlaky,
+			Attempts: []attemptResult{{Status: statusFailed}, {Status: statusPassed, ADOTestCases: []scenario.Measurement{firstBoot("off")}}}}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := requireACLIPEPassed(tc.results, tc.mode)
+			if tc.want == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestAppACLIPEOptInFailsBeforeInitializationWhenACLExcluded(t *testing.T) {
+	for _, tc := range []struct {
+		name, mode, skip, want string
+		selectors              []string
+	}{
+		{name: "off missing selector", mode: "off", selectors: []string{"ACL_CustomCA"}, want: "requires exactly the ACL scenario"},
+		{name: "audit filtered", mode: "audit", selectors: []string{"ACL"}, skip: "Name=ACL", want: "not filtered"},
+		{name: "off rejects all", mode: "off", want: "requires exactly the ACL scenario"},
+		{name: "audit rejects other ACL", mode: "audit", selectors: []string{"ACL", "ACL_CustomCA"}, want: "requires exactly the ACL scenario"},
+		{name: "invalid mode", mode: "enforce", selectors: []string{"ACL"}, want: "must be off or audit"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			restoreRunnerConfig(t)
+			t.Setenv("ACL_IPE_EXPECTED_MODE", tc.mode)
+			before := azureInitProbe()
+			var stderr bytes.Buffer
+			args := []string{"e2e", "run", "--log-dir", t.TempDir(), "--skip-tags", tc.skip}
+			args = append(args, tc.selectors...)
+			code := NewApp(&bytes.Buffer{}, &stderr).Run(t.Context(), args)
+			require.NotEqual(t, exitSuccess, code)
+			require.Contains(t, stderr.String(), tc.want)
+			require.Equal(t, before, azureInitProbe())
+		})
+	}
+}
+
 func TestFilterReasonIsConcise(t *testing.T) {
 	s := &scenario.Scenario{
 		Name: "Windows2025Gen2_McrChinaCloud_Windows",

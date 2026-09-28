@@ -199,6 +199,17 @@ const vmssLogCollectionTimeout = 4 * time.Minute
 
 func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	vm, err := createVMSSRecreatingOnOutboundCSEFlake(ctx, s)
+	registerVMSSCleanup(s, vm)
+	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil && !aclIPEValidationRequested(s) {
+		return vm, skipErr
+	}
+	return vm, err
+}
+
+func registerVMSSCleanup(s *Scenario, vm *ScenarioVM) {
+	if aclIPETransitionEnabled() && s.Name == "ACL" && vm != nil && vm.ipeCreationReceipt != nil {
+		aclIPEArmOwnedCleanup(s, vm)
+	}
 
 	// Register teardown once, for the terminal VMSS (successful attempt, or an exhausted /
 	// non-retryable failure). Intermediate exit-50 retry attempts are deleted synchronously
@@ -209,18 +220,21 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		if vm != nil {
 			defer cleanupBastionTunnel(vm.SSHClient)
 		}
+		if aclIPETransitionEnabled() && s.Name == "ACL" && (vm == nil || vm.ipeCreationReceipt == nil) {
+			if vm != nil && vm.ipeCreationAttempted {
+				return fmt.Errorf("ACL IPE creation ownership unverified; refuse VMSS diagnostics and name-only deletion")
+			}
+			return nil
+		}
 		logErr := runWithPanicRecovery(ctx, func(ctx context.Context) error {
 			extractLogsFromVM(ctx, s, vm)
 			return nil
 		})
+		if aclIPETransitionEnabled() && s.Name == "ACL" {
+			return errors.Join(logErr, aclIPEFinishCleanup(ctx, s, vm))
+		}
 		return errors.Join(logErr, deleteVMSS(ctx, s))
 	})
-
-	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
-		return vm, skipErr
-	}
-
-	return vm, err
 }
 
 // createVMSSRecreatingOnOutboundCSEFlake creates the VMSS and, on the known transient e2e-infra
@@ -235,6 +249,14 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 // The returned VMSS is the terminal one (successful attempt, or an exhausted / non-retryable
 // failure); the caller is responsible for registering its teardown.
 func createVMSSRecreatingOnOutboundCSEFlake(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
+	if aclIPETransitionEnabled() && s.Name == "ACL" {
+		// Retrying an uncertain create could lose its receipt before the terminal cleanup is registered.
+		if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
+			s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil {
+			return nil, fmt.Errorf("ACL IPE transition has no scenario node resource group")
+		}
+		return CreateVMSS(ctx, s, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup)
+	}
 	var vm *ScenarioVM
 	var err error
 	for attempt := 0; ; attempt++ {
@@ -586,13 +608,32 @@ func createVMSS(
 	dialSSH func(context.Context, *Bastion, string, []byte) (*SSHClient, error),
 ) (*ScenarioVM, error) {
 	vm := &ScenarioVM{}
+	var createOptions *armcompute.VirtualMachineScaleSetsClientBeginCreateOrUpdateOptions
+	if aclIPETransitionEnabled() && s.Name == "ACL" {
+		if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
+			s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
+			!strings.EqualFold(resourceGroupName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup) {
+			return vm, fmt.Errorf("ACL IPE creation resource group differs from the approved cluster node resource group")
+		}
+		if err := aclIPEPrepareCreation(ctx, s, &model); err != nil {
+			return vm, err
+		}
+		vm.ipeCreationAttempted = true
+		createOptions = &armcompute.VirtualMachineScaleSetsClientBeginCreateOrUpdateOptions{IfNoneMatch: to.Ptr("*")}
+	}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		s.Runtime.VMSSName,
 		model,
-		nil,
+		createOptions,
 	)
+	if vm.ipeCreationAttempted {
+		receiptErr := aclIPERetainCreationReceipt(ctx, s, vm, model)
+		if receiptErr != nil {
+			return vm, errors.Join(err, receiptErr)
+		}
+	}
 	if err != nil {
 		return vm, err
 	}
@@ -661,12 +702,13 @@ func createVMSS(
 	}
 	logRCV1PAwareTags(ctx, s, "VM instance", "running", *vm.VM.InstanceID, vmInstanceID, vm.VM.Tags, weSetRCV1PTag, true)
 
-	return &ScenarioVM{
-		VMSS:      &vmssResp.VirtualMachineScaleSet,
-		PrivateIP: vm.PrivateIP,
-		VM:        vm.VM,
-		SSHClient: vm.SSHClient,
-	}, nil
+	if vm.ipeCreationReceipt != nil {
+		if err := aclIPEVerifyCreationReceipt(s, &vmssResp.VirtualMachineScaleSet, model.Tags, vm.ipeCreationReceipt); err != nil {
+			return vm, fmt.Errorf("verify completed ACL IPE VMSS creation: %w", err)
+		}
+	}
+	vm.VMSS = &vmssResp.VirtualMachineScaleSet
+	return vm, nil
 }
 
 func vmssVMRunningAfterFailure(ctx context.Context, s *Scenario, vm *armcompute.VirtualMachineScaleSetVM) bool {

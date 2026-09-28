@@ -63,16 +63,26 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			if aclIPETransitionEnabled() {
+				nbc.KubeletConfig["--register-with-taints"] = aclIPETransitionTaint
+			}
 		},
 		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			if aclIPETransitionEnabled() {
+				config.KubeletConfig.KubeletFlags["--register-with-taints"] = aclIPETransitionTaint
+			}
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			if aclIPETransitionEnabled() {
+				vmss.Properties.UpgradePolicy.Mode = to.Ptr(armcompute.UpgradeModeManual)
+			}
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				ValidateACLIPE(ctx, s),
 			)
 		},
 	},

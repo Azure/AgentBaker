@@ -96,7 +96,16 @@ fi
 az extension add --name bastion
 
 cd e2e
-go test -count=1 ./...
+# The scenario mode applies to the runner, not the unit tests preceding it.
+(
+  unset ACL_IPE_EXPECTED_MODE
+  go test -count=1 ./...
+)
+
+scenario_selectors=()
+if [ -n "${ACL_IPE_EXPECTED_MODE:-}" ]; then
+  scenario_selectors=(ACL)
+fi
 
 go run . run \
   --parallel 60 \
@@ -104,4 +113,5 @@ go run . run \
   --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \
   --log-dir "${LOGGING_DIR}" \
   --junit-file "${BUILD_SRC_DIR}/e2e/report.xml" \
-  --output grouped
+  --output grouped \
+  "${scenario_selectors[@]}"
