@@ -38,7 +38,7 @@ for version-scoped features. These two Kata entries intentionally have no versio
 
 ## Required RP publishing integration
 
-Companion implementation: [AKS RP PR 17322640](https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-rp/pullrequest/17322640).
+The companion RP implementation is linked from the AgentBaker pull request description.
 
 AgentBaker creates the intermediate build image; the RP release publisher creates or
 updates the final AKS gallery definitions. **Exporting a gallery image to a VHD blob
