@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
-const ubuntu2404ARM64KubeletDiskVMSize = "Standard_D2pds_V5"
+const arm64KubeletDiskVMSize = "Standard_D2pds_V5"
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_NonTemporaryKubeletDisk",
@@ -33,10 +34,10 @@ var _ = Register(&Scenario{
 		VHD:                   config.VHDUbuntu2404ArmContainerd,
 		WaitForSSHAfterReboot: 10 * time.Minute,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(ubuntu2404ARM64KubeletDiskVMSize)
+			vmss.SKU.Name = to.Ptr(arm64KubeletDiskVMSize)
 		},
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			setUbuntu2404ARM64KubeletDiskVMSize(nbc)
+			setARM64KubeletDiskVMSize(nbc)
 		},
 		Validator: validateNonTemporaryKubeletDiskAfterReboot,
 	},
@@ -64,19 +65,80 @@ var _ = Register(&Scenario{
 		VHD:                   config.VHDUbuntu2404ArmContainerd,
 		WaitForSSHAfterReboot: 10 * time.Minute,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr(ubuntu2404ARM64KubeletDiskVMSize)
+			vmss.SKU.Name = to.Ptr(arm64KubeletDiskVMSize)
 		},
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			setUbuntu2404ARM64KubeletDiskVMSize(nbc)
+			setARM64KubeletDiskVMSize(nbc)
 			setTemporaryKubeletDisk(nbc)
 		},
 		Validator: validateTemporaryKubeletDiskAfterReboot,
 	},
 })
 
-func setUbuntu2404ARM64KubeletDiskVMSize(nbc *datamodel.NodeBootstrappingConfiguration) {
-	nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = ubuntu2404ARM64KubeletDiskVMSize
-	nbc.AgentPoolProfile.VMSize = ubuntu2404ARM64KubeletDiskVMSize
+var _ = Register(&Scenario{
+	Name:        "AzureLinuxV3_NonTemporaryKubeletDisk",
+	Description: "Validates kubelet directory permissions on an Azure Linux 3 x64 non-Temporary disk before and after reboot",
+	Config: Config{
+		Cluster:                ClusterKubenet,
+		VHD:                    config.VHDAzureLinuxV3Gen2,
+		WaitForSSHAfterReboot:  10 * time.Minute,
+		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+		Validator:              validateNonTemporaryKubeletDiskAfterReboot,
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "AzureLinuxV3_ARM64_NonTemporaryKubeletDisk",
+	Description: "Validates kubelet directory permissions on an Azure Linux 3 ARM64 non-Temporary disk before and after reboot",
+	Config: Config{
+		Cluster:               ClusterKubenet,
+		VHD:                   config.VHDAzureLinuxV3Gen2Arm64,
+		WaitForSSHAfterReboot: 10 * time.Minute,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr(arm64KubeletDiskVMSize)
+		},
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			setARM64KubeletDiskVMSize(nbc)
+		},
+		Validator: validateNonTemporaryKubeletDiskAfterReboot,
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "AzureLinuxV3_TemporaryKubeletDisk",
+	Description: "Validates kubelet directory permissions on an Azure Linux 3 x64 Temporary disk before and after reboot",
+	Config: Config{
+		Cluster:               ClusterKubenet,
+		VHD:                   config.VHDAzureLinuxV3Gen2,
+		WaitForSSHAfterReboot: 10 * time.Minute,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			setTemporaryKubeletDisk(nbc)
+		},
+		Validator: validateTemporaryKubeletDiskAfterReboot,
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "AzureLinuxV3_ARM64_TemporaryKubeletDisk",
+	Description: "Validates kubelet directory permissions on an Azure Linux 3 ARM64 Temporary disk before and after reboot",
+	Config: Config{
+		Cluster:               ClusterKubenet,
+		VHD:                   config.VHDAzureLinuxV3Gen2Arm64,
+		WaitForSSHAfterReboot: 10 * time.Minute,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr(arm64KubeletDiskVMSize)
+		},
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			setARM64KubeletDiskVMSize(nbc)
+			setTemporaryKubeletDisk(nbc)
+		},
+		Validator: validateTemporaryKubeletDiskAfterReboot,
+	},
+})
+
+func setARM64KubeletDiskVMSize(nbc *datamodel.NodeBootstrappingConfiguration) {
+	nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = arm64KubeletDiskVMSize
+	nbc.AgentPoolProfile.VMSize = arm64KubeletDiskVMSize
 	nbc.IsARM64 = true
 }
 
@@ -165,6 +227,6 @@ systemctl is-active kubelet`, mountAssertion),
 	if err != nil {
 		return err
 	}
-	s.Logger.Logf("kubelet %s disk validation:\n%s", diskType, result.stdout)
+	logging.Logf(ctx, "kubelet %s disk validation:\n%s", diskType, result.stdout)
 	return nil
 }
