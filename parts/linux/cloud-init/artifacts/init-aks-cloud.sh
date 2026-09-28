@@ -1,4 +1,7 @@
 #!/bin/bash
+# Never trace expanded WireServer responses, even when invoked with bash -x.
+set +x
+
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh.
 
@@ -7,6 +10,25 @@
 # base image), so functions in this script use it without an explicit install
 # step. Do not flag jq usage here as "used before install" — matches the
 # established pattern in cse_main.sh.
+
+log_certificates() {
+    [ "${AKS_CLOUD_LOG_CERTIFICATES:-false}" = "true" ] || return 0
+    local public_certs
+    # Re-encode certificates only: never print raw input, which may also contain
+    # private keys or non-certificate data. Support bundles as well as single CAs.
+    if ! public_certs=$(
+        set -o pipefail
+        openssl crl2pkcs7 -nocrl -certfile "$1" 2>/dev/null |
+            openssl pkcs7 -print_certs 2>/dev/null
+    ) || [ -z "$public_certs" ]; then
+        echo "Warning: could not decode public certificates: $1" >&2
+        return 0
+    fi
+    # Syslog priority applies to every input line under both cron and systemd.
+    printf '%s\n' "$public_certs" |
+        logger -p user.debug -t azure-ca-refresh ||
+        echo "Warning: failed to log certificates" >&2
+}
 
 # GA events directory — Azure Guest Agent monitors this directory and forwards
 # JSON event files to Geneva/Kusto for off-node telemetry.
@@ -111,15 +133,12 @@ function make_request_with_retry {
             return 0
         else
             echo "wireserver request failed (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
-            if [ -n "$response" ]; then
-                echo "wireserver error response: ${response}" >&2
-            fi
             sleep $retry_delay
             attempt=$((attempt + 1))
         fi
     done
 
-    echo "exhausted all retries for ${url} (last HTTP ${http_code}), last response: $response" >&2
+    echo "exhausted all retries for ${url} (last HTTP ${http_code})" >&2
     return 1
 }
 
@@ -138,7 +157,6 @@ function is_opted_in_for_root_certs {
 
     opt_in_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/acms/isOptedInForRootCerts")
     local request_status=$?
-    echo "is_opted_in_for_root_certs: wireserver response (status=${request_status}): '${opt_in_response}'"
 
     if [ $request_status -ne 0 ] || [ -z "$opt_in_response" ]; then
         echo "ERROR: wireserver unreachable after retries for IsOptedInForRootCerts check"
@@ -152,25 +170,6 @@ function is_opted_in_for_root_certs {
 
     echo "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"
     return 1
-}
-
-function get_trust_store_dir {
-    if [ "$IS_ACL" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-        echo "/etc/pki/ca-trust/source/anchors"
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        echo "/etc/ssl/certs"
-    else
-        echo "/usr/local/share/ca-certificates"
-    fi
-}
-
-function debug_print_trust_store {
-    local stage="$1"
-    local trust_store_dir
-
-    trust_store_dir=$(get_trust_store_dir)
-    echo "Trust store contents ${stage} cert copy: ${trust_store_dir}"
-    ls -al "$trust_store_dir" || true
 }
 
 function retrieve_legacy_certs {
@@ -199,7 +198,6 @@ function process_cert_operations {
     local endpoint_type="$1"
     local operation_response
 
-    echo "Retrieving certificate operations for type: $endpoint_type"
     operation_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json")
     local request_status=$?
     if [ -z "$operation_response" ] || [ $request_status -ne 0 ]; then
@@ -216,8 +214,6 @@ function process_cert_operations {
     fi
 
     for cert_filename in "${cert_filenames[@]}"; do
-        echo "Processing certificate file: $cert_filename"
-
         # Defense-in-depth: reject filenames containing path separators or ".." to
         # prevent path traversal via a malformed wireserver ResouceFileName value.
         # Windows performs the equivalent sanitization via [IO.Path]::GetFileName.
@@ -241,7 +237,6 @@ function process_cert_operations {
         fi
 
         echo "$cert_content" > "/root/AzureCACertificates/$sanitized_filename"
-        echo "Successfully saved certificate: $sanitized_filename"
     done
 }
 
@@ -253,16 +248,19 @@ function retrieve_rcv1p_certs {
 function install_certs_to_trust_store {
     mkdir -p /root/AzureCACertificates
 
-    debug_print_trust_store "before"
-
     # Guard against empty glob: if no *.crt files exist, bash leaves the literal
-    # '*.crt', which would silently fail cp and could mask the failure since
-    # debug_print_trust_store below always returns 0.
+    # '*.crt', which would fail cp.
     if ! compgen -G "/root/AzureCACertificates/*.crt" > /dev/null; then
         echo "ERROR: no *.crt files in /root/AzureCACertificates to install" >&2
         return 1
     fi
 
+    local cert
+    for cert in /root/AzureCACertificates/*.crt; do
+        log_certificates "$cert"
+    done
+
+    echo "Refreshing CA trust store"
     local rc=0
     if [ "$IS_ACL" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
         cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/ || rc=$?
@@ -287,7 +285,6 @@ function install_certs_to_trust_store {
         fi
     fi
 
-    debug_print_trust_store "after"
     return $rc
 }
 function init_ubuntu_main_repo_depot {
@@ -543,7 +540,6 @@ function determine_cert_endpoint_mode {
 
 # shellcheck disable=SC2317
 ${__SOURCED__:+return}
-set -x
 
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then

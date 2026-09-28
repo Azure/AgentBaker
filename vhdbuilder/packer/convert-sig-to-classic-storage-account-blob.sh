@@ -54,7 +54,10 @@ disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GR
 capture_benchmark "${SCRIPT_NAME}_set_variables_for_converting_to_disk"
 
 echo "Converting $sig_resource_id to $disk_resource_id"
+
+# TODO: only check TRUSTED_LAUNCH_SUPPORTED once all relevant image definitions have been updated to TrustedLaunchSupported
 if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+  # TODO: remove usage of TrustedLaunch as a security type once all relevant image definitions have been updated to TrustedLaunchSupported
   az resource create --id $disk_resource_id  --api-version 2024-03-02 --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \

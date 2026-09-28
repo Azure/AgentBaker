@@ -76,7 +76,7 @@ cacheVersionedKubernetesPackageBinary() {
     local deb_file
     local tmp_dir
 
-    deb_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}_${version_no_epoch}*" -print -quit 2>/dev/null) || deb_file=""
+    deb_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}_*" -print 2>/dev/null | grep -E "${package_name}_${version_no_epoch}([^0-9]|$)" | sort -V | tail -n 1) || deb_file=""
     if [ -z "${deb_file}" ]; then
       echo "Failed to locate cached ${package_name} deb for ${package_version}"
       return 1
@@ -99,7 +99,7 @@ cacheVersionedKubernetesPackageBinary() {
   elif isMarinerOrAzureLinux "$OS"; then
     local rpm_file
 
-    rpm_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}-${version_no_epoch}*" -print -quit 2>/dev/null) || rpm_file=""
+    rpm_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}-*" -print 2>/dev/null | grep -E "${package_name}-${version_no_epoch}([^0-9]|$)" | sort -V | tail -n 1) || rpm_file=""
     if [ -z "${rpm_file}" ]; then
       echo "Failed to locate cached ${package_name} rpm for ${package_version}"
       return 1
@@ -127,9 +127,11 @@ downloadCNIPlugins() {
 # Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
 # The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway.
 installCNI() {
-    downloadDir=${1}
-    evaluatedURL=${2}
-    version=${3}
+    local downloadDir=${1}
+    local evaluatedURL=${2}
+    local version=${3}
+    local fullPackageVersion
+    local packageName
 
     echo "installing containernetworking-plugins version ${version}"
 
@@ -151,14 +153,26 @@ installCNI() {
 
     # Package manager installation (for Ubuntu/Mariner/AzureLinux)
     if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-        packageName="containernetworking-plugins=${version}"
+        fullPackageVersion=$(getLatestDebPackageVersion "containernetworking-plugins" "${version}") || fullPackageVersion=""
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid containernetworking-plugins version for ${version}"
+            exit $ERR_CNI_VERSION_INVALID
+        fi
+        logResolvedPackageVersion "containernetworking-plugins" "${version}" "${fullPackageVersion}"
+        packageName="containernetworking-plugins=${fullPackageVersion}"
         echo "Installing ${packageName} with apt-get"
-        apt_get_install 20 30 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        apt_get_install 20 30 120 "${packageName}" || exit $ERR_CNI_VERSION_INVALID
         mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
     elif isMarinerOrAzureLinux "$OS"; then
-        packageName="containernetworking-plugins-${version}"
+        fullPackageVersion=$(getLatestRPMPackageVersion "containernetworking-plugins" "${version}") || fullPackageVersion=""
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid containernetworking-plugins version for ${version}"
+            exit $ERR_CNI_VERSION_INVALID
+        fi
+        logResolvedPackageVersion "containernetworking-plugins" "${version}" "${fullPackageVersion}"
+        packageName="containernetworking-plugins-${fullPackageVersion}"
         echo "Installing ${packageName} with dnf"
-        dnf_install 10 2 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        dnf_install 10 2 120 "${packageName}" || exit $ERR_CNI_VERSION_INVALID
         mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
     else
         echo "ERROR: Unsupported OS for containernetworking-plugins installation: ${OS}"

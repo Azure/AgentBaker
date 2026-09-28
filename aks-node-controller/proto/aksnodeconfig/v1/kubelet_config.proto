@@ -449,6 +449,21 @@ message KubeletConfigFileConfig {
   // Default: false
   // +optional
   bool seccomp_default = 40;
+
+  optional bool enable_server = 46;
+  string volume_plugin_dir = 47;
+  string cgroup_driver = 48;
+  string runtime_request_timeout = 49;
+  string container_runtime_endpoint = 50;
+  repeated KubeletTaint register_with_taints = 51;
+  string hairpin_mode = 52;
+}
+
+message KubeletTaint {
+  string key = 1;
+  string value = 2;
+  string effect = 3;
+  string time_added = 4;
 }
 
 message KubeletAuthentication {

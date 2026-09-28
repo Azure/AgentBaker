@@ -1473,9 +1473,34 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 	if err != nil {
 		return fmt.Errorf("get package list: %w", err)
 	}
+	normalizeVersion := func(packageVersion string) string {
+		if epochSeparator := strings.IndexByte(packageVersion, ':'); epochSeparator > 0 {
+			if _, err := strconv.Atoi(packageVersion[:epochSeparator]); err == nil {
+				return packageVersion[epochSeparator+1:]
+			}
+		}
+		return packageVersion
+	}
+	expectedVersion := normalizeVersion(version)
+
 	for _, line := range strings.Split(execResult.stdout, "\n") {
-		if strings.Contains(line, component) && strings.Contains(line, version) {
-			logging.Logf(ctx, "found %s %s in the installed packages", component, version)
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		packageName := strings.SplitN(fields[0], "/", 2)[0]
+		if packageName != component &&
+			!strings.HasPrefix(packageName, component+".") &&
+			!strings.HasPrefix(packageName, component+":") {
+			continue
+		}
+
+		installedVersion := normalizeVersion(fields[1])
+		if installedVersion == expectedVersion ||
+			strings.HasPrefix(installedVersion, expectedVersion+"-") ||
+			strings.HasPrefix(installedVersion, expectedVersion+"+") {
+			logging.Logf(ctx, "found %s package version %s (expected %s)", component, fields[1], version)
 			return nil
 		}
 	}

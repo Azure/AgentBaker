@@ -33,6 +33,9 @@ function Write-OutputWithTimestamp($Message) {
     Write-Output $msg
 }
 
+# $SkipSignatureCheckForBinaries is defined in windows-vhd-configuration.ps1 (dot-sourced above)
+# so it is shared with windows-files-check.ps1's Test-ValidateSinglePackageSignature.
+
 # We do not create static public IP for test VM but we need the public IP
 # when we want to check some issues in infra. Let me use this solution to
 # get it. We can create a static public IP when creating test VM if this
@@ -146,6 +149,15 @@ function Test-FilesToCacheOnVHD {
                 continue
             }
 
+            if ($global:azCopyUrls -and $global:azCopyUrls.ContainsKey($URL)) {
+                # This URL is only reachable via AzCopy with the build VM's managed identity - this
+                # test VM isn't guaranteed to have that identity, so anonymous curl re-download for
+                # hash comparison would fail here regardless of whether the cached file is correct.
+                # Existence was already confirmed above; that's as far as we can validate here.
+                Write-OutputWithTimestamp "Skipping remote hash comparison for $dest - source URL requires AzCopy/MSI auth"
+                continue
+            }
+
             $fileName = [IO.Path]::GetFileName($URL.Split("?")[0])
             $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
             DownloadFileWithRetry -URL $URL -Dest $tmpDest -redactUrl
@@ -242,6 +254,114 @@ function Test-FilesToCacheOnVHD {
             exit 1
         }
     }
+}
+
+function Get-UnsignedBinariesInDirectory {
+    # Extracted so tests can Mock this instead of Get-ChildItem directly: -File/-Directory/-Hidden
+    # are FileSystem-provider dynamic parameters, not part of Get-ChildItem's static parameter set,
+    # and Pester's Mock proxy doesn't reliably replicate those - mocking Get-ChildItem -File
+    # directly throws "A parameter cannot be found that matches parameter name 'File'".
+    param (
+        $Directory,
+        $IncludeList
+    )
+
+    return (Get-ChildItem -Path $Directory -Recurse -File -Include $IncludeList |
+            ForEach-Object { Get-AuthenticodeSignature $_.FullName } |
+            Where-Object { $_.Status -ne "Valid" })
+}
+
+function Test-PrivatePackageSignature {
+    # windows-files-check.ps1's Test-ValidateSinglePackageSignature cannot validate
+    # windowsDownloadRequiresAzCopy-flagged packages: that script runs on a clean windows-latest
+    # runner with no managed identity, so it never downloads them and skips them instead. This VHD
+    # build VM, by contrast, has already downloaded them for real via AzCopy with its managed
+    # identity - this is the first (and only) place their binary signatures can actually be
+    # checked, so we do it here rather than leaving them completely unverified.
+    if (-not $global:azCopyUrls -or $global:azCopyUrls.Count -eq 0) {
+        Write-OutputWithTimestamp "No AzCopy-flagged (private) packages to validate signatures for."
+        return
+    }
+
+    $installDir = "c:\PrivatePackageSignatureCheck"
+    $invalidFiles = @()
+
+    foreach ($dir in $map.Keys) {
+        foreach ($URL in $map[$dir]) {
+            if (-not $global:azCopyUrls.ContainsKey($URL)) {
+                continue
+            }
+
+            $fileName = [IO.Path]::GetFileName($URL)
+            $dest = [IO.Path]::Combine($dir, $fileName)
+
+            if (![System.IO.File]::Exists($dest)) {
+                Write-ErrorWithTimestamp "Private package $dest does not exist - cannot validate its signature"
+                $invalidFiles += $dest
+                continue
+            }
+
+            if (Test-Path $installDir) {
+                Remove-Item -Path $installDir -Recurse -Force
+            }
+            New-Item -ItemType Directory $installDir -Force | Out-Null
+
+            if ($fileName.EndsWith(".zip")) {
+                try {
+                    Expand-Archive -Path $dest -DestinationPath $installDir -Force -ErrorAction Stop
+                }
+                catch {
+                    Write-ErrorWithTimestamp "Failed to expand archive ${dest}: $($_.Exception.Message)"
+                    $invalidFiles += $dest
+                    continue
+                }
+            }
+            elseif ($fileName.EndsWith(".tar.gz")) {
+                tar -xzf $dest -C $installDir
+                if ($LASTEXITCODE -ne 0) {
+                    Write-ErrorWithTimestamp "Failed to extract the '$dest' archive with tar. Exit code: $LASTEXITCODE"
+                    $invalidFiles += $dest
+                    continue
+                }
+            }
+            else {
+                Write-ErrorWithTimestamp "Unknown package suffix for private package $dest"
+                $invalidFiles += $dest
+                continue
+            }
+
+            $includeList = @("*.exe", "*.ps1", "*.psm1", "*.dll")
+            $notSignedList = Get-UnsignedBinariesInDirectory -Directory $installDir -IncludeList $includeList
+
+            $hasUnskippedUnsignedFile = $false
+            foreach ($notSignedFile in $notSignedList) {
+                $notSignedFileName = [IO.Path]::GetFileName($notSignedFile.Path)
+
+                if (
+                    $SkipSignatureCheckForBinaries.ContainsKey($dir) -and
+                    $SkipSignatureCheckForBinaries[$dir] -contains $notSignedFileName -and
+                    $notSignedFile.Status -eq "NotSigned"
+                ) {
+                    Write-OutputWithTimestamp "$notSignedFileName (from $dest) is in the ignore list. Ignoring signature validation failure"
+                    continue
+                }
+
+                Write-ErrorWithTimestamp "Private package binary $($notSignedFile.Path) (from $dest) is not signed (status: $($notSignedFile.Status))"
+                $hasUnskippedUnsignedFile = $true
+            }
+
+            if ($hasUnskippedUnsignedFile) {
+                $invalidFiles += $dest
+            }
+        }
+    }
+
+    if ($invalidFiles.Count -ne 0) {
+        Write-ErrorWithTimestamp "Private package signature validation failed for: $($invalidFiles -join ', ')"
+        exit 1
+    }
+
+    Write-OutputWithTimestamp "All private (AzCopy) package signatures validated successfully."
 }
 
 function Test-PatchInstalled {
@@ -768,3 +888,6 @@ Test-DotnetNotInstalled
 
 Write-OutputWithTimestamp "Test: ValidateImageBinarySignature"
 Test-ValidateImageBinarySignature
+
+Write-OutputWithTimestamp "Test: PrivatePackageSignature"
+Test-PrivatePackageSignature

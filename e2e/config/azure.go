@@ -24,11 +24,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v10"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v3"
@@ -57,6 +57,7 @@ type AzureClient struct {
 	RegistriesClient          *armcontainerregistry.RegistriesClient
 	Resource                  *armresources.Client
 	ResourceGroup             *armresources.ResourceGroupsClient
+	Tags                      *armresources.TagsClient
 	RoleAssignments           *armauthorization.RoleAssignmentsClient
 	SecurityGroup             *armnetwork.SecurityGroupsClient
 	StorageAccounts           *armstorage.AccountsClient
@@ -280,6 +281,11 @@ func NewAzureClientForSubscription(subscriptionID string) (*AzureClient, error) 
 	cloud.ResourceGroup, err = armresources.NewResourceGroupsClient(subscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create resource group client: %w", err)
+	}
+
+	cloud.Tags, err = armresources.NewTagsClient(subscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create tags client: %w", err)
 	}
 
 	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(subscriptionID, credential, opts)

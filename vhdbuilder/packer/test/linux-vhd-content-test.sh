@@ -18,6 +18,7 @@ GIT_BRANCH="$4"
 IMG_SKU="$5"
 FEATURE_FLAGS="$6"
 GIT_COMMIT_HASH="$7"
+AGENTBAKER_REPOSITORY_URL="${8:-https://github.com/Azure/AgentBaker.git}"
 
 systemctl daemon-reload && systemctl restart containerd
 
@@ -34,14 +35,14 @@ err() {
 }
 
 # assertPackageVersion verifies that the installed deb/rpm package version matches
-# the expected full version string from components.json (including hotfix suffix).
-# This catches drift between what the package manager installs and what components.json
-# specifies at VHD build time rather than in e2e.
+# either the exact expected version or, when allowed, that upstream version plus
+# a distro package revision.
 # shellcheck disable=SC2016
 assertPackageVersion() {
   local test="$1"
   local packageName="$2"
   local expectedVersion="$3"
+  local allowRevision="${4:-false}"
 
   local installedVersion=""
   if command -v dpkg-query >/dev/null 2>&1 && dpkg-query -W -f='${Status}' "$packageName" 2>/dev/null | grep -q "install ok installed"; then
@@ -55,26 +56,29 @@ assertPackageVersion() {
   fi
 
   echo "$test: checking if installed $packageName version '$installedVersion' matches expected '$expectedVersion'"
-  if [ "$installedVersion" != "$expectedVersion" ]; then
+  local versionMatches=false
+  if [ "$installedVersion" = "$expectedVersion" ]; then
+    versionMatches=true
+  elif [ "$allowRevision" = "true" ]; then
+    case "$installedVersion" in
+      "${expectedVersion}-"*|"${expectedVersion}+"*) versionMatches=true ;;
+    esac
+  fi
+
+  if [ "$versionMatches" != "true" ]; then
     err "$test" "installed $packageName version '$installedVersion' does not match expected '$expectedVersion' from components.json"
     return 1
   fi
   return 0
 }
 
-# Clone the repo and checkout the branch provided.
-# Simply clone with just the branch doesn't work for pull requests, but this technique works
-# with everything we've tested so far.
-#
-# Strategy is to clone the repo, fetch the remote branch by ref into a local branch, and then checkout the local branch.
-# The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
-# for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
-LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
-
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git; then
+    err 'git-install' "Failed to install git"
+    exit 1
+  fi
 elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
   : # Flatcar/ACL comes with git pre-installed
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
@@ -90,8 +94,9 @@ if [ "$SKIP_GIT_CLONE" = "true" ]; then
   fi
   echo "Skipping git clone and pulling .tar.gz artifact for commit $GIT_COMMIT_HASH"
 
-  if ! curl -fLsS -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}; then
-    err 'curl' "Failed to download https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}"
+  AGENTBAKER_ARCHIVE_URL="${AGENTBAKER_REPOSITORY_URL%.git}/archive/${GIT_COMMIT_HASH}.tar.gz"
+  if ! curl -fLsS -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz "$AGENTBAKER_ARCHIVE_URL"; then
+    err 'curl' "Failed to download $AGENTBAKER_ARCHIVE_URL"
     exit 1
   fi
   if ! tar -xf AgentBaker-${GIT_COMMIT_HASH}.tar.gz; then
@@ -100,12 +105,9 @@ if [ "$SKIP_GIT_CLONE" = "true" ]; then
   fi
   mv AgentBaker-${GIT_COMMIT_HASH} AgentBaker
 else
-  # Clone the AgentBaker repo and checkout the branch provided.
-  echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-  COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
-  if ! ${COMMAND}; then
+  echo "Cloning configured AgentBaker repo and checking out commit '${GIT_COMMIT_HASH}' from '${GIT_BRANCH}'"
+  if ! git clone --quiet "$AGENTBAKER_REPOSITORY_URL" AgentBaker; then
     err 'git-clone' "Failed to clone AgentBaker repo"
-    err 'git-clone' "Used command '${COMMAND}'"
     exit 1
   fi
   if ! pushd ./AgentBaker; then
@@ -114,16 +116,12 @@ else
     err 'git-clone' "Contents of current directory: $(ls -al)"
     exit 1
   fi
-  COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
-  if ! ${COMMAND}; then
-    err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-    err 'git-clone' "Used command '${COMMAND}'"
+  if ! git fetch --quiet origin "$GIT_COMMIT_HASH"; then
+    err 'git-clone' "Failed to fetch AgentBaker commit '${GIT_COMMIT_HASH}'"
     exit 1
   fi
-  COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
-  if ! ${COMMAND}; then
-    err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
-    err 'git-clone' "Used command '${COMMAND}'"
+  if ! git checkout --quiet "$GIT_COMMIT_HASH"; then
+    err 'git-clone' "Failed to checkout AgentBaker commit '${GIT_COMMIT_HASH}'"
     exit 1
   fi
   if ! popd; then
@@ -265,6 +263,7 @@ testPackagesInstalled() {
         ;;
       "azure-acr-credential-provider-pmc"|\
       "nvidia-device-plugin"|\
+      "dra-driver-nvidia-gpu"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
@@ -636,6 +635,8 @@ testChrony() {
   fi
   initialDate=$(date +%s)
   date --set "27 Feb 2021"
+  # Request fresh measurements after the artificial time jump.
+  chronyc burst 4/4
   for i in $(seq 1 10); do
     newDate=$(date +%s)
     if (($newDate > $initialDate)); then
@@ -816,6 +817,57 @@ testLtsKernel() {
     echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
   fi
 
+}
+
+testAzureLinuxArm64DualKernel() {
+  local test="testAzureLinuxArm64DualKernel"
+  local os_version=$1
+  local os_sku=$2
+  local enable_fips=$3
+
+  echo "$test:Start"
+  if [ "$os_version" != "3.0" ] || [ "${enable_fips,,}" = "true" ] || ! isAzureLinuxArm64BaseImage "${os_sku^^}" "$(getCPUArch)" "$OS_VARIANT"; then
+    echo "$test: Skipping for non-FIPS AzureLinux 3 ARM64 image"
+    return
+  fi
+
+  local package
+  for package in kernel kernel-hwe grub2 grub2-efi-binary grub2-efi; do
+    if ! rpm -q "$package" >/dev/null 2>&1; then
+      err "$test" "$package is not installed"
+    fi
+  done
+
+  local grub_version
+  local grub_efi_binary_version
+  local grub_efi_modules_version
+  grub_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2 2>/dev/null || true)
+  grub_efi_binary_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi-binary 2>/dev/null || true)
+  grub_efi_modules_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi 2>/dev/null || true)
+  if [ -z "$grub_version" ] || [ "$grub_version" != "$grub_efi_binary_version" ] || [ "$grub_version" != "$grub_efi_modules_version" ]; then
+    err "$test" "GRUB package versions do not match: grub2=$grub_version, binary=$grub_efi_binary_version, modules=$grub_efi_modules_version"
+  fi
+
+  if [ ! -s /usr/lib/grub/arm64-efi/smbios.mod ]; then
+    err "$test" "/usr/lib/grub/arm64-efi/smbios.mod is missing or empty"
+  fi
+
+  if [ ! -x /etc/grub.d/10_azure_nvidia ] || [ ! -f /etc/default/grub.d/51-azure-nvidia.cfg ]; then
+    err "$test" "NVIDIA GRUB selector files are missing"
+  fi
+  if ! grub2-script-check /boot/grub2/grub.cfg; then
+    err "$test" "generated grub.cfg is invalid"
+  fi
+  if ! grep -q 'smbios --type 4 --get-string 7 --set cpu_manufacturer' /boot/grub2/grub.cfg; then
+    err "$test" "generated grub.cfg does not contain NVIDIA SMBIOS detection"
+  fi
+
+  local running_kernel_package
+  running_kernel_package=$(rpm -qf --queryformat '%{NAME}' "/boot/vmlinuz-$(uname -r)" 2>/dev/null || true)
+  if [ "$running_kernel_package" != "kernel" ]; then
+    err "$test" "standard ARM64 test VM booted $running_kernel_package instead of kernel"
+  fi
+  echo "$test:Finish"
 }
 
 # Parse loginctl sessions to find console autologin sessions
@@ -1158,19 +1210,26 @@ testPkgDownloaded() {
   echo "$test:Start"
   local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  local seArch seFile
+  local seArch seFile versionRegex
   seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
     packageVersion="${packageVersion#*:}"
+    versionRegex="${packageVersion//./\\.}"
     if [ $OS = $UBUNTU_OS_NAME ]; then
-      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
+      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_*" -print 2>/dev/null |
+        grep -E "/${packageName}_${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || debFile=""
       if [ -z "${debFile}" ]; then
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
     elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
-      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-*" -print 2>/dev/null |
+        grep -E "/${packageName}-${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
@@ -2003,7 +2062,7 @@ testNodeExporter () {
     err "$test" "node-exporter expected version is <SKIP> on supported OS $os_sku"
     return 1
   fi
-  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" true || return 1
 
   local expectedBinaryVersion="v${expectedVersion%%-*}"
   local binaryVersion
@@ -2172,12 +2231,12 @@ testCriCtl() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream cri-tools version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch
@@ -2207,12 +2266,12 @@ testContainerd() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream containerd version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the containerd binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch
@@ -2787,6 +2846,7 @@ testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testAzureLinuxArm64DualKernel "$OS_VERSION" "$OS_SKU" "$ENABLE_FIPS"
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs $OS_SKU

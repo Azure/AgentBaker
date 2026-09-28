@@ -17,11 +17,11 @@ IG_SKIP_FILE="/etc/ig.d/skip_vhd_ig"
 # ig revisions per OS while ig-gadgets is published once per upstream release.
 # Example: ig 0.51.0-4.azl3 is compatible with ig-gadgets 0.51.0-1.azl3.
 # Since ig-gadgets has a different publishing pattern, keep it out of
-# components.json and let Renovate manage the pinned package versions here.
+# components.json and let Renovate track the upstream version in the PMC feeds.
 # renovate: datasource=custom.deb2004 depName=ig-gadgets versioning=deb
-IG_GADGETS_DEB_VERSION="0.56.0-ubuntu20.04u1"
+IG_GADGETS_DEB_VERSION="0.56.0"
 # renovate: datasource=rpm depName=ig-gadgets registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
-IG_GADGETS_RPM_VERSION="0.56.0-1.azl3"
+IG_GADGETS_RPM_VERSION="0.56.0"
 
 ig_detect_arch() {
     CPU_ARCH=$(getCPUArch)
@@ -144,15 +144,41 @@ ig_import_gadgets() {
 
 ig_install_deb_stack() {
     # ig deb was already downloaded via downloadPkgFromVersion to IG_BUILD_ROOT
-    local ig_deb="${IG_BUILD_ROOT}/ig_${IG_VERSION}_${IG_DEB_ARCH}.deb"
-    if [[ ! -f "${ig_deb}" ]]; then
-        echo "[ig] ig deb not found at ${ig_deb}"
+    local version_regex="${IG_VERSION//./\\.}"
+    local ig_deb
+    ig_deb=$(find "${IG_BUILD_ROOT}" -maxdepth 1 -type f -name "ig_*_${IG_DEB_ARCH}.deb" |
+        grep -E "/ig_${version_regex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || ig_deb=""
+    if [[ -z "${ig_deb}" ]]; then
+        echo "[ig] ig deb not found for upstream version ${IG_VERSION}"
         return 1
     fi
 
     # ig-gadgets: always from ubuntu 20.04 repo, version managed independently
-    local ig_gadgets_deb="${IG_BUILD_ROOT}/ig-gadgets_${IG_GADGETS_DEB_VERSION}_${IG_DEB_ARCH}.deb"
-    local ig_gadgets_url="https://packages.microsoft.com/ubuntu/20.04/prod/pool/main/i/ig-gadgets/ig-gadgets_${IG_GADGETS_DEB_VERSION}_${IG_DEB_ARCH}.deb"
+    local ig_gadgets_repo="https://packages.microsoft.com/ubuntu/20.04/prod/pool/main/i/ig-gadgets"
+    local ig_gadgets_index="${IG_BUILD_ROOT}/ig-gadgets-index.html"
+    local ig_gadgets_full_version
+    local ig_gadgets_deb
+    local ig_gadgets_url
+
+    retrycmd_curl_file 10 5 60 "${ig_gadgets_index}" "${ig_gadgets_repo}/" || return 1
+    ig_gadgets_full_version=$(grep -oE "ig-gadgets_[^\"<]+_${IG_DEB_ARCH}\\.deb" "${ig_gadgets_index}" |
+        sed -E "s/^ig-gadgets_(.*)_${IG_DEB_ARCH}\\.deb$/\\1/" |
+        awk -v desired="${IG_GADGETS_DEB_VERSION}" '
+            $0 == desired || index($0, desired "-") == 1 || index($0, desired "+") == 1
+        ' |
+        sort -V |
+        tail -n 1) || ig_gadgets_full_version=""
+    rm -f "${ig_gadgets_index}"
+    if [[ -z "${ig_gadgets_full_version}" ]]; then
+        echo "[ig] Failed to resolve ig-gadgets deb revision for ${IG_GADGETS_DEB_VERSION}"
+        return 1
+    fi
+
+    logResolvedPackageVersion "ig-gadgets" "${IG_GADGETS_DEB_VERSION}" "${ig_gadgets_full_version}"
+    ig_gadgets_deb="${IG_BUILD_ROOT}/ig-gadgets_${ig_gadgets_full_version}_${IG_DEB_ARCH}.deb"
+    ig_gadgets_url="${ig_gadgets_repo}/ig-gadgets_${ig_gadgets_full_version}_${IG_DEB_ARCH}.deb"
 
     ig_download_file "${ig_gadgets_url}" "${ig_gadgets_deb}" || return 1
 
@@ -169,14 +195,20 @@ ig_install_rpm_stack() {
     local rpm_arch_dir="${IG_RPM_ARCH}"
     local rpm_repo="https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native"
 
-    # IG_VERSION is the full version tag from components.json (e.g. "0.45.0-1.azl3")
-    local ig_rpm="${download_dir}/ig-${IG_VERSION}.${IG_RPM_ARCH}.rpm"
-    local ig_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-${IG_VERSION}.${IG_RPM_ARCH}.rpm"
+    local ig_full_version
+    local ig_gadgets_full_version
+    ig_full_version=$(getLatestRPMPackageVersion "ig" "${IG_VERSION}") || return 1
+    ig_gadgets_full_version=$(getLatestRPMPackageVersion "ig-gadgets" "${IG_GADGETS_RPM_VERSION}") || return 1
+
+    logResolvedPackageVersion "ig" "${IG_VERSION}" "${ig_full_version}"
+    logResolvedPackageVersion "ig-gadgets" "${IG_GADGETS_RPM_VERSION}" "${ig_gadgets_full_version}"
+    local ig_rpm="${download_dir}/ig-${ig_full_version}.${IG_RPM_ARCH}.rpm"
+    local ig_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-${ig_full_version}.${IG_RPM_ARCH}.rpm"
     ig_download_file "${ig_url}" "${ig_rpm}" || return 1
 
     # ig-gadgets: version managed independently from ig
-    local ig_gadgets_rpm="${download_dir}/ig-gadgets-${IG_GADGETS_RPM_VERSION}.${IG_RPM_ARCH}.rpm"
-    local ig_gadgets_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-gadgets-${IG_GADGETS_RPM_VERSION}.${IG_RPM_ARCH}.rpm"
+    local ig_gadgets_rpm="${download_dir}/ig-gadgets-${ig_gadgets_full_version}.${IG_RPM_ARCH}.rpm"
+    local ig_gadgets_url="${rpm_repo}/${rpm_arch_dir}/Packages/i/ig-gadgets-${ig_gadgets_full_version}.${IG_RPM_ARCH}.rpm"
     ig_download_file "${ig_gadgets_url}" "${ig_gadgets_rpm}" || return 1
 
     if ! dnf_install 30 1 600 "${ig_rpm}" "${ig_gadgets_rpm}"; then

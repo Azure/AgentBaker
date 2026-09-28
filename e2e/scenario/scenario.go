@@ -15,7 +15,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 )
 
@@ -1600,7 +1600,7 @@ var _ = Register(&Scenario{
 			}
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
+			return ValidateInstalledPackageVersion(ctx, s, "moby-containerd", "1.6.9")
 		},
 	},
 })

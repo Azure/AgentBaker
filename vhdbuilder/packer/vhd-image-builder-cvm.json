@@ -391,6 +391,31 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/trim-2604-cvm-packages.sh",
+      "destination": "/home/packer/trim-2604-cvm-packages.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/2604-minimal-cvm-marked-for-removal-packages.txt",
+      "destination": "/home/packer/2604-minimal-cvm-marked-for-removal-packages.txt"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/2604-minimal-cvm-required-packages.txt",
+      "destination": "/home/packer/2604-minimal-cvm-required-packages.txt"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/2604-minimal-cvm-final-required-packages.txt",
+      "destination": "/home/packer/2604-minimal-cvm-final-required-packages.txt"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/ubuntu-2604-cvm/2604-minimal-cvm-final-forbidden-packages.txt",
+      "destination": "/home/packer/2604-minimal-cvm-final-forbidden-packages.txt"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-ig.sh",
       "destination": "/home/packer/install-ig.sh"
     },

@@ -822,14 +822,23 @@ func TestRepositoryFastPathCancelsPeerBranchOnFailure(t *testing.T) {
 	packageLocation := "pool/main/a/aks-node-controller/aks-node-controller_" +
 		fullVersion + "_amd64.deb"
 
+	metadataStarted := make(chan struct{})
 	metadataCtxDone := make(chan struct{})
+	var metadataOnce sync.Once
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, ".deb") {
+			select {
+			case <-metadataStarted:
+			case <-time.After(2 * time.Second):
+				http.Error(w, "metadata did not start concurrently", http.StatusInternalServerError)
+				return
+			}
 			http.NotFound(w, r) // fails fast, cancelling the metadata branch
 			return
 		}
 		// Stand in for a slow InRelease fetch: block until cancelled, or give up well
 		// before the 30s request timeout so a regression fails loudly instead of hanging.
+		metadataOnce.Do(func() { close(metadataStarted) })
 		select {
 		case <-r.Context().Done():
 			close(metadataCtxDone)

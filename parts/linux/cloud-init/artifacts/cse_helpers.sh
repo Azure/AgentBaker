@@ -285,8 +285,9 @@ _retrycmd_internal() {
             fi
         fi
 
-        timeout "$effectiveTimeout" "${@}"
-        exitStatus=$?
+        # Capture via `||` so callers running under `set -e` don't abort before the loop can retry.
+        exitStatus=0
+        timeout "$effectiveTimeout" "${@}" || exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
             break
@@ -1052,6 +1053,16 @@ isAzureLinux() {
         return 0
     fi
     return 1
+}
+
+isAzureLinuxArm64BaseImage() {
+    local os="$1"
+    local cpu_arch="$2"
+    local os_variant="$3"
+
+    [ "$os" = "$AZURELINUX_OS_NAME" ] &&
+        [ "$cpu_arch" = "arm64" ] &&
+        [ -z "$os_variant" ]
 }
 
 isFlatcar() {

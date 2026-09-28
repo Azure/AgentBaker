@@ -79,6 +79,7 @@ VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+    # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
         VM_SIZE="Standard_D8pds_v6"
     else
@@ -87,14 +88,18 @@ if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size $VM_SIZE"
 fi
 
+# TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
 if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    VM_SIZE="Standard_DC8ads_v5"
+    VM_SIZE="${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5}"
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
-    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+    if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
+        VM_OPTIONS+=" --specialized true"
+    fi
 fi
 
 # NVIDIA GB specific VM options for scanning (uses standard ARM64 VM for now)
@@ -189,7 +194,6 @@ az vm run-command invoke \
         "ARCHITECTURE=${ARCHITECTURE}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
         "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
-        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH} \
         "VHD_ARTIFACT_NAME"=${VHD_ARTIFACT_NAME} \
         "SKU_NAME"=${SKU_NAME} \
         "KUSTO_ENDPOINT"=${KUSTO_ENDPOINT} \
