@@ -204,6 +204,13 @@ type Config struct {
 	// This prevents the Guest Agent from sweeping events before they can be read.
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
+
+	// SkipOnCapacityError, when set (and SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is enabled), makes the
+	// scenario skip instead of fail when its SKU cannot be allocated (AllocationFailed — "insufficient
+	// capacity for the requested VM size in this region"). Reserve this for scarce, brand-new GPU SKUs
+	// (e.g. RTX PRO 6000 BSE v6) that lack steady regional capacity; mainstream SKUs should leave it
+	// unset so a genuine capacity regression still fails the gate.
+	SkipOnCapacityError bool
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
