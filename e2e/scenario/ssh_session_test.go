@@ -127,7 +127,7 @@ func TestRetrySSHSessionOpenCancellation(t *testing.T) {
 		cancel()
 		err := <-done
 		require.ErrorIs(t, err, context.Canceled)
-		assert.ErrorContains(t, err, "last rejection: ssh: rejected: resource shortage (full)")
+		assert.ErrorContains(t, err, `last rejection: ssh: rejected: resource shortage ("full")`)
 		assert.Equal(t, 1, attempts)
 		require.Len(t, logger.logs, 2)
 		assert.Contains(t, logger.logs[1], "SSH session open stopped after 1 attempts in ")
