@@ -33,6 +33,7 @@ Describe 'extract_windows_image_urls function'
 
     When call extract_windows_image_urls
     The status should be success
+    The output should include "Reading image URLs from ./spec/parts/linux/cloud-init/artifacts/sample_payload.json"
     The variable WINDOWS_BASE_IMAGE_URL should include "/ws2022/GEN2/2022-datacenter-core-smalldisk-g2-sim.vhd"
     The variable windows_nanoserver_image_url should include "/ws2022/CONTAINERS/nanoserver.tar"
     The variable windows_servercore_image_url should include "/ws2022/CONTAINERS/servercore.tar"
@@ -43,6 +44,7 @@ Describe 'extract_windows_image_urls function'
 
     When call extract_windows_image_urls
     The status should be success
+    The output should include "Reading image URLs from ./spec/parts/linux/cloud-init/artifacts/sample_payload.json"
     The variable WINDOWS_BASE_IMAGE_URL should include "/ws2025/2025-datacenter-core-smalldisk-sim.vhd"
     The variable windows_nanoserver_image_url should include "/ws2025/CONTAINERS/nanoserver.tar,https://"
     The variable windows_nanoserver_image_url should include "/ws2022/CONTAINERS/nanoserver.tar"
