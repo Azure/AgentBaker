@@ -205,7 +205,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 		markScenarioOutcome(s, runErr, recover())
 	}()
 	var approvedCluster *Cluster
-	if s.Name == "ACL" && os.Getenv(aclIPETransitionEnv) != "" {
+	if s.Name == ACLIPEScenarioName() && os.Getenv(aclIPETransitionEnv) != "" {
 		if err := aclIPETransitionGate(s); err != nil {
 			return err
 		}

@@ -33,6 +33,13 @@ parameters:
       - none
       - off
       - audit
+  - name: aclIpeScenario
+    displayName: ACL IPE architecture scenario
+    type: string
+    default: ACL
+    values:
+      - ACL
+      - ACL_ARM64
   - name: aclArm64TlSourceGallery
     displayName: ACL ARM64 TL source gallery unique name
     type: string
@@ -1089,3 +1096,4 @@ stages:
           IgnoreScenariosWithMissingVhd: true
           useVhdMetadataArtifacts: true
           aclIpeExpectedMode: ${{ parameters.aclIpeExpectedMode }}
+          aclIpeScenario: ${{ parameters.aclIpeScenario }}

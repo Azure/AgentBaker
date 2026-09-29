@@ -93,6 +93,26 @@ func TestACLIPEOptInRequiresOnlyUnfilteredACL(t *testing.T) {
 	}
 }
 
+func TestACLIPEARM64RequiresExactScenarioAndEvidence(t *testing.T) {
+	t.Setenv("ACL_IPE_SCENARIO", "ACL_ARM64")
+	require.NoError(t, requireACLIPEOnly([]*scenario.Scenario{{Name: "ACL_ARM64"}}, "audit"))
+	require.Error(t, requireACLIPEOnly([]*scenario.Scenario{{Name: "ACL"}}, "audit"))
+	require.Error(t, requireACLIPEOnly([]*scenario.Scenario{{Name: "ACL"}, {Name: "ACL_ARM64"}}, "audit"))
+	results := []scenarioResult{{
+		Name: "ACL_ARM64", Status: statusPassed,
+		Attempts: []attemptResult{{Status: statusPassed, ADOTestCases: []scenario.Measurement{
+			{Name: "ACL_IPE_FirstBoot_audit"}, {Name: "ACL_IPE_AuditDeny"},
+		}}},
+	}}
+	require.NoError(t, requireACLIPEPassed(results, "audit"))
+	results[0].Attempts[0].ADOTestCases = results[0].Attempts[0].ADOTestCases[:1]
+	require.ErrorContains(t, requireACLIPEPassed(results, "audit"), "ACL_IPE_AuditDeny")
+	results[0].Status = statusSkipped
+	require.Error(t, requireACLIPEPassed(results, "audit"))
+	results[0].Name = "ACL"
+	require.Error(t, requireACLIPEPassed(results, "audit"))
+}
+
 func TestACLIPEOptInRequiresPassingMeasurements(t *testing.T) {
 	firstBoot := func(mode string) scenario.Measurement {
 		return scenario.Measurement{Name: "ACL_IPE_FirstBoot_" + mode}

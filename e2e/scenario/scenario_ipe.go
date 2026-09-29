@@ -15,6 +15,14 @@ import (
 )
 
 const aclIPEModeEnv = "ACL_IPE_EXPECTED_MODE"
+const aclIPEScenarioEnv = "ACL_IPE_SCENARIO"
+
+func ACLIPEScenarioName() string {
+	if name := os.Getenv(aclIPEScenarioEnv); name != "" {
+		return name
+	}
+	return "ACL"
+}
 
 const aclIPEPolicyName = "acl_ipe_boot_policy"
 const aclIPESecurityProfileTag = "acl-node-security-profile"
@@ -80,13 +88,16 @@ type aclIPEBootEvidence struct {
 }
 
 func aclIPEValidationRequested(s *Scenario) bool {
-	return s != nil && s.Name == "ACL" && os.Getenv(aclIPEModeEnv) != ""
+	return s != nil && s.Name == ACLIPEScenarioName() && os.Getenv(aclIPEModeEnv) != ""
 }
 
 func ACLIPEExpectedMode() (string, error) {
 	mode := os.Getenv(aclIPEModeEnv)
 	if mode == "" {
 		return "", nil
+	}
+	if name := ACLIPEScenarioName(); name != "ACL" && name != "ACL_ARM64" {
+		return "", fmt.Errorf("%s must be ACL or ACL_ARM64, got %q", aclIPEScenarioEnv, name)
 	}
 	if mode != "off" && mode != "audit" {
 		return "", fmt.Errorf("%s must be off or audit for the ACL scenario, got %q", aclIPEModeEnv, mode)

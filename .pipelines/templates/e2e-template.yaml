@@ -34,6 +34,12 @@ parameters:
       - none
       - off
       - audit
+  - name: aclIpeScenario
+    type: string
+    default: ACL
+    values:
+      - ACL
+      - ACL_ARM64
   - name: rcv1pTagsAutoInjected
     type: boolean
     displayName: |
@@ -108,6 +114,7 @@ jobs:
             E2E_VHD_METADATA_FILE: $(E2E_VHD_METADATA_FILE)
           ${{ if ne(parameters.aclIpeExpectedMode, 'none') }}:
             ACL_IPE_EXPECTED_MODE: ${{ parameters.aclIpeExpectedMode }}
+            ACL_IPE_SCENARIO: ${{ parameters.aclIpeScenario }}
 
       - task: PublishTestResults@2
         displayName: Upload test results

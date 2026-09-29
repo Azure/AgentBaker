@@ -62,6 +62,11 @@ func TestReleasePipelineACLIPEModeWiring(t *testing.T) {
 	templateMode := namedPipelineItem(t, pipelineList(t, template["parameters"]), "name", "aclIpeExpectedMode")
 	require.Equal(t, modeParam["default"], templateMode["default"])
 	require.Equal(t, modeParam["values"], templateMode["values"])
+	for _, document := range []map[string]any{release, template} {
+		scenarioParam := namedPipelineItem(t, pipelineList(t, document["parameters"]), "name", "aclIpeScenario")
+		require.Equal(t, "ACL", scenarioParam["default"])
+		require.Equal(t, []any{"ACL", "ACL_ARM64"}, pipelineList(t, scenarioParam["values"]))
+	}
 
 	build := namedPipelineItem(t, pipelineList(t, release["stages"]), "stage", "build")
 	aclJob := namedPipelineItem(t, pipelineList(t, build["jobs"]), "job", "buildacltlgen2")
@@ -86,6 +91,7 @@ func TestReleasePipelineACLIPEModeWiring(t *testing.T) {
 	e2eJob := namedPipelineItem(t, pipelineList(t, e2e["jobs"]), "template", "./templates/e2e-template.yaml")
 	jobParams := pipelineMap(t, e2eJob["parameters"])
 	require.Equal(t, "${{ parameters.aclIpeExpectedMode }}", jobParams["aclIpeExpectedMode"])
+	require.Equal(t, "${{ parameters.aclIpeScenario }}", jobParams["aclIpeScenario"])
 	require.Equal(t, true, jobParams["IgnoreScenariosWithMissingVhd"])
 	require.Equal(t, true, jobParams["useVhdMetadataArtifacts"])
 
@@ -98,6 +104,7 @@ func TestReleasePipelineACLIPEModeWiring(t *testing.T) {
 	require.False(t, unconditional, "ordinary E2E runs must retain their existing environment")
 	conditional := pipelineMap(t, env["${{ if ne(parameters.aclIpeExpectedMode, 'none') }}"])
 	require.Equal(t, "${{ parameters.aclIpeExpectedMode }}", conditional["ACL_IPE_EXPECTED_MODE"])
+	require.Equal(t, "${{ parameters.aclIpeScenario }}", conditional["ACL_IPE_SCENARIO"])
 	for _, mode := range []string{"off", "audit"} {
 		require.Equal(t, mode, strings.ReplaceAll(conditional["ACL_IPE_EXPECTED_MODE"].(string),
 			"${{ parameters.aclIpeExpectedMode }}", mode))
@@ -108,15 +115,15 @@ func TestReleasePipelineACLIPEModeWiring(t *testing.T) {
 	require.NoError(t, err)
 	normalizedScript := strings.ReplaceAll(string(scriptBody), "\r\n", "\n")
 	require.Contains(t, normalizedScript,
-		"(\n  unset ACL_IPE_EXPECTED_MODE\n  go test -count=1 ./...\n)\n",
+		"(\n  unset ACL_IPE_EXPECTED_MODE ACL_IPE_SCENARIO\n  go test -count=1 ./...\n)\n",
 		"unit tests must not inherit the scenario mode, but the runner must")
 	require.Contains(t, normalizedScript,
-		"scenario_selectors=()\nif [ -n \"${ACL_IPE_EXPECTED_MODE:-}\" ]; then\n  scenario_selectors=(ACL)\nfi\n",
+		"scenario_selectors=()\nif [ -n \"${ACL_IPE_EXPECTED_MODE:-}\" ]; then\n  scenario_selectors=(\"${ACL_IPE_SCENARIO:-ACL}\")\nfi\n",
 		"only opted-in runs may add the exact ACL scenario selector")
 	require.Contains(t, normalizedScript,
 		"\n  --output grouped \\\n  \"${scenario_selectors[@]}\"",
 		"the E2E runner must receive the opt-in ACL-only selector")
-	require.Less(t, strings.Index(normalizedScript, "scenario_selectors=(ACL)"),
+	require.Less(t, strings.Index(normalizedScript, `scenario_selectors=("${ACL_IPE_SCENARIO:-ACL}")`),
 		strings.Index(normalizedScript, "\ngo run . run"),
 		"the ACL-only selector must be set before invoking the runner")
 }

@@ -128,16 +128,23 @@ var _ = Register(&Scenario{
 			// Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
 			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
 			nbc.IsARM64 = true
+			if aclIPETransitionEnabled() {
+				nbc.KubeletConfig["--register-with-taints"] = aclIPETransitionTaint
+			}
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 			vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
+			if aclIPETransitionEnabled() {
+				vmss.Properties.UpgradePolicy.Mode = to.Ptr(armcompute.UpgradeModeManual)
+			}
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt"),
+				ValidateACLIPE(ctx, s),
 			)
 		},
 	},

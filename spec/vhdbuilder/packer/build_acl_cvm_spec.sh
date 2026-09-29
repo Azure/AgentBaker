@@ -9,7 +9,7 @@ Describe 'build-acl-cvm.sh'
     rm -rf "$TEST_ROOT"
     mkdir -p "$MOCK_BIN"
     cat > "$BASE_TEMPLATE" <<'EOF'
-{"builders":[{"type":"azure-arm","shared_image_gallery_destination":{"image_name":"acl"}}],"provisioners":[{"type":"shell","inline":["true"]}]}
+{"builders":[{"type":"azure-arm","security_type":"TrustedLaunch","secure_boot_enabled":true,"vtpm_enabled":true,"shared_image_gallery_destination":{"image_name":"acl"}}],"provisioners":[{"type":"shell","inline":["true"]}]}
 EOF
     cat > "${MOCK_BIN}/packer" <<'EOF'
 #!/bin/sh
@@ -26,6 +26,13 @@ EOF
 
   BeforeEach 'setup'
 
+  It 'launches both ACL TL builders with Secure Boot and vTPM'
+    When call jq -e '.builders[0] | .security_type == "TrustedLaunch" and .secure_boot_enabled == true and .vtpm_enabled == true' \
+      vhdbuilder/packer/vhd-image-builder-acl.json vhdbuilder/packer/vhd-image-builder-acl-arm64.json
+    The status should be success
+    The output should include "true"
+  End
+
   build_and_validate_cvm_template() {
     ./vhdbuilder/packer/build-acl-cvm.sh &&
       jq -e '
@@ -41,7 +48,7 @@ EOF
       ' "$CAPTURED_TEMPLATE" >/dev/null
   }
 
-  It 'publishes via a managed image without changing security settings or provisioners'
+  It 'publishes via a managed image without inheriting TL settings or changing provisioners'
     ACL_PACKER_TEMPLATE="$BASE_TEMPLATE"
     export ACL_PACKER_TEMPLATE
     When call build_and_validate_cvm_template

@@ -185,10 +185,10 @@ func requireACLIPEOnly(scenarios []*scenario.Scenario, mode string) error {
 	if mode == "" {
 		return nil
 	}
-	if len(scenarios) == 1 && scenarios[0].Name == "ACL" {
+	if len(scenarios) == 1 && scenarios[0].Name == scenario.ACLIPEScenarioName() {
 		return nil
 	}
-	return fmt.Errorf("ACL_IPE_EXPECTED_MODE=%s requires exactly the ACL scenario, selected and not filtered", mode)
+	return fmt.Errorf("ACL_IPE_EXPECTED_MODE=%s requires exactly the %s scenario, selected and not filtered", mode, scenario.ACLIPEScenarioName())
 }
 
 func requireACLIPEPassed(results []scenarioResult, mode string) error {
@@ -196,7 +196,7 @@ func requireACLIPEPassed(results []scenarioResult, mode string) error {
 		return nil
 	}
 	for _, result := range results {
-		if result.Name != "ACL" {
+		if result.Name != scenario.ACLIPEScenarioName() {
 			continue
 		}
 		if result.Status != statusPassed && result.Status != statusFlaky {

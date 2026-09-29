@@ -98,13 +98,13 @@ az extension add --name bastion
 cd e2e
 # The scenario mode applies to the runner, not the unit tests preceding it.
 (
-  unset ACL_IPE_EXPECTED_MODE
+  unset ACL_IPE_EXPECTED_MODE ACL_IPE_SCENARIO
   go test -count=1 ./...
 )
 
 scenario_selectors=()
 if [ -n "${ACL_IPE_EXPECTED_MODE:-}" ]; then
-  scenario_selectors=(ACL)
+  scenario_selectors=("${ACL_IPE_SCENARIO:-ACL}")
 fi
 
 go run . run \

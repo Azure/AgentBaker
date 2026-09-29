@@ -41,6 +41,9 @@
       "ssh_read_write_timeout": "5m",
       "os_type": "Linux",
       "os_disk_size_gb": 60,
+      "security_type": "TrustedLaunch",
+      "secure_boot_enabled": true,
+      "vtpm_enabled": true,
       "shared_image_gallery": {
         "direct_shared_gallery_image_id": "/SharedGalleries/{{user `sig_source_gallery_unique_name`}}/Images/{{user `sig_source_image_name`}}/Versions/{{user `sig_source_image_version`}}"
       },

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/stretchr/testify/require"
@@ -69,6 +70,51 @@ func TestACLIPEExpectedModeOptIn(t *testing.T) {
 		err := maybeSkipScenario(context.Background(), "ACL", acl)
 		require.ErrorContains(t, err, "ACL_IPE_EXPECTED_MODE must be off or audit")
 	})
+}
+
+func TestACLIPEArchitectureSelection(t *testing.T) {
+	t.Setenv(aclIPEModeEnv, "audit")
+	for _, name := range []string{"ACL", "ACL_ARM64"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(aclIPEScenarioEnv, name)
+			mode, err := ACLIPEExpectedMode()
+			require.NoError(t, err)
+			require.Equal(t, "audit", mode)
+			s := &Scenario{Name: name}
+			require.True(t, aclIPEValidationRequested(s))
+			require.False(t, aclIPEValidationRequested(&Scenario{Name: "ACL_CustomCA"}))
+			require.ErrorContains(t, ValidateACLIPEFirstBoot(context.Background(), s), "Azure VM ID")
+			require.Len(t, s.adoTestCases, 1)
+			t.Setenv(aclIPEModeEnv, "off")
+			t.Setenv(aclIPETransitionEnv, "off-to-audit")
+			t.Setenv(aclIPEApprovedClusterEnv, "")
+			require.Error(t, aclIPETransitionGate(s), "both architectures must retain the transition approval gate")
+			if name == "ACL_ARM64" {
+				var registered *Scenario
+				for _, candidate := range List() {
+					if candidate.Name == name {
+						registered = candidate
+					}
+				}
+				require.NotNil(t, registered)
+				require.Nil(t, registered.AKSNodeConfigMutator, "preserve ARM64 CSE provisioning")
+				nbc := &datamodel.NodeBootstrappingConfiguration{
+					KubeletConfig:    make(map[string]string),
+					AgentPoolProfile: &datamodel.AgentPoolProfile{},
+				}
+				registered.BootstrapConfigMutator(nil, nbc)
+				require.Equal(t, aclIPETransitionTaint, nbc.KubeletConfig["--register-with-taints"])
+				require.True(t, nbc.IsARM64)
+				t.Setenv(aclIPETransitionEnv, "")
+				nbc.KubeletConfig = make(map[string]string)
+				registered.BootstrapConfigMutator(nil, nbc)
+				require.NotContains(t, nbc.KubeletConfig, "--register-with-taints")
+			}
+		})
+	}
+	t.Setenv(aclIPEScenarioEnv, "ACL_CustomCA")
+	_, err := ACLIPEExpectedMode()
+	require.ErrorContains(t, err, "must be ACL or ACL_ARM64")
 }
 
 func TestACLIPEFirstBootMissingIdentityFailsMeasurement(t *testing.T) {

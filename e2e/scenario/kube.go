@@ -936,7 +936,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 		image = "mcr.azk8s.cn/cbl-mariner/busybox:2.0"
 	}
 	tolerations := getPodTolerations()
-	if s.Name == "ACL" && aclIPETransitionEnabled() {
+	if s.Name == ACLIPEScenarioName() && aclIPETransitionEnabled() {
 		tolerations = append(tolerations, corev1.Toleration{
 			Key: aclIPETransitionTaintKey, Operator: corev1.TolerationOpEqual,
 			Value: "true", Effect: corev1.TaintEffectNoSchedule,

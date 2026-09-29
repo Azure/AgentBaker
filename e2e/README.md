@@ -23,8 +23,10 @@ For two separate signed-image runs in the VHD release pipeline, queue
 `aclIpeExpectedMode=audit` for the separately signed audit-default image
 (`PR head + 05a5719`). The parameter defaults to `none`; the release E2E task
 passes the selected mode as `ACL_IPE_EXPECTED_MODE`. For standalone E2E runs,
-set that environment variable explicitly. Select the existing `ACL` scenario
-(AMD64 TL); the release opt-in passes `ACL` as the sole scenario selector, so
+set that environment variable explicitly. Select `aclIpeScenario=ACL` (default,
+AMD64 TL) or `aclIpeScenario=ACL_ARM64` (ARM64 TL); standalone runs use
+`ACL_IPE_SCENARIO`. Queue each architecture separately with its matching
+same-run VHD. The release opt-in passes the selected scenario as its sole selector, so
 other Linux and ACL scenarios do not run even if E2E would otherwise be skipped.
 With mode `none`, the release keeps its ordinary E2E selection.
 With the variable set, an invalid mode, absent/filtered/skipped ACL, missing

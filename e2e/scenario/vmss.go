@@ -207,7 +207,7 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 }
 
 func registerVMSSCleanup(s *Scenario, vm *ScenarioVM) {
-	if aclIPETransitionEnabled() && s.Name == "ACL" && vm != nil && vm.ipeCreationReceipt != nil {
+	if aclIPETransitionEnabled() && s.Name == ACLIPEScenarioName() && vm != nil && vm.ipeCreationReceipt != nil {
 		aclIPEArmOwnedCleanup(s, vm)
 	}
 
@@ -220,7 +220,7 @@ func registerVMSSCleanup(s *Scenario, vm *ScenarioVM) {
 		if vm != nil {
 			defer cleanupBastionTunnel(vm.SSHClient)
 		}
-		if aclIPETransitionEnabled() && s.Name == "ACL" && (vm == nil || vm.ipeCreationReceipt == nil) {
+		if aclIPETransitionEnabled() && s.Name == ACLIPEScenarioName() && (vm == nil || vm.ipeCreationReceipt == nil) {
 			if vm != nil && vm.ipeCreationAttempted {
 				return fmt.Errorf("ACL IPE creation ownership unverified; refuse VMSS diagnostics and name-only deletion")
 			}
@@ -230,7 +230,7 @@ func registerVMSSCleanup(s *Scenario, vm *ScenarioVM) {
 			extractLogsFromVM(ctx, s, vm)
 			return nil
 		})
-		if aclIPETransitionEnabled() && s.Name == "ACL" {
+		if aclIPETransitionEnabled() && s.Name == ACLIPEScenarioName() {
 			return errors.Join(logErr, aclIPEFinishCleanup(ctx, s, vm))
 		}
 		return errors.Join(logErr, deleteVMSS(ctx, s))
@@ -249,7 +249,7 @@ func registerVMSSCleanup(s *Scenario, vm *ScenarioVM) {
 // The returned VMSS is the terminal one (successful attempt, or an exhausted / non-retryable
 // failure); the caller is responsible for registering its teardown.
 func createVMSSRecreatingOnOutboundCSEFlake(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
-	if aclIPETransitionEnabled() && s.Name == "ACL" {
+	if aclIPETransitionEnabled() && s.Name == ACLIPEScenarioName() {
 		// Retrying an uncertain create could lose its receipt before the terminal cleanup is registered.
 		if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 			s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil {
@@ -609,7 +609,7 @@ func createVMSS(
 ) (*ScenarioVM, error) {
 	vm := &ScenarioVM{}
 	var createOptions *armcompute.VirtualMachineScaleSetsClientBeginCreateOrUpdateOptions
-	if aclIPETransitionEnabled() && s.Name == "ACL" {
+	if aclIPETransitionEnabled() && s.Name == ACLIPEScenarioName() {
 		if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 			s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
 			!strings.EqualFold(resourceGroupName, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup) {

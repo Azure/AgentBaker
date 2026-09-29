@@ -62,7 +62,7 @@ func aclIPETransitionEnabled() bool {
 }
 
 func aclIPETransitionGate(s *Scenario) error {
-	if s == nil || s.Name != "ACL" || os.Getenv(aclIPETransitionEnv) == "" {
+	if s == nil || s.Name != ACLIPEScenarioName() || os.Getenv(aclIPETransitionEnv) == "" {
 		return nil
 	}
 	if os.Getenv(aclIPETransitionEnv) != "off-to-audit" || os.Getenv(aclIPEModeEnv) != "off" {
@@ -84,7 +84,7 @@ func aclIPETransitionGate(s *Scenario) error {
 }
 
 func aclIPESelectCluster(ctx context.Context, s *Scenario, approved *Cluster, request ClusterRequest) (*Cluster, error) {
-	if s.Name == "ACL" && (approved != nil || os.Getenv(aclIPETransitionEnv) != "") {
+	if s.Name == ACLIPEScenarioName() && (approved != nil || os.Getenv(aclIPETransitionEnv) != "") {
 		if approved == nil {
 			return nil, fmt.Errorf("ACL IPE transition refuses generic cluster create/reconcile fallback")
 		}
