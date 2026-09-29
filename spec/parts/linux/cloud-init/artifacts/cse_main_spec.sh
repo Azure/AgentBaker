@@ -130,7 +130,7 @@ End
 Describe 'NVIDIA Fabric Manager startup timeout'
     It 'allows NVSwitch fabric initialization to finish before retrying the service'
         When run awk -F'"' '/logs_to_events "AKS\.CSE\.nvidia-fabricmanager"/ { print $4 }' parts/linux/cloud-init/artifacts/cse_main.sh
-        The output should equal "systemctlEnableAndStart nvidia-fabricmanager 300"
+        The output should equal "systemctlEnableAndStart nvidia-fabricmanager 60"
         The status should be success
     End
 End

@@ -508,7 +508,7 @@ function nodePrep {
                 logs_to_events "AKS.CSE.installNvidiaFabricManagerSysext" installNvidiaFabricManagerSysext
             fi
             # NVSwitch fabric initialization can exceed 30s; let it finish before retrying.
-            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 300" || exit $ERR_GPU_DRIVERS_START_FAIL
+            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 60" || exit $ERR_GPU_DRIVERS_START_FAIL
         else
             # Disable fabric manager service if it's not needed
             # The NVIDIA driver installation may automatically enable this service,
