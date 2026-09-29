@@ -162,7 +162,7 @@ func TestVMSSProvisioningErrorClassification(t *testing.T) {
 		wantRetry bool
 		wantSkip  bool
 	}{
-		{code: "AllocationFailed", status: 200, wantRetry: true},
+		{code: "AllocationFailed", status: 200, wantRetry: true, wantSkip: true},
 		{code: "GalleryImageNotFound", status: 404, wantRetry: true},
 		{code: "SkuNotAvailable", status: 409, wantSkip: true},
 		{code: "OperationNotAllowed", status: 409, message: "exceeding approved quota", wantSkip: true},
@@ -192,9 +192,16 @@ func TestVMSSProvisioningErrorClassification(t *testing.T) {
 				var responseErr *azcore.ResponseError
 				require.ErrorAs(t, err, &responseErr)
 				require.Same(t, armErr, responseErr)
-				require.Equal(t, tc.wantRetry, isRetryableVMSSCreationError(err))
 				for _, skipEnabled := range []bool{false, true} {
 					config.Config.SkipTestsWithSKUCapacityIssue = skipEnabled
+					// AllocationFailed is surfaced immediately (not retried) when capacity-skip
+					// is enabled, so it can be classified as a skip instead of being retried into
+					// a half-provisioned VMSS whose SSH timeout masks the capacity signal.
+					wantRetry := tc.wantRetry
+					if skipEnabled && tc.code == "AllocationFailed" && tc.status == 200 {
+						wantRetry = false
+					}
+					require.Equal(t, wantRetry, isRetryableVMSSCreationError(err))
 					skipErr := skipIfSKUNotAvailableErr(err)
 					if tc.wantSkip && skipEnabled {
 						var skipped *skipError

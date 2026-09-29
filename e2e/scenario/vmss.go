@@ -558,7 +558,13 @@ func isRetryableVMSSCreationError(err error) bool {
 	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
 	// It's not a quota issue
 	if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
-		return true
+		// When capacity-skip is enabled (the PR gate sets SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE),
+		// surface AllocationFailed immediately instead of burning retries on a genuinely
+		// capacity-starved SKU. Retrying a scarce new-GPU SKU tends to either exhaust the
+		// budget or half-provision a VMSS whose VM never boots — the latter masks the capacity
+		// signal behind a downstream SSH-handshake timeout that skipIfSKUNotAvailableErr can no
+		// longer classify. Returning early lets it be classified as a skip.
+		return !config.Config.SkipTestsWithSKUCapacityIssue
 	}
 	// GalleryImageNotFound can happen transiently after image replication completes
 	// due to Azure eventual consistency - the gallery API reports success but the
@@ -867,7 +873,18 @@ func skipIfSKUNotAvailableErr(err error) error {
 		return nil
 	}
 	var respErr *azcore.ResponseError
-	if !errors.As(err, &respErr) || respErr.StatusCode != 409 {
+	if !errors.As(err, &respErr) {
+		return nil
+	}
+	// No allocatable capacity for the requested SKU in the region. Azure surfaces this as an
+	// async operation result (HTTP 200) carrying an AllocationFailed error code — not a 409 —
+	// which is why it needs its own branch. It is a capacity issue, not a product/test
+	// regression, so treat it like SkuNotAvailable: skip rather than fail the shared gate.
+	// Common for scarce new-GPU SKUs (e.g. RTX PRO 6000 BSE v6) that lack steady capacity.
+	if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
+		return &skipError{message: fmt.Sprintf("scenario SKU has insufficient capacity in region: %v", err)}
+	}
+	if respErr.StatusCode != 409 {
 		return nil
 	}
 	if respErr.ErrorCode == "SkuNotAvailable" {
