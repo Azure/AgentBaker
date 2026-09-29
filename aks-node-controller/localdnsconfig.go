@@ -389,7 +389,7 @@ func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPo
 	if err != nil {
 		return localDNSCorefileUpdate{}, err
 	}
-	includeHostsPlugin := profile.GetEnableHostsPlugin()
+	includeHostsPlugin := a.includeHostsPluginForCorefile(profile)
 	if includeHostsPlugin {
 		if _, statErr := os.Stat(localDNSHostsFilePath); statErr != nil {
 			includeHostsPlugin = false
@@ -430,6 +430,10 @@ func (a *App) nodeAgentPoolName() (string, error) {
 	path := a.getNodeConfigPath()
 	raw, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Info("node config not found, trying nbc-cmd.sh fallback", "path", path)
+			return a.nodeAgentPoolNameFromNBCCmd()
+		}
 		return "", fmt.Errorf("reading node config %s: %w", path, err)
 	}
 	cfg, perr := nodeconfigutils.UnmarshalConfigurationV1(raw)
@@ -450,6 +454,10 @@ func (a *App) nodeConfigWithLocalDNSProfile(profile *aksnodeconfigv1.LocalDnsPro
 	path := a.getNodeConfigPath()
 	raw, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Info("node config not found, trying nbc-cmd.sh fallback", "path", path)
+			return a.nodeConfigWithLocalDNSProfileFromNBCCmd(profile)
+		}
 		return nil, fmt.Errorf("reading node config %s: %w", path, err)
 	}
 	cfg, perr := nodeconfigutils.UnmarshalConfigurationV1(raw)
@@ -518,4 +526,148 @@ func writeLocalDNSCorefileVersion(path string, version string) error {
 		return fmt.Errorf("create parent directory: %w", err)
 	}
 	return os.WriteFile(path, []byte(strings.TrimSpace(version)+"\n"), 0600)
+}
+
+// nodeAgentPoolNameFromNBCCmd reads the agent pool name from the existing nbc-cmd.sh file.
+// This is the fallback path when the full AKSNodeConfig JSON is not present (e.g. Staging
+// Phase 2), mirroring lpsTargetFromNBCCmd. The pool name is carried in KUBELET_NODE_LABELS
+// as the kubernetes.azure.com/agentpool label.
+func (a *App) nodeAgentPoolNameFromNBCCmd() (string, error) {
+	vars, path, err := a.nbcCmdEnvVars()
+	if err != nil {
+		return "", err
+	}
+	labels := vars["KUBELET_NODE_LABELS"]
+	if labels == "" {
+		return "", fmt.Errorf("nbc-cmd %s has no KUBELET_NODE_LABELS", path)
+	}
+	agentPool := labelValueFromCSV(labels, localDNSAgentPoolLabel)
+	if agentPool == "" {
+		return "", fmt.Errorf("nbc-cmd %s KUBELET_NODE_LABELS has no %s label", path, localDNSAgentPoolLabel)
+	}
+	slog.Info("loaded agent pool from nbc-cmd.sh fallback", "agentPool", agentPool, "path", path)
+	return agentPool, nil
+}
+
+// nodeConfigWithLocalDNSProfileFromNBCCmd builds the minimal Configuration needed to render the
+// LocalDNS Corefile when the full AKSNodeConfig JSON is absent (e.g. Staging Phase 2).
+//
+// The Corefile template reads exactly one field off Configuration outside of LocalDnsProfile:
+// ClusterConfig.ClusterNetworkConfig.CoreDnsServiceIp. That value is NOT carried as a standalone
+// variable in nbc-cmd.sh -- note that --cluster-dns points at the localdns cluster listener
+// (169.254.10.11), not at the CoreDNS service. It is, however, already baked into the Corefile
+// that bootstrap rendered into LOCALDNS_COREFILE_BASE, so recover it from there.
+func (a *App) nodeConfigWithLocalDNSProfileFromNBCCmd(profile *aksnodeconfigv1.LocalDnsProfile) (*aksnodeconfigv1.Configuration, error) {
+	vars, path, err := a.nbcCmdEnvVars()
+	if err != nil {
+		return nil, err
+	}
+	coreDNSServiceIP, err := coreDNSServiceIPFromBootstrapCorefiles(vars)
+	if err != nil {
+		return nil, fmt.Errorf("nbc-cmd %s: %w", path, err)
+	}
+	slog.Info("loaded CoreDNS service IP from nbc-cmd.sh fallback", "coreDnsServiceIp", coreDNSServiceIP, "path", path)
+	return &aksnodeconfigv1.Configuration{
+		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+			ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
+				CoreDnsServiceIp: coreDNSServiceIP,
+			},
+		},
+		LocalDnsProfile: profile,
+	}, nil
+}
+
+// nbcCmdEnvVars reads and parses the command-scoped environment variables out of nbc-cmd.sh.
+func (a *App) nbcCmdEnvVars() (map[string]string, string, error) {
+	path := a.getNBCCmdPath()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, path, fmt.Errorf("reading nbc-cmd %s: %w", path, err)
+	}
+	return parseEnvVarsFromNBCCmdContent(string(raw)), path, nil
+}
+
+// labelValueFromCSV extracts a label value from a comma-separated "key=value" list.
+// KUBELET_NODE_LABELS may repeat a key; the values agree, so the first match wins.
+func labelValueFromCSV(labels string, key string) string {
+	for _, pair := range strings.Split(labels, ",") {
+		k, v, ok := strings.Cut(strings.TrimSpace(pair), "=")
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(k) == key {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+// coreDNSServiceIPFromBootstrapCorefiles recovers the CoreDNS service IP from a Corefile that
+// bootstrap already rendered. In the generated Corefile the cluster.local server block forwards
+// to the CoreDNS service, so the forward target there is the value we need.
+func coreDNSServiceIPFromBootstrapCorefiles(vars map[string]string) (string, error) {
+	for _, name := range []string{"LOCALDNS_COREFILE_BASE", "LOCALDNS_COREFILE_WITH_HOSTS", "LOCALDNS_GENERATED_COREFILE"} {
+		encoded := strings.TrimSpace(vars[name])
+		if encoded == "" {
+			continue
+		}
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			slog.Info("bootstrap corefile variable is not valid base64, skipping", "variable", name, "error", err)
+			continue
+		}
+		if ip := coreDNSServiceIPFromCorefile(string(decoded)); ip != "" {
+			return ip, nil
+		}
+	}
+	return "", fmt.Errorf("no bootstrap corefile carried a cluster.local forward target")
+}
+
+// coreDNSServiceIPFromCorefile returns the forward target of the cluster.local server block.
+func coreDNSServiceIPFromCorefile(corefile string) string {
+	inClusterLocalBlock := false
+	for _, line := range strings.Split(corefile, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasSuffix(trimmed, "{") && strings.HasPrefix(trimmed, "cluster.local:") {
+			inClusterLocalBlock = true
+			continue
+		}
+		if !inClusterLocalBlock {
+			continue
+		}
+		if fields := strings.Fields(trimmed); len(fields) >= 3 && fields[0] == "forward" && fields[1] == "." {
+			if ip := net.ParseIP(fields[2]); ip != nil {
+				return fields[2]
+			}
+			return ""
+		}
+		if trimmed == "}" {
+			inClusterLocalBlock = false
+		}
+	}
+	return ""
+}
+
+// includeHostsPluginForCorefile decides whether the re-rendered Corefile keeps the hosts plugin
+// block.
+//
+// The hosts plugin is currently driven by a control-plane toggle that bootstrap resolves into
+// SHOULD_ENABLE_HOSTS_PLUGIN (see withLocalDNSHostsPlugin on the RP side); the LPS LocalDnsProfile
+// carries enableHostsPlugin off HostsPluginConfig, which is not populated on the HCP proto yet and
+// therefore reads false. Honouring the profile alone would silently drop the hosts block from a
+// node that booted with it, so prefer the bootstrap-resolved value and fall back to the profile.
+func (a *App) includeHostsPluginForCorefile(profile *aksnodeconfigv1.LocalDnsProfile) bool {
+	vars, path, err := a.nbcCmdEnvVars()
+	if err != nil {
+		slog.Info("could not read nbc-cmd.sh for hosts plugin state, using LPS profile value", "error", err)
+		return profile.GetEnableHostsPlugin()
+	}
+	switch strings.TrimSpace(vars["SHOULD_ENABLE_HOSTS_PLUGIN"]) {
+	case "true":
+		return true
+	case "false":
+		return false
+	}
+	slog.Info("nbc-cmd.sh has no SHOULD_ENABLE_HOSTS_PLUGIN, using LPS profile value", "path", path)
+	return profile.GetEnableHostsPlugin()
 }
