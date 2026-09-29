@@ -536,10 +536,8 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, err
 		}
 
-		// A capacity-skip scenario should surface AllocationFailed immediately rather than
-		// retry: retrying a genuinely capacity-starved SKU tends to half-provision a VMSS whose
-		// VM never boots, masking the capacity signal behind a downstream SSH-handshake timeout
-		// that ConfigureAndCreateVMSS can no longer classify as a skip.
+		// Opted-in scenarios surface AllocationFailed immediately so ConfigureAndCreateVMSS can
+		// skip on it; retrying would half-provision a VMSS that never boots and mask it as an SSH timeout.
 		if shouldSurfaceCapacityError(s, err) {
 			return vm, err
 		}
@@ -563,10 +561,8 @@ func isRetryableVMSSCreationError(err error) bool {
 	if !errors.As(err, &respErr) {
 		return false
 	}
-	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, and
-	// retrying sometimes helps, so it is retryable by default. It's not a quota issue. Scenarios
-	// that opt into SkipOnCapacityError bypass this retry upstream in CreateVMSSWithRetry (via
-	// shouldSurfaceCapacityError) so a genuinely capacity-starved SKU is surfaced as a skip.
+	// AllocationFailed on exotic SKUs (new GPUs) is often transient, so retry by default. It's not
+	// a quota issue. SkipOnCapacityError scenarios opt out of the retry via shouldSurfaceCapacityError.
 	if isAllocationFailure(err) {
 		return true
 	}
@@ -872,34 +868,28 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 	return *ipConfig.Properties.PrivateIPAddress, nil
 }
 
-// isAllocationFailure reports whether err carries Azure's async no-capacity signal: an
-// HTTP-200 operation result whose error code is AllocationFailed ("We do not have sufficient
-// capacity for the requested VM size in this region").
+// isAllocationFailure reports Azure's async no-capacity signal: an HTTP-200 operation result
+// with error code AllocationFailed.
 func isAllocationFailure(err error) bool {
 	var respErr *azcore.ResponseError
 	return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
 }
 
-// shouldSurfaceCapacityError reports whether a capacity-opted-in scenario should surface an
-// AllocationFailed immediately (skipping the retry loop) so ConfigureAndCreateVMSS can classify
-// it as a skip. Retrying a genuinely capacity-starved SKU tends to half-provision a VMSS whose
-// VM never boots, which masks the capacity signal behind a downstream SSH-handshake timeout.
-// Gated on both the per-scenario opt-in and the global capacity-skip flag (PR gate only).
+// shouldSurfaceCapacityError reports whether an opted-in scenario should surface AllocationFailed
+// immediately (no retry) so it can be classified as a skip rather than masked by a later SSH timeout.
 func shouldSurfaceCapacityError(s *Scenario, err error) bool {
 	return s.Config.SkipOnCapacityError && config.Config.SkipTestsWithSKUCapacityIssue && isAllocationFailure(err)
 }
 
 // skipIfSKUNotAvailableErr classifies capacity/availability errors into a skip when
-// SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is set (the PR gate). scenarioSkipsOnCapacity opts a single
-// scenario into also skipping on AllocationFailed (no allocatable capacity) — that is scoped per
-// scenario so a genuine capacity regression on a mainstream SKU still fails the gate, and only
-// scarce brand-new GPU SKUs (e.g. RTX PRO 6000 BSE v6) that lack steady capacity opt in.
+// SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is set (the PR gate). scenarioSkipsOnCapacity additionally
+// opts the scenario into skipping on AllocationFailed, scoped per scenario so mainstream SKUs
+// still fail on a genuine capacity regression.
 func skipIfSKUNotAvailableErr(err error, scenarioSkipsOnCapacity bool) error {
 	if !config.Config.SkipTestsWithSKUCapacityIssue {
 		return nil
 	}
-	// AllocationFailed is surfaced as an HTTP-200 async result, not a 409, so it needs its own
-	// branch. Only opted-in scenarios treat it as a skip.
+	// AllocationFailed is an HTTP-200 async result, not a 409, so it needs its own branch.
 	if scenarioSkipsOnCapacity && isAllocationFailure(err) {
 		return &skipError{message: fmt.Sprintf("scenario SKU has insufficient capacity in region: %v", err)}
 	}

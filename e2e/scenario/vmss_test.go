@@ -225,11 +225,8 @@ func TestVMSSProvisioningErrorClassification(t *testing.T) {
 	}
 }
 
-// TestShouldSurfaceCapacityError locks in the compound guard that makes CreateVMSSWithRetry
-// skip the retry loop and surface AllocationFailed immediately: it fires only when the scenario
-// opts in (SkipOnCapacityError), the global capacity-skip flag is on, and the error is an
-// AllocationFailed. A regression that drops any conjunct would reintroduce the half-provisioned
-// VMSS / masked-SSH-timeout failure this scoping prevents.
+// TestShouldSurfaceCapacityError: the retry-loop guard fires only when the scenario opts in,
+// the global flag is on, and the error is AllocationFailed.
 func TestShouldSurfaceCapacityError(t *testing.T) {
 	oldSkip := config.Config.SkipTestsWithSKUCapacityIssue
 	t.Cleanup(func() { config.Config.SkipTestsWithSKUCapacityIssue = oldSkip })
