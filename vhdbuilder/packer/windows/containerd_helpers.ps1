@@ -1,14 +1,9 @@
-function Test-ContainerdReady
-{
-    try
-    {
+function Test-ContainerdReady {
+    try {
         $output = & ctr.exe -n k8s.io version 2>&1
         $exitCode = $LASTEXITCODE
-    }
-    catch
-    {
-        if ($_.FullyQualifiedErrorId -notlike "NativeCommandError*")
-        {
+    } catch {
+        if ($_.FullyQualifiedErrorId -notlike "NativeCommandError*") {
             throw
         }
 
@@ -22,32 +17,28 @@ function Test-ContainerdReady
     }
 }
 
-function Receive-ContainerdJobOutput
-{
+function Receive-ContainerdJobOutput {
     param (
         [Parameter(Mandatory = $true)]
         $Job
     )
 
-    return (Receive-Job -Job $Job -Keep 2>&1 | Out-String).Trim()
+    return (Receive-Job -Job $Job -Keep -ErrorAction Continue 2>&1 | Out-String).Trim()
 }
 
-function Remove-ContainerdJob
-{
+function Remove-ContainerdJob {
     param (
         [Parameter(Mandatory = $true)]
         $Job
     )
 
-    if ($Job.State -eq "Running")
-    {
+    if ($Job.State -eq "Running") {
         Stop-Job -Job $Job
     }
     Remove-Job -Job $Job -Force
 }
 
-function Invoke-WithContainerd
-{
+function Invoke-WithContainerd {
     param (
         [Parameter(Mandatory = $true)]
         [scriptblock]$ScriptBlock,
@@ -61,38 +52,30 @@ function Invoke-WithContainerd
     $job = Start-Job -Name $jobName -ScriptBlock { containerd.exe }
     $lastProbeOutput = ""
 
-    try
-    {
-        for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++)
-        {
+    try {
+        for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
             $job = Get-Job -Id $job.Id
-            if ($job.State -in @("Completed", "Failed", "Stopped"))
-            {
+            if ($job.State -in @("Completed", "Failed", "Stopped")) {
                 $jobOutput = Receive-ContainerdJobOutput -Job $job
                 throw "containerd exited before becoming ready. Job state: $($job.State). Output: $jobOutput"
             }
 
             $probe = Test-ContainerdReady
             $lastProbeOutput = $probe.Output
-            if ($probe.Ready)
-            {
+            if ($probe.Ready) {
                 return & $ScriptBlock
             }
 
-            if ($attempt -lt $MaxAttempts)
-            {
+            if ($attempt -lt $MaxAttempts) {
                 Start-Sleep -Seconds $DelaySeconds
             }
         }
 
         $jobOutput = Receive-ContainerdJobOutput -Job $job
         throw "containerd did not become ready after $MaxAttempts attempts. Last probe output: $lastProbeOutput. Job output: $jobOutput"
-    }
-    finally
-    {
+    } finally {
         $job = Get-Job -Id $job.Id -ErrorAction SilentlyContinue
-        if ($null -ne $job)
-        {
+        if ($null -ne $job) {
             Remove-ContainerdJob -Job $job
         }
     }
