@@ -207,9 +207,11 @@ type Config struct {
 
 	// SkipOnCapacityError, when set (and SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is enabled), makes the
 	// scenario skip instead of fail when its SKU cannot be allocated (AllocationFailed — "insufficient
-	// capacity for the requested VM size in this region"). Reserve this for scarce, brand-new GPU SKUs
-	// (e.g. RTX PRO 6000 BSE v6) that lack steady regional capacity; mainstream SKUs should leave it
-	// unset so a genuine capacity regression still fails the gate.
+	// capacity for the requested VM size in this region"). It also bypasses the AllocationFailed retry
+	// loop for this scenario, surfacing the capacity signal immediately instead of retrying (retries
+	// tend to half-provision a VMSS that never boots, masking capacity as an SSH timeout). Reserve this
+	// for scarce, brand-new GPU SKUs (e.g. RTX PRO 6000 BSE v6) that lack steady regional capacity;
+	// mainstream SKUs should leave it unset so a genuine capacity regression still fails the gate.
 	SkipOnCapacityError bool
 }
 

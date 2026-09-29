@@ -540,7 +540,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		// retry: retrying a genuinely capacity-starved SKU tends to half-provision a VMSS whose
 		// VM never boots, masking the capacity signal behind a downstream SSH-handshake timeout
 		// that ConfigureAndCreateVMSS can no longer classify as a skip.
-		if s.Config.SkipOnCapacityError && config.Config.SkipTestsWithSKUCapacityIssue && isAllocationFailure(err) {
+		if shouldSurfaceCapacityError(s, err) {
 			return vm, err
 		}
 
@@ -563,8 +563,10 @@ func isRetryableVMSSCreationError(err error) bool {
 	if !errors.As(err, &respErr) {
 		return false
 	}
-	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-	// It's not a quota issue
+	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, and
+	// retrying sometimes helps, so it is retryable by default. It's not a quota issue. Scenarios
+	// that opt into SkipOnCapacityError bypass this retry upstream in CreateVMSSWithRetry (via
+	// shouldSurfaceCapacityError) so a genuinely capacity-starved SKU is surfaced as a skip.
 	if isAllocationFailure(err) {
 		return true
 	}
@@ -876,6 +878,15 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 func isAllocationFailure(err error) bool {
 	var respErr *azcore.ResponseError
 	return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
+}
+
+// shouldSurfaceCapacityError reports whether a capacity-opted-in scenario should surface an
+// AllocationFailed immediately (skipping the retry loop) so ConfigureAndCreateVMSS can classify
+// it as a skip. Retrying a genuinely capacity-starved SKU tends to half-provision a VMSS whose
+// VM never boots, which masks the capacity signal behind a downstream SSH-handshake timeout.
+// Gated on both the per-scenario opt-in and the global capacity-skip flag (PR gate only).
+func shouldSurfaceCapacityError(s *Scenario, err error) bool {
+	return s.Config.SkipOnCapacityError && config.Config.SkipTestsWithSKUCapacityIssue && isAllocationFailure(err)
 }
 
 // skipIfSKUNotAvailableErr classifies capacity/availability errors into a skip when

@@ -225,6 +225,39 @@ func TestVMSSProvisioningErrorClassification(t *testing.T) {
 	}
 }
 
+// TestShouldSurfaceCapacityError locks in the compound guard that makes CreateVMSSWithRetry
+// skip the retry loop and surface AllocationFailed immediately: it fires only when the scenario
+// opts in (SkipOnCapacityError), the global capacity-skip flag is on, and the error is an
+// AllocationFailed. A regression that drops any conjunct would reintroduce the half-provisioned
+// VMSS / masked-SSH-timeout failure this scoping prevents.
+func TestShouldSurfaceCapacityError(t *testing.T) {
+	oldSkip := config.Config.SkipTestsWithSKUCapacityIssue
+	t.Cleanup(func() { config.Config.SkipTestsWithSKUCapacityIssue = oldSkip })
+
+	allocErr := fmt.Errorf("failed to wait for VMSS VM: %w", &azcore.ResponseError{StatusCode: 200, ErrorCode: "AllocationFailed"})
+	quotaErr := &azcore.ResponseError{StatusCode: 409, ErrorCode: "SkuNotAvailable"}
+
+	for _, tc := range []struct {
+		name       string
+		optIn      bool
+		globalFlag bool
+		err        error
+		want       bool
+	}{
+		{name: "opted-in, flag on, AllocationFailed", optIn: true, globalFlag: true, err: allocErr, want: true},
+		{name: "opted-in, flag on, non-allocation error", optIn: true, globalFlag: true, err: quotaErr, want: false},
+		{name: "opted-in, flag off, AllocationFailed", optIn: true, globalFlag: false, err: allocErr, want: false},
+		{name: "not opted-in, flag on, AllocationFailed", optIn: false, globalFlag: true, err: allocErr, want: false},
+		{name: "opted-in, flag on, nil error", optIn: true, globalFlag: true, err: nil, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config.Config.SkipTestsWithSKUCapacityIssue = tc.globalFlag
+			s := &Scenario{Config: Config{SkipOnCapacityError: tc.optIn}}
+			require.Equal(t, tc.want, shouldSurfaceCapacityError(s, tc.err))
+		})
+	}
+}
+
 func (tt *vmssCreationTestCase) client(t *testing.T) *config.AzureClient {
 	t.Helper()
 	respond := vmssCreationTestPolicy(func(req *http.Request) *http.Response { return tt.respond(t, req) })
