@@ -543,8 +543,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/ip-masq-agent-v2",
-          "latestVersion": "v0.1.16-16",
-          "previousLatestVersion": "v0.1.16-15"
+          "latestVersion": "v0.1.16-17",
+          "previousLatestVersion": "v0.1.16-16"
         }
       ],
       "windowsVersions": []
