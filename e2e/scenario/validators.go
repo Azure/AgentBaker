@@ -97,6 +97,7 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 	errs = append(errs,
 		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"}),
 		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet/pki", []string{"kubelet-client-current.pem"}),
+		ValidateFileDoesNotExist(ctx, s, "/var/lib/kubelet/bootstrap-kubeconfig"),
 	)
 	return errors.Join(errs...)
 }
