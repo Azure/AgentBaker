@@ -28,16 +28,6 @@ Describe 'extract_windows_image_urls function'
 
   BeforeEach 'setup_environment'
 
-  It 'extracts Windows 2019 image URLs'
-    WINDOWS_SKU="2019-containerd"
-
-    When call extract_windows_image_urls
-    The status should be success
-    The variable WINDOWS_BASE_IMAGE_URL should include "/ws2019/2019-datacenter-core-smalldisk-sim.vhd"
-    The variable windows_nanoserver_image_url should include "/ws2019/CONTAINERS/nanoserver.tar"
-    The variable windows_servercore_image_url should include "/ws2019/CONTAINERS/servercore.tar"
-  End
-
   It 'extracts a Gen2 base image URL'
     WINDOWS_SKU="2022-containerd-gen2"
 
@@ -67,16 +57,6 @@ Describe 'extract_windows_image_urls function'
     The variable windows_nanoserver_image_url should include "/ws2025/CONTAINERS/nanoserver.tar,https://"
     The variable windows_nanoserver_image_url should include "/ws2022/CONTAINERS/nanoserver.tar"
     The variable windows_servercore_image_url should include "/ws2025/CONTAINERS/servercore.tar,https://"
-    The variable windows_servercore_image_url should include "/ws2022/CONTAINERS/servercore.tar"
-  End
-
-  It 'uses Windows 2022 containers for Windows 23H2 Gen2'
-    WINDOWS_SKU="23H2-gen2"
-
-    When call extract_windows_image_urls
-    The status should be success
-    The variable WINDOWS_BASE_IMAGE_URL should include "/ws23H2/GEN2/23h2-datacenter-core-g2-sim.vhd"
-    The variable windows_nanoserver_image_url should include "/ws2022/CONTAINERS/nanoserver.tar"
     The variable windows_servercore_image_url should include "/ws2022/CONTAINERS/servercore.tar"
   End
 

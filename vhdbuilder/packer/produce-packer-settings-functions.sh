@@ -142,10 +142,6 @@ function extract_windows_image_urls() {
 	fi
 
 	case "${payload_sku}" in
-	"2019-containerd")
-		windows_release="2019"
-		container_releases="2019"
-		;;
 	"2022-containerd" | "2022-containerd-gen2")
 		windows_release="2022"
 		container_releases="2022"
@@ -153,10 +149,6 @@ function extract_windows_image_urls() {
 	"2025" | "2025-gen2")
 		windows_release="2025"
 		container_releases="2025,2022"
-		;;
-	"23H2" | "23H2-gen2")
-		windows_release="23H2"
-		container_releases="2022"
 		;;
 	*)
 		echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
