@@ -1158,6 +1158,11 @@ GetKubeProxyFeatureGatesWindowsArguments returns the feature gates string for th
 in Windows nodes.
 */
 func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
+	return joinPowershellStringLiterals(p.GetKubeProxyFeatureGatesForWindows())
+}
+
+// GetKubeProxyFeatureGatesForWindows returns the kube-proxy feature gates for Windows nodes as sorted "name=value" items.
+func (p *Properties) GetKubeProxyFeatureGatesForWindows() []string {
 	featureGates := map[string]bool{}
 
 	if p.FeatureFlags.IsFeatureEnabled(EnableIPv6DualStack) &&
@@ -1177,9 +1182,19 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	var buf bytes.Buffer
+	items := make([]string, 0, len(keys))
 	for _, key := range keys {
-		fmt.Fprintf(&buf, "\"%s=%t\", ", key, featureGates[key])
+		items = append(items, fmt.Sprintf("%s=%t", key, featureGates[key]))
+	}
+	return items
+}
+
+// joinPowershellStringLiterals renders items as a comma-separated list of PowerShell double-quoted strings.
+// The items are not escaped: callers rely on PowerShell double-quoted string rules, for example "" for one quote.
+func joinPowershellStringLiterals(items []string) string {
+	var buf bytes.Buffer
+	for _, item := range items {
+		fmt.Fprintf(&buf, "\"%s\", ", item)
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1604,6 +1619,12 @@ GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val 
 script consumption.
 */
 func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+	return joinPowershellStringLiterals(config.GetOrderedKubeletConfigArgsForWindows(customKc))
+}
+
+// GetOrderedKubeletConfigArgsForWindows returns the Windows kubelet arguments as sorted "--flag=value" items.
+// Values come from producers as they were rendered into PowerShell double-quoted strings.
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigArgsForWindows(customKc *CustomKubeletConfig) []string {
 	kubeletConfig := config.getWindowsKubeletConfig(customKc)
 
 	commandLineOmmittedKubeletConfigFlags := GetCommandLineOmittedKubeletConfigFlags()
@@ -1615,11 +1636,11 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	}
 
 	sort.Strings(keys)
-	var buf bytes.Buffer
+	args := make([]string, 0, len(keys))
 	for _, key := range keys {
-		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeletConfig[key])
+		args = append(args, fmt.Sprintf("%s=%s", key, kubeletConfig[key]))
 	}
-	return strings.TrimSuffix(buf.String(), ", ")
+	return args
 }
 
 // GetKubeletHealthzEndpoint returns the local URL matching the effective Windows kubelet configuration.
@@ -1650,6 +1671,12 @@ GetOrderedKubeproxyConfigStringForPowershell returns an ordered string of key/va
 for Powershell script consumption.
 */
 func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringForPowershell() string {
+	return joinPowershellStringLiterals(config.GetOrderedKubeproxyConfigArgsForWindows())
+}
+
+// GetOrderedKubeproxyConfigArgsForWindows returns the Windows kube-proxy arguments as sorted "--flag=value" items.
+// Values come from producers as they were rendered into PowerShell double-quoted strings.
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigArgsForWindows() []string {
 	kubeproxyConfig := config.KubeproxyConfig
 	if kubeproxyConfig == nil {
 		// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/.
@@ -1679,11 +1706,11 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	var buf bytes.Buffer
+	args := make([]string, 0, len(keys))
 	for _, key := range keys {
-		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeproxyConfig[key])
+		args = append(args, fmt.Sprintf("%s=%s", key, kubeproxyConfig[key]))
 	}
-	return strings.TrimSuffix(buf.String(), ", ")
+	return args
 }
 
 // IsEnabled returns true if the addon is enabled.
@@ -1825,6 +1852,11 @@ type NodeBootstrappingConfiguration struct {
 	// PreProvisionOnly creates a pre-provisioned image for later node spawning.
 	// Skips kubelet and some component configuration for image capture scenarios.
 	PreProvisionOnly bool
+
+	// EnableWindowsStructuredBootstrapConfig makes the Windows CSE script read its values from
+	// structured data (gzip-compressed JSON in base64) instead of values rendered into PowerShell code.
+	// RP gates it with a toggle during rollout. Older AgentBaker versions ignore it.
+	EnableWindowsStructuredBootstrapConfig bool
 
 	// CSETimeout specifies the timeout execution in seconds.
 	CSETimeout int
