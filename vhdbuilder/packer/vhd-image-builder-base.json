@@ -1,5 +1,6 @@
 {
   "variables": {
+    "use_shallow_replication": "{{or (env `USE_SHALLOW_REPLICATION`) `false`}}",
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
@@ -64,6 +65,7 @@
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
+        "use_shallow_replication": "{{user `use_shallow_replication`}}",
         "subscription": "{{user `gallery_subscription_id`}}",
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",

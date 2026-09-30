@@ -766,64 +766,10 @@ cachePackageAndBinaryComponents() {
 }
 
 cacheContainerImageComponents() {
-  # Download/cache all declared container images within components.json that apply to the respective OS SKU
-
-  # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
-  # Account for possibility that number of cores is 3 or less
-  num_proc=$(nproc)
-  if [ "$num_proc" -gt 3 ]; then
-    parallel_container_image_pull_limit=$(nproc --ignore=2)
-  else
-    parallel_container_image_pull_limit=1
-  fi
-  echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
-
-  declare -a image_pids=()
-
-  ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-  while IFS= read -r imageToBePulled; do
-    downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    updateMultiArchVersions "${imageToBePulled}"
-    amd64OnlyVersions=""
-    if [ "${amd64OnlyVersionsStr}" != "null" ]; then
-      amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
-    fi
-
-    if [ "$(isARM64)" -eq 1 ]; then
-      versions="${MULTI_ARCH_VERSIONS[*]}"
-    else
-      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
-    fi
-
-    for version in ${versions}; do
-      CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-      pullContainerImage "ctr" "${CONTAINER_IMAGE}" &
-      image_pids+=($!)
-      echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-      while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
-        wait -n || {
-          ret=$?
-          echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
-          for pid in "${image_pids[@]}"; do
-            kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-          done
-          exit "${ret}"
-      }
-      done
-    done
-  done <<< "$ContainerImages"
-  echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
-  while [ "$(jobs -p | wc -l)" -gt 0 ]; do
-    wait -n || {
-      ret=$?
-      echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
-      for pid in "${image_pids[@]}"; do
-        kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-      done
-      exit "${ret}"
-    }
-  done
+  /opt/azure/containers/image-fetcher cache-components \
+    --components-file "$COMPONENTS_FILEPATH" \
+    --concurrency "${IMAGE_FETCHER_CONCURRENCY:-20}" \
+    --vhd-log-file "$VHD_LOGS_FILEPATH"
 }
 
 cacheGPUContainerImageComponents() {
@@ -871,7 +817,7 @@ cacheGPUContainerImageComponents() {
 
     mkdir -p /opt/{actions,gpu}
 
-    /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+    /opt/azure/containers/image-fetcher cache-image --image "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
