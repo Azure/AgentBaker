@@ -508,7 +508,11 @@ writeCredentialProviderConfig() {
       - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
     fi
 
-    # Disable ML-KEM only for the provider until affected OpenSSL libraries are updated.
+    # Temporary workaround: GODEBUG=tlsmlkem=0 disables ML-KEM TLS key exchange.
+    # VirtualNode2 runs the host credential-provider binary with its own OpenSSL
+    # libraries; older versions reject ML-KEM key generation and break image pulls.
+    # Keep this until users have time to upgrade their VirtualNode2 Helm deployments
+    # to a version with fixed libraries. This affects only the credential provider.
     # https://github.com/microsoft/azurelinux/issues/18546
     if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
