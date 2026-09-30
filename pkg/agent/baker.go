@@ -507,7 +507,6 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form.
 // { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	// get parameters
 	parameters := getParameters(config)
@@ -519,12 +518,6 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 		panic(e)
 	}
 
-	preprovisionCmd := ""
-	if profile.PreprovisionExtension != nil {
-		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
-	}
-
-	str = strings.ReplaceAll(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)))
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
@@ -972,20 +965,20 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return GetOrderedKubeletConfigFlagString(config)
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
-			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
+			return powerShellLiteralList(unescapePowerShellDoubleQuotes(config.GetOrderedKubeletConfigArgsForWindows(profile.CustomKubeletConfig)))
 		},
 		"GetKubeletHealthzEndpoint": func() string {
 			return config.GetKubeletHealthzEndpoint(profile.CustomKubeletConfig)
 		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
-			return config.GetOrderedKubeproxyConfigStringForPowershell()
+			return powerShellLiteralList(unescapePowerShellDoubleQuotes(config.GetOrderedKubeproxyConfigArgsForWindows()))
 		},
 		"IsCgroupV2": func() bool {
 			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() || profile.Is2604VHDDistro() ||
 				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
-			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
+			return powerShellLiteralList(cs.Properties.GetKubeProxyFeatureGatesForWindows())
 		},
 		"ShouldConfigCustomSysctl": func() bool {
 			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
@@ -1091,6 +1084,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetSshPublicKeysPowerShell": func() string {
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
+		},
+		// PowerShellLiteral writes a value into the Windows CSE script so that PowerShell reads it as a
+		// plain string. Every value in kuberneteswindowssetup.ps1.template must go through it.
+		"PowerShellLiteral": func(value interface{}) string {
+			if value == nil {
+				return powerShellLiteral("")
+			}
+			return powerShellLiteral(fmt.Sprint(value))
 		},
 		"GetKubernetesAgentPreprovisionYaml": func(profile *datamodel.AgentPoolProfile) string {
 			str := ""
