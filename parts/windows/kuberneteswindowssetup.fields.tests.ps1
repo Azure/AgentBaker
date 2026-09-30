@@ -24,17 +24,19 @@ BeforeDiscovery {
 Describe 'Windows CSE field values' {
     Context 'in <Shell>' -ForEach $ShellCases {
         BeforeAll {
-            # One script runs every case in its own scope and prints "<index>`t<type>`t<base64 of the value>".
+            # One script runs every case in its own scope and prints "<index>`t<type>`t<base64 of the value>",
+            # or "<index>`terror`t<message>" when the line fails.
             $script:Code = @(
+                "`$ErrorActionPreference = 'Stop'"
                 foreach ($case in $Cases) {
                     $select = if ($case.Kind -eq 'first') { '@($v)[0]' } else { '$v' }
-                    "& {"
+                    "try { & {"
                     $case.Line
                     "`$v = Get-Variable -Name '$($case.Name)' -ValueOnly"
                     "`$v = $select"
                     "`$type = if (`$null -eq `$v) { 'null' } else { `$v.GetType().FullName }"
                     "'{0}`t{1}`t{2}' -f $($case.Index), `$type, [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]`$v))"
-                    "}"
+                    "} } catch { '{0}`terror`t{1}' -f $($case.Index), (`$_.Exception.Message -replace '\s+', ' ') }"
                 }
                 "'canary`t' + (Test-Path -Path 'variable:global:AKSInjectionCanary')"
             ) -join "`n"
@@ -58,16 +60,21 @@ Describe 'Windows CSE field values' {
             }
 
             $script:Results = @{}
+            $script:Unexpected = @()
             foreach ($outputLine in $script:Output) {
                 $parts = $outputLine -split "`t"
-                if ($parts.Count -ge 2) {
+                if ($parts.Count -ge 2 -and ($parts[0] -eq 'canary' -or $parts[0] -match '^\d+$')) {
                     $script:Results[$parts[0]] = $parts[1..($parts.Count - 1)]
+                }
+                else {
+                    $script:Unexpected += $outputLine
                 }
             }
         }
 
         It 'runs without errors' {
             $script:ExitCode | Should -Be 0 -Because ($script:Output -join "`n")
+            $script:Unexpected | Should -BeNullOrEmpty
         }
 
         It 'does not run any part of a value' {
@@ -77,7 +84,7 @@ Describe 'Windows CSE field values' {
         It '<Name> #<Index> gets the value as a string' -ForEach $Cases {
             $result = $script:Results["$Index"]
             $result | Should -Not -BeNullOrEmpty -Because ($script:Output -join "`n")
-            $result[0] | Should -Be 'System.String'
+            $result[0] | Should -Be 'System.String' -Because ($result -join ' ')
             $result[1] | Should -BeExactly $Expected
         }
     }
