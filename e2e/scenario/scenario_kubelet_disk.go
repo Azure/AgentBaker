@@ -46,6 +46,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_TemporaryKubeletDisk",
 	Description: "Validates kubelet directory permissions on an Ubuntu 24.04 x64 Temporary disk before and after reboot",
+	SkipIf:      skipTemporaryKubeletDiskOnMainBuiltImage,
 	Config: Config{
 		Cluster:               ClusterKubenet,
 		VHD:                   config.VHDUbuntu2404Gen2Containerd,
@@ -60,6 +61,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_ARM64_TemporaryKubeletDisk",
 	Description: "Validates kubelet directory permissions on an Ubuntu 24.04 ARM64 Temporary disk before and after reboot",
+	SkipIf:      skipTemporaryKubeletDiskOnMainBuiltImage,
 	Config: Config{
 		Cluster:               ClusterKubenet,
 		VHD:                   config.VHDUbuntu2404ArmContainerd,
@@ -107,6 +109,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_TemporaryKubeletDisk",
 	Description: "Validates kubelet directory permissions on an Azure Linux 3 x64 Temporary disk before and after reboot",
+	SkipIf:      skipTemporaryKubeletDiskOnMainBuiltImage,
 	Config: Config{
 		Cluster:               ClusterKubenet,
 		VHD:                   config.VHDAzureLinuxV3Gen2,
@@ -121,6 +124,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_ARM64_TemporaryKubeletDisk",
 	Description: "Validates kubelet directory permissions on an Azure Linux 3 ARM64 Temporary disk before and after reboot",
+	SkipIf:      skipTemporaryKubeletDiskOnMainBuiltImage,
 	Config: Config{
 		Cluster:               ClusterKubenet,
 		VHD:                   config.VHDAzureLinuxV3Gen2Arm64,
@@ -135,6 +139,17 @@ var _ = Register(&Scenario{
 		Validator: validateTemporaryKubeletDiskAfterReboot,
 	},
 })
+
+func skipTemporaryKubeletDiskOnMainBuiltImage(context.Context) string {
+	if laneResolvedMainBuiltImage() {
+		return fmt.Sprintf(
+			"this lane resolved a main-built image (%s=%s), which predates the kubelet disk permission fix baked into the VHD; run against the PR's VHD build to exercise it",
+			config.Config.SIGVersionTagName,
+			config.Config.SIGVersionTagValue,
+		)
+	}
+	return ""
+}
 
 func setARM64KubeletDiskVMSize(nbc *datamodel.NodeBootstrappingConfiguration) {
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = arm64KubeletDiskVMSize
