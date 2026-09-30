@@ -82,8 +82,7 @@
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
         "sudo mkdir -p /opt/scripts",
-        "sudo mkdir -p /opt/certs",
-        "sudo mkdir -p /home/packer/aks-root-journal"
+        "sudo mkdir -p /opt/certs"
       ]
     },
     {
@@ -454,7 +453,7 @@
     {
       "type": "file",
       "source": "vhdbuilder/scripts/linux/aks-root-journal",
-      "destination": "/home/packer/aks-root-journal/"
+      "destination": "/home/packer/"
     },
     {
       "type": "file",
