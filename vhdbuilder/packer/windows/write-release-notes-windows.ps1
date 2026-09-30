@@ -105,24 +105,21 @@ $wuRegistryNames = @(
 
 foreach ($key in $wuRegistryKeys)
 {
-    # Windows 2019 does not have the Windows Containers key
-    if ($( $systemInfo.CurrentBuildNumber ) -eq 17763 -and $key -eq "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers")
+    $regKey = Get-Item -Path $key -ErrorAction Ignore
+    if (-not $regKey)
     {
         continue
     }
-    $regPath = (Get-Item -Path $key -ErrorAction Ignore)
-    if ($regPath)
-    {
-        Log ("`t{0}" -f $key)
-        Get-Item -Path $key |
-                Select-Object -ExpandProperty property |
-                ForEach-Object {
-                    if ($wuRegistryNames -contains $_)
-                    {
-                        Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
-                    }
+
+    Log ("`t{0}" -f $key)
+    $regKey |
+            Select-Object -ExpandProperty property |
+            ForEach-Object {
+                if ($wuRegistryNames -contains $_)
+                {
+                    Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
                 }
-    }
+            }
 }
 
 LogReleaseNotesForWindowsRegistryKeys $windowsSettingsJson | ForEach-Object { Log $_ }
