@@ -70,6 +70,30 @@ Describe "Invoke-Ctr" {
 
         { Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get version." } | Should -Throw "*Failed to get version.*Exit code: 1*"
     }
+
+    It "throws with the failure message when Windows PowerShell promotes native stderr to NativeCommandError" {
+        function global:ctr.exe {
+            $global:LASTEXITCODE = 1
+            $exception = [System.Management.Automation.RemoteException]::new("pipe unavailable")
+            $errorRecord = [System.Management.Automation.ErrorRecord]::new(
+                $exception,
+                "NativeCommandError",
+                [System.Management.Automation.ErrorCategory]::NotSpecified,
+                $null
+            )
+            throw $errorRecord
+        }
+
+        { Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get version." } | Should -Throw "*Failed to get version.*Exit code: 1*pipe unavailable*"
+    }
+
+    It "does not hide unexpected ctr invocation errors" {
+        function global:ctr.exe {
+            throw "unexpected failure"
+        }
+
+        { Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get version." } | Should -Throw "*unexpected failure*"
+    }
 }
 
 Describe "Invoke-WithContainerd" {

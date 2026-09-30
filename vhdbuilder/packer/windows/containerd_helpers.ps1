@@ -26,9 +26,24 @@ function Invoke-Ctr {
         [string]$FailureMessage
     )
 
-    $output = & ctr.exe @Arguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "$FailureMessage Exit code: $LASTEXITCODE."
+    try {
+        $output = & ctr.exe @Arguments
+        $exitCode = $LASTEXITCODE
+    } catch {
+        # Windows PowerShell promotes a failing native command's stderr output into a
+        # terminating NativeCommandError when $ErrorActionPreference = "Stop" is set, which
+        # would otherwise bypass the exit-code check below. Recover the exit code and treat
+        # it the same as a non-zero exit so the caller still gets $FailureMessage.
+        if ($_.FullyQualifiedErrorId -notlike "NativeCommandError*") {
+            throw
+        }
+
+        $output = $_
+        $exitCode = $LASTEXITCODE
+    }
+
+    if ($exitCode -ne 0) {
+        throw "$FailureMessage Exit code: $exitCode. Output: $(($output | Out-String).Trim())"
     }
     return $output
 }
