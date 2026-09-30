@@ -17,6 +17,37 @@ function Test-ContainerdReady {
     }
 }
 
+function Invoke-Ctr {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FailureMessage
+    )
+
+    try {
+        $output = & ctr.exe @Arguments
+        $exitCode = $LASTEXITCODE
+    } catch {
+        # Windows PowerShell promotes a failing native command's stderr output into a
+        # terminating NativeCommandError when $ErrorActionPreference = "Stop" is set, which
+        # would otherwise bypass the exit-code check below. Recover the exit code and treat
+        # it the same as a non-zero exit so the caller still gets $FailureMessage.
+        if ($_.FullyQualifiedErrorId -notlike "NativeCommandError*") {
+            throw
+        }
+
+        $output = $_
+        $exitCode = $LASTEXITCODE
+    }
+
+    if ($exitCode -ne 0) {
+        throw "$FailureMessage Exit code: $exitCode. Output: $(($output | Out-String).Trim())"
+    }
+    return $output
+}
+
 function Receive-ContainerdJobOutput {
     param (
         [Parameter(Mandatory = $true)]
@@ -48,13 +79,11 @@ function Invoke-WithContainerd {
         [int]$DelaySeconds = 5
     )
 
-    $jobName = "containerd"
-    $job = Start-Job -Name $jobName -ScriptBlock { containerd.exe }
+    $job = Start-Job -Name "containerd" -ScriptBlock { containerd.exe }
     $lastProbeOutput = ""
 
     try {
         for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-            $job = Get-Job -Id $job.Id
             if ($job.State -in @("Completed", "Failed", "Stopped")) {
                 $jobOutput = Receive-ContainerdJobOutput -Job $job
                 throw "containerd exited before becoming ready. Job state: $($job.State). Output: $jobOutput"
@@ -74,9 +103,6 @@ function Invoke-WithContainerd {
         $jobOutput = Receive-ContainerdJobOutput -Job $job
         throw "containerd did not become ready after $MaxAttempts attempts. Last probe output: $lastProbeOutput. Job output: $jobOutput"
     } finally {
-        $job = Get-Job -Id $job.Id -ErrorAction SilentlyContinue
-        if ($null -ne $job) {
-            Remove-ContainerdJob -Job $job
-        }
+        Remove-ContainerdJob -Job $job
     }
 }

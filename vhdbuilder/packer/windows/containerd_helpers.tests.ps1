@@ -47,6 +47,55 @@ Describe "Test-ContainerdReady" {
     }
 }
 
+Describe "Invoke-Ctr" {
+    AfterEach {
+        Remove-Item Function:\ctr.exe -ErrorAction SilentlyContinue
+    }
+
+    It "returns output when ctr succeeds" {
+        function global:ctr.exe {
+            $global:LASTEXITCODE = 0
+            return "server version"
+        }
+
+        $result = Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get version."
+
+        $result | Should -Be "server version"
+    }
+
+    It "throws with the failure message and exit code when ctr fails" {
+        function global:ctr.exe {
+            $global:LASTEXITCODE = 1
+        }
+
+        { Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get version." } | Should -Throw "*Failed to get version.*Exit code: 1*"
+    }
+
+    It "throws with the failure message when Windows PowerShell promotes native stderr to NativeCommandError" {
+        function global:ctr.exe {
+            $global:LASTEXITCODE = 1
+            $exception = [System.Management.Automation.RemoteException]::new("pipe unavailable")
+            $errorRecord = [System.Management.Automation.ErrorRecord]::new(
+                $exception,
+                "NativeCommandError",
+                [System.Management.Automation.ErrorCategory]::NotSpecified,
+                $null
+            )
+            throw $errorRecord
+        }
+
+        { Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get version." } | Should -Throw "*Failed to get version.*Exit code: 1*pipe unavailable*"
+    }
+
+    It "does not hide unexpected ctr invocation errors" {
+        function global:ctr.exe {
+            throw "unexpected failure"
+        }
+
+        { Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get version." } | Should -Throw "*unexpected failure*"
+    }
+}
+
 Describe "Invoke-WithContainerd" {
     BeforeEach {
         $script:job = [pscustomobject]@{
@@ -55,7 +104,6 @@ Describe "Invoke-WithContainerd" {
         }
 
         Mock Start-Job { return $script:job }
-        Mock Get-Job { return $script:job }
         Mock Start-Sleep {}
         Mock Receive-ContainerdJobOutput { return "containerd diagnostic output" }
         Mock Remove-ContainerdJob {}

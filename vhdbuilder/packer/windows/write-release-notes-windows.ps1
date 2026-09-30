@@ -105,24 +105,21 @@ $wuRegistryNames = @(
 
 foreach ($key in $wuRegistryKeys)
 {
-    # Windows 2019 does not have the Windows Containers key
-    if ($( $systemInfo.CurrentBuildNumber ) -eq 17763 -and $key -eq "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers")
+    $regKey = Get-Item -Path $key -ErrorAction Ignore
+    if (-not $regKey)
     {
         continue
     }
-    $regPath = (Get-Item -Path $key -ErrorAction Ignore)
-    if ($regPath)
-    {
-        Log ("`t{0}" -f $key)
-        Get-Item -Path $key |
-                Select-Object -ExpandProperty property |
-                ForEach-Object {
-                    if ($wuRegistryNames -contains $_)
-                    {
-                        Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
-                    }
+
+    Log ("`t{0}" -f $key)
+    $regKey |
+            Select-Object -ExpandProperty property |
+            ForEach-Object {
+                if ($wuRegistryNames -contains $_)
+                {
+                    Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
                 }
-    }
+            }
 }
 
 LogReleaseNotesForWindowsRegistryKeys $windowsSettingsJson | ForEach-Object { Log $_ }
@@ -131,18 +128,10 @@ Log ""
 
 Log "ContainerD Info"
 Invoke-WithContainerd -ScriptBlock {
-    $containerDVersion = (ctr.exe --version) | Out-String
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "Failed to get the containerd version with exit code $LASTEXITCODE."
-    }
+    $containerDVersion = Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get the containerd version." | Out-String
     Log ("Version: {0}" -f $containerDVersion)
     Log "Images:"
-    $images = ctr.exe -n k8s.io image ls
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "Failed to list containerd images with exit code $LASTEXITCODE."
-    }
+    $images = Invoke-Ctr -Arguments @("-n", "k8s.io", "image", "ls") -FailureMessage "Failed to list containerd images."
     Log $images
 }
 Log ""
