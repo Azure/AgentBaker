@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -51,6 +52,9 @@ type windowsCSEField struct {
 	encode func(value string) string
 	// setup turns on the template branch that writes a value whose set is nil.
 	setup func(c *datamodel.NodeBootstrappingConfiguration)
+	// stub defines the command that a value is an argument of, so the Pester test can run the line. The
+	// stub must store the argument in a global variable named like the parameter.
+	stub string
 }
 
 func orDefault(fallback string) func(*datamodel.NodeBootstrappingConfiguration, string) string {
@@ -318,7 +322,9 @@ func windowsCSEFields() []windowsCSEField {
 		{action: `AKSCustomCloudContainerRegistryDNSSuffix`, prefix: `-CustomCloudContainerRegistryDNSSuffix `,
 			set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 				c.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom", ContainerRegistryDNSSuffix: v}
-			}},
+			},
+			stub: `function Install-CredentialProvider { param($KubeDir, $CustomCloudContainerRegistryDNSSuffix) ` +
+				`$global:CustomCloudContainerRegistryDNSSuffix = $CustomCloudContainerRegistryDNSSuffix }`},
 		// The base64 of the custom cloud environment JSON.
 		{action: `GetBase64EncodedEnvironmentJSON`, prefix: `$envJSON=`, setup: func(c *datamodel.NodeBootstrappingConfiguration) {
 			c.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
@@ -395,7 +401,7 @@ func TestWindowsCSEFieldsFixture(t *testing.T) {
 		start := strings.LastIndex(customData[:index], "\n") + 1
 		end := index + strings.Index(customData[index:], "\n")
 		name := strings.TrimPrefix(strings.SplitN(field.prefix, "=", 2)[0], "$")
-		name = strings.TrimPrefix(name, "global:")
+		name = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(name, "global:"), "-"))
 		kind := "string"
 		if strings.HasSuffix(field.prefix, "@( ") {
 			kind = "first"
@@ -404,13 +410,17 @@ func TestWindowsCSEFieldsFixture(t *testing.T) {
 		if field.want != nil {
 			expected = field.want(newWindowsBootstrapTestConfig(), value)
 		}
-		lines = append(lines, strings.Join([]string{name, kind, base64.StdEncoding.EncodeToString([]byte(expected)),
-			strings.TrimSpace(customData[start:end])}, "\t"))
+		line := strings.TrimSpace(customData[start:end])
+		if field.stub != "" {
+			line = field.stub + "; " + line
+		}
+		lines = append(lines, strings.Join([]string{name, kind, base64.StdEncoding.EncodeToString([]byte(expected)), line}, "\t"))
 	}
 	for _, field := range windowsCSEFields() {
-		if field.set == nil || !strings.HasPrefix(field.prefix, "$") {
+		if field.set == nil {
 			continue
 		}
+		require.True(t, strings.HasPrefix(field.prefix, "$") || field.stub != "", "%s needs a stub so the Pester test can run it", field.action)
 		if field.action == `GetVariable "tenantID"` {
 			for _, name := range sortedWindowsCSETestValueNames() {
 				add(field, windowsCSETestValues[name])
@@ -572,6 +582,84 @@ func TestWindowsCSETemplateWritesEveryValueAsLiteral(t *testing.T) {
 	require.ElementsMatch(t, listed, found, "every value in %s must have a row in windowsCSEFields", kubernetesWindowsAgentCustomDataPS1)
 }
 
+// windowsCSEParseCheck parses a rendered script with PowerShell and prints, in source order, each token
+// that contains a marker and each base64 marker with the two method calls around it.
+const windowsCSEParseCheck = `param([string] $Path)
+$tokens = $null
+$errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref] $tokens, [ref] $errors)
+foreach ($parseError in $errors) { "error` + "`" + `t" + $parseError.Message }
+foreach ($token in $tokens) {
+    if ($token.Text -match 'AKSVALUE') { "token` + "`" + `t{0}` + "`" + `t{1}" -f $token.Kind, $token.Text }
+}
+$isBase64Marker = { param($node) $node -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $node.Value -match '^QUtTVkFM' }
+foreach ($node in $ast.FindAll($isBase64Marker, $true)) {
+    $value = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($node.Value)).Trim()
+    "base64` + "`" + `t{0}` + "`" + `t{1}` + "`" + `t{2}" -f $value, $node.Parent.Member, $node.Parent.Parent.Member
+}
+`
+
+// TestWindowsCSEValuesParseAsLiterals renders the script with a marker in place of each value and parses
+// it with PowerShell. Each marker must be a single-quoted string constant, so no value is inside a
+// double-quoted string, a comment, or a here-string. Each base64 marker must still be decoded by
+// GetString, so the base64 form also works where a value is a command argument.
+// The test needs pwsh and is skipped without it.
+func TestWindowsCSEValuesParseAsLiterals(t *testing.T) {
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Skip("pwsh is not installed")
+	}
+	_, actions := parseWindowsTemplateActions(t, kubernetesWindowsAgentCustomDataPS1)
+	b, err := parts.Templates.ReadFile(kubernetesWindowsAgentCustomDataPS1)
+	require.NoError(t, err)
+	directory := t.TempDir()
+	checkPath := filepath.Join(directory, "check.ps1")
+	require.NoError(t, os.WriteFile(checkPath, []byte(windowsCSEParseCheck), 0o600))
+
+	for _, mode := range []string{"literal", "base64"} {
+		t.Run(mode, func(t *testing.T) {
+			config := newWindowsBootstrapTestConfig()
+			// Take every template branch that writes a value.
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
+			var markers []string
+			marker := func() string {
+				value := fmt.Sprintf("AKSVALUE%03dX", len(markers))
+				markers = append(markers, value)
+				if mode == "base64" {
+					return powerShellLiteral(value + "\t")
+				}
+				return powerShellLiteral(value)
+			}
+			funcMap := getBakerFuncMap(config, getParameters(config), getWindowsCustomDataVariables(config))
+			funcMap["PowerShellLiteral"] = func(interface{}) string { return marker() }
+			for _, name := range []string{"GetSshPublicKeysPowerShell", "GetKubeletConfigKeyValsPsh", "GetKubeproxyConfigKeyValsPsh", "GetKubeProxyFeatureGatesPsh"} {
+				funcMap[name] = func() string { return marker() }
+			}
+			tmpl, err := template.New("script").Option("missingkey=zero").Funcs(funcMap).Parse(string(b))
+			require.NoError(t, err)
+			var script strings.Builder
+			require.NoError(t, tmpl.Execute(&script, config.AgentPoolProfile))
+			require.Len(t, markers, len(actions), "every value in the template must be rendered")
+
+			scriptPath := filepath.Join(directory, mode+".ps1")
+			require.NoError(t, os.WriteFile(scriptPath, []byte(script.String()), 0o600))
+			output, err := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-File", checkPath, scriptPath).CombinedOutput()
+			require.NoError(t, err, string(output))
+
+			var want []string
+			for _, value := range markers {
+				if mode == "base64" {
+					want = append(want, "base64\t"+value+"\tFromBase64String\tGetString")
+				} else {
+					want = append(want, "token\tStringLiteral\t'"+value+"'")
+				}
+			}
+			got := strings.Split(strings.TrimSpace(strings.ReplaceAll(string(output), "\r\n", "\n")), "\n")
+			require.Equal(t, want, got, "each value must parse as a string literal in code, not inside a string, comment, or here-string")
+		})
+	}
+}
+
 func TestWindowsCSECommandRendersOnlyBase64Values(t *testing.T) {
 	_, actions := parseWindowsTemplateActions(t, kubernetesWindowsAgentCSECommandPS1)
 	var pipes []string
@@ -600,12 +688,12 @@ func TestPowerShellLiteral(t *testing.T) {
 		{`it's`, `'it''s'`},
 		{`$(Get-Date) "x" ` + "`n", `'$(Get-Date) "x" ` + "`n'"},
 		{"c:\\k\\azure.json", `'c:\k\azure.json'`},
-		{"line1\nline2", encodePowerShellBase64Literal("line1\nline2")},
-		{"tab\t", encodePowerShellBase64Literal("tab\t")},
-		{"it\u2019s", encodePowerShellBase64Literal("it\u2019s")},
-		{"a\u2013b", encodePowerShellBase64Literal("a\u2013b")},
-		{"caf\u00e9", encodePowerShellBase64Literal("caf\u00e9")},
-		{"\x7f", encodePowerShellBase64Literal("\x7f")},
+		{"line1\nline2", "(" + encodePowerShellBase64Literal("line1\nline2") + ")"},
+		{"tab\t", "(" + encodePowerShellBase64Literal("tab\t") + ")"},
+		{"it\u2019s", "(" + encodePowerShellBase64Literal("it\u2019s") + ")"},
+		{"a\u2013b", "(" + encodePowerShellBase64Literal("a\u2013b") + ")"},
+		{"caf\u00e9", "(" + encodePowerShellBase64Literal("caf\u00e9") + ")"},
+		{"\x7f", "(" + encodePowerShellBase64Literal("\x7f") + ")"},
 	}
 	for _, tt := range tests {
 		require.Equal(t, tt.want, powerShellLiteral(tt.value), "value %q", tt.value)
