@@ -68,6 +68,9 @@ journals are preserved.
 
 Completion state is stored on the root filesystem and keyed by its UUID and
 the VM's DMI product UUID, avoiding repeated journal changes on normal reboots.
+When that state is readable, subsequent boots return before running filesystem
+checks or inspecting the journal. If state access fails, the helper verifies
+the filesystem before retrying the read.
 No completion state is baked into the VHD. PIS support depends on seed and real
 nodes having different DMI product UUIDs; verify this on the target image
 lifecycle before release. If the helper cannot verify a safe filesystem and

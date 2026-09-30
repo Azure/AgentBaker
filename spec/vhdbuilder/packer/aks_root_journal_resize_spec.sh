@@ -165,3 +165,65 @@ Describe 'AKS root journal sizing oracle'
     The status should be success
   End
 End
+
+Describe 'AKS root journal completed-state boot'
+  Include './vhdbuilder/scripts/linux/aks-root-journal/resize-root-journal'
+
+  setup_completed_state_context() {
+    FSCK_CALLS=0
+    METADATA_CALLS=0
+  }
+
+  cleanup_completed_state_context() {
+    unset -f resolve_root_device blkid awk cat read_state check_filesystem read_journal_metadata
+  }
+
+  resolve_root_device() {
+    ROOT_DEVICE=$1
+  }
+
+  blkid() {
+    [ "$ROOT_DEVICE" = /dev/test-root ] || return 1
+    case "$*" in
+      *'-s TYPE'*) printf '%s\n' ext4 ;;
+      *'-s UUID'*) printf '%s\n' 11111111-1111-1111-1111-111111111111 ;;
+      *) return 1 ;;
+    esac
+  }
+
+  awk() {
+    return 1
+  }
+
+  cat() {
+    printf '%s\n' 00000000-0000-0000-0000-000000000001
+  }
+
+  read_state() {
+    STATE=complete
+  }
+
+  check_filesystem() {
+    FSCK_CALLS=$((FSCK_CALLS + 1))
+  }
+
+  read_journal_metadata() {
+    METADATA_CALLS=$((METADATA_CALLS + 1))
+  }
+
+  completed_boot_skips_filesystem_work() {
+    aks_root_journal_main /dev/test-root &&
+      [ "$STATE" = complete ] &&
+      [ "$FSCK_CALLS" -eq 0 ] &&
+      [ "$METADATA_CALLS" -eq 0 ]
+  }
+
+  BeforeEach 'setup_completed_state_context'
+  AfterEach 'cleanup_completed_state_context'
+
+  It 'skips filesystem checks and journal inspection after completion'
+    When call completed_boot_skips_filesystem_work
+    The status should be success
+    The output should include 'journal sizing already completed'
+  End
+End

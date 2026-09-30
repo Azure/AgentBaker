@@ -72,12 +72,13 @@ read_journal_metadata() {
 }
 
 read_state() {
-    mkdir -p "$MOUNT_PATH" || fail "cannot create temporary mount point"
-    mount -t ext4 -o ro,noload "$ROOT_DEVICE" "$MOUNT_PATH" ||
-        fail "cannot read first-boot state from the unmounted root filesystem"
+    mkdir -p "$MOUNT_PATH" || return 1
+    mount -t ext4 -o ro,noload "$ROOT_DEVICE" "$MOUNT_PATH" || return 1
     if [ -f "$MOUNT_PATH$STATE_FILE" ]; then
-        STATE=$(cat "$MOUNT_PATH$STATE_FILE") ||
-            fail "cannot read first-boot state"
+        if ! STATE=$(cat "$MOUNT_PATH$STATE_FILE"); then
+            umount "$MOUNT_PATH" || fail "cannot unmount root filesystem after reading state"
+            return 1
+        fi
     else
         STATE=""
     fi
@@ -191,21 +192,13 @@ aks_root_journal_main() {
     esac
     STATE_FILE="$STATE_PATH/$INSTANCE_ID-$FILESYSTEM_UUID"
 
-    check_filesystem
-    read_state
-    read_journal_metadata
-    if [ "$JOURNAL_INODE" -eq 0 ]; then
-        INITIAL_JOURNAL=missing
-    else
-        INITIAL_JOURNAL=present
+    if ! read_state; then
+        log "cannot read first-boot state without filesystem recovery; checking before retry"
+        check_filesystem
+        read_state || fail "cannot read first-boot state after filesystem recovery"
     fi
-    FILESYSTEM_FEATURES=$(printf '%s\n' "$TUNE2FS_OUTPUT" |
-        sed -n 's/^Filesystem features:[[:space:]]*//p' | sed -n '1p')
-
     case "$STATE" in
         complete)
-            [ "$JOURNAL_INODE" -gt 0 ] ||
-                fail "completion state exists but the internal journal is missing"
             log "journal sizing already completed for VM $INSTANCE_ID"
             return 0
             ;;
@@ -216,12 +209,34 @@ aks_root_journal_main() {
             ;;
     esac
 
+    check_filesystem force
+    read_state || fail "cannot reread first-boot state after filesystem verification"
+    case "$STATE" in
+        complete)
+            log "journal sizing already completed for VM $INSTANCE_ID"
+            return 0
+            ;;
+        ""|in-progress)
+            ;;
+        *)
+            fail "invalid first-boot state '$STATE'"
+            ;;
+    esac
+
+    read_journal_metadata
+    if [ "$JOURNAL_INODE" -eq 0 ]; then
+        INITIAL_JOURNAL=missing
+    else
+        INITIAL_JOURNAL=present
+    fi
+    FILESYSTEM_FEATURES=$(printf '%s\n' "$TUNE2FS_OUTPUT" |
+        sed -n 's/^Filesystem features:[[:space:]]*//p' | sed -n '1p')
+
     if [ "$STATE" != "in-progress" ] && [ "$INITIAL_JOURNAL" = "missing" ]; then
         fail "root filesystem has no internal journal and no recovery state"
     fi
 
     log "starting first-boot journal sizing on $ROOT_DEVICE for VM $INSTANCE_ID"
-    check_filesystem force
     write_state in-progress
 
     PARENT_DEVICE=$(lsblk -nro PKNAME "$ROOT_DEVICE" | sed -n '1p')
