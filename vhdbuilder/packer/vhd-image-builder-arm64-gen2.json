@@ -81,7 +81,8 @@
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
         "sudo mkdir -p /opt/scripts",
-        "sudo mkdir -p /opt/certs"
+        "sudo mkdir -p /opt/certs",
+        "sudo mkdir -p /home/packer/aks-root-journal"
       ]
     },
     {
@@ -448,6 +449,11 @@
       "type": "file",
       "source": "vhdbuilder/packer/post-install-dependencies.sh",
       "destination": "/home/packer/post-install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/scripts/linux/aks-root-journal",
+      "destination": "/home/packer/aks-root-journal/"
     },
     {
       "type": "file",

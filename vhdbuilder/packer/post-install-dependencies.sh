@@ -83,6 +83,10 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   capture_benchmark "${SCRIPT_NAME}_log_and_detach_ua"
 fi
 
+if [ -f /home/packer/aks-root-journal/install.sh ]; then
+  /bin/sh /home/packer/aks-root-journal/install.sh || exit 1
+fi
+
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /opt/bin/kube* >> ${VHD_LOGS_FILEPATH}

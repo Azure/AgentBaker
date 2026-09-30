@@ -1,0 +1,21 @@
+#!/bin/sh
+
+PREREQ=""
+
+prereqs() {
+    echo "$PREREQ"
+}
+
+case "$1" in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+copy_exec /usr/local/sbin/aks-root-journal-resize /sbin/aks-root-journal-resize
+copy_file config /etc/mke2fs.conf
+for tool in growpart lsblk sfdisk partx blockdev flock mktemp udevadm resize2fs tune2fs e2fsck debugfs blkid mke2fs dd rm grep mount umount sync readlink awk sed cat mkdir cut tr sleep; do
+    tool_path=$(command -v "$tool") || exit 1
+    copy_exec "$tool_path"
+done

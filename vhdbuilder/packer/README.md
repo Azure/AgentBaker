@@ -55,3 +55,22 @@ and `provisionConfigsAddons`. Each module can be
 hotfixed independently; delivering this split to an older VHD requires the
 updated parent and all new modules together. Keep the immutable VHD baseline so
 subsequent hotfix payloads remain cumulative.
+
+# First-boot ext4 root journal sizing
+
+The standard Ubuntu 24.04, Ubuntu 26.04 minimal, and Azure Linux 3 VHDs install
+an initramfs hook that runs before the root filesystem is mounted. It grows the
+root partition when possible, grows ext4 to the partition size, and compares the
+existing internal journal with a sparse ext4 filesystem created by the same
+image's `mke2fs` toolchain. If the existing journal is smaller, it recreates the
+journal with `tune2fs -j`, which selects that toolchain's default size; larger
+journals are preserved.
+
+Completion state is stored on the root filesystem and keyed by its UUID and
+the VM's DMI product UUID, avoiding repeated journal changes on normal reboots.
+No completion state is baked into the VHD. PIS support depends on seed and real
+nodes having different DMI product UUIDs; verify this on the target image
+lifecycle before release. If the helper cannot verify a safe filesystem and
+journal, the initramfs refuses to continue to the root mount. The helper is
+installed only in the standard image builders; CVM, FIPS, Kata, OS Guard,
+encrypted, immutable, and non-target OS variants are excluded.

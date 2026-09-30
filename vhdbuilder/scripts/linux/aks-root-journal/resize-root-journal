@@ -1,0 +1,296 @@
+#!/bin/sh
+
+STATE_PATH=/var/lib/aks/root-journal
+MOUNT_PATH=/run/aks-root-journal
+
+log() {
+    printf '%s\n' "aks-root-journal: $*"
+}
+
+fail() {
+    log "ERROR: $*"
+    exit 1
+}
+
+resolve_root_device() {
+    case "$1" in
+        UUID=*)
+            ROOT_DEVICE="/dev/disk/by-uuid/${1#UUID=}"
+            ;;
+        PARTUUID=*)
+            ROOT_DEVICE="/dev/disk/by-partuuid/${1#PARTUUID=}"
+            ;;
+        LABEL=*)
+            ROOT_DEVICE="/dev/disk/by-label/${1#LABEL=}"
+            ;;
+        block:/dev/*)
+            ROOT_DEVICE="${1#block:}"
+            ;;
+        /dev/*)
+            ROOT_DEVICE="$1"
+            ;;
+        *)
+            fail "unsupported root device argument: $1"
+            ;;
+    esac
+
+    [ -b "$ROOT_DEVICE" ] || fail "root device is not available: $ROOT_DEVICE"
+    ROOT_DEVICE=$(readlink -f "$ROOT_DEVICE") || fail "cannot resolve root device"
+}
+
+read_journal_metadata() {
+    TUNE2FS_OUTPUT=$(LC_ALL=C tune2fs -l "$ROOT_DEVICE" 2>/dev/null) ||
+        fail "cannot read ext4 metadata with tune2fs"
+    JOURNAL_INODE=$(printf '%s\n' "$TUNE2FS_OUTPUT" |
+        sed -n 's/^Journal inode:[[:space:]]*//p' | sed -n '1p')
+    JOURNAL_DEVICE=$(printf '%s\n' "$TUNE2FS_OUTPUT" |
+        sed -n 's/^Journal device:[[:space:]]*//p' | sed -n '1p')
+    JOURNAL_INODE=${JOURNAL_INODE:-0}
+    JOURNAL_DEVICE=${JOURNAL_DEVICE:-0}
+    FILESYSTEM_BLOCKS=$(printf '%s\n' "$TUNE2FS_OUTPUT" |
+        sed -n 's/^Block count:[[:space:]]*//p' | sed -n '1p')
+    FILESYSTEM_BLOCK_SIZE=$(printf '%s\n' "$TUNE2FS_OUTPUT" |
+        sed -n 's/^Block size:[[:space:]]*//p' | sed -n '1p')
+
+    case "$JOURNAL_INODE" in
+        ''|*[!0-9]*)
+            fail "invalid journal inode reported by tune2fs: $JOURNAL_INODE"
+            ;;
+    esac
+    case "$JOURNAL_DEVICE" in
+        0|0x0000|0x00000000)
+            ;;
+        *)
+            fail "external ext4 journals are not supported"
+            ;;
+    esac
+    case "$FILESYSTEM_BLOCKS:$FILESYSTEM_BLOCK_SIZE" in
+        *[!0-9:]*|:*|*:)
+            fail "invalid ext4 geometry reported by tune2fs"
+            ;;
+    esac
+}
+
+read_state() {
+    mkdir -p "$MOUNT_PATH" || fail "cannot create temporary mount point"
+    mount -t ext4 -o ro,noload "$ROOT_DEVICE" "$MOUNT_PATH" ||
+        fail "cannot read first-boot state from the unmounted root filesystem"
+    if [ -f "$MOUNT_PATH$STATE_FILE" ]; then
+        STATE=$(cat "$MOUNT_PATH$STATE_FILE") ||
+            fail "cannot read first-boot state"
+    else
+        STATE=""
+    fi
+    umount "$MOUNT_PATH" || fail "cannot unmount root filesystem after reading state"
+}
+
+write_state() {
+    STATE_VALUE=$1
+    mkdir -p "$MOUNT_PATH" || fail "cannot create temporary mount point"
+    mount -t ext4 -o rw "$ROOT_DEVICE" "$MOUNT_PATH" ||
+        fail "cannot mount root filesystem to persist first-boot state"
+    mkdir -p "$MOUNT_PATH$STATE_PATH" || fail "cannot create first-boot state directory"
+    STATE_TEMP_FILE="$MOUNT_PATH$STATE_FILE.tmp"
+    printf '%s\n' "$STATE_VALUE" > "$STATE_TEMP_FILE" ||
+        fail "cannot write temporary first-boot state"
+    sync || fail "cannot flush first-boot state"
+    mv -f "$STATE_TEMP_FILE" "$MOUNT_PATH$STATE_FILE" ||
+        fail "cannot atomically persist first-boot state"
+    sync || fail "cannot flush persisted first-boot state"
+    umount "$MOUNT_PATH" || fail "cannot unmount root filesystem after writing state"
+}
+
+check_filesystem() {
+    if [ "${1:-}" = "force" ]; then
+        if e2fsck -f -p "$ROOT_DEVICE"; then
+            return
+        else
+            FSCK_STATUS=$?
+        fi
+    elif e2fsck -p "$ROOT_DEVICE"; then
+        return
+    else
+        FSCK_STATUS=$?
+    fi
+
+    if [ "$FSCK_STATUS" -eq 1 ]; then
+        log "e2fsck repaired filesystem inconsistencies"
+        return
+    fi
+    fail "e2fsck reported unrecoverable or reboot-required status $FSCK_STATUS"
+}
+
+get_journal_size() {
+    debugfs -R "stat <$JOURNAL_INODE>" "$ROOT_DEVICE" 2>/dev/null |
+        sed -n 's/.*Size: \([0-9][0-9]*\).*/\1/p' | sed -n '1p'
+}
+
+get_default_journal_size() {
+    ORACLE_IMAGE="$MOUNT_PATH/oracle.$INSTANCE_ID"
+    rm -f "$ORACLE_IMAGE" || fail "cannot remove stale journal sizing oracle"
+    dd if=/dev/zero of="$ORACLE_IMAGE" bs="$FILESYSTEM_BLOCK_SIZE" count=0 seek="$FILESYSTEM_BLOCKS" ||
+        fail "cannot create sparse journal sizing oracle"
+
+    if printf ' %s ' "$FILESYSTEM_FEATURES" | grep -q ' fast_commit '; then
+        mke2fs -q -F -t ext4 -b "$FILESYSTEM_BLOCK_SIZE" -O fast_commit \
+            -E lazy_itable_init=1,lazy_journal_init=1 "$ORACLE_IMAGE" "$FILESYSTEM_BLOCKS" ||
+            fail "cannot create default-journal sizing oracle"
+    else
+        mke2fs -q -F -t ext4 -b "$FILESYSTEM_BLOCK_SIZE" \
+            -E lazy_itable_init=1,lazy_journal_init=1 "$ORACLE_IMAGE" "$FILESYSTEM_BLOCKS" ||
+            fail "cannot create default-journal sizing oracle"
+    fi
+
+    ORACLE_JOURNAL_INODE=$(LC_ALL=C tune2fs -l "$ORACLE_IMAGE" 2>/dev/null |
+        sed -n 's/^Journal inode:[[:space:]]*//p' | sed -n '1p')
+    case "$ORACLE_JOURNAL_INODE" in
+        ''|*[!0-9]*)
+            fail "cannot find journal inode in sizing oracle"
+            ;;
+    esac
+    DEFAULT_JOURNAL_SIZE=$(debugfs -R "stat <$ORACLE_JOURNAL_INODE>" "$ORACLE_IMAGE" 2>/dev/null |
+        sed -n 's/.*Size: \([0-9][0-9]*\).*/\1/p' | sed -n '1p')
+    case "$DEFAULT_JOURNAL_SIZE" in
+        ''|*[!0-9]*)
+            fail "cannot determine default journal size"
+            ;;
+    esac
+    rm -f "$ORACLE_IMAGE" || fail "cannot remove journal sizing oracle"
+}
+
+aks_root_journal_main() {
+    set -eu
+    [ "$#" -eq 1 ] || fail "usage: resize-root-journal ROOT_DEVICE"
+    ROOT_ARGUMENT=$1
+    resolve_root_device "$ROOT_ARGUMENT"
+
+    ROOT_TYPE=$(blkid -o value -s TYPE "$ROOT_DEVICE") ||
+        fail "cannot determine root filesystem type for $ROOT_DEVICE"
+    if [ "$ROOT_TYPE" != "ext4" ]; then
+        log "skipping unsupported root filesystem type '$ROOT_TYPE'"
+        return 0
+    fi
+
+    if awk -v device="$ROOT_DEVICE" '$1 == device { found=1 } END { exit !found }' /proc/mounts; then
+        fail "refusing to modify mounted root filesystem $ROOT_DEVICE"
+    fi
+
+    INSTANCE_ID=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null) ||
+        fail "Azure VM product UUID is unavailable"
+    case "$INSTANCE_ID" in
+        ''|*[!A-Fa-f0-9-]*)
+            fail "invalid Azure VM product UUID"
+            ;;
+    esac
+    FILESYSTEM_UUID=$(blkid -o value -s UUID "$ROOT_DEVICE") ||
+        fail "cannot determine root filesystem UUID"
+    case "$FILESYSTEM_UUID" in
+        ''|*[!A-Fa-f0-9-]*)
+            fail "invalid root filesystem UUID"
+            ;;
+    esac
+    STATE_FILE="$STATE_PATH/$INSTANCE_ID-$FILESYSTEM_UUID"
+
+    check_filesystem
+    read_state
+    read_journal_metadata
+    if [ "$JOURNAL_INODE" -eq 0 ]; then
+        INITIAL_JOURNAL=missing
+    else
+        INITIAL_JOURNAL=present
+    fi
+    FILESYSTEM_FEATURES=$(printf '%s\n' "$TUNE2FS_OUTPUT" |
+        sed -n 's/^Filesystem features:[[:space:]]*//p' | sed -n '1p')
+
+    case "$STATE" in
+        complete)
+            [ "$JOURNAL_INODE" -gt 0 ] ||
+                fail "completion state exists but the internal journal is missing"
+            log "journal sizing already completed for VM $INSTANCE_ID"
+            return 0
+            ;;
+        ""|in-progress)
+            ;;
+        *)
+            fail "invalid first-boot state '$STATE'"
+            ;;
+    esac
+
+    if [ "$STATE" != "in-progress" ] && [ "$INITIAL_JOURNAL" = "missing" ]; then
+        fail "root filesystem has no internal journal and no recovery state"
+    fi
+
+    log "starting first-boot journal sizing on $ROOT_DEVICE for VM $INSTANCE_ID"
+    check_filesystem force
+    write_state in-progress
+
+    PARENT_DEVICE=$(lsblk -nro PKNAME "$ROOT_DEVICE" | sed -n '1p')
+    PARTITION_NUMBER=$(lsblk -nro PARTN "$ROOT_DEVICE" | sed -n '1p')
+    if [ -n "$PARENT_DEVICE" ] && [ -n "$PARTITION_NUMBER" ]; then
+        case "$PARENT_DEVICE" in
+            /dev/*) DISK_DEVICE=$PARENT_DEVICE ;;
+            *) DISK_DEVICE="/dev/$PARENT_DEVICE" ;;
+        esac
+        if growpart "$DISK_DEVICE" "$PARTITION_NUMBER"; then
+            log "partition $ROOT_DEVICE grew or already occupies available disk space"
+        else
+            GROWPART_STATUS=$?
+            [ "$GROWPART_STATUS" -eq 1 ] ||
+                fail "growpart failed for $DISK_DEVICE partition $PARTITION_NUMBER (status $GROWPART_STATUS)"
+            log "root partition geometry did not change"
+        fi
+    elif [ -n "$PARENT_DEVICE" ] || [ -n "$PARTITION_NUMBER" ]; then
+        fail "cannot determine both parent disk and partition number for $ROOT_DEVICE"
+    else
+        log "root filesystem is not on a partition; resizing to device capacity"
+    fi
+
+    resize2fs "$ROOT_DEVICE" || fail "cannot grow root filesystem"
+    check_filesystem
+    read_journal_metadata
+    OLD_JOURNAL_INODE=$JOURNAL_INODE
+    if [ "$OLD_JOURNAL_INODE" -gt 0 ]; then
+        OLD_JOURNAL_SIZE=$(get_journal_size)
+        case "$OLD_JOURNAL_SIZE" in
+            ''|*[!0-9]*)
+                fail "cannot verify the existing journal size"
+                ;;
+        esac
+    else
+        OLD_JOURNAL_SIZE=0
+    fi
+    FILESYSTEM_FEATURES=$(printf '%s\n' "$TUNE2FS_OUTPUT" |
+        sed -n 's/^Filesystem features:[[:space:]]*//p' | sed -n '1p')
+    get_default_journal_size
+
+    if [ "$OLD_JOURNAL_SIZE" -ge "$DEFAULT_JOURNAL_SIZE" ]; then
+        log "preserving existing journal: inode=$OLD_JOURNAL_INODE bytes=$OLD_JOURNAL_SIZE target-default-bytes=$DEFAULT_JOURNAL_SIZE"
+        write_state complete
+        return 0
+    fi
+
+    if [ "$JOURNAL_INODE" -gt 0 ]; then
+        tune2fs -O ^has_journal "$ROOT_DEVICE" ||
+            fail "cannot remove the existing journal before recreating it"
+    fi
+    tune2fs -j "$ROOT_DEVICE" || fail "cannot create the default ext4 journal"
+    check_filesystem
+    read_journal_metadata
+    [ "$JOURNAL_INODE" -gt 0 ] || fail "new internal journal was not detected"
+    NEW_JOURNAL_SIZE=$(get_journal_size)
+    case "$NEW_JOURNAL_SIZE" in
+        ''|*[!0-9]*)
+            fail "cannot verify the new journal size"
+            ;;
+    esac
+    [ "$NEW_JOURNAL_SIZE" -eq "$DEFAULT_JOURNAL_SIZE" ] ||
+        fail "new journal size $NEW_JOURNAL_SIZE does not match target default $DEFAULT_JOURNAL_SIZE"
+
+    log "journal resized on $ROOT_DEVICE: old inode=$OLD_JOURNAL_INODE old bytes=$OLD_JOURNAL_SIZE new inode=$JOURNAL_INODE new bytes=$NEW_JOURNAL_SIZE"
+    write_state complete
+    log "first-boot journal sizing completed for VM $INSTANCE_ID"
+}
+
+if [ "${0##*/}" = "resize-root-journal" ]; then
+    aks_root_journal_main "$@"
+fi

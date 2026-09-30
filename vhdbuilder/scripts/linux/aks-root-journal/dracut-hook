@@ -1,0 +1,17 @@
+#!/bin/sh
+
+ROOT_ARGUMENT=$(getarg root=)
+if [ -z "$ROOT_ARGUMENT" ]; then
+    for argument in $(cat /proc/cmdline); do
+        case "$argument" in
+            root=*)
+                ROOT_ARGUMENT=${argument#root=}
+                break
+                ;;
+        esac
+    done
+fi
+
+if ! /sbin/aks-root-journal-resize "$ROOT_ARGUMENT"; then
+    die "AKS root journal sizing failed; refusing to mount the root filesystem"
+fi
