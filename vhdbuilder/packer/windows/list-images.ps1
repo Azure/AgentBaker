@@ -16,11 +16,7 @@ $bomList = @()
 . c:/k/containerd_helpers.ps1
 
 $imageList = Invoke-WithContainerd -ScriptBlock {
-    $images = ctr.exe -n k8s.io image ls
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "Failed to list containerd images with exit code $LASTEXITCODE."
-    }
+    $images = Invoke-Ctr -Arguments @("-n", "k8s.io", "image", "ls") -FailureMessage "Failed to list containerd images."
     return $images | Select-Object -Skip 1
 }
 foreach($image in $imageList) {

@@ -131,18 +131,10 @@ Log ""
 
 Log "ContainerD Info"
 Invoke-WithContainerd -ScriptBlock {
-    $containerDVersion = (ctr.exe --version) | Out-String
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "Failed to get the containerd version with exit code $LASTEXITCODE."
-    }
+    $containerDVersion = Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get the containerd version." | Out-String
     Log ("Version: {0}" -f $containerDVersion)
     Log "Images:"
-    $images = ctr.exe -n k8s.io image ls
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "Failed to list containerd images with exit code $LASTEXITCODE."
-    }
+    $images = Invoke-Ctr -Arguments @("-n", "k8s.io", "image", "ls") -FailureMessage "Failed to list containerd images."
     Log $images
 }
 Log ""

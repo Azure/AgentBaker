@@ -17,6 +17,22 @@ function Test-ContainerdReady {
     }
 }
 
+function Invoke-Ctr {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FailureMessage
+    )
+
+    $output = & ctr.exe @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "$FailureMessage Exit code: $LASTEXITCODE."
+    }
+    return $output
+}
+
 function Receive-ContainerdJobOutput {
     param (
         [Parameter(Mandatory = $true)]
@@ -48,13 +64,11 @@ function Invoke-WithContainerd {
         [int]$DelaySeconds = 5
     )
 
-    $jobName = "containerd"
-    $job = Start-Job -Name $jobName -ScriptBlock { containerd.exe }
+    $job = Start-Job -Name "containerd" -ScriptBlock { containerd.exe }
     $lastProbeOutput = ""
 
     try {
         for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-            $job = Get-Job -Id $job.Id
             if ($job.State -in @("Completed", "Failed", "Stopped")) {
                 $jobOutput = Receive-ContainerdJobOutput -Job $job
                 throw "containerd exited before becoming ready. Job state: $($job.State). Output: $jobOutput"
@@ -74,9 +88,6 @@ function Invoke-WithContainerd {
         $jobOutput = Receive-ContainerdJobOutput -Job $job
         throw "containerd did not become ready after $MaxAttempts attempts. Last probe output: $lastProbeOutput. Job output: $jobOutput"
     } finally {
-        $job = Get-Job -Id $job.Id -ErrorAction SilentlyContinue
-        if ($null -ne $job) {
-            Remove-ContainerdJob -Job $job
-        }
+        Remove-ContainerdJob -Job $job
     }
 }
