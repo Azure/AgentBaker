@@ -1,9 +1,4 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
-# Use "all" by default, or a pipe-delimited list of build job IDs to run a subset.
-parameters:
-  - name: buildJobFilter
-    type: string
-    default: all
 trigger: none
 pr:
   branches:
@@ -58,7 +53,6 @@ stages:
   - stage: build
     jobs:
     - job: build2204fipsgen2containerd
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|build2204fipsgen2containerd|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -81,7 +75,6 @@ stages:
             artifactName: 2204-fips-gen2-containerd
 
     - job: build2204gen2containerd
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|build2204gen2containerd|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -107,7 +100,6 @@ stages:
             artifactName: 2204-gen2-containerd
 
     - job: build2204arm64gen2containerd
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|build2204arm64gen2containerd|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -130,7 +122,6 @@ stages:
             artifactName: 2204-arm64-gen2-containerd
 
     - job: build2404gen2containerd
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|build2404gen2containerd|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -156,7 +147,6 @@ stages:
             artifactName: 2404-gen2-containerd
 
     - job: build2604minimalgen2containerd
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|build2604minimalgen2containerd|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -179,7 +169,6 @@ stages:
             artifactName: 2604-minimal-gen2-containerd
 
     - job: buildAzureLinuxV3gen2
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|buildAzureLinuxV3gen2|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -207,7 +196,6 @@ stages:
     # image carries this build's buildId tag, so AzureLinuxV3Gen2Kata silently skips
     # (the E2E stage sets IgnoreScenariosWithMissingVhd: true).
     - job: buildAzureLinuxV3gen2kata
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|buildAzureLinuxV3gen2kata|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -231,7 +219,6 @@ stages:
             artifactName: azurelinuxv3-gen2-kata
 
     - job: buildAzureLinuxV3ARM64gen2fips
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|buildAzureLinuxV3ARM64gen2fips|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -255,7 +242,6 @@ stages:
             artifactName: azurelinuxv3-gen2-arm64-fips
 
     - job: buildacltlgen2
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|buildacltlgen2|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -279,7 +265,6 @@ stages:
             artifactName: acl-tl-gen2
 
     - job: buildaclarm64tlgen2
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|buildaclarm64tlgen2|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -303,7 +288,6 @@ stages:
             artifactName: acl-arm64-tl-gen2
 
     - job: buildaclfipstlgen2
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|buildaclfipstlgen2|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
@@ -327,7 +311,6 @@ stages:
             artifactName: acl-fips-tl-gen2
 
     - job: buildaclarm64fipstlgen2
-      condition: and(succeeded(), or(eq('${{ parameters.buildJobFilter }}', 'all'), contains('${{ parameters.buildJobFilter }}', '|buildaclarm64fipstlgen2|')))
       timeoutInMinutes: 360
       steps:
         - bash: |
