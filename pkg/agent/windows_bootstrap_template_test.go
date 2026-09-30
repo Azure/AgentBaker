@@ -22,94 +22,101 @@ const (
 	windowsBootstrapTestdataDir    = "testdata/windowsbootstrap"
 )
 
-// windowsBootstrapLegacyActions lists, in order, every template action that renders a value
-// directly into the Windows CSE script. The list is frozen: do not add values here, because
-// each one is pasted into PowerShell code and needs its own escaping review.
-var windowsBootstrapLegacyActions = []string{
-	`GetKubernetesEndpoint`,
-	`GetParameter "kubeDNSServiceIP"`,
-	`GetParameter "masterEndpointDNSNamePrefix"`,
-	`GetVariable "location"`,
-	`GetVariable "userAssignedIdentityID"`,
-	`GetTargetEnvironment`,
-	`GetArmResourceEndpoint`,
-	`GetParameter "servicePrincipalClientId"`,
-	`GetSshPublicKeysPowerShell`,
-	`GetParameter "caCertificate"`,
-	`GetParameter "clientCertificate"`,
-	`GetParameter "kubeBinariesSASURL"`,
-	`GetParameter "windowsKubeBinariesURL"`,
-	`GetParameter "kubeBinariesVersion"`,
-	`GetParameter "windowsContainerdURL"`,
-	`GetParameter "windowsSdnPluginURL"`,
-	`GetParameter "windowsDockerVersion"`,
-	`GetParameter "defaultContainerdWindowsSandboxIsolation"`,
-	`GetParameter "containerdWindowsRuntimeHandlers"`,
-	`GetParameter "windowsTelemetryGUID"`,
-	`GetVariable "tenantID"`,
-	`GetVariable "subscriptionId"`,
-	`GetVariable "resourceGroup"`,
-	`GetVariable "vmType"`,
-	`GetVariable "subnetName"`,
-	`GetVariable "nsgName"`,
-	`GetVariable "virtualNetworkName"`,
-	`GetVariable "routeTableName"`,
-	`GetVariable "primaryAvailabilitySetName"`,
-	`GetVariable "primaryScaleSetName"`,
-	`GetParameter "kubeClusterCidr"`,
-	`GetParameter "kubeServiceCidr"`,
-	`GetParameter "vnetCidr"`,
-	`GetAgentKubernetesLabels .`,
-	`GetKubeletConfigKeyValsPsh`,
-	`GetKubeletHealthzEndpoint`,
-	`GetKubeproxyConfigKeyValsPsh`,
-	`GetKubeProxyFeatureGatesPsh`,
-	`GetVariable "useManagedIdentityExtension"`,
-	`GetVariable "useInstanceMetadata"`,
-	`GetVariable "loadBalancerSku"`,
-	`GetVariable "excludeMasterFromStandardLB"`,
-	`GetPrivateEgressProxyAddress`,
-	`GetParameter "networkPlugin"`,
-	`GetParameter "vnetCniWindowsPluginsURL"`,
-	`GetParameter "windowsCredentialProviderURL"`,
-	`GetVariable "windowsEnableCSIProxy"`,
-	`GetVariable "windowsCSIProxyURL"`,
-	`EnableHostsConfigAgent`,
-	`GetVariable "windowsCSEScriptsPackageURL"`,
-	`GetVariable "windowsGpuDriverURL"`,
-	`GetVariable "windowsPauseImageURL"`,
-	`GetVariable "alwaysPullWindowsPauseImage"`,
-	`GetVariable "windowsCalicoPackageURL"`,
-	`GetVariable "configGPUDriverIfNeeded"`,
-	`GetVariable "windowsGmsaPackageUrl"`,
-	`GetTLSBootstrapTokenForKubeConfig`,
-	`EnableSecureTLSBootstrapping`,
-	`GetSecureTLSBootstrappingAADResource`,
-	`GetSecureTLSBootstrappingUserAssignedIdentityID`,
-	`GetCustomSecureTLSBootstrappingClientDownloadURL`,
-	`GetSecureTLSBootstrappingValidateKubeconfigTimeout`,
-	`GetSecureTLSBootstrappingGetAccessTokenTimeout`,
-	`GetSecureTLSBootstrappingGetInstanceDataTimeout`,
-	`GetSecureTLSBootstrappingGetNonceTimeout`,
-	`GetSecureTLSBootstrappingGetAttestedDataTimeout`,
-	`GetSecureTLSBootstrappingGetCredentialTimeout`,
-	`GetVariable "isDisableWindowsOutboundNat"`,
-	`FIPSEnabled`,
-	`GetHnsRemediatorIntervalInMinutes`,
-	`GetLogGeneratorIntervalInMinutes`,
-	`GetVariable "isSkipCleanupNetwork"`,
-	`GetPreProvisionOnly`,
-	`EnableKubeletServingCertificateRotation`,
-	`GetVariable "nextGenNetworkingEnabled"`,
-	`GetVariable "nextGenNetworkingConfig"`,
-	`GetBootstrapProfileContainerRegistryServer`,
-	`GetMCRRepositoryBase`,
-	`GetNetworkIsolatedClusterTestMode`,
-	`WindowsSSHEnabled`,
-	`IsAKSCustomCloud`,
-	`AKSCustomCloudContainerRegistryDNSSuffix`,
-	`GetBase64EncodedEnvironmentJSON`,
-	`GetIdentitySystem`,
+// windowsBootstrapLegacyNodes lists, in order, every template action and condition in the variables
+// block. An action renders a value directly into the Windows CSE script, and a condition chooses what
+// is rendered. The list is frozen: do not add entries, because each value that is pasted into
+// PowerShell code needs its own escaping review.
+var windowsBootstrapLegacyNodes = []string{
+	`action GetKubernetesEndpoint`,
+	`action GetParameter "kubeDNSServiceIP"`,
+	`action GetParameter "masterEndpointDNSNamePrefix"`,
+	`action GetVariable "location"`,
+	`if UserAssignedIDEnabled`,
+	`action GetVariable "userAssignedIdentityID"`,
+	`action GetTargetEnvironment`,
+	`action GetArmResourceEndpoint`,
+	`action GetParameter "servicePrincipalClientId"`,
+	`action GetSshPublicKeysPowerShell`,
+	`action GetParameter "caCertificate"`,
+	`action GetParameter "clientCertificate"`,
+	`action GetParameter "kubeBinariesSASURL"`,
+	`action GetParameter "windowsKubeBinariesURL"`,
+	`action GetParameter "kubeBinariesVersion"`,
+	`action GetParameter "windowsContainerdURL"`,
+	`action GetParameter "windowsSdnPluginURL"`,
+	`action GetParameter "windowsDockerVersion"`,
+	`action GetParameter "defaultContainerdWindowsSandboxIsolation"`,
+	`action GetParameter "containerdWindowsRuntimeHandlers"`,
+	`action GetParameter "windowsTelemetryGUID"`,
+	`action GetVariable "tenantID"`,
+	`action GetVariable "subscriptionId"`,
+	`action GetVariable "resourceGroup"`,
+	`action GetVariable "vmType"`,
+	`action GetVariable "subnetName"`,
+	`action GetVariable "nsgName"`,
+	`action GetVariable "virtualNetworkName"`,
+	`action GetVariable "routeTableName"`,
+	`action GetVariable "primaryAvailabilitySetName"`,
+	`action GetVariable "primaryScaleSetName"`,
+	`action GetParameter "kubeClusterCidr"`,
+	`action GetParameter "kubeServiceCidr"`,
+	`action GetParameter "vnetCidr"`,
+	`action GetAgentKubernetesLabels .`,
+	`action GetKubeletConfigKeyValsPsh`,
+	`action GetKubeletHealthzEndpoint`,
+	`action GetKubeproxyConfigKeyValsPsh`,
+	`action GetKubeProxyFeatureGatesPsh`,
+	`action GetVariable "useManagedIdentityExtension"`,
+	`action GetVariable "useInstanceMetadata"`,
+	`action GetVariable "loadBalancerSku"`,
+	`action GetVariable "excludeMasterFromStandardLB"`,
+	`action GetPrivateEgressProxyAddress`,
+	`action GetParameter "networkPlugin"`,
+	`action GetParameter "vnetCniWindowsPluginsURL"`,
+	`if IsIPv6DualStackFeatureEnabled`,
+	`if IsAzureCNIOverlayFeatureEnabled`,
+	`if CiliumDataplaneEnabled`,
+	`if EnableIMDSRestriction`,
+	`action GetParameter "windowsCredentialProviderURL"`,
+	`action GetVariable "windowsEnableCSIProxy"`,
+	`action GetVariable "windowsCSIProxyURL"`,
+	`action EnableHostsConfigAgent`,
+	`action GetVariable "windowsCSEScriptsPackageURL"`,
+	`action GetVariable "windowsGpuDriverURL"`,
+	`action GetVariable "windowsPauseImageURL"`,
+	`action GetVariable "alwaysPullWindowsPauseImage"`,
+	`action GetVariable "windowsCalicoPackageURL"`,
+	`action GetVariable "configGPUDriverIfNeeded"`,
+	`action GetVariable "windowsGmsaPackageUrl"`,
+	`action GetTLSBootstrapTokenForKubeConfig`,
+	`action EnableSecureTLSBootstrapping`,
+	`action GetSecureTLSBootstrappingAADResource`,
+	`action GetSecureTLSBootstrappingUserAssignedIdentityID`,
+	`action GetCustomSecureTLSBootstrappingClientDownloadURL`,
+	`action GetSecureTLSBootstrappingValidateKubeconfigTimeout`,
+	`action GetSecureTLSBootstrappingGetAccessTokenTimeout`,
+	`action GetSecureTLSBootstrappingGetInstanceDataTimeout`,
+	`action GetSecureTLSBootstrappingGetNonceTimeout`,
+	`action GetSecureTLSBootstrappingGetAttestedDataTimeout`,
+	`action GetSecureTLSBootstrappingGetCredentialTimeout`,
+	`action GetVariable "isDisableWindowsOutboundNat"`,
+	`action FIPSEnabled`,
+	`action GetHnsRemediatorIntervalInMinutes`,
+	`action GetLogGeneratorIntervalInMinutes`,
+	`action GetVariable "isSkipCleanupNetwork"`,
+	`action GetPreProvisionOnly`,
+	`action EnableKubeletServingCertificateRotation`,
+	`action GetVariable "nextGenNetworkingEnabled"`,
+	`action GetVariable "nextGenNetworkingConfig"`,
+	`action GetBootstrapProfileContainerRegistryServer`,
+	`action GetMCRRepositoryBase`,
+	`action GetNetworkIsolatedClusterTestMode`,
+	`action WindowsSSHEnabled`,
+	`action IsAKSCustomCloud`,
+	`if IsAKSCustomCloud`,
+	`action AKSCustomCloudContainerRegistryDNSSuffix`,
+	`action GetBase64EncodedEnvironmentJSON`,
+	`action GetIdentitySystem`,
 }
 
 type windowsTemplateNode struct {
@@ -165,14 +172,13 @@ func TestWindowsCSETemplateRendersValuesOnlyInVariablesBlock(t *testing.T) {
 	end := strings.Index(text, windowsBootstrapVariablesEnd)
 	require.Less(t, begin, end)
 
-	var blockActions []string
+	var blockNodes []string
 	for _, n := range nodes {
 		line := 1 + strings.Count(text[:n.offset], "\n")
 		if n.offset > begin && n.offset < end {
 			switch n.kind {
-			case "action":
-				blockActions = append(blockActions, n.pipe)
-			case "if":
+			case "action", "if":
+				blockNodes = append(blockNodes, n.kind+" "+n.pipe)
 			default:
 				t.Errorf("line %d: {{%s %s}} is not allowed in the variables block", line, n.kind, n.pipe)
 			}
@@ -185,8 +191,8 @@ func TestWindowsCSETemplateRendersValuesOnlyInVariablesBlock(t *testing.T) {
 		t.Errorf("line %d: {{%s %s}} is outside the AKS bootstrap variables block. "+
 			"Add the value to the variables block and use the PowerShell variable instead", line, n.kind, n.pipe)
 	}
-	require.Equal(t, windowsBootstrapLegacyActions, blockActions,
-		"values rendered directly into the Windows CSE script changed; new values must not be pasted into PowerShell code")
+	require.Equal(t, windowsBootstrapLegacyNodes, blockNodes,
+		"values or conditions rendered directly into the Windows CSE script changed; new values must not be pasted into PowerShell code")
 }
 
 func TestWindowsCSECommandTemplateRendersOnlyBase64Secrets(t *testing.T) {
