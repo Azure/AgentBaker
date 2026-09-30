@@ -760,6 +760,17 @@
       "windowsVersions": []
     },
     {
+      "downloadURL": "mcr.microsoft.com/microsoft.azuresecuritylinuxagent/containerimages/azsecpack-azl3-image:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=microsoft.azuresecuritylinuxagent/containerimages/azsecpack-azl3-image",
+          "latestVersion": "1.0.035532-a8b5f88b"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
