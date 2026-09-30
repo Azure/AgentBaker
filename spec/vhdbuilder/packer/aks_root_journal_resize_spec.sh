@@ -172,6 +172,9 @@ Describe 'AKS root journal completed-state boot'
   setup_completed_state_context() {
     FSCK_CALLS=0
     METADATA_CALLS=0
+    READ_STATE_CALLS=0
+    STATE_READ_FAILURES=0
+    STATE_VALUE=complete
   }
 
   cleanup_completed_state_context() {
@@ -200,7 +203,11 @@ Describe 'AKS root journal completed-state boot'
   }
 
   read_state() {
-    STATE=complete
+    READ_STATE_CALLS=$((READ_STATE_CALLS + 1))
+    if [ "$READ_STATE_CALLS" -le "$STATE_READ_FAILURES" ]; then
+      return 1
+    fi
+    STATE=$STATE_VALUE
   }
 
   check_filesystem() {
@@ -213,8 +220,17 @@ Describe 'AKS root journal completed-state boot'
 
   completed_boot_skips_filesystem_work() {
     aks_root_journal_main /dev/test-root &&
+      [ "$READ_STATE_CALLS" -eq 1 ] &&
       [ "$STATE" = complete ] &&
       [ "$FSCK_CALLS" -eq 0 ] &&
+      [ "$METADATA_CALLS" -eq 0 ]
+  }
+
+  recovered_state_read_skips_journal_work() {
+    STATE_READ_FAILURES=1
+    aks_root_journal_main /dev/test-root &&
+      [ "$READ_STATE_CALLS" -eq 2 ] &&
+      [ "$FSCK_CALLS" -eq 1 ] &&
       [ "$METADATA_CALLS" -eq 0 ]
   }
 
@@ -224,6 +240,13 @@ Describe 'AKS root journal completed-state boot'
   It 'skips filesystem checks and journal inspection after completion'
     When call completed_boot_skips_filesystem_work
     The status should be success
+    The output should include 'journal sizing already completed'
+  End
+
+  It 'verifies the filesystem once when it must retry reading completion state'
+    When call recovered_state_read_skips_journal_work
+    The status should be success
+    The output should include 'checking before retry'
     The output should include 'journal sizing already completed'
   End
 End
