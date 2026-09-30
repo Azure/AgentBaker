@@ -253,6 +253,7 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/v2/azure-cns",
           "latestVersion": "v1.8.13",
+          "previousLatestVersion": "v1.8.12",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -402,6 +403,17 @@
               ]
             }
           }
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/cilium/operator-generic:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/operator-generic",
+          "latestVersion": "v1.19.6-260831"
         }
       ],
       "windowsVersions": []
