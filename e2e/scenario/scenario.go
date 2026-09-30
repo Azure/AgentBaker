@@ -3028,9 +3028,6 @@ var _ = Register(&Scenario{
 		// RTX PRO 6000 BSE v6 only supports NVMe disk controllers, not ResourceDisk
 		// ephemeral OS disk placement (SupportedEphemeralOSDiskPlacements=NvmeDisk).
 		UseNVMe: true,
-		// Scarce, brand-new Blackwell SKU with no steady regional capacity — AllocationFailed
-		// is expected and must not wedge the shared GPU gate, so skip on it (PR gate only).
-		SkipOnCapacityError: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.AgentPoolProfile.VMSize = "Standard_NC144ds_xl_RTXPRO6000BSE_v6"
 			nbc.ConfigGPUDriverIfNeeded = true
