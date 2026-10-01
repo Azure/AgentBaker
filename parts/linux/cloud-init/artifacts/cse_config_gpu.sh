@@ -341,11 +341,10 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
         # The DRA path may also have started our compute-domain unit on a previous run; the
-        # feature is mutable, so tear it down here too (safe no-op if never installed). The deb's
-        # args-less vendor unit is masked by the enable path and that mask persists, so it needs
-        # no action here.
+        # feature is mutable, so stop+disable it here too (safe no-op if never installed). The
+        # deb's args-less vendor unit is masked by the enable path and that mask persists, so it
+        # needs no action here.
         logs_to_events "AKS.CSE.stop.compute-domain-nvidia-gpu" "systemctlDisableAndStop compute-domain-nvidia-gpu"
-        rm -f /etc/systemd/system/compute-domain-nvidia-gpu.service
         rm -f "${managed_gpu_marker}"
     fi
 }

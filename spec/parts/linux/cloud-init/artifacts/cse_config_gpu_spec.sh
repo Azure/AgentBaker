@@ -389,7 +389,6 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
             # the mutable DRA path's compute-domain unit must also be torn down
             The output should include "systemctlDisableAndStop compute-domain-nvidia-gpu"
-            The output should include "rm -f /etc/systemd/system/compute-domain-nvidia-gpu.service"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
