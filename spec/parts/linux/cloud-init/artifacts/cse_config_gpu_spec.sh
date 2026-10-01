@@ -370,7 +370,6 @@ Describe 'cse_config_gpu.sh'
             GPU_NODE="true"
             skip_nvidia_driver_install="false"
             ENABLE_MANAGED_GPU_EXPERIENCE="true"
-            CD_BIN=$(mktemp); chmod +x "$CD_BIN"; COMPUTE_DOMAIN_PLUGIN_BIN="$CD_BIN"
 
             When call configureManagedGPUExperience
 
@@ -380,10 +379,9 @@ Describe 'cse_config_gpu.sh'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=enabled'
             The output should include "mkdir -p /opt/azure/containers"
             The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
-            # compute-domain is DRA-only: on the device-plugin flavor both our unit and the deb's
-            # vendor unit must be torn down in case a previous DRA run left them (flavor switch)
-            The output should include "systemctlDisableAndStop compute-domain-nvidia-gpu"
-            The output should include "systemctl mask --now compute-domain-kubelet-plugin"
+            # device-plugin and DRA flavors are immutable (RP rejects a switch), so compute-domain
+            # is NOT torn down here -- mirrors dra-driver-nvidia-gpu, which also has no cleanup here
+            The output should not include "compute-domain"
         End
 
         It 'pre-masks the vendor compute-domain unit before install in DRA mode'
@@ -405,16 +403,14 @@ Describe 'cse_config_gpu.sh'
             GPU_NODE="true"
             skip_nvidia_driver_install="false"
             ENABLE_MANAGED_GPU_EXPERIENCE="false"
-            CD_BIN=$(mktemp); chmod +x "$CD_BIN"; COMPUTE_DOMAIN_PLUGIN_BIN="$CD_BIN"
 
             When call configureManagedGPUExperience
 
             The output should include "systemctlDisableAndStop nvidia-device-plugin"
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
-            # the mutable DRA path's compute-domain unit AND the deb's vendor unit must be torn down
+            # our compute-domain unit is torn down here too, mirroring the dra-driver teardown
             The output should include "systemctlDisableAndStop compute-domain-nvidia-gpu"
-            The output should include "systemctl mask --now compute-domain-kubelet-plugin"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
