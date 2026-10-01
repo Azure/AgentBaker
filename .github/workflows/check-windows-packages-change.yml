@@ -25,7 +25,6 @@ jobs:
 
       - name: Check out repository code
         id: checkoutPrMerge
-        continue-on-error: true
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # refs/pull/<N>/merge is GitHub's continuously-updated test-merge
@@ -43,7 +42,6 @@ jobs:
 
       - name: Produce vhd files - base
         id: makeDiff
-        if: steps.checkoutPrMerge.outcome == 'success'
         shell: pwsh
         run: |
           cd pr
@@ -82,28 +80,12 @@ jobs:
             Get-Content $diffFile
           }
 
-      - name: Note merge conflict
-        # refs/pull/<N>/merge doesn't exist when the PR has a merge conflict
-        # with the current base branch, so the checkout above fails. Rather
-        # than silently skipping the check (which could hide a real cached-
-        # file change behind an unrelated conflict) or failing the job, flag
-        # it clearly: log a warning and post a comment explaining why no
-        # diff could be computed.
-        if: steps.checkoutPrMerge.outcome == 'failure'
-        shell: pwsh
-        run: |
-          Write-Output "::warning::Could not check out refs/pull/${{ github.event.pull_request.number }}/merge — this PR likely has a merge conflict with the current base branch. Skipping the cached-file diff."
-
-          Write-Output "### Changes cached containers or packages on windows VHDs" > diff.md
-          Write-Output "" >> diff.md
-          Write-Output "⚠️ Could not determine whether this PR changes cached containers or packages on Windows VHDs: this PR currently has a merge conflict with the base branch, so the comparison couldn't be computed. Please resolve the conflict to get an up-to-date diff." >> diff.md
-
       - name: remove comment from PR
         # Removing and then adding the comment means that the comment will always appear at the bottom of the PR.
         uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
         with:
           mode: delete
-          comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
+          comment-tag: 'WINDOWS_VHD_CONTENT_DIFF'
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
@@ -111,7 +93,7 @@ jobs:
         uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
         if: ${{ hashFiles('diff.md') != '' }}
         with:
-          file-path: "diff.md"
-          comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
+          file-path: 'diff.md'
+          comment-tag: 'WINDOWS_VHD_CONTENT_DIFF'
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
