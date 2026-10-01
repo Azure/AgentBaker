@@ -32,6 +32,7 @@ BASH_ONLY_LIST=$(cat <<'EOF'
 ./e2e/scenario/validate_anc_hotfix.sh
 ./vhdbuilder/packer/install-ig.sh
 ./vhdbuilder/packer/ubuntu-2604-cvm/trim-2604-cvm-packages.sh
+./vhdbuilder/scripts/gc.sh
 ./parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh
 EOF
 )
