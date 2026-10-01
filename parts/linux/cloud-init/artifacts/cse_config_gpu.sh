@@ -432,6 +432,11 @@ EOF
             # reached Ready (that needs the control-plane controller + node RBAC), so a failure must
             # not block node provisioning -- surface a warning instead.
             logs_to_events "AKS.CSE.start.compute-domain-kubelet-plugin" "systemctlEnableAndStart compute-domain-kubelet-plugin 30" || echo "warning: compute-domain-kubelet-plugin could not be started; cross-node IMEX (ComputeDomain) will be unavailable on this node"
+        else
+            # Non-GB (x86) managed-DRA nodes don't run compute-domain, but the same dra-driver-nvidia-gpu
+            # deb still enables+starts the args-less compute-domain-kubelet-plugin.service at install;
+            # stop+disable it so it isn't left running/failing on nodes that never use it.
+            logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableAndStop compute-domain-kubelet-plugin"
         fi
     fi
 

@@ -498,16 +498,19 @@ Describe 'cse_config_gpu.sh'
             The contents of file "$CD_CONF" should include 'NVIDIA_VISIBLE_DEVICES=void'
         End
 
-        It 'does not touch the compute-domain plugin on non-arm64 DRA nodes'
+        It 'stops the vendor compute-domain plugin on non-arm64 DRA nodes (GB-only)'
             ENABLE_MANAGED_GPU_EXPERIENCE="false"
             ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
             isARM64() { echo 0; }
 
             When call startNvidiaManagedExpServices
 
-            # dra-driver still starts, but compute-domain is arm64 (GB) only
             The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
-            The output should not include "compute-domain-kubelet-plugin"
+            # the 0.5.0 deb auto-starts an args-less vendor unit on x86 too -- stop it (compute-domain is GB-only)
+            The output should include "systemctlDisableAndStop compute-domain-kubelet-plugin"
+            # but we do not configure or start our override on non-arm64
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin"
+            The output should not include "compute-domain-kubelet-plugin.service.d"
         End
     End
     Describe 'nvidia-cdi-refresh handling'
