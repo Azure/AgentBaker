@@ -384,7 +384,7 @@ Describe 'cse_config_gpu.sh'
             The output should not include "compute-domain"
         End
 
-        It 'pre-masks the vendor compute-domain unit before install in DRA mode'
+        It 'installs the package and defers service start in DRA mode'
             GPU_NODE="true"
             skip_nvidia_driver_install="false"
             ENABLE_MANAGED_GPU_EXPERIENCE="false"
@@ -392,11 +392,10 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
-            # mask must happen BEFORE the deb install so the postinst can't start the args-less unit
-            The output should include "systemctl mask compute-domain-kubelet-plugin"
             The output should include "installNvidiaManagedExpPkgFromCache called"
-            # DRA defers service start to after kubelet
+            # DRA defers service start (incl the compute-domain override) to startNvidiaManagedExpServices
             The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "compute-domain"
         End
 
         It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
@@ -409,8 +408,8 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlDisableAndStop nvidia-device-plugin"
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
-            # our compute-domain unit is torn down here too, mirroring the dra-driver teardown
-            The output should include "systemctlDisableAndStop compute-domain-nvidia-gpu"
+            # the compute-domain kubelet plugin is torn down here too, mirroring the dra-driver teardown
+            The output should include "systemctlDisableAndStop compute-domain-kubelet-plugin"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
@@ -486,56 +485,38 @@ Describe 'cse_config_gpu.sh'
             The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
         End
 
-        It 'masks the deb unit and starts our compute-domain plugin on arm64 (GB) in DRA mode'
+        It 'overrides and starts the compute-domain kubelet plugin on arm64 (GB) in DRA mode'
             ENABLE_MANAGED_GPU_EXPERIENCE="false"
             ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
             isARM64() { echo 1; }
             NODE_NAME="gbnode0"
-            CD_BIN=$(mktemp); chmod +x "$CD_BIN"; COMPUTE_DOMAIN_PLUGIN_BIN="$CD_BIN"
-            CD_UNIT=$(mktemp)
-            tee() { cat >> "$CD_UNIT"; echo "tee $1"; }
+            CD_CONF=$(mktemp)
+            tee() { cat >> "$CD_CONF"; echo "tee $1"; }
 
             When call startNvidiaManagedExpServices
 
             # the gpu-kubelet-plugin still comes up for all DRA nodes
             The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
-            # the deb's args-less unit is masked (can't run), and ours is started
-            The output should include "systemctl mask --now compute-domain-kubelet-plugin"
-            The output should include "systemctlEnableAndStart compute-domain-nvidia-gpu 30"
-            # our unit targets the controller extension's pinned namespace + this node
-            The contents of file "$CD_UNIT" should include "--namespace kube-system"
-            The contents of file "$CD_UNIT" should include "--node-name=gbnode0"
-            The contents of file "$CD_UNIT" should include "--kubeconfig /var/lib/kubelet/kubeconfig"
+            # we override the deb's vendor unit in place (same pattern as dra-driver) and start it
+            The output should include "mkdir -p /etc/systemd/system/compute-domain-kubelet-plugin.service.d"
+            The output should include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
+            # the override targets the controller extension's pinned namespace + this node, and resets ExecStart
+            The contents of file "$CD_CONF" should include "ExecStart="
+            The contents of file "$CD_CONF" should include "--namespace kube-system"
+            The contents of file "$CD_CONF" should include "--node-name=gbnode0"
+            The contents of file "$CD_CONF" should include 'NVIDIA_VISIBLE_DEVICES=void'
         End
 
-        It 'skips the compute-domain plugin on arm64 when the deb binary is absent (pre-0.5.0 skew)'
-            ENABLE_MANAGED_GPU_EXPERIENCE="false"
-            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
-            isARM64() { echo 1; }
-            COMPUTE_DOMAIN_PLUGIN_BIN="/nonexistent/compute-domain-kubelet-plugin"
-
-            When call startNvidiaManagedExpServices
-
-            # dra-driver still starts, but the compute-domain unit is skipped (no brick)
-            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
-            The output should not include "compute-domain-nvidia-gpu"
-            The output should not include "mask --now compute-domain-kubelet-plugin"
-        End
-
-        It 'masks the vendor unit but does not start our compute-domain unit on non-arm64 DRA nodes'
+        It 'does not touch the compute-domain plugin on non-arm64 DRA nodes'
             ENABLE_MANAGED_GPU_EXPERIENCE="false"
             ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
             isARM64() { echo 0; }
-            CD_BIN=$(mktemp); chmod +x "$CD_BIN"; COMPUTE_DOMAIN_PLUGIN_BIN="$CD_BIN"
 
             When call startNvidiaManagedExpServices
 
+            # dra-driver still starts, but compute-domain is arm64 (GB) only
             The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
-            # x86 DRA nodes also install the 0.5.0 deb, whose postinst starts the args-less vendor
-            # unit -- it must be masked regardless of architecture
-            The output should include "systemctl mask --now compute-domain-kubelet-plugin"
-            # but our AKS-managed compute-domain unit is arm64-only
-            The output should not include "compute-domain-nvidia-gpu"
+            The output should not include "compute-domain-kubelet-plugin"
         End
     End
     Describe 'nvidia-cdi-refresh handling'
