@@ -24,14 +24,26 @@ jobs:
           persist-credentials: false
 
       - name: Check out repository code
+        id: checkoutPrMerge
+        continue-on-error: true
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # refs/pull/<N>/merge is GitHub's continuously-updated test-merge
+          # commit of the PR head into the *current* base tip. This differs
+          # from the default (ref omitted) checkout behavior, which pins to
+          # github.sha from the triggering event — frozen at whatever main
+          # was during this PR's last opened/synchronize event. GitHub
+          # deletes this ref when the PR has a merge conflict with the
+          # current base branch, which makes this checkout fail; that case
+          # is handled below instead of failing the whole job.
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           path: pr
           fetch-depth: 1
           persist-credentials: false
 
       - name: Produce vhd files - base
         id: makeDiff
+        if: steps.checkoutPrMerge.outcome == 'success'
         shell: pwsh
         run: |
           cd pr
@@ -69,6 +81,22 @@ jobs:
             dir $diffFile
             Get-Content $diffFile
           }
+
+      - name: Note merge conflict
+        # refs/pull/<N>/merge doesn't exist when the PR has a merge conflict
+        # with the current base branch, so the checkout above fails. Rather
+        # than silently skipping the check (which could hide a real cached-
+        # file change behind an unrelated conflict) or failing the job, flag
+        # it clearly: log a warning and post a comment explaining why no
+        # diff could be computed.
+        if: steps.checkoutPrMerge.outcome == 'failure'
+        shell: pwsh
+        run: |
+          Write-Output "::warning::Could not check out refs/pull/${{ github.event.pull_request.number }}/merge — this PR likely has a merge conflict with the current base branch. Skipping the cached-file diff."
+
+          Write-Output "### Changes cached containers or packages on windows VHDs" > diff.md
+          Write-Output "" >> diff.md
+          Write-Output "⚠️ Could not determine whether this PR changes cached containers or packages on Windows VHDs: this PR currently has a merge conflict with the base branch, so the comparison couldn't be computed. Please resolve the conflict to get an up-to-date diff." >> diff.md
 
       - name: remove comment from PR
         # Removing and then adding the comment means that the comment will always appear at the bottom of the PR.
