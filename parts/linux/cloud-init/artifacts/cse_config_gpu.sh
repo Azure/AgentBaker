@@ -340,8 +340,6 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
-        # Stop the compute-domain kubelet plugin too (mirrors the dra-driver teardown above; safe
-        # no-op if never installed).
         logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableAndStop compute-domain-kubelet-plugin"
         rm -f "${managed_gpu_marker}"
     fi
