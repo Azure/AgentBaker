@@ -340,6 +340,10 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
+        # The DRA path (arm64/GB) may also have started our compute-domain unit on a previous
+        # run; the feature is mutable, so tear it down here too (safe no-op if never installed).
+        logs_to_events "AKS.CSE.stop.compute-domain-nvidia-gpu" "systemctlDisableAndStop compute-domain-nvidia-gpu"
+        rm -f /etc/systemd/system/compute-domain-nvidia-gpu.service
         rm -f "${managed_gpu_marker}"
     fi
 }
@@ -404,16 +408,21 @@ EOF
 
         logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
 
-        # Grace-Blackwell (arm64 MNNVL) nodes additionally need the node-local
-        # compute-domain kubelet plugin (device class compute-domain.nvidia.com) for
-        # cross-node IMEX. The dra-driver-nvidia-gpu deb (>= 0.5.0) already bakes the
-        # /usr/bin/compute-domain-kubelet-plugin binary and the /templates it reads, so
-        # there is nothing to download here. The deb enables an args-less
-        # compute-domain-kubelet-plugin.service; disable it and run our own unit with the
-        # node args. --namespace must match where the microsoft.managedcomputedomain
-        # controller extension installs; that chart hard-pins kube-system.
-        if [ "$(isARM64)" -eq 1 ]; then
-            systemctlDisableAndStop compute-domain-kubelet-plugin || true
+        # Grace-Blackwell (arm64 MNNVL) nodes additionally need the node-local compute-domain
+        # kubelet plugin (device class compute-domain.nvidia.com) for cross-node IMEX. The
+        # dra-driver-nvidia-gpu deb (>= 0.5.0) bakes the compute-domain-kubelet-plugin binary
+        # and the /templates it reads, so nothing is downloaded here. Gate on the binary being
+        # present (not just arch): a pre-0.5.0 deb reached via an aks-node-controller script
+        # hotfix, or a non-ubuntu arm64 image lacking this package, must degrade gracefully
+        # instead of failing node provisioning. The path is overridable to keep this testable.
+        local compute_domain_plugin_bin="${COMPUTE_DOMAIN_PLUGIN_BIN:-/usr/bin/compute-domain-kubelet-plugin}"
+        if [ "$(isARM64)" -eq 1 ] && [ -x "${compute_domain_plugin_bin}" ]; then
+            # The deb ships an args-less compute-domain-kubelet-plugin.service (no --namespace,
+            # NVIDIA_VISIBLE_DEVICES=all) that its postinst enables and starts. Mask it so it
+            # cannot run (even across a later dpkg reconfigure) and run our own unit with the
+            # node args. --namespace must match where the microsoft.managedcomputedomain
+            # controller extension installs; that chart hard-pins kube-system.
+            systemctl mask --now compute-domain-kubelet-plugin || true
             tee "/etc/systemd/system/compute-domain-nvidia-gpu.service" > /dev/null <<EOF
 [Unit]
 Description=NVIDIA DRA Compute-Domain Kubelet Plugin
@@ -421,14 +430,18 @@ Requires=kubelet.service
 After=kubelet.service dra-driver-nvidia-gpu.service
 [Service]
 Environment="NVIDIA_VISIBLE_DEVICES=void"
-ExecStart=/usr/bin/compute-domain-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --node-name=${NODE_NAME} --namespace kube-system --nvidia-driver-root / --container-driver-root /
+ExecStart=${compute_domain_plugin_bin} --kubeconfig /var/lib/kubelet/kubeconfig --node-name=${NODE_NAME} --namespace kube-system --nvidia-driver-root / --container-driver-root /
 Restart=always
+RestartSec=5
 User=root
 [Install]
 WantedBy=multi-user.target
 EOF
             systemctl daemon-reload
-            logs_to_events "AKS.CSE.start.compute-domain-nvidia-gpu" "systemctlEnableAndStart compute-domain-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
+            # Non-fatal: a successful start only means the process spawned, not that the
+            # ComputeDomain reached Ready (that needs the control-plane controller + node RBAC).
+            # A failure here must not block node provisioning -- surface a warning, like dcgm below.
+            logs_to_events "AKS.CSE.start.compute-domain-nvidia-gpu" "systemctlEnableAndStart compute-domain-nvidia-gpu 30" || echo "warning: compute-domain-nvidia-gpu could not be started; cross-node IMEX (ComputeDomain) will be unavailable on this node"
         fi
     fi
 
