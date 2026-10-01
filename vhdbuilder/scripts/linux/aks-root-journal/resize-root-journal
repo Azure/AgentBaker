@@ -306,6 +306,8 @@ aks_root_journal_main() {
     log "first-boot journal sizing completed for VM $INSTANCE_ID"
 }
 
-if [ "${0##*/}" = "resize-root-journal" ]; then
-    aks_root_journal_main "$@"
-fi
+case "${0##*/}" in
+    resize-root-journal|aks-root-journal-resize)
+        aks_root_journal_main "$@"
+        ;;
+esac

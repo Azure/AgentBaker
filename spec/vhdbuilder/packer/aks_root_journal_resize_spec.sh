@@ -44,6 +44,32 @@ Describe 'AKS root journal initramfs installer'
   End
 End
 
+Describe 'AKS root journal runtime entrypoint'
+  setup_runtime_entrypoint() {
+    MOUNT_PATH=$(mktemp -d)
+    cp ./vhdbuilder/scripts/linux/aks-root-journal/resize-root-journal \
+      "$MOUNT_PATH/aks-root-journal-resize"
+    chmod +x "$MOUNT_PATH/aks-root-journal-resize"
+  }
+
+  cleanup_runtime_entrypoint() {
+    rm -rf "$MOUNT_PATH"
+  }
+
+  invoke_installed_runtime_entrypoint() {
+    "$MOUNT_PATH/aks-root-journal-resize"
+  }
+
+  BeforeEach 'setup_runtime_entrypoint'
+  AfterEach 'cleanup_runtime_entrypoint'
+
+  It 'runs the installed aks-root-journal-resize entrypoint'
+    When call invoke_installed_runtime_entrypoint
+    The status should be failure
+    The output should include 'usage: resize-root-journal ROOT_DEVICE'
+  End
+End
+
 Describe 'AKS root journal first-boot state'
   Include './vhdbuilder/scripts/linux/aks-root-journal/resize-root-journal'
 
