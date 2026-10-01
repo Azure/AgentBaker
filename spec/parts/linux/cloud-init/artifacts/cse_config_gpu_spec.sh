@@ -321,10 +321,6 @@ Describe 'cse_config_gpu.sh'
             echo "rm $@"
         }
 
-        systemctl() {
-            echo "systemctl $@"
-        }
-
         BeforeEach 'KUBELET_NODE_LABELS=""'
 
         It 'should not enable managed GPU experience if not GPU node'
