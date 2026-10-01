@@ -501,16 +501,20 @@ Describe 'cse_config_gpu.sh'
             The output should not include "mask --now compute-domain-kubelet-plugin"
         End
 
-        It 'does not start the compute-domain plugin on non-arm64 nodes in DRA mode'
+        It 'masks the vendor unit but does not start our compute-domain unit on non-arm64 DRA nodes'
             ENABLE_MANAGED_GPU_EXPERIENCE="false"
             ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
             isARM64() { echo 0; }
+            CD_BIN=$(mktemp); chmod +x "$CD_BIN"; COMPUTE_DOMAIN_PLUGIN_BIN="$CD_BIN"
 
             When call startNvidiaManagedExpServices
 
             The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # x86 DRA nodes also install the 0.5.0 deb, whose postinst starts the args-less vendor
+            # unit -- it must be masked regardless of architecture
+            The output should include "systemctl mask --now compute-domain-kubelet-plugin"
+            # but our AKS-managed compute-domain unit is arm64-only
             The output should not include "compute-domain-nvidia-gpu"
-            The output should not include "mask --now compute-domain-kubelet-plugin"
         End
     End
     Describe 'nvidia-cdi-refresh handling'
