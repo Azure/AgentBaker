@@ -11,9 +11,14 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # NOTE: base.sha is frozen at the PR's last opened/synchronize event,
-          # not the live tip of the base branch. See PR #9686 for the fix.
-          ref: ${{ github.event.pull_request.base.sha }}
+          # Use base.ref (e.g. "main"), not base.sha: base.sha is frozen at
+          # whatever the base branch pointed to during this PR's last
+          # opened/synchronize event. If the base branch advances afterward
+          # without a new push to this PR, base.sha goes stale and this diff
+          # ends up comparing against outdated base content, surfacing
+          # unrelated upstream changes as if they came from the PR. base.ref
+          # always resolves to the live tip of the base branch at checkout time.
+          ref: ${{ github.event.pull_request.base.ref }}
           path: base
           fetch-depth: 1
           persist-credentials: false
