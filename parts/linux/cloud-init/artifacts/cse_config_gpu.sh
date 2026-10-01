@@ -405,7 +405,7 @@ EOF
 
         logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
 
-        # Grace-Blackwell (arm64 MNNVL) nodes also run the node-local compute-domain kubelet plugin
+        # Grace-Blackwell (arm64 MNNVL) nodes also run the compute-domain kubelet plugin
         # (device class compute-domain.nvidia.com) for cross-node IMEX. The dra-driver-nvidia-gpu deb
         # (>= 0.5.0) ships the compute-domain-kubelet-plugin binary + the /templates it reads, plus an
         # args-less compute-domain-kubelet-plugin.service; override it in place with our node args
