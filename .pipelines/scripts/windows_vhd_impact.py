@@ -38,6 +38,19 @@ def object_array(document, name):
     return value
 
 
+def requires_azcopy_anywhere(value):
+    # Mirrors the whole-document jq scan in compute_msi_resource_strings
+    # (vhdbuilder/packer/produce-packer-settings-functions.sh), which decides
+    # whether the Windows build VM gets a managed identity.
+    if isinstance(value, dict):
+        if value.get("windowsDownloadRequiresAzCopy") is True:
+            return True
+        return any(requires_azcopy_anywhere(item) for item in value.values())
+    if isinstance(value, list):
+        return any(requires_azcopy_anywhere(item) for item in value)
+    return False
+
+
 def windows_inputs(text):
     """Subtract only known Linux-only fields; preserve unknown fields and order."""
     document = json.loads(
@@ -51,6 +64,7 @@ def windows_inputs(text):
         object_array(document, "GPUContainerImages")
     if "OCIArtifacts" in document:
         object_array(document, "OCIArtifacts")
+    azcopy_anywhere = requires_azcopy_anywhere(document)
 
     # Windows helpers never consume GPUContainerImages or amd64OnlyVersions.
     document.pop("GPUContainerImages", None)
@@ -66,7 +80,10 @@ def windows_inputs(text):
 
     # Keep all Windows/default fallback fields, OCI artifacts, and array order:
     # sorted URL inventories lose authentication flags and the default containerd.
-    return json.dumps(document, sort_keys=True, allow_nan=False)
+    return json.dumps(
+        {"components": document, "windowsDownloadRequiresAzCopyAnywhere": azcopy_anywhere},
+        sort_keys=True, allow_nan=False,
+    )
 
 
 def git(repo, *args):
@@ -119,9 +136,10 @@ def main():
             os.environ.get("BUILD_SOURCEVERSION", ""),
         )
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
-        # Never emit permission to skip when the comparison is incomplete.
-        print(f"##vso[task.logissue type=error]Windows impact detection failed: {error!r}")
-        return 1
+        # Fall back to the full Windows build; a detector bug must not block PRs.
+        print(f"##vso[task.logissue type=warning]Windows impact detection failed; "
+              f"running the full Windows VHD build: {error!r}")
+        skip, explanation = False, "Windows impact detection failed."
     print(explanation)
     print(f"##vso[task.setvariable variable=skipWindowsVhd;isOutput=true]{str(skip).lower()}")
     return 0

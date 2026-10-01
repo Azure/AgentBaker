@@ -284,14 +284,18 @@ SKU filters, shared `default` fallbacks, URLs, destinations, download
 authentication flags, OCI artifacts, unknown fields, and array order.
 This deliberately compares inputs rather than the sorted cached-file summary:
 the same URLs can have different authentication requirements or a different
-first/default containerd version.
+first/default containerd version. Because `compute_msi_resource_strings` in
+`vhdbuilder/packer/produce-packer-settings-functions.sh` scans the whole file for
+`windowsDownloadRequiresAzCopy: true`, that whole-document result is compared
+too, even when the flag sits under an ignored Linux field.
 
 Any additional changed file or unrecognized component change runs the full
 gate, even if it might also be Linux-only. Invalid JSON, incomplete Git history,
-or a mismatched checkout fails preflight rather than granting a skip. JSON
-schema validation remains required separately. Manual and release builds do not
-take this fast path. If Windows starts consuming one of the ignored fields,
-update `.pipelines/scripts/windows_vhd_impact.py` and its tests in the same PR.
+or a mismatched checkout runs the full gate with a warning rather than granting
+a skip. JSON schema validation remains required separately. Manual and release
+builds do not take this fast path. If Windows starts consuming one of the
+ignored fields, update `.pipelines/scripts/windows_vhd_impact.py` and its tests
+in the same PR; a test fails if Windows PowerShell scripts reference them.
 
 ## Encountering warning "This branch is out-of-date with the base branch" in an automated PR
 The PR created by Renovate should be rebasing with latest Master branch by itself automatically. However, if somehow you have approved the automated PR created by Renovate to update your component, and all PR gate tests have passed, but you encounter a warning "This branch is out-of-date with the base branch", there are two ways to resolve this:

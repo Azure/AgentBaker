@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -145,6 +146,17 @@ class WindowsInputsTests(unittest.TestCase):
                 self.after["OCIArtifacts"][0][field] = value
                 self.assertImpact(True)
 
+    def test_whole_document_azcopy_flag_under_linux_fields_is_retained(self):
+        # compute_msi_resource_strings scans every object, including Linux subtrees.
+        ubuntu = self.package("containerd")["downloadURIs"].setdefault("ubuntu", {})
+        for value, expected in ((True, True), (False, False), (1, False)):
+            with self.subTest(value=value):
+                ubuntu["windowsDownloadRequiresAzCopy"] = value
+                self.assertImpact(expected)
+        self.before, self.after = self.after, self.before
+        ubuntu["windowsDownloadRequiresAzCopy"] = True
+        self.assertImpact(True)
+
     def test_json_formatting_is_ignored_but_types_are_not(self):
         self.assertEqual(impact.windows_inputs(json.dumps(self.before)),
                          impact.windows_inputs(json.dumps(self.before, indent=4, sort_keys=True)))
@@ -283,7 +295,7 @@ class GitImpactTests(unittest.TestCase):
         self.merge()
         self.assertFalse(self.check())
 
-    def test_cli_emits_skip_only_after_successful_comparison(self):
+    def test_cli_falls_back_to_full_build_when_detection_fails(self):
         self.linux_change()
         merge = self.merge()
         env = dict(self.env, BUILD_REASON="PullRequest",
@@ -299,9 +311,10 @@ class GitImpactTests(unittest.TestCase):
             [sys.executable, str(SCRIPT)], cwd=self.repo, env=env,
             capture_output=True, text=True,
         )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("task.logissue type=error", result.stdout)
-        self.assertNotIn("task.setvariable", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("task.logissue type=warning", result.stdout)
+        self.assertIn("variable=skipWindowsVhd;isOutput=true]false", result.stdout)
+        self.assertNotIn("isOutput=true]true", result.stdout)
 
     def test_advanced_target_changes_are_not_attributed_to_pr(self):
         (self.repo / "windows.ps1").write_text("target-only")
@@ -325,6 +338,29 @@ class GitImpactTests(unittest.TestCase):
                     with self.assertRaises(subprocess.CalledProcessError):
                         impact.skip_windows_vhd(
                             clone, "PullRequest", "refs/pull/9672/merge", merge)
+
+
+class WindowsConsumerDriftTests(unittest.TestCase):
+    def test_windows_scripts_do_not_read_ignored_linux_fields(self):
+        # If a Windows script starts reading an ignored field, the projection
+        # in windows_inputs() must be updated before this test is.
+        ignored = "|".join(
+            ("GPUContainerImages", "amd64OnlyVersions", "downloadLocation", *impact.LINUX_DISTROS)
+        )
+        pattern = re.compile(rf"\.({ignored})\b", re.IGNORECASE)
+        scripts = [
+            path for directory in ("vhdbuilder/packer/windows", "parts/windows", "staging/cse/windows")
+            for path in sorted((ROOT / directory).glob("*.ps1"))
+            if not path.name.endswith(".tests.ps1")
+        ]
+        self.assertTrue(scripts)
+        hits = [
+            f"{path.relative_to(ROOT)}:{number}: {line.strip()}"
+            for path in scripts
+            for number, line in enumerate(path.read_text(errors="replace").splitlines(), 1)
+            if pattern.search(line)
+        ]
+        self.assertEqual(hits, [])
 
 
 if __name__ == "__main__":
