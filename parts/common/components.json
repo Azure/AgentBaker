@@ -771,6 +771,16 @@
       "windowsVersions": []
     },
     {
+      "downloadURL": "mcr.microsoft.com/geneva/mdsd:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "latestVersion": "recommended@sha256:a028b633d37e1f0dc9aa93ce75aaa1ebe35d74ccddd243cdbad4c68cc4c79100"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
