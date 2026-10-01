@@ -403,6 +403,33 @@ EOF
         systemctl daemon-reload
 
         logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
+
+        # Grace-Blackwell (arm64 MNNVL) nodes additionally need the node-local
+        # compute-domain kubelet plugin (device class compute-domain.nvidia.com) for
+        # cross-node IMEX. The dra-driver-nvidia-gpu deb (>= 0.5.0) already bakes the
+        # /usr/bin/compute-domain-kubelet-plugin binary and the /templates it reads, so
+        # there is nothing to download here. The deb enables an args-less
+        # compute-domain-kubelet-plugin.service; disable it and run our own unit with the
+        # node args. --namespace must match where the microsoft.managedcomputedomain
+        # controller extension installs; that chart hard-pins kube-system.
+        if [ "$(isARM64)" -eq 1 ]; then
+            systemctlDisableAndStop compute-domain-kubelet-plugin || true
+            tee "/etc/systemd/system/compute-domain-nvidia-gpu.service" > /dev/null <<EOF
+[Unit]
+Description=NVIDIA DRA Compute-Domain Kubelet Plugin
+Requires=kubelet.service
+After=kubelet.service dra-driver-nvidia-gpu.service
+[Service]
+Environment="NVIDIA_VISIBLE_DEVICES=void"
+ExecStart=/usr/bin/compute-domain-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --node-name=${NODE_NAME} --namespace kube-system --nvidia-driver-root / --container-driver-root /
+Restart=always
+User=root
+[Install]
+WantedBy=multi-user.target
+EOF
+            systemctl daemon-reload
+            logs_to_events "AKS.CSE.start.compute-domain-nvidia-gpu" "systemctlEnableAndStart compute-domain-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
+        fi
     fi
 
     # 2. Start the nvidia-dcgm service.

@@ -412,6 +412,14 @@ Describe 'cse_config_gpu.sh'
         systemctl() {
             echo "systemctl $@"
         }
+        systemctlDisableAndStop() {
+            echo "systemctlDisableAndStop $@"
+        }
+        # Default to non-arm64 so the GB-only compute-domain path stays off unless a
+        # test opts in; the existing device-plugin/DRA cases are arch-agnostic.
+        isARM64() {
+            echo 0
+        }
 
         BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
 
@@ -452,6 +460,39 @@ Describe 'cse_config_gpu.sh'
             The output should not include "systemctlEnableAndStart nvidia-device-plugin 30"
             The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
             The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
+        End
+
+        It 'starts the node-local compute-domain plugin on arm64 (GB) in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="gbnode0"
+            CD_UNIT=$(mktemp)
+            tee() { cat >> "$CD_UNIT"; echo "tee $1"; }
+
+            When call startNvidiaManagedExpServices
+
+            # the gpu-kubelet-plugin still comes up for all DRA nodes
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # the baked deb's args-less unit is replaced by our node-args unit
+            The output should include "systemctlDisableAndStop compute-domain-kubelet-plugin"
+            The output should include "systemctlEnableAndStart compute-domain-nvidia-gpu 30"
+            # and it must target the controller extension's pinned namespace
+            The contents of file "$CD_UNIT" should include "/usr/bin/compute-domain-kubelet-plugin"
+            The contents of file "$CD_UNIT" should include "--node-name=gbnode0"
+            The contents of file "$CD_UNIT" should include "--namespace kube-system"
+        End
+
+        It 'does not start the compute-domain plugin on non-arm64 nodes in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 0; }
+
+            When call startNvidiaManagedExpServices
+
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            The output should not include "compute-domain-nvidia-gpu"
+            The output should not include "systemctlDisableAndStop compute-domain-kubelet-plugin"
         End
     End
     Describe 'nvidia-cdi-refresh handling'
