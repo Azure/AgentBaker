@@ -3,13 +3,18 @@ package agent
 import (
 	"archive/tar"
 	"bytes"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"testing"
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -19,6 +24,7 @@ import (
 	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	"github.com/vincent-petithory/dataurl"
 )
 
@@ -40,6 +46,135 @@ health-check.localdns.local:53 {
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
 # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
 `
+
+func TestRenderLinuxNodeCustomDataTemplateUsesBakerPlatformFunctions(t *testing.T) {
+	template := []byte(`#cloud-config
+write_files:
+{{if IsACL}}
+- path: /acl
+{{else if IsAzlOSGuard}}
+- path: /azlosguard
+{{else if IsMariner}}
+- path: /mariner
+{{else if IsFlatcar}}
+- path: /flatcar
+{{else}}
+- path: /ubuntu
+{{end}}
+`)
+	tests := []struct {
+		name     string
+		distro   datamodel.Distro
+		expected string
+	}{
+		{name: "Ubuntu", distro: datamodel.AKSUbuntuContainerd2204Gen2, expected: "/ubuntu"},
+		{name: "Mariner", distro: datamodel.AKSAzureLinuxV3Gen2, expected: "/mariner"},
+		{name: "ACL", distro: datamodel.AKSACLGen2TL, expected: "/acl"},
+		{name: "OS Guard", distro: datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL, expected: "/azlosguard"},
+		{name: "Flatcar", distro: datamodel.AKSFlatcarGen2, expected: "/flatcar"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rendered, err := RenderLinuxNodeCustomDataTemplate(
+				template,
+				newNodeCustomDataRenderConfig(test.distro),
+			)
+
+			require.NoError(t, err)
+			require.Contains(t, rendered, "- path: "+test.expected)
+			require.False(t, strings.Contains(rendered, "{{"))
+		})
+	}
+}
+
+func newNodeCustomDataRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {
+	profile := &datamodel.AgentPoolProfile{
+		Name:   "hotfix-render-test",
+		OSType: datamodel.Linux,
+		Distro: distro,
+	}
+	return &datamodel.NodeBootstrappingConfiguration{
+		ContainerService: &datamodel.ContainerService{
+			Location: "eastus",
+			Properties: &datamodel.Properties{
+				OrchestratorProfile: &datamodel.OrchestratorProfile{
+					OrchestratorVersion: "1.29.0",
+					OrchestratorType:    datamodel.Kubernetes,
+					KubernetesConfig: &datamodel.KubernetesConfig{
+						ContainerRuntimeConfig: map[string]string{},
+					},
+				},
+				HostedMasterProfile: &datamodel.HostedMasterProfile{
+					FQDN: "hotfix-render.invalid",
+				},
+				AgentPoolProfiles: []*datamodel.AgentPoolProfile{profile},
+			},
+		},
+		AgentPoolProfile: profile,
+		CloudSpecConfig:  datamodel.AzurePublicCloudSpecForTest,
+		K8sComponents:    &datamodel.K8sComponents{},
+		KubeletConfig:    map[string]string{},
+	}
+}
+
+func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
+	const bootstrapToken = "bake00.0123456789abcdef"
+
+	newConfig := func(preProvisionOnly bool) *datamodel.NodeBootstrappingConfiguration {
+		profile := &datamodel.AgentPoolProfile{
+			Name:   "windowspool",
+			OSType: datamodel.Windows,
+			Distro: datamodel.AKSWindows2022Containerd,
+		}
+		return &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						OrchestratorType:    datamodel.Kubernetes,
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{profile},
+					WindowsProfile:    &datamodel.WindowsProfile{},
+				},
+			},
+			AgentPoolProfile:               profile,
+			CloudSpecConfig:                datamodel.AzurePublicCloudSpecForTest,
+			K8sComponents:                  &datamodel.K8sComponents{},
+			KubeletConfig:                  map[string]string{},
+			KubeletClientTLSBootstrapToken: to.StringPtr(bootstrapToken),
+			SecureTLSBootstrappingConfig:   &datamodel.SecureTLSBootstrappingConfig{},
+			PreProvisionOnly:               preProvisionOnly,
+		}
+	}
+	templateGenerator := InitializeTemplateGenerator()
+	render := func(preProvisionOnly bool) string {
+		t.Helper()
+		config := newConfig(preProvisionOnly)
+		payload := templateGenerator.getWindowsNodeBootstrappingPayload(config)
+		decoded, err := base64.StdEncoding.DecodeString(payload)
+		require.NoError(t, err)
+		require.Equal(t, bootstrapToken, *config.KubeletClientTLSBootstrapToken)
+		return string(decoded)
+	}
+
+	bakeCustomData := render(true)
+	provisionCustomData := render(false)
+
+	require.NotContains(t, bakeCustomData, bootstrapToken)
+	require.Contains(t, bakeCustomData, `$global:TLSBootstrapToken=""`)
+	require.Contains(t, bakeCustomData, "function NodePrep")
+	require.Contains(t, bakeCustomData, "Write-BootstrapKubeConfig")
+	require.Contains(t, bakeCustomData, "if (-not $PreProvisionOnly)")
+	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken="%s"`, bootstrapToken))
+}
 
 type decodedValue struct {
 	value string
@@ -154,29 +289,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".supportsScriptlessPhase2()", func() {
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is false and an empty list of custom ca certs, it returns true", func() {
-				config.PreProvisionOnly = false
-				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{},
-				}
-				Expect(supportsScriptlessPhase2(config)).To(BeTrue())
-			})
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is false and custom ca certs are populated, it returns false", func() {
-				config.PreProvisionOnly = false
-				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{"mock cert value"},
-				}
-				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
-			})
 			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is true and no CustomCATrustConfig, it returns false", func() {
 				config.PreProvisionOnly = true
-				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
-			})
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is true and custom ca certs are populated, it returns false", func() {
-				config.PreProvisionOnly = true
-				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-					CustomCATrustCerts: []string{"mock cert value"},
-				}
 				Expect(supportsScriptlessPhase2(config)).To(BeFalse())
 			})
 		})
@@ -490,6 +604,7 @@ health-check.localdns.local:53 {
         fallthrough
     }
     forward . 168.63.129.16 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -534,6 +649,7 @@ testdomain456.com:53 {
     log
     bind 169.254.10.10
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -559,6 +675,7 @@ testdomain456.com:53 {
         fallthrough
     }
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 2000
     }
@@ -679,6 +796,7 @@ health-check.localdns.local:53 {
         fallthrough
     }
     forward . 168.63.129.16 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -723,6 +841,7 @@ testdomain456.com:53 {
     log
     bind 169.254.10.10
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -748,6 +867,7 @@ testdomain456.com:53 {
         fallthrough
     }
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -792,6 +912,7 @@ testdomain567.com:53 {
     errors
     bind 169.254.10.11
     forward . 168.63.129.16 {
+        prefer_udp
         policy random
         max_concurrent 1000
     }
@@ -808,6 +929,129 @@ testdomain567.com:53 {
 }
 `
 				Expect(localDNSCoreFile).To(ContainSubstring(expectedlocalDNSCorefile))
+			})
+
+			It("omits failfast when explicitly disabled for localdns forward knobs", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						".": {
+							QueryLogging:                  "Log",
+							Protocol:                      "PreferUDP",
+							ForwardDestination:            "VnetDNS",
+							ForwardPolicy:                 "Sequential",
+							MaxConcurrent:                 to.Int32Ptr(1000),
+							CacheDurationInSeconds:        to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds:   to.Int32Ptr(3600),
+							ServeStale:                    "Immediate",
+							FailfastAllUnhealthyUpstreams: to.BoolPtr(false),
+							HealthCheck: &datamodel.LocalDNSHealthCheck{
+								Duration: to.StringPtr("1s"),
+							},
+						},
+					},
+				}
+
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("health_check 1s"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("failfast_all_unhealthy_upstreams"))
+			})
+
+			It("renders localdns forward health knobs", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": {
+						QueryLogging: "Log", Protocol: "PreferUDP", ForwardDestination: "VnetDNS", ForwardPolicy: "Sequential",
+						MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600), ServeStaleDurationInSeconds: to.Int32Ptr(3600), ServeStale: "Immediate",
+						FailfastAllUnhealthyUpstreams: to.BoolPtr(true),
+						HealthCheck: &datamodel.LocalDNSHealthCheck{
+							Duration: to.StringPtr("1s"),
+							NoRec:    to.BoolPtr(true),
+							Domain:   to.StringPtr("health.local."),
+						},
+					}},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": {
+						QueryLogging: "Error", Protocol: "PreferUDP", ForwardDestination: "ClusterCoreDNS", ForwardPolicy: "Sequential",
+						MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600), ServeStaleDurationInSeconds: to.Int32Ptr(3600), ServeStale: "Immediate",
+						HealthCheck: &datamodel.LocalDNSHealthCheck{Duration: to.StringPtr("2s"), Domain: to.StringPtr("")},
+					}},
+				}
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("health_check 1s no_rec domain health.local."))
+				Expect(localDNSCoreFile).To(ContainSubstring("failfast_all_unhealthy_upstreams"))
+				Expect(localDNSCoreFile).To(ContainSubstring("health_check 2s"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("domain \n"))
+			})
+
+			// serve_stale_policy requires CoreDNS >= 1.14.7 and is only valid alongside an
+			// emitted serve_stale line, so the template must never render it on its own.
+			It("renders serve_stale_policy only alongside serve_stale", func() {
+				newOverride := func(serveStale, policy string) *datamodel.LocalDNSOverrides {
+					return &datamodel.LocalDNSOverrides{
+						QueryLogging: "Log", Protocol: "PreferUDP", ForwardDestination: "VnetDNS", ForwardPolicy: "Sequential",
+						MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600),
+						ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+						ServeStale:                  serveStale,
+						ServeStalePolicy:            policy,
+					}
+				}
+
+				By("rendering the directive under the serve_stale line when the policy is set")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Immediate", "PreferPositive")},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Verify", "PreferPositive")},
+				}
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s immediate\n        serve_stale_policy prefer_positive"))
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s verify\n        serve_stale_policy prefer_positive"))
+
+				By("omitting the directive when no policy is set")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Immediate", "")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s immediate"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale_policy"))
+
+				By("omitting the directive when serve_stale itself is disabled")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Disable", "PreferPositive")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale"))
+
+				By("omitting the directive when serve_stale carries an unrecognized value")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Bogus", "PreferPositive")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale"))
+
+				By("omitting the directive outside the default (\".\") server block")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						"cluster.local":  newOverride("Immediate", "PreferPositive"),
+						"testdomain.com": newOverride("Immediate", "PreferPositive"),
+					},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{"cluster.local": newOverride("Verify", "PreferPositive")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				// The per-domain blocks still get serve_stale; only the policy is withheld.
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s immediate"))
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s verify"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale_policy"))
 			})
 
 			// Expect a valid corefile WITHOUT hosts plugin blocks when includeHostsPlugin=false.
@@ -857,6 +1101,7 @@ testdomain567.com:53 {
 				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.10"))
 				Expect(localDNSCoreFile).To(ContainSubstring("bind 169.254.10.11"))
 				Expect(localDNSCoreFile).To(ContainSubstring("forward . 168.63.129.16"))
+				Expect(localDNSCoreFile).To(ContainSubstring("prefer_udp"))
 				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns"))
 				Expect(localDNSCoreFile).To(ContainSubstring("nsid localdns-pod"))
 			})
@@ -1039,6 +1284,10 @@ var _ = Describe("GetGPUDriverType", func() {
 	It("should use cuda-lts with nc v3", func() {
 		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda-lts"))
 	})
+	It("should use cuda-lts with GB", func() {
+		Expect(GetGPUDriverType("Standard_ND128isr_NDR_GB200_v6")).To(Equal("cuda-lts"))
+		Expect(GetGPUDriverType("Standard_ND128isr_GB300_v6")).To(Equal("cuda-lts"))
+	})
 	It("should keep cuda (legacy R470) with nc v1 (K80)", func() {
 		Expect(GetGPUDriverType("standard_nc6")).To(Equal("cuda"))
 	})
@@ -1074,6 +1323,13 @@ var _ = Describe("GetAKSGPUImageSHA", func() {
 	})
 	It("should use newest AKSGPUCudaLTSVersionSuffix with non grid SKU", func() {
 		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaLTSVersionSuffix))
+	})
+})
+
+var _ = Describe("GPUNeedsFabricManager", func() {
+	It("should not use Fabric Manager with GB", func() {
+		Expect(GPUNeedsFabricManager("Standard_ND128isr_NDR_GB200_v6")).To(BeFalse())
+		Expect(GPUNeedsFabricManager("Standard_ND128isr_GB300_v6")).To(BeFalse())
 	})
 })
 
@@ -1128,6 +1384,59 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
 		// Verify it contains expected CSE components
 		Expect(cseCmd).To(ContainSubstring("bash"))
+	})
+
+	It("should safely preserve proxy values for older VHD scripts in scriptless mode", func() {
+		tempDir, err := os.MkdirTemp("", "agentbaker-proxy-test")
+		Expect(err).NotTo(HaveOccurred())
+		defer os.RemoveAll(tempDir)
+
+		httpMarker := filepath.Join(tempDir, "http-injected")
+		httpsMarker := filepath.Join(tempDir, "https-injected")
+		noProxyMarker := filepath.Join(tempDir, "no-proxy-injected")
+		httpProxy := `http://user:p'ass"word/$(touch ` + httpMarker + ");`touch " + httpMarker + "`/*?[x]\\value"
+		httpsProxy := `https://proxy.example/$(touch ` + httpsMarker + ")"
+		noProxyValues := []string{"localhost", `$(touch ` + noProxyMarker + ")", ".svc"}
+		baseConfig.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
+			HTTPProxy:  &httpProxy,
+			HTTPSProxy: &httpsProxy,
+			NoProxy:    &noProxyValues,
+		}
+
+		var encodedNBCCmd string
+		for _, file := range templateGenerator.getScriptlessConfiguration(baseConfig) {
+			if file.path == aksNbcCmdFilepath {
+				encodedNBCCmd = file.content
+				break
+			}
+		}
+		Expect(encodedNBCCmd).NotTo(BeEmpty())
+		compressedNBCCmd, err := base64.StdEncoding.DecodeString(encodedNBCCmd)
+		Expect(err).NotTo(HaveOccurred())
+		cseCmdBytes, err := getGzipDecodedValue(compressedNBCCmd)
+		Expect(err).NotTo(HaveOccurred())
+		cseCmd := string(cseCmdBytes)
+		start := strings.Index(cseCmd, "HTTP_PROXY_URLS=")
+		Expect(start).To(BeNumerically(">=", 0))
+		end := strings.Index(cseCmd[start:], " ENABLE_SECURE_TLS_BOOTSTRAPPING=")
+		Expect(end).To(BeNumerically(">", 0))
+		proxyAssignments := cseCmd[start : start+end]
+		command := proxyAssignments + ` /bin/bash -c 'eval $PROXY_VARS; printf "%s\n" "$HTTP_PROXY" "$http_proxy" "$HTTPS_PROXY" "$https_proxy" "$NO_PROXY" "$no_proxy"'`
+
+		output, err := exec.Command("/bin/bash", "-c", command).CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), string(output))
+		Expect(strings.Split(strings.TrimSuffix(string(output), "\n"), "\n")).To(Equal([]string{
+			httpProxy,
+			httpProxy,
+			httpsProxy,
+			httpsProxy,
+			strings.Join(noProxyValues, ","),
+			strings.Join(noProxyValues, ","),
+		}))
+		Expect(httpMarker).NotTo(BeAnExistingFile())
+		Expect(httpsMarker).NotTo(BeAnExistingFile())
+		Expect(noProxyMarker).NotTo(BeAnExistingFile())
+		Expect(getProxyVariables(baseConfig)).NotTo(ContainSubstring(tempDir))
 	})
 
 	It("should embed cloud-init status checks when custom data is enabled", func() {
@@ -1219,16 +1528,33 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars["CUSTOM_ENV_JSON"]).NotTo(BeEmpty())
 	})
 
-	It("should handle TLS bootstrapping configuration", func() {
-		baseConfig.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+	It("should omit TLS bootstrap token from classic Linux pre-provision CSE only", func() {
+		const bootstrapToken = "07401b.f395accd246ae52d"
 
-		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+		render := func(preProvisionOnly bool) (string, map[string]string) {
+			config, err := deepcopy.Anything(baseConfig)
+			Expect(err).NotTo(HaveOccurred())
+			typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+			Expect(ok).To(BeTrue())
+			typedConfig.KubeletClientTLSBootstrapToken = to.StringPtr(bootstrapToken)
+			typedConfig.PreProvisionOnly = preProvisionOnly
 
-		Expect(cseCmd).NotTo(BeEmpty())
-		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+			cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
 
-		vars := decodeCSEVars(cseCmd)
-		Expect(vars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", "07401b.f395accd246ae52d"))
+			Expect(cseCmd).NotTo(BeEmpty())
+			Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+			Expect(*typedConfig.KubeletClientTLSBootstrapToken).To(Equal(bootstrapToken))
+			return cseCmd, decodeCSEVars(cseCmd)
+		}
+
+		// Direct ANC/AKSNodeConfig JSON serialization bypasses the template getter and
+		// remains a separate Linux follow-up.
+		bakeCSE, bakeVars := render(true)
+		provisionCSE, provisionVars := render(false)
+		Expect(bakeCSE).NotTo(ContainSubstring(bootstrapToken))
+		Expect(bakeVars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", ""))
+		Expect(provisionCSE).To(ContainSubstring(bootstrapToken))
+		Expect(provisionVars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", bootstrapToken))
 	})
 
 	It("should handle secure TLS bootstrapping configuration", func() {
@@ -1501,6 +1827,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 	It("should handle MIG GPU configuration", func() {
 		baseConfig.GPUInstanceProfile = "MIG7g"
+		baseConfig.MigStrategy = "Single"
 		baseConfig.ConfigGPUDriverIfNeeded = true
 		baseConfig.EnableNvidia = true
 		baseConfig.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
@@ -1513,7 +1840,23 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("GPU_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("CONFIG_GPU_DRIVER_IF_NEEDED", "true"))
+		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "true"))
 		Expect(vars).To(HaveKeyWithValue("GPU_INSTANCE_PROFILE", "MIG7g"))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", ""))
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_STRATEGY", "Single"))
+	})
+
+	It("should enable partitioning for a MIG profile layout", func() {
+		baseConfig.MIGProfileLayout = []string{"MIG3g", "MIG2g", "MIG1g", "MIG1g"}
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NVIDIA_MIG_PROFILE_LAYOUT", "MIG3g,MIG2g,MIG1g,MIG1g"))
+		Expect(vars).To(HaveKeyWithValue("MIG_NODE", "true"))
 	})
 
 	It("should handle disable unattended upgrades", func() {
@@ -1567,7 +1910,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1578,7 +1921,6 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeCustomDataFilepath))
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedNodeCustomData))
-		Expect(string(decodedPayload)).To(ContainSubstring(aksNbcCmdFilepath))
 		Expect(string(decodedPayload)).To(ContainSubstring("/opt/azure/containers/provision_preload.sh"))
 	})
 
@@ -1587,14 +1929,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.AKSNodeConfigJSON = `{"foo":"bar"}`
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
-		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
-		Expect(err).NotTo(HaveOccurred())
+		payload := templateGenerator.getScriptlessNBCCmd(config)
 
 		encodedAKSNodeConfig := getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 
-		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeConfigFilepath))
-		Expect(string(decodedPayload)).To(ContainSubstring(encodedAKSNodeConfig))
+		Expect(payload).To(ContainSubstring(aksNodeConfigFilepath))
+		Expect(payload).To(ContainSubstring(encodedAKSNodeConfig))
 	})
 
 	It("should not embed an AKSNodeConfig file entry in the scriptless NBC boothook when not provided", func() {
@@ -1602,7 +1942,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.AKSNodeConfigJSON = ""
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1617,7 +1957,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1633,7 +1973,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, decodeErr := base64.StdEncoding.DecodeString(payload)
 		Expect(decodeErr).NotTo(HaveOccurred())
 
@@ -1647,7 +1987,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1661,7 +2001,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.EnabledFeatures = map[string]string{"ZED_FEATURE": "1", "ENABLE_PROVISIONING_HOTFIX": "true"}
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1675,7 +2015,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config := newConfig(false)
 		config.EnabledFeatures = map[string]string{}
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1689,7 +2029,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		// preserving the byte-identical-when-no-usable-toggle guarantee.
 		config.EnabledFeatures = map[string]string{"1BAD": "x", "has-dash": "y", "": "z"}
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1702,13 +2042,13 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		// A newline in a value could inject a spurious KEY=VALUE line; such entries are dropped.
 		// The lone tainted entry yields no file; a clean entry alongside it survives.
 		config.EnabledFeatures = map[string]string{"INJECT": "true\nEVIL=1"}
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(decodedPayload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
 
 		config.EnabledFeatures = map[string]string{"INJECT": "x\nEVIL=1", "GOOD_KEY": "1"}
-		payload = templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload = templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err = base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 		encodedClean := getBase64EncodedGzippedCustomScriptFromStr("GOOD_KEY=1\n")
@@ -1725,7 +2065,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		config.AgentPoolProfile.Distro = datamodel.AKSACLGen2TL
 		Expect(config.IsACL()).To(BeTrue())
 
-		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		payload := templateGenerator.getScriptlessBoothook(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1734,13 +2074,29 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		storage, ok := ignition["storage"].(map[string]interface{})
 		Expect(ok).To(BeTrue())
+
 		files, ok := storage["files"].([]interface{})
 		Expect(ok).To(BeTrue())
-		Expect(len(files)).To(Equal(3)) // nbc-cmd, nodecustomdata, aks-node-config (no hotfix file present)
+		expectedCount := 3
+		foundHotfix := false
+		for _, f := range files {
+			if file, ok := f.(map[string]interface{}); ok {
+				if path, ok := file["path"].(string); ok && path == aksHotfixJSONFilepath {
+					foundHotfix = true
+					break
+				}
+			}
+		}
+		if foundHotfix {
+			expectedCount++
+		}
+		Expect(len(files)).To(Equal(expectedCount)) // nbc-cmd, nodecustomdata, aks-node-config (optional hotfix file present)
+
+		payload = templateGenerator.getScriptlessNBCCmd(config)
 
 		encodedAKSNodeConfig := getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
-		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeConfigFilepath))
-		Expect(string(decodedPayload)).To(ContainSubstring(encodedAKSNodeConfig))
+		Expect(payload).To(ContainSubstring(aksNodeConfigFilepath))
+		Expect(payload).To(ContainSubstring(encodedAKSNodeConfig))
 	})
 
 	It("should render initAKSCloud file in scriptless custom data for default cloud with Ubuntu", func() {
@@ -1902,8 +2258,42 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		config := newScriptlessCmdTestConfig()
 		config.EnableScriptlessNBCCSECmd = true
 		config.PreProvisionOnly = false
+		b := make([]byte, 87*1024)
+		_, err := rand.Read(b)
+		Expect(err).NotTo(HaveOccurred())
+		config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+			CustomCATrustCerts: []string{string(b)},
+		}
+		config.AKSNodeConfigJSON = `{"foo":"bar"}`
+		templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		cmd := templateGenerator.getNodeBootstrappingCmd(config)
 
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
+		// Derive the wrapper from the template constant rather than hardcoding the command chain,
+		// so adding/reordering steps in cseScriptlessPhase2Template doesn't break this spec.
+		prefix, suffix, ok := strings.Cut(cseScriptlessPhase2Template, "%s")
+		Expect(ok).To(BeTrue())
+
+		// commandToExecute is run as a single shell string, so it must never span multiple lines.
+		Expect(cmd).NotTo(ContainSubstring("\n"))
+		Expect(cmd).To(HavePrefix(prefix))
+		Expect(cmd).To(HaveSuffix(suffix))
+		// whatever else the chain does, provisioning must be the last thing it waits on.
+		Expect(cmd).To(HaveSuffix("/opt/azure/containers/aks-node-controller provision-wait"))
+
+		// the blob piped into base64 -d is the scriptless boothook document itself.
+		encoded := strings.TrimSuffix(strings.TrimPrefix(cmd, prefix), suffix)
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		Expect(err).NotTo(HaveOccurred())
+		decodedGzip, err := getGzipDecodedValue(decoded)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(decodedGzip)).To(ContainSubstring(aksNbcCmdFilepath))
+		Expect(string(decodedGzip)).To(ContainSubstring(aksNodeConfigFilepath))
+
+		// custom data now carries the early boothook, which fetches and decrypts these
+		// same CSE settings itself so provisioning can start ahead of the CSE handler.
+		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
 	})
 
 	It("should use the regular linux CSE command when EnableScriptlessNBCCSECmd is false", func() {
@@ -1911,19 +2301,6 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		config := newScriptlessCmdTestConfig()
 		config.EnableScriptlessNBCCSECmd = false
 		config.PreProvisionOnly = false
-
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
-	})
-
-	It("should use the regular linux CSE command when custom ca trust certs are populated", func() {
-		templateGenerator := InitializeTemplateGenerator()
-		config := newScriptlessCmdTestConfig()
-		config.EnableScriptlessNBCCSECmd = true
-		config.PreProvisionOnly = false
-		config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-			CustomCATrustCerts: []string{"mock cert value"},
-		}
 
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))

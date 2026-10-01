@@ -1,0 +1,17 @@
+[Unit]
+Description=Emit kubelet active flags telemetry event
+After=kubelet.service
+ConditionPathExists=/opt/azure/containers/emit-kubelet-active-flags.sh
+# Reads /etc/default/kubelet and /etc/default/kubeletconfig.json (written by ensureKubelet
+# before kubelet starts), so After=kubelet.service guarantees the files exist.
+# The script dedups on a fingerprint of those files: a kubelet restart with unchanged config emits
+# nothing, while a CSE retry that rewrote them re-emits so the event never reports a stale config.
+
+[Service]
+Type=oneshot
+Restart=no
+RemainAfterExit=yes
+ExecStart=/bin/bash /opt/azure/containers/emit-kubelet-active-flags.sh
+
+[Install]
+WantedBy=kubelet.service

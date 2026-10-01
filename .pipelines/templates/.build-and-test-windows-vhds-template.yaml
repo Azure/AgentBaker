@@ -54,7 +54,6 @@ parameters:
   - name: csePublishDir
     type: string
     default: $(Build.ArtifactStagingDirectory)/packages
-
 stages:
   - stage: Package
     displayName: "Package Windows CSE"
@@ -175,7 +174,9 @@ stages:
       windowsSku: 2025-gen2-tl
       hyperVGeneration: V2
       architecture: X86_64
+      # TODO: replace enableTrustedLaunch with trustedLaunchSupported when / as able - by default we shouldn't need to build dedicated trusted launch images
       enableTrustedLaunch: True
+      trustedLaunchSupported: True
       buildVmSize: ${{ parameters.buildVmSize }}
       build: ${{ parameters.build2025gen2tl }}
       vhddebug: ${{ parameters.vhddebug }}

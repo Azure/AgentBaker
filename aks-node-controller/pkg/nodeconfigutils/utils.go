@@ -28,7 +28,7 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers /var/lib/waagent
+mkdir -p /opt/azure/containers /var/lib/waagent /var/log/azure
 
 touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
@@ -50,8 +50,12 @@ cat <<'EOF' | base64 -d >%[1]s
 EOF
 chmod 0600 %[1]s
 %[3]s
-logger -t aks-boothook "launching aks-node-controller service $(date -Ins)"
-systemctl start --no-block aks-node-controller.service
+logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
+if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
+	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
+else
+	systemctl start --no-block aks-node-controller.service
+fi
 `
 
 	cloudConfigTemplate = `#cloud-config

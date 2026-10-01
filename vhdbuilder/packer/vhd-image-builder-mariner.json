@@ -1,5 +1,6 @@
 {
   "variables": {
+    "use_shallow_replication": "{{or (env `USE_SHALLOW_REPLICATION`) `false`}}",
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
@@ -62,6 +63,7 @@
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
+        "use_shallow_replication": "{{user `use_shallow_replication`}}",
         "subscription": "{{user `gallery_subscription_id`}}",
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
@@ -105,8 +107,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-wrapper.sh",
-      "destination": "/home/packer/aks-node-controller-wrapper.sh"
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh",
+      "destination": "/home/packer/aks-node-controller-launcher.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh",
+      "destination": "/home/packer/aks-node-controller-hotfix.sh"
     },
     {
       "type": "file",
@@ -170,6 +177,31 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_gpu.sh",
+      "destination": "/home/packer/provision_configs_gpu.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_localdns.sh",
+      "destination": "/home/packer/provision_configs_localdns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_kubelet.sh",
+      "destination": "/home/packer/provision_configs_kubelet.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_network.sh",
+      "destination": "/home/packer/provision_configs_network.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
+      "destination": "/home/packer/provision_configs_addons.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
       "destination": "/home/packer/provision.sh"
     },
@@ -225,6 +257,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.sh",
+      "destination": "/home/packer/emit-kubelet-active-flags.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.service",
+      "destination": "/home/packer/emit-kubelet-active-flags.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
       "destination": "/home/packer/validate-kubelet-credentials.sh"
     },
@@ -242,6 +284,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/report_ready.py",
       "destination": "/home/packer/report_ready.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/fetch_provision_config.py",
+      "destination": "/home/packer/fetch_provision_config.py"
     },
     {
       "type": "file",

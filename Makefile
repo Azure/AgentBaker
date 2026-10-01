@@ -100,7 +100,7 @@ shellspec-ci: shellspec-base-ci
 	docker run --rm \
 		-v $(CURDIR):/workspace \
 		-w /workspace \
-		shellspec-docker --shell bash --format d
+		shellspec-docker --shell bash --format d --kcov --covdir coverage
 
 .PHONY: shellspec-focus
 shellspec-focus: shellspec-base-local
@@ -125,7 +125,7 @@ generate-manifest:
 .PHONY: generate-testdata
 generate-testdata:
 	@echo $(GOFLAGS)
-	GENERATE_TEST_DATA="true" go test ./pkg/agent...
+	cd aks-node-controller && GENERATE_TEST_DATA="true" go test ./parser/...
 
 .PHONY: generate # TODO: ONLY generate go testdata
 generate: bootstrap

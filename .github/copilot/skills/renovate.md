@@ -136,11 +136,11 @@ A version bump in `components.json` means that version will be cached in the **n
 1. **Is AKS-RP currently requesting this version (or about to)?** If yes, safe to cache.
 2. **Will the bump remove a version that AKS-RP still needs?** The `previousLatestVersion` rotation helps (keeps `n-1`), but if AKS-RP is still on `n-2` or older, there's a gap.
 3. **How to check what AKS-RP is requesting:**
-- Check the AKS-RP repo: `https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-rp` — search for the component name to see which version AKS-RP currently requests during node provisioning.
+- Check the AKS-RP repo (internal Azure DevOps repository — ask a teammate for access/URL if you don't have it) — search for the component name to see which version AKS-RP currently requests during node provisioning.
 - If you have a local clone of `aks-rp`, update to the latest `master` branch before checking.
 - Compare the version AKS-RP requests against what will remain in `components.json` after the Renovate bump (both `latestVersion` and `previousLatestVersion`).
 - **Ignore testdata/fixture files** — these are test inputs, not production configuration. Only look at actual production code paths (e.g., provisioning logic, component version constants, configuration files used at deploy time).
-- **Use ADO code search**: `https://almsearch.dev.azure.com/msazure/CloudNativeCompute/_apis/search/codesearchresults` or the ADO web UI to search for the component name in aks-rp.
+- **Use the internal ADO code search UI** to search for the component name in aks-rp.
 - If the component version (including the `uX` suffix) is **not explicitly referenced** in aks-rp production code, the bump is safe from a coordination standpoint.
 
 **Why CI passing is NOT sufficient to merge:**

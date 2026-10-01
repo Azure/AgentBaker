@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"net"
 	neturl "net/url"
 	"slices"
 	"sort"
@@ -193,6 +194,7 @@ const (
 	AKSUbuntuContainerd2404Gen2             Distro = "aks-ubuntu-containerd-24.04-gen2"
 	AKSUbuntuMinimalContainerd2604Gen2      Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
 	AKSUbuntuMinimalArm64Containerd2604Gen2 Distro = "aks-ubuntu-minimal-arm64-containerd-26.04-gen2"
+	AKSUbuntuMinimalContainerd2604CVMGen2   Distro = "aks-ubuntu-minimal-containerd-26.04-cvm-gen2"
 	AKSAzureLinuxV3CVMGen2                  Distro = "aks-azurelinux-v3-cvm-gen2"
 	AKSUbuntuContainerd2404TLGen2           Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 	AKSFlatcarGen2                          Distro = "aks-flatcar-gen2"
@@ -201,6 +203,7 @@ const (
 	AKSACLArm64Gen2TL                       Distro = "aks-acl-arm64-gen2-tl"
 	AKSACLGen2FIPSTL                        Distro = "aks-acl-gen2-fips-tl"
 	AKSACLArm64Gen2FIPSTL                   Distro = "aks-acl-arm64-gen2-fips-tl"
+	AKSACLCVMGen2                           Distro = "aks-acl-cvm-gen2"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -286,12 +289,14 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
 	AKSACLArm64Gen2TL,
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
+	AKSACLCVMGen2,
 }
 
 type CustomConfigurationComponent string
@@ -340,6 +345,9 @@ func (d Distro) IsAzureLinuxOSGuardDistro() bool {
 
 func (d Distro) IsAzureLinuxV3Distro() bool {
 	return slices.Contains(AvailableAzureLinuxV3Distros, d)
+}
+func (d Distro) IsUbuntuDistro() bool {
+	return slices.Contains(AvailableUbuntuDistros, d)
 }
 
 /*
@@ -1171,7 +1179,7 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%t\", ", key, featureGates[key]))
+		fmt.Fprintf(&buf, "\"%s=%t\", ", key, featureGates[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1200,7 +1208,7 @@ func (a *AgentPoolProfile) IsContainerdV2Distro() bool {
 	if a.Distro.IsKataDistro() {
 		return false
 	}
-	return a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
+	return a.Distro.Is2604VHDDistro() || a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
 }
 
 // IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.
@@ -1249,8 +1257,8 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
 func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
-	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
+	fmt.Fprintf(&buf, "agentpool=%s", a.Name)
+	fmt.Fprintf(&buf, ",kubernetes.azure.com/agentpool=%s", a.Name)
 
 	keys := []string{}
 	for key := range a.CustomNodeLabels {
@@ -1258,7 +1266,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
+		fmt.Fprintf(&buf, ",%s=%s", key, a.CustomNodeLabels[key])
 	}
 	return buf.String()
 }
@@ -1573,33 +1581,30 @@ func setCustomKubletConfigFromSettings(customKc *CustomKubeletConfig, kubeletCon
 	return kubeletConfig
 }
 
-/*
-GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
-script consumption.
-*/
-func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+func (config *NodeBootstrappingConfiguration) getWindowsKubeletConfig(customKc *CustomKubeletConfig) map[string]string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
 	}
 
-	// override default kubelet configuration with customzied ones.
 	if config.ContainerService != nil && config.ContainerService.Properties != nil {
 		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
 		if kubeletCustomConfiguration != nil {
-			config := kubeletCustomConfiguration.Config
-			for k, v := range config {
+			for k, v := range kubeletCustomConfiguration.Config {
 				kubeletConfig[k] = v
 			}
 		}
 	}
 
-	// Settings from customKubeletConfig, only take if it's set.
-	kubeletConfig = setCustomKubletConfigFromSettings(customKc, kubeletConfig)
+	return setCustomKubletConfigFromSettings(customKc, kubeletConfig)
+}
 
-	if len(kubeletConfig) == 0 {
-		return ""
-	}
+/*
+GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
+script consumption.
+*/
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.getWindowsKubeletConfig(customKc)
 
 	commandLineOmmittedKubeletConfigFlags := GetCommandLineOmittedKubeletConfigFlags()
 	keys := []string{}
@@ -1612,9 +1617,32 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeletConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeletConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
+}
+
+// GetKubeletHealthzEndpoint returns the local URL matching the effective Windows kubelet configuration.
+func (config *NodeBootstrappingConfiguration) GetKubeletHealthzEndpoint(customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.getWindowsKubeletConfig(customKc)
+
+	address := kubeletConfig["--healthz-bind-address"]
+	port := kubeletConfig["--healthz-port"]
+	if port == "" {
+		port = "10248"
+	}
+	if port == "0" {
+		return ""
+	}
+
+	switch address {
+	case "", "0.0.0.0":
+		address = "127.0.0.1"
+	case "::":
+		address = "::1"
+	}
+
+	return fmt.Sprintf("http://%s/healthz", net.JoinHostPort(address, port))
 }
 
 /*
@@ -1653,7 +1681,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeproxyConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeproxyConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1696,7 +1724,7 @@ func FormatProdFQDNByLocation(fqdnPrefix string, location string, cloudSpecConfi
 
 type K8sComponents struct {
 	// Full path to the "pause" image. Used for --pod-infra-container-image.
-	// For example: "mcr.microsoft.com/oss/v2/kubernetes/pause:3.6".
+	// For example: "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2".
 	PodInfraContainerImageURL string
 
 	// Full path to the hyperkube image.
@@ -1750,6 +1778,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableManagedGPU                bool
 	EnableManagedGPUDRA             bool
 	MigStrategy                     string
+	MIGProfileLayout                []string
 	EnableArtifactStreaming         bool
 	ContainerdVersion               string
 	RuncVersion                     string
@@ -1808,6 +1837,11 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessNBCCSECmd enables scriptless phase 2 in which the cse cmd generated from NBC is passed to
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
+
+	// ScriptlessCSEProvisionMode specifies the provisioning mode for scriptless phase 2,
+	// which uses CSE to provide provision nbc or aks nc configs
+	ScriptlessCSEProvisionMode bool
+
 	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
 	AKSNodeConfigJSON string
 
@@ -2107,13 +2141,11 @@ type AKSKubeletConfiguration struct {
 	Default: nil
 	+optional. */
 	ClusterDNS []string `json:"clusterDNS,omitempty"`
-	/* streamingConnectionIdleTimeout is the maximum time a streaming connection
-	can be idle before the connection is automatically closed.
-	Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
-	it may impact components that rely on infrequent updates over streaming
-	connections to the Kubelet server.
-	Default: "4h"
-	+optional. */
+	/* Deprecated: streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34.
+		Retained for backward compatibility with k8s < 1.34. Do not use for new code.
+		For k8s >= 1.34, this field is cleared by baker/ANC and omitted from the config file via omitempty.
+		Default: "4h"
+	   +optional. */
 	StreamingConnectionIdleTimeout Duration `json:"streamingConnectionIdleTimeout,omitempty"`
 	/* nodeStatusUpdateFrequency is the frequency that kubelet computes node
 	status. If node lease feature is not enabled, it is also the frequency that
@@ -2326,7 +2358,7 @@ type AKSKubeletConfiguration struct {
 	EnforceNodeAllocatable []string `json:"enforceNodeAllocatable,omitempty"`
 	/* kubeReservedCgroup is the absolute name of the cgroup the kubelet should manage
 	for the kube-reserved compute resources. When enforce-node-allocatable contains
-	"kube-reserved", this cgroup must exist before kubelet starts. Example: "/kubelet.slice".
+	this cgroup must exist before kubelet starts. Example: "/kubereserved.slice".
 	+optional. */
 	KubeReservedCgroup string `json:"kubeReservedCgroup,omitempty"`
 	/* systemReservedCgroup is the absolute name of the cgroup the kubelet should manage
@@ -2351,7 +2383,21 @@ type AKSKubeletConfiguration struct {
 	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
 	// Default: false
 	// +optional
-	SeccompDefault *bool `json:"seccompDefault,omitempty"`
+	SeccompDefault           *bool          `json:"seccompDefault,omitempty"`
+	EnableServer             *bool          `json:"enableServer,omitempty"`
+	VolumePluginDir          string         `json:"volumePluginDir,omitempty"`
+	CgroupDriver             string         `json:"cgroupDriver,omitempty"`
+	RuntimeRequestTimeout    Duration       `json:"runtimeRequestTimeout,omitempty"`
+	ContainerRuntimeEndpoint string         `json:"containerRuntimeEndpoint,omitempty"`
+	RegisterWithTaints       []KubeletTaint `json:"registerWithTaints,omitempty"`
+	HairpinMode              string         `json:"hairpinMode,omitempty"`
+}
+
+type KubeletTaint struct {
+	Key       string `json:"key,omitempty"`
+	Value     string `json:"value,omitempty"`
+	Effect    string `json:"effect,omitempty"`
+	TimeAdded string `json:"timeAdded,omitempty"`
 }
 
 type Duration string
@@ -2592,9 +2638,45 @@ type LocalDNSCoreFileData struct {
 	IncludeHostsPlugin bool
 }
 
+// LocalDNSHealthCheck represents CoreDNS forward plugin health check settings.
+type LocalDNSHealthCheck struct {
+	// Duration is the health check interval as a Go duration string, for example "500ms" or "1s".
+	Duration *string `json:"duration,omitempty"`
+	// Sets the RecursionDesired flag of the health check query to false.
+	NoRec *bool `json:"noRec,omitempty"`
+	// Domain name used for health check queries.
+	Domain *string `json:"domain,omitempty"`
+}
+
 // LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
 // VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
 // KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+func (h *LocalDNSHealthCheck) GetDuration() string {
+	if h != nil && h.Duration != nil {
+		return *h.Duration
+	}
+	return ""
+}
+func (h *LocalDNSHealthCheck) GetNoRec() bool {
+	if h != nil && h.NoRec != nil {
+		return *h.NoRec
+	}
+	return false
+}
+func (h *LocalDNSHealthCheck) GetDomain() string {
+	if h != nil && h.Domain != nil {
+		return *h.Domain
+	}
+	return ""
+}
+
+func (o *LocalDNSOverrides) GetFailfastAllUnhealthyUpstreams() bool {
+	if o != nil && o.FailfastAllUnhealthyUpstreams != nil {
+		return *o.FailfastAllUnhealthyUpstreams
+	}
+	return false
+}
+
 type LocalDNSOverrides struct {
 	QueryLogging                string `json:"queryLogging,omitempty"`
 	Protocol                    string `json:"protocol,omitempty"`
@@ -2604,6 +2686,15 @@ type LocalDNSOverrides struct {
 	CacheDurationInSeconds      *int32 `json:"cacheDurationInSeconds,omitempty"`
 	ServeStaleDurationInSeconds *int32 `json:"serveStaleDurationInSeconds,omitempty"`
 	ServeStale                  string `json:"serveStale,omitempty"`
+	// Determines the handling of requests when all upstream servers are unhealthy.
+	FailfastAllUnhealthyUpstreams *bool `json:"failfastAllUnhealthyUpstreams,omitempty"`
+	// Configures CoreDNS forward plugin health checking behavior for upstream servers.
+	HealthCheck *LocalDNSHealthCheck `json:"healthCheck,omitempty"`
+	// Policy applied on top of serve_stale when choosing between a stale
+	// positive answer and a cached negative one, on the default server block
+	// only. Valid values - PreferPositive. Empty leaves CoreDNS on its default.
+	// Requires a node image with CoreDNS >= 1.14.7.
+	ServeStalePolicy string `json:"serveStalePolicy,omitempty"`
 }
 
 // ShouldEnableLocalDNS returns true if AgentPoolProfile, LocalDNSProfile is not nil and

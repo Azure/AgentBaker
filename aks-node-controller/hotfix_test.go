@@ -155,7 +155,7 @@ func TestDetectPackageManager(t *testing.T) {
 		assert.Equal(t, pkgMgrApt, pkgMgr)
 	})
 
-	t.Run("mariner or azurelinux returns dnf or tdnf", func(t *testing.T) {
+	t.Run("azurelinux returns dnf or tdnf", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "os-release")
 		require.NoError(t, os.WriteFile(path, []byte(`ID="azurelinux"`+"\n"), 0644))
 		a := &App{osReleasePath: path}
@@ -171,6 +171,30 @@ func TestDetectPackageManager(t *testing.T) {
 		_, err := a.detectPackageManager()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported OS")
+	})
+
+	t.Run("legacy mariner is unsupported", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(path, []byte("ID=mariner\n"), 0644))
+		a := &App{osReleasePath: path}
+		_, err := a.detectPackageManager()
+		require.ErrorContains(t, err, "unsupported OS: mariner")
+	})
+
+	t.Run("ACL azurelinux variant reports self-update unsupported", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "os-release")
+		require.NoError(t, os.WriteFile(
+			path,
+			[]byte("ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n"),
+			0644,
+		))
+		a := &App{osReleasePath: path}
+
+		_, err := a.detectPackageManager()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not supported on image-based OS")
+		assert.Contains(t, err.Error(), "azurecontainerlinux")
 	})
 
 	t.Run("missing ID line errors", func(t *testing.T) {
@@ -280,14 +304,24 @@ func TestDownloadHotfix_DevVersionSkips(t *testing.T) {
 	assert.False(t, installCalled, "should skip when Version is 'dev' (parse error)")
 }
 
-func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
+func TestDownloadHotfix_MatchingBaseWithArtifactsUsesPackageManager(t *testing.T) {
 	origVersion := Version
 	Version = "202604.01.0"
 	defer func() { Version = origVersion }()
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hotfix-config.json")
-	require.NoError(t, os.WriteFile(path, []byte(`{"version": "202604.01.1"}`), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte(`{
+		"version": "202604.01.1",
+		"artifacts": {
+			"202604.01.1": {
+				"linux-ubuntu-22.04-amd64": {
+					"url": "https://packages.microsoft.com/fake.deb",
+					"sha256": "abc123"
+				}
+			}
+		}
+	}`), 0o644))
 
 	aptDir := filepath.Join(dir, "sources.list.d")
 	require.NoError(t, os.MkdirAll(aptDir, 0755))
@@ -312,7 +346,7 @@ func TestDownloadHotfix_MatchingBaseUpgrades(t *testing.T) {
 	// but install should have been called.
 	err := tt.App.downloadHotfix(context.Background())
 	require.Error(t, err)
-	assert.True(t, installCalled, "should proceed when base matches and hotfix patch is higher")
+	assert.True(t, installCalled, "artifacts must be ignored and the package manager must install the hotfix")
 }
 
 func TestDownloadHotfix_UnreadableFileFailsOpen(t *testing.T) {
@@ -614,6 +648,7 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 		{"base .0 -> hotfix .1", "202604.01.0", "202604.01.1", true, false},
 		{"base .0 -> hotfix .2", "202604.01.0", "202604.01.2", true, false},
 		{"hotfix .1 -> hotfix .2", "202604.01.1", "202604.01.2", true, false},
+		{"hotfix .0 -> hotfix .1-1", "202604.01.0", "202604.01.1-1", true, false},
 
 		// Negative: same version
 		{"same version .0", "202604.01.0", "202604.01.0", false, false},
@@ -647,4 +682,45 @@ func TestShouldUpgradeToHotfix(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRemoveStaleHotfix(t *testing.T) {
+	t.Run("removes the staged binary", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "aks-node-controller-hotfix")
+		require.NoError(t, os.WriteFile(path, []byte("stale"), 0o755))
+
+		app := &App{hotfixBinaryPath: path}
+		app.removeStaleHotfix()
+
+		_, err := os.Stat(path)
+		assert.True(t, os.IsNotExist(err), "stale hotfix binary should be gone")
+	})
+
+	t.Run("absent binary is a no-op", func(t *testing.T) {
+		app := &App{hotfixBinaryPath: filepath.Join(t.TempDir(), "missing")}
+		assert.NotPanics(t, app.removeStaleHotfix)
+	})
+
+	// The launcher selects the hotfix on `[ -x ]` alone and ignores this process's exit
+	// status, so removal failing must not leave the stale binary runnable.
+	t.Run("disarms the binary when removal fails", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root bypasses directory write permissions, so unlink cannot be made to fail")
+		}
+		dir := t.TempDir()
+		path := filepath.Join(dir, "aks-node-controller-hotfix")
+		require.NoError(t, os.WriteFile(path, []byte("stale"), 0o755))
+
+		// Unlink needs write permission on the parent directory; chmod on the file does not.
+		require.NoError(t, os.Chmod(dir, 0o500))
+		t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+
+		app := &App{hotfixBinaryPath: path}
+		app.removeStaleHotfix()
+
+		info, err := os.Stat(path)
+		require.NoError(t, err, "removal was expected to fail, leaving the file in place")
+		assert.Zero(t, info.Mode().Perm()&0o111, "stale hotfix binary must not remain executable")
+	})
 }

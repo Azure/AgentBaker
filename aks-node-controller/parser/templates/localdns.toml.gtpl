@@ -43,8 +43,20 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{getLocalDnsNodeListenerIp}}:8181
     cache {{$override.CacheDurationInSeconds}} {
@@ -55,6 +67,9 @@ health-check.localdns.local:53 {
         serve_stale {{$override.ServeStaleDurationInSeconds}}s verify
         {{- else if eq $override.ServeStale "Immediate"}}
         serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
+        {{- end }}
+        {{- if and $isRootDomain (eq $override.ServeStalePolicy "PreferPositive") (or (eq $override.ServeStale "Verify") (eq $override.ServeStale "Immediate"))}}
+        serve_stale_policy prefer_positive
         {{- end }}
         {{- end }}
         servfail 0
@@ -108,8 +123,20 @@ health-check.localdns.local:53 {
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
+        {{- if eq $override.Protocol "PreferUDP"}}
+        prefer_udp
+        {{- end}}
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
+        {{- if and $override.HealthCheck $override.HealthCheck.GetDuration}}
+        {{- $duration := $override.HealthCheck.GetDuration}}
+        {{- $noRec := $override.HealthCheck.GetNoRec}}
+        {{- $domain := $override.HealthCheck.GetDomain}}
+        health_check {{$duration}}{{if $noRec}} no_rec{{end}}{{if $domain}} domain {{$domain}}{{end}}
+        {{- end}}
+        {{- if $override.GetFailfastAllUnhealthyUpstreams}}
+        failfast_all_unhealthy_upstreams
+        {{- end}}
     }
     ready {{getLocalDnsClusterListenerIp}}:8181
     cache {{$override.CacheDurationInSeconds}} {
@@ -120,6 +147,9 @@ health-check.localdns.local:53 {
         serve_stale {{$override.ServeStaleDurationInSeconds}}s verify
         {{- else if eq $override.ServeStale "Immediate"}}
         serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
+        {{- end }}
+        {{- if and $isRootDomain (eq $override.ServeStalePolicy "PreferPositive") (or (eq $override.ServeStale "Verify") (eq $override.ServeStale "Immediate"))}}
+        serve_stale_policy prefer_positive
         {{- end }}
         {{- end }}
         servfail 0

@@ -1,0 +1,26 @@
+Release notes for security patch 20260824T000000Z timestamp
+Package difference between 20260814T000000Z and 20260824T000000Z
+No reboot required
+Upgrade: bind9-host:amd64 (1:9.18.39-0ubuntu0.22.04.4, 1:9.18.39-0ubuntu0.22.04.5), bind9-dnsutils:amd64 (1:9.18.39-0ubuntu0.22.04.4, 1:9.18.39-0ubuntu0.22.04.5), bind9-libs:amd64 (1:9.18.39-0ubuntu0.22.04.4, 1:9.18.39-0ubuntu0.22.04.5)
+Upgrade: linux-libc-dev:amd64 (5.15.0-187.197, 5.15.0-190.200)
+Upgrade: vim:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35), vim-common:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35), vim-tiny:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35), vim-runtime:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35)
+Upgrade: wget:amd64 (1.21.2-2ubuntu1.4, 1.21.2-2ubuntu1.5)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-187.197, 5.15.0-190.200)
+Upgrade: libpng16-16:amd64 (1.6.37-3ubuntu0.5, 1.6.37-3ubuntu0.6)
+Upgrade: xxd:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35)
+Upgrade: libcurl4:amd64 (7.81.0-1ubuntu1.25, 7.81.0-1ubuntu1.26), curl:amd64 (7.81.0-1ubuntu1.25, 7.81.0-1ubuntu1.26)
+Upgrade: linux-tools-common:amd64 (5.15.0-187.197, 5.15.0-190.200)
+Upgrade: libcurl3-gnutls:amd64 (7.81.0-1ubuntu1.25, 7.81.0-1ubuntu1.26)
+
+Package difference between AKSUbuntu-2204gen2containerd-202608.14.0 and 20260824T000000Z
+No reboot required
+Upgrade: vim:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35), vim-common:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35), vim-tiny:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35), vim-runtime:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35)
+Upgrade: linux-libc-dev:amd64 (5.15.0-187.197, 5.15.0-190.200)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-187.197, 5.15.0-190.200)
+Upgrade: libpng16-16:amd64 (1.6.37-3ubuntu0.5, 1.6.37-3ubuntu0.6)
+Upgrade: bind9-host:amd64 (1:9.18.39-0ubuntu0.22.04.4, 1:9.18.39-0ubuntu0.22.04.5), bind9-dnsutils:amd64 (1:9.18.39-0ubuntu0.22.04.4, 1:9.18.39-0ubuntu0.22.04.5), bind9-libs:amd64 (1:9.18.39-0ubuntu0.22.04.4, 1:9.18.39-0ubuntu0.22.04.5)
+Upgrade: linux-tools-common:amd64 (5.15.0-187.197, 5.15.0-190.200)
+Upgrade: libcurl4:amd64 (7.81.0-1ubuntu1.25, 7.81.0-1ubuntu1.26), curl:amd64 (7.81.0-1ubuntu1.25, 7.81.0-1ubuntu1.26)
+Upgrade: wget:amd64 (1.21.2-2ubuntu1.4, 1.21.2-2ubuntu1.5)
+Upgrade: xxd:amd64 (2:8.2.3995-1ubuntu2.34, 2:8.2.3995-1ubuntu2.35)
+Upgrade: libcurl3-gnutls:amd64 (7.81.0-1ubuntu1.25, 7.81.0-1ubuntu1.26)

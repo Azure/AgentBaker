@@ -131,7 +131,7 @@ map[string]string{
   "--one-output": "\"false\"",
   "--oom-score-adj": "\"-999\"",
   "--pod-cidr": "\"\"",
-  "--pod-infra-container-image": "\"registry.k8s.io/pause:3.8\"",
+  "--pod-infra-container-image": "\"registry.k8s.io/pause:3.10.2\"",
   "--pod-manifest-path": "\"\"",
   "--pod-max-pids": "\"-1\"",
   "--pods-per-core": "\"0\"",
@@ -166,7 +166,7 @@ map[string]string{
   "--storage-driver-secure": "\"false\"",
   "--storage-driver-table": "\"stats\"",
   "--storage-driver-user": "\"root\"",
-  "--streaming-connection-idle-timeout": "\"4h0m0s\"",
+  "--streaming-connection-idle-timeout": "\"4h0m0s\"", // deprecated since k8s 1.25, removed from KubeletConfiguration in k8s 1.34
   "--sync-frequency": "\"1m0s\"",
   "--system-cgroups": "\"\"",
   "--system-reserved": "\"\"",

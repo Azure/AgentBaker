@@ -15,8 +15,8 @@ K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
-OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
-OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"'; fi)
+OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]'; fi)
+OS_VARIANT=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]'; fi)
 SECURE_TLS_BOOTSTRAP_CLIENT_DOWNLOAD_DIR="/opt/aks-secure-tls-bootstrap-client/downloads"
 SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/opt/bin"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
@@ -646,15 +646,13 @@ pullContainerImage() {
 
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL} with a timeout of ${PULL_TIMEOUT_SECONDS}s"
 
+    code=0
     if [ "${CLI_TOOL,,}" = "ctr" ]; then
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS /opt/azure/containers/image-fetcher $CONTAINER_IMAGE_URL
-        code=$?
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS /opt/azure/containers/image-fetcher cache-image --image "$CONTAINER_IMAGE_URL" || code=$?
     elif [ "${CLI_TOOL,,}" = "crictl" ]; then
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL
-        code=$?
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL || code=$?
     else
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS docker pull $CONTAINER_IMAGE_URL
-        code=$?
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS docker pull $CONTAINER_IMAGE_URL || code=$?
     fi
 
     if [ "$code" -ne 0 ]; then

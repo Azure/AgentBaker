@@ -27,6 +27,7 @@ Describe 'cse_install_mariner.sh'
     BeforeAll 'setup'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+
     Describe 'installDeps'
         It 'installs the required packages with installDeps for Mariner 2.0'
             OS_VERSION="2.0"
@@ -161,6 +162,130 @@ Describe 'cse_install_mariner.sh'
         End
     End
 
+    Describe 'getLatestRPMPackageVersion'
+        It 'selects the latest revision for the requested upstream version'
+            dnf() {
+                cat <<'EOF'
+kubelet.x86_64 1.34.10-1.azl3 azurelinux-official-cloud-native
+kubelet.x86_64 1.34.10-9.azl3 azurelinux-official-cloud-native
+kubelet.x86_64 1.34.11-1.azl3 azurelinux-official-cloud-native
+EOF
+            }
+
+            When call getLatestRPMPackageVersion kubelet 1.34.10
+            The output should equal "1.34.10-9.azl3"
+        End
+
+        It 'accepts an exact revision without matching a longer value'
+            dnf() {
+                cat <<'EOF'
+kubelet.x86_64 1.34.10-1.azl3 azurelinux-official-cloud-native
+kubelet.x86_64 1.34.10-10.azl3 azurelinux-official-cloud-native
+EOF
+            }
+
+            When call getLatestRPMPackageVersion kubelet 1.34.10-1.azl3
+            The output should equal "1.34.10-1.azl3"
+        End
+    End
+
+    Describe 'logResolvedPackageVersion'
+        resolved_version_log="$PWD/spec/tmp/cse-install-mariner-resolved-version"
+
+        cleanup_resolved_version_log() {
+            rm -f "${resolved_version_log}"
+        }
+
+        BeforeEach 'cleanup_resolved_version_log'
+        AfterEach 'cleanup_resolved_version_log'
+
+        It 'does not create the VHD completion marker during node provisioning'
+            VHD_LOGS_FILEPATH="${resolved_version_log}"
+
+            When call logResolvedPackageVersion containerd2 2.2.4 2.2.4-8.azl3
+
+            The output should equal "Resolved containerd2 package version 2.2.4 -> 2.2.4-8.azl3"
+            The path "${resolved_version_log}" should not be exist
+        End
+
+        It 'appends the resolved version when the VHD completion marker exists'
+            VHD_LOGS_FILEPATH="${resolved_version_log}"
+            touch "${VHD_LOGS_FILEPATH}"
+
+            When call logResolvedPackageVersion containerd2 2.2.4 2.2.4-8.azl3
+
+            The output should equal "Resolved containerd2 package version 2.2.4 -> 2.2.4-8.azl3"
+            The contents of file "${resolved_version_log}" should include "containerd2 package version 2.2.4-8.azl3 (requested 2.2.4)"
+        End
+    End
+
+    Describe 'installStandaloneContainerd revision resolution'
+        semverCompare() {
+            [ "$1" = "$2" ] && return 0
+            [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+        }
+
+        containerd() {
+            echo "containerd github.com/containerd/containerd/v2 v2.2.4 abcdef"
+        }
+
+        removeContainerd() {
+            echo "removeContainerd"
+        }
+
+        dnf() {
+            cat <<'EOF'
+containerd2.x86_64 2.2.4-1.azl3 azurelinux-official-cloud-native
+containerd2.x86_64 2.2.4-8.azl3 azurelinux-official-cloud-native
+containerd2.x86_64 2.2.5-1.azl3 azurelinux-official-cloud-native
+EOF
+        }
+
+        It 'updates an installed package when a newer revision has the same upstream version'
+            OS_VERSION="3.0"
+            VHD_LOGS_FILEPATH="$PWD/spec/tmp/missing-vhd-marker"
+            rpm() {
+                echo "2.2.4-1.azl3"
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "installed containerd2 package version 2.2.4-1.azl3 does not match latest revision 2.2.4-8.azl3"
+            The output should include "dnf install 30 1 600 containerd2-2.2.4-8.azl3"
+            The output should not include "containerd2-2.2.5-1.azl3"
+        End
+
+        It 'skips installation when the latest package revision is installed'
+            OS_VERSION="3.0"
+            VHD_LOGS_FILEPATH="$PWD/spec/tmp/missing-vhd-marker"
+            rpm() {
+                echo "2.2.4-8.azl3"
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "satisfies target package version 2.2.4-8.azl3"
+            The output should not include "dnf install"
+        End
+
+        It 'does not query or downgrade when a newer upstream version is installed'
+            OS_VERSION="3.0"
+            containerd() {
+                echo "containerd github.com/containerd/containerd/v2 v2.3.0 abcdef"
+            }
+            dnf() {
+                echo "unexpected dnf query"
+                return 1
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "currently installed containerd version 2.3.0 satisfies target package version 2.2.4"
+            The output should not include "unexpected dnf query"
+            The output should not include "dnf install"
+        End
+    End
+
     Describe 'should_use_nvidia_open_drivers'
         # Tests for the GPU driver selection logic
         # Returns 0 (true) for open driver (A100+, H100, H200, etc.)
@@ -289,10 +414,109 @@ Describe 'cse_install_mariner.sh'
 
         # Mock uname to return a kernel version matching our fake package
         uname() { echo "6.6.121.1-1.azl3"; }
+        getCPUArch() { echo "arm64"; }
+
+        MOCK_KERNEL_PACKAGE="kernel"
+        rpm() { echo "$MOCK_KERNEL_PACKAGE"; }
+
+        imex_config_path="$PWD/spec/tmp/nvidia-imex.conf"
+        NVIDIA_IMEX_MODPROBE_CONFIG_PATH="$imex_config_path"
+        updateDnfWithNvidiaPkg() { echo "updateDnfWithNvidiaPkg"; }
+        removeNvidiaRepos() { echo "removeNvidiaRepos"; }
+        systemctl_disable() { echo "systemctl_disable $*"; }
+
+        cleanup_imex_config() { rm -f "$imex_config_path"; }
+        BeforeEach 'cleanup_imex_config'
+        AfterEach 'cleanup_imex_config'
+
+        Describe 'legacy ARM64 NVIDIA repository migration'
+            setup_repo() {
+                REPO_TEST_DIR=$(mktemp -d)
+                AZURELINUX_NVIDIA_REPO_FILEPATH="$REPO_TEST_DIR/azurelinux-nvidia.repo"
+                REPO_EVENTS="$REPO_TEST_DIR/events"
+                LEGACY_BASEURL="baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/x86_64/"
+                NATIVE_BASEURL="baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/\$basearch/"
+                printf '[azurelinux-official-nvidia]\n%s\ngpgcheck=1\nrepo_gpgcheck=1\nsslverify=1\n' "$LEGACY_BASEURL" > "$AZURELINUX_NVIDIA_REPO_FILEPATH"
+                OS_VERSION="3.0"
+                NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+                MOCK_OPEN_RET=0
+                MOCK_VM_SKU="Standard_NC40ads_H100_v5"
+                MOCK_REPO_ARCH="arm64"
+                MOCK_REFRESH_STATUS=0
+            }
+            cleanup_repo() { rm -rf "$REPO_TEST_DIR"; }
+            BeforeEach 'setup_repo'
+            AfterEach 'cleanup_repo'
+            getCPUArch() { echo "$MOCK_REPO_ARCH"; }
+            dnf_makecache() {
+                echo refresh >> "$REPO_EVENTS"
+                return "$MOCK_REFRESH_STATUS"
+            }
+            dnf() {
+                echo query >> "$REPO_EVENTS"
+                local package_arch=x86_64
+                if [ -f "$AZURELINUX_NVIDIA_REPO_FILEPATH" ] && grep -Fxq "$NATIVE_BASEURL" "$AZURELINUX_NVIDIA_REPO_FILEPATH"; then
+                    package_arch=aarch64
+                fi
+                echo "cuda-open-580.159.04-1_6.6.121.1.1.azl3.$package_arch"
+            }
+
+            It 'migrates before querying, preserves security settings and only refreshes once'
+                run_twice() { downloadGPUDrivers; downloadGPUDrivers; }
+                When call run_twice
+                The status should be success
+                The output should include 'dnf install 30 1 600 cuda-open-580.159.04-1_6.6.121.1.1.azl3.aarch64'
+                The output should not include '.x86_64'
+                The contents of file "$REPO_EVENTS" should equal "$(printf 'refresh\nquery\nquery')"
+                The contents of file "$AZURELINUX_NVIDIA_REPO_FILEPATH" should equal "$(printf '[azurelinux-official-nvidia]\n%s\ngpgcheck=1\nrepo_gpgcheck=1\nsslverify=1' "$NATIVE_BASEURL")"
+            End
+
+            Describe 'unaffected repositories'
+                Parameters
+                    "native" "arm64" "3.0"
+                    "custom" "arm64" "3.0"
+                    "legacy" "amd64" "3.0"
+                    "legacy" "arm64" "2.0"
+                End
+                It "leaves $1 repo unchanged for $2 on $3"
+                    MOCK_REPO_ARCH=$2
+                    OS_VERSION=$3
+                    case "$1" in
+                        native) printf '%s\n' "$NATIVE_BASEURL" > "$AZURELINUX_NVIDIA_REPO_FILEPATH" ;;
+                        custom) printf 'baseurl=https://mirror.example/nvidia/x86_64/\n' > "$AZURELINUX_NVIDIA_REPO_FILEPATH" ;;
+                    esac
+                    original_repo=$(cat "$AZURELINUX_NVIDIA_REPO_FILEPATH")
+                    When call downloadGPUDrivers
+                    The status should be success
+                    The contents of file "$AZURELINUX_NVIDIA_REPO_FILEPATH" should equal "$original_repo"
+                    The contents of file "$REPO_EVENTS" should equal query
+                    The output should include 'Installing:'
+                End
+            End
+
+            It 'does not create a missing repository or refresh metadata'
+                rm "$AZURELINUX_NVIDIA_REPO_FILEPATH"
+                When call downloadGPUDrivers
+                The status should be success
+                The path "$AZURELINUX_NVIDIA_REPO_FILEPATH" should not be exist
+                The contents of file "$REPO_EVENTS" should equal query
+                The output should include 'Installing:'
+            End
+
+            It 'does not query or install when metadata refresh fails'
+                MOCK_REFRESH_STATUS=1
+                ERR_APT_UPDATE_TIMEOUT=30
+                When run downloadGPUDrivers
+                The status should equal 30
+                The contents of file "$REPO_EVENTS" should equal refresh
+                The output should eq ''
+            End
+        End
 
         # Mock dnf repoquery to return fake packages matching both cuda and cuda-open patterns
         dnf() {
             echo "cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+            echo "cuda-open-hwe-570.195.03-1_6.6.121.1.1.azl3.x86_64"
             echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
         }
 
@@ -337,7 +561,37 @@ Describe 'cse_install_mariner.sh'
             GRID_CALLED=""
             When call downloadGPUDrivers
             The output should include "NVIDIA OpenRM driver (cuda-open)"
+            The output should include "dnf install 30 1 600 cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+            The output should not include "cuda-open-hwe"
+            The output should not include "nvidia-imex"
             The variable GRID_CALLED should not equal "true"
+        End
+
+        It 'selects the newest HWE OpenRM package for GB200'
+            OS_VERSION="3.0"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            MOCK_VM_SKU="Standard_ND128isr_NDR_GB200_v6"
+            MOCK_OPEN_RET=0
+            MOCK_KERNEL_PACKAGE="kernel-hwe"
+            uname() { echo "9.9.2-1.azl3"; }
+            dnf() {
+                echo "cuda-open-999.1.2-2_9.9.2.1.azl3.aarch64"
+                echo "cuda-open-hwe-999.1.2-1_9.9.2.1.azl3.aarch64"
+                echo "cuda-open-hwe-999.1.2-2_9.9.2.1.azl3.aarch64"
+                echo "cuda-open-hwe-999.1.2-2_9.8.1.1.azl3.aarch64"
+            }
+
+            When call downloadGPUDrivers
+
+            The status should be success
+            The output should include "updateDnfWithNvidiaPkg"
+            The output should include "dnf install 30 1 600 cuda-open-hwe-999.1.2-2_9.9.2.1.azl3.aarch64 nvidia-imex-999.1.2"
+            The output should include "removeNvidiaRepos"
+            The output should include "systemctl_disable 20 5 25 nvidia-imex"
+            The output should not include "dnf install 30 1 600 cuda-open-999.1.2-2_9.9.2.1.azl3.aarch64"
+            The output should not include "dracut"
+            The output should not include "shutdown"
+            The contents of file "$imex_config_path" should equal "options nvidia NVreg_CreateImexChannel0=1"
         End
 
         It 'selects proprietary cuda path for T4 when NVIDIA_GPU_DRIVER_TYPE is cuda'
@@ -358,6 +612,66 @@ Describe 'cse_install_mariner.sh'
             When call downloadGPUDrivers
             The output should not include "NVIDIA GRID driver"
             The variable GRID_CALLED should not equal "true"
+        End
+    End
+
+    Describe 'Azure Linux NVIDIA driver release notes'
+        uname() { echo "6.6.121.1-1.azl3"; }
+
+        It 'selects the latest package matching the current kernel'
+            dnf() {
+                echo "cuda-open-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+                echo "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+                echo "cuda-open-590.1.0-1_6x6x121x1x1xazl3.x86_64"
+                echo "cuda-open-580.126.09-2_6.6.120.1.1.azl3.x86_64"
+            }
+
+            When call getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open-[0-9]" "6.6.121.1.1.azl3"
+
+            The status should be success
+            The output should equal "cuda-open-580.126.09-2_6.6.121.1.1.azl3.x86_64"
+        End
+
+        It 'strips the RPM epoch when formatting a driver version'
+            When call getAzureLinuxNvidiaDriverVersionFromPackage "cuda-open-0:580.159.04-1_6.6.143.1.1.azl3.x86_64" "cuda-open-"
+
+            The status should be success
+            The output should equal "580.159.04"
+        End
+
+        It 'formats CUDA open, CUDA proprietary, and GRID driver package versions for release notes'
+            dnf() {
+                case "$4" in
+                    "cuda-open*")
+                        echo "cuda-open-hwe-999.1.2-2_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                    "cuda")
+                        echo "cuda-570.195.03-1_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                    "nvidia-vgpu-guest-driver*")
+                        echo "nvidia-vgpu-guest-driver-570.211.01-1_6.6.121.1.1.azl3.x86_64"
+                        ;;
+                esac
+            }
+
+            When call getAzureLinuxNvidiaDriverReleaseNotes
+
+            The status should be success
+            The output should include "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
+            The output should include "  - nvidia-cuda-open-driver version 999.1.2"
+            The output should include "  - nvidia-cuda-driver version 570.195.03"
+            The output should include "  - nvidia-grid-driver version 570.211.01"
+            The output should include "build-time snapshot only"
+            The output should include "the installed version is not pinned to this VHD"
+        End
+
+        It 'emits no release-note section when no driver packages match the current kernel'
+            dnf() { return 0; }
+
+            When call getAzureLinuxNvidiaDriverReleaseNotes
+
+            The status should be success
+            The output should equal ""
         End
     End
 
@@ -454,6 +768,54 @@ Describe 'cse_install_mariner.sh'
             The output should include 'dcgm-exporter'
             The output should include 'dra-driver-nvidia-gpu'
             The output should not include 'nvidia-device-plugin'
+        End
+    End
+
+    Describe 'installPackageFromCache version matching'
+        rpm_version_cache="/tmp/shellspec-rpm-version-cache-$$"
+
+        setup_version_cache() {
+            RPM_PACKAGE_CACHE_BASE_DIR="$rpm_version_cache"
+            mkdir -p "$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+        }
+
+        cleanup_version_cache() {
+            rm -rf "$rpm_version_cache"
+        }
+
+        BeforeEach 'setup_version_cache'
+        AfterEach 'cleanup_version_cache'
+
+        It 'does not match version 1.34.10 when requesting 1.34.1'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.1-5.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.11-1.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "extractBinaryFromRPM $rpmDir/kubelet-1.34.1-5.azl3.x86_64.rpm kubelet /opt/bin/kubelet"
+            The output should not include "1.34.10"
+            The output should not include "1.34.11"
+        End
+
+        It 'selects the latest release of the exact version requested'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.1-1.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.1-3.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "extractBinaryFromRPM $rpmDir/kubelet-1.34.1-3.azl3.x86_64.rpm kubelet /opt/bin/kubelet"
+        End
+
+        It 'returns failure when only a longer version exists in cache'
+            desiredVersion="1.34.1"
+            rpmDir="$RPM_PACKAGE_CACHE_BASE_DIR/kubelet/downloads"
+            touch "$rpmDir/kubelet-1.34.10-2.azl3.x86_64.rpm"
+            touch "$rpmDir/kubelet-1.34.12-1.azl3.x86_64.rpm"
+            When call installPackageFromCache kubelet "$desiredVersion"
+            The output should include "Failed to find cached rpm file for kubelet version 1.34.1"
+            The status should equal 1
         End
     End
 End

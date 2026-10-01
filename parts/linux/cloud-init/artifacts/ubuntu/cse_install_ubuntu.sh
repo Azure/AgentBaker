@@ -1,7 +1,35 @@
 #!/bin/bash
 
 removeContainerd() {
-    apt_get_purge 10 5 300 moby-containerd
+    local packageName="${1:-moby-containerd}"
+    apt_get_purge 10 5 300 "$packageName"
+}
+
+# Batch install all packages in a single apt_get_install call instead of looping one-by-one.
+# On failure, fall back to individual installs for diagnostic clarity. A return code of 2 from
+# apt_get_install signals a CSE timeout and is propagated immediately by exiting the script.
+aptGetBatchInstallPackagesWithFallback() {
+    local -a pkg_list=("$@")
+
+    apt_get_install 30 1 600 "${pkg_list[@]}"
+    local batch_rc=$?
+    if [ "$batch_rc" -eq 2 ]; then
+        exit "$batch_rc"
+    elif [ "$batch_rc" -ne 0 ]; then
+        echo "Batch install failed, falling back to individual package install"
+        local apt_package
+        for apt_package in "${pkg_list[@]}"; do
+            apt_get_install 30 1 600 "$apt_package"
+            local pkg_rc=$?
+            if [ "$pkg_rc" -eq 2 ]; then
+                exit "$pkg_rc"
+            elif [ "$pkg_rc" -ne 0 ]; then
+                tail -n 200 /var/log/apt/term.log || true
+                tail -n 200 /var/log/dpkg.log || true
+                exit $ERR_APT_INSTALL_TIMEOUT
+            fi
+        done
+    fi
 }
 
 blobfuseFallbackPackages() {
@@ -40,6 +68,33 @@ blobfuseFallbackPackages() {
     fi
 }
 
+# Installs any required dependencies needed to build the particular Ubuntu minimal image (currently only 26.04)
+# These dependencies are needed specifically in order to run various commands required to build the VHD.
+installMinimalBuildDeps() {
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+
+    if [ "${OSVERSION}" = "26.04" ]; then
+        installUbuntu2604MinimalBuildDeps
+        return 0
+    fi
+
+    echo "Unrecognized Ubuntu minimal version ${OSVERSION} - cannot install minimal build dependencies"
+    exit 1
+}
+
+installUbuntu2604MinimalBuildDeps() {
+    wait_for_apt_locks
+    retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
+
+    holdWALinuxAgent hold
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+
+    local -a pkg_list=(rsyslog gpg)
+    aptGetBatchInstallPackagesWithFallback "${pkg_list[@]}"
+}
+
 installDeps() {
     wait_for_apt_locks
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
@@ -48,44 +103,39 @@ installDeps() {
     holdWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
 
-    local OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+    pkg_list=(apparmor-utils bind9-dnsutils ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
+
+    if [ "${OSVERSION}" = "26.04" ]; then
+        if isMinimalImage; then
+            # libc6-dev is needed for GPU driver installation at runtime and is not included on the 26.04 minimal base image
+            pkg_list+=(libc6-dev)
+            # cron/crontab is needed by init-aks-cloud.sh (RCV1P) since we create a ca-refresh cron job and is not included on the 26.04 minimal base image
+            # init-aks-cloud.sh should be refactored to use systemd timers instead to align with AzureLinux
+            pkg_list+=(cron)
+        fi
+    else
+        # linux-modules-extra-* isn't bundled into linux-modules-* on Ubuntu releases < 26.04
+        pkg_list+=(linux-modules-extra-$(uname -r))
+    fi
+
     while IFS= read -r fallback_pkg; do
         [ -n "${fallback_pkg}" ] && pkg_list+=("${fallback_pkg}")
     done < <(blobfuseFallbackPackages "${OSVERSION}")
 
-    if [ "${OSVERSION}" = "24.04" ]; then
+    if [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         pkg_list+=(irqbalance)
     fi
 
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         pkg_list+=("aznfs=3.0.19")
     fi
 
-    # Batch install all packages in a single apt_get_install call instead of
-    # looping one-by-one. On failure, fall back to individual installs for
-    # diagnostic clarity. Exit immediately on return code 2 (CSE timeout).
-    apt_get_install 30 1 600 "${pkg_list[@]}"
-    local batch_rc=$?
-    if [ "$batch_rc" -eq 2 ]; then
-        exit "$batch_rc"
-    elif [ "$batch_rc" -ne 0 ]; then
-        echo "Batch install failed, falling back to individual package install"
-        for apt_package in "${pkg_list[@]}"; do
-            apt_get_install 30 1 600 "$apt_package"
-            local pkg_rc=$?
-            if [ "$pkg_rc" -eq 2 ]; then
-                exit "$pkg_rc"
-            elif [ "$pkg_rc" -ne 0 ]; then
-                tail -n 200 /var/log/apt/term.log || true
-                tail -n 200 /var/log/dpkg.log || true
-                exit $ERR_APT_INSTALL_TIMEOUT
-            fi
-        done
-    fi
+    aptGetBatchInstallPackagesWithFallback "${pkg_list[@]}"
 
-    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ] || [ "${OSVERSION}" = "26.04" ]; then
         # disable aznfswatchdog since aznfs install and enable aznfswatchdog and aznfswatchdogv4 services at the same time while we only need aznfswatchdogv4
         systemctl disable aznfswatchdog
         systemctl stop aznfswatchdog
@@ -93,6 +143,9 @@ installDeps() {
 }
 
 updateAptWithMicrosoftPkg() {
+    local OSVERSION
+    OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
 
@@ -100,6 +153,13 @@ updateAptWithMicrosoftPkg() {
 
     retrycmd_silent 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+
+    if [ "${OSVERSION}" = "26.04" ]; then
+        # Ubuntu 26.04 (Resolute) PMC repo is signed with Microsoft's newer 2025 gpg key
+        retrycmd_silent 120 5 25 curl https://packages.microsoft.com/keys/microsoft-2025.asc | gpg --dearmor > /tmp/microsoft-2025.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+        retrycmd_if_failure 10 5 10 cp /tmp/microsoft-2025.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    fi
+
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
@@ -132,7 +192,7 @@ updatePMCRepository() {
 }
 
 updateAptWithNvidiaPkg() {
-    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.pub"
+    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.gpg"
     mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
 
     readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
@@ -153,6 +213,8 @@ updateAptWithNvidiaPkg() {
         nvidia_ubuntu_release="ubuntu2204"
     elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         nvidia_ubuntu_release="ubuntu2404"
+    elif [ "${UBUNTU_RELEASE}" = "26.04" ]; then
+        nvidia_ubuntu_release="ubuntu2604"
     else
         echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
         return
@@ -162,10 +224,21 @@ updateAptWithNvidiaPkg() {
     echo "deb [arch=${cpu_arch} signed-by=${nvidia_gpg_keyring_path}] https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch} /" > ${nvidia_sources_list_path}
 
     # Add NVIDIA repository
-    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/3bf863cc.pub"
+    local nvidia_gpg_key_name="3bf863cc.pub"
+    if [ "${nvidia_ubuntu_release}" = "ubuntu2604" ]; then
+        nvidia_gpg_key_name="60DF8A40.pub"
+    fi
+    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/${nvidia_gpg_key_name}"
 
-    # Download and add the GPG key for the NVIDIA repository
-    retrycmd_curl_file 120 5 25 ${nvidia_gpg_keyring_path} ${nvidia_gpg_key_url} 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    # Download the armored NVIDIA repo key and dearmor it into a binary keyring.
+    # apt only accepts a signed-by keyring with a .gpg (binary) or .asc (armored) extension;
+    # NVIDIA publishes an ASCII-armored *.pub, so a raw .pub file is rejected as an "unsupported
+    # filetype" and the key is ignored (the repo then fails to verify with NO_PUBKEY). Newer apt
+    # (e.g. 3.x on Ubuntu 26.04) enforces this strictly, so dearmor to nvidia.gpg.
+    local nvidia_gpg_key_tmp="/tmp/${nvidia_gpg_key_name}"
+    retrycmd_curl_file 120 5 25 "${nvidia_gpg_key_tmp}" "${nvidia_gpg_key_url}" 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    gpg --dearmor < "${nvidia_gpg_key_tmp}" > "${nvidia_gpg_keyring_path}" || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
+    rm -f "${nvidia_gpg_key_tmp}"
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
@@ -208,7 +281,7 @@ installNvidiaManagedExpPkgFromCache() {
             continue
         fi
 
-        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || debFile=""
+        debFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print 2>/dev/null | sort -V | tail -n 1) || debFile=""
         if [ -z "${debFile}" ]; then
             echo "Failed to locate ${packageName} deb"
             exit $ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL
@@ -225,9 +298,13 @@ removeNvidiaRepos() {
         rm -f /etc/apt/sources.list.d/nvidia.list
         echo "Removed NVIDIA apt repository"
     fi
+    if [ -f /etc/apt/keyrings/nvidia.gpg ]; then
+        rm -f /etc/apt/keyrings/nvidia.gpg
+        echo "Removed NVIDIA GPG key (nvidia.gpg)"
+    fi
     if [ -f /etc/apt/keyrings/nvidia.pub ]; then
         rm -f /etc/apt/keyrings/nvidia.pub
-        echo "Removed NVIDIA GPG key"
+        echo "Removed NVIDIA GPG key (nvidia.pub)"
     fi
 }
 
@@ -317,14 +394,22 @@ cleanUpGPUDrivers() {
 }
 
 installCriCtlPackage() {
-    version="${1:-}"
-    packageName="kubernetes-cri-tools=${version}"
+    local version="${1:-}"
+    local fullPackageVersion
+    local packageName
     if [ -z "$version" ]; then
         echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
         exit 1
     fi
+    fullPackageVersion=$(getLatestDebPackageVersion "kubernetes-cri-tools" "${version}") || fullPackageVersion=""
+    if [ -z "${fullPackageVersion}" ]; then
+        echo "Failed to find valid kubernetes-cri-tools version for ${version}"
+        exit 1
+    fi
+    logResolvedPackageVersion "kubernetes-cri-tools" "${version}" "${fullPackageVersion}"
+    packageName="kubernetes-cri-tools=${fullPackageVersion}"
     echo "Installing ${packageName} with apt-get"
-    apt_get_install 20 30 120 ${packageName} || exit 1
+    apt_get_install 20 30 120 "${packageName}" || exit 1
 }
 
 installCredentialProviderFromPkg() {
@@ -456,13 +541,13 @@ installPkgWithAptGet() {
         return 0
     fi
 
-    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
 
         # update pmc repo to get latest versions
         updatePMCRepository "${packageVersion}"
-        # query all package versions and get the latest version for matching k8s version and cpu architecture
-        fullPackageVersion=$(apt list "${packageName}" --all-versions | grep "${packageVersion}" | grep "$(getCPUArch)" | awk '{print $2}' | sort -V | tail -n 1)
+        # query all package versions and get the latest revision for the requested upstream version
+        fullPackageVersion=$(getLatestDebPackageVersion "${packageName}" "${packageVersion}")
         if [ -z "${fullPackageVersion}" ]; then
             echo "Failed to find valid ${packageName} version for ${packageVersion}"
             return 1
@@ -470,7 +555,7 @@ installPkgWithAptGet() {
         echo "Did not find cached deb file, downloading ${packageName} version ${fullPackageVersion}"
         logs_to_events "AKS.CSE.install${packageName}FromPkg.downloadPkgFromVersion" "downloadPkgFromVersion ${packageName} ${fullPackageVersion} ${downloadDir}"
 
-        debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+        debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1) || debFile=""
     fi
     if [ -z "${debFile}" ]; then
         echo "Failed to locate ${packageName} deb"
@@ -498,13 +583,9 @@ installPackageFromCache() {
         return 0
     fi
 
-    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${packageVersion}" | sort -V | tail -n 1) || debFile=""
+    debFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${packageVersion}([^0-9]|$)" | sort -V | tail -n 1) || debFile=""
     if [ -z "${debFile}" ]; then
         echo "Failed to find cached deb file for ${packageName} version ${packageVersion}"
-        return 1
-    fi
-    if [ -z "${debFile}" ]; then
-        echo "Failed to locate ${packageName} deb"
         return 1
     fi
 
@@ -515,16 +596,76 @@ installPackageFromCache() {
     rm -f /opt/bin/"${packageName}"-* &
 }
 
+getLatestDebPackageVersion() {
+    local packageName="${1}"
+    local desiredVersion="${2}"
+    local desiredVersionNoEpoch="${desiredVersion#*:}"
+    local architecture
+
+    architecture=$(getCPUArch)
+
+    apt list "${packageName}" --all-versions 2>/dev/null |
+        awk -v architecture="${architecture}" -v desired="${desiredVersion}" -v desiredNoEpoch="${desiredVersionNoEpoch}" '
+            NR > 1 && $3 == architecture {
+                version = $2
+                versionNoEpoch = version
+                sub(/^[0-9]+:/, "", versionNoEpoch)
+                if (version == desired ||
+                    versionNoEpoch == desiredNoEpoch ||
+                    index(versionNoEpoch, desiredNoEpoch "-") == 1 ||
+                    index(versionNoEpoch, desiredNoEpoch "+") == 1) {
+                    print version
+                }
+            }
+        ' |
+        sort -V |
+        tail -n 1
+}
+
+getInstalledDebPackageVersion() {
+    local packageName="${1}"
+
+    if dpkg -l "${packageName}" 2>/dev/null | grep -q "^ii"; then
+        dpkg-query -W -f='${Version}' "${packageName}" 2>/dev/null
+    fi
+}
+
+logResolvedPackageVersion() {
+    local packageName="${1}"
+    local requestedVersion="${2}"
+    local fullPackageVersion="${3}"
+    local message="Resolved ${packageName} package version ${requestedVersion} -> ${fullPackageVersion}"
+
+    echo "${message}"
+    if [ -f "${VHD_LOGS_FILEPATH:-}" ]; then
+        echo "  - ${packageName} package version ${fullPackageVersion} (requested ${requestedVersion})" >> "${VHD_LOGS_FILEPATH}"
+    fi
+}
+
 downloadPkgFromVersion() {
-    packageName="${1:-}"
-    packageVersion="${2:-}"
-    downloadDir="${3:-"/opt/${packageName}/downloads"}"
-    mkdir -p ${downloadDir}
-    apt_get_download 20 30 ${packageName}=${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
+    local packageName="${1:-}"
+    local packageVersion="${2:-}"
+    local downloadDir="${3:-"/opt/${packageName}/downloads"}"
+    local fullPackageVersion
+    local version_no_epoch
+
+    fullPackageVersion="${packageVersion}"
+    # shellcheck disable=SC3010
+    if [[ "${packageVersion}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        fullPackageVersion=$(getLatestDebPackageVersion "${packageName}" "${packageVersion}")
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid ${packageName} version for ${packageVersion}"
+            return 1
+        fi
+    fi
+
+    logResolvedPackageVersion "${packageName}" "${packageVersion}" "${fullPackageVersion}"
+    mkdir -p "${downloadDir}"
+    apt_get_download 20 30 "${packageName}=${fullPackageVersion}" || exit "$ERR_APT_INSTALL_TIMEOUT"
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
-    version_no_epoch="${packageVersion#*:}"
-    cp -al "${APT_CACHE_DIR}/${packageName}_${version_no_epoch}"* "${downloadDir}/" || exit $ERR_APT_INSTALL_TIMEOUT
-    echo "Succeeded to download ${packageName} version ${packageVersion}"
+    version_no_epoch="${fullPackageVersion#*:}"
+    cp -al "${APT_CACHE_DIR}/${packageName}_${version_no_epoch}"* "${downloadDir}/" || exit "$ERR_APT_INSTALL_TIMEOUT"
+    echo "Succeeded to download ${packageName} version ${fullPackageVersion} for requested version ${packageVersion}"
 }
 
 installContainerd() {
@@ -553,21 +694,27 @@ installContainerdFromOverride() {
 }
 
 installContainerdWithAptGet() {
-    # packageVersion is the full version string from components.json, e.g. "2.3.2-ubuntu24.04u2" or "1.7.33-ubuntu22.04u1".
-    # The major.minor.patch is extracted for version comparison against the currently installed package.
     local packageVersion="${1}"
     CONTAINERD_DOWNLOADS_DIR="${2:-$CONTAINERD_DOWNLOADS_DIR}"
     local containerdMajorMinorPatchVersion
-    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    local currentPackageVersion=""
+    local latestPackageVersion=""
+    local installRequired=true
+    local revisionlessVersion=false
 
-    # Query installed version via dpkg metadata instead of running the containerd
-    # binary. `containerd -version` takes ~5.7s to load the full runtime just to
-    # print a version string; dpkg-query is instant.
-    # dpkg version format: "1.7.31+azure-ubuntu22.04u1" or "1:1.7.31+azure-..."
-    # Normalize to pure "major.minor.patch" by stripping epoch, +suffix, -suffix.
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    # shellcheck disable=SC3010
+    if [[ "${packageVersion}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        revisionlessVersion=true
+    fi
+
+    # Query installed version via dpkg metadata instead of running the containerd binary.
+    # Normalize it to major.minor.patch for upstream comparison, but retain the full
+    # package version so equal upstream versions can still detect stale distro revisions.
     local currentVersion=""
-    if dpkg -l moby-containerd 2>/dev/null | grep -q "^ii"; then
-        currentVersion=$(dpkg-query -W -f='${Version}' moby-containerd 2>/dev/null | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
+    currentPackageVersion=$(getInstalledDebPackageVersion "moby-containerd")
+    if [ -n "${currentPackageVersion}" ]; then
+        currentVersion=$(printf '%s\n' "${currentPackageVersion}" | sed 's/^[0-9]*://' | cut -d '+' -f1 | cut -d '-' -f1)
     fi
 
     if [ -z "$currentVersion" ]; then
@@ -581,20 +728,35 @@ installContainerdWithAptGet() {
     local hasGreaterVersion="$?"
 
     if [ "$hasGreaterVersion" = "0" ] && [ "$currentMajorMinor" = "$desiredMajorMinor" ]; then
-        echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
-    else
+        installRequired=false
+        if [ "${revisionlessVersion}" = "true" ] && [ "${currentVersion}" = "${containerdMajorMinorPatchVersion}" ]; then
+            latestPackageVersion=$(getLatestDebPackageVersion "moby-containerd" "${packageVersion}")
+            if [ -z "${latestPackageVersion}" ]; then
+                echo "Failed to find valid moby-containerd version for ${packageVersion}"
+                exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
+            fi
+            if [ "${currentPackageVersion}" != "${latestPackageVersion}" ]; then
+                echo "installed moby-containerd package version ${currentPackageVersion} does not match latest revision ${latestPackageVersion}"
+                installRequired=true
+            fi
+        fi
+    fi
+
+    if [ "${installRequired}" = "true" ]; then
         echo "installing containerd version ${packageVersion}"
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
 
         # No cached deb found — download from packages.microsoft.com
         logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${packageVersion}"
-        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${packageVersion}*" 2>/dev/null | sort -V | tail -n1)
+        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_*" 2>/dev/null | grep -E "moby-containerd_${packageVersion}([^0-9]|$)" | sort -V | tail -n1)
         if [ -z "${containerdDebFile}" ]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
+    else
+        echo "currently installed containerd version ${currentPackageVersion} satisfies target version ${packageVersion}. skipping installStandaloneContainerd."
     fi
 }
 
@@ -617,17 +779,27 @@ installStandaloneContainerd() {
 }
 
 downloadContainerdFromVersion() {
-    # packageVersion is the full version string, e.g. "2.3.2-ubuntu24.04u2" or "1.7.33-ubuntu22.04u1".
-    # The major.minor.patch is extracted for the apt glob pattern.
+    # Resolve a revisionless containerd version to the newest distro package revision.
     local packageVersion="$1"
-    mkdir -p $CONTAINERD_DOWNLOADS_DIR
+    local fullPackageVersion
+    local versionNoEpoch
+
+    mkdir -p "$CONTAINERD_DOWNLOADS_DIR"
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
     # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
     # This won't be called for new VHDs as they have containerd 1.6 cached
     updateAptWithMicrosoftPkg
-    apt_get_download 20 30 moby-containerd=${packageVersion}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    cp -al ${APT_CACHE_DIR}moby-containerd_${packageVersion}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    echo "Succeeded to download containerd version ${packageVersion}"
+    fullPackageVersion=$(getLatestDebPackageVersion "moby-containerd" "${packageVersion}")
+    if [ -z "${fullPackageVersion}" ]; then
+        echo "Failed to find valid moby-containerd version for ${packageVersion}"
+        return 1
+    fi
+
+    logResolvedPackageVersion "moby-containerd" "${packageVersion}" "${fullPackageVersion}"
+    apt_get_download 20 30 "moby-containerd=${fullPackageVersion}" || exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
+    versionNoEpoch="${fullPackageVersion#*:}"
+    cp -al "${APT_CACHE_DIR}moby-containerd_${versionNoEpoch}"* "$CONTAINERD_DOWNLOADS_DIR/" || exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
+    echo "Succeeded to download containerd version ${fullPackageVersion} for requested version ${packageVersion}"
 }
 
 downloadContainerdFromURL() {
@@ -641,6 +813,10 @@ downloadContainerdFromURL() {
 }
 
 ensureRunc() {
+    local fullPackageVersion
+    local installedPackageVersion=""
+    local revisionlessVersion=false
+
     RUNC_PACKAGE_URL=${2:-""}
     RUNC_DOWNLOADS_DIR=${3:-$RUNC_DOWNLOADS_DIR}
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
@@ -672,6 +848,10 @@ ensureRunc() {
         CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     fi
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
+    # shellcheck disable=SC3010
+    if [[ "${TARGET_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        revisionlessVersion=true
+    fi
 
     # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
     # since we only care about the major and minor versions when determining if we need to install it
@@ -679,8 +859,22 @@ ensureRunc() {
     CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar)
 
     if [ "${CURRENT_VERSION}" = "${CLEANED_TARGET_VERSION}" ]; then
-        echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
-        return
+        if [ "${revisionlessVersion}" = "true" ]; then
+            fullPackageVersion=$(getLatestDebPackageVersion "moby-runc" "${TARGET_VERSION}")
+            if [ -z "${fullPackageVersion}" ]; then
+                echo "Failed to find valid moby-runc version for ${TARGET_VERSION}"
+                exit "$ERR_RUNC_INSTALL_TIMEOUT"
+            fi
+            installedPackageVersion=$(getInstalledDebPackageVersion "moby-runc")
+            if [ "${installedPackageVersion}" = "${fullPackageVersion}" ]; then
+                echo "target moby-runc package version ${fullPackageVersion} is already installed. skipping installRunc."
+                return
+            fi
+            echo "installed moby-runc package version ${installedPackageVersion} does not match latest revision ${fullPackageVersion}"
+        else
+            echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
+            return
+        fi
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f "$VHD_LOGS_FILEPATH" ]; then
@@ -689,7 +883,7 @@ ensureRunc() {
         RUNC_DEB_FILE=""
         while IFS= read -r file; do
             RUNC_DEB_FILES+=("$file")
-        done < <(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null)
+        done < <(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null | grep -E "moby-runc_${TARGET_VERSION}([^0-9]|$)")
         if [ ${#RUNC_DEB_FILES[@]} -gt 0 ]; then
             RUNC_DEB_FILE=$(printf "%s\n" "${RUNC_DEB_FILES[@]}" | sort -V | tail -n1)
         fi
@@ -700,7 +894,18 @@ ensureRunc() {
         fi
     fi
     echo "No cached runc deb file is found. Using apt-get to install runc."
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    if [ -z "${fullPackageVersion:-}" ]; then
+        fullPackageVersion="${TARGET_VERSION}"
+    fi
+    if [ "${revisionlessVersion}" = "true" ] && [ "${fullPackageVersion}" = "${TARGET_VERSION}" ]; then
+        fullPackageVersion=$(getLatestDebPackageVersion "moby-runc" "${TARGET_VERSION}")
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid moby-runc version for ${TARGET_VERSION}"
+            exit "$ERR_RUNC_INSTALL_TIMEOUT"
+        fi
+    fi
+    logResolvedPackageVersion "moby-runc" "${TARGET_VERSION}" "${fullPackageVersion}"
+    apt_get_install 20 30 120 "moby-runc=${fullPackageVersion}" --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF

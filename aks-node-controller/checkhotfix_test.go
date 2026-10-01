@@ -5,18 +5,21 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"net/http"
+	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 )
 
 // testCAPEM is a self-signed CA certificate used to exercise the provision-config TLS
-// trust path in buildLPSHTTPClient.
+// trust path of the LPS gRPC dial.
 const testCAPEM = `-----BEGIN CERTIFICATE-----
 MIIBVDCB+6ADAgECAgEBMAoGCCqGSM49BAMCMBIxEDAOBgNVBAMTB3Rlc3QtY2Ew
 HhcNMjYwNjE5MjEwNDM4WhcNMzYwNjE2MjEwNDM4WjASMRAwDgYDVQQDEwd0ZXN0
@@ -60,10 +63,16 @@ func TestParseHotfixConfig(t *testing.T) {
 		assert.Equal(t, map[string]string{"202604.01": "202604.01.1"}, cfg.Hotfixes)
 	})
 
-	t.Run("empty body is an error", func(t *testing.T) {
-		_, err := parseHotfixConfig([]byte("   "))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "empty")
+	t.Run("empty body is a benign no-op, not an error", func(t *testing.T) {
+		// A successful RPC with an empty/unset config string means the LPS is reachable but
+		// has nothing for this node - the same benign case as "{}". It must parse to a
+		// zero-value config without error so the outcome stays noHotfixForBase, not failed.
+		for _, body := range []string{"", "   ", "\n\t "} {
+			cfg, err := parseHotfixConfig([]byte(body))
+			require.NoError(t, err)
+			assert.Nil(t, cfg.Hotfixes)
+			assert.Equal(t, "", cfg.resolveVersion("202604.01.1"))
+		}
 	})
 
 	t.Run("invalid JSON is an error", func(t *testing.T) {
@@ -128,11 +137,55 @@ func TestCheckHotfix_NoHotfixForBase(t *testing.T) {
 	assert.Equal(t, map[string]string{"202604.01": "202604.01.1"}, cfg.Hotfixes)
 }
 
-// TestCheckHotfix_LegacyOnlyPointerReportsNoHotfixForBase guards the telemetry/staging
-// consistency contract: writeHotfixConfig persists only the Hotfixes map (the legacy Version
-// field is dropped), so a legacy-only pointer stages nothing resolvable. The reported outcome
-// must match what download-hotfix will actually read - noHotfixForBase, not LPSRead.
-func TestCheckHotfix_LegacyOnlyPointerReportsNoHotfixForBase(t *testing.T) {
+// TestCheckHotfix_EmptyServedConfigIsBenignAndPreservesFile guards the no-clobber contract:
+// the on-disk pointer is the SAME file cloud-init populates with "version"/"scripts_version".
+// A reachable LPS that serves an empty hotfixes map (a "{}" body, or a legacy-only body whose
+// Version we intentionally drop) must be treated exactly like a benign NotFound - no write, so
+// the cloud-init-written version/scripts_version survive. Writing an empty map here would
+// disable the existing cloud-init provisioning-hotfix path.
+func TestCheckHotfix_EmptyServedConfigIsBenignAndPreservesFile(t *testing.T) {
+	origVersion := Version
+	Version = "202604.01.0"
+	defer func() { Version = origVersion }()
+
+	cloudInitFile := `{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.5"}}`
+	cases := map[string]string{
+		"empty object":     `{}`,
+		"empty map":        `{"hotfixes":{}}`,
+		"legacy-only body": `{"version":"202604.01.9"}`,
+		"empty body":       ``,
+	}
+	for name, servedBody := range cases {
+		t.Run(name, func(t *testing.T) {
+			tt := NewTestApp(t, TestAppConfig{})
+			path := filepath.Join(t.TempDir(), "hotfix.json")
+			tt.App.hotfixVersionPath = path
+			// Pre-seed the shared file exactly as cloud-init would.
+			require.NoError(t, os.WriteFile(path, []byte(cloudInitFile), 0644))
+
+			body := servedBody
+			tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
+				return []byte(body), nil
+			}
+
+			outcome, err := tt.App.checkHotfix(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, outcomeNoHotfixAvailable, outcome)
+
+			// The cloud-init file must be left byte-for-byte intact.
+			raw, err := os.ReadFile(path)
+			require.NoError(t, err)
+			assert.JSONEq(t, cloudInitFile, string(raw))
+		})
+	}
+}
+
+// TestCheckHotfix_PreservesVersionAndScriptsVersionOnWrite guards the "sharper half": even for
+// a NON-empty served hotfixes map (a real hotfix rollout), the write must be a read-modify-write
+// that preserves the cloud-init-written version/scripts_version and replaces only the hotfixes
+// map. The LPS payload is hotfixes-only by design, so rewriting the whole file naively would
+// drop scripts_version and silently disable the CSE-scripts hotfix.
+func TestCheckHotfix_PreservesVersionAndScriptsVersionOnWrite(t *testing.T) {
 	origVersion := Version
 	Version = "202604.01.0"
 	defer func() { Version = origVersion }()
@@ -140,32 +193,38 @@ func TestCheckHotfix_LegacyOnlyPointerReportsNoHotfixForBase(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
+	// cloud-init seeds version + scripts_version + a stale hotfixes map.
+	require.NoError(t, os.WriteFile(path, []byte(
+		`{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.5"}}`), 0644))
+
 	tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
-		// Legacy shape: a top-level "version" pointer with no "hotfixes" map.
-		return []byte(`{"version":"202604.01.9"}`), nil
+		return lpsPointerBody(t, map[string]string{"202604.01": "202604.01.9"}), nil
 	}
 
 	outcome, err := tt.App.checkHotfix(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, outcomeNoHotfixForBase, outcome)
+	assert.Equal(t, outcomeLPSRead, outcome)
 
-	// The staged file must not carry the legacy Version - only the (empty) map shape.
 	cfg := readStagedConfig(t, path)
-	assert.Empty(t, cfg.Version)
-	assert.Empty(t, cfg.Hotfixes)
+	// hotfixes map replaced by the LPS-served one...
+	assert.Equal(t, map[string]string{"202604.01": "202604.01.9"}, cfg.Hotfixes)
+	// ...but version/scripts_version preserved from the cloud-init file.
+	assert.Equal(t, "202604.01.5", cfg.Version)
+	assert.Equal(t, "202604.01.7", cfg.ScriptsVersion)
 }
 
 func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
-	// A reachable LPS that has no hotfix published for this node (HTTP 401, 403, 404) is the
-	// expected steady state. It must be a benign no-op: outcome noHotfixAvailable, no error,
-	// nothing staged, and NO cold-start overlay even when the node config carries an embedded
-	// pointer.
-	statuses := map[string]int{
-		"401 unauthorized": http.StatusUnauthorized,
-		"403 forbidden":    http.StatusForbidden,
-		"404 not found":    http.StatusNotFound,
+	// A reachable LPS that has no hotfix published for this node is the expected steady state.
+	// It must be a benign no-op: outcome noHotfixAvailable, no error, nothing staged, and NO
+	// cold-start overlay even when the node config carries an embedded pointer. The benign
+	// signal is the errLPSUnavailable sentinel; which gRPC codes map to it is covered by the
+	// gRPC transport tests. Both the bare sentinel and a code-wrapped form must classify as
+	// benign (errors.Is through the wrap).
+	fetchErrs := map[string]error{
+		"bare sentinel":     errLPSUnavailable,
+		"wrapped with code": fmt.Errorf("%w (code %s)", errLPSUnavailable, codes.NotFound),
 	}
-	for name, code := range statuses {
+	for name, fetchErr := range fetchErrs {
 		t.Run(name, func(t *testing.T) {
 			tt := NewTestApp(t, TestAppConfig{})
 			path := filepath.Join(t.TempDir(), "hotfix.json")
@@ -178,7 +237,7 @@ func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
 			tt.App.nodeConfigPath = nodeConfig
 
 			tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
-				return nil, &lpsUnavailableError{statusCode: code}
+				return nil, fetchErr
 			}
 
 			outcome, err := tt.App.checkHotfix(context.Background())
@@ -192,14 +251,18 @@ func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
 	}
 }
 
-func TestCheckHotfix_FetchErrorFailsOpenWithoutFallback(t *testing.T) {
+// TestCheckHotfix_FetchErrorNoFallbackStagesNothing covers an unreachable LPS with no
+// cold-start pointer available. Nothing may be staged, and the outcome is the benign
+// noColdStartPointer rather than a failure: fail-open worked exactly as designed and the
+// node still provisions from its existing on-disk pointer.
+func TestCheckHotfix_FetchErrorNoFallbackStagesNothing(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
 	// No node config -> no cold-start fallback available.
 	tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent-config.json")
 
-	// Transport-level failures (not benign 401/403/404) with no fallback -> failed.
+	// Transport-level failures (not benign 401/403/404) with no fallback -> benign no-op.
 	cases := map[string]error{
 		"timeout":        context.DeadlineExceeded,
 		"connection err": errors.New("dial tcp: connection refused"),
@@ -211,8 +274,9 @@ func TestCheckHotfix_FetchErrorFailsOpenWithoutFallback(t *testing.T) {
 				return nil, fetchErr
 			}
 			outcome, err := tt.App.checkHotfix(context.Background())
-			assert.Equal(t, outcomeFailed, outcome)
-			assert.Error(t, err)
+			assert.Equal(t, outcomeNoColdStartPointer, outcome)
+			assert.Error(t, err, "the underlying fetch error is still reported for diagnosis")
+			assert.Equal(t, helpers.EventLevelInformational, helpersEventLevel(outcome))
 			// Nothing should be staged.
 			_, statErr := os.Stat(path)
 			assert.True(t, os.IsNotExist(statErr))
@@ -262,7 +326,13 @@ func TestCheckHotfix_ColdStartFallback(t *testing.T) {
 	assert.Equal(t, map[string]string{"202604.01": "202604.01.2"}, cfg.Hotfixes)
 }
 
-func TestCheckHotfix_ColdStartNoPointerFails(t *testing.T) {
+// TestCheckHotfix_ColdStartNoPointerIsBenign verifies that an unreachable LPS combined with a
+// node config carrying no cold-start hotfixes map is treated as benign, not as a failure.
+// Nothing is staged and the existing on-disk pointer is left untouched, so provisioning is
+// unaffected; reporting this at error level would emit misleading error telemetry on every
+// healthy node whose config was seeded without an injected map. The fetch error is still
+// returned so the reason the LPS was unreachable survives into the telemetry message.
+func TestCheckHotfix_ColdStartNoPointerIsBenign(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
@@ -275,8 +345,10 @@ func TestCheckHotfix_ColdStartNoPointerFails(t *testing.T) {
 	}
 
 	outcome, err := tt.App.checkHotfix(context.Background())
-	assert.Equal(t, outcomeFailed, outcome)
+	assert.Equal(t, outcomeNoColdStartPointer, outcome)
 	assert.Error(t, err)
+	assert.Equal(t, helpers.EventLevelInformational, helpersEventLevel(outcome),
+		"a benign no-op must not be reported at error level")
 	_, statErr := os.Stat(path)
 	assert.True(t, os.IsNotExist(statErr))
 }
@@ -296,10 +368,10 @@ func TestCheckHotfix_FallbackOnlyForUnreachableLPS(t *testing.T) {
 		wantOutcome checkHotfixOutcome
 		wantStaged  bool
 	}{
-		{"5xx falls back to cold-start", &lpsHTTPError{statusCode: 503}, outcomeCustomDataFallback, true},
+		{"server Unavailable falls back to cold-start", &lpsGRPCStatusError{code: codes.Unavailable, fallbackAllowed: true}, outcomeCustomDataFallback, true},
 		{"transport error falls back to cold-start", errors.New("dial tcp: connection refused"), outcomeCustomDataFallback, true},
-		{"non-benign 4xx does not fall back", &lpsHTTPError{statusCode: 429}, outcomeFailed, false},
-		{"400 does not fall back", &lpsHTTPError{statusCode: 400}, outcomeFailed, false},
+		{"ResourceExhausted does not fall back", &lpsGRPCStatusError{code: codes.ResourceExhausted, fallbackAllowed: false}, outcomeFailed, false},
+		{"InvalidArgument does not fall back", &lpsGRPCStatusError{code: codes.InvalidArgument, fallbackAllowed: false}, outcomeFailed, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -333,6 +405,7 @@ func TestCheckHotfix_FallbackOnlyForUnreachableLPS(t *testing.T) {
 // (exit 0) and emits telemetry, regardless of the underlying outcome.
 func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 	t.Run("success path emits informational event and exits 0", func(t *testing.T) {
+		logCap := installLogCapturer(t)
 		origVersion := Version
 		Version = "202604.01.0"
 		defer func() { Version = origVersion }()
@@ -351,9 +424,47 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
 		assert.Equal(t, "Informational", events[0].EventLevel)
 		assert.Contains(t, events[0].Message, string(outcomeLPSRead))
+		assert.Contains(t, logCap.getRecords(), logRecord{
+			Level:   slog.LevelInfo,
+			Message: "check-hotfix completed",
+			Attrs:   map[string]string{"outcome": string(outcomeLPSRead)},
+		})
 	})
 
-	t.Run("failure path emits error event but still exits 0", func(t *testing.T) {
+	t.Run("authoritative client error emits error event but still exits 0", func(t *testing.T) {
+		logCap := installLogCapturer(t)
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
+		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
+		tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
+			return nil, &lpsGRPCStatusError{code: codes.ResourceExhausted, fallbackAllowed: false}
+		}
+
+		err := tt.App.runCheckHotfixCommand(context.Background())
+		require.NoError(t, err)
+
+		events := tt.eventLogger.Events()
+		require.Len(t, events, 1)
+		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
+		assert.Equal(t, "Error", events[0].EventLevel)
+		assert.Contains(t, events[0].Message, string(outcomeFailed))
+		var completions []logRecord
+		for _, record := range logCap.getRecords() {
+			if record.Attrs["outcome"] == string(outcomeFailed) {
+				completions = append(completions, record)
+			}
+		}
+		require.Len(t, completions, 1)
+		assert.Equal(t, slog.LevelWarn, completions[0].Level)
+		assert.Equal(t, "check-hotfix completed with error (fail-open)", completions[0].Message)
+		assert.NotEmpty(t, completions[0].Attrs["error"])
+	})
+
+	// An unreachable LPS on a node with no injected cold-start map is the common healthy case
+	// (it is exactly what a first-boot node sees when the LPS is briefly unavailable). It must
+	// emit an Informational event, not an Error, while still recording why the fetch failed.
+	t.Run("unreachable LPS without a cold-start pointer emits an informational event", func(t *testing.T) {
+		logCap := installLogCapturer(t)
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
 		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
@@ -367,8 +478,28 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 		events := tt.eventLogger.Events()
 		require.Len(t, events, 1)
 		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
-		assert.Equal(t, "Error", events[0].EventLevel)
-		assert.Contains(t, events[0].Message, string(outcomeFailed))
+		assert.Equal(t, "Informational", events[0].EventLevel)
+		assert.Contains(t, events[0].Message, string(outcomeNoColdStartPointer))
+		assert.Contains(t, events[0].Message, "LPS returned status 500",
+			"the fetch error must survive into the message for diagnosis")
+
+		records := logCap.getRecords()
+		assert.Contains(t, records, logRecord{
+			Level:   slog.LevelWarn,
+			Message: "failed to reach LPS, attempting cold-start fallback",
+			Attrs:   map[string]string{"error": "LPS returned status 500"},
+		})
+		var completions []logRecord
+		for _, record := range records {
+			if record.Attrs["outcome"] == string(outcomeNoColdStartPointer) {
+				completions = append(completions, record)
+			}
+		}
+		require.Len(t, completions, 1)
+		assert.Equal(t, slog.LevelInfo, completions[0].Level)
+		assert.Equal(t, "check-hotfix completed (fail-open)", completions[0].Message)
+		assert.Contains(t, completions[0].Attrs["reason"], "LPS returned status 500")
+		assert.NotContains(t, completions[0].Attrs, "error")
 	})
 
 	t.Run("cli wiring returns exit code 0 even on fetch failure", func(t *testing.T) {
@@ -449,6 +580,7 @@ func TestLPSTargetFromNodeConfig(t *testing.T) {
 		body := `{"version":"v1","api_server_config":{"api_server_name":"myapi.example.com"},"kubernetes_ca_cert":"` + caB64 + `"}`
 		require.NoError(t, os.WriteFile(p, []byte(body), 0644))
 		tt.App.nodeConfigPath = p
+		tt.App.nbcCmdPath = filepath.Join(t.TempDir(), "must-not-be-read.sh")
 
 		fqdn, ca, err := tt.App.lpsTargetFromNodeConfig()
 		require.NoError(t, err)
@@ -467,51 +599,93 @@ func TestLPSTargetFromNodeConfig(t *testing.T) {
 		assert.Contains(t, err.Error(), "api_server_name")
 	})
 
-	t.Run("missing file is an error", func(t *testing.T) {
+	t.Run("missing config.json falls back to nbc-cmd.sh", func(t *testing.T) {
+		dir := t.TempDir()
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.nodeConfigPath = filepath.Join(dir, "nope.json")
+
+		caPEM := "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+		caB64 := base64.StdEncoding.EncodeToString([]byte(caPEM))
+		cmdPath := filepath.Join(dir, "nbc-cmd.sh")
+		cmdContent := fmt.Sprintf(
+			`PROVISION_OUTPUT="/tmp/out"; API_SERVER_NAME=fallback.example.com `+
+				`KUBE_CA_CRT="%s" /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`,
+			caB64)
+		require.NoError(t, os.WriteFile(cmdPath, []byte(cmdContent), 0600))
+		tt.App.nbcCmdPath = cmdPath
+
+		fqdn, ca, err := tt.App.lpsTargetFromNodeConfig()
+		require.NoError(t, err)
+		assert.Equal(t, "fallback.example.com", fqdn)
+		assert.Equal(t, []byte(caPEM), ca)
+	})
+
+	t.Run("missing config.json and missing nbc-cmd.sh is an error", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nope.json")
+		tt.App.nbcCmdPath = filepath.Join(t.TempDir(), "also-nope.sh")
 		_, _, err := tt.App.lpsTargetFromNodeConfig()
 		require.Error(t, err)
 	})
 }
 
-func TestBuildLPSHTTPClient(t *testing.T) {
-	t.Run("invalid CA PEM is an error", func(t *testing.T) {
-		_, _, err := buildLPSHTTPClient("myapi.example.com", []byte("not a pem"))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cluster CA PEM")
-	})
+func TestLPSTargetFromNBCCmd(t *testing.T) {
+	caPEM := "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+	caB64 := base64.StdEncoding.EncodeToString([]byte(caPEM))
 
-	t.Run("valid CA pins ServerName and reports provision-config trust", func(t *testing.T) {
-		// A real (self-signed) cert PEM so AppendCertsFromPEM succeeds.
-		client, caSource, err := buildLPSHTTPClient("myapi.example.com", []byte(testCAPEM))
+	t.Run("reads fqdn and decodes CA", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		p := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+		content := fmt.Sprintf(`API_SERVER_NAME=myapi.example.com KUBE_CA_CRT="%s" /usr/bin/nohup /bin/bash -c "provision"`, caB64)
+		require.NoError(t, os.WriteFile(p, []byte(content), 0600))
+		tt.App.nbcCmdPath = p
+
+		fqdn, ca, err := tt.App.lpsTargetFromNBCCmd()
 		require.NoError(t, err)
-		assert.Equal(t, "provision-config", caSource)
-		assert.Equal(t, lpsFetchTimeout, client.Timeout)
-		tr, ok := client.Transport.(*http.Transport)
-		require.True(t, ok)
-		assert.Equal(t, lpsSNIHost, tr.TLSClientConfig.ServerName)
-		assert.False(t, tr.TLSClientConfig.InsecureSkipVerify)
-		// The shared base transport must apply the fail-fast per-phase budgets and disable proxying.
-		assert.Nil(t, tr.Proxy)
-		assert.Equal(t, lpsTLSHandshakeTimeout, tr.TLSHandshakeTimeout)
-		assert.Equal(t, lpsResponseHeaderTimeout, tr.ResponseHeaderTimeout)
+		assert.Equal(t, "myapi.example.com", fqdn)
+		assert.Equal(t, []byte(caPEM), ca)
 	})
 
-	t.Run("no CA is a hard error (no insecure fallback)", func(t *testing.T) {
-		_, _, err := buildLPSHTTPClient("myapi.example.com", nil)
+	t.Run("missing API_SERVER_NAME is an error", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		p := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+		content := fmt.Sprintf(`KUBE_CA_CRT="%s" /usr/bin/nohup /bin/bash -c "provision"`, caB64)
+		require.NoError(t, os.WriteFile(p, []byte(content), 0600))
+		tt.App.nbcCmdPath = p
+
+		_, _, err := tt.App.lpsTargetFromNBCCmd()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cluster CA unavailable")
+		assert.Contains(t, err.Error(), "API_SERVER_NAME")
 	})
 
-	t.Run("dialHost with an existing port is normalized", func(t *testing.T) {
-		// api_server_name may carry a port; the client must still build (no insecure
-		// fallback) and JoinHostPort must not produce an invalid "[host:443]:443" address.
-		client, _, err := buildLPSHTTPClient("myapi.example.com:443", []byte(testCAPEM))
+	t.Run("missing file is an error", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.nbcCmdPath = filepath.Join(t.TempDir(), "nope.sh")
+		_, _, err := tt.App.lpsTargetFromNBCCmd()
+		require.Error(t, err)
+	})
+
+	t.Run("CA is optional", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		p := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+		require.NoError(t, os.WriteFile(p, []byte(`API_SERVER_NAME=myapi.example.com /usr/bin/nohup /bin/bash -c "provision"`), 0600))
+		tt.App.nbcCmdPath = p
+
+		fqdn, ca, err := tt.App.lpsTargetFromNBCCmd()
 		require.NoError(t, err)
-		tr, ok := client.Transport.(*http.Transport)
-		require.True(t, ok)
-		assert.Equal(t, lpsSNIHost, tr.TLSClientConfig.ServerName)
+		assert.Equal(t, "myapi.example.com", fqdn)
+		assert.Nil(t, ca)
+	})
+
+	t.Run("invalid CA is an error", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		p := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+		require.NoError(t, os.WriteFile(p, []byte(`API_SERVER_NAME=myapi.example.com KUBE_CA_CRT="not-base64" /usr/bin/nohup /bin/bash -c "provision"`), 0600))
+		tt.App.nbcCmdPath = p
+
+		_, _, err := tt.App.lpsTargetFromNBCCmd()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "KUBE_CA_CRT")
 	})
 }
 
@@ -580,6 +754,23 @@ func TestWriteHotfixConfig_EmptyMapKeepsStableKey(t *testing.T) {
 			assert.JSONEq(t, `{"hotfixes":{}}`, string(raw))
 		})
 	}
+}
+
+// TestWriteHotfixConfig_PreservesVersionsAndDropsArtifacts guards the read-modify-write:
+// version fields remain compatible with cloud-init, while the retired artifacts contract is removed.
+func TestWriteHotfixConfig_PreservesVersionsAndDropsArtifacts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hotfix.json")
+	existing := `{"version":"202604.01.5","scripts_version":"202604.01.7",` +
+		`"hotfixes":{"202604.01":"202604.01.5"},` +
+		`"artifacts":{"202604.01.5":{"linux-ubuntu-22.04-amd64":` +
+		`{"url":"https://packages.microsoft.com/fake.deb","sha256":"abc123"}}}}`
+	require.NoError(t, os.WriteFile(path, []byte(existing), 0644))
+
+	require.NoError(t, writeHotfixConfig(path, hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.9"}}))
+
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.9"}}`, string(raw))
 }
 
 func TestWriteHotfixConfig_FileMode(t *testing.T) {

@@ -21,7 +21,7 @@
       "text": "Ensure all new code is covered by tests.",
     },
     {
-      "text": "If changes are in folder 'parts', 'pkg', run 'make generate' to regenerate the snapshot test data.",
+      "text": "If changes are in folder 'aks-node-controller/parser', run 'make generate-testdata' to regenerate the snapshot test data.",
     }
   ],
   "github.copilot.chat.testGeneration.instructions": [
@@ -46,7 +46,7 @@
       "text": "1. Ensure all tests pass before submitting: `make test`",
     },
     {
-      "text": "2. If changes were made to parts/ or pkg/ directories, run `make generate` to update testdata",
+      "text": "2. If changes were made to aks-node-controller/parser, run `make generate-testdata` to update its testdata",
     },
     {
       "text": "3. Provide a clear description of the changes in the PR description",
@@ -61,13 +61,13 @@
       "text": "When resolving merge conflicts in PRs, use the following strategy for testdata directories:",
     },
     {
-      "text": "1. Accept 'theirs' for the testdata directory: `git checkout --theirs origin/master pkg/agent/testdata`",
+      "text": "1. Accept 'theirs' for the testdata directory: `git checkout --theirs origin/master aks-node-controller/parser/testdata`",
     },
     {
-      "text": "2. Stage the changes: `git add pkg/agent/testdata`",
+      "text": "2. Stage the changes: `git add aks-node-controller/parser/testdata`",
     },
     {
-      "text": "3. Regenerate test data: `make generate`",
+      "text": "3. Regenerate test data: `make generate-testdata`",
     },
     {
       "text": "4. Commit with message 'test: update testdata'",

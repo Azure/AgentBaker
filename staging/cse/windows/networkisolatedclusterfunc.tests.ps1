@@ -143,7 +143,7 @@ Describe "Set-PodInfraContainerImage" {
 {
   "Cri": {
     "Images": {
-      "Pause": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1"
+      "Pause": "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2"
     }
   }
 }
@@ -176,7 +176,7 @@ Describe "Set-PodInfraContainerImage" {
   It "returns early when image already exists locally" {
     $script:CtrExeMock = {
       param($Args)
-      return @("mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.1")
+      return @("mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2")
     }
 
     function global:Mock-OrasCli {
@@ -241,7 +241,7 @@ Describe "Set-PodInfraContainerImage" {
 
     $global:MCRRepositoryBase = $null
     { Set-PodInfraContainerImage } | Should -Not -Throw
-    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
   }
 
   It "should use MCRRepositoryBase (and trim trailing slash) for image replacement" {
@@ -250,7 +250,7 @@ Describe "Set-PodInfraContainerImage" {
 {
   "Cri": {
     "Images": {
-      "Pause": "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.1"
+      "Pause": "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.2"
     }
   }
 }
@@ -268,7 +268,7 @@ Describe "Set-PodInfraContainerImage" {
 
     $global:MCRRepositoryBase = "mcr.microsoft.us/"
     { Set-PodInfraContainerImage } | Should -Not -Throw
-    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.1"
+    $script:orasImageArg | Should -Be "myacr.azurecr.io/aks-managed-repository/oss/v2/kubernetes/pause:3.10.2"
   }
 }
 

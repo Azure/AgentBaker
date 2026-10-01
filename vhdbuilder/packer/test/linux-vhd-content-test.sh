@@ -18,6 +18,7 @@ GIT_BRANCH="$4"
 IMG_SKU="$5"
 FEATURE_FLAGS="$6"
 GIT_COMMIT_HASH="$7"
+AGENTBAKER_REPOSITORY_URL="${8:-https://github.com/Azure/AgentBaker.git}"
 
 systemctl daemon-reload && systemctl restart containerd
 
@@ -34,14 +35,14 @@ err() {
 }
 
 # assertPackageVersion verifies that the installed deb/rpm package version matches
-# the expected full version string from components.json (including hotfix suffix).
-# This catches drift between what the package manager installs and what components.json
-# specifies at VHD build time rather than in e2e.
+# either the exact expected version or, when allowed, that upstream version plus
+# a distro package revision.
 # shellcheck disable=SC2016
 assertPackageVersion() {
   local test="$1"
   local packageName="$2"
   local expectedVersion="$3"
+  local allowRevision="${4:-false}"
 
   local installedVersion=""
   if command -v dpkg-query >/dev/null 2>&1 && dpkg-query -W -f='${Status}' "$packageName" 2>/dev/null | grep -q "install ok installed"; then
@@ -55,26 +56,29 @@ assertPackageVersion() {
   fi
 
   echo "$test: checking if installed $packageName version '$installedVersion' matches expected '$expectedVersion'"
-  if [ "$installedVersion" != "$expectedVersion" ]; then
+  local versionMatches=false
+  if [ "$installedVersion" = "$expectedVersion" ]; then
+    versionMatches=true
+  elif [ "$allowRevision" = "true" ]; then
+    case "$installedVersion" in
+      "${expectedVersion}-"*|"${expectedVersion}+"*) versionMatches=true ;;
+    esac
+  fi
+
+  if [ "$versionMatches" != "true" ]; then
     err "$test" "installed $packageName version '$installedVersion' does not match expected '$expectedVersion' from components.json"
     return 1
   fi
   return 0
 }
 
-# Clone the repo and checkout the branch provided.
-# Simply clone with just the branch doesn't work for pull requests, but this technique works
-# with everything we've tested so far.
-#
-# Strategy is to clone the repo, fetch the remote branch by ref into a local branch, and then checkout the local branch.
-# The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
-# for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
-LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
-
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git; then
+    err 'git-install' "Failed to install git"
+    exit 1
+  fi
 elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
   : # Flatcar/ACL comes with git pre-installed
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
@@ -90,8 +94,9 @@ if [ "$SKIP_GIT_CLONE" = "true" ]; then
   fi
   echo "Skipping git clone and pulling .tar.gz artifact for commit $GIT_COMMIT_HASH"
 
-  if ! curl -fLsS -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}; then
-    err 'curl' "Failed to download https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}"
+  AGENTBAKER_ARCHIVE_URL="${AGENTBAKER_REPOSITORY_URL%.git}/archive/${GIT_COMMIT_HASH}.tar.gz"
+  if ! curl -fLsS -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz "$AGENTBAKER_ARCHIVE_URL"; then
+    err 'curl' "Failed to download $AGENTBAKER_ARCHIVE_URL"
     exit 1
   fi
   if ! tar -xf AgentBaker-${GIT_COMMIT_HASH}.tar.gz; then
@@ -100,12 +105,9 @@ if [ "$SKIP_GIT_CLONE" = "true" ]; then
   fi
   mv AgentBaker-${GIT_COMMIT_HASH} AgentBaker
 else
-  # Clone the AgentBaker repo and checkout the branch provided.
-  echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-  COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
-  if ! ${COMMAND}; then
+  echo "Cloning configured AgentBaker repo and checking out commit '${GIT_COMMIT_HASH}' from '${GIT_BRANCH}'"
+  if ! git clone --quiet "$AGENTBAKER_REPOSITORY_URL" AgentBaker; then
     err 'git-clone' "Failed to clone AgentBaker repo"
-    err 'git-clone' "Used command '${COMMAND}'"
     exit 1
   fi
   if ! pushd ./AgentBaker; then
@@ -114,16 +116,12 @@ else
     err 'git-clone' "Contents of current directory: $(ls -al)"
     exit 1
   fi
-  COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
-  if ! ${COMMAND}; then
-    err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-    err 'git-clone' "Used command '${COMMAND}'"
+  if ! git fetch --quiet origin "$GIT_COMMIT_HASH"; then
+    err 'git-clone' "Failed to fetch AgentBaker commit '${GIT_COMMIT_HASH}'"
     exit 1
   fi
-  COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
-  if ! ${COMMAND}; then
-    err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
-    err 'git-clone' "Used command '${COMMAND}'"
+  if ! git checkout --quiet "$GIT_COMMIT_HASH"; then
+    err 'git-clone' "Failed to checkout AgentBaker commit '${GIT_COMMIT_HASH}'"
     exit 1
   fi
   if ! popd; then
@@ -235,10 +233,7 @@ testAcrCredentialProviderInstalled() {
 
 testPackagesInstalled() {
   local test="testPackagesInstalled"
-  if [ "$(isARM64)" -eq 1 ]; then
-    return
-  fi
-  CPU_ARCH="amd64"
+  CPU_ARCH=$(getCPUArch) # "arm64" or "amd64"
   echo "$test:Start"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
@@ -268,6 +263,7 @@ testPackagesInstalled() {
         ;;
       "azure-acr-credential-provider-pmc"|\
       "nvidia-device-plugin"|\
+      "dra-driver-nvidia-gpu"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
@@ -639,6 +635,8 @@ testChrony() {
   fi
   initialDate=$(date +%s)
   date --set "27 Feb 2021"
+  # Request fresh measurements after the artificial time jump.
+  chronyc burst 4/4
   for i in $(seq 1 10); do
     newDate=$(date +%s)
     if (($newDate > $initialDate)); then
@@ -730,7 +728,7 @@ testFips() {
   # OpenSSL must have an active FIPS or SymCrypt provider on 3.x (ICM 51000001009688
   # was caused by kernel FIPS on with no provider, causing portmap to panic). Ubuntu
   # 20.04 ships 1.1.x and uses the legacy FIPS module — skip there. Keep in sync with
-  # the Go validator in e2e/validators.go.
+  # the Go validator in e2e/scenario/validators.go.
   if ! command -v openssl >/dev/null 2>&1; then
     err $test "openssl binary not found on a FIPS-enabled VHD."
     echo "$test:Finish"
@@ -803,6 +801,7 @@ testLtsKernel() {
     elif [ "$os_version" = "24.04" ]; then
       expected_kernel="6.8"
     else
+      # TODO(2604): update once 26.04 LTS kernel metapackage is available
       echo "LTS kernel not installed for: $os_version"
     fi
 
@@ -818,6 +817,57 @@ testLtsKernel() {
     echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
   fi
 
+}
+
+testAzureLinuxArm64DualKernel() {
+  local test="testAzureLinuxArm64DualKernel"
+  local os_version=$1
+  local os_sku=$2
+  local enable_fips=$3
+
+  echo "$test:Start"
+  if [ "$os_version" != "3.0" ] || [ "${enable_fips,,}" = "true" ] || ! isAzureLinuxArm64BaseImage "${os_sku^^}" "$(getCPUArch)" "$OS_VARIANT"; then
+    echo "$test: Skipping for non-FIPS AzureLinux 3 ARM64 image"
+    return
+  fi
+
+  local package
+  for package in kernel kernel-hwe grub2 grub2-efi-binary grub2-efi; do
+    if ! rpm -q "$package" >/dev/null 2>&1; then
+      err "$test" "$package is not installed"
+    fi
+  done
+
+  local grub_version
+  local grub_efi_binary_version
+  local grub_efi_modules_version
+  grub_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2 2>/dev/null || true)
+  grub_efi_binary_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi-binary 2>/dev/null || true)
+  grub_efi_modules_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi 2>/dev/null || true)
+  if [ -z "$grub_version" ] || [ "$grub_version" != "$grub_efi_binary_version" ] || [ "$grub_version" != "$grub_efi_modules_version" ]; then
+    err "$test" "GRUB package versions do not match: grub2=$grub_version, binary=$grub_efi_binary_version, modules=$grub_efi_modules_version"
+  fi
+
+  if [ ! -s /usr/lib/grub/arm64-efi/smbios.mod ]; then
+    err "$test" "/usr/lib/grub/arm64-efi/smbios.mod is missing or empty"
+  fi
+
+  if [ ! -x /etc/grub.d/10_azure_nvidia ] || [ ! -f /etc/default/grub.d/51-azure-nvidia.cfg ]; then
+    err "$test" "NVIDIA GRUB selector files are missing"
+  fi
+  if ! grub2-script-check /boot/grub2/grub.cfg; then
+    err "$test" "generated grub.cfg is invalid"
+  fi
+  if ! grep -q 'smbios --type 4 --get-string 7 --set cpu_manufacturer' /boot/grub2/grub.cfg; then
+    err "$test" "generated grub.cfg does not contain NVIDIA SMBIOS detection"
+  fi
+
+  local running_kernel_package
+  running_kernel_package=$(rpm -qf --queryformat '%{NAME}' "/boot/vmlinuz-$(uname -r)" 2>/dev/null || true)
+  if [ "$running_kernel_package" != "kernel" ]; then
+    err "$test" "standard ARM64 test VM booted $running_kernel_package instead of kernel"
+  fi
+  echo "$test:Finish"
 }
 
 # Parse loginctl sessions to find console autologin sessions
@@ -930,8 +980,8 @@ testLSMBPF() {
   os_sku=$1
   os_version=$2
 
-  # Only test on Ubuntu 24.04 and Azure Linux 3.0 that LSM BPF is configured correctly
-  if { [ "$os_sku" != "Ubuntu" ] || [ "$os_version" != "24.04" ]; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
+  # Only test on Ubuntu 24.04/26.04 and Azure Linux 3.0 that LSM BPF is configured correctly
+  if { [ "$os_sku" != "Ubuntu" ] || { [ "$os_version" != "24.04" ] && [ "$os_version" != "26.04" ]; }; } && { [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; }; then
     echo "$test: will not test for BPF to be present within LSM modules for SKU: $os_sku, version: $os_version"
     echo "$test:Finish"
     return 0
@@ -1160,19 +1210,26 @@ testPkgDownloaded() {
   echo "$test:Start"
   local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  local seArch seFile
+  local seArch seFile versionRegex
   seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
     packageVersion="${packageVersion#*:}"
+    versionRegex="${packageVersion//./\\.}"
     if [ $OS = $UBUNTU_OS_NAME ]; then
-      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
+      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_*" -print 2>/dev/null |
+        grep -E "/${packageName}_${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || debFile=""
       if [ -z "${debFile}" ]; then
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
     elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
-      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-*" -print 2>/dev/null |
+        grep -E "/${packageName}-${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
@@ -1243,6 +1300,38 @@ testVHDBuildLogsExist() {
     err $test "File $VHD_LOGS_FILEPATH not found"
     exit $ERR_VHD_FILE_NOT_FOUND
   fi
+  echo "$test:Finish"
+}
+
+testAzureLinuxNvidiaGPUDriverReleaseNotes() {
+  local test="testAzureLinuxNvidiaGPUDriverReleaseNotes"
+  local enable_fips="${ENABLE_FIPS,,}"
+
+  if [ "$OS_SKU" != "AzureLinux" ] || [ "$OS_VERSION" != "3.0" ] || [ "$enable_fips" = "true" ] || [ "$(isARM64)" -eq 1 ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    echo "$test: Skipping check for $OS_SKU $OS_VERSION (fips=$ENABLE_FIPS, feature_flags=$FEATURE_FLAGS)"
+    return 0
+  fi
+
+  if ! grep -F -q "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes" "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Azure Linux NVIDIA GPU driver release-note section was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-cuda-open-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected an Azure Linux CUDA open driver release-note line was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-cuda-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected an Azure Linux proprietary CUDA driver release-note line was not found"
+  fi
+
+  if ! grep -E -q '^  - nvidia-grid-driver version [0-9]' "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux GRID driver release-note line was not found"
+  fi
+
+  if ! grep -F -q "the installed version is not pinned to this VHD" "$VHD_LOGS_FILEPATH"; then
+    err "$test" "Expected Azure Linux GPU driver release-note snapshot disclaimer was not found"
+  fi
+
   echo "$test:Finish"
 }
 
@@ -1445,14 +1534,70 @@ testNfsServerService() {
 }
 
 # Verify all kernel modules with known LPE vulnerabilities are disabled.
-# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc).
+# Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc),
+# and Fragnesia (esp4, esp6).
 # To add a new CVE mitigation, append the module to BOTH loops below — the
-# AzureLinux 3.0 absence loop AND the default presence + load-refusal loop.
+# absence loop AND the default presence + load-refusal loop.
 #
-# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream and
-# the modprobe blacklist is NOT baked into newly-built AzL3 VHDs (customer workloads
-# require those modules). On AzL3 we therefore assert the blacklist entries are
-# ABSENT. Ubuntu and Mariner (AzL2) still assert presence + load-refusal.
+# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream, so only the
+# algif_aead/esp4/esp6/rxrpc lines are stripped from newly-built AzL3 VHDs (customer workloads
+# require those modules); the rest of the CIS module denylist (dccp/sctp/rds/tipc/cramfs/etc.)
+# is still baked in and asserted below. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
+# 24.04 linux-azure 6.8.0-1058-azure include the fixes, so newly-built Ubuntu
+# 22.04/24.04 VHDs with a fixed running kernel also stop baking the vulnerable-module
+# blacklist while keeping the baseline CIS module deny list. Ubuntu 20.04 Azure FIPS
+# 5.4 kernels at ABI 1164 or newer also assert ABSENCE. Other Ubuntu 20.04 and vulnerable
+# 22.04/24.04 kernels assert presence + load-refusal; fixed 22.04/24.04 kernels and
+# future Ubuntu releases assert ABSENCE so future releases do not inherit the mitigation.
+# Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence + load-refusal.
+kernelVersionGe() {
+  local version_a="$1"
+  local version_b="$2"
+  local sorted
+  local highest_version
+
+  sorted=$(printf "%s\n%s\n" "$version_a" "$version_b" | sort -V)
+  highest_version=$(printf "%s\n" "$sorted" | tail -n 1)
+  [ "$version_a" = "$highest_version" ]
+}
+
+ubuntuKernelIncludesVulnerableModuleFixes() {
+  local os_version="$1"
+  local kernel_release
+  local fixed_kernel
+
+  kernel_release="$(uname -r 2>/dev/null || true)"
+  if [ -z "$os_version" ] || [ -z "$kernel_release" ]; then
+    return 1
+  fi
+
+  case "$os_version" in
+    20.04)
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
+    22.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    24.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    *) return 0 ;;
+  esac
+
+  kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
 testVulnerableKernelModulesDisabled() {
   local os_sku="${1:-$OS_SKU}"
   local os_version="${2:-$OS_VERSION}"
@@ -1461,13 +1606,38 @@ testVulnerableKernelModulesDisabled() {
 
   local failed=0
 
-  if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; then
+  if { [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; } || \
+     { [ "$os_sku" = "Ubuntu" ] && ubuntuKernelIncludesVulnerableModuleFixes "$os_version"; }; then
     for mod in algif_aead esp4 esp6 rxrpc; do
       if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then
-        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on AzureLinux 3.0 (bake-in removed; kernel 6.6.139.1-1.azl3+ supersedes; no 'install' or 'blacklist' directive should remain)"
+        err "$test" "${mod} blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on ${os_sku} ${os_version} (bake-in removed for fixed/future Ubuntu and AzL3 kernels; no 'install' or 'blacklist' directive should remain)"
         failed=1
       else
-        echo "$test: ${mod} blacklist correctly absent on AzureLinux 3.0"
+        echo "$test: ${mod} blacklist correctly absent on ${os_sku} ${os_version}"
+      fi
+    done
+
+    # Only the algif_aead/esp4/esp6/rxrpc lines above are stripped for the CVE mitigation;
+    # the rest of the CIS 3.5.x / 1.1.1.x module denylist must remain intact on every OS
+    # stream (including AzureLinux 3.0, which used to skip the whole modprobe-CIS.conf file).
+    for mod in dccp sctp rds tipc; do
+      if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      else
+        echo "$test: CIS modprobe config correctly blocks ${mod} on ${os_sku} ${os_version}"
+      fi
+    done
+
+    for mod in cramfs freevxfs jffs2 hfs hfsplus usb-storage; do
+      if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS disable rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      elif ! grep -qsE "^blacklist ${mod}" /etc/modprobe.d/*.conf 2>/dev/null; then
+        err "$test" "${mod} CIS blacklist rule not found in /etc/modprobe.d/*.conf on ${os_sku} ${os_version}"
+        failed=1
+      else
+        echo "$test: CIS modprobe config correctly blocks ${mod} on ${os_sku} ${os_version}"
       fi
     done
 
@@ -1772,9 +1942,14 @@ testContainerImagePrefetchScript() {
 testBccTools () {
   local test="BCCInstallTest"
   os_sku="${1}"
+  os_version="${2}"
   echo "$test: checking if BCC tools were successfully installed"
   if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
     echo "$test: Skipping check on AzureLinuxOSGuard - BCC tools are not installed"
+    return 0
+  fi
+  if [ "$os_version" = "26.04" ]; then
+    echo "$test: Skipping check on Ubuntu 26.04 - BCC tools are not installed"
     return 0
   fi
   for line in '  - bcc-tools' '  - libbcc-examples'; do
@@ -1881,6 +2056,22 @@ testNodeExporter () {
   fi
   echo "$test: skip sentinel file exists at $skip_file"
 
+  local expectedVersion
+  expectedVersion=$(getPackageExpectedVersion "node-exporter" "" "" "")
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    err "$test" "node-exporter expected version is <SKIP> on supported OS $os_sku"
+    return 1
+  fi
+  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" true || return 1
+
+  local expectedBinaryVersion="v${expectedVersion%%-*}"
+  local binaryVersion
+  binaryVersion=$(/usr/bin/node-exporter --version 2>&1 | awk 'NR == 1 { print $3 }')
+  if [ "$binaryVersion" != "$expectedBinaryVersion" ]; then
+    err "$test" "node-exporter binary version '$binaryVersion' does not match expected '$expectedBinaryVersion'"
+    return 1
+  fi
+
   # The Dalec-built deb/rpm installs the binary to /usr/bin/node-exporter.
   # We then create a symlink at /opt/bin/node-exporter for consistency with
   # other binaries (kubelet, kubectl) that live in /opt/bin.
@@ -1910,6 +2101,11 @@ testNodeExporter () {
     return 1
   fi
   echo "$test: node-exporter startup script exists"
+
+  if [ ! -s /etc/udev/rules.d/99-node-exporter-mana.rules ]; then
+    err "$test" "node-exporter MANA PCI-add rule is missing"
+    return 1
+  fi
 
   # Check that the service file exists
   if [ ! -f "/etc/systemd/system/node-exporter.service" ]; then
@@ -1976,9 +2172,19 @@ testAKSNodeControllerVersion() {
     return 1
   fi
 
-  if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
-    err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
-    return 1
+  # Test builds (PR builds, and any build run off a non-main ref) are not tied to a real VHD release version,
+  # so binary stamped with a non-release version (e.g. a locally-generated dev/date-based fallback).
+  # Only enforce the strict release format when official build off of 'refs/heads/main'.
+  if [ "$GIT_BRANCH" = "refs/heads/main" ]; then
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]{6}\.[0-9]{2}\.[0-9]+$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected 'YYYYMM.DD.PATCH'"
+      return 1
+    fi
+  else
+    if ! printf '%s\n' "$ancVersion" | grep -Eq '^[0-9]+(\.[0-9]+)*$'; then
+      err "$test" "aks-node-controller version format is invalid: '${ancVersion}'. expected a dotted numeric version"
+      return 1
+    fi
   fi
 
   echo "$test: aks-node-controller version '${ancVersion}' is valid"
@@ -1990,16 +2196,24 @@ testAKSNodeControllerService() {
   echo "$test:Start"
 
   # is-enabled returns:
-  # 'enabled' if the service is enabled.
+  # 'disabled' if the service is disabled.
   # empty string if the service is not installed.
   # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
-  echo "$test: Checking that $service_name is enabled"
+  #
+  # The unit is kept disabled in the VHD image on purpose: it must only ever be
+  # started by the boothook's explicit "systemctl start --no-block" call, issued
+  # after the provision config/nbc-cmd files exist. If it were enabled (pulled in
+  # via WantedBy=basic.target), systemd could auto-start it before those files
+  # exist; the wrapper's graceful no-op exit would then mark this oneshot unit
+  # "active (exited)", making the boothook's later start call a no-op and
+  # preventing ANC from ever running with the real config.
+  echo "$test: Checking that $service_name is disabled"
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
   echo "$test: logging ${is_enabled} here"
-  if [ "${is_enabled}" = "enabled" ]; then
-    echo "$test: $service_name is correctly enabled"
+  if [ "${is_enabled}" = "disabled" ]; then
+    echo "$test: $service_name is correctly disabled"
   else
-    err $test "$service_name is not enabled, instead in state $is_enabled"
+    err $test "$service_name is not disabled, instead in state $is_enabled"
   fi
 
   echo "$test:Finish"
@@ -2017,12 +2231,12 @@ testCriCtl() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream cri-tools version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch
@@ -2052,12 +2266,12 @@ testContainerd() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream containerd version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the containerd binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch
@@ -2583,8 +2797,9 @@ testContainerNetworkingPluginsInstalled() {
 # This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
 # Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
 checkPerformanceData
-testBccTools $OS_SKU
+testBccTools $OS_SKU $OS_VERSION
 testVHDBuildLogsExist
+testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
 testFuseInstalled
@@ -2611,7 +2826,7 @@ testAppArmorInstalled $OS_SKU $OS_VERSION
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
-# See https://msazure.visualstudio.com/CloudNativeCompute/_backlogs/backlog/Node%20Lifecycle/Features/?workitem=24246232
+# Tracked internally (Node Lifecycle backlog item #24246232)
 # testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted
@@ -2631,6 +2846,7 @@ testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testAzureLinuxArm64DualKernel "$OS_VERSION" "$OS_SKU" "$ENABLE_FIPS"
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs $OS_SKU

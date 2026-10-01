@@ -1,11 +1,8 @@
 #!/bin/bash
 
 removeContainerd() {
-    containerdPackageName="containerd"
-    if [ "$OS_VERSION" = "2.0" ]; then
-        containerdPackageName="moby-containerd"
-    fi
-    retrycmd_if_failure 10 5 60 dnf remove -y $containerdPackageName
+    local packageName="${1:-containerd}"
+    retrycmd_if_failure 10 5 60 dnf remove -y "$packageName"
 }
 
 installDeps() {
@@ -77,13 +74,22 @@ installKataDeps() {
 }
 
 installCriCtlPackage() {
-  version="${1:-}"
-  packageName="kubernetes-cri-tools-${version}"
+  local version="${1:-}"
+  local fullPackageVersion
+  local packageName
   if [ -z "$version" ]; then
     echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
+    exit 1
   fi
+  fullPackageVersion=$(getLatestRPMPackageVersion "kubernetes-cri-tools" "${version}") || fullPackageVersion=""
+  if [ -z "${fullPackageVersion}" ]; then
+    echo "Failed to find valid kubernetes-cri-tools version for ${version}"
+    exit 1
+  fi
+  logResolvedPackageVersion "kubernetes-cri-tools" "${version}" "${fullPackageVersion}"
+  packageName="kubernetes-cri-tools-${fullPackageVersion}"
   echo "Installing ${packageName} with dnf"
-  dnf_install 30 1 600 ${packageName} || exit 1
+  dnf_install 30 1 600 "${packageName}" || exit 1
 }
 
 downloadGridDrivers() {
@@ -101,14 +107,69 @@ downloadGridDrivers() {
     dnf_install 30 1 600 ${GRID_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
 }
 
+getLatestAzureLinuxNvidiaDriverPackageForKernel() {
+    local package_query=$1
+    local package_regex=$2
+    local kernel_version=$3
+
+    dnf repoquery -y --available "${package_query}" 2>/dev/null | \
+        grep -E "${package_regex}" | grep -F "_${kernel_version}." | sort -V | tail -n 1 || true
+}
+
+getAzureLinuxNvidiaDriverVersionFromPackage() {
+    local package=$1
+    local package_prefix=$2
+    local version_with_epoch
+
+    version_with_epoch=${package#"${package_prefix}"}
+    version_with_epoch=${version_with_epoch#hwe-}
+    version_with_epoch=${version_with_epoch%%-*}
+    echo "${version_with_epoch#*:}"
+}
+
+getAzureLinuxNvidiaDriverReleaseNotes() {
+    local kernel_version
+    kernel_version=$(uname -r | sed 's/-/./g')
+
+    local cuda_open_package
+    local cuda_package
+    local grid_package
+    cuda_open_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda-open*" "^cuda-open(-hwe)?-[0-9]" "${kernel_version}")
+    cuda_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda" "^cuda-[0-9]" "${kernel_version}")
+    grid_package=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "nvidia-vgpu-guest-driver*" "^nvidia-vgpu-guest-driver-[0-9]" "${kernel_version}")
+
+    if [ -z "${cuda_open_package}" ] && [ -z "${cuda_package}" ] && [ -z "${grid_package}" ]; then
+        return 0
+    fi
+
+    echo "NVIDIA GPU driver versions available at VHD build time for supported Azure Linux GPU VM sizes:"
+    if [ -n "${cuda_open_package}" ]; then
+        echo "  - nvidia-cuda-open-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${cuda_open_package}" "cuda-open-")"
+    fi
+    if [ -n "${cuda_package}" ]; then
+        echo "  - nvidia-cuda-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${cuda_package}" "cuda-")"
+    fi
+    if [ -n "${grid_package}" ]; then
+        echo "  - nvidia-grid-driver version $(getAzureLinuxNvidiaDriverVersionFromPackage "${grid_package}" "nvidia-vgpu-guest-driver-")"
+    fi
+    echo "  Note: build-time snapshot only; Azure Linux GPU nodes install the latest kernel-compatible RPM available at node provisioning time, so the installed version is not pinned to this VHD."
+}
+
 downloadGPUDrivers() {
+  local nvidia_repo="${AZURELINUX_NVIDIA_REPO_FILEPATH:-/etc/yum.repos.d/azurelinux-nvidia.repo}"
+  if [ "$OS_VERSION" = "3.0" ] && [ "$(getCPUArch)" = "arm64" ] && [ -f "$nvidia_repo" ] &&
+    grep -Eq '^baseurl=https://packages[.]microsoft[.]com/azurelinux/3[.]0/prod/nvidia/x86_64/?$' "$nvidia_repo"; then
+    sed -i -E "s|^(baseurl=https://packages[.]microsoft[.]com/azurelinux/3[.]0/prod/nvidia/)x86_64/?$|\1\$basearch/|" "$nvidia_repo" || exit $ERR_NVIDIA_DRIVER_INSTALL
+    dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+  fi
+
     # Mariner CUDA rpm name comes in the following format:
     #
     # 1. NVIDIA proprietary driver:
     # cuda-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
     # 2. NVIDIA OpenRM driver:
-    # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
+    # cuda-open[-hwe]-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
     # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
     # nvidia-vgpu-guest-driver-%{version}_%{kernel version}.{mariner rpm postfix}
@@ -118,7 +179,9 @@ downloadGPUDrivers() {
     # "grid-v20" (Ubuntu-only, rejected below); modern CUDA SKUs get "cuda-lts" and legacy
     # NCv1 gets "cuda". Only grid vs non-grid matters here, so both take the CUDA path below.
     # Legacy GPUs (T4, V100) require proprietary CUDA drivers; A100+ use NVIDIA open drivers.
-    KERNEL_VERSION=$(uname -r | sed 's/-/./g')
+    local running_kernel
+    running_kernel=$(uname -r)
+    KERNEL_VERSION=$(echo "$running_kernel" | sed 's/-/./g')
     VM_SKU=$(get_compute_sku)
 
     # Converged GPU sizes use GRID drivers instead of CUDA drivers
@@ -146,10 +209,17 @@ downloadGPUDrivers() {
         exit $ERR_MISSING_CUDA_PACKAGE
     elif [ "$driver_ret" -eq 0 ]; then
         echo "VM SKU ${VM_SKU} uses NVIDIA OpenRM driver (cuda-open)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-open*" | grep -E "^cuda-open-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+        local kernel_package cuda_open_package
+        kernel_package=$(rpm -qf --queryformat '%{NAME}' "/boot/vmlinuz-${running_kernel}" 2>/dev/null || true)
+        case "$kernel_package" in
+            kernel) cuda_open_package="cuda-open" ;;
+            kernel-hwe) cuda_open_package="cuda-open-hwe" ;;
+            *) echo "Unsupported running kernel package: ${kernel_package:-unknown}"; exit $ERR_MISSING_CUDA_PACKAGE ;;
+        esac
+        CUDA_PACKAGE=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "$cuda_open_package" "^${cuda_open_package}-[0-9]" "$KERNEL_VERSION")
     else
         echo "VM SKU ${VM_SKU} uses NVIDIA proprietary driver (cuda)"
-        CUDA_PACKAGE=$(dnf repoquery -y --available "cuda-[0-9]*" | grep -E "^cuda-[0-9]+.*_${KERNEL_VERSION}" | sort -V | tail -n 1)
+      CUDA_PACKAGE=$(getLatestAzureLinuxNvidiaDriverPackageForKernel "cuda" "^cuda-[0-9]" "$KERNEL_VERSION")
     fi
 
     if [ -z "$CUDA_PACKAGE" ]; then
@@ -157,8 +227,38 @@ downloadGPUDrivers() {
         exit $ERR_MISSING_CUDA_PACKAGE
     fi
 
-    echo "Installing: ${CUDA_PACKAGE}"
-    dnf_install 30 1 600 ${CUDA_PACKAGE} || exit $ERR_APT_INSTALL_TIMEOUT
+    local nvidia_packages=("${CUDA_PACKAGE}")
+    local imex_package=""
+    if [ "$OS_VERSION" = "3.0" ] && [ "$(getCPUArch)" = "arm64" ]; then
+        case "${VM_SKU,,}" in
+            *gb200*|*gb300*)
+                local driver_version
+                driver_version=$(getAzureLinuxNvidiaDriverVersionFromPackage "$CUDA_PACKAGE" "cuda-open-")
+                if [ -z "$driver_version" ]; then
+                    echo "Failed to determine NVIDIA driver version for IMEX"
+                    exit $ERR_NVIDIA_DRIVER_INSTALL
+                fi
+
+                imex_package="nvidia-imex-${driver_version}"
+                local config_path="${NVIDIA_IMEX_MODPROBE_CONFIG_PATH:-/etc/modprobe.d/nvidia-imex.conf}"
+                mkdir -p "$(dirname "$config_path")" || exit $ERR_NVIDIA_DRIVER_INSTALL
+                printf '%s\n' 'options nvidia NVreg_CreateImexChannel0=1' > "$config_path" || exit $ERR_NVIDIA_DRIVER_INSTALL
+                updateDnfWithNvidiaPkg
+                nvidia_packages+=("$imex_package")
+                ;;
+        esac
+    fi
+
+    echo "Installing: ${nvidia_packages[*]}"
+    if ! dnf_install 30 1 600 "${nvidia_packages[@]}"; then
+        [ -z "$imex_package" ] || removeNvidiaRepos
+        exit $ERR_APT_INSTALL_TIMEOUT
+    fi
+
+    if [ -n "$imex_package" ]; then
+        removeNvidiaRepos
+        systemctl_disable 20 5 25 nvidia-imex || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 }
 
 createNvidiaSymlinkToAllDeviceNodes() {
@@ -454,7 +554,7 @@ installNvidiaManagedExpPkgFromCache() {
       continue
     fi
 
-    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print -quit 2>/dev/null) || rpmFile=""
+    rpmFile=$(find "${downloadDir}" -maxdepth 1 -name "${packageName}*" -print 2>/dev/null | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
       echo "Failed to locate ${packageName} rpm"
       exit $ERR_MANAGED_NVIDIA_EXP_INSTALL_FAIL
@@ -517,7 +617,7 @@ installRPMPackageFromFile() {
     fi
 
     # check cached rpms for matching filename
-    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         # query all package versions and get the latest version for matching k8s version
         # e.g. 1.34.0-5.azl3
@@ -528,7 +628,7 @@ installRPMPackageFromFile() {
         fi
         echo "Did not find cached rpm file, downloading ${packageName} version ${fullPackageVersion}"
         downloadPkgFromVersion "${packageName}" "${fullPackageVersion}" "${downloadDir}"
-        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+        rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     fi
     if [ -z "${rpmFile}" ]; then
         echo "Failed to locate ${packageName} rpm"
@@ -559,7 +659,7 @@ installPackageFromCache() {
     fi
 
     # check cached rpms for matching filename
-    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep "${desiredVersion}" | sort -V | tail -n 1) || rpmFile=""
+    rpmFile=$(ls "${downloadDir}" | grep "${packageName}" | grep -E "${desiredVersion}([^0-9]|$)" | sort -V | tail -n 1) || rpmFile=""
     if [ -z "${rpmFile}" ]; then
         echo "Failed to find cached rpm file for ${packageName} version ${desiredVersion}"
         return 1
@@ -582,7 +682,7 @@ getLatestRPMPackageVersion() {
     local i
     for i in $(seq 1 "${retries}"); do
         dnfListOutput=$(dnf list "${packageName}" --showduplicates 2>&1)
-        fullPackageVersion=$(printf '%s\n' "${dnfListOutput}" | awk -v dv="${desiredVersion}" '{ver=$2; sub(/^[0-9]+:/,"",ver); if (index(ver, dv "-")==1) print ver}' | sort -V | tail -n 1)
+        fullPackageVersion=$(printf '%s\n' "${dnfListOutput}" | awk -v dv="${desiredVersion}" '{ver=$2; sub(/^[0-9]+:/,"",ver); if (ver == dv || index(ver, dv "-")==1 || index(ver, dv "+")==1) print ver}' | sort -V | tail -n 1)
         if [ -n "${fullPackageVersion}" ]; then
             echo "${fullPackageVersion}"
             return 0
@@ -608,42 +708,101 @@ getLatestRPMPackageVersion() {
     return 1
 }
 
+logResolvedPackageVersion() {
+    local packageName="${1}"
+    local requestedVersion="${2}"
+    local fullPackageVersion="${3}"
+    local message="Resolved ${packageName} package version ${requestedVersion} -> ${fullPackageVersion}"
+
+    echo "${message}"
+    if [ -f "${VHD_LOGS_FILEPATH:-}" ]; then
+        echo "  - ${packageName} package version ${fullPackageVersion} (requested ${requestedVersion})" >> "${VHD_LOGS_FILEPATH}"
+    fi
+}
+
 downloadPkgFromVersion() {
-    packageName="${1:-}"
-    packageVersion="${2:-}"
-    downloadDir="${3:-$(getPackageDownloadDir "${packageName}")}"
+    local packageName="${1:-}"
+    local packageVersion="${2:-}"
+    local downloadDir="${3:-$(getPackageDownloadDir "${packageName}")}"
+    local fullPackageVersion
+
+    fullPackageVersion="${packageVersion}"
+    # shellcheck disable=SC3010
+    if [[ "${packageVersion}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        fullPackageVersion=$(getLatestRPMPackageVersion "${packageName}" "${packageVersion}")
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid ${packageName} version for ${packageVersion}"
+            return 1
+        fi
+    fi
+
+    logResolvedPackageVersion "${packageName}" "${packageVersion}" "${fullPackageVersion}"
     mkdir -p "${downloadDir}"
-    dnf_download 30 1 600 "${downloadDir}" ${packageName}-${packageVersion} || exit $ERR_APT_INSTALL_TIMEOUT
-    echo "Succeeded to download ${packageName} version ${packageVersion}"
+    dnf_download 30 1 600 "${downloadDir}" "${packageName}-${fullPackageVersion}" || exit "$ERR_APT_INSTALL_TIMEOUT"
+    echo "Succeeded to download ${packageName} version ${fullPackageVersion} for requested version ${packageVersion}"
 }
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     local desiredVersion="${1:-}"
-    #e.g., desiredVersion will look like this 1.6.26-5.cm2
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    # check if containerd command is available before running it
-    if command -v containerd &> /dev/null; then
-        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    fi
-    # v1.4.1 is our lowest supported version of containerd
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
-    else
-        echo "installing containerd version ${desiredVersion}"
-        removeContainerd
-        containerdPackageName="containerd-${desiredVersion}"
-        if [ "$OS_VERSION" = "2.0" ]; then
-            containerdPackageName="moby-containerd-${desiredVersion}"
-        fi
-        if [ "$OS_VERSION" = "3.0" ]; then
-            containerdPackageName="containerd2-${desiredVersion}"
-        fi
+    local containerdPackageName="containerd"
+    local fullPackageVersion="${desiredVersion}"
+    local currentVersion=""
+    local installedPackageVersion=""
+    local installRequired=true
+    local revisionlessVersion=false
 
+    if [ "$OS_VERSION" = "2.0" ]; then
+        containerdPackageName="moby-containerd"
+    fi
+    if [ "$OS_VERSION" = "3.0" ]; then
+        containerdPackageName="containerd2"
+    fi
+
+    # shellcheck disable=SC3010
+    if [[ "${desiredVersion}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        revisionlessVersion=true
+    fi
+
+    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    if command -v containerd &> /dev/null; then
+        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    fi
+
+    # v1.4.1 is our lowest supported version of containerd
+    if semverCompare "${currentVersion:-"0.0.0"}" "${desiredVersion}"; then
+        installRequired=false
+        if [ "${revisionlessVersion}" = "true" ] && [ "${currentVersion}" = "${desiredVersion}" ]; then
+            fullPackageVersion=$(getLatestRPMPackageVersion "${containerdPackageName}" "${desiredVersion}")
+            if [ -z "${fullPackageVersion}" ]; then
+                echo "Failed to find valid ${containerdPackageName} version for ${desiredVersion}"
+                exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
+            fi
+            installedPackageVersion=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}\n' "${containerdPackageName}" 2>/dev/null || true)
+            if [ -n "${installedPackageVersion}" ] && [ "${installedPackageVersion}" != "${fullPackageVersion}" ]; then
+                echo "installed ${containerdPackageName} package version ${installedPackageVersion} does not match latest revision ${fullPackageVersion}"
+                installRequired=true
+            fi
+        fi
+    fi
+
+    if [ "${installRequired}" = "true" ]; then
+        if [ "${revisionlessVersion}" = "true" ] && [ "${fullPackageVersion}" = "${desiredVersion}" ]; then
+            fullPackageVersion=$(getLatestRPMPackageVersion "${containerdPackageName}" "${desiredVersion}")
+            if [ -z "${fullPackageVersion}" ]; then
+                echo "Failed to find valid ${containerdPackageName} version for ${desiredVersion}"
+                exit "$ERR_CONTAINERD_INSTALL_TIMEOUT"
+            fi
+        fi
+        echo "installing containerd version ${fullPackageVersion}"
+        removeContainerd "${containerdPackageName}"
+        logResolvedPackageVersion "${containerdPackageName}" "${desiredVersion}" "${fullPackageVersion}"
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
-        if ! dnf_install 30 1 600 $containerdPackageName; then
+        if ! dnf_install 30 1 600 "${containerdPackageName}-${fullPackageVersion}"; then
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
+    else
+        echo "currently installed containerd version ${currentVersion} satisfies target package version ${fullPackageVersion}. skipping installStandaloneContainerd."
     fi
 
     # Workaround to restore the CSE configuration after containerd has been installed from the package server.
@@ -672,6 +831,10 @@ cleanUpGPUDrivers() {
   for packageName in $(managedGPUPackageList); do
     rm -rf "$(getPackageCacheDir "${packageName}")"
   done
+}
+
+installMinimalBuildDeps() {
+    echo "installMinimalBuildDeps not implemented for mariner"
 }
 
 downloadContainerdFromVersion() {

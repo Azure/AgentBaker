@@ -66,7 +66,7 @@ func GetOrderedEscapedKeyValsString(config map[string]string) string {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, config[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, config[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -126,8 +126,8 @@ func getComponentNameFromURL(downloadURL string) (string, error) {
 }
 
 // IsMIGNode check if the node should be partitioned.
-func IsMIGNode(gpuInstanceProfile string) bool {
-	return gpuInstanceProfile != ""
+func IsMIGNode(gpuInstanceProfile string, migProfileLayout []string) bool {
+	return gpuInstanceProfile != "" || len(migProfileLayout) > 0
 }
 
 // returns the CSE timeout value in seconds.

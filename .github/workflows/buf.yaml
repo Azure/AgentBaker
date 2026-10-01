@@ -24,15 +24,17 @@ jobs:
   buf:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Read buf version
         id: buf-version
         run: echo "version=$(cat aks-node-controller/.buf-version)" >> "$GITHUB_OUTPUT"
-      - uses: bufbuild/buf-action@v1
+      - uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
         with:
           input: aks-node-controller
           version: ${{ steps.buf-version.outputs.version }}
-      - uses: bufbuild/buf-action@v1
+      - uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
         with:
           input: aks-live-patching
           # Reuses the buf version from aks-node-controller/.buf-version

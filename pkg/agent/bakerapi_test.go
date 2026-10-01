@@ -179,6 +179,54 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("2204gen2containerd"))
 		})
 
+		It("should accept supported custom Linux transparent huge page values", func() {
+			config.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+				TransparentHugePageEnabled: "never",
+				TransparentHugePageDefrag:  "defer+madvise",
+			}
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reject unsupported custom Linux transparent huge page values", func() {
+			testCases := []struct {
+				name        string
+				enabled     string
+				defrag      string
+				expectedErr string
+			}{
+				{
+					name:        "enabled",
+					enabled:     "within_size",
+					expectedErr: "customLinuxOSConfig.transparentHugePageEnabled",
+				},
+				{
+					name:        "defrag",
+					defrag:      "within_size",
+					expectedErr: "customLinuxOSConfig.transparentHugePageDefrag",
+				},
+			}
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, tc := range testCases {
+				configCopy, err := deepcopy.Anything(config)
+				Expect(err).To(BeNil())
+				testConfig, ok := configCopy.(*datamodel.NodeBootstrappingConfiguration)
+				Expect(ok).To(BeTrue())
+				testConfig.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+					TransparentHugePageEnabled: tc.enabled,
+					TransparentHugePageDefrag:  tc.defrag,
+				}
+
+				_, err = agentBaker.GetNodeBootstrapping(context.Background(), testConfig)
+				Expect(err).To(MatchError(ContainSubstring(tc.expectedErr)), tc.name)
+			}
+		})
+
 		It("should return the correct bootstrapping data when linux node image version override is present", func() {
 			nodeImageVersionOverride := "202402.27.0"
 			toggles := &testToggles{
@@ -329,6 +377,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSUbuntuArm64Containerd2404Gen2,
 				datamodel.AKSUbuntuContainerd2404,
 				datamodel.AKSUbuntuContainerd2404TLGen2,
+				datamodel.AKSUbuntuMinimalContainerd2604CVMGen2,
 			}
 
 			marinerDistros = []datamodel.Distro{
@@ -369,6 +418,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSACLArm64Gen2TL,
 				datamodel.AKSACLGen2FIPSTL,
 				datamodel.AKSACLArm64Gen2FIPSTL,
+				datamodel.AKSACLCVMGen2,
 			}
 
 			ubuntuEdgeZoneDistros = []datamodel.Distro{

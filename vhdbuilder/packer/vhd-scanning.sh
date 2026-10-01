@@ -79,6 +79,7 @@ VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
+    # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
         VM_SIZE="Standard_D8pds_v6"
     else
@@ -87,14 +88,18 @@ if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size $VM_SIZE"
 fi
 
+# TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
 if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    VM_SIZE="Standard_DC8ads_v5"
+    VM_SIZE="${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5}"
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
-    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_OPTIONS="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+    if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
+        VM_OPTIONS+=" --specialized true"
+    fi
 fi
 
 # NVIDIA GB specific VM options for scanning (uses standard ARM64 VM for now)
@@ -118,7 +123,15 @@ if [ "${OS_SKU}" = "Ubuntu" ] && [ "${OS_VERSION}" = "22.04" ] && [ "$(printf %s
 
     # Register FIPS feature and create VM using REST API. Exit if any step fails.
     ensure_fips_feature_registered || exit $?
-    create_fips_vm "$VM_SIZE" || exit $?
+    create_fips_vm \
+        "$VM_SIZE" \
+        "$SCAN_VM_NAME" \
+        "$SCAN_VM_ADMIN_USERNAME" \
+        SCAN_VM_ADMIN_PASSWORD \
+        "$VHD_IMAGE" \
+        "$SCANNING_NIC_ID" \
+        "$UMSI_RESOURCE_ID" \
+        "$RESOURCE_GROUP_NAME" || exit $?
 else
     echo "Creating VM using standard az vm create command..."
 
@@ -181,7 +194,6 @@ az vm run-command invoke \
         "ARCHITECTURE=${ARCHITECTURE}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
         "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
-        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH} \
         "VHD_ARTIFACT_NAME"=${VHD_ARTIFACT_NAME} \
         "SKU_NAME"=${SKU_NAME} \
         "KUSTO_ENDPOINT"=${KUSTO_ENDPOINT} \
@@ -249,10 +261,17 @@ isCISUnsupportedUbuntu() {
     local os="$1"
     local version="$2"
 
-    # Only 22.04+ are supported
-    if [ "$os" = "Ubuntu" ] && { [ "$version" = "20.04" ]; }; then
+    # Only 22.04+ are supported.
+    if [ "$os" = "Ubuntu" ] && [ "$version" = "20.04" ]; then
         return 0
     fi
+
+    # No CIS benchmarks yet available for Ubuntu 26.04 (resolute)
+    # TODO(2604): enable 26.04 CIS scanning when support is added by upstream CIS.
+    if [ "$os" = "Ubuntu" ] && [ "$version" = "26.04" ]; then
+        return 0
+    fi
+
     return 1
 }
 isFlatcar() {

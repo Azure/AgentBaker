@@ -1,5 +1,118 @@
 #!/bin/bash
 
+VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
+
+kernelVersionGe() {
+  local version_a="$1"
+  local version_b="$2"
+  local sorted
+  local highest_version
+
+  sorted=$(printf "%s\n%s\n" "$version_a" "$version_b" | sort -V)
+  highest_version=$(printf "%s\n" "$sorted" | tail -n 1)
+  [ "$version_a" = "$highest_version" ]
+}
+
+ubuntuKernelIncludesVulnerableModuleFixes() {
+  local kernel_release
+  local fixed_kernel
+  local os_version
+
+  kernel_release="$(uname -r 2>/dev/null || true)"
+  if [ -z "$kernel_release" ]; then
+    return 1
+  fi
+
+  # Prefer the OS_VERSION env var, but fall back to /etc/os-release when it is empty.
+  # copyPackerFiles runs in environments where OS_VERSION is not always exported, so
+  # relying on it alone made out-of-scope releases (e.g. Ubuntu 26.04) fall through to the
+  # default bake path and ship the deny rules. Reading /etc/os-release keeps this gate
+  # consistent with cleanup-vhd.sh and cse_helpers.sh, which detect the release the same way.
+  os_version="${OS_VERSION}"
+  if [ -z "$os_version" ]; then
+    os_version="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || true)"
+  fi
+  if [ -z "$os_version" ]; then
+    return 1
+  fi
+
+  case "$os_version" in
+    20.04)
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
+    22.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    24.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    # Future Ubuntu releases are not in this mitigation scope by default; if a
+    # future release needs the deny rules, add an explicit case above.
+    *) return 0 ;;
+  esac
+
+  kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
+bakeModprobeCISWithoutVulnerableModules() {
+  local context_message="$1"
+
+  MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC=/home/packer/modprobe-CIS-without-vulnerable-kernel-modules.conf
+  sed -E \
+    -e '/^# CVE-2026-31431 \(Copy Fail\):/d' \
+    -e '/^# until kernel fix is available\. See https:\/\/ubuntu\.com\/blog\/copy-fail-vulnerability-fixes-available$/d' \
+    -e '/^# DirtyFrag \/ CopyFail2:/d' \
+    -e '/^# write LPE vulnerabilities\. rxrpc path bypasses AppArmor userns restrictions\.$/d' \
+    -e '/^# AKS platform components do not require kernel IPsec ESP\/XFRM or AFS\/RxRPC\.$/d' \
+    -e '/^# Disabling these modules prevents workloads that rely on those protocols from working$/d' \
+    -e '/^# on the node\. See https:\/\/github\.com\/V4bel\/dirtyfrag$/d' \
+    -e "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" \
+    "$MODPROBE_CIS_SRC" > "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
+  if grep -qE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"; then
+    echo "Failed to remove vulnerable module deny rules from $MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC"
+    exit "$ERR_PACKER_COPY_FILE"
+  fi
+  echo "Copying modprobe-CIS.conf without algif_aead / esp4 / esp6 / rxrpc ${context_message}"
+  cpAndMode "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" "$MODPROBE_CIS_DEST" 644
+  rm -f "$MODPROBE_CIS_WITHOUT_VULNERABLE_MODULES_SRC" || exit "$ERR_PACKER_COPY_FILE"
+  removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || exit "$ERR_PACKER_COPY_FILE"
+  if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
+    echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d/*.conf"
+    grep -nE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf || true
+    exit "$ERR_PACKER_COPY_FILE"
+  fi
+}
+
+removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
+  local modprobe_conf
+  local tmp_modprobe_conf
+
+  for modprobe_conf in /etc/modprobe.d/*.conf; do
+    [ -f "$modprobe_conf" ] || continue
+    tmp_modprobe_conf="${modprobe_conf}.tmp.$$"
+    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    cat "$tmp_modprobe_conf" > "$modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    rm -f "$tmp_modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
+  done
+}
+
 copyPackerFiles() {
   SYSCTL_CONFIG_SRC=/home/packer/sysctl-d-60-CIS.conf
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
@@ -113,8 +226,10 @@ copyPackerFiles() {
   AKS_CHECK_NETWORK_SCRIPT_DEST=/opt/azure/containers/aks-check-network.sh
   AKS_CHECK_NETWORK_SERVICE_SRC=/home/packer/aks-check-network.service
   AKS_CHECK_NETWORK_SERVICE_DEST=/etc/systemd/system/aks-check-network.service
-  AKS_NODE_CONTROLLER_WRAPPER_SRC=/home/packer/aks-node-controller-wrapper.sh
-  AKS_NODE_CONTROLLER_WRAPPER_DEST=/opt/azure/containers/aks-node-controller-wrapper.sh
+  AKS_NODE_CONTROLLER_LAUNCHER_SRC=/home/packer/aks-node-controller-launcher.sh
+  AKS_NODE_CONTROLLER_LAUNCHER_DEST=/opt/azure/containers/aks-node-controller-launcher.sh
+  AKS_NODE_CONTROLLER_HOTFIX_SRC=/home/packer/aks-node-controller-hotfix.sh
+  AKS_NODE_CONTROLLER_HOTFIX_DEST=/opt/azure/containers/aks-node-controller-hotfix.sh
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
@@ -123,6 +238,10 @@ copyPackerFiles() {
   MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST=/opt/azure/containers/measure-tls-bootstrapping-latency.sh
   MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC=/home/packer/measure-tls-bootstrapping-latency.service
   MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST=/etc/systemd/system/measure-tls-bootstrapping-latency.service
+  EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_SRC=/home/packer/emit-kubelet-active-flags.sh
+  EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_DEST=/opt/azure/containers/emit-kubelet-active-flags.sh
+  EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_SRC=/home/packer/emit-kubelet-active-flags.service
+  EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST=/etc/systemd/system/emit-kubelet-active-flags.service
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
@@ -159,6 +278,10 @@ copyPackerFiles() {
   REPORT_READY_SRC=/home/packer/report_ready.py
   REPORT_READY_DEST=/opt/azure/containers/report_ready.py
   cpAndMode $REPORT_READY_SRC $REPORT_READY_DEST 0744
+
+  FETCH_PROVISION_CONFIG_SRC=/home/packer/fetch_provision_config.py
+  FETCH_PROVISION_CONFIG_DEST=/opt/azure/containers/fetch_provision_config.py
+  cpAndMode $FETCH_PROVISION_CONFIG_SRC $FETCH_PROVISION_CONFIG_DEST 0744
 
   INIT_CLOUD_SRC=/home/packer/init-aks-cloud.sh
   INIT_CLOUD_DEST=/opt/azure/containers/init-aks-cloud.sh
@@ -257,6 +380,11 @@ copyPackerFiles() {
   CSE_CONFIG_DEST=/opt/azure/containers/provision_configs.sh
   cpAndMode $CSE_CONFIG_SRC $CSE_CONFIG_DEST 0744
 
+  local config_module
+  for config_module in provision_configs_gpu.sh provision_configs_localdns.sh provision_configs_kubelet.sh provision_configs_network.sh provision_configs_addons.sh; do
+    cpAndMode "/home/packer/${config_module}" "/opt/azure/containers/${config_module}" 0744
+  done
+
   CSE_INSTALL_SRC=/home/packer/provision_installs.sh
   CSE_INSTALL_DEST=/opt/azure/containers/provision_installs.sh
   cpAndMode $CSE_INSTALL_SRC $CSE_INSTALL_DEST 0744
@@ -280,7 +408,8 @@ copyPackerFiles() {
   AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
   cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
-  cpAndMode $AKS_NODE_CONTROLLER_WRAPPER_SRC $AKS_NODE_CONTROLLER_WRAPPER_DEST 755
+  cpAndMode $AKS_NODE_CONTROLLER_LAUNCHER_SRC $AKS_NODE_CONTROLLER_LAUNCHER_DEST 0755
+  cpAndMode $AKS_NODE_CONTROLLER_HOTFIX_SRC $AKS_NODE_CONTROLLER_HOTFIX_DEST 0755
 
   AKS_NODE_CONTROLLER_SERVICE_SRC=/home/packer/aks-node-controller.service
   AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
@@ -413,7 +542,7 @@ copyPackerFiles() {
   cpAndMode $AKS_CHECK_NETWORK_SCRIPT_SRC $AKS_CHECK_NETWORK_SCRIPT_DEST 755
   cpAndMode $AKS_CHECK_NETWORK_SERVICE_SRC $AKS_CHECK_NETWORK_SERVICE_DEST 644
 
-  if [ ${UBUNTU_RELEASE} = "22.04" ] || [ ${UBUNTU_RELEASE} = "24.04" ]; then
+  if [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ] || [ "${UBUNTU_RELEASE}" = "26.04" ]; then
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
 
@@ -423,6 +552,8 @@ copyPackerFiles() {
   cpAndMode $ENSURE_IMDS_RESTRICTION_SRC $ENSURE_IMDS_RESTRICTION_DEST 755
   cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SCRIPT_DEST 755
   cpAndMode $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_SRC $MEASURE_TLS_BOOTSTRAPPING_LATENCY_SERVICE_DEST 644
+  cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_DEST 755
+  cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST 644
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
@@ -432,16 +563,30 @@ copyPackerFiles() {
   cpAndMode $ETC_ISSUE_NET_CONFIG_SRC $ETC_ISSUE_NET_CONFIG_DEST 644
   cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 600
   # CVE-2026-31431 (Copy Fail), DirtyFrag, Fragnesia mitigation: bake modprobe blacklist
-  # for algif_aead / esp4 / esp6 / rxrpc into the VHD.
+  # for algif_aead / esp4 / esp6 / rxrpc into the VHD only for OS streams that still need it.
+  # Keep the rest of the CIS module deny list (dccp/sctp/rds/tipc/cramfs/etc.) intact on
+  # every OS stream; those entries are unrelated to the 2026 kernel CVEs and are required
+  # for the CIS baseline.
   #
-  # Skipped on AzureLinux 3.0 because:
-  #   1. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
-  #   2. Customer workloads on AzL3 require those kernel modules; the bake-in actively
-  #      blocks legitimate use cases.
-  # Ubuntu and Mariner (AzL2) still get the bake-in — their kernels are not patched
-  # upstream yet. See https://github.com/Azure/AKS/issues/5753.
-  if isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-    echo "Skipping modprobe-CIS.conf bake-in on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the bake-in)"
+  # The vulnerable-module block is omitted on fixed Ubuntu 22.04 / 24.04 kernels,
+  # and by default on future Ubuntu releases that are not explicitly in mitigation scope,
+  # and on AzureLinux 3.0 (non-OSGuard) because:
+  #   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
+  #      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
+  #      at runtime if it detects an older vulnerable Ubuntu kernel.
+  #   2. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
+  #   3. Customer workloads require those kernel modules; the bake-in actively blocks
+  #      legitimate use cases on fixed kernels.
+  # In both cases only the algif_aead/esp4/esp6/rxrpc lines are stripped — the rest of
+  # modprobe-CIS.conf (including the SCTP/DCCP/RDS/TIPC/cramfs/etc. CIS baseline denylist)
+  # is still baked in, so AzureLinux 3.0 keeps the same CIS module hardening as every other
+  # OS stream instead of silently losing the whole file. See
+  # https://github.com/Azure/AKS/issues/5753.
+  # Other Ubuntu 20.04 kernels, Mariner / AzureLinux 2.0, and AzureLinux OSGuard still get the unmodified bake-in.
+  if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
+    bakeModprobeCISWithoutVulnerableModules "on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
+  elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    bakeModprobeCISWithoutVulnerableModules "on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the full bake-in; the SCTP/DCCP/RDS/TIPC/cramfs/etc. CIS baseline denylist is preserved)"
   else
     cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   fi
@@ -481,6 +626,16 @@ copyPackerFiles() {
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+
+    if [ "$OS_VERSION" = "3.0" ] && [ "${ENABLE_FIPS,,}" != "true" ] && isAzureLinuxArm64BaseImage "$OS" "$CPU_ARCH" "$OS_VARIANT"; then
+      GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
+      GRUB_AZ_NV_SCRIPT_DEST=/etc/grub.d/10_azure_nvidia
+      cpAndMode $GRUB_AZ_NV_SCRIPT_SRC $GRUB_AZ_NV_SCRIPT_DEST 755
+
+      GRUB_AZ_NV_ENV_SRC=/home/packer/51-azure-nvidia.cfg
+      GRUB_AZ_NV_ENV_DEST=/etc/default/grub.d/51-azure-nvidia.cfg
+      cpAndMode $GRUB_AZ_NV_ENV_SRC $GRUB_AZ_NV_ENV_DEST 644
+    fi
   elif isACL "$OS" "$OS_VARIANT"; then
     # ACL cannot share the isMarinerOrAzureLinux block because:
     # - containerd.service: ACL provides containerd via sysext.

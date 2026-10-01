@@ -1,7 +1,7 @@
 #!/bin/bash
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
-OS_VARIANT=$(sort -r /etc/*-release | gawk 'match($0, /^(VARIANT_ID=(.*))$/, a) { print toupper(a[2]); exit }' | tr -d '"')
+OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
@@ -35,6 +35,11 @@ installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will no
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
+
+# Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
+if isMinimalImage && isUbuntu "$OS"; then
+  installMinimalBuildDeps
+fi
 
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
@@ -78,8 +83,20 @@ rm -f /etc/cron.daily/logrotate
 systemctlEnableAndStart sync-container-logs.service 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_enable_and_configure_logging_services"
 
-# enable aks-node-controller.service
-systemctl enable aks-node-controller.service
+# Keep aks-node-controller.service disabled in the VHD image. The unit now has
+# DefaultDependencies=no (see aks-node-controller.service), so if it were enabled
+# via WantedBy=basic.target it could be auto-started by systemd before the
+# boothook has written the provision config/nbc-cmd files, causing the wrapper's
+# graceful no-op exit to mark the oneshot unit "active (exited)" - after which
+# the boothook's own explicit "systemctl start" would be a no-op and ANC would
+# never actually run with the real config. The boothook's explicit
+# "systemctl start --no-block aks-node-controller.service" call (issued only
+# after those files exist) remains the sole trigger for this unit.
+# Sometimes its also started diretly in boothook
+systemctl disable aks-node-controller.service
+
+# Pulled in by kubelet.service via WantedBy=kubelet.service, so CSE does not need to start it.
+systemctl enable emit-kubelet-active-flags.service
 
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
@@ -112,6 +129,13 @@ else
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
+  if isUbuntu "$OS" &&
+    [ "$OS_VERSION" = "26.04" ] &&
+    isMinimalImage &&
+    grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    /bin/bash /home/packer/trim-2604-cvm-packages.sh
+  fi
+
   # shellcheck disable=SC3010
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
@@ -129,6 +153,25 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
 fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
+if { isUbuntu "$OS" || isAzureLinux "$OS"; }; then
+  echo "nodelay" | tee -a /etc/dhcpcd.conf
+  tee /etc/systemd/system/cache-warmup.service > /dev/null << 'EOF'
+[Unit]
+Description=Preload Critical Binaries into Page Cache
+DefaultDependencies=no
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /opt/azure/containers/provision_preload.sh
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable cache-warmup.service
+fi
+
 # Remove lockdown=integrity from kernel cmdline for Azure Linux 3.0
 # The kernel has an OOT patch that auto-enables lockdown when secure boot is detected
 if isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
@@ -136,19 +179,56 @@ if isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
 fi
 capture_benchmark "${SCRIPT_NAME}_disable_kernel_lockdown_cmdline"
 
+installAzureLinuxArm64DualKernel() {
+  local boot_dir="$1"
+  local grub_module_source="$2"
+  local grub_version grub_efi_binary_version grub_efi_modules_version
+  local kernel_package
+
+  if ! rpm -q kernel-hwe &>/dev/null; then
+    dnf_install 30 1 600 kernel-hwe || return 1
+  fi
+
+  for kernel_package in kernel kernel-hwe; do
+    if ! rpm -q "$kernel_package" &>/dev/null || ! rpm -ql "$kernel_package" | grep -q '^/boot/vmlinuz-'; then
+      echo "ARM64 Azure Linux: $kernel_package does not provide a bootable kernel" >&2
+      return 1
+    fi
+  done
+
+  dnf_install 30 1 600 grub2-efi || return 1
+  grub_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2) || return 1
+  grub_efi_binary_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi-binary) || return 1
+  grub_efi_modules_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi) || return 1
+  if [ "$grub_version" != "$grub_efi_binary_version" ] || [ "$grub_version" != "$grub_efi_modules_version" ]; then
+    echo "ARM64 Azure Linux: GRUB package versions do not match: grub2=$grub_version, binary=$grub_efi_binary_version, modules=$grub_efi_modules_version" >&2
+    return 1
+  fi
+
+  if [ ! -s "$grub_module_source/smbios.mod" ]; then
+    echo "ARM64 Azure Linux: required GRUB file $grub_module_source/smbios.mod is missing" >&2
+    return 1
+  fi
+
+  grub2-mkconfig -o "${boot_dir}/grub2/grub.cfg"
+}
+
+# Co-install the HWE track used by NVIDIA Grace alongside the standard kernel.
+if [ "$OS_VERSION" = "3.0" ] && [ "${ENABLE_FIPS,,}" != "true" ] && isAzureLinuxArm64BaseImage "$OS" "$CPU_ARCH" "$OS_VARIANT"; then
+  installAzureLinuxArm64DualKernel /boot /usr/lib/grub/arm64-efi || exit "$ERR_APT_INSTALL_TIMEOUT"
+fi
+capture_benchmark "${SCRIPT_NAME}_install_kernel_hwe_arm64"
+
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
   # Choose kernel packages based on Ubuntu version and architecture
   if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    KERNEL_IMAGE="linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
+    KERNEL_IMAGE="linux-azure-fde-lts-${UBUNTU_RELEASE}"
     KERNEL_PACKAGES=(
-      "linux-image-azure-fde-lts-${UBUNTU_RELEASE}"
-      "linux-tools-azure-lts-${UBUNTU_RELEASE}"
-      "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
-      "linux-headers-azure-lts-${UBUNTU_RELEASE}"
-      "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+      "${KERNEL_IMAGE}"
     )
+    MODULES_EXTRA_PKG="linux-modules-extra-azure-fde-lts-${UBUNTU_RELEASE}"
     echo "Installing fde LTS kernel for CVM Ubuntu ${UBUNTU_RELEASE}"
   else
     # Use LTS kernel for other versions
@@ -158,9 +238,16 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       "linux-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
       "linux-headers-azure-lts-${UBUNTU_RELEASE}"
-      "linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     )
+    MODULES_EXTRA_PKG="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
     echo "Installing LTS kernel for Ubuntu ${UBUNTU_RELEASE}"
+  fi
+
+  # Add modules-extra only when the package exists in the current apt repo
+  if apt-cache show "${MODULES_EXTRA_PKG}" &>/dev/null; then
+    KERNEL_PACKAGES+=("${MODULES_EXTRA_PKG}")
+  else
+    echo "Package ${MODULES_EXTRA_PKG} not available - skipping"
   fi
 
   echo "Logging the currently running kernel: $(uname -r)"
@@ -247,7 +334,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
         echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
         wait_for_apt_locks
-        sudo apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
+        apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
         echo "after installation:"
         dpkg -l | grep "linux-.*-azure-nvidia" || true
       else

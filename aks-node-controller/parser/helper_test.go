@@ -55,7 +55,6 @@ var expectedKubeletConfigFlags = "--address=0.0.0.0" +
 	" --resolv-conf=/etc/resolv.conf" +
 	" --rotate-certificates=true" +
 	" --rotate-server-certificates=true" +
-	" --streaming-connection-idle-timeout=4h0m0s" +
 	" --system-reserved=cpu=2,memory=1Gi" +
 	" --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt" +
 	" --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256," +
@@ -99,7 +98,6 @@ var expectedKubeletJSON = `{
     "clusterDNS": [
         "10.0.0.10"
     ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
     "nodeStatusUpdateFrequency": "10s",
     "imageGCHighThresholdPercent": 90,
     "imageGCLowThresholdPercent": 70,
@@ -1014,7 +1012,7 @@ func TestIsKubernetesVersionGe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := helpers.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
+			if got := IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
 				t.Errorf("IsKubernetesVersionGe() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1174,6 +1172,55 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 	}
 }
 
+func Test_getProxyVariables(t *testing.T) {
+	const expectedProxyVars = `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi; ` +
+		`if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi; ` +
+		`if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi`
+
+	t.Run("empty config has no compatibility payload", func(t *testing.T) {
+		if got := getProxyVariables(nil); got != "" {
+			t.Errorf("getProxyVariables() = %q, want empty string", got)
+		}
+		if got := getProxyVariables(&aksnodeconfigv1.HttpProxyConfig{}); got != "" {
+			t.Errorf("getProxyVariables() = %q, want empty string", got)
+		}
+	})
+
+	t.Run("exports uppercase and lowercase proxy variables", func(t *testing.T) {
+		got := getProxyVariables(&aksnodeconfigv1.HttpProxyConfig{
+			HttpProxy:      "http://proxy.example.com:8080",
+			HttpsProxy:     "https://proxy.example.com:8443",
+			NoProxyEntries: []string{"127.0.0.1", "localhost", ".svc"},
+		})
+
+		if got != expectedProxyVars {
+			t.Errorf("getProxyVariables() = %q, want %q", got, expectedProxyVars)
+		}
+		for _, proxyVar := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"} {
+			if !strings.Contains(got, proxyVar) {
+				t.Errorf("getProxyVariables() missing %s in %q", proxyVar, got)
+			}
+		}
+	})
+
+	t.Run("does not embed customer controlled shell content", func(t *testing.T) {
+		httpProxy := `http://user:p'ass"word/$(touch http-injected);` + "`touch http-injected`" + `/*?[x]\value`
+		httpsProxy := `https://proxy.example/$(touch https-injected)`
+		noProxyEntry := `$(touch no-proxy-injected)`
+		got := getProxyVariables(&aksnodeconfigv1.HttpProxyConfig{
+			HttpProxy:      httpProxy,
+			HttpsProxy:     httpsProxy,
+			NoProxyEntries: []string{"localhost", noProxyEntry, ".svc"},
+		})
+
+		for _, unsafeValue := range []string{httpProxy, httpsProxy, noProxyEntry} {
+			if strings.Contains(got, unsafeValue) {
+				t.Errorf("getProxyVariables() embedded unsafe value %q in %q", unsafeValue, got)
+			}
+		}
+	})
+}
+
 func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 	type args struct {
 		httpProxyConfig *aksnodeconfigv1.HttpProxyConfig
@@ -1268,7 +1315,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureChinaCloud",
+			want: helpers.AzureChinaCloud,
 		},
 		{
 			name: "Germany location cluster config",
@@ -1280,7 +1327,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureGermanCloud",
+			want: helpers.AzureGermanCloud,
 		},
 		{
 			name: "usgov location cluster config",
@@ -1292,7 +1339,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					},
 				},
 			},
-			want: "AzureUSGovernmentCloud",
+			want: helpers.AzureUSGovernmentCloud,
 		},
 	}
 	for _, tt := range tests {
@@ -1541,18 +1588,17 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 						ClusterDns: []string{
 							"10.0.0.10",
 						},
-						StreamingConnectionIdleTimeout: "4h0m0s",
-						NodeStatusUpdateFrequency:      "10s",
-						ImageGcHighThresholdPercent:    to.Ptr(int32(90)),
-						ImageGcLowThresholdPercent:     to.Ptr(int32(70)),
-						CgroupsPerQos:                  to.Ptr(true),
-						CpuManagerPolicy:               "static",
-						TopologyManagerPolicy:          "best-effort",
-						MaxPods:                        to.Ptr(int32(110)),
-						PodPidsLimit:                   to.Ptr(int32(12345)),
-						ResolvConf:                     "/etc/resolv.conf",
-						CpuCfsQuota:                    to.Ptr(false),
-						CpuCfsQuotaPeriod:              "200ms",
+						NodeStatusUpdateFrequency:   "10s",
+						ImageGcHighThresholdPercent: to.Ptr(int32(90)),
+						ImageGcLowThresholdPercent:  to.Ptr(int32(70)),
+						CgroupsPerQos:               to.Ptr(true),
+						CpuManagerPolicy:            "static",
+						TopologyManagerPolicy:       "best-effort",
+						MaxPods:                     to.Ptr(int32(110)),
+						PodPidsLimit:                to.Ptr(int32(12345)),
+						ResolvConf:                  "/etc/resolv.conf",
+						CpuCfsQuota:                 to.Ptr(false),
+						CpuCfsQuotaPeriod:           "200ms",
 						EvictionHard: map[string]string{
 							"memory.available":  "750Mi",
 							"nodefs.available":  "10%",
@@ -1624,35 +1670,34 @@ func Test_getKubeletFlags(t *testing.T) {
 			args: args{
 				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					KubeletFlags: map[string]string{
-						"--address":                           "0.0.0.0",
-						"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-						"--cluster-domain":                    "cluster.local",
-						"--cluster-dns":                       "10.0.0.10",
-						"--cgroups-per-qos":                   "true",
-						"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-						"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-						"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
-						"--max-pods":                          "110",
-						"--node-status-update-frequency":      "10s",
-						"--image-gc-high-threshold":           "85",
-						"--image-gc-low-threshold":            "80",
-						"--event-qps":                         "0",
-						"--pod-max-pids":                      "-1",
-						"--enforce-node-allocatable":          "pods",
-						"--streaming-connection-idle-timeout": "4h0m0s",
-						"--rotate-certificates":               "true",
-						"--rotate-server-certificates":        "true",
-						"--read-only-port":                    "10255",
-						"--protect-kernel-defaults":           "true",
-						"--resolv-conf":                       "/etc/resolv.conf",
-						"--anonymous-auth":                    "false",
-						"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-						"--authentication-token-webhook":      "true",
-						"--authorization-mode":                "Webhook",
-						"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-						"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
-						"--system-reserved":                   "cpu=2,memory=1Gi",
-						"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+						"--address":                      "0.0.0.0",
+						"--pod-manifest-path":            "/etc/kubernetes/manifests",
+						"--cluster-domain":               "cluster.local",
+						"--cluster-dns":                  "10.0.0.10",
+						"--cgroups-per-qos":              "true",
+						"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
+						"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
+						"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+						"--max-pods":                     "110",
+						"--node-status-update-frequency": "10s",
+						"--image-gc-high-threshold":      "85",
+						"--image-gc-low-threshold":       "80",
+						"--event-qps":                    "0",
+						"--pod-max-pids":                 "-1",
+						"--enforce-node-allocatable":     "pods",
+						"--rotate-certificates":          "true",
+						"--rotate-server-certificates":   "true",
+						"--read-only-port":               "10255",
+						"--protect-kernel-defaults":      "true",
+						"--resolv-conf":                  "/etc/resolv.conf",
+						"--anonymous-auth":               "false",
+						"--client-ca-file":               "/etc/kubernetes/certs/ca.crt",
+						"--authentication-token-webhook": "true",
+						"--authorization-mode":           "Webhook",
+						"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+						"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
+						"--system-reserved":              "cpu=2,memory=1Gi",
+						"--kube-reserved":                "cpu=100m,memory=1638Mi",
 					},
 				},
 			},
@@ -1687,6 +1732,7 @@ health-check.localdns.local:53 {
         fallthrough
     }
     forward . 168.63.129.16 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -1731,6 +1777,7 @@ testdomain456.com:53 {
     log
     bind 169.254.10.10
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 1000
     }
@@ -1756,6 +1803,7 @@ testdomain456.com:53 {
         fallthrough
     }
     forward . 10.0.0.10 {
+        prefer_udp
         policy sequential
         max_concurrent 2000
     }
@@ -1958,6 +2006,308 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, tt.args.includeHostsPlugin)
 			assertCorefileBase64Contains(t, got, tt.wantContains, tt.wantNotContains)
+		})
+	}
+}
+
+func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
+	tests := []struct {
+		name            string
+		healthCheck     *aksnodeconfigv1.LocalDnsHealthCheck
+		failfast        *bool
+		kubeDNS         bool
+		wantContains    string
+		wantNotContains []string
+	}{
+		{
+			name:            "no health check config omits health_check",
+			wantNotContains: []string{"health_check", "failfast_all_unhealthy_upstreams"},
+		},
+		{
+			name:            "empty health check config omits health_check",
+			healthCheck:     &aksnodeconfigv1.LocalDnsHealthCheck{},
+			wantNotContains: []string{"health_check", "failfast_all_unhealthy_upstreams"},
+		},
+		{
+			name: "empty duration omits health_check",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr(""),
+			},
+			wantNotContains: []string{"health_check"},
+		},
+		{
+			name: "no_rec without duration omits health_check",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				NoRec: to.Ptr(true),
+			},
+			wantNotContains: []string{"health_check", "no_rec"},
+		},
+		{
+			name: "domain without duration omits health_check",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Domain: to.Ptr("health.local."),
+			},
+			wantNotContains: []string{"health_check", "domain health.local."},
+		},
+		{
+			name: "duration only relies on CoreDNS default recursive domain",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+			},
+			wantContains: "health_check 1s",
+			wantNotContains: []string{
+				"no_rec",
+				"domain .",
+				"domain health.local.",
+			},
+		},
+		{
+			name: "duration with explicit no_rec false omits no_rec",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				NoRec:    to.Ptr(false),
+			},
+			wantContains:    "health_check 1s",
+			wantNotContains: []string{"no_rec"},
+		},
+		{
+			name: "duration with explicit failfast false omits failfast",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+			},
+			failfast:        to.Ptr(false),
+			wantContains:    "health_check 1s",
+			wantNotContains: []string{"failfast_all_unhealthy_upstreams"},
+		},
+		{
+			name: "duration and no_rec",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				NoRec:    to.Ptr(true),
+			},
+			wantContains:    "health_check 1s no_rec",
+			wantNotContains: []string{"domain health.local."},
+		},
+		{
+			name: "duration and domain",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				Domain:   to.Ptr("health.local."),
+			},
+			wantContains:    "health_check 1s domain health.local.",
+			wantNotContains: []string{"no_rec"},
+		},
+		{
+			name: "duration with empty domain omits domain",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				Domain:   to.Ptr(""),
+			},
+			wantContains:    "health_check 1s",
+			wantNotContains: []string{"domain "},
+		},
+		{
+			name: "duration renders in KubeDNS overrides",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+			},
+			kubeDNS:      true,
+			wantContains: "health_check 1s",
+		},
+		{
+			name: "duration no_rec domain and failfast",
+			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
+				Duration: to.Ptr("1s"),
+				NoRec:    to.Ptr(true),
+				Domain:   to.Ptr("health.local."),
+			},
+			failfast: to.Ptr(true),
+			wantContains: strings.Join([]string{
+				"health_check 1s no_rec domain health.local.",
+				"failfast_all_unhealthy_upstreams",
+			}, "\n        "),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			override := &aksnodeconfigv1.LocalDnsOverrides{
+				QueryLogging:                  "Log",
+				Protocol:                      "PreferUDP",
+				ForwardDestination:            "VnetDNS",
+				ForwardPolicy:                 "Sequential",
+				MaxConcurrent:                 to.Ptr(int32(1000)),
+				CacheDurationInSeconds:        to.Ptr(int32(3600)),
+				ServeStaleDurationInSeconds:   to.Ptr(int32(3600)),
+				ServeStale:                    "Immediate",
+				FailfastAllUnhealthyUpstreams: tt.failfast,
+				HealthCheck:                   tt.healthCheck,
+			}
+			profile := &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true}
+			if tt.kubeDNS {
+				profile.KubeDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{".": override}
+			} else {
+				profile.VnetDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{".": override}
+			}
+			got := getLocalDnsCorefileBase64WithHostsPlugin(&aksnodeconfigv1.Configuration{LocalDnsProfile: profile}, false)
+
+			decoded, err := base64.StdEncoding.DecodeString(got)
+			if err != nil {
+				t.Fatalf("failed to decode generated corefile: %v", err)
+			}
+			corefile := normalizeCorefileString(string(decoded))
+			assertCorefileContents(t, corefile, string(decoded), tt.wantContains, tt.wantNotContains)
+		})
+	}
+}
+
+// assertCorefileContents checks a normalized corefile against inclusion and exclusion
+// expectations. raw is the un-normalized corefile, reported on failure so the message
+// shows the template's real output.
+func assertCorefileContents(t *testing.T, corefile, raw, wantContains string, wantNotContains []string) {
+	t.Helper()
+	if wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(wantContains)) {
+		t.Fatalf("expected generated corefile to contain %q, got:\n%s", wantContains, raw)
+	}
+	for _, want := range wantNotContains {
+		if strings.Contains(corefile, normalizeCorefileString(want)) {
+			t.Fatalf("expected generated corefile not to contain %q, got:\n%s", want, raw)
+		}
+	}
+}
+
+// Test_getLocalDNSCorefileBase64ServeStalePolicy covers the serve_stale_policy directive
+// (CoreDNS >= 1.14.7). The directive is only valid alongside an emitted serve_stale line,
+// so the template must never render it on its own, and it is restricted to the default
+// (".") server block, so it must never render in a per-domain block.
+func Test_getLocalDNSCorefileBase64ServeStalePolicy(t *testing.T) {
+	tests := []struct {
+		name            string
+		domain          string // defaults to "." when empty
+		serveStale      string
+		policy          string
+		kubeDNS         bool
+		wantContains    string
+		wantNotContains []string
+	}{
+		{
+			name:            "no policy omits serve_stale_policy",
+			serveStale:      "Immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:       "prefer positive with immediate",
+			serveStale: "Immediate",
+			policy:     "PreferPositive",
+			wantContains: strings.Join([]string{
+				"serve_stale 3600s immediate",
+				"serve_stale_policy prefer_positive",
+			}, "\n        "),
+		},
+		{
+			name:       "prefer positive with verify",
+			serveStale: "Verify",
+			policy:     "PreferPositive",
+			wantContains: strings.Join([]string{
+				"serve_stale 3600s verify",
+				"serve_stale_policy prefer_positive",
+			}, "\n        "),
+		},
+		{
+			// serve_stale is not emitted at all, so the policy must not be either.
+			name:            "prefer positive with disable omits both",
+			serveStale:      "Disable",
+			policy:          "PreferPositive",
+			wantNotContains: []string{"serve_stale_policy", "serve_stale "},
+		},
+		{
+			// Guards against a dangling directive if ServeStale ever carries a value
+			// outside the known set: the outer "ne Disable" check would pass, but no
+			// serve_stale line is rendered.
+			name:            "prefer positive with unknown serve stale omits both",
+			serveStale:      "Bogus",
+			policy:          "PreferPositive",
+			wantNotContains: []string{"serve_stale_policy", "serve_stale "},
+		},
+		{
+			name:            "unknown policy value omits serve_stale_policy",
+			serveStale:      "Immediate",
+			policy:          "PreferNegative",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:       "renders in KubeDNS overrides",
+			serveStale: "Immediate",
+			policy:     "PreferPositive",
+			kubeDNS:    true,
+			wantContains: strings.Join([]string{
+				"serve_stale 3600s immediate",
+				"serve_stale_policy prefer_positive",
+			}, "\n        "),
+		},
+		{
+			// The policy is restricted to the default (".") server block. A per-domain
+			// block still gets its serve_stale line, but never the policy.
+			name:            "omitted in a cluster.local VnetDNS block",
+			domain:          "cluster.local",
+			serveStale:      "Immediate",
+			policy:          "PreferPositive",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:            "omitted in a cluster.local KubeDNS block",
+			domain:          "cluster.local",
+			serveStale:      "Verify",
+			policy:          "PreferPositive",
+			kubeDNS:         true,
+			wantContains:    "serve_stale 3600s verify",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			// A custom domain takes a different path through the template than
+			// cluster.local, which is special-cased by $fwdToClusterCoreDNS.
+			name:            "omitted in a custom-domain VnetDNS block",
+			domain:          "testdomain.com",
+			serveStale:      "Immediate",
+			policy:          "PreferPositive",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			override := &aksnodeconfigv1.LocalDnsOverrides{
+				QueryLogging:                "Log",
+				Protocol:                    "PreferUDP",
+				ForwardDestination:          "VnetDNS",
+				ForwardPolicy:               "Sequential",
+				MaxConcurrent:               to.Ptr(int32(1000)),
+				CacheDurationInSeconds:      to.Ptr(int32(3600)),
+				ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+				ServeStale:                  tt.serveStale,
+				ServeStalePolicy:            tt.policy,
+			}
+			profile := &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true}
+			domain := tt.domain
+			if domain == "" {
+				domain = "."
+			}
+			if tt.kubeDNS {
+				profile.KubeDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{domain: override}
+			} else {
+				profile.VnetDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{domain: override}
+			}
+			got := getLocalDnsCorefileBase64WithHostsPlugin(&aksnodeconfigv1.Configuration{LocalDnsProfile: profile}, false)
+
+			decoded, err := base64.StdEncoding.DecodeString(got)
+			if err != nil {
+				t.Fatalf("failed to decode generated corefile: %v", err)
+			}
+			corefile := normalizeCorefileString(string(decoded))
+			assertCorefileContents(t, corefile, string(decoded), tt.wantContains, tt.wantNotContains)
 		})
 	}
 }

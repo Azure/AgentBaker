@@ -71,6 +71,7 @@ $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 $global:ociArtifactsToPull = GetOCIArtifactsFromComponentsJson $componentsJson
 $global:keysToSet = GetRegKeysToApply $windowsSettingsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
+$global:azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
 $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
 
 $validSKU = GetWindowsBaseVersions $windowsSettingsJson
@@ -91,6 +92,21 @@ $global:orasVersion = GetWindowsPackageVersionFromComponentsJson $componentsJson
 $global:defenderUpdateUrl = GetDefenderUpdateUrl $windowsSettingsJson
 # defenderUpdateInfoUrl refers to the info of latest windows defender platform update
 $global:defenderUpdateInfoUrl = GetDefenderUpdateInfoUrl $windowsSettingsJson
+
+# We skip the signature validation of the following binaries for known issues, scoped by the
+# cache directory (windowsDownloadLocation) of the package they're expected in - not just by
+# filename - so an unrelated private package can't bypass validation just by shipping a binary
+# with the same name. Shared by both windows-files-check.ps1's Test-ValidateSinglePackageSignature
+# and windows-vhd-content-test.ps1's Test-PrivatePackageSignature so there is a single list to update.
+$global:SkipSignatureCheckForBinaries = @{
+    # win-bridge.exe is not signed in these k8s packages, and it will be removed from the k8s package in the future
+    "c:\akse-cache\win-k8s\"                       = @("win-bridge.exe");
+    # aks-secure-tls-bootstrap-client.exe should be signed once it has been onboarded to Dalec and published via Upstream,
+    # though for now we allow-list it as to not block secure TLS bootstrapping development
+    # NOTE: this is okay since the binary is cleaned up during node provisioning when secure TLS bootstrapping is disabled (which is currently the default in production)
+    # TODO(cameissner): remove this once the binary is properly signed
+    "c:\akse-cache\aks-secure-tls-bootstrap-client\" = @("aks-secure-tls-bootstrap-client.exe");
+}
 
 # The following items still need to be migrated into the windows_settings file.
 $global:excludeHashComparisionListInAzureChinaCloud = @(

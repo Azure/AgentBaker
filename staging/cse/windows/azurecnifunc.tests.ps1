@@ -8,6 +8,11 @@ BeforeAll {
         $script:capturedContent = $Value
     } -Verifiable
 
+    function Create-Directory {
+        param($FullPath, $DirectoryUsage)
+        New-Item -ItemType Directory -Path $FullPath -ErrorAction SilentlyContinue | Out-Null
+    }
+
     function Invoke-WebRequest {
         return  @"
             [
@@ -27,7 +32,35 @@ BeforeAll {
 
     # this often doesn't exist in test environment, so create it here so we can mock it later.
     function New-HNSNetwork {}
+    # Declare params explicitly (rather than leaving these empty) so Pester's Mock proxy
+    # captures bound parameters correctly - otherwise -ParameterFilter/Assert-MockCalled
+    # checks against named parameters always see empty values.
+    function Get-NetIPAddress {
+        param($AddressFamily, $ErrorAction, $IpAddress, $ifIndex, $InterfaceAlias, $ErrorVariable)
+    }
+    function Get-NetAdapter {
+        param([switch]$IncludeHidden, [switch]$Physical, $Name, $ErrorAction, $ifindex)
+    }
+    function Get-NetIPConfiguration {
+        param([switch]$AllCompartments, $ErrorAction)
+    }
+    function Restart-Service {}
+    function Get-Service {}
+    function Start-Service {}
+    function Assert-FileExists {
+        param($Filename, $ExitCode)
+    }
 
+    # Stubs for Windows-only service management cmdlets unavailable on Linux
+    Mock Get-Service -MockWith {
+        param($Name, $ErrorAction)
+    }
+
+    Mock Start-Service -MockWith {
+        param($Name, $ErrorAction)
+    }
+
+    filter RemoveNulls { $_ -replace '\0', '' }
     # overwrite Start-Sleep and Write-Host to avoid unnecessary waiting and output during tests.
     function Start-Sleep {}
     function Write-Host {}
@@ -1529,9 +1562,10 @@ Describe 'Get-AKS-NetworkAdapter' {
             $result.ifIndex | Should -Be 5
 
             Assert-MockCalled -CommandName "Get-Node-Ipv4-Address" -Exactly -Times 1
+            # Note: -ErrorAction is a PowerShell common parameter, so Pester never exposes it
+            # to -ParameterFilter (see Pester's IsCommonParameter) - it can't be asserted here.
             Assert-MockCalled -CommandName "Get-NetIPAddress" -Exactly -Times 1 -ParameterFilter {
                 $AddressFamily -eq "IPv4" -and
-                $ErrorAction -eq "Stop" -and
                 $IpAddress -eq $mockIPv4Address
             }
             Assert-MockCalled -CommandName "Get-NetAdapter" -Exactly -Times 1 -ParameterFilter {

@@ -1,11 +1,34 @@
 #!/bin/bash
-set -x
+# Never trace expanded WireServer responses, even when invoked with bash -x.
+set +x
+
+# functions defined until "${__SOURCED__:+return}" are sourced and tested in -
+# spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh.
 
 # Dependency note: `jq` is guaranteed to be present on every AKS VHD (baked in
 # by vhdbuilder/packer/install-dependencies.sh and shipped in the Azure Linux
 # base image), so functions in this script use it without an explicit install
 # step. Do not flag jq usage here as "used before install" — matches the
 # established pattern in cse_main.sh.
+
+log_certificates() {
+    [ "${AKS_CLOUD_LOG_CERTIFICATES:-false}" = "true" ] || return 0
+    local public_certs
+    # Re-encode certificates only: never print raw input, which may also contain
+    # private keys or non-certificate data. Support bundles as well as single CAs.
+    if ! public_certs=$(
+        set -o pipefail
+        openssl crl2pkcs7 -nocrl -certfile "$1" 2>/dev/null |
+            openssl pkcs7 -print_certs 2>/dev/null
+    ) || [ -z "$public_certs" ]; then
+        echo "Warning: could not decode public certificates: $1" >&2
+        return 0
+    fi
+    # Syslog priority applies to every input line under both cron and systemd.
+    printf '%s\n' "$public_certs" |
+        logger -p user.debug -t azure-ca-refresh ||
+        echo "Warning: failed to log certificates" >&2
+}
 
 # GA events directory — Azure Guest Agent monitors this directory and forwards
 # JSON event files to Geneva/Kusto for off-node telemetry.
@@ -79,33 +102,8 @@ IS_UBUNTU=0
 IS_ACL=0
 IS_MARINER=0
 IS_AZURELINUX=0
-# shellcheck disable=SC3010
-if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
-    # shellcheck disable=SC3010
-    if [[ $NAME == *"Ubuntu"* ]]; then
-        IS_UBUNTU=1
-    elif [[ $ID == *"flatcar"* ]]; then
-        IS_FLATCAR=1
-    elif [[ $ID == "azurecontainerlinux" ]] || { [[ $ID == "azurelinux" ]] && [[ ${VARIANT_ID:-} == "azurecontainerlinux" ]]; }; then
-        IS_ACL=1
-    elif [[ $NAME == *"Mariner"* ]]; then
-        IS_MARINER=1
-    elif [[ $NAME == *"Microsoft Azure Linux"* ]]; then
-        IS_AZURELINUX=1
-    else
-        echo "Unknown Linux distribution"
-        exit 1
-    fi
-else
-    echo "Unsupported operating system"
-    exit 1
-fi
 
-echo "distribution is $distribution"
-echo "Running on $NAME"
-
-# http://168.63.129.16 is a constant for the host's wireserver endpoint
+# http://168.63.129.16 is a constant for the host's wireserver endpoint.
 WIRESERVER_ENDPOINT="http://168.63.129.16"
 
 function make_request_with_retry {
@@ -135,15 +133,12 @@ function make_request_with_retry {
             return 0
         else
             echo "wireserver request failed (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
-            if [ -n "$response" ]; then
-                echo "wireserver error response: ${response}" >&2
-            fi
             sleep $retry_delay
             attempt=$((attempt + 1))
         fi
     done
 
-    echo "exhausted all retries for ${url} (last HTTP ${http_code}), last response: $response" >&2
+    echo "exhausted all retries for ${url} (last HTTP ${http_code})" >&2
     return 1
 }
 
@@ -162,7 +157,6 @@ function is_opted_in_for_root_certs {
 
     opt_in_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/acms/isOptedInForRootCerts")
     local request_status=$?
-    echo "is_opted_in_for_root_certs: wireserver response (status=${request_status}): '${opt_in_response}'"
 
     if [ $request_status -ne 0 ] || [ -z "$opt_in_response" ]; then
         echo "ERROR: wireserver unreachable after retries for IsOptedInForRootCerts check"
@@ -176,25 +170,6 @@ function is_opted_in_for_root_certs {
 
     echo "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"
     return 1
-}
-
-function get_trust_store_dir {
-    if [ "$IS_ACL" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-        echo "/etc/pki/ca-trust/source/anchors"
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        echo "/etc/ssl/certs"
-    else
-        echo "/usr/local/share/ca-certificates"
-    fi
-}
-
-function debug_print_trust_store {
-    local stage="$1"
-    local trust_store_dir
-
-    trust_store_dir=$(get_trust_store_dir)
-    echo "Trust store contents ${stage} cert copy: ${trust_store_dir}"
-    ls -al "$trust_store_dir" || true
 }
 
 function retrieve_legacy_certs {
@@ -223,7 +198,6 @@ function process_cert_operations {
     local endpoint_type="$1"
     local operation_response
 
-    echo "Retrieving certificate operations for type: $endpoint_type"
     operation_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json")
     local request_status=$?
     if [ -z "$operation_response" ] || [ $request_status -ne 0 ]; then
@@ -240,8 +214,6 @@ function process_cert_operations {
     fi
 
     for cert_filename in "${cert_filenames[@]}"; do
-        echo "Processing certificate file: $cert_filename"
-
         # Defense-in-depth: reject filenames containing path separators or ".." to
         # prevent path traversal via a malformed wireserver ResouceFileName value.
         # Windows performs the equivalent sanitization via [IO.Path]::GetFileName.
@@ -265,7 +237,6 @@ function process_cert_operations {
         fi
 
         echo "$cert_content" > "/root/AzureCACertificates/$sanitized_filename"
-        echo "Successfully saved certificate: $sanitized_filename"
     done
 }
 
@@ -277,16 +248,19 @@ function retrieve_rcv1p_certs {
 function install_certs_to_trust_store {
     mkdir -p /root/AzureCACertificates
 
-    debug_print_trust_store "before"
-
     # Guard against empty glob: if no *.crt files exist, bash leaves the literal
-    # '*.crt', which would silently fail cp and could mask the failure since
-    # debug_print_trust_store below always returns 0.
+    # '*.crt', which would fail cp.
     if ! compgen -G "/root/AzureCACertificates/*.crt" > /dev/null; then
         echo "ERROR: no *.crt files in /root/AzureCACertificates to install" >&2
         return 1
     fi
 
+    local cert
+    for cert in /root/AzureCACertificates/*.crt; do
+        log_certificates "$cert"
+    done
+
+    echo "Refreshing CA trust store"
     local rc=0
     if [ "$IS_ACL" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
         cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/ || rc=$?
@@ -311,9 +285,287 @@ function install_certs_to_trust_store {
         fi
     fi
 
-    debug_print_trust_store "after"
     return $rc
 }
+function init_ubuntu_main_repo_depot {
+    local repodepot_endpoint="$1"
+    local keyrings_dir="${APT_KEYRINGS_DIR:-/etc/apt/keyrings}"
+    local ssl_certs_dir="${SSL_CERTS_DIR:-/etc/ssl/certs}"
+    local ssl_cert_target="${SSL_CERT_TARGET:-/usr/lib/ssl/cert.pem}"
+    local backup_dir="${APT_BACKUP_DIR:-/etc/apt/backup}"
+    local sources_list="${APT_SOURCES_LIST:-/etc/apt/sources.list}"
+    local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
+    local os_release_file="${OS_RELEASE_FILE:-/etc/os-release}"
+
+    # Initialize directories for keys and apt sources. mkdir -p is a no-op when the
+    # default paths already exist; it makes the *_DIR overrides used by tests robust.
+    mkdir -p "$keyrings_dir" "$sources_list_d"
+
+    # This copies the updated bundle to the location used by OpenSSL which is commonly used.
+    echo "Copying updated bundle to OpenSSL .pem file..."
+    cp "${ssl_certs_dir}/ca-certificates.crt" "$ssl_cert_target"
+    echo "Updated bundle copied."
+
+    # Back up sources.list and sources.list.d contents
+    mkdir -p "$backup_dir"
+    if [ -f "$sources_list" ]; then
+        mv "$sources_list" "$backup_dir/"
+    fi
+    for sources_file in "${sources_list_d}"/*; do
+        if [ -f "$sources_file" ]; then
+            mv "$sources_file" "$backup_dir/"
+        fi
+    done
+
+    # Set location of sources file
+    # shellcheck disable=SC1090
+    . "$os_release_file"
+    local aptSourceFile="${sources_list_d}/ubuntu.sources"
+
+    # Create main sources file
+    cat <<EOF > "$aptSourceFile"
+
+Types: deb
+URIs: ${repodepot_endpoint}/ubuntu
+Suites: ${VERSION_CODENAME} ${VERSION_CODENAME}-updates ${VERSION_CODENAME}-backports ${VERSION_CODENAME}-security
+Components: main universe restricted multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+
+    # Update the apt sources file using the RepoDepot Ubuntu URL for this cloud. Update it by replacing
+    # all urls with the RepoDepot Ubuntu url
+    local ubuntuUrl="${repodepot_endpoint}/ubuntu"
+    echo "Converting URLs in $aptSourceFile to RepoDepot URLs..."
+    sed -i "s,https\?://.[^ ]*,$ubuntuUrl,g" "$aptSourceFile"
+    echo "apt source URLs converted, see new file below:"
+    echo ""
+    echo "-----"
+    cat "$aptSourceFile"
+    echo "-----"
+    echo ""
+}
+
+function check_url {
+    local url=$1
+    echo "Checking url: $url"
+
+    # Use curl to check the URL and capture both stdout and stderr
+    curl_exit_code=$(curl -s --head --request GET $url)
+    # Check the exit status of curl
+    # shellcheck disable=SC3010
+    if [[ $? -ne 0 ]] || echo "$curl_exit_code" | grep -E "404 Not Found" > /dev/null; then
+        echo "ERROR: $url is not available. Please manually check if the url is valid before re-running script"
+        emit_event "AKS.CSE.customCloudRepoInit.checkUrlFailed" "url=$url not reachable" "Error"
+        exit 1
+    fi
+}
+
+function write_to_sources_file {
+    local sources_list_d_file=$1
+    local source_uri=$2
+    shift 2
+    local key_paths=("$@")
+    local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
+    mkdir -p "$sources_list_d"
+
+    local sources_file_path="${sources_list_d}/${sources_list_d_file}.sources"
+    local ubuntuDist
+    ubuntuDist=$(lsb_release -c | awk '{print $2}')
+
+    tee -a "$sources_file_path" <<EOF
+
+Types: deb
+URIs: $source_uri
+Suites: $ubuntuDist
+Components: main
+Arch: amd64
+Signed-By: ${key_paths[*]}
+EOF
+}
+
+function add_key_ubuntu {
+    local key_name="$1"
+    local endpoint="$2"
+
+    local key_url="${endpoint}/keys/${key_name}"
+    check_url "$key_url"
+    echo "Adding $key_name key to keyring..."
+    local key_data
+    key_data=$(wget -O - "$key_url")
+    local key_path
+    key_path=$(derive_key_paths "$key_name")
+    echo "$key_data" | gpg --dearmor | tee "$key_path" > /dev/null
+    echo "$key_name key added to keyring."
+}
+
+function derive_key_paths {
+    local key_names=("$@")
+    local key_paths=()
+    local keyrings_dir="${APT_KEYRINGS_DIR:-/etc/apt/keyrings}"
+
+    for key_name in "${key_names[@]}"; do
+        key_paths+=("${keyrings_dir}/${key_name}.gpg")
+    done
+
+    echo "${key_paths[*]}"
+}
+
+function add_ms_keys {
+    local endpoint="$1"
+    # Add the Microsoft package server keys to keyring.
+    echo "Adding Microsoft keys to keyring..."
+
+    add_key_ubuntu microsoft.asc "$endpoint"
+    add_key_ubuntu msopentech.asc "$endpoint"
+}
+
+function aptget_update {
+    echo "apt-get updating..."
+    echo "note: depending on how many sources have been added this may take a couple minutes..."
+    if apt-get update | grep -q "404 Not Found"; then
+        echo "ERROR: apt-get update failed to find all sources. Please validate the sources or remove bad sources from your sources and try again."
+        emit_event "AKS.CSE.customCloudRepoInit.aptgetUpdateFailed" "apt-get update returned 404 for one or more sources" "Error"
+        exit 1
+    else
+        echo "apt-get update complete!"
+    fi
+}
+
+function init_ubuntu_pmc_repo_depot {
+    local repodepot_endpoint="$1"
+    # Add Microsoft packages source to the azure specific sources.list.
+    echo "Adding the packages.microsoft.com Ubuntu-$ubuntuRel repo..."
+
+    local microsoftPackageSource="$repodepot_endpoint/microsoft/ubuntu/$ubuntuRel/prod"
+    check_url "$microsoftPackageSource"
+    write_to_sources_file microsoft-prod "$microsoftPackageSource" $(derive_key_paths microsoft.asc msopentech.asc)
+    write_to_sources_file microsoft-prod-testing "$microsoftPackageSource" $(derive_key_paths microsoft.asc msopentech.asc)
+    echo "Ubuntu ($ubuntuRel) repo added."
+    echo "Adding packages.microsoft.com keys"
+    add_ms_keys "$repodepot_endpoint"
+}
+
+function init_mariner_repo_depot {
+    local repodepot_endpoint="$1"
+    local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
+    mkdir -p "$yum_repos_dir"
+
+    echo "Adding [extended] repo"
+    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-extended.repo"
+    sed -i -e "s|extras|extended|" "${yum_repos_dir}/mariner-extended.repo"
+    sed -i -e "s|Extras|Extended|" "${yum_repos_dir}/mariner-extended.repo"
+
+    echo "Adding [nvidia] repo"
+    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-nvidia.repo"
+    sed -i -e "s|extras|nvidia|" "${yum_repos_dir}/mariner-nvidia.repo"
+    sed -i -e "s|Extras|Nvidia|" "${yum_repos_dir}/mariner-nvidia.repo"
+
+    echo "Adding [cloud-native] repo"
+    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-cloud-native.repo"
+    sed -i -e "s|extras|cloud-native|" "${yum_repos_dir}/mariner-cloud-native.repo"
+    sed -i -e "s|Extras|Cloud-Native|" "${yum_repos_dir}/mariner-cloud-native.repo"
+
+    echo "Pointing Mariner repos at RepoDepot..."
+    for f in "${yum_repos_dir}"/*.repo; do
+        sed -i -e "s|https://packages.microsoft.com|${repodepot_endpoint}/mariner/packages.microsoft.com|" "$f"
+        echo "$f modified."
+    done
+    echo "Mariner repo setup complete."
+}
+
+function init_azurelinux_repo_depot {
+    local repodepot_endpoint="$1"
+    local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
+    local repos=("amd" "base" "cloud-native" "extended" "ms-non-oss" "ms-oss" "nvidia")
+    mkdir -p "$yum_repos_dir"
+
+    rm -f "${yum_repos_dir}"/azurelinux*
+
+    for repo in "${repos[@]}"; do
+        local output_file="${yum_repos_dir}/azurelinux-${repo}.repo"
+        local repo_content=(
+            "[azurelinux-official-$repo]"
+            "name=Azure Linux Official $repo \$releasever \$basearch"
+            "baseurl=$repodepot_endpoint/azurelinux/\$releasever/prod/$repo/\$basearch"
+            "gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY"
+            "gpgcheck=1"
+            "repo_gpgcheck=1"
+            "enabled=1"
+            "skip_if_unavailable=True"
+            "sslverify=1"
+        )
+
+        rm -f "$output_file"
+
+        for line in "${repo_content[@]}"; do
+            echo "$line" >> "$output_file"
+        done
+
+        echo "File '$output_file' has been created."
+    done
+    echo "Azure Linux repo setup complete."
+}
+
+function dnf_makecache {
+    local retries=10
+    local dnf_makecache_output=/tmp/dnf-makecache.out
+    local i
+    for i in $(seq 1 $retries); do
+        ! (dnf makecache -y 2>&1 | tee $dnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        cat $dnf_makecache_output && break || \
+        cat $dnf_makecache_output
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep 5
+        fi
+    done
+    echo "Executed dnf makecache -y $i times"
+}
+
+# Determines the certificate endpoint mode based on location.
+# Returns "legacy" for ussec/usnat regions, "rcv1p" for all others.
+# Usage: cert_endpoint_mode=$(determine_cert_endpoint_mode "$location")
+function determine_cert_endpoint_mode {
+    local location="$1"
+    local normalized="${location,,}"
+    normalized="${normalized//[[:space:]]/}"
+
+    local mode="rcv1p"
+    case "$normalized" in
+        ussec*|usnat*) mode="legacy" ;;
+    esac
+    echo "$mode"
+}
+
+# shellcheck disable=SC2317
+${__SOURCED__:+return}
+
+# shellcheck disable=SC3010
+if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+    # shellcheck disable=SC3010
+    if [[ $NAME = *"Ubuntu"* ]]; then
+        IS_UBUNTU=1
+    elif [[ $ID = *"flatcar"* ]]; then
+        IS_FLATCAR=1
+    elif [[ $ID = "azurecontainerlinux" ]] || { [[ $ID = "azurelinux" ]] && [[ ${VARIANT_ID:-} = "azurecontainerlinux" ]]; }; then
+        IS_ACL=1
+    elif [[ $NAME = *"Mariner"* ]]; then
+        IS_MARINER=1
+    elif [[ $NAME = *"Microsoft Azure Linux"* ]]; then
+        IS_AZURELINUX=1
+    else
+        echo "Unknown Linux distribution"
+        exit 1
+    fi
+else
+    echo "Unsupported operating system"
+    exit 1
+fi
+
+echo "Running on $NAME"
+
 
 # Certificate refresh behavior summary:
 # - legacy mode directly attempts certificate download from wireserver and only in ussec and usnat regions.
@@ -328,10 +580,7 @@ if [ -z "$location_normalized" ]; then
     echo "Warning: LOCATION is empty; defaulting custom cloud certificate endpoint mode to rcv1p"
 fi
 
-cert_endpoint_mode="rcv1p"
-case "$location_normalized" in
-    ussec*|usnat*) cert_endpoint_mode="legacy" ;;
-esac
+cert_endpoint_mode=$(determine_cert_endpoint_mode "$refresh_location")
 
 echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
 emit_event "AKS.CSE.rcv1p.certEndpointMode" "mode=${cert_endpoint_mode}, location=${location_normalized}"
@@ -384,222 +633,9 @@ fi
 # - init (default): full provisioning path
 # - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
 action=${1:-init}
-if [ "$action" = "ca-refresh" ]; then
-    exit
+if [ "$action" = "ca-refresh" ] || [ "$install_ca_refresh_schedule" -eq 0 ]; then
+    exit 0
 fi
-
-function init_ubuntu_main_repo_depot {
-    local repodepot_endpoint="$1"
-    # Initialize directory for keys
-    mkdir -p /etc/apt/keyrings
-
-    # This copies the updated bundle to the location used by OpenSSL which is commonly used
-    echo "Copying updated bundle to OpenSSL .pem file..."
-    cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
-    echo "Updated bundle copied."
-
-    # Back up sources.list and sources.list.d contents
-    mkdir -p /etc/apt/backup/
-    if [ -f "/etc/apt/sources.list" ]; then
-        mv /etc/apt/sources.list /etc/apt/backup/
-    fi
-    for sources_file in /etc/apt/sources.list.d/*; do
-        if [ -f "$sources_file" ]; then
-            mv "$sources_file" /etc/apt/backup/
-        fi
-    done
-
-    # Set location of sources file
-    . /etc/os-release
-    aptSourceFile="/etc/apt/sources.list.d/ubuntu.sources"
-
-    # Create main sources file
-    cat <<EOF > /etc/apt/sources.list.d/ubuntu.sources
-
-Types: deb
-URIs: ${repodepot_endpoint}/ubuntu
-Suites: ${VERSION_CODENAME} ${VERSION_CODENAME}-updates ${VERSION_CODENAME}-backports ${VERSION_CODENAME}-security
-Components: main universe restricted multiverse
-Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-EOF
-
-    # Update the apt sources file using the RepoDepot Ubuntu URL for this cloud. Update it by replacing
-    # all urls with the RepoDepot Ubuntu url
-    ubuntuUrl=${repodepot_endpoint}/ubuntu
-    echo "Converting URLs in $aptSourceFile to RepoDepot URLs..."
-    sed -i "s,https\?://.[^ ]*,$ubuntuUrl,g" $aptSourceFile
-    echo "apt source URLs converted, see new file below:"
-    echo ""
-    echo "-----"
-    cat $aptSourceFile
-    echo "-----"
-    echo ""
-}
-
-function check_url {
-    local url=$1
-    echo "Checking url: $url"
-
-    # Use curl to check the URL and capture both stdout and stderr
-    curl_exit_code=$(curl -s --head --request GET $url)
-    # Check the exit status of curl
-    # shellcheck disable=SC3010
-    if [[ $? -ne 0 ]] || echo "$curl_exit_code" | grep -E "404 Not Found" > /dev/null; then
-        echo "ERROR: $url is not available. Please manually check if the url is valid before re-running script"
-        emit_event "AKS.CSE.customCloudRepoInit.checkUrlFailed" "url=$url not reachable" "Error"
-        exit 1
-    fi
-}
-
-function write_to_sources_file {
-    local sources_list_d_file=$1
-    local source_uri=$2
-    shift 2
-    local key_paths=("$@")
-
-    sources_file_path="/etc/apt/sources.list.d/${sources_list_d_file}.sources"
-    ubuntuDist=$(lsb_release -c | awk '{print $2}')
-
-    tee -a $sources_file_path <<EOF
-
-Types: deb
-URIs: $source_uri
-Suites: $ubuntuDist
-Components: main
-Arch: amd64
-Signed-By: ${key_paths[*]}
-EOF
-}
-
-function add_key_ubuntu {
-    local key_name=$1
-
-    key_url="${repodepot_endpoint}/keys/${key_name}"
-    check_url $key_url
-    echo "Adding $key_name key to keyring..."
-    key_data=$(wget -O - $key_url)
-    key_path=$(derive_key_paths $key_name)
-    echo "$key_data" | gpg --dearmor | tee $key_path > /dev/null
-    echo "$key_name key added to keyring."
-}
-
-function derive_key_paths {
-    local key_names=("$@")
-    local key_paths=()
-
-    for key_name in "${key_names[@]}"; do
-        key_paths+=("/etc/apt/keyrings/${key_name}.gpg")
-    done
-
-    echo "${key_paths[*]}"
-}
-
-function add_ms_keys {
-    # Add the Microsoft package server keys to keyring.
-    echo "Adding Microsoft keys to keyring..."
-
-    add_key_ubuntu microsoft.asc
-    add_key_ubuntu msopentech.asc
-}
-
-function aptget_update {
-    echo "apt-get updating..."
-    echo "note: depending on how many sources have been added this may take a couple minutes..."
-    if apt-get update | grep -q "404 Not Found"; then
-        echo "ERROR: apt-get update failed to find all sources. Please validate the sources or remove bad sources from your sources and try again."
-        emit_event "AKS.CSE.customCloudRepoInit.aptgetUpdateFailed" "apt-get update returned 404 for one or more sources" "Error"
-        exit 1
-    else
-        echo "apt-get update complete!"
-    fi
-}
-
-function init_ubuntu_pmc_repo_depot {
-    local repodepot_endpoint="$1"
-    # Add Microsoft packages source to the azure specific sources.list.
-    echo "Adding the packages.microsoft.com Ubuntu-$ubuntuRel repo..."
-
-    microsoftPackageSource="$repodepot_endpoint/microsoft/ubuntu/$ubuntuRel/prod"
-    check_url $microsoftPackageSource
-    write_to_sources_file microsoft-prod $microsoftPackageSource $(derive_key_paths microsoft.asc msopentech.asc)
-    write_to_sources_file microsoft-prod-testing $microsoftPackageSource $(derive_key_paths microsoft.asc msopentech.asc)
-    echo "Ubuntu ($ubuntuRel) repo added."
-    echo "Adding packages.microsoft.com keys"
-    add_ms_keys $repodepot_endpoint
-}
-
-function init_mariner_repo_depot {
-    local repodepot_endpoint=$1
-    echo "Adding [extended] repo"
-    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-extended.repo
-    sed -i -e "s|extras|extended|" /etc/yum.repos.d/mariner-extended.repo
-    sed -i -e "s|Extras|Extended|" /etc/yum.repos.d/mariner-extended.repo
-
-    echo "Adding [nvidia] repo"
-    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-nvidia.repo
-    sed -i -e "s|extras|nvidia|" /etc/yum.repos.d/mariner-nvidia.repo
-    sed -i -e "s|Extras|Nvidia|" /etc/yum.repos.d/mariner-nvidia.repo
-
-    echo "Adding [cloud-native] repo"
-    cp /etc/yum.repos.d/mariner-extras.repo /etc/yum.repos.d/mariner-cloud-native.repo
-    sed -i -e "s|extras|cloud-native|" /etc/yum.repos.d/mariner-cloud-native.repo
-    sed -i -e "s|Extras|Cloud-Native|" /etc/yum.repos.d/mariner-cloud-native.repo
-
-    echo "Pointing Mariner repos at RepoDepot..."
-    for f in /etc/yum.repos.d/*.repo; do
-        sed -i -e "s|https://packages.microsoft.com|${repodepot_endpoint}/mariner/packages.microsoft.com|" $f
-        echo "$f modified."
-    done
-    echo "Mariner repo setup complete."
-}
-
-function init_azurelinux_repo_depot {
-    local repodepot_endpoint=$1
-    local repos=("amd" "base" "cloud-native" "extended" "ms-non-oss" "ms-oss" "nvidia")
-
-    rm -f /etc/yum.repos.d/azurelinux*
-
-    for repo in "${repos[@]}"; do
-        output_file="/etc/yum.repos.d/azurelinux-${repo}.repo"
-        repo_content=(
-            "[azurelinux-official-$repo]"
-            "name=Azure Linux Official $repo \$releasever \$basearch"
-            "baseurl=$repodepot_endpoint/azurelinux/\$releasever/prod/$repo/\$basearch"
-            "gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY"
-            "gpgcheck=1"
-            "repo_gpgcheck=1"
-            "enabled=1"
-            "skip_if_unavailable=True"
-            "sslverify=1"
-        )
-
-        rm -f "$output_file"
-
-        for line in "${repo_content[@]}"; do
-            echo "$line" >> "$output_file"
-        done
-
-        echo "File '$output_file' has been created."
-    done
-    echo "Azure Linux repo setup complete."
-}
-
-function dnf_makecache {
-    local retries=10
-    local dnf_makecache_output=/tmp/dnf-makecache.out
-    local i
-    for i in $(seq 1 $retries); do
-        ! (dnf makecache -y 2>&1 | tee $dnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
-        cat $dnf_makecache_output && break || \
-        cat $dnf_makecache_output
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep 5
-        fi
-    done
-    echo "Executed dnf makecache -y $i times"
-}
 
 if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
     scriptPath=$0
@@ -609,25 +645,22 @@ if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1
         scriptPath="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
     fi
 
-    if [ "$install_ca_refresh_schedule" -eq 1 ]; then
-        # Remove any existing ca-refresh entry for this script (may lack the location argument
-        # from older VHDs on custom clouds like AGC/Delos) and re-add with the explicit location.
-        # Without the location argument, ca-refresh defaults endpoint mode to rcv1p which is
-        # wrong for ussec/usnat legacy environments.
-        new_entry="0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\""
-        existing=$(crontab -l 2>/dev/null || true)
-        filtered=$(printf '%s\n' "$existing" | grep -F -v "\"$scriptPath\" ca-refresh" || true)
-        if ! (printf '%s\n' "$filtered"; printf '%s\n' "$new_entry") | sed '/^$/d' | crontab -; then
-            echo "Failed to install ca-refresh cron job via crontab" >&2
-        fi
+    # Remove any existing ca-refresh entry for this script (may lack the location argument
+    # from older VHDs on custom clouds like AGC/Delos) and re-add with the explicit location.
+    # Without the location argument, ca-refresh defaults endpoint mode to rcv1p which is
+    # wrong for ussec/usnat legacy environments.
+    new_entry="0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\""
+    existing=$(crontab -l 2>/dev/null || true)
+    filtered=$(printf '%s\n' "$existing" | grep -F -v "\"$scriptPath\" ca-refresh" || true)
+    if ! (printf '%s\n' "$filtered"; printf '%s\n' "$new_entry") | sed '/^$/d' | crontab -; then
+        echo "Failed to install ca-refresh cron job via crontab" >&2
     fi
 elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
-    if [ "$install_ca_refresh_schedule" -eq 1 ]; then
-        script_path="$(readlink -f "$0")"
-        svc="/etc/systemd/system/azure-ca-refresh.service"
-        tmr="/etc/systemd/system/azure-ca-refresh.timer"
+    script_path="$(readlink -f "$0")"
+    svc="/etc/systemd/system/azure-ca-refresh.service"
+    tmr="/etc/systemd/system/azure-ca-refresh.timer"
 
-        cat >"$svc" <<EOF
+    cat >"$svc" <<EOF
 [Unit]
 Description=Refresh Azure Custom Cloud CA certificates
 After=network-online.target
@@ -651,9 +684,8 @@ RandomizedDelaySec=300
 WantedBy=timers.target
 EOF
 
-        systemctl daemon-reload
-        systemctl enable --now azure-ca-refresh.timer
-    fi
+    systemctl daemon-reload
+    systemctl enable --now azure-ca-refresh.timer
 fi
 
 if [ "$IS_UBUNTU" -eq 1 ]; then
@@ -694,7 +726,7 @@ fi
 if [ "$IS_ACL" -eq 1 ]; then
     echo "Skipping chrony configuration for ACL (PTP clock baked into chronyd, no external NTP sources)"
 elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-cat > /etc/chrony.conf <<EOF
+    cat > /etc/chrony.conf <<EOF
 # This directive specify the location of the file containing ID/key pairs for
 # NTP authentication.
 keyfile /etc/chrony.keys
@@ -721,22 +753,22 @@ refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
 
-systemctl restart chronyd
+    systemctl restart chronyd
 else
-chrony_conf="/etc/chrony/chrony.conf"
-if [ "$IS_UBUNTU" -eq 1 ]; then
-    systemctl stop systemd-timesyncd
-    systemctl disable systemd-timesyncd
+    chrony_conf="/etc/chrony/chrony.conf"
+    if [ "$IS_UBUNTU" -eq 1 ]; then
+        systemctl stop systemd-timesyncd
+        systemctl disable systemd-timesyncd
 
-    if [ ! -e "$chrony_conf" ]; then
-        apt-get update
-        apt-get install chrony -y
+        if [ ! -e "$chrony_conf" ]; then
+            apt-get update
+            apt-get install chrony -y
+        fi
+    elif [ "$IS_FLATCAR" -eq 1 ]; then
+        rm -f ${chrony_conf}
     fi
-elif [ "$IS_FLATCAR" -eq 1 ]; then
-    rm -f ${chrony_conf}
-fi
 
-cat > $chrony_conf <<EOF
+    cat > $chrony_conf <<EOF
 # Welcome to the chrony configuration file. See chrony.conf(5) for more
 # information about usuable directives.
 
@@ -784,11 +816,11 @@ refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
 
-if [ "$IS_UBUNTU" -eq 1 ]; then
-    systemctl restart chrony
-elif [ "$IS_FLATCAR" -eq 1 ]; then
-    systemctl restart chronyd
-fi
+    if [ "$IS_UBUNTU" -eq 1 ]; then
+        systemctl restart chrony
+    elif [ "$IS_FLATCAR" -eq 1 ]; then
+        systemctl restart chronyd
+    fi
 fi
 
 #EOF

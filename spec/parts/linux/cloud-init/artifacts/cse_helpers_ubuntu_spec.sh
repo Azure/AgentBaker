@@ -122,6 +122,75 @@ Describe 'apt_get_install budget timeout'
         End
     End
 
+    Describe '_apt_get_update CSE budget and per-attempt timeout'
+        wait_for_apt_locks() { :; }
+        dpkg() { :; }
+        apt-get() { return 0; }
+        # Report the per-attempt timeout value, then run the command. _apt_get_update redirects both
+        # streams of the timeout invocation into its output file and cats it, so this lands on stdout.
+        timeout() { echo "timeout arg: $1"; shift; "$@"; }
+
+        It "caps each attempt at the default per-attempt timeout when CSE budget is plentiful"
+            CSE_STARTTIME_SECONDS=$(date +%s)
+            When call _apt_get_update 1 ""
+            The status should eq 0
+            The stdout should include "timeout arg: 180"
+            The stdout should include "Executed apt-get update 1 times"
+        End
+
+        It "caps each attempt at the remaining CSE budget when it is smaller"
+            CSE_MAX_DURATION_SECONDS=1000
+            CSE_STARTTIME_SECONDS=$(( $(date +%s) - 900 ))
+            # Allow a few seconds of drift between the setup above and the call.
+            timeout() {
+                if [ "$1" -le 100 ] && [ "$1" -ge 95 ]; then
+                    echo "capped to remaining CSE budget"
+                else
+                    echo "not capped: $1"
+                fi
+                shift
+                "$@"
+            }
+            When call _apt_get_update 1 ""
+            The status should eq 0
+            The stdout should include "capped to remaining CSE budget"
+        End
+
+        It "returns 2 when the CSE timeout is already exceeded before the first attempt"
+            CSE_STARTTIME_SECONDS=$(( $(date +%s) - 800 ))
+            When call _apt_get_update 3 ""
+            The status should eq 2
+            The stderr should include "CSE timeout approaching"
+        End
+
+        It "returns 2 when no CSE time remains"
+            # Stub the guard so this test isolates the remaining-budget check, which would otherwise
+            # only be reachable in the single second where elapsed time exactly equals the max.
+            check_cse_timeout() { return 0; }
+            CSE_MAX_DURATION_SECONDS=100
+            CSE_STARTTIME_SECONDS=$(( $(date +%s) - 200 ))
+            When call _apt_get_update 3 ""
+            The status should eq 2
+            The stderr should include "No CSE time remaining"
+        End
+
+        It "treats a timed-out apt-get as failure even when it emits no diagnostics"
+            timeout() { return 124; }
+            When call _apt_get_update 1 ""
+            The status should eq 1
+            The stderr should include "apt-get update timed out after"
+        End
+
+        It "still applies the per-attempt timeout during VHD build without CSE warnings"
+            unset CSE_STARTTIME_SECONDS
+            When call _apt_get_update 1 ""
+            The status should eq 0
+            The stdout should include "timeout arg: 180"
+            The stderr should not include "CSE timeout approaching"
+            The stdout should include "Executed apt-get update 1 times"
+        End
+    End
+
     Describe 'apt_get_dist_upgrade phased updates'
         wait_for_apt_locks() { :; }
         dpkg() { :; }
