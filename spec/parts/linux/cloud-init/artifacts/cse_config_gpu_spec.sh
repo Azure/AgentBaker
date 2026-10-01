@@ -434,11 +434,6 @@ Describe 'cse_config_gpu.sh'
         systemctlDisableAndStop() {
             echo "systemctlDisableAndStop $@"
         }
-        # Default to non-arm64 so the GB-only compute-domain path stays off unless a
-        # test opts in; the existing device-plugin/DRA cases are arch-agnostic.
-        isARM64() {
-            echo 0
-        }
 
         BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
 
