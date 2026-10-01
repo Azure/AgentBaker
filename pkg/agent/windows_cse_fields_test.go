@@ -37,6 +37,7 @@ var windowsCSETestValues = map[string]string{
 }
 
 const windowsCSEFieldsFixture = "testdata/windowscse/fields.tsv"
+const windowsCSEPackageURLWithDollar = "https://example.blob.core.windows.net/$web/windows-cse.zip"
 
 // windowsCSEField is one value that AgentBaker writes into the Windows CSE script.
 type windowsCSEField struct {
@@ -429,6 +430,9 @@ func TestWindowsCSEFieldsFixture(t *testing.T) {
 		for _, name := range sortedWindowsCSETestValueNames() {
 			add(field, windowsCSETestValues[name])
 		}
+		if field.action == `GetVariable "windowsCSEScriptsPackageURL"` {
+			add(field, windowsCSEPackageURLWithDollar)
+		}
 	}
 	got := strings.Join(lines, "\n") + "\n"
 	requireASCII(t, "fixture", got)
@@ -689,6 +693,25 @@ func TestWindowsKubeletArgumentsKeepTheirValues(t *testing.T) {
 	require.Contains(t, args, `--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`)
 	require.Contains(t, args, "WinDSR=true")
 	require.Contains(t, args, "WinOverlay=false")
+}
+
+// Azure Blob URLs can name the $web container; PowerShell must not expand it as a variable.
+func TestWindowsCSEPreservesPackageURL(t *testing.T) {
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Skip("pwsh is not installed")
+	}
+	config := newWindowsBootstrapTestConfig()
+	config.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSEPackageURLWithDollar
+	customData, _ := renderWindowsCSE(t, config)
+	script := "$web = $null\n" +
+		windowsCSEFieldStatement(t, customData, "$global:CSEScriptsPackageUrl=") + "\n" +
+		"$global:CSEScriptsPackageUrl"
+	path := filepath.Join(t.TempDir(), "package-url.ps1")
+	require.NoError(t, os.WriteFile(path, []byte(script), 0o600))
+	output, err := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-File", path).CombinedOutput()
+	require.NoError(t, err, string(output))
+	require.Equal(t, windowsCSEPackageURLWithDollar, strings.TrimSpace(string(output)))
 }
 
 func newWindowsBootstrapTestConfig() *datamodel.NodeBootstrappingConfiguration {
