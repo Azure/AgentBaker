@@ -708,22 +708,6 @@ function Test-WindowsDefenderPlatformUpdate {
     }
 }
 
-function Test-ToolsToCacheOnVHD {
-    $toolsDir = "c:\aks-tools"
-    $toolsList = @("DU\du.exe", "DU\du64.exe", "DU\du64a.exe")
-
-    foreach ($tool in $toolsList) {
-        $toolPath = Join-Path -Path $toolsDir -ChildPath $tool
-        if (!(Test-Path -Path $toolPath)) {
-            Write-ErrorWithTimestamp "Failed to get tool: $toolPath"
-            exit 1
-        }
-        else {
-            Write-OutputWithTimestamp "Got tool: $toolPath"
-        }
-    }
-}
-
 function Test-ExpandVolumeTask {
     $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
     $osDisk = Get-Partition -DriveLetter $osDrive | Get-Disk
@@ -876,9 +860,6 @@ Test-ExcludeUDPSourcePort
 
 Write-OutputWithTimestamp "Test: WindowsDefenderPlatformUpdate"
 Test-WindowsDefenderPlatformUpdate
-
-Write-OutputWithTimestamp "Test: ToolsToCacheOnVHD"
-Test-ToolsToCacheOnVHD
 
 Write-OutputWithTimestamp "Test: ExpandVolumeTask"
 Test-ExpandVolumeTask
