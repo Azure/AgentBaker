@@ -153,6 +153,8 @@ parameters:
 variables:
   - name: MODE
     value: "linuxVhdMode"
+  - name: USE_SHALLOW_REPLICATION
+    value: "true"
   - group: aks-vuln-to-kusto
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
