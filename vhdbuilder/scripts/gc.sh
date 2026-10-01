@@ -8,8 +8,17 @@ SKIP_TAG_VALUE="true"
 
 DRY_RUN="${DRY_RUN:-}"
 
-STANDARD_DEADLINE=$(( $(date +%s) - 14400 )) # 4 hours ago
-WEEK_AGO=$(( $(date +%s) - 604800 )) # 7 days ago
+STANDARD_RETENTION_SECONDS="${STANDARD_RETENTION_SECONDS:-14400}"
+SKIP_RETENTION_SECONDS="${SKIP_RETENTION_SECONDS:-604800}"
+
+if [[ ! "$STANDARD_RETENTION_SECONDS" =~ ^[1-9][0-9]*$ ]] ||
+   [[ ! "$SKIP_RETENTION_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
+    echo "STANDARD_RETENTION_SECONDS and SKIP_RETENTION_SECONDS must be positive integers in seconds" >&2
+    exit 1
+fi
+
+STANDARD_DEADLINE=$(( $(date +%s) - STANDARD_RETENTION_SECONDS ))
+SKIP_DEADLINE=$(( $(date +%s) - SKIP_RETENTION_SECONDS ))
 
 function main() {
     az account set -s $SUBSCRIPTION_ID
@@ -34,8 +43,8 @@ function cleanup_rgs() {
 
         if [ "${tag_value,,}" = "$SKIP_TAG_VALUE" ]; then
             now=$(echo "$group_object" | jq -r '.tags.now')
-            if [ "$now" != "null" ] && [ "$now" -lt "$WEEK_AGO" ]; then
-                echo "resource group $group is tagged with $SKIP_TAG_NAME=$SKIP_TAG_VALUE but is more than 7 days old, will attempt to delete..."
+            if [ "$now" != "null" ] && [ "$now" -lt "$SKIP_DEADLINE" ]; then
+                echo "resource group $group is tagged with $SKIP_TAG_NAME=$SKIP_TAG_VALUE but is more than $SKIP_RETENTION_SECONDS seconds old, will attempt to delete..."
                 delete_group $group || return $?
             fi
             continue
