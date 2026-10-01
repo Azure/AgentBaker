@@ -9,9 +9,9 @@
 
         Notes on modifying this file:
         - This file extension is PS1, but it is actually used as a Go template by pkg/agent/baker.go
-        - Every value that AgentBaker writes into this script must be piped through the PowerShellLiteral
-          template function and must not be put inside quotes, so that PowerShell reads it as a plain string.
-          pkg/agent/windows_cse_fields_test.go checks this for every value.
+        - Every input must have a row in windowsCSEFields in pkg/agent/windows_cse_fields_test.go.
+          Tests check the value and type PowerShell receives, without requiring a particular encoder.
+          When using PowerShellLiteral, do not put its output inside quotes.
         - windowscsehelper.ps1 contains basic util functions. It will be compressed to a zip file and then be converted to base64 encoding
           string and stored in $zippedFiles. Reason: This script is a template and has some limitations.
         - All other scripts will be packaged and published in a single package. It will be downloaded in provisioning VM.

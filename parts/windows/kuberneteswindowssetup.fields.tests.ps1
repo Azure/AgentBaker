@@ -1,16 +1,22 @@
-# Checks that PowerShell reads each value in the Windows CSE script as the plain string AgentBaker meant.
-# pkg/agent/windows_cse_fields_test.go renders the script line of each text field with test values, including
-# PowerShell code and non-ASCII characters, into pkg/agent/testdata/windowscse/fields.tsv
-# (make generate-testdata). Each line is run in a new PowerShell process, as the CSE runs, and on Windows
-# also in Windows PowerShell 5.1, which runs the CSE on nodes.
+# Checks the runtime value and type of every Windows CSE input, independently of its encoding.
+# pkg/agent/windows_cse_fields_test.go generates fields.tsv with all text cases and constrained inputs.
+# Each shell runs the rendered statements in separate scopes; on Windows this includes PowerShell 5.1.
 
 BeforeDiscovery {
     $fixturePath = [IO.Path]::GetFullPath([IO.Path]::Combine($PSScriptRoot, '..', '..', 'pkg', 'agent', 'testdata', 'windowscse', 'fields.tsv'))
+    $types = @{
+        string = 'System.String'
+        first = 'System.Object[]'
+        array = 'System.Object[]'
+        boolean = 'System.Boolean'
+        uint32 = 'System.UInt32'
+    }
     $cases = @(
         $index = 0
         foreach ($row in (Get-Content -Path $fixturePath | Where-Object { $_ })) {
             $name, $kind, $expected, $line = $row -split "`t", 4
-            @{ Index = $index; Name = $name; Kind = $kind; Expected = $expected; Line = $line }
+            if (-not $types.ContainsKey($kind)) { throw "Unknown field kind: $kind" }
+            @{ Index = $index; Name = $name; Kind = $kind; ExpectedType = $types[$kind]; Expected = $expected; Line = $line }
             $index++
         }
     )
@@ -29,12 +35,21 @@ Describe 'Windows CSE field values' {
             $script:Code = @(
                 "`$ErrorActionPreference = 'Stop'"
                 foreach ($case in $Cases) {
-                    $select = if ($case.Kind -eq 'first') { '@($v)[0]' } else { '$v' }
                     "try { & {"
+                    "if (Test-Path -Path 'variable:global:$($case.Name)') { Remove-Variable -Name '$($case.Name)' -Scope Global }"
                     $case.Line
-                    "`$v = Get-Variable -Name '$($case.Name)' -ValueOnly"
-                    "`$v = $select"
+                    "`$v = Get-Variable -Name '$($case.Name)' -ValueOnly -ErrorAction Stop"
                     "`$type = if (`$null -eq `$v) { 'null' } else { `$v.GetType().FullName }"
+                    if ($case.Kind -in @('first', 'array')) {
+                        "if (@(`$v | Where-Object { `$_ -isnot [string] }).Count -gt 0) { throw 'Expected string array elements' }"
+                    }
+                    if ($case.Kind -eq 'first') {
+                        "if (@(`$v).Count -eq 0) { throw 'Expected an array element' }"
+                        "`$v = @(`$v)[0]"
+                    }
+                    elseif ($case.Kind -eq 'array') {
+                        "`$v = `$v -join ""`n"""
+                    }
                     "'{0}`t{1}`t{2}' -f $($case.Index), `$type, [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]`$v))"
                     "} } catch { '{0}`terror`t{1}' -f $($case.Index), (`$_.Exception.Message -replace '\s+', ' ') }"
                 }
@@ -81,10 +96,10 @@ Describe 'Windows CSE field values' {
             $script:Results['canary'] | Should -Be @('False')
         }
 
-        It '<Name> #<Index> gets the value as a string' -ForEach $Cases {
+        It '<Name> #<Index> gets its expected value and type' -ForEach $Cases {
             $result = $script:Results["$Index"]
             $result | Should -Not -BeNullOrEmpty -Because ($script:Output -join "`n")
-            $result[0] | Should -Be 'System.String' -Because ($result -join ' ')
+            $result[0] | Should -Be $ExpectedType -Because ($result -join ' ')
             $result[1] | Should -BeExactly $Expected
         }
     }

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"text/template"
@@ -21,8 +22,8 @@ import (
 )
 
 // These tests check how each value is written into the Windows CSE script
-// (parts/windows/kuberneteswindowssetup.ps1.template): every value must reach PowerShell as a plain string
-// that PowerShell does not expand or run.
+// (parts/windows/kuberneteswindowssetup.ps1.template): every input must reach PowerShell with its
+// expected value and type, without expanding or running any part of the input.
 
 // windowsCSETestValues are the values that each text field is tested with. Running the "code" value would
 // set a canary variable, which parts/windows/kuberneteswindowssetup.fields.tests.ps1 checks for.
@@ -39,21 +40,21 @@ const windowsCSEFieldsFixture = "testdata/windowscse/fields.tsv"
 
 // windowsCSEField is one value that AgentBaker writes into the Windows CSE script.
 type windowsCSEField struct {
-	// action is the template pipeline that produces the value, without "| PowerShellLiteral".
+	// action identifies the input, independently of any encoding applied by the template.
 	action string
 	// prefix is the text right before the value in the rendered script.
 	prefix string
+	// kind describes the expected runtime type; empty means string.
+	kind string
 	// set puts value into the NodeBootstrappingConfiguration field that the value comes from. It is nil
 	// when the value is never free text: a boolean, a number, base64, or a name that AgentBaker builds.
 	set func(c *datamodel.NodeBootstrappingConfiguration, value string)
 	// want returns the value that the script must get. nil means the value itself.
 	want func(c *datamodel.NodeBootstrappingConfiguration, value string) string
-	// encode returns how the value is written. nil means powerShellLiteral.
-	encode func(value string) string
 	// setup turns on the template branch that writes a value whose set is nil.
 	setup func(c *datamodel.NodeBootstrappingConfiguration)
-	// stub defines the command that a value is an argument of, so the Pester test can run the line. The
-	// stub must store the argument in a global variable named like the parameter.
+	// stub is prepended to the rendered line to capture a command argument without running the command.
+	// It must store the argument in a global variable named like the parameter.
 	stub string
 }
 
@@ -77,7 +78,7 @@ func customVNetSubnetID(vnet, subnet string) string {
 }
 
 // windowsCSEFields lists every value in the Windows CSE script, in template order.
-// TestWindowsCSETemplateWritesEveryValueAsLiteral fails if a template value is missing here.
+// TestWindowsCSETemplateInputsHaveTests fails if a template input is missing here.
 func windowsCSEFields() []windowsCSEField {
 	windowsProfile := func(c *datamodel.NodeBootstrappingConfiguration) *datamodel.WindowsProfile {
 		return c.ContainerService.Properties.WindowsProfile
@@ -113,11 +114,11 @@ func windowsCSEFields() []windowsCSEField {
 		{action: `GetParameter "servicePrincipalClientId"`, prefix: `$AADClientId=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.ContainerService.Properties.ServicePrincipalProfile.ClientID = v
 		}},
-		{action: `GetSshPublicKeysPowerShell`, prefix: `$global:SSHKeys=@( `, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
+		{action: `GetSshPublicKeysPowerShell`, prefix: `$global:SSHKeys=`, kind: "first", set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{KeyData: v}}
 		}, want: func(_ *datamodel.NodeBootstrappingConfiguration, v string) string {
 			return strings.TrimSpace(v)
-		}, encode: encodePowerShellBase64Literal},
+		}},
 		{action: `GetParameter "caCertificate"`, prefix: `$global:CACertificate=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.ContainerService.Properties.CertificateProfile.CaCertificate = v
 		}, want: func(_ *datamodel.NodeBootstrappingConfiguration, v string) string {
@@ -199,7 +200,7 @@ func windowsCSEFields() []windowsCSEField {
 			return "agentpool=winnp,kubernetes.azure.com/agentpool=winnp,hostile=" + v + ",kubernetes.azure.com/mode=user,team=payments"
 		}},
 		// Arguments are sorted, so --aaa-test is the first item of the array.
-		{action: `GetKubeletConfigKeyValsPsh`, prefix: `$global:KubeletConfigArgs=@( `, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
+		{action: `GetKubeletConfigKeyValsPsh`, prefix: `$global:KubeletConfigArgs=`, kind: "first", set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.KubeletConfig["--aaa-test"] = v
 		}, want: unescapedArg},
 		{action: `GetKubeletHealthzEndpoint`, prefix: `$global:KubeletHealthzEndpoint=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
@@ -210,10 +211,13 @@ func windowsCSEFields() []windowsCSEField {
 			}
 			return "http://" + net.JoinHostPort(v, "10248") + "/healthz"
 		}},
-		{action: `GetKubeproxyConfigKeyValsPsh`, prefix: `$global:KubeproxyConfigArgs=@( `, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
+		{action: `GetKubeproxyConfigKeyValsPsh`, prefix: `$global:KubeproxyConfigArgs=`, kind: "first", set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.KubeproxyConfig = map[string]string{"--aaa-test": v}
 		}, want: unescapedArg},
-		{action: `GetKubeProxyFeatureGatesPsh`, prefix: `$global:KubeproxyFeatureGates=@( `},
+		{action: `GetKubeProxyFeatureGatesPsh`, prefix: `$global:KubeproxyFeatureGates=`, kind: "array",
+			want: func(c *datamodel.NodeBootstrappingConfiguration, _ string) string {
+				return strings.Join(c.ContainerService.Properties.GetKubeProxyFeatureGatesForWindows(), "\n")
+			}},
 		{action: `GetVariable "useManagedIdentityExtension"`, prefix: `$global:UseManagedIdentityExtension=`},
 		{action: `GetVariable "useInstanceMetadata"`, prefix: `$global:UseInstanceMetadata=`},
 		{action: `GetVariable "loadBalancerSku"`, prefix: `$global:LoadBalancerSku=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
@@ -231,14 +235,18 @@ func windowsCSEFields() []windowsCSEField {
 		}, want: func(c *datamodel.NodeBootstrappingConfiguration, v string) string {
 			return orDefault(c.CloudSpecConfig.KubernetesSpecConfig.VnetCNIWindowsPluginsDownloadURL)(c, v)
 		}},
+		{action: `IsIPv6DualStackFeatureEnabled`, prefix: `$global:IsDualStackEnabled=`, kind: "boolean"},
+		{action: `IsAzureCNIOverlayFeatureEnabled`, prefix: `$global:IsAzureCNIOverlayEnabled=`, kind: "boolean"},
+		{action: `CiliumDataplaneEnabled`, prefix: `$global:CiliumDataplaneEnabled=`, kind: "boolean"},
+		{action: `EnableIMDSRestriction`, prefix: `$global:IsIMDSRestrictionEnabled=`, kind: "boolean"},
 		{action: `GetParameter "windowsCredentialProviderURL"`, prefix: `$global:CredentialProviderURL=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.K8sComponents.WindowsCredentialProviderURL = v
 		}},
-		{action: `GetVariable "windowsEnableCSIProxy"`, prefix: `$global:EnableCsiProxy=[System.Convert]::ToBoolean(`},
+		{action: `GetVariable "windowsEnableCSIProxy"`, prefix: `$global:EnableCsiProxy=`, kind: "boolean"},
 		{action: `GetVariable "windowsCSIProxyURL"`, prefix: `$global:CsiProxyUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			windowsProfile(c).CSIProxyURL = v
 		}},
-		{action: `EnableHostsConfigAgent`, prefix: `$global:EnableHostsConfigAgent=[System.Convert]::ToBoolean(`},
+		{action: `EnableHostsConfigAgent`, prefix: `$global:EnableHostsConfigAgent=`, kind: "boolean"},
 		{action: `GetVariable "windowsCSEScriptsPackageURL"`, prefix: `$global:CSEScriptsPackageUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			windowsProfile(c).CseScriptsPackageURL = v
 		}},
@@ -248,18 +256,18 @@ func windowsCSEFields() []windowsCSEField {
 		{action: `GetVariable "windowsPauseImageURL"`, prefix: `$global:WindowsPauseImageURL=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			windowsProfile(c).WindowsPauseImageURL = v
 		}},
-		{action: `GetVariable "alwaysPullWindowsPauseImage"`, prefix: `$global:AlwaysPullWindowsPauseImage=[System.Convert]::ToBoolean(`},
+		{action: `GetVariable "alwaysPullWindowsPauseImage"`, prefix: `$global:AlwaysPullWindowsPauseImage=`, kind: "boolean"},
 		{action: `GetVariable "windowsCalicoPackageURL"`, prefix: `$global:WindowsCalicoPackageURL=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			windowsProfile(c).WindowsCalicoPackageURL = v
 		}},
-		{action: `GetVariable "configGPUDriverIfNeeded"`, prefix: `$global:ConfigGPUDriverIfNeeded=[System.Convert]::ToBoolean(`},
+		{action: `GetVariable "configGPUDriverIfNeeded"`, prefix: `$global:ConfigGPUDriverIfNeeded=`, kind: "boolean"},
 		{action: `GetVariable "windowsGmsaPackageUrl"`, prefix: `$global:WindowsGmsaPackageUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			windowsProfile(c).WindowsGmsaPackageUrl = v
 		}},
 		{action: `GetTLSBootstrapTokenForKubeConfig`, prefix: `$global:TLSBootstrapToken=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.KubeletClientTLSBootstrapToken = to.StringPtr(v)
 		}},
-		{action: `EnableSecureTLSBootstrapping`, prefix: `$global:EnableSecureTLSBootstrapping=[System.Convert]::ToBoolean(`},
+		{action: `EnableSecureTLSBootstrapping`, prefix: `$global:EnableSecureTLSBootstrapping=`, kind: "boolean"},
 		{action: `GetSecureTLSBootstrappingAADResource`, prefix: `$global:SecureTLSBootstrappingAADResource=`,
 			set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 				c.SecureTLSBootstrappingConfig.AADResource = v
@@ -296,16 +304,16 @@ func windowsCSEFields() []windowsCSEField {
 			set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 				c.SecureTLSBootstrappingConfig.GetCredentialTimeout = v
 			}},
-		{action: `GetVariable "isDisableWindowsOutboundNat"`, prefix: `$global:IsDisableWindowsOutboundNat=[System.Convert]::ToBoolean(`},
+		{action: `GetVariable "isDisableWindowsOutboundNat"`, prefix: `$global:IsDisableWindowsOutboundNat=`, kind: "boolean"},
 		// The base64 of the static helper scripts.
 		{action: `GetKubernetesWindowsAgentFunctions`, prefix: `$zippedFiles=`},
-		{action: `FIPSEnabled`, prefix: `$fipsEnabled=[System.Convert]::ToBoolean(`},
-		{action: `GetHnsRemediatorIntervalInMinutes`, prefix: `$global:HNSRemediatorIntervalInMinutes=[System.Convert]::ToUInt32(`},
-		{action: `GetLogGeneratorIntervalInMinutes`, prefix: `$global:LogGeneratorIntervalInMinutes=[System.Convert]::ToUInt32(`},
-		{action: `GetVariable "isSkipCleanupNetwork"`, prefix: `$global:IsSkipCleanupNetwork=[System.Convert]::ToBoolean(`},
-		{action: `GetPreProvisionOnly`, prefix: `$PreProvisionOnly=[System.Convert]::ToBoolean(`},
-		{action: `EnableKubeletServingCertificateRotation`, prefix: `$global:EnableKubeletServingCertificateRotation=[System.Convert]::ToBoolean(`},
-		{action: `GetVariable "nextGenNetworkingEnabled"`, prefix: `$global:EnableWindowsCiliumNetworking=[System.Convert]::ToBoolean(`},
+		{action: `FIPSEnabled`, prefix: `$fipsEnabled=`, kind: "boolean"},
+		{action: `GetHnsRemediatorIntervalInMinutes`, prefix: `$global:HNSRemediatorIntervalInMinutes=`, kind: "uint32"},
+		{action: `GetLogGeneratorIntervalInMinutes`, prefix: `$global:LogGeneratorIntervalInMinutes=`, kind: "uint32"},
+		{action: `GetVariable "isSkipCleanupNetwork"`, prefix: `$global:IsSkipCleanupNetwork=`, kind: "boolean"},
+		{action: `GetPreProvisionOnly`, prefix: `$PreProvisionOnly=`, kind: "boolean"},
+		{action: `EnableKubeletServingCertificateRotation`, prefix: `$global:EnableKubeletServingCertificateRotation=`, kind: "boolean"},
+		{action: `GetVariable "nextGenNetworkingEnabled"`, prefix: `$global:EnableWindowsCiliumNetworking=`, kind: "boolean"},
 		{action: `GetVariable "nextGenNetworkingConfig"`, prefix: `$global:WindowsCiliumNetworkingConfiguration=`,
 			set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 				c.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{NextGenNetworkingConfig: to.StringPtr(v)}
@@ -317,19 +325,20 @@ func windowsCSEFields() []windowsCSEField {
 		{action: `GetMCRRepositoryBase`, prefix: `$global:MCRRepositoryBase=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			withCloudSpec(c, func(s *datamodel.KubernetesSpecConfig) { s.MCRKubernetesImageBase = v })
 		}, want: orDefault("mcr.microsoft.com")},
-		{action: `GetNetworkIsolatedClusterTestMode`, prefix: `$global:NetworkIsolatedClusterTestMode=[System.Convert]::ToBoolean(`},
-		{action: `WindowsSSHEnabled`, prefix: `$sshEnabled=[System.Convert]::ToBoolean(`},
+		{action: `GetNetworkIsolatedClusterTestMode`, prefix: `$global:NetworkIsolatedClusterTestMode=`, kind: "boolean"},
+		{action: `WindowsSSHEnabled`, prefix: `$sshEnabled=`, kind: "boolean"},
 		{action: `AKSCustomCloudContainerRegistryDNSSuffix`, prefix: `-CustomCloudContainerRegistryDNSSuffix `,
 			set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 				c.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom", ContainerRegistryDNSSuffix: v}
 			},
 			stub: `function Install-CredentialProvider { param($KubeDir, $CustomCloudContainerRegistryDNSSuffix) ` +
-				`$global:CustomCloudContainerRegistryDNSSuffix = $CustomCloudContainerRegistryDNSSuffix }`},
+				`$global:CustomCloudContainerRegistryDNSSuffix = $CustomCloudContainerRegistryDNSSuffix }; `},
 		// The base64 of the custom cloud environment JSON.
 		{action: `GetBase64EncodedEnvironmentJSON`, prefix: `$envJSON=`, setup: func(c *datamodel.NodeBootstrappingConfiguration) {
 			c.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
 		}},
-		{action: `GetIdentitySystem`, prefix: `-IdentitySystem `},
+		{action: `GetIdentitySystem`, prefix: `-IdentitySystem `,
+			stub: `function Set-AzureConfig { param($IdentitySystem) $global:IdentitySystem = $IdentitySystem }; Set-AzureConfig `},
 	}
 }
 
@@ -351,84 +360,75 @@ func renderWindowsCSE(t *testing.T, config *datamodel.NodeBootstrappingConfigura
 	return string(customData), templateGenerator.getWindowsNodeCSECommand(config)
 }
 
-// renderedWindowsCSEField renders the script with value in field and returns the text that must be in it.
+// renderedWindowsCSEField returns the real rendered statement and its expected runtime value.
 func renderedWindowsCSEField(t *testing.T, field windowsCSEField, value string) (string, string) {
 	t.Helper()
 	config := newWindowsBootstrapTestConfig()
-	field.set(config, value)
+	if field.setup != nil {
+		field.setup(config)
+	}
+	if field.set != nil {
+		field.set(config, value)
+	}
 	customData, _ := renderWindowsCSE(t, config)
 	want := value
+	if field.set == nil {
+		// Read constrained values from their source getter, before any PowerShell encoding.
+		funcMap := getBakerFuncMap(config, getParameters(config), getWindowsCustomDataVariables(config))
+		source, err := template.New("input").Funcs(funcMap).Parse("{{" + field.action + "}}")
+		require.NoError(t, err)
+		var raw strings.Builder
+		require.NoError(t, source.Execute(&raw, config.AgentPoolProfile))
+		want = raw.String()
+	}
 	if field.want != nil {
 		want = field.want(config, value)
 	}
-	encode := powerShellLiteral
-	if field.encode != nil {
-		encode = field.encode
-	}
-	return customData, field.prefix + encode(want)
+	return field.stub + windowsCSEFieldStatement(t, customData, field.prefix), want
 }
 
-func TestWindowsCSEFieldsAreWrittenAsLiterals(t *testing.T) {
-	for _, field := range windowsCSEFields() {
-		t.Run(field.action, func(t *testing.T) {
-			if field.set == nil {
-				// The value is a boolean, a number, base64, or a name that AgentBaker builds: a plain literal.
-				config := newWindowsBootstrapTestConfig()
-				if field.setup != nil {
-					field.setup(config)
-				}
-				customData, _ := renderWindowsCSE(t, config)
-				require.Regexp(t, regexp.QuoteMeta(field.prefix)+`'[A-Za-z0-9+/=._:-]*'`, customData)
-				return
-			}
-			for _, name := range sortedWindowsCSETestValueNames() {
-				customData, want := renderedWindowsCSEField(t, field, windowsCSETestValues[name])
-				require.Contains(t, customData, want, "value %q", name)
-			}
-		})
-	}
+func windowsCSEFieldStatement(t *testing.T, customData, prefix string) string {
+	t.Helper()
+	index := strings.Index(customData, prefix)
+	require.GreaterOrEqual(t, index, 0, "assignment or argument %s was not rendered", prefix)
+	start := strings.LastIndex(customData[:index], "\n") + 1
+	end := strings.Index(customData[index:], "\n")
+	require.GreaterOrEqual(t, end, 0, "assignment or argument %s has no terminating newline", prefix)
+	return strings.TrimSpace(customData[start : index+end])
 }
 
-// TestWindowsCSEFieldsFixture writes the rendered line of each text field, which
-// parts/windows/kuberneteswindowssetup.fields.tests.ps1 runs in PowerShell to check the value it gets.
+// TestWindowsCSEFieldsFixture covers every input; PowerShell checks actual values and types rather than
+// comparing the rendered text with the production encoder.
 // Set GENERATE_TEST_DATA=true to rewrite the fixture.
 func TestWindowsCSEFieldsFixture(t *testing.T) {
 	var lines []string
 	add := func(field windowsCSEField, value string) {
-		customData, want := renderedWindowsCSEField(t, field, value)
-		index := strings.Index(customData, want)
-		require.GreaterOrEqual(t, index, 0)
-		start := strings.LastIndex(customData[:index], "\n") + 1
-		end := index + strings.Index(customData[index:], "\n")
+		line, expected := renderedWindowsCSEField(t, field, value)
 		name := strings.TrimPrefix(strings.SplitN(field.prefix, "=", 2)[0], "$")
 		name = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(name, "global:"), "-"))
-		kind := "string"
-		if strings.HasSuffix(field.prefix, "@( ") {
-			kind = "first"
+		kind := field.kind
+		if kind == "" {
+			kind = "string"
 		}
-		expected := value
-		if field.want != nil {
-			expected = field.want(newWindowsBootstrapTestConfig(), value)
-		}
-		line := strings.TrimSpace(customData[start:end])
-		if field.stub != "" {
-			line = field.stub + "; " + line
+		if kind == "boolean" {
+			boolean, err := strconv.ParseBool(expected)
+			require.NoError(t, err)
+			expected = "False"
+			if boolean {
+				expected = "True"
+			}
 		}
 		lines = append(lines, strings.Join([]string{name, kind, base64.StdEncoding.EncodeToString([]byte(expected)), line}, "\t"))
 	}
 	for _, field := range windowsCSEFields() {
-		if field.set == nil {
-			continue
-		}
 		require.True(t, strings.HasPrefix(field.prefix, "$") || field.stub != "", "%s needs a stub so the Pester test can run it", field.action)
-		if field.action == `GetVariable "tenantID"` {
-			for _, name := range sortedWindowsCSETestValueNames() {
-				add(field, windowsCSETestValues[name])
-			}
+		if field.set == nil {
+			add(field, "")
 			continue
 		}
-		add(field, windowsCSETestValues["code"])
-		add(field, windowsCSETestValues["unicode"])
+		for _, name := range sortedWindowsCSETestValueNames() {
+			add(field, windowsCSETestValues[name])
+		}
 	}
 	got := strings.Join(lines, "\n") + "\n"
 	requireASCII(t, "fixture", got)
@@ -467,23 +467,13 @@ func requireASCII(t *testing.T, name, s string) {
 	}
 }
 
-// windowsTemplateAction is a {{ }} action in a Windows template.
-type windowsTemplateAction struct {
-	pipe  *parse.PipeNode
-	start int // offset of "{{"
-	end   int // offset after "}}"
-}
-
-func parseWindowsTemplateActions(t *testing.T, templatePath string) (string, []windowsTemplateAction) {
+func parseWindowsTemplateActions(t *testing.T, text string) []*parse.PipeNode {
 	t.Helper()
-	b, err := parts.Templates.ReadFile(templatePath)
-	require.NoError(t, err)
-	text := string(b)
 	funcMap := getBakerFuncMap(newWindowsBootstrapTestConfig(), paramsMap{}, paramsMap{})
-	tmpl, err := template.New(templatePath).Funcs(funcMap).Parse(text)
+	tmpl, err := template.New("windows").Funcs(funcMap).Parse(text)
 	require.NoError(t, err)
 
-	var actions []windowsTemplateAction
+	var actions []*parse.PipeNode
 	var walk func(parse.Node)
 	walk = func(node parse.Node) {
 		switch n := node.(type) {
@@ -495,176 +485,146 @@ func parseWindowsTemplateActions(t *testing.T, templatePath string) (string, []w
 				walk(child)
 			}
 		case *parse.IfNode:
+			// An inline conditional assignment is an input too, even though it has no {{value}} action.
+			lineStart := strings.LastIndex(text[:n.Pos], "\n") + 1
+			prefix := strings.TrimSpace(text[lineStart:n.Pos])
+			if strings.HasPrefix(prefix, "$") && strings.Contains(prefix, "=") {
+				actions = append(actions, n.Pipe)
+			}
 			walk(n.List)
 			walk(n.ElseList)
 		case *parse.ActionNode:
-			start := strings.LastIndex(text[:n.Pos], "{{")
-			end := int(n.Pos) + strings.Index(text[n.Pos:], "}}") + len("}}")
-			actions = append(actions, windowsTemplateAction{pipe: n.Pipe, start: start, end: end})
+			actions = append(actions, n.Pipe)
 		case *parse.TextNode, *parse.CommentNode:
 		default:
-			t.Fatalf("unexpected template node %q in %s", node.String(), templatePath)
+			t.Fatalf("unexpected template node %q", node.String())
 		}
 	}
 	walk(tmpl.Root)
-	return text, actions
+	return actions
 }
 
-// windowsTemplateCommentsAndHereStrings returns the spans of block comments and here-strings, where a
-// PowerShell literal would not be read as a literal.
-func windowsTemplateCommentsAndHereStrings(text string) [][2]int {
-	var spans [][2]int
-	for _, delimiters := range [][2]string{{"<#", "#>"}, {"@\"\n", "\n\"@"}, {"@'\n", "\n'@"}} {
-		for offset := 0; ; {
-			start := strings.Index(text[offset:], delimiters[0])
-			if start < 0 {
-				break
+func windowsTemplateInputs(t *testing.T, text string) []string {
+	t.Helper()
+	var inputs []string
+	var collect func(*parse.PipeNode)
+	collect = func(pipe *parse.PipeNode) {
+		inputs = append(inputs, pipe.Cmds[0].String())
+		for _, cmd := range pipe.Cmds {
+			for _, arg := range cmd.Args {
+				if nested, ok := arg.(*parse.PipeNode); ok {
+					collect(nested)
+				}
 			}
-			start += offset
-			end := strings.Index(text[start:], delimiters[1])
-			if end < 0 {
-				end = len(text) - start
-			}
-			spans = append(spans, [2]int{start, start + end})
-			offset = start + end
 		}
 	}
-	return spans
+	for _, action := range parseWindowsTemplateActions(t, text) {
+		collect(action)
+	}
+	return inputs
 }
 
-func TestWindowsCSETemplateWritesEveryValueAsLiteral(t *testing.T) {
-	text, actions := parseWindowsTemplateActions(t, kubernetesWindowsAgentCustomDataPS1)
-	// These functions return PowerShell arrays of literals and have their own tests.
-	listFunctions := map[string]bool{
-		"GetSshPublicKeysPowerShell":   true,
-		"GetKubeletConfigKeyValsPsh":   true,
-		"GetKubeproxyConfigKeyValsPsh": true,
-		"GetKubeProxyFeatureGatesPsh":  true,
-	}
-	nonCode := windowsTemplateCommentsAndHereStrings(text)
-
-	var found []string
-	for _, action := range actions {
-		line := 1 + strings.Count(text[:action.start], "\n")
-		lineStart := strings.LastIndex(text[:action.start], "\n") + 1
-		cmds := action.pipe.Cmds
-		last := cmds[len(cmds)-1].String()
-		switch {
-		case last == "PowerShellLiteral" && len(cmds) > 1:
-			names := make([]string, 0, len(cmds)-1)
-			for _, cmd := range cmds[:len(cmds)-1] {
-				names = append(names, cmd.String())
-			}
-			found = append(found, strings.Join(names, " | "))
-		case len(cmds) == 1 && listFunctions[last]:
-			found = append(found, last)
-		default:
-			t.Errorf("line %d: {{%s}} must end with | PowerShellLiteral", line, action.pipe)
-			continue
-		}
-		if strings.ContainsAny(text[action.start-1:action.start], `"'`) || strings.ContainsAny(text[action.end:action.end+1], `"'`) {
-			t.Errorf("line %d: {{%s}} must not be inside quotes", line, action.pipe)
-		}
-		if strings.Contains(text[lineStart:action.start], "#") {
-			t.Errorf("line %d: {{%s}} must not be in a comment", line, action.pipe)
-		}
-		for _, span := range nonCode {
-			if action.start >= span[0] && action.start < span[1] {
-				t.Errorf("line %d: {{%s}} must not be in a block comment or here-string", line, action.pipe)
-			}
-		}
-	}
-
+// Every rendered input needs a test row, regardless of how the template encodes it.
+func TestWindowsCSETemplateInputsHaveTests(t *testing.T) {
+	text, err := parts.Templates.ReadFile(kubernetesWindowsAgentCustomDataPS1)
+	require.NoError(t, err)
 	var listed []string
 	for _, field := range windowsCSEFields() {
 		listed = append(listed, field.action)
 	}
-	require.ElementsMatch(t, listed, found, "every value in %s must have a row in windowsCSEFields", kubernetesWindowsAgentCustomDataPS1)
+	for name, source := range map[string]string{
+		"current template": string(text),
+		"without encoder":  strings.ReplaceAll(string(text), " | PowerShellLiteral", ""),
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.ElementsMatch(t, listed, windowsTemplateInputs(t, source),
+				"every input in %s must have a row in windowsCSEFields", kubernetesWindowsAgentCustomDataPS1)
+		})
+	}
 }
 
-// windowsCSEParseCheck parses a rendered script with PowerShell and prints, in source order, each token
-// that contains a marker and each base64 marker with the two method calls around it.
+// Encoding changes must not alter the input inventory, but new inputs and conditional branches must.
+func TestWindowsTemplateInputs(t *testing.T) {
+	tests := []struct {
+		name, text string
+		want       []string
+	}{
+		{"plain", `$x="{{GetVariable "tenantID"}}"`, []string{`GetVariable "tenantID"`}},
+		{"literal", `$x={{GetVariable "tenantID" | PowerShellLiteral}}`, []string{`GetVariable "tenantID"`}},
+		{"other encoding", `$x={{GetVariable "tenantID" | printf "%q"}}`, []string{`GetVariable "tenantID"`}},
+		{"list", `$x=@( {{GetKubeletConfigKeyValsPsh}} )`, []string{`GetKubeletConfigKeyValsPsh`}},
+		{"new input", `{{GetVariable "tenantID"}} {{GetParameter "newInput"}}`,
+			[]string{`GetVariable "tenantID"`, `GetParameter "newInput"`}},
+		{"nested input", `{{GetVariable "tenantID" | printf "%s%s" (GetParameter "newInput")}}`,
+			[]string{`GetVariable "tenantID"`, `GetParameter "newInput"`}},
+		{"branches", `{{if UserAssignedIDEnabled}}{{GetVariable "userAssignedIdentityID"}}{{else}}{{GetVariable "tenantID"}}{{end}}`,
+			[]string{`GetVariable "userAssignedIdentityID"`, `GetVariable "tenantID"`}},
+		{"boolean assignment", `$global:IsDualStackEnabled={{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}`,
+			[]string{`IsIPv6DualStackFeatureEnabled`}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, windowsTemplateInputs(t, tt.text))
+		})
+	}
+}
+
+// Check real script syntax and input placement, without prescribing a string-literal representation.
 const windowsCSEParseCheck = `param([string] $Path)
 $tokens = $null
 $errors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref] $tokens, [ref] $errors)
-foreach ($parseError in $errors) { "error` + "`" + `t" + $parseError.Message }
-foreach ($token in $tokens) {
-    if ($token.Text -match 'AKSVALUE') { "token` + "`" + `t{0}` + "`" + `t{1}" -f $token.Kind, $token.Text }
+if ($errors.Count -gt 0) {
+    $errors | ForEach-Object { $_.Message }
+    exit 1
 }
-$isBase64Marker = { param($node) $node -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $node.Value -match '^QUtTVkFM' }
-foreach ($node in $ast.FindAll($isBase64Marker, $true)) {
-    $value = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($node.Value)).Trim()
-    "base64` + "`" + `t{0}` + "`" + `t{1}` + "`" + `t{2}" -f $value, $node.Parent.Member, $node.Parent.Parent.Member
+foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)) {
+    $node.Left.Extent.Text
+}
+foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandParameterAst] }, $true)) {
+    '-' + $node.ParameterName
 }
 `
 
-// TestWindowsCSEValuesParseAsLiterals renders the script with a marker in place of each value and parses
-// it with PowerShell. Each marker must be a single-quoted string constant, so no value is inside a
-// double-quoted string, a comment, or a here-string. Each base64 marker must still be decoded by
-// GetString, so the base64 form also works where a value is a command argument.
-// The test needs pwsh and is skipped without it.
-func TestWindowsCSEValuesParseAsLiterals(t *testing.T) {
+// Parse real inputs in the complete script so comments and here-strings cannot hide tested assignments.
+func TestWindowsCSEScriptParses(t *testing.T) {
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
 		t.Skip("pwsh is not installed")
 	}
-	_, actions := parseWindowsTemplateActions(t, kubernetesWindowsAgentCustomDataPS1)
-	b, err := parts.Templates.ReadFile(kubernetesWindowsAgentCustomDataPS1)
-	require.NoError(t, err)
 	directory := t.TempDir()
 	checkPath := filepath.Join(directory, "check.ps1")
 	require.NoError(t, os.WriteFile(checkPath, []byte(windowsCSEParseCheck), 0o600))
 
-	for _, mode := range []string{"literal", "base64"} {
-		t.Run(mode, func(t *testing.T) {
+	for _, name := range sortedWindowsCSETestValueNames() {
+		t.Run(name, func(t *testing.T) {
 			config := newWindowsBootstrapTestConfig()
-			// Take every template branch that writes a value.
-			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
-			var markers []string
-			marker := func() string {
-				value := fmt.Sprintf("AKSVALUE%03dX", len(markers))
-				markers = append(markers, value)
-				if mode == "base64" {
-					return powerShellLiteral(value + "\t")
+			for _, field := range windowsCSEFields() {
+				if field.set != nil {
+					field.set(config, windowsCSETestValues[name])
 				}
-				return powerShellLiteral(value)
 			}
-			funcMap := getBakerFuncMap(config, getParameters(config), getWindowsCustomDataVariables(config))
-			funcMap["PowerShellLiteral"] = func(interface{}) string { return marker() }
-			for _, name := range []string{"GetSshPublicKeysPowerShell", "GetKubeletConfigKeyValsPsh", "GetKubeproxyConfigKeyValsPsh", "GetKubeProxyFeatureGatesPsh"} {
-				funcMap[name] = func() string { return marker() }
-			}
-			tmpl, err := template.New("script").Option("missingkey=zero").Funcs(funcMap).Parse(string(b))
-			require.NoError(t, err)
-			var script strings.Builder
-			require.NoError(t, tmpl.Execute(&script, config.AgentPoolProfile))
-			require.Len(t, markers, len(actions), "every value in the template must be rendered")
-
-			scriptPath := filepath.Join(directory, mode+".ps1")
-			require.NoError(t, os.WriteFile(scriptPath, []byte(script.String()), 0o600))
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
+			script, _ := renderWindowsCSE(t, config)
+			scriptPath := filepath.Join(directory, name+".ps1")
+			require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o600))
 			output, err := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-File", checkPath, scriptPath).CombinedOutput()
 			require.NoError(t, err, string(output))
-
-			var want []string
-			for _, value := range markers {
-				if mode == "base64" {
-					want = append(want, "base64\t"+value+"\tFromBase64String\tGetString")
-				} else {
-					want = append(want, "token\tStringLiteral\t'"+value+"'")
-				}
-			}
 			got := strings.Split(strings.TrimSpace(strings.ReplaceAll(string(output), "\r\n", "\n")), "\n")
-			require.Equal(t, want, got, "each value must parse as a string literal in code, not inside a string, comment, or here-string")
+			for _, field := range windowsCSEFields() {
+				target := strings.TrimSpace(strings.SplitN(field.prefix, "=", 2)[0])
+				require.Contains(t, got, target, "%s must be an assignment or command argument, not commented-out text", field.action)
+			}
 		})
 	}
 }
 
 func TestWindowsCSECommandRendersOnlyBase64Values(t *testing.T) {
-	_, actions := parseWindowsTemplateActions(t, kubernetesWindowsAgentCSECommandPS1)
+	text, err := parts.Templates.ReadFile(kubernetesWindowsAgentCSECommandPS1)
+	require.NoError(t, err)
 	var pipes []string
-	for _, action := range actions {
-		pipes = append(pipes, action.pipe.String())
+	for _, action := range parseWindowsTemplateActions(t, string(text)) {
+		pipes = append(pipes, action.String())
 	}
 	require.Equal(t, []string{`GetParameter "clientPrivateKey"`, `GetParameter "encodedServicePrincipalClientSecret"`}, pipes)
 
@@ -708,15 +668,29 @@ func TestUnescapePowerShellDoubleQuotes(t *testing.T) {
 		unescapePowerShellDoubleQuotes([]string{`--resolv-conf=""""`, `--a=""b""`, "--c=$(d)`e", `--f="""`, ""}))
 }
 
+// RP relies on "" becoming "; check the resulting arguments rather than the script's quote style.
 func TestWindowsKubeletArgumentsKeepTheirValues(t *testing.T) {
-	// RP relies on "" becoming " for these arguments, as it did inside PowerShell double-quoted strings.
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Skip("pwsh is not installed")
+	}
 	config := newWindowsBootstrapTestConfig()
 	customData, _ := renderWindowsCSE(t, config)
-	require.Contains(t, customData, `'--enforce-node-allocatable=""'`)
-	require.Contains(t, customData, `'--resolv-conf=""'`)
-	require.Contains(t, customData, `'--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256'`)
-	require.Contains(t, customData, `$global:KubeproxyFeatureGates=@( 'WinDSR=true', 'WinOverlay=false' )`)
+	script := windowsCSEFieldStatement(t, customData, "$global:KubeletConfigArgs=") + "\n" +
+		windowsCSEFieldStatement(t, customData, "$global:KubeproxyFeatureGates=") + "\n" +
+		`$global:KubeletConfigArgs; $global:KubeproxyFeatureGates`
+	path := filepath.Join(t.TempDir(), "arguments.ps1")
+	require.NoError(t, os.WriteFile(path, []byte(script), 0o600))
+	output, err := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-File", path).CombinedOutput()
+	require.NoError(t, err, string(output))
+	args := strings.Split(strings.TrimSpace(strings.ReplaceAll(string(output), "\r\n", "\n")), "\n")
+	require.Contains(t, args, `--enforce-node-allocatable=""`)
+	require.Contains(t, args, `--resolv-conf=""`)
+	require.Contains(t, args, `--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`)
+	require.Contains(t, args, "WinDSR=true")
+	require.Contains(t, args, "WinOverlay=false")
 }
+
 func newWindowsBootstrapTestConfig() *datamodel.NodeBootstrappingConfiguration {
 	const kubernetesVersion = "1.33.2"
 	const kubeletIdentity = "11111111-2222-3333-4444-555555555555"
