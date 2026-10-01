@@ -13,6 +13,8 @@ case "$1" in
         ;;
 esac
 
+. /usr/share/initramfs-tools/hook-functions
+
 copy_exec /usr/local/sbin/aks-root-journal-resize /sbin/aks-root-journal-resize
 copy_file config /etc/mke2fs.conf
 for tool in growpart lsblk sfdisk partx blockdev flock mktemp udevadm resize2fs tune2fs e2fsck debugfs blkid mke2fs dd rm grep mount umount sync readlink awk sed cat mkdir cut tr sleep; do
