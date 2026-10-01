@@ -247,6 +247,7 @@ CSEScriptsPackageUrl	string		$global:CSEScriptsPackageUrl='';
 CSEScriptsPackageUrl	string	dmFsdWUtMS5leGFtcGxlLmNvbQ==	$global:CSEScriptsPackageUrl='value-1.example.com';
 CSEScriptsPackageUrl	string	YSdiImNgZCcnZSIiZg==	$global:CSEScriptsPackageUrl='a''b"c`d''''e""f';
 CSEScriptsPackageUrl	string	aeKAmGrigJlr4oCcbOKAnW3igJ5u4oCTb/CfmIA=	$global:CSEScriptsPackageUrl=([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('aeKAmGrigJlr4oCcbOKAnW3igJ5u4oCTb/CfmIA=')));
+CSEScriptsPackageUrl	string	aHR0cHM6Ly9leGFtcGxlLmJsb2IuY29yZS53aW5kb3dzLm5ldC8kd2ViL3dpbmRvd3MtY3NlLnppcA==	$global:CSEScriptsPackageUrl='https://example.blob.core.windows.net/$web/windows-cse.zip';
 GpuDriverURL	string	JChTZXQtVmFyaWFibGUgLU5hbWUgQUtTSW5qZWN0aW9uQ2FuYXJ5IC1WYWx1ZSAxIC1TY29wZSBHbG9iYWwpOyR7ZW52OlBBVEh9QCgxKSM8Iw==	$global:GpuDriverURL='$(Set-Variable -Name AKSInjectionCanary -Value 1 -Scope Global);${env:PATH}@(1)#<#';
 GpuDriverURL	string	eA0KeQl6	$global:GpuDriverURL=([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('eA0KeQl6')));
 GpuDriverURL	string		$global:GpuDriverURL='';
