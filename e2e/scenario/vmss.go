@@ -216,7 +216,7 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		return errors.Join(logErr, deleteVMSS(ctx, s))
 	})
 
-	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
+	if skipErr := skipIfSKUNotAvailableErr(err, s.Config.SkipOnCapacityError); skipErr != nil {
 		return vm, skipErr
 	}
 
@@ -536,6 +536,12 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, err
 		}
 
+		// Opted-in scenarios surface AllocationFailed immediately so ConfigureAndCreateVMSS can
+		// skip on it; retrying would half-provision a VMSS that never boots and mask it as an SSH timeout.
+		if shouldSurfaceCapacityError(s, err) {
+			return vm, err
+		}
+
 		if attempt >= maxAttempts {
 			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
@@ -555,9 +561,9 @@ func isRetryableVMSSCreationError(err error) bool {
 	if !errors.As(err, &respErr) {
 		return false
 	}
-	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-	// It's not a quota issue
-	if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
+	// AllocationFailed on exotic SKUs (new GPUs) is often transient, so retry by default. It's not
+	// a quota issue. SkipOnCapacityError scenarios opt out of the retry via shouldSurfaceCapacityError.
+	if isAllocationFailure(err) {
 		return true
 	}
 	// GalleryImageNotFound can happen transiently after image replication completes
@@ -862,9 +868,30 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 	return *ipConfig.Properties.PrivateIPAddress, nil
 }
 
-func skipIfSKUNotAvailableErr(err error) error {
+// isAllocationFailure reports Azure's async no-capacity signal: an HTTP-200 operation result
+// with error code AllocationFailed.
+func isAllocationFailure(err error) bool {
+	var respErr *azcore.ResponseError
+	return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
+}
+
+// shouldSurfaceCapacityError reports whether an opted-in scenario should surface AllocationFailed
+// immediately (no retry) so it can be classified as a skip rather than masked by a later SSH timeout.
+func shouldSurfaceCapacityError(s *Scenario, err error) bool {
+	return s.Config.SkipOnCapacityError && config.Config.SkipTestsWithSKUCapacityIssue && isAllocationFailure(err)
+}
+
+// skipIfSKUNotAvailableErr classifies capacity/availability errors into a skip when
+// SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is set (the PR gate). scenarioSkipsOnCapacity additionally
+// opts the scenario into skipping on AllocationFailed, scoped per scenario so mainstream SKUs
+// still fail on a genuine capacity regression.
+func skipIfSKUNotAvailableErr(err error, scenarioSkipsOnCapacity bool) error {
 	if !config.Config.SkipTestsWithSKUCapacityIssue {
 		return nil
+	}
+	// AllocationFailed is an HTTP-200 async result, not a 409, so it needs its own branch.
+	if scenarioSkipsOnCapacity && isAllocationFailure(err) {
+		return &skipError{message: fmt.Sprintf("scenario SKU has insufficient capacity in region: %v", err)}
 	}
 	var respErr *azcore.ResponseError
 	if !errors.As(err, &respErr) || respErr.StatusCode != 409 {

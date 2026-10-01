@@ -161,8 +161,11 @@ func TestVMSSProvisioningErrorClassification(t *testing.T) {
 		message   string
 		wantRetry bool
 		wantSkip  bool
+		// capacityScoped skips only when the scenario opts in via SkipOnCapacityError
+		// (AllocationFailed). SkuNotAvailable/quota skip for any scenario.
+		capacityScoped bool
 	}{
-		{code: "AllocationFailed", status: 200, wantRetry: true},
+		{code: "AllocationFailed", status: 200, wantRetry: true, wantSkip: true, capacityScoped: true},
 		{code: "GalleryImageNotFound", status: 404, wantRetry: true},
 		{code: "SkuNotAvailable", status: 409, wantSkip: true},
 		{code: "OperationNotAllowed", status: 409, message: "exceeding approved quota", wantSkip: true},
@@ -194,13 +197,18 @@ func TestVMSSProvisioningErrorClassification(t *testing.T) {
 				require.Same(t, armErr, responseErr)
 				require.Equal(t, tc.wantRetry, isRetryableVMSSCreationError(err))
 				for _, skipEnabled := range []bool{false, true} {
-					config.Config.SkipTestsWithSKUCapacityIssue = skipEnabled
-					skipErr := skipIfSKUNotAvailableErr(err)
-					if tc.wantSkip && skipEnabled {
-						var skipped *skipError
-						require.ErrorAs(t, skipErr, &skipped)
-					} else {
-						require.NoError(t, skipErr)
+					for _, scenarioSkipsOnCapacity := range []bool{false, true} {
+						config.Config.SkipTestsWithSKUCapacityIssue = skipEnabled
+						// AllocationFailed only skips when the scenario opts in (capacityScoped);
+						// SkuNotAvailable/quota skip for any scenario. Both require the global flag.
+						wantSkip := tc.wantSkip && skipEnabled && (!tc.capacityScoped || scenarioSkipsOnCapacity)
+						skipErr := skipIfSKUNotAvailableErr(err, scenarioSkipsOnCapacity)
+						if wantSkip {
+							var skipped *skipError
+							require.ErrorAs(t, skipErr, &skipped)
+						} else {
+							require.NoError(t, skipErr)
+						}
 					}
 				}
 			}
@@ -209,9 +217,41 @@ func TestVMSSProvisioningErrorClassification(t *testing.T) {
 	for _, err := range []error{nil, fmt.Errorf("failed to start bastion tunnel: %w", context.DeadlineExceeded)} {
 		require.False(t, isRetryableVMSSCreationError(err))
 		for _, enabled := range []bool{false, true} {
-			config.Config.SkipTestsWithSKUCapacityIssue = enabled
-			require.NoError(t, skipIfSKUNotAvailableErr(err))
+			for _, scenarioSkipsOnCapacity := range []bool{false, true} {
+				config.Config.SkipTestsWithSKUCapacityIssue = enabled
+				require.NoError(t, skipIfSKUNotAvailableErr(err, scenarioSkipsOnCapacity))
+			}
 		}
+	}
+}
+
+// TestShouldSurfaceCapacityError: the retry-loop guard fires only when the scenario opts in,
+// the global flag is on, and the error is AllocationFailed.
+func TestShouldSurfaceCapacityError(t *testing.T) {
+	oldSkip := config.Config.SkipTestsWithSKUCapacityIssue
+	t.Cleanup(func() { config.Config.SkipTestsWithSKUCapacityIssue = oldSkip })
+
+	allocErr := fmt.Errorf("failed to wait for VMSS VM: %w", &azcore.ResponseError{StatusCode: 200, ErrorCode: "AllocationFailed"})
+	quotaErr := &azcore.ResponseError{StatusCode: 409, ErrorCode: "SkuNotAvailable"}
+
+	for _, tc := range []struct {
+		name       string
+		optIn      bool
+		globalFlag bool
+		err        error
+		want       bool
+	}{
+		{name: "opted-in, flag on, AllocationFailed", optIn: true, globalFlag: true, err: allocErr, want: true},
+		{name: "opted-in, flag on, non-allocation error", optIn: true, globalFlag: true, err: quotaErr, want: false},
+		{name: "opted-in, flag off, AllocationFailed", optIn: true, globalFlag: false, err: allocErr, want: false},
+		{name: "not opted-in, flag on, AllocationFailed", optIn: false, globalFlag: true, err: allocErr, want: false},
+		{name: "opted-in, flag on, nil error", optIn: true, globalFlag: true, err: nil, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config.Config.SkipTestsWithSKUCapacityIssue = tc.globalFlag
+			s := &Scenario{Config: Config{SkipOnCapacityError: tc.optIn}}
+			require.Equal(t, tc.want, shouldSurfaceCapacityError(s, tc.err))
+		})
 	}
 }
 
