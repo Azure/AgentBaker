@@ -619,7 +619,7 @@ EOF
 
         It 'reports a customer-facing message and preserves the Chrony failure code'
             Mock configure_node_time_sync
-                return 245
+                exit 245
             End
             Mock tee
                 cat
@@ -632,7 +632,7 @@ EOF
 
         It 'returns success without reporting an error when Chrony configuration succeeds'
             Mock configure_node_time_sync
-                return 0
+                exit 0
             End
             Mock tee
                 echo "unexpected error reporting"
