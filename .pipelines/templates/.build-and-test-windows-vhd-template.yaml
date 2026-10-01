@@ -77,7 +77,7 @@ stages:
   - stage: build_${{ parameters.stageName }}
     # Put the artifact name first so it doesn't get truncated as much in ADO
     displayName: Build (${{ parameters.artifactName }})
-    condition: and(succeeded(), eq('${{ parameters.build }}', True))
+    condition: and(succeeded(), in(dependencies.Package.result, 'Succeeded', 'SucceededWithIssues'), eq('${{ parameters.build }}', True))
     dependsOn: Package
     jobs:
       - job: build_${{ parameters.stageName }}
@@ -110,7 +110,7 @@ stages:
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})
     dependsOn: build_${{ parameters.stageName }}
-    condition: and(succeeded(), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'), ne(dependencies.build_${{ parameters.stageName }}.outputs['build_${{ parameters.stageName }}.skipVhd.skipping_vhd_build'], 'true'))
+    condition: and(succeeded(), in(dependencies.build_${{ parameters.stageName }}.result, 'Succeeded', 'SucceededWithIssues'), eq('${{ parameters.build }}', True), ne(variables.SKIP_E2E_TESTS, 'true'), ne(dependencies.build_${{ parameters.stageName }}.outputs['build_${{ parameters.stageName }}.skipVhd.skipping_vhd_build'], 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
