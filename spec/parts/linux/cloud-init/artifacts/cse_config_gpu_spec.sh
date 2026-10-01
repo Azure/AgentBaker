@@ -23,8 +23,8 @@ Describe 'cse_config_gpu.sh'
         Parameters
             "$AZURELINUX_OS_NAME" "3.0" "" false true  "configGPUDrivers called"   "arm64"
             "$AZURELINUX_OS_NAME" "3.0" "" false false "validateGPUDrivers called" "arm64"
-            "$UBUNTU_OS_NAME"     "24.04" "" false true "" "arm64"
-            "$UBUNTU_OS_NAME"     "24.04" "" false false "" "arm64"
+            # arm64 Ubuntu (Grace-Blackwell) is IS_VHD-gated -- covered by the dedicated
+            # "ensureGPUDrivers arm64 GB (Ubuntu VHD) gate" block below (this block sets no IS_VHD).
             "$AZURELINUX_OS_NAME" "2.0" "" false true "" "arm64"
             "$AZURELINUX_OS_NAME" "2.0" "" false false "" "arm64"
             "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false true "" "arm64"
@@ -638,6 +638,110 @@ Describe 'cse_config_gpu.sh'
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverSysext"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+    End
+    Describe 'ensureGPUDrivers arm64 gate'
+        # ensureGPUDrivers no-ops on arm64 EXCEPT for Ubuntu with the managed driver install
+        # requested (CONFIG_GPU_DRIVER_IF_NEEDED=true) -- the Grace-Blackwell (GB200/GB300) path.
+        # RP collapses both --gpu-driver Install and the managed GPU experience into that flag.
+        # logs_to_events is mocked to print only the event name, so the branch targets never run;
+        # the tests assert the DISPATCH decision (configGPUDrivers vs validateGPUDrivers vs return).
+        logs_to_events() { echo "logs_to_events $1"; }
+        # observability-only; called directly at the end on Ubuntu -- silence it.
+        logGPUDriverPrebakeReadiness() { :; }
+        UBUNTU_OS_NAME="UBUNTU"
+        ERR_GPU_DRIVERS_START_FAIL=88
+        # default to an AKS-managed VHD; the BYOI example overrides this.
+        BeforeEach 'IS_VHD="true"'
+
+        It 'installs on an AKS-managed arm64 Ubuntu VHD when the managed install is requested (GB200/GB300)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            IS_VHD="true"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+            # GB nodes now fall into the full Ubuntu install sequence, not just the dispatch:
+            # the prebake cleanup runs before, and nvidia-modprobe is enabled after.
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake"
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.nvidia-modprobe"
+        End
+
+        It 'skips on arm64 Ubuntu when IS_VHD is empty/unset (fail-safe: do not install without a confirmed AKS VHD)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            IS_VHD=""
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'skips on a BYOI/custom arm64 image (IS_VHD=false) to preserve a customer-baked driver (MAI dedicated GB VHD)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            # UseCustomizedOSImage header -> Distro=CustomizedImage -> IsVHDDistro()=false -> IS_VHD=false.
+            IS_VHD="false"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'no-ops on arm64 Ubuntu when driver install is not requested (BYOI / --gpu-driver none)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            # early return: neither the prebake cleanup nor either driver dispatch is reached.
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'no-ops on non-Ubuntu arm64 even when driver install is requested (no arm64 GPU path there)'
+            getCPUArch() { echo "arm64"; }
+            OS="MARINER"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+
+        It 'is unaffected on x86 Ubuntu: installs when driver install is requested'
+            getCPUArch() { echo "amd64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+
+            When call ensureGPUDrivers
+
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+
+        It 'is unaffected on x86 Ubuntu: validates (not installs) when driver install is off (prebaked VHD path)'
+            getCPUArch() { echo "amd64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+
+            When call ensureGPUDrivers
+
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
         End
     End
     Describe 'managedGPUPackageList on Ubuntu'
