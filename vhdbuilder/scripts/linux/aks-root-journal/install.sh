@@ -88,7 +88,7 @@ aks_rj_install() {
             install -d -m 0755 /usr/lib/dracut/modules.d/99aksrootjournal
             install -m 0755 "$INSTALL_DIR/resize-root-journal" /usr/lib/dracut/modules.d/99aksrootjournal/resize-root-journal
             install -m 0755 "$INSTALL_DIR/dracut-module-setup.sh" /usr/lib/dracut/modules.d/99aksrootjournal/module-setup.sh
-            install -m 0755 "$INSTALL_DIR/dracut-hook" /usr/lib/dracut/modules.d/99aksrootjournal/dracut-hook
+            install -m 0755 "$INSTALL_DIR/dracut-hook.sh" /usr/lib/dracut/modules.d/99aksrootjournal/dracut-hook.sh
             dracut --regenerate-all --force
             ;;
     esac

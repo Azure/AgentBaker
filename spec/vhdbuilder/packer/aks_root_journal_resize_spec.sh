@@ -44,6 +44,18 @@ Describe 'AKS root journal initramfs installer'
   End
 End
 
+Describe 'AKS root journal dracut hook packaging'
+  It 'uses the .sh suffix required by dracut hook discovery'
+    When run grep -Fq dracut-hook.sh ./vhdbuilder/scripts/linux/aks-root-journal/dracut-module-setup.sh
+    The status should be success
+  End
+
+  It 'installs the dracut hook with its discoverable .sh suffix'
+    When run grep -Fq dracut-hook.sh ./vhdbuilder/scripts/linux/aks-root-journal/install.sh
+    The status should be success
+  End
+End
+
 Describe 'AKS root journal runtime entrypoint'
   setup_runtime_entrypoint() {
     MOUNT_PATH=$(mktemp -d)
