@@ -27,6 +27,11 @@ unattended_upgrade() {
   echo Executed unattended upgrade $i times
 }
 
+is_valid_golden_timestamp() {
+    local timestamp="$1"
+    [ "${#timestamp}" -eq 16 ] && printf '%s\n' "${timestamp}" | grep -Eq '^[0-9]{8}T[0-9]{6}Z$'
+}
+
 generate_sources_list() {
     local endpoint="$1"
     local golden_timestamp="$2"
@@ -86,10 +91,24 @@ main() {
     node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
 
     # retrieve golden timestamp from node annotation
+    local xtrace_enabled=false
+    case "$-" in
+        *x*)
+            set +x
+            xtrace_enabled=true
+            ;;
+    esac
     golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
     if [ -z "${golden_timestamp}" ]; then
         echo "golden timestamp is not set, skip live patching"
         exit 0
+    fi
+    if ! is_valid_golden_timestamp "${golden_timestamp}"; then
+        echo "golden timestamp has invalid format; expected YYYYMMDDTHHMMSSZ"
+        exit 1
+    fi
+    if [ "${xtrace_enabled}" = true ]; then
+        set -x
     fi
     echo "golden timestamp is: ${golden_timestamp}"
 
