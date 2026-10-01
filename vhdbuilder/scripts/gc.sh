@@ -11,11 +11,14 @@ DRY_RUN="${DRY_RUN:-}"
 STANDARD_RETENTION_SECONDS="${STANDARD_RETENTION_SECONDS:-14400}"
 SKIP_RETENTION_SECONDS="${SKIP_RETENTION_SECONDS:-604800}"
 
-if [[ ! "$STANDARD_RETENTION_SECONDS" =~ ^[1-9][0-9]*$ ]] ||
-   [[ ! "$SKIP_RETENTION_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
-    echo "STANDARD_RETENTION_SECONDS and SKIP_RETENTION_SECONDS must be positive integers in seconds" >&2
-    exit 1
-fi
+for retention_seconds in "$STANDARD_RETENTION_SECONDS" "$SKIP_RETENTION_SECONDS"; do
+    case "$retention_seconds" in
+        ''|0*|*[!0-9]*)
+            echo "STANDARD_RETENTION_SECONDS and SKIP_RETENTION_SECONDS must be positive integers in seconds" >&2
+            exit 1
+            ;;
+    esac
+done
 
 STANDARD_DEADLINE=$(( $(date +%s) - STANDARD_RETENTION_SECONDS ))
 SKIP_DEADLINE=$(( $(date +%s) - SKIP_RETENTION_SECONDS ))
