@@ -340,14 +340,12 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
-        # The DRA path may also have installed compute-domain units on a previous run; the
-        # feature is mutable, so tear them down here too (safe no-op if never installed). Stop
-        # and remove our unit, and keep the deb's args-less vendor unit masked (off) after opt-out.
+        # The DRA path may also have started our compute-domain unit on a previous run; the
+        # feature is mutable, so tear it down here too (safe no-op if never installed). The deb's
+        # args-less vendor unit is masked by the enable path and that mask persists, so it needs
+        # no action here.
         logs_to_events "AKS.CSE.stop.compute-domain-nvidia-gpu" "systemctlDisableAndStop compute-domain-nvidia-gpu"
         rm -f /etc/systemd/system/compute-domain-nvidia-gpu.service
-        if [ -x /usr/bin/compute-domain-kubelet-plugin ]; then
-            systemctl mask --now compute-domain-kubelet-plugin || true
-        fi
         rm -f "${managed_gpu_marker}"
     fi
 }
