@@ -1085,8 +1085,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetSshPublicKeysPowerShell": func() string {
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
 		},
-		// PowerShellLiteral writes a value into the Windows CSE script so that PowerShell reads it as a
-		// plain string. Every value in kuberneteswindowssetup.ps1.template must go through it.
+		// PowerShellLiteral writes a value into the Windows CSE script as a plain string.
 		"PowerShellLiteral": func(value interface{}) string {
 			if value == nil {
 				return powerShellLiteral("")
