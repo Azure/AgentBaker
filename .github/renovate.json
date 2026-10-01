@@ -1008,14 +1008,15 @@
     },
     {
       "customType": "regex",
-      "description": "auto update trivy version in trivy-scan.sh from PMC",
+      "description": "auto update revisionless trivy versions in trivy-scan.sh",
       "managerFilePatterns": [
         "/trivy-scan\\.sh/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*VERSION=\"(?<currentValue>[^\"]+)\""
-      ]
+      ],
+      "extractVersionTemplate": "^v?(?<version>\\d+\\.\\d+\\.\\d+).*$"
     }
   ],
   "customDatasources": {

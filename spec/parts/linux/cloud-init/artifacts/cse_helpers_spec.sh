@@ -17,6 +17,22 @@ readContainerImage() {
 
 Describe 'cse_helpers.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
+    Describe 'isAzureLinuxArm64BaseImage'
+        Parameters
+            "AZURELINUX" "arm64" ""        0
+            "UBUNTU"     "arm64" ""        1
+            "AZURELINUX" "amd64" ""        1
+            "AZURELINUX" "arm64" "OSGUARD" 1
+        End
+
+        It "returns $4 for OS=$1 arch=$2 variant=$3"
+            When call isAzureLinuxArm64BaseImage "$1" "$2" "$3"
+
+            The status should equal "$4"
+        End
+    End
+
     Describe 'updatePackageVersions'
         It 'returns downloadURIs.ubuntu.r2204.versionsV2 of package pkgVersionsV2 for UBUNTU 22.04'
             package=$(readPackage "pkgVersionsV2")

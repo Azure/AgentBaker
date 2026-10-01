@@ -315,6 +315,11 @@ For cleanup that must continue after cancellation, derive its context with
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
 shutdown to clean up resources. Old VMs are deleted on startup unless created with `KEEP_VMSS=true`.
 
+Cluster setup renews `deletion_due_time` only on the selected clusters' node resource groups.
+The shared `abe2e-{location}` resource groups keep their existing GC tags and deadlines so obsolete
+clusters can expire. Node resource group renewal does not prevent GC from deleting the shared
+resource group and its clusters.
+
 ## Package Structure
 
 The executable entry point is [main.go](main.go). It handles signals and starts the CLI.

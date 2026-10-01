@@ -648,7 +648,7 @@ pullContainerImage() {
 
     code=0
     if [ "${CLI_TOOL,,}" = "ctr" ]; then
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS /opt/azure/containers/image-fetcher $CONTAINER_IMAGE_URL || code=$?
+        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS /opt/azure/containers/image-fetcher cache-image --image "$CONTAINER_IMAGE_URL" || code=$?
     elif [ "${CLI_TOOL,,}" = "crictl" ]; then
         retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL || code=$?
     else

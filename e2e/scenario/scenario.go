@@ -15,7 +15,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 )
 
@@ -3027,7 +3027,8 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2404Gen2Containerd,
 		// RTX PRO 6000 BSE v6 only supports NVMe disk controllers, not ResourceDisk
 		// ephemeral OS disk placement (SupportedEphemeralOSDiskPlacements=NvmeDisk).
-		UseNVMe: true,
+		UseNVMe:             true,
+		SkipOnCapacityError: false,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.AgentPoolProfile.VMSize = "Standard_NC144ds_xl_RTXPRO6000BSE_v6"
 			nbc.ConfigGPUDriverIfNeeded = true

@@ -2690,6 +2690,11 @@ type LocalDNSOverrides struct {
 	FailfastAllUnhealthyUpstreams *bool `json:"failfastAllUnhealthyUpstreams,omitempty"`
 	// Configures CoreDNS forward plugin health checking behavior for upstream servers.
 	HealthCheck *LocalDNSHealthCheck `json:"healthCheck,omitempty"`
+	// Policy applied on top of serve_stale when choosing between a stale
+	// positive answer and a cached negative one, on the default server block
+	// only. Valid values - PreferPositive. Empty leaves CoreDNS on its default.
+	// Requires a node image with CoreDNS >= 1.14.7.
+	ServeStalePolicy string `json:"serveStalePolicy,omitempty"`
 }
 
 // ShouldEnableLocalDNS returns true if AgentPoolProfile, LocalDNSProfile is not nil and
