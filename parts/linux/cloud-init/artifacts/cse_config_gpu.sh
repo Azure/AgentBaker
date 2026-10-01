@@ -319,15 +319,23 @@ configureManagedGPUExperience() {
         exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
     fi
     local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
+    # compute-domain is DRA-only. In any non-DRA state (device-plugin flavor or feature off) we tear
+    # down our unit AND mask the deb's args-less vendor compute-domain-kubelet-plugin.service: the
+    # dra-driver deb persists across flavor switches, so the vendor unit may be running from a prior
+    # DRA run where masking did not complete. Overridable for tests.
+    local compute_domain_plugin_bin="${COMPUTE_DOMAIN_PLUGIN_BIN:-/usr/bin/compute-domain-kubelet-plugin}"
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
-        # compute-domain is DRA-only; on the device-plugin flavor make sure it is not left running
-        # from a previous DRA run (the managed-GPU flavor is mutable, so this is a flavor switch).
+        # device-plugin flavor: stop our unit and mask the deb's vendor unit (either may be left from
+        # a prior DRA run where masking did not complete).
         logs_to_events "AKS.CSE.stop.compute-domain-nvidia-gpu" "systemctlDisableAndStop compute-domain-nvidia-gpu"
+        if [ -x "${compute_domain_plugin_bin}" ]; then
+            systemctl mask --now compute-domain-kubelet-plugin || true
+        fi
     elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
         # Pre-mask the deb's args-less compute-domain-kubelet-plugin.service BEFORE installing the
         # dra-driver-nvidia-gpu deb, so its postinst cannot enable+start the vendor unit (which would
@@ -348,11 +356,12 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
-        # The DRA path may also have started our compute-domain unit on a previous run; the
-        # feature is mutable, so stop+disable it here too (safe no-op if never installed). The
-        # deb's args-less vendor unit is masked by the enable path and that mask persists, so it
-        # needs no action here.
+        # feature off: tear down our compute-domain unit and mask the deb's vendor unit (either may be
+        # running from a prior DRA run); safe no-op if never installed.
         logs_to_events "AKS.CSE.stop.compute-domain-nvidia-gpu" "systemctlDisableAndStop compute-domain-nvidia-gpu"
+        if [ -x "${compute_domain_plugin_bin}" ]; then
+            systemctl mask --now compute-domain-kubelet-plugin || true
+        fi
         rm -f "${managed_gpu_marker}"
     fi
 }
