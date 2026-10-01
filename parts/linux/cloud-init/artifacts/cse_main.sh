@@ -134,14 +134,16 @@ reconcileVulnerableKernelModuleMitigation() {
     # or unknown 22.04 / 24.04 kernel flavors. Fixed 22.04 / 24.04 kernels remove stale
     # deny rules so in-support VHDs no longer block legitimate module use after the fix.
     #
-    # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
+    # AzureLinux 3.0 (regular only) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
     # Fail / DirtyFrag / Fragnesia upstream, so the modprobe blacklist is no longer
     # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf;
     # customers reported the blacklist actively blocks legitimate workloads that use
     # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
     # (built before this change) still have the bake-in until they are rolled; no CSE-time active
     # removal is performed, so customers get the unblocked configuration on their next AzL3
-    # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
+    # VHD upgrade. Kata uses a separate kernel stream, so retain its mitigation. Real Kata
+    # nodes report OS=AZURELINUX; IS_KATA comes from live CustomData or ANC configuration.
+    # AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
     # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
     # the affected kernel modules.
     #
@@ -159,7 +161,9 @@ reconcileVulnerableKernelModuleMitigation() {
         else
             removeVulnerableKernelModuleDenyRules || exit $ERR_MODPROBE_FAIL
         fi
-    elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; }; then
+    elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT" \
+        || { isMarinerOrAzureLinux "$OS" && [ "${OS_VERSION}" = "2.0" ]; } \
+        || { isAzureLinux "$OS" "$OS_VARIANT" && { [ "${IS_KATA:-false}" = "true" ] || [ "$OS" = "$AZURELINUX_KATA_OS_NAME" ]; }; }; then
         disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
         disableVulnerableKernelModule "esp4" "DirtyFrag (xfrm-ESP page-cache write)"
         disableVulnerableKernelModule "esp6" "DirtyFrag (xfrm-ESP6 page-cache write)"
