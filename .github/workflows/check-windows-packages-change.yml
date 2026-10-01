@@ -8,64 +8,47 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      # Single checkout of the PR head, with full history so we can locally
-      # merge the live main branch into it below. This avoids comparing two
-      # snapshots pinned to different points in time (see PR #9686): instead
-      # of checking out "base" and "pr" separately — where "pr"'s precomputed
-      # merge ref is pinned to whatever main was at the PR's last
-      # opened/synchronize event — we fetch main fresh in this job and merge
-      # it ourselves, so both sides of the diff are derived from the exact
-      # same live main commit.
-      - name: Check out PR head
+      - name: Check out repository code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          # Use base.ref (e.g. "main"), not base.sha: base.sha is frozen at
+          # whatever the base branch pointed to during this PR's last
+          # opened/synchronize event. If the base branch advances afterward
+          # without a new push to this PR, base.sha goes stale and this diff
+          # ends up comparing against outdated base content, surfacing
+          # unrelated upstream changes as if they came from the PR. base.ref
+          # always resolves to the live tip of the base branch at checkout time.
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: base
+          fetch-depth: 1
+          persist-credentials: false
 
-      - name: Produce vhd files - PR merged into live main
+      - name: Check out repository code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: pr
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Produce vhd files - base
         id: makeDiff
         shell: pwsh
         run: |
-          $DIFF_DIR = "vhd_files"
+          cd pr
+          $DIFF_DIR="vhd_files"
+
           mkdir -Force "${DIFF_DIR}"
 
-          git config user.email "you@example.com"
-          git config user.name "Your Name"
-
-          # Fetch the live tip of main right now — this is the single source
-          # of truth both snapshots below are generated from.
-          git fetch origin main
-          $mainSha = (git rev-parse origin/main).Trim()
-          Write-Output "Comparing against live main: ${mainSha}"
-
-          # Snapshot 1: cached-file lists as they exist on live main, read via
-          # a separate worktree (outside this checkout) so the main checkout
-          # of this job is untouched. Use RUNNER_TEMP for a well-defined,
-          # writable location regardless of where the checkout landed.
-          $mainWorktree = Join-Path $env:RUNNER_TEMP "main-worktree"
-          git worktree add --detach "${mainWorktree}" "${mainSha}"
-          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 "${mainWorktree}/vhdbuilder/packer/windows/windows_settings.json" "${mainWorktree}/parts/common/components.json"
-          git worktree remove "${mainWorktree}" --force
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 ../base/vhdbuilder/packer/windows/windows_settings.json ../base/parts/common/components.json
 
           git add "${DIFF_DIR}"
-          git commit -m "versions of files from live main"
+          git config user.email "you@example.com"
+          git config user.name "Your Name"
+          git commit -m "versions of files from PR base"
 
-          # Merge live main into the PR head locally, to see what the cached
-          # files would look like if this PR were merged into main right now.
-          $mergeOutput = git merge --no-edit "${mainSha}" 2>&1
-          $mergeExit = $LASTEXITCODE
-          Write-Output $mergeOutput
-          if ($mergeExit -ne 0) {
-            Write-Output "::warning::Could not merge live main into the PR branch to compute the cached-file diff (exit ${mergeExit}). Skipping the check for this run."
-            git merge --abort
-            exit 0
-          }
-
-          # Snapshot 2: cached-file lists as they'd exist after merging this
-          # PR into that same live main commit.
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 "${DIFF_DIR}" vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json
 
-          $diffFile = "diff.md"
+          $diffFile = "../diff.md"
           git diff --quiet -- "${DIFF_DIR}"
           if ( $LASTEXITCODE -eq "0" ) {
             # This line is commented out to reduce noise in the PRs
