@@ -321,6 +321,10 @@ Describe 'cse_config_gpu.sh'
             echo "rm $@"
         }
 
+        systemctl() {
+            echo "systemctl $@"
+        }
+
         BeforeEach 'KUBELET_NODE_LABELS=""'
 
         It 'should not enable managed GPU experience if not GPU node'
@@ -375,6 +379,24 @@ Describe 'cse_config_gpu.sh'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=enabled'
             The output should include "mkdir -p /opt/azure/containers"
             The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            # compute-domain is DRA-only: on the device-plugin flavor it must be torn down in case a
+            # previous run enabled it (flavor switch)
+            The output should include "systemctlDisableAndStop compute-domain-nvidia-gpu"
+        End
+
+        It 'pre-masks the vendor compute-domain unit before install in DRA mode'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            # mask must happen BEFORE the deb install so the postinst can't start the args-less unit
+            The output should include "systemctl mask compute-domain-kubelet-plugin"
+            The output should include "installNvidiaManagedExpPkgFromCache called"
+            # DRA defers service start to after kubelet
+            The output should not include "startNvidiaManagedExpServices called"
         End
 
         It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'

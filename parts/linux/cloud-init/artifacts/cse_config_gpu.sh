@@ -325,7 +325,15 @@ configureManagedGPUExperience() {
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
+        # compute-domain is DRA-only; on the device-plugin flavor make sure it is not left running
+        # from a previous DRA run (the managed-GPU flavor is mutable, so this is a flavor switch).
+        logs_to_events "AKS.CSE.stop.compute-domain-nvidia-gpu" "systemctlDisableAndStop compute-domain-nvidia-gpu"
     elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        # Pre-mask the deb's args-less compute-domain-kubelet-plugin.service BEFORE installing the
+        # dra-driver-nvidia-gpu deb, so its postinst cannot enable+start the vendor unit (which would
+        # briefly register args-less in the default namespace and can wedge the kubelet-plugin
+        # checkpoint). Our configured unit is created later in startNvidiaManagedExpServices.
+        systemctl mask compute-domain-kubelet-plugin || true
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         # defer startNvidiaManagedExpServices() after kubelet starts
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
@@ -419,13 +427,16 @@ EOF
         # no-op rather than a provisioning failure. The path is overridable to keep this testable.
         local compute_domain_plugin_bin="${COMPUTE_DOMAIN_PLUGIN_BIN:-/usr/bin/compute-domain-kubelet-plugin}"
         if [ -x "${compute_domain_plugin_bin}" ]; then
-            systemctl mask --now compute-domain-kubelet-plugin || true
-
+            # The vendor unit was pre-masked before the deb install; re-assert the mask here (and stop
+            # it if the pre-mask was somehow missed). Only run our unit if the vendor unit is masked,
+            # so the two plugins can never run together.
+            if ! systemctl mask --now compute-domain-kubelet-plugin; then
+                echo "warning: could not mask vendor compute-domain-kubelet-plugin; skipping the AKS compute-domain unit to avoid two plugins running"
             # Only Grace-Blackwell (arm64 MNNVL) nodes run OUR configured compute-domain unit
             # (device class compute-domain.nvidia.com) for cross-node IMEX. --namespace must match
             # where the microsoft.managedcomputedomain controller extension installs; that chart
             # hard-pins kube-system.
-            if [ "$(isARM64)" -eq 1 ]; then
+            elif [ "$(isARM64)" -eq 1 ]; then
                 tee "/etc/systemd/system/compute-domain-nvidia-gpu.service" > /dev/null <<EOF
 [Unit]
 Description=NVIDIA DRA Compute-Domain Kubelet Plugin
