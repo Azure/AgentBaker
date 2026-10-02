@@ -68,6 +68,8 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 			Cluster:              ClusterKubenet,
 			VHD:                  vhd,
 			ANCHotfixFlowFixture: true,
+			// The no-op NBC command validates hotfix execution, not node readiness.
+			SkipDefaultValidation: true,
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
 					ValidateANCBakedBinaryVersion(ctx, s, ancHotfixFlowBaseVersion),
