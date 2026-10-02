@@ -29,10 +29,14 @@ Goal1: remove mariner workflow so things will be simplified.
 - `cse_config_addons.sh` -> `provision_configs_addons.sh` (autoscaler, ACI connector, Azure Policy)
 
 On managed Ubuntu amd64 VHD nodes, GPU validation selects the normal installer
-immediately if `nvidia-modprobe` is absent. A cached installer image is not an
-installed host driver. Present drivers retain the existing readiness retries and
-full-install fallback; ARM64, other OSes and non-VHD images retain their existing
-validation path. GPU eligibility and opt-out decisions still happen in `nodePrep`.
+immediately if `nvidia-modprobe` is absent or a bounded `nvidia-smi` probe returns
+12 (NVML cannot be loaded). Neither a cached installer image nor a loadable
+prebaked kernel module proves the host userspace driver is installed. Other
+probe outcomes retain the existing readiness retries and full-install fallback;
+ARM64, other OSes and non-VHD images retain their existing validation path.
+GPU eligibility and opt-out decisions still happen in `nodePrep`. The Ubuntu
+validation-only E2E scenarios explicitly deliver their checkout's CSE rather
+than using the tested VHD's baked-in scripts.
 
 `cse_cmd.sh` and the ANC parser provide their paths through
 `CSE_CONFIG_GPU_FILEPATH`, `CSE_CONFIG_LOCALDNS_FILEPATH`,

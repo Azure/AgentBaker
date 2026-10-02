@@ -1481,6 +1481,9 @@ func ubuntuGPUValidationScenario(name string, vhd *config.Image) *Scenario {
 	s.Config.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 		configureGPU(cluster, nbc)
 		nbc.ConfigGPUDriverIfNeeded = false
+		// Exercise this checkout's validation code, not the VHD's baked-in CSE.
+		nbc.EnableScriptlessCSECmd = false
+		nbc.EnableScriptlessNBCCSECmd = false
 	}
 	validateGPU := s.Config.Validator
 	s.Config.Validator = func(ctx context.Context, s *Scenario) error {

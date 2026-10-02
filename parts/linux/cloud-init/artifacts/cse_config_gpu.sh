@@ -108,11 +108,24 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    # A cache-only VHD has no host driver yet. Retrying a missing executable cannot make it ready
-    # and consumes 115 seconds of the CSE budget before the existing full-install fallback.
+    local driver_payload_missing=false
     if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${IS_VHD,,}" = "true" ] &&
-        [ "$(getCPUArch)" = "amd64" ] && ! command -v nvidia-modprobe >/dev/null 2>&1; then
-        echo "NVIDIA driver is not installed in this Ubuntu VHD; installing before validation"
+        [ "$(getCPUArch)" = "amd64" ]; then
+        if ! command -v nvidia-modprobe >/dev/null 2>&1; then
+            driver_payload_missing=true
+        elif command -v nvidia-smi >/dev/null 2>&1; then
+            local smi_status=0
+            timeout 30 nvidia-smi >/dev/null 2>&1 || smi_status=$?
+            # NVIDIA exit 12 means NVML cannot be loaded, even if a prebaked kernel module loads.
+            if [ "$smi_status" -eq 12 ]; then
+                driver_payload_missing=true
+            fi
+        fi
+    fi
+
+    # Retrying absent payload cannot make it ready and consumes 115 seconds of the CSE budget.
+    if [ "$driver_payload_missing" = true ]; then
+        echo "NVIDIA driver payload is absent or incomplete in this Ubuntu VHD; installing before validation"
         configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     else
         retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
