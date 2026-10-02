@@ -31,7 +31,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 }
 
 //nolint:funlen
-func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
+func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) (map[string]string, error) {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
 	// Clear it from both KubeletFlags and KubeletConfigFileConfig so it doesn't appear
 	// on the command line or in the marshaled config file JSON.
@@ -44,7 +44,10 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		}
 	}
 
-	containerdVersion, _ := detectContainerdVersion(ctx)
+	containerdVersion, err := resolveContainerdConfigVersion(ctx, config)
+	if err != nil {
+		return nil, err
+	}
 	cloudProviderSettings := getCloudProviderSettings(config)
 	isMIGNode := getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())
 	env := map[string]string{
@@ -225,7 +228,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 	for i, cert := range config.CustomCaCerts {
 		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = removeNewlines(cert)
 	}
-	return env
+	return env, nil
 }
 
 type cloudProviderSettings struct {
@@ -320,7 +323,11 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration, gpu
 	// Convert to one-liner
 	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
-	env := mapToEnviron(getCSEEnv(ctx, config, gpuConfig))
+	cseEnv, err := getCSEEnv(ctx, config, gpuConfig)
+	if err != nil {
+		return nil, fmt.Errorf("build CSE environment: %w", err)
+	}
+	env := mapToEnviron(cseEnv)
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables
 	sort.Strings(cmd.Env)
 	return cmd, nil

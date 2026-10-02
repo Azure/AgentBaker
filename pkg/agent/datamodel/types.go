@@ -1205,9 +1205,6 @@ func (a *AgentPoolProfile) Is2604VHDDistro() bool {
 }
 
 func (a *AgentPoolProfile) IsContainerdV2Distro() bool {
-	if a.Distro.IsKataDistro() {
-		return false
-	}
 	return a.Distro.Is2604VHDDistro() || a.Distro.Is2404VHDDistro() || a.Distro.IsACLDistro() || a.Distro.IsAzureLinuxV3Distro()
 }
 

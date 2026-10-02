@@ -431,11 +431,16 @@ var _ = Register(&Scenario{
 			nbc.DisableUnattendedUpgrades = false
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
+			containerdVersion, err := expectedPackageVersion("containerd", "azurelinuxkata", "v3.0")
+			if err != nil {
+				return err
+			}
 			if err := errors.Join(
 				ValidateKataContainerdConfig(ctx, s),
 				ValidateKataErofsContainerdConfig(ctx, s),
 				ValidateKataContainerdConfigDump(ctx, s),
 				ValidateKataHostReadiness(ctx, s),
+				ValidateInstalledPackageVersion(ctx, s, "containerd2", containerdVersion),
 			); err != nil {
 				return err
 			}

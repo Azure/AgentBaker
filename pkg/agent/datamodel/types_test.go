@@ -1096,6 +1096,44 @@ func TestAgentPoolProfileIs2604VHDDistro(t *testing.T) {
 	}
 }
 
+func TestAgentPoolProfileIsContainerdV2Distro(t *testing.T) {
+	tests := []struct {
+		name     string
+		distro   Distro
+		expected bool
+	}{
+		{
+			name:     "Azure Linux V3 Kata",
+			distro:   AKSAzureLinuxV3Gen2Kata,
+			expected: true,
+		},
+		{
+			name:     "Azure Linux V2 Kata",
+			distro:   AKSAzureLinuxV2Gen2Kata,
+			expected: false,
+		},
+		{
+			name:     "Ubuntu 24.04",
+			distro:   AKSUbuntuContainerd2404,
+			expected: true,
+		},
+		{
+			name:     "Ubuntu 22.04",
+			distro:   AKSUbuntuContainerd2204,
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			profile := AgentPoolProfile{Distro: test.distro}
+			if actual := profile.IsContainerdV2Distro(); actual != test.expected {
+				t.Fatalf("IsContainerdV2Distro() = %t, want %t", actual, test.expected)
+			}
+		})
+	}
+}
+
 func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 	cases := []struct {
 		name     string

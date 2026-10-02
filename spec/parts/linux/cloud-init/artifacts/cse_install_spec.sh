@@ -83,14 +83,15 @@ Describe 'cse_install.sh'
             When call installContainerRuntime
             The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
         End
-        # TODO(mheberling): In a ~month this will probably be removed when we use the standard containerd.
-        It 'skips the containerd installation for AzureLinux with Kata'
+        It 'returns expected output for successful installation of containerd in AzureLinux with Kata'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
             OS="AZURELINUX"
             containerdPackage=$(readPackage "containerd")
             IS_KATA="true"
             When call installContainerRuntime
-            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
+            The variable packageVersion should equal "2.3.4-1.fake"
+            The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 2.3.4-1.fake"
         End
         It 'returns expected output for successful installation of containerd in AzureLinux'
             UBUNTU_RELEASE="" # mocking AzureLinux doesn't have command `lsb_release -cs`

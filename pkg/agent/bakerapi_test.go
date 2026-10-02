@@ -286,6 +286,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should not return an error for customized kata image", func() {
 			config.AgentPoolProfile.Distro = datamodel.CustomizedImageKata
+			config.ContainerdVersion = "2.3.4"
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 

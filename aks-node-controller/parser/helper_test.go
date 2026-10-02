@@ -497,7 +497,7 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, "1.7.22"); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -523,7 +523,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 					},
 				},
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -559,7 +559,7 @@ oom_score = -999
 				},
 				noGpu: false,
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -594,7 +594,7 @@ oom_score = -999
 				},
 				noGpu: true,
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -660,6 +660,89 @@ oom_score = -999
 			}
 			if got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getContainerdConfigV2KataUsesNativePluginPaths(t *testing.T) {
+	config := &aksnodeconfigv1.Configuration{
+		IsKata: true,
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+			ContainerdVersion: "2.3.4",
+		},
+	}
+
+	tests := []struct {
+		name      string
+		getConfig func(*aksnodeconfigv1.Configuration, string) string
+	}{
+		{
+			name:      "default",
+			getConfig: getContainerdConfigBase64,
+		},
+		{
+			name:      "no GPU",
+			getConfig: getNoGPUContainerdConfigBase64,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			decoded, err := base64.StdEncoding.DecodeString(test.getConfig(config, "2.3.4"))
+			if err != nil {
+				t.Fatalf("decoding containerd config: %v", err)
+			}
+			rendered := string(decoded)
+			if !strings.HasPrefix(rendered, "version = 4\n") {
+				t.Fatalf("containerd 2.3+ config does not use schema 4:\n%s", rendered)
+			}
+			if strings.Contains(rendered, `io.containerd.grpc.v1.cri`) {
+				t.Fatalf("containerd v2 config contains the legacy CRI plugin path:\n%s", rendered)
+			}
+			if !strings.Contains(rendered, "disable_snapshot_annotations = false") {
+				t.Fatalf("containerd v2 Kata config does not disable snapshot annotations:\n%s", rendered)
+			}
+			for _, handler := range []string{"kata", "kata-v2"} {
+				expected := `plugins."io.containerd.cri.v1.runtime".containerd.runtimes.` + handler + `]`
+				if !strings.Contains(rendered, expected) {
+					t.Fatalf("containerd v2 config does not contain %q:\n%s", expected, rendered)
+				}
+			}
+		})
+	}
+}
+
+func TestContainerdConfigSchema(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    int
+		wantErr string
+	}{
+		{name: "containerd 1", version: "1.7.22", want: 2},
+		{name: "containerd 2.0", version: "2.0.0", want: 3},
+		{name: "containerd 2.2", version: "2.2.4", want: 3},
+		{name: "containerd 2.3", version: "2.3.0", want: 4},
+		{name: "containerd 2.3 patch", version: "2.3.4", want: 4},
+		{name: "missing version", wantErr: `unsupported or missing containerd version ""`},
+		{name: "invalid version", version: "latest", wantErr: `unsupported or missing containerd version "latest"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := containerdConfigSchema(tt.version)
+			if tt.wantErr != "" {
+				if err == nil || err.Error() != tt.wantErr {
+					t.Fatalf("containerdConfigSchema(%q) error = %v, want %q", tt.version, err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("containerdConfigSchema(%q) returned error: %v", tt.version, err)
+			}
+			if got != tt.want {
+				t.Fatalf("containerdConfigSchema(%q) = %d, want %d", tt.version, got, tt.want)
 			}
 		})
 	}
