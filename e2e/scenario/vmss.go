@@ -34,6 +34,7 @@ import (
 
 const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
+	hotfixMarker                             = "#hotfix-marker"
 )
 
 type scriptHotfixFixtureNodeCustomData struct {
@@ -371,14 +372,9 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	}
 
 	binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
-	customData = strings.Replace(string(decoded), "#hotfix-marker", binaryDownloadCmd, -1)
+	customData = strings.Replace(string(decoded), hotfixMarker, binaryDownloadCmd, -1)
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
-
-// ancFixtureAnchor is the opening line of baker's serviceStartTemplate. It follows the
-// boothook file writes and immediately precedes the launcher start, so the fixture remains
-// authoritative over any hotfix pointer baked into official/** branches.
-const ancFixtureAnchor = `logger -t aks-boothook "launching aks-node-controller`
 
 // ancFixtureFileEntry mirrors baker's boothookFileEntry so fixture-delivered files land on
 // disk through the same gzip+base64 heredoc idiom production custom data uses.
@@ -478,12 +474,11 @@ chmod +x %[5]s`,
 	)
 
 	rendered := string(decoded)
-	anchor := strings.Index(rendered, ancFixtureAnchor)
-	if anchor < 0 {
-		return "", fmt.Errorf("splice anchor %q not found in custom data: the fixture must run after baker's file writes", ancFixtureAnchor)
+	if !strings.Contains(rendered, hotfixMarker) {
+		return "", fmt.Errorf("hotfix marker %q not found in custom data", hotfixMarker)
 	}
 
-	customData = rendered[:anchor] + fixtureCmd + "\n\n" + rendered[anchor:]
+	customData = strings.Replace(rendered, hotfixMarker, fixtureCmd, 1)
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 

@@ -40,15 +40,18 @@ func TestRenderANCHotfixFlowFixture(t *testing.T) {
 	// distinguishable even though they target the same file.
 	bakerWrite := strings.Index(rendered, "gzip -d >"+ancHotfixPointerPath)
 	fixtureWrite := strings.Index(rendered, "cat >"+ancHotfixPointerPath)
-	anchor := strings.Index(rendered, ancFixtureAnchor)
-	if bakerWrite < 0 || fixtureWrite < 0 || anchor < 0 {
-		t.Fatalf("expected baker write, fixture write and anchor; got %d, %d, %d", bakerWrite, fixtureWrite, anchor)
+	controllerStart := strings.Index(rendered, `logger -t aks-boothook "launching aks-node-controller`)
+	if bakerWrite < 0 || fixtureWrite < 0 || controllerStart < 0 {
+		t.Fatalf("expected baker write, fixture write and controller start; got %d, %d, %d", bakerWrite, fixtureWrite, controllerStart)
 	}
 	if fixtureWrite < bakerWrite {
 		t.Error("fixture pointer write must land after baker's, otherwise the pointer hotfix-generate commits on official/** branches clobbers it")
 	}
-	if fixtureWrite > anchor {
+	if fixtureWrite > controllerStart {
 		t.Error("fixture must be spliced before the launcher starts")
+	}
+	if strings.Contains(rendered, hotfixMarker) {
+		t.Error("fixture must replace the hotfix marker")
 	}
 
 	// the heredoc body must be valid JSON matching the hotfixConfig shape
@@ -81,15 +84,16 @@ func TestRenderANCHotfixFlowFixture(t *testing.T) {
 	}
 }
 
-// TestRenderANCHotfixFlowFixtureWithoutAnchor pins the failure mode when custom data carries no
-// serviceStartTemplate, which is the ScriptlessCSEProvisionMode shape. The fixture must refuse
-// loudly instead of silently producing custom data that never seeds the pointer.
-func TestRenderANCHotfixFlowFixtureWithoutAnchor(t *testing.T) {
-	in := base64.StdEncoding.EncodeToString([]byte("prefix\n#hotfix-marker\nsuffix\n"))
+// TestRenderANCHotfixFlowFixtureWithoutMarker pins the failure mode when custom data does not
+// expose the injection point. The fixture must refuse loudly instead of silently producing
+// custom data that never seeds the pointer.
+func TestRenderANCHotfixFlowFixtureWithoutMarker(t *testing.T) {
+	in := base64.StdEncoding.EncodeToString([]byte(
+		"prefix\n" + `logger -t aks-boothook "launching aks-node-controller $(date -Ins)"` + "\nsuffix\n"))
 	if _, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc"); err == nil {
-		t.Fatal("expected an error when the splice anchor is absent")
-	} else if !strings.Contains(err.Error(), "splice anchor") {
-		t.Errorf("error should name the missing anchor, got %v", err)
+		t.Fatal("expected an error when the hotfix marker is absent")
+	} else if !strings.Contains(err.Error(), "hotfix marker") {
+		t.Errorf("error should name the missing hotfix marker, got %v", err)
 	}
 }
 
