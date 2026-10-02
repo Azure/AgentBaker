@@ -512,6 +512,27 @@ EOF
   udevadm control --reload
 }
 
+getLatestDalecSysextTag() {
+  local repository=$1 version=${2#v} architecture=$3
+  local tags tag
+  if ! grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' <<< "${version}" ||
+     ! grep -Eq '^(x86-64|arm64)$' <<< "${architecture}"; then
+    echo "Invalid Dalec sysext version or architecture: ${version} ${architecture}" >&2
+    return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+  fi
+  if ! tags=$(retrycmd_silent 120 5 20 oras repo tags --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "${repository}"); then
+    echo "Failed to list Dalec sysext tags from ${repository}" >&2
+    return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+  fi
+  # sort -V orders revisions numerically (e.g. 10 after 9), not lexically.
+  if ! tag=$(printf '%s\n' "${tags}" | grep -Ex "v${version//./\\.}-[0-9]+-azlinux3-${architecture}" | sort -V | tail -n1) ||
+     [ -z "${tag}" ]; then
+    echo "No matching Dalec sysext tag in ${repository} for v${version} (${architecture})" >&2
+    return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+  fi
+  echo "${tag}"
+}
+
 cacheDalecSysextFromVersion() {
   local name=$1 version=$2 evaluatedURL=$3 downloadDir=$4
   local repository=${evaluatedURL%:*} architecture resolvedTag

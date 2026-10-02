@@ -3,7 +3,7 @@
 
 Describe 'VHD Dalec sysext caching'
     Include './parts/linux/cloud-init/artifacts/cse_helpers.sh'
-    BeforeAll "eval \"\$(sed -n '/^cacheDalecSysextFromVersion()/,/^}/p' './vhdbuilder/packer/install-dependencies.sh')\""
+    BeforeAll "eval \"\$(sed -n '/^getLatestDalecSysextTag()/,/^}/p; /^cacheDalecSysextFromVersion()/,/^}/p' './vhdbuilder/packer/install-dependencies.sh')\""
 
     setup() {
         VHD_LOGS_FILEPATH=$(mktemp)
@@ -28,6 +28,65 @@ Describe 'VHD Dalec sysext caching'
     installSecureTLSBootstrapClientSysext() {
         echo "activate $*"
     }
+
+    It 'selects the highest numeric revision for the requested architecture'
+        When call getLatestDalecSysextTag mcr.microsoft.com/test v1.33.4 arm64
+        The output should equal v1.33.4-10-azlinux3-arm64
+        The status should be success
+    End
+
+    It 'fails clearly when no matching version exists'
+        When call getLatestDalecSysextTag mcr.microsoft.com/test v1.32.4 arm64
+        The status should equal 231
+        The output should equal ""
+        The error should include 'No matching Dalec sysext tag in mcr.microsoft.com/test for v1.32.4 (arm64)'
+    End
+
+    It 'does not select a tag published only for another architecture'
+        oras() { echo v1.33.4-99-azlinux3-x86-64; }
+        When call getLatestDalecSysextTag mcr.microsoft.com/test v1.33.4 arm64
+        The status should equal 231
+        The output should equal ""
+        The error should include 'No matching Dalec sysext tag'
+    End
+
+    It 'does not accept partial output from a failed registry listing'
+        oras() {
+            echo v1.33.4-10-azlinux3-arm64
+            return 1
+        }
+        When call getLatestDalecSysextTag mcr.microsoft.com/test v1.33.4 arm64
+        The status should equal 231
+        The output should equal ""
+        The error should include 'Failed to list Dalec sysext tags from mcr.microsoft.com/test'
+    End
+
+    It 'rejects non-fixed versions at build time'
+        When call getLatestDalecSysextTag mcr.microsoft.com/test v1.33 arm64
+        The status should equal 231
+        The error should include 'Invalid Dalec sysext version or architecture'
+    End
+
+    It 'tracks upstream versions in Renovate while ignoring artifact revisions'
+        assert_renovate_versions() {
+            python3 - <<'PY'
+import json
+import re
+
+config = json.load(open(".github/renovate.json", encoding="utf-8"))
+rule = next(rule for rule in config["packageRules"] if
+            "extractVersion" in rule and
+            "oss/v2/kubernetes/kubelet-sysext" in rule.get("matchPackageNames", []))
+pattern = re.sub(r"\(\?<(\w+)>", r"(?P<\1>", rule["extractVersion"])
+upstream = lambda tag: re.fullmatch(pattern, tag)["version"]
+assert upstream("v1.34.11-9-azlinux3-x86-64") == upstream("v1.34.11-10-azlinux3-x86-64")
+assert upstream("v1.34.11-10-azlinux3-x86-64") != upstream("v1.34.12-1-azlinux3-x86-64")
+assert rule["versioning"] == "semver"
+PY
+        }
+        When call assert_renovate_versions
+        The status should be success
+    End
 
     Describe 'component types'
         Parameters

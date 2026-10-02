@@ -1101,32 +1101,6 @@ isMinimalImage() {
     return 1
 }
 
-# CSE may request a minor version; VHD caching always supplies a fixed patch version.
-getLatestDalecSysextTag() {
-    local repository=$1 desiredVersion=${2#v} architecture=$3
-    local versionPattern tags tag
-    if ! grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?$' <<< "${desiredVersion}" ||
-       ! grep -Eq '^(x86-64|arm64)$' <<< "${architecture}"; then
-        echo "Invalid Dalec sysext version or architecture: ${desiredVersion} ${architecture}" >&2
-        return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
-    fi
-    versionPattern=${desiredVersion//./\\.}
-    if grep -Eq '^[0-9]+\.[0-9]+$' <<< "${desiredVersion}"; then
-        versionPattern+="\\.[0-9]+"
-    fi
-    if ! tags=$(retrycmd_silent 120 5 20 oras repo tags --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "${repository}"); then
-        echo "Failed to list Dalec sysext tags from ${repository}" >&2
-        return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
-    fi
-    # sort -V orders revisions numerically (e.g. 10 after 9), not lexically.
-    if ! tag=$(printf '%s\n' "${tags}" | grep -Ex "v${versionPattern}-[0-9]+-azlinux3-${architecture}" | sort -V | tail -n1) ||
-       [ -z "${tag}" ]; then
-        echo "No matching Dalec sysext tag in ${repository} for v${desiredVersion} (${architecture})" >&2
-        return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
-    fi
-    echo "${tag}"
-}
-
 evalPackageDownloadURL() {
     local url=${1:-}
     if [ -n "$url" ]; then
