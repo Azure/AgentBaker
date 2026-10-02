@@ -58,13 +58,8 @@ func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string
 	return uploadAKSNodeController(ctx, binary)
 }
 
-type CompileAKSNodeControllerRequest struct {
-	Arch    string
-	Version string
-}
-
-func compileAndUploadAKSNodeControllerWithVersion(ctx context.Context, request CompileAKSNodeControllerRequest) (string, error) {
-	binary, err := compileAKSNodeControllerWithVersion(ctx, request.Arch, request.Version)
+func compileAndUploadAKSNodeControllerWithVersion(ctx context.Context, arch, version string) (string, error) {
+	binary, err := compileAKSNodeControllerWithVersion(ctx, arch, version)
 	if err != nil {
 		return "", err
 	}
@@ -469,10 +464,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 				"ANC hotfix flow fixture requires scriptless ANC compilation",
 			)
 		}
-		binaryURL, err := CachedCompileAndUploadAKSNodeControllerWithVersion(ctx, CompileAKSNodeControllerRequest{
-			Arch:    s.VHD.Arch,
-			Version: ancHotfixFlowBaseVersion,
-		})
+		binaryURL, err := compileAndUploadAKSNodeControllerWithVersion(ctx, s.VHD.Arch, ancHotfixFlowBaseVersion)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload version-stamped aks-node-controller binary: %w", err)
 		}
