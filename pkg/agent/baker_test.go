@@ -47,6 +47,37 @@ health-check.localdns.local:53 {
 # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
 `
 
+func TestContainerdV2TemplatesUseNativeKataPluginPaths(t *testing.T) {
+	tests := []struct {
+		name     string
+		template ContainerdConfigTemplate
+		handlers []string
+	}{
+		{
+			name:     "default",
+			template: containerdV2ConfigTemplate,
+			handlers: []string{"kata", "kata-v2", "kata-cc"},
+		},
+		{
+			name:     "no GPU",
+			template: containerdV2NoGPUConfigTemplate,
+			handlers: []string{"kata", "kata-v2"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := string(test.template)
+			require.True(t, strings.HasPrefix(config, "version = 3\n"))
+			require.NotContains(t, config, `io.containerd.grpc.v1.cri`)
+			require.Contains(t, config, "disable_snapshot_annotations = false")
+			for _, handler := range test.handlers {
+				require.Contains(t, config, `plugins."io.containerd.cri.v1.runtime".containerd.runtimes.`+handler+`]`)
+			}
+		})
+	}
+}
+
 func TestRenderLinuxNodeCustomDataTemplateUsesBakerPlatformFunctions(t *testing.T) {
 	template := []byte(`#cloud-config
 write_files:
