@@ -164,6 +164,12 @@ ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
 ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network interface
 # -----------------------------------------------------------------------------
 
+# ----------------------- Chrony ----------------------------------------------
+ERR_CVM_PLATFORM_DETECTION_FAIL=244 # Unable to distinguish SEV-SNP from TDX
+ERR_CHRONY_NTP_SYNC_FAIL=245 # Chrony could not synchronize with the configured NTP pools
+ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for Intel TDX
+# -----------------------------------------------------------------------------
+
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
 [ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
 
