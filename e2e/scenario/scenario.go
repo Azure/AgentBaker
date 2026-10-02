@@ -1703,23 +1703,24 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDAzureLinuxV3Gen2,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM16ads_MA35D"
-			nbc.AgentPoolProfile.VMSize = "Standard_NM16ads_MA35D"
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NM320ads_MA35D"
+			nbc.AgentPoolProfile.VMSize = "Standard_NM320ads_MA35D"
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.SKU.Name = to.Ptr("Standard_NM16ads_MA35D")
+			vmss.SKU.Name = to.Ptr("Standard_NM320ads_MA35D")
 			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementCacheDisk)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder0"),
+				ValidateNonEmptyDirectory(ctx, s, "/sys/devices/virtual/misc/ama_transcoder19"),
 				ValidateNonEmptyDirectory(ctx, s, "/opt/amd/ama/ma35/"),
 				ValidateSystemdUnitIsRunning(ctx, s, "amdama-device-plugin.service"),
-				ValidateNodeAdvertisesGPUResources(ctx, s, 1, "squat.ai/amdama"),
+				ValidateNodeAdvertisesGPUResources(ctx, s, 20, "squat.ai/amdama"),
 			)
 		},
 	},
-	// No MA35D GPU capacity in West US, so using East US
+	// No MA35D GPU capacity in West US, so using East US.  North/West Europe are also good.
 	Location:         "eastus",
 	K8sSystemPoolSKU: "Standard_D2s_v3",
 })
