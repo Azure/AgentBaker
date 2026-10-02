@@ -158,11 +158,12 @@ func compileAKSNodeControllerInDirWithVersion(ctx context.Context, arch, buildDi
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
 	}
 	f, err := os.Open(outPath)
-	// The caller only needs the open handle, so drop the directory now rather than
-	// relying on every caller to clean up. On unix the unlinked file stays readable
-	// through the descriptor; elsewhere this is best-effort and at worst leaks a temp dir.
-	defer os.RemoveAll(outDir)
+	// Do not remove outDir here: the returned file handle must remain usable after this
+	// function returns, and deleting its containing directory while the file is still
+	// open is not portable across platforms (notably Windows). Keep the directory for
+	// the lifetime of the returned file and only clean it up on error paths here.
 	if err != nil {
+		os.RemoveAll(outDir)
 		return nil, fmt.Errorf("failed to open compiled aks-node-controller binary: %w", err)
 	}
 	return f, nil
