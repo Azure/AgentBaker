@@ -1779,7 +1779,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		rendered := string(decodedPayload)
-		lastFileWrite := strings.Index(rendered, enabledFeaturesFilepath)
+		lastFileWrite := strings.Index(rendered, aksNbcCmdFilepath)
 		hotfixMarker := strings.Index(rendered, "#hotfix-marker")
 		controllerStart := strings.Index(rendered, `logger -t aks-boothook "launching aks-node-controller`)
 

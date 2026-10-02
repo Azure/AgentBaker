@@ -1,13 +1,8 @@
 package scenario
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
-	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -18,8 +13,9 @@ func TestRenderANCHotfixFlowFixture(t *testing.T) {
 	// official/** branches one of those writes is a hotfix pointer committed by
 	// hotfix-generate, so the stub includes it: the fixture has to win that race.
 	bakerPointerWrite := "cat <<'EOF' | base64 -d | gzip -d >" + ancHotfixPointerPath + "\nQkFLRVI=\nEOF\nchmod 0600 " + ancHotfixPointerPath
+	bakerNBCCmdWrite := "cat <<'EOF' | base64 -d | gzip -d >" + ancNBCCmdPath + "\nQkFLRVI=\nEOF\nchmod 0600 " + ancNBCCmdPath
 	in := base64.StdEncoding.EncodeToString([]byte(
-		"prefix\n" + bakerPointerWrite + "\n#hotfix-marker\n" +
+		"prefix\n" + bakerPointerWrite + "\n" + bakerNBCCmdWrite + "\n#hotfix-marker\n" +
 			`logger -t aks-boothook "launching aks-node-controller $(date -Ins)"` + "\nsuffix\n"))
 	out, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc")
 	if err != nil {
@@ -71,16 +67,16 @@ func TestRenderANCHotfixFlowFixture(t *testing.T) {
 		t.Errorf("hotfixes[202608.21] = %q, want 202608.21.1", got)
 	}
 
-	// The launcher is baked into the VHD by packer, so the fixture must overwrite it with the
-	// working-tree copy or the scenario silently validates whatever the E2E VHD shipped.
-	if !strings.Contains(rendered, ">"+ancLauncherPath) {
-		t.Errorf("fixture does not overwrite %s", ancLauncherPath)
+	bakerNBCCmd := strings.Index(rendered, "gzip -d >"+ancNBCCmdPath)
+	fixtureNBCCmd := strings.LastIndex(rendered, "cat >"+ancNBCCmdPath)
+	if bakerNBCCmd < 0 || fixtureNBCCmd < 0 {
+		t.Fatalf("expected baker and fixture NBC command writes; got %d and %d", bakerNBCCmd, fixtureNBCCmd)
 	}
-	if !strings.Contains(rendered, "chmod 0755 "+ancLauncherPath) {
-		t.Errorf("launcher override must be installed executable")
+	if fixtureNBCCmd < bakerNBCCmd {
+		t.Error("fixture NBC command must overwrite baker's generated NBC command")
 	}
-	if strings.Index(rendered, ancLauncherPath) > fixtureWrite {
-		t.Error("launcher override must be written before the hotfix pointer")
+	if !strings.Contains(rendered[fixtureNBCCmd:], "echo \"ok\"") {
+		t.Error("fixture NBC command must contain the successful no-op command")
 	}
 }
 
@@ -94,55 +90,5 @@ func TestRenderANCHotfixFlowFixtureWithoutMarker(t *testing.T) {
 		t.Fatal("expected an error when the hotfix marker is absent")
 	} else if !strings.Contains(err.Error(), "hotfix marker") {
 		t.Errorf("error should name the missing hotfix marker, got %v", err)
-	}
-}
-
-func TestANCLauncherOverrideRoundTrips(t *testing.T) {
-	cmd, err := ancLauncherOverrideCmd()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	repoRoot, err := findRepoRoot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, err := os.ReadFile(filepath.Join(repoRoot, ancLauncherRepoPath))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Pull the heredoc payload back out and decode it the same way the node will, so an
-	// encoding change cannot ship a payload the node would fail to reconstruct.
-	lines := strings.Split(cmd, "\n")
-	var payload string
-	for i, line := range lines {
-		if strings.HasSuffix(line, ">"+ancLauncherPath) && i+1 < len(lines) {
-			payload = lines[i+1]
-			break
-		}
-	}
-	if payload == "" {
-		t.Fatal("launcher payload not found in rendered override")
-	}
-	if strings.Contains(payload, "EOF") {
-		t.Fatal("payload collides with the heredoc delimiter")
-	}
-
-	raw, err := base64.StdEncoding.DecodeString(payload)
-	if err != nil {
-		t.Fatalf("payload is not valid base64: %v", err)
-	}
-	zr, err := gzip.NewReader(bytes.NewReader(raw))
-	if err != nil {
-		t.Fatalf("payload is not valid gzip: %v", err)
-	}
-	defer zr.Close()
-	got, err := io.ReadAll(zr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Errorf("decoded launcher differs from %s", ancLauncherRepoPath)
 	}
 }
