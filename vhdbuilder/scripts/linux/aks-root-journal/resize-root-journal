@@ -2,9 +2,14 @@
 
 STATE_PATH=/var/lib/aks/root-journal
 MOUNT_PATH=/run/aks-root-journal
+KMSG_DEVICE=/dev/kmsg
 
 log() {
-    printf '%s\n' "aks-root-journal: $*"
+    LOG_MESSAGE="aks-root-journal: $*"
+    printf '%s\n' "$LOG_MESSAGE"
+    if [ -w "$KMSG_DEVICE" ]; then
+        printf '<6>%s\n' "$LOG_MESSAGE" > "$KMSG_DEVICE" 2>/dev/null || :
+    fi
 }
 
 fail() {

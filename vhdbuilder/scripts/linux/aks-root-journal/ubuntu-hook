@@ -16,6 +16,15 @@ esac
 . /scripts/functions
 [ ! -r /conf/param.conf ] || . /conf/param.conf
 
+KMSG_DEVICE=/dev/kmsg
+
+kernel_log() {
+    if [ -w "$KMSG_DEVICE" ]; then
+        printf '<6>aks-root-journal: Ubuntu initramfs hook %s\n' "$*" > "$KMSG_DEVICE" 2>/dev/null || :
+    fi
+}
+
+kernel_log started
 ROOT_ARGUMENT=${ROOT:-}
 if [ -z "$ROOT_ARGUMENT" ]; then
     for argument in $(cat /proc/cmdline); do
@@ -28,6 +37,10 @@ if [ -z "$ROOT_ARGUMENT" ]; then
     done
 fi
 
-if ! /sbin/aks-root-journal-resize "$ROOT_ARGUMENT"; then
+if /sbin/aks-root-journal-resize "$ROOT_ARGUMENT"; then
+    kernel_log completed
+else
+    HELPER_STATUS=$?
+    kernel_log "failed with exit status $HELPER_STATUS"
     panic "AKS root journal sizing failed; refusing to mount the root filesystem"
 fi

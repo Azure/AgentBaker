@@ -56,6 +56,32 @@ Describe 'AKS root journal dracut hook packaging'
   End
 End
 
+Describe 'AKS root journal kernel diagnostics'
+  Include './vhdbuilder/scripts/linux/aks-root-journal/resize-root-journal'
+
+  setup_kernel_log_context() {
+    KMSG_DEVICE=$(mktemp)
+  }
+
+  cleanup_kernel_log_context() {
+    rm -f "$KMSG_DEVICE"
+  }
+
+  writes_kernel_diagnostic() {
+    log 'journal sizing started' &&
+      [ "$(cat "$KMSG_DEVICE")" = '<6>aks-root-journal: journal sizing started' ]
+  }
+
+  BeforeEach 'setup_kernel_log_context'
+  AfterEach 'cleanup_kernel_log_context'
+
+  It 'writes each phase message to the kernel log'
+    When call writes_kernel_diagnostic
+    The status should be success
+    The output should include 'aks-root-journal: journal sizing started'
+  End
+End
+
 Describe 'AKS root journal runtime entrypoint'
   setup_runtime_entrypoint() {
     MOUNT_PATH=$(mktemp -d)
