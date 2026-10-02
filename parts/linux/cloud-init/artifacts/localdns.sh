@@ -320,6 +320,29 @@ replace_azurednsip_in_corefile() {
     return 0
 }
 
+# Discard the live-patched corefile (and its version sidecar) so localdns_source_corefile falls
+# back to the baked corefile that regenerate_localdns_corefile just rebuilt from live CustomData.
+#
+# This is what keeps a live patch from outliving the config that justified it. The live-patched
+# corefile is written once and never expires on its own, while the baked corefile is regenerated on
+# every startup, so without this a node that was live-patched once would keep serving that frozen
+# corefile forever -- including after the agent pool's DNS config legitimately changed.
+discard_livepatched_localdns_corefile() {
+    local reason="${1:-}"
+    if [ -z "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
+        return 0
+    fi
+    if [ ! -e "${LIVEPATCHED_LOCALDNS_CORE_FILE}" ] && [ ! -e "$(localdns_corefile_version_file)" ]; then
+        return 0
+    fi
+    rm -f "${LIVEPATCHED_LOCALDNS_CORE_FILE}" "$(localdns_corefile_version_file)" || {
+        echo "WARNING: Failed to discard live-patched localdns corefile ${LIVEPATCHED_LOCALDNS_CORE_FILE}."
+        return 1
+    }
+    echo "Discarded live-patched localdns corefile (${reason}); falling back to ${LOCALDNS_CORE_FILE}."
+    return 0
+}
+
 refresh_localdns_corefile_from_lps() {
     if [ -z "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
         echo "LIVEPATCHED_LOCALDNS_CORE_FILE is not set or is empty."
@@ -328,19 +351,34 @@ refresh_localdns_corefile_from_lps() {
 
     if [ ! -x "${AKS_NODE_CONTROLLER_BINARY}" ]; then
         echo "AKS node controller binary not found at ${AKS_NODE_CONTROLLER_BINARY}; skipping LocalDNS LPS config fetch."
+        # No binary means live patching cannot be reasserted on this node, so any corefile left
+        # behind by an earlier boot is unverifiable. Drop it rather than serve it indefinitely.
+        discard_livepatched_localdns_corefile "aks-node-controller binary unavailable" || true
         return 0
     fi
 
-    # The fetch command is fail-open and always exits successfully. Its final stdout
-    # line is the machine-readable outcome; non-applied outcomes preserve the baked
-    # corefile fallback because no livepatched source is written.
+    # The fetch command is fail-open and always exits successfully. Its final stdout line is the
+    # machine-readable outcome.
+    #
+    # Outcomes split by whether LPS is authoritative about this node:
+    #   applied/alreadyCurrent - LPS published a corefile; keep the live-patched source.
+    #   notFound/noCorefileData - LPS is reachable and has nothing (or nothing usable) for this
+    #     node. That is authoritative, so any previously live-patched corefile is revoked and the
+    #     baked corefile takes over again.
+    #   failed/unexpected - the fetch itself broke, so LPS said nothing either way. Keep the last
+    #     known-good live-patched corefile; discarding on a transient error would flap this node's
+    #     DNS config on every network hiccup.
     local outcome
     outcome="$("${AKS_NODE_CONTROLLER_BINARY}" fetch-localdns-config --output "${LIVEPATCHED_LOCALDNS_CORE_FILE}")"
     case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
         applied|alreadyCurrent)
             echo "LocalDNS LPS config fetch outcome: ${outcome}"
             ;;
-        notFound|noCorefileData|failed)
+        notFound|noCorefileData)
+            echo "LocalDNS LPS config fetch outcome: ${outcome}; LPS has no corefile for this node."
+            discard_livepatched_localdns_corefile "LPS outcome ${outcome}" || true
+            ;;
+        failed)
             echo "LocalDNS LPS config fetch outcome: ${outcome}; continuing with existing corefile."
             ;;
         *)
