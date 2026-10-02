@@ -74,6 +74,103 @@ Describe 'cse_config_gpu.sh'
         End
     End
 
+    Describe 'validation on cache-only Ubuntu VHDs'
+        OS="$UBUNTU_OS_NAME"
+        IS_VHD=true
+        MOCK_CPU_ARCH=amd64
+        MOCK_MODPROBE_PRESENT=1
+        MOCK_MODPROBE_RESULT=0
+        MOCK_INSTALL_RESULT=0
+        ERR_GPU_DRIVERS_START_FAIL=84
+
+        getCPUArch() { echo "$MOCK_CPU_ARCH"; }
+        command() {
+            if [ "$*" = "-v nvidia-modprobe" ]; then
+                return "$MOCK_MODPROBE_PRESENT"
+            fi
+            builtin command "$@"
+        }
+        retrycmd_if_failure() {
+            echo "retry $*" >&2
+            if [ "$4" = "nvidia-modprobe" ]; then
+                return "$MOCK_MODPROBE_RESULT"
+            fi
+        }
+        configGPUDrivers() {
+            echo "normal driver installation"
+            return "$MOCK_INSTALL_RESULT"
+        }
+        which() { return 0; }
+
+        It 'installs an absent driver without retrying the missing executable'
+            When run validateGPUDrivers
+            The status should be success
+            The output should include "installing before validation"
+            The output should include "normal driver installation"
+            The output should include "gpu driver working fine"
+            The stderr should not include "nvidia-modprobe"
+            The stderr should include "retry 24 5 30 nvidia-smi"
+        End
+
+        It 'accepts the existing uppercase VHD flag'
+            IS_VHD=TRUE
+            When run validateGPUDrivers
+            The status should be success
+            The output should include "normal driver installation"
+            The stderr should not include "nvidia-modprobe"
+            The stderr should include "nvidia-smi"
+        End
+
+        It 'propagates installation failure without reporting successful validation'
+            MOCK_INSTALL_RESULT=1
+            When run validateGPUDrivers
+            The status should equal 84
+            The output should include "normal driver installation"
+            The output should not include "gpu driver working fine"
+            The stderr should equal ""
+        End
+
+        It 'keeps readiness retries for a present driver'
+            MOCK_MODPROBE_PRESENT=0
+            When run validateGPUDrivers
+            The status should be success
+            The output should include "gpu driver loaded"
+            The output should not include "normal driver installation"
+            The stderr should include "retry 24 5 25 nvidia-modprobe -u -c0"
+            The stderr should include "nvidia-smi"
+        End
+
+        It 'preserves the full-install fallback after an installed driver fails to load'
+            MOCK_MODPROBE_PRESENT=0
+            MOCK_MODPROBE_RESULT=1
+            When run validateGPUDrivers
+            The status should be success
+            The output should include "normal driver installation"
+            The output should not include "installing before validation"
+            The stderr should include "retry 24 5 25 nvidia-modprobe -u -c0"
+            The stderr should include "nvidia-smi"
+        End
+
+        Parameters
+            UBUNTU false amd64
+            UBUNTU "" amd64
+            UBUNTU true arm64
+            AZURELINUX true amd64
+        End
+
+        It "preserves legacy validation for OS=$1 VHD=$2 arch=$3"
+            OS=$1
+            IS_VHD=$2
+            MOCK_CPU_ARCH=$3
+            When run validateGPUDrivers
+            The status should be success
+            The output should include "gpu driver loaded"
+            The output should not include "normal driver installation"
+            The stderr should include "retry 24 5 25 nvidia-modprobe -u -c0"
+            The stderr should include "nvidia-smi"
+        End
+    End
+
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"

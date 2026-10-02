@@ -108,7 +108,15 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    # A cache-only VHD has no host driver yet. Retrying a missing executable cannot make it ready
+    # and consumes 115 seconds of the CSE budget before the existing full-install fallback.
+    if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "${IS_VHD,,}" = "true" ] &&
+        [ "$(getCPUArch)" = "amd64" ] && ! command -v nvidia-modprobe >/dev/null 2>&1; then
+        echo "NVIDIA driver is not installed in this Ubuntu VHD; installing before validation"
+        configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    else
+        retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 
     if which nvidia-smi; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 30 nvidia-smi)
