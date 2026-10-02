@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRenderANCHotfixFlowFixture(t *testing.T) {
+func TestCustomDataWithANCHotfixFlowFixture(t *testing.T) {
 	// Mirror the real custom data layout. Baker expands its own file writes at the boothook
 	// template's %s before #hotfix-marker, then concatenates serviceStartTemplate. On
 	// official/** branches one of those writes is a hotfix pointer committed by
@@ -83,10 +83,10 @@ func TestRenderANCHotfixFlowFixture(t *testing.T) {
 	}
 }
 
-// TestRenderANCHotfixFlowFixtureWithoutMarker pins the failure mode when custom data does not
+// TestCustomDataWithANCHotfixFlowFixtureWithoutMarker pins the failure mode when custom data does not
 // expose the injection point. The fixture must refuse loudly instead of silently producing
 // custom data that never seeds the pointer.
-func TestRenderANCHotfixFlowFixtureWithoutMarker(t *testing.T) {
+func TestCustomDataWithANCHotfixFlowFixtureWithoutMarker(t *testing.T) {
 	in := base64.StdEncoding.EncodeToString([]byte(
 		"prefix\n" + `logger -t aks-boothook "launching aks-node-controller $(date -Ins)"` + "\nsuffix\n"))
 	if _, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc"); err == nil {
