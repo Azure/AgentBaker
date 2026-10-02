@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"testing"
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -23,6 +24,7 @@ import (
 	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	"github.com/vincent-petithory/dataurl"
 )
 
@@ -44,6 +46,135 @@ health-check.localdns.local:53 {
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
 # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
 `
+
+func TestRenderLinuxNodeCustomDataTemplateUsesBakerPlatformFunctions(t *testing.T) {
+	template := []byte(`#cloud-config
+write_files:
+{{if IsACL}}
+- path: /acl
+{{else if IsAzlOSGuard}}
+- path: /azlosguard
+{{else if IsMariner}}
+- path: /mariner
+{{else if IsFlatcar}}
+- path: /flatcar
+{{else}}
+- path: /ubuntu
+{{end}}
+`)
+	tests := []struct {
+		name     string
+		distro   datamodel.Distro
+		expected string
+	}{
+		{name: "Ubuntu", distro: datamodel.AKSUbuntuContainerd2204Gen2, expected: "/ubuntu"},
+		{name: "Mariner", distro: datamodel.AKSAzureLinuxV3Gen2, expected: "/mariner"},
+		{name: "ACL", distro: datamodel.AKSACLGen2TL, expected: "/acl"},
+		{name: "OS Guard", distro: datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL, expected: "/azlosguard"},
+		{name: "Flatcar", distro: datamodel.AKSFlatcarGen2, expected: "/flatcar"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rendered, err := RenderLinuxNodeCustomDataTemplate(
+				template,
+				newNodeCustomDataRenderConfig(test.distro),
+			)
+
+			require.NoError(t, err)
+			require.Contains(t, rendered, "- path: "+test.expected)
+			require.False(t, strings.Contains(rendered, "{{"))
+		})
+	}
+}
+
+func newNodeCustomDataRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {
+	profile := &datamodel.AgentPoolProfile{
+		Name:   "hotfix-render-test",
+		OSType: datamodel.Linux,
+		Distro: distro,
+	}
+	return &datamodel.NodeBootstrappingConfiguration{
+		ContainerService: &datamodel.ContainerService{
+			Location: "eastus",
+			Properties: &datamodel.Properties{
+				OrchestratorProfile: &datamodel.OrchestratorProfile{
+					OrchestratorVersion: "1.29.0",
+					OrchestratorType:    datamodel.Kubernetes,
+					KubernetesConfig: &datamodel.KubernetesConfig{
+						ContainerRuntimeConfig: map[string]string{},
+					},
+				},
+				HostedMasterProfile: &datamodel.HostedMasterProfile{
+					FQDN: "hotfix-render.invalid",
+				},
+				AgentPoolProfiles: []*datamodel.AgentPoolProfile{profile},
+			},
+		},
+		AgentPoolProfile: profile,
+		CloudSpecConfig:  datamodel.AzurePublicCloudSpecForTest,
+		K8sComponents:    &datamodel.K8sComponents{},
+		KubeletConfig:    map[string]string{},
+	}
+}
+
+func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
+	const bootstrapToken = "bake00.0123456789abcdef"
+
+	newConfig := func(preProvisionOnly bool) *datamodel.NodeBootstrappingConfiguration {
+		profile := &datamodel.AgentPoolProfile{
+			Name:   "windowspool",
+			OSType: datamodel.Windows,
+			Distro: datamodel.AKSWindows2022Containerd,
+		}
+		return &datamodel.NodeBootstrappingConfiguration{
+			ContainerService: &datamodel.ContainerService{
+				Location: "eastus",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorVersion: "1.29.0",
+						OrchestratorType:    datamodel.Kubernetes,
+						KubernetesConfig: &datamodel.KubernetesConfig{
+							ContainerRuntimeConfig: map[string]string{},
+						},
+					},
+					HostedMasterProfile: &datamodel.HostedMasterProfile{
+						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
+					},
+					AgentPoolProfiles: []*datamodel.AgentPoolProfile{profile},
+					WindowsProfile:    &datamodel.WindowsProfile{},
+				},
+			},
+			AgentPoolProfile:               profile,
+			CloudSpecConfig:                datamodel.AzurePublicCloudSpecForTest,
+			K8sComponents:                  &datamodel.K8sComponents{},
+			KubeletConfig:                  map[string]string{},
+			KubeletClientTLSBootstrapToken: to.StringPtr(bootstrapToken),
+			SecureTLSBootstrappingConfig:   &datamodel.SecureTLSBootstrappingConfig{},
+			PreProvisionOnly:               preProvisionOnly,
+		}
+	}
+	templateGenerator := InitializeTemplateGenerator()
+	render := func(preProvisionOnly bool) string {
+		t.Helper()
+		config := newConfig(preProvisionOnly)
+		payload := templateGenerator.getWindowsNodeBootstrappingPayload(config)
+		decoded, err := base64.StdEncoding.DecodeString(payload)
+		require.NoError(t, err)
+		require.Equal(t, bootstrapToken, *config.KubeletClientTLSBootstrapToken)
+		return string(decoded)
+	}
+
+	bakeCustomData := render(true)
+	provisionCustomData := render(false)
+
+	require.NotContains(t, bakeCustomData, bootstrapToken)
+	require.Contains(t, bakeCustomData, `$global:TLSBootstrapToken=""`)
+	require.Contains(t, bakeCustomData, "function NodePrep")
+	require.Contains(t, bakeCustomData, "Write-BootstrapKubeConfig")
+	require.Contains(t, bakeCustomData, "if (-not $PreProvisionOnly)")
+	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken="%s"`, bootstrapToken))
+}
 
 type decodedValue struct {
 	value string
@@ -864,6 +995,75 @@ testdomain567.com:53 {
 				Expect(localDNSCoreFile).ToNot(ContainSubstring("domain \n"))
 			})
 
+			// serve_stale_policy requires CoreDNS >= 1.14.7 and is only valid alongside an
+			// emitted serve_stale line, so the template must never render it on its own.
+			It("renders serve_stale_policy only alongside serve_stale", func() {
+				newOverride := func(serveStale, policy string) *datamodel.LocalDNSOverrides {
+					return &datamodel.LocalDNSOverrides{
+						QueryLogging: "Log", Protocol: "PreferUDP", ForwardDestination: "VnetDNS", ForwardPolicy: "Sequential",
+						MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600),
+						ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+						ServeStale:                  serveStale,
+						ServeStalePolicy:            policy,
+					}
+				}
+
+				By("rendering the directive under the serve_stale line when the policy is set")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Immediate", "PreferPositive")},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Verify", "PreferPositive")},
+				}
+				localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s immediate\n        serve_stale_policy prefer_positive"))
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s verify\n        serve_stale_policy prefer_positive"))
+
+				By("omitting the directive when no policy is set")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Immediate", "")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s immediate"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale_policy"))
+
+				By("omitting the directive when serve_stale itself is disabled")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Disable", "PreferPositive")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale"))
+
+				By("omitting the directive when serve_stale carries an unrecognized value")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:   true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": newOverride("Bogus", "PreferPositive")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale"))
+
+				By("omitting the directive outside the default (\".\") server block")
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS: true,
+					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+						"cluster.local":  newOverride("Immediate", "PreferPositive"),
+						"testdomain.com": newOverride("Immediate", "PreferPositive"),
+					},
+					KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{"cluster.local": newOverride("Verify", "PreferPositive")},
+				}
+				localDNSCoreFile, err = GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
+				Expect(err).To(BeNil())
+				// The per-domain blocks still get serve_stale; only the policy is withheld.
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s immediate"))
+				Expect(localDNSCoreFile).To(ContainSubstring("serve_stale 3600s verify"))
+				Expect(localDNSCoreFile).ToNot(ContainSubstring("serve_stale_policy"))
+			})
+
 			// Expect a valid corefile WITHOUT hosts plugin blocks when includeHostsPlugin=false.
 			// This is the fallback corefile used when enableAKSLocalDNSHostsSetup fails at provisioning time.
 			It("generates a valid localdnsCorefile without hosts plugin when includeHostsPlugin is false", func() {
@@ -1094,6 +1294,10 @@ var _ = Describe("GetGPUDriverType", func() {
 	It("should use cuda-lts with nc v3", func() {
 		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda-lts"))
 	})
+	It("should use cuda-lts with GB", func() {
+		Expect(GetGPUDriverType("Standard_ND128isr_NDR_GB200_v6")).To(Equal("cuda-lts"))
+		Expect(GetGPUDriverType("Standard_ND128isr_GB300_v6")).To(Equal("cuda-lts"))
+	})
 	It("should keep cuda (legacy R470) with nc v1 (K80)", func() {
 		Expect(GetGPUDriverType("standard_nc6")).To(Equal("cuda"))
 	})
@@ -1129,6 +1333,13 @@ var _ = Describe("GetAKSGPUImageSHA", func() {
 	})
 	It("should use newest AKSGPUCudaLTSVersionSuffix with non grid SKU", func() {
 		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaLTSVersionSuffix))
+	})
+})
+
+var _ = Describe("GPUNeedsFabricManager", func() {
+	It("should not use Fabric Manager with GB", func() {
+		Expect(GPUNeedsFabricManager("Standard_ND128isr_NDR_GB200_v6")).To(BeFalse())
+		Expect(GPUNeedsFabricManager("Standard_ND128isr_GB300_v6")).To(BeFalse())
 	})
 })
 
@@ -1327,16 +1538,33 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars["CUSTOM_ENV_JSON"]).NotTo(BeEmpty())
 	})
 
-	It("should handle TLS bootstrapping configuration", func() {
-		baseConfig.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+	It("should omit TLS bootstrap token from classic Linux pre-provision CSE only", func() {
+		const bootstrapToken = "07401b.f395accd246ae52d"
 
-		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+		render := func(preProvisionOnly bool) (string, map[string]string) {
+			config, err := deepcopy.Anything(baseConfig)
+			Expect(err).NotTo(HaveOccurred())
+			typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+			Expect(ok).To(BeTrue())
+			typedConfig.KubeletClientTLSBootstrapToken = to.StringPtr(bootstrapToken)
+			typedConfig.PreProvisionOnly = preProvisionOnly
 
-		Expect(cseCmd).NotTo(BeEmpty())
-		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+			cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
 
-		vars := decodeCSEVars(cseCmd)
-		Expect(vars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", "07401b.f395accd246ae52d"))
+			Expect(cseCmd).NotTo(BeEmpty())
+			Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+			Expect(*typedConfig.KubeletClientTLSBootstrapToken).To(Equal(bootstrapToken))
+			return cseCmd, decodeCSEVars(cseCmd)
+		}
+
+		// Direct ANC/AKSNodeConfig JSON serialization bypasses the template getter and
+		// remains a separate Linux follow-up.
+		bakeCSE, bakeVars := render(true)
+		provisionCSE, provisionVars := render(false)
+		Expect(bakeCSE).NotTo(ContainSubstring(bootstrapToken))
+		Expect(bakeVars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", ""))
+		Expect(provisionCSE).To(ContainSubstring(bootstrapToken))
+		Expect(provisionVars).To(HaveKeyWithValue("TLS_BOOTSTRAP_TOKEN", bootstrapToken))
 	})
 
 	It("should handle secure TLS bootstrapping configuration", func() {

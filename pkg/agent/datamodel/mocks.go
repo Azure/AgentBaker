@@ -46,6 +46,7 @@ func GetK8sDefaultProperties(hasWindows bool) *Properties {
 
 func getMockProperitesWithCustomClouEnv() Properties {
 	properties := Properties{
+		//nolint:gosec // This mock contains only deliberately fake cloud endpoints, not credentials.
 		CustomCloudEnv: &CustomCloudEnv{
 			Name:                         "akscustom",
 			McrURL:                       "mcr.microsoft.fakecustomcloud",

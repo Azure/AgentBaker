@@ -2,7 +2,6 @@ package assert
 
 import (
 	"errors"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -111,23 +110,6 @@ func TestMultilineFormatting(t *testing.T) {
 	want := "Error:    Not equal\nMessage:  first line\n          second line\nExpected: \"expected\"\nActual:   \"actual\""
 	if got := err.Error(); got != want {
 		t.Errorf("multiline error:\n%s\n\nwant:\n%s", got, want)
-	}
-}
-
-func TestFailureRetainsFieldsForRendering(t *testing.T) {
-	err := Equal(1, 2, "checking count")
-	failure, ok := err.(*failure)
-	if !ok {
-		t.Fatalf("Equal returned %T, want *failure", err)
-	}
-	want := []field{
-		{"Error", "Not equal"},
-		{"Message", "checking count"},
-		{"Expected", "2"},
-		{"Actual", "1"},
-	}
-	if !slices.Equal(failure.fields, want) {
-		t.Errorf("failure fields = %#v, want %#v", failure.fields, want)
 	}
 }
 

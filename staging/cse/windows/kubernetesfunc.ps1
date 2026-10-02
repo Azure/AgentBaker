@@ -291,6 +291,35 @@ function Get-CertEndpointModeFromLocation {
     return "rcv1p"
 }
 
+function Invoke-CACertificatesRequest {
+    Param(
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]
+        $Command,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][hashtable]
+        $Args,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][int]
+        $Retries,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][int]
+        $RetryDelaySeconds
+    )
+
+    # Keep CA refresh's normal requests quiet without changing shared Retry-Command logging.
+    for ($i=0; ; ) {
+        try {
+            if ($i -gt 0) {
+                Write-Log "Retry $i : $command"
+            }
+            return & $Command @Args
+        } catch {
+            $i++
+            if ($i -ge $Retries) {
+                throw $_
+            }
+            Start-Sleep -Seconds $RetryDelaySeconds
+        }
+    }
+}
+
 function Should-InstallCACertificatesRefreshTask {
     Param(
         [Parameter(Mandatory = $false)][string]
@@ -312,9 +341,9 @@ function Should-InstallCACertificatesRefreshTask {
         # transient wireserver unavailability and rate limiting.
         # TimeoutSec=30 bounds worst-case wall time to ~400s (10 * (30 + 10)) so a
         # single hanging wireserver endpoint cannot exhaust Windows OS provisioning.
-        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
-        Write-Log "IsOptedInForRootCerts wireserver response: $($optInResponse.Content)"
+        $optInResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
         $optInJson = $optInResponse.Content | ConvertFrom-Json
+        Write-Log "CA certificates opt-in: $($optInJson.IsOptedInForRootCerts -eq $true)"
         return ($optInJson.IsOptedInForRootCerts -eq $true)
     } catch {
         $statusCode = "N/A"
@@ -345,6 +374,7 @@ function Get-CACertificates {
 
     $caFolder = "C:\ca"
     Create-Directory -FullPath $caFolder -DirectoryUsage "storing CA certificates"
+    $importedCount = 0
 
     # When Location is not supplied (older callers), fall back to the legacy endpoint
     # which was the original behavior before the rcv1p changes.
@@ -366,7 +396,7 @@ function Get-CACertificates {
         if ($certEndpointMode -eq "legacy") {
             $uri = 'http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json'
             # TimeoutSec=30 bounds a stalled response so 10 retries cannot exceed ~400s.
-            $rawData = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
+            $rawData = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$uri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
             $caCerts = ($rawData.Content) | ConvertFrom-Json
             if ($null -eq $caCerts -or $null -eq $caCerts.Certificates -or $caCerts.Certificates.Length -eq 0) {
                 if ($FailOnError) {
@@ -379,26 +409,26 @@ function Get-CACertificates {
             foreach ($certificate in $caCerts.Certificates) {
                 $name = $certificate.Name
                 $certFilePath = Join-Path $caFolder $name
-                Write-Log "Write certificate $name to $certFilePath"
                 $certificate.CertBody | Out-File -Encoding ascii -FilePath $certFilePath
                 # The legacy endpoint returns trusted root certificates only.
-                Write-Log "Import certificate $name to the LocalMachine Root certificate store"
                 try {
                     Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -ErrorAction Stop | Out-Null
+                    $importedCount++
                 } catch {
                     throw "Failed to import CA certificate '$name' into Cert:\LocalMachine\Root. Error: $_"
                 }
             }
 
+            Write-Log "CA certificates refresh completed: imported $importedCount certificates."
             return $true
         }
 
         $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
         # Wireserver opt-in check: 10 retries to match Linux make_request_with_retry.
         # TimeoutSec=30 bounds a stalled response so retries cannot exceed ~400s.
-        $optInResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
-        Write-Log "IsOptedInForRootCerts wireserver response: $($optInResponse.Content)"
+        $optInResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
         $optInJson = $optInResponse.Content | ConvertFrom-Json
+        Write-Log "CA certificates opt-in: $($optInJson.IsOptedInForRootCerts -eq $true)"
         if ($optInJson.IsOptedInForRootCerts -ne $true) {
             Write-Log "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"
             return $false
@@ -415,7 +445,7 @@ function Get-CACertificates {
                 'Cert:\LocalMachine\CA'
             }
             $operationRequestUri = "http://168.63.129.16/machine?comp=acmspackage&type=$requestType&ext=json"
-            $operationResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
+            $operationResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$operationRequestUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
             $operationJson = ($operationResponse.Content) | ConvertFrom-Json
 
             if ($null -eq $operationJson -or $null -eq $operationJson.OperationsInfo) {
@@ -442,18 +472,17 @@ function Get-CACertificates {
                 $resourceExt = [IO.Path]::GetExtension($resourceFileName).TrimStart('.')
                 $resourceUri = "http://168.63.129.16/machine?comp=acmspackage&type=$resourceType&ext=$resourceExt"
 
-                $certContentResponse = Retry-Command -Command 'Invoke-WebRequest' -Args @{Uri=$resourceUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
+                $certContentResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$resourceUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
                 if ([string]::IsNullOrEmpty($certContentResponse.Content)) {
                     Write-Log "Warning: empty certificate content for $resourceFileName"
                     continue
                 }
 
                 $certFilePath = Join-Path $caFolder $resourceFileName
-                Write-Log "Write certificate $resourceFileName to $certFilePath"
                 $certContentResponse.Content | Out-File -Encoding ascii -FilePath $certFilePath
-                Write-Log "Import certificate $resourceFileName to $certStoreLocation"
                 try {
                     Import-Certificate -FilePath $certFilePath -CertStoreLocation $certStoreLocation -ErrorAction Stop | Out-Null
+                    $importedCount++
                 } catch {
                     throw "Failed to import CA certificate '$resourceFileName' into $certStoreLocation. Error: $_"
                 }
@@ -468,6 +497,9 @@ function Get-CACertificates {
             Write-Log "Warning: no CA certificates were downloaded in rcv1p mode"
         }
 
+        if ($downloadedAny) {
+            Write-Log "CA certificates refresh completed: imported $importedCount certificates."
+        }
         return $downloadedAny
     }
     catch {

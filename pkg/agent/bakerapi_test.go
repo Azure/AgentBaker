@@ -377,6 +377,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSUbuntuArm64Containerd2404Gen2,
 				datamodel.AKSUbuntuContainerd2404,
 				datamodel.AKSUbuntuContainerd2404TLGen2,
+				datamodel.AKSUbuntuMinimalContainerd2604CVMGen2,
 			}
 
 			marinerDistros = []datamodel.Distro{
@@ -417,6 +418,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSACLArm64Gen2TL,
 				datamodel.AKSACLGen2FIPSTL,
 				datamodel.AKSACLArm64Gen2FIPSTL,
+				datamodel.AKSACLCVMGen2,
 			}
 
 			ubuntuEdgeZoneDistros = []datamodel.Distro{

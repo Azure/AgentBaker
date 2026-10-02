@@ -3,8 +3,11 @@ package apiserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/toggles"
@@ -12,6 +15,9 @@ import (
 
 const (
 	readHeaderTimeoutSeconds = 5
+
+	maxConcurrentNodeBootstrapRequestsEnv = "MAX_CONCURRENT_NODE_BOOTSTRAP_REQUESTS"
+	overloadRetryAfterSecondsEnv          = "OVERLOAD_RETRY_AFTER_SECONDS"
 )
 
 // OptionConfigurator is a function which can configure an Options object.
@@ -36,7 +42,9 @@ func (o *Options) validate() error {
 
 // APIServer contains the connections details required to run the api.
 type APIServer struct {
-	Options *Options
+	Options                   *Options
+	nodeBootstrapLimiter      chan struct{}
+	overloadRetryAfterSeconds string
 }
 
 // NewAPIServer creates an APIServer object with defaults.
@@ -45,11 +53,38 @@ func NewAPIServer(o *Options) (*APIServer, error) {
 		return nil, err
 	}
 
+	maxConcurrentRequests, err := positiveIntFromEnv(
+		maxConcurrentNodeBootstrapRequestsEnv,
+		defaultMaxConcurrentNodeBootstrapRequests,
+	)
+	if err != nil {
+		return nil, err
+	}
+	retryAfterSeconds, err := positiveIntFromEnv(overloadRetryAfterSecondsEnv, defaultOverloadRetryAfterSeconds)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &APIServer{
-		Options: o,
+		Options:                   o,
+		nodeBootstrapLimiter:      make(chan struct{}, maxConcurrentRequests),
+		overloadRetryAfterSeconds: strconv.Itoa(retryAfterSeconds),
 	}
 
 	return s, nil
+}
+
+func positiveIntFromEnv(name string, defaultValue int) (int, error) {
+	value, ok := os.LookupEnv(name)
+	if !ok {
+		return defaultValue, nil
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer", name)
+	}
+	return parsed, nil
 }
 
 // ListenAndServe wraps http.Server and provides context-based cancelation.

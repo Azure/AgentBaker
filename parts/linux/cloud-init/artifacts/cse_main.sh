@@ -419,7 +419,7 @@ EOF
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
         echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
         createManDbAutoUpdateFlagFile
-        /usr/bin/mandb && echo "man-db finished updates at $(date)" &
+        /usr/bin/mandb >/dev/null 2>&1 && echo "man-db finished updates at $(date)" &
     fi
 }
 
@@ -507,8 +507,8 @@ function nodePrep {
             elif isACL "$OS" "$OS_VARIANT"; then
                 logs_to_events "AKS.CSE.installNvidiaFabricManagerSysext" installNvidiaFabricManagerSysext
             fi
-            # Start fabric manager service
-            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+            # NVSwitch fabric initialization can exceed 30s; let it finish before retrying.
+            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 60" || exit $ERR_GPU_DRIVERS_START_FAIL
         else
             # Disable fabric manager service if it's not needed
             # The NVIDIA driver installation may automatically enable this service,

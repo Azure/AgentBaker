@@ -8,20 +8,8 @@ CVE_DIFF_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-diff.txt
 CVE_LIST_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-list.txt
 TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
-# renovate: datasource=custom.deb2004 depName=trivy versioning=deb
-TRIVY_DEB_2004_VERSION="0.72.0-ubuntu20.04u12"
-
-# renovate: datasource=custom.deb2204 depName=trivy versioning=deb
-TRIVY_DEB_2204_VERSION="0.72.0-ubuntu22.04u12"
-
-# renovate: datasource=custom.deb2404 depName=trivy versioning=deb
-TRIVY_DEB_2404_VERSION="0.72.0-ubuntu24.04u12"
-
-# renovate: datasource=custom.deb2604 depName=trivy versioning=deb
-TRIVY_DEB_2604_VERSION="0.72.0-ubuntu26.04u12"
-
 # renovate: datasource=rpm depName=trivy registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
-TRIVY_RPM_VERSION="0.72.0-12.azl3"
+TRIVY_PMC_VERSION="0.74.0"
 
 # Fallback version for SKUs without PMC packages (Flatcar, AzureContainerLinux, AzureLinuxOSGuard).
 # This MUST match an actual upstream GitHub release tag — PMC versions (0.68.x) don't exist on GitHub.
@@ -36,32 +24,31 @@ TEST_VM_ADMIN_USERNAME=${3}
 ARCHITECTURE=${4}
 SIG_CONTAINER_NAME=${5}
 STORAGE_ACCOUNT_NAME=${6}
-ENABLE_TRUSTED_LAUNCH=${7}
-VHD_ARTIFACT_NAME=${8}
-SKU_NAME=${9}
-KUSTO_ENDPOINT=${10}
-KUSTO_DATABASE=${11}
-KUSTO_TABLE=${12}
-TRIVY_UPLOAD_REPORT_NAME=${13}
-TRIVY_UPLOAD_TABLE_NAME=${14}
-ACCOUNT_NAME=${15}
-BLOB_URL=${16}
-SEVERITY=${17}
-MODULE_VERSION=${18}
-UMSI_PRINCIPAL_ID=${19}
-UMSI_CLIENT_ID=${20}
-AZURE_MSI_RESOURCE_STRING=${21}
-BUILD_RUN_NUMBER=${22}
-export BUILD_REPOSITORY_NAME=${23}
-export BUILD_SOURCEBRANCH=${24}
-export BUILD_SOURCEVERSION=${25}
-export SYSTEM_COLLECTIONURI=${26}
-export SYSTEM_TEAMPROJECT=${27}
-export BUILD_BUILDID=${28}
-export IMAGE_VERSION=${29}
-CVE_DIFF_UPLOAD_REPORT_NAME=${30}
-CVE_LIST_UPLOAD_REPORT_NAME=${31}
-SCAN_RESOURCE_PREFIX=${32}
+VHD_ARTIFACT_NAME=${7}
+SKU_NAME=${8}
+KUSTO_ENDPOINT=${9}
+KUSTO_DATABASE=${10}
+KUSTO_TABLE=${11}
+TRIVY_UPLOAD_REPORT_NAME=${12}
+TRIVY_UPLOAD_TABLE_NAME=${13}
+ACCOUNT_NAME=${14}
+BLOB_URL=${15}
+SEVERITY=${16}
+MODULE_VERSION=${17}
+UMSI_PRINCIPAL_ID=${18}
+UMSI_CLIENT_ID=${19}
+AZURE_MSI_RESOURCE_STRING=${20}
+BUILD_RUN_NUMBER=${21}
+export BUILD_REPOSITORY_NAME=${22}
+export BUILD_SOURCEBRANCH=${23}
+export BUILD_SOURCEVERSION=${24}
+export SYSTEM_COLLECTIONURI=${25}
+export SYSTEM_TEAMPROJECT=${26}
+export BUILD_BUILDID=${27}
+export IMAGE_VERSION=${28}
+CVE_DIFF_UPLOAD_REPORT_NAME=${29}
+CVE_LIST_UPLOAD_REPORT_NAME=${30}
+SCAN_RESOURCE_PREFIX=${31}
 
 source /opt/azure/containers/provision_source.sh
 source /opt/azure/containers/provision_source_distro.sh
@@ -161,12 +148,8 @@ login_with_user_assigned_managed_identity() {
     local ID=$2
 
     LOGIN_FLAGS="--identity $TYPE_FLAG $ID"
-    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-        LOGIN_FLAGS="$LOGIN_FLAGS --allow-no-subscriptions"
-    fi
-
-   echo "logging into azure with flags: $LOGIN_FLAGS"
-   az login $LOGIN_FLAGS
+    echo "logging into azure with flags: $LOGIN_FLAGS"
+    az login $LOGIN_FLAGS
 }
 
 login_with_umsi_object_id() {
@@ -204,28 +187,39 @@ install_trivy_from_github() {
 install_trivy() {
     local os_sku=$1
     local os_version=$2
+    local full_package_version
     case "$os_sku" in
         Ubuntu)
             # trivy debs are published to the Microsoft PMC prod repo,
             # which is already configured on the VHD via packages-microsoft-prod.deb.
-            local deb_version
             case "$os_version" in
-                20.04) deb_version="${TRIVY_DEB_2004_VERSION}" ;;
-                22.04) deb_version="${TRIVY_DEB_2204_VERSION}" ;;
-                24.04) deb_version="${TRIVY_DEB_2404_VERSION}" ;;
-                26.04) deb_version="${TRIVY_DEB_2604_VERSION}" ;;
+                20.04|22.04|24.04|26.04) ;;
                 *)
                     echo "No tracked trivy deb version for Ubuntu $os_version, downloading from GitHub"
                     install_trivy_from_github
                     return
                     ;;
             esac
+            source /opt/azure/containers/provision_installs_distro.sh
             apt_get_update
-            apt_get_install 5 1 60 trivy="${deb_version}"
+            full_package_version=$(getLatestDebPackageVersion trivy "${TRIVY_PMC_VERSION}") || return 1
+            if [ -z "${full_package_version}" ]; then
+                echo "Failed to resolve trivy deb revision for ${TRIVY_PMC_VERSION}" >&2
+                return 1
+            fi
+            logResolvedPackageVersion trivy "${TRIVY_PMC_VERSION}" "${full_package_version}"
+            apt_get_install 5 1 60 "trivy=${full_package_version}"
             ;;
         AzureLinux)
             # trivy RPMs are published in the AzureLinux 3.0 cloud-native PMC repo
-            dnf_install 5 1 60 "trivy-${TRIVY_RPM_VERSION}"
+            source /opt/azure/containers/provision_installs_distro.sh
+            full_package_version=$(getLatestRPMPackageVersion trivy "${TRIVY_PMC_VERSION}") || return 1
+            if [ -z "${full_package_version}" ]; then
+                echo "Failed to resolve trivy RPM revision for ${TRIVY_PMC_VERSION}" >&2
+                return 1
+            fi
+            logResolvedPackageVersion trivy "${TRIVY_PMC_VERSION}" "${full_package_version}"
+            dnf_install 5 1 60 "trivy-${full_package_version}"
             ;;
         *)
             echo "No PMC trivy package for $os_sku, downloading from GitHub"

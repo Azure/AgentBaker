@@ -11,11 +11,9 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"golang.org/x/crypto/ssh"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
 type Tags struct {
@@ -39,10 +37,10 @@ type Tags struct {
 
 // Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
-	// Name is the stable scenario name used by filters, logs, and test reports.
+	// Name: OS/image plus distinguishing configuration or lifecycle; see ../README.md#scenario-names.
 	Name string
 
-	// Description is a short description of what the scenario does and tests for
+	// Description: configured node, checked behaviors, and disruptive steps.
 	Description string
 
 	// Tags are used for filtering scenarios to run based on the tags provided
@@ -68,10 +66,6 @@ type Scenario struct {
 	// SkipIf returns a reason to skip before the scenario creates Azure resources.
 	// An empty reason runs the scenario.
 	SkipIf func(context.Context) string
-
-	// Logger writes the scenario log. It is set by the execution flow before the
-	// scenario starts and carries no test-control capability.
-	Logger toolkit.Logger
 
 	// artifactName isolates files and Azure resource names created by this run.
 	artifactName string
@@ -115,7 +109,7 @@ type ScenarioVM struct {
 	VMSS      *armcompute.VirtualMachineScaleSet
 	VM        *armcompute.VirtualMachineScaleSetVM
 	PrivateIP string
-	SSHClient *ssh.Client
+	SSHClient *SSHClient
 }
 
 // CustomDataWriteFile defines an e2e-only cloud-init write_files entry.
@@ -124,6 +118,19 @@ type CustomDataWriteFile struct {
 	Permissions string
 	Owner       string
 	Content     string
+}
+
+// ScriptHotfixFixture describes script hotfix files embedded into an isolated
+// scenario-specific ANC build.
+type ScriptHotfixFixture struct {
+	Platform string
+	Files    []ScriptHotfixFile
+}
+
+type ScriptHotfixFile struct {
+	Destination string
+	Mode        string
+	Payload     []byte
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
@@ -167,6 +174,10 @@ type Config struct {
 	// when the scenario relies on local parser/baker changes being consistent.
 	ForceScriptlessCompilation bool
 
+	// ScriptHotfixFixture builds ANC in an isolated temporary module with this
+	// generated script-hotfix payload. It bypasses the shared ANC binary cache.
+	ScriptHotfixFixture *ScriptHotfixFixture
+
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario) error
 
@@ -199,6 +210,12 @@ type Config struct {
 	// This prevents the Guest Agent from sweeping events before they can be read.
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
+
+	// SkipOnCapacityError, when set (and SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is enabled), makes the
+	// scenario skip instead of fail (and not retry) on AllocationFailed — no allocatable capacity for
+	// the SKU in the region. Reserve for scarce brand-new GPU SKUs (e.g. RTX PRO 6000 BSE v6); mainstream
+	// SKUs should leave it unset so a genuine capacity regression still fails the gate.
+	SkipOnCapacityError bool
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.

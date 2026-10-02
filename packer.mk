@@ -6,7 +6,7 @@ ifeq (${ARCHITECTURE},ARM64)
 endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-build-packer: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+build-packer: generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -24,8 +24,13 @@ else ifeq (${OS_SKU},AzureLinux)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
 else ifeq (${OS_SKU},AzureContainerLinux)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+	@echo "AzureContainerLinux CVM is currently supported only on X86_64" >&2
+	@exit 1
+else
 	@echo "Using packer template file vhd-image-builder-acl-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl-arm64.json
+endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -57,8 +62,12 @@ else
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
 else ifeq (${OS_SKU},AzureContainerLinux)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+	@./vhdbuilder/packer/build-acl-cvm.sh
+else
 	@echo "Using packer template file vhd-image-builder-acl.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl.json
+endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -82,7 +91,7 @@ endif
 	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
 
-build-imagecustomizer: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+build-imagecustomizer: generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
 	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
 
 az-login:
@@ -93,10 +102,10 @@ init-packer:
 	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-packer: az-login
-	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk -j4 build-packer | tee -a packer-output)
 
 run-imagecustomizer: az-login
-	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
+	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk -j4 build-imagecustomizer | tee -a packer-output)
 
 generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
@@ -132,6 +141,8 @@ generate-prefetch-scripts:
 setup-golang:
 	@echo "Setting up Go environment"
 	@bash ./hack/setup_golang.sh
+
+generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary: setup-golang
 
 build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"

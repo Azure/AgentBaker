@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 
 	"github.com/Azure/agentbaker/parts"
@@ -250,23 +251,34 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
-func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
-	writer, err := gzip.NewWriterLevel(buf, gzip.BestCompression)
-	if err == nil {
+//nolint:gochecknoglobals
+var gzipWriterPool = sync.Pool{
+	New: func() interface{} {
+		writer, err := gzip.NewWriterLevel(io.Discard, gzip.BestCompression)
+		if err != nil {
+			panic(fmt.Sprintf("BUG: %s", err.Error()))
+		}
 		return writer
-	}
-	return gzip.NewWriter(buf)
+	},
 }
 
 func getGzippedBufferFromBytes(b []byte) []byte {
 	var gzipB bytes.Buffer
-	w := newGzipWriter(&gzipB)
+	w, ok := gzipWriterPool.Get().(*gzip.Writer)
+	if !ok {
+		panic("BUG: gzip writer pool returned an unexpected type")
+	}
+	w.Reset(&gzipB)
 	_, err := w.Write(b)
 	if err != nil {
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		panic(fmt.Sprintf("BUG: %s", err.Error()))
+	}
+	w.Reset(io.Discard)
+	gzipWriterPool.Put(w)
 	return gzipB.Bytes()
 }
 

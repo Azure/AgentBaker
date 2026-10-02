@@ -1,0 +1,146 @@
+name: Windows Unit Test Results (Publish)
+
+# Publishes the test-results check/comment and coverage comment produced by
+# validate-windows-ut.yml's pester-test job, from a workflow_run trigger rather than a
+# second job in that same pull_request-triggered workflow.
+#
+# Why: validate-windows-ut.yml is a `pull_request` workflow, so its *entire file* - every
+# job, every permission - is read from the PR's own branch. A same-repo PR (this repo
+# doesn't accept forks, so that's the only kind we get) can edit that file to add steps to
+# any job in it, including a "publish" job, and have them run with whatever permissions that
+# job requests. Splitting into two jobs in one file only stops PR-controlled *test code*
+# (PowerShell, in this case) from reaching a write-scoped token in the same job - it does
+# nothing against a PR editing the workflow definition itself.
+#
+# workflow_run is what actually fixes this: this file's definition is always read from the
+# default branch, never the PR branch, no matter what the PR changes. It runs after
+# validate-windows-ut.yml completes, downloads that run's artifacts by run ID, and does the
+# actual publishing here, where the PR can't alter it.
+on: # zizmor: ignore[dangerous-triggers] no PR code is checked out or executed here - see the
+    # comments above and in the job below: only trusted actions run, against artifacts and
+    # metadata from the completed run, never the PR's own workflow-controlled checkout.
+  workflow_run:
+    workflows: ["Windows Powershell Unit Test"]
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  publish-results:
+    name: Publish test results and coverage report
+    runs-on: ubuntu-latest
+    if: |
+      github.event.workflow_run.event == 'pull_request' &&
+      (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure')
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+      actions: read
+    steps:
+      # Belt-and-braces alongside validate-windows-ut.yml's concurrency group: that cancels
+      # most superseded runs before they finish, but doesn't cover every case (e.g. a manual
+      # re-run of an old workflow run). Recheck the PR's live head SHA here so an
+      # out-of-order completion can't overwrite newer, correct results/coverage with stale
+      # ones.
+      - name: Check PR head is still current
+        id: freshness
+        if: github.event.workflow_run.pull_requests[0] != null
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -ex
+          current_sha=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}" --jq .head.sha)
+          if [ "$current_sha" != "$RUN_SHA" ]; then
+            echo "::notice::Skipping publish: PR #${PR_NUMBER} head is now ${current_sha}, this run tested ${RUN_SHA} (superseded by a newer push)."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download test results and coverage reports
+        if: steps.freshness.outputs.current == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pester-coverage
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      # EnricoMi/publish-unit-test-result-action needs an event_file to resolve which PR to
+      # comment on when run outside a pull_request event (see its docs on supporting
+      # workflow_run publishers). That file must NOT be the one validate-windows-ut.yml could
+      # upload as an artifact: it would be produced by the pester-test job after PR-controlled
+      # Pester test code has already run, so a malicious PR could forge its content (e.g.
+      # overwrite $env:GITHUB_EVENT_PATH with a different pull_request.number) before it's
+      # uploaded - the action trusts that number directly with no cross-check against the
+      # tested commit, so a forged file could make this write-scoped job comment on an
+      # unrelated PR. Instead, build the event file here from only trusted workflow_run
+      # metadata, so there's nothing from the PR-controlled run left to forge.
+      - name: Construct trusted event file
+        if: steps.freshness.outputs.current == 'true'
+        env:
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -ex
+          mkdir -p event
+          jq -n --argjson number "$PR_NUMBER" --arg repo "$REPO" \
+            '{pull_request: {number: $number, base: {repo: {full_name: $repo}}}}' > event/event.json
+
+      - name: Publish Unit Test Results
+        if: steps.freshness.outputs.current == 'true'
+        # The default (Docker) entry point's action.yml resolves to a floating
+        # `docker://ghcr.io/enricomi/publish-unit-test-result-action:v2.24.0` tag even when
+        # pinned to a commit SHA here, so pinning the SHA doesn't actually pin what runs. The
+        # `linux` composite entry point has no such indirection - it's plain steps executed
+        # directly at this commit, so the SHA pin is meaningful. ubuntu-latest doesn't need
+        # Docker for it; that variant exists specifically for runners without Docker.
+        uses: EnricoMi/publish-unit-test-result-action/linux@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
+        with:
+          commit: ${{ github.event.workflow_run.head_sha }}
+          event_file: event/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          check_name: Windows Unit Test Results
+          files: |
+            test-results/parts_windows.xml
+            test-results/vhdbuilder_packer_windows.xml
+            test-results/staging_cse_windows.xml
+
+      - name: Code Coverage Report
+        if: steps.freshness.outputs.current == 'true'
+        # irongut/CodeCoverageSummary's action.yml resolves to docker://ghcr.io/irongut/
+        # codecoveragesummary:v1.3.0 even when the action is pinned to a commit SHA - that's
+        # a mutable tag, so the SHA pin doesn't actually pin what runs with checks/pull-requests
+        # write. Invoke the image by digest directly instead of going through the action.
+        # --hidebranch: Pester's Cobertura export reports a hardcoded branch-rate of 1.0 at
+        # the summary level even though branches-covered/branches-valid are both 0 (no real
+        # branch data), which without this flag renders as a misleading "100% (0 / 0)"
+        # alongside packages correctly showing 0% - see this exact contradiction in the
+        # pre-workflow_run-migration coverage comment still on this PR.
+        run: |
+          set -ex
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/github/workspace" \
+            -w /github/workspace \
+            ghcr.io/irongut/codecoveragesummary@sha256:daebdede906ca84788b94378a1504a88d38621198d3836df24d60d6215e64a86 \
+            --files "coverage/*.xml" \
+            --badge true \
+            --fail false \
+            --format markdown \
+            --hidebranch true \
+            --hidecomplexity true \
+            --indicators true \
+            --output both \
+            --thresholds "60 80"
+
+      - name: Add Coverage PR Comment
+        if: steps.freshness.outputs.current == 'true'
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          number: ${{ github.event.workflow_run.pull_requests[0].number }}
+          header: pester-coverage
+          recreate: true
+          path: code-coverage-results.md

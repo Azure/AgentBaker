@@ -1,5 +1,13 @@
 name: Make windows components change PR review comment
 on: pull_request
+# KNOWN LIMITATION: this only runs on pull_request activity (opened/
+# synchronize/reopened by default), which fires on PR head-branch changes —
+# never when the base branch itself advances. So if a PR sits idle while
+# main moves (e.g. unrelated Renovate merges), this workflow does not
+# re-run, the cached-file comment below is never refreshed, and it can go
+# stale until the next push to the PR. See PR #9686. Fixing this fully would
+# need a separate base-advance-aware trigger (e.g. a scheduled job or a
+# main-push workflow that re-evaluates open PRs), which is out of scope here.
 
 jobs:
   compare-components-output:
@@ -11,14 +19,42 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          # Use base.ref (e.g. "main"), not base.sha: base.sha is frozen at
+          # whatever the base branch pointed to during this PR's last
+          # opened/synchronize event. If the base branch advances afterward
+          # without a new push to this PR, base.sha goes stale and this diff
+          # ends up comparing against outdated base content, surfacing
+          # unrelated upstream changes as if they came from the PR. base.ref
+          # always resolves to the live tip of the base branch at checkout time.
+          #
+          # KNOWN LIMITATION: this checkout and the refs/pull/<N>/merge
+          # checkout below are not atomic — they're two separate
+          # actions/checkout calls. If main advances, or GitHub refreshes
+          # the merge ref, in the (usually sub-second) gap between them, the
+          # two snapshots can still end up based on different points on
+          # main, reintroducing a smaller version of the same false-diff
+          # problem. A fully atomic fix would anchor both trees to one
+          # captured commit (e.g. derive the merge ref's first-parent SHA
+          # and use that exact SHA for this checkout), which isn't done here.
+          ref: ${{ github.event.pull_request.base.ref }}
           path: base
           fetch-depth: 1
           persist-credentials: false
 
       - name: Check out repository code
+        id: checkoutPrMerge
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # refs/pull/<N>/merge is GitHub's continuously-updated test-merge
+          # commit of the PR head into the *current* base tip. This differs
+          # from the default (ref omitted) checkout behavior, which pins to
+          # github.sha from the triggering event — frozen at whatever main
+          # was during this PR's last opened/synchronize event. GitHub
+          # deletes this ref when the PR has a merge conflict with the
+          # current base branch, which makes this checkout fail and fails
+          # the job (intentional: fail loud rather than silently publish an
+          # incorrect diff).
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           path: pr
           fetch-depth: 1
           persist-credentials: false
@@ -68,7 +104,7 @@ jobs:
         uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
         with:
           mode: delete
-          comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
+          comment-tag: 'WINDOWS_VHD_CONTENT_DIFF'
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
@@ -76,7 +112,7 @@ jobs:
         uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
         if: ${{ hashFiles('diff.md') != '' }}
         with:
-          file-path: "diff.md"
-          comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
+          file-path: 'diff.md'
+          comment-tag: 'WINDOWS_VHD_CONTENT_DIFF'
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

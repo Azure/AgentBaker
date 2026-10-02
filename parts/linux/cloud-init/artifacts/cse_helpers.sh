@@ -285,8 +285,9 @@ _retrycmd_internal() {
             fi
         fi
 
-        timeout "$effectiveTimeout" "${@}"
-        exitStatus=$?
+        # Capture via `||` so callers running under `set -e` don't abort before the loop can retry.
+        exitStatus=0
+        timeout "$effectiveTimeout" "${@}" || exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
             break
@@ -637,19 +638,17 @@ systemctlEnableAndStart() {
 }
 
 systemctlEnableAndStartNoBlock() {
-    service=$1; timeout=$2
+    local service=$1 timeout=$2
 
-    systemctl_restart_no_block 100 5 $timeout $service
-    RESTART_STATUS=$?
-    if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$service could not be enqueued for startup"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+    if ! retrycmd_if_failure 120 5 25 systemctl enable --no-reload "$service"; then
+        echo "$service could not be enabled by systemctl"
+        systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
         return 1
     fi
 
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
-        echo "$service could not be enabled by systemctl"
-        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log || true
+    if ! systemctl_restart_no_block 100 5 "$timeout" "$service"; then
+        echo "$service could not be enqueued for startup"
+        systemctl status "$service" --no-pager -l > "/var/log/azure/$service-status.log" || true
         return 1
     fi
 }
@@ -1054,6 +1053,16 @@ isAzureLinux() {
         return 0
     fi
     return 1
+}
+
+isAzureLinuxArm64BaseImage() {
+    local os="$1"
+    local cpu_arch="$2"
+    local os_variant="$3"
+
+    [ "$os" = "$AZURELINUX_OS_NAME" ] &&
+        [ "$cpu_arch" = "arm64" ] &&
+        [ -z "$os_variant" ]
 }
 
 isFlatcar() {

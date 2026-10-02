@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/e2e/scenario"
-	"github.com/Azure/agentbaker/e2e/toolkit"
 )
 
 type resultStatus string
@@ -62,7 +62,7 @@ type executor struct {
 	scheduled   []string
 	finalized   bool
 	scenarios   sync.WaitGroup
-	runScenario func(context.Context, string, string, toolkit.Logger, *scenario.Scenario) scenario.Outcome
+	runScenario func(context.Context, string, string, *scenario.Scenario) scenario.Outcome
 }
 
 func newExecutor(ctx context.Context, stdout io.Writer, opts runOptions, runnable int) *executor {
@@ -223,7 +223,8 @@ func (e *executor) executeAttempt(name string, attempt int, original *scenario.S
 	if e.opts.retries > 0 {
 		artifactName = filepath.Join(name, fmt.Sprintf("attempt-%d", attempt))
 	}
-	outcome = e.runScenario(attemptCtx, name, artifactName, logger, original)
+	attemptCtx = logging.WithLogger(attemptCtx, logger)
+	outcome = e.runScenario(attemptCtx, name, artifactName, original)
 	return result
 }
 

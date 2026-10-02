@@ -317,6 +317,18 @@ Describe 'ensure_sig_image_name_linux function'
   End
 
   Describe 'FEATURE_FLAGS cvm scenarios'
+    It 'should use the generalized ACL CVM resource name'
+      SIG_IMAGE_NAME=""
+      SKU_NAME="aclgen2CVM"
+      IMG_OFFER="azure-linux-3"
+      OS_SKU="AzureContainerLinux"
+      FEATURE_FLAGS="cvm"
+      When call ensure_sig_image_name_linux
+      The status should be success
+	  The variable SIG_IMAGE_NAME should eq "aclgen2CVM"
+	  The output should be present
+    End
+
     It 'should add Specialized suffix when FEATURE_FLAGS contains cvm'
       SIG_IMAGE_NAME=""
       SKU_NAME="test-sku"

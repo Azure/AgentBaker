@@ -35,6 +35,7 @@ write_files:
 {{end}}
 
 {{- else }}
+
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
   encoding: gzip
@@ -147,14 +148,52 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
+- path: {{GetCSEConfigGPUScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsGPU"}}
+
+- path: {{GetCSEConfigLocalDNSScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsLocalDNS"}}
+
+- path: {{GetCSEConfigKubeletScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsKubelet"}}
+
+- path: {{GetCSEConfigNetworkScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsNetwork"}}
+
+- path: {{GetCSEConfigAddonsScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsAddons"}}
+
+{{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
+{{end}}
 
-# Deliver the generic reconciler that hosts the dispatched LocalDNS handler.
+# Deliver the generic reconciler and its security handler together so replacing
+# the established updater path never leaves it without the dispatched handler.
 {{if IsACL }}
 {{- else if IsAzlOSGuard}}
 {{- else if IsMariner}}
@@ -166,6 +205,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "snapshotUpdateScript"}}
+
+- path: /opt/azure/containers/security-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "securityUpdateScript"}}
 {{end}}
 
 - path: /etc/systemd/system/reconcile-private-hosts.service

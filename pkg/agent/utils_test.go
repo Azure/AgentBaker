@@ -76,6 +76,21 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	}
 }
 
+func TestGetKubeletConfigFileContentDoesNotActivateFlagMigration(t *testing.T) {
+	flags := map[string]string{
+		"--max-pods":                   "110",
+		"--enable-server":              "false",
+		"--volume-plugin-dir":          "/etc/kubernetes/volumeplugins",
+		"--cgroup-driver":              "systemd",
+		"--runtime-request-timeout":    "0s",
+		"--container-runtime-endpoint": "unix:///run/containerd/containerd.sock",
+		"--register-with-taints":       "workload=batch:NoSchedule",
+		"--hairpin-mode":               "promiscuous-bridge",
+	}
+	want := GetKubeletConfigFileContent(map[string]string{"--max-pods": "110"}, nil)
+	assert.Equal(t, want, GetKubeletConfigFileContent(flags, nil))
+}
+
 func TestGetKubeletConfigFileContent_MergesFlagsWithoutOverwritingContent(t *testing.T) {
 	kc := map[string]string{
 		"--image-gc-high-threshold": "85",
@@ -1375,6 +1390,24 @@ func cseRoundTrip(t *testing.T, path string) []byte {
 	}
 
 	return decoded
+}
+
+func TestGzipWriterPoolDoesNotMixPayloads(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		payload := strings.Repeat(string(rune('a'+i)), 4096)
+		t.Run(string(rune('a'+i)), func(t *testing.T) {
+			t.Parallel()
+
+			compressed := getGzippedBufferFromBytes([]byte(payload))
+			decoded, err := getGzipDecodedValue(compressed)
+			if err != nil {
+				t.Fatalf("gzip decode failed: %v", err)
+			}
+			if string(decoded) != payload {
+				t.Fatal("gzip payload was corrupted")
+			}
+		})
+	}
 }
 
 // cseValidateBashSyntax runs bash -n on the decoded script to catch syntax errors

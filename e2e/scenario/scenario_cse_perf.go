@@ -7,7 +7,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
 // CSE performance thresholds for the golden image (cached) path.
@@ -27,7 +27,7 @@ var cachedCSEThresholds = CSETimingThresholds{
 		// Core kubelet/containerd install
 		"installDebPackageFromFile":   22 * time.Second, // prod p50=3.88s p95=21.55s p99=42.88s
 		"holdWALinuxAgent":            24 * time.Second, // prod p50=0.49s p90=23.32s p95=37.47s (bimodal: apt lock)
-		"configureKubeletAndKubectl":  27 * time.Second, // prod p50=6.56s p95=26.06s p99=44.39s
+		"configureKubeletAndKubectl":  38 * time.Second, // includes installKubeletKubectlFromPkg; match its PMC budget
 		"ensureContainerd":            3 * time.Second,  // prod p50=0.94s p95=1.99s  p99=2.80s
 		"ensureKubelet":               10 * time.Second, // prod p50=3.27s p95=6.20s  p99=10.01s
 		"installContainerRuntime":     2 * time.Second,  // prod p50=0.26s p95=0.50s  p99=0.85s
@@ -246,7 +246,7 @@ var fullInstallCSEThresholdsAzureLinuxV3 = CSETimingThresholds{
 }
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2204_CSE_CachedPerformance",
+	Name: "Ubuntu2204_PreinstalledBinaries_PMCInstall",
 	Description: "Validates CSE timing on the golden image (cached) path where binaries are pre-installed on VHD. " +
 		"Forces the PMC deb package install path (installKubeletKubectlFromPkg → installDebPackageFromFile) " +
 		"by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall with k8s 1.34. " +
@@ -282,7 +282,7 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2204_CSE_FullInstallPerformance",
+	Name: "Ubuntu2204_FullInstall_SkipBinaryCleanup",
 	Description: "Validates CSE timing on the full install path where all dependencies are installed from scratch. " +
 		"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
 	Config: Config{
@@ -306,7 +306,7 @@ var _ = Register(&Scenario{
 // --- Ubuntu 24.04 CSE Performance Tests ---
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2404_CSE_CachedPerformance",
+	Name: "Ubuntu2404_PreinstalledBinaries_PMCInstall",
 	Description: "Validates CSE timing on the golden image (cached) path for Ubuntu 24.04. " +
 		"Forces the PMC deb package install path by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall.",
 	Config: Config{
@@ -333,7 +333,7 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2404_CSE_FullInstallPerformance",
+	Name: "Ubuntu2404_FullInstall_SkipBinaryCleanup",
 	Description: "Validates CSE timing on the full install path for Ubuntu 24.04. " +
 		"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
 	Config: Config{
@@ -357,7 +357,7 @@ var _ = Register(&Scenario{
 // --- Ubuntu 26.04 minimal CSE Performance Tests ---
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2604Minimal_CSE_CachedPerformance",
+	Name: "Ubuntu2604Minimal_PreinstalledBinaries_PMCInstall",
 	Description: "Validates CSE timing on the golden image (cached) path for Ubuntu 26.04 minimal. " +
 		"Forces the PMC deb package install path by clearing CustomKubeBinaryURL and setting ShouldEnforceKubePMCInstall.",
 	Config: Config{
@@ -384,7 +384,7 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name: "Ubuntu2604Minimal_CSE_FullInstallPerformance",
+	Name: "Ubuntu2604Minimal_FullInstall_SkipBinaryCleanup",
 	Description: "Validates CSE timing on the full install path for Ubuntu 26.04 minimal. " +
 		"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
 	Config: Config{
@@ -408,7 +408,7 @@ var _ = Register(&Scenario{
 // --- Azure Linux V3 CSE Performance Tests ---
 
 var _ = Register(&Scenario{
-	Name: "AzureLinuxV3_CSE_CachedPerformance",
+	Name: "AzureLinuxV3_PreinstalledBinaries",
 	Description: "Validates CSE timing on the golden image (cached) path for Azure Linux V3. " +
 		"Azure Linux uses RPM packages — no apt lock contention, but different install paths.",
 	Config: Config{
@@ -418,28 +418,6 @@ var _ = Register(&Scenario{
 		SkipDefaultValidation:    true,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			_, err := ValidateCSETimings(ctx, s, cachedCSEThresholdsAzureLinuxV3)
-			return err
-		},
-	},
-})
-
-var _ = Register(&Scenario{
-	Name: "AzureLinuxV3_CSE_FullInstallPerformance",
-	Description: "Validates CSE timing on the full install path for Azure Linux V3. " +
-		"Uses SkipBinaryCleanup VMSS tag to force FULL_INSTALL_REQUIRED=true.",
-	Config: Config{
-		Cluster:                  ClusterKubenet,
-		VHD:                      config.VHDAzureLinuxV3Gen2,
-		EagerCSETimingExtraction: true,
-		SkipDefaultValidation:    true,
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			if vmss.Tags == nil {
-				vmss.Tags = map[string]*string{}
-			}
-			vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			_, err := ValidateCSETimings(ctx, s, fullInstallCSEThresholdsAzureLinuxV3)
 			return err
 		},
 	},

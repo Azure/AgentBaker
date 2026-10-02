@@ -7,6 +7,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/localdns"
+	"github.com/Azure/agentbaker/e2e/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,11 +31,11 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 	}
 
 	if _, exists := node.Labels[exporterLabelKey]; !exists {
-		s.Logger.Logf("WARNING: node %q does not have label %q — localdns exporter not installed on this VHD, skipping exporter validation",
+		logging.Logf(ctx, "WARNING: node %q does not have label %q — localdns exporter not installed on this VHD, skipping exporter validation",
 			s.Runtime.VM.KubeName, exporterLabelKey)
 		return nil
 	}
-	s.Logger.Logf("node %q has label %q — proceeding with full exporter validation", s.Runtime.VM.KubeName, exporterLabelKey)
+	logging.Logf(ctx, "node %q has label %q — proceeding with full exporter validation", s.Runtime.VM.KubeName, exporterLabelKey)
 
 	encoded := base64.StdEncoding.EncodeToString([]byte(localdns.ExporterMetricsScript()))
 	remotePath := "/home/azureuser/validate_localdns_exporter_metrics.sh"
@@ -78,6 +79,6 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 		"localdns exporter metrics validation failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr); err != nil {
 		return err
 	}
-	s.Logger.Logf("localdns exporter metrics validation output:\n%s", result.stdout)
+	logging.Logf(ctx, "localdns exporter metrics validation output:\n%s", result.stdout)
 	return nil
 }

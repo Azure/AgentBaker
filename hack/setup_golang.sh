@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-go_version="1.26.7"
+go_minor_version="1.26"
 
 # This script installs Microsoft's Go distribution via apt-get (Ubuntu).
 # On hosts without apt-get (e.g. Azure Linux build agents), the build environment
@@ -15,8 +15,8 @@ if ! command -v apt-get >/dev/null 2>&1; then
     fi
     actual_go_version=$(go env GOVERSION)
     # shellcheck disable=SC3010
-    if [[ "${actual_go_version}" != "go${go_version}" ]]; then
-        echo "ERROR: expected Go ${go_version}, found ${actual_go_version}; the build environment must provide the required version." >&2
+    if [[ ! "${actual_go_version}" =~ ^go${go_minor_version//./\\.}\.[0-9]+$ ]]; then
+        echo "ERROR: expected Go ${go_minor_version}.x, found ${actual_go_version}; the build environment must provide the required version." >&2
         exit 1
     fi
     echo "Using Go provided by the build environment:"
@@ -38,6 +38,26 @@ setup_pmc() {
     sudo apt-get update
 }
 
+get_latest_go_package_version() {
+    local ubuntu_release="$1"
+    local go_minor_regex="${go_minor_version//./\\.}"
+    local ubuntu_release_regex="${ubuntu_release//./\\.}"
+    local package_version
+
+    package_version=$(
+        apt-cache madison msft-golang |
+            awk -v regex="^${go_minor_regex}\\.[0-9]+-ubuntu${ubuntu_release_regex}u[0-9]+$" '$3 ~ regex { print $3 }' |
+            sort -V |
+            tail -n 1
+    )
+    if [ -z "${package_version}" ]; then
+        echo "ERROR: no msft-golang ${go_minor_version}.x package found for Ubuntu ${ubuntu_release}." >&2
+        return 1
+    fi
+
+    echo "${package_version}"
+}
+
 ubuntu_release=$(sudo lsb_release -r -s)
 
 # purge any existing go installation
@@ -50,7 +70,8 @@ setup_pmc "${ubuntu_release}"
 sudo apt-get -y install make
 
 # install msft-golang
-sudo apt-get -y install "msft-golang=${go_version}-ubuntu${ubuntu_release}u1"
+go_package_version=$(get_latest_go_package_version "${ubuntu_release}")
+sudo apt-get -y install "msft-golang=${go_package_version}"
 
 # make sure go is accessible from the command line
 go version

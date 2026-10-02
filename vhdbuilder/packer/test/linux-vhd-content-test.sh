@@ -34,14 +34,14 @@ err() {
 }
 
 # assertPackageVersion verifies that the installed deb/rpm package version matches
-# the expected full version string from components.json (including hotfix suffix).
-# This catches drift between what the package manager installs and what components.json
-# specifies at VHD build time rather than in e2e.
+# either the exact expected version or, when allowed, that upstream version plus
+# a distro package revision.
 # shellcheck disable=SC2016
 assertPackageVersion() {
   local test="$1"
   local packageName="$2"
   local expectedVersion="$3"
+  local allowRevision="${4:-false}"
 
   local installedVersion=""
   if command -v dpkg-query >/dev/null 2>&1 && dpkg-query -W -f='${Status}' "$packageName" 2>/dev/null | grep -q "install ok installed"; then
@@ -55,7 +55,16 @@ assertPackageVersion() {
   fi
 
   echo "$test: checking if installed $packageName version '$installedVersion' matches expected '$expectedVersion'"
-  if [ "$installedVersion" != "$expectedVersion" ]; then
+  local versionMatches=false
+  if [ "$installedVersion" = "$expectedVersion" ]; then
+    versionMatches=true
+  elif [ "$allowRevision" = "true" ]; then
+    case "$installedVersion" in
+      "${expectedVersion}-"*|"${expectedVersion}+"*) versionMatches=true ;;
+    esac
+  fi
+
+  if [ "$versionMatches" != "true" ]; then
     err "$test" "installed $packageName version '$installedVersion' does not match expected '$expectedVersion' from components.json"
     return 1
   fi
@@ -74,7 +83,10 @@ LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git; then
+    err 'git-install' "Failed to install git"
+    exit 1
+  fi
 elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
   : # Flatcar/ACL comes with git pre-installed
 elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
@@ -265,6 +277,7 @@ testPackagesInstalled() {
         ;;
       "azure-acr-credential-provider-pmc"|\
       "nvidia-device-plugin"|\
+      "dra-driver-nvidia-gpu"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
@@ -636,6 +649,8 @@ testChrony() {
   fi
   initialDate=$(date +%s)
   date --set "27 Feb 2021"
+  # Request fresh measurements after the artificial time jump.
+  chronyc burst 4/4
   for i in $(seq 1 10); do
     newDate=$(date +%s)
     if (($newDate > $initialDate)); then
@@ -1158,19 +1173,26 @@ testPkgDownloaded() {
   echo "$test:Start"
   local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  local seArch seFile
+  local seArch seFile versionRegex
   seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
     packageVersion="${packageVersion#*:}"
+    versionRegex="${packageVersion//./\\.}"
     if [ $OS = $UBUNTU_OS_NAME ]; then
-      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
+      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_*" -print 2>/dev/null |
+        grep -E "/${packageName}_${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || debFile=""
       if [ -z "${debFile}" ]; then
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
     elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
-      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-*" -print 2>/dev/null |
+        grep -E "/${packageName}-${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
@@ -2003,7 +2025,7 @@ testNodeExporter () {
     err "$test" "node-exporter expected version is <SKIP> on supported OS $os_sku"
     return 1
   fi
-  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" true || return 1
 
   local expectedBinaryVersion="v${expectedVersion%%-*}"
   local binaryVersion
@@ -2172,12 +2194,12 @@ testCriCtl() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream cri-tools version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch
@@ -2207,12 +2229,12 @@ testContainerd() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream containerd version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the containerd binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch
@@ -2538,6 +2560,37 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+testKneadSecurityPatchingAssets() {
+  local test="testKneadSecurityPatchingAssets"
+  local os_sku="$1"
+  local file
+  local permissions
+  local -A expected_files=(
+    ["/etc/systemd/system/snapshot-update.service"]=644
+    ["/etc/systemd/system/snapshot-update.timer"]=644
+    ["/opt/azure/containers/security-update.sh"]=544
+    ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=544
+  )
+
+  if [ "$os_sku" != "Ubuntu" ]; then
+    return 0
+  fi
+
+  for file in "${!expected_files[@]}"; do
+    if [ ! -f "$file" ]; then
+      err "$test" "Expected file not found: $file"
+    fi
+    permissions=$(stat -c "%a" "$file")
+    if [ "$permissions" != "${expected_files[$file]}" ]; then
+      err "$test" "Incorrect permissions for $file. Expected ${expected_files[$file]}, got $permissions"
+    fi
+  done
+
+  if ! grep -Fxq 'ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh' /etc/systemd/system/snapshot-update.service; then
+    err "$test" "snapshot-update.service does not execute the generic reconciler"
+  fi
+}
+
 # Basic sanity check for Inspektor Gadget artifacts baked into the image.
 testInspektorGadgetAssets() {
   local test="testInspektorGadgetAssets"
@@ -2726,6 +2779,33 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
+testMarinerLivePatchingArtifacts() {
+  local test="testMarinerLivePatchingArtifacts"
+  local update_script="/opt/azure/containers/mariner-package-update.sh"
+  local service="/etc/systemd/system/snapshot-update.service"
+  local timer="/etc/systemd/system/snapshot-update.timer"
+
+  echo "$test: Start"
+  if [ "$OS_SKU" != "CBLMariner" ] && [ "$OS_SKU" != "AzureLinux" ]; then
+    echo "$test: Skipping for non-Mariner/AzureLinux image"
+    return 0
+  fi
+
+  if [ "$(stat -c '%a' "$update_script" 2>/dev/null)" != "544" ]; then
+    err $test "$update_script must exist with mode 0544"
+  fi
+  if [ "$(stat -c '%a' "$service" 2>/dev/null)" != "644" ]; then
+    err $test "$service must exist with mode 0644"
+  fi
+  if [ "$(stat -c '%a' "$timer" 2>/dev/null)" != "644" ]; then
+    err $test "$timer must exist with mode 0644"
+  fi
+  if [ "$(grep -E '^ExecStart=' "$service" 2>/dev/null)" != "ExecStart=/opt/azure/containers/mariner-package-update.sh" ]; then
+    err $test "$service must execute the Mariner package update script"
+  fi
+  echo "$test: Finish"
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -2782,6 +2862,7 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
+testMarinerLivePatchingArtifacts
 testNodeExporter $OS_SKU
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
@@ -2790,6 +2871,7 @@ testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs $OS_SKU
+testKneadSecurityPatchingAssets $OS_SKU
 testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU

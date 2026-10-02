@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbaker/e2e/assert"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	corev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
@@ -17,8 +18,10 @@ import (
 const (
 	// kataRuntimeHandler is the containerd runtime handler name for standard Kata Containers,
 	// emitted by the IsKata block of the containerd config templates in pkg/agent/baker.go.
-	kataRuntimeHandler        = "kata"
-	kataPreviewRuntimeHandler = "kata-preview"
+	kataRuntimeHandler   = "kata"
+	kataV2RuntimeHandler = "kata-v2"
+	kataV2ShimBinaryPath = "/usr/local/bin/containerd-shim-kata-v2-rs"
+	kataV2ConfigPath     = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 
 	// kataConfigPath is the Kata configuration file referenced by the "kata" runtime handler's
 	// options.ConfigPath in the rendered containerd config.
@@ -36,7 +39,7 @@ const (
 // Note that "kata-cc" (confidential containers) is intentionally absent: its handler block is
 // templated for all Kata VHDs, but it targets a different VHD than regular Kata, so this image
 // cannot actually run it.
-var kataRuntimeHandlers = []string{kataRuntimeHandler, kataPreviewRuntimeHandler}
+var kataRuntimeHandlers = []string{kataRuntimeHandler, kataV2RuntimeHandler}
 
 // ValidateKataContainerdConfig asserts that AgentBaker rendered a containerd configuration
 // containing the Kata runtime handlers on a Kata-enabled VHD.
@@ -59,6 +62,10 @@ func ValidateKataContainerdConfig(ctx context.Context, s *Scenario) error {
 		ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`),
 		ValidateFileHasContent(ctx, s, containerdConfigPath, `runtime_type = "io.containerd.kata.v2"`),
 		ValidateFileHasContent(ctx, s, containerdConfigPath, kataConfigPath),
+		ValidateFileHasContent(ctx, s, containerdConfigPath, `[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]`),
+		ValidateFileHasContent(ctx, s, containerdConfigPath, `pod_annotations = ["io.katacontainers.snapshot-name"]`),
+		ValidateFileHasContent(ctx, s, containerdConfigPath, `runtime_path = "`+kataV2ShimBinaryPath+`"`),
+		ValidateFileHasContent(ctx, s, containerdConfigPath, kataV2ConfigPath),
 
 		// Kata relies on snapshot annotations being forwarded to the snapshotter; the template sets
 		// this explicitly under IsKata and disabling it breaks image pulling for Kata pods.
@@ -134,7 +141,7 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 
 	// The effective config must expose every Kata runtime handler we expect. Note the trailing
 	// "]": without it a handler name would also match longer handlers sharing its prefix (e.g.
-	// "runtimes.kata" matching "runtimes.kata-preview") and pass even if the handler itself
+	// "runtimes.kata" matching "runtimes.kata-v2") and pass even if the handler itself
 	// were missing.
 	for _, handler := range kataRuntimeHandlers {
 		errs = append(errs, assert.Contains(normalizedDump, `runtimes.`+handler+`]`,
@@ -163,9 +170,15 @@ func ValidateKataHostReadiness(ctx context.Context, s *Scenario) error {
 		"command -v containerd-shim-kata-v2", 0, "containerd-shim-kata-v2 is not present on the Kata VHD"); err != nil {
 		errs = append(errs, err)
 	}
+	// The kata V2 shim binary that the kata-v2 handler explicitly resolves to by runtime_path.
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"test -x "+kataV2ShimBinaryPath, 0, "Rust Kata v2 shim is not executable on the Kata VHD"); err != nil {
+		errs = append(errs, err)
+	}
 
 	// The Kata configuration file referenced by options.ConfigPath in the containerd config.
 	errs = append(errs, ValidateFileExists(ctx, s, kataConfigPath))
+	errs = append(errs, ValidateFileExists(ctx, s, kataV2ConfigPath))
 
 	// Kata VHDs deliberately opt out of automatic package updates even when unattended upgrades
 	// are enabled, because kata packages must be updated as a unit (including the kernel, which
@@ -224,7 +237,7 @@ func ValidateKataPodIsIsolated(ctx context.Context, s *Scenario, handler string)
 		return err
 	}
 
-	s.Logger.Logf("host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
+	logging.Logf(ctx, "host kernel: %q, kata guest kernel: %q", hostKernel, guestKernel)
 	return assert.NotEqual(guestKernel, hostKernel,
 		"pod running under the %q RuntimeClass reported the same kernel release as the host, "+
 			"which means it was not launched inside a Kata VM", handler)
@@ -297,7 +310,7 @@ func createKataPod(ctx context.Context, s *Scenario, runtimeClassName, handler s
 		},
 	}
 
-	s.Logger.Logf("creating pod %q under RuntimeClass %q", pod.Name, runtimeClassName)
+	logging.Logf(ctx, "creating pod %q under RuntimeClass %q", pod.Name, runtimeClassName)
 	created, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kata pod %q: %w", pod.Name, err)

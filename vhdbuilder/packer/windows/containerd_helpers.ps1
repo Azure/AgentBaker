@@ -1,0 +1,108 @@
+function Test-ContainerdReady {
+    try {
+        $output = & ctr.exe -n k8s.io version 2>&1
+        $exitCode = $LASTEXITCODE
+    } catch {
+        if ($_.FullyQualifiedErrorId -notlike "NativeCommandError*") {
+            throw
+        }
+
+        $output = $_
+        $exitCode = $LASTEXITCODE
+    }
+
+    return [pscustomobject]@{
+        Ready = ($exitCode -eq 0)
+        Output = ($output | Out-String).Trim()
+    }
+}
+
+function Invoke-Ctr {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FailureMessage
+    )
+
+    try {
+        $output = & ctr.exe @Arguments
+        $exitCode = $LASTEXITCODE
+    } catch {
+        # Windows PowerShell promotes a failing native command's stderr output into a
+        # terminating NativeCommandError when $ErrorActionPreference = "Stop" is set, which
+        # would otherwise bypass the exit-code check below. Recover the exit code and treat
+        # it the same as a non-zero exit so the caller still gets $FailureMessage.
+        if ($_.FullyQualifiedErrorId -notlike "NativeCommandError*") {
+            throw
+        }
+
+        $output = $_
+        $exitCode = $LASTEXITCODE
+    }
+
+    if ($exitCode -ne 0) {
+        throw "$FailureMessage Exit code: $exitCode. Output: $(($output | Out-String).Trim())"
+    }
+    return $output
+}
+
+function Receive-ContainerdJobOutput {
+    param (
+        [Parameter(Mandatory = $true)]
+        $Job
+    )
+
+    return (Receive-Job -Job $Job -Keep -ErrorAction Continue 2>&1 | Out-String).Trim()
+}
+
+function Remove-ContainerdJob {
+    param (
+        [Parameter(Mandatory = $true)]
+        $Job
+    )
+
+    if ($Job.State -eq "Running") {
+        Stop-Job -Job $Job
+    }
+    Remove-Job -Job $Job -Force
+}
+
+function Invoke-WithContainerd {
+    param (
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$ScriptBlock,
+
+        [int]$MaxAttempts = 12,
+
+        [int]$DelaySeconds = 5
+    )
+
+    $job = Start-Job -Name "containerd" -ScriptBlock { containerd.exe }
+    $lastProbeOutput = ""
+
+    try {
+        for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+            if ($job.State -in @("Completed", "Failed", "Stopped")) {
+                $jobOutput = Receive-ContainerdJobOutput -Job $job
+                throw "containerd exited before becoming ready. Job state: $($job.State). Output: $jobOutput"
+            }
+
+            $probe = Test-ContainerdReady
+            $lastProbeOutput = $probe.Output
+            if ($probe.Ready) {
+                return & $ScriptBlock
+            }
+
+            if ($attempt -lt $MaxAttempts) {
+                Start-Sleep -Seconds $DelaySeconds
+            }
+        }
+
+        $jobOutput = Receive-ContainerdJobOutput -Job $job
+        throw "containerd did not become ready after $MaxAttempts attempts. Last probe output: $lastProbeOutput. Job output: $jobOutput"
+    } finally {
+        Remove-ContainerdJob -Job $job
+    }
+}

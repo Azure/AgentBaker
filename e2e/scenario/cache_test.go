@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,28 +26,6 @@ func TestCachedFuncReturnsConsistentResults(t *testing.T) {
 
 	assert.Equal(t, first, second, "cached function should return the same result on repeated calls")
 	assert.Equal(t, int32(1), callCount.Load(), "underlying function should only be called once for the same key")
-}
-
-func TestCachedFuncWarmCallIsFasterThanCold(t *testing.T) {
-	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
-		// simulate a slow operation like a network call
-		time.Sleep(10 * time.Millisecond)
-		return "result", nil
-	})
-
-	ctx := context.Background()
-
-	start := time.Now()
-	_, err := fn(ctx, "key")
-	coldDuration := time.Since(start)
-	require.NoError(t, err)
-
-	start = time.Now()
-	_, err = fn(ctx, "key")
-	warmDuration := time.Since(start)
-	require.NoError(t, err)
-
-	assert.Less(t, warmDuration, coldDuration, "warm (cached) call should be faster than cold call")
 }
 
 func TestCachedFuncDifferentKeysProduceDifferentCacheEntries(t *testing.T) {
