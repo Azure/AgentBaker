@@ -35,5 +35,8 @@ ExecStart=/opt/bin/kubelet \
         $KUBELET_CGROUP_FLAGS \
         $KUBELET_FLAGS
 
+# Clean up bootstrap kubeconfig safely
+ExecStartPost=-/bin/sh -c 'if [ -f /var/lib/kubelet/bootstrap-kubeconfig ]; then (while [ -f /var/lib/kubelet/bootstrap-kubeconfig ]; do if [ -f /var/lib/kubelet/kubeconfig ]; then rm -f /var/lib/kubelet/bootstrap-kubeconfig; break; fi; sleep 1; done) & fi'
+
 [Install]
 WantedBy=multi-user.target
