@@ -302,8 +302,17 @@ setupAmdAma() {
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
         # Configure huge pages
-        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
-        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        num_devs=$(ls /dev/ama_transcoder* | wc -l)
+        if [ $num_devs -eq 1 ]; then
+            sh -c "echo 'vm.nr_hugepages=2144' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 2144 > /proc/sys/vm/nr_hugepages"
+        elif [ $num_devs -eq 20 ]; then
+            sh -c "echo 'vm.nr_hugepages=41056' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 41056 > /proc/sys/vm/nr_hugepages"
+        else
+          echo "Incorrect number of ama_transcoder devices found, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
         if [ "$(systemctl is-active kubelet)" = "active" ]; then
             systemctl restart kubelet
         fi
