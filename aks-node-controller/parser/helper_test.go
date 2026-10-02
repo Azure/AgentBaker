@@ -523,7 +523,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 					},
 				},
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -559,7 +559,7 @@ oom_score = -999
 				},
 				noGpu: false,
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -594,7 +594,7 @@ oom_score = -999
 				},
 				noGpu: true,
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -660,6 +660,27 @@ oom_score = -999
 			}
 			if got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetContainerdConfigVersion(t *testing.T) {
+	tests := []struct {
+		version string
+		want    int
+	}{
+		{version: "", want: 3},
+		{version: "2.0.0", want: 3},
+		{version: "2.2.4", want: 3},
+		{version: "2.3.0", want: 4},
+		{version: "2.3.5", want: 4},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			if got := getContainerdConfigVersion(tt.version); got != tt.want {
+				t.Fatalf("getContainerdConfigVersion(%q) = %d, want %d", tt.version, got, tt.want)
 			}
 		})
 	}
