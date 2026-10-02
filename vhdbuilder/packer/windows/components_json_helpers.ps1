@@ -49,6 +49,50 @@ function GetWindowsDownloadPartForPackage {
     return $part
 }
 
+function ComponentsJsonHasAnyWindowsDownloadRequiresAzCopy {
+    Param(
+        [Parameter(Mandatory = $true)][AllowNull()][Object]
+        $node
+    )
+
+    # Mirrors compute_msi_resource_strings' recursive `jq '.. | objects | select(has(
+    # "windowsDownloadRequiresAzCopy")) | select(.windowsDownloadRequiresAzCopy == true)'`
+    # predicate (produce-packer-settings-functions.sh), which decides whether the Packer build
+    # VM gets a managed identity attached. That check scans the *entire* components.json
+    # document - every package, every Windows SKU block (default/ws2019/ws2022/ws2025), not just
+    # the one selected for the current $windowsSku - so this must do the same walk, otherwise
+    # toggling the flag somewhere this workflow doesn't otherwise look at would change the
+    # attached identity without showing up in this workflow's diff.
+    if ($null -eq $node) {
+        return $false
+    }
+
+    if ($node -is [PSCustomObject]) {
+        $property = $node.PSObject.Properties["windowsDownloadRequiresAzCopy"]
+        if ($null -ne $property -and $property.Value -eq $true) {
+            return $true
+        }
+
+        foreach ($childProperty in $node.PSObject.Properties) {
+            if (ComponentsJsonHasAnyWindowsDownloadRequiresAzCopy $childProperty.Value) {
+                return $true
+            }
+        }
+
+        return $false
+    }
+
+    if ($node -is [System.Collections.IEnumerable] -and $node -isnot [string]) {
+        foreach ($item in $node) {
+            if (ComponentsJsonHasAnyWindowsDownloadRequiresAzCopy $item) {
+                return $true
+            }
+        }
+    }
+
+    return $false
+}
+
 function SetupVersionVariablesForSubstitution {
     Param(
         [Parameter(Mandatory = $true)][string]
@@ -485,6 +529,11 @@ function GetAllCachedThings {
     foreach ($url in ($azCopyDownloadUrls.Keys | Sort-Object)) {
         $items += "AzCopy required: $url"
     }
+
+    # Always emitted (not just when true) so a transition in either direction shows up as a diff.
+    # This mirrors compute_msi_resource_strings' whole-document scan, which isn't scoped to the
+    # current $windowsSku, unlike the "AzCopy required" URLs above.
+    $items += "Windows VHD build managed identity required (windowsDownloadRequiresAzCopy present anywhere in components.json): $(ComponentsJsonHasAnyWindowsDownloadRequiresAzCopy $componentsJsonContent)"
 
     $items += "Windows ${windowsSku} base version: ${baseVersion}"
     if ($null -ne $baseVersionBlock) {

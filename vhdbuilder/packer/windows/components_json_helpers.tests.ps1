@@ -347,6 +347,42 @@ Describe 'Tests of GetAllCachedThings ' {
         $defaultFirst | Should -Contain "Windows 2019-containerd package containerd default: https://example.invalid/containerd-v1.0.0.zip"
         $defaultSecond | Should -Contain "Windows 2019-containerd package containerd default: https://example.invalid/containerd-v2.0.0.zip"
     }
+
+    it 'reports no managed identity required when no package sets windowsDownloadRequiresAzCopy' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "Windows VHD build managed identity required (windowsDownloadRequiresAzCopy present anywhere in components.json): False"
+    }
+
+    it 'reports managed identity required when windowsDownloadRequiresAzCopy is set on a Windows SKU block other than the one being built, matching compute_msi_resource_strings whole-document scan' {
+        # compute_msi_resource_strings (produce-packer-settings-functions.sh) attaches the UAMI
+        # based on a `jq '..'` scan of the *entire* components.json, not just the Windows SKU
+        # block selected for the current build. GetAzCopyDownloadUrlsFromComponentsJson only
+        # looks at the selected SKU's block (ws2019 here, since $windowsSku is "2019-containerd"),
+        # so a flag set on an unselected block (ws2022) must still surface via this marker.
+        $windowsSku = "2019-containerd"
+        $componentsJson.Packages[0].downloadUris.windows | Add-Member -NotePropertyName "ws2022" -NotePropertyValue ([PSCustomObject]@{
+            versionsV2 = @([PSCustomObject]@{ latestVersion = "0.0.60" })
+            downloadURL = "https://privatestorageaccount.blob.core.windows.net/c/f-v`${version}.zip"
+            windowsDownloadRequiresAzCopy = $true
+        })
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        ($allpackages | Where-Object { $_ -like "AzCopy required:*" }) | Should -BeNullOrEmpty
+        $allpackages | Should -Contain "Windows VHD build managed identity required (windowsDownloadRequiresAzCopy present anywhere in components.json): True"
+    }
+
+    it 'does not report managed identity required when windowsDownloadRequiresAzCopy is explicitly false' {
+        $windowsSku = "2019-containerd"
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $false
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "Windows VHD build managed identity required (windowsDownloadRequiresAzCopy present anywhere in components.json): False"
+    }
 }
 
 
