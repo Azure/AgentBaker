@@ -1469,6 +1469,25 @@ func customNodeConfig(vhd *config.Image, cluster func(context.Context, ClusterRe
 
 var _ = Register(ubuntu2204GPUScenario("Ubuntu2204_GPUNC", "Standard_NC4as_T4_v3", "westus2"))
 var _ = Register(ubuntu2204GPUScenario("Ubuntu2204_GPUA100", "Standard_NC24ads_A100_v4", "westus2"))
+var _ = Register(ubuntuGPUValidationScenario("Ubuntu2204_GPUNC_ValidateDriver", config.VHDUbuntu2204Gen2Containerd))
+var _ = Register(ubuntuGPUValidationScenario("Ubuntu2404_GPUNC_ValidateDriver", config.VHDUbuntu2404Gen2Containerd))
+
+// Validation-only bootstrap is a distinct input from the existing unconditional-install GPU nodes.
+func ubuntuGPUValidationScenario(name string, vhd *config.Image) *Scenario {
+	s := ubuntu2204GPUScenario(name, "Standard_NC4as_T4_v3", "westus2")
+	s.Description = "Tests managed Ubuntu GPU validation and its full-install fallback without requesting unconditional driver installation"
+	s.Config.VHD = vhd
+	configureGPU := s.Config.BootstrapConfigMutator
+	s.Config.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+		configureGPU(cluster, nbc)
+		nbc.ConfigGPUDriverIfNeeded = false
+	}
+	validateGPU := s.Config.Validator
+	s.Config.Validator = func(ctx context.Context, s *Scenario) error {
+		return errors.Join(validateGPU(ctx, s), ValidateNvidiaSMIInstalled(ctx, s))
+	}
+	return s
+}
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_GPUA10",
