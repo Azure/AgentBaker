@@ -375,17 +375,9 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
-// ancFixtureAnchor is the opening line of baker's serviceStartTemplate, which is concatenated
-// onto custom data after every file write and immediately precedes the launcher start.
-//
-// The fixture splices here rather than at #hotfix-marker because the marker sits *before* the
-// boothook template's %s, where baker expands its own file writes. A marker-anchored splice is
-// therefore overwritten by baker whenever it emits the same path, which is exactly what happens
-// on official/** branches: hotfix-generate commits a real pointer, baker embeds it, and its
-// write lands on top of the fixture's. That pointer names the version being cut by the release
-// PR, which is not published to PMC yet, so the scenario would fail deterministically with a
-// misleading "no hotfix binary" error. Splicing after baker's writes keeps the fixture
-// authoritative on every branch without adding another anchor to the production template.
+// ancFixtureAnchor is the opening line of baker's serviceStartTemplate. It follows the
+// boothook file writes and immediately precedes the launcher start, so the fixture remains
+// authoritative over any hotfix pointer baked into official/** branches.
 const ancFixtureAnchor = `logger -t aks-boothook "launching aks-node-controller`
 
 // ancFixtureFileEntry mirrors baker's boothookFileEntry so fixture-delivered files land on

@@ -13,13 +13,13 @@ import (
 )
 
 func TestRenderANCHotfixFlowFixture(t *testing.T) {
-	// Mirror the real custom data layout. baker expands its own file writes at the boothook
-	// template's %s, which sits *after* #hotfix-marker, and only then concatenates
-	// serviceStartTemplate. On official/** branches one of those writes is a hotfix pointer
-	// committed by hotfix-generate, so the stub includes it: the fixture has to win that race.
+	// Mirror the real custom data layout. Baker expands its own file writes at the boothook
+	// template's %s before #hotfix-marker, then concatenates serviceStartTemplate. On
+	// official/** branches one of those writes is a hotfix pointer committed by
+	// hotfix-generate, so the stub includes it: the fixture has to win that race.
 	bakerPointerWrite := "cat <<'EOF' | base64 -d | gzip -d >" + ancHotfixPointerPath + "\nQkFLRVI=\nEOF\nchmod 0600 " + ancHotfixPointerPath
 	in := base64.StdEncoding.EncodeToString([]byte(
-		"prefix\n#hotfix-marker\n" + bakerPointerWrite + "\n" +
+		"prefix\n" + bakerPointerWrite + "\n#hotfix-marker\n" +
 			`logger -t aks-boothook "launching aks-node-controller $(date -Ins)"` + "\nsuffix\n"))
 	out, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc")
 	if err != nil {

@@ -67,8 +67,8 @@ mkdir -p /opt/bin /opt/azure/containers /var/log/azure
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
-#hotfix-marker
 %s
+#hotfix-marker
 `
 	cseDownloaderTemplate = `
 if [ -f /opt/azure/containers/fetch_provision_config.py ]; then
