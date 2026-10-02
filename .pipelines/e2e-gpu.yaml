@@ -1,12 +1,14 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
-  TAGS_TO_RUN: "gpu=true"
+  TAGS_TO_RUN: "Name=Ubuntu2204_GPUNC,Name=Ubuntu2204_GPUA10,Name=Ubuntu2204_GPUNoDriver,Name=Ubuntu2204_GPUNC_ValidateDriver,Name=Ubuntu2404_GPUNC_ValidateDriver,Name=Ubuntu2404Gen2_GPUNoDriver,Name=Ubuntu2404_NvidiaDevicePluginRunning"
   TAGS_TO_SKIP: "os=windows,os=azurelinux,os=azurecontainerlinux"
   SKIP_E2E_TESTS: false
-  # PRs skip quota/capacity-constrained scenarios; main and scheduled runs fail them.
-  SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: $[eq(variables['Build.Reason'], 'PullRequest')]
+  # Test-only branch: pin both producer images and consumer script delivery.
+  VHD_BUILD_ID: "183958924"
+  DISABLE_SCRIPTLESS: true
+  SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: false
   E2E_GO_TEST_TIMEOUT: "75m"
-  E2E_FAILED_TESTS_RETRY_COUNT: 2
+  E2E_FAILED_TESTS_RETRY_COUNT: 1
   DISABLE_SCRIPTLESS_COMPILATION: true
 schedules:
   - cron: "0 9 * * *"
