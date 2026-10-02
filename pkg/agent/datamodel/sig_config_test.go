@@ -94,6 +94,24 @@ var _ = Describe("Edge Zone SIG image config derivation", func() {
 		Expect(ok).To(BeFalse())
 	})
 
+	DescribeTable("should identify only images in the generated Edge Zone SIG catalogs",
+		func(osSKU, imageDefinitionName string, expected bool) {
+			Expect(IsEdgeZoneSIGImage(osSKU, imageDefinitionName)).To(Equal(expected))
+		},
+		Entry("Ubuntu 22.04 Gen1", "Ubuntu", "2204containerd", true),
+		Entry("Ubuntu 22.04 Gen2", "Ubuntu", "2204gen2containerd", true),
+		Entry("Ubuntu 24.04 Gen1", "Ubuntu", "2404containerd", true),
+		Entry("Ubuntu 24.04 Gen2", "Ubuntu", "2404gen2containerd", true),
+		Entry("Azure Linux V3 Gen1", OSSKUAzureLinux, "V3", true),
+		Entry("Azure Linux V3 Gen2", OSSKUAzureLinux, "V3gen2", true),
+		Entry("same definition with the wrong OS SKU", OSSKUAzureLinux, "2204containerd", false),
+		Entry("OS SKU matching is exact", "ubuntu", "2204containerd", false),
+		Entry("Ubuntu FIPS", "Ubuntu", "2204fipsgen2containerd", false),
+		Entry("Ubuntu ARM64", "Ubuntu", "2404gen2arm64containerd", false),
+		Entry("Azure Linux FIPS", OSSKUAzureLinux, "V3gen2fips", false),
+		Entry("unconfigured future Ubuntu image", "Ubuntu", "2604containerd", false),
+	)
+
 	It("should preserve regional image metadata while changing Edge Zone routing", func() {
 		const futureUbuntu Distro = "aks-ubuntu-containerd-26.04-gen2"
 		regional := map[Distro]SigImageConfig{

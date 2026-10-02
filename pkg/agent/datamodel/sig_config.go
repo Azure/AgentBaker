@@ -1129,6 +1129,40 @@ var regionalDistroByEdgeZoneDistro = buildRegionalDistroByEdgeZoneDistro(
 	getSigAzureLinuxImageConfigMapWithOpts(),
 )
 
+type sigImageIdentity struct {
+	osSKU      string
+	definition string
+}
+
+//nolint:gochecknoglobals
+var edgeZoneSIGImages = buildEdgeZoneSIGImages(map[string]map[Distro]SigImageConfig{
+	"Ubuntu":        getSigUbuntuEdgeZoneImageConfigMapWithOpts(),
+	OSSKUAzureLinux: getSigAzureLinuxEdgeZoneImageConfigMapWithOpts(),
+})
+
+func buildEdgeZoneSIGImages(configsByOSSKU map[string]map[Distro]SigImageConfig) map[sigImageIdentity]struct{} {
+	images := make(map[sigImageIdentity]struct{})
+	for osSKU, configs := range configsByOSSKU {
+		for _, config := range configs {
+			images[sigImageIdentity{
+				osSKU:      osSKU,
+				definition: config.Definition,
+			}] = struct{}{}
+		}
+	}
+	return images
+}
+
+// IsEdgeZoneSIGImage reports whether an OS SKU and image definition identify an image
+// generated in the Edge Zone SIG catalogs.
+func IsEdgeZoneSIGImage(osSKU, imageDefinitionName string) bool {
+	_, ok := edgeZoneSIGImages[sigImageIdentity{
+		osSKU:      osSKU,
+		definition: imageDefinitionName,
+	}]
+	return ok
+}
+
 func buildRegionalDistroByEdgeZoneDistro(
 	regionalConfigMaps ...map[Distro]SigImageConfig,
 ) map[Distro]Distro {
