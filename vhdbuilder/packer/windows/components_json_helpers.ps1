@@ -478,12 +478,13 @@ function GetAllCachedThings {
 
     # GetAllCachedThings backs vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1, which the
     # check-windows-packages-change.yml workflow runs on every PR and posts as a public GitHub PR
-    # comment. Calling this here (for its validation side effect - the return value isn't otherwise
-    # used) means a windowsDownloadRequiresAzCopy package with a query-string/SAS URL fails this
-    # workflow loudly instead of having its (still-secret-bearing) resolved URL silently included in
-    # that public comment before a VHD is ever built. The components.cue schema also rejects this at
-    # validate-components time; this is a second, independent layer of the same guarantee.
-    GetAzCopyDownloadUrlsFromComponentsJson $componentsJsonContent | Out-Null
+    # comment. Calling this here keeps the validation side effect - a windowsDownloadRequiresAzCopy
+    # package with a query-string/SAS URL still fails this workflow loudly - and also makes changes
+    # to the managed-identity AzCopy path visible in the generated diff output.
+    $azCopyDownloadUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJsonContent
+    foreach ($url in ($azCopyDownloadUrls.Keys | Sort-Object)) {
+        $items += "AzCopy required: $url"
+    }
 
     $items += "Windows ${windowsSku} base version: ${baseVersion}"
     if ($null -ne $baseVersionBlock) {
@@ -509,6 +510,31 @@ function GetAllCachedThings {
         foreach ($package in $packages[$packageName]) {
             $items += $packageName + ": " + $package
         }
+    }
+
+    foreach ($package in $componentsJsonContent.Packages) {
+        $downloadLocation = $package.windowsDownloadLocation
+        if ([string]::IsNullOrEmpty($downloadLocation)) {
+            continue
+        }
+
+        $part = GetWindowsDownloadPartForPackage $package
+        if ($null -eq $part -or $null -eq $part.versionsV2 -or $part.versionsV2.Count -eq 0) {
+            continue
+        }
+
+        $downloadUrl = $part.windowsDownloadUrl
+        if ([string]::IsNullOrEmpty($downloadUrl)) {
+            $downloadUrl = $part.downloadUrl
+        }
+        if ([string]::IsNullOrEmpty($downloadUrl)) {
+            continue
+        }
+
+        $latestVersion = $part.versionsV2[0].latestVersion
+        $defaultPackageUrl = ReplaceVarsInUrl -versionString $latestVersion -stringToReplace $downloadUrl
+        $packageIdentifier = if ([string]::IsNullOrEmpty($package.name)) { $downloadLocation } else { $package.name }
+        $items += "Windows ${windowsSku} package ${packageIdentifier} default: ${defaultPackageUrl}"
     }
 
     foreach ($ociArtifactName in $ociArtifacts.keys) {

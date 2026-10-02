@@ -299,6 +299,54 @@ Describe 'Tests of GetAllCachedThings ' {
 
         { GetAllCachedThings $componentsJson $windowsSettings } | Should -Throw -ExpectedMessage "*MSI-only*"
     }
+
+    it 'includes azcopy-required URLs so toggling windowsDownloadRequiresAzCopy changes the output' {
+        $windowsSku = "2019-containerd"
+        $withoutAzCopy = GetAllCachedThings $componentsJson $windowsSettings
+
+        $componentsWithAzCopy = $componentsJson | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+        $componentsWithAzCopy.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        $withAzCopy = GetAllCachedThings $componentsWithAzCopy $windowsSettings
+
+        ($withoutAzCopy -join "`n") | Should -Not -Be ($withAzCopy -join "`n")
+        ($withoutAzCopy | Where-Object { $_ -like "AzCopy required:*" }) | Should -BeNullOrEmpty
+        $withAzCopy | Should -Contain "AzCopy required: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
+        $withAzCopy | Should -Contain "AzCopy required: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.51.zip"
+    }
+
+    it 'includes package default markers so reordering versions changes the output' {
+        $windowsSku = "2019-containerd"
+        $defaultFirstComponentsJson = $componentsJson | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+        $defaultFirstComponentsJson.Packages[0] | Add-Member -NotePropertyName "name" -NotePropertyValue "containerd"
+        $defaultFirstComponentsJson.Packages[0].windowsDownloadLocation = "c:\akse-cache\containerd\"
+        $defaultFirstComponentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://example.invalid/containerd-v`${version}.zip"
+        $defaultFirstComponentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
+            [PSCustomObject]@{
+                latestVersion = "1.0.0"
+            }
+            [PSCustomObject]@{
+                latestVersion = "2.0.0"
+            }
+        )
+
+        $defaultSecondComponentsJson = $defaultFirstComponentsJson | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+        $defaultSecondComponentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
+            [PSCustomObject]@{
+                latestVersion = "2.0.0"
+            }
+            [PSCustomObject]@{
+                latestVersion = "1.0.0"
+            }
+        )
+
+        $defaultFirst = GetAllCachedThings $defaultFirstComponentsJson $windowsSettings
+        $defaultSecond = GetAllCachedThings $defaultSecondComponentsJson $windowsSettings
+
+        ($defaultFirst -join "`n") | Should -Not -Be ($defaultSecond -join "`n")
+        $defaultFirst | Should -Contain "Windows 2019-containerd package containerd default: https://example.invalid/containerd-v1.0.0.zip"
+        $defaultSecond | Should -Contain "Windows 2019-containerd package containerd default: https://example.invalid/containerd-v2.0.0.zip"
+    }
 }
 
 
