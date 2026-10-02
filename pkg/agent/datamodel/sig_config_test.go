@@ -58,10 +58,13 @@ var _ = Describe("Edge Zone SIG image config derivation", func() {
 			actual, ok := edgeZoneDistroFromRegional(regional)
 			Expect(ok).To(Equal(eligible))
 			Expect(actual).To(Equal(expected))
+			regionalByEdgeZone := buildRegionalDistroByEdgeZoneDistro(
+				map[Distro]SigImageConfig{regional: {}},
+			)
 			if eligible {
-				roundTripped, reverseOK := regionalDistroForEdgeZone(actual)
-				Expect(reverseOK).To(BeTrue())
-				Expect(roundTripped).To(Equal(regional))
+				Expect(regionalByEdgeZone).To(HaveKeyWithValue(actual, regional))
+			} else {
+				Expect(regionalByEdgeZone).To(BeEmpty())
 			}
 		},
 		Entry("Ubuntu 22.04 Gen1", AKSUbuntuContainerd2204, AKSUbuntuEdgeZoneContainerd2204, true),
@@ -81,6 +84,15 @@ var _ = Describe("Edge Zone SIG image config derivation", func() {
 		Entry("Azure Linux Trusted Launch", AKSAzureLinuxV3Gen2TL, Distro(""), false),
 		Entry("Azure Linux CVM", AKSAzureLinuxV3CVMGen2, Distro(""), false),
 	)
+
+	It("should normalize only Edge Zone distros registered in the startup catalog", func() {
+		regional, ok := regionalDistroForEdgeZone(AKSUbuntuEdgeZoneContainerd2404Gen2)
+		Expect(ok).To(BeTrue())
+		Expect(regional).To(Equal(AKSUbuntuContainerd2404Gen2))
+
+		_, ok = regionalDistroForEdgeZone(Distro("aks-ubuntu-edgezone-containerd-26.04-gen2"))
+		Expect(ok).To(BeFalse())
+	})
 
 	It("should preserve regional image metadata while changing Edge Zone routing", func() {
 		const futureUbuntu Distro = "aks-ubuntu-containerd-26.04-gen2"

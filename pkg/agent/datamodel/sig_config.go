@@ -1092,6 +1092,9 @@ func deriveEdgeZoneImageConfigMap(
 	return edgeZoneConfigs
 }
 
+// Edge Zone eligibility depends on regional distro naming conventions. When adding or renaming a
+// regional distro, keep this matcher and its table tests in sync; otherwise AgentBaker will not
+// generate an Edge Zone image configuration or its regional identity mapping.
 func edgeZoneDistroFromRegional(distro Distro) (Distro, bool) {
 	const (
 		ubuntuPrefix         = "aks-ubuntu-containerd-"
@@ -1120,37 +1123,29 @@ func edgeZoneDistroFromRegional(distro Distro) (Distro, bool) {
 	return Distro(azureLinuxPrefix + suffix + "-edgezone" + generationSuffix), true
 }
 
+//nolint:gochecknoglobals
+var regionalDistroByEdgeZoneDistro = buildRegionalDistroByEdgeZoneDistro(
+	getSigUbuntuImageConfigMapWithOpts(),
+	getSigAzureLinuxImageConfigMapWithOpts(),
+)
+
+func buildRegionalDistroByEdgeZoneDistro(
+	regionalConfigMaps ...map[Distro]SigImageConfig,
+) map[Distro]Distro {
+	regionalByEdgeZone := make(map[Distro]Distro)
+	for _, regionalConfigs := range regionalConfigMaps {
+		for regionalDistro := range regionalConfigs {
+			if edgeZoneDistro, ok := edgeZoneDistroFromRegional(regionalDistro); ok {
+				regionalByEdgeZone[edgeZoneDistro] = regionalDistro
+			}
+		}
+	}
+	return regionalByEdgeZone
+}
+
 func regionalDistroForEdgeZone(distro Distro) (Distro, bool) {
-	const (
-		ubuntuPrefix         = "aks-ubuntu-containerd-"
-		ubuntuEdgeZonePrefix = "aks-ubuntu-edgezone-containerd-"
-		azureLinuxPrefix     = "aks-azurelinux-v"
-	)
-
-	value := string(distro)
-	if suffix, ok := strings.CutPrefix(value, ubuntuEdgeZonePrefix); ok && isBaseUbuntuReleaseSuffix(suffix) {
-		return Distro(ubuntuPrefix + suffix), true
-	}
-
-	suffix, ok := strings.CutPrefix(value, azureLinuxPrefix)
-	if !ok {
-		return "", false
-	}
-	generationSuffix := ""
-	switch {
-	case strings.HasSuffix(suffix, "-edgezone-gen2"):
-		suffix = strings.TrimSuffix(suffix, "-edgezone-gen2")
-		generationSuffix = "-gen2"
-	case strings.HasSuffix(suffix, "-edgezone"):
-		suffix = strings.TrimSuffix(suffix, "-edgezone")
-	default:
-		return "", false
-	}
-	majorVersion, err := strconv.Atoi(suffix)
-	if err != nil || majorVersion < 3 {
-		return "", false
-	}
-	return Distro(azureLinuxPrefix + suffix + generationSuffix), true
+	regionalDistro, ok := regionalDistroByEdgeZoneDistro[distro]
+	return regionalDistro, ok
 }
 
 func isBaseUbuntuReleaseSuffix(suffix string) bool {
