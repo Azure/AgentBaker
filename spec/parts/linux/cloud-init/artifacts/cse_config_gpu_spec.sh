@@ -375,6 +375,23 @@ Describe 'cse_config_gpu.sh'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=enabled'
             The output should include "mkdir -p /opt/azure/containers"
             The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            # device-plugin and DRA flavors are immutable (RP rejects a switch), so compute-domain
+            # is NOT torn down here -- mirrors dra-driver-nvidia-gpu, which also has no cleanup here
+            The output should not include "compute-domain"
+        End
+
+        It 'installs the package and defers service start in DRA mode'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The output should include "installNvidiaManagedExpPkgFromCache called"
+            # DRA defers service start (incl the compute-domain override) to startNvidiaManagedExpServices
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "compute-domain"
         End
 
         It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
@@ -387,6 +404,8 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlDisableAndStop nvidia-device-plugin"
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
+            # the compute-domain kubelet plugin is torn down here too, mirroring the dra-driver teardown
+            The output should include "systemctlDisableAndStop compute-domain-kubelet-plugin"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
@@ -411,6 +430,9 @@ Describe 'cse_config_gpu.sh'
         }
         systemctl() {
             echo "systemctl $@"
+        }
+        systemctlDisableAndStop() {
+            echo "systemctlDisableAndStop $@"
         }
 
         BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
@@ -452,6 +474,43 @@ Describe 'cse_config_gpu.sh'
             The output should not include "systemctlEnableAndStart nvidia-device-plugin 30"
             The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
             The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
+        End
+
+        It 'overrides and starts the compute-domain kubelet plugin on arm64 (GB) in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="gbnode0"
+            CD_CONF=$(mktemp)
+            tee() { cat >> "$CD_CONF"; echo "tee $1"; }
+
+            When call startNvidiaManagedExpServices
+
+            # the gpu-kubelet-plugin still comes up for all DRA nodes
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # we override the deb's vendor unit in place (same pattern as dra-driver) and start it
+            The output should include "mkdir -p /etc/systemd/system/compute-domain-kubelet-plugin.service.d"
+            The output should include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
+            # the override targets the controller extension's pinned namespace + this node, and resets ExecStart
+            The contents of file "$CD_CONF" should include "ExecStart="
+            The contents of file "$CD_CONF" should include "--namespace kube-system"
+            The contents of file "$CD_CONF" should include "--node-name=gbnode0"
+            The contents of file "$CD_CONF" should include 'NVIDIA_VISIBLE_DEVICES=void'
+        End
+
+        It 'stops the vendor compute-domain plugin on non-arm64 DRA nodes (GB-only)'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 0; }
+
+            When call startNvidiaManagedExpServices
+
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # the 0.5.0 deb auto-starts an args-less vendor unit on x86 too -- stop it (compute-domain is GB-only)
+            The output should include "systemctlDisableAndStop compute-domain-kubelet-plugin"
+            # but we do not configure or start our override on non-arm64
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin"
+            The output should not include "compute-domain-kubelet-plugin.service.d"
         End
     End
     Describe 'nvidia-cdi-refresh handling'
