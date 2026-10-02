@@ -40,6 +40,10 @@ param(
 # In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.
 # https://learn.microsoft.com/en-gb/troubleshoot/windows-client/shell-experience/command-line-string-limitation
 
+# ====== BEGIN AKS BOOTSTRAP VARIABLES ======
+# Every value that AgentBaker renders into this script is assigned in this block, and only here.
+# The rest of the script is plain PowerShell that reads these variables.
+# pkg/agent/windows_bootstrap_template_test.go enforces this.
 $MasterIP="{{GetKubernetesEndpoint}}"
 $KubeDnsServiceIp="{{GetParameter "kubeDNSServiceIP"}}"
 $MasterFQDNPrefix="{{GetParameter "masterEndpointDNSNamePrefix"}}"
@@ -50,12 +54,6 @@ $UserAssignedClientID="{{GetVariable "userAssignedIdentityID"}}"
 $TargetEnvironment="{{GetTargetEnvironment}}"
 $ArmResourceEndpoint="{{GetArmResourceEndpoint}}"
 $AADClientId="{{GetParameter "servicePrincipalClientId"}}"
-$NetworkAPIVersion="2018-08-01"
-
-# Do not parse the start time from $LogFile to simplify the logic
-$StartTime=Get-Date
-$global:ExitCode=0
-$global:ErrorMessage=""
 
 # These globals will not change between nodes in the same cluster, so they are not
 # passed as powershell parameters
@@ -83,18 +81,11 @@ $global:ContainerdWindowsRuntimeHandlers="{{GetParameter "containerdWindowsRunti
 
 ## VM configuration passed by Azure
 $global:WindowsTelemetryGUID="{{GetParameter "windowsTelemetryGUID"}}"
-{{if eq GetIdentitySystem "adfs"}}
-$global:TenantId="adfs"
-{{else}}
 $global:TenantId="{{GetVariable "tenantID"}}"
-{{end}}
 $global:SubscriptionId="{{GetVariable "subscriptionId"}}"
 $global:ResourceGroup="{{GetVariable "resourceGroup"}}"
 $global:VmType="{{GetVariable "vmType"}}"
 $global:SubnetName="{{GetVariable "subnetName"}}"
-# NOTE: MasterSubnet is still referenced by `kubeletstart.ps1` and `windowsnodereset.ps1`
-# for case of Kubenet
-$global:MasterSubnet=""
 $global:SecurityGroupName="{{GetVariable "nsgName"}}"
 $global:VNetName="{{GetVariable "virtualNetworkName"}}"
 $global:RouteTableName="{{GetVariable "routeTableName"}}"
@@ -104,11 +95,7 @@ $global:PrimaryScaleSetName="{{GetVariable "primaryScaleSetName"}}"
 $global:KubeClusterCIDR="{{GetParameter "kubeClusterCidr"}}"
 $global:KubeServiceCIDR="{{GetParameter "kubeServiceCidr"}}"
 $global:VNetCIDR="{{GetParameter "vnetCidr"}}"
-{{if IsKubernetesVersionGe "1.16.0"}}
 $global:KubeletNodeLabels="{{GetAgentKubernetesLabels .}}"
-{{else}}
-$global:KubeletNodeLabels="{{GetAgentKubernetesLabelsDeprecated .}}"
-{{end}}
 $global:KubeletConfigArgs=@( {{GetKubeletConfigKeyValsPsh}} )
 $global:KubeletHealthzEndpoint="{{GetKubeletHealthzEndpoint}}"
 $global:KubeproxyConfigArgs=@( {{GetKubeproxyConfigKeyValsPsh}} )
@@ -123,25 +110,7 @@ $global:ExcludeMasterFromStandardLB="{{GetVariable "excludeMasterFromStandardLB"
 
 $global:PrivateEgressProxyAddress="{{GetPrivateEgressProxyAddress}}"
 
-# Windows defaults, not changed by aks-engine
-$global:CacheDir="c:\akse-cache"
-$global:KubeDir="c:\k"
-$global:HNSModule=[Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
-
-$global:KubeDnsSearchPath="svc.cluster.local"
-
-$global:CNIPath=[Io.path]::Combine("$global:KubeDir", "cni")
-$global:NetworkMode="L2Bridge"
-$global:CNIConfig=[Io.path]::Combine($global:CNIPath, "config", "`$global:NetworkMode.conf")
-$global:CNIConfigPath=[Io.path]::Combine("$global:CNIPath", "config")
-
-
-$global:AzureCNIDir=[Io.path]::Combine("$global:KubeDir", "azurecni")
-$global:AzureCNIBinDir=[Io.path]::Combine("$global:AzureCNIDir", "bin")
-$global:AzureCNIConfDir=[Io.path]::Combine("$global:AzureCNIDir", "netconf")
-
 # Azure cni configuration
-# $global:NetworkPolicy="{{GetParameter "networkPolicy"}}" # BUG: unused
 $global:NetworkPlugin="{{GetParameter "networkPlugin"}}"
 $global:VNetCNIPluginsURL="{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled={{if IsIPv6DualStackFeatureEnabled}}$true {{else}}$false {{end}}
@@ -193,18 +162,9 @@ $global:SecureTLSBootstrappingGetNonceTimeout="{{GetSecureTLSBootstrappingGetNon
 $global:SecureTLSBootstrappingGetAttestedDataTimeout="{{GetSecureTLSBootstrappingGetAttestedDataTimeout}}";
 $global:SecureTLSBootstrappingGetCredentialTimeout="{{GetSecureTLSBootstrappingGetCredentialTimeout}}";
 
-# uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
-# this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
-# TODO(cameissner): remove once 2025-10B image is released
-$global:AKSAADServerAppID="6dae42f8-4368-4678-94ff-3960e28e3630"
-
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat=[System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat"}}");
 
-# Base64 representation of ZIP archive
-$zippedFiles="{{GetKubernetesWindowsAgentFunctions}}"
-
-$global:KubeClusterConfigPath="c:\k\kubeclusterconfig.json"
 $fipsEnabled=[System.Convert]::ToBoolean("{{FIPSEnabled}}")
 
 # HNS remediator
@@ -212,10 +172,6 @@ $global:HNSRemediatorIntervalInMinutes=[System.Convert]::ToUInt32("{{GetHnsRemed
 
 # Log generator
 $global:LogGeneratorIntervalInMinutes=[System.Convert]::ToUInt32("{{GetLogGeneratorIntervalInMinutes}}");
-
-$global:EnableIncreaseDynamicPortRange=$false
-
-$global:RebootNeeded=$false
 
 $global:IsSkipCleanupNetwork=[System.Convert]::ToBoolean("{{GetVariable "isSkipCleanupNetwork"}}");
 $PreProvisionOnly=[System.Convert]::ToBoolean("{{GetPreProvisionOnly}}");
@@ -225,13 +181,70 @@ $global:EnableKubeletServingCertificateRotation=[System.Convert]::ToBoolean("{{E
 # Windows Cilium Networking (WCN) Platform configuration
 $global:EnableWindowsCiliumNetworking=[System.Convert]::ToBoolean("{{GetVariable "nextGenNetworkingEnabled"}}");
 $global:WindowsCiliumNetworkingConfiguration="{{GetVariable "nextGenNetworkingConfig"}}";
-$global:WindowsCiliumNetworkingPath=Join-Path -Path $global:cacheDir -ChildPath 'wcn'
-$global:WindowsCiliumInstallPath=Join-Path -Path $global:WindowsCiliumNetworkingPath -ChildPath 'install'
 
 # Network isolated cluster
 $global:BootstrapProfileContainerRegistryServer="{{GetBootstrapProfileContainerRegistryServer}}"
 $global:MCRRepositoryBase="{{GetMCRRepositoryBase}}"
 $global:NetworkIsolatedClusterTestMode=[System.Convert]::ToBoolean("{{GetNetworkIsolatedClusterTestMode}}"); # for ab e2e only for local ab test with remote cse package
+
+# Values used by BasePrep and NodePrep
+$WindowsSSHEnabled=[System.Convert]::ToBoolean("{{WindowsSSHEnabled}}")
+$IsAKSCustomCloud=[System.Convert]::ToBoolean("{{IsAKSCustomCloud}}")
+{{if IsAKSCustomCloud}}
+$AKSCustomCloudContainerRegistryDNSSuffix="{{AKSCustomCloudContainerRegistryDNSSuffix}}"
+$AKSCustomCloudEnvironmentJSONBase64="{{GetBase64EncodedEnvironmentJSON}}"
+{{else}}
+$AKSCustomCloudContainerRegistryDNSSuffix=""
+$AKSCustomCloudEnvironmentJSONBase64=""
+{{end}}
+$IdentitySystem="{{GetIdentitySystem}}"
+# ====== END AKS BOOTSTRAP VARIABLES ======
+
+$NetworkAPIVersion="2018-08-01"
+
+# Do not parse the start time from $LogFile to simplify the logic
+$StartTime=Get-Date
+$global:ExitCode=0
+$global:ErrorMessage=""
+
+# NOTE: MasterSubnet is still referenced by `kubeletstart.ps1` and `windowsnodereset.ps1`
+# for case of Kubenet
+$global:MasterSubnet=""
+
+# Windows defaults, not changed by aks-engine
+$global:CacheDir="c:\akse-cache"
+$global:KubeDir="c:\k"
+$global:HNSModule=[Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
+
+$global:KubeDnsSearchPath="svc.cluster.local"
+
+$global:CNIPath=[Io.path]::Combine("$global:KubeDir", "cni")
+$global:NetworkMode="L2Bridge"
+$global:CNIConfig=[Io.path]::Combine($global:CNIPath, "config", "`$global:NetworkMode.conf")
+$global:CNIConfigPath=[Io.path]::Combine("$global:CNIPath", "config")
+
+
+$global:AzureCNIDir=[Io.path]::Combine("$global:KubeDir", "azurecni")
+$global:AzureCNIBinDir=[Io.path]::Combine("$global:AzureCNIDir", "bin")
+$global:AzureCNIConfDir=[Io.path]::Combine("$global:AzureCNIDir", "netconf")
+
+# uniquely identifies AKS's Entra ID application, see: https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication#how-to-use-kubelogin-with-aks
+# this is used by aks-secure-tls-bootstrap-client.exe when requesting AAD tokens
+# TODO(cameissner): remove once 2025-10B image is released
+$global:AKSAADServerAppID="6dae42f8-4368-4678-94ff-3960e28e3630"
+
+# Base64 representation of ZIP archive
+$zippedFiles="{{GetKubernetesWindowsAgentFunctions}}"
+
+$global:KubeClusterConfigPath="c:\k\kubeclusterconfig.json"
+
+$global:EnableIncreaseDynamicPortRange=$false
+
+$global:RebootNeeded=$false
+
+# Windows Cilium Networking (WCN) install paths
+$global:WindowsCiliumNetworkingPath=Join-Path -Path $global:cacheDir -ChildPath 'wcn'
+$global:WindowsCiliumInstallPath=Join-Path -Path $global:WindowsCiliumNetworkingPath -ChildPath 'install'
 
 $global:OrasCacheDir="c:\aks-tools\oras\" # refer to components.json
 $global:OrasPath="c:\aks-tools\oras\oras.exe"
@@ -370,8 +383,7 @@ function BasePrep {
     # TODO update to use proxy
 
     # Install OpenSSH if SSH enabled
-    $sshEnabled=[System.Convert]::ToBoolean("{{WindowsSSHEnabled}}")
-    if ( $sshEnabled ) {
+    if ( $WindowsSSHEnabled ) {
         Install-OpenSSH -SSHKeys $SSHKeys
     }
 
@@ -428,7 +440,7 @@ function BasePrep {
         Write-Log "Install-SecureTLSBootstrapClient is not a recognized function, will skip installation of the secure TLS bootstrap client"
     }
 
-    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{AKSCustomCloudContainerRegistryDNSSuffix}}" {{else}}"" {{end}}
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix $AKSCustomCloudContainerRegistryDNSSuffix
 
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
 
@@ -453,8 +465,6 @@ function BasePrep {
 
     Set-Explorer
     Adjust-PageFileSize
-    Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
-    PREPROVISION_EXTENSION
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
 
@@ -546,15 +556,14 @@ function NodePrep {
         -UseInstanceMetadata $global:UseInstanceMetadata `
         -LoadBalancerSku $global:LoadBalancerSku `
         -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `
-        -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud" {{else}}$TargetEnvironment {{end}}
+        -TargetEnvironment $(if ($IsAKSCustomCloud) { "AzureStackCloud" } else { $TargetEnvironment })
 
     # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud.
     # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json
-    {{if IsAKSCustomCloud}}
-    $azureStackConfigFile=[io.path]::Combine($global:KubeDir, "azurestackcloud.json")
-    $envJSON="{{GetBase64EncodedEnvironmentJSON}}"
-    [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
-    {{end}}
+    if ($IsAKSCustomCloud) {
+        $azureStackConfigFile=[io.path]::Combine($global:KubeDir, "azurestackcloud.json")
+        [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($AKSCustomCloudEnvironmentJSONBase64))
+    }
 
     # Feature-detect Get-CACertificates params for VHD/CSE-zip skew.
     # Older CSE packages (pre-rcv1p) have Get-CACertificates with no parameters;
@@ -610,7 +619,7 @@ function NodePrep {
             -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `
             -NetworkAPIVersion $NetworkAPIVersion `
             -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) `
-            -IdentitySystem "{{GetIdentitySystem}}"
+            -IdentitySystem $IdentitySystem
     }
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
