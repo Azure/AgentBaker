@@ -56,6 +56,9 @@ func TestRenderANCHotfixFlowFixture(t *testing.T) {
 		t.Fatal("pointer JSON not found")
 	}
 	end := strings.Index(rendered[start:], "\n")
+	if end < 0 {
+		t.Fatalf("pointer JSON line is not newline-terminated: %q", rendered[start:])
+	}
 	var cfg struct {
 		Hotfixes map[string]string `json:"hotfixes"`
 	}
