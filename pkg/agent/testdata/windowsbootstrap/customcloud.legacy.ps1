@@ -98,7 +98,7 @@ $global:AlwaysPullWindowsPauseImage=[System.Convert]::ToBoolean("false");
 $global:WindowsCalicoPackageURL="";
 
 ## GPU install
-$global:ConfigGPUDriverIfNeeded=[System.Convert]::ToBoolean("false");
+$global:ConfigGPUDriverIfNeeded=[System.Convert]::ToBoolean("true");
 
 # GMSA
 $global:WindowsGmsaPackageUrl="https://packages.aks.azure.com/windows/gmsa/windows-gmsa-ccgakvplugin-v1.1.9.zip";
@@ -119,7 +119,7 @@ $global:SecureTLSBootstrappingGetAttestedDataTimeout="";
 $global:SecureTLSBootstrappingGetCredentialTimeout="";
 
 # Disable OutBoundNAT in Azure CNI configuration
-$global:IsDisableWindowsOutboundNat=[System.Convert]::ToBoolean("false");
+$global:IsDisableWindowsOutboundNat=[System.Convert]::ToBoolean("true");
 
 $fipsEnabled=[System.Convert]::ToBoolean("false")
 

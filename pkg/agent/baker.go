@@ -694,6 +694,12 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 		return ""
 	}
 
+	// GetWindowsBootstrapConfig returns every value of the Windows CSE variables block as
+	// gzip-compressed JSON in base64. See windowsBootstrapConfig.
+	funcMap["GetWindowsBootstrapConfig"] = func() (string, error) {
+		return getEncodedWindowsBootstrapConfig(config, funcMap)
+	}
+
 	return funcMap
 }
 
@@ -1676,6 +1682,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
+		},
+		"EnableWindowsStructuredBootstrapConfig": func() bool {
+			return config.EnableWindowsStructuredBootstrapConfig
 		},
 		"EnableScriptlessCSECmd":       func() bool { return config.EnableScriptlessCSECmd },
 		"GetStandardSecondaryNICCount": func() int { return config.StandardSecondaryNICCount },

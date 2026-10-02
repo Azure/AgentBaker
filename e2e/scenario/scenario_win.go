@@ -26,6 +26,12 @@ func DualStackConfigMutator(_ *Cluster, configuration *datamodel.NodeBootstrappi
 	properties.FeatureFlags.EnableIPv6DualStack = true
 }
 
+// StructuredBootstrapConfigMutator makes the Windows CSE script read its values from structured data
+// instead of values rendered into PowerShell code.
+func StructuredBootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {
+	configuration.EnableWindowsStructuredBootstrapConfig = true
+}
+
 func Windows2025BootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) error {
 	// 2025 supported in 1.32+ - a kubelet bug impacts networking in most of 1.32 and 1.33.0, .1
 	version := components.GetKubeletVersionByMinorVersion("v1.33")
@@ -116,14 +122,21 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Windows2022Gen2AzureNetwork",
-	Description: "Windows Server 2022 with Azure Network - hyperv gen2",
+	Description: "Windows Server 2022 with Azure Network - hyperv gen2, with the structured bootstrap config",
 	Config: Config{
-		Cluster:                ClusterAzureNetwork,
-		VHD:                    config.VHDWindows2022ContainerdGen2,
-		VMConfigMutator:        EmptyVMConfigMutator,
-		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+		Cluster:         ClusterAzureNetwork,
+		VHD:             config.VHDWindows2022ContainerdGen2,
+		VMConfigMutator: EmptyVMConfigMutator,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			StructuredBootstrapConfigMutator(nbc)
+			nbc.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(
+				nbc.ContainerService.Properties.LinuxProfile.SSH.PublicKeys,
+				datamodel.PublicKey{KeyData: sshKeyInterpolationComment},
+			)
+		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
+				ValidateSSHKeyLiteralPreservation(ctx, s, sshKeyInterpolationComment),
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2"),
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter"),
 				ValidateWindowsDisplayVersion(ctx, s, "21H2"),
@@ -195,12 +208,13 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Windows2025Gen2",
-	Description: "Windows Server 2025 with Containerd - hyperv gen 2",
+	Description: "Windows Server 2025 with Containerd - hyperv gen 2, with the structured bootstrap config",
 	Config: Config{
 		Cluster:         ClusterAzureNetwork,
 		VHD:             config.VHDWindows2025Gen2,
 		VMConfigMutator: EmptyVMConfigMutator,
 		BootstrapConfigMutatorWithError: func(_ context.Context, _ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) error {
+			StructuredBootstrapConfigMutator(configuration)
 			return Windows2025BootstrapConfigMutator(configuration)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
@@ -415,7 +429,7 @@ const windowsPISBakeBootstrapToken = "pisbak.0000000000000000"
 func newWindows2022_VHDCaching_LegacyTLSBootstrapScenario() *Scenario {
 	return &Scenario{
 		Name:        "Windows2022_VHDCaching_LegacyTLSBootstrap",
-		Description: "VHD Caching with secure TLS bootstrap disabled",
+		Description: "VHD Caching with secure TLS bootstrap disabled, with the structured bootstrap config",
 		Config: Config{
 			Cluster:    ClusterAzureNetwork,
 			VHD:        config.VHDWindows2022Containerd,
@@ -424,6 +438,7 @@ func newWindows2022_VHDCaching_LegacyTLSBootstrapScenario() *Scenario {
 				vmss.SKU.Capacity = to.Ptr[int64](2)
 			},
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				StructuredBootstrapConfigMutator(nbc)
 				if nbc.SecureTLSBootstrappingConfig == nil {
 					nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{}
 				}
@@ -545,6 +560,7 @@ var _ = Register(&Scenario{
 			if err := Windows2025BootstrapConfigMutator(nbc); err != nil {
 				return err
 			}
+			StructuredBootstrapConfigMutator(nbc)
 			nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 				PrivateEgress: &datamodel.PrivateEgress{
 					Enabled:                 true,
