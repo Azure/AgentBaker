@@ -1779,7 +1779,10 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		rendered := string(decodedPayload)
-		lastFileWrite := strings.Index(rendered, aksNbcCmdFilepath)
+		// LastIndex, not Index: each path appears twice per write (the redirect line and the
+		// trailing chmod), so Index would point at the start of a write and leave the encoded
+		// payload between the two occurrences outside the assertion.
+		lastFileWrite := strings.LastIndex(rendered, aksNbcCmdFilepath)
 		hotfixMarker := strings.Index(rendered, "#hotfix-marker")
 		controllerStart := strings.Index(rendered, `logger -t aks-boothook "launching aks-node-controller`)
 
