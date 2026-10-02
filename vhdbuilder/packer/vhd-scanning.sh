@@ -338,6 +338,135 @@ if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
     exit 0
 fi
 
+# --- kompli scan (shadow, non-blocking) ---
+# Runs the benchmark-agnostic kompli on the same scan VM,
+# alongside (not instead of) the CIS-CAT scan below. Emits native JSON only.
+# This runs BEFORE the CIS-CAT block on purpose, so the CIS-CAT skip/license
+# early-exits do not suppress the kompli results. It is fully
+# non-blocking: compliance findings never fail the build, and any operational
+# error here is swallowed so it cannot abort the CIS-CAT scan that follows.
+#
+# The reusable inputs are laid down on the agent by
+# .pipelines/templates/.kompli-scan-template.yaml at:
+#   vhdbuilder/kompli/kompli
+#   vhdbuilder/kompli/definitions/ubuntu-<version>-<level>.benchmark.json
+# The per-consumer POLICY is the committed plan (which rules/modes/params), one
+# per OS version, tracked in this repo (ADR-0001):
+#   vhdbuilder/packer/kompli-plans/ubuntu-<version>.plan.json
+KOMPLI_SCRIPT_PATH="$CDIR/kompli-report.sh"
+KOMPLI_BIN_LOCAL="$CDIR/../kompli/kompli"
+KOMPLI_DEF_DIR="$CDIR/../kompli/definitions"
+KOMPLI_PLAN_DIR="$CDIR/kompli-plans"
+
+run_kompli_scan() {
+    local skip="${SKIP_KOMPLI:-false}"
+    if [ "${skip,,}" = "true" ]; then
+        echo "Skipping kompli scan (SKIP_KOMPLI=true)"
+        return 0
+    fi
+    if [ ! -x "$KOMPLI_BIN_LOCAL" ]; then
+        echo "kompli not found at ${KOMPLI_BIN_LOCAL}; skipping (non-blocking)"
+        return 0
+    fi
+
+    # The committed, per-OS plan (which rules/modes/params) selects this build's
+    # scan; an absent plan means nothing to scan for this OS (non-blocking).
+    local key="ubuntu-${OS_VERSION}"
+    local plan_local="${KOMPLI_PLAN_DIR}/${key}.plan.json"
+    if [ ! -s "$plan_local" ]; then
+        echo "No committed kompli plan at ${plan_local}; skipping (non-blocking)"
+        return 0
+    fi
+
+    # The definitions the plan references, staged by the download template.
+    local defs=() names=()
+    if [ -d "$KOMPLI_DEF_DIR" ]; then
+        while IFS= read -r d; do
+            [ -n "$d" ] && { defs+=("$d"); names+=("$(basename "$d")"); }
+        done < <(find "$KOMPLI_DEF_DIR" -maxdepth 1 -name "ubuntu-${OS_VERSION}-*.benchmark.json" -type f | sort)
+    fi
+    if [ "${#defs[@]}" -eq 0 ]; then
+        echo "No kompli definitions for ubuntu ${OS_VERSION} under ${KOMPLI_DEF_DIR}; skipping (non-blocking)"
+        return 0
+    fi
+
+    local kompli_ts kompli_blob plan_blob defs_tar_blob result_blob log_blob
+    kompli_ts=$(date +%s%3N)
+    kompli_blob="kompli-${BUILD_ID}-${kompli_ts}"
+    plan_blob="kompli-plan-${key}-${BUILD_ID}-${kompli_ts}.plan.json"
+    defs_tar_blob="kompli-defs-${key}-${BUILD_ID}-${kompli_ts}.tar"
+    result_blob="kompli-result-${key}-${BUILD_ID}-${kompli_ts}.json"
+    log_blob="kompli-log-${key}-${BUILD_ID}-${kompli_ts}.log"
+
+    # Tar the OS's definitions with flat basenames (kompli run resolves each plan
+    # block's bare filename in /etc/kompli/definitions/ on the scan VM).
+    local defs_tar
+    defs_tar="$(mktemp --suffix=.tar)"
+    tar -cf "${defs_tar}" -C "$KOMPLI_DEF_DIR" "${names[@]}"
+
+    echo "Uploading kompli, plan (${key}) and definitions"
+    az storage blob upload --container-name "${SIG_CONTAINER_NAME}" --file "${KOMPLI_BIN_LOCAL}" --name "${kompli_blob}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login --overwrite
+    az storage blob upload --container-name "${SIG_CONTAINER_NAME}" --file "${plan_local}" --name "${plan_blob}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login --overwrite
+    az storage blob upload --container-name "${SIG_CONTAINER_NAME}" --file "${defs_tar}" --name "${defs_tar_blob}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login --overwrite
+
+    local ret msg result_local junit_local
+    result_local="kompli-${key}.json"
+
+    echo "kompli: running committed plan ${key}.plan.json"
+    ret=$(az vm run-command invoke \
+        --command-id RunShellScript \
+        --name "$SCAN_VM_NAME" \
+        --resource-group "$RESOURCE_GROUP_NAME" \
+        --scripts @"$KOMPLI_SCRIPT_PATH" \
+        --parameters "KOMPLI_BLOB_NAME=${kompli_blob}" \
+            "PLAN_BLOB_NAME=${plan_blob}" \
+            "DEFS_TAR_BLOB_NAME=${defs_tar_blob}" \
+            "RESULT_BLOB_NAME=${result_blob}" \
+            "LOG_BLOB_NAME=${log_blob}" \
+            "STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME}" \
+            "SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME}" \
+            "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
+            "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
+            "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
+            "OS_SKU=${OS_SKU}")
+    echo "$ret"
+    msg=$(echo -E "$ret" | jq -r '.value[].message' 2>/dev/null || true)
+    echo "$msg"
+
+    # Retrieve the JSON result (and the kompli log) for publication.
+    az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${result_blob}" --file "${result_local}" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login || \
+        echo "WARNING: no kompli result blob for ${key}"
+    az storage blob download --container-name "${SIG_CONTAINER_NAME}" --name "${log_blob}" --file "kompli-${key}.log" --account-name "${STORAGE_ACCOUNT_NAME}" --auth-mode login || \
+        echo "WARNING: no kompli log blob for ${key}"
+
+    # Clean up the per-run blobs (including the shared kompli blob).
+    az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${kompli_blob}" --auth-mode login || true
+    az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${plan_blob}" --auth-mode login || true
+    az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${defs_tar_blob}" --auth-mode login || true
+    az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${result_blob}" --auth-mode login || true
+    az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${log_blob}" --auth-mode login || true
+    rm -f "${defs_tar}" || true
+
+    # Non-blocking validation: warn (never fail) on a missing/invalid result.
+    if [ -s "${result_local}" ] && jq -e '.' "${result_local}" >/dev/null 2>&1; then
+        echo "kompli ${key}: valid JSON result at ${result_local}"
+        # Render JUnit centrally on the agent from the canonical JSON (root-free).
+        junit_local="kompli-${key}.junit.xml"
+        if "$KOMPLI_BIN_LOCAL" render --format junit --suite-name "${key}" "${result_local}" > "${junit_local}" 2>/dev/null && [ -s "${junit_local}" ]; then
+            echo "kompli ${key}: rendered JUnit at ${junit_local}"
+        else
+            printf '##vso[task.logissue type=warning]kompli %s: JUnit render failed or unsupported by kompli; publishing JSON only.\n' "$key"
+            rm -f "${junit_local}"
+        fi
+    else
+        printf '##vso[task.logissue type=warning]kompli %s: missing or invalid JSON result (non-blocking).\n' "$key"
+    fi
+}
+
+# Isolate in a subshell with `set +e` so nothing here can abort the CIS-CAT scan.
+( set +e; run_kompli_scan ) || true
+capture_benchmark "${SCRIPT_NAME}_kompli_scan"
+
 # Set this pipeline variable to true if CIS scanning is broken
 SKIP_CIS=${SKIP_CIS:-false}
 if [ "${SKIP_CIS,,}" = "true" ]; then
@@ -548,7 +677,7 @@ assemble_cis_report "${CIS_REPORT_L1_LOCAL}" "${CIS_REPORT_L2_LOCAL}" "cis-repor
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --auth-mode login
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L2_TXT_NAME}" --auth-mode login
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --auth-mode login
-# Remove CIS assessor tarball blob from storage
+# Remove CIS kompli tarball blob from storage
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login
 
 echo -e "CIS Report Script Completed\n\n\n"
