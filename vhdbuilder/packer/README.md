@@ -17,6 +17,36 @@ external-vhd-src->(func/init: ensure dest existing/static gallery/definition, in
 # Roadmap
 Goal1: remove mariner workflow so things will be simplified.
 
+# Shared Ubuntu GPU installer cache
+
+The non-FIPS Ubuntu 22.04/24.04 amd64 Gen2 shared images cache the CUDA-LTS
+installer container without installing its driver into the host. Their build and
+release defaults use `FEATURE_FLAGS=None`, not `NVIDIA_CUDA_PREBAKE`. Managed GPU
+nodes use the ordinary node-time installer; CPU and GPU-opt-out nodes must not
+depend on CSE cleanup to remove an image's NVIDIA DKMS registration.
+
+The build retains gcc, make, libc6-dev and the nouveau blacklist in all initramfs
+images independently of host prebaking. Content validation checks the booted
+kernel's headers, installer cache, boot configuration and absence of NVIDIA
+registration, modules and known host artifacts, including dangling registration
+links and residue without a marker. The guard uses the shared-image identity,
+not the disabled feature flag. It fails publication rather than cleaning up a
+contaminated image. ARM64/Grace-Blackwell, FIPS, CVM and other OS images are outside
+this policy.
+
+Release the missing-driver validation fast fallback before broad image rollout
+where validation-only callers would otherwise spend 115 seconds retrying an
+absent `nvidia-modprobe`. Older CSE retains its ordinary installation fallback,
+but its provisioning budget still needs verification. Retain legacy cleanup and
+PIS caching; do not move driver activation from `nodePrep` into `basePrep`.
+
+Before promotion, exercise changed Ubuntu images on CPU, GPU-opt-out, CUDA and
+GRID nodes, distinct-VM PIS, and security-patched derivatives. Check kernel-update
+hooks, GPU workloads, cache availability and provisioning latency. New source
+does not repair existing registered bases, derived images, PIS caches or nodes;
+refresh those through the supported image/node lifecycle. Re-enabling active
+shared-image prebaking is not a safe rollback.
+
 # Linux CSE configuration modules
 
 `parts/linux/cloud-init/artifacts/cse_config.sh` is installed as

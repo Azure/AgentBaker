@@ -839,19 +839,24 @@ EOF
   fi
 }
 
+configureCachedGPUDriverPrerequisites() {
+  [ "$OS" = "$UBUNTU_OS_NAME" ] || return 0
+  isUbuntuGPUCacheOnlyImage "$OS_VERSION" "$CPU_ARCH" "$IMG_SKU" "$ENABLE_FIPS" || return 0
+  local root="${1:-}"
+
+  # Keep the ordinary node-time installer independent of the optional host prebake.
+  apt_get_install 10 2 300 gcc make libc6-dev || return 1
+  mkdir -p "${root}/etc/modprobe.d" || return 1
+  printf 'blacklist nouveau\noptions nouveau modeset=0\n' > "${root}/etc/modprobe.d/blacklist-nouveau.conf" || return 1
+  update-initramfs -u -k all || return 1
+}
+
 buildNVIDIAKernelModule() {
   if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then # No ARM64 SKU with GPU now
     gpu_action="copy"
 
-    # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
-    # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
-    # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
-    # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
-    # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
-    # when that marker matches, running only the device-dependent steps.
-    # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
-    # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
-    # Dropping the image is a separate, deferred size optimization.
+    # Experimental host prebaking is not enabled on shared images. It registers NVIDIA with
+    # DKMS before node GPU policy is known. Keep the cached installer for normal node-time setup.
     if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
       echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
       # nvidia-installer needs gcc/make + libc6-dev to compile; the builder lacks them here, so install
@@ -1193,6 +1198,7 @@ ctr namespace create k8s.io
 # Running them after the container-image cache and/or concurrently with the BCC build fills the disk
 # (worse on 24.04), failing at the nvidia.ko link or the driver lib copy with "No space left on device".
 cacheGPUContainerImageComponents
+configureCachedGPUDriverPrerequisites
 buildNVIDIAKernelModule
 capture_benchmark "${SCRIPT_NAME}_caching_gpu_container_images_and_build_nvidia_kernel_module"
 
