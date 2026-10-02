@@ -36,7 +36,8 @@ probe outcomes retain the existing readiness retries and full-install fallback;
 ARM64, other OSes and non-VHD images retain their existing validation path.
 GPU eligibility and opt-out decisions still happen in `nodePrep`. The Ubuntu
 validation-only E2E scenarios explicitly deliver their checkout's CSE rather
-than using the tested VHD's baked-in scripts.
+than using the tested VHD's baked-in scripts. VMSS artifact validation follows
+the effective NBC delivery flags, not the run-wide scriptless default.
 
 `cse_cmd.sh` and the ANC parser provide their paths through
 `CSE_CONFIG_GPU_FILEPATH`, `CSE_CONFIG_LOCALDNS_FILEPATH`,
