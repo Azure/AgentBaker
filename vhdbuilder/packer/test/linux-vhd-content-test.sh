@@ -1329,7 +1329,9 @@ testUbuntuGPUCacheOnlyImage() {
       return 1
     fi
   done
-  if ! modules=$(find "${root}/lib/modules" \( -name 'nvidia.ko*' -o -name 'nvidia-*.ko*' -o -name 'nvidia_*.ko*' \) -print); then
+  # The stock kernel's WMI backlight module is not CUDA/GRID driver payload.
+  if ! modules=$(find "${root}/lib/modules" \( -name 'nvidia.ko*' -o -name 'nvidia-*.ko*' -o -name 'nvidia_*.ko*' \) \
+    ! -path '*/kernel/drivers/platform/x86/nvidia-wmi-ec-backlight.ko*' -print); then
     err "$test" "Cannot inspect host kernel modules"
     return 1
   fi
@@ -1364,7 +1366,9 @@ testUbuntuGPUCacheOnlyImage() {
       err "$test" "Cannot inspect initramfs $initrd"
       return 1
     fi
-    if grep -Eq '(^|/)nvidia([_-][^/]*)?\.ko(\.[^/]*)?$' <<< "$listing"; then
+    # Consume the filtered listing fully so pipefail cannot hide a match behind SIGPIPE.
+    if grep -Ev '(^|/)kernel/drivers/platform/x86/nvidia-wmi-ec-backlight\.ko(\.[^/]*)?$' <<< "$listing" |
+      grep -E '(^|/)nvidia([_-][^/]*)?\.ko(\.[^/]*)?$' >/dev/null; then
       err "$test" "Unexpected NVIDIA module in $initrd"
       return 1
     fi

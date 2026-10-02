@@ -30,9 +30,12 @@ images independently of host prebaking. Content validation checks the booted
 kernel's headers, installer cache, boot configuration and absence of NVIDIA
 registration, modules and known host artifacts, including dangling registration
 links and residue without a marker. The guard uses the shared-image identity,
-not the disabled feature flag. It fails publication rather than cleaning up a
-contaminated image. ARM64/Grace-Blackwell, FIPS, CVM and other OS images are outside
-this policy.
+not the disabled feature flag. It fails the build rather than cleaning up a
+contaminated image. Stock-kernel framebuffer and WMI backlight modules are not
+CUDA/GRID payload; the backlight exception applies only under
+`kernel/drivers/platform/x86`, on disk and in initramfs. Copies under DKMS paths
+and actual NVIDIA GPU modules remain failures. ARM64/Grace-Blackwell, FIPS, CVM
+and other OS images are outside this policy.
 
 Release the missing-driver validation fast fallback before broad image rollout
 where validation-only callers would otherwise spend 115 seconds retrying an

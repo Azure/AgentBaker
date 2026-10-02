@@ -118,6 +118,24 @@ options nouveau modeset=0"
       The output should include ":Finish"
     End
 
+    Describe 'stock backlight modules'
+      Parameters
+        nvidia-wmi-ec-backlight.ko
+        nvidia-wmi-ec-backlight.ko.gz
+        nvidia-wmi-ec-backlight.ko.xz
+        nvidia-wmi-ec-backlight.ko.zst
+      End
+      It "allows $1 in the stock kernel path on disk and in initramfs"
+        mkdir -p "$TEST_ROOT/lib/modules/$TEST_KERNEL/kernel/drivers/platform/x86"
+        touch "$TEST_ROOT/lib/modules/$TEST_KERNEL/kernel/drivers/platform/x86/$1"
+        INITRAMFS_CONTENTS="$INITRAMFS_CONTENTS
+usr/lib/modules/$TEST_KERNEL/kernel/drivers/platform/x86/$1"
+        When call testUbuntuGPUCacheOnlyImage "$TEST_ROOT"
+        The status should be success
+        The output should include ":Finish"
+      End
+    End
+
     Describe 'effective registrations'
       Parameters
         "nvidia/580.1, 6.8.0, x86_64: installed"
@@ -176,13 +194,35 @@ options nouveau modeset=0"
         nvidia.ko
         nvidia-modeset.ko.zst
         nvidia_uvm.ko.xz
+        updates/dkms/nvidia-wmi-ec-backlight.ko
+        kernel/drivers/platform/x86/nvidia.ko.zst
       End
       It "rejects $1"
+        mkdir -p "$(dirname "$TEST_ROOT/lib/modules/$TEST_KERNEL/$1")"
         touch "$TEST_ROOT/lib/modules/$TEST_KERNEL/$1"
         When call testUbuntuGPUCacheOnlyImage "$TEST_ROOT"
         The status should be failure
         The output should not include ":Finish"
         The stderr should include "Unexpected host NVIDIA modules"
+      End
+    End
+
+    Describe 'initramfs containing stock backlight and driver residue'
+      Parameters
+        nvidia.ko
+        nvidia.ko.gz
+        nvidia_uvm.ko.xz
+        nvidia-peermem.ko.zst
+        nvidia-wmi-ec-backlight.ko.zst
+      End
+      It "still rejects updates/dkms/$1"
+        INITRAMFS_CONTENTS="$INITRAMFS_CONTENTS
+usr/lib/modules/$TEST_KERNEL/kernel/drivers/platform/x86/nvidia-wmi-ec-backlight.ko.zst
+usr/lib/modules/$TEST_KERNEL/updates/dkms/$1"
+        When call testUbuntuGPUCacheOnlyImage "$TEST_ROOT"
+        The status should be failure
+        The output should not include ":Finish"
+        The stderr should include "Unexpected NVIDIA module"
       End
     End
 
@@ -193,6 +233,20 @@ options nouveau modeset=0"
         case "$1" in *another-kernel) echo "usr/lib/modules/old/updates/dkms/nvidia.ko.zst" ;; esac
       }
       When call testUbuntuGPUCacheOnlyImage "$TEST_ROOT"
+      The status should be failure
+      The output should not include ":Finish"
+      The stderr should include "Unexpected NVIDIA module"
+    End
+
+    It 'rejects driver residue before a large initramfs listing with pipefail enabled'
+      INITRAMFS_CONTENTS="$INITRAMFS_CONTENTS
+usr/lib/modules/$TEST_KERNEL/updates/dkms/nvidia.ko
+$(awk 'BEGIN { for (i = 0; i < 4096; i++) print "usr/lib/modules/kernel/other-module-" i ".ko" }')"
+      check_with_pipefail() {
+        set -o pipefail
+        testUbuntuGPUCacheOnlyImage "$TEST_ROOT"
+      }
+      When run check_with_pipefail
       The status should be failure
       The output should not include ":Finish"
       The stderr should include "Unexpected NVIDIA module"
