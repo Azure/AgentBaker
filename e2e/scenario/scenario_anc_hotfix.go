@@ -19,7 +19,9 @@ const (
 
 	// ancHotfixFlowTargetVersion is a real published ANC hotfix (git tag
 	// aks-node-controller/hotfix/v202608.21.1), so download-hotfix performs a real PMC
-	// download and a real package-manager install rather than hitting a synthetic artifact.
+	// download rather than hitting a synthetic artifact. The validators pin the run to the
+	// authenticated repository fast path, which extracts and stages the package itself, so
+	// no apt/dnf/tdnf installation is exercised here.
 	//
 	// The PR-built ANC is stamped to ancHotfixFlowBaseVersion so it shares the "202608.21"
 	// base and sits at a strictly lower patch, which is what makes the pointer applicable:
@@ -37,8 +39,8 @@ const (
 //
 // Writing the pointer keeps this scenario deterministic and leaves the LPS leg to the
 // aks-rp e2ev3 scenario that already covers it end to end (AKSNodeControllerCheckHotfix).
-// Everything downstream of the pointer - download, package install, staging, binary
-// selection and provisioning - still runs for real against the published hotfix.
+// Everything downstream of the pointer - download, extraction, staging, binary selection
+// and provisioning - still runs for real against the published hotfix.
 var _ = Register(newANCHotfixFlowScenario(
 	"Ubuntu2204_ANCHotfixFlow",
 	"Validates the real ANC hotfix download/stage/select flow on Ubuntu from a seeded hotfix pointer",
