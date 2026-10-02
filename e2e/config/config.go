@@ -53,6 +53,7 @@ type Configuration struct {
 	DefaultVMSKU                           string
 	Gen1SCSIVMSKU                          string
 	MANAVMSKU                              string
+	KataDirectVirtualizationVMSKU          string
 	DisableScriptless                      bool
 	DisableScriptLessCompilation           bool
 	E2ELoggingDir                          string

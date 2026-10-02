@@ -667,4 +667,8 @@ function ensure_sig_vhd_exists() {
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
+
+	# Apply to both newly created and existing Kata definitions before publishing a version.
+	source "$(dirname "${BASH_SOURCE[0]}")/kata-image-features.sh"
+	ensure_kata_image_features
 }

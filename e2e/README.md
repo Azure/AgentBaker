@@ -72,6 +72,43 @@ which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SK
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
 
+## Kata direct virtualization (L1VH)
+
+`AzureLinuxV3Gen2Kata` checks the selected image definition for
+`VirtualizationType=Direct` and `DirectVirtualizationSchedulerType=GuestManaged`,
+then exercises BusyBox under both `kata` and `kata-v2` RuntimeClasses on the usual
+node SKU. `AzureLinuxV3Gen2Kata_DirectVirtualization` repeats those checks on an
+explicitly configured direct-virtualization SKU. Both use the same Kata image selector.
+
+Enable the direct scenario with `KATA_DIRECT_VIRTUALIZATION_VM_SKU` (a queue-time or
+E2E variable-group variable) or `--kata-direct-virtualization-vm-sku`. There is no
+assumed SKU/region/quota: without this setting the direct scenario reports Skipped.
+With it configured, the test requires the Resource SKUs capability
+`SupportedVirtualizationTypes` to contain `DirectVirtualization`; a nested-only SKU
+or location restriction fails before cluster creation. No forced-L1VH VMSS tags are added.
+
+From `e2e/`, against a PR build:
+
+```bash
+go run . run AzureLinuxV3Gen2Kata AzureLinuxV3Gen2Kata_DirectVirtualization \
+  --kata-direct-virtualization-vm-sku '<available-official-L1VH-SKU>' \
+  --subscription-id '<test-subscription>' --location '<quota-enabled-region>' \
+  --sig-version-tag-name buildId --sig-version-tag-value '<PR-VHD-build-ID>' \
+  --ignore-missing-vhd=false --skip-capacity-errors=false --retries 0
+```
+
+The Linux VHD PR gate already supplies `--vhd-metadata-file` through
+`E2E_VHD_METADATA_FILE`, selecting the exact PR-built image versions. Missing/wrong
+features fail; the validators never tag/repair the image themselves. Keep capacity
+skipping disabled when qualifying L1VH. The test uses a managed OS disk and chooses
+SCSI/NVMe from the direct SKU's capabilities. The system pool keeps its ordinary SKU.
+
+AgentBaker creates the test VMSS through Compute and bootstraps it into the test AKS
+cluster; this verifies image/Compute/Kata behavior, not RP node-pool SKU validation.
+BusyBox isolation is checked by comparing host and guest kernels for both handlers.
+Scheduler metadata is checked, but actual host scheduler telemetry still requires
+Compute-side confirmation. The direct scenario skips preprovision-image recapture runs.
+
 ## Gallery replication
 
 When selecting a gallery image by version or tag, the runner adds the test region
