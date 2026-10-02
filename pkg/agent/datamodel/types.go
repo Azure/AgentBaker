@@ -307,23 +307,38 @@ const (
 )
 
 func (d Distro) IsVHDDistro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	return slices.Contains(AKSDistrosAvailableOnVHD, d)
 }
 
 func (d Distro) Is2204VHDDistro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	return slices.Contains(AvailableUbuntu2204Distros, d)
 }
 
 // This function will later be consumed by CSE to determine cgroupv2 usage.
 func (d Distro) Is2404VHDDistro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	return slices.Contains(AvailableUbuntu2404Distros, d)
 }
 
 func (d Distro) Is2604VHDDistro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	return slices.Contains(AvailableUbuntu2604Distros, d)
 }
 
 func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	return slices.Contains(AvailableAzureLinuxCgroupV2Distros, d)
 }
 
@@ -344,9 +359,15 @@ func (d Distro) IsAzureLinuxOSGuardDistro() bool {
 }
 
 func (d Distro) IsAzureLinuxV3Distro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	return slices.Contains(AvailableAzureLinuxV3Distros, d)
 }
 func (d Distro) IsUbuntuDistro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	return slices.Contains(AvailableUbuntuDistros, d)
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -331,6 +332,9 @@ var AvailableACLDistros = []Distro{
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
 func (d Distro) IsContainerdDistro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	for _, distro := range AvailableContainerdDistros {
 		if d == distro {
 			return true
@@ -340,6 +344,9 @@ func (d Distro) IsContainerdDistro() bool {
 }
 
 func (d Distro) IsGen2Distro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	for _, distro := range AvailableGen2Distros {
 		if d == distro {
 			return true
@@ -348,6 +355,9 @@ func (d Distro) IsGen2Distro() bool {
 	return false
 }
 func (d Distro) IsAzureLinuxDistro() bool {
+	if regionalDistro, ok := regionalDistroForEdgeZone(d); ok {
+		d = regionalDistro
+	}
 	for _, distro := range AvailableAzureLinuxDistros {
 		if d == distro {
 			return true
@@ -1048,67 +1058,145 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 }
 
 func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "2204containerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    ubuntu2204Gen2ContainerdImageDefinition,
-		Version:       LinuxSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd2404ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "2404containerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd2404Gen2ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "2404gen2containerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	return map[Distro]SigImageConfig{
-		AKSUbuntuEdgeZoneContainerd2204:     sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd2204Gen2: sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd2404:     sigUbuntuEdgeZoneContainerd2404ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd2404Gen2: sigUbuntuEdgeZoneContainerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
-	}
+	return deriveEdgeZoneImageConfigMap(
+		getSigUbuntuImageConfigMapWithOpts(opts...),
+		AKSUbuntuEdgeZoneGalleryName,
+		AKSUbuntuEdgeZoneResourceGroup,
+	)
 }
 
 func getSigAzureLinuxEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigAzureLinuxV3EdgeZoneImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxEdgeZoneResourceGroup,
-		Gallery:       AKSAzureLinuxEdgeZoneGalleryName,
-		Definition:    "V3",
-		Version:       LinuxSIGImageVersion,
+	return deriveEdgeZoneImageConfigMap(
+		getSigAzureLinuxImageConfigMapWithOpts(opts...),
+		AKSAzureLinuxEdgeZoneGalleryName,
+		AKSAzureLinuxEdgeZoneResourceGroup,
+	)
+}
+
+func deriveEdgeZoneImageConfigMap(
+	regionalConfigs map[Distro]SigImageConfig,
+	gallery string,
+	resourceGroup string,
+) map[Distro]SigImageConfig {
+	edgeZoneConfigs := make(map[Distro]SigImageConfig)
+	for regionalDistro, config := range regionalConfigs {
+		edgeZoneDistro, ok := edgeZoneDistroFromRegional(regionalDistro)
+		if !ok {
+			continue
+		}
+
+		config.Gallery = gallery
+		config.ResourceGroup = resourceGroup
+		edgeZoneConfigs[edgeZoneDistro] = config
+	}
+	return edgeZoneConfigs
+}
+
+// Edge Zone eligibility depends on regional distro naming conventions. When adding or renaming a
+// regional distro, keep this matcher and its table tests in sync; otherwise AgentBaker will not
+// generate an Edge Zone image configuration or its regional identity mapping.
+func edgeZoneDistroFromRegional(distro Distro) (Distro, bool) {
+	const (
+		ubuntuPrefix         = "aks-ubuntu-containerd-"
+		ubuntuEdgeZonePrefix = "aks-ubuntu-edgezone-containerd-"
+		azureLinuxPrefix     = "aks-azurelinux-v"
+	)
+
+	value := string(distro)
+	if suffix, ok := strings.CutPrefix(value, ubuntuPrefix); ok && isBaseUbuntuReleaseSuffix(suffix) {
+		return Distro(ubuntuEdgeZonePrefix + suffix), true
 	}
 
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigAzureLinuxV3EdgeZoneGen2ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxEdgeZoneResourceGroup,
-		Gallery:       AKSAzureLinuxEdgeZoneGalleryName,
-		Definition:    "V3gen2",
-		Version:       LinuxSIGImageVersion,
+	suffix, ok := strings.CutPrefix(value, azureLinuxPrefix)
+	if !ok {
+		return "", false
 	}
+	generationSuffix := ""
+	if strings.HasSuffix(suffix, "-gen2") {
+		suffix = strings.TrimSuffix(suffix, "-gen2")
+		generationSuffix = "-gen2"
+	}
+	majorVersion, err := strconv.Atoi(suffix)
+	if err != nil || majorVersion < 3 {
+		return "", false
+	}
+	return Distro(azureLinuxPrefix + suffix + "-edgezone" + generationSuffix), true
+}
 
-	return map[Distro]SigImageConfig{
-		AKSAzureLinuxV3EdgeZone:     sigAzureLinuxV3EdgeZoneImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV3EdgeZoneGen2: sigAzureLinuxV3EdgeZoneGen2ImageConfigTemplate.WithOptions(opts...),
+//nolint:gochecknoglobals
+var regionalDistroByEdgeZoneDistro = buildRegionalDistroByEdgeZoneDistro(
+	getSigUbuntuImageConfigMapWithOpts(),
+	getSigAzureLinuxImageConfigMapWithOpts(),
+)
+
+type sigImageIdentity struct {
+	osSKU      string
+	definition string
+}
+
+//nolint:gochecknoglobals
+var edgeZoneSIGImages = buildEdgeZoneSIGImages(map[string]map[Distro]SigImageConfig{
+	"Ubuntu":        getSigUbuntuEdgeZoneImageConfigMapWithOpts(),
+	OSSKUAzureLinux: getSigAzureLinuxEdgeZoneImageConfigMapWithOpts(),
+})
+
+func buildEdgeZoneSIGImages(configsByOSSKU map[string]map[Distro]SigImageConfig) map[sigImageIdentity]struct{} {
+	images := make(map[sigImageIdentity]struct{})
+	for osSKU, configs := range configsByOSSKU {
+		for _, config := range configs {
+			images[sigImageIdentity{
+				osSKU:      osSKU,
+				definition: config.Definition,
+			}] = struct{}{}
+		}
 	}
+	return images
+}
+
+// IsEdgeZoneSIGImage reports whether an OS SKU and image definition identify an image
+// generated in the Edge Zone SIG catalogs.
+func IsEdgeZoneSIGImage(osSKU, imageDefinitionName string) bool {
+	_, ok := edgeZoneSIGImages[sigImageIdentity{
+		osSKU:      osSKU,
+		definition: imageDefinitionName,
+	}]
+	return ok
+}
+
+func buildRegionalDistroByEdgeZoneDistro(
+	regionalConfigMaps ...map[Distro]SigImageConfig,
+) map[Distro]Distro {
+	regionalByEdgeZone := make(map[Distro]Distro)
+	for _, regionalConfigs := range regionalConfigMaps {
+		for regionalDistro := range regionalConfigs {
+			if edgeZoneDistro, ok := edgeZoneDistroFromRegional(regionalDistro); ok {
+				regionalByEdgeZone[edgeZoneDistro] = regionalDistro
+			}
+		}
+	}
+	return regionalByEdgeZone
+}
+
+func regionalDistroForEdgeZone(distro Distro) (Distro, bool) {
+	regionalDistro, ok := regionalDistroByEdgeZoneDistro[distro]
+	return regionalDistro, ok
+}
+
+func isBaseUbuntuReleaseSuffix(suffix string) bool {
+	release := strings.TrimSuffix(suffix, "-gen2")
+	if strings.Contains(release, "-") {
+		return false
+	}
+	parts := strings.Split(release, ".")
+	if len(parts) != 2 {
+		return false
+	}
+	for _, part := range parts {
+		if _, err := strconv.Atoi(part); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // GetSIGAzureCloudSpecConfig get cloud specific sig config.
