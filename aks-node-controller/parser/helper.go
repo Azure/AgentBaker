@@ -89,6 +89,7 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"isKubernetesVersionGe":            IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
+		"getContainerdConfigVersion":       func() int { return 3 },
 	}
 }
 
@@ -220,12 +221,31 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 		}
 	}
 
+	renderTemplate, err := _template.Clone()
+	if err != nil {
+		return "", fmt.Errorf("error cloning containerd config template: %w", err)
+	}
+	configVersion := getContainerdConfigVersion(containerdVersion)
+	renderTemplate = renderTemplate.Funcs(template.FuncMap{
+		"getContainerdConfigVersion": func() int { return configVersion },
+	})
+
 	var buffer bytes.Buffer
-	if err := _template.Execute(&buffer, aksnodeconfig); err != nil {
+	if err := renderTemplate.Execute(&buffer, aksnodeconfig); err != nil {
 		return "", fmt.Errorf("error executing containerd config template for AKSNodeConfig: %w", err)
 	}
 
 	return buffer.String(), nil
+}
+
+func getContainerdConfigVersion(containerdVersion string) int {
+	if IsKubernetesVersionGe(containerdVersion, "2.3.0") {
+		return 4
+	}
+	if IsKubernetesVersionGe(containerdVersion, "2.0.0") {
+		return 3
+	}
+	return 2
 }
 
 // detectContainerdVersion runs "containerd --version" and parses the version string.

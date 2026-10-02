@@ -740,6 +740,7 @@ func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
 	// Verify the v2 containerd config template was used (uses "io.containerd.cri.v1.images" path).
 	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(containerdConfig, "version = 4\n"), containerdConfig)
 	assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
 	assert.NotContains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
 }

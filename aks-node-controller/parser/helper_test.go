@@ -694,8 +694,8 @@ func Test_getContainerdConfigV2KataUsesNativePluginPaths(t *testing.T) {
 				t.Fatalf("decoding containerd config: %v", err)
 			}
 			rendered := string(decoded)
-			if !strings.HasPrefix(rendered, "version = 3\n") {
-				t.Fatalf("containerd v2 config does not use schema 3:\n%s", rendered)
+			if !strings.HasPrefix(rendered, "version = 4\n") {
+				t.Fatalf("containerd 2.3+ config does not use schema 4:\n%s", rendered)
 			}
 			if strings.Contains(rendered, `io.containerd.grpc.v1.cri`) {
 				t.Fatalf("containerd v2 config contains the legacy CRI plugin path:\n%s", rendered)
@@ -708,6 +708,29 @@ func Test_getContainerdConfigV2KataUsesNativePluginPaths(t *testing.T) {
 				if !strings.Contains(rendered, expected) {
 					t.Fatalf("containerd v2 config does not contain %q:\n%s", expected, rendered)
 				}
+			}
+		})
+	}
+}
+
+func TestGetContainerdConfigVersion(t *testing.T) {
+	tests := []struct {
+		name              string
+		containerdVersion string
+		want              int
+	}{
+		{name: "unknown version", containerdVersion: "", want: 2},
+		{name: "containerd 1", containerdVersion: "1.7.22", want: 2},
+		{name: "containerd 2.0", containerdVersion: "2.0.0", want: 3},
+		{name: "containerd 2.2", containerdVersion: "2.2.4", want: 3},
+		{name: "containerd 2.3", containerdVersion: "2.3.0", want: 4},
+		{name: "containerd 2.3 patch", containerdVersion: "2.3.4", want: 4},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getContainerdConfigVersion(tt.containerdVersion); got != tt.want {
+				t.Fatalf("getContainerdConfigVersion(%q) = %d, want %d", tt.containerdVersion, got, tt.want)
 			}
 		})
 	}
