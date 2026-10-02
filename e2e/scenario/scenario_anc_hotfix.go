@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -73,6 +76,14 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 			// The no-op NBC command validates hotfix execution, not node readiness.
 			SkipDefaultValidation: true,
 			Validator: func(ctx context.Context, s *Scenario) error {
+				// The boothook starts the launcher under nohup and SkipDefaultValidation
+				// removes the node-readiness wait, so SSH can come up while download-hotfix
+				// is still running. Every assertion below is a one-shot read, and the
+				// package-manager exclusion would pass vacuously against a half-written log,
+				// so gate them all on the launcher's terminal message first.
+				if err := waitForANCLauncherCompletion(ctx, s); err != nil {
+					return err
+				}
 				return errors.Join(
 					ValidateANCBakedBinaryVersion(ctx, s, ancHotfixFlowBaseVersion),
 					ValidateFileHasContent(ctx, s, ancHotfixPointerPath, fmt.Sprintf(`"%s":"%s"`, hotfixBaseVersion(ancHotfixFlowBaseVersion), ancHotfixFlowTargetVersion)),
@@ -97,6 +108,32 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 			},
 		},
 	}
+}
+
+// ancLauncherCompletionTimeout bounds the wait for the launcher to finish. The run includes a
+// real PMC download plus extraction and staging, so it is generous enough to absorb a slow
+// download while still failing the scenario rather than hanging it.
+const ancLauncherCompletionTimeout = 10 * time.Minute
+
+// waitForANCLauncherCompletion blocks until the launcher logs its terminal message, so the
+// one-shot assertions that follow read a settled log instead of racing provisioning.
+func waitForANCLauncherCompletion(ctx context.Context, s *Scenario) error {
+	const terminalMessage = "aks-node-controller completed successfully"
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, ancLauncherCompletionTimeout, true,
+		func(ctx context.Context) (bool, error) {
+			hasContent, err := fileHasContent(ctx, s, ancLauncherOutput, terminalMessage)
+			if err != nil {
+				// The file may not exist yet, and SSH can be flaky right after boot.
+				logging.Logf(ctx, "waiting for ANC launcher completion: %v", err)
+				return false, nil
+			}
+			return hasContent, nil
+		})
+	if err != nil {
+		return fmt.Errorf("timed out after %s waiting for %q in %s: %w",
+			ancLauncherCompletionTimeout, terminalMessage, ancLauncherOutput, err)
+	}
+	return nil
 }
 
 func hotfixBaseVersion(version string) string {
