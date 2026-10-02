@@ -30,8 +30,7 @@ matchRemoteSysext() {
         echo "v${desiredVer}-1-azlinux3-${seArch}"
         return 0
     fi
-    retrycmd_silent 120 5 20 oras repo tags --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "${seURL}" | grep -Ex "v${desiredVer//./\\.}[.~-].*-azlinux3-${seArch}" | sort -V | tail -n1
-    test ${PIPESTATUS[0]} -eq 0
+    getLatestDalecSysextTag "${seURL}" "${desiredVer}" "${seArch}"
 }
 
 mergeSysexts() {
@@ -45,8 +44,7 @@ mergeSysexts() {
         if ! test -f "${seMatch}"; then
             echo "Failed to find valid ${seName} system extension for ${desiredVer} locally"
 
-            seMatch=$(matchRemoteSysext "${seURL}" "${desiredVer}" "${seArch}")
-            if [ -z "${seMatch}" ]; then
+            if ! seMatch=$(matchRemoteSysext "${seURL}" "${desiredVer}" "${seArch}") || [ -z "${seMatch}" ]; then
                 echo "Failed to find valid ${seName} system extension for ${desiredVer} remotely"
                 return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
             fi
