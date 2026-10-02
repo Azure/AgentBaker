@@ -58,6 +58,11 @@ var _ = Describe("Edge Zone SIG image config derivation", func() {
 			actual, ok := edgeZoneDistroFromRegional(regional)
 			Expect(ok).To(Equal(eligible))
 			Expect(actual).To(Equal(expected))
+			if eligible {
+				roundTripped, reverseOK := regionalDistroForEdgeZone(actual)
+				Expect(reverseOK).To(BeTrue())
+				Expect(roundTripped).To(Equal(regional))
+			}
 		},
 		Entry("Ubuntu 22.04 Gen1", AKSUbuntuContainerd2204, AKSUbuntuEdgeZoneContainerd2204, true),
 		Entry("Ubuntu 24.04 Gen2", AKSUbuntuContainerd2404Gen2, AKSUbuntuEdgeZoneContainerd2404Gen2, true),
