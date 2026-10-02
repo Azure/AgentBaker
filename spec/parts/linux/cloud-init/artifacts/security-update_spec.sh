@@ -195,6 +195,49 @@ Describe 'security-update.sh'
         The output should not include 'apt_get_update_with_opts called'
     End
 
+    Describe 'rejects unsafe golden timestamps before apt changes'
+        Parameters
+            'extra line after timestamp' $'20260710T000000Z\ndeb http://invalid.example/ubuntu ./'
+            'extra line before timestamp' $'deb http://invalid.example/ubuntu ./\n20260710T000000Z'
+            'embedded newline' $'20260710T\n000000Z'
+            'carriage return' $'20260710T000000Z\r'
+            'CRLF followed by extra line' $'20260710T000000Z\r\ndeb http://invalid.example/ubuntu ./'
+            'extra prefix character' 'x20260710T000000Z'
+            'extra suffix character' '20260710T000000Zx'
+        End
+
+        It "does not create apt configuration for $1"
+            desired_payload="$(jq -nc --arg timestamp "$2" '{agentPools:{ap1:{goldenTimestamp:$timestamp}}}')"
+
+            When call updateSecurityPatch "${desired_payload}" "${TEST_NODE_JSON}"
+            The status should be failure
+            The output should include 'securityPatch goldenTimestamp is invalid:'
+            The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=GoldenTimestampInvalid|Error'
+            The path "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should not be exist
+            The path "${SECURITY_PATCH_CONFIG_DIR}/apt.conf" should not be exist
+            The output should not include 'apt_get_update_with_opts called'
+            The output should not include 'unattended-upgrade called'
+            The output should not include 'kubectl called'
+        End
+
+        It "preserves existing apt configuration for $1"
+            desired_payload="$(jq -nc --arg timestamp "$2" '{agentPools:{ap1:{goldenTimestamp:$timestamp}}}')"
+            mkdir -p "${SECURITY_PATCH_CONFIG_DIR}"
+            printf '%s\n' 'existing sources' > "${SECURITY_PATCH_CONFIG_DIR}/sources.list"
+            printf '%s\n' 'existing apt configuration' > "${SECURITY_PATCH_CONFIG_DIR}/apt.conf"
+
+            When call updateSecurityPatch "${desired_payload}" "${TEST_NODE_JSON}"
+            The status should be failure
+            The output should include 'securityPatch goldenTimestamp is invalid:'
+            The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=GoldenTimestampInvalid|Error'
+            The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should equal 'existing sources'
+            The contents of file "${SECURITY_PATCH_CONFIG_DIR}/apt.conf" should equal 'existing apt configuration'
+            The output should not include 'apt_get_update_with_opts called'
+            The output should not include 'unattended-upgrade called'
+            The output should not include 'kubectl called'
+        End
+    End
+
     It 'returns failure when apt metadata refresh fails'
         TEST_APT_UPDATE_STATUS=1
         export TEST_APT_UPDATE_STATUS
