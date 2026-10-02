@@ -8,6 +8,7 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Masterminds/semver/v3"
 
+	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -155,6 +156,15 @@ func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*data
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
 	nbc.AgentPoolProfile.Distro = vhd.Distro
+	if vhd.Distro == datamodel.AKSAzureLinuxV3Gen2Kata {
+		containerdVersions := components.GetExpectedPackageVersions("containerd", "azurelinuxkata", "v3.0")
+		if len(containerdVersions) != 1 || containerdVersions[0] == "" || containerdVersions[0] == "<SKIP>" {
+			return nil, fmt.Errorf("expected one pinned Azure Linux 3 Kata containerd version, got %v", containerdVersions)
+		}
+		nbc.ContainerdVersion = containerdVersions[0]
+		nbc.AgentPoolProfile.KubernetesConfig.ContainerdVersion = containerdVersions[0]
+		nbc.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig.ContainerdVersion = containerdVersions[0]
+	}
 	return nbc, nil
 }
 
@@ -293,6 +303,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
+			ContainerdVersion:         nbc.ContainerdVersion,
 		},
 		OutboundCommand:  `curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/`,
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),

@@ -68,7 +68,7 @@ func TestContainerdV2TemplatesUseNativeKataPluginPaths(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			config := string(test.template)
-			require.True(t, strings.HasPrefix(config, "version = 3\n"))
+			require.True(t, strings.HasPrefix(config, "version = {{GetContainerdConfigSchema}}\n"))
 			require.NotContains(t, config, `io.containerd.grpc.v1.cri`)
 			require.Contains(t, config, "disable_snapshot_annotations = false")
 			for _, handler := range test.handlers {

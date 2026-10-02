@@ -1,4 +1,4 @@
-version = {{getContainerdConfigVersion}}
+version = {{getContainerdConfigSchema}}
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 {{- if .GetIsKata }}

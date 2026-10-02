@@ -497,7 +497,7 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, "1.7.22"); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -713,24 +713,36 @@ func Test_getContainerdConfigV2KataUsesNativePluginPaths(t *testing.T) {
 	}
 }
 
-func TestGetContainerdConfigVersion(t *testing.T) {
+func TestContainerdConfigSchema(t *testing.T) {
 	tests := []struct {
-		name              string
-		containerdVersion string
-		want              int
+		name    string
+		version string
+		want    int
+		wantErr string
 	}{
-		{name: "unknown version", containerdVersion: "", want: 2},
-		{name: "containerd 1", containerdVersion: "1.7.22", want: 2},
-		{name: "containerd 2.0", containerdVersion: "2.0.0", want: 3},
-		{name: "containerd 2.2", containerdVersion: "2.2.4", want: 3},
-		{name: "containerd 2.3", containerdVersion: "2.3.0", want: 4},
-		{name: "containerd 2.3 patch", containerdVersion: "2.3.4", want: 4},
+		{name: "containerd 1", version: "1.7.22", want: 2},
+		{name: "containerd 2.0", version: "2.0.0", want: 3},
+		{name: "containerd 2.2", version: "2.2.4", want: 3},
+		{name: "containerd 2.3", version: "2.3.0", want: 4},
+		{name: "containerd 2.3 patch", version: "2.3.4", want: 4},
+		{name: "missing version", wantErr: `unsupported or missing containerd version ""`},
+		{name: "invalid version", version: "latest", wantErr: `unsupported or missing containerd version "latest"`},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfigVersion(tt.containerdVersion); got != tt.want {
-				t.Fatalf("getContainerdConfigVersion(%q) = %d, want %d", tt.containerdVersion, got, tt.want)
+			got, err := containerdConfigSchema(tt.version)
+			if tt.wantErr != "" {
+				if err == nil || err.Error() != tt.wantErr {
+					t.Fatalf("containerdConfigSchema(%q) error = %v, want %q", tt.version, err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("containerdConfigSchema(%q) returned error: %v", tt.version, err)
+			}
+			if got != tt.want {
+				t.Fatalf("containerdConfigSchema(%q) = %d, want %d", tt.version, got, tt.want)
 			}
 		})
 	}

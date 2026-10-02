@@ -55,6 +55,10 @@ func TestWs2022ServerCore(t *testing.T) {
 	require.Len(t, serverCoreVersions, 3)
 }
 
+func TestAzureLinuxKataContainerdPinned(t *testing.T) {
+	require.Equal(t, []string{"2.3.4"}, GetExpectedPackageVersions("containerd", "azurelinuxkata", "v3.0"))
+}
+
 func TestWs2022Nanoserver(t *testing.T) {
 	serverCoreVersions, err := GetWindowsContainerImages("mcr.microsoft.com/windows/nanoserver:*", "2022-containerd")
 	require.NoError(t, err)

@@ -123,11 +123,10 @@ func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) error {
 // ValidateKataContainerdConfigDump asserts that containerd itself accepted the rendered
 // configuration and actually loaded the Kata runtime handlers.
 //
-// Checking the file alone is not enough. Kata VHDs ship their own containerd build - CSE skips
-// installing one (see the "azurelinuxkata" entries in parts/common/components.json) - so the
-// installed binary is the authority for the native config schema. This validator pins the
-// property we actually care about: after containerd has parsed the normalized config, the Kata
-// handlers are present in the effective configuration and containerd raised no warnings.
+// Checking the file alone is not enough. Azure Linux Kata pins containerd in components.json,
+// but the installed binary remains the authority for the native config schema. This validator
+// pins the property we actually care about: after containerd has parsed the normalized config,
+// the Kata handlers are present in the effective configuration and containerd raised no warnings.
 func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 	// This must run on the node itself, not in a debug pod. The "debugnonhost" daemonset pods
 	// used by execOnVMForScenarioOnUnprivilegedPod run a bare CBL-Mariner base image with no
