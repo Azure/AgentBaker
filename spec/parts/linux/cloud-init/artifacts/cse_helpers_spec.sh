@@ -218,6 +218,95 @@ Describe 'cse_helpers.sh'
         End
     End
 
+    Describe 'getKataCPUProfileHashFromFile'
+        It 'returns a stable versioned hash for normalized x86 CPU information'
+            uname() {
+                echo "x86_64"
+            }
+            When call getKataCPUProfileHashFromFile "spec/parts/linux/cloud-init/artifacts/cpuinfo_mocks/intel.txt"
+            The output should equal '4f7db482579c4ada26fc9efe80d2b6848e711170'
+            The status should be success
+        End
+
+        It 'is independent of CPU flag order, duplicates, and unrelated fields'
+            uname() {
+                echo "x86_64"
+            }
+            When call getKataCPUProfileHashFromFile "spec/parts/linux/cloud-init/artifacts/cpuinfo_mocks/intel_reordered.txt"
+            The output should equal '4f7db482579c4ada26fc9efe80d2b6848e711170'
+            The status should be success
+        End
+
+        It 'returns a different hash when a compatibility field changes'
+            uname() {
+                echo "x86_64"
+            }
+            When call getKataCPUProfileHashFromFile "spec/parts/linux/cloud-init/artifacts/cpuinfo_mocks/intel_different_model.txt"
+            The output should equal '8081ddbb4dadbff2431d07c973714ff1f6a48c36'
+            The status should be success
+        End
+
+        It 'fails when required CPU identity fields are missing'
+            uname() {
+                echo "x86_64"
+            }
+            When call getKataCPUProfileHashFromFile "spec/parts/linux/cloud-init/artifacts/cpuinfo_mocks/incomplete.txt"
+            The stderr should include 'CPU information is incomplete or differs across processors for Kata CPU profile v1'
+            The status should be failure
+        End
+
+        It 'fails when logical processors expose different feature sets'
+            uname() {
+                echo "x86_64"
+            }
+            When call getKataCPUProfileHashFromFile "spec/parts/linux/cloud-init/artifacts/cpuinfo_mocks/mixed_processors.txt"
+            The stderr should include 'CPU information is incomplete or differs across processors for Kata CPU profile v1'
+            The status should be failure
+        End
+
+        It 'fails when a logical processor omits a required field'
+            uname() {
+                echo "x86_64"
+            }
+            When call getKataCPUProfileHashFromFile "spec/parts/linux/cloud-init/artifacts/cpuinfo_mocks/missing_processor_field.txt"
+            The stderr should include 'CPU information is incomplete or differs across processors for Kata CPU profile v1'
+            The status should be failure
+        End
+
+        It 'fails for architectures outside the v1 profile'
+            uname() {
+                echo "aarch64"
+            }
+            When call getKataCPUProfileHashFromFile "spec/parts/linux/cloud-init/artifacts/cpuinfo_mocks/intel.txt"
+            The stderr should include 'Kata CPU profile v1 does not support architecture aarch64'
+            The status should be failure
+        End
+    End
+
+    Describe 'addKataCPUProfileNodeLabel'
+        It 'adds the versioned CPU profile label to kubelet labels'
+            getKataCPUProfileHash() {
+                echo "4f7db482579c4ada26fc9efe80d2b6848e711170"
+            }
+            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0"
+            When call addKataCPUProfileNodeLabel
+            The stdout should include 'adding label kubernetes.azure.com/kata-cpu-profile-v1=4f7db482579c4ada26fc9efe80d2b6848e711170 to kubelet node labels'
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kata-cpu-profile-v1=4f7db482579c4ada26fc9efe80d2b6848e711170'
+            The status should be success
+        End
+
+        It 'replaces an existing CPU profile label by key'
+            getKataCPUProfileHash() {
+                echo "4f7db482579c4ada26fc9efe80d2b6848e711170"
+            }
+            KUBELET_NODE_LABELS="kubernetes.azure.com/kata-cpu-profile-v1=old,kubernetes.azure.com/agentpool=wp0"
+            When call addKataCPUProfileNodeLabel
+            The stdout should include 'adding label kubernetes.azure.com/kata-cpu-profile-v1=4f7db482579c4ada26fc9efe80d2b6848e711170 to kubelet node labels'
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kata-cpu-profile-v1=4f7db482579c4ada26fc9efe80d2b6848e711170'
+            The status should be success
+        End
+    End
+
     Describe 'removeKubeletNodeLabel'
         It 'should remove the specified label when it exists within kubelet node labels'
             KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
