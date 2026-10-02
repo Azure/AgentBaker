@@ -23,6 +23,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -34,6 +35,8 @@ import (
 
 const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
+
+	inProgressReportIntervalSeconds = 180
 )
 
 type scriptHotfixFixtureNodeCustomData struct {
@@ -339,6 +342,55 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
+func customDataWithInProgressReporter(customData string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	if err != nil {
+		return "", fmt.Errorf("decode custom data for in-progress reporter: %w", err)
+	}
+
+	reporterBlock, err := inProgressReporterBlock()
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(append(decoded, []byte(reporterBlock)...)), nil
+}
+
+func inProgressReporterBlock() (string, error) {
+	src, err := parts.Templates.ReadFile("linux/cloud-init/artifacts/report_ready.py")
+	if err != nil {
+		return "", fmt.Errorf("read report_ready.py: %w", err)
+	}
+
+	var compressed bytes.Buffer
+	zw := gzip.NewWriter(&compressed)
+	if _, err := zw.Write(src); err != nil {
+		return "", fmt.Errorf("compress report_ready.py: %w", err)
+	}
+	if err := zw.Close(); err != nil {
+		return "", fmt.Errorf("finalize compressed report_ready.py: %w", err)
+	}
+
+	return fmt.Sprintf(`
+
+mkdir -p /opt/azure/containers /var/lib/waagent /var/log/azure
+cat <<'REPORTREADY' | base64 -d | gunzip > /opt/azure/containers/report_ready.py
+%s
+REPORTREADY
+chmod 0744 /opt/azure/containers/report_ready.py
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+if [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi
+
+setsid nohup python3 /opt/azure/containers/report_ready.py -v --in-progress \
+    --interval %d >> /var/log/azure/report-ready.log 2>&1 &
+`, base64.StdEncoding.EncodeToString(compressed.Bytes()), inProgressReportIntervalSeconds), nil
+}
+
 func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachineScaleSet, error) {
 	if s == nil || s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Name == nil || s.Runtime.Cluster.Model.Properties == nil ||
@@ -442,6 +494,14 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		if !strings.Contains(string(result), "/opt/azure/containers/scriptless-cse-overrides.txt") {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("custom data contains other script content, but scriptless CSE CMD is enabled")
 		}
+	}
+
+	if s.Config.UseCustomDataOnlyProvisioning {
+		customData, err = customDataWithInProgressReporter(customData)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, err
+		}
+		cse = ""
 	}
 
 	// These two links are really for local development

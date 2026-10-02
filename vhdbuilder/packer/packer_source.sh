@@ -275,6 +275,10 @@ copyPackerFiles() {
   CSE_SEND_DEST=/opt/azure/containers/provision_send_logs.py
   cpAndMode $CSE_SEND_SRC $CSE_SEND_DEST 0744
 
+  REPORT_READY_SRC=/home/packer/report_ready.py
+  REPORT_READY_DEST=/opt/azure/containers/report_ready.py
+  cpAndMode $REPORT_READY_SRC $REPORT_READY_DEST 0744
+
   FETCH_PROVISION_CONFIG_SRC=/home/packer/fetch_provision_config.py
   FETCH_PROVISION_CONFIG_DEST=/opt/azure/containers/fetch_provision_config.py
   cpAndMode $FETCH_PROVISION_CONFIG_SRC $FETCH_PROVISION_CONFIG_DEST 0744

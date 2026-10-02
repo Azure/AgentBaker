@@ -509,8 +509,9 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 		Name:        "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC",
 		Description: "Tests Ubuntu 22.04 ANC bootstrapping with custom sysctls, containerd ulimits, and node taints, plus chrony restarts and the expected containerd version",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:                       ClusterKubenet,
+			VHD:                           config.VHDUbuntu2204Gen2Containerd,
+			UseCustomDataOnlyProvisioning: true,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = registerWithTaints
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
