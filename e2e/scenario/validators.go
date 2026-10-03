@@ -630,6 +630,24 @@ func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) erro
 	return err
 }
 
+// ValidateNvidiaDriverVersion asserts nvidia-smi reports exactly the expected
+// driver version. Pass the datamodel version the bootstrapper selected for the
+// SKU (e.g. datamodel.NvidiaGridDriverVersion) so a stale or wrongly selected
+// driver fails, without hard-coding a release branch in the scenario.
+func ValidateNvidiaDriverVersion(ctx context.Context, s *Scenario, expected string) error {
+	if expected == "" {
+		return errors.New("expected NVIDIA driver version is empty; check GPUContainerImages in components.json")
+	}
+	command := []string{
+		"set -ex",
+		"driver_version=$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1 | tr -d '[:space:]')",
+		"echo \"nvidia driver_version=$driver_version\"",
+		fmt.Sprintf("if [ \"$driver_version\" != %q ]; then echo \"expected NVIDIA driver %s, got '$driver_version'\"; exit 1; fi", expected, expected),
+	}
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, fmt.Sprintf("expected NVIDIA driver version %s", expected))
+	return err
+}
+
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) error {
 	command := []string{
 		"set -ex",

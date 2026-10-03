@@ -1498,6 +1498,7 @@ var _ = Register(&Scenario{
 			return errors.Join(
 				ValidateNvidiaModProbeInstalled(ctx, s),
 				ValidateNvidiaGRIDLicenseValid(ctx, s),
+				ValidateNvidiaDriverVersion(ctx, s, datamodel.NvidiaGridDriverVersion),
 				ValidateKubeletHasNotStopped(ctx, s),
 				ValidateServicesDoNotRestartKubelet(ctx, s),
 				ValidateNvidiaPersistencedRunning(ctx, s),
@@ -3003,6 +3004,7 @@ func ubuntu2404GRIDScenario(name, vmSize string) *Scenario {
 					// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 					ValidateNvidiaModProbeInstalled(ctx, s),
 					ValidateNvidiaGRIDLicenseValid(ctx, s),
+					ValidateNvidiaDriverVersion(ctx, s, datamodel.NvidiaGridDriverVersion),
 					ValidateKubeletHasNotStopped(ctx, s),
 					ValidateServicesDoNotRestartKubelet(ctx, s),
 					ValidateNvidiaPersistencedRunning(ctx, s),
