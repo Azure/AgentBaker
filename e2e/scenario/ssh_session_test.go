@@ -39,7 +39,7 @@ func TestSSHSessionCapacityErrors(t *testing.T) {
 		{"authentication", errors.New("ssh: handshake failed: unable to authenticate"), false},
 		{"untyped rejection", errors.New("ssh: rejected: resource shortage (full)"), false},
 		{"SCP resource shortage", errors.New("Error creating ssh session in copy to remote: ssh: rejected: resource shortage (full)"), true},
-		{"SCP OpenSSH session limit", errors.New("Error creating ssh session in copy to remote: ssh: rejected: connect failed (open failed)"), true},
+		{"SCP OpenSSH session limit", fmt.Errorf("Error creating ssh session in copy to remote: %v", &ssh.OpenChannelError{Reason: ssh.ConnectionFailed, Message: "open failed"}), true},
 		{"SCP permission denied", errors.New("Error creating ssh session in copy to remote: ssh: rejected: administratively prohibited (open failed)"), false},
 		{"SCP transport closed", errors.New("Error creating ssh session in copy to remote: EOF"), false},
 		{"SCP transfer failure", errors.New("file transfer failed: ssh: rejected: resource shortage (full)"), false},
@@ -116,18 +116,19 @@ func TestRetrySSHSessionOpenCancellation(t *testing.T) {
 		ctx, cancel := context.WithCancel(logging.WithLogger(t.Context(), logger))
 		defer cancel()
 		attempts := 0
+		rejection := &ssh.OpenChannelError{Reason: ssh.ResourceShortage, Message: "full"}
 		done := make(chan error, 1)
 		go func() {
 			done <- retrySSHSessionOpen(ctx, func() error {
 				attempts++
-				return &ssh.OpenChannelError{Reason: ssh.ResourceShortage, Message: "full"}
+				return rejection
 			})
 		}()
 		synctest.Wait()
 		cancel()
 		err := <-done
 		require.ErrorIs(t, err, context.Canceled)
-		assert.ErrorContains(t, err, "last rejection: ssh: rejected: resource shortage (full)")
+		assert.ErrorContains(t, err, "last rejection: "+rejection.Error())
 		assert.Equal(t, 1, attempts)
 		require.Len(t, logger.logs, 2)
 		assert.Contains(t, logger.logs[1], "SSH session open stopped after 1 attempts in ")

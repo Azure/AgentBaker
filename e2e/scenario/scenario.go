@@ -413,7 +413,7 @@ var _ = Register(&Scenario{
 //
 // The scenario asserts three increasingly strong properties:
 //  1. the rendered /etc/containerd/config.toml contains the Kata runtime handlers and EROFS preamble,
-//  2. containerd actually parsed and loaded them (no warnings, handlers in `config dump`),
+//  2. containerd actually parsed and loaded them (no unexpected warnings, handlers in `config dump`),
 //  3. for every handler in kataRuntimeHandlers, a pod scheduled via a Kata RuntimeClass runs
 //     and is genuinely VM-isolated.
 var _ = Register(&Scenario{
