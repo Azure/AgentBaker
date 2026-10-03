@@ -372,6 +372,10 @@ func GetCloudTargetEnv(location string) string {
 
 // IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
 func IsKubernetesVersionGe(actualVersion, version string) bool {
+	return isVersionGreaterThanOrEqualTo(actualVersion, version)
+}
+
+func isVersionGreaterThanOrEqualTo(actualVersion, version string) bool {
 	v1, err := semver.NewVersion(actualVersion)
 	if err != nil {
 		return false

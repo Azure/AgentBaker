@@ -89,6 +89,7 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"isKubernetesVersionGe":            IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
+		"getContainerdConfigSchema":        func() int { return 3 },
 	}
 }
 
@@ -204,11 +205,16 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
+	schema, err := containerdConfigSchema(containerdVersion)
+	if err != nil {
+		return "", err
+	}
+
 	// Select the appropriate containerd config template based on version and GPU presence.
 	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
 	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
 	var _template *template.Template
-	if isContainerdV2(containerdVersion) {
+	if schema >= 3 {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
@@ -220,34 +226,71 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 		}
 	}
 
+	renderTemplate, err := _template.Clone()
+	if err != nil {
+		return "", fmt.Errorf("error cloning containerd config template: %w", err)
+	}
+	renderTemplate = renderTemplate.Funcs(template.FuncMap{
+		"getContainerdConfigSchema": func() int { return schema },
+	})
+
 	var buffer bytes.Buffer
-	if err := _template.Execute(&buffer, aksnodeconfig); err != nil {
+	if err := renderTemplate.Execute(&buffer, aksnodeconfig); err != nil {
 		return "", fmt.Errorf("error executing containerd config template for AKSNodeConfig: %w", err)
 	}
 
 	return buffer.String(), nil
 }
 
+func containerdConfigSchema(version string) (int, error) {
+	switch {
+	case isVersionGreaterThanOrEqualTo(version, "2.3.0"):
+		return 4, nil
+	case isVersionGreaterThanOrEqualTo(version, "2.0.0"):
+		return 3, nil
+	case isVersionGreaterThanOrEqualTo(version, "1.0.0"):
+		return 2, nil
+	default:
+		return 0, fmt.Errorf("unsupported or missing containerd version %q", version)
+	}
+}
+
 // detectContainerdVersion runs "containerd --version" and parses the version string.
 // The expected output format is: "containerd <source> <version> <commit>"
 // e.g. "containerd containerd.io 1.7.22 c814c75..." or "containerd github.com/containerd/containerd/v2 v2.0.0 ..."
-// Returns the semver version without the leading "v" prefix, or empty string if detection fails.
+// Returns the semver version without the leading "v" prefix.
 func detectContainerdVersion(ctx context.Context) (string, error) {
 	out, err := exec.CommandContext(ctx, "containerd", "--version").Output()
 	if err != nil {
 		return "", fmt.Errorf("running containerd --version: %w", err)
 	}
-	return parseContainerdVersionOutput(string(out)), nil
+	version := parseContainerdVersionOutput(string(out))
+	if version == "" {
+		return "", fmt.Errorf("parsing containerd version output %q", strings.TrimSpace(string(out)))
+	}
+	return version, nil
 }
 
-// isContainerdV2 returns true if the containerd version string indicates a 2.x release.
-// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images and
-// io.containerd.cri.v1.runtime) compared to 1.x (io.containerd.grpc.v1.cri).
-func isContainerdV2(version string) bool {
-	if version == "" {
-		return false
+func resolveContainerdConfigVersion(ctx context.Context, config *aksnodeconfigv1.Configuration) (string, error) {
+	configuredVersion := strings.TrimSpace(config.GetContainerdConfig().GetContainerdVersion())
+	if configuredVersion != "" {
+		if _, err := containerdConfigSchema(configuredVersion); err != nil {
+			return "", fmt.Errorf("configured containerd version: %w", err)
+		}
+		return configuredVersion, nil
 	}
-	return IsKubernetesVersionGe(version, "2.0.0")
+	if config.GetIsKata() {
+		return "", fmt.Errorf("containerd version is required for Kata")
+	}
+
+	detectedVersion, err := detectContainerdVersion(ctx)
+	if err != nil {
+		return "1.0.0", nil
+	}
+	if _, err := containerdConfigSchema(detectedVersion); err != nil {
+		return "", fmt.Errorf("detected containerd version: %w", err)
+	}
+	return detectedVersion, nil
 }
 
 func getIsMIGNode(gpuInstanceProfile string, migProfileLayout []string) bool {
@@ -1034,6 +1077,10 @@ func getRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 
 // IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
 func IsKubernetesVersionGe(actualVersion, version string) bool {
+	return isVersionGreaterThanOrEqualTo(actualVersion, version)
+}
+
+func isVersionGreaterThanOrEqualTo(actualVersion, version string) bool {
 	v1, err := semver.NewVersion(actualVersion)
 	if err != nil {
 		return false

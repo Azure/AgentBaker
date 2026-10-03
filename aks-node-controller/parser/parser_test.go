@@ -740,8 +740,44 @@ func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
 	// Verify the v2 containerd config template was used (uses "io.containerd.cri.v1.images" path).
 	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(containerdConfig, "version = 4\n"), containerdConfig)
 	assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
 	assert.NotContains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
+}
+
+func TestBuildCSECmd_ConfiguredContainerdVersionTakesPrecedence(t *testing.T) {
+	tmpDir := t.TempDir()
+	fakeBin := tmpDir + "/containerd"
+	require.NoError(t, os.WriteFile(fakeBin, []byte("#!/bin/sh\necho 'containerd containerd.io 1.7.22 abcdef'\n"), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	config := &aksnodeconfigv1.Configuration{
+		IsKata: true,
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+			ContainerdVersion: "2.3.4",
+		},
+	}
+
+	cmd, err := BuildCSECmd(context.TODO(), config, nil)
+	require.NoError(t, err)
+	vars := environToMap(cmd.Env)
+	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(containerdConfig, "version = 4\n"), containerdConfig)
+	assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]`)
+}
+
+func TestBuildCSECmd_KataRejectsMissingContainerdVersion(t *testing.T) {
+	tmpDir := t.TempDir()
+	fakeBin := tmpDir + "/containerd"
+	require.NoError(t, os.WriteFile(fakeBin, []byte("#!/bin/sh\necho 'containerd github.com/containerd/containerd/v2 2.3.4 abcdef'\n"), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	_, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+		IsKata:           true,
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
+	}, nil)
+	require.ErrorContains(t, err, "containerd version is required for Kata")
 }
 
 func TestBuildCSECmd_FallsBackToV1WhenContainerdDetectionFails(t *testing.T) {
