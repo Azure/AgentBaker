@@ -20,6 +20,15 @@ const (
 	ancLogPath           = "/var/log/azure/aks-node-controller.log"
 	ancLauncherOutput    = "/var/log/azure/aks-node-controller.output"
 
+	// provisionCompletePath and ancNBCCmdMarker cover the provision status the no-op NBC
+	// command has to publish on its own: it bypasses cse_start.sh, which is what normally
+	// writes both artifacts, and the CSE's provision-wait blocks until provision.complete
+	// appears. The marker goes in provision.json's Output field so the validator can tell
+	// our status apart from one written by any other path. (provisionJSONPath already
+	// exists in cse_timing.go.)
+	provisionCompletePath = "/opt/azure/containers/provision.complete"
+	ancNBCCmdMarker       = "anc-hotfix-flow-nbc-executed"
+
 	// ancHotfixFlowTargetVersion is a real published ANC hotfix (git tag
 	// aks-node-controller/hotfix/v202608.21.1), so download-hotfix performs a real PMC
 	// download rather than hitting a synthetic artifact. The validators pin the run to the
@@ -104,6 +113,12 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "Using hotfix binary"),
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "aks-node-controller completed successfully"),
 					ValidateANCHotfixBinaryVersion(ctx, s, ancHotfixFlowTargetVersion),
+					// The no-op NBC command publishes the provision status itself, since it
+					// bypasses cse_start.sh which normally writes both artifacts. Without them
+					// the CSE's provision-wait never unblocks. Assert the marker rather than
+					// mere existence so a status written by some other path cannot satisfy this.
+					ValidateFileHasContent(ctx, s, provisionJSONPath, ancNBCCmdMarker),
+					ValidateFileExists(ctx, s, provisionCompletePath),
 				)
 			},
 		},

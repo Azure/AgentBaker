@@ -3,6 +3,9 @@ package scenario
 import (
 	"encoding/base64"
 	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -80,6 +83,46 @@ func TestCustomDataWithANCHotfixFlowFixture(t *testing.T) {
 	}
 	if !strings.Contains(rendered[fixtureNBCCmd:], "echo \"ok\"") {
 		t.Error("fixture NBC command must contain the successful no-op command")
+	}
+
+	scriptStart := strings.Index(rendered[fixtureNBCCmd:], "\n") + fixtureNBCCmd + 1
+	scriptEnd := strings.Index(rendered[scriptStart:], "\nEOF")
+	if scriptEnd < 0 {
+		t.Fatal("fixture NBC script heredoc is not terminated")
+	}
+	script := rendered[scriptStart : scriptStart+scriptEnd]
+	statusWrite := strings.Index(script, ">/var/log/azure/aks/provision.json")
+	completeWrite := strings.Index(script, "touch /opt/azure/containers/provision.complete")
+	if statusWrite < 0 || completeWrite <= statusWrite {
+		t.Fatal("fixture must write provision.json before creating provision.complete")
+	}
+
+	dir := t.TempDir()
+	statusDir := filepath.Join(dir, "status")
+	completePath := filepath.Join(dir, "provision.complete")
+	script = strings.ReplaceAll(script, "/var/log/azure/aks", statusDir)
+	script = strings.ReplaceAll(script, "/opt/azure/containers/provision.complete", completePath)
+	output, err := exec.Command("bash", "-c", script).CombinedOutput()
+	if err != nil {
+		t.Fatalf("fixture NBC script failed: %v\n%s", err, output)
+	}
+	raw, err := os.ReadFile(filepath.Join(statusDir, "provision.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var status struct {
+		ExitCode string
+		Error    string
+		Output   string
+	}
+	if err := json.Unmarshal(raw, &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.ExitCode != "0" || status.Error != "" || status.Output != "anc-hotfix-flow-nbc-executed" {
+		t.Fatalf("unexpected provision status: %+v", status)
+	}
+	if _, err := os.Stat(completePath); err != nil {
+		t.Fatal(err)
 	}
 }
 

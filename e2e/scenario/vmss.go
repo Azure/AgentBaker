@@ -398,7 +398,12 @@ curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[4]q -o %[5]s
 chmod +x %[5]s
 
 cat >%[6]s <<'EOF'
+set -eu
 echo "ok"
+mkdir -p %[7]s
+echo '{"ExitCode":"0","Error":"","Output":"%[9]s"}' >%[7]s/provision.json
+touch %[8]s
+echo "%[9]s"
 EOF
 chmod 0600 %[6]s`,
 		ancHotfixPointerPath,
@@ -407,6 +412,9 @@ chmod 0600 %[6]s`,
 		binaryURL,
 		ancBakedBinaryPath,
 		ancNBCCmdPath,
+		filepath.Dir(provisionJSONPath),
+		provisionCompletePath,
+		ancNBCCmdMarker,
 	)
 
 	rendered := string(decoded)
