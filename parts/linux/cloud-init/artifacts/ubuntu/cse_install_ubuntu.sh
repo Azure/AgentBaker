@@ -95,6 +95,15 @@ installUbuntu2604MinimalBuildDeps() {
     aptGetBatchInstallPackagesWithFallback "${pkg_list[@]}"
 }
 
+# Shared by VHD production and content validation; independent of the prebake feature flag.
+isUbuntuGPUCacheOnlyImage() {
+    local version="$1" arch="$2" sku="$3" fips="$4"
+    case "${version}:${arch}:${sku}:${fips,,}" in
+        22.04:amd64:22_04-lts-gen2:false|24.04:amd64:server:false) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 installDeps() {
     wait_for_apt_locks
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT

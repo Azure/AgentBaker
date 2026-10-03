@@ -1303,6 +1303,95 @@ testVHDBuildLogsExist() {
   echo "$test:Finish"
 }
 
+testUbuntuGPUCacheOnlyImage() {
+  [ "$OS_SKU" = "Ubuntu" ] || return 0
+  isUbuntuGPUCacheOnlyImage "$OS_VERSION" "$(getCPUArch)" "$IMG_SKU" "$ENABLE_FIPS" || return 0
+  local test="testUbuntuGPUCacheOnlyImage" root="${1:-}"
+  local status path modules initrd listing package kernel image cached
+  echo "$test:Start"
+
+  if ! status=$(dkms status); then
+    err "$test" "Cannot inspect DKMS registration"
+    return 1
+  fi
+  if grep -Eq '^[[:space:]]*nvidia([/,[:space:]-]|$)' <<< "$status"; then
+    err "$test" "Shared image contains NVIDIA DKMS registration: $status"
+    return 1
+  fi
+  # Include dangling links and residue with a missing marker; do not silently sanitize the image.
+  for path in "${root}"/var/lib/dkms/nvidia* "${root}"/usr/src/nvidia* \
+    "${root}"/usr/bin/nvidia* "${root}"/usr/sbin/nvidia* "${root}"/usr/bin/lib64 \
+    "${root}"/usr/lib/x86_64-linux-gnu/libnvidia* "${root}"/usr/lib/x86_64-linux-gnu/libcuda.so* \
+    "${root}"/etc/ld.so.conf.d/nvidia.conf "${root}"/opt/azure/aks-gpu/dkms-marker \
+    "${root}"/sys/module/nvidia; do
+    if [ -e "$path" ] || [ -L "$path" ]; then
+      err "$test" "Unexpected host NVIDIA artifact: $path"
+      return 1
+    fi
+  done
+  # The stock kernel's WMI backlight module is not CUDA/GRID driver payload.
+  if ! modules=$(find "${root}/lib/modules" \( -name 'nvidia.ko*' -o -name 'nvidia-*.ko*' -o -name 'nvidia_*.ko*' \) \
+    ! -path '*/kernel/drivers/platform/x86/nvidia-wmi-ec-backlight.ko*' -print); then
+    err "$test" "Cannot inspect host kernel modules"
+    return 1
+  fi
+  if [ -n "$modules" ]; then
+    err "$test" "Unexpected host NVIDIA modules: $modules"
+    return 1
+  fi
+
+  for package in gcc make libc6-dev dkms initramfs-tools; do
+    if ! status=$(dpkg-query -W -f='${Status}' "$package") || [ "$status" != "install ok installed" ]; then
+      err "$test" "Missing GPU installation prerequisite: $package"
+      return 1
+    fi
+  done
+  kernel=$(uname -r)
+  if [ ! -f "${root}/lib/modules/${kernel}/build/Makefile" ]; then
+    err "$test" "Missing usable headers for booted kernel $kernel"
+    return 1
+  fi
+  path="${root}/etc/modprobe.d/blacklist-nouveau.conf"
+  if ! grep -Eq '^[[:space:]]*blacklist[[:space:]]+nouveau([[:space:]]|$)' "$path" ||
+    ! grep -Eq '^[[:space:]]*options[[:space:]]+nouveau[[:space:]]+modeset=0([[:space:]]|$)' "$path"; then
+    err "$test" "Missing nouveau boot configuration"
+    return 1
+  fi
+  if [ ! -f "${root}/boot/initrd.img-${kernel}" ]; then
+    err "$test" "Missing initramfs for booted kernel $kernel"
+    return 1
+  fi
+  for initrd in "${root}"/boot/initrd.img-*; do
+    if ! listing=$(lsinitramfs "$initrd"); then
+      err "$test" "Cannot inspect initramfs $initrd"
+      return 1
+    fi
+    # Consume the filtered listing fully so pipefail cannot hide a match behind SIGPIPE.
+    if grep -Ev '(^|/)kernel/drivers/platform/x86/nvidia-wmi-ec-backlight\.ko(\.[^/]*)?$' <<< "$listing" |
+      grep -E '(^|/)nvidia([_-][^/]*)?\.ko(\.[^/]*)?$' >/dev/null; then
+      err "$test" "Unexpected NVIDIA module in $initrd"
+      return 1
+    fi
+    if ! grep -Eq '(^|/)etc/modprobe.d/blacklist-nouveau.conf$' <<< "$listing"; then
+      err "$test" "Missing nouveau boot configuration in $initrd"
+      return 1
+    fi
+  done
+  if ! image=$(jq -er '
+    [.GPUContainerImages[] | select(.downloadURL == "mcr.microsoft.com/aks/aks-gpu-cuda-lts:*") | .gpuVersion.latestVersion]
+    | if length == 1 and (.[0] | type == "string" and length > 0)
+      then "mcr.microsoft.com/aks/aks-gpu-cuda-lts:" + .[0]
+      else error("expected one CUDA-LTS image version") end' "$COMPONENTS_FILEPATH"); then
+    err "$test" "Cannot resolve cached GPU installer reference"
+    return 1
+  fi
+  if ! cached=$(ctr -n k8s.io images ls -q "name==$image") || [ "$cached" != "$image" ]; then
+    err "$test" "Missing cached GPU installer: $image"
+    return 1
+  fi
+  echo "$test:Finish"
+}
+
 testAzureLinuxNvidiaGPUDriverReleaseNotes() {
   local test="testAzureLinuxNvidiaGPUDriverReleaseNotes"
   local enable_fips="${ENABLE_FIPS,,}"
@@ -2802,6 +2891,7 @@ testVHDBuildLogsExist
 testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
+testUbuntuGPUCacheOnlyImage ""
 testFuseInstalled
 if [ "$OS_SKU" = "Ubuntu" ]; then
   testBlobfuse2 "$(getPackageExpectedVersion "blobfuse2")"
