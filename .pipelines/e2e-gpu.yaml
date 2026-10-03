@@ -4,7 +4,7 @@ variables:
   TAGS_TO_SKIP: "os=windows,os=azurelinux,os=azurecontainerlinux"
   SKIP_E2E_TESTS: false
   # Test-only branch: pin both producer images and consumer script delivery.
-  VHD_BUILD_ID: "183958924"
+  VHD_BUILD_ID: "183969331"
   DISABLE_SCRIPTLESS: true
   SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: false
   E2E_GO_TEST_TIMEOUT: "75m"
