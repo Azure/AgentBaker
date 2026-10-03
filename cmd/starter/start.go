@@ -16,6 +16,7 @@ import (
 func Execute(configurators ...apiserver.OptionConfigurator) {
 	rootCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
+	startCmd.Flags().StringVar(&options.PProfAddr, "pprof-addr", "", "optional separate addr to serve Go runtime profiles on")
 
 	for _, configurator := range configurators {
 		configurator(options)
