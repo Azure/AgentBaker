@@ -956,6 +956,89 @@ EOF
     End
 End
 
+Describe 'GPU artifact manifest'
+    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
+    setup_gpu_artifact_manifest() {
+        GPU_ARTIFACT_TEST_DIR="${SHELLSPEC_WORKDIR}/gpu-artifact-manifest"
+        mkdir -p "${GPU_ARTIFACT_TEST_DIR}"
+        GPU_DKMS_MARKER_FILE="${GPU_ARTIFACT_TEST_DIR}/dkms-marker"
+        GPU_ARTIFACT_MANIFEST_FILE="${GPU_ARTIFACT_TEST_DIR}/artifact-manifest-v1"
+        OS="UBUNTU"
+        OS_VERSION="24.04"
+        printf 'kernel=6.8.0-1030-azure\ndriver_version=580.159.04\ndriver_kind=cuda\narch=x86_64\n' > "${GPU_DKMS_MARKER_FILE}"
+    }
+
+    cleanup_gpu_artifact_manifest() {
+        rm -rf "${GPU_ARTIFACT_TEST_DIR}"
+    }
+
+    BeforeEach 'setup_gpu_artifact_manifest'
+    AfterEach 'cleanup_gpu_artifact_manifest'
+
+    uname() { echo "x86_64"; }
+
+    It 'writes the complete CUDA-LTS provenance contract'
+        When call writeGPUDriverArtifactManifest "mcr.microsoft.com/aks/aks-gpu-cuda-lts:580.159.04-build" "sha256:abc123"
+        The status should be success
+        The contents of file "${GPU_ARTIFACT_MANIFEST_FILE}" should include "schema_version=1
+recipe_version=aks-gpu-cuda-lts-kernel-artifact-v1
+complete=true"
+        The contents of file "${GPU_ARTIFACT_MANIFEST_FILE}" should include "os_id=UBUNTU
+os_version=24.04"
+        The contents of file "${GPU_ARTIFACT_MANIFEST_FILE}" should include "driver_family=nvidia"
+        The contents of file "${GPU_ARTIFACT_MANIFEST_FILE}" should include "source_identity=mcr.microsoft.com/aks/aks-gpu-cuda-lts:580.159.04-build
+source_digest=sha256:abc123"
+    End
+
+    It 'requires the aks-gpu marker'
+        rm -f "${GPU_DKMS_MARKER_FILE}"
+        When call writeGPUDriverArtifactManifest "image:tag" "sha256:abc123"
+        The status should be failure
+        The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
+    End
+
+    It 'rejects a partial write in a conditional and preserves the existing manifest'
+        printf 'existing manifest\n' > "${GPU_ARTIFACT_MANIFEST_FILE}"
+        write_manifest_with_partial_write_failure() {
+            set -e
+            cat() {
+                printf 'schema_version=1\n'
+                return 1
+            }
+            local ret=0
+            if ! writeGPUDriverArtifactManifest "image:tag" "sha256:abc123"; then
+                ret=1
+            fi
+            unset -f cat
+            find "${GPU_ARTIFACT_TEST_DIR}" -name 'artifact-manifest-v1.tmp.*' -print
+            return "${ret}"
+        }
+
+        When run write_manifest_with_partial_write_failure
+
+        The status should be failure
+        The output should equal ""
+        The contents of file "${GPU_ARTIFACT_MANIFEST_FILE}" should equal "existing manifest"
+    End
+
+    It 'removes the temporary manifest when the atomic rename fails'
+        mv() { return 1; }
+        write_manifest_with_failed_move() {
+            writeGPUDriverArtifactManifest "image:tag" "sha256:abc123"
+            ret=$?
+            find "${GPU_ARTIFACT_TEST_DIR}" -name 'artifact-manifest-v1.tmp.*' -print
+            return "${ret}"
+        }
+
+        When call write_manifest_with_failed_move
+
+        The status should be failure
+        The output should equal ""
+        The path "${GPU_ARTIFACT_MANIFEST_FILE}" should not be exist
+    End
+End
+
 Describe 'GPU driver image reference resolution'
     # Both references are computed when cse_helpers.sh is sourced, so each case re-sources the
     # script in a clean child shell with the environment the RP would supply.
