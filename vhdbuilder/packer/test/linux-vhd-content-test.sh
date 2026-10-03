@@ -1539,7 +1539,7 @@ testNfsServerService() {
 # To add a new CVE mitigation, append the module to BOTH loops below — the
 # absence loop AND the default presence + load-refusal loop.
 #
-# AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream, so only the
+# Regular AzureLinux 3.0 is descoped: kernel 6.6.139.1-1.azl3+ fixes the CVEs upstream, so only the
 # algif_aead/esp4/esp6/rxrpc lines are stripped from newly-built AzL3 VHDs (customer workloads
 # require those modules); the rest of the CIS module denylist (dccp/sctp/rds/tipc/cramfs/etc.)
 # is still baked in and asserted below. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu
@@ -1549,7 +1549,7 @@ testNfsServerService() {
 # 5.4 kernels at ABI 1164 or newer also assert ABSENCE. Other Ubuntu 20.04 and vulnerable
 # 22.04/24.04 kernels assert presence + load-refusal; fixed 22.04/24.04 kernels and
 # future Ubuntu releases assert ABSENCE so future releases do not inherit the mitigation.
-# Mariner/AzureLinux 2.0 and AzureLinux OSGuard still assert presence + load-refusal.
+# Mariner/AzureLinux 2.0, AzureLinux Kata and OSGuard still assert presence + load-refusal.
 kernelVersionGe() {
   local version_a="$1"
   local version_b="$2"
@@ -1606,7 +1606,7 @@ testVulnerableKernelModulesDisabled() {
 
   local failed=0
 
-  if { [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ]; } || \
+  if { [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "3.0" ] && ! grep -q "kata" <<< "${FEATURE_FLAGS:-}"; } || \
      { [ "$os_sku" = "Ubuntu" ] && ubuntuKernelIncludesVulnerableModuleFixes "$os_version"; }; then
     for mod in algif_aead esp4 esp6 rxrpc; do
       if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then

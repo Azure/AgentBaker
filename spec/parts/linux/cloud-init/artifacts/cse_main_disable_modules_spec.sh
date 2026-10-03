@@ -17,6 +17,7 @@ load_kernel_mitigation_helpers() {
     eval "$(sed -n '/^semverCompare()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
     eval "$(sed -n '/^isACL()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
     eval "$(sed -n '/^isMarinerOrAzureLinux()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
+    eval "$(sed -n '/^isAzureLinux()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
     eval "$(sed -n '/^isAzureLinuxOSGuard()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
     eval "$(sed -n '/^isUbuntu()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
     eval "$(sed -n '/^ubuntuKernelNeedsVulnerableModuleMitigation()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
@@ -354,14 +355,16 @@ End
 # kernels, Mariner/AzureLinux 2.0 (AzL2), AzureLinux OSGuard (defense-in-depth —
 # hardened secure-boot variant intentionally retains the mitigation). Remove stale deny rules on
 # fixed Ubuntu 20.04 Azure FIPS 5.4, fixed Ubuntu 22.04 / 24.04 kernels and future Ubuntu releases. Skip on AzureLinux
-# 3.0 regular/Kata (kernel 6.6.139.1-1.azl3+ has the upstream fix and customers reported
+# 3.0 regular (kernel 6.6.139.1-1.azl3+ has the upstream fix and customers reported
 # the blacklist actively blocks legitimate workloads), ACL, Flatcar.
+# AzureLinux Kata retains the mitigation because it uses a separate kernel stream.
 # See https://github.com/Azure/AKS/issues/5753.
 Describe 'CVE kernel module mitigation OS gate'
     setup() {
         OS=""
         OS_VERSION=""
         OS_VARIANT=""
+        IS_KATA="false"
         UBUNTU_RELEASE=""
         KERNEL_RELEASE=""
         GATE_ACTIONS=""
@@ -543,10 +546,27 @@ Describe 'CVE kernel module mitigation OS gate'
         The output should not include "APPLY"
     End
 
-    It 'skips on AzureLinux 3.0 Kata (same kernel as AzL3 regular)'
+    It 'applies all four mitigations on AzureLinux 3.0 Kata using the real os-release identity'
+        OS="${AZURELINUX_OS_NAME}"
+        OS_VERSION="3.0"
+        IS_KATA="true"
+        When call gate
+        The output should equal "APPLY:algif_aead APPLY:esp4 APPLY:esp6 APPLY:rxrpc "
+    End
+
+    It 'applies all four mitigations on the AzureLinux Kata OS alias'
         OS="${AZURELINUX_KATA_OS_NAME}"
         OS_VERSION="3.0"
         OS_VARIANT=""
+        When call gate
+        The output should equal "APPLY:algif_aead APPLY:esp4 APPLY:esp6 APPLY:rxrpc "
+    End
+
+    It 'does not enable the mitigation on ACL just because IS_KATA is true'
+        OS="${AZURELINUX_OS_NAME}"
+        OS_VERSION="3.0"
+        OS_VARIANT="${ACL_OS_VARIANT}"
+        IS_KATA="true"
         When call gate
         The output should include "SKIP"
         The output should not include "APPLY"
