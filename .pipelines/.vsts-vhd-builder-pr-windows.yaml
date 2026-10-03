@@ -64,6 +64,7 @@ variables:
 stages:
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
+      checkWindowsImpact: True
       vhddebug: False
       skipExtensionCheck: true
       dryrun: False
@@ -80,8 +81,8 @@ stages:
       build2025gen2tl: True
 
   - stage: delete_old_windows_vhds
-    dependsOn: [ ]
-    condition: always()
+    dependsOn: WindowsImpact
+    condition: and(always(), ne(dependencies.WindowsImpact.outputs['Detect.detect.skipWindowsVhd'], 'true'))
     jobs:
       - job: build
         timeoutInMinutes: 180

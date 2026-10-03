@@ -47,6 +47,9 @@ parameters:
     displayName: Run cleanup job
     type: boolean
     default: false
+  - name: checkWindowsImpact
+    type: boolean
+    default: false
   - name: cseFileName
     displayName: CSE Package File Name
     type: string
@@ -55,8 +58,25 @@ parameters:
     type: string
     default: $(Build.ArtifactStagingDirectory)/packages
 stages:
+  - ${{ if eq(parameters.checkWindowsImpact, true) }}:
+    - stage: WindowsImpact
+      displayName: Check Windows component impact
+      jobs:
+        - job: Detect
+          steps:
+            - checkout: self
+              fetchDepth: 2
+              fetchTags: false
+              persistCredentials: false
+            - bash: python3 .pipelines/scripts/windows_vhd_impact.py
+              name: detect
+              displayName: Detect Windows VHD impact
+
   - stage: Package
     displayName: "Package Windows CSE"
+    ${{ if eq(parameters.checkWindowsImpact, true) }}:
+      dependsOn: WindowsImpact
+      condition: and(succeeded(), ne(dependencies.WindowsImpact.outputs['Detect.detect.skipWindowsVhd'], 'true'))
     jobs:
     - job: PackageWindowsCSE
       steps:
@@ -193,8 +213,12 @@ stages:
       cseFileName: ${{ parameters.cseFileName }}
 
   - stage: delete_outdated_resources
-    dependsOn: [ ]
-    condition: always()
+    ${{ if eq(parameters.checkWindowsImpact, true) }}:
+      dependsOn: WindowsImpact
+      condition: and(always(), ne(dependencies.WindowsImpact.outputs['Detect.detect.skipWindowsVhd'], 'true'))
+    ${{ else }}:
+      dependsOn: [ ]
+      condition: always()
     jobs:
       - job: build
         timeoutInMinutes: 180
