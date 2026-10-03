@@ -2891,7 +2891,7 @@ testVHDBuildLogsExist
 testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
-testUbuntuGPUCacheOnlyImage
+testUbuntuGPUCacheOnlyImage ""
 testFuseInstalled
 if [ "$OS_SKU" = "Ubuntu" ]; then
   testBlobfuse2 "$(getPackageExpectedVersion "blobfuse2")"

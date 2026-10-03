@@ -1198,7 +1198,7 @@ ctr namespace create k8s.io
 # Running them after the container-image cache and/or concurrently with the BCC build fills the disk
 # (worse on 24.04), failing at the nvidia.ko link or the driver lib copy with "No space left on device".
 cacheGPUContainerImageComponents
-configureCachedGPUDriverPrerequisites
+configureCachedGPUDriverPrerequisites ""
 buildNVIDIAKernelModule
 capture_benchmark "${SCRIPT_NAME}_caching_gpu_container_images_and_build_nvidia_kernel_module"
 
