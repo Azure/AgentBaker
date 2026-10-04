@@ -415,6 +415,9 @@ EOF
             COMPUTE_DOMAIN_OVERRIDE_DIR="/etc/systemd/system/compute-domain-kubelet-plugin.service.d"
             mkdir -p "${COMPUTE_DOMAIN_OVERRIDE_DIR}"
 
+            # NVIDIA_VISIBLE_DEVICES=void: this plugin orchestrates IMEX/ComputeDomain and is not a GPU
+            # consumer (the per-domain daemon is), so it claims no GPUs. Overrides the deb unit's
+            # NVIDIA_VISIBLE_DEVICES=all; matches the controller in the microsoft.managedcomputedomain chart.
             tee "${COMPUTE_DOMAIN_OVERRIDE_DIR}/10-compute-domain-kubelet-plugin.conf" > /dev/null <<EOF
 [Unit]
 Requires=kubelet.service
