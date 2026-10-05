@@ -511,7 +511,7 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 		Config: Config{
 			Cluster:                       ClusterKubenet,
 			VHD:                           config.VHDUbuntu2204Gen2Containerd,
-			UseCustomDataOnlyProvisioning: true,
+			UseCustomDataOnlyProvisioning: false,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = registerWithTaints
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{

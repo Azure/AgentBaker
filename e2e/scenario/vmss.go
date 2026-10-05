@@ -33,11 +33,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
-
-	inProgressReportIntervalSeconds = 180
-)
+const loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 
 type scriptHotfixFixtureNodeCustomData struct {
 	WriteFiles []scriptHotfixFixtureWriteFile `yaml:"write_files"`
@@ -342,13 +338,13 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
-func customDataWithInProgressReporter(customData string) (string, error) {
+func customDataWithReadyReporter(customData string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(customData)
 	if err != nil {
-		return "", fmt.Errorf("decode custom data for in-progress reporter: %w", err)
+		return "", fmt.Errorf("decode custom data for ready reporter: %w", err)
 	}
 
-	reporterBlock, err := inProgressReporterBlock()
+	reporterBlock, err := readyReporterBlock()
 	if err != nil {
 		return "", err
 	}
@@ -356,7 +352,7 @@ func customDataWithInProgressReporter(customData string) (string, error) {
 	return base64.StdEncoding.EncodeToString(append(decoded, []byte(reporterBlock)...)), nil
 }
 
-func inProgressReporterBlock() (string, error) {
+func readyReporterBlock() (string, error) {
 	src, err := parts.Templates.ReadFile("linux/cloud-init/artifacts/report_ready.py")
 	if err != nil {
 		return "", fmt.Errorf("read report_ready.py: %w", err)
@@ -373,7 +369,7 @@ func inProgressReporterBlock() (string, error) {
 
 	return fmt.Sprintf(`
 
-mkdir -p /opt/azure/containers /var/lib/waagent /var/log/azure
+mkdir -p /opt/azure/containers /var/lib/waagent
 cat <<'REPORTREADY' | base64 -d | gunzip > /opt/azure/containers/report_ready.py
 %s
 REPORTREADY
@@ -385,10 +381,7 @@ if [ -s /sys/class/dmi/id/product_uuid ]; then
     cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
     chmod 0644 /var/lib/waagent/provisioned
 fi
-
-setsid nohup python3 /opt/azure/containers/report_ready.py -v --in-progress \
-    --interval %d >> /var/log/azure/report-ready.log 2>&1 &
-`, base64.StdEncoding.EncodeToString(compressed.Bytes()), inProgressReportIntervalSeconds), nil
+`, base64.StdEncoding.EncodeToString(compressed.Bytes())), nil
 }
 
 func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachineScaleSet, error) {
@@ -497,7 +490,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 	}
 
 	if s.Config.UseCustomDataOnlyProvisioning {
-		customData, err = customDataWithInProgressReporter(customData)
+		customData, err = customDataWithReadyReporter(customData)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, err
 		}

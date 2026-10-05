@@ -8,12 +8,10 @@ node provisioning.
 
 Protocol overview:
   * Ready/failure reports use the legacy GoalState health-report endpoint.
-  * In-progress reports POST JSON to /provisioning/health.
 
 Usage:
   report_ready.py [--endpoint ENDPOINT] [--retries N] [--retry-delay SECS]
   report_ready.py --failure --description "CSE failed with exit code 42"
-  report_ready.py --in-progress --interval 60
 
 The wireserver endpoint defaults to 168.63.129.16.
 """
@@ -22,7 +20,6 @@ import argparse
 import csv
 import fcntl
 import io
-import json
 import logging
 import os
 import struct
@@ -40,7 +37,6 @@ LOG = logging.getLogger("report_ready")
 DEFAULT_WIRESERVER_ENDPOINT = "168.63.129.16"
 DEFAULT_RETRIES = 3
 DEFAULT_RETRY_DELAY = 5
-DEFAULT_PROGRESS_INTERVAL = 60
 DESCRIPTION_TRIM_LEN = 512
 
 WIRESERVER_HEADERS = {
@@ -86,11 +82,6 @@ KVP_RECORD_SIZE = KVP_KEY_SIZE + KVP_VALUE_SIZE
 KVP_AZURE_MAX_VALUE_SIZE = 1024
 KVP_PROVISIONING_KEY = "PROVISIONING_REPORT"
 AGENT_NAME = "AKS-CSE"
-
-PROVISIONING_HEALTH_HEADERS = {
-    "User-Agent": AGENT_NAME,
-    "x-ms-guest-agent-name": AGENT_NAME,
-}
 
 # When this file exists, cloud-init has handed ready reporting to this script.
 REPORT_MARKER = "/var/lib/waagent/experimental_skip_ready_report"
@@ -289,21 +280,6 @@ def build_health_report(
     ).encode("utf-8")
 
 
-def build_provisioning_health_report(
-    state: str,
-    substatus: str = None,
-    description: str = None,
-) -> bytes:
-    """Build a JSON report for the provisioning-health endpoint."""
-    report = {"state": state}
-    if substatus is not None:
-        report["details"] = {
-            "subStatus": substatus,
-            "description": (description or "")[:DESCRIPTION_TRIM_LEN],
-        }
-    return json.dumps(report, separators=(",", ":")).encode("utf-8")
-
-
 def _reporting_enabled(operation: str) -> bool:
     """Return whether this script owns provisioning status reporting."""
     if os.path.exists(REPORT_MARKER):
@@ -367,58 +343,6 @@ def _send_report(
     ) from last_err
 
 
-def _send_provisioning_health_report(
-    endpoint: str,
-    state: str,
-    substatus: str = None,
-    description: str = None,
-    retries: int = DEFAULT_RETRIES,
-    retry_delay: float = DEFAULT_RETRY_DELAY,
-) -> None:
-    """Send a JSON report to the provisioning-health endpoint."""
-    document = build_provisioning_health_report(
-        state=state,
-        substatus=substatus,
-        description=description,
-    )
-    last_err = None
-    for attempt in range(1, retries + 1):
-        try:
-            LOG.info(
-                "Sending %s/%s provisioning-health report to %s "
-                "(attempt %d/%d)",
-                state,
-                substatus,
-                endpoint,
-                attempt,
-                retries,
-            )
-            http_post(
-                endpoint,
-                "/provisioning/health",
-                document,
-                headers=PROVISIONING_HEALTH_HEADERS,
-                content_type="application/json",
-            )
-            LOG.info(
-                "Successfully reported %s/%s to Azure fabric.",
-                state,
-                substatus,
-            )
-            return
-        except (HTTPException, OSError, RuntimeError) as exc:
-            last_err = exc
-            LOG.warning(
-                "Attempt %d/%d failed: %s", attempt, retries, exc
-            )
-            if attempt < retries:
-                time.sleep(retry_delay)
-
-    raise RuntimeError(
-        f"Failed to report {state}/{substatus} after {retries} attempts"
-    ) from last_err
-
-
 def report_ready(
     endpoint: str = DEFAULT_WIRESERVER_ENDPOINT,
     retries: int = DEFAULT_RETRIES,
@@ -477,44 +401,6 @@ def report_failure(
     )
 
 
-def report_in_progress(
-    endpoint: str = DEFAULT_WIRESERVER_ENDPOINT,
-    retries: int = DEFAULT_RETRIES,
-    retry_delay: float = DEFAULT_RETRY_DELAY,
-) -> None:
-    """Report that provisioning is still running."""
-    if not _reporting_enabled("report_in_progress"):
-        return
-    vm_id = _get_vm_id()
-    _send_provisioning_health_report(
-        endpoint=endpoint,
-        state="NotReady",
-        substatus="Provisioning",
-        description=f"AKS CSE provisioning is still in progress for vm_id={vm_id}.",
-        retries=retries,
-        retry_delay=retry_delay,
-    )
-
-
-def report_in_progress_forever(
-    endpoint: str = DEFAULT_WIRESERVER_ENDPOINT,
-    retries: int = DEFAULT_RETRIES,
-    retry_delay: float = DEFAULT_RETRY_DELAY,
-    interval: float = DEFAULT_PROGRESS_INTERVAL,
-) -> None:
-    """Send in-progress reports periodically until the process is terminated."""
-    while True:
-        try:
-            report_in_progress(
-                endpoint=endpoint,
-                retries=retries,
-                retry_delay=retry_delay,
-            )
-        except RuntimeError as exc:
-            LOG.warning("Failed to send in-progress report: %s", exc)
-        time.sleep(interval)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Report provisioning status to Azure wireserver."
@@ -544,26 +430,11 @@ def main() -> int:
         "--failure", action="store_true",
         help="Report provisioning failure instead of success",
     )
-    report_type.add_argument(
-        "--in-progress", action="store_true",
-        help="Periodically report that provisioning is still running",
-    )
     parser.add_argument(
         "--description", type=str, default="",
         help="Failure description (used with --failure)",
     )
-    parser.add_argument(
-        "--interval",
-        type=float,
-        default=DEFAULT_PROGRESS_INTERVAL,
-        help=(
-            "Seconds between in-progress reports "
-            f"(default: {DEFAULT_PROGRESS_INTERVAL})"
-        ),
-    )
     args = parser.parse_args()
-    if args.interval <= 0:
-        parser.error("--interval must be greater than zero")
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -571,16 +442,7 @@ def main() -> int:
     )
 
     try:
-        if args.in_progress:
-            if not _reporting_enabled("report_in_progress"):
-                return 0
-            report_in_progress_forever(
-                endpoint=args.endpoint,
-                retries=args.retries,
-                retry_delay=args.retry_delay,
-                interval=args.interval,
-            )
-        elif args.failure:
+        if args.failure:
             report_failure(
                 description=args.description,
                 endpoint=args.endpoint,

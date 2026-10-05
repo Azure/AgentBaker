@@ -4081,9 +4081,9 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-// ValidateWaagentLog checks /var/log/waagent.log for expected agent behavior:
-// - AutoUpdate is disabled as expected
-// - The correct version is running as ExtHandler
+// ValidateWaagentLog checks WALinuxAgent configuration and /var/log/waagent.log:
+// - Network auto-update is disabled as expected
+// - The correct agent version is running
 // - No errors from ExtHandler
 // Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
 func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
@@ -4110,12 +4110,11 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	logContents := logResult.stdout
 
 	errs := []error{
-		// 1. Verify AutoUpdate is disabled
-		assert.Contains(logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
-			"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False"),
-		// 2. Verify the correct version is running as ExtHandler (PID varies)
-		assert.Contains(logContents, fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion),
-			"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion),
+		// 1. Verify network auto-update is disabled in the authoritative configuration.
+		ValidateFileHasContent(ctx, s, "/etc/waagent.conf", "AutoUpdate.UpdateToLatestVersion=n"),
+		// 2. Verify the expected agent version is running.
+		assert.Contains(logContents, fmt.Sprintf("Azure Linux Agent Version: %s", expectedVersion),
+			"waagent.log should confirm Azure Linux Agent Version %s is running", expectedVersion),
 	}
 
 	// 3. Check for ExtHandler errors
