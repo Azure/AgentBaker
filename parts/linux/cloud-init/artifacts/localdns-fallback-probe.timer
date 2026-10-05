@@ -1,0 +1,14 @@
+[Unit]
+Description=Periodically probe LocalDNS pod listener (169.254.10.11)
+ConditionKernelVersion=>=5.15
+
+[Timer]
+# Start probing shortly after boot, then every 5s. The fallback trigger uses a
+# consecutive-failure debounce (see localdns-fallback-probe.sh), so the effective
+# switch-over latency is roughly FAIL_THRESHOLD x this interval (~15s by default).
+OnBootSec=30s
+OnUnitActiveSec=5s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Probe LocalDNS pod listener (169.254.10.11) and start fallback if it stays dark
+ConditionKernelVersion=>=5.15
+# Do not probe while localdns is mid-(re)start; only meaningful once boot is up.
+After=localdns.service
+
+[Service]
+Type=oneshot
+# COREDNS_SERVICE_IP is not needed here (the probe only checks .11 liveness),
+# but reading the env file keeps the unit consistent and cheap.
+EnvironmentFile=-/etc/localdns/environment
+ExecStart=/opt/azure/containers/localdns/localdns-fallback-probe.sh
+Slice=localdns.slice
