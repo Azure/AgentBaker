@@ -934,9 +934,13 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 }
 
 // CreateSIGImageVersionFromDisk creates a new SIG image version directly from a VM disk
-func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version string, diskResourceID string) (*config.Image, error) {
+func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version string, diskResourceID string) (result *config.Image, returnErr error) {
 	startTime := time.Now()
 	defer func() {
+		if returnErr != nil {
+			logging.Logf(ctx, "SIG image version %s from disk %s failed after %s: %v", version, diskResourceID, time.Since(startTime), returnErr)
+			return
+		}
 		logging.Logf(ctx, "Created SIG image version %s from disk %s in %s", version, diskResourceID, time.Since(startTime))
 	}()
 	if s.Runtime == nil || s.Runtime.VM == nil || s.Runtime.VM.VM == nil ||
