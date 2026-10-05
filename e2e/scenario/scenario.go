@@ -3052,7 +3052,6 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:             "Ubuntu2404_GPUDriverOptOut_VHDCaching",
 	Description:      "Installs the VHD-cached, components-approved NVIDIA driver artifact with a post-basePrep customer RunCommand while managed driver installation remains opted out, then verifies the real driver survives PIS VHD-cached provisioning",
-	Location:         "westus2",
 	K8sSystemPoolSKU: "Standard_D2s_v3",
 	Tags: Tags{
 		GPU: true,
