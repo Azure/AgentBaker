@@ -292,11 +292,11 @@ setupAmdAma() {
         fi
         # Configure huge pages
         local num_devs
-        num_devs=$(find /dev -maxdepth 1 -name 'ama_transcoder*' -print | wc -l)
-        if [ $num_devs -eq 1 ]; then
+        num_devs=$(find /dev -maxdepth 1 -name 'ama_transcoder[0-9]*' -printf 1 | wc -c)
+        if [ "$num_devs" -eq 1 ]; then
             sh -c "echo 'vm.nr_hugepages=2144' > /etc/sysctl.d/99-ama_transcoder.conf"
             sh -c "echo 2144 > /proc/sys/vm/nr_hugepages"
-        elif [ $num_devs -eq 20 ]; then
+        elif [ "$num_devs" -eq 20 ]; then
             sh -c "echo 'vm.nr_hugepages=41056' > /etc/sysctl.d/99-ama_transcoder.conf"
             sh -c "echo 41056 > /proc/sys/vm/nr_hugepages"
         else
