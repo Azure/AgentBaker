@@ -72,6 +72,25 @@ which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SK
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
 
+### Ad-hoc SKU validation branch
+
+This branch configures the Linux E2E pipeline for one scenario at a time, with a
+210-minute suite timeout and a 240-minute job timeout. Queue one build per SKU
+using the `vmSku`, `location`, `subscriptionId`, and `architecture` parameters.
+Architecture must be `amd64` or `arm64`; the pipeline selects
+`vmSeriesCoverageTest=true` scenarios matching that architecture.
+
+`ADHOC_SKU_VALIDATION=true` (`--adhoc-sku-validation`) overrides scenario-specific
+VM sizes in both bootstrap inputs and the final VMSS model. It rejects Gen1/SCSI
+image fallbacks and waits for VMSS deletion before releasing the scenario's
+concurrency slot. This mode must only be used with scenarios and images compatible
+with the requested architecture and hardware capabilities. It does not alter the
+shared AKS system-pool SKU.
+
+Outside this branch's pipeline settings the mode defaults to disabled, preserving
+scenario-specific sizes. `E2E_PARALLEL` overrides pipeline scenario concurrency;
+when unset, the pipeline still defaults to 60.
+
 ## Gallery replication
 
 When selecting a gallery image by version or tag, the runner adds the test region

@@ -15,6 +15,18 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 )
 
+func overrideBootstrapVMSize(nbc *datamodel.NodeBootstrappingConfiguration, vmSize string) error {
+	if vmSize == "" || nbc == nil || nbc.AgentPoolProfile == nil ||
+		nbc.ContainerService == nil || nbc.ContainerService.Properties == nil ||
+		len(nbc.ContainerService.Properties.AgentPoolProfiles) == 0 ||
+		nbc.ContainerService.Properties.AgentPoolProfiles[0] == nil {
+		return fmt.Errorf("cannot enforce ad-hoc VM size: bootstrap agent pool configuration is incomplete")
+	}
+	nbc.AgentPoolProfile.VMSize = vmSize
+	nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
+	return nil
+}
+
 // this is a base kubelet config for Scriptless e2e test
 func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	return &aksnodeconfigv1.KubeletConfig{

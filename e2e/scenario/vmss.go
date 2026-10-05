@@ -1350,7 +1350,7 @@ func deleteVMSS(ctx context.Context, s *Scenario) error {
 		}
 		return nil
 	}
-	_, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+	poller, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
@@ -1359,6 +1359,11 @@ func deleteVMSS(ctx context.Context, s *Scenario) error {
 			return nil
 		}
 		return fmt.Errorf("begin deleting vmss %q: %w", s.Runtime.VMSSName, err)
+	}
+	if config.Config.AdHocSKUValidation {
+		if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
+			return fmt.Errorf("wait for ad-hoc vmss %q deletion: %w", s.Runtime.VMSSName, err)
+		}
 	}
 	return nil
 }

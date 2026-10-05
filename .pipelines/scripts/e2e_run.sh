@@ -99,7 +99,7 @@ cd e2e
 go test -count=1 ./...
 
 go run . run \
-  --parallel 60 \
+  --parallel "${E2E_PARALLEL:-60}" \
   --suite-timeout "${E2E_GO_TEST_TIMEOUT}" \
   --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \
   --log-dir "${LOGGING_DIR}" \

@@ -11,6 +11,7 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
@@ -247,6 +248,13 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 		if err := s.VMConfigMutatorWithError(ctx, vmss); err != nil {
 			return fmt.Errorf("mutate VMSS model: %w", err)
 		}
+	}
+	if config.Config.AdHocSKUValidation {
+		if vmss.SKU == nil {
+			return fmt.Errorf("cannot enforce ad-hoc VM size: VMSS SKU is nil")
+		}
+		vmss.SKU.Name = to.Ptr(config.Config.VMSKU())
+		logging.Logf(ctx, "Ad-hoc SKU validation: final VMSS size %s", *vmss.SKU.Name)
 	}
 
 	if vmss.Properties.VirtualMachineProfile == nil {

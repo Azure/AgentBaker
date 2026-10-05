@@ -42,6 +42,7 @@ func PrivateACRName(location string) string {
 }
 
 type Configuration struct {
+	AdHocSKUValidation                     bool
 	ACRSecretName                          string
 	AzureContainerRegistrytargetRepository string
 	BlobContainer                          string

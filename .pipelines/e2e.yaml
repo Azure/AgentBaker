@@ -1,8 +1,31 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
+parameters:
+  - name: vmSku
+    type: string
+    default: Standard_D2as_v7
+  - name: architecture
+    type: string
+    default: amd64
+    values:
+      - amd64
+      - arm64
+  - name: location
+    type: string
+    default: westus3
+  - name: subscriptionId
+    type: string
+    default: 8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8
 variables:
+  DEFAULT_VM_SKU: ${{ parameters.vmSku }}
+  E2E_LOCATION: ${{ parameters.location }}
+  TAGS_TO_RUN: vmSeriesCoverageTest=true,arch=${{ parameters.architecture }}
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
   E2E_FAILED_TESTS_RETRY_COUNT: 0
+  E2E_PARALLEL: 1
+  E2E_GO_TEST_TIMEOUT: 210m
+  ADHOC_SKU_VALIDATION: true
+  MANA_VM_SKU: $(DEFAULT_VM_SKU)
 schedules:
   - cron: "0 8 * * *"
     displayName: Daily midnight PST
@@ -36,3 +59,5 @@ jobs:
       name: Linux Tests
       IgnoreScenariosWithMissingVhd: false
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
+      subscriptionId: ${{ parameters.subscriptionId }}
+      jobTimeoutInMinutes: 240
