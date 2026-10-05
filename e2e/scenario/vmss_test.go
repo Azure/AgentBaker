@@ -1,6 +1,8 @@
 package scenario
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -439,6 +441,85 @@ func TestGetBaseVMSSModelUsesScenarioVMSize(t *testing.T) {
 		Runtime: &ScenarioRuntime{VMSize: config.DEFAULT_VMSKU},
 	}
 	assert.Equal(t, s.Runtime.VMSize, scenarioVMSize(s))
+}
+
+func TestCreateVMSSModelUsesEffectiveCSEMode(t *testing.T) {
+	oldDisableScriptless := config.Config.DisableScriptless
+	oldDisableCompilation := config.Config.DisableScriptLessCompilation
+	oldPrepareVHD := CachedPrepareVHD
+	t.Cleanup(func() {
+		config.Config.DisableScriptless = oldDisableScriptless
+		config.Config.DisableScriptLessCompilation = oldDisableCompilation
+		CachedPrepareVHD = oldPrepareVHD
+	})
+	config.Config.DisableScriptLessCompilation = true
+	CachedPrepareVHD = func(context.Context, GetVHDRequest) (config.VHDResourceID, error) {
+		return "/subscriptions/test/resourceGroups/test/providers/Microsoft.Compute/images/test", nil
+	}
+
+	for _, image := range []*config.Image{config.VHDUbuntu2204Gen2Containerd, config.VHDUbuntu2404Gen2Containerd} {
+		for _, tc := range []struct {
+			name              string
+			disableScriptless bool
+			cseCmd            bool
+			nbcCmd            bool
+			wantFile          string
+		}{
+			{name: "legacy override", wantFile: "/opt/azure/containers/provision_configs_gpu.sh"},
+			{name: "legacy global default", disableScriptless: true, wantFile: "/opt/azure/containers/provision_configs_gpu.sh"},
+			{name: "scriptless CSE", cseCmd: true, wantFile: "/opt/azure/containers/scriptless-cse-overrides.txt"},
+			{name: "scriptless NBC", nbcCmd: true, wantFile: "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"},
+		} {
+			t.Run(string(image.Distro)+"/"+tc.name, func(t *testing.T) {
+				config.Config.DisableScriptless = tc.disableScriptless
+				cluster := &Cluster{
+					Model: &armcontainerservice.ManagedCluster{
+						Name:     to.Ptr("test-cluster"),
+						Location: to.Ptr("eastus"),
+						Properties: &armcontainerservice.ManagedClusterProperties{
+							NodeResourceGroup:        to.Ptr("test-rg"),
+							CurrentKubernetesVersion: to.Ptr("1.33.0"),
+							NetworkProfile: &armcontainerservice.NetworkProfile{
+								NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
+							},
+						},
+					},
+					KubeletIdentity: &armcontainerservice.UserAssignedIdentity{
+						ClientID:   to.Ptr("test-client"),
+						ResourceID: to.Ptr("/subscriptions/test/resourceGroups/test/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test"),
+					},
+					ClusterParams: &ClusterParams{BootstrapToken: "test-token", FQDN: "cluster.example.invalid"},
+				}
+				nbc, err := getBaseNBC(t.Context(), cluster, image)
+				require.NoError(t, err)
+				nbc.EnableScriptlessCSECmd = tc.cseCmd
+				nbc.EnableScriptlessNBCCSECmd = tc.nbcCmd
+				s := &Scenario{
+					Config: Config{VHD: image},
+					Runtime: &ScenarioRuntime{
+						Cluster:                   cluster,
+						NBC:                       nbc,
+						VMSSName:                  "test-vmss",
+						VMSize:                    config.DEFAULT_VMSKU,
+						EnableScriptlessNBCCSECmd: true,
+					},
+				}
+				s.Location = "eastus"
+				model, err := createVMSSModel(t.Context(), s)
+				require.NoError(t, err)
+				data, err := base64.StdEncoding.DecodeString(*model.Properties.VirtualMachineProfile.OSProfile.CustomData)
+				require.NoError(t, err)
+				if !tc.nbcCmd {
+					reader, err := gzip.NewReader(bytes.NewReader(data))
+					require.NoError(t, err)
+					data, err = io.ReadAll(reader)
+					require.NoError(t, reader.Close())
+					require.NoError(t, err)
+				}
+				assert.Contains(t, string(data), tc.wantFile)
+			})
+		}
+	}
 }
 
 func TestCSEExitCodeOutboundConnFail(t *testing.T) {

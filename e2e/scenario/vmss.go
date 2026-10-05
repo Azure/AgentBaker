@@ -521,7 +521,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
 		}
 	}
-	if !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
+	if s.Runtime.NBC.EnableScriptlessCSECmd && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
 		// Validate that the custom data doesn't contain any script content,
 		// which indicates that the scriptless CSE is working as intended
 		decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
