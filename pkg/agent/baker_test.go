@@ -615,6 +615,7 @@ health-check.localdns.local:53 {
         serve_stale 3600s immediate
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -641,6 +642,7 @@ cluster.local:53 {
         denial 9984
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -660,6 +662,7 @@ testdomain456.com:53 {
         serve_stale 3600s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -686,6 +689,7 @@ testdomain456.com:53 {
         serve_stale 72000s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253
@@ -807,6 +811,7 @@ health-check.localdns.local:53 {
         serve_stale 3600s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -833,6 +838,7 @@ cluster.local:53 {
         denial 9984
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -852,6 +858,7 @@ testdomain456.com:53 {
         serve_stale 3600s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -878,6 +885,7 @@ testdomain456.com:53 {
         serve_stale 3600s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253
@@ -904,6 +912,7 @@ cluster.local:53 {
         denial 9984
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253
@@ -923,6 +932,7 @@ testdomain567.com:53 {
         serve_stale 3600s immediate
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253

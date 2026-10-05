@@ -1743,6 +1743,7 @@ health-check.localdns.local:53 {
         serve_stale 3600s immediate
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -1769,6 +1770,7 @@ cluster.local:53 {
         denial 9984
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -1788,6 +1790,7 @@ testdomain456.com:53 {
         serve_stale 3600s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -1814,6 +1817,7 @@ testdomain456.com:53 {
         serve_stale 72000s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253
@@ -2006,6 +2010,17 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, tt.args.includeHostsPlugin)
 			assertCorefileBase64Contains(t, got, tt.wantContains, tt.wantNotContains)
+			if tt.args.aksnodeconfig.GetLocalDnsProfile().GetEnableLocalDns() {
+				decoded, err := base64.StdEncoding.DecodeString(got)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, block := range strings.Split(string(decoded), "\n}\n") {
+					if strings.Contains(block, "\n    forward . ") && strings.Count(block, "\n    loadbalance\n") != 1 {
+						t.Errorf("expected loadbalance in every forwarding server block:\n%s", block)
+					}
+				}
+			}
 		})
 	}
 }

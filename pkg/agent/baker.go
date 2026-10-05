@@ -2469,6 +2469,7 @@ health-check.localdns.local:53 {
         {{- end }}
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -2549,6 +2550,7 @@ health-check.localdns.local:53 {
         {{- end }}
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253
