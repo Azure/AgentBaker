@@ -156,6 +156,9 @@ type Config struct {
 
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
 	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
+	// NativeANC provisions from ANC CustomData without an NBC command. The
+	// Scriptless tag alone does not override the runner's NBC delegation default.
+	NativeANC bool
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)

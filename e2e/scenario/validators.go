@@ -1904,23 +1904,63 @@ func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context
 	return errors.Join(errs...)
 }
 
-func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) error {
-	if err := assert.Equal(len(versions), 1, "expected exactly one version for moby-runc but got %d", len(versions)); err != nil {
-		return err
-	}
-	// check if versions[0] is great than or equal to 1.2.0
-	// check semantic version
-	parsedVersion, err := semver.NewVersion(versions[0])
+// ValidateRuncVersion checks the package pinned by the tested VHD. E2E often uses
+// a published image older than the checkout; runc is installed at image build time.
+// The image-build content tests separately enforce that build's components.json.
+func ValidateRuncVersion(ctx context.Context, s *Scenario, release string) error {
+	manifest, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /opt/azure/components.json", 0, "could not read image component manifest")
 	if err != nil {
-		return fmt.Errorf("parse semver from moby-runc version %q: %w", versions[0], err)
-	}
-	if err := errors.Join(
-		assert.Equal(parsedVersion.Major() >= 1, true, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major()),
-		assert.Equal(parsedVersion.Minor() >= 2, true, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor()),
-	); err != nil {
 		return err
 	}
-	return ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
+	expected, err := runcVersionFromImageManifest(manifest.stdout, release)
+	if err != nil {
+		return err
+	}
+	installed, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		`dpkg-query -W -f='${Status}\t${Version}\n' moby-runc`, 0, "could not query installed moby-runc")
+	if err != nil {
+		return err
+	}
+	if err := validateInstalledRunc(installed.stdout, expected); err != nil {
+		return err
+	}
+	logging.Logf(ctx, "moby-runc matches image manifest: %s", expected)
+	return nil
+}
+
+func runcVersionFromImageManifest(manifest, release string) (string, error) {
+	if !gjson.Valid(manifest) {
+		return "", fmt.Errorf("invalid image components.json")
+	}
+	switch release {
+	case "r2004", "r2204", "r2404", "r2604":
+	default:
+		return "", fmt.Errorf("unsupported runc Ubuntu release %q", release)
+	}
+	versions := gjson.Get(manifest, "Packages.#(name=runc).downloadURIs.ubuntu."+release+".versionsV2")
+	if !versions.IsArray() || len(versions.Array()) != 1 {
+		return "", fmt.Errorf("image components.json must pin exactly one runc version for %s", release)
+	}
+	version := versions.Array()[0].Get("latestVersion").String()
+	parsed, err := semver.StrictNewVersion(version)
+	if err != nil {
+		return "", fmt.Errorf("invalid image runc version %q: %w", version, err)
+	}
+	// Debian's distro revision is represented as a prerelease by the semver parser.
+	// Compare the upstream version while still requiring an exact package match below.
+	upstream := semver.New(parsed.Major(), parsed.Minor(), parsed.Patch(), "", "")
+	if upstream.LessThan(semver.MustParse("1.2.0")) {
+		return "", fmt.Errorf("image runc version %q is older than 1.2.0", version)
+	}
+	return version, nil
+}
+
+func validateInstalledRunc(output, expected string) error {
+	fields := strings.Split(strings.TrimSpace(output), "\t")
+	if len(fields) != 2 || fields[0] != "install ok installed" || fields[1] != expected {
+		return fmt.Errorf("moby-runc must match image manifest version %q; dpkg reported %q", expected, strings.TrimSpace(output))
+	}
+	return nil
 }
 
 func ValidateKubeletArgs(ctx context.Context, s *Scenario) error {
@@ -3699,7 +3739,7 @@ sudo "$anc_path" check-hotfix`,
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) error {
 	nbc := s.Runtime.NBC
-	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
+	if !s.NativeANC && nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
 		return ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 	return nil
