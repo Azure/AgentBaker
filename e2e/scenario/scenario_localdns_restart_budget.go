@@ -167,8 +167,33 @@ echo "diagnostic: Result=$result NRestarts=$nrestarts"
 # Anchored to fault_start rather than a wall-clock window: the lifecycle validator runs
 # three kill/recovery cycles on this same unit just before, and a refusal from those would
 # otherwise satisfy this grep.
-sudo journalctl -u localdns.service --since "@$fault_start" --no-pager |
-    grep -q "Start request repeated too quickly" ||
+#
+# --sync before each read, because the loop above and this grep do not read from the same
+# place. 'systemctl show' answers from PID 1's own memory, so 'failed' is visible the
+# instant systemd sets it; the refusal line is only greppable once journald has dequeued it
+# from its socket and committed it. systemd emits the refusal and flips the unit to 'failed'
+# in the same instant, so reading the journal the moment the loop breaks races that commit.
+# Measured: ~10ms to commit on an idle machine, but up to ~285ms under journal and IO load,
+# which is exactly the state this scenario leaves the node in. That race failed this
+# assertion on 22.04 and 24.04 alike with NRestarts=5 already recorded -- the budget had
+# done its job and the journal simply had not caught up.
+#
+# 'journalctl --sync' blocks until journald has committed everything queued, which closes
+# the race for a line already emitted. The retry covers the remaining case where the refusal
+# lands fractionally after the state flip. Tolerate --sync failing (systemd <246 has no such
+# verb) and fall back to retrying alone.
+refusal_found=0
+for _ in $(seq 1 20); do
+    sudo journalctl --sync 2>/dev/null || true
+    if sudo journalctl -u localdns.service --since "@$fault_start" --no-pager |
+         grep -q "Start request repeated too quickly"; then
+        refusal_found=1
+        break
+    fi
+    sleep 0.5
+done
+
+[ "$refusal_found" = 1 ] ||
     fail "localdns reached 'failed' but the journal has no 'Start request repeated too quickly'. It failed for some other reason, so this run did not exercise the budget."
 
 burst=$(systemctl show localdns.service -p StartLimitBurst --value)
