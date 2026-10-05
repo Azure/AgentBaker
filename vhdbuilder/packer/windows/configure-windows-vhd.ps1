@@ -567,21 +567,6 @@ function LogFilesInDirectory
     }
 }
 
-function Get-ToolsToVHD
-{
-    if (!(Test-Path -Path $global:aksToolsDir))
-    {
-        New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
-    }
-
-    Write-Log "Getting DU (Windows Disk Usage)"
-    Download-File -URL "https://download.sysinternals.com/files/DU.zip" -Dest "$global:aksToolsDir\DU.zip"
-    Expand-Archive -Path "$global:aksToolsDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
-    Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
-
-    LogFilesInDirectory "$global:aksToolsDir\DU"
-}
-
 function Register-ExpandVolumeTask
 {
     if (!(Test-Path -Path $global:aksToolsDir))
@@ -1127,7 +1112,6 @@ try
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
-            Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
             Install-WindowsCiliumNetworking
             # Update all the registry keys again in case the steps in between reset them. Ok, some of the steps in between do reset them. But there's a risk that the steps also need
