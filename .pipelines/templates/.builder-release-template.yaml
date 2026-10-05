@@ -63,12 +63,16 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
 
   - bash: |
-      set -x
-      GOPATH="$(go env GOPATH)"
+      set -ex
+      GOPATH="$(go env GOPATH | tr -d "'\"")"
       echo "GOPATH is currently set to $GOPATH"
       export PATH="$PATH:$GOPATH/bin"
+      mkdir -p "$GOPATH/bin"
       pushd /tmp
-      GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
+      curl -LO https://github.com/cue-lang/cue/releases/download/v0.17.1/cue_v0.17.1_linux_amd64.tar.gz && \
+      echo "a39b0c97695069d95d276d99be0f5dbabb081d801bfdc9ba49b76efaf94e2369  cue_v0.17.1_linux_amd64.tar.gz" | sha256sum -c - && \
+        tar -xzf cue_v0.17.1_linux_amd64.tar.gz && \
+        install -m 0755 cue "$GOPATH/bin/cue"
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: Setup Cue
