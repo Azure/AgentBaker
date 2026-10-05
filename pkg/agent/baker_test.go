@@ -41,6 +41,7 @@ const expectedlocalDNSCorefileWithoutOverrides = `# ****************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -591,6 +592,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -608,7 +610,6 @@ health-check.localdns.local:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -636,7 +637,6 @@ cluster.local:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -655,7 +655,6 @@ testdomain456.com:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -682,7 +681,6 @@ testdomain456.com:53 {
         policy sequential
         max_concurrent 2000
     }
-    reload
     ready 169.254.10.11:8181
     cache 3600 {
         success 9984
@@ -787,6 +785,7 @@ testdomain456.com:53 {
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -804,7 +803,6 @@ health-check.localdns.local:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -832,7 +830,6 @@ cluster.local:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -851,7 +848,6 @@ testdomain456.com:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -878,7 +874,6 @@ testdomain456.com:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.11:8181
     cache 3600 {
         success 9984
@@ -906,7 +901,6 @@ cluster.local:53 {
         policy round_robin
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.11:8181
     cache 3600 {
         success 9984
@@ -925,7 +919,6 @@ testdomain567.com:53 {
         policy random
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.11:8181
     cache 3600 {
         success 9984

@@ -1719,6 +1719,7 @@ const expectedlocalDNSCorefile = `# ********************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -1736,7 +1737,6 @@ health-check.localdns.local:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -1764,7 +1764,6 @@ cluster.local:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -1783,7 +1782,6 @@ testdomain456.com:53 {
         policy sequential
         max_concurrent 1000
     }
-    reload
     ready 169.254.10.10:8181
     cache 3600 {
         success 9984
@@ -1810,7 +1808,6 @@ testdomain456.com:53 {
         policy sequential
         max_concurrent 2000
     }
-    reload
     ready 169.254.10.11:8181
     cache 3600 {
         success 9984
@@ -1908,6 +1905,29 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 				includeHostsPlugin: true,
 			},
 			wantContains: "",
+		},
+		{
+			name: "enabled LocalDNS with nil overrides still enables reload",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true},
+				},
+			},
+			wantContains: "health-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    reload\n    whoami\n}",
+		},
+		{
+			name: "enabled LocalDNS with empty overrides still enables reload",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+						EnableLocalDns:   true,
+						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{},
+						KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{},
+					},
+				},
+				includeHostsPlugin: true,
+			},
+			wantContains: "health-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    reload\n    whoami\n}",
 		},
 		{
 			name: "LocalDNSProfile enabled returns base64 string with hosts plugin",
@@ -2010,6 +2030,15 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, tt.args.includeHostsPlugin)
 			assertCorefileBase64Contains(t, got, tt.wantContains, tt.wantNotContains)
+			if got != "" {
+				decoded, err := base64.StdEncoding.DecodeString(got)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if strings.Count(string(decoded), "\n    reload\n") != 1 {
+					t.Errorf("expected exactly one Corefile reload directive, got:\n%s", decoded)
+				}
+			}
 		})
 	}
 }
