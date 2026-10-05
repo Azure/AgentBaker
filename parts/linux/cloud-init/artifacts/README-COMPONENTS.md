@@ -268,6 +268,35 @@ For more context. For each PR, there are serveral PR gates designed to ensure th
 
 There is also a plan to enable other downstream components tests such as `AKS-RP` to run as PR gates for some critical changes in `AgentBaker`. Once that is available, we will have even more confidence in merging this kind of automated update PRs.
 
+### Windows VHD gate for Linux-only component updates
+
+The Windows VHD PR status remains required and its path trigger still includes
+`parts/common/components.json`. A lightweight preflight skips Windows packaging,
+VHD builds, E2E tests, and background cleanup only when the **entire PR merge
+diff** modifies that file alone and changes no Windows/shared inputs. The
+preflight completes successfully so the required status is still reported.
+
+The comparison ignores only `GPUContainerImages`, container-image
+`amd64OnlyVersions`, package `downloadLocation`, and package `downloadURIs`
+entries for `ubuntu`, `mariner`, `marinerkata`, `azurelinux`, `azurelinuxkata`,
+and `flatcar`. Everything else is retained, including Windows versions and
+SKU filters, shared `default` fallbacks, URLs, destinations, download
+authentication flags, OCI artifacts, unknown fields, and array order.
+This deliberately compares inputs rather than the sorted cached-file summary:
+the same URLs can have different authentication requirements or a different
+first/default containerd version. Because `compute_msi_resource_strings` in
+`vhdbuilder/packer/produce-packer-settings-functions.sh` scans the whole file for
+`windowsDownloadRequiresAzCopy: true`, that whole-document result is compared
+too, even when the flag sits under an ignored Linux field.
+
+Any additional changed file or unrecognized component change runs the full
+gate, even if it might also be Linux-only. Invalid JSON, incomplete Git history,
+or a mismatched checkout runs the full gate with a warning rather than granting
+a skip. JSON schema validation remains required separately. Manual and release
+builds do not take this fast path. If Windows starts consuming one of the
+ignored fields, update `.pipelines/scripts/windows_vhd_impact.py` and its tests
+in the same PR; a test fails if Windows PowerShell scripts reference them.
+
 ## Encountering warning "This branch is out-of-date with the base branch" in an automated PR
 The PR created by Renovate should be rebasing with latest Master branch by itself automatically. However, if somehow you have approved the automated PR created by Renovate to update your component, and all PR gate tests have passed, but you encounter a warning "This branch is out-of-date with the base branch", there are two ways to resolve this:
 1. **(Suggested)** In the description of the PR, there is a checkbox with a statement `If you want to rebase/retry this PR, check this box`. By checking this checkbox and waiting for a few minutes, Renovate will rebase the branch with the lastest master branch and update this PR for you. After a few minutes if you refresh the PR webpage, you will see the checkbox is gone and the warning should be resolved too. You still need to wait for a new round of PR gates tests passed though.
