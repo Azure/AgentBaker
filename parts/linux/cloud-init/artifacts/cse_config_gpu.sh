@@ -340,7 +340,7 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
-        logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableAndStop compute-domain-kubelet-plugin"
+        logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
         rm -f "${managed_gpu_marker}"
     fi
 }
@@ -439,7 +439,7 @@ EOF
             # Non-GB (x86) managed-DRA nodes don't run compute-domain, but the same dra-driver-nvidia-gpu
             # deb still enables+starts the args-less compute-domain-kubelet-plugin.service at install;
             # stop+disable it so it isn't left running/failing on nodes that never use it.
-            logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableAndStop compute-domain-kubelet-plugin"
+            logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
         fi
     fi
 

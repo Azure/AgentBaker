@@ -299,6 +299,10 @@ Describe 'cse_config_gpu.sh'
             echo "systemctlDisableAndStop $1"
             return 0
         }
+        systemctlDisableStopAndResetFailed() {
+            echo "systemctlDisableStopAndResetFailed $1"
+            return 0
+        }
 
         addKubeletNodeLabel() {
             echo "addKubeletNodeLabel $1"
@@ -405,7 +409,7 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
             # the compute-domain kubelet plugin is torn down here too, mirroring the dra-driver teardown
-            The output should include "systemctlDisableAndStop compute-domain-kubelet-plugin"
+            The output should include "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
@@ -433,6 +437,9 @@ Describe 'cse_config_gpu.sh'
         }
         systemctlDisableAndStop() {
             echo "systemctlDisableAndStop $@"
+        }
+        systemctlDisableStopAndResetFailed() {
+            echo "systemctlDisableStopAndResetFailed $@"
         }
 
         BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
@@ -507,7 +514,7 @@ Describe 'cse_config_gpu.sh'
 
             The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
             # the 0.5.0 deb auto-starts an args-less vendor unit on x86 too -- stop it (compute-domain is GB-only)
-            The output should include "systemctlDisableAndStop compute-domain-kubelet-plugin"
+            The output should include "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
             # but we do not configure or start our override on non-arm64
             The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin"
             The output should not include "compute-domain-kubelet-plugin.service.d"
