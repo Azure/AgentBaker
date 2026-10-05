@@ -27,40 +27,8 @@ func TestLocalDNSLoadBalanceCacheHits(t *testing.T) {
 	}
 	_, err := exec.LookPath("dig")
 	require.NoError(t, err)
-	port := func() string {
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		require.NoError(t, err)
-		p := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
-		require.NoError(t, listener.Close())
-		return p
-	}
-	start := func(t *testing.T, corefile string) {
-		t.Helper()
-		dir := t.TempDir()
-		path := filepath.Join(dir, "Corefile")
-		require.NoError(t, os.WriteFile(path, []byte(corefile), 0600))
-		log, err := os.Create(filepath.Join(dir, "coredns.log"))
-		require.NoError(t, err)
-		cmd := exec.Command(binary, "-conf", path)
-		cmd.Stdout, cmd.Stderr = log, log
-		require.NoError(t, cmd.Start())
-		t.Cleanup(func() {
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
-			_ = log.Close()
-			if t.Failed() {
-				output, _ := os.ReadFile(log.Name())
-				t.Logf("CoreDNS output:\n%s", output)
-			}
-		})
-	}
-	query := func(p, name, rrtype string) (string, error) {
-		output, err := exec.Command("dig", "@127.0.0.1", "-p", p, name, rrtype,
-			"+time=1", "+tries=1", "+noall", "+answer").CombinedOutput()
-		return string(output), err
-	}
-	upstreamPort := port()
-	start(t, fmt.Sprintf(`.:%s {
+	upstreamPort := localDNSTestPort(t)
+	startLocalDNSTestServer(t, binary, fmt.Sprintf(`.:%s {
     bind 127.0.0.1
     template IN A {
         answer "{{ .Name }} 300 IN A 192.0.2.1"
@@ -73,14 +41,7 @@ func TestLocalDNSLoadBalanceCacheHits(t *testing.T) {
         answer "{{ .Name }} 300 IN AAAA 2001:db8::3"
     }
 }`, upstreamPort))
-	wait := func(t *testing.T, p string) {
-		t.Helper()
-		require.Eventually(t, func() bool {
-			answer, err := query(p, "ready.example.test.", "A")
-			return err == nil && strings.Contains(answer, "192.0.2.1")
-		}, 10*time.Second, 100*time.Millisecond)
-	}
-	wait(t, upstreamPort)
+	waitLocalDNSTestServer(t, upstreamPort)
 
 	for _, listener := range []string{"vnet", "kube"} {
 		for _, enabled := range []bool{false, true} {
@@ -99,58 +60,114 @@ func TestLocalDNSLoadBalanceCacheHits(t *testing.T) {
 				config.AgentPoolProfile.LocalDNSProfile = profile
 				corefile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
 				require.NoError(t, err)
-				localPort := port()
+				localPort := localDNSTestPort(t)
 				// Keep the rendered forwarding/cache/plugin configuration; remap only
 				// sockets to unprivileged loopback ports for the local test process.
 				corefile = strings.NewReplacer(
 					"169.254.10.10 169.254.10.11", "127.0.0.1",
 					"169.254.10.10", "127.0.0.1", "169.254.10.11", "127.0.0.1",
-					":53 {", ":"+localPort+" {", ":8181", ":"+port(), ":9253", ":"+port(),
+					":53 {", ":"+localPort+" {", ":8181", ":"+localDNSTestPort(t), ":9253", ":"+localDNSTestPort(t),
 					"168.63.129.16", "127.0.0.1:"+upstreamPort,
 				).Replace(corefile)
 				if !enabled {
 					corefile = strings.ReplaceAll(corefile, "    loadbalance\n", "")
 				}
-				start(t, corefile)
-				wait(t, localPort)
+				startLocalDNSTestServer(t, binary, corefile)
+				waitLocalDNSTestServer(t, localPort)
 				for _, rrtype := range []string{"A", "AAAA"} {
-					name := strings.ToLower(rrtype) + ".example.test."
-					_, err := query(localPort, name, rrtype)
-					require.NoError(t, err)
-					time.Sleep(1100 * time.Millisecond)
-					firstAddresses := map[string]bool{}
-					for i := 0; i < 64; i++ {
-						answer, err := query(localPort, name, rrtype)
-						require.NoError(t, err)
-						var addresses []string
-						for _, line := range strings.Split(answer, "\n") {
-							fields := strings.Fields(line)
-							if len(fields) != 5 || fields[3] != rrtype {
-								continue
-							}
-							ttl, err := strconv.Atoi(fields[1])
-							require.NoError(t, err)
-							require.Greater(t, ttl, 0)
-							require.Less(t, ttl, 300, "TTL must prove a cache hit, not another upstream response")
-							addresses = append(addresses, fields[4])
-						}
-						require.Len(t, addresses, 3, answer)
-						firstAddresses[addresses[0]] = true
-						sort.Strings(addresses)
-						expected := []string{"192.0.2.1", "192.0.2.2", "192.0.2.3"}
-						if rrtype == "AAAA" {
-							expected = []string{"2001:db8::1", "2001:db8::2", "2001:db8::3"}
-						}
-						require.Equal(t, expected, addresses)
-					}
-					if enabled {
-						require.Greater(t, len(firstAddresses), 1, "cached responses must vary their first address")
-					} else {
-						require.Len(t, firstAddresses, 1, "negative control must reproduce fixed cached ordering")
-					}
-					t.Logf("%s: %d distinct first addresses across 64 cache hits", rrtype, len(firstAddresses))
+					verifyLocalDNSCachedOrdering(t, localPort, rrtype, enabled)
 				}
 			})
 		}
 	}
+}
+
+func localDNSTestPort(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	require.NoError(t, err)
+	require.NoError(t, listener.Close())
+	return port
+}
+
+func startLocalDNSTestServer(t *testing.T, binary, corefile string) {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "Corefile")
+	require.NoError(t, os.WriteFile(path, []byte(corefile), 0600))
+	log, err := os.Create(filepath.Join(dir, "coredns.log"))
+	require.NoError(t, err)
+	cmd := exec.Command(binary, "-conf", path)
+	cmd.Stdout, cmd.Stderr = log, log
+	require.NoError(t, cmd.Start())
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		_ = log.Close()
+		if t.Failed() {
+			output, _ := os.ReadFile(log.Name())
+			t.Logf("CoreDNS output:\n%s", output)
+		}
+	})
+}
+
+func queryLocalDNSTestServer(port, name, rrtype string) (string, error) {
+	output, err := exec.Command("dig", "@127.0.0.1", "-p", port, name, rrtype,
+		"+time=1", "+tries=1", "+noall", "+answer").CombinedOutput()
+	return string(output), err
+}
+
+func waitLocalDNSTestServer(t *testing.T, port string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		answer, err := queryLocalDNSTestServer(port, "ready.example.test.", "A")
+		return err == nil && strings.Contains(answer, "192.0.2.1")
+	}, 10*time.Second, 100*time.Millisecond)
+}
+
+func localDNSCachedAddresses(t *testing.T, answer, rrtype string) []string {
+	t.Helper()
+	var addresses []string
+	for _, line := range strings.Split(answer, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 5 || fields[3] != rrtype {
+			continue
+		}
+		ttl, err := strconv.Atoi(fields[1])
+		require.NoError(t, err)
+		require.Greater(t, ttl, 0)
+		require.Less(t, ttl, 300, "TTL must prove a cache hit, not another upstream response")
+		addresses = append(addresses, fields[4])
+	}
+	require.Len(t, addresses, 3, answer)
+	return addresses
+}
+
+func verifyLocalDNSCachedOrdering(t *testing.T, port, rrtype string, enabled bool) {
+	t.Helper()
+	name := strings.ToLower(rrtype) + ".example.test."
+	_, err := queryLocalDNSTestServer(port, name, rrtype)
+	require.NoError(t, err)
+	time.Sleep(1100 * time.Millisecond)
+	expected := []string{"192.0.2.1", "192.0.2.2", "192.0.2.3"}
+	if rrtype == "AAAA" {
+		expected = []string{"2001:db8::1", "2001:db8::2", "2001:db8::3"}
+	}
+	firstAddresses := map[string]bool{}
+	for i := 0; i < 64; i++ {
+		answer, err := queryLocalDNSTestServer(port, name, rrtype)
+		require.NoError(t, err)
+		addresses := localDNSCachedAddresses(t, answer, rrtype)
+		firstAddresses[addresses[0]] = true
+		sort.Strings(addresses)
+		require.Equal(t, expected, addresses)
+	}
+	if enabled {
+		require.Greater(t, len(firstAddresses), 1, "cached responses must vary their first address")
+	} else {
+		require.Len(t, firstAddresses, 1, "negative control must reproduce fixed cached ordering")
+	}
+	t.Logf("%s: %d distinct first addresses across 64 cache hits", rrtype, len(firstAddresses))
 }
