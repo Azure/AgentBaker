@@ -1924,6 +1924,28 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring("/opt/azure/containers/provision_preload.sh"))
 	})
 
+	It("should place the hotfix marker after file writes and before starting aks-node-controller", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
+
+		payload := templateGenerator.getScriptlessBoothook(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		rendered := string(decodedPayload)
+		// LastIndex, not Index: each path appears twice per write (the redirect line and the
+		// trailing chmod), so Index would point at the start of a write and leave the encoded
+		// payload between the two occurrences outside the assertion.
+		lastFileWrite := strings.LastIndex(rendered, aksNbcCmdFilepath)
+		hotfixMarker := strings.Index(rendered, "#hotfix-marker")
+		controllerStart := strings.Index(rendered, `logger -t aks-boothook "launching aks-node-controller`)
+
+		Expect(lastFileWrite).To(BeNumerically(">=", 0))
+		Expect(hotfixMarker).To(BeNumerically(">", lastFileWrite))
+		Expect(controllerStart).To(BeNumerically(">", hotfixMarker))
+	})
+
 	It("should embed the encoded AKSNodeConfig in the scriptless NBC boothook when provided", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
