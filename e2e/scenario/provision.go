@@ -761,16 +761,104 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	return view, runCommandScriptError(view)
 }
 
-const customerDriverSentinelPath = "/usr/local/nvidia/customer-driver-sentinel"
+const (
+	customerDriverSentinelPath = "/usr/local/nvidia/customer-driver-sentinel"
+	customerDriverReceiptPath  = "/opt/azure/containers/customer-gpu-driver.receipt"
+	customerNvidiaCDIDropIn    = "/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+	customerGPUDriverImage     = "mcr.microsoft.com/aks/aks-gpu-cuda-lts"
+)
 
-func installCustomerDriverSentinel(ctx context.Context, s *Scenario) error {
-	command := fmt.Sprintf(
-		"sudo mkdir -p /usr/local/nvidia && printf '%%s\\n' '#!/bin/sh' '# customer-installed driver sentinel' 'exit 0' | sudo tee %s >/dev/null && sudo chmod 0755 %s",
-		customerDriverSentinelPath,
-		customerDriverSentinelPath,
+func customerGPUDriverImageReference() (string, string, error) {
+	if datamodel.NvidiaCudaLTSDriverVersion == "" || datamodel.AKSGPUCudaLTSVersionSuffix == "" {
+		return "", "", fmt.Errorf("approved NVIDIA CUDA LTS driver image version is unavailable")
+	}
+	version := datamodel.NvidiaCudaLTSDriverVersion
+	tag := version + "-" + datamodel.AKSGPUCudaLTSVersionSuffix
+	return customerGPUDriverImage + ":" + tag, version, nil
+}
+
+// installCustomerNvidiaDriver manually runs the VHD-cached, components-approved installer after
+// basePrep. This models a customer RunCommand install; the scenario leaves managed GPU installation
+// opted out, so nodePrep does not invoke the installer.
+func installCustomerNvidiaDriver(ctx context.Context, s *Scenario) error {
+	imageRef, _, err := customerGPUDriverImageReference()
+	if err != nil {
+		return err
+	}
+	command := fmt.Sprintf(`set -euo pipefail
+preferred_image_ref=%s
+image_name=%s
+receipt=%s
+
+sudo mkdir -p /opt/gpu /opt/actions
+cached_image_refs="$(sudo ctr -n k8s.io images ls -q | awk -v prefix="${image_name}:" 'index($0, prefix) == 1 {
+  tag = substr($0, length(prefix) + 1)
+  if (tag ~ /^[0-9]+(\.[0-9]+)+-[0-9]+$/) print $0
+}' | sort -V)"
+if [ -z "${cached_image_refs}" ]; then
+  echo "no versioned cached approved NVIDIA driver image found for ${image_name}" >&2
+  exit 1
+fi
+if printf '%%s\n' "${cached_image_refs}" | grep -Fxq "${preferred_image_ref}"; then
+  image_ref="${preferred_image_ref}"
+else
+  image_ref="$(printf '%%s\n' "${cached_image_refs}" | tail -n1)"
+  echo "Using cached approved NVIDIA driver image ${image_ref}; current preferred image ${preferred_image_ref} is not present"
+fi
+image_tag="${image_ref##*:}"
+expected_version="${image_tag%%-*}"
+# Match configureNvidiaCDIRefresh in CSE before the NVIDIA toolkit package starts this unit.
+sudo install -d -m 0755 /etc/systemd/system/nvidia-cdi-refresh.service.d
+printf '[Service]\nSuccessExitStatus=1 2 127\n' | sudo tee %s >/dev/null
+sudo systemctl daemon-reload
+sudo ctr -n k8s.io run --privileged --rm --net-host \
+  --with-ns pid:/proc/1/ns/pid \
+  --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind \
+  --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind \
+  "${image_ref}" gpuinstall /entrypoint.sh install
+sudo ctr -n k8s.io images rm "${image_ref}"
+
+sudo nvidia-modprobe -u -c0
+gpu_info="$(sudo nvidia-smi --query-gpu=driver_version,name --format=csv,noheader | head -n1)"
+driver_version="$(printf '%%s\n' "${gpu_info}" | awk -F, '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1 }')"
+gpu_name="$(printf '%%s\n' "${gpu_info}" | awk -F, '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2 }')"
+test "${driver_version}" = "${expected_version}"
+case "${gpu_name}" in *T4*) ;; *) echo "expected a T4 GPU, got: ${gpu_name}" >&2; exit 1 ;; esac
+sudo nvidia-smi -L | grep -qi 'T4'
+lsmod | grep -q '^nvidia[[:space:]]'
+test "$(sudo modinfo -F version nvidia)" = "${expected_version}"
+
+nvidia_smi_path="$(readlink -f "$(command -v nvidia-smi)")"
+nvidia_module_path="$(sudo modinfo -n nvidia)"
+test -x "${nvidia_smi_path}"
+test -f "${nvidia_module_path}"
+nvidia_smi_sha256="$(sha256sum "${nvidia_smi_path}" | awk '{ print $1 }')"
+nvidia_module_sha256="$(sha256sum "${nvidia_module_path}" | awk '{ print $1 }')"
+sudo install -d -m 0755 "$(dirname "${receipt}")"
+{
+  printf 'image_ref=%%s\n' "${image_ref}"
+  printf 'driver_version=%%s\n' "${driver_version}"
+  printf 'gpu_name=%%s\n' "${gpu_name}"
+  printf 'nvidia_smi_path=%%s\n' "${nvidia_smi_path}"
+  printf 'nvidia_smi_sha256=%%s\n' "${nvidia_smi_sha256}"
+  printf 'nvidia_module_path=%%s\n' "${nvidia_module_path}"
+  printf 'nvidia_module_sha256=%%s\n' "${nvidia_module_sha256}"
+} | sudo tee "${receipt}" >/dev/null
+sudo chmod 0444 "${receipt}"
+
+sudo mkdir -p /usr/local/nvidia
+printf '%%s\n' '#!/bin/sh' '# customer-installed driver sentinel' 'exit 0' | sudo tee %s >/dev/null
+sudo chmod 0755 %s
+`,
+		shellSingleQuote(imageRef),
+		shellSingleQuote(customerGPUDriverImage),
+		shellSingleQuote(customerDriverReceiptPath),
+		shellSingleQuote(customerNvidiaCDIDropIn),
+		shellSingleQuote(customerDriverSentinelPath),
+		shellSingleQuote(customerDriverSentinelPath),
 	)
 	if _, err := RunCommand(ctx, s, command); err != nil {
-		return fmt.Errorf("install customer driver sentinel: %w", err)
+		return fmt.Errorf("install customer NVIDIA driver from cached approved artifact: %w", err)
 	}
 	return nil
 }

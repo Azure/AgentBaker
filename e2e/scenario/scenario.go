@@ -3051,7 +3051,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:             "Ubuntu2404_GPUDriverOptOut_VHDCaching",
-	Description:      "Tests that a customer-installed NVIDIA driver sentinel survives PIS VHD-cached provisioning on an opted-out GPU node",
+	Description:      "Installs the VHD-cached, components-approved NVIDIA driver artifact with a post-basePrep customer RunCommand while managed driver installation remains opted out, then verifies the real driver survives PIS VHD-cached provisioning",
 	Location:         "westus2",
 	K8sSystemPoolSKU: "Standard_D2s_v3",
 	Tags: Tags{
@@ -3061,7 +3061,7 @@ var _ = Register(&Scenario{
 		Cluster:                ClusterKubenet,
 		VHD:                    config.VHDUbuntu2404Gen2Containerd,
 		VHDCaching:             true,
-		VHDCachingPostBasePrep: installCustomerDriverSentinel,
+		VHDCachingPostBasePrep: installCustomerNvidiaDriver,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.EnableScriptlessCSECmd = false
 			nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
@@ -3073,7 +3073,10 @@ var _ = Register(&Scenario{
 			vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateFileHasContent(ctx, s, customerDriverSentinelPath, "customer-installed driver sentinel")
+			return errors.Join(
+				ValidateCustomerNvidiaDriver(ctx, s),
+				ValidateFileHasContent(ctx, s, customerDriverSentinelPath, "customer-installed driver sentinel"),
+			)
 		},
 	},
 })
