@@ -133,47 +133,56 @@ function download_windows_json_artifact() {
 function extract_windows_image_urls() {
 	echo "Reading image URLs from $artifact_path"
 
-	# Extract image URLs from the artifact JSON using a case statement for WINDOWS_SKU
-	case "${WINDOWS_SKU}" in
-	"2019-containerd")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2019_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_CORE_IMAGE_URL") | .value' "$artifact_path")
+	local payload_sku="${WINDOWS_SKU}"
+	local windows_release container_releases base_image_name image_urls tab
+
+	# Trusted Launch uses the same payload.json entries as the Windows 2025 Gen2 build.
+	if [ "${payload_sku}" = "2025-gen2-tl" ]; then
+		payload_sku="2025-gen2"
+	fi
+
+	case "${payload_sku}" in
+	"2022-containerd" | "2022-containerd-gen2")
+		windows_release="2022"
+		container_releases="2022"
 		;;
-	"2022-containerd")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-		;;
-	"2022-containerd-gen2")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-		;;
-	"2025")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
-		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
-		;;
-	"2025-gen2" | "2025-gen2-tl")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
-		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
-		;;
-	"23H2")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-		;;
-	"23H2-gen2")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+	"2025" | "2025-gen2")
+		windows_release="2025"
+		container_releases="2025,2022"
 		;;
 	*)
 		echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
+		return 1
 		;;
 	esac
+
+	base_image_name="WINDOWS_${windows_release}_BASE_IMAGE_URL"
+	case "${payload_sku}" in
+	*-gen2*)
+		base_image_name="WINDOWS_${windows_release}_GEN2_BASE_IMAGE_URL"
+		;;
+	esac
+
+	if ! image_urls=$(jq -er \
+		--arg base_image_name "$base_image_name" \
+		--arg container_releases "$container_releases" '
+			(.images | map({key: .name, value: .value}) | from_entries) as $images |
+			def image_url($name): $images[$name] // error("missing required image URL: \($name)");
+			($container_releases | split(",")) as $releases |
+			[
+				image_url($base_image_name),
+				($releases | map(image_url("WINDOWS_\(.)_NANO_IMAGE_URL")) | join(",")),
+				($releases | map(image_url("WINDOWS_\(.)_CORE_IMAGE_URL")) | join(","))
+			] | @tsv
+		' "$artifact_path"); then
+		echo "Failed to read required image URLs for WINDOWS_SKU: ${WINDOWS_SKU}"
+		return 1
+	fi
+
+	tab=$(printf '\t')
+	IFS="$tab" read -r WINDOWS_BASE_IMAGE_URL windows_nanoserver_image_url windows_servercore_image_url <<EOF
+$image_urls
+EOF
 }
 
 function create_windows_storage_account() {
