@@ -112,7 +112,7 @@ apply_chrony_configuration() {
 #
 # About using servers from the NTP Pool Project in general see (LP: #104525).
 # Approved by Ubuntu Technical Board on 2011-02-08.
-# See http://www.pool.ntp.org/join.html for more information.
+# See https://www.pool.ntp.org/join.html for more information.
 #pool ntp.ubuntu.com        iburst maxsources 4
 #pool 0.ubuntu.pool.ntp.org iburst maxsources 1
 #pool 1.ubuntu.pool.ntp.org iburst maxsources 1
