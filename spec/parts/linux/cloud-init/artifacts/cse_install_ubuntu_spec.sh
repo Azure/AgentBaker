@@ -116,6 +116,80 @@ Describe 'cse_install_ubuntu.sh'
         GPU_DEST="/tmp/nonexistent-shellspec-gpu-dest"
         managedGPUPackageList() { :; }
 
+        createGraceBlackwellFixture() {
+            GB_MAI_BOM_FILE="${PWD}/.shellspec-gb-bom-$$.json"
+            GB200_MAI_BOM_FILE=""
+            GPU_DKMS_MARKER_FILE="${PWD}/.shellspec-gpu-marker-$$"
+            GB_NVIDIA_PEERMEM_CONFIG_FILE="${PWD}/.shellspec-nvidia-peermem-$$.conf"
+            GB_NVIDIA_MODPROBE_CONFIG_FILE="${PWD}/.shellspec-nvidia-modprobe-$$.conf"
+            GB_NOUVEAU_MODPROBE_CONFIG_FILE="${PWD}/.shellspec-nouveau-$$.conf"
+            GB_DRIVER_CLEANUP_PENDING_FILE="${PWD}/.shellspec-gb-cleanup-pending-$$"
+            printf '%s\n' '{"versions-wave2":{"libnvidia-common-580":"580.159.04-1ubuntu1","nvidia-dkms-580-open":"580.159.04-1ubuntu1","nvidia-driver-580-open":"580.159.04-1ubuntu1"}}' > "$GB_MAI_BOM_FILE"
+            cp parts/linux/cloud-init/artifacts/ubuntu/gb/nvidia-peermem.conf "$GB_NVIDIA_PEERMEM_CONFIG_FILE"
+            cp parts/linux/cloud-init/artifacts/ubuntu/gb/modprobe-nvidia-parameters.conf "$GB_NVIDIA_MODPROBE_CONFIG_FILE"
+            printf 'blacklist nouveau\noptions nouveau modeset=0\n' > "$GB_NOUVEAU_MODPROBE_CONFIG_FILE"
+        }
+
+        createLegacyGraceBlackwellFixture() {
+            createGraceBlackwellFixture
+            rm -f "$GB_MAI_BOM_FILE" "$GB_NVIDIA_PEERMEM_CONFIG_FILE" "$GB_NOUVEAU_MODPROBE_CONFIG_FILE"
+            GB200_MAI_BOM_FILE="${PWD}/.shellspec-gb200-bom-$$.json"
+            printf '%s\n' '{"versions-wave1":{"libnvidia-common-580":"580.105.08-0ubuntu1","nvidia-dkms-580-open":"580.105.08-0ubuntu1","nvidia-driver-580-open":"580.105.08-0ubuntu1"}}' > "$GB200_MAI_BOM_FILE"
+            GB_NVIDIA_MODPROBE_CONFIG_FILE="${PWD}/.shellspec-nvidia-modprobe-$$.conf"
+            printf '%s\n' 'options nvidia NVreg_RestrictProfilingToAdminUsers=0' \
+                'options nvidia NVreg_CreateImexChannel0=1' \
+                'options nvidia NVreg_CoherentGPUMemoryMode=driver' \
+                'options nvidia NVreg_RegistryDwords="RMBug5172204War=4"' > "$GB_NVIDIA_MODPROBE_CONFIG_FILE"
+        }
+
+        cleanupGraceBlackwellFixture() {
+            rm -f "${GB_MAI_BOM_FILE:-}" "${GB200_MAI_BOM_FILE:-}" "${GB_DRIVER_CLEANUP_PENDING_FILE:-}" "${GPU_DKMS_MARKER_FILE:-}" \
+                "${GB_NVIDIA_PEERMEM_CONFIG_FILE:-}" "${GB_NVIDIA_MODPROBE_CONFIG_FILE:-}" \
+                "${GB_NOUVEAU_MODPROBE_CONFIG_FILE:-}"
+        }
+
+        runGraceBlackwellFailureAndRetainState() {
+            cleanUpGPUDriversForBasePrep
+            status=$?
+            [ -f "$GPU_DKMS_MARKER_FILE" ] && echo "aks marker retained" || status=0
+            [ -f "$GB_NVIDIA_PEERMEM_CONFIG_FILE" ] && echo "GB boot config retained"
+            cleanupGraceBlackwellFixture
+            return "$status"
+        }
+
+        mockGraceBlackwellPackageQueries() {
+            dpkg-query() {
+                if [ "$#" -eq 2 ]; then
+                    [ "${gb_packages_purged:-false}" = true ] && return 0
+                    printf 'libnvidia-common-580\tinstalled\nnvidia-dkms-580-open\tinstalled\nnvidia-driver-580-open\tinstalled\nnvidia-utils-580\tinstalled\nnvidia-modprobe\tinstalled\nnvidia-persistenced\tinstalled\n'
+                    [ -n "${gb_extra_driver_package:-}" ] && printf '%s\tinstalled\n' "$gb_extra_driver_package"
+                    return 0
+                fi
+                case "$3" in
+                    libnvidia-common-580|nvidia-dkms-580-open|nvidia-driver-580-open)
+                        if [ "${gb_packages_purged:-false}" = true ]; then
+                            printf 'not-installed\t\n'
+                        elif [ "${gb_version_mismatch:-false}" = true ] && [ "$3" = nvidia-driver-580-open ]; then
+                            printf 'installed\t580.200.01-1ubuntu1\n'
+                        else
+                            printf 'installed\t%s\n' "${gb_driver_version:-580.159.04-1ubuntu1}"
+                        fi
+                        ;;
+                    nvidia-utils-580)
+                        [ "${gb_packages_purged:-false}" = true ] && printf 'not-installed\t\n' || printf 'installed\t%s\n' "${gb_utils_version:-580.159.04-1}"
+                        ;;
+                    nvidia-modprobe)
+                        [ "${gb_packages_purged:-false}" = true ] && printf 'not-installed\t\n' || printf 'installed\t%s\n' "${gb_modprobe_version:-1.10.0-1ubuntu1}"
+                        ;;
+                    nvidia-persistenced)
+                        [ "${gb_packages_purged:-false}" = true ] && printf 'not-installed\t\n' || printf 'installed\t%s\n' "${gb_persistenced_version:-1.10.0-1ubuntu1}"
+                        ;;
+                    *) printf 'not-installed\t\n' ;;
+                esac
+            }
+            apt-mark() { printf 'nvidia-utils-580\nnvidia-modprobe\nnvidia-persistenced\n'; }
+        }
+
         It 'fails when the prebake marker survives cleanup'
             GPU_DKMS_MARKER_FILE="$(mktemp)"
             cleanUpGPUDrivers() { :; }
@@ -144,6 +218,266 @@ Describe 'cse_install_ubuntu.sh'
             When call cleanUpGPUDriversForBasePrep
             The status should be failure
             The stderr should include "GPU basePrep cleanup incomplete"
+        End
+
+        It 'tears down current and legacy BOM-owned Grace Blackwell drivers before marker cleanup'
+            runGraceBlackwellTeardown() {
+                local layout="${1:-current}"
+                if [ "$layout" = legacy ]; then
+                    createLegacyGraceBlackwellFixture
+                    gb_driver_version=580.105.08-0ubuntu1
+                else
+                    createGraceBlackwellFixture
+                    gb_driver_version=580.159.04-1ubuntu1
+                    gb_utils_version=580.159.04-1
+                    gb_modprobe_version=1.10.0-1ubuntu1
+                    gb_persistenced_version=1.10.0-1ubuntu1
+                fi
+                if [ "$layout" = legacy ]; then
+                    gb_utils_version=580.105.08-1
+                    gb_modprobe_version=1.10.0-1ubuntu1
+                    gb_persistenced_version=1.10.0-1ubuntu1
+                fi
+                : > "$GPU_DKMS_MARKER_FILE"
+                gb_loaded_modules='nvidia_peermem nvidia_uvm nvidia_drm nvidia_modeset nvidia '
+                gb_expected_modules='nvidia_peermem nvidia_uvm nvidia_drm nvidia_modeset nvidia '
+                gb_services_stopped=false
+                gb_packages_purged=false
+                mockGraceBlackwellPackageQueries
+                systemctlDisableAndStop() {
+                    echo "stop:$1"
+                    if [ "$1" = openibd ]; then
+                        gb_services_stopped=true
+                    fi
+                    return 0
+                }
+                systemctl() { return 1; }
+                lsmod() {
+                    echo "Module Size Used by"
+                    for gb_module in $gb_loaded_modules; do
+                        echo "$gb_module 123 0"
+                    done
+                }
+                rmmod() {
+                    [ "$gb_services_stopped" = true ] || return 1
+                    [ "${gb_expected_modules%% *}" = "$1" ] || return 1
+                    echo "rmmod:$1"
+                    gb_expected_modules="${gb_expected_modules#* }"
+                    gb_loaded_modules="${gb_loaded_modules#* }"
+                }
+                update-initramfs() {
+                    [ "$gb_packages_purged" = true ] || return 1
+                    [ ! -e "$GB_NVIDIA_PEERMEM_CONFIG_FILE" ] || return 1
+                    [ ! -e "$GB_NVIDIA_MODPROBE_CONFIG_FILE" ] || return 1
+                    [ ! -e "$GB_NOUVEAU_MODPROBE_CONFIG_FILE" ] || return 1
+                    [ -f "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || return 1
+                    echo "update-initramfs"
+                }
+                apt_get_purge() {
+                    [ "$1 $2 $3" = '10 5 300' ] || return 1
+                    shift 3
+                    local expected='libnvidia-common-580 nvidia-dkms-580-open nvidia-driver-580-open nvidia-utils-580 nvidia-modprobe nvidia-persistenced'
+                    [ "$*" = "$expected" ] || return 1
+                    [ -e "$GB_NVIDIA_MODPROBE_CONFIG_FILE" ] || return 1
+                    [ "$gb_services_stopped" = true ] || return 1
+                    [ -z "$gb_loaded_modules" ] || return 1
+                    [ -z "$gb_expected_modules" ] || return 1
+                    echo "purge:$*"
+                    gb_packages_purged=true
+                }
+                cleanUpGPUDrivers() {
+                    [ "$gb_packages_purged" = true ] || return 1
+                    [ ! -e "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || return 1
+                    echo "aks-marker-cleanup"
+                    rm -f "$GPU_DKMS_MARKER_FILE"
+                }
+                prebakedGPUDriverArtifactsRemain() { [ "$gb_packages_purged" != true ]; }
+                cleanUpGPUDriversForBasePrep
+                status=$?
+                cleanupGraceBlackwellFixture
+                return "$status"
+            }
+
+            runBothGraceBlackwellTeardowns() {
+                runGraceBlackwellTeardown current || return 1
+                runGraceBlackwellTeardown legacy
+            }
+
+            When call runBothGraceBlackwellTeardowns
+            The status should be success
+            The output should include "rmmod:nvidia_peermem"
+            The output should include "stop:nvidia-imex"
+            The output should include "stop:openibd"
+            The output should include "purge:"
+            The output should include "aks-marker-cleanup"
+        End
+
+        It 'uses a BOM-listed dependency version instead of comparing it to the driver version'
+            runGraceBlackwellBOMDependencyVersion() {
+                createGraceBlackwellFixture
+                gb_driver_version=580.159.04-1ubuntu1
+                gb_modprobe_version=1.10.0-1ubuntu1
+                printf '%s\n' '{"versions-wave2":{"libnvidia-common-580":"580.159.04-1ubuntu1","nvidia-dkms-580-open":"580.159.04-1ubuntu1","nvidia-driver-580-open":"580.159.04-1ubuntu1","nvidia-modprobe":"1.10.0-1ubuntu1"}}' > "$GB_MAI_BOM_FILE"
+                mockGraceBlackwellPackageQueries
+                entries=$(graceBlackwellDriverBOMEntries "$GB_MAI_BOM_FILE" versions-wave2) || return 1
+                graceBlackwellInstalledDriverPackages "$entries"
+                status=$?
+                cleanupGraceBlackwellFixture
+                return "$status"
+            }
+            When call runGraceBlackwellBOMDependencyVersion
+            The status should be success
+            The output should include "nvidia-modprobe=1.10.0-1ubuntu1"
+        End
+
+        It 'retains GB provenance and retries after config removal or initramfs failure'
+            runGraceBlackwellTeardownRetry() {
+                local status=0
+                createGraceBlackwellFixture
+                : > "$GPU_DKMS_MARKER_FILE"
+                gb_driver_version=580.159.04-1ubuntu1
+                gb_utils_version=580.159.04-1
+                gb_modprobe_version=1.10.0-1ubuntu1
+                gb_persistenced_version=1.10.0-1ubuntu1
+                gb_packages_purged=false
+                gb_loaded_modules=""
+                mockGraceBlackwellPackageQueries
+                systemctlDisableAndStop() { :; }
+                systemctl() { return 1; }
+                lsmod() { echo "Module Size Used by"; }
+                apt_get_purge() { gb_packages_purged=true; }
+                gb_fail_config_remove=true
+                rm() {
+                    if [ "${gb_fail_config_remove:-false}" = true ] &&
+                        [ "$*" = "-f $GB_NVIDIA_PEERMEM_CONFIG_FILE $GB_NVIDIA_MODPROBE_CONFIG_FILE $GB_NOUVEAU_MODPROBE_CONFIG_FILE" ]; then
+                        gb_fail_config_remove=false
+                        return 1
+                    fi
+                    command rm "$@"
+                }
+                gb_initramfs_failures=1
+                update-initramfs() {
+                    [ ! -e "$GB_NVIDIA_PEERMEM_CONFIG_FILE" ] || return 1
+                    [ ! -e "$GB_NVIDIA_MODPROBE_CONFIG_FILE" ] || return 1
+                    [ ! -e "$GB_NOUVEAU_MODPROBE_CONFIG_FILE" ] || return 1
+                    [ -f "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || return 1
+                    if [ "$gb_initramfs_failures" -gt 0 ]; then
+                        gb_initramfs_failures=$((gb_initramfs_failures - 1))
+                        return 1
+                    fi
+                }
+                cleanUpGPUDrivers() {
+                    [ "$gb_packages_purged" = true ] || return 1
+                    [ ! -e "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || return 1
+                    rm -f "$GPU_DKMS_MARKER_FILE"
+                }
+                prebakedGPUDriverArtifactsRemain() { [ "$gb_packages_purged" != true ]; }
+
+                cleanUpGPUDriversForBasePrep && status=1
+                [ -f "$GPU_DKMS_MARKER_FILE" ] || status=1
+                [ -f "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || status=1
+                [ -f "$GB_NVIDIA_MODPROBE_CONFIG_FILE" ] || status=1
+                cleanUpGPUDriversForBasePrep && status=1
+                [ -f "$GPU_DKMS_MARKER_FILE" ] || status=1
+                [ -f "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || status=1
+                [ ! -e "$GB_NVIDIA_MODPROBE_CONFIG_FILE" ] || status=1
+                cleanUpGPUDriversForBasePrep || status=1
+                [ ! -e "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || status=1
+                [ ! -e "$GPU_DKMS_MARKER_FILE" ] || status=1
+                cleanupGraceBlackwellFixture
+                return "$status"
+            }
+            When call runGraceBlackwellTeardownRetry
+            The status should be success
+            The stderr should include "GPU basePrep cleanup incomplete: Grace Blackwell driver teardown failed"
+        End
+
+        It 'retains the marker on a legacy GB VHD without a BOM'
+            runGraceBlackwellWithoutBOM() {
+                status=0
+                createGraceBlackwellFixture
+                rm -f "$GB_MAI_BOM_FILE"
+                : > "$GPU_DKMS_MARKER_FILE"
+                cleanUpGPUDrivers() { echo "unexpected marker cleanup"; }
+                runGraceBlackwellFailureAndRetainState || status=1
+                createGraceBlackwellFixture
+                rm -f "$GB_MAI_BOM_FILE" "$GB_NVIDIA_PEERMEM_CONFIG_FILE"
+                : > "$GPU_DKMS_MARKER_FILE"
+                dpkg-query() {
+                    [ "$#" -eq 2 ] && printf 'nvidia-dkms-580-open\tinstalled\n'
+                }
+                runGraceBlackwellFailureAndRetainState || status=1
+                return "$status"
+            }
+            When call runGraceBlackwellWithoutBOM
+            The status should be failure
+            The stderr should include "Grace Blackwell BOM is unavailable"
+            The stderr should include "has no verifiable GB BOM ownership"
+            The output should include "aks marker retained"
+            The output should include "GB boot config retained"
+            The output should not include "unexpected marker cleanup"
+        End
+
+        It 'retains the marker for mixed ownership and package-purge failures'
+            runUnsafeGraceBlackwellTeardown() {
+                status=0
+                createGraceBlackwellFixture
+                : > "$GPU_DKMS_MARKER_FILE"
+                gb_packages_purged=false
+                gb_extra_driver_package=nvidia-driver-535-server
+                mockGraceBlackwellPackageQueries
+                systemctlDisableAndStop() { echo "unexpected service stop"; }
+                apt_get_purge() { echo "unexpected package purge"; }
+                cleanUpGPUDrivers() { echo "unexpected marker cleanup"; }
+                runGraceBlackwellFailureAndRetainState || status=1
+                createGraceBlackwellFixture
+                : > "$GPU_DKMS_MARKER_FILE"
+                gb_packages_purged=false
+                gb_extra_driver_package=""
+                mockGraceBlackwellPackageQueries
+                printf '\n# customer change\n' >> "$GB_NVIDIA_MODPROBE_CONFIG_FILE"
+                systemctlDisableAndStop() { echo "unexpected service stop"; }
+                systemctl() { return 1; }
+                lsmod() { echo "nvidia 123 0"; }
+                rmmod() { echo "unexpected module unload"; }
+                apt_get_purge() { echo "unexpected package purge"; }
+                cleanUpGPUDrivers() { echo "unexpected marker cleanup"; }
+                runGraceBlackwellFailureAndRetainState || status=1
+                createGraceBlackwellFixture
+                : > "$GPU_DKMS_MARKER_FILE"
+                gb_extra_driver_package=""
+                gb_packages_purged=false
+                mockGraceBlackwellPackageQueries
+                lsmod() { echo "Module Size Used by"; }
+                systemctlDisableAndStop() { :; }
+                systemctl() { return 1; }
+                systemctlDisableAndStop() { :; }
+                systemctl() { return 1; }
+                update-initramfs() { :; }
+                apt_get_purge() { return 1; }
+                runGraceBlackwellFailureAndRetainState || status=1
+                createGraceBlackwellFixture
+                gb_version_mismatch=true
+                mockGraceBlackwellPackageQueries
+                : > "$GPU_DKMS_MARKER_FILE"
+                apt_get_purge() { echo "unexpected package purge"; }
+                cleanUpGPUDrivers() { echo "unexpected marker cleanup"; }
+                cleanUpGPUDriversForBasePrep || status=1
+                cleanupGraceBlackwellFixture
+                return "$status"
+            }
+            When call runUnsafeGraceBlackwellTeardown
+            The status should be failure
+            The stderr should include "is not owned by the Grace Blackwell BOM"
+            The stderr should include "module configuration"
+            The stderr should include "Grace Blackwell driver package purge failed"
+            The stderr should include "does not match the GB BOM"
+            The output should include "aks marker retained"
+            The output should include "GB boot config retained"
+            The output should not include "unexpected service stop"
+            The output should not include "unexpected module unload"
+            The output should not include "unexpected package purge"
+            The output should not include "unexpected marker cleanup"
         End
 
         It 'succeeds when the prebake marker and AKS paths are gone'
