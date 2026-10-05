@@ -2,6 +2,7 @@ package datamodel
 
 import (
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -48,6 +49,102 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 
 		// test the length after to make sure nothing extra the other way around
 		Expect(actual).To(HaveLen(len(expected)))
+	})
+})
+
+var _ = Describe("Edge Zone SIG image config derivation", func() {
+	DescribeTable("should derive Edge Zone distro names only for eligible base images",
+		func(regional Distro, expected Distro, eligible bool) {
+			actual, ok := edgeZoneDistroFromRegional(regional)
+			Expect(ok).To(Equal(eligible))
+			Expect(actual).To(Equal(expected))
+			regionalByEdgeZone := buildRegionalDistroByEdgeZoneDistro(
+				map[Distro]SigImageConfig{regional: {}},
+			)
+			if eligible {
+				Expect(regionalByEdgeZone).To(HaveKeyWithValue(actual, regional))
+			} else {
+				Expect(regionalByEdgeZone).To(BeEmpty())
+			}
+		},
+		Entry("Ubuntu 22.04 Gen1", AKSUbuntuContainerd2204, AKSUbuntuEdgeZoneContainerd2204, true),
+		Entry("Ubuntu 24.04 Gen2", AKSUbuntuContainerd2404Gen2, AKSUbuntuEdgeZoneContainerd2404Gen2, true),
+		Entry("future Ubuntu Gen1", Distro("aks-ubuntu-containerd-26.04"), Distro("aks-ubuntu-edgezone-containerd-26.04"), true),
+		Entry("future Ubuntu Gen2", Distro("aks-ubuntu-containerd-26.04-gen2"), Distro("aks-ubuntu-edgezone-containerd-26.04-gen2"), true),
+		Entry("future Azure Linux Gen1", Distro("aks-azurelinux-v4"), Distro("aks-azurelinux-v4-edgezone"), true),
+		Entry("future Azure Linux Gen2", Distro("aks-azurelinux-v4-gen2"), Distro("aks-azurelinux-v4-edgezone-gen2"), true),
+		Entry("Azure Linux 2", AKSAzureLinuxV2, Distro(""), false),
+		Entry("Ubuntu FIPS", AKSUbuntuFipsContainerd2204Gen2, Distro(""), false),
+		Entry("Ubuntu ARM64", AKSUbuntuArm64Containerd2404Gen2, Distro(""), false),
+		Entry("Ubuntu Trusted Launch", AKSUbuntuContainerd2404TLGen2, Distro(""), false),
+		Entry("Ubuntu CVM", AKSUbuntuContainerd2404CVMGen2, Distro(""), false),
+		Entry("Ubuntu Minimal", AKSUbuntuMinimalContainerd2604Gen2, Distro(""), false),
+		Entry("Azure Linux FIPS", AKSAzureLinuxV3Gen2FIPS, Distro(""), false),
+		Entry("Azure Linux ARM64", AKSAzureLinuxV3Arm64Gen2, Distro(""), false),
+		Entry("Azure Linux Trusted Launch", AKSAzureLinuxV3Gen2TL, Distro(""), false),
+		Entry("Azure Linux CVM", AKSAzureLinuxV3CVMGen2, Distro(""), false),
+	)
+
+	It("should normalize only Edge Zone distros registered in the startup catalog", func() {
+		regional, ok := regionalDistroForEdgeZone(AKSUbuntuEdgeZoneContainerd2404Gen2)
+		Expect(ok).To(BeTrue())
+		Expect(regional).To(Equal(AKSUbuntuContainerd2404Gen2))
+
+		_, ok = regionalDistroForEdgeZone(Distro("aks-ubuntu-edgezone-containerd-26.04-gen2"))
+		Expect(ok).To(BeFalse())
+	})
+
+	DescribeTable("should identify only images in the generated Edge Zone SIG catalogs",
+		func(osSKU, imageDefinitionName string, expected bool) {
+			Expect(IsEdgeZoneSIGImage(osSKU, imageDefinitionName)).To(Equal(expected))
+		},
+		Entry("Ubuntu 22.04 Gen1", "Ubuntu", "2204containerd", true),
+		Entry("Ubuntu 22.04 Gen2", "Ubuntu", "2204gen2containerd", true),
+		Entry("Ubuntu 24.04 Gen1", "Ubuntu", "2404containerd", true),
+		Entry("Ubuntu 24.04 Gen2", "Ubuntu", "2404gen2containerd", true),
+		Entry("Azure Linux V3 Gen1", OSSKUAzureLinux, "V3", true),
+		Entry("Azure Linux V3 Gen2", OSSKUAzureLinux, "V3gen2", true),
+		Entry("same definition with the wrong OS SKU", OSSKUAzureLinux, "2204containerd", false),
+		Entry("OS SKU matching is exact", "ubuntu", "2204containerd", false),
+		Entry("Ubuntu FIPS", "Ubuntu", "2204fipsgen2containerd", false),
+		Entry("Ubuntu ARM64", "Ubuntu", "2404gen2arm64containerd", false),
+		Entry("Azure Linux FIPS", OSSKUAzureLinux, "V3gen2fips", false),
+		Entry("unconfigured future Ubuntu image", "Ubuntu", "2604containerd", false),
+	)
+
+	It("should preserve regional image metadata while changing Edge Zone routing", func() {
+		const futureUbuntu Distro = "aks-ubuntu-containerd-26.04-gen2"
+		regional := map[Distro]SigImageConfig{
+			futureUbuntu: {
+				SubscriptionID: "subscription",
+				SigImageConfigTemplate: SigImageConfigTemplate{
+					ResourceGroup: AKSUbuntuResourceGroup,
+					Gallery:       AKSUbuntuGalleryName,
+					Definition:    "2604gen2containerd",
+					Version:       "202609.29.0",
+				},
+			},
+		}
+
+		actual := deriveEdgeZoneImageConfigMap(
+			regional,
+			AKSUbuntuEdgeZoneGalleryName,
+			AKSUbuntuEdgeZoneResourceGroup,
+		)
+
+		Expect(actual).To(HaveLen(1))
+		Expect(actual).To(HaveKeyWithValue(
+			Distro("aks-ubuntu-edgezone-containerd-26.04-gen2"),
+			SigImageConfig{
+				SubscriptionID: "subscription",
+				SigImageConfigTemplate: SigImageConfigTemplate{
+					ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+					Gallery:       AKSUbuntuEdgeZoneGalleryName,
+					Definition:    "2604gen2containerd",
+					Version:       "202609.29.0",
+				},
+			},
+		))
 	})
 })
 
