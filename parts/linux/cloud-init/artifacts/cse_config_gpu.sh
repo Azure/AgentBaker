@@ -291,7 +291,8 @@ setupAmdAma() {
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
         # Configure huge pages
-        num_devs=$(ls /dev/ama_transcoder* | wc -l)
+        local num_devs
+        num_devs=$(find /dev -maxdepth 1 -name 'ama_transcoder*' -print | wc -l)
         if [ $num_devs -eq 1 ]; then
             sh -c "echo 'vm.nr_hugepages=2144' > /etc/sysctl.d/99-ama_transcoder.conf"
             sh -c "echo 2144 > /proc/sys/vm/nr_hugepages"
