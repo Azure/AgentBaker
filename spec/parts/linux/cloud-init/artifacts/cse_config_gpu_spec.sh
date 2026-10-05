@@ -497,8 +497,6 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
             # we override the deb's vendor unit in place (same pattern as dra-driver) and start it
             The output should include "mkdir -p /etc/systemd/system/compute-domain-kubelet-plugin.service.d"
-            # clear any StartLimit/failed state the vendor unit's install-time crash-loop left, so our start isn't blocked
-            The output should include "systemctl reset-failed compute-domain-kubelet-plugin"
             The output should include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
             # the override targets the controller extension's pinned namespace + this node, and resets ExecStart
             The contents of file "$CD_CONF" should include "ExecStart="

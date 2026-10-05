@@ -431,11 +431,6 @@ EOF
             # Reload systemd to pick up the override
             systemctl daemon-reload
 
-            # The deb auto-started the args-less vendor unit at install, which exits non-zero and can
-            # crash-loop into a start-rate-limited 'failed' state; clear it so our start (with the
-            # override) isn't blocked by a lingering StartLimit from that earlier vendor failure.
-            systemctl reset-failed compute-domain-kubelet-plugin 2>/dev/null || true
-
             # Non-fatal: a successful start only means the process spawned, not that the ComputeDomain
             # reached Ready (that needs the control-plane controller + node RBAC), so a failure must
             # not block node provisioning -- surface a warning instead.
