@@ -168,25 +168,22 @@ echo "diagnostic: Result=$result NRestarts=$nrestarts"
 # three kill/recovery cycles on this same unit just before, and a refusal from those would
 # otherwise satisfy this grep.
 #
-# --sync before each read, because the loop above and this grep do not read from the same
-# place. 'systemctl show' answers from PID 1's own memory, so 'failed' is visible the
-# instant systemd sets it; the refusal line is only greppable once journald has dequeued it
-# from its socket and committed it. systemd emits the refusal and flips the unit to 'failed'
-# in the same instant, so reading the journal the moment the loop breaks races that commit.
-# Measured: ~10ms to commit on an idle machine, but up to ~285ms under journal and IO load,
-# which is exactly the state this scenario leaves the node in. That race failed this
-# assertion on 22.04 and 24.04 alike with NRestarts=5 already recorded -- the budget had
-# done its job and the journal simply had not caught up.
+# Retried, because the poll loop above and this grep do not read from the same place.
+# 'systemctl show' answers from PID 1's own memory, so 'failed' is visible the instant
+# systemd sets it; the refusal line is only readable once journald has moved it from its
+# socket queue into the journal. Reading once, the moment the loop breaks, races that --
+# measured at up to ~285ms under the journal and IO load this scenario leaves on the node.
 #
-# 'journalctl --sync' blocks until journald has committed everything queued, which closes
-# the race for a line already emitted. The retry covers the remaining case where the refusal
-# lands fractionally after the state flip. Tolerate --sync failing (systemd <246 has no such
-# verb) and fall back to retrying alone.
+# Deliberately not 'journalctl --sync': it would also fsync every journal, which is
+# durability this assertion does not need, and it measured ~37s under that same IO load.
+# journald drains its queue on its own well inside one retry interval.
+#
+# grep without -q, output discarded: under pipefail, grep exiting early on a match can
+# SIGPIPE journalctl and turn a successful read into a non-zero pipeline.
 refusal_found=0
 for _ in $(seq 1 20); do
-    sudo journalctl --sync 2>/dev/null || true
     if sudo journalctl -u localdns.service --since "@$fault_start" --no-pager |
-         grep -q "Start request repeated too quickly"; then
+         grep -F "Start request repeated too quickly" >/dev/null; then
         refusal_found=1
         break
     fi
