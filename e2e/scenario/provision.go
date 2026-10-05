@@ -762,10 +762,11 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 }
 
 const (
-	customerDriverSentinelPath = "/usr/local/nvidia/customer-driver-sentinel"
-	customerDriverReceiptPath  = "/opt/azure/containers/customer-gpu-driver.receipt"
-	customerNvidiaCDIDropIn    = "/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
-	customerGPUDriverImage     = "mcr.microsoft.com/aks/aks-gpu-cuda-lts"
+	customerDriverSentinelPath     = "/usr/local/nvidia/customer-driver-sentinel"
+	customerDriverReceiptPath      = "/opt/azure/containers/customer-gpu-driver.receipt"
+	customerGPUDriverImage         = "mcr.microsoft.com/aks/aks-gpu-cuda-lts"
+	customerGPUDriverEvidenceStart = "CUSTOM_NVIDIA_DRIVER_EVIDENCE_BEGIN"
+	customerGPUDriverEvidenceEnd   = "CUSTOM_NVIDIA_DRIVER_EVIDENCE_END"
 )
 
 func customerGPUDriverImageReference() (string, string, error) {
@@ -807,16 +808,17 @@ else
 fi
 image_tag="${image_ref##*:}"
 expected_version="${image_tag%%-*}"
-# Match configureNvidiaCDIRefresh in CSE before the NVIDIA toolkit package starts this unit.
-sudo install -d -m 0755 /etc/systemd/system/nvidia-cdi-refresh.service.d
-printf '[Service]\nSuccessExitStatus=1 2 127\n' | sudo tee %s >/dev/null
-sudo systemctl daemon-reload
 sudo ctr -n k8s.io run --privileged --rm --net-host \
   --with-ns pid:/proc/1/ns/pid \
   --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind \
   --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind \
-  "${image_ref}" gpuinstall /entrypoint.sh install
+  "${image_ref}" gpuinstall /entrypoint.sh copy
 sudo ctr -n k8s.io images rm "${image_ref}"
+
+installer_dir="/opt/gpu/NVIDIA-Linux-x86_64-${expected_version}"
+test -x "${installer_dir}/nvidia-installer"
+cd "${installer_dir}"
+sudo ./nvidia-installer -s -k="$(uname -r)" --log-file-name=/var/log/nvidia-installer-customer-e2e.log -a --no-drm --dkms
 
 sudo nvidia-modprobe -u -c0
 gpu_info="$(sudo nvidia-smi --query-gpu=driver_version,name --format=csv,noheader | head -n1)"
@@ -846,6 +848,12 @@ sudo install -d -m 0755 "$(dirname "${receipt}")"
 } | sudo tee "${receipt}" >/dev/null
 sudo chmod 0444 "${receipt}"
 
+printf '%%s\n' %s
+sudo cat "${receipt}"
+printf 'nvidia_smi_gpu_info=%%s\n' "${gpu_info}"
+sudo nvidia-smi -L
+printf '%%s\n' %s
+
 sudo mkdir -p /usr/local/nvidia
 printf '%%s\n' '#!/bin/sh' '# customer-installed driver sentinel' 'exit 0' | sudo tee %s >/dev/null
 sudo chmod 0755 %s
@@ -853,14 +861,34 @@ sudo chmod 0755 %s
 		shellSingleQuote(imageRef),
 		shellSingleQuote(customerGPUDriverImage),
 		shellSingleQuote(customerDriverReceiptPath),
-		shellSingleQuote(customerNvidiaCDIDropIn),
+		shellSingleQuote(customerGPUDriverEvidenceStart),
+		shellSingleQuote(customerGPUDriverEvidenceEnd),
 		shellSingleQuote(customerDriverSentinelPath),
 		shellSingleQuote(customerDriverSentinelPath),
 	)
-	if _, err := RunCommand(ctx, s, command); err != nil {
+	view, err := RunCommand(ctx, s, command)
+	if err != nil {
 		return fmt.Errorf("install customer NVIDIA driver from cached approved artifact: %w", err)
 	}
+	if view.Output != nil {
+		logCustomerNvidiaDriverEvidence(ctx, *view.Output)
+	}
 	return nil
+}
+
+func logCustomerNvidiaDriverEvidence(ctx context.Context, output string) {
+	start := strings.LastIndex(output, customerGPUDriverEvidenceStart)
+	if start < 0 {
+		return
+	}
+	start += len(customerGPUDriverEvidenceStart)
+	end := strings.Index(output[start:], customerGPUDriverEvidenceEnd)
+	if end < 0 {
+		return
+	}
+	if evidence := strings.TrimSpace(output[start : start+end]); evidence != "" {
+		logging.Logf(ctx, "customer-installed NVIDIA driver evidence:\n%s", evidence)
+	}
 }
 
 // runCommandScriptError converts a RunCommand instance view into an error if the

@@ -618,12 +618,26 @@ test "${nvidia_module_path}" = "$(receipt_value nvidia_module_path)"
 test "$(sudo modinfo -F version nvidia)" = "${receipt_driver_version}"
 test "$(sha256sum "${nvidia_smi_path}" | awk '{ print $1 }')" = "$(receipt_value nvidia_smi_sha256)"
 test "$(sha256sum "${nvidia_module_path}" | awk '{ print $1 }')" = "$(receipt_value nvidia_module_sha256)"
+printf '%%s\n' %s
+cat "${receipt}"
+printf 'nvidia_smi_gpu_info=%%s\n' "${gpu_info}"
+printf 'nvidia_module_version=%%s\n' "$(sudo modinfo -F version nvidia)"
+printf 'nvidia_smi_current_sha256=%%s\n' "$(sha256sum "${nvidia_smi_path}" | awk '{ print $1 }')"
+printf 'nvidia_module_current_sha256=%%s\n' "$(sha256sum "${nvidia_module_path}" | awk '{ print $1 }')"
+sudo nvidia-smi -L
+printf '%%s\n' %s
 `,
 		shellSingleQuote(customerDriverReceiptPath),
 		shellSingleQuote(customerGPUDriverImage),
+		shellSingleQuote(customerGPUDriverEvidenceStart),
+		shellSingleQuote(customerGPUDriverEvidenceEnd),
 	)
-	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "customer-installed NVIDIA driver did not survive PIS image capture")
-	return err
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "customer-installed NVIDIA driver did not survive PIS image capture")
+	if err != nil {
+		return err
+	}
+	logCustomerNvidiaDriverEvidence(ctx, result.stdout)
+	return nil
 }
 
 func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) error {
