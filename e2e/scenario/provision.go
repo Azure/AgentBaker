@@ -68,7 +68,13 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
 			)
 		}
-		return validationErr
+		if validationErr != nil {
+			return validationErr
+		}
+		if original.Config.VHDCachingPostBasePrep != nil {
+			return original.Config.VHDCachingPostBasePrep(ctx, scenario)
+		}
+		return nil
 	}
 
 	bakeScenario.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -753,6 +759,20 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	}
 	view := *getResp.Properties.InstanceView
 	return view, runCommandScriptError(view)
+}
+
+const customerDriverSentinelPath = "/usr/local/nvidia/customer-driver-sentinel"
+
+func installCustomerDriverSentinel(ctx context.Context, s *Scenario) error {
+	command := fmt.Sprintf(
+		"sudo mkdir -p /usr/local/nvidia && printf '%%s\\n' '#!/bin/sh' '# customer-installed driver sentinel' 'exit 0' | sudo tee %s >/dev/null && sudo chmod 0755 %s",
+		customerDriverSentinelPath,
+		customerDriverSentinelPath,
+	)
+	if _, err := RunCommand(ctx, s, command); err != nil {
+		return fmt.Errorf("install customer driver sentinel: %w", err)
+	}
+	return nil
 }
 
 // runCommandScriptError converts a RunCommand instance view into an error if the

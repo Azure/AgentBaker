@@ -28,6 +28,32 @@ Describe 'cse_install_mariner.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
 
+    Describe 'cleanUpGPUDriversForBasePrep'
+        GPU_DEST="/tmp/nonexistent-shellspec-gpu-dest"
+        managedGPUPackageList() { echo "driver-cache"; }
+        getPackageCacheDir() { echo "$gpu_test_root/driver-cache"; }
+        setup_gpu_cache() { gpu_test_root=$(mktemp -d); }
+        teardown_gpu_cache() { rm -rf "$gpu_test_root"; }
+        BeforeEach 'setup_gpu_cache'
+        AfterEach 'teardown_gpu_cache'
+
+        It 'fails when an AKS cache survives cleanup'
+            mkdir -p "$gpu_test_root/driver-cache"
+            cleanUpGPUDrivers() { :; }
+            When call cleanUpGPUDriversForBasePrep
+            The status should be failure
+            The stderr should include "driver-cache cache remains"
+        End
+
+        It 'succeeds when AKS caches are removed'
+            mkdir -p "$gpu_test_root/driver-cache"
+            cleanUpGPUDrivers() { rm -rf "$gpu_test_root/driver-cache"; }
+            When call cleanUpGPUDriversForBasePrep
+            The status should be success
+            The path "$gpu_test_root/driver-cache" should not be exist
+        End
+    End
+
     Describe 'installDeps'
         It 'installs the required packages with installDeps for Mariner 2.0'
             OS_VERSION="2.0"

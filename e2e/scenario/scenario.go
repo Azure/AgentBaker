@@ -3050,6 +3050,35 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:             "Ubuntu2404_GPUDriverOptOut_VHDCaching",
+	Description:      "Tests that a customer-installed NVIDIA driver sentinel survives PIS VHD-cached provisioning on an opted-out GPU node",
+	Location:         "westus2",
+	K8sSystemPoolSKU: "Standard_D2s_v3",
+	Tags: Tags{
+		GPU: true,
+	},
+	Config: Config{
+		Cluster:                ClusterKubenet,
+		VHD:                    config.VHDUbuntu2404Gen2Containerd,
+		VHDCaching:             true,
+		VHDCachingPostBasePrep: installCustomerDriverSentinel,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessCSECmd = false
+			nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
+			nbc.ConfigGPUDriverIfNeeded = false
+			nbc.EnableGPUDevicePluginIfNeeded = false
+			nbc.EnableNvidia = false
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateFileHasContent(ctx, s, customerDriverSentinelPath, "customer-installed driver sentinel")
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_AKSVMExtension_FilesystemCorruption",
 	Description: "Tests Ubuntu 24.04 NPD filesystem-corruption reporting with the AKS VM Extension and hotfix target resolution from the NBC command when ANC JSON is absent",
 	Config: Config{

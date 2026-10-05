@@ -369,7 +369,7 @@ cleanUpPrebakedGPUDriver() {
     local dkms_after=false modprobe_after=false marker_after=true status=cleaned
     [ -d /var/lib/dkms/nvidia ] && dkms_after=true
     [ -e /usr/bin/nvidia-modprobe ] && modprobe_after=true
-    if [ "${dkms_after}" = false ] && [ "${modprobe_after}" = false ] && [ "${module_after}" = false ]; then
+    if ! prebakedGPUDriverArtifactsRemain; then
         rm -f "${marker}" || true
         [ -f "${marker}" ] || marker_after=false
     fi
@@ -377,6 +377,19 @@ cleanUpPrebakedGPUDriver() {
         status=incomplete
     fi
     echo "AKS_GPU_PREBAKE event=teardown gpu_node=${GPU_NODE:-} status=${status} dkms_before=${dkms_before} module_before=${module_before} module_after=${module_after} marker_after=${marker_after} dkms_after=${dkms_after} modprobe_after=${modprobe_after}"
+}
+
+prebakedGPUDriverArtifactsRemain() {
+    local binary modules
+    [ -d /var/lib/dkms/nvidia ] || [ -e /usr/bin/lib64 ] || [ -e /etc/ld.so.conf.d/nvidia.conf ] && return 0
+    for binary in nvidia-smi nvidia-debugdump nvidia-persistenced nvidia-cuda-mps-control \
+                  nvidia-cuda-mps-server nvidia-modprobe nvidia-bug-report.sh nvidia-powerd \
+                  nvidia-ngx-updater nvidia-sleep.sh; do
+        [ -e "/usr/bin/${binary}" ] && return 0
+    done
+    compgen -G '/lib/modules/*/updates/dkms/nvidia*.ko*' >/dev/null && return 0
+    modules=$(lsmod) || return 0
+    grep -q '^nvidia' <<< "${modules}"
 }
 
 cleanUpGPUDrivers() {
@@ -391,6 +404,25 @@ cleanUpGPUDrivers() {
     # DKMS-registered it forces an nvidia.ko rebuild on every kernel patch. Tear it down here.
     # No-op on VHDs without the aks-gpu prebake marker.
     cleanUpPrebakedGPUDriver
+}
+
+cleanUpGPUDriversForBasePrep() {
+    local packageName marker="${GPU_DKMS_MARKER_FILE:-/opt/azure/aks-gpu/dkms-marker}"
+    cleanUpGPUDrivers
+    if prebakedGPUDriverArtifactsRemain; then
+        echo "GPU basePrep cleanup incomplete: pre-baked GPU driver artifacts remain" >&2
+        return 1
+    fi
+    if [ -e "${GPU_DEST}" ] || [ -e /opt/gpu ] || [ -e "${marker}" ]; then
+        echo "GPU basePrep cleanup incomplete: AKS driver artifacts remain" >&2
+        return 1
+    fi
+    for packageName in $(managedGPUPackageList); do
+        if [ -e "/opt/${packageName}" ]; then
+            echo "GPU basePrep cleanup incomplete: ${packageName} cache remains" >&2
+            return 1
+        fi
+    done
 }
 
 installCriCtlPackage() {

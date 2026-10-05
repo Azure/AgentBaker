@@ -114,10 +114,12 @@ upload_logs() {
 }
 # Create the marker for the completed provisioning stage.
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-    # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
-    echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
-    echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
+    if [ "$EXIT_CODE" -eq 0 ]; then
+        # Stage 1: Create marker indicating Stage 2 is needed
+        mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
+        echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
+        echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
+    fi
 else
     # provision.complete signals that a normal provisioning attempt finished.
     mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete

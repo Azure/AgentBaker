@@ -85,6 +85,75 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "module_after=true"
             The output should include "status=incomplete"
         End
+
+        It 'keeps the marker if any prebaked userspace artifact remains'
+            marker="$(mktemp)"
+            GPU_DKMS_MARKER_FILE="$marker"
+            rm() { echo "mock rm $*"; }
+            ldconfig() { :; }
+            lsmod() { :; }
+            prebakedGPUDriverArtifactsRemain() { return 0; }
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "status=incomplete"
+            The output should not include "mock rm -f $marker"
+        End
+
+        It 'keeps the marker when loaded-module inspection fails'
+            marker="$(mktemp)"
+            GPU_DKMS_MARKER_FILE="$marker"
+            rm() { echo "mock rm $*"; }
+            ldconfig() { :; }
+            lsmod() { return 1; }
+            When call cleanUpPrebakedGPUDriver
+            The status should be success
+            The output should include "status=incomplete"
+            The output should not include "mock rm -f $marker"
+        End
+    End
+
+    Describe 'cleanUpGPUDriversForBasePrep'
+        GPU_DEST="/tmp/nonexistent-shellspec-gpu-dest"
+        managedGPUPackageList() { :; }
+
+        It 'fails when the prebake marker survives cleanup'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"
+            cleanUpGPUDrivers() { :; }
+            lsmod() { echo ""; }
+            When call cleanUpGPUDriversForBasePrep
+            The status should be failure
+            The stderr should include "GPU basePrep cleanup incomplete"
+            The path "$GPU_DKMS_MARKER_FILE" should be exist
+            AfterRun 'rm -f "$GPU_DKMS_MARKER_FILE"'
+        End
+
+        It 'fails when nvidia remains loaded without a prebake marker'
+            GPU_DKMS_MARKER_FILE="${PWD}/.shellspec-absent-gpu-marker-$$"
+            cleanUpGPUDrivers() { :; }
+            lsmod() { echo "nvidia 104165376 0"; }
+            When call cleanUpGPUDriversForBasePrep
+            The status should be failure
+            The stderr should include "GPU basePrep cleanup incomplete"
+        End
+
+        It 'fails when an unmarked prebake artifact remains'
+            GPU_DKMS_MARKER_FILE="${PWD}/.shellspec-absent-gpu-marker-$$"
+            cleanUpGPUDrivers() { :; }
+            compgen() { [ "$2" = '/lib/modules/*/updates/dkms/nvidia*.ko*' ]; }
+            lsmod() { echo ""; }
+            When call cleanUpGPUDriversForBasePrep
+            The status should be failure
+            The stderr should include "GPU basePrep cleanup incomplete"
+        End
+
+        It 'succeeds when the prebake marker and AKS paths are gone'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"
+            cleanUpGPUDrivers() { rm -f "$GPU_DKMS_MARKER_FILE"; }
+            lsmod() { echo ""; }
+            When call cleanUpGPUDriversForBasePrep
+            The status should be success
+            The path "$GPU_DKMS_MARKER_FILE" should not be exist
+        End
     End
 
     Describe 'installPackageFromCache version matching'
