@@ -260,6 +260,13 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 			return fmt.Errorf("mutate VMSS model: %w", err)
 		}
 	}
+	if config.Config.AdHocSKUValidation {
+		if vmss.SKU == nil {
+			return fmt.Errorf("cannot enforce ad-hoc VM size: VMSS SKU is nil")
+		}
+		vmss.SKU.Name = to.Ptr(config.Config.VMSKU())
+		logging.Logf(ctx, "Ad-hoc SKU validation: final VMSS size %s", *vmss.SKU.Name)
+	}
 
 	if vmss.Properties.VirtualMachineProfile == nil {
 		vmss.Properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}

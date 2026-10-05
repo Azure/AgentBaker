@@ -323,6 +323,12 @@ func prepareNodeConfiguration(ctx context.Context, s *Scenario, nbc *datamodel.N
 			return fmt.Errorf("mutate bootstrap configuration: %w", err)
 		}
 	}
+	if config.Config.AdHocSKUValidation {
+		if err := overrideBootstrapVMSize(nbc, config.Config.VMSKU()); err != nil {
+			return err
+		}
+		logging.Logf(ctx, "Ad-hoc SKU validation: enforcing VM size %s", config.Config.VMSKU())
+	}
 	if config.Config.DisableScriptless || scriptlessUnsupported(s) || !s.VHD.SupportsScriptless() {
 		nbc.EnableScriptlessAKSNodeConfig = false
 	}
@@ -348,6 +354,9 @@ func prepareNodeConfiguration(ctx context.Context, s *Scenario, nbc *datamodel.N
 				if err := s.AKSNodeConfigMutatorWithError(ctx, cluster, cfg); err != nil {
 					return fmt.Errorf("mutate AKS node config: %w", err)
 				}
+			}
+			if config.Config.AdHocSKUValidation {
+				cfg.VmSize = config.Config.VMSKU()
 			}
 			return nil
 		})
@@ -404,6 +413,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", s.Runtime.VMSize, err)
 	}
 	if config.SkuSupportsOnlyGen2(sku) && s.Config.VHD.UnsupportedGen2 {
+		if config.Config.AdHocSKUValidation {
+			return nil, fmt.Errorf("ad-hoc SKU %q requires Gen2; refusing image fallback", s.Runtime.VMSize)
+		}
 		logging.Logf(ctx, "VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supports Gen1 %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
 		s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
 		nbc.AgentPoolProfile.VMSize = config.Config.Gen1SCSIVMSKU
@@ -414,6 +426,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 	if config.SkuSupportsNVMe(sku) {
 		if s.Config.VHD.UnsupportedNVMe {
+			if config.Config.AdHocSKUValidation {
+				return nil, fmt.Errorf("ad-hoc SKU %q requires an NVMe-compatible image; refusing image fallback", s.Runtime.VMSize)
+			}
 			logging.Logf(ctx, "VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
 			s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
 			nbc.AgentPoolProfile.VMSize = config.Config.Gen1SCSIVMSKU
