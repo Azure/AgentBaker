@@ -373,6 +373,107 @@ var _ = Register(&Scenario{
 	},
 })
 
+var _ = Register(newUbuntu2404FullyManagedGPUNetworkIsolatedScenario())
+
+func newUbuntu2404FullyManagedGPUNetworkIsolatedScenario() *Scenario {
+	// The smallest T4 SKU uses the VHD-cached CUDA driver. A10 needs a GRID
+	// image download from MCR, which is deliberately blocked in this scenario.
+	const vmSize = "Standard_NC4as_T4_v3"
+	return &Scenario{
+		Name:        "Ubuntu2404_FullyManagedGPU_NetworkIsolated",
+		Description: "Validates managed GPU provisioning, workloads, DCGM and NPD on a network-isolated T4 node with public MCR access blocked",
+		Tags: Tags{
+			GPU:             true,
+			NetworkIsolated: true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetworkIsolated,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
+				nbc.EnableManagedGPU = true
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(*cluster.Model.Location)),
+					},
+				}
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+				nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+					"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+			},
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if err := ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"}); err != nil {
+					return err
+				}
+				// A marker only proves the CSE preflight was skipped. Require working
+				// DNS and a timed-out direct connection, not a DNS or TLS failure.
+				if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					"getent ahostsv4 mcr.microsoft.com", 0, "MCR DNS must resolve before checking blocked egress"); err != nil {
+					return err
+				}
+				if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					"curl --ipv4 --noproxy '*' --connect-timeout 5 --max-time 10 --silent --show-error https://mcr.microsoft.com/v2/",
+					28, "direct public MCR access must time out on the network-isolated node"); err != nil {
+					return err
+				}
+
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", "ubuntu", "r2404")
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+				if err := errors.Join(
+					validateDCGMPackageVersions(ctx, s, "ubuntu", "r2404"),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				); err != nil {
+					return err
+				}
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				if err := RestartNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				return validateNPDNvidiaConditions(ctx, s)
+			},
+		},
+	}
+}
+
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_NvidiaDevicePluginRunning",
 	Description: "Tests that NVIDIA device plugin and DCGM Exporter are running & functional on Ubuntu 22.04 GPU nodes",
