@@ -497,6 +497,9 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
             # we override the deb's vendor unit in place (same pattern as dra-driver) and start it
             The output should include "mkdir -p /etc/systemd/system/compute-domain-kubelet-plugin.service.d"
+            # clear any start-limit/failed state from the vendor unit's crash-loop before enqueueing --
+            # the non-blocking start can't observe/retry an async start-limit failure
+            The output should include "systemctl reset-failed compute-domain-kubelet-plugin"
             # off the critical path -- enqueue (non-blocking) so a persistently-failing optional unit
             # can't consume the CSE provisioning budget via the blocking 100x/5s restart retry
             The output should include "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30"

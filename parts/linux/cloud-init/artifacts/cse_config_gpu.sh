@@ -441,6 +441,12 @@ EOF
             # Reload systemd to pick up the override
             systemctl daemon-reload
 
+            # Clear any start-limit/failed state left by the deb's args-less vendor unit auto-starting
+            # and crash-looping at install: the non-blocking enqueue below returns once the job is
+            # queued and can't observe or retry an async start-limit failure, and daemon-reload does
+            # not reset it -- without this the unit could stay failed and ComputeDomains unavailable.
+            systemctl reset-failed compute-domain-kubelet-plugin 2>/dev/null || true
+
             # Off the critical path and non-fatal (same treatment as nvidia-dcgm below): a successful
             # start only means the process spawned, not that the ComputeDomain reached Ready (that needs
             # the control-plane controller + node RBAC), so a failure must not block node provisioning.
