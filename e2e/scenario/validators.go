@@ -630,6 +630,31 @@ func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) erro
 	return err
 }
 
+func nvidiaDriverVersionValidationScript(expected string) (string, error) {
+	if !regexp.MustCompile(`^[0-9]+(\.[0-9]+)+$`).MatchString(expected) {
+		return "", fmt.Errorf("invalid expected NVIDIA driver version %q; check GPUContainerImages in components.json", expected)
+	}
+	return strings.Join([]string{
+		"#!/usr/bin/env bash",
+		"set -euo pipefail",
+		"driver_versions=$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader)",
+		"echo \"nvidia driver_versions=$driver_versions\"",
+		"while IFS= read -r driver_version; do",
+		"  driver_version=${driver_version//[[:space:]]/}",
+		fmt.Sprintf("  if [ \"$driver_version\" != %q ]; then echo \"expected NVIDIA driver %s, got '$driver_version'\"; exit 1; fi", expected, expected),
+		"done <<< \"$driver_versions\"",
+	}, "\n"), nil
+}
+
+func ValidateNvidiaDriverVersion(ctx context.Context, s *Scenario, expected string) error {
+	script, err := nvidiaDriverVersionValidationScript(expected)
+	if err != nil {
+		return err
+	}
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, fmt.Sprintf("expected NVIDIA driver version %s on every GPU", expected))
+	return err
+}
+
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) error {
 	command := []string{
 		"set -ex",
