@@ -139,6 +139,27 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		},
 		Commands: []*cli.Command{
 			{
+				Name:  "apply-custom-user-data",
+				Usage: "Finalize a staged reference-POC customer profile before kubelet starts",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if cmd.Args().Len() != 0 {
+						return fmt.Errorf("apply-custom-user-data takes no positional arguments")
+					}
+					return applyCustomUserData(ctx)
+				},
+			},
+			{
+				Name:  "reconcile-custom-user-data",
+				Usage: "Run one opt-in reference-POC live configuration tick",
+				Flags: []cli.Flag{&cli.StringFlag{Name: "node-name", Required: true}},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if cmd.Args().Len() != 0 {
+						return fmt.Errorf("reconcile-custom-user-data takes no positional arguments")
+					}
+					return reconcileCustomUserData(ctx, cmd.String("node-name"))
+				},
+			},
+			{
 				Name:  "provision",
 				Usage: "Run node provisioning",
 				Flags: []cli.Flag{

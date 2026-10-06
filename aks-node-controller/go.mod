@@ -3,6 +3,7 @@ module github.com/Azure/agentbaker/aks-node-controller
 go 1.26.0
 
 require (
+	github.com/Azure/agentbaker/custom-node-config v0.0.0
 	github.com/Azure/agentbaker/aks-live-patching v0.20260831.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
 	github.com/Masterminds/semver/v3 v3.5.0
