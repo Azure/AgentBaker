@@ -1485,15 +1485,13 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 	It("should put provisioning in CustomData and omit CSE when CustomData-only provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
-		config.UseCustomDataOnlyProvisioning = true
+		config.EnabledFeatures = map[string]string{datamodel.CustomDataOnlyProvisioningFeature: "true"}
 
 		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
 		Expect(string(payload)).To(ContainSubstring(aksNbcCmdFilepath))
-		cseCommand, err := getGzipDecodedValue([]byte(templateGenerator.getLinuxNodeCSECommand(config)))
-		Expect(err).NotTo(HaveOccurred())
-		Expect(string(cseCommand)).To(ContainSubstring(`USE_CUSTOM_DATA_ONLY_PROVISIONING="true" /usr/bin/nohup`))
+		Expect(string(payload)).To(ContainSubstring(enabledFeaturesFilepath))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(BeEmpty())
 	})
 
@@ -1501,7 +1499,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
 		config.PreProvisionOnly = true
-		config.UseCustomDataOnlyProvisioning = true
+		config.EnabledFeatures = map[string]string{datamodel.CustomDataOnlyProvisioningFeature: "true"}
 
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
 	})

@@ -573,7 +573,10 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.UseCustomDataOnlyProvisioning = true
+			if nbc.EnabledFeatures == nil {
+				nbc.EnabledFeatures = make(map[string]string)
+			}
+			nbc.EnabledFeatures[datamodel.CustomDataOnlyProvisioningFeature] = "true"
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateReportReadyRan(ctx, s)

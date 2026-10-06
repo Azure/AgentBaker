@@ -138,18 +138,6 @@ oom_score = -999
 			},
 		},
 		{
-			name:       "AKSUbuntu2204 CustomData-only provisioning",
-			folder:     "AKSUbuntu2204+Containerd",
-			k8sVersion: "1.24.2",
-			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.UseCustomDataOnlyProvisioning = true
-			},
-			validator: func(cmd *exec.Cmd) {
-				vars := environToMap(cmd.Env)
-				assert.Equal(t, "true", vars["USE_CUSTOM_DATA_ONLY_PROVISIONING"])
-			},
-		},
-		{
 			name:       "AKSUbuntu2204 in China",
 			folder:     "AKSUbuntu2204+China",
 			k8sVersion: "1.24.2",

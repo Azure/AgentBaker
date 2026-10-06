@@ -33,14 +33,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-<<<<<<< HEAD
-const loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
-=======
 const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 	hotfixMarker                             = "#hotfix-marker"
 )
->>>>>>> dec65a69c8843cc375b53db6ec6db56468ccdbec
 
 type scriptHotfixFixtureNodeCustomData struct {
 	WriteFiles []scriptHotfixFixtureWriteFile `yaml:"write_files"`
@@ -596,7 +592,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		}
 	}
 
-	if s.Runtime.NBC.UseCustomDataOnlyProvisioning {
+	if s.Runtime.NBC.IsCustomDataOnlyProvisioningEnabled() {
 		customData, err = customDataWithReadyReporter(customData)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, err

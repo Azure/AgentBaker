@@ -371,7 +371,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return nil, fmt.Errorf("create vmss %q returned an incomplete VM", s.Runtime.VMSSName)
 	}
 
-	if !s.Runtime.NBC.UseCustomDataOnlyProvisioning {
+	if !s.Runtime.NBC.IsCustomDataOnlyProvisioningEnabled() {
 		if err := getCustomScriptExtensionStatus(ctx, s, scenarioVM.VM); err != nil {
 			return scenarioVM, err
 		}

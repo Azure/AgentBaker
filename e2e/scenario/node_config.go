@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"maps"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Masterminds/semver/v3"
@@ -290,6 +291,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 		},
 		EnableUnattendedUpgrade: enableUnattendedUpgrade,
 		EnableArtifactStreaming: nbc.EnableArtifactStreaming,
+		EnabledFeatures:         maps.Clone(nbc.EnabledFeatures),
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,

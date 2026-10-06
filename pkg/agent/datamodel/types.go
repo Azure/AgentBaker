@@ -1759,6 +1759,8 @@ type GetLatestSigImageConfigRequest struct {
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
+const CustomDataOnlyProvisioningFeature = "USE_CUSTOM_DATA_ONLY_PROVISIONING"
+
 type NodeBootstrappingConfiguration struct {
 	ContainerService                *ContainerService
 	CloudSpecConfig                 *AzureEnvironmentSpecConfig
@@ -1838,15 +1840,16 @@ type NodeBootstrappingConfiguration struct {
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
 
-	// UseCustomDataOnlyProvisioning runs Linux node provisioning entirely from CustomData and omits CSE.
-	UseCustomDataOnlyProvisioning bool
-
 	// ScriptlessCSEProvisionMode specifies the provisioning mode for scriptless phase 2,
 	// which uses CSE to provide provision nbc or aks nc configs
 	ScriptlessCSEProvisionMode bool
 
 	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
 	AKSNodeConfigJSON string
+}
+
+func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
+	return c != nil && c.EnabledFeatures[CustomDataOnlyProvisioningFeature] == "true"
 
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
 	// interfaces configured on the agent pool. The node bootstrapping scripts use
