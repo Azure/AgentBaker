@@ -422,7 +422,7 @@ EOF
         # (same pattern as dra-driver-nvidia-gpu above). --namespace must match where the
         # microsoft.managedcomputedomain controller extension installs; that chart hard-pins kube-system.
         if [ "$(isARM64)" -eq 1 ]; then
-            COMPUTE_DOMAIN_OVERRIDE_DIR="/etc/systemd/system/compute-domain-kubelet-plugin.service.d"
+            local COMPUTE_DOMAIN_OVERRIDE_DIR="/etc/systemd/system/compute-domain-kubelet-plugin.service.d"
             mkdir -p "${COMPUTE_DOMAIN_OVERRIDE_DIR}"
 
             # NVIDIA_VISIBLE_DEVICES=void: this plugin orchestrates IMEX/ComputeDomain and is not a GPU
