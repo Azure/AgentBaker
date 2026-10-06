@@ -118,6 +118,25 @@ Describe 'Windows CSE PIS phase placement' {
         }
     }
 
+    Context 'SSH access policy' {
+        It 'applies the live SSH policy and keys in NodePrep' {
+            $script:NodePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)'
+            $script:NodePrepBody | Should -Match 'Set-SSHAccess -Enabled \$sshEnabled -SSHKeys \$global:SSHKeys'
+        }
+
+        It 'does not bake SSH access policy or authorized keys into the image' {
+            $script:BasePrepBody | Should -Not -Match 'WindowsSSHEnabled|Set-SSHAccess|Install-OpenSSH'
+        }
+
+        It 'applies SSH policy before starting Kubernetes services' {
+            $sshIndex = $script:NodePrepBody.IndexOf('Set-SSHAccess')
+            $kubeletIndex = $script:NodePrepBody.IndexOf('Install-KubernetesServices')
+            $sshIndex | Should -BeGreaterThan -1
+            $kubeletIndex | Should -BeGreaterThan -1
+            $sshIndex | Should -BeLessThan $kubeletIndex
+        }
+    }
+
     Context 'cluster network config' {
         It 'writes the Azure CNI config in NodePrep only' {
             $script:NodePrepBody | Should -Match 'Set-AzureCNIConfig'
