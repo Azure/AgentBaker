@@ -1838,6 +1838,9 @@ type NodeBootstrappingConfiguration struct {
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
 
+	// UseCustomDataOnlyProvisioning runs Linux node provisioning entirely from CustomData and omits CSE.
+	UseCustomDataOnlyProvisioning bool
+
 	// ScriptlessCSEProvisionMode specifies the provisioning mode for scriptless phase 2,
 	// which uses CSE to provide provision nbc or aks nc configs
 	ScriptlessCSEProvisionMode bool

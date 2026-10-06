@@ -892,6 +892,15 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 	return fmt.Errorf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
 }
 
+func ValidateReportReadyRan(ctx context.Context, s *Scenario) error {
+	return ValidateFileHasContent(
+		ctx,
+		s,
+		"/var/log/azure/aks-node-controller.output",
+		"Report ready successfully sent status to Azure fabric",
+	)
+}
+
 // ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
 // The contents doesn't need to be surrounded by non-word characters.
 // E.g.: searching "bcd" in "abcdef" is a match, thus the validation fails.

@@ -535,6 +535,9 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 		return t.getWindowsNodeCSECommand(config)
 	}
 	if supportsScriptlessPhase2(config) {
+		if config.UseCustomDataOnlyProvisioning {
+			return ""
+		}
 		if config.ScriptlessCSEProvisionMode {
 			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
 			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
@@ -1681,6 +1684,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
 		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
+		"GetUseCustomDataOnlyProvisioning": func() bool {
+			return config.UseCustomDataOnlyProvisioning
+		},
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},

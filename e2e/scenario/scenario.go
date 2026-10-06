@@ -509,9 +509,8 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 		Name:        "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC",
 		Description: "Tests Ubuntu 22.04 ANC bootstrapping with custom sysctls, containerd ulimits, and node taints, plus chrony restarts and the expected containerd version",
 		Config: Config{
-			Cluster:                       ClusterKubenet,
-			VHD:                           config.VHDUbuntu2204Gen2Containerd,
-			UseCustomDataOnlyProvisioning: false,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.KubeletConfig["--register-with-taints"] = registerWithTaints
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -566,6 +565,21 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 		},
 	}
 }
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2204_CustomDataOnlyProvisioning",
+	Description: "Tests that an Ubuntu 22.04 node can be bootstrapped entirely through CustomData without CSE",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.UseCustomDataOnlyProvisioning = true
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateReportReadyRan(ctx, s)
+		},
+	},
+})
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_CustomCA",

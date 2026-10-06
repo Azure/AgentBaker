@@ -489,7 +489,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		}
 	}
 
-	if s.Config.UseCustomDataOnlyProvisioning {
+	if s.Runtime.NBC.UseCustomDataOnlyProvisioning {
 		customData, err = customDataWithReadyReporter(customData)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, err

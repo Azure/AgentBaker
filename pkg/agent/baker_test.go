@@ -2305,6 +2305,30 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
+
+	It("should put provisioning in CustomData and omit CSE when CustomData-only provisioning is enabled", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newScriptlessCmdTestConfig()
+		config.UseCustomDataOnlyProvisioning = true
+
+		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
+		Expect(string(payload)).To(ContainSubstring(aksNbcCmdFilepath))
+		cseCommand, err := getGzipDecodedValue([]byte(templateGenerator.getLinuxNodeCSECommand(config)))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(cseCommand)).To(ContainSubstring(`USE_CUSTOM_DATA_ONLY_PROVISIONING="true" /usr/bin/nohup`))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(BeEmpty())
+	})
+
+	It("should not enable CustomData-only provisioning for pre-provisioning", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newScriptlessCmdTestConfig()
+		config.PreProvisionOnly = true
+		config.UseCustomDataOnlyProvisioning = true
+
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+	})
 })
 
 var _ = Describe("cloudInitToButane", func() {

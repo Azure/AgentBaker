@@ -215,6 +215,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"IDENTITY_BINDINGS_LOCAL_AUTHORITY_SNI":        config.GetServiceAccountImagePullProfile().GetLocalAuthoritySni(),
 		"CSE_TIMEOUT":                                  getCSETimeout(config),
 		"SKIP_WAAGENT_HOLD":                            "true",
+		"USE_CUSTOM_DATA_ONLY_PROVISIONING":            fmt.Sprintf("%v", config.GetUseCustomDataOnlyProvisioning()),
 		"NETWORK_ISOLATED_CLUSTER_TEST_MODE":           "false", // temp: needs to be added to config
 		"STANDARD_SECONDARY_NIC_COUNT":                 fmt.Sprintf("%d", config.GetNetworkConfig().GetStandardSecondaryNicCount()),
 		"ENABLE_MANAGED_GPU_DRA":                       fmt.Sprintf("%v", config.GetGpuConfig().GetEnableManagedGpuDra()),
