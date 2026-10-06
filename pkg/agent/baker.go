@@ -755,6 +755,11 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
 		return err
 	}
+	if config.AgentPoolProfile != nil {
+		if _, err := containerdConfigSchemaForConfig(config, config.AgentPoolProfile); err != nil {
+			return fmt.Errorf("validate containerd config: %w", err)
+		}
+	}
 
 	if config.KubeletConfig == nil {
 		return nil
@@ -1249,25 +1254,26 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubenetTemplate": func() string {
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
+		"GetContainerdConfigSchema": func() (int, error) {
+			return containerdConfigSchemaForConfig(config, profile)
+		},
 		"GetContainerdConfigContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.IsContainerdV2Distro() {
-					return containerdV2ConfigTemplate
-				}
-				return containerdV1ConfigTemplate
-			}(profile))
+			tmpl, err := selectContainerdConfigTemplate(config, profile, false)
+			if err != nil {
+				panic(err)
+			}
+			output, err := containerdConfigFromTemplate(config, profile, tmpl)
 			if err != nil {
 				panic(err)
 			}
 			return output
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.IsContainerdV2Distro() {
-					return containerdV2NoGPUConfigTemplate
-				}
-				return containerdV1NoGPUConfigTemplate
-			}(profile))
+			tmpl, err := selectContainerdConfigTemplate(config, profile, true)
+			if err != nil {
+				panic(err)
+			}
+			output, err := containerdConfigFromTemplate(config, profile, tmpl)
 			if err != nil {
 				panic(err)
 			}
@@ -1974,7 +1980,7 @@ type ContainerdConfigTemplate string
 // duplicate them in CSE base64-encoded, and pick the right one.
 // they're identical except for GPU runtime class.
 const (
-	containerdV1ConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV1ConfigTemplate ContainerdConfigTemplate = `version = {{GetContainerdConfigSchema}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
@@ -2077,7 +2083,7 @@ root = "{{GetDataDir}}"{{- end}}
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = {{GetContainerdConfigSchema}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
@@ -2094,6 +2100,9 @@ root = "{{GetDataDir}}"{{- end}}
   enable_tar_index = false
 {{- end}}
 [plugins."io.containerd.cri.v1.images"]
+{{- if IsKata }}
+  disable_snapshot_annotations = false
+{{- end}}
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
@@ -2145,34 +2154,34 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "overlayfs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-v2]
   runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-v2.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
   pod_annotations = ["io.katacontainers.*"]
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
-	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = {{GetContainerdConfigSchema}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
@@ -2189,6 +2198,9 @@ root = "{{GetDataDir}}"{{- end}}
   enable_tar_index = false
 {{- end}}
 [plugins."io.containerd.cri.v1.images"]
+{{- if IsKata }}
+  disable_snapshot_annotations = false
+{{- end}}
 {{- if IsArtifactStreamingEnabled }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
@@ -2227,27 +2239,27 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "overlayfs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
-	runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-v2]
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-v2.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
 {{- end}}
 `
-	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
+	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = {{GetContainerdConfigSchema}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
