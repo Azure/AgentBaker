@@ -1017,6 +1017,31 @@ func (a *AzureClient) ListVMResourceSKUs(ctx context.Context, location string) (
 	return catalogue, nil
 }
 
+func SkuSupportsEphemeralOSDisk(sku *armcompute.ResourceSKU) (bool, error) {
+	if sku == nil {
+		return false, fmt.Errorf("resource SKU is nil")
+	}
+	vmSize := ""
+	if sku.Name != nil {
+		vmSize = *sku.Name
+	}
+	for _, capability := range sku.Capabilities {
+		if capability == nil || capability.Name == nil || !strings.EqualFold(*capability.Name, "EphemeralOSDiskSupported") {
+			continue
+		}
+		if capability.Value != nil {
+			switch {
+			case strings.EqualFold(strings.TrimSpace(*capability.Value), "true"):
+				return true, nil
+			case strings.EqualFold(strings.TrimSpace(*capability.Value), "false"):
+				return false, nil
+			}
+		}
+		return false, fmt.Errorf("invalid EphemeralOSDiskSupported capability for VM size %q", vmSize)
+	}
+	return false, fmt.Errorf("missing EphemeralOSDiskSupported capability for VM size %q", vmSize)
+}
+
 // SkuSupportsNVMe checks the DiskControllerTypes capability of a resource SKU.
 // Returns true if supported disk controller type is NVMe.
 func SkuSupportsNVMe(sku *armcompute.ResourceSKU) bool {

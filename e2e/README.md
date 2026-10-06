@@ -247,6 +247,13 @@ which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SK
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
 
+After scenario VMSS mutations, the runner checks the final VM size's
+`EphemeralOSDiskSupported` capability using the shared regional SKU catalogue.
+Unsupported sizes use managed OS disks, including NVMe sizes without local storage;
+NVMe controller support does not imply ephemeral OS disk support. Supported sizes
+retain their ephemeral disk configuration, and explicitly selected managed disks
+remain managed. Missing or invalid capability metadata fails explicitly.
+
 ## ACL COSI Validation
 
 The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg` or
