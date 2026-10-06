@@ -18,6 +18,7 @@ const expectedlocalDNSCorefileWithoutOverrides = `# ****************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -313,6 +314,7 @@ var _ = Describe("LocalDNS template methods", func() {
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -509,6 +511,7 @@ testdomain456.com:53 {
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).

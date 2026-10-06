@@ -4,6 +4,7 @@
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind {{getLocalDnsNodeListenerIp}} {{getLocalDnsClusterListenerIp}}
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).

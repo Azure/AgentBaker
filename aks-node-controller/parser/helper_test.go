@@ -1719,6 +1719,7 @@ const expectedlocalDNSCorefile = `# ********************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -1910,6 +1911,29 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 			wantContains: "",
 		},
 		{
+			name: "enabled LocalDNS with nil overrides still enables reload",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true},
+				},
+			},
+			wantContains: "health-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    reload\n    whoami\n}",
+		},
+		{
+			name: "enabled LocalDNS with empty overrides still enables reload",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+						EnableLocalDns:   true,
+						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{},
+						KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{},
+					},
+				},
+				includeHostsPlugin: true,
+			},
+			wantContains: "health-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    reload\n    whoami\n}",
+		},
+		{
 			name: "LocalDNSProfile enabled returns base64 string with hosts plugin",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
@@ -2015,13 +2039,21 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, block := range strings.Split(string(decoded), "\n}\n") {
-					if strings.Contains(block, "\n    forward . ") && strings.Count(block, "\n    loadbalance\n") != 1 {
-						t.Errorf("expected loadbalance in every forwarding server block:\n%s", block)
-					}
+				if strings.Count(string(decoded), "\n    reload\n") != 1 {
+					t.Errorf("expected exactly one Corefile reload directive, got:\n%s", decoded)
 				}
+				assertLocalDNSLoadBalanceBlocks(t, string(decoded))
 			}
 		})
+	}
+}
+
+func assertLocalDNSLoadBalanceBlocks(t *testing.T, corefile string) {
+	t.Helper()
+	for _, block := range strings.Split(corefile, "\n}\n") {
+		if strings.Contains(block, "\n    forward . ") && strings.Count(block, "\n    loadbalance\n") != 1 {
+			t.Errorf("expected loadbalance in every forwarding server block:\n%s", block)
+		}
 	}
 }
 
