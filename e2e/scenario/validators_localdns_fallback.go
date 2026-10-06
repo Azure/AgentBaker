@@ -251,10 +251,25 @@ func stageLocalDNSFallbackArtifacts(ctx context.Context, s *Scenario) error {
 	// skipped it at provisioning time because the unit did not exist yet.
 	//
 	// Deliberately NO restart here: see restartLocalDNSDetached below.
-	reload := `set -euo pipefail
+	// /etc/localdns/environment is written at provisioning time by
+	// cse_config_localdns.sh, which is baked into the VHD and therefore still the
+	// published image's copy -- it predates the COREDNS_SERVICE_IP key this PR adds.
+	// Staging the unit files cannot fix that, because the file was already written
+	// before we got here. Supply the key the way a PR-built VHD would, from the
+	// cluster's real kube-dns ClusterIP, so the fallback's minimal-corefile floor has
+	// an upstream. No-op once the new cse_config_localdns.sh ships in the image.
+	kubeDNS, err := s.Runtime.Kube.Typed.CoreV1().Services("kube-system").Get(ctx, "kube-dns", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get kube-dns service for env staging: %w", err)
+	}
+	reload := fmt.Sprintf(`set -euo pipefail
+if ! grep -q '^COREDNS_SERVICE_IP=' /etc/localdns/environment 2>/dev/null; then
+  printf 'COREDNS_SERVICE_IP=%%s\n' %q | sudo tee -a /etc/localdns/environment >/dev/null
+  echo "staged: COREDNS_SERVICE_IP added to /etc/localdns/environment (VHD predates it)"
+fi
 sudo systemctl daemon-reload
 sudo systemctl enable --now localdns-fallback-probe.timer
-echo "staged: daemon reloaded, probe-timer=$(systemctl is-active localdns-fallback-probe.timer)"`
+echo "staged: daemon reloaded, probe-timer=$(systemctl is-active localdns-fallback-probe.timer)"`, kubeDNS.Spec.ClusterIP)
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, reload, 0,
 		"reload systemd after staging localdns fallback artifacts"); err != nil {
 		return fmt.Errorf("reload after staging: %w", err)
@@ -705,7 +720,23 @@ J=$(journalctl -u localdns.service --since "-6min" --no-pager -o cat 2>/dev/null
 echo "$J" | grep -q "Successfully removed localdns dummy interface" \
   && ok "TEARDOWN: localdns's EXIT trap deleted the dummy interface (.11 off the node entirely)" \
   || fail "TEARDOWN: interface was not deleted; this is the path kill -9 cannot reach, so it must be exercised here"
-journalctl -u localdns.service --since "-6min" --no-pager -o short 2>/dev/null | grep -q "Triggering OnFailure= dependencies" \
+# Retried for the same reason as the restart-budget refusal assertion (#9703): the
+# state we polled to get here comes from PID 1's memory and is visible immediately,
+# but this line is only readable once journald has drained it from its socket queue.
+# A single read races that under the IO load this scenario leaves on the node.
+#
+# grep without -q, output discarded: under pipefail, grep exiting early on a match can
+# SIGPIPE journalctl and turn a successful read into a non-zero pipeline.
+onfailure_found=0
+for _ in $(seq 1 20); do
+  if sudo journalctl -u localdns.service --since "-6min" --no-pager 2>/dev/null |
+       grep -F "Triggering OnFailure= dependencies" >/dev/null; then
+    onfailure_found=1
+    break
+  fi
+  sleep 0.5
+done
+[ "$onfailure_found" = 1 ] \
   && ok "systemd triggered OnFailure=" || fail "OnFailure= never triggered"
 
 wait_for 45 "fallback active" sh -c 'systemctl is-active --quiet localdns-fallback.service' || true

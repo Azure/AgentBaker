@@ -35,9 +35,17 @@ func init() {
 				VHD:     tt.vhd,
 				BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 					nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+					// Enabling LocalDNS is only half of what the RP does for a LocalDNS
+					// pool; it also points kubelet at the cluster listener, which is what
+					// bakes 169.254.10.11 into every pod's resolv.conf. Without this the
+					// node runs LocalDNS but no pod on it ever uses .11, so every
+					// pod-level assertion below skips and the whole premise of the
+					// fallback goes untested.
+					nbc.KubeletConfig["--cluster-dns"] = localDNSClusterListenerIP
 				},
 				AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 					config.LocalDnsProfile.EnableLocalDns = true
+					config.KubeletConfig.KubeletFlags["--cluster-dns"] = localDNSClusterListenerIP
 				},
 				Validator: func(ctx context.Context, s *Scenario) error {
 					return ValidateLocalDNSFallbackRecovery(ctx, s)
