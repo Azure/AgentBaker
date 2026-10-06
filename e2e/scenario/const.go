@@ -9,15 +9,6 @@ const (
 // anything which silently assumes the 10.0.0.0/16 default is caught here rather
 // than in production. These must stay in lockstep: clusterDNSServiceIP is the
 // .10 address of clusterServiceCIDR, and it is where kube-dns is allocated.
-//
-// Keep every consumer pointed at these constants rather than re-typing the
-// literals. They are consumed by three separate representations of the same
-// cluster -- the ARM model that actually creates it (aks_model.go), the
-// NodeBootstrappingConfiguration handed to the CSE path, and the
-// aksnodeconfig proto handed to the scriptless/ANC path -- and nothing
-// reconciles those three. When the literals were duplicated, two of the six
-// copies were left empty and the drift was invisible until LocalDNS became the
-// first component to actually read the value.
 const (
 	clusterServiceCIDR  = "172.16.0.0/16"
 	clusterDNSServiceIP = "172.16.0.10"
