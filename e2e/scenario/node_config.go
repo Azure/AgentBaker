@@ -730,6 +730,8 @@ func baseTemplateLinux(location string, k8sVersion string, arch string) (*datamo
 			PreprovisionExtension: nil,
 			KubernetesConfig: &datamodel.KubernetesConfig{
 				ContainerRuntime: "containerd",
+				DNSServiceIP:     clusterDNSServiceIP,
+				ServiceCIDR:      clusterServiceCIDR,
 			},
 			LocalDNSProfile: &datamodel.LocalDNSProfile{
 				EnableLocalDNS:       true,
