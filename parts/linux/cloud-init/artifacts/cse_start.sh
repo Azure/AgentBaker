@@ -6,7 +6,6 @@ export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export 
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 mkdir -p $EVENTS_LOGGING_DIR
-
 # this is the "global" CSE execution timeout - we allow CSE to run for some time (default 15 minutes) before timeout will attempt to kill the script. We exit early from some of the retry loops using `check_cse_timeout` in `cse_helpers.sh`.`
 timeout -k5s "${CSE_TIMEOUT:-15m}" /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
@@ -97,7 +96,7 @@ EVENT_JSON=$( jq -n \
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
 
-if [ -x /opt/azure/containers/report_ready.py ] && [ "${USE_CUSTOM_DATA_ONLY_PROVISIONING}" == "true" ]; then
+if [ -x /opt/azure/containers/report_ready.py ] && [ "${USE_CUSTOM_DATA_ONLY_PROVISIONING}" = "true" ]; then
     if [ "$EXIT_CODE" -eq 0 ]; then
         python3 /opt/azure/containers/report_ready.py -v || echo "WARNING: Failed to report ready to Azure fabric"
     else
