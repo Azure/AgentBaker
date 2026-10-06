@@ -443,6 +443,13 @@ EOF
 Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=${containerd_runtime_cgroups}"
 EOF
 
+    # Finalize after all AKS writers and before the first kubelet start; nodePrep
+    # runs on PIS nodes too, unlike basePrep.
+    if [ -f /opt/azure/containers/custom-node-config-poc.json ]; then
+        logs_to_events "AKS.CSE.applyCustomerNodeConfig" \
+            "/opt/azure/containers/aks-node-controller apply-custom-user-data" || exit $ERR_KUBELET_START_FAIL
+    fi
+
     if ! systemctl daemon-reload; then
         exit $ERR_KUBELET_START_FAIL
     fi
