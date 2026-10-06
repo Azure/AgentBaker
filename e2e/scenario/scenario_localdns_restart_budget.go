@@ -167,8 +167,30 @@ echo "diagnostic: Result=$result NRestarts=$nrestarts"
 # Anchored to fault_start rather than a wall-clock window: the lifecycle validator runs
 # three kill/recovery cycles on this same unit just before, and a refusal from those would
 # otherwise satisfy this grep.
-sudo journalctl -u localdns.service --since "@$fault_start" --no-pager |
-    grep -q "Start request repeated too quickly" ||
+#
+# Retried, because the poll loop above and this grep do not read from the same place.
+# 'systemctl show' answers from PID 1's own memory, so 'failed' is visible the instant
+# systemd sets it; the refusal line is only readable once journald has moved it from its
+# socket queue into the journal. Reading once, the moment the loop breaks, races that --
+# measured at up to ~285ms under the journal and IO load this scenario leaves on the node.
+#
+# Deliberately not 'journalctl --sync': it would also fsync every journal, which is
+# durability this assertion does not need, and it measured ~37s under that same IO load.
+# journald drains its queue on its own well inside one retry interval.
+#
+# grep without -q, output discarded: under pipefail, grep exiting early on a match can
+# SIGPIPE journalctl and turn a successful read into a non-zero pipeline.
+refusal_found=0
+for _ in $(seq 1 20); do
+    if sudo journalctl -u localdns.service --since "@$fault_start" --no-pager |
+         grep -F "Start request repeated too quickly" >/dev/null; then
+        refusal_found=1
+        break
+    fi
+    sleep 0.5
+done
+
+[ "$refusal_found" = 1 ] ||
     fail "localdns reached 'failed' but the journal has no 'Start request repeated too quickly'. It failed for some other reason, so this run did not exercise the budget."
 
 burst=$(systemctl show localdns.service -p StartLimitBurst --value)

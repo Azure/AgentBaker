@@ -17,6 +17,20 @@ external-vhd-src->(func/init: ensure dest existing/static gallery/definition, in
 # Roadmap
 Goal1: remove mariner workflow so things will be simplified.
 
+# Linux build steps
+
+The pipeline's `Build Go binaries` step runs `make -f packer.mk -j4 build-tools`
+to install the latest supported Microsoft Go toolchain, generate the prefetch
+script, and build the target-architecture binaries. The following VHD step runs
+in the same job and reuses those files. For local builds, run `build-tools` before
+`run-packer` or `run-imagecustomizer`.
+
+# Ubuntu BCC build
+
+Ubuntu BCC remains pinned to v0.29.0, fetched with a shallow tag clone, and built
+with at most eight parallel make jobs. Check build-VM peak memory before raising
+this limit, since BCC installation overlaps container-image caching.
+
 # Linux CSE configuration modules
 
 `parts/linux/cloud-init/artifacts/cse_config.sh` is installed as

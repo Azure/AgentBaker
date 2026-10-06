@@ -1719,7 +1719,7 @@ var _ = Register(&Scenario{
 			)
 		},
 	},
-	// No MA35D GPU capacity in West US, so using East US
+	// No MA35D GPU capacity in West US, so using East US.  North/West Europe are also good.
 	Location:         "eastus",
 	K8sSystemPoolSKU: "Standard_D2s_v3",
 })

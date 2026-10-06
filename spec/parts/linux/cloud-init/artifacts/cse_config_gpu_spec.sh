@@ -794,6 +794,10 @@ Describe 'cse_config_gpu.sh'
             echo "6.6.139.1-1.azl3"
         }
 
+        find() {
+            echo -n "1"
+        }
+
         dnf_install() {
             return 0
         }

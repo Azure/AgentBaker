@@ -13,8 +13,21 @@ required_env_vars=(
 
 # Higher the replication_inverse, lower is the usage and number of replicas
 set -x
-PUBLISHER_BASE_IMAGE_VERSION=$(az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU} --query "[?offer=='${IMG_OFFER}'].version" -o tsv --all | sort -u | tail -n 1)
-echo "Latest ${IMG_PUBLISHER} base image version for offer ${IMG_OFFER} and sku ${IMG_SKU} is ${BASE_IMAGE_VERSION}"
+if [ "${OS_NAME,,}" = "linux" ] && [ "${OFFER_NAME,,}" = "azurecontainerlinux" ]; then
+    for v in SIG_SOURCE_GALLERY_UNIQUE_NAME SIG_SOURCE_IMAGE_NAME SIG_SOURCE_IMAGE_VERSION; do
+        if [ -z "${!v}" ]; then
+            echo "WARNING: $v is not set for ACG source metadata; continuing" >&2
+        fi
+    done
+    PUBLISHER_BASE_IMAGE_VERSION="${SIG_SOURCE_IMAGE_VERSION:-}"
+    # The legacy SKU field identifies the image definition for ACG sources.
+    PUBLISHER_BASE_IMAGE_SKU="${SIG_SOURCE_IMAGE_NAME:-}"
+    echo "ACG base image ${SIG_SOURCE_GALLERY_UNIQUE_NAME}/${SIG_SOURCE_IMAGE_NAME}/${SIG_SOURCE_IMAGE_VERSION}"
+else
+    PUBLISHER_BASE_IMAGE_VERSION=$(az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU} --query "[?offer=='${IMG_OFFER}'].version" -o tsv --all | sort -u | tail -n 1)
+    PUBLISHER_BASE_IMAGE_SKU="$IMG_SKU"
+    echo "Latest ${IMG_PUBLISHER} base image version for offer ${IMG_OFFER} and sku ${IMG_SKU} is ${PUBLISHER_BASE_IMAGE_VERSION}"
+fi
 
 REPLICATION_INVERSE=1
 
@@ -104,7 +117,7 @@ if [ "${OS_NAME,,}" = "linux" ]; then
     "security_type_feature": "${SECURITY_TYPE_FEATURE}",
     "replication_inverse": "${REPLICATION_INVERSE}",
     "publisher_base_image_version": "${PUBLISHER_BASE_IMAGE_VERSION}",
-    "publisher_base_image_sku": "${IMG_SKU}"
+    "publisher_base_image_sku": "${PUBLISHER_BASE_IMAGE_SKU}"
 }
 EOF
 else
