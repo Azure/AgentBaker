@@ -1,0 +1,150 @@
+# =============================================================================
+# POC: Azure Local (AKS Arc "VM Everywhere") edge node-image variant.
+#
+# This is an OPT-IN, default-OFF Image Customizer (MIC) config that reuses the
+# exact same build tool, Azure Linux 3.0 base, PMC packages and MCR oss/v2 image
+# sources as the AKS node image (see ../azlosguard/azlosguard.yml), but emits an
+# on-prem edge variant instead of the cloud AKS variant.
+#
+# It realises the three gated parameters from the supply-chain analysis (§9.5):
+#   bootstrapMode : kubeadm-nocloud  (NOT cse)   -> no CSE / aks-node-controller
+#                                                   / secure-tls-bootstrap /
+#                                                   waagent-cloud units baked or
+#                                                   enabled; boots against a
+#                                                   NoCloud (cidata) seed and is
+#                                                   joined by kubeadm.
+#   agentSet      : edge             (NOT aks)   -> AKS cloud agents
+#                                                   (aks-log-collector,
+#                                                   aks-check-network,
+#                                                   acr-credential-provider,
+#                                                   secure-tls-bootstrap,
+#                                                   node-exporter) are omitted;
+#                                                   edge agents are added by the
+#                                                   postinstall script.
+#   publishTarget : sfs              (NOT sig)   -> handled at publish time, see
+#                                                   ../scripts/publish-imagecustomizer-sfs.sh
+#
+# Selecting this config (IMG_CUSTOMIZER_CONFIG=azurelocal) does NOT change the
+# default AKS build in any way; azlosguard.yml is untouched.
+# =============================================================================
+
+os:
+  additionalFiles:
+    # --- cloud-init: enable default user + SSH, and force the NoCloud (cidata)
+    #     datasource so the on-prem seed.iso produced by AKSWinAgent is honoured.
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/10-users-ssh-enable.cfg
+      destination: /etc/cloud/cloud.cfg.d/10-users-ssh-enable.cfg
+      permissions: 644
+    - source: /container/config/files/90-nocloud-datasource.cfg
+      destination: /etc/cloud/cloud.cfg.d/90-nocloud-datasource.cfg
+      permissions: 644
+
+    # --- package repositories (shared with AKS): Azure Linux cloud-native +
+    #     ms-oss for containerd/runc/CNI; PMC kubernetes repo for kubeadm/kubelet.
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/azurelinux-cloud-native.repo
+      destination: /etc/yum.repos.d/azurelinux-cloud-native.repo
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/azurelinux-ms-oss.repo
+      destination: /etc/yum.repos.d/azurelinux-ms-oss.repo
+      permissions: 644
+    - source: /container/config/files/pmc-kubernetes.repo
+      destination: /etc/yum.repos.d/pmc-kubernetes.repo
+      permissions: 644
+
+    # --- container runtime + kubelet units (shared, cloud-agnostic) -----------
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd.service
+      destination: /etc/systemd/system/containerd.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd_exec_start.conf
+      destination: /etc/systemd/system/containerd.service.d/exec_start.conf
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/kubelet.service
+      destination: /etc/systemd/system/kubelet.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/crictl.yaml
+      destination: /etc/crictl.yaml
+      permissions: 644
+
+    # --- generic node hardening / perf (cloud-agnostic subset of azlosguard) --
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/disk_queue.sh
+      destination: /opt/azure/containers/disk_queue.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/disk_queue.service
+      destination: /etc/systemd/system/disk_queue.service
+      permissions: 644
+
+    # --- offline image pre-cache tooling (shared with AKS) -------------------
+    - source: /AgentBaker/image-fetcher/bin/image-fetcher-linux-amd64
+      destination: /opt/azure/containers/image-fetcher
+      permissions: 755
+    - source: /AgentBaker/vhdbuilder/packer/install-dependencies.sh
+      destination: /opt/azure/containers/install-dependencies.sh
+      permissions: 744
+    - source: /AgentBaker/vhdbuilder/packer/prefetch.sh
+      destination: /opt/azure/containers/prefetch.sh
+      permissions: 755
+    - source: /AgentBaker/vhdbuilder/lister/bin/lister
+      destination: /opt/azure/containers/lister
+      permissions: 744
+    - source: /AgentBaker/vhdbuilder/packer/list-images.sh
+      destination: /opt/azure/containers/list-images.sh
+      permissions: 744
+    - source: /AgentBaker/parts/common/components.json
+      destination: /opt/azure/components.json
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh
+      destination: /opt/azure/containers/provision_source.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+      destination: /opt/azure/containers/provision_source_benchmarks.sh
+      permissions: 744
+
+    # --- systemd-sysext redirect so /usr/local/bin -> /opt/bin (kubelet lives
+    #     in /opt/bin, same mechanism AKS uses) ---------------------------------
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/extension-release.lg-redirect-sysext
+      destination: /etc/extensions/lg-redirect-sysext/usr/lib/extension-release.d/extension-release.lg-redirect-sysext
+      permissions: 644
+
+    # NOTE — DELIBERATELY NOT BAKED (vs azlosguard.yml), because bootstrapMode=
+    # kubeadm-nocloud and agentSet=edge:
+    #   * aks-node-controller(.service/-launcher/-hotfix)  -> AKS CSE bootstrap
+    #   * cse_main/cse_start/cse_config* (provision*.sh)   -> AKS CSE bootstrap
+    #   * secure-tls-bootstrap.service                     -> AKS hosted-CP TLS
+    #   * measure-tls-bootstrapping-latency                -> AKS telemetry
+    #   * aks-log-collector / aks-check-network / aks-diagnostic -> agentSet=aks
+    #   * init-aks-cloud.sh / kms.service                  -> AKS cloud
+    #   * block_wireserver / ensure_imds_restriction /
+    #     configure-azure-network / 99-azure-network.rules /
+    #     reconcile-private-hosts                          -> Azure fabric only
+    # These are replaced by kubeadm + NoCloud + the edge agent set installed in
+    # scripts/azurelocal-postinstall.sh.
+
+  services:
+    enable:
+    - kubelet
+    - systemd-sysext
+    - disk_queue
+    - cloud-init
+    disable:
+    # let k8s own iptables, same as AKS
+    - iptables
+    - auditd
+    # ensure no AKS CSE bootstrap unit can run on an edge host even if a future
+    # base image ships one enabled.
+    - aks-node-controller
+
+previewFeatures:
+  - uki
+  - reinitialize-verity
+
+scripts:
+  postCustomization:
+    - path: scripts/azurelocal-postinstall.sh
+      environmentVariables:
+        IMG_SKU: "azure-linux-edge-3"
+        # --- the three gated parameters, baked into the image build ----------
+        BOOTSTRAP_MODE: "kubeadm-nocloud"
+        AGENT_SET: "edge"
+        PUBLISH_TARGET: "sfs"
+        # k8s version installed from PMC; override at build time as needed.
+        K8S_VERSION: "1.32.4"

@@ -127,6 +127,16 @@ steps:
       BUILD_ID: $(Build.BuildId)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
 
+  # BUILD_ONLY (gated, default-off): publish the freshly built VHD as a pipeline
+  # artifact and skip all SIG/SFS publishing. Used by the azurelocal edge POC to
+  # validate the Image Customizer build end-to-end without touching publish paths.
+  - task: PublishPipelineArtifact@1
+    condition: eq(variables['BUILD_ONLY'], 'true')
+    displayName: Publish VHD artifact (build-only)
+    inputs:
+      artifactName: 'vhd-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)'
+      targetPath: '$(Build.SourcesDirectory)/out'
+
   - bash: |
       PACKER_VNET_RESOURCE_GROUP_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_resource_group_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       PACKER_VNET_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -224,7 +234,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk publish-imagecustomizer
-    condition: eq(variables['BUILDER'], 'imagecustomizer')
+    condition: and(eq(variables['BUILDER'], 'imagecustomizer'), ne(variables['BUILD_ONLY'], 'true'))
     displayName: Publish VHD - Image Customizer
     retryCountOnTaskFailure: 3
     env:
@@ -238,7 +248,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk test-scan-and-cleanup
-    condition: always()
+    condition: and(always(), ne(variables['BUILD_ONLY'], 'true'))
     displayName: Test, Scan, and Cleanup
     env:
       BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
@@ -291,7 +301,7 @@ steps:
         --arg version "${CAPTURED_SIG_VERSION}" \
         --argjson regions "$regions" \
         '{($imageName): {resourceId: $resourceId, version: $version, regions: $regions}}' > "$metadata_file"
-    condition: succeeded()
+    condition: and(succeeded(), ne(variables['BUILD_ONLY'], 'true'))
     displayName: Create E2E VHD metadata
     env:
       VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
@@ -302,7 +312,7 @@ steps:
       REPLICATIONS: $(REPLICATIONS)
 
   - task: PublishPipelineArtifact@0
-    condition: succeeded()
+    condition: and(succeeded(), ne(variables['BUILD_ONLY'], 'true'))
     displayName: Publish E2E VHD metadata
     inputs:
       artifactName: 'e2e-vhd-metadata-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)'

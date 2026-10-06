@@ -43,6 +43,25 @@ fi
 
 IMAGE_PATH="${OUT_DIR}/$CONFIG/$CONFIG.vhd"
 
+# POC (default-safe): allow overriding the output image format. Defaults to
+# vhd-fixed (unchanged AKS behaviour). Set OUTPUT_IMAGE_FORMAT=vhdx to emit a
+# dynamic Gen2 VHDX suitable for a quick local Hyper-V boot test. The output
+# file extension and the final copy name follow the format so downstream paths
+# stay consistent.
+OUTPUT_IMAGE_FORMAT="${OUTPUT_IMAGE_FORMAT:-vhd-fixed}"
+case "$OUTPUT_IMAGE_FORMAT" in
+    vhd|vhd-fixed) OUTPUT_IMAGE_EXT="vhd" ;;
+    vhdx)          OUTPUT_IMAGE_EXT="vhdx" ;;
+    qcow2)         OUTPUT_IMAGE_EXT="qcow2" ;;
+    raw)           OUTPUT_IMAGE_EXT="raw" ;;
+    *)
+        echo "Error: unsupported OUTPUT_IMAGE_FORMAT '$OUTPUT_IMAGE_FORMAT' (expected vhd|vhd-fixed|vhdx|qcow2|raw)" >&2
+        exit 1
+        ;;
+esac
+IMAGE_PATH="${OUT_DIR}/$CONFIG/$CONFIG.${OUTPUT_IMAGE_EXT}"
+echo "Output image format: $OUTPUT_IMAGE_FORMAT (-> $OUTPUT_IMAGE_EXT)"
+
 BASE_IMAGE_ORAS=$BASE_IMG:$BASE_IMG_VERSION
 if [ ! -f "$BUILD_DIR/$CONFIG/image.vhdx" ]; then
     echo "Pulling base image $BASE_IMAGE_ORAS from registry..."
@@ -76,16 +95,22 @@ docker run \
         --config-file /container/config/"$(basename "$CONFIG_FILE")" \
         --build-dir /container/build \
         --image-file /container/build/$CONFIG/image.vhdx \
-        --output-image-format vhd-fixed \
+        --output-image-format "$OUTPUT_IMAGE_FORMAT" \
         --output-image-file /container/out/$CONFIG/"$(basename "$IMAGE_PATH")"
 
-cp $IMAGE_PATH $OUT_DIR/$CONFIG.vhd
+cp $IMAGE_PATH $OUT_DIR/$CONFIG.${OUTPUT_IMAGE_EXT}
 
-# Place build artifacts where later pipeline stages expect them
-cp "$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/release-notes.txt" "$AGENTBAKER_DIR"
-cp "$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/bcc-tools-installation.log" "$AGENTBAKER_DIR"
-cp "$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/image-bom.json" "$AGENTBAKER_DIR"
-cp "$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/vhd-build-performance-data.json" "$AGENTBAKER_DIR"
+# Place build artifacts where later pipeline stages expect them. Some configs
+# (e.g. the azurelocal edge variant) do not emit every azlosguard artifact, so
+# copy each only when present rather than hard-failing the build.
+for artifact in release-notes.txt bcc-tools-installation.log image-bom.json vhd-build-performance-data.json; do
+    src="$AGENTBAKER_DIR/vhdbuilder/packer/imagecustomizer/$CONFIG/out/$artifact"
+    if [ -f "$src" ]; then
+        cp "$src" "$AGENTBAKER_DIR"
+    else
+        echo "Note: build artifact '$artifact' not produced by config '$CONFIG', skipping copy."
+    fi
+done
 
 {
   echo "Install completed successfully on " $(date)

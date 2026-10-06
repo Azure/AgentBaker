@@ -1,0 +1,13 @@
+# POC: PMC kubernetes packages (kubeadm / kubelet / kubectl / cni) for the
+# Azure Local edge node image. Mirrors how the current aksarc-vhd/AzureLocal
+# build sources k8s from packages.microsoft.com rather than baking cloud-AKS
+# binaries. $releasever/$basearch resolve against the Azure Linux 3.0 base.
+[pmc-kubernetes]
+name=Microsoft Kubernetes Packages $releasever $basearch
+baseurl=https://packages.microsoft.com/azurelinux/$releasever/prod/Microsoft/$basearch
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+skip_if_unavailable=True
+sslverify=1

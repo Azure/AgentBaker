@@ -107,6 +107,15 @@ run-packer: az-login
 run-imagecustomizer: az-login
 	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk -j4 build-imagecustomizer | tee -a packer-output)
 
+# POC (gated, default-off): build the Azure Local edge node-image variant.
+# Selects the azurelocal MIC config and the SFS publish target without touching
+# the default AKS build. See vhdbuilder/packer/imagecustomizer/azurelocal/README.md.
+run-imagecustomizer-edge: export IMG_CUSTOMIZER_CONFIG=azurelocal
+run-imagecustomizer-edge: export PUBLISH_TARGET=sfs
+run-imagecustomizer-edge:
+	@echo "Building Azure Local edge VHD (config=azurelocal, publishTarget=sfs)"
+	@$(MAKE) -f packer.mk build-imagecustomizer | tee packer-output
+
 generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 

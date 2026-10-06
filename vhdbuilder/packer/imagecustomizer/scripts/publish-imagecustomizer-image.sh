@@ -5,6 +5,15 @@ source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 # Find the absolute path of the directory containing this script
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# POC (gated, default-off): publishTarget=sfs delegates to the SFS publisher and
+# skips the default SIG (Azure Compute Gallery) path entirely. When PUBLISH_TARGET
+# is unset or "sig", behaviour below is unchanged from the AKS default build.
+if [ "${PUBLISH_TARGET:-sig}" = "sfs" ]; then
+    echo "PUBLISH_TARGET=sfs -> using SFS publisher (POC)"
+    exec "${SCRIPTS_DIR}/publish-imagecustomizer-sfs.sh"
+fi
+
 CONFIG=$IMG_CUSTOMIZER_CONFIG
 AGENTBAKER_DIR=`realpath $SCRIPTS_DIR/../../../../`
 OUT_DIR="${AGENTBAKER_DIR}/out"
