@@ -1,8 +1,0 @@
-Release notes for security patch 20250825T000000Z timestamp
-Package difference between 20250815T000000Z and 20250825T000000Z
-
-No reboot required
-
-
-=== Package Updates ===
-postgresql-libs  16.10-1.azl3  azurelinux-official-base
