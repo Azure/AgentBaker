@@ -29,6 +29,7 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 )
 
 var expectedKubeletConfigFlags = "--address=0.0.0.0" +
@@ -497,7 +498,7 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, "1.7.22"); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -523,7 +524,7 @@ func Test_getContainerdConfigV2(t *testing.T) {
 					},
 				},
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -559,7 +560,7 @@ oom_score = -999
 				},
 				noGpu: false,
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -594,7 +595,7 @@ oom_score = -999
 				},
 				noGpu: true,
 			},
-			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 3
 oom_score = -999
 [plugins."io.containerd.cri.v1.images"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -661,6 +662,58 @@ oom_score = -999
 			if got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestContainerdV2KataConfigUsesNativePluginPaths(t *testing.T) {
+	config := &aksnodeconfigv1.Configuration{
+		IsKata: true,
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+			ContainerdVersion: "2.3.4",
+		},
+	}
+
+	for _, noGPU := range []bool{false, true} {
+		name := "default"
+		if noGPU {
+			name = "no GPU"
+		}
+		t.Run(name, func(t *testing.T) {
+			rendered, err := containerdConfigFromAKSNodeConfig(config, noGPU, "2.3.4")
+			require.NoError(t, err)
+			require.True(t, strings.HasPrefix(rendered, "version = 4\n"), rendered)
+			require.NotContains(t, rendered, `io.containerd.grpc.v1.cri`)
+			require.Contains(t, rendered, "disable_snapshot_annotations = false")
+			require.Contains(t, rendered, `plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]`)
+			require.Contains(t, rendered, `plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-v2]`)
+		})
+	}
+}
+
+func TestContainerdConfigSchema(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    int
+		wantErr string
+	}{
+		{name: "containerd 1", version: "1.7.22", want: 2},
+		{name: "containerd 2.2", version: "2.2.4", want: 3},
+		{name: "containerd 2.3", version: "2.3.4", want: 4},
+		{name: "missing version", wantErr: `unsupported or missing containerd version ""`},
+		{name: "invalid version", version: "latest", wantErr: `unsupported or missing containerd version "latest"`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := containerdConfigSchema(test.version)
+			if test.wantErr != "" {
+				require.EqualError(t, err, test.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.want, got)
 		})
 	}
 }

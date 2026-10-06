@@ -105,6 +105,23 @@ Describe 'cse_main.sh PIS-safe configuration'
         End
     End
 
+    Describe 'containerd config'
+        It 'normalizes the baked config in nodePrep for cached VHDs'
+            When call phase_count "nodePrep" "migrateContainerdConfigToInstalledVersion /etc/containerd/config.toml"
+            The output should equal "1"
+        End
+
+        It 'normalizes the baked config before kubelet configuration'
+            node_prep_order() {
+                phase_body "nodePrep" | code_lines |
+                    grep -n -E 'migrateContainerdConfigToInstalledVersion /etc/containerd/config.toml|configureK8s'
+            }
+            When call node_prep_order
+            The line 1 of output should include "migrateContainerdConfigToInstalledVersion"
+            The line 2 of output should include "configureK8s"
+        End
+    End
+
     Describe 'stage gate'
         It 'skips basePrep for cached images and nodePrep for image creation'
             When call dispatch_calls

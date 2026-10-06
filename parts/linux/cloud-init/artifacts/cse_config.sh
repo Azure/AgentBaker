@@ -531,7 +531,55 @@ EOF
     fi
 }
 
+migrateContainerdConfigToInstalledVersion() {
+  local config_path="${1:-/etc/containerd/config.toml}"
+  local migrated_path="${config_path}.migrated"
+  local containerd_version_output
+  local containerd_version
+
+  if ! containerd_version_output="$(containerd --version)"; then
+    echo "Failed to detect the installed containerd version" >&2
+    return 1
+  fi
+
+  containerd_version="$(printf '%s\n' "${containerd_version_output}" | awk '{print $3}')"
+  containerd_version="${containerd_version#v}"
+  if [ -z "${containerd_version}" ]; then
+    echo "Unable to parse the installed containerd version from: ${containerd_version_output}" >&2
+    return 1
+  fi
+
+  if ! semverCompare "${containerd_version}" "2.0.0"; then
+    return 0
+  fi
+
+  echo "Migrating containerd config to the schema supported by containerd ${containerd_version}"
+  rm -f "${migrated_path}"
+  if ! containerd --config "${config_path}" config migrate > "${migrated_path}"; then
+    rm -f "${migrated_path}"
+    echo "Failed to migrate containerd config for containerd ${containerd_version}" >&2
+    return 1
+  fi
+  if ! containerd --config "${migrated_path}" config dump > /dev/null; then
+    rm -f "${migrated_path}"
+    echo "Migrated containerd config is invalid for containerd ${containerd_version}" >&2
+    return 1
+  fi
+  if ! chmod 0644 "${migrated_path}"; then
+    rm -f "${migrated_path}"
+    echo "Failed to set permissions on the migrated containerd config" >&2
+    return 1
+  fi
+  if ! mv -f "${migrated_path}" "${config_path}"; then
+    rm -f "${migrated_path}"
+    echo "Failed to replace the containerd config with the migrated config" >&2
+    return 1
+  fi
+}
+
 ensureContainerd() {
+  local containerd_config_generated=false
+
   mkdir -p "/etc/systemd/system/containerd.service.d"
   # Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
   # On Ubuntu 24.04 (Containerd 2.0), LimitNOFILE is removed upstream and systemd falls back to an implicit soft:hard limit
@@ -559,14 +607,21 @@ EOF
       if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
         echo "Generating non-GPU containerd config for GPU node due to VM tags"
         echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+        containerd_config_generated=true
       else
         echo "Generating GPU containerd config..."
         echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+        containerd_config_generated=true
       fi
     else
       echo "Generating containerd config..."
       echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+      containerd_config_generated=true
     fi
+  fi
+
+  if [ "${containerd_config_generated}" = "true" ]; then
+    migrateContainerdConfigToInstalledVersion /etc/containerd/config.toml || exit $ERR_CONTAINERD_VERSION_INVALID
   fi
 
   export -f should_e2e_mock_azure_china_cloud

@@ -431,6 +431,11 @@ function nodePrep {
     logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
     logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
+    if [ -f /etc/containerd/config.toml ]; then
+        logs_to_events "AKS.CSE.migrateContainerdConfigToInstalledVersion" migrateContainerdConfigToInstalledVersion /etc/containerd/config.toml ||
+            exit $ERR_CONTAINERD_VERSION_INVALID
+    fi
+
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
     reconcileVulnerableKernelModuleMitigation
 
