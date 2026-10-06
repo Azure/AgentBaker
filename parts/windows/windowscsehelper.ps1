@@ -220,6 +220,33 @@ function Write-Log($message) {
     Write-Host $msg 
 }
 
+# Ship with CustomData so disabling SSH also works with older cached CSE packages.
+function Set-SSHAccess {
+    Param(
+        [Parameter(Mandatory=$true)][bool]
+        $Enabled,
+        [string[]]
+        $SSHKeys
+    )
+
+    $sshdService = Get-Service -ErrorAction Stop | Where-Object { $_.Name -eq 'sshd' }
+    if ($Enabled) {
+        if ($sshdService) {
+            # Install-OpenSSH starts the service, which fails if it was previously disabled.
+            Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
+        }
+        Install-OpenSSH -SSHKeys $SSHKeys -ErrorAction Stop
+    }
+    elseif ($sshdService) {
+        Write-Log "Stopping and disabling OpenSSH Server"
+        Set-Service -Name sshd -StartupType Disabled -ErrorAction Stop
+        Stop-Service -Name sshd -ErrorAction Stop
+    }
+    else {
+        Write-Log "OpenSSH Server is not installed; SSH access is disabled"
+    }
+}
+
 function DownloadFileOverHttp {
     Param(
         [Parameter(Mandatory=$true)][string]
