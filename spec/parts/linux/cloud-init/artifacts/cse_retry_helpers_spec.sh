@@ -114,6 +114,21 @@ Describe 'long running cse helper functions'
                 The stdout should eq ""
                 The stderr should eq ""
             End
+
+            It "still retries when the caller runs under errexit"
+                # Runs in a real `bash -eu` subprocess: VHD build scripts set `set -euo pipefail`,
+                # which previously aborted the retry loop after the first failed attempt.
+                probe_dir="$(mktemp -d)"
+                printf '' > "$probe_dir/attempts"
+                printf '#!/bin/bash\nprintf x >> %s/attempts\nexit 1\n' "$probe_dir" > "$probe_dir/failing-cmd"
+                chmod +x "$probe_dir/failing-cmd"
+                When run bash -eu -c "source ./parts/linux/cloud-init/artifacts/cse_helpers.sh; retrycmd_if_failure 3 0 5 $probe_dir/failing-cmd"
+                The status should eq 1
+                The stdout should be defined
+                The stderr should be defined
+                Assert [ "$(wc -c < "$probe_dir/attempts")" -eq 3 ]
+                rm -rf "$probe_dir"
+            End
             It "returns 2 before running the command when CSE timeout is already exceeded"
                 # Simulate CSE started 800 seconds ago (past the 780s limit)
                 CSE_STARTTIME_SECONDS=$(( $(date +%s) - 800 ))

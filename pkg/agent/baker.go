@@ -67,8 +67,10 @@ mkdir -p /opt/bin /opt/azure/containers /var/log/azure
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
-#hotfix-marker
 %s
+`
+	hotfixMarkerTemplate = `
+#hotfix-marker
 `
 	cseDownloaderTemplate = `
 if [ -f /opt/azure/containers/fetch_provision_config.py ]; then
@@ -204,7 +206,7 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
 		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
-		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + cseDownloaderTemplate))
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + hotfixMarkerTemplate + cseDownloaderTemplate))
 	}
 
 	if config.ScriptlessCSEProvisionMode {
@@ -233,7 +235,7 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	encodedFiles := t.getScriptlessConfiguration(config)
 	customData := buildScriptlessCustomData(cseBootHookTemplate, boothookFileEntry, "\n", encodedFiles)
-	customData += serviceStartTemplate
+	customData += hotfixMarkerTemplate + serviceStartTemplate
 	return customData
 }
 
@@ -2054,12 +2056,14 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+	pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2147,12 +2151,14 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+	pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2227,12 +2233,14 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+	runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+	pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2305,12 +2313,14 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlayfs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+	runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+	pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2391,6 +2401,7 @@ const localDNSCoreFileTemplateString = `# **************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -2455,9 +2466,13 @@ health-check.localdns.local:53 {
         {{- else if eq $override.ServeStale "Immediate"}}
         serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
         {{- end }}
+        {{- if and $isRootDomain (eq $override.ServeStalePolicy "PreferPositive") (or (eq $override.ServeStale "Verify") (eq $override.ServeStale "Immediate"))}}
+        serve_stale_policy prefer_positive
+        {{- end }}
         {{- end }}
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -2532,9 +2547,13 @@ health-check.localdns.local:53 {
         {{- else if eq $override.ServeStale "Immediate"}}
         serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
         {{- end }}
+        {{- if and $isRootDomain (eq $override.ServeStalePolicy "PreferPositive") (or (eq $override.ServeStale "Verify") (eq $override.ServeStale "Immediate"))}}
+        serve_stale_policy prefer_positive
+        {{- end }}
         {{- end }}
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253

@@ -15,7 +15,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 )
 
@@ -413,7 +413,7 @@ var _ = Register(&Scenario{
 //
 // The scenario asserts three increasingly strong properties:
 //  1. the rendered /etc/containerd/config.toml contains the Kata runtime handlers and EROFS preamble,
-//  2. containerd actually parsed and loaded them (no warnings, handlers in `config dump`),
+//  2. containerd actually parsed and loaded them (no unexpected warnings, handlers in `config dump`),
 //  3. for every handler in kataRuntimeHandlers, a pod scheduled via a Kata RuntimeClass runs
 //     and is genuinely VM-isolated.
 var _ = Register(&Scenario{
@@ -1599,7 +1599,7 @@ var _ = Register(&Scenario{
 			}
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
+			return ValidateInstalledPackageVersion(ctx, s, "moby-containerd", "1.6.9")
 		},
 	},
 })
@@ -1719,7 +1719,7 @@ var _ = Register(&Scenario{
 			)
 		},
 	},
-	// No MA35D GPU capacity in West US, so using East US
+	// No MA35D GPU capacity in West US, so using East US.  North/West Europe are also good.
 	Location:         "eastus",
 	K8sSystemPoolSKU: "Standard_D2s_v3",
 })
@@ -3027,7 +3027,8 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2404Gen2Containerd,
 		// RTX PRO 6000 BSE v6 only supports NVMe disk controllers, not ResourceDisk
 		// ephemeral OS disk placement (SupportedEphemeralOSDiskPlacements=NvmeDisk).
-		UseNVMe: true,
+		UseNVMe:             true,
+		SkipOnCapacityError: false,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.AgentPoolProfile.VMSize = "Standard_NC144ds_xl_RTXPRO6000BSE_v6"
 			nbc.ConfigGPUDriverIfNeeded = true

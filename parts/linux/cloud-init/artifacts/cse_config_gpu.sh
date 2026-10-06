@@ -108,10 +108,6 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
 
     if which nvidia-smi; then
@@ -189,8 +185,23 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
+    # arm64 GPU is supported in two cases; skip otherwise:
+    #  - AzureLinux 3.0 arm64 base image (non-FIPS) -- the existing arm64 GPU path.
+    #  - Grace-Blackwell (GB200/GB300): managed install on an AKS-managed Ubuntu VHD when the driver
+    #    was requested (CONFIG_GPU_DRIVER_IF_NEEDED = --gpu-driver Install / managed experience).
+    #    BYOI/custom images are IS_VHD=false (e.g. MAI's driver-baked GB image) -- skip so we never
+    #    run the aks-gpu install over a customer-baked driver.
+    local cpu_arch
+    cpu_arch=$(getCPUArch)
+    # arm64 Ubuntu (GB) is handled first so it isn't caught by the AzureLinux arm64 gate below.
+    if [ "$cpu_arch" = "arm64" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" != true ] || [ "${IS_VHD,,}" != "true" ]; then
+            return
+        fi
+    elif [ "$cpu_arch" = "arm64" ]; then
+        if [ "$OS_VERSION" != "3.0" ] || [ "${ENABLE_FIPS,,}" = "true" ] || ! isAzureLinuxArm64BaseImage "$OS" "$cpu_arch" "$OS_VARIANT"; then
+            return
+        fi
     fi
 
     # Tear down a mismatched cuda-lts VHD prebake before a GRID node installs its own driver, or the
@@ -291,8 +302,18 @@ setupAmdAma() {
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
         # Configure huge pages
-        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
-        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        local num_devs
+        num_devs=$(find /dev -maxdepth 1 -name 'ama_transcoder[0-9]*' -printf 1 | wc -c)
+        if [ "$num_devs" -eq 1 ]; then
+            sh -c "echo 'vm.nr_hugepages=2144' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 2144 > /proc/sys/vm/nr_hugepages"
+        elif [ "$num_devs" -eq 20 ]; then
+            sh -c "echo 'vm.nr_hugepages=41056' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 41056 > /proc/sys/vm/nr_hugepages"
+        else
+          echo "Incorrect number of ama_transcoder devices found, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
         if [ "$(systemctl is-active kubelet)" = "active" ]; then
             systemctl restart kubelet
         fi

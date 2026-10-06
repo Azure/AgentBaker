@@ -1,5 +1,6 @@
 {
   "variables": {
+    "use_shallow_replication": "{{or (env `USE_SHALLOW_REPLICATION`) `false`}}",
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
@@ -60,6 +61,7 @@
       "polling_duration_timeout": "1h",
       "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
+        "use_shallow_replication": "{{user `use_shallow_replication`}}",
         "subscription": "{{user `gallery_subscription_id`}}",
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
@@ -430,6 +432,16 @@
       "type": "file",
       "source": "vhdbuilder/packer/post-install-dependencies.sh",
       "destination": "/home/packer/post-install-dependencies.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/10_azure_nvidia",
+      "destination": "/home/packer/10_azure_nvidia"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/51-azure-nvidia.cfg",
+      "destination": "/home/packer/51-azure-nvidia.cfg"
     },
     {
       "type": "file",

@@ -28,12 +28,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"gopkg.in/yaml.v3"
 )
 
 const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
+	hotfixMarker                             = "#hotfix-marker"
 )
 
 type scriptHotfixFixtureNodeCustomData struct {
@@ -50,6 +51,15 @@ type scriptHotfixFixtureWriteFile struct {
 
 func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string, error) {
 	binary, err := compileAKSNodeController(ctx, arch)
+	if err != nil {
+		return "", err
+	}
+	defer binary.Close()
+	return uploadAKSNodeController(ctx, binary)
+}
+
+func compileAndUploadAKSNodeControllerWithVersion(ctx context.Context, arch, version string) (string, error) {
+	binary, err := compileAKSNodeControllerWithVersion(ctx, arch, version)
 	if err != nil {
 		return "", err
 	}
@@ -100,24 +110,41 @@ func uploadAKSNodeController(ctx context.Context, binary *os.File) (string, erro
 }
 
 func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error) {
+	return compileAKSNodeControllerWithVersion(ctx, arch, "")
+}
+
+func compileAKSNodeControllerWithVersion(ctx context.Context, arch, version string) (*os.File, error) {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		return nil, err
 	}
-	return compileAKSNodeControllerInDir(
-		ctx,
-		arch,
-		filepath.Join(repoRoot, "aks-node-controller"),
-	)
+	return compileAKSNodeControllerInDirWithVersion(ctx, arch, filepath.Join(repoRoot, "aks-node-controller"), version)
 }
 
 func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (*os.File, error) {
+	return compileAKSNodeControllerInDirWithVersion(ctx, arch, buildDir, "")
+}
+
+func compileAKSNodeControllerInDirWithVersion(ctx context.Context, arch, buildDir, version string) (*os.File, error) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
 	}
-	binName := "aks-node-controller-" + arch
-	cmd := exec.CommandContext(ctx, goBin, "build", "-o", binName, "-v")
+	// Each build gets its own output directory. Scenarios compile concurrently (see
+	// --parallel, default 60) and the caches in cache.go are per-function, so a shared
+	// output path lets an unversioned build and a version-stamped build overwrite each
+	// other between `go build` and the upload's read - handing a scenario the wrong
+	// binary. A unique directory removes the shared path entirely.
+	outDir, err := os.MkdirTemp("", "aks-node-controller-out-*")
+	if err != nil {
+		return nil, fmt.Errorf("create aks-node-controller output directory: %w", err)
+	}
+	outPath := filepath.Join(outDir, "aks-node-controller-"+arch)
+	args := []string{"build", "-o", outPath, "-v"}
+	if version != "" {
+		args = append(args, "-ldflags", "-X main.Version="+version)
+	}
+	cmd := exec.CommandContext(ctx, goBin, args...)
 	cmd.Dir = buildDir
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
@@ -127,10 +154,16 @@ func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (
 	logging.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
+		os.RemoveAll(outDir)
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
 	}
-	f, err := os.Open(filepath.Join(cmd.Dir, binName))
+	f, err := os.Open(outPath)
+	// Do not remove outDir here: the returned file handle must remain usable after this
+	// function returns, and deleting its containing directory while the file is still
+	// open is not portable across platforms (notably Windows). Keep the directory for
+	// the lifetime of the returned file and only clean it up on error paths here.
 	if err != nil {
+		os.RemoveAll(outDir)
 		return nil, fmt.Errorf("failed to open compiled aks-node-controller binary: %w", err)
 	}
 	return f, nil
@@ -216,7 +249,7 @@ func ConfigureAndCreateVMSS(ctx context.Context, s *Scenario) (*ScenarioVM, erro
 		return errors.Join(logErr, deleteVMSS(ctx, s))
 	})
 
-	if skipErr := skipIfSKUNotAvailableErr(err); skipErr != nil {
+	if skipErr := skipIfSKUNotAvailableErr(err, s.Config.SkipOnCapacityError); skipErr != nil {
 		return vm, skipErr
 	}
 
@@ -335,7 +368,61 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	}
 
 	binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
-	customData = strings.Replace(string(decoded), "#hotfix-marker", binaryDownloadCmd, -1)
+	customData = strings.Replace(string(decoded), hotfixMarker, binaryDownloadCmd, -1)
+	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
+}
+
+// CustomDataWithANCHotfixFlowFixture seeds the hotfix pointer that download-hotfix reads,
+// replaces the VHD-baked ANC with a PR-built binary stamped to the hotfix base version, and
+// replaces the generated NBC command with a trivial successful command.
+//
+// Stamping the binary is what keeps the scenario honest: download-hotfix only upgrades when the
+// running binary shares the pointer's YYYYMM.DD base and sits at a strictly lower patch, so an
+// unstamped node would silently log "ANC version not targeted by hotfix" and still pass.
+//
+// It deliberately does not write enabled_features.sh: the launcher runs download-hotfix purely
+// on the presence of the pointer file, so leaving ENABLE_PROVISIONING_HOTFIX unset keeps
+// check-hotfix (and its live-patching-service round trip) out of the scenario entirely.
+func CustomDataWithANCHotfixFlowFixture(customData, binaryURL string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	if err != nil {
+		return "", fmt.Errorf("decode custom data: %w", err)
+	}
+
+	fixtureCmd := fmt.Sprintf(`cat >%[1]s <<'EOF'
+{"hotfixes":{%[2]q:%[3]q}}
+EOF
+chmod 0644 %[1]s
+
+curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[4]q -o %[5]s
+chmod +x %[5]s
+
+cat >%[6]s <<'EOF'
+set -eu
+echo "ok"
+mkdir -p %[7]s
+echo '{"ExitCode":"0","Error":"","Output":"%[9]s"}' >%[7]s/provision.json
+touch %[8]s
+echo "%[9]s"
+EOF
+chmod 0600 %[6]s`,
+		ancHotfixPointerPath,
+		hotfixBaseVersion(ancHotfixFlowBaseVersion),
+		ancHotfixFlowTargetVersion,
+		binaryURL,
+		ancBakedBinaryPath,
+		ancNBCCmdPath,
+		filepath.Dir(provisionJSONPath),
+		provisionCompletePath,
+		ancNBCCmdMarker,
+	)
+
+	rendered := string(decoded)
+	if !strings.Contains(rendered, hotfixMarker) {
+		return "", fmt.Errorf("hotfix marker %q not found in custom data", hotfixMarker)
+	}
+
+	customData = strings.Replace(rendered, hotfixMarker, fixtureCmd, 1)
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
@@ -380,7 +467,21 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
-	if s.Config.ScriptHotfixFixture != nil {
+	if s.Config.ANCHotfixFlowFixture {
+		if !enableScriptlessCompilation(s) {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+				"ANC hotfix flow fixture requires scriptless ANC compilation",
+			)
+		}
+		binaryURL, err := compileAndUploadAKSNodeControllerWithVersion(ctx, s.VHD.Arch, ancHotfixFlowBaseVersion)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload version-stamped aks-node-controller binary: %w", err)
+		}
+		customData, err = CustomDataWithANCHotfixFlowFixture(customData, binaryURL)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with ANC hotfix flow fixture: %w", err)
+		}
+	} else if s.Config.ScriptHotfixFixture != nil {
 		if !enableScriptlessCompilation(s) {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
 				"script-hotfix fixture requires scriptless ANC compilation",
@@ -536,6 +637,12 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 			return vm, err
 		}
 
+		// Opted-in scenarios surface AllocationFailed immediately so ConfigureAndCreateVMSS can
+		// skip on it; retrying would half-provision a VMSS that never boots and mask it as an SSH timeout.
+		if shouldSurfaceCapacityError(s, err) {
+			return vm, err
+		}
+
 		if attempt >= maxAttempts {
 			return vm, fmt.Errorf("failed to create VMSS after %d retries: %w", maxAttempts, err)
 		}
@@ -555,9 +662,9 @@ func isRetryableVMSSCreationError(err error) bool {
 	if !errors.As(err, &respErr) {
 		return false
 	}
-	// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
-	// It's not a quota issue
-	if respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed" {
+	// AllocationFailed on exotic SKUs (new GPUs) is often transient, so retry by default. It's not
+	// a quota issue. SkipOnCapacityError scenarios opt out of the retry via shouldSurfaceCapacityError.
+	if isAllocationFailure(err) {
 		return true
 	}
 	// GalleryImageNotFound can happen transiently after image replication completes
@@ -862,9 +969,30 @@ func getPrivateIPFromVMSSVM(ctx context.Context, resourceGroup, vmssName, instan
 	return *ipConfig.Properties.PrivateIPAddress, nil
 }
 
-func skipIfSKUNotAvailableErr(err error) error {
+// isAllocationFailure reports Azure's async no-capacity signal: an HTTP-200 operation result
+// with error code AllocationFailed.
+func isAllocationFailure(err error) bool {
+	var respErr *azcore.ResponseError
+	return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
+}
+
+// shouldSurfaceCapacityError reports whether an opted-in scenario should surface AllocationFailed
+// immediately (no retry) so it can be classified as a skip rather than masked by a later SSH timeout.
+func shouldSurfaceCapacityError(s *Scenario, err error) bool {
+	return s.Config.SkipOnCapacityError && config.Config.SkipTestsWithSKUCapacityIssue && isAllocationFailure(err)
+}
+
+// skipIfSKUNotAvailableErr classifies capacity/availability errors into a skip when
+// SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is set (the PR gate). scenarioSkipsOnCapacity additionally
+// opts the scenario into skipping on AllocationFailed, scoped per scenario so mainstream SKUs
+// still fail on a genuine capacity regression.
+func skipIfSKUNotAvailableErr(err error, scenarioSkipsOnCapacity bool) error {
 	if !config.Config.SkipTestsWithSKUCapacityIssue {
 		return nil
+	}
+	// AllocationFailed is an HTTP-200 async result, not a 409, so it needs its own branch.
+	if scenarioSkipsOnCapacity && isAllocationFailure(err) {
+		return &skipError{message: fmt.Sprintf("scenario SKU has insufficient capacity in region: %v", err)}
 	}
 	var respErr *azcore.ResponseError
 	if !errors.As(err, &respErr) || respErr.StatusCode != 409 {

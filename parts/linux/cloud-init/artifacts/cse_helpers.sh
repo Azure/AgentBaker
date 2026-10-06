@@ -285,8 +285,9 @@ _retrycmd_internal() {
             fi
         fi
 
-        timeout "$effectiveTimeout" "${@}"
-        exitStatus=$?
+        # Capture via `||` so callers running under `set -e` don't abort before the loop can retry.
+        exitStatus=0
+        timeout "$effectiveTimeout" "${@}" || exitStatus=$?
 
         if [ "$exitStatus" -eq 0 ]; then
             break
@@ -962,7 +963,9 @@ get_imds_vm_tag_value() {
 }
 
 isAmdAmaEnabledNode() {
-    if [ "$(get_compute_sku)" = "Standard_NM16ads_MA35D" ]; then
+    local sku_name
+    sku_name=$(get_compute_sku)
+    if [ "$sku_name" = "Standard_NM16ads_MA35D" ] || [ "$sku_name" = "Standard_NM320ads_MA35D" ]; then
         return 0
     fi
     return 1
@@ -1052,6 +1055,16 @@ isAzureLinux() {
         return 0
     fi
     return 1
+}
+
+isAzureLinuxArm64BaseImage() {
+    local os="$1"
+    local cpu_arch="$2"
+    local os_variant="$3"
+
+    [ "$os" = "$AZURELINUX_OS_NAME" ] &&
+        [ "$cpu_arch" = "arm64" ] &&
+        [ -z "$os_variant" ]
 }
 
 isFlatcar() {

@@ -212,6 +212,9 @@ Describe 'cse_config_kubelet.sh'
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -242,6 +245,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -268,6 +274,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -294,6 +303,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -325,6 +337,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -363,6 +378,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -400,6 +418,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -437,6 +458,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -474,6 +498,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -515,6 +542,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -553,6 +583,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -580,6 +613,9 @@ providers:
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"

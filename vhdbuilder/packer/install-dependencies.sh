@@ -76,7 +76,7 @@ cacheVersionedKubernetesPackageBinary() {
     local deb_file
     local tmp_dir
 
-    deb_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}_${version_no_epoch}*" -print -quit 2>/dev/null) || deb_file=""
+    deb_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}_*" -print 2>/dev/null | grep -E "${package_name}_${version_no_epoch}([^0-9]|$)" | sort -V | tail -n 1) || deb_file=""
     if [ -z "${deb_file}" ]; then
       echo "Failed to locate cached ${package_name} deb for ${package_version}"
       return 1
@@ -99,7 +99,7 @@ cacheVersionedKubernetesPackageBinary() {
   elif isMarinerOrAzureLinux "$OS"; then
     local rpm_file
 
-    rpm_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}-${version_no_epoch}*" -print -quit 2>/dev/null) || rpm_file=""
+    rpm_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}-*" -print 2>/dev/null | grep -E "${package_name}-${version_no_epoch}([^0-9]|$)" | sort -V | tail -n 1) || rpm_file=""
     if [ -z "${rpm_file}" ]; then
       echo "Failed to locate cached ${package_name} rpm for ${package_version}"
       return 1
@@ -127,9 +127,11 @@ downloadCNIPlugins() {
 # Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
 # The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway.
 installCNI() {
-    downloadDir=${1}
-    evaluatedURL=${2}
-    version=${3}
+    local downloadDir=${1}
+    local evaluatedURL=${2}
+    local version=${3}
+    local fullPackageVersion
+    local packageName
 
     echo "installing containernetworking-plugins version ${version}"
 
@@ -151,14 +153,26 @@ installCNI() {
 
     # Package manager installation (for Ubuntu/Mariner/AzureLinux)
     if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-        packageName="containernetworking-plugins=${version}"
+        fullPackageVersion=$(getLatestDebPackageVersion "containernetworking-plugins" "${version}") || fullPackageVersion=""
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid containernetworking-plugins version for ${version}"
+            exit $ERR_CNI_VERSION_INVALID
+        fi
+        logResolvedPackageVersion "containernetworking-plugins" "${version}" "${fullPackageVersion}"
+        packageName="containernetworking-plugins=${fullPackageVersion}"
         echo "Installing ${packageName} with apt-get"
-        apt_get_install 20 30 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        apt_get_install 20 30 120 "${packageName}" || exit $ERR_CNI_VERSION_INVALID
         mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
     elif isMarinerOrAzureLinux "$OS"; then
-        packageName="containernetworking-plugins-${version}"
+        fullPackageVersion=$(getLatestRPMPackageVersion "containernetworking-plugins" "${version}") || fullPackageVersion=""
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid containernetworking-plugins version for ${version}"
+            exit $ERR_CNI_VERSION_INVALID
+        fi
+        logResolvedPackageVersion "containernetworking-plugins" "${version}" "${fullPackageVersion}"
+        packageName="containernetworking-plugins-${fullPackageVersion}"
         echo "Installing ${packageName} with dnf"
-        dnf_install 10 2 120 ${packageName} || exit $ERR_CNI_VERSION_INVALID
+        dnf_install 10 2 120 "${packageName}" || exit $ERR_CNI_VERSION_INVALID
         mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
     else
         echo "ERROR: Unsupported OS for containernetworking-plugins installation: ${OS}"
@@ -752,64 +766,10 @@ cachePackageAndBinaryComponents() {
 }
 
 cacheContainerImageComponents() {
-  # Download/cache all declared container images within components.json that apply to the respective OS SKU
-
-  # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
-  # Account for possibility that number of cores is 3 or less
-  num_proc=$(nproc)
-  if [ "$num_proc" -gt 3 ]; then
-    parallel_container_image_pull_limit=$(nproc --ignore=2)
-  else
-    parallel_container_image_pull_limit=1
-  fi
-  echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
-
-  declare -a image_pids=()
-
-  ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-  while IFS= read -r imageToBePulled; do
-    downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    updateMultiArchVersions "${imageToBePulled}"
-    amd64OnlyVersions=""
-    if [ "${amd64OnlyVersionsStr}" != "null" ]; then
-      amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
-    fi
-
-    if [ "$(isARM64)" -eq 1 ]; then
-      versions="${MULTI_ARCH_VERSIONS[*]}"
-    else
-      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
-    fi
-
-    for version in ${versions}; do
-      CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-      pullContainerImage "ctr" "${CONTAINER_IMAGE}" &
-      image_pids+=($!)
-      echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-      while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
-        wait -n || {
-          ret=$?
-          echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
-          for pid in "${image_pids[@]}"; do
-            kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-          done
-          exit "${ret}"
-      }
-      done
-    done
-  done <<< "$ContainerImages"
-  echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
-  while [ "$(jobs -p | wc -l)" -gt 0 ]; do
-    wait -n || {
-      ret=$?
-      echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
-      for pid in "${image_pids[@]}"; do
-        kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-      done
-      exit "${ret}"
-    }
-  done
+  /opt/azure/containers/image-fetcher cache-components \
+    --components-file "$COMPONENTS_FILEPATH" \
+    --concurrency "${IMAGE_FETCHER_CONCURRENCY:-20}" \
+    --vhd-log-file "$VHD_LOGS_FILEPATH"
 }
 
 cacheGPUContainerImageComponents() {
@@ -832,8 +792,12 @@ cacheGPUContainerImageComponents() {
     fi
   done <<< "$GPUContainerImages"
 
-  # For Ubuntu, pre-pull the CUDA driver image
-  if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
+  # For Ubuntu, pre-pull the CUDA driver image so node provisioning is a cache hit instead of an MCR
+  # pull. On arm64 this is limited to 24.04 -- the only arm64 GPU (Grace-Blackwell) target; other
+  # arm64 Ubuntu VHDs (e.g. 22.04, 26.04-minimal) have no GPU consumer and shouldn't carry the image.
+  # x86 keeps caching on all Ubuntu versions as before. The kernel-module PREBAKE below stays x86-only
+  # -- GB has no VHD driver prebake, so this caches the image without baking a driver (no dkms-marker).
+  if [ $OS = $UBUNTU_OS_NAME ] && { [ "$(isARM64)" -ne 1 ] || { [ "$(isARM64)" -eq 1 ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; }; }; then
     gpu_action="copy"
 
     while IFS= read -r imageToBePulled; do
@@ -857,7 +821,7 @@ cacheGPUContainerImageComponents() {
 
     mkdir -p /opt/{actions,gpu}
 
-    /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+    /opt/azure/containers/image-fetcher cache-image --image "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}

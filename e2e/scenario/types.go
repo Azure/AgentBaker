@@ -13,7 +13,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
 type Tags struct {
@@ -172,6 +172,11 @@ type Config struct {
 	// generated script-hotfix payload. It bypasses the shared ANC binary cache.
 	ScriptHotfixFixture *ScriptHotfixFixture
 
+	// ANCHotfixFlowFixture validates the real hotfix download/stage/select flow by seeding the
+	// hotfix pointer and replacing the baked ANC with a PR-built binary stamped to the hotfix
+	// base version. check-hotfix is intentionally not exercised; see scenario_anc_hotfix.go.
+	ANCHotfixFlowFixture bool
+
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario) error
 
@@ -204,6 +209,12 @@ type Config struct {
 	// This prevents the Guest Agent from sweeping events before they can be read.
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
+
+	// SkipOnCapacityError, when set (and SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is enabled), makes the
+	// scenario skip instead of fail (and not retry) on AllocationFailed — no allocatable capacity for
+	// the SKU in the region. Reserve for scarce brand-new GPU SKUs (e.g. RTX PRO 6000 BSE v6); mainstream
+	// SKUs should leave it unset so a genuine capacity regression still fails the gate.
+	SkipOnCapacityError bool
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.

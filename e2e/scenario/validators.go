@@ -1473,9 +1473,34 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 	if err != nil {
 		return fmt.Errorf("get package list: %w", err)
 	}
+	normalizeVersion := func(packageVersion string) string {
+		if epochSeparator := strings.IndexByte(packageVersion, ':'); epochSeparator > 0 {
+			if _, err := strconv.Atoi(packageVersion[:epochSeparator]); err == nil {
+				return packageVersion[epochSeparator+1:]
+			}
+		}
+		return packageVersion
+	}
+	expectedVersion := normalizeVersion(version)
+
 	for _, line := range strings.Split(execResult.stdout, "\n") {
-		if strings.Contains(line, component) && strings.Contains(line, version) {
-			logging.Logf(ctx, "found %s %s in the installed packages", component, version)
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		packageName := strings.SplitN(fields[0], "/", 2)[0]
+		if packageName != component &&
+			!strings.HasPrefix(packageName, component+".") &&
+			!strings.HasPrefix(packageName, component+":") {
+			continue
+		}
+
+		installedVersion := normalizeVersion(fields[1])
+		if installedVersion == expectedVersion ||
+			strings.HasPrefix(installedVersion, expectedVersion+"-") ||
+			strings.HasPrefix(installedVersion, expectedVersion+"+") {
+			logging.Logf(ctx, "found %s package version %s (expected %s)", component, fields[1], version)
 			return nil
 		}
 	}
@@ -2350,7 +2375,7 @@ func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) erro
 // ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
 // via the CoreDNS hosts plugin. It checks:
 //  1. The node has the kubernetes.azure.com/localdns-hosts-plugin=enabled annotation
-//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners
+//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners and includes loadbalance
 //  3. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN
 //
 // We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
@@ -2426,6 +2451,17 @@ fi
 echo "✓ hosts plugin configuration looks correct"
 echo ""
 
+echo "Checking if Corefile contains loadbalance plugin directive..."
+if ! grep -Eq '^[[:space:]]*loadbalance[[:space:]]*$' "$corefile"; then
+    echo "ERROR: Corefile does not contain 'loadbalance' directive"
+    echo ""
+    echo "Corefile contents:"
+    cat "$corefile"
+    exit 1
+fi
+echo "✓ Found 'loadbalance' directive in Corefile"
+echo ""
+
 echo "Corefile contents:"
 cat "$corefile"
 echo ""
@@ -2433,8 +2469,8 @@ echo "=== Corefile validation successful ==="
 `
 
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
-		"Corefile should contain hosts plugin configuration"); err != nil {
-		return fmt.Errorf("check Corefile hosts plugin configuration: %w", err)
+		"Corefile should contain hosts and loadbalance plugin configuration"); err != nil {
+		return fmt.Errorf("check Corefile hosts and loadbalance plugin configuration: %w", err)
 	}
 
 	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
