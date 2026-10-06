@@ -36,6 +36,7 @@ type Tags struct {
 	MockAzureChinaCloud    bool
 	RCV1PCertMode          bool
 	VMSeriesCoverageTest   bool
+	KernelCoverageTest     bool
 }
 
 // Scenario represents an AgentBaker E2E scenario.
