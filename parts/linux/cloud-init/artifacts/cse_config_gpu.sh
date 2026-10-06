@@ -441,10 +441,13 @@ EOF
             # Reload systemd to pick up the override
             systemctl daemon-reload
 
-            # Non-fatal: a successful start only means the process spawned, not that the ComputeDomain
-            # reached Ready (that needs the control-plane controller + node RBAC), so a failure must
-            # not block node provisioning -- surface a warning instead.
-            logs_to_events "AKS.CSE.start.compute-domain-kubelet-plugin" "systemctlEnableAndStart compute-domain-kubelet-plugin 30" || echo "warning: compute-domain-kubelet-plugin could not be started; cross-node IMEX (ComputeDomain) will be unavailable on this node"
+            # Off the critical path and non-fatal (same treatment as nvidia-dcgm below): a successful
+            # start only means the process spawned, not that the ComputeDomain reached Ready (that needs
+            # the control-plane controller + node RBAC), so a failure must not block node provisioning.
+            # Use the non-blocking enqueue -- the blocking systemctlEnableAndStart retries restart 100x
+            # with 5s backoff and no CSE-budget check, so a unit that keeps failing to start could burn
+            # the provisioning window; --no-block returns once the job is queued and surfaces a warning.
+            logs_to_events "AKS.CSE.start.compute-domain-kubelet-plugin" "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30" || echo "warning: compute-domain-kubelet-plugin could not be enqueued; cross-node IMEX (ComputeDomain) will be unavailable on this node"
         else
             # Non-GB (x86) managed-DRA nodes don't run compute-domain, but the same dra-driver-nvidia-gpu
             # deb still enables+starts the args-less compute-domain-kubelet-plugin.service at install;

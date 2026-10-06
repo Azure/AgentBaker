@@ -497,12 +497,39 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
             # we override the deb's vendor unit in place (same pattern as dra-driver) and start it
             The output should include "mkdir -p /etc/systemd/system/compute-domain-kubelet-plugin.service.d"
-            The output should include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
+            # off the critical path -- enqueue (non-blocking) so a persistently-failing optional unit
+            # can't consume the CSE provisioning budget via the blocking 100x/5s restart retry
+            The output should include "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30"
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
             # the override targets the controller extension's pinned namespace + this node, and resets ExecStart
             The contents of file "$CD_CONF" should include "ExecStart="
             The contents of file "$CD_CONF" should include "--namespace kube-system"
             The contents of file "$CD_CONF" should include "--node-name=gbnode0"
             The contents of file "$CD_CONF" should include 'NVIDIA_VISIBLE_DEVICES=void'
+        End
+
+        It 'does not block provisioning when the compute-domain plugin cannot be enqueued (arm64)'
+            # Command-failure path: the optional compute-domain start fails on every attempt. It must
+            # stay off the critical path -- using the non-blocking enqueue (not the blocking
+            # systemctlEnableAndStart whose restart retries 100x/5s with no CSE-budget check) and
+            # treating the failure as non-fatal, so it cannot consume the provisioning window.
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="gbnode0"
+            tee() { cat > /dev/null; echo "tee $1"; }
+            # only the optional compute-domain start fails; required services still succeed
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                case "$1" in compute-domain-kubelet-plugin) return 1 ;; esac
+            }
+
+            When call startNvidiaManagedExpServices
+
+            The status should be success
+            The output should include "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30"
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
+            The output should include "warning: compute-domain-kubelet-plugin could not be enqueued"
         End
 
         It 'stops the vendor compute-domain plugin on non-arm64 DRA nodes (GB-only)'
