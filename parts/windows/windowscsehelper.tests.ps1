@@ -16,6 +16,141 @@ BeforeAll {
   } -Verifiable
 }
 
+Describe 'Set-SSHAccess' {
+  BeforeAll {
+    function Get-Service {
+      [CmdletBinding()]
+      param()
+    }
+    function Set-Service {
+      [CmdletBinding()]
+      param($Name, $StartupType)
+    }
+    function Stop-Service {
+      [CmdletBinding()]
+      param($Name)
+    }
+    function Install-OpenSSH {
+      [CmdletBinding()]
+      param($SSHKeys)
+    }
+  }
+
+  BeforeEach {
+    $script:sshActions = @()
+    Mock Write-Log
+    Mock Get-Service { [PSCustomObject]@{ Name = 'sshd'; Status = 'Running'; StartType = 'Automatic' } }
+    Mock Set-Service {
+      param($Name, $StartupType)
+      $script:sshActions += "Set:$StartupType"
+    }
+    Mock Stop-Service { $script:sshActions += 'Stop' }
+    Mock Install-OpenSSH { $script:sshActions += 'Install' }
+  }
+
+  It 'disables startup and stops a running service' {
+    Set-SSHAccess -Enabled $false
+
+    $script:sshActions | Should -Be @('Set:Disabled', 'Stop')
+    Assert-MockCalled Set-Service -Exactly -Times 1 -ParameterFilter { $Name -eq 'sshd' -and $StartupType -eq 'Disabled' }
+    Assert-MockCalled Stop-Service -Exactly -Times 1 -ParameterFilter { $Name -eq 'sshd' }
+    Assert-MockCalled Install-OpenSSH -Exactly -Times 0
+  }
+
+  It 'keeps an already stopped service disabled on repeated calls' {
+    Mock Get-Service { [PSCustomObject]@{ Name = 'sshd'; Status = 'Stopped'; StartType = 'Disabled' } }
+
+    Set-SSHAccess -Enabled $false
+    Set-SSHAccess -Enabled $false
+
+    $script:sshActions | Should -Be @('Set:Disabled', 'Stop', 'Set:Disabled', 'Stop')
+    Assert-MockCalled Install-OpenSSH -Exactly -Times 0
+  }
+
+  It 'does not install SSH or change unrelated services when sshd is absent' {
+    Mock Get-Service { [PSCustomObject]@{ Name = 'kubelet'; Status = 'Running' } }
+
+    Set-SSHAccess -Enabled $false
+
+    $script:sshActions | Should -HaveCount 0
+  }
+
+  It 'enables startup before installing keys and starting a previously disabled service' {
+    Mock Get-Service { [PSCustomObject]@{ Name = 'sshd'; Status = 'Stopped'; StartType = 'Disabled' } }
+
+    Set-SSHAccess -Enabled $true -SSHKeys @('ssh-rsa live-node-key')
+
+    $script:sshActions | Should -Be @('Set:Automatic', 'Install')
+    Assert-MockCalled Set-Service -Exactly -Times 1 -ParameterFilter { $Name -eq 'sshd' -and $StartupType -eq 'Automatic' }
+    Assert-MockCalled Install-OpenSSH -Exactly -Times 1 -ParameterFilter { $SSHKeys.Count -eq 1 -and $SSHKeys[0] -eq 'ssh-rsa live-node-key' }
+    Assert-MockCalled Stop-Service -Exactly -Times 0
+  }
+
+  It 'installs SSH when enabled and the service is absent' {
+    Mock Get-Service {}
+
+    Set-SSHAccess -Enabled $true -SSHKeys @('ssh-rsa live-node-key')
+
+    $script:sshActions | Should -Be @('Install')
+    Assert-MockCalled Install-OpenSSH -Exactly -Times 1 -ParameterFilter { $SSHKeys[0] -eq 'ssh-rsa live-node-key' }
+  }
+
+  It 'preserves enabled SSH configuration with the live node keys' {
+    Set-SSHAccess -Enabled $true -SSHKeys @('ssh-rsa first-key', 'ssh-rsa second-key')
+
+    $script:sshActions | Should -Be @('Set:Automatic', 'Install')
+    Assert-MockCalled Install-OpenSSH -Exactly -Times 1 -ParameterFilter {
+      $SSHKeys.Count -eq 2 -and $SSHKeys[0] -eq 'ssh-rsa first-key' -and $SSHKeys[1] -eq 'ssh-rsa second-key'
+    }
+    Assert-MockCalled Stop-Service -Exactly -Times 0
+  }
+
+  It 'propagates service discovery failures' {
+    Mock Get-Service { throw 'service discovery failed' }
+
+    { Set-SSHAccess -Enabled $false } | Should -Throw '*service discovery failed*'
+    $script:sshActions | Should -HaveCount 0
+  }
+
+  It 'propagates startup configuration failures' {
+    Mock Set-Service { throw 'startup configuration failed' }
+
+    { Set-SSHAccess -Enabled $false } | Should -Throw '*startup configuration failed*'
+    Assert-MockCalled Stop-Service -Exactly -Times 0
+  }
+
+  It 'propagates service stop failures' {
+    Mock Stop-Service { throw 'service stop failed' }
+
+    { Set-SSHAccess -Enabled $false } | Should -Throw '*service stop failed*'
+  }
+
+  It 'does not install SSH when enabling startup fails' {
+    Mock Set-Service { throw 'startup configuration failed' }
+
+    { Set-SSHAccess -Enabled $true -SSHKeys @('ssh-rsa live-node-key') } | Should -Throw '*startup configuration failed*'
+    Assert-MockCalled Install-OpenSSH -Exactly -Times 0
+  }
+
+  It 'propagates SSH installation failures' {
+    Mock Install-OpenSSH { throw 'SSH installation failed' }
+
+    { Set-SSHAccess -Enabled $true -SSHKeys @('ssh-rsa live-node-key') } | Should -Throw '*SSH installation failed*'
+  }
+
+  It 'treats non-terminating errors from <CommandName> as provisioning failures' -TestCases @(
+    @{ CommandName = 'Get-Service'; Enabled = $false }
+    @{ CommandName = 'Set-Service'; Enabled = $false }
+    @{ CommandName = 'Stop-Service'; Enabled = $false }
+    @{ CommandName = 'Install-OpenSSH'; Enabled = $true }
+  ) {
+    param($CommandName, $Enabled)
+    Mock $CommandName { Write-Error 'SSH command failed' }
+
+    { Set-SSHAccess -Enabled $Enabled -SSHKeys @('ssh-rsa live-node-key') } | Should -Throw '*SSH command failed*'
+  }
+}
+
 Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   BeforeAll{
       Mock Install-Containerd -MockWith {
