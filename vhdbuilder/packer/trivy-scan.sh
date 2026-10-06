@@ -130,9 +130,10 @@ install_azure_cli() {
     if [ "$OS_VERSION" = "26.04" ]; then
         # TODO(2604): install azcli from PMC once the resolute package is available
         apt_get_update
-        apt_get_install 5 1 60 python3-pip
-        pip install azure-cli --break-system-packages
-        export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
+        apt_get_install 5 1 60 python3-venv
+        python3 -m venv "/home/$TEST_VM_ADMIN_USERNAME/venv"
+        export PATH="/home/$TEST_VM_ADMIN_USERNAME/venv/bin:$PATH"
+        pip install azure-cli
         CHECKAZ=$(pip freeze | grep "azure-cli==")
         if [ -z "$CHECKAZ" ]; then
             echo "Azure CLI is not installed properly."
