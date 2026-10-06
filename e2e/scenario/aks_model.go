@@ -86,7 +86,7 @@ func azureOverlayNetworkDualStackClusterModelMutator(model *armcontainerservice.
 		networkProfile.PodCidr,
 		to.Ptr("fd12:3456:789a::/64"),
 	}
-	networkProfile.ServiceCidr = to.Ptr("172.16.0.0/16")
+	networkProfile.ServiceCidr = to.Ptr(clusterServiceCIDR)
 	networkProfile.ServiceCidrs = []*string{
 		networkProfile.ServiceCidr,
 		to.Ptr("fd12:3456:789a:1::/108"),
@@ -130,8 +130,8 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 			},
 			NetworkProfile: &armcontainerservice.NetworkProfile{
 				NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
-				ServiceCidr:   to.Ptr("172.16.0.0/16"),
-				DNSServiceIP:  to.Ptr("172.16.0.10"),
+				ServiceCidr:   to.Ptr(clusterServiceCIDR),
+				DNSServiceIP:  to.Ptr(clusterDNSServiceIP),
 			},
 			AddonProfiles: map[string]*armcontainerservice.ManagedClusterAddonProfile{
 				"omsagent": {

@@ -973,7 +973,9 @@ get_imds_vm_tag_value() {
 }
 
 isAmdAmaEnabledNode() {
-    if [ "$(get_compute_sku)" = "Standard_NM16ads_MA35D" ]; then
+    local sku_name
+    sku_name=$(get_compute_sku)
+    if [ "$sku_name" = "Standard_NM16ads_MA35D" ] || [ "$sku_name" = "Standard_NM320ads_MA35D" ]; then
         return 0
     fi
     return 1
