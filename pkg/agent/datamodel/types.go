@@ -1846,10 +1846,6 @@ type NodeBootstrappingConfiguration struct {
 
 	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
 	AKSNodeConfigJSON string
-}
-
-func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
-	return c != nil && c.EnabledFeatures[CustomDataOnlyProvisioningFeature] == "true"
 
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
 	// interfaces configured on the agent pool. The node bootstrapping scripts use
@@ -1857,6 +1853,10 @@ func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() b
 	// Dynamic-type secondary NICs are not included in this count as they are
 	// configured by CNS rather than the node bootstrapping scripts.
 	StandardSecondaryNICCount int
+}
+
+func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
+	return c != nil && c.EnabledFeatures[CustomDataOnlyProvisioningFeature] == "true"
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {
