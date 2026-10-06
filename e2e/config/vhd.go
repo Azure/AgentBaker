@@ -187,6 +187,16 @@ var (
 		OSDiskSizeGB: 60,
 	}
 
+	VHDAzureLinuxV3Gen2Arm64FIPS = &Image{
+		Name:                "AzureLinuxV3gen2arm64fips",
+		OS:                  OSAzureLinux,
+		Arch:                "arm64",
+		Distro:              datamodel.AKSAzureLinuxV3Arm64Gen2FIPS,
+		Gallery:             &Config.GalleryLinux,
+		OSDiskSizeGB:        60,
+		UnsupportedLocalDns: true,
+	}
+
 	VHDACLGen2TL = &Image{
 		Name:         "aclgen2TL",
 		OS:           OSACL,

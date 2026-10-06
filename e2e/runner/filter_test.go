@@ -140,6 +140,30 @@ func TestMatchFiltersPreservesTagPolicy(t *testing.T) {
 			assert.Equal(t, test.match, got)
 		})
 	}
+
 	_, err := matchFilters(tags, "GPU=invalid", true)
 	require.ErrorContains(t, err, "invalid boolean")
+}
+
+func TestKernelCoverageFilterKeepsArchitectureAndVMSeriesIndependent(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		tags  scenario.Tags
+		match bool
+	}{
+		{"arm64 kernel", scenario.Tags{Arch: "arm64", KernelCoverageTest: true}, true},
+		{"wrong architecture", scenario.Tags{Arch: "amd64", KernelCoverageTest: true}, false},
+		{"vm series only", scenario.Tags{Arch: "arm64", VMSeriesCoverageTest: true}, false},
+		{"untagged arm64", scenario.Tags{Arch: "arm64"}, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			matched, err := matchFilters(tt.tags, "kernelCoverageTest=true,arch=arm64", true)
+			require.NoError(t, err)
+			assert.Equal(t, tt.match, matched)
+		})
+	}
+	matched, err := matchFilters(scenario.Tags{Arch: "arm64", KernelCoverageTest: true},
+		"vmSeriesCoverageTest=true,arch=arm64", true)
+	require.NoError(t, err)
+	assert.False(t, matched)
 }

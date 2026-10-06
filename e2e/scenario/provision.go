@@ -462,6 +462,15 @@ func validateVM(ctx context.Context, s *Scenario) error {
 		}
 	}
 
+	if s.Tags.KernelCoverageTest {
+		result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"cat /etc/os-release && uname -rm", 0, "could not collect OS and running kernel identity")
+		if err != nil {
+			return err
+		}
+		logging.Logf(ctx, "Kernel coverage identity:\n%s", strings.TrimSpace(result.stdout))
+	}
+
 	// Extract CSE timing events immediately after SSH is available, before other
 	// validators run. The Guest Agent periodically sweeps the events directory,
 	// so we must read events before the delay from pod scheduling and validation.

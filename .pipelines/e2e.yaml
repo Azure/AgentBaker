@@ -15,10 +15,19 @@ parameters:
   - name: subscriptionId
     type: string
     default: 8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8
+  - name: coverage
+    type: string
+    default: vmSeries
+    values:
+      - vmSeries
+      - kernel
 variables:
   DEFAULT_VM_SKU: ${{ parameters.vmSku }}
   E2E_LOCATION: ${{ parameters.location }}
-  TAGS_TO_RUN: vmSeriesCoverageTest=true,arch=${{ parameters.architecture }}
+  ${{ if eq(parameters.coverage, 'vmSeries') }}:
+    TAGS_TO_RUN: vmSeriesCoverageTest=true,arch=${{ parameters.architecture }}
+  ${{ if eq(parameters.coverage, 'kernel') }}:
+    TAGS_TO_RUN: kernelCoverageTest=true,arch=${{ parameters.architecture }}
   TAGS_TO_SKIP: "os=windows,gpu=true"
   SKIP_E2E_TESTS: false
   E2E_FAILED_TESTS_RETRY_COUNT: 0

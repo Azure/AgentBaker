@@ -87,6 +87,24 @@ using the `vmSku`, `location`, `subscriptionId`, and `architecture` parameters.
 Architecture must be `amd64` or `arm64`; the pipeline selects
 `vmSeriesCoverageTest=true` scenarios matching that architecture.
 
+Set `coverage=kernel` and `architecture=arm64` for the additional ARM64 kernel
+matrix: `Ubuntu2204ARM64`, `Ubuntu2404ARM`, `AzureLinuxV3_ARM64`, and
+`AzureLinuxV3_ARM64_FIPS`. These use the existing kubenet bootstrap/common Linux
+checks; the FIPS scenario uses a separate ARM64 FIPS image and verifies kernel
+FIPS mode and the OpenSSL provider. Each logs `/etc/os-release` and `uname -rm`
+so coverage reports can name the actual running kernel rather than infer it
+from the OS label. This does not rerun the Ubuntu 26.04 VM-series scenarios.
+The default `coverage=vmSeries` selection is unchanged. The kernel selection
+currently contains only ARM64 scenarios; selecting it with `amd64` fails with
+no matching scenarios before provisioning resources.
+
+Windows node pools and Ubuntu FIPS images are not supported for these ARM64
+SKUs. ARM64 FIPS coverage uses Azure Linux 3, not an x64 image or substituted VM
+size. Run these ad-hoc builds one at a time: scenario concurrency 1 does not
+coordinate shared-subnet cleanup between independent pipeline processes.
+Record the selected image version and kernel from each run; main-tag image
+selection can change between builds.
+
 `ADHOC_SKU_VALIDATION=true` (`--adhoc-sku-validation`) overrides scenario-specific
 VM sizes in both bootstrap inputs and the final VMSS model. It rejects Gen1/SCSI
 image fallbacks and waits for VMSS deletion before releasing the scenario's
