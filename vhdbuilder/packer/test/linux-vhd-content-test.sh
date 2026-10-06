@@ -15,8 +15,9 @@ OS_VERSION="$1"
 ENABLE_FIPS="$2"
 OS_SKU="$3"
 GIT_BRANCH="$4"
-IMG_SKU="$5"
-FEATURE_FLAGS="$6"
+# Strip transport prefixes while accepting legacy unprefixed arguments.
+IMG_SKU="${5#img-sku:}"
+FEATURE_FLAGS="${6#feature-flags:}"
 GIT_COMMIT_HASH="$7"
 AGENTBAKER_REPOSITORY_URL="${8:-https://github.com/Azure/AgentBaker.git}"
 
@@ -604,6 +605,9 @@ testChrony() {
   os_sku=$1
   local test="testChrony"
   echo "$test:Start"
+
+  # Known issue: ACL CVM can fail Chrony validation; keep these checks enabled.
+  # Base-image fix: https://github.com/microsoft/azure-container-linux/pull/61.
 
   # ---- Test Setup ----
   # Test ntp is not active
@@ -2834,7 +2838,7 @@ testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings
-testCronPermissions $IMG_SKU $OS_SKU
+testCronPermissions "$IMG_SKU" "$OS_SKU"
 testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION

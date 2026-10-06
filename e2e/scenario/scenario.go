@@ -413,7 +413,7 @@ var _ = Register(&Scenario{
 //
 // The scenario asserts three increasingly strong properties:
 //  1. the rendered /etc/containerd/config.toml contains the Kata runtime handlers and EROFS preamble,
-//  2. containerd actually parsed and loaded them (no warnings, handlers in `config dump`),
+//  2. containerd actually parsed and loaded them (no unexpected warnings, handlers in `config dump`),
 //  3. for every handler in kataRuntimeHandlers, a pod scheduled via a Kata RuntimeClass runs
 //     and is genuinely VM-isolated.
 var _ = Register(&Scenario{
@@ -1734,7 +1734,7 @@ var _ = Register(&Scenario{
 			)
 		},
 	},
-	// No MA35D GPU capacity in West US, so using East US
+	// No MA35D GPU capacity in West US, so using East US.  North/West Europe are also good.
 	Location:         "eastus",
 	K8sSystemPoolSKU: "Standard_D2s_v3",
 })

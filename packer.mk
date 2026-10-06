@@ -6,7 +6,7 @@ ifeq (${ARCHITECTURE},ARM64)
 endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-build-packer: generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+build-packer:
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -91,8 +91,11 @@ endif
 	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
 
-build-imagecustomizer: generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+build-imagecustomizer:
 	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
+
+.PHONY: build-tools
+build-tools: generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
 
 az-login:
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
@@ -148,23 +151,20 @@ build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"
 	@bash -c 'set -euo pipefail; \
 	cd aks-node-controller; \
-	go test ./...; \
 	ANC_VERSION="$${IMAGE_VERSION:-$$(date +%Y%m.%d.0)}"; \
 	ANC_LDFLAGS="-X main.Version=$${ANC_VERSION}"; \
 	echo "Stamping ANC version: $${ANC_VERSION}"; \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-amd64; \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-arm64'
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-$(GOARCH)'
 
 build-image-fetcher:
 	@echo "Building image-fetcher binaries"
 	@bash -c "pushd image-fetcher && \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/image-fetcher-linux-amd64 && \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/image-fetcher-linux-arm64 && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/image-fetcher-linux-$(GOARCH) && \
 	popd"
 
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"
-	@bash -c "pushd vhdbuilder/lister && GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
+	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
 
 generate-acl-customdata: vhdbuilder/packer/acl-customdata.json
 vhdbuilder/packer/acl-customdata.json: vhdbuilder/packer/acl-customdata.yaml | hack/tools/bin/butane

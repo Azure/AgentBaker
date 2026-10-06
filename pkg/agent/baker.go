@@ -67,8 +67,10 @@ mkdir -p /opt/bin /opt/azure/containers /var/log/azure
 
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
-#hotfix-marker
 %s
+`
+	hotfixMarkerTemplate = `
+#hotfix-marker
 `
 	cseDownloaderTemplate = `
 if [ -f /opt/azure/containers/fetch_provision_config.py ]; then
@@ -204,7 +206,7 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
 		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
-		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + cseDownloaderTemplate))
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + hotfixMarkerTemplate + cseDownloaderTemplate))
 	}
 
 	if config.ScriptlessCSEProvisionMode {
@@ -233,7 +235,7 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	encodedFiles := t.getScriptlessConfiguration(config)
 	customData := buildScriptlessCustomData(cseBootHookTemplate, boothookFileEntry, "\n", encodedFiles)
-	customData += serviceStartTemplate
+	customData += hotfixMarkerTemplate + serviceStartTemplate
 	return customData
 }
 
@@ -2405,6 +2407,7 @@ const localDNSCoreFileTemplateString = `# **************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -2475,6 +2478,7 @@ health-check.localdns.local:53 {
         {{- end }}
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -2555,6 +2559,7 @@ health-check.localdns.local:53 {
         {{- end }}
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253

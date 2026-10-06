@@ -1,6 +1,5 @@
 {
   "variables": {
-    "use_shallow_replication": "{{or (env `USE_SHALLOW_REPLICATION`) `false`}}",
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
@@ -65,7 +64,7 @@
       "security_type": "ConfidentialVM",
       "security_encryption_type": "VMGuestStateOnly",
       "shared_image_gallery_destination": {
-        "use_shallow_replication": "{{user `use_shallow_replication`}}",
+        "use_shallow_replication": false,
         "specialized": true,
         "confidential_vm_image_encryption_type": "EncryptedVMGuestStateOnlyWithPmk",
         "subscription": "{{user `gallery_subscription_id`}}",
