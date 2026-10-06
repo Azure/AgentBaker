@@ -72,6 +72,13 @@ which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SK
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
 
+After scenario VMSS mutations, the runner checks the final VM size's
+`EphemeralOSDiskSupported` capability. Unsupported sizes use managed OS disks,
+including NVMe sizes without local storage; NVMe controller support does not
+imply ephemeral OS disk support. Supported sizes retain their ephemeral disk
+configuration, and explicitly selected managed disks remain managed. Missing or
+invalid capability metadata fails explicitly rather than guessing a disk type.
+
 ### Ad-hoc SKU validation branch
 
 This branch configures the Linux E2E pipeline for one scenario at a time, with a

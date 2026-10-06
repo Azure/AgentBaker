@@ -322,6 +322,10 @@ var CachedVMSizeSupportsNVMe = cachedFunc(func(ctx context.Context, req VMSizeSK
 	return config.Azure.VMSizeSupportsNVMe(ctx, req.Location, req.VMSize)
 })
 
+var CachedVMSizeSupportsEphemeralOSDisk = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
+	return config.Azure.VMSizeSupportsEphemeralOSDisk(ctx, req.Location, req.VMSize)
+})
+
 // CachedIsVMSizeGen2Only caches the result of querying the Azure Resource SKUs API
 // to determine if a VM size only supports the Gen2 hypervisor.
 var CachedIsVMSizeGen2Only = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {

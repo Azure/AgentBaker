@@ -1001,6 +1001,39 @@ func (a *AzureClient) VMSizeSupportsNVMe(ctx context.Context, location, vmSize s
 	return SkuSupportsNVMe(sku), nil
 }
 
+func (a *AzureClient) VMSizeSupportsEphemeralOSDisk(ctx context.Context, location, vmSize string) (bool, error) {
+	sku, err := a.getResourceSKU(ctx, location, vmSize)
+	if err != nil {
+		return false, err
+	}
+	return SkuSupportsEphemeralOSDisk(sku)
+}
+
+func SkuSupportsEphemeralOSDisk(sku *armcompute.ResourceSKU) (bool, error) {
+	if sku == nil {
+		return false, fmt.Errorf("resource SKU is nil")
+	}
+	vmSize := ""
+	if sku.Name != nil {
+		vmSize = *sku.Name
+	}
+	for _, capability := range sku.Capabilities {
+		if capability == nil || capability.Name == nil || !strings.EqualFold(*capability.Name, "EphemeralOSDiskSupported") {
+			continue
+		}
+		if capability.Value != nil {
+			switch {
+			case strings.EqualFold(strings.TrimSpace(*capability.Value), "true"):
+				return true, nil
+			case strings.EqualFold(strings.TrimSpace(*capability.Value), "false"):
+				return false, nil
+			}
+		}
+		return false, fmt.Errorf("invalid EphemeralOSDiskSupported capability for VM size %q", vmSize)
+	}
+	return false, fmt.Errorf("missing EphemeralOSDiskSupported capability for VM size %q", vmSize)
+}
+
 // IsVMSizeGen2Only queries the Azure Resource SKUs API to determine if the given VM size
 // only supports the Gen2 hypervisor (i.e., does not support Gen1).
 func (a *AzureClient) IsVMSizeGen2Only(ctx context.Context, location, vmSize string) (bool, error) {
