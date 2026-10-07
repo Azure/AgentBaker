@@ -923,10 +923,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.MigStrategy
 		},
 		"GetKubeletConfigFileContent": func() string {
-			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
+			return getKubeletConfigFileContentForNode(config)
 		},
 		"GetKubeletConfigFileContentBase64": func() string {
-			return base64.StdEncoding.EncodeToString([]byte(GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)))
+			return base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContentForNode(config)))
 		},
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)

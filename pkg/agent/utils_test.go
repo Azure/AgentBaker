@@ -19,10 +19,119 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+type kubeletConfigFileScenario struct {
+	name          string
+	supplied      bool
+	enabled       bool
+	customKubelet bool
+	customLinux   bool
+	withoutRaw    bool
+	useSupplied   bool
+}
+
+func TestKubeletConfigFileContentForNode(test *testing.T) {
+	for _, version := range []string{"1.37.99", "1.38.0-beta.0", "1.38.0", "1.39.0"} {
+		for _, osType := range []datamodel.OSType{datamodel.Linux, datamodel.Windows} {
+			for _, scenario := range []kubeletConfigFileScenario{
+				{name: "absent enabled", enabled: true, customKubelet: true},
+				{name: "absent disabled"},
+				{name: "absent nil raw", enabled: true, withoutRaw: true},
+				{name: "supplied disabled", supplied: true},
+				{name: "supplied disabled nil raw", supplied: true, withoutRaw: true},
+				{name: "supplied enabled", supplied: true, enabled: true, useSupplied: true},
+				{name: "supplied enabled nil raw", supplied: true, enabled: true, withoutRaw: true, useSupplied: true},
+				{name: "supplied with custom kubelet", supplied: true, customKubelet: true, useSupplied: true},
+				{name: "supplied with custom linux", supplied: true, customLinux: true, useSupplied: true},
+			} {
+				test.Run(version+"/"+string(osType)+"/"+scenario.name, func(test *testing.T) {
+					checkKubeletConfigFileContentForNode(test, version, osType, scenario)
+				})
+			}
+		}
+	}
+}
+
+func checkKubeletConfigFileContentForNode(test *testing.T, version string, osType datamodel.OSType, scenario kubeletConfigFileScenario) {
+	test.Helper()
+	config := &datamodel.NodeBootstrappingConfiguration{
+		ContainerService: &datamodel.ContainerService{
+			Properties: &datamodel.Properties{
+				OrchestratorProfile: &datamodel.OrchestratorProfile{
+					OrchestratorType:    datamodel.Kubernetes,
+					OrchestratorVersion: version,
+				},
+			},
+		},
+		AgentPoolProfile:        &datamodel.AgentPoolProfile{OSType: osType},
+		EnableKubeletConfigFile: scenario.enabled,
+		KubeletConfig: map[string]string{
+			"--max-pods":                 "110",
+			"--event-qps":                "50",
+			"--tls-cert-file":            "/legacy/kubelet.crt",
+			"--enforce-node-allocatable": "pods,kube-reserved,system-reserved",
+			"--kube-reserved-cgroup":     "/legacy-kube-reserved",
+			"--system-reserved-cgroup":   "/legacy-system-reserved",
+		},
+	}
+	if scenario.withoutRaw {
+		config.KubeletConfig = nil
+	}
+	if scenario.customKubelet {
+		config.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+			CPUCfsQuota:           to.BoolPtr(true),
+			ContainerLogMaxSizeMB: to.Int32Ptr(100),
+		}
+	}
+	if scenario.customLinux {
+		config.AgentPoolProfile.CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{}
+	}
+	if scenario.supplied {
+		config.KubeletConfigFileConfig = &datamodel.AKSKubeletConfiguration{
+			APIVersion:            "kubelet.config.k8s.io/v1beta1",
+			Kind:                  "KubeletConfiguration",
+			EnableServer:          to.BoolPtr(false),
+			EventRecordQPS:        to.Int32Ptr(0),
+			CPUCFSQuota:           to.BoolPtr(false),
+			RuntimeRequestTimeout: "0s",
+			TLSCertFile:           "/supplied/kubelet.crt",
+			KubeReservedCgroup:    "/supplied-kube-reserved",
+			SystemReservedCgroup:  "/supplied-system-reserved",
+			ContainerLogMaxSize:   "50M",
+			FeatureGates:          map[string]bool{"ExampleFeature": false},
+			SystemReserved:        map[string]string{"memory": "1Gi"},
+			RegisterWithTaints: []datamodel.KubeletTaint{
+				{Key: "workload", Value: "batch", Effect: "NoSchedule"},
+				{Key: "initializing", Effect: "NoExecute", TimeAdded: "2026-01-02T03:04:05Z"},
+			},
+		}
+	}
+	before, err := json.Marshal(config)
+	require.NoError(test, err)
+	var original datamodel.NodeBootstrappingConfiguration
+	require.NoError(test, json.Unmarshal(before, &original))
+	expected := GetKubeletConfigFileContent(config.KubeletConfig, config.AgentPoolProfile.CustomKubeletConfig)
+	if scenario.useSupplied {
+		content, marshalError := json.MarshalIndent(config.KubeletConfigFileConfig, "", "    ")
+		require.NoError(test, marshalError)
+		expected = string(content)
+	}
+	funcMap := getContainerServiceFuncMap(config)
+	require.Equal(test, expected, getKubeletConfigFileContentForNode(config))
+	plainGetter, valid := funcMap["GetKubeletConfigFileContent"].(func() string)
+	require.True(test, valid)
+	require.Equal(test, expected, plainGetter())
+	encodedGetter, valid := funcMap["GetKubeletConfigFileContentBase64"].(func() string)
+	require.True(test, valid)
+	encoded := encodedGetter()
+	require.Equal(test, base64.StdEncoding.EncodeToString([]byte(expected)), encoded)
+	require.Equal(test, original, *config)
+}
 
 func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	kc := map[string]string{
