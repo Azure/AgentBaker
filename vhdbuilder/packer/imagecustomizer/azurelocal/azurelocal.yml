@@ -129,9 +129,12 @@ os:
     # let k8s own iptables, same as AKS
     - iptables
     - auditd
-    # ensure no AKS CSE bootstrap unit can run on an edge host even if a future
-    # base image ships one enabled.
-    - aks-node-controller
+    # NOTE: aks-node-controller is intentionally NOT disabled here. The OSGuard
+    # base image does not ship that unit (azlosguard bakes it; this edge config
+    # does not), and Image Customizer's services.disable fails (is-enabled exit
+    # status 4 = no such unit) on a unit that is absent. The postinstall script
+    # instead ASSERTS no aks-node-controller artifacts are present, which is the
+    # correct guard for the kubeadm-nocloud bootstrap mode.
 
 previewFeatures:
   - uki
