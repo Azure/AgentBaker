@@ -206,6 +206,58 @@ EOF
             The contents of file "${TEST_CALLS_FILE}" should include '"code":"Succeeded"'
         End
 
+        Describe 'rejects malformed timestamps before changing repositories'
+            Parameters
+                'relative date suffix' $'20260815T000000Z\n1 day'
+                'extra line prefix' $'1 day\n20260815T000000Z'
+                'trailing newline' $'20260815T000000Z\n'
+                'carriage return' $'20260815T000000Z\r'
+                'CRLF' $'20260815T000000Z\r\n'
+                'extra character' '20260815T000000Zx'
+                'invalid calendar date' '20260230T000000Z'
+            End
+
+            It "fails without package work or checkpointing for $1"
+                node_config=$(jq -nc --arg timestamp "$2" '{agentPools:{ap1:{goldenTimestamp:$timestamp}}}')
+                set_generic_payload "$(jq -nc --arg nodeConfig "${node_config}" '{components:[{name:"securityPatch",nodeConfig:$nodeConfig}]}')"
+                original_repo='baseurl=http://10.0.0.1/azurelinux/3.0/prod/base/aarch64'
+                printf '%s\n' "${original_repo}" > "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo"
+
+                When call main
+                The status should be failure
+                The output should include 'securityPatch goldenTimestamp is invalid'
+                The output should not include 'tdnf mock called'
+                The output should not include 'dnf mock called'
+                The contents of file "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo" should equal "${original_repo}"
+                The contents of file "${TEST_CALLS_FILE}" should include '"code":"Failed"'
+                The contents of file "${TEST_CALLS_FILE}" should not include 'live-patching-current-timestamp'
+                The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+            End
+        End
+
+        It 'fails before package work when a repository rewrite fails'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+            original_repo='baseurl=http://10.0.0.1/azurelinux/3.0/prod/base/aarch64'
+            printf '%s\n' "${original_repo}" > "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo"
+            Mock sed
+                if [ "$1" = '-i' ] || [ "$1" = '-Ei' ]; then
+                    echo 'repository write failed' >&2
+                    exit 1
+                fi
+                /bin/sed "$@"
+            End
+
+            When call main
+            The status should be failure
+            The output should include 'failed to rewrite security patch repositories'
+            The stderr should include 'repository write failed'
+            The output should not include 'tdnf mock called'
+            The contents of file "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo" should equal "${original_repo}"
+            The contents of file "${TEST_CALLS_FILE}" should include '"code":"Failed"'
+            The contents of file "${TEST_CALLS_FILE}" should not include 'live-patching-current-timestamp'
+            The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+        End
+
         It 'treats an omitted and empty kubeletVersion as the same selected profile'
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\",\"kubeletVersion\":\"\"}}}"}]}'
             mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"

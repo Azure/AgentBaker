@@ -279,11 +279,14 @@ apply_updates() {
     local live_patching_repo_service
 
     if [ -n "${node_json}" ]; then
-        live_patching_repo_service=$(get_node_annotation "${node_json}" "kubernetes.azure.com/live-patching-repo-service")
+        live_patching_repo_service=$(get_node_annotation "${node_json}" "kubernetes.azure.com/live-patching-repo-service") || return 1
     else
-        live_patching_repo_service=$($KUBECTL get node "${target_node_name}" -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-repo-service']}")
+        live_patching_repo_service=$($KUBECTL get node "${target_node_name}" -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-repo-service']}") || return 1
     fi
-    rewrite_repos "${live_patching_repo_service}"
+    if ! rewrite_repos "${live_patching_repo_service}"; then
+        echo "failed to rewrite security patch repositories"
+        return 1
+    fi
 
     if ! dnf_update "${target_golden_timestamp}"; then
         echo "dnf_update failed"
@@ -322,29 +325,31 @@ rewrite_repos() {
                 azurelinux-nvidia.repo; do
         repo_path="${SECURITY_PATCH_REPO_DIR}/${repo}"
         if [ -f ${repo_path} ]; then
-            old_repo=$(cat ${repo_path})
+            old_repo=$(cat "${repo_path}") || return 1
             if [ -z "${live_patching_repo_service}" ]; then
                 echo "live patching repo service is not set, use PMC repo"
-                original_endpoint=$(sed -nE 's|^#[[:space:]]original_baseurl=(https?://.*packages\.microsoft\.com).*|\1|p' ${repo_path} | head -1)
+                original_endpoint=$(printf '%s\n' "${old_repo}" | sed -nE 's|^#[[:space:]]original_baseurl=(https?://.*packages\.microsoft\.com).*|\1|p') || return 1
+                original_endpoint="${original_endpoint%%$'\n'*}"
                 if [ -z "${original_endpoint}" ]; then
                     original_endpoint="https://packages.microsoft.com"
                 fi
-                sed -i 's|http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+|'"${original_endpoint}"'|g' ${repo_path}
-                sed -i '/^#[[:space:]]original_baseurl=/d' ${repo_path}
+                sed -i 's|http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+|'"${original_endpoint}"'|g' "${repo_path}" || return 1
+                sed -i '/^#[[:space:]]original_baseurl=/d' "${repo_path}" || return 1
             else
                 echo "live patching repo service is: ${live_patching_repo_service}, use it to replace PMC repo"
-                original_endpoint=$(sed -nE 's|^baseurl=(https?://.*packages.microsoft.com).*|\1|p' ${repo_path} | head -1)
-                sed -Ei 's/^baseurl=https?:\/\/.*packages.microsoft.com/baseurl=http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
-                sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
+                original_endpoint=$(printf '%s\n' "${old_repo}" | sed -nE 's|^baseurl=(https?://.*packages.microsoft.com).*|\1|p') || return 1
+                original_endpoint="${original_endpoint%%$'\n'*}"
+                sed -Ei 's/^baseurl=https?:\/\/.*packages.microsoft.com/baseurl=http:\/\/'"${live_patching_repo_service}"'/g' "${repo_path}" || return 1
+                sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/http:\/\/'"${live_patching_repo_service}"'/g' "${repo_path}" || return 1
                 if [ -n "${original_endpoint}" ]; then
-                    if grep -q 'original_baseurl=' ${repo_path}; then
-                        sed -i 's|^#[[:space:]]original_baseurl=.*$|#\ original_baseurl='"${original_endpoint}"'|g' ${repo_path}
+                    if [[ "${old_repo}" == *original_baseurl=* ]]; then
+                        sed -i 's|^#[[:space:]]original_baseurl=.*$|#\ original_baseurl='"${original_endpoint}"'|g' "${repo_path}" || return 1
                     else
-                        sed -i '1i#\ original_baseurl='"${original_endpoint}"'' ${repo_path}
+                        sed -i '1i#\ original_baseurl='"${original_endpoint}"'' "${repo_path}" || return 1
                     fi
                 fi
             fi
-            new_repo=$(cat ${repo_path})
+            new_repo=$(cat "${repo_path}") || return 1
             if [ "${old_repo}" != "${new_repo}" ]; then
                 echo "${repo_path} is updated"
             fi
@@ -517,12 +522,15 @@ apply_security_patch() {
         echo "securityPatch profile is invalid for agent pool: ${agent_pool}"
         return 1
     fi
-    golden_timestamp=$(printf '%s' "${component_payload}" | jq -r --arg agentPool "${agent_pool}" '.agentPools[$agentPool].goldenTimestamp')
-    kubelet_version=$(printf '%s' "${component_payload}" | jq -r --arg agentPool "${agent_pool}" '.agentPools[$agentPool].kubeletVersion // empty')
-    if ! printf '%s' "${golden_timestamp}" | grep -Eq '^[0-9]{8}T[0-9]{6}Z$'; then
-        echo "securityPatch goldenTimestamp is invalid: ${golden_timestamp}"
+    # Validate the complete JSON string before command substitution can trim newlines.
+    if ! printf '%s' "${component_payload}" | jq -e --arg agentPool "${agent_pool}" '
+        .agentPools[$agentPool].goldenTimestamp | (length == 16) and test("^[0-9]{8}T[0-9]{6}Z$")
+    ' > /dev/null; then
+        echo "securityPatch goldenTimestamp is invalid"
         return 1
     fi
+    golden_timestamp=$(printf '%s' "${component_payload}" | jq -r --arg agentPool "${agent_pool}" '.agentPools[$agentPool].goldenTimestamp') || return 1
+    kubelet_version=$(printf '%s' "${component_payload}" | jq -r --arg agentPool "${agent_pool}" '.agentPools[$agentPool].kubeletVersion // empty') || return 1
     timestamp_date=$(printf '%s' "${golden_timestamp}" | sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)T\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)Z/\1-\2-\3 \4:\5:\6/')
     if ! date -d "${timestamp_date}" > /dev/null 2>&1; then
         echo "securityPatch goldenTimestamp is invalid: ${golden_timestamp}"
