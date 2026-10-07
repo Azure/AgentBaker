@@ -92,6 +92,12 @@ func (a *App) Run(ctx context.Context, args []string) int {
 }
 
 func (a *App) run(ctx context.Context, opts runOptions) error {
+	if config.Config.VMSeriesCoverage {
+		if err := validateVMSeriesOptions(config.Config, opts.parallel); err != nil {
+			return &usageError{message: err.Error()}
+		}
+		config.Config.AdHocSKUValidation = true
+	}
 	if opts.parallel < 1 {
 		return &usageError{message: "--parallel must be at least 1"}
 	}
@@ -139,6 +145,23 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 
 	if err := config.Initialize(); err != nil {
 		return fmt.Errorf("initialize E2E configuration: %w", err)
+	}
+	if config.Config.VMSeriesCoverage {
+		architecture, err := config.Azure.VMSizeArchitecture(ctx, config.Config.DefaultLocation, config.Config.VMSKU())
+		if err != nil {
+			return fmt.Errorf("resolve requested VM SKU architecture: %w", err)
+		}
+		var excluded []scenarioResult
+		runnable, excluded, err = partitionVMSeries(runnable, architecture, config.Config.VMSeriesOS)
+		filtered = append(filtered, excluded...)
+		if err != nil {
+			if reportErr := writeJUnitReport(opts.junitFile, filtered); reportErr != nil {
+				return errors.Join(err, reportErr)
+			}
+			return err
+		}
+		log.Printf("VM-series coverage: SKU=%s architecture=%s OS=%s scenarios=%d system-pool=%s",
+			config.Config.VMSKU(), architecture, config.Config.VMSeriesOS, len(runnable), config.Config.SystemPoolVMSKU)
 	}
 	ctrruntimelog.SetLogger(zap.New())
 

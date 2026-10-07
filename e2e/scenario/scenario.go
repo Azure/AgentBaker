@@ -88,6 +88,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "ACL",
 	Description: "Tests that a node using an ACL VHD can be properly bootstrapped and custom CA was correctly added",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
@@ -138,6 +139,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "ACL_ARM64",
 	Description: "Tests that a node using an ACL VHD on ARM64 architecture can be properly bootstrapped",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLArm64Gen2TL,
@@ -165,6 +167,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "ACLGen2FIPSTL",
 	Description: "Tests that a node using the ACL FIPS TrustedLaunch Gen2 VHD can be properly bootstrapped and FIPS is active at runtime",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2FIPSTL,
@@ -189,6 +192,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3Gen2FIPS",
 	Description: "Tests that a node using the Azure Linux V3 Gen2 FIPS VHD can be properly bootstrapped and FIPS is active at runtime",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDAzureLinuxV3Gen2FIPS,

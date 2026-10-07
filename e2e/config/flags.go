@@ -5,6 +5,9 @@ import "github.com/urfave/cli/v3"
 func Flags() []cli.Flag {
 	defaults := DefaultConfiguration()
 	return []cli.Flag{
+		&cli.BoolFlag{Name: "vm-series-coverage", Destination: &Config.VMSeriesCoverage, Sources: cli.EnvVars("VM_SERIES_COVERAGE"), Usage: "Run representative OS scenarios for the requested SKU's architecture, without SKU fallback; requires --parallel=1"},
+		&cli.StringFlag{Name: "vm-series-os", Value: defaults.VMSeriesOS, Destination: &Config.VMSeriesOS, Sources: cli.EnvVars("VM_SERIES_OS"), Usage: "Image cohort built by the orchestrator: linux or windows"},
+		&cli.StringFlag{Name: "system-pool-vm-sku", Value: defaults.SystemPoolVMSKU, Destination: &Config.SystemPoolVMSKU, Sources: cli.EnvVars("SYSTEM_POOL_VM_SKU"), Usage: "Small shared AKS system-pool size for VM-series coverage; independent of the tested SKU"},
 		&cli.BoolFlag{Name: "adhoc-sku-validation", Destination: &Config.AdHocSKUValidation, Sources: cli.EnvVars("ADHOC_SKU_VALIDATION"), Usage: "Enforce --vm-sku across scenario mutators, reject image fallbacks, and wait for VMSS deletion"},
 		&cli.StringFlag{Name: "acr-secret-name", Value: defaults.ACRSecretName, Destination: &Config.ACRSecretName, Sources: cli.EnvVars("ACR_SECRET_NAME")},
 		&cli.StringFlag{Name: "acr-target-repository", Value: defaults.AzureContainerRegistrytargetRepository, Destination: &Config.AzureContainerRegistrytargetRepository, Sources: cli.EnvVars("ACR_TARGET_REPOSITORY")},

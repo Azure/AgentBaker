@@ -193,9 +193,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 
 	s.Location = strings.ToLower(s.Location)
 
-	if s.K8sSystemPoolSKU == "" {
-		s.K8sSystemPoolSKU = config.Config.VMSKU()
-	}
+	s.K8sSystemPoolSKU = s.systemPoolVMSize(config.Config)
 
 	defer func() {
 		markScenarioOutcome(s, runErr, recover())
@@ -462,7 +460,7 @@ func validateVM(ctx context.Context, s *Scenario) error {
 		}
 	}
 
-	if s.Tags.KernelCoverageTest {
+	if s.Tags.KernelCoverageTest || (config.Config.VMSeriesCoverage && !s.IsWindows()) {
 		result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 			"cat /etc/os-release && uname -rm", 0, "could not collect OS and running kernel identity")
 		if err != nil {

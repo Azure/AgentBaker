@@ -117,6 +117,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "Windows2022Gen2AzureNetwork",
 	Description: "Windows Server 2022 with Azure Network - hyperv gen2",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster:                ClusterAzureNetwork,
 		VHD:                    config.VHDWindows2022ContainerdGen2,
@@ -196,6 +197,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "Windows2025Gen2",
 	Description: "Windows Server 2025 with Containerd - hyperv gen 2",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster:         ClusterAzureNetwork,
 		VHD:             config.VHDWindows2025Gen2,
@@ -223,6 +225,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "Windows2025Gen2TrustedLaunch",
 	Description: "Windows Server 2025 Gen2 Trusted Launch (Secure Boot + vTPM)",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster: ClusterAzureNetwork,
 		VHD:     config.VHDWindows2025Gen2TL,

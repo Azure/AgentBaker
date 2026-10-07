@@ -1009,6 +1009,33 @@ func (a *AzureClient) VMSizeSupportsEphemeralOSDisk(ctx context.Context, locatio
 	return SkuSupportsEphemeralOSDisk(sku)
 }
 
+func (a *AzureClient) VMSizeArchitecture(ctx context.Context, location, vmSize string) (string, error) {
+	sku, err := a.getResourceSKU(ctx, location, vmSize)
+	if err != nil {
+		return "", err
+	}
+	return SkuArchitecture(sku)
+}
+
+func SkuArchitecture(sku *armcompute.ResourceSKU) (string, error) {
+	if sku != nil {
+		for _, capability := range sku.Capabilities {
+			if capability == nil || capability.Name == nil || capability.Value == nil ||
+				!strings.EqualFold(*capability.Name, "CpuArchitectureType") {
+				continue
+			}
+			switch strings.ToLower(strings.TrimSpace(*capability.Value)) {
+			case "x64":
+				return "amd64", nil
+			case "arm64":
+				return "arm64", nil
+			}
+			return "", fmt.Errorf("unsupported CpuArchitectureType %q", *capability.Value)
+		}
+	}
+	return "", fmt.Errorf("missing CpuArchitectureType in resource SKU")
+}
+
 func SkuSupportsEphemeralOSDisk(sku *armcompute.ResourceSKU) (bool, error) {
 	if sku == nil {
 		return false, fmt.Errorf("resource SKU is nil")

@@ -219,6 +219,16 @@ type Config struct {
 	SkipOnCapacityError bool
 }
 
+func (s *Scenario) systemPoolVMSize(c *config.Configuration) string {
+	if s.K8sSystemPoolSKU != "" {
+		return s.K8sSystemPoolSKU
+	}
+	if c.VMSeriesCoverage {
+		return c.SystemPoolVMSKU
+	}
+	return c.VMSKU()
+}
+
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {

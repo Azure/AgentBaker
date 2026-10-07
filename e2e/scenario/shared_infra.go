@@ -74,8 +74,8 @@ func ensureSharedInfra(ctx context.Context, location string) (*SharedInfra, erro
 		return nil, fmt.Errorf("ensuring cluster identity: %w", err)
 	}
 
-	// Best-effort cleanup of orphaned cluster subnets
-	cleanupOrphanedSubnets(ctx, rg)
+	// Empty subnets can belong to concurrent cluster creates. Orphan cleanup
+	// must run separately from E2E startup, with ownership and age safeguards.
 
 	return &SharedInfra{
 		VNetName:       SharedVNetName,
@@ -173,59 +173,6 @@ func ensurePESubnet(ctx context.Context, rg string) error {
 		return fmt.Errorf("waiting for PE subnet creation: %w", err)
 	}
 	return nil
-}
-
-// cleanupOrphanedSubnets removes cluster subnets whose corresponding AKS cluster
-// no longer exists and that have no active Azure resources attached.
-// Only considers subnets that are not recently provisioned to avoid racing with
-// cluster creation.
-func cleanupOrphanedSubnets(ctx context.Context, rg string) {
-	pager := config.Azure.Subnet.NewListPager(rg, SharedVNetName, nil)
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			logging.Logf(ctx, "warning: failed to list subnets for cleanup: %v", err)
-			return
-		}
-		for _, subnet := range page.Value {
-			name := *subnet.Name
-			if !strings.HasPrefix(name, "aks-subnet-") {
-				continue
-			}
-			if subnetHasActiveResources(subnet) {
-				continue
-			}
-			clusterName := strings.TrimPrefix(name, "aks-subnet-")
-			_, err := config.Azure.AKS.Get(ctx, rg, clusterName, nil)
-			if err == nil {
-				continue
-			}
-			if !isNotFoundError(err) {
-				logging.Logf(ctx, "warning: transient error checking cluster %s, skipping subnet cleanup: %v", clusterName, err)
-				continue
-			}
-			logging.Logf(ctx, "deleting orphaned subnet %s", name)
-			poller, err := config.Azure.Subnet.BeginDelete(ctx, rg, SharedVNetName, name, nil)
-			if err != nil {
-				logging.Logf(ctx, "warning: failed to start deleting subnet %s: %v", name, err)
-				continue
-			}
-			if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
-				logging.Logf(ctx, "warning: failed to delete subnet %s: %v", name, err)
-			}
-		}
-	}
-}
-
-func subnetHasActiveResources(subnet *armnetwork.Subnet) bool {
-	if subnet.Properties == nil {
-		return false
-	}
-	return len(subnet.Properties.IPConfigurations) > 0 ||
-		len(subnet.Properties.ServiceAssociationLinks) > 0 ||
-		len(subnet.Properties.ResourceNavigationLinks) > 0 ||
-		subnet.Properties.NetworkSecurityGroup != nil ||
-		subnet.Properties.RouteTable != nil
 }
 
 func ensureSubnet(ctx context.Context, rg, vnetName, subnetName, cidr string) error {

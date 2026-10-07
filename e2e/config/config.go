@@ -43,6 +43,9 @@ func PrivateACRName(location string) string {
 
 type Configuration struct {
 	AdHocSKUValidation                     bool
+	VMSeriesCoverage                       bool
+	VMSeriesOS                             string
+	SystemPoolVMSKU                        string
 	ACRSecretName                          string
 	AzureContainerRegistrytargetRepository string
 	BlobContainer                          string
@@ -100,6 +103,8 @@ func DefaultConfiguration() *Configuration {
 		DefaultPollInterval:                    15 * time.Second,
 		DefaultSubnetName:                      "aks-subnet",
 		DefaultVMSKU:                           DEFAULT_VMSKU,
+		VMSeriesOS:                             "linux",
+		SystemPoolVMSKU:                        DEFAULT_VMSKU,
 		Gen1SCSIVMSKU:                          DEFAULT_VMSKU,
 		MANAVMSKU:                              "Standard_D2ds_v6",
 		E2ELoggingDir:                          "scenario-logs",
