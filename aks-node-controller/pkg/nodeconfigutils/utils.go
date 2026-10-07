@@ -80,9 +80,9 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 		readyReportHandoffBlock(cfg) +
 		fmt.Sprintf(
 			boothookProvisionTemplate,
-		AKSNodeConfigFilePath,
-		encodedAksNodeConfigJSON,
-		enabledFeaturesBlock(cfg),
+			AKSNodeConfigFilePath,
+			encodedAksNodeConfigJSON,
+			enabledFeaturesBlock(cfg),
 		)
 
 	var customData bytes.Buffer
