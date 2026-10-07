@@ -367,6 +367,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/security-update.sh",
+      "destination": "/home/packer/security-update.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/package-update.service",
       "destination": "/home/packer/snapshot-update.service"
     },

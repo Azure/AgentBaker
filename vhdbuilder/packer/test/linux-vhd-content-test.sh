@@ -2792,6 +2792,7 @@ testContainerNetworkingPluginsInstalled() {
 testMarinerLivePatchingArtifacts() {
   local test="testMarinerLivePatchingArtifacts"
   local update_script="/opt/azure/containers/mariner-package-update.sh"
+  local security_script="/opt/azure/containers/security-update.sh"
   local service="/etc/systemd/system/snapshot-update.service"
   local timer="/etc/systemd/system/snapshot-update.timer"
 
@@ -2803,6 +2804,9 @@ testMarinerLivePatchingArtifacts() {
 
   if [ "$(stat -c '%a' "$update_script" 2>/dev/null)" != "544" ]; then
     err $test "$update_script must exist with mode 0544"
+  fi
+  if [ "$(stat -c '%a' "$security_script" 2>/dev/null)" != "544" ]; then
+    err $test "$security_script must exist with mode 0544"
   fi
   if [ "$(stat -c '%a' "$service" 2>/dev/null)" != "644" ]; then
     err $test "$service must exist with mode 0644"

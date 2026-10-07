@@ -618,6 +618,7 @@ copyPackerFiles() {
   if isMarinerOrAzureLinux "$OS"; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
+    cpAndMode /home/packer/security-update.sh /opt/azure/containers/security-update.sh 544
 
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644

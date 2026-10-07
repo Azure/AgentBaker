@@ -117,26 +117,15 @@ class HotfixGenerateTests(unittest.TestCase):
                 self.assertIn("encoding: gzip", template)
                 self.assertNotIn("{{if", template)
 
-    def test_mariner_package_update_is_hotfixable_only_for_mariner(self):
+    def test_mariner_package_update_is_not_embedded_in_custom_data(self):
         repository = Path(__file__).resolve().parents[1]
         lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
             keepends=True
         )
-        _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
-        traditional = lines[outer_else + 1:end]
-        selected = {"packageUpdateScriptMariner"}
-
-        self.assertEqual(
-            "packageUpdateScriptMariner",
-            hotfix_generate.SOURCE_TO_VARKEY["mariner/mariner-package-update.sh"],
-        )
-        template = hotfix_generate.build_hotfix_template(selected, traditional)
-        self.assertIn(
-            "{{if and IsMariner (not IsACL) (not IsAzlOSGuard) (not IsFlatcar)}}",
-            template,
-        )
-        self.assertIn("/opt/azure/containers/mariner-package-update.sh", template)
-        self.assertIn('permissions: "0544"', template)
+        template = "".join(lines)
+        self.assertNotIn("/opt/azure/containers/mariner-package-update.sh", template)
+        self.assertNotIn("/opt/azure/containers/security-update.sh", template)
+        self.assertNotIn("mariner/mariner-package-update.sh", hotfix_generate.SOURCE_TO_VARKEY)
 
     def test_config_refactor_hotfix_selects_parent_and_new_modules(self):
         repository = Path(__file__).resolve().parents[1]

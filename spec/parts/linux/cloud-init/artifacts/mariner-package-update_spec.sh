@@ -36,6 +36,7 @@ EOF
 
     setup() {
         Include "./parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh"
+        Include "./parts/linux/cloud-init/artifacts/mariner/security-update.sh"
         TEST_DIR="/tmp/live-patching-test"
         mkdir -p ${TEST_DIR}
         OS_RELEASE_FILE="${TEST_DIR}/os-release"
@@ -280,6 +281,28 @@ EOF
             The output should include 'generic live-patching completed successfully'
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"npd"'
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"securityPatch"'
+        End
+
+        It 'checkpoints arbitrary components without interpreting their payload'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            printf '%s' '{"components":{"securityPatch":{"nodeConfig":"{}"}}}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call write_component_checkpoint testComponent '{"version":"v2"}'
+            The status should be success
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"testComponent"'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"securityPatch"'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include 'v2'
+        End
+
+        It 'delegates checkpoint comparison to the selected component comparator'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            printf '%s' '{"components":{"testComponent":{"nodeConfig":"{\"version\":\"v1\"}"}}}' > "${LIVE_PATCHING_STATE_FILE}"
+            compare_test_component() {
+                [ "$1" = '{"version":"v2"}' ] && [ "$2" = '{"version":"v1"}' ] && [ "$3" = '{"metadata":{}}' ]
+            }
+
+            When call component_is_current testComponent '{"version":"v2"}' '{"metadata":{}}' compare_test_component
+            The status should be success
         End
 
         It 'does not rerun when only another pool profile changes'
