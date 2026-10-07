@@ -99,9 +99,11 @@ security_patch_repo_endpoint() {
         return 1
     fi
 
+    # Match the complete value, rather than accepting one matching line.
+    # shellcheck disable=SC3010
     if [ -z "${repo_service}" ]; then
         echo "${SECURITY_PATCH_DEFAULT_ENDPOINT}"
-    elif printf '%s' "${repo_service}" | grep -Eq "${private_ip_regex}"; then
+    elif [[ "${repo_service}" =~ ${private_ip_regex} ]]; then
         echo "${repo_service}"
     else
         echo "ignoring invalid live patching repo service: ${repo_service}" >&2

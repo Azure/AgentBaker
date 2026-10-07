@@ -144,6 +144,27 @@ Describe 'security-update.sh'
         The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should include 'snapshot.ubuntu.com/ubuntu/20260710T000000Z'
     End
 
+    Describe 'rejects multiline repository endpoints'
+        Parameters
+            'appended source' $'10.0.0.1\ndeb http://invalid.example/ubuntu ./'
+            'prepended source' $'deb http://invalid.example/ubuntu ./\n10.0.0.1'
+            'carriage return' $'10.0.0.1\r'
+            'CRLF source' $'10.0.0.1\r\ndeb http://invalid.example/ubuntu ./'
+        End
+
+        It "uses only the default snapshot sources for $1"
+            TEST_NODE_JSON="$(security_patch_test_node_json "$2")"
+
+            When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"20260710T000000Z"}}}' "${TEST_NODE_JSON}"
+            The status should be success
+            The stderr should include 'ignoring invalid live patching repo service:'
+            The output should include 'securityPatch update completed successfully'
+            The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should include 'https://snapshot.ubuntu.com/ubuntu/20260710T000000Z'
+            The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should not include '10.0.0.1'
+            The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should not include 'invalid.example'
+        End
+    End
+
     It 'succeeds without action when the component has no agent pool profiles'
         When call updateSecurityPatch '{}' "${TEST_NODE_JSON}"
         The status should be success
