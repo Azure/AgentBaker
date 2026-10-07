@@ -151,6 +151,8 @@ stages:
       windowsSku: 2025-gen2
       hyperVGeneration: V2
       architecture: X86_64
+      enableTrustedLaunch: False
+      trustedLaunchSupported: True
       buildVmSize: ${{ parameters.buildVmSize }}
       build: ${{ parameters.build2025gen2 }}
       vhddebug: ${{ parameters.vhddebug }}

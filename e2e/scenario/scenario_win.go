@@ -220,34 +220,45 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(&Scenario{
-	Name:        "Windows2025Gen2TrustedLaunch",
-	Description: "Windows Server 2025 Gen2 Trusted Launch (Secure Boot + vTPM)",
-	Config: Config{
-		Cluster: ClusterAzureNetwork,
-		VHD:     config.VHDWindows2025Gen2TL,
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
-		},
-		BootstrapConfigMutatorWithError: func(_ context.Context, _ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) error {
-			return Windows2025BootstrapConfigMutator(configuration)
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return errors.Join(
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2-tl"),
-				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter"),
-				ValidateWindowsDisplayVersion(ctx, s, "24H2"),
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote"),
-				ValidateKubeletArgs(ctx, s),
-				ValidateContainerdWindowsPriorityClass(ctx, s),
-				ValidateCiliumIsNotRunningWindows(ctx, s),
-				ValidateDotnetNotInstalledWindows(ctx, s),
-				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
-				ValidateCollectWindowsLogsScript(ctx, s),
-			)
-		},
-	},
-})
+func init() {
+	for _, tc := range []struct {
+		name       string
+		vhd        *config.Image
+		windowsSKU string
+	}{
+		{"Windows2025Gen2TrustedLaunch", config.VHDWindows2025Gen2TL, "2025-gen2-tl"},
+		{"Windows2025Gen2_TrustedLaunch_SharedImage", config.VHDWindows2025Gen2, "2025-gen2"},
+	} {
+		Register(&Scenario{
+			Name:        tc.name,
+			Description: "Windows Server 2025 Gen2 Trusted Launch (Secure Boot + vTPM)",
+			Config: Config{
+				Cluster: ClusterAzureNetwork,
+				VHD:     tc.vhd,
+				VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+					vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				},
+				BootstrapConfigMutatorWithError: func(_ context.Context, _ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) error {
+					return Windows2025BootstrapConfigMutator(configuration)
+				},
+				Validator: func(ctx context.Context, s *Scenario) error {
+					return errors.Join(
+						ValidateWindowsVersionFromWindowsSettings(ctx, s, tc.windowsSKU),
+						ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter"),
+						ValidateWindowsDisplayVersion(ctx, s, "24H2"),
+						ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote"),
+						ValidateKubeletArgs(ctx, s),
+						ValidateContainerdWindowsPriorityClass(ctx, s),
+						ValidateCiliumIsNotRunningWindows(ctx, s),
+						ValidateDotnetNotInstalledWindows(ctx, s),
+						ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+						ValidateCollectWindowsLogsScript(ctx, s),
+					)
+				},
+			},
+		})
+	}
+}
 
 var _ = Register(&Scenario{
 	Name:        "Windows2025Gen2_WindowsCiliumNetworking",

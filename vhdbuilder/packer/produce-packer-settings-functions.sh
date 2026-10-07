@@ -465,6 +465,58 @@ function prepare_windows_vhd() {
 	fi
 }
 
+function ensure_sig_trusted_launch_supported() {
+	local definition_id="$1"
+	local definition_uri="${definition_id}?api-version=2024-03-03"
+	local definition
+	if ! definition=$(az rest --method get --uri "${definition_uri}" -o json); then
+		echo "Failed to read image definition ${definition_id} for Trusted Launch support" >&2
+		return 1
+	fi
+
+	local security_type
+	security_type=$(jq -r '(.properties.features // []) | map(select(.name == "SecurityType")) | .[0].value // ""' <<<"${definition}")
+	if [ "${security_type}" = "TrustedLaunchSupported" ]; then
+		return 0
+	fi
+	if [ "$(jq -r '.properties.hyperVGeneration' <<<"${definition}")" != "V2" ]; then
+		echo "Image definition ${definition_id} must be Gen2 to support Trusted Launch" >&2
+		return 1
+	fi
+
+	local body
+	body=$(jq --arg version "${SIG_IMAGE_VERSION:?SIG_IMAGE_VERSION is required to update Trusted Launch support}" '
+		del(.id, .name, .type, .systemData, .properties.provisioningState)
+		| .properties.allowUpdateImage = true
+		| .properties.features = (
+			((.properties.features // []) | map(select(.name != "SecurityType")))
+			+ [{name: "SecurityType", value: "TrustedLaunchSupported", startsAtVersion: $version}]
+		)' <<<"${definition}") || return 1
+	echo "Updating image definition ${definition_id} to TrustedLaunchSupported from version ${SIG_IMAGE_VERSION}"
+	if ! az rest --method put --uri "${definition_uri}" --body "${body}" -o none; then
+		echo "Failed to update Trusted Launch support for ${definition_id}" >&2
+		return 1
+	fi
+	if ! az sig image-definition wait \
+		--resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
+		--gallery-name "${SIG_GALLERY_NAME}" \
+		--gallery-image-definition "${SIG_IMAGE_NAME}" \
+		--updated --interval 5 --timeout 120; then
+		echo "Timed out waiting for Trusted Launch support on ${definition_id}" >&2
+		return 1
+	fi
+	if ! definition=$(az rest --method get --uri "${definition_uri}" -o json); then
+		echo "Failed to verify Trusted Launch support for ${definition_id}" >&2
+		return 1
+	fi
+	if ! jq -e '.properties.provisioningState == "Succeeded" and
+		any(.properties.features[]; .name == "SecurityType" and .value == "TrustedLaunchSupported")' \
+		<<<"${definition}" >/dev/null; then
+		echo "Image definition ${definition_id} did not converge to TrustedLaunchSupported" >&2
+		return 1
+	fi
+}
+
 function ensure_sig_vhd_exists() {
 	echo "SIG existence checking for $MODE"
 
@@ -666,5 +718,12 @@ function ensure_sig_vhd_exists() {
 		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+		if [ "${MODE}" = "windowsVhdMode" ] &&
+			[ "${ENABLE_TRUSTED_LAUNCH,,}" != "true" ] &&
+			[ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+			local definition_id
+			definition_id=$(jq -r '.id' <<<"${id}")
+			ensure_sig_trusted_launch_supported "${definition_id}" || return 1
+		fi
 	fi
 }
