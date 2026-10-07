@@ -932,7 +932,7 @@ func ValidateReportReadyRan(ctx context.Context, s *Scenario) error {
 		ctx,
 		s,
 		"/var/log/azure/aks-node-controller.output",
-		"Report ready successfully sent status to Azure fabric",
+		"Successfully reported Ready to Azure fabric.",
 	)
 }
 
@@ -4136,9 +4136,9 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-// ValidateWaagentLog checks WALinuxAgent configuration and /var/log/waagent.log:
-// - Network auto-update is disabled as expected
-// - The correct agent version is running
+// ValidateWaagentLog checks /var/log/waagent.log for expected agent behavior:
+// - AutoUpdate is disabled as expected
+// - The correct version is running as ExtHandler
 // - No errors from ExtHandler
 // Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
 func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
@@ -4155,21 +4155,33 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	expectedVersion := versions[0]
 
 	const waagentLogFile = "/var/log/waagent.log"
+	autoUpdateMarker := "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation"
+	versionMarker := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
 
-	logResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo cat "+waagentLogFile, 0,
-		"could not read waagent log")
+	var logContents string
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		logResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo cat "+waagentLogFile, 0,
+			"could not read waagent log")
+		if err != nil {
+			logging.Logf(ctx, "waiting for waagent log initialization: %v", err)
+			return false, nil
+		}
+		logContents = logResult.stdout
+		return strings.Contains(logContents, autoUpdateMarker) &&
+			strings.Contains(logContents, versionMarker), nil
+	})
 	if err != nil {
-		return fmt.Errorf("read waagent log: %w", err)
+		return fmt.Errorf("wait for waagent log initialization: %w", err)
 	}
-	logContents := logResult.stdout
 
 	errs := []error{
-		// 1. Verify network auto-update is disabled in the authoritative configuration.
-		ValidateFileHasContent(ctx, s, "/etc/waagent.conf", "AutoUpdate.UpdateToLatestVersion=n"),
-		// 2. Verify the expected agent version is running.
-		assert.Contains(logContents, fmt.Sprintf("Azure Linux Agent Version: %s", expectedVersion),
-			"waagent.log should confirm Azure Linux Agent Version %s is running", expectedVersion),
+		// 1. Verify AutoUpdate is disabled
+		assert.Contains(logContents, autoUpdateMarker,
+			"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False"),
+		// 2. Verify the correct version is running as ExtHandler (PID varies)
+		assert.Contains(logContents, versionMarker,
+			"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion),
 	}
 
 	// 3. Check for ExtHandler errors
