@@ -2098,7 +2098,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dra-driver-nvidia-gpu, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.4.1"
+                "latestVersion": "0.5.0"
               }
             ]
           },
@@ -2106,7 +2106,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=dra-driver-nvidia-gpu, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.4.1"
+                "latestVersion": "0.5.0"
               }
             ]
           }
@@ -2116,7 +2116,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=dra-driver-nvidia-gpu, os=azurelinux, release=3.0",
-                "latestVersion": "0.4.1"
+                "latestVersion": "0.5.0"
               }
             ]
           }
