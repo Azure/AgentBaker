@@ -1498,6 +1498,7 @@ var _ = Register(&Scenario{
 			return errors.Join(
 				ValidateNvidiaModProbeInstalled(ctx, s),
 				ValidateNvidiaGRIDLicenseValid(ctx, s),
+				ValidateNvidiaDriverVersion(ctx, s, datamodel.NvidiaGridDriverVersion),
 				ValidateKubeletHasNotStopped(ctx, s),
 				ValidateServicesDoNotRestartKubelet(ctx, s),
 				ValidateNvidiaPersistencedRunning(ctx, s),
@@ -3003,6 +3004,7 @@ func ubuntu2404GRIDScenario(name, vmSize string) *Scenario {
 					// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 					ValidateNvidiaModProbeInstalled(ctx, s),
 					ValidateNvidiaGRIDLicenseValid(ctx, s),
+					ValidateNvidiaDriverVersion(ctx, s, datamodel.NvidiaGridDriverVersion),
 					ValidateKubeletHasNotStopped(ctx, s),
 					ValidateServicesDoNotRestartKubelet(ctx, s),
 					ValidateNvidiaPersistencedRunning(ctx, s),
@@ -3028,7 +3030,7 @@ var _ = Register(&Scenario{
 		// RTX PRO 6000 BSE v6 only supports NVMe disk controllers, not ResourceDisk
 		// ephemeral OS disk placement (SupportedEphemeralOSDiskPlacements=NvmeDisk).
 		UseNVMe:             true,
-		SkipOnCapacityError: false,
+		SkipOnCapacityError: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.AgentPoolProfile.VMSize = "Standard_NC144ds_xl_RTXPRO6000BSE_v6"
 			nbc.ConfigGPUDriverIfNeeded = true
@@ -3043,6 +3045,7 @@ var _ = Register(&Scenario{
 				ValidateNvidiaModProbeInstalled(ctx, s),
 				ValidateNvidiaSMIInstalled(ctx, s),
 				ValidateNvidiaGridV20DriverInstalled(ctx, s),
+				ValidateNvidiaDriverVersion(ctx, s, datamodel.NvidiaGridV20DriverVersion),
 				ValidateKubeletHasNotStopped(ctx, s),
 			)
 		},

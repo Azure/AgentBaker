@@ -697,6 +697,16 @@ systemctlDisableAndStop() {
     fi
 }
 
+# Like systemctlDisableAndStop, but also reset-failed so a unit we tear down and never start
+# isn't left in systemd "failed" state for node-health checks -- e.g. the vendor
+# compute-domain-kubelet-plugin.service the dra-driver deb auto-starts (and fails) on x86 managed-DRA.
+systemctlDisableStopAndResetFailed() {
+    systemctlDisableAndStop "$1"
+    if systemctl cat "$1" &>/dev/null; then
+        systemctl reset-failed "$1" 2>/dev/null || true
+    fi
+}
+
 # return true if a >= b
 semverCompare() {
     local VERSION_A
