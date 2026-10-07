@@ -238,7 +238,7 @@ Describe 'cse_install_ubuntu.sh'
 
         It 'tears down current and legacy BOM-owned Grace Blackwell drivers before marker cleanup'
             runGraceBlackwellTeardown() {
-                local wave="${1:-wave2}"
+                local wave="${1:-wave2}" retry="${2:-false}"
                 setupGraceBlackwellTeardown "$wave"
                 systemctlDisableAndStop() {
                     echo "stop:$1"
@@ -290,13 +290,17 @@ Describe 'cse_install_ubuntu.sh'
                 prebakedGPUDriverArtifactsRemain() { [ "$gb_packages_purged" != true ]; }
                 cleanUpGPUDriversForBasePrep
                 status=$?
+                if [ "$status" -eq 0 ] && [ "$retry" = true ]; then
+                    cleanUpGPUDriversForBasePrep
+                    status=$?
+                fi
                 cleanupGraceBlackwellFixture
                 return "$status"
             }
 
             runBothGraceBlackwellTeardowns() {
                 runGraceBlackwellTeardown wave2 || return 1
-                runGraceBlackwellTeardown wave1
+                runGraceBlackwellTeardown wave1 true
             }
 
             When call runBothGraceBlackwellTeardowns

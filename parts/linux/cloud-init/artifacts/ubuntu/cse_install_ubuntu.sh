@@ -500,6 +500,19 @@ cleanUpGraceBlackwellGPUDriver() {
         echo "NVIDIA package ${remaining_package} is not owned by the Grace Blackwell BOM" >&2
         return 1
     fi
+    if [ "${pending}" != true ] && [ ! -f "${nvidia_config}" ]; then
+        modules=$(lsmod) || return 1
+        # BasePrep may retry after teardown succeeded but a later step failed.
+        if [ -z "${packages}" ] && ! grep -q '^nvidia' <<< "${modules}" &&
+            ! prebakedGPUDriverArtifactsRemain &&
+            [ ! -e "${nvidia_config}" ] && [ ! -L "${nvidia_config}" ] &&
+            [ ! -e "${peermem_config}" ] && [ ! -L "${peermem_config}" ] &&
+            [ ! -e "${nouveau_config}" ] && [ ! -L "${nouveau_config}" ]; then
+            return 0
+        fi
+        echo "Grace Blackwell NVIDIA module configuration ${nvidia_config} is unavailable; refusing teardown" >&2
+        return 1
+    fi
     [ "${pending}" = true ] || [ -f "${nvidia_config}" ] || {
         echo "Grace Blackwell NVIDIA module configuration ${nvidia_config} is unavailable; refusing teardown" >&2
         return 1
