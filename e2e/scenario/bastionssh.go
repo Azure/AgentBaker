@@ -3,7 +3,6 @@ package scenario
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -27,7 +26,6 @@ type Bastion struct {
 	credential                                 azcore.TokenCredential
 	subscriptionID, resourceGroupName, dnsName string
 	httpClient                                 *http.Client
-	httpTransport                              *http.Transport
 }
 
 func NewBastion(credential azcore.TokenCredential, subscriptionID, resourceGroupName, dnsName string) *Bastion {
@@ -43,8 +41,6 @@ func NewBastion(credential azcore.TokenCredential, subscriptionID, resourceGroup
 		subscriptionID:    subscriptionID,
 		resourceGroupName: resourceGroupName,
 		dnsName:           dnsName,
-		httpTransport:     transport,
-		// Use request contexts for timeouts, not a client timeout that can expire a WebSocket.
 		httpClient: &http.Client{
 			Transport: transport,
 		},
@@ -74,7 +70,8 @@ func (b *Bastion) NewTunnelSession(ctx context.Context, targetHost string, port 
 	})
 	cancel()
 	if err != nil {
-		return nil, errors.Join(err, b.deleteSession(session))
+		b.deleteSessionAsync(session)
+		return nil, err
 	}
 
 	return &tunnelSession{
@@ -96,17 +93,25 @@ type sessionToken struct {
 
 func (t *tunnelSession) Close() error {
 	t.closeOnce.Do(func() {
-		t.closeErr = errors.Join(t.Conn.Close(), t.bastion.deleteSession(t.session))
+		t.closeErr = t.Conn.Close()
+		// SSH also calls Close during failed handshakes; token cleanup must not delay it.
+		t.bastion.deleteSessionAsync(t.session)
 	})
 	return t.closeErr
+}
+
+func (b *Bastion) deleteSessionAsync(session *sessionToken) {
+	go func() {
+		if err := b.deleteSession(session); err != nil {
+			logging.Logf(context.Background(), "warning: failed to delete Bastion session: %v", err)
+		}
+	}()
 }
 
 func (b *Bastion) deleteSession(session *sessionToken) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if b.httpTransport != nil {
-		defer b.httpTransport.CloseIdleConnections()
-	}
+	defer b.httpClient.CloseIdleConnections()
 	req, err := http.NewRequestWithContext(ctx, "DELETE", fmt.Sprintf("https://%v/api/tokens/%v", b.dnsName, session.AuthToken), nil)
 	if err != nil {
 		return err

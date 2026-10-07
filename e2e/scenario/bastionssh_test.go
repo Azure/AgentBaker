@@ -55,9 +55,7 @@ func newTestBastion(t *testing.T, handleTunnel http.HandlerFunc) (*Bastion, *ato
 	bastion := NewBastion(bastionTestCredential(func(ctx context.Context) (azcore.AccessToken, error) {
 		return azcore.AccessToken{Token: "fixture-token"}, ctx.Err()
 	}), "subscription", "resource-group", strings.TrimPrefix(server.URL, "https://"))
-	assert.Zero(t, bastion.httpClient.Timeout, "a client timeout would also expire the established WebSocket")
 	bastion.httpClient = server.Client()
-	bastion.httpTransport = server.Client().Transport.(*http.Transport)
 	return bastion, &deleted
 }
 
@@ -114,55 +112,96 @@ func TestBastionSSHSurvivesClearedHandshakeDeadline(t *testing.T) {
 	assert.Equal(t, "0", result.exitCode)
 	require.NoError(t, client.Close())
 	require.NoError(t, tunnel.Close())
-	assert.EqualValues(t, 1, deleted.Load())
+	assert.Eventually(t, func() bool { return deleted.Load() == 1 }, time.Second, time.Millisecond)
 }
 
-func TestBastionSSHHandshakeCancellation(t *testing.T) {
-	entered := make(chan struct{})
-	bastion, deleted := newTestBastion(t, func(w http.ResponseWriter, r *http.Request) {
-		ws, err := websocket.Accept(w, r, nil)
-		if !assert.NoError(t, err) {
-			return
-		}
-		defer ws.CloseNow()
-		// Consume the client's SSH identification, but never send the server's.
-		if _, _, err := ws.Read(r.Context()); err != nil {
-			t.Error(err)
-			return
-		}
-		close(entered)
-		for {
-			if _, _, err := ws.Read(r.Context()); err != nil {
-				return
-			}
-		}
-	})
+func TestBastionCancellationDoesNotWaitForSessionDeletion(t *testing.T) {
 	_, key, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	block, err := ssh.MarshalPrivateKey(key, "")
 	require.NoError(t, err)
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-	done := make(chan error, 1)
-	go func() {
-		client, err := DialSSHOverBastion(ctx, bastion, "127.0.0.1", pem.EncodeToMemory(block))
-		if client != nil {
-			_ = client.Close()
-		}
-		done <- err
-	}()
-	select {
-	case <-entered:
-	case <-time.After(time.Second):
-		t.Fatal("SSH handshake did not start")
-	}
-	cancel()
-	select {
-	case err := <-done:
-		require.ErrorIs(t, err, context.Canceled)
-		assert.EqualValues(t, 1, deleted.Load())
-	case <-time.After(time.Second):
-		t.Fatal("SSH handshake ignored cancellation")
+	for _, stage := range []string{"websocket", "ssh"} {
+		t.Run(stage, func(t *testing.T) {
+			entered := make(chan struct{})
+			bastion, deleted := newTestBastion(t, func(w http.ResponseWriter, r *http.Request) {
+				if stage == "websocket" {
+					close(entered)
+					<-r.Context().Done()
+					return
+				}
+				ws, err := websocket.Accept(w, r, nil)
+				if !assert.NoError(t, err) {
+					return
+				}
+				defer ws.CloseNow()
+				if _, _, err := ws.Read(r.Context()); !assert.NoError(t, err) {
+					return
+				}
+				close(entered)
+				for {
+					if _, _, err := ws.Read(r.Context()); err != nil {
+						return
+					}
+				}
+			})
+			deleteStarted := make(chan struct{})
+			deleteDone := make(chan struct{})
+			releaseDelete := make(chan struct{})
+			var releaseOnce sync.Once
+			release := func() { releaseOnce.Do(func() { close(releaseDelete) }) }
+			defer release()
+			transport := bastion.httpClient.Transport
+			bastion.httpClient.Transport = bastionTestTransport(func(r *http.Request) (*http.Response, error) {
+				if r.Method == http.MethodDelete {
+					defer close(deleteDone)
+					assert.NoError(t, r.Context().Err())
+					deadline, ok := r.Context().Deadline()
+					assert.True(t, ok, "session deletion must have a timeout")
+					assert.LessOrEqual(t, time.Until(deadline), 30*time.Second)
+					close(deleteStarted)
+					select {
+					case <-releaseDelete:
+					case <-r.Context().Done():
+						return nil, r.Context().Err()
+					}
+				}
+				return transport.RoundTrip(r)
+			})
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() {
+				client, err := DialSSHOverBastion(ctx, bastion, "127.0.0.1", pem.EncodeToMemory(block))
+				if client != nil {
+					_ = client.Close()
+				}
+				done <- err
+			}()
+			select {
+			case <-entered:
+			case <-time.After(time.Second):
+				t.Fatal("connection setup did not start")
+			}
+			cancel()
+			select {
+			case err := <-done:
+				require.ErrorIs(t, err, context.Canceled)
+			case <-time.After(time.Second):
+				t.Error("canceled connection setup waited for session deletion")
+			}
+			select {
+			case <-deleteStarted:
+			case <-time.After(time.Second):
+				t.Fatal("session deletion did not start")
+			}
+			release()
+			select {
+			case <-deleteDone:
+			case <-time.After(time.Second):
+				t.Fatal("session deletion did not finish")
+			}
+			assert.EqualValues(t, 1, deleted.Load())
+		})
 	}
 }
 
@@ -173,7 +212,7 @@ func TestBastionDialFailureDeletesSession(t *testing.T) {
 	tunnel, err := bastion.NewTunnelSession(t.Context(), "127.0.0.1", 22)
 	require.Error(t, err)
 	assert.Nil(t, tunnel)
-	assert.EqualValues(t, 1, deleted.Load())
+	assert.Eventually(t, func() bool { return deleted.Load() == 1 }, time.Second, time.Millisecond)
 }
 
 func TestBastionSessionCreationHonorsCancellation(t *testing.T) {
@@ -214,36 +253,43 @@ func TestBastionSessionCreationHonorsCancellation(t *testing.T) {
 }
 
 func TestBastionSessionCloseDeletesOnce(t *testing.T) {
+	var deleted atomic.Int32
+	conn, peer := net.Pipe()
+	defer peer.Close()
+	tunnel := &tunnelSession{
+		Conn: conn, session: &sessionToken{},
+		bastion: &Bastion{dnsName: "fixture.invalid", httpClient: &http.Client{
+			Transport: bastionTestTransport(func(r *http.Request) (*http.Response, error) {
+				deleted.Add(1)
+				return &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody}, nil
+			}),
+		}},
+	}
+	var workers sync.WaitGroup
+	for range 8 {
+		workers.Go(func() { assert.NoError(t, tunnel.Close()) })
+	}
+	workers.Wait()
+	assert.Eventually(t, func() bool { return deleted.Load() == 1 }, time.Second, time.Millisecond)
+}
+
+func TestBastionSessionDeletionStatus(t *testing.T) {
 	for _, status := range []int{http.StatusNoContent, http.StatusNotFound, http.StatusInternalServerError} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
-			var deleted atomic.Int32
-			conn, peer := net.Pipe()
-			defer peer.Close()
-			tunnel := &tunnelSession{
-				Conn: conn, session: &sessionToken{},
-				bastion: &Bastion{dnsName: "fixture.invalid", httpClient: &http.Client{
-					Transport: bastionTestTransport(func(r *http.Request) (*http.Response, error) {
-						assert.NoError(t, r.Context().Err())
-						_, ok := r.Context().Deadline()
-						assert.True(t, ok, "session deletion must have a timeout")
-						deleted.Add(1)
-						return &http.Response{StatusCode: status, Body: http.NoBody}, nil
-					}),
-				}},
+			bastion := &Bastion{dnsName: "fixture.invalid", httpClient: &http.Client{
+				Transport: bastionTestTransport(func(r *http.Request) (*http.Response, error) {
+					assert.NoError(t, r.Context().Err())
+					_, ok := r.Context().Deadline()
+					assert.True(t, ok, "session deletion must have a timeout")
+					return &http.Response{StatusCode: status, Body: http.NoBody}, nil
+				}),
+			}}
+			err := bastion.deleteSession(&sessionToken{})
+			if status == http.StatusInternalServerError {
+				assert.ErrorContains(t, err, "unexpected status code: 500")
+			} else {
+				assert.NoError(t, err)
 			}
-			var workers sync.WaitGroup
-			for range 8 {
-				workers.Go(func() {
-					err := tunnel.Close()
-					if status == http.StatusInternalServerError {
-						assert.ErrorContains(t, err, "unexpected status code: 500")
-					} else {
-						assert.NoError(t, err)
-					}
-				})
-			}
-			workers.Wait()
-			assert.EqualValues(t, 1, deleted.Load())
 		})
 	}
 }

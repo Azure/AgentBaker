@@ -352,6 +352,10 @@ an active SSH operation closes its shared connection, including other active com
 to interrupt blocked channel opens and SCP setup. Canceling a queued operation does
 not close the connection.
 
+Bastion token deletion runs asynchronously after a failed dial or tunnel closure.
+It has a separate 30-second timeout and logs failures without delaying cancellation.
+This cleanup is best effort and can be interrupted by process exit.
+
 The other directories contain helper packages and embedded resources.
 
 ## E2E VHDs.
