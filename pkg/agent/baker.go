@@ -259,7 +259,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly
+	return (config.EnableScriptlessNBCCSECmd || config.IsCustomDataOnlyProvisioningEnabled()) && !config.PreProvisionOnly
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for

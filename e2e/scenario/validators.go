@@ -897,7 +897,7 @@ func ValidateReportReadyRan(ctx context.Context, s *Scenario) error {
 		ctx,
 		s,
 		"/var/log/azure/aks-node-controller.output",
-		"Report ready successfully sent status to Azure fabric",
+		"Successfully reported Ready to Azure fabric.",
 	)
 }
 

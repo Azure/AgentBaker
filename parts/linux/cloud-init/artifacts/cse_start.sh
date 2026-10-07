@@ -102,7 +102,6 @@ if [ -x /opt/azure/containers/report_ready.py ] && [ "${USE_CUSTOM_DATA_ONLY_PRO
     else
         python3 /opt/azure/containers/report_ready.py -v --failure --description "ExitCode: ${EXIT_CODE}, ${message_string}" || echo "WARNING: Failed to report failure to Azure fabric"
     fi
-    echo "Report ready successfully sent status to Azure fabric"
 fi
 
 # force a log upload to the host after the provisioning script finishes
