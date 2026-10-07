@@ -18,3 +18,7 @@ Pull Request Requirements - PLEASE READ BEFORE CREATING A PR AGAINST Azure/Agent
 Usage: `Fixes #<issue number>`, or `Fixes (paste link of issue)`.
 -->
 Fixes #
+
+**GPU E2E**:
+
+- [ ] <!-- no-gpu-impact --> This PR has no GPU impact; skip GPU E2E.
