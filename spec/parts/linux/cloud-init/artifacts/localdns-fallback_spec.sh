@@ -367,4 +367,98 @@ EOF
             The stderr should include "no address removal"
         End
     End
+
+    Describe 'rewrite_derived_upstream'
+    # The derived blocks are copied verbatim, so their 'forward .' targets arrive
+    # already filled in from the source corefile. These cover overriding that
+    # address from COREDNS_SERVICE_IP without disturbing anything else.
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
+            TMPDIR_T=$(mktemp -d)
+            DERIVED="$TMPDIR_T/fallback.corefile"
+            cat > "$DERIVED" <<'COREFILE'
+.:53 {
+    bind 169.254.10.11
+    forward . 172.16.0.10 {
+        policy sequential
+    }
+}
+contoso.com:53 {
+    bind 169.254.10.11
+    forward . 168.63.129.16 {
+        policy sequential
+    }
+}
+cluster.local:53 {
+    bind 169.254.10.11
+    forward . 172.16.0.10 {
+        force_tcp
+    }
+}
+COREFILE
+        }
+        cleanup() { rm -rf "$TMPDIR_T"; }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'repoints every CoreDNS forward at COREDNS_SERVICE_IP'
+            COREDNS_SERVICE_IP="172.16.119.121"
+            When call rewrite_derived_upstream "$DERIVED"
+            The stderr should include "rewrote derived upstream 172.16.0.10 -> 172.16.119.121"
+            The contents of file "$DERIVED" should include "forward . 172.16.119.121"
+            The contents of file "$DERIVED" should not include "forward . 172.16.0.10"
+        End
+
+        # A .11 block may legitimately forward to AzureDNS/VNET DNS -- a KubeDNS
+        # override whose domain is not cluster.local and whose ForwardDestination
+        # is not ClusterCoreDNS. Rewriting those would break VnetDNS resolution.
+        It 'leaves non-CoreDNS forwards untouched'
+            COREDNS_SERVICE_IP="172.16.119.121"
+            When call rewrite_derived_upstream "$DERIVED"
+            The stderr should include "rewrote derived upstream"
+            The contents of file "$DERIVED" should include "forward . 168.63.129.16"
+        End
+
+        # An absent value must never overwrite a correct derived address; that
+        # would be strictly worse than doing nothing.
+        It 'keeps the derived upstream when COREDNS_SERVICE_IP is unset'
+            COREDNS_SERVICE_IP=""
+            When call rewrite_derived_upstream "$DERIVED"
+            The stderr should include "COREDNS_SERVICE_IP unset"
+            The contents of file "$DERIVED" should include "forward . 172.16.0.10"
+        End
+
+        It 'refuses to forward to its own cluster listener'
+            COREDNS_SERVICE_IP="169.254.10.11"
+            When call rewrite_derived_upstream "$DERIVED"
+            The stderr should include "refusing to forward to ourselves"
+            The contents of file "$DERIVED" should include "forward . 172.16.0.10"
+        End
+
+        It 'refuses to forward to the node listener'
+            COREDNS_SERVICE_IP="169.254.10.10"
+            When call rewrite_derived_upstream "$DERIVED"
+            The stderr should include "refusing to forward to ourselves"
+            The contents of file "$DERIVED" should include "forward . 172.16.0.10"
+        End
+
+        It 'is a silent no-op when the value already matches'
+            COREDNS_SERVICE_IP="172.16.0.10"
+            When call rewrite_derived_upstream "$DERIVED"
+            The stderr should not include "rewrote derived upstream"
+            The contents of file "$DERIVED" should include "forward . 172.16.0.10"
+        End
+
+        # cluster.local is ClusterCoreDNS by definition, so it identifies which
+        # address is the CoreDNS one. Without it there is no safe way to tell a
+        # CoreDNS forward from an AzureDNS forward, so nothing is touched.
+        It 'leaves the corefile alone when no cluster.local block identifies the upstream'
+            COREDNS_SERVICE_IP="172.16.119.121"
+            printf '.:53 {\n    bind 169.254.10.11\n    forward . 168.63.129.16 {\n    }\n}\n' > "$DERIVED"
+            When call rewrite_derived_upstream "$DERIVED"
+            The stderr should include "cannot identify the CoreDNS upstream"
+            The contents of file "$DERIVED" should include "forward . 168.63.129.16"
+        End
+    End
+
 End

@@ -178,9 +178,77 @@ derive_fallback_corefile_from_localdns() {
         return 1
     fi
 
+    rewrite_derived_upstream "${FALLBACK_COREFILE}.derived"
+
     mv "${FALLBACK_COREFILE}.derived" "${FALLBACK_COREFILE}"
     log "derived fallback corefile from ${src} ($(grep -c "^[^[:space:]#].*{" "${FALLBACK_COREFILE}") server block(s) bound to ${LOCALDNS_CLUSTER_LISTENER_IP})"
     return 0
+}
+
+# Point the derived blocks at COREDNS_SERVICE_IP rather than at whatever upstream
+# the source corefile happened to carry.
+#
+# The blocks are copied verbatim, so their 'forward .' targets arrive already
+# filled in -- which means the upstream was being read out of a thrice-derived,
+# runtime-rewritten artifact (RP config -> base64 -> localdns.corefile -> copied
+# to updated.localdns.corefile -> sed-rewritten on every start) when the same
+# value is one hop away in the environment file. Worse, localdns may have died
+# BECAUSE that corefile is bad, so deriving the address from it can mean
+# inheriting the cause of the outage.
+#
+# Structure still comes from the source: the hosts plugin, force_tcp, the long
+# cache with serve_stale and the NXDOMAIN templates cannot be hand-maintained
+# without drifting from the generator. Only the address is overridden.
+#
+# Deliberately a no-op when COREDNS_SERVICE_IP is unset. Substituting a default
+# would let an absent value overwrite a CORRECT derived address, which is
+# strictly worse than doing nothing -- the same "never guess an upstream"
+# argument that keeps resolve_upstream's default confined to the minimal corefile.
+rewrite_derived_upstream() {
+    local derived="$1"
+    local want="${COREDNS_SERVICE_IP:-}"
+    local current
+
+    if [ -z "${want}" ]; then
+        log "COREDNS_SERVICE_IP unset; keeping the upstream the source corefile carried."
+        return 0
+    fi
+
+    # Guard against a self-loop. Nothing today can set COREDNS_SERVICE_IP to a
+    # link-local listener -- it resolves to the kube-dns Service ClusterIP, which
+    # must sit inside the service CIDR -- but a plumbing mistake that did would
+    # otherwise build a resolver that forwards to itself.
+    if [ "${want}" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ] || [ "${want}" = "${LOCALDNS_NODE_LISTENER_IP}" ]; then
+        log "COREDNS_SERVICE_IP is ${want}, one of our own listeners; refusing to forward to ourselves."
+        return 0
+    fi
+
+    # Only the CoreDNS forwards may be rewritten. A .11 block can legitimately
+    # forward to AzureDNS/VNET DNS instead (a KubeDNS override whose domain is not
+    # cluster.local and whose ForwardDestination is not ClusterCoreDNS), and those
+    # must be left alone. The cluster.local block is ClusterCoreDNS by definition,
+    # so its target IS the CoreDNS address this corefile was generated with --
+    # which identifies exactly which value to replace.
+    current=$(awk '
+        /^cluster\.local:53[[:space:]]*\{/ { inblock = 1; next }
+        inblock && /^[[:space:]]*forward[[:space:]]+\./ { print $3; exit }
+        inblock && /^\}/ { inblock = 0 }
+    ' "${derived}")
+
+    if [ -z "${current}" ]; then
+        log "no cluster.local block in the derived corefile; cannot identify the CoreDNS upstream, keeping it as-is."
+        return 0
+    fi
+    if [ "${current}" = "${want}" ]; then
+        return 0
+    fi
+
+    local escaped="${current//./\\.}"
+    if ! sed -i -E "s#^([[:space:]]*forward[[:space:]]+\.[[:space:]]+)${escaped}([[:space:]]|\$)#\\1${want}\\2#" "${derived}"; then
+        log "failed to rewrite the derived upstream; keeping ${current}."
+        return 0
+    fi
+    log "rewrote derived upstream ${current} -> ${want} (from COREDNS_SERVICE_IP)"
 }
 
 # Floor: a deliberately minimal Corefile, used when the localdns corefile is
