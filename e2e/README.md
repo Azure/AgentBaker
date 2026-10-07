@@ -89,6 +89,19 @@ Go controls polling and cleanup. Short SSH commands inspect systemd, resolver,
 and NAT state; ShellSpec covers static rule construction. The fallback validator
 requires the baked artifacts, including when the image selector points at main.
 
+## Shared Windows Server 2025 Gen2 image
+
+`Windows2025Gen2` and `Windows2025Gen2_TrustedLaunch_SharedImage` use the same
+`windows-2025-gen2` image. The latter enables Secure Boot and vTPM on the VMSS.
+The image definition is published as `TrustedLaunchSupported`; this capability
+does not enable Trusted Launch on standard nodes.
+
+`Windows2025Gen2TrustedLaunch` continues to validate the dedicated
+`windows-2025-gen2-tl` image during the shared-image rollout.
+The shared-image scenario runs in the Windows VHD-build gate, which selects
+that build's image. The general Windows job skips it while main-tagged images
+can still predate the capability boundary.
+
 ## VM size configuration
 
 The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or
