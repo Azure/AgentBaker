@@ -23,6 +23,7 @@ Describe 'localdns.sh'
             TEST_DIR="/tmp/localdnstest"
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+            LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             # Use production-realistic corefile format with brace syntax
@@ -391,6 +392,36 @@ EOF
             The stdout should include "Successfully exported forward IPs to ${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
         End
 
+        It 'should fetch LocalDNS LPS config through aks-node-controller when binary exists'
+            AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/aks-node-controller"
+            cat > "${AKS_NODE_CONTROLLER_BINARY}" <<'EOF'
+#!/bin/bash
+echo "anc args: $*"
+echo "applied"
+exit 0
+EOF
+            chmod +x "${AKS_NODE_CONTROLLER_BINARY}"
+
+            When run refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "anc args: fetch-localdns-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+            The output should include "LocalDNS LPS config fetch outcome: anc args: fetch-localdns-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+            The output should include "applied"
+        End
+
+        It 'should skip LocalDNS LPS config fetch when aks-node-controller binary is missing'
+            AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/missing-aks-node-controller"
+            When run refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "AKS node controller binary not found at ${AKS_NODE_CONTROLLER_BINARY}; skipping LocalDNS LPS config fetch."
+        End
+
+        It 'should skip LocalDNS live patching status annotation when version file is missing'
+            When run annotate_node_with_localdns_livepatch_status
+            The status should be success
+            The output should include "LocalDNS corefile version file not found at ${LIVEPATCHED_LOCALDNS_CORE_FILE}.version, skipping live patching status annotation."
+        End
+
         It 'should set correct permissions on forward_ips.prom file'
             When run replace_azurednsip_in_corefile
             The status should be success
@@ -467,6 +498,167 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The stdout should include "AZURE_DNS_IP is not set or is empty."
+        End
+    End
+
+# This section tests - localdns_source_corefile, discard_livepatched_localdns_corefile and the
+# live-patched corefile lifecycle in refresh_localdns_corefile_from_lps.
+# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'livepatched_corefile_lifecycle'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+
+            TEST_DIR="/tmp/localdnslpstest"
+            LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
+            LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+            LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
+            AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/aks-node-controller"
+            mkdir -p "$LOCALDNS_SCRIPT_PATH"
+
+            # The baked corefile is rewritten from live CustomData on every startup by
+            # regenerate_localdns_corefile, so it always reflects the node's current desired config.
+            echo "baked-current-config" > "$LOCALDNS_CORE_FILE"
+        }
+
+        # Simulate a node that was live patched on an earlier boot: both the live-patched corefile
+        # and its version sidecar survive reboots because nothing else ever removes them.
+        write_stale_livepatched_corefile() {
+            echo "livepatched-from-earlier-boot" > "$LIVEPATCHED_LOCALDNS_CORE_FILE"
+            echo "v1" > "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version"
+        }
+
+        # Stub aks-node-controller so fetch-localdns-config emits the given outcome as its final
+        # stdout line, matching the real command's fail-open contract (always exit 0).
+        stub_aks_node_controller() {
+            cat > "${AKS_NODE_CONTROLLER_BINARY}" <<EOF
+#!/bin/bash
+echo "$1"
+exit 0
+EOF
+            chmod +x "${AKS_NODE_CONTROLLER_BINARY}"
+        }
+
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        #------------------------ localdns_source_corefile ---------------------------------------------
+        It 'should select the baked corefile when no livepatched corefile exists'
+            When call localdns_source_corefile
+            The status should be success
+            The output should equal "${LOCALDNS_CORE_FILE}"
+        End
+
+        It 'should select the livepatched corefile when it has content'
+            write_stale_livepatched_corefile
+            When call localdns_source_corefile
+            The status should be success
+            The output should equal "${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+        End
+
+        It 'should select the baked corefile when the livepatched corefile is empty'
+            : > "$LIVEPATCHED_LOCALDNS_CORE_FILE"
+            When call localdns_source_corefile
+            The status should be success
+            The output should equal "${LOCALDNS_CORE_FILE}"
+        End
+
+        #------------------------ discard_livepatched_localdns_corefile ---------------------------------
+        It 'should remove the livepatched corefile and its version sidecar'
+            write_stale_livepatched_corefile
+            When call discard_livepatched_localdns_corefile "test reason"
+            The status should be success
+            The output should include "Discarded live-patched localdns corefile (test reason)"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should not be exist
+        End
+
+        It 'should be a silent no-op when there is nothing to discard'
+            When call discard_livepatched_localdns_corefile "test reason"
+            The status should be success
+            The output should equal ""
+        End
+
+        It 'should remove a stranded version sidecar with no corefile'
+            echo "v1" > "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version"
+            When call discard_livepatched_localdns_corefile "test reason"
+            The status should be success
+            The output should include "Discarded live-patched localdns corefile (test reason)"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should not be exist
+        End
+
+        #------------------------ refresh_localdns_corefile_from_lps lifecycle --------------------------
+        It 'should discard a stale livepatched corefile when LPS reports notFound'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "notFound"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "LPS has no corefile for this node."
+            The output should include "falling back to ${LOCALDNS_CORE_FILE}"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should not be exist
+        End
+
+        It 'should discard a stale livepatched corefile when LPS reports noCorefileData'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "noCorefileData"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "LPS has no corefile for this node."
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
+        End
+
+        It 'should serve the baked corefile again after LPS reports notFound'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "notFound"
+            refresh_localdns_corefile_from_lps > /dev/null
+            When call localdns_source_corefile
+            The status should be success
+            The output should equal "${LOCALDNS_CORE_FILE}"
+        End
+
+        It 'should keep the livepatched corefile when the fetch itself failed'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "failed"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "continuing with existing corefile."
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should be exist
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should be exist
+        End
+
+        It 'should keep the livepatched corefile on an unrecognized outcome'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "someNewOutcome"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "Unexpected LocalDNS LPS config fetch outcome"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should be exist
+        End
+
+        It 'should keep the livepatched corefile when LPS reports applied'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "applied"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "LocalDNS LPS config fetch outcome: applied"
+            The output should not include "Discarded live-patched localdns corefile"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should be exist
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should be exist
+        End
+
+        It 'should discard an unverifiable livepatched corefile when the binary is missing'
+            write_stale_livepatched_corefile
+            AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/missing-aks-node-controller"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "skipping LocalDNS LPS config fetch."
+            The output should include "aks-node-controller binary unavailable"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should not be exist
         End
     End
 
@@ -2398,3 +2590,50 @@ EOF
         End
     End
 End
+
+
+    Describe 'livepatched corefile source selection'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdns-livepatched-test"
+            LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
+            LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+            LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
+            UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            mkdir -p "${LOCALDNS_SCRIPT_PATH}" "$(dirname "${RESOLV_CONF}")"
+            echo 'nameserver 10.0.0.1' > "${RESOLV_CONF}"
+        }
+        cleanup() {
+            rm -rf "${TEST_DIR}"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'uses the livepatched Corefile when present'
+            printf '.:53 {
+    forward . 9.9.9.9
+}
+' > "${LOCALDNS_CORE_FILE}"
+            printf '.:53 {
+    forward . 168.63.129.16
+}
+' > "${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The output should include 'Successfully updated'
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include '10.0.0.1'
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should not include '9.9.9.9'
+        End
+
+        It 'falls back to the generated Corefile when no livepatched Corefile exists'
+            printf '.:53 {
+    forward . 168.63.129.16
+}
+' > "${LOCALDNS_CORE_FILE}"
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The output should include 'Successfully updated'
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include '10.0.0.1'
+        End
+    End
