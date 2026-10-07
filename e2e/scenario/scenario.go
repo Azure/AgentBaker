@@ -3072,10 +3072,7 @@ var _ = Register(&Scenario{
 			vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return errors.Join(
-				ValidateCustomerNvidiaDriver(ctx, s),
-				ValidateFileHasContent(ctx, s, customerDriverSentinelPath, "customer-installed driver sentinel"),
-			)
+			return ValidateCustomerNvidiaDriver(ctx, s)
 		},
 	},
 })

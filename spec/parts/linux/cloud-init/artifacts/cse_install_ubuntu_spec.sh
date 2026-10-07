@@ -113,33 +113,30 @@ Describe 'cse_install_ubuntu.sh'
     End
 
     Describe 'cleanUpGPUDriversForBasePrep'
-        GPU_DEST="/tmp/nonexistent-shellspec-gpu-dest"
+        GPU_DEST="${PWD}/.shellspec-nonexistent-gpu-dest"
         managedGPUPackageList() { :; }
 
         createGraceBlackwellFixture() {
+            local wave="${1:-wave2}"
             GB_MAI_BOM_FILE="${PWD}/.shellspec-gb-bom-$$.json"
-            GB200_MAI_BOM_FILE=""
+            GB200_MAI_BOM_FILE="${PWD}/.shellspec-gb200-bom-$$.json"
             GPU_DKMS_MARKER_FILE="${PWD}/.shellspec-gpu-marker-$$"
             GB_NVIDIA_PEERMEM_CONFIG_FILE="${PWD}/.shellspec-nvidia-peermem-$$.conf"
             GB_NVIDIA_MODPROBE_CONFIG_FILE="${PWD}/.shellspec-nvidia-modprobe-$$.conf"
             GB_NOUVEAU_MODPROBE_CONFIG_FILE="${PWD}/.shellspec-nouveau-$$.conf"
             GB_DRIVER_CLEANUP_PENDING_FILE="${PWD}/.shellspec-gb-cleanup-pending-$$"
-            printf '%s\n' '{"versions-wave2":{"libnvidia-common-580":"580.159.04-1ubuntu1","nvidia-dkms-580-open":"580.159.04-1ubuntu1","nvidia-driver-580-open":"580.159.04-1ubuntu1"}}' > "$GB_MAI_BOM_FILE"
-            cp parts/linux/cloud-init/artifacts/ubuntu/gb/nvidia-peermem.conf "$GB_NVIDIA_PEERMEM_CONFIG_FILE"
-            cp parts/linux/cloud-init/artifacts/ubuntu/gb/modprobe-nvidia-parameters.conf "$GB_NVIDIA_MODPROBE_CONFIG_FILE"
-            printf 'blacklist nouveau\noptions nouveau modeset=0\n' > "$GB_NOUVEAU_MODPROBE_CONFIG_FILE"
-        }
-
-        createLegacyGraceBlackwellFixture() {
-            createGraceBlackwellFixture
-            rm -f "$GB_MAI_BOM_FILE" "$GB_NVIDIA_PEERMEM_CONFIG_FILE" "$GB_NOUVEAU_MODPROBE_CONFIG_FILE"
-            GB200_MAI_BOM_FILE="${PWD}/.shellspec-gb200-bom-$$.json"
-            printf '%s\n' '{"versions-wave1":{"libnvidia-common-580":"580.105.08-0ubuntu1","nvidia-dkms-580-open":"580.105.08-0ubuntu1","nvidia-driver-580-open":"580.105.08-0ubuntu1"}}' > "$GB200_MAI_BOM_FILE"
-            GB_NVIDIA_MODPROBE_CONFIG_FILE="${PWD}/.shellspec-nvidia-modprobe-$$.conf"
-            printf '%s\n' 'options nvidia NVreg_RestrictProfilingToAdminUsers=0' \
-                'options nvidia NVreg_CreateImexChannel0=1' \
-                'options nvidia NVreg_CoherentGPUMemoryMode=driver' \
-                'options nvidia NVreg_RegistryDwords="RMBug5172204War=4"' > "$GB_NVIDIA_MODPROBE_CONFIG_FILE"
+            if [ "$wave" = wave1 ]; then
+                printf '%s\n' '{"versions-wave1":{"libnvidia-common-580":"580.105.08-0ubuntu1","nvidia-dkms-580-open":"580.105.08-0ubuntu1","nvidia-driver-580-open":"580.105.08-0ubuntu1"}}' > "$GB200_MAI_BOM_FILE"
+                printf '%s\n' 'options nvidia NVreg_RestrictProfilingToAdminUsers=0' \
+                    'options nvidia NVreg_CreateImexChannel0=1' \
+                    'options nvidia NVreg_CoherentGPUMemoryMode=driver' \
+                    'options nvidia NVreg_RegistryDwords="RMBug5172204War=4"' > "$GB_NVIDIA_MODPROBE_CONFIG_FILE"
+            else
+                printf '%s\n' '{"versions-wave2":{"libnvidia-common-580":"580.159.04-1ubuntu1","nvidia-dkms-580-open":"580.159.04-1ubuntu1","nvidia-driver-580-open":"580.159.04-1ubuntu1"}}' > "$GB_MAI_BOM_FILE"
+                cp parts/linux/cloud-init/artifacts/ubuntu/gb/nvidia-peermem.conf "$GB_NVIDIA_PEERMEM_CONFIG_FILE"
+                cp parts/linux/cloud-init/artifacts/ubuntu/gb/modprobe-nvidia-parameters.conf "$GB_NVIDIA_MODPROBE_CONFIG_FILE"
+                printf 'blacklist nouveau\noptions nouveau modeset=0\n' > "$GB_NOUVEAU_MODPROBE_CONFIG_FILE"
+            fi
         }
 
         cleanupGraceBlackwellFixture() {
@@ -190,6 +187,25 @@ Describe 'cse_install_ubuntu.sh'
             apt-mark() { printf 'nvidia-utils-580\nnvidia-modprobe\nnvidia-persistenced\n'; }
         }
 
+        setupGraceBlackwellTeardown() {
+            local wave="${1:-wave2}"
+            createGraceBlackwellFixture "$wave"
+            : > "$GPU_DKMS_MARKER_FILE"
+            gb_driver_version=580.159.04-1ubuntu1
+            gb_utils_version=580.159.04-1
+            gb_modprobe_version=1.10.0-1ubuntu1
+            gb_persistenced_version=1.10.0-1ubuntu1
+            if [ "$wave" = wave1 ]; then
+                gb_driver_version=580.105.08-0ubuntu1
+                gb_utils_version=580.105.08-1
+            fi
+            gb_loaded_modules='nvidia_peermem nvidia_uvm nvidia_drm nvidia_modeset nvidia '
+            gb_expected_modules='nvidia_peermem nvidia_uvm nvidia_drm nvidia_modeset nvidia '
+            gb_services_stopped=false
+            gb_packages_purged=false
+            mockGraceBlackwellPackageQueries
+        }
+
         It 'fails when the prebake marker survives cleanup'
             GPU_DKMS_MARKER_FILE="$(mktemp)"
             cleanUpGPUDrivers() { :; }
@@ -222,28 +238,8 @@ Describe 'cse_install_ubuntu.sh'
 
         It 'tears down current and legacy BOM-owned Grace Blackwell drivers before marker cleanup'
             runGraceBlackwellTeardown() {
-                local layout="${1:-current}"
-                if [ "$layout" = legacy ]; then
-                    createLegacyGraceBlackwellFixture
-                    gb_driver_version=580.105.08-0ubuntu1
-                else
-                    createGraceBlackwellFixture
-                    gb_driver_version=580.159.04-1ubuntu1
-                    gb_utils_version=580.159.04-1
-                    gb_modprobe_version=1.10.0-1ubuntu1
-                    gb_persistenced_version=1.10.0-1ubuntu1
-                fi
-                if [ "$layout" = legacy ]; then
-                    gb_utils_version=580.105.08-1
-                    gb_modprobe_version=1.10.0-1ubuntu1
-                    gb_persistenced_version=1.10.0-1ubuntu1
-                fi
-                : > "$GPU_DKMS_MARKER_FILE"
-                gb_loaded_modules='nvidia_peermem nvidia_uvm nvidia_drm nvidia_modeset nvidia '
-                gb_expected_modules='nvidia_peermem nvidia_uvm nvidia_drm nvidia_modeset nvidia '
-                gb_services_stopped=false
-                gb_packages_purged=false
-                mockGraceBlackwellPackageQueries
+                local wave="${1:-wave2}"
+                setupGraceBlackwellTeardown "$wave"
                 systemctlDisableAndStop() {
                     echo "stop:$1"
                     if [ "$1" = openibd ]; then
@@ -299,8 +295,8 @@ Describe 'cse_install_ubuntu.sh'
             }
 
             runBothGraceBlackwellTeardowns() {
-                runGraceBlackwellTeardown current || return 1
-                runGraceBlackwellTeardown legacy
+                runGraceBlackwellTeardown wave2 || return 1
+                runGraceBlackwellTeardown wave1
             }
 
             When call runBothGraceBlackwellTeardowns
@@ -333,13 +329,7 @@ Describe 'cse_install_ubuntu.sh'
         It 'retains GB provenance and retries after config removal or initramfs failure'
             runGraceBlackwellTeardownRetry() {
                 local status=0
-                createGraceBlackwellFixture
-                : > "$GPU_DKMS_MARKER_FILE"
-                gb_driver_version=580.159.04-1ubuntu1
-                gb_utils_version=580.159.04-1
-                gb_modprobe_version=1.10.0-1ubuntu1
-                gb_persistenced_version=1.10.0-1ubuntu1
-                gb_packages_purged=false
+                setupGraceBlackwellTeardown
                 gb_loaded_modules=""
                 mockGraceBlackwellPackageQueries
                 systemctlDisableAndStop() { :; }
@@ -421,17 +411,14 @@ Describe 'cse_install_ubuntu.sh'
         It 'retains the marker for mixed ownership and package-purge failures'
             runUnsafeGraceBlackwellTeardown() {
                 status=0
-                createGraceBlackwellFixture
-                : > "$GPU_DKMS_MARKER_FILE"
-                gb_packages_purged=false
+                setupGraceBlackwellTeardown
                 gb_extra_driver_package=nvidia-driver-535-server
                 mockGraceBlackwellPackageQueries
                 systemctlDisableAndStop() { echo "unexpected service stop"; }
                 apt_get_purge() { echo "unexpected package purge"; }
                 cleanUpGPUDrivers() { echo "unexpected marker cleanup"; }
                 runGraceBlackwellFailureAndRetainState || status=1
-                createGraceBlackwellFixture
-                : > "$GPU_DKMS_MARKER_FILE"
+                setupGraceBlackwellTeardown
                 gb_packages_purged=false
                 gb_extra_driver_package=""
                 mockGraceBlackwellPackageQueries
@@ -443,23 +430,18 @@ Describe 'cse_install_ubuntu.sh'
                 apt_get_purge() { echo "unexpected package purge"; }
                 cleanUpGPUDrivers() { echo "unexpected marker cleanup"; }
                 runGraceBlackwellFailureAndRetainState || status=1
-                createGraceBlackwellFixture
-                : > "$GPU_DKMS_MARKER_FILE"
+                setupGraceBlackwellTeardown
                 gb_extra_driver_package=""
-                gb_packages_purged=false
                 mockGraceBlackwellPackageQueries
                 lsmod() { echo "Module Size Used by"; }
-                systemctlDisableAndStop() { :; }
-                systemctl() { return 1; }
                 systemctlDisableAndStop() { :; }
                 systemctl() { return 1; }
                 update-initramfs() { :; }
                 apt_get_purge() { return 1; }
                 runGraceBlackwellFailureAndRetainState || status=1
-                createGraceBlackwellFixture
+                setupGraceBlackwellTeardown
                 gb_version_mismatch=true
                 mockGraceBlackwellPackageQueries
-                : > "$GPU_DKMS_MARKER_FILE"
                 apt_get_purge() { echo "unexpected package purge"; }
                 cleanUpGPUDrivers() { echo "unexpected marker cleanup"; }
                 cleanUpGPUDriversForBasePrep || status=1
@@ -491,7 +473,7 @@ Describe 'cse_install_ubuntu.sh'
     End
 
     Describe 'installPackageFromCache version matching'
-        deb_cache_root="/tmp/shellspec-deb-cache-$$"
+        deb_cache_root="${PWD}/.shellspec-deb-cache-$$"
 
         setup_deb_cache() {
             mkdir -p "$deb_cache_root"
@@ -613,7 +595,7 @@ EOF
     End
 
     Describe 'installContainerdWithAptGet revision comparison'
-        containerd_download_root="/tmp/cse-install-ubuntu-containerd-$$"
+        containerd_download_root="${PWD}/.shellspec-cse-install-ubuntu-containerd-$$"
 
         setup_containerd_revision() {
             mkdir -p "${containerd_download_root}"
@@ -664,7 +646,7 @@ EOF
     End
 
     Describe 'logResolvedPackageVersion'
-        resolved_version_log="/tmp/cse-install-ubuntu-resolved-version-$$"
+        resolved_version_log="${PWD}/.shellspec-cse-install-ubuntu-resolved-version-$$"
 
         cleanup_resolved_version_log() {
             rm -f "${resolved_version_log}"
@@ -694,7 +676,7 @@ EOF
     End
 
     Describe 'ensureRunc repository fallback'
-        runc_download_root="/tmp/cse-install-ubuntu-runc-$$"
+        runc_download_root="${PWD}/.shellspec-cse-install-ubuntu-runc-$$"
 
         setup_runc_fallback() {
             mkdir -p "${runc_download_root}"

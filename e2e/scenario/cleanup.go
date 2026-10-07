@@ -4,13 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
-	"runtime"
 	"runtime/debug"
 	"sync"
 	"time"
-
-	"github.com/Azure/agentbaker/e2e/logging"
 )
 
 const (
@@ -54,18 +50,8 @@ func (c *scenarioCleanup) runCleanups(ctx context.Context) error {
 		batchErrs := make([]error, len(cleanups))
 		var wg sync.WaitGroup
 		for i, fn := range cleanups {
-			i, fn := i, fn
-			name := fmt.Sprintf("cleanup[%d]", i+1)
-			if callback := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()); callback != nil {
-				name = callback.Name()
-			}
-			deadline, _ := ctx.Deadline()
-			started := time.Now()
-			logging.Logf(ctx, "scenario cleanup %s started (deadline %s)", name, deadline.Format(time.RFC3339))
 			wg.Go(func() {
-				err := runWithPanicRecovery(ctx, fn)
-				batchErrs[i] = err
-				logging.Logf(ctx, "scenario cleanup %s finished in %s (error: %v, context error: %v)", name, time.Since(started), err, ctx.Err())
+				batchErrs[i] = runWithPanicRecovery(ctx, fn)
 			})
 		}
 		wg.Wait()

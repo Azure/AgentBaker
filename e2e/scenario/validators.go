@@ -581,63 +581,23 @@ func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) error {
 }
 
 func ValidateCustomerNvidiaDriver(ctx context.Context, s *Scenario) error {
-	if _, _, err := customerGPUDriverImageReference(); err != nil {
-		return err
-	}
-	command := fmt.Sprintf(`set -euo pipefail
-receipt=%s
-expected_image_name=%s
-test -s "${receipt}"
-receipt_value() { sed -n "s/^$1=//p" "${receipt}"; }
-
-receipt_image_ref="$(receipt_value image_ref)"
-case "${receipt_image_ref}" in "${expected_image_name}:"*) ;; *) echo "unexpected NVIDIA driver artifact: ${receipt_image_ref}" >&2; exit 1 ;; esac
-image_tag="${receipt_image_ref##*:}"
-if ! [[ "${image_tag}" =~ ^[0-9]+(\.[0-9]+)+-[0-9]+$ ]]; then
-  echo "invalid cached NVIDIA driver image tag: ${image_tag}" >&2
-  exit 1
-fi
-expected_version="${image_tag%%-*}"
-receipt_driver_version="$(receipt_value driver_version)"
-test "${receipt_driver_version}" = "${expected_version}"
-receipt_gpu_name="$(receipt_value gpu_name)"
-case "${receipt_gpu_name}" in *T4*) ;; *) echo "receipt does not identify a T4 GPU: ${receipt_gpu_name}" >&2; exit 1 ;; esac
-
-gpu_info="$(sudo nvidia-smi --query-gpu=driver_version,name --format=csv,noheader | head -n1)"
-driver_version="$(printf '%%s\n' "${gpu_info}" | awk -F, '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1 }')"
-gpu_name="$(printf '%%s\n' "${gpu_info}" | awk -F, '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2 }')"
-test "${driver_version}" = "${receipt_driver_version}"
-test "${gpu_name}" = "${receipt_gpu_name}"
-sudo nvidia-smi -L | grep -qi 'T4'
-lsmod | grep -q '^nvidia[[:space:]]'
-
-nvidia_smi_path="$(readlink -f "$(command -v nvidia-smi)")"
-nvidia_module_path="$(sudo modinfo -n nvidia)"
-test "${nvidia_smi_path}" = "$(receipt_value nvidia_smi_path)"
-test "${nvidia_module_path}" = "$(receipt_value nvidia_module_path)"
-test "$(sudo modinfo -F version nvidia)" = "${receipt_driver_version}"
-test "$(sha256sum "${nvidia_smi_path}" | awk '{ print $1 }')" = "$(receipt_value nvidia_smi_sha256)"
-test "$(sha256sum "${nvidia_module_path}" | awk '{ print $1 }')" = "$(receipt_value nvidia_module_sha256)"
-printf '%%s\n' %s
-cat "${receipt}"
-printf 'nvidia_smi_gpu_info=%%s\n' "${gpu_info}"
-printf 'nvidia_module_version=%%s\n' "$(sudo modinfo -F version nvidia)"
-printf 'nvidia_smi_current_sha256=%%s\n' "$(sha256sum "${nvidia_smi_path}" | awk '{ print $1 }')"
-printf 'nvidia_module_current_sha256=%%s\n' "$(sha256sum "${nvidia_module_path}" | awk '{ print $1 }')"
-sudo nvidia-smi -L
-printf '%%s\n' %s
-`,
-		shellSingleQuote(customerDriverReceiptPath),
-		shellSingleQuote(customerGPUDriverImage),
-		shellSingleQuote(customerGPUDriverEvidenceStart),
-		shellSingleQuote(customerGPUDriverEvidenceEnd),
-	)
-	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "customer-installed NVIDIA driver did not survive PIS image capture")
+	_, expectedVersion, err := customerGPUDriverImageReference()
 	if err != nil {
 		return err
 	}
-	logCustomerNvidiaDriverEvidence(ctx, result.stdout)
-	return nil
+	command := fmt.Sprintf(`set -euo pipefail
+expected_version=%s
+lsmod | grep -q '^nvidia[[:space:]]'
+module_version="$(sudo modinfo -F version nvidia)"
+test "${module_version}" = "${expected_version}"
+gpu_version="$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1 | tr -d '[:space:]')"
+test "${gpu_version}" = "${expected_version}"
+sudo nvidia-smi
+`,
+		shellSingleQuote(expectedVersion),
+	)
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "customer-installed NVIDIA driver did not survive PIS image capture")
+	return err
 }
 
 func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) error {

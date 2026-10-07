@@ -57,11 +57,7 @@ func TestExecutionKeepsLoggerThroughSkipRunAndCleanup(t *testing.T) {
 			} else {
 				require.NoError(t, outcome.Error)
 			}
-			require.Len(t, logger.logs, 5)
-			assert.Equal(t, []string{"skip check", "running scenario"}, logger.logs[:2])
-			assert.Contains(t, logger.logs[2], "scenario cleanup ")
-			assert.Equal(t, "cleanup", logger.logs[3])
-			assert.Contains(t, logger.logs[4], "scenario cleanup ")
+			assert.Equal(t, []string{"skip check", "running scenario", "cleanup"}, logger.logs)
 		})
 	}
 }

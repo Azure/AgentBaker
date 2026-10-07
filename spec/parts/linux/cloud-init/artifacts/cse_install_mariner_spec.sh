@@ -29,7 +29,7 @@ Describe 'cse_install_mariner.sh'
     Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
 
     Describe 'cleanUpGPUDriversForBasePrep'
-        GPU_DEST="/tmp/nonexistent-shellspec-gpu-dest"
+        GPU_DEST="${PWD}/.shellspec-nonexistent-gpu-dest"
         managedGPUPackageList() { echo "driver-cache"; }
         getPackageCacheDir() { echo "$gpu_test_root/driver-cache"; }
         setup_gpu_cache() { gpu_test_root=$(mktemp -d); }
@@ -798,7 +798,7 @@ EOF
     End
 
     Describe 'installPackageFromCache version matching'
-        rpm_version_cache="/tmp/shellspec-rpm-version-cache-$$"
+        rpm_version_cache="${PWD}/.shellspec-rpm-version-cache-$$"
 
         setup_version_cache() {
             RPM_PACKAGE_CACHE_BASE_DIR="$rpm_version_cache"
