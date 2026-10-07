@@ -89,6 +89,7 @@ var _ = Register(&Scenario{
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 				ValidateSSHKeyLiteralPreservation(ctx, s, sshKeyInterpolationComment),
 			)
@@ -115,6 +116,7 @@ var _ = Register(&Scenario{
 				ValidateContainerdWindowsPriorityClass(ctx, s),
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 			)
 		},
@@ -141,6 +143,7 @@ var _ = Register(&Scenario{
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip"),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 			)
 		},
@@ -194,6 +197,7 @@ var _ = Register(&Scenario{
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip"),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 			)
 		},
@@ -237,6 +241,7 @@ var _ = Register(&Scenario{
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 			)
 		},
@@ -264,6 +269,7 @@ var _ = Register(&Scenario{
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 			)
 		},
@@ -370,6 +376,7 @@ var _ = Register(&Scenario{
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 			)
 		},
@@ -429,6 +436,7 @@ var _ = Register(&Scenario{
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 			)
 		},
@@ -459,6 +467,7 @@ var _ = Register(&Scenario{
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 			)
 		},
@@ -588,6 +597,7 @@ var _ = Register(&Scenario{
 					`C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`,
 					`https://mcr.azk8s.cn`),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 			)
 		},
 	},
@@ -638,6 +648,7 @@ var _ = Register(&Scenario{
 				ValidateFileDoesNotExist(ctx, s, `C:\ProgramData\containerd\certs.d\mcr.azk8s.cn\hosts.toml`),
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateWindowsExporter(ctx, s),
 			)
 		},
 	},
