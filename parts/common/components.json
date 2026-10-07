@@ -472,8 +472,9 @@
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-state-metrics",
-          "latestVersion": "v2.15.0-4"
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kube-state-metrics",
+          "latestVersion": "v2.20.0-7",
+          "previousLatestVersion": "v2.15.0-4"
         }
       ],
       "windowsVersions": []
