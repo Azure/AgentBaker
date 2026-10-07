@@ -3,18 +3,20 @@ package scenario
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/coder/websocket"
 	"golang.org/x/crypto/ssh"
 )
@@ -22,14 +24,15 @@ import (
 var AllowedSSHPrefixes = []string{ssh.KeyAlgoED25519, ssh.KeyAlgoRSA, ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512}
 
 type Bastion struct {
-	credential                                 *azidentity.AzureCLICredential
+	credential                                 azcore.TokenCredential
 	subscriptionID, resourceGroupName, dnsName string
 	httpClient                                 *http.Client
 	httpTransport                              *http.Transport
 }
 
-func NewBastion(credential *azidentity.AzureCLICredential, subscriptionID, resourceGroupName, dnsName string) *Bastion {
+func NewBastion(credential azcore.TokenCredential, subscriptionID, resourceGroupName, dnsName string) *Bastion {
 	transport := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 100,
 		IdleConnTimeout:     30 * time.Second,
@@ -41,29 +44,23 @@ func NewBastion(credential *azidentity.AzureCLICredential, subscriptionID, resou
 		resourceGroupName: resourceGroupName,
 		dnsName:           dnsName,
 		httpTransport:     transport,
+		// Use request contexts for timeouts, not a client timeout that can expire a WebSocket.
 		httpClient: &http.Client{
 			Transport: transport,
-			Timeout:   30 * time.Second,
 		},
 	}
 }
 
 type tunnelSession struct {
-	bastion *Bastion
-	ws      *websocket.Conn
-	session *sessionToken
-	ctx     context.Context
-
-	readDeadline  time.Time
-	writeDeadline time.Time
-	readBuf       []byte
-
-	targetHost string
-	targetPort uint16
+	net.Conn
+	bastion   *Bastion
+	session   *sessionToken
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func (b *Bastion) NewTunnelSession(ctx context.Context, targetHost string, port uint16) (*tunnelSession, error) {
-	session, err := b.newSessionToken(targetHost, port)
+	session, err := b.newSessionToken(ctx, targetHost, port)
 	if err != nil {
 		return nil, err
 	}
@@ -73,21 +70,18 @@ func (b *Bastion) NewTunnelSession(ctx context.Context, targetHost string, port 
 	dialCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	ws, _, err := websocket.Dial(dialCtx, wsUrl, &websocket.DialOptions{
 		CompressionMode: websocket.CompressionDisabled,
+		HTTPClient:      b.httpClient,
 	})
 	cancel()
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, b.deleteSession(session))
 	}
 
-	ws.SetReadLimit(32 * 1024 * 1024)
-
 	return &tunnelSession{
-		bastion:    b,
-		ws:         ws,
-		session:    session,
-		ctx:        ctx,
-		targetHost: targetHost,
-		targetPort: port,
+		// Keep established connections available for cleanup after the dial context expires.
+		Conn:    websocket.NetConn(context.Background(), ws, websocket.MessageBinary),
+		bastion: b,
+		session: session,
 	}, nil
 }
 
@@ -101,16 +95,26 @@ type sessionToken struct {
 }
 
 func (t *tunnelSession) Close() error {
-	_ = t.ws.Close(websocket.StatusNormalClosure, "")
+	t.closeOnce.Do(func() {
+		t.closeErr = errors.Join(t.Conn.Close(), t.bastion.deleteSession(t.session))
+	})
+	return t.closeErr
+}
 
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("https://%v/api/tokens/%v", t.bastion.dnsName, t.session.AuthToken), nil)
+func (b *Bastion) deleteSession(session *sessionToken) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if b.httpTransport != nil {
+		defer b.httpTransport.CloseIdleConnections()
+	}
+	req, err := http.NewRequestWithContext(ctx, "DELETE", fmt.Sprintf("https://%v/api/tokens/%v", b.dnsName, session.AuthToken), nil)
 	if err != nil {
 		return err
 	}
 
-	req.Header.Add("X-Node-Id", t.session.NodeID)
+	req.Header.Add("X-Node-Id", session.NodeID)
 
-	resp, err := t.bastion.httpClient.Do(req)
+	resp, err := b.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -124,16 +128,13 @@ func (t *tunnelSession) Close() error {
 		return fmt.Errorf("unexpected status code: %v", resp.StatusCode)
 	}
 
-	if t.bastion.httpTransport != nil {
-		t.bastion.httpTransport.CloseIdleConnections()
-	}
-
 	return nil
 }
 
-func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken, error) {
-
-	token, err := b.credential.GetToken(context.Background(), policy.TokenRequestOptions{
+func (b *Bastion) newSessionToken(ctx context.Context, targetHost string, port uint16) (*sessionToken, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	token, err := b.credential.GetToken(ctx, policy.TokenRequestOptions{
 		Scopes: []string{fmt.Sprintf("%s/.default", cloud.AzurePublic.Services[cloud.ResourceManager].Endpoint)},
 	})
 
@@ -151,13 +152,13 @@ func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken
 	data.Set("aztoken", token.Token)
 	data.Set("hostname", targetHost)
 
-	req, err := http.NewRequest("POST", apiUrl, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", apiUrl, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := b.httpClient.Do(req) // TODO client settings
+	resp, err := b.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -176,81 +177,6 @@ func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken
 
 	return &response, nil
 }
-
-func (t *tunnelSession) Read(p []byte) (int, error) {
-	if len(t.readBuf) == 0 {
-		ctx := t.ctx
-		if !t.readDeadline.IsZero() {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithDeadline(t.ctx, t.readDeadline)
-			defer cancel()
-		}
-		typ, data, err := t.ws.Read(ctx)
-		if err != nil {
-			return 0, err
-		}
-		if typ != websocket.MessageBinary {
-			return 0, fmt.Errorf("unexpected websocket message type: %v", typ)
-		}
-		t.readBuf = data
-	}
-
-	n := copy(p, t.readBuf)
-	t.readBuf = t.readBuf[n:]
-	return n, nil
-}
-
-func (t *tunnelSession) Write(p []byte) (int, error) {
-	ctx := t.ctx
-	if !t.writeDeadline.IsZero() {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithDeadline(t.ctx, t.writeDeadline)
-		defer cancel()
-	}
-	if err := t.ws.Write(ctx, websocket.MessageBinary, p); err != nil {
-		return 0, err
-	}
-
-	return len(p), nil
-}
-
-func (t *tunnelSession) LocalAddr() net.Addr {
-	return bastionAddr{
-		network: "bastion",
-		address: "local",
-	}
-}
-
-func (t *tunnelSession) RemoteAddr() net.Addr {
-	return bastionAddr{
-		network: "bastion",
-		address: fmt.Sprintf("%s:%d", t.targetHost, t.targetPort),
-	}
-}
-
-func (t *tunnelSession) SetDeadline(deadline time.Time) error {
-	t.readDeadline = deadline
-	t.writeDeadline = deadline
-	return nil
-}
-
-func (t *tunnelSession) SetReadDeadline(deadline time.Time) error {
-	t.readDeadline = deadline
-	return nil
-}
-
-func (t *tunnelSession) SetWriteDeadline(deadline time.Time) error {
-	t.writeDeadline = deadline
-	return nil
-}
-
-type bastionAddr struct {
-	network string
-	address string
-}
-
-func (a bastionAddr) Network() string { return a.network }
-func (a bastionAddr) String() string  { return a.address }
 
 func sshClientConfig(user string, privateKey []byte) (*ssh.ClientConfig, error) {
 	signer, err := ssh.ParsePrivateKey(privateKey)
@@ -293,6 +219,9 @@ func DialSSHOverBastion(
 
 	var lastErr error
 	for attempt := 1; attempt <= sshDialAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if attempt > 1 {
 			select {
 			case <-time.After(sshDialBackoff):
@@ -302,9 +231,7 @@ func DialSSHOverBastion(
 		}
 		logging.Logf(ctx, "Attempt %d/%d establishing SSH over bastion to %s", attempt, sshDialAttempts, vmPrivateIP)
 
-		// Intentionally use a background context to prevent cancelling the SSH connection before
-		// we fetch logs during cleanup.
-		tunnel, err := bastion.NewTunnelSession(context.Background(), vmPrivateIP, 22)
+		tunnel, err := bastion.NewTunnelSession(ctx, vmPrivateIP, 22)
 		if err != nil {
 			lastErr = err
 			logging.Logf(ctx, "Attempt %d/%d failed to create bastion tunnel: %v", attempt, sshDialAttempts, err)
@@ -312,11 +239,17 @@ func DialSSHOverBastion(
 		}
 
 		_ = tunnel.SetDeadline(time.Now().Add(sshDialTimeout))
+		stop := context.AfterFunc(ctx, func() { _ = tunnel.Conn.Close() })
 		sshConn, chans, reqs, err := ssh.NewClientConn(
 			tunnel,
 			vmPrivateIP,
 			sshConfig,
 		)
+		stop()
+		if ctx.Err() != nil {
+			_ = tunnel.Close()
+			return nil, ctx.Err()
+		}
 		if err != nil {
 			lastErr = err
 			logging.Logf(ctx, "Attempt %d/%d SSH handshake failed: %v", attempt, sshDialAttempts, err)
