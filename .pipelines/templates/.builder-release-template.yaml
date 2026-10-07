@@ -8,8 +8,19 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: kataCC
+    type: boolean
+    default: false
 
 steps:
+  - ${{ if eq(parameters.kataCC, true) }}:
+    - bash: |
+        echo '##vso[task.logissue type=error]AZL3 Kata-CC requires the finalized signed UVM and matching OpenVMM host package contract. See docs/azurelinux3-kata-cc.md.'
+        exit 1
+      displayName: Block Kata-CC build until signed payload integration is ready
+      # TODO(mheberling): replace with a pinned producer-run download and
+      # validated host/guest installation; never publish ordinary Kata as CC.
+
   - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -46,8 +57,8 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
 
   - task: DownloadPipelineArtifact@2
-    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
-    displayName: 'Download Kata and Kata CC AzureLinux3_0 UVM artifact'
+    condition: and(succeeded(), eq('${{ parameters.kataCC }}', false), or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
+    displayName: 'Download Kata AzureLinux3_0 UVM artifact'
     inputs:
       source: specific
       project: CloudNativeCompute
