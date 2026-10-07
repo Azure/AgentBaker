@@ -3836,6 +3836,36 @@ func TestNodeBootstrappingConfigurationKubeletConfigOmitted(test *testing.T) {
 	require.Equal(test, before, after)
 }
 
+func TestNodeBootstrappingConfigurationPreservesExistingWebhookOmission(test *testing.T) {
+	for _, scenario := range []struct {
+		name     string
+		enabled  bool
+		expected string
+	}{
+		{name: "false remains omitted", expected: `{}`},
+		{name: "true remains explicit", enabled: true, expected: `{"enabled":true}`},
+	} {
+		test.Run(scenario.name, func(test *testing.T) {
+			request := NodeBootstrappingConfiguration{
+				KubeletConfigFileConfig: &AKSKubeletConfiguration{
+					Authentication: KubeletAuthentication{
+						Webhook: KubeletWebhookAuthentication{Enabled: scenario.enabled},
+					},
+				},
+			}
+			content, err := json.Marshal(request)
+			require.NoError(test, err)
+			var requestFields map[string]json.RawMessage
+			require.NoError(test, json.Unmarshal(content, &requestFields))
+			var configFields map[string]json.RawMessage
+			require.NoError(test, json.Unmarshal(requestFields["KubeletConfigFileConfig"], &configFields))
+			var authenticationFields map[string]json.RawMessage
+			require.NoError(test, json.Unmarshal(configFields["authentication"], &authenticationFields))
+			require.JSONEq(test, scenario.expected, string(authenticationFields["webhook"]))
+		})
+	}
+}
+
 func TestAKSKubeletConfigurationLegacyOutputUnchanged(t *testing.T) {
 	config := AKSKubeletConfiguration{
 		Kind:           "KubeletConfiguration",
