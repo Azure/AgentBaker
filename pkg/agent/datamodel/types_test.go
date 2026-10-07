@@ -3751,6 +3751,91 @@ func TestAKSKubeletConfigurationFieldsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestNodeBootstrappingConfigurationKubeletConfigRoundTrip(test *testing.T) {
+	cases := []struct {
+		name   string
+		config *AKSKubeletConfiguration
+	}{
+		{name: "absent"},
+		{name: "empty", config: &AKSKubeletConfiguration{}},
+		{
+			name: "explicit false zero durations and taints",
+			config: &AKSKubeletConfiguration{
+				APIVersion:                "kubelet.config.k8s.io/v1beta1",
+				Kind:                      "KubeletConfiguration",
+				EnableServer:              to.BoolPtr(false),
+				EventRecordQPS:            to.Int32Ptr(0),
+				CPUCFSQuota:               to.BoolPtr(false),
+				VolumePluginDir:           `C:\k\volumeplugins`,
+				CgroupDriver:              "systemd",
+				RuntimeRequestTimeout:     "0s",
+				NodeStatusUpdateFrequency: "10s",
+				ContainerRuntimeEndpoint:  "npipe:////./pipe/containerd-containerd",
+				HairpinMode:               "promiscuous-bridge",
+				RegisterWithTaints: []KubeletTaint{
+					{Key: "workload", Value: "batch", Effect: "NoSchedule"},
+					{Key: "workload", Value: "batch", Effect: "PreferNoSchedule"},
+					{Key: "maintenance", Effect: "NoExecute", TimeAdded: "2026-01-02T03:04:05Z"},
+				},
+			},
+		},
+	}
+	for _, scenario := range cases {
+		test.Run(scenario.name, func(test *testing.T) {
+			request := NodeBootstrappingConfiguration{
+				KubeletConfig:           map[string]string{"--max-pods": "110"},
+				KubeletConfigFileConfig: scenario.config,
+				EnableKubeletConfigFile: true,
+			}
+			content, err := json.Marshal(request)
+			require.NoError(test, err)
+			var fields map[string]json.RawMessage
+			require.NoError(test, json.Unmarshal(content, &fields))
+			if scenario.config == nil {
+				require.NotContains(test, fields, "KubeletConfigFileConfig")
+			} else {
+				expectedConfig, err := json.Marshal(scenario.config)
+				require.NoError(test, err)
+				require.Equal(test, string(expectedConfig), string(fields["KubeletConfigFileConfig"]))
+			}
+			var restored NodeBootstrappingConfiguration
+			require.NoError(test, json.Unmarshal(content, &restored))
+			require.Equal(test, request, restored)
+			restoredContent, err := json.Marshal(restored)
+			require.NoError(test, err)
+			require.Equal(test, content, restoredContent)
+		})
+	}
+}
+
+func TestNodeBootstrappingConfigurationKubeletConfigOmitted(test *testing.T) {
+	for _, input := range []string{
+		`{"KubeletConfig":{"--max-pods":"110"},"EnableKubeletConfigFile":true}`,
+		`{"KubeletConfig":{"--max-pods":"110"},"EnableKubeletConfigFile":true,"KubeletConfigFileConfig":null}`,
+	} {
+		var restored NodeBootstrappingConfiguration
+		require.NoError(test, json.Unmarshal([]byte(input), &restored))
+		require.Nil(test, restored.KubeletConfigFileConfig)
+		content, err := json.Marshal(restored)
+		require.NoError(test, err)
+		expected, err := json.Marshal(NodeBootstrappingConfiguration{
+			KubeletConfig:           map[string]string{"--max-pods": "110"},
+			EnableKubeletConfigFile: true,
+		})
+		require.NoError(test, err)
+		require.Equal(test, expected, content)
+		require.NotContains(test, string(content), "KubeletConfigFileConfig")
+	}
+	config := &AKSKubeletConfiguration{}
+	request := NodeBootstrappingConfiguration{KubeletConfigFileConfig: config}
+	before, err := json.Marshal(request)
+	require.NoError(test, err)
+	config.RegisterWithTaints = []KubeletTaint{}
+	after, err := json.Marshal(request)
+	require.NoError(test, err)
+	require.Equal(test, before, after)
+}
+
 func TestAKSKubeletConfigurationLegacyOutputUnchanged(t *testing.T) {
 	config := AKSKubeletConfiguration{
 		Kind:           "KubeletConfiguration",
