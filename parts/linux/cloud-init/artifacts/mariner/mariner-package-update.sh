@@ -342,7 +342,7 @@ rewrite_repos() {
                 sed -Ei 's/^baseurl=https?:\/\/.*packages.microsoft.com/baseurl=http:\/\/'"${live_patching_repo_service}"'/g' "${repo_path}" || return 1
                 sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/http:\/\/'"${live_patching_repo_service}"'/g' "${repo_path}" || return 1
                 if [ -n "${original_endpoint}" ]; then
-                    if [[ "${old_repo}" == *original_baseurl=* ]]; then
+                    if [ "${old_repo#*original_baseurl=}" != "${old_repo}" ]; then
                         sed -i 's|^#[[:space:]]original_baseurl=.*$|#\ original_baseurl='"${original_endpoint}"'|g' "${repo_path}" || return 1
                     else
                         sed -i '1i#\ original_baseurl='"${original_endpoint}"'' "${repo_path}" || return 1
