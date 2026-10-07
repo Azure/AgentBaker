@@ -343,19 +343,26 @@ func encodePowerShellBase64Literal(value string) string {
 // with the ANSI code page, which can turn the bytes of a non-ASCII character into a quote. The decode
 // expression is in parentheses so that it is also evaluated where it is a command argument.
 func powerShellLiteral(value string) string {
+	return powerShellQuotedLiteral(value, '\'')
+}
+
+func powerShellQuotedLiteral(value string, quote byte) string {
 	for i := 0; i < len(value); i++ {
 		if value[i] < ' ' || value[i] > '~' {
 			return "(" + encodePowerShellBase64Literal(value) + ")"
 		}
 	}
+	if quote == '"' {
+		return `"` + strings.NewReplacer("`", "``", "$", "`$", `"`, `""`).Replace(value) + `"`
+	}
 	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
 
-// powerShellLiteralList returns values as comma-separated powerShellLiteral expressions, for use in @( ).
+// Keep ASCII arguments double-quoted: RP's PatchCustomDataForKubeReservedForWindows matches that syntax.
 func powerShellLiteralList(values []string) string {
 	literals := make([]string, 0, len(values))
 	for _, value := range values {
-		literals = append(literals, powerShellLiteral(value))
+		literals = append(literals, powerShellQuotedLiteral(value, '"'))
 	}
 	return strings.Join(literals, ", ")
 }
@@ -369,6 +376,19 @@ func unescapePowerShellDoubleQuotes(values []string) []string {
 		unescaped = append(unescaped, strings.ReplaceAll(value, `""`, `"`))
 	}
 	return unescaped
+}
+
+// WCN's old double-quoted interpolation accepted quote-escaped JSON. Raw JSON takes precedence;
+// invalid input is left unchanged so the WCN consumer retains its existing validation and logging.
+func normalizeWindowsCiliumConfig(value string) string {
+	if json.Valid([]byte(value)) {
+		return value
+	}
+	decoded := strings.NewReplacer("``", "`", "`\"", `"`, "`$", "$", `""`, `"`).Replace(value)
+	if json.Valid([]byte(decoded)) {
+		return decoded
+	}
+	return value
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.

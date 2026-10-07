@@ -85,7 +85,9 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 
 // getWindowsCustomDataVariables returns custom data for Windows.
 func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
-	return getCSECommandVariables(config)
+	variables := getCSECommandVariables(config)
+	variables["nextGenNetworkingConfig"] = normalizeWindowsCiliumConfig(config.AgentPoolProfile.GetAgentPoolWindowsProfile().GetNextGenNetworkingConfig())
+	return variables
 }
 
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {

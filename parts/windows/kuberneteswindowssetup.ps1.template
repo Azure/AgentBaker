@@ -12,6 +12,8 @@
         - Every input must have a row in windowsCSEFields in pkg/agent/windows_cse_fields_test.go.
           Tests check the value and type PowerShell receives, without requiring a particular encoder.
           When using PowerShellLiteral, do not put its output inside quotes.
+        - The preprovision extension hook intentionally inserts commands and has separate compatibility tests.
+        - WCN accepts raw JSON and legacy quote-escaped JSON; other scalar inputs are raw data.
         - windowscsehelper.ps1 contains basic util functions. It will be compressed to a zip file and then be converted to base64 encoding
           string and stored in $zippedFiles. Reason: This script is a template and has some limitations.
         - All other scripts will be packaged and published in a single package. It will be downloaded in provisioning VM.
@@ -449,6 +451,8 @@ function BasePrep {
 
     Set-Explorer
     Adjust-PageFileSize
+    Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
+    PREPROVISION_EXTENSION
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
 

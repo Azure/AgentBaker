@@ -507,6 +507,7 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form.
 // { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	// get parameters
 	parameters := getParameters(config)
@@ -518,6 +519,12 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 		panic(e)
 	}
 
+	preprovisionCmd := ""
+	if profile.PreprovisionExtension != nil {
+		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
+	}
+
+	str = strings.ReplaceAll(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)))
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 

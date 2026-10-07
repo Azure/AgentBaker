@@ -39,6 +39,21 @@ var windowsCSETestValues = map[string]string{
 const windowsCSEFieldsFixture = "testdata/windowscse/fields.tsv"
 const windowsCSEPackageURLWithDollar = "https://example.blob.core.windows.net/$web/windows-cse.zip"
 
+func windowsCSEWCNJSONCases() []struct{ name, input, want string } {
+	return []struct{ name, input, want string }{
+		{"raw", `{"key":"value"}`, `{"key":"value"}`},
+		{"backtick quotes", "{`\"key`\":`\"value`\"}", `{"key":"value"}`},
+		{"doubled quotes", `{""key"":""value""}`, `{"key":"value"}`},
+		{"raw backticks", "{\"key\":\"`$value``n\"}", "{\"key\":\"`$value``n\"}"},
+		{"escaped backticks and dollar", "{`\"key`\":`\"`$value``n`\"}", "{\"key\":\"$value`n\"}"},
+		{"raw JSON escapes", `{"key":"a\"b\\c"}`, `{"key":"a\"b\\c"}`},
+		{"expression stays data",
+			"{`\"key`\":`\"$(Set-Variable -Name AKSInjectionCanary -Value 1 -Scope Global)`\"}",
+			`{"key":"$(Set-Variable -Name AKSInjectionCanary -Value 1 -Scope Global)"}`},
+		{"invalid", "{`\"key`\":}", "{`\"key`\":}"},
+	}
+}
+
 // windowsCSEField is one value that AgentBaker writes into the Windows CSE script.
 type windowsCSEField struct {
 	// action identifies the input, independently of any encoding applied by the template.
@@ -430,8 +445,15 @@ func TestWindowsCSEFieldsFixture(t *testing.T) {
 		for _, name := range sortedWindowsCSETestValueNames() {
 			add(field, windowsCSETestValues[name])
 		}
-		if field.action == `GetVariable "windowsCSEScriptsPackageURL"` {
+		switch field.action {
+		case `GetVariable "windowsCSEScriptsPackageURL"`:
 			add(field, windowsCSEPackageURLWithDollar)
+		case `GetVariable "nextGenNetworkingConfig"`:
+			for _, tt := range windowsCSEWCNJSONCases() {
+				testField := field
+				testField.want = func(*datamodel.NodeBootstrappingConfiguration, string) string { return tt.want }
+				add(testField, tt.input)
+			}
 		}
 	}
 	got := strings.Join(lines, "\n") + "\n"
@@ -662,7 +684,7 @@ func TestPowerShellLiteral(t *testing.T) {
 	for _, tt := range tests {
 		require.Equal(t, tt.want, powerShellLiteral(tt.value), "value %q", tt.value)
 	}
-	require.Equal(t, `'a', 'b''c'`, powerShellLiteralList([]string{"a", "b'c"}))
+	require.Equal(t, `"a", "b'c"`, powerShellLiteralList([]string{"a", "b'c"}))
 	require.Empty(t, powerShellLiteralList(nil))
 }
 
@@ -693,6 +715,65 @@ func TestWindowsKubeletArgumentsKeepTheirValues(t *testing.T) {
 	require.Contains(t, args, `--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`)
 	require.Contains(t, args, "WinDSR=true")
 	require.Contains(t, args, "WinOverlay=false")
+}
+
+// RP patches cached CustomData for another VM size using this double-quote-sensitive pattern.
+func TestWindowsKubeReservedRemainsPatchable(t *testing.T) {
+	config := newWindowsBootstrapTestConfig()
+	customData, _ := renderWindowsCSE(t, config)
+	pattern := regexp.MustCompile(`"--kube-reserved\S*"`)
+	require.Len(t, pattern.FindAllString(customData, -1), 1)
+	patched := pattern.ReplaceAllString(customData, `"--kube-reserved=cpu=180m,memory=8192Mi"`)
+	require.Contains(t, patched, `"--kube-reserved=cpu=180m,memory=8192Mi"`)
+	require.NotContains(t, patched, "--kube-reserved=cpu=100m,memory=3891Mi")
+}
+
+// Preserve the configured hook's original BasePrep placement without downloading or running it.
+func TestWindowsCSEPreprovisionExtension(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(strconv.FormatBool(enabled), func(t *testing.T) {
+			config := newWindowsBootstrapTestConfig()
+			config.ContainerService.Properties.ExtensionProfiles = []*datamodel.ExtensionProfile{{
+				Name: "preprovision-test", RootURL: "https://example.invalid/", Version: "v1", Script: "setup.ps1",
+			}}
+			if enabled {
+				config.AgentPoolProfile.PreprovisionExtension = &datamodel.Extension{Name: "preprovision-test"}
+			}
+			script, _ := renderWindowsCSE(t, config)
+			require.NotContains(t, script, "PREPROVISION_EXTENSION")
+			url := "https://example.invalid/extensions/preprovision-test/v1/setup.ps1"
+			if !enabled {
+				require.NotContains(t, script, url)
+				return
+			}
+			require.Contains(t, script, `curl.exe --retry 5 --retry-delay 0 -L "`+url+`"`)
+			require.Contains(t, script, `; powershell "$env:SystemDrive:/AzureData/extensions/preprovision-test/setup.ps1`)
+			require.Contains(t, script, `Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension"`)
+			require.Greater(t, strings.Index(script, url), strings.Index(script, "    Adjust-PageFileSize"))
+			require.Less(t, strings.Index(script, url), strings.Index(script, "    Adjust-DynamicPortRange"))
+		})
+	}
+	t.Run("missing profile", func(t *testing.T) {
+		config := newWindowsBootstrapTestConfig()
+		config.AgentPoolProfile.PreprovisionExtension = &datamodel.Extension{Name: "missing"}
+		require.PanicsWithValue(t, "missing extension referenced was not found in the extension profile", func() {
+			renderWindowsCSE(t, config)
+		})
+	})
+}
+
+// Legacy escaped JSON and raw JSON must reach WCN as data; invalid JSON stays with the consumer to report.
+func TestWindowsCSEWCNJSONCompatibility(t *testing.T) {
+	for _, tt := range windowsCSEWCNJSONCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			config := newWindowsBootstrapTestConfig()
+			config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+				NextGenNetworkingConfig: to.StringPtr(tt.input),
+			}
+			require.Equal(t, tt.want, getWindowsCustomDataVariables(config)["nextGenNetworkingConfig"])
+			require.Equal(t, tt.input, config.AgentPoolProfile.AgentPoolWindowsProfile.GetNextGenNetworkingConfig())
+		})
+	}
 }
 
 // Azure Blob URLs can name the $web container; PowerShell must not expand it as a variable.
