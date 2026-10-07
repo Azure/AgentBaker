@@ -38,18 +38,18 @@ Describe 'snapshot update service commands'
         done
     }
 
-    validate_ubuntu_hotfix_transition() {
+    validate_ubuntu_vhd_only_delivery() {
         local template="parts/linux/cloud-init/nodecustomdata.yml"
         local generator="hotfix/hotfix_generate.py"
         local key
 
         for key in snapshotUpdateScript securityUpdateScript
         do
-            grep -Fq "GetVariableProperty \"cloudInitData\" \"${key}\"" "${template}" || return 1
-            grep -Fq ": \"${key}\"" "${generator}" || return 1
+            ! grep -Fq "GetVariableProperty \"cloudInitData\" \"${key}\"" "${template}" || return 1
+            ! grep -Fq ": \"${key}\"" "${generator}" || return 1
         done
 
-        # Existing VHD-baked units remain unchanged; hotfixes update scripts only.
+        # Scripts and units are delivered by the VHD to avoid custom-data growth.
         ! grep -Fq 'GetVariableProperty "cloudInitData" "snapshotUpdateService"' "${template}" || return 1
         ! grep -Fq 'GetVariableProperty "cloudInitData" "snapshotUpdateTimer"' "${template}"
     }
@@ -76,8 +76,8 @@ Describe 'snapshot update service commands'
         The status should be success
     End
 
-    It 'hotfix-delivers the generic updater and security handler without switching units'
-        When call validate_ubuntu_hotfix_transition
+    It 'keeps the updater and handler out of provisioning custom data'
+        When call validate_ubuntu_vhd_only_delivery
         The status should be success
     End
 End

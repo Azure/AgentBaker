@@ -82,9 +82,6 @@ SOURCE_TO_VARKEY = {
     # Other scripts present in traditional nodecustomdata
     "configure-azure-network.sh": "configureAzureNetworkScript",
     "init-aks-cloud.sh": "initAKSCloud",
-    # Both Ubuntu updater scripts share a conditional write_files block.
-    "ubuntu/ubuntu-snapshot-update.sh": "snapshotUpdateScript",
-    "ubuntu/security-update.sh": "securityUpdateScript",
     # Systemd files present in traditional nodecustomdata
     "kubelet.service": "kubeletSystemdService",
     "reconcile-private-hosts.service": "reconcilePrivateHostsService",
