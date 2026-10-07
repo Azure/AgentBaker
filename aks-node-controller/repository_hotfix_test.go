@@ -1770,3 +1770,37 @@ func TestDownloadRepositoryFileDoesNotRetryAfterCallerCancellation(t *testing.T)
 	assert.True(t, isRepositoryCancellationError(err))
 	assert.Equal(t, int32(1), requests.Load(), "a cancelled branch must stop, not retry")
 }
+
+func TestRepositoryFetchBudgetCapsStalledFastPath(t *testing.T) {
+	original := repositoryFetchBudget
+	repositoryFetchBudget = 300 * time.Millisecond
+	t.Cleanup(func() { repositoryFetchBudget = original })
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		// Stall well inside the 10s response-header timeout, so only the fetch budget can
+		// end the request; give up after 5s so a regression fails instead of hanging.
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer server.Close()
+
+	app, origin := newRepositoryDownloadTestApp(t, server.URL)
+	start := time.Now()
+	_, _, err := app.fetchPackageAndMetadata(context.Background(), repositoryDownloadPlan{
+		packageURL:    server.URL + "/aks-node-controller.deb",
+		trustedOrigin: origin,
+		resolveMetadata: func(ctx context.Context) (repositoryPackageMetadata, error) {
+			_, err := app.downloadRepositoryFile(ctx, server.URL+"/dists/jammy/InRelease",
+				origin, repositoryMetadataMaxBytes)
+			return repositoryPackageMetadata{}, err
+		},
+	})
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.False(t, isIntegrityError(err),
+		"hitting the fetch budget must fall back to the package manager, not disarm the hotfix")
+	assert.Less(t, elapsed, 3*time.Second, "the fetch budget must bound both branches and their retries")
+}
