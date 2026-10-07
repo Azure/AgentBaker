@@ -1,23 +1,24 @@
-# PMC kubernetes packages for the Azure Local edge node image, sourced from the
-# Azure Linux 3.0 'base' prod channel (verified to carry the k8s RPMs). Mirrors
-# how aksarc-vhd/AzureLocal sources k8s from packages.microsoft.com.
+# PMC repos for the Azure Local edge node image, matching the channels the
+# production aksarc-vhd/AzureLocal build uses.
 #
-# Verified package names in this channel (name -> binary):
-#   kubernetes-kubeadm -> /usr/bin/kubeadm
-#   kubernetes         -> /usr/bin/kubelet
-#   kubernetes-client  -> /usr/bin/kubectl
-#   cni-plugins        -> CNI plugins
-#   containerd 1.7.13  -> container runtime
-# NOTE: the 'base' channel is normally enabled by default in the Azure Linux 3.0
-# base image; this makes the dependency explicit. $releasever/$basearch resolve
-# against the base image (3.0 / x86_64). Public PMC base currently tops out at
-# k8s 1.30.10 — newer minors are not published here.
-[azurelinux-base-k8s]
-name=Azure Linux Base (k8s) $releasever $basearch
-baseurl=https://packages.microsoft.com/azurelinux/$releasever/prod/base/$basearch
-gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
+# Verified against live PMC repodata (packages.microsoft.com/azurelinux/3.0):
+#   - k8s binaries (bare names kubeadm/kubelet/kubectl, many minors incl.
+#     1.33/1.34/1.35) live in prod/cloud-native.
+#   - cni-plugins (1.4.0) and containerd (1.7.13) live in prod/base.
+# These are enabled so download-k8s-bin-style staging can resolve per-version
+# k8s RPMs. $basearch resolves against the Azure Linux 3.0 base (x86_64).
+[azurelinux3.0prodcloud-nativex86_64]
+name=azurelinux/3.0/prod/cloud-native/$basearch
+baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/$basearch/
 gpgcheck=1
 repo_gpgcheck=1
 enabled=1
-skip_if_unavailable=True
-sslverify=1
+gpgkey=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/$basearch/repodata/repomd.xml.key
+
+[azurelinux3.0prodbasex86_64]
+name=azurelinux/3.0/prod/base/$basearch
+baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/base/$basearch/
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+gpgkey=https://packages.microsoft.com/azurelinux/3.0/prod/base/$basearch/repodata/repomd.xml.key

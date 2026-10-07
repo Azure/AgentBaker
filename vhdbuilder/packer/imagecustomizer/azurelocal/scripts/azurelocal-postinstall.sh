@@ -18,7 +18,7 @@ required_env_vars=(
     "BOOTSTRAP_MODE"
     "AGENT_SET"
     "PUBLISH_TARGET"
-    "K8S_VERSION"
+    "K8S_VERSIONS"
 )
 for v in "${required_env_vars[@]}"; do
     if [ -z "${!v:-}" ]; then
@@ -54,8 +54,8 @@ ln -sf /opt/bin /etc/extensions/lg-redirect-sysext/usr/local/bin
 mount --bind /opt/bin /usr/local/bin
 trap "umount /usr/local/bin" EXIT
 
-# --- (3) install k8s from PMC  [bootstrapMode=kubeadm-nocloud] ------------------
-K8S_VERSION="${K8S_VERSION}" bash "${SCRIPT_DIR}/install-k8s-pmc.sh"
+# --- (3) stage k8s versions from PMC  [bootstrapMode=kubeadm-nocloud] ----------
+K8S_VERSIONS="${K8S_VERSIONS}" bash "${SCRIPT_DIR}/install-k8s-pmc.sh"
 
 # --- (4) pre-cache MCR oss/v2 system images from components.json (shared) ------
 # Start containerd to allow container precaching, fetch-only to save space.

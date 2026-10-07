@@ -149,7 +149,7 @@ scripts:
         BOOTSTRAP_MODE: "kubeadm-nocloud"
         AGENT_SET: "edge"
         PUBLISH_TARGET: "sfs"
-        # k8s version installed from PMC (Azure Linux 3.0 'base' channel). This
-        # channel currently tops out at 1.30.10; newer minors are not published
-        # in public PMC base. Override at build time if a newer source is wired.
-        K8S_VERSION: "1.30.10"
+        # k8s versions baked as per-version offline repos (Azure Local
+        # multi-version model). All verified present in PMC prod/cloud-native.
+        # The node installs the selected version at bring-up.
+        K8S_VERSIONS: "1.33.12 1.33.13 1.34.11 1.34.12 1.35.7 1.35.8"

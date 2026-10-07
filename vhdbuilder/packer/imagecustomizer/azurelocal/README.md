@@ -119,11 +119,14 @@ These are intentionally left as seams (they belong to other teams/repos):
    lbagent/cert-tattoo/fluent-bit from `aksarc-vhd/AzureLocal`.
 2. **SFS publish** stages the VHD + manifest; the signed upload is owned by the
    Aks-Arc-Assembly `sfs-publishing` pipeline.
-3. **PMC package names** may differ per channel; `install-k8s-pmc.sh` tries
-   versioned then unversioned names. Reconcile with the exact package set
-   `aksarc-vhd/AzureLocal` consumes (analysis §7).
-4. **Multi-version merged VHD** (6 k8s versions) is not implemented; the POC
-   installs a single `K8S_VERSION`.
+3. **k8s packages** are staged from PMC `prod/cloud-native` (bare
+   `kubeadm`/`kubelet`/`kubectl`); `cni-plugins`/`containerd` from `prod/base` —
+   the same channels `aksarc-vhd/AzureLocal` uses.
+4. **Multi-version VHD**: `install-k8s-pmc.sh` bakes every version in
+   `K8S_VERSIONS` as a per-version offline repo under `/etc/k8s/<ver>/bin`
+   (mirrors production `download-k8s-bin.sh`). Current set:
+   `1.33.12 1.33.13 1.34.11 1.34.12 1.35.7 1.35.8`. The node installs the
+   selected version at bring-up; nothing is installed into `/usr/bin` at build.
 5. Upstreaming requires **AKS-team ownership + a shared CI lane** so the edge
    path cannot regress the AKS build (analysis §9.5).
 
