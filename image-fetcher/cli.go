@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -42,6 +43,29 @@ func newCommand() *cli.Command {
 							return fmt.Errorf("%s: %w", ref, err)
 						}
 						return nil
+					})
+				},
+			},
+			{
+				Name:  "pull-image",
+				Usage: "Ensure one image is fully pulled and unpacked for CRI",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "image", Required: true, Usage: "Image reference to pull and unpack"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if cmd.Args().Len() != 0 {
+						return errors.New("pull-image accepts no positional arguments; use --image")
+					}
+					if strings.TrimSpace(cmd.String("image")) == "" {
+						return errors.New("--image must not be empty")
+					}
+					return withContainerd(ctx, func(ctx context.Context, client *containerd.Client) error {
+						ref := cmd.String("image")
+						result, err := pullAndUnpackImage(ctx, client, ref)
+						if err != nil {
+							return fmt.Errorf("%s: %w", ref, err)
+						}
+						return json.NewEncoder(os.Stdout).Encode(result)
 					})
 				},
 			},

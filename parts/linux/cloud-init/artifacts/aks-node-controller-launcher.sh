@@ -46,6 +46,7 @@ fi
 
 anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
 BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
+export ANC_SELECTED_BIN_PATH="$BIN_PATH"
 
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then

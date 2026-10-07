@@ -619,6 +619,16 @@ function nodePrep {
         checkServiceHealth secure-tls-bootstrap || true
     fi
 
+    if [ "${ENABLE_NETWORKING_IMAGE_CACHE:-}" = "true" ]; then
+        networking_image_cache_anc="${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}"
+        echo "ENABLE_NETWORKING_IMAGE_CACHE=true; pulling and unpacking synth-rendered networking images"
+        if "${networking_image_cache_anc}" prepull-networking-images; then
+            echo "ANC networking image pre-pull completed"
+        else
+            echo "ANC networking image pre-pull failed; continuing (fail-open)"
+        fi
+    fi
+
     # Add localdns-exporter kubelet node label before ensureKubelet so it's
     # included in --node-labels at kubelet startup (~0ms, just a variable append).
     # Only add the label if the exporter socket unit exists on this VHD — otherwise
