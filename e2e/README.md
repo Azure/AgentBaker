@@ -293,6 +293,11 @@ The runner writes plain-text scenario logs. It does not write a JUnit file by de
 
 ADO uses `--output grouped`. Local runs stream prefixed logs when three or fewer scenario entry points are selected.
 
+After the suite's shutdown allowance expires, the runner stops waiting for blocked
+scenarios and publishes their collected logs with a timeout failure. JUnit retains
+log attachments, elapsed time, and prior attempts. The runner ignores later writes
+to finalized logs. Blocked operations and guest cleanup may remain unfinished.
+
 ### Logging
 
 Use `logging.Log(ctx, ...)` or `logging.Logf(ctx, ...)` from `e2e/logging`.
@@ -340,6 +345,16 @@ Linux log collection runs commands concurrently in one remote Bash script and re
 compressed archive through the shared SSH execution layer. Each log retains its stdout,
 stderr, and exit code. Commands have a timeout that reserves time to return partial output.
 Collection errors are saved in the affected log files; the console reports failed file names.
+
+SSH uses `websocket.NetConn` for Bastion tunneling. Dial and handshake contexts bound
+connection setup; an established connection remains available for cleanup. Canceling
+an active SSH operation closes its shared connection, including other active commands,
+to interrupt blocked channel opens and SCP setup. Canceling a queued operation does
+not close the connection.
+
+Bastion token deletion runs asynchronously after a failed dial or tunnel closure.
+It has a separate 30-second timeout and logs failures without delaying cancellation.
+This cleanup is best effort and can be interrupted by process exit.
 
 The other directories contain helper packages and embedded resources.
 
