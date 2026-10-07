@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -22,10 +23,10 @@ const (
 	windowsBootstrapTestdataDir    = "testdata/windowsbootstrap"
 )
 
-// windowsBootstrapLegacyNodes lists, in order, every template action and condition in the variables
-// block. An action renders a value directly into the Windows CSE script, and a condition chooses what
-// is rendered. The list is frozen: do not add entries, because each value that is pasted into
-// PowerShell code needs its own escaping review.
+// windowsBootstrapLegacyNodes lists, in order, every template action and condition of the legacy
+// branch of the variables block. An action renders a value directly into PowerShell code, and a
+// condition chooses what is rendered. The list is frozen: add new values to windowsBootstrapConfig
+// instead. The legacy branch is removed after the structured config is rolled out.
 var windowsBootstrapLegacyNodes = []string{
 	`action GetKubernetesEndpoint`,
 	`action GetParameter "kubeDNSServiceIP"`,
@@ -125,16 +126,20 @@ type windowsTemplateNode struct {
 	offset int
 }
 
-// windowsTemplateNodes parses a Windows template the same way AgentBaker does and returns its text
-// and every template node that can emit or select text.
-func windowsTemplateNodes(t *testing.T, templatePath string) (string, []windowsTemplateNode) {
+// parseWindowsTemplate parses a Windows template the same way AgentBaker does.
+func parseWindowsTemplate(t *testing.T, templatePath string) (string, *parse.Tree) {
 	t.Helper()
 	b, err := parts.Templates.ReadFile(templatePath)
 	require.NoError(t, err)
 	funcMap := getBakerFuncMap(newWindowsBootstrapTestConfig(), paramsMap{}, paramsMap{})
 	tmpl, err := template.New(templatePath).Funcs(funcMap).Parse(string(b))
 	require.NoError(t, err)
+	return string(b), tmpl.Tree
+}
 
+// collectWindowsTemplateNodes returns, in order, every template node under node that can emit or
+// select text.
+func collectWindowsTemplateNodes(node parse.Node) []windowsTemplateNode {
 	var nodes []windowsTemplateNode
 	var walk func(parse.Node)
 	walk = func(node parse.Node) {
@@ -160,52 +165,70 @@ func windowsTemplateNodes(t *testing.T, templatePath string) (string, []windowsT
 			nodes = append(nodes, windowsTemplateNode{kind: "template", pipe: n.Name, offset: int(n.Pos)})
 		}
 	}
-	walk(tmpl.Root)
-	return string(b), nodes
+	walk(node)
+	return nodes
+}
+
+func describeWindowsTemplateNodes(nodes []windowsTemplateNode) []string {
+	descriptions := make([]string, 0, len(nodes))
+	for _, n := range nodes {
+		descriptions = append(descriptions, n.kind+" "+n.pipe)
+	}
+	return descriptions
 }
 
 func TestWindowsCSETemplateRendersValuesOnlyInVariablesBlock(t *testing.T) {
-	text, nodes := windowsTemplateNodes(t, kubernetesWindowsAgentCustomDataPS1)
+	text, tree := parseWindowsTemplate(t, kubernetesWindowsAgentCustomDataPS1)
 	require.Equal(t, 1, strings.Count(text, windowsBootstrapVariablesBegin), "expected exactly one variables block begin marker")
 	require.Equal(t, 1, strings.Count(text, windowsBootstrapVariablesEnd), "expected exactly one variables block end marker")
 	begin := strings.Index(text, windowsBootstrapVariablesBegin)
 	end := strings.Index(text, windowsBootstrapVariablesEnd)
 	require.Less(t, begin, end)
 
-	var blockNodes []string
-	for _, n := range nodes {
-		line := 1 + strings.Count(text[:n.offset], "\n")
-		if n.offset > begin && n.offset < end {
-			switch n.kind {
-			case "action", "if":
-				blockNodes = append(blockNodes, n.kind+" "+n.pipe)
-			default:
-				t.Errorf("line %d: {{%s %s}} is not allowed in the variables block", line, n.kind, n.pipe)
-			}
+	var gate *parse.IfNode
+	for _, node := range tree.Root.Nodes {
+		if n, ok := node.(*parse.IfNode); ok && n.Pipe.String() == "EnableWindowsStructuredBootstrapConfig" {
+			require.Nil(t, gate, "expected one EnableWindowsStructuredBootstrapConfig branch")
+			gate = n
+		}
+	}
+	require.NotNil(t, gate, "expected the variables block to branch on EnableWindowsStructuredBootstrapConfig")
+	require.True(t, int(gate.Pos) > begin && int(gate.Pos) < end, "the structured config branch must be inside the variables block")
+
+	// The structured branch renders one value: the config blob, which is base64 by construction.
+	structured := collectWindowsTemplateNodes(gate.List)
+	require.Equal(t, []string{"action GetWindowsBootstrapConfig"}, describeWindowsTemplateNodes(structured),
+		"the structured branch must not render values into PowerShell code; add them to windowsBootstrapConfig")
+
+	legacy := collectWindowsTemplateNodes(gate.ElseList)
+	require.Equal(t, windowsBootstrapLegacyNodes, describeWindowsTemplateNodes(legacy),
+		"the legacy branch is frozen; add new values to windowsBootstrapConfig instead")
+
+	inGate := map[int]bool{int(gate.Pos): true}
+	for _, n := range append(structured, legacy...) {
+		inGate[n.offset] = true
+	}
+	for _, n := range collectWindowsTemplateNodes(tree.Root) {
+		if inGate[n.offset] {
 			continue
 		}
 		// $zippedFiles is the base64 of static AgentBaker scripts, so it never carries a rendered value.
-		if n.kind == "action" && n.pipe == "GetKubernetesWindowsAgentFunctions" {
+		if n.kind == "action" && n.pipe == "GetKubernetesWindowsAgentFunctions" && n.offset > end {
 			continue
 		}
-		t.Errorf("line %d: {{%s %s}} is outside the AKS bootstrap variables block. "+
-			"Add the value to the variables block and use the PowerShell variable instead", line, n.kind, n.pipe)
+		line := 1 + strings.Count(text[:n.offset], "\n")
+		t.Errorf("line %d: {{%s %s}} is outside the AKS bootstrap variables branches. "+
+			"Add the value to windowsBootstrapConfig and read the PowerShell variable instead", line, n.kind, n.pipe)
 	}
-	require.Equal(t, windowsBootstrapLegacyNodes, blockNodes,
-		"values or conditions rendered directly into the Windows CSE script changed; new values must not be pasted into PowerShell code")
 }
 
 func TestWindowsCSECommandTemplateRendersOnlyBase64Secrets(t *testing.T) {
-	_, nodes := windowsTemplateNodes(t, kubernetesWindowsAgentCSECommandPS1)
-	got := make([]string, 0, len(nodes))
-	for _, n := range nodes {
-		got = append(got, n.kind+" "+n.pipe)
-	}
+	_, tree := parseWindowsTemplate(t, kubernetesWindowsAgentCSECommandPS1)
 	require.Equal(t, []string{
 		`action GetParameter "clientPrivateKey"`,
 		`action GetParameter "encodedServicePrincipalClientSecret"`,
 		`if GetPreProvisionOnly`,
-	}, got)
+	}, describeWindowsTemplateNodes(collectWindowsTemplateNodes(tree.Root)))
 
 	config := newWindowsBootstrapTestConfig()
 	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "key'\"$(Get-Date);`n\u2019"
@@ -223,18 +246,34 @@ func TestWindowsBootstrapRenderedScriptIsASCII(t *testing.T) {
 	// so any non-ASCII byte in the rendered script can be decoded as a different character.
 	for _, fixture := range windowsBootstrapTestFixtures() {
 		t.Run(fixture.name, func(t *testing.T) {
-			customData, cse := renderWindowsBootstrap(t, fixture.newConfig())
-			requireASCII(t, "CustomData", customData)
-			requireASCII(t, "CSE command", cse)
+			if !fixture.hostile {
+				customData, cse := renderWindowsBootstrap(t, fixture.newConfig())
+				requireASCII(t, "legacy CustomData", customData)
+				requireASCII(t, "legacy CSE command", cse)
+			}
+			customData, cse := renderWindowsBootstrap(t, structuredWindowsBootstrapConfig(fixture.newConfig()))
+			requireASCII(t, "structured CustomData", customData)
+			requireASCII(t, "structured CSE command", cse)
 		})
 	}
 }
 
+// TestWindowsBootstrapVariablesGolden writes the rendered variables blocks that
+// parts/windows/kuberneteswindowssetup.bootstrapvariables.tests.ps1 runs in PowerShell, and the values
+// both blocks must produce (<name>.expected.txt).
 func TestWindowsBootstrapVariablesGolden(t *testing.T) {
 	for _, fixture := range windowsBootstrapTestFixtures() {
 		t.Run(fixture.name, func(t *testing.T) {
-			customData, _ := renderWindowsBootstrap(t, fixture.newConfig())
-			requireGoldenFile(t, fixture.name+".legacy.ps1", extractWindowsBootstrapVariables(t, customData))
+			if !fixture.hostile {
+				customData, _ := renderWindowsBootstrap(t, fixture.newConfig())
+				requireGoldenFile(t, fixture.name+".legacy.ps1", extractWindowsBootstrapVariables(t, customData))
+			}
+			customData, _ := renderWindowsBootstrap(t, structuredWindowsBootstrapConfig(fixture.newConfig()))
+			block := extractWindowsBootstrapVariables(t, customData)
+			bootstrapConfig := decodeWindowsBootstrapConfigBlob(t, windowsBootstrapConfigBlob(t, block))
+			requireStructuredGoldenFile(t, fixture.name+".structured.ps1", block)
+			requireGoldenFile(t, fixture.name+".structured.json", indentWindowsBootstrapConfig(t, bootstrapConfig))
+			requireGoldenFile(t, fixture.name+".expected.txt", windowsBootstrapExpectedValues(t, bootstrapConfig))
 		})
 	}
 }
@@ -263,6 +302,36 @@ func requireGoldenFile(t *testing.T, name, got string) {
 	require.Equal(t, string(want), got, "%s is stale; regenerate it with: make generate-testdata", path)
 }
 
+// requireStructuredGoldenFile compares a structured variables block with its golden file. The gzip
+// bytes of the config blob can change between Go versions, so it compares the decoded config and
+// the text around the blob.
+func requireStructuredGoldenFile(t *testing.T, name, got string) {
+	t.Helper()
+	path := filepath.Join(windowsBootstrapTestdataDir, name)
+	if os.Getenv("GENERATE_TEST_DATA") == "true" {
+		want, err := os.ReadFile(path)
+		if err != nil || !sameStructuredBlock(t, string(want), got) {
+			require.NoError(t, os.MkdirAll(windowsBootstrapTestdataDir, 0o755))
+			require.NoError(t, os.WriteFile(path, []byte(got), 0o600))
+		}
+	}
+	want, err := os.ReadFile(path)
+	require.NoError(t, err, "missing %s; regenerate it with: make generate-testdata", path)
+	require.True(t, sameStructuredBlock(t, string(want), got), "%s is stale; regenerate it with: make generate-testdata", path)
+}
+
+func sameStructuredBlock(t *testing.T, a, b string) bool {
+	t.Helper()
+	blobA, blobB := windowsBootstrapConfigBlob(t, a), windowsBootstrapConfigBlob(t, b)
+	return strings.Replace(a, blobA, "", 1) == strings.Replace(b, blobB, "", 1) &&
+		reflect.DeepEqual(decodeWindowsBootstrapConfigBlob(t, blobA), decodeWindowsBootstrapConfigBlob(t, blobB))
+}
+
+func structuredWindowsBootstrapConfig(config *datamodel.NodeBootstrappingConfiguration) *datamodel.NodeBootstrappingConfiguration {
+	config.EnableWindowsStructuredBootstrapConfig = true
+	return config
+}
+
 func renderWindowsBootstrap(t *testing.T, config *datamodel.NodeBootstrappingConfiguration) (string, string) {
 	t.Helper()
 	validateAndSetWindowsNodeBootstrappingConfiguration(config)
@@ -283,7 +352,10 @@ func extractWindowsBootstrapVariables(t *testing.T, customData string) string {
 }
 
 type windowsBootstrapTestFixture struct {
-	name      string
+	name string
+	// hostile fixtures carry values that are not valid in the legacy block, so only the structured
+	// block is rendered for them.
+	hostile   bool
 	newConfig func() *datamodel.NodeBootstrappingConfiguration
 }
 
@@ -314,6 +386,8 @@ func windowsBootstrapTestFixtures() []windowsBootstrapTestFixture {
 			properties.FeatureFlags.EnableIPv6DualStack = true
 			properties.WindowsProfile.SSHEnabled = to.BoolPtr(false)
 			config.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{}
+			config.ConfigGPUDriverIfNeeded = true
+			config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{DisableOutboundNat: to.BoolPtr(true)}
 			return config
 		}},
 		{name: "pisbake", newConfig: func() *datamodel.NodeBootstrappingConfiguration {
@@ -325,6 +399,8 @@ func windowsBootstrapTestFixtures() []windowsBootstrapTestFixture {
 			config.EnableIMDSRestriction = true
 			config.ConfigGPUDriverIfNeeded = true
 			config.AgentPoolProfile.Distro = datamodel.AKSWindows2019Containerd
+			config.AgentPoolProfile.NotRebootWindowsNode = to.BoolPtr(false)
+			properties.WindowsProfile.EnableCSIProxy = to.BoolPtr(false)
 			config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
 				DisableOutboundNat:       to.BoolPtr(true),
 				NextGenNetworkingEnabled: to.BoolPtr(true),
@@ -342,7 +418,134 @@ func windowsBootstrapTestFixtures() []windowsBootstrapTestFixture {
 			properties.WindowsProfile.WindowsCalicoPackageURL = "https://packages.aks.azure.com/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
 			return config
 		}},
+		{name: "distinct", newConfig: newDistinctWindowsBootstrapTestConfig},
+		// flipped sets the booleans so that, together with the other fixtures, each one has its own
+		// pattern of values (see TestWindowsBootstrapFixturesTellValuesApart).
+		{name: "flipped", newConfig: func() *datamodel.NodeBootstrappingConfiguration {
+			config := newWindowsBootstrapTestConfig()
+			properties := config.ContainerService.Properties
+			config.PreProvisionOnly = true
+			config.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{}
+			config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+				DisableOutboundNat:       to.BoolPtr(true),
+				NextGenNetworkingEnabled: to.BoolPtr(true),
+			}
+			properties.SecurityProfile = &datamodel.SecurityProfile{PrivateEgress: &datamodel.PrivateEgress{Enabled: true, TestMode: true}}
+			properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+				Name:                       "akscustom",
+				ResourceManagerEndpoint:    "https://flipped-management.example/",
+				ContainerRegistryDNSSuffix: ".flipped-registry.example",
+			}
+			properties.OrchestratorProfile.KubernetesConfig.NetworkPluginMode = ""
+			properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
+			properties.WindowsProfile.EnableCSIProxy = to.BoolPtr(false)
+			return config
+		}},
+		{name: "hostile", hostile: true, newConfig: newHostileWindowsBootstrapTestConfig},
 	}
+}
+
+// newDistinctWindowsBootstrapTestConfig gives the config values distinct values where the inputs allow
+// it, so the golden tests notice a value that is assigned to the wrong variable.
+func newDistinctWindowsBootstrapTestConfig() *datamodel.NodeBootstrappingConfiguration {
+	config := newWindowsBootstrapTestConfig()
+	properties := config.ContainerService.Properties
+	kubernetesConfig := properties.OrchestratorProfile.KubernetesConfig
+	hnsInterval, logInterval := uint32(3), uint32(7)
+	cloudSpecConfig := *datamodel.AzurePublicCloudSpecForTest
+	cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID = "distinct-telemetry-guid"
+	cloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase = "distinct-mcr.example/"
+
+	config.CloudSpecConfig = &cloudSpecConfig
+	config.ContainerService.Location = "westus3"
+	config.TenantID = "distinct-tenant"
+	config.SubscriptionID = "distinct-subscription"
+	config.ResourceGroupName = "distinct-node-resource-group"
+	config.UserAssignedIdentityClientID = "distinct-kubelet-identity"
+	config.PrimaryScaleSetName = "distinct-scale-set"
+	config.KubeletClientTLSBootstrapToken = to.StringPtr("dstnct.0123456789abcdef")
+	config.EnableIMDSRestriction = true
+	config.ConfigGPUDriverIfNeeded = true
+	config.KubeproxyConfig = map[string]string{"--v": "4"}
+	config.K8sComponents.WindowsPackageURL = "https://distinct.example/kubernetes.zip"
+	config.K8sComponents.WindowsCredentialProviderURL = "https://distinct.example/credential-provider.tar.gz"
+	config.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
+		Enabled:                   false,
+		AADResource:               "distinct-aad-resource",
+		UserAssignedIdentityID:    "distinct-stls-identity",
+		CustomClientDownloadURL:   "https://distinct.example/stls-client.zip",
+		ValidateKubeconfigTimeout: "11s",
+		GetAccessTokenTimeout:     "12s",
+		GetInstanceDataTimeout:    "13s",
+		GetNonceTimeout:           "14s",
+		GetAttestedDataTimeout:    "15s",
+		GetCredentialTimeout:      "16s",
+	}
+
+	profile := config.AgentPoolProfile
+	profile.AvailabilityProfile = datamodel.AvailabilitySet
+	profile.VnetSubnetID = "/subscriptions/distinct-subscription/resourceGroups/distinct-vnet-rg/providers/Microsoft.Network/virtualNetworks/distinct-vnet/subnets/distinct-subnet"
+	profile.VnetCidrs = []string{"10.102.0.0/16"}
+	profile.NotRebootWindowsNode = to.BoolPtr(false)
+	profile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+		DisableOutboundNat:       to.BoolPtr(true),
+		NextGenNetworkingEnabled: to.BoolPtr(true),
+		NextGenNetworkingConfig:  to.StringPtr("distinct-wcn-config"),
+	}
+
+	properties.HostedMasterProfile.FQDN = "distinct-apiserver.example"
+	properties.HostedMasterProfile.DNSPrefix = "distinct-dns-prefix"
+	properties.ServicePrincipalProfile.ClientID = "distinct-sp-client-id"
+	properties.CertificateProfile.CaCertificate = "distinct-ca-certificate"
+	properties.CertificateProfile.ClientCertificate = "distinct-client-certificate"
+	properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{KeyData: "ssh-ed25519 AAAAdistinct only@example"}}
+	properties.FeatureFlags.EnableIPv6DualStack = true
+	properties.SecurityProfile = &datamodel.SecurityProfile{PrivateEgress: &datamodel.PrivateEgress{
+		Enabled:                 true,
+		ContainerRegistryServer: "distinctacr.azurecr.io",
+		ProxyAddress:            "http://10.1.2.3:8080",
+	}}
+	properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+		Name:                       "akscustom",
+		ResourceManagerEndpoint:    "https://distinct-management.example/",
+		ContainerRegistryDNSSuffix: ".distinct-registry.example",
+	}
+	properties.OrchestratorProfile.OrchestratorVersion = "1.32.7"
+	properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
+	properties.WindowsProfile = &datamodel.WindowsProfile{
+		AlwaysPullWindowsPauseImage: to.BoolPtr(false),
+		CSIProxyURL:                 "https://distinct.example/csi-proxy.tar.gz",
+		EnableCSIProxy:              to.BoolPtr(false),
+		SSHEnabled:                  to.BoolPtr(false),
+		WindowsDockerVersion:        "distinct-docker-version",
+		WindowsPauseImageURL:        "distinct.example/pause:1.0",
+		CseScriptsPackageURL:        "https://distinct.example/cse/",
+		WindowsGmsaPackageUrl:       "https://distinct.example/gmsa.zip",
+		GpuDriverURL:                "https://distinct.example/gpu.exe",
+		WindowsCalicoPackageURL:     "https://distinct.example/calico.zip",
+		ContainerdWindowsRuntimes: &datamodel.ContainerdWindowsRuntimes{
+			DefaultSandboxIsolation: "hyperv",
+			RuntimeHandlers:         []datamodel.RuntimeHandlers{{BuildNumber: "17763"}, {BuildNumber: "20348"}},
+		},
+		HnsRemediatorIntervalInMinutes: &hnsInterval,
+		LogGeneratorIntervalInMinutes:  &logInterval,
+	}
+	config.AgentPoolProfile.Distro = datamodel.AKSWindows2019Containerd
+
+	kubernetesConfig.AzureCNIURLWindows = "https://distinct.example/azure-cni.zip"
+	kubernetesConfig.WindowsContainerdURL = "https://distinct.example/containerd/"
+	kubernetesConfig.WindowsSdnPluginURL = "https://distinct.example/sdn.zip"
+	kubernetesConfig.ClusterSubnet = "10.100.0.0/16"
+	kubernetesConfig.ServiceCIDR = "10.101.0.0/16"
+	kubernetesConfig.DNSServiceIP = "10.101.0.10"
+	kubernetesConfig.LoadBalancerSku = "Basic"
+	kubernetesConfig.NetworkPluginMode = ""
+	kubernetesConfig.EbpfDataplane = datamodel.EbpfDataplane_cilium
+	kubernetesConfig.UseInstanceMetadata = to.BoolPtr(false)
+	kubernetesConfig.UserAssignedID = "distinct-kubelet-identity"
+	config.KubeletConfig["--healthz-port"] = "10299"
+	delete(config.KubeletConfig, "--rotate-server-certificates")
+	return config
 }
 
 func newWindowsBootstrapTestConfig() *datamodel.NodeBootstrappingConfiguration {
