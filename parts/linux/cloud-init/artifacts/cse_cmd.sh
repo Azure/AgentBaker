@@ -160,6 +160,9 @@ KUBELET_CLIENT_CONTENT="{{GetKubeletClientKey}}"
 KUBELET_CLIENT_CERT_CONTENT="{{GetKubeletClientCert}}"
 KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
+{{with GetKubeletFlagsToOmit -}}
+KUBELET_FLAGS_TO_OMIT="{{.}}"
+{{end -}}
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
 GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
 GPU_DRIVER_TYPE="{{GPUDriverType}}"

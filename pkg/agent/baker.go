@@ -925,6 +925,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigFileContent": func() string {
 			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
+		"GetKubeletFlagsToOmit": func() string {
+			return getKubeletFlagsToOmit(config.EnabledFeatures)
+		},
 		"GetKubeletConfigFileContentBase64": func() string {
 			return base64.StdEncoding.EncodeToString([]byte(GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)))
 		},

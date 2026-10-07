@@ -443,6 +443,8 @@ EOF
 Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=${containerd_runtime_cgroups}"
 EOF
 
+    reconcileKubeletConfigFlags /etc/systemd/system/kubelet.service /etc/systemd/system/kubelet.service.d /etc/default/kubeletconfig.json "${containerd_runtime_cgroups}" || exit $ERR_KUBELET_START_FAIL
+
     if ! systemctl daemon-reload; then
         exit $ERR_KUBELET_START_FAIL
     fi
@@ -460,6 +462,130 @@ EOF
         echo "failed to start measure-tls-bootstrapping-latency.service"
     fi
 }
+
+reconcileKubeletConfigFlags() (
+    set +x
+    local service_file="$1"
+    local drop_in_dir="$2"
+    local config_file="$3"
+    local runtime_cgroups="$4"
+    local managed_drop_in="${drop_in_dir}/11-kubelet-config-flags.conf"
+    if [ -e "${managed_drop_in}" ]; then
+        rm -f "${managed_drop_in}" || return 1
+    fi
+    local encoded_flags="${KUBELET_FLAGS_TO_OMIT:-}"
+    if [ "${KUBELET_CONFIG_FILE_ENABLED:-}" != "true" ] || [ -z "${encoded_flags}" ] || [ "${#encoded_flags}" -gt 1024 ]; then
+        return 0
+    fi
+    case "${KUBELET_FLAGS:-}" in
+        *--config*) return 0 ;;
+    esac
+    case $((${#encoded_flags} % 4)) in
+        1) return 0 ;;
+        2) encoded_flags="${encoded_flags}==" ;;
+        3) encoded_flags="${encoded_flags}=" ;;
+    esac
+    local requested_flags
+    requested_flags=$(printf '%s' "${encoded_flags}" | base64 -d 2>/dev/null) || return 0
+    printf '%s' "${requested_flags}" | jq -e 'type == "array" and length <= 16 and all(.[]; type == "string" and test("^--[a-z][a-z0-9-]{0,62}$"))' >/dev/null 2>&1 || return 0
+    jq -e 'type == "object"' "${config_file}" >/dev/null 2>&1 || return 0
+    local expected_config_drop_in="[Service]
+Environment=\"KUBELET_CONFIG_FILE_FLAGS=--config ${config_file}\""
+    [ "$(cat "${drop_in_dir}/10-componentconfig.conf" 2>/dev/null)" = "${expected_config_drop_in}" ] || return 0
+
+    local expected_exec_start
+    expected_exec_start=$(cat <<'EOF'
+ExecStart=/opt/bin/kubelet \
+        --enable-server \
+        --node-labels="${KUBELET_NODE_LABELS}" \
+        --v=2 \
+        --volume-plugin-dir=/etc/kubernetes/volumeplugins \
+        $KUBELET_TLS_BOOTSTRAP_FLAGS \
+        $KUBELET_CONFIG_FILE_FLAGS \
+        $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_CONTAINER_RUNTIME_FLAG \
+        $KUBELET_CGROUP_FLAGS \
+        $KUBELET_FLAGS
+EOF
+)
+    local exec_start
+    exec_start=$(awk '/^ExecStart=/ { inside = 1 } inside { print } inside && !/\\$/ { inside = 0 }' "${service_file}" 2>/dev/null)
+    if [ "${exec_start}" != "${expected_exec_start}" ]; then
+        return 0
+    fi
+    local drop_in
+    for drop_in in "${drop_in_dir}"/*.conf; do
+        if grep -q '^ExecStart=' "${drop_in}" 2>/dev/null; then
+            return 0
+        fi
+    done
+
+    local omit_timeout=false
+    local omit_endpoint=false
+    local omit_cgroup=false
+    local service_changed=false
+    local flag
+    for flag in $(printf '%s' "${requested_flags}" | jq -r '.[]'); do
+        case "${flag}" in
+            --enable-server)
+                if [ -n "${exec_start}" ] && jq -e '.enableServer == true' "${config_file}" >/dev/null; then
+                    exec_start=$(printf '%s\n' "${exec_start}" | grep -vxF "        --enable-server \\")
+                    service_changed=true
+                fi
+                ;;
+            --volume-plugin-dir)
+                if [ -n "${exec_start}" ] && jq -e '.volumePluginDir == "/etc/kubernetes/volumeplugins"' "${config_file}" >/dev/null; then
+                    exec_start=$(printf '%s\n' "${exec_start}" | grep -vxF "        --volume-plugin-dir=/etc/kubernetes/volumeplugins \\")
+                    service_changed=true
+                fi
+                ;;
+            --cgroup-driver)
+                local expected_cgroup_drop_in='[Service]
+Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"'
+                if [ "${NEEDS_CGROUPV2:-}" = "true" ] && [ "$(cat "${drop_in_dir}/10-cgroupv2.conf" 2>/dev/null)" = "${expected_cgroup_drop_in}" ] && jq -e '.cgroupDriver == "systemd"' "${config_file}" >/dev/null; then
+                    omit_cgroup=true
+                fi
+                ;;
+            --runtime-request-timeout)
+                if jq -e '.runtimeRequestTimeout == "15m"' "${config_file}" >/dev/null; then
+                    omit_timeout=true
+                fi
+                ;;
+            --container-runtime-endpoint)
+                if jq -e '.containerRuntimeEndpoint == "unix:///run/containerd/containerd.sock"' "${config_file}" >/dev/null; then
+                    omit_endpoint=true
+                fi
+                ;;
+        esac
+    done
+
+    if [ "${service_changed}" = false ] && [ "${omit_cgroup}" = false ] && [ "${omit_timeout}" = false ] && [ "${omit_endpoint}" = false ]; then
+        return 0
+    fi
+    local content='[Service]'
+    if [ "${service_changed}" = true ]; then
+        content="${content}
+ExecStart=
+${exec_start}"
+    fi
+    if [ "${omit_cgroup}" = true ]; then
+        content="${content}
+Environment=\"KUBELET_CGROUP_FLAGS=\""
+    fi
+    if [ "${omit_timeout}" = true ] || [ "${omit_endpoint}" = true ]; then
+        local runtime_flags=""
+        if [ "${omit_timeout}" = false ]; then
+            runtime_flags='--runtime-request-timeout=15m '
+        fi
+        if [ "${omit_endpoint}" = false ]; then
+            runtime_flags="${runtime_flags}--container-runtime-endpoint=unix:///run/containerd/containerd.sock "
+        fi
+        content="${content}
+Environment=\"KUBELET_CONTAINERD_FLAGS=${runtime_flags}--runtime-cgroups=${runtime_cgroups}\""
+    fi
+    printf '%s\n' "${content}" > "${managed_drop_in}" || return 1
+    chmod 0600 "${managed_drop_in}"
+)
 
 # Internal function that writes credential provider config to a specified path
 # This function is extracted to allow unit testing without root permissions
