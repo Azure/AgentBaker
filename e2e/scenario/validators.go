@@ -1361,11 +1361,11 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 		return err
 	}
 	if !owned {
-		s.Logger.Logf("Skipping aks-windows-exporter validation: baked assets marker %s not found (aks-vm-extension manages the service on this VHD)", assets)
+		logging.Logf(ctx, "Skipping aks-windows-exporter validation: baked assets marker %s not found (aks-vm-extension manages the service on this VHD)", assets)
 		return nil
 	}
 
-	s.Logger.Log("skip_vhd_windows_exporter sentinel present, validating aks-windows-exporter installation")
+	logging.Logf(ctx, "skip_vhd_windows_exporter sentinel present, validating aks-windows-exporter installation")
 	command := []string{
 		"$ErrorActionPreference = \"Stop\"",
 		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing binary: %s' }", binary, binary),
@@ -1392,7 +1392,7 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 	if err := validateWindowsExporterMetrics(validationResult.stdout); err != nil {
 		return fmt.Errorf("windows-exporter scrape did not satisfy the metrics contract: %w\nmetric summary:\n%s", err, validationResult.stdout)
 	}
-	s.Logger.Logf("aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
+	logging.Logf(ctx, "aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
 	return nil
 }
 
