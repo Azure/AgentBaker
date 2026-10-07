@@ -883,14 +883,3 @@ EOF
     systemctl enable nvidia-persistenced.service || exit 1
     systemctl restart nvidia-persistenced.service || exit 1
 }
-
-skipCloudInitReadyReport() {
-    local config_filepath="/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg"
-    mkdir -p "$(dirname "${config_filepath}")"
-    cat <<EOF >"${config_filepath}"
-datasource:
-    Azure:
-        experimental_skip_ready_report: true
-EOF
-}
-#EOF

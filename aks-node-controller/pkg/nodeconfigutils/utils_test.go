@@ -314,6 +314,9 @@ func TestCustomDataOmitsEnabledFeaturesWhenHotfixDisabled(t *testing.T) {
 	off := decodeBoothook(t, &aksnodeconfigv1.Configuration{})
 	require.NotContains(t, off, "enabled_features.sh")
 	require.NotContains(t, off, "ENABLE_PROVISIONING_HOTFIX")
+	require.NotContains(t, off, "81_azure_skip_ready_report.cfg")
+	require.NotContains(t, off, "experimental_skip_ready_report")
+	require.NotContains(t, off, "/var/lib/waagent/provisioned")
 
 	// Byte-identity: an empty features map must produce the same output as an unset one.
 	emptyMap := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}})
@@ -334,6 +337,20 @@ func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
 	require.NotEqual(t, -1, featuresIdx)
 	require.NotEqual(t, -1, startIdx)
 	require.Less(t, featuresIdx, startIdx, "enabled_features.sh must be written before the service starts")
+	require.NotContains(t, on, "81_azure_skip_ready_report.cfg")
+	require.NotContains(t, on, "experimental_skip_ready_report")
+	require.NotContains(t, on, "/var/lib/waagent/provisioned")
+}
+
+func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t *testing.T) {
+	on := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
+		customDataOnlyProvisioningFeature: "true",
+	}})
+
+	require.Contains(t, on, "/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg")
+	require.Contains(t, on, "experimental_skip_ready_report: true")
+	require.Contains(t, on, "touch /var/lib/waagent/experimental_skip_ready_report")
+	require.Contains(t, on, "cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned")
 }
 
 func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {

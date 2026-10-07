@@ -918,11 +918,21 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 }
 
 func ValidateReportReadyRan(ctx context.Context, s *Scenario) error {
+	const reportReadyPath = "/opt/azure/containers/report_ready.py"
+	if _, err := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		"sudo test -x "+reportReadyPath,
+		0,
+		reportReadyPath+" is missing or not executable on the VHD",
+	); err != nil {
+		return err
+	}
 	return ValidateFileHasContent(
 		ctx,
 		s,
 		"/var/log/azure/aks-node-controller.output",
-		"Successfully reported Ready to Azure fabric.",
+		"Report ready successfully sent status to Azure fabric",
 	)
 }
 

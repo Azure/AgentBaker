@@ -23,7 +23,6 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
-	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -427,52 +426,6 @@ chmod 0600 %[6]s`,
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
-func customDataWithReadyReporter(customData string) (string, error) {
-	decoded, err := base64.StdEncoding.DecodeString(customData)
-	if err != nil {
-		return "", fmt.Errorf("decode custom data for ready reporter: %w", err)
-	}
-
-	reporterBlock, err := readyReporterBlock()
-	if err != nil {
-		return "", err
-	}
-
-	return base64.StdEncoding.EncodeToString(append(decoded, []byte(reporterBlock)...)), nil
-}
-
-func readyReporterBlock() (string, error) {
-	src, err := parts.Templates.ReadFile("linux/cloud-init/artifacts/report_ready.py")
-	if err != nil {
-		return "", fmt.Errorf("read report_ready.py: %w", err)
-	}
-
-	var compressed bytes.Buffer
-	zw := gzip.NewWriter(&compressed)
-	if _, err := zw.Write(src); err != nil {
-		return "", fmt.Errorf("compress report_ready.py: %w", err)
-	}
-	if err := zw.Close(); err != nil {
-		return "", fmt.Errorf("finalize compressed report_ready.py: %w", err)
-	}
-
-	return fmt.Sprintf(`
-
-mkdir -p /opt/azure/containers /var/lib/waagent
-cat <<'REPORTREADY' | base64 -d | gunzip > /opt/azure/containers/report_ready.py
-%s
-REPORTREADY
-chmod 0744 /opt/azure/containers/report_ready.py
-
-touch /var/lib/waagent/experimental_skip_ready_report
-chmod 0644 /var/lib/waagent/experimental_skip_ready_report
-if [ -s /sys/class/dmi/id/product_uuid ]; then
-    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
-    chmod 0644 /var/lib/waagent/provisioned
-fi
-`, base64.StdEncoding.EncodeToString(compressed.Bytes())), nil
-}
-
 func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachineScaleSet, error) {
 	if s == nil || s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Name == nil || s.Runtime.Cluster.Model.Properties == nil ||
@@ -593,10 +546,6 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 	}
 
 	if s.Runtime.NBC.IsCustomDataOnlyProvisioningEnabled() {
-		customData, err = customDataWithReadyReporter(customData)
-		if err != nil {
-			return armcompute.VirtualMachineScaleSet{}, err
-		}
 		cse = ""
 	}
 
