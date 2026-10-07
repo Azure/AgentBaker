@@ -24,6 +24,9 @@ import (
 )
 
 func runScenarioFlow(ctx context.Context, name string, s *Scenario) error {
+	if s.ClusterTest != nil {
+		return runScenario(ctx, name, s)
+	}
 	if config.Config.TestPreProvision || s.VHDCaching {
 		return runVHDCachingScenario(ctx, name, s)
 	}
@@ -247,6 +250,11 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 		return fmt.Errorf("creating per-test kubeclient: %w", err)
 	}
 	s.Runtime.Kube = testKube
+
+	if s.ClusterTest != nil {
+		defer logging.LogStep(ctx, "running cluster-level scenario")()
+		return s.ClusterTest(ctx, s)
+	}
 
 	// use shorter timeout for faster feedback on test failures
 	vmssCtx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
