@@ -38,6 +38,9 @@ func (agentBaker *agentBakerImpl) WithToggles(toggles toggles.Toggles) *agentBak
 func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	// validate and fix input before passing config to the template generator.
 	if config.AgentPoolProfile.IsWindows() {
+		if _, err := windowsKubeletFlagsToOmit(config); err != nil {
+			return nil, err
+		}
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
 		if err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config); err != nil {
@@ -49,6 +52,9 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	nodeBootstrapping := &datamodel.NodeBootstrapping{
 		CustomData: templateGenerator.getNodeBootstrappingPayload(config),
 		CSE:        templateGenerator.getNodeBootstrappingCmd(config),
+	}
+	if hasWindowsKubeletConfiguration(config) && len(nodeBootstrapping.CustomData) > MaxCustomDataLength {
+		return nil, fmt.Errorf("windows kubelet configuration exceeds the CustomData size limit")
 	}
 
 	distro := config.AgentPoolProfile.Distro

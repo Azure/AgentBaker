@@ -1,3 +1,67 @@
+# Explicit kubelet configuration delivery
+
+Windows delivery is default-off: it requires both a non-nil NBC
+`KubeletConfigFileConfig` and `EnableKubeletConfigFile=true`. AgentBaker transports
+the supplied typed JSON; it does not select Kubernetes versions, enable the mode,
+translate flags, or supply configuration defaults. The caller owns effective
+values, CLI exceptions, artifact compatibility and activation policy.
+
+NodePrep writes `c:\k\kubelet-config-rp.json` and attaches it to the freshly written
+cluster configuration. It refreshes only `kubeletconfig.ps1` and the current
+`kubeletstart.ps1` using the existing per-node inline `scripts.zip` mechanism.
+The two scripts live at fixed `windows/kubeletconfiguration/` archive paths.
+Refreshing in NodePrep matters because BasePrep is skipped on cached/PIS images;
+an updated repository startup script alone does not update those images.
+
+An absent/empty omission request still delivers the configuration and retains
+both hardcoded appenders. The optional `EnabledFeatures["KUBELET_FLAGS_TO_OMIT"]`
+value is standard-base64 JSON, preferably unpadded, at most 1024 encoded bytes and
+16 string entries. Padded standard base64 is also accepted. Only
+`--volume-plugin-dir` and `--container-runtime-endpoint` are recognized; unknown
+names are ignored, never evaluated. The startup script omits a requested appender
+only after loading the attached file and finding an exact matching string value.
+An existing same-name CLI argument retains the appender and its existing final
+precedence. Every map/custom/typed override and the certificate-tag CLI pipeline
+remains in place.
+
+Caller preconditions for explicit delivery:
+
+- A supported `KubeletConfiguration` kind and `kubelet.config.k8s.io/v1beta1` API.
+- No custom `--config` or `--config-dir`; these conflict with authoritative delivery.
+- `serverTLSBootstrap=true` requires the retained enabling rotation CLI. The
+  existing node tag can still set that CLI to false, overriding the config.
+- The supplied typed JSON plus retained CLI must represent all effective values.
+  This schema is not the complete upstream schema: some fields are absent and
+  some scalar zero/false values serialize as omitted. In particular,
+  `authentication.webhook.enabled=false` is omitted and upstream defaults it to
+  true. Retain affected CLI inputs; do not activate unsupported configurations.
+  Windows health-probe inputs still come from the existing CLI map.
+- The resulting base64 CustomData must not exceed 87380 bytes. Oversized active
+  payloads return an API error; there is no new downloader or fallback path.
+
+Invalid active requests fail rather than silently reverting to a potentially
+incomplete CLI-only configuration. The writer validates the request, configuration,
+conflicts and both bootstrap scripts before installing feature files. Startup
+rejects missing/corrupt attached config or competing config arguments before
+service/process launch. Nil/off inputs emit the original CustomData (including
+its ZIP); no feature files are installed, removed or consulted. A newly baked
+startup script is different code, but retains the legacy argv path without fresh
+opt-in cluster metadata, even if stale feature files remain.
+
+The two flag registrations and common config-flag deprecation are documented in
+versioned upstream source:
+- [volume-plugin-dir, v1.37.0](https://github.com/kubernetes/kubernetes/blob/v1.37.0/cmd/kubelet/app/options/options.go#L436)
+- [container-runtime-endpoint, v1.37.0](https://github.com/kubernetes/kubernetes/blob/v1.37.0/cmd/kubelet/app/options/options.go#L379)
+- [config-flag deprecation, v1.37.0](https://github.com/kubernetes/kubernetes/blob/v1.37.0/cmd/kubelet/app/options/options.go#L342)
+- [webhook configuration defaults, v1.34.0](https://github.com/kubernetes/kubernetes/blob/v1.34.0/pkg/kubelet/apis/config/v1beta1/defaults.go#L95)
+
+This is additive renderer support, not version-policy activation or evidence of
+a Windows Kubernetes 1.38 runtime test. Run `go test ./pkg/agent -run
+'^TestWindowsKubelet' -count=1` and `Invoke-Pester -Path
+staging/cse/windows/kubeletconfig.tests.ps1 -Output Detailed` for focused coverage.
+The tests mock native service/network/process calls; runtime artifact validation
+is a separate prerequisite for activation.
+
 # Unit Tests
 
 1. Execute unit tests on pipeline. The yaml file of unit test pipeline is .github/workflows/validate-windows-ut.yml.
