@@ -658,6 +658,7 @@ func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
+	addWindowsKubeletConfigTemplateFuncs(config, funcMap)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
