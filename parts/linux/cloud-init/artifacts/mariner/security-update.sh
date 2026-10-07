@@ -137,7 +137,10 @@ kubelet_update() {
     target_kubelet_version=""
     kubelet_url=""
     kubelet_url_with_token=""
-    custom_patching=$($KUBECTL get node "${target_node_name}" -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-custom-patching']}")
+    if ! custom_patching=$($KUBECTL get node "${target_node_name}" -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-custom-patching']}"); then
+        echo "failed to read custom patching annotation"
+        return 1
+    fi
     if [ "${custom_patching}" = "true" ]; then
         echo "custom patching is enabled, retrieving target kubelet version from custom patching service"
         cluster_ip=$($KUBECTL get svc kubernetes -o jsonpath="{.spec.clusterIP}")
@@ -240,7 +243,10 @@ kubelet_update() {
         echo "failed to back up kubelet executable"
         return 1
     fi
-    mv ${target_kubelet_path} ${KUBELET_EXECUTABLE}
+    if ! mv "${target_kubelet_path}" "${KUBELET_EXECUTABLE}"; then
+        echo "failed to replace kubelet executable"
+        return 1
+    fi
     if ! systemctl restart kubelet.service; then
         echo "failed to restart kubelet.service, restoring previous kubelet"
         if ! mv "${kubelet_backup}" "${KUBELET_EXECUTABLE}" || ! systemctl restart kubelet.service; then

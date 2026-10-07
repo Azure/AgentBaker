@@ -921,6 +921,70 @@ KUBELET_EOF
         Describe 'on AzureLinux 3.0'
             BeforeEach 'setup_azurelinux3'
 
+            run_generic_kubelet_update() {
+                read_generic_config() {
+                    printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20261007T000000Z\",\"kubeletVersion\":\"1.29.11\"}}}"}]}'
+                }
+                local goal
+                goal=$(read_generic_config | sha256sum | cut -d' ' -f1)
+                generic_main '{"metadata":{"name":"test-node","labels":{"kubernetes.azure.com/agentpool":"ap1"},"annotations":{}}}' "${goal}"
+            }
+
+            It 'reports failure without checkpointing when the custom-patching read fails'
+                setup_kubelet_executable "1.29.10"
+                LIVE_PATCHING_STATE_FILE="${TEST_DIR}/state/current.json"
+                SECURITY_PATCH_TMP_DIR="${TEST_DIR}/download"
+                Mock kubectl
+                    if [[ "$*" == *"live-patching-custom-patching"* ]]; then
+                        echo 'API unavailable' >&2
+                        exit 1
+                    fi
+                    echo "kubectl called: $*"
+                End
+
+                When call run_generic_kubelet_update
+                The status should be failure
+                The stderr should include 'API unavailable'
+                The output should include 'failed to read custom patching annotation'
+                The output should include '"securityPatch":{"code":"Failed"}'
+                The output should not include 'tdnf mock: downloading'
+                The output should not include 'systemctl mock called'
+                The output should not include 'live-patching-current-timestamp='
+                The contents of file "${KUBELET_EXECUTABLE}" should include 'Kubernetes v1.29.10'
+                The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+            End
+
+            It 'reports failure without restarting or checkpointing when replacement fails'
+                setup_kubelet_executable "1.29.10"
+                LIVE_PATCHING_STATE_FILE="${TEST_DIR}/state/current.json"
+                SECURITY_PATCH_TMP_DIR="${TEST_DIR}/download"
+                export KUBELET_EXECUTABLE
+                Mock kubectl
+                    if [[ "$*" == *"live-patching-custom-patching"* ]]; then
+                        echo false
+                    else
+                        echo "kubectl called: $*"
+                    fi
+                End
+                Mock mv
+                    if [ "$2" = "${KUBELET_EXECUTABLE}" ]; then
+                        echo 'replacement denied' >&2
+                        exit 1
+                    fi
+                    /bin/mv "$@"
+                End
+
+                When call run_generic_kubelet_update
+                The status should be failure
+                The stderr should include 'replacement denied'
+                The output should include 'failed to replace kubelet executable'
+                The output should include '"securityPatch":{"code":"Failed"}'
+                The output should not include 'systemctl mock called'
+                The output should not include 'live-patching-current-timestamp='
+                The contents of file "${KUBELET_EXECUTABLE}" should include 'Kubernetes v1.29.10'
+                The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+            End
+
             It 'should skip update when target version annotation is not set'
                 setup_kubelet_executable "1.29.10"
                 setup_target_kubelet_version "" ""
