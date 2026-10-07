@@ -520,3 +520,51 @@ func TestParseLinuxCSEMessageOutboundExitCode(t *testing.T) {
 		})
 	}
 }
+func TestBoothookInsertionPoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		boothook string
+		wantLine string
+	}{
+		{
+			name:     "nohup launcher",
+			boothook: "#!/bin/bash\necho before\nnohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh >/var/log/azure/aks-node-controller.output 2>&1 &\necho after\n",
+			wantLine: "nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh",
+		},
+		{
+			// The boothook baker.go and nodeconfigutils render: the fixtures must go before the
+			// if, outside the conditional, so both startup paths see them.
+			name: "launcher with systemd fallback",
+			boothook: "#!/bin/bash\necho before\nif [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then\n" +
+				"\tnohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &\n" +
+				"else\n\tsystemctl start --no-block aks-node-controller.service\nfi\n",
+			wantLine: "if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then",
+		},
+		{
+			name:     "systemd launcher fallback",
+			boothook: "#!/bin/bash\necho before\nsystemctl start --no-block aks-node-controller.service\necho after\n",
+			wantLine: "systemctl start --no-block aks-node-controller.service",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pos := boothookInsertionPoint(tt.boothook)
+			require.GreaterOrEqual(t, pos, 0)
+			require.True(t, strings.HasPrefix(tt.boothook[pos:], tt.wantLine), "insertion point should be before launcher line")
+		})
+	}
+}
+
+func TestInjectWriteFilesEntriesToBoothookCustomDataPreservesNohupCommand(t *testing.T) {
+	boothook := []byte("#!/bin/bash\necho before\nnohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh >/var/log/azure/aks-node-controller.output 2>&1 &\necho after\n")
+	encoded, err := injectWriteFilesEntriesToBoothookCustomData(boothook, []CustomDataWriteFile{{
+		Path:    "/tmp/e2e-marker",
+		Content: "hello",
+	}})
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	require.NoError(t, err)
+	got := string(decoded)
+	require.Contains(t, got, "\nnohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh")
+	require.NotContains(t, got, "nohup\n")
+}
