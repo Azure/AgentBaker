@@ -3794,8 +3794,8 @@ func TestNodeBootstrappingConfigurationKubeletConfigRoundTrip(test *testing.T) {
 			if scenario.config == nil {
 				require.NotContains(test, fields, "KubeletConfigFileConfig")
 			} else {
-				expectedConfig, err := json.Marshal(scenario.config)
-				require.NoError(test, err)
+				expectedConfig, marshalError := json.Marshal(scenario.config)
+				require.NoError(test, marshalError)
 				require.Equal(test, string(expectedConfig), string(fields["KubeletConfigFileConfig"]))
 			}
 			var restored NodeBootstrappingConfiguration
