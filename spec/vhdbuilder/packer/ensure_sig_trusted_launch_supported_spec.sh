@@ -15,7 +15,7 @@ Describe 'ensure_sig_trusted_launch_supported'
     SIG_IMAGE_VERSION="26100.1.261006"
     DEFINITION_ID="/subscriptions/test-sub/resourceGroups/test-rg/providers/Microsoft.Compute/galleries/test-gallery/images/windows-2025-gen2"
     INITIAL_DEFINITION='{"id":"definition-id","name":"windows-2025-gen2","type":"Microsoft.Compute/galleries/images","location":"eastus","tags":{"preserve":"true"},"properties":{"hyperVGeneration":"V2","provisioningState":"Succeeded","features":[{"name":"DiskControllerTypes","value":"SCSI,NVMe"}]}}'
-    UPDATED_DEFINITION='{"properties":{"provisioningState":"Succeeded","features":[{"name":"SecurityType","value":"TrustedLaunchSupported"}]}}'
+    UPDATED_DEFINITION='{"properties":{"provisioningState":"Succeeded","features":[{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.261006"}]}}'
     FAIL_OPERATION=""
   }
   BeforeEach 'setup'
@@ -102,5 +102,22 @@ Describe 'ensure_sig_trusted_launch_supported'
     The status should be failure
     The output should include 'Updating image definition'
     The stderr should include 'did not converge to TrustedLaunchSupported'
+  End
+
+  Describe 'returned capability boundary'
+    Parameters
+      missing '{"properties":{"provisioningState":"Succeeded","features":[{"name":"SecurityType","value":"TrustedLaunchSupported"}]}}'
+      older '{"properties":{"provisioningState":"Succeeded","features":[{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.260901"}]}}'
+      newer '{"properties":{"provisioningState":"Succeeded","features":[{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.261007"}]}}'
+    End
+
+    It "rejects a completed update with a $1 boundary"
+      UPDATED_DEFINITION="$2"
+
+      When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
+      The status should be failure
+      The output should include 'Updating image definition'
+      The stderr should include 'did not converge to TrustedLaunchSupported'
+    End
   End
 End
