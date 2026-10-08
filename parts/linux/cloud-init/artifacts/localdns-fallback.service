@@ -1,46 +1,36 @@
 [Unit]
-Description=Localdns pod-DNS fallback (binds 169.254.10.11, forwards to kube-dns ClusterIP)
+Description=Localdns DNS fallback (NAT redirects for 169.254.10.10 and 169.254.10.11)
 # Only meaningful on images that run localdns.
 ConditionKernelVersion=>=5.15
-# This unit is started by localdns.service's OnFailure= and by the probe timer.
-# It must never win a race against a recovering localdns for the .11 interface:
-# localdns.service has ExecStartPre that stops this unit before it deletes and
-# recreates the dummy interface. That synchronous stop is the only handoff.
+# Started by localdns.service's OnFailure=. It must never win a race against a
+# recovering localdns for the redirects: localdns.service has an ExecStartPre
+# that stops this unit, which runs 'clear'. That stop is the only handoff.
 #
 # Deliberately NO 'Conflicts=localdns.service'. Measured on a live node (systemd
 # 255): starting this unit resolved that Conflicts by stopping localdns.service,
 # and a stop RESETS localdns's restart counter ('Scheduled restart job, restart
 # counter is at 1' on every cycle). localdns therefore never spent its 720/5
-# budget and never reached terminal 'failed' — defeating both the OnFailure=
+# budget and never reached terminal 'failed' -- defeating both the OnFailure=
 # handoff this unit is gated on and the stable state NPD is meant to observe.
 Before=localdns.service
-# Unbounded restart budget: this unit is the last line of defence for pod DNS,
-# so it must never be refused a restart. StartLimitIntervalSec is a [Unit] key —
-# in [Service] systemd logs "Unknown key name ... in section 'Service', ignoring"
-# and silently applies the 10s/5 default instead.
+# Unbounded start budget. localdns.service's OnFailure= can fire more than once
+# while localdns works through its restart budget, and apply_rules no-ops on
+# anything other than terminal 'failed'. Without this, that burst of gated
+# no-ops would spend the default 5-start allowance and systemd would refuse the
+# one start that matters.
 StartLimitIntervalSec=0
 
 [Service]
-Type=simple
-# Read COREDNS_SERVICE_IP (the real kube-dns Service ClusterIP) persisted at
-# bootstrap. '-' so a missing file does not block start; the script falls back
-# to the datamodel default if the value is absent.
-EnvironmentFile=-/etc/localdns/environment
-ExecStart=/opt/azure/containers/localdns/localdns-fallback.sh start
-ExecStopPost=/opt/azure/containers/localdns/localdns-fallback.sh cleanup
-# Keep the fallback answering for as long as localdns stays failed; if the
-# fallback itself dies, restart it (bounded) rather than leaving pods dark.
-Restart=on-failure
-# 5s, not 2s: the restart budget above is unbounded, so this is the only thing
-# damping a genuine crash-loop. Every *predictable* "not our turn" condition in
-# localdns-fallback.sh returns 0 instead of failing, so reaching here means a real
-# crash. (RestartSteps=/RestartMaxDelaySec= would be the right tool but they are
-# systemd 254+, and Ubuntu 22.04 ships 249, where an unknown key is silently
-# ignored - exactly the failure mode that hid StartLimitIntervalSec in [Service].)
-RestartSec=5
-KillMode=mixed
-TimeoutStopSec=15
+# No daemon: ExecStart installs nat rules and exits. RemainAfterExit keeps the
+# unit 'active' so that 'systemctl stop' is a meaningful operation and runs
+# ExecStop to tear the rules down.
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/azure/containers/localdns/localdns-fallback.sh apply
+ExecStop=/opt/azure/containers/localdns/localdns-fallback.sh clear
 Slice=localdns.slice
 
 # Deliberately NOT installed / not WantedBy any target: this unit is only ever
 # activated on demand via localdns.service OnFailure=, never enabled at boot.
+# The rules live only in the kernel's runtime tables, so a reboot leaves nothing
+# behind and there is nothing to restore.
