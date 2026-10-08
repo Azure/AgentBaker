@@ -27,6 +27,8 @@ Describe 'ensure_sig_trusted_launch_supported'
         if [ "${FAIL_OPERATION}" = "get" ]; then return 1; fi
         if [ -f "${PUT_BODY}" ]; then
           printf '%s\n' "${UPDATED_DEFINITION}"
+        elif [ -f "${TEST_DIR}/created-definition" ]; then
+          cat "${TEST_DIR}/created-definition"
         else
           printf '%s\n' "${INITIAL_DEFINITION}"
         fi
@@ -45,6 +47,20 @@ Describe 'ensure_sig_trusted_launch_supported'
       'sig image-definition wait')
         if [ "${FAIL_OPERATION}" = "wait" ]; then return 1; fi
         ;;
+      'sig show --resource-group')
+        printf '%s\n' '{"provisioningState":"Succeeded"}'
+        ;;
+      'sig image-definition show')
+        if [ ! -f "${TEST_DIR}/created-definition" ]; then return 1; fi
+        printf '{"id":"%s"}\n' "${DEFINITION_ID}"
+        ;;
+      'sig image-definition create')
+        local security_type="Standard"
+        case "$*" in *SecurityType=TrustedLaunchSupported*) security_type="TrustedLaunchSupported" ;; esac
+        jq --arg security_type "${security_type}" '
+          .properties.features += [{name: "SecurityType", value: $security_type}]
+        ' <<<"${INITIAL_DEFINITION}" > "${TEST_DIR}/created-definition"
+        ;;
       *) return 1 ;;
     esac
   }
@@ -59,6 +75,25 @@ Describe 'ensure_sig_trusted_launch_supported'
     The value "$(jq -cr '.properties.features' "${PUT_BODY}")" should equal '[{"name":"DiskControllerTypes","value":"SCSI,NVMe"},{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.261006"}]'
   End
 
+  It 'creates a new shared Windows definition with a verified capability boundary'
+    MODE="windowsVhdMode"
+    ARCHITECTURE="x64"
+    FEATURE_FLAGS=""
+    HYPERV_GENERATION="V2"
+    OS_TYPE="Windows"
+    AZURE_LOCATION="eastus"
+    ENABLE_TRUSTED_LAUNCH="False"
+    TRUSTED_LAUNCH_SUPPORTED="True"
+
+    When call ensure_sig_vhd_exists
+    The status should be success
+    The output should include 'Updating image definition'
+    The stderr should equal ''
+    The contents of file "${AZ_CALLS}" should include 'SecurityType=Standard'
+    The file "${PUT_BODY}" should be exist
+    The value "$(jq -r '.properties.features[] | select(.name == "SecurityType").startsAtVersion' "${PUT_BODY}")" should equal '26100.1.261006'
+  End
+
   It 'does not move the boundary of an already-supported definition'
     INITIAL_DEFINITION='{"properties":{"hyperVGeneration":"V2","features":[{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.260901"}]}}'
 
@@ -67,6 +102,50 @@ Describe 'ensure_sig_trusted_launch_supported'
     The output should equal ''
     The contents of file "${AZ_CALLS}" should not include '--method put'
     The file "${PUT_BODY}" should not be exist
+  End
+
+  Describe 'valid existing capability boundaries'
+    Parameters
+      equal '26100.1.261006'
+      numeric '26100.1.9'
+      minor '26100.0.999999'
+    End
+
+    It "preserves an existing $1 boundary at or below the build version"
+      INITIAL_DEFINITION=$(jq --arg version "$2" '.properties.hyperVGeneration = "V2" | .properties.features[0].startsAtVersion = $version' <<<"${UPDATED_DEFINITION}")
+
+      When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
+      The status should be success
+      The output should equal ''
+      The contents of file "${AZ_CALLS}" should not include '--method put'
+      The file "${PUT_BODY}" should not be exist
+    End
+  End
+
+  Describe 'invalid existing capability boundaries'
+    Parameters
+      missing ''
+      malformed 'invalid'
+      short '26100.1'
+      nonnumeric '26100.1.bad'
+      future '26100.1.261007'
+      futureminor '26100.10.1'
+    End
+
+    It "rejects an existing $1 boundary without updating it"
+      INITIAL_DEFINITION=$(jq --arg version "$2" '
+        .properties.hyperVGeneration = "V2" |
+        if $version == "" then del(.properties.features[0].startsAtVersion)
+        else .properties.features[0].startsAtVersion = $version end
+      ' <<<"${UPDATED_DEFINITION}")
+
+      When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
+      The status should be failure
+      The stderr should include 'cannot support build version'
+      The output should equal ''
+      The contents of file "${AZ_CALLS}" should not include '--method put'
+      The file "${PUT_BODY}" should not be exist
+    End
   End
 
   It 'refuses to mark a Gen1 definition as capable'
