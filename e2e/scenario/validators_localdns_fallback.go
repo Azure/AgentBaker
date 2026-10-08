@@ -409,6 +409,13 @@ esac
 systemctl show localdns-fallback.service -p ExecStop --value 2>/dev/null | grep -q "localdns-fallback.sh clear" \
   && ok "fallback tears rules down via ExecStop" || fail "fallback has no 'clear' ExecStop"
 
+# Those gated no-op starts must be recorded as skips, not failures. Without this
+# the unit lands in 'failed' on a node whose localdns recovered, which is both a
+# false alarm in the field and a failed-unit assertion away from a red scenario.
+systemctl show localdns-fallback.service -p ExecCondition --value 2>/dev/null | grep -q "is-failed localdns.service" \
+  && ok "fallback gates activation on terminal localdns via ExecCondition" \
+  || fail "fallback has no 'is-failed localdns.service' ExecCondition"
+
 # No listener means nothing to collide with on recovery -- but it also means the
 # script must never bind anything.
 grep -qE "coredns|-conf |bind " /opt/azure/containers/localdns/localdns-fallback.sh \

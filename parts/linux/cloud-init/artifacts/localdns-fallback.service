@@ -26,6 +26,10 @@ StartLimitIntervalSec=0
 # ExecStop to tear the rules down.
 Type=oneshot
 RemainAfterExit=yes
+# Skips rather than fails the unit on the starts where localdns is still working
+# through its restart budget: 'systemctl is-failed' is 0 only for terminal
+# 'failed'. apply re-checks the same state, so manual runs stay guarded.
+ExecCondition=/usr/bin/systemctl is-failed localdns.service
 ExecStart=/opt/azure/containers/localdns/localdns-fallback.sh apply
 ExecStop=/opt/azure/containers/localdns/localdns-fallback.sh clear
 Slice=localdns.slice
