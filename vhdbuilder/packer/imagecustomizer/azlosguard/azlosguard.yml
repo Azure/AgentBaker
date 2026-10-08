@@ -341,6 +341,15 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
       destination: /etc/systemd/system/localdns.service.d/delegate.conf
       permissions: 644
+    # localdns pod-DNS fallback. localdns.service carries OnFailure= and an
+    # ExecStartPre= stop for this unit, so omitting it ships a dangling reference
+    # and silently leaves OSGuard nodes with no fallback.
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-fallback.service
+      destination: /etc/systemd/system/localdns-fallback.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-fallback.sh
+      destination: /opt/azure/containers/localdns/localdns-fallback.sh
+      permissions: 755
     # localdns exporter
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns_exporter.sh
       destination: /opt/azure/containers/localdns/localdns_exporter.sh
