@@ -89,6 +89,7 @@ Describe 'cse_install_ubuntu.sh'
         It 'keeps the marker if any prebaked userspace artifact remains'
             marker="$(mktemp)"
             GPU_DKMS_MARKER_FILE="$marker"
+            AfterRun 'command rm -f "$marker"'
             rm() { echo "mock rm $*"; }
             ldconfig() { :; }
             lsmod() { :; }
@@ -102,6 +103,7 @@ Describe 'cse_install_ubuntu.sh'
         It 'keeps the marker when loaded-module inspection fails'
             marker="$(mktemp)"
             GPU_DKMS_MARKER_FILE="$marker"
+            AfterRun 'command rm -f "$marker"'
             rm() { echo "mock rm $*"; }
             ldconfig() { :; }
             lsmod() { return 1; }
@@ -206,6 +208,102 @@ Describe 'cse_install_ubuntu.sh'
             mockGraceBlackwellPackageQueries
         }
 
+        runGraceBlackwellTeardown() {
+            local wave="${1:-wave2}" retry="${2:-false}" enabled="${3:-true}"
+            setupGraceBlackwellTeardown "$wave"
+            gb_openibd_enabled="$enabled"
+            gb_openibd_active=true
+            gb_openibd_stop_count=0
+            gb_openibd_stop_failure="${4:-false}"
+            gb_openibd_remain_active="${5:-false}"
+            gb_openibd_unloads_module="${6:-false}"
+            systemctlDisableAndStop() {
+                echo "stop:$1"
+                if [ "$1" = openibd ]; then
+                    gb_services_stopped=true
+                    gb_openibd_active=false
+                    gb_openibd_enabled=false
+                fi
+            }
+            systemctl() {
+                case "$1" in
+                    cat) [ "$2" = openibd ] ;;
+                    is-active) [ "$3" = openibd ] && [ "$gb_openibd_active" = true ] ;;
+                    is-enabled) [ "$3" = openibd ] && [ "$gb_openibd_enabled" = true ] ;;
+                    *) return 1 ;;
+                esac
+            }
+            systemctl_stop() {
+                [ "$4" = openibd ] || return 1
+                gb_openibd_stop_count=$((gb_openibd_stop_count + 1))
+                [ "$gb_openibd_stop_failure" != true ] || return 1
+                [ "$gb_openibd_remain_active" = true ] || gb_openibd_active=false
+                [ "$gb_openibd_active" = false ] && gb_services_stopped=true
+                echo "stop:openibd"
+                if [ "$gb_openibd_unloads_module" = true ]; then
+                    local unloaded_module="${gb_loaded_modules%% *}"
+                    gb_loaded_modules="${gb_loaded_modules#* }"
+                    gb_expected_modules="${gb_expected_modules#* }"
+                    echo "openibd_unloaded:$unloaded_module"
+                fi
+                return 0
+            }
+            lsmod() {
+                echo "Module Size Used by"
+                for gb_module in $gb_loaded_modules; do
+                    echo "$gb_module 123 0"
+                done
+            }
+            rmmod() {
+                [ "$gb_services_stopped" = true ] || return 1
+                [ "$gb_openibd_active" = false ] || return 1
+                [ "$gb_openibd_enabled" = "$enabled" ] || return 1
+                case " $gb_loaded_modules " in *" $1 "*) ;; *) return 1 ;; esac
+                [ "${gb_expected_modules%% *}" = "$1" ] || return 1
+                echo "rmmod:$1 openibd_enabled=$gb_openibd_enabled"
+                gb_expected_modules="${gb_expected_modules#* }"
+                gb_loaded_modules="${gb_loaded_modules#* }"
+            }
+            update-initramfs() {
+                [ "$gb_packages_purged" = true ] || return 1
+                [ ! -e "$GB_NVIDIA_PEERMEM_CONFIG_FILE" ] || return 1
+                [ ! -e "$GB_NVIDIA_MODPROBE_CONFIG_FILE" ] || return 1
+                [ ! -e "$GB_NOUVEAU_MODPROBE_CONFIG_FILE" ] || return 1
+                [ -f "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || return 1
+                echo "update-initramfs"
+            }
+            apt_get_purge() {
+                [ "$1 $2 $3" = '10 5 300' ] || return 1
+                shift 3
+                local expected='libnvidia-common-580 nvidia-dkms-580-open nvidia-driver-580-open nvidia-utils-580 nvidia-modprobe nvidia-persistenced'
+                [ "$*" = "$expected" ] || return 1
+                [ -e "$GB_NVIDIA_MODPROBE_CONFIG_FILE" ] || return 1
+                [ "$gb_services_stopped" = true ] || return 1
+                [ -z "$gb_loaded_modules" ] || return 1
+                [ -z "$gb_expected_modules" ] || return 1
+                echo "purge:$*"
+                gb_packages_purged=true
+            }
+            cleanUpGPUDrivers() {
+                [ "$gb_packages_purged" = true ] || return 1
+                [ ! -e "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || return 1
+                echo "aks-marker-cleanup"
+                rm -f "$GPU_DKMS_MARKER_FILE"
+            }
+            prebakedGPUDriverArtifactsRemain() { [ "$gb_packages_purged" != true ]; }
+            cleanUpGPUDriversForBasePrep
+            status=$?
+            if [ "$status" -eq 0 ] && [ "$retry" = true ]; then
+                cleanUpGPUDriversForBasePrep
+                status=$?
+                [ "$gb_openibd_stop_count" -eq 1 ] || status=1
+                echo "openibd_retry_stop_count=$gb_openibd_stop_count"
+            fi
+            [ "$status" -ne 0 ] || echo "openibd_enabled_after_unload=$gb_openibd_enabled"
+            cleanupGraceBlackwellFixture
+            return "$status"
+        }
+
         It 'fails when the prebake marker survives cleanup'
             GPU_DKMS_MARKER_FILE="$(mktemp)"
             cleanUpGPUDrivers() { :; }
@@ -237,67 +335,6 @@ Describe 'cse_install_ubuntu.sh'
         End
 
         It 'tears down current and legacy BOM-owned Grace Blackwell drivers before marker cleanup'
-            runGraceBlackwellTeardown() {
-                local wave="${1:-wave2}" retry="${2:-false}"
-                setupGraceBlackwellTeardown "$wave"
-                systemctlDisableAndStop() {
-                    echo "stop:$1"
-                    if [ "$1" = openibd ]; then
-                        gb_services_stopped=true
-                    fi
-                    return 0
-                }
-                systemctl() { return 1; }
-                lsmod() {
-                    echo "Module Size Used by"
-                    for gb_module in $gb_loaded_modules; do
-                        echo "$gb_module 123 0"
-                    done
-                }
-                rmmod() {
-                    [ "$gb_services_stopped" = true ] || return 1
-                    [ "${gb_expected_modules%% *}" = "$1" ] || return 1
-                    echo "rmmod:$1"
-                    gb_expected_modules="${gb_expected_modules#* }"
-                    gb_loaded_modules="${gb_loaded_modules#* }"
-                }
-                update-initramfs() {
-                    [ "$gb_packages_purged" = true ] || return 1
-                    [ ! -e "$GB_NVIDIA_PEERMEM_CONFIG_FILE" ] || return 1
-                    [ ! -e "$GB_NVIDIA_MODPROBE_CONFIG_FILE" ] || return 1
-                    [ ! -e "$GB_NOUVEAU_MODPROBE_CONFIG_FILE" ] || return 1
-                    [ -f "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || return 1
-                    echo "update-initramfs"
-                }
-                apt_get_purge() {
-                    [ "$1 $2 $3" = '10 5 300' ] || return 1
-                    shift 3
-                    local expected='libnvidia-common-580 nvidia-dkms-580-open nvidia-driver-580-open nvidia-utils-580 nvidia-modprobe nvidia-persistenced'
-                    [ "$*" = "$expected" ] || return 1
-                    [ -e "$GB_NVIDIA_MODPROBE_CONFIG_FILE" ] || return 1
-                    [ "$gb_services_stopped" = true ] || return 1
-                    [ -z "$gb_loaded_modules" ] || return 1
-                    [ -z "$gb_expected_modules" ] || return 1
-                    echo "purge:$*"
-                    gb_packages_purged=true
-                }
-                cleanUpGPUDrivers() {
-                    [ "$gb_packages_purged" = true ] || return 1
-                    [ ! -e "$GB_DRIVER_CLEANUP_PENDING_FILE" ] || return 1
-                    echo "aks-marker-cleanup"
-                    rm -f "$GPU_DKMS_MARKER_FILE"
-                }
-                prebakedGPUDriverArtifactsRemain() { [ "$gb_packages_purged" != true ]; }
-                cleanUpGPUDriversForBasePrep
-                status=$?
-                if [ "$status" -eq 0 ] && [ "$retry" = true ]; then
-                    cleanUpGPUDriversForBasePrep
-                    status=$?
-                fi
-                cleanupGraceBlackwellFixture
-                return "$status"
-            }
-
             runBothGraceBlackwellTeardowns() {
                 runGraceBlackwellTeardown wave2 || return 1
                 runGraceBlackwellTeardown wave1 true
@@ -306,10 +343,49 @@ Describe 'cse_install_ubuntu.sh'
             When call runBothGraceBlackwellTeardowns
             The status should be success
             The output should include "rmmod:nvidia_peermem"
+            The output should include "rmmod:nvidia_peermem openibd_enabled=true"
             The output should include "stop:nvidia-imex"
             The output should include "stop:openibd"
             The output should include "purge:"
             The output should include "aks-marker-cleanup"
+            The output should include "openibd_retry_stop_count=1"
+        End
+
+        It 'preserves openibd enablement while stopping it for module unload and retries'
+            When call runGraceBlackwellTeardown wave2 true
+            The status should be success
+            The output should include "rmmod:nvidia_peermem openibd_enabled=true"
+            The output should include "openibd_enabled_after_unload=true"
+            The output should include "openibd_retry_stop_count=1"
+        End
+
+        It 'keeps openibd disabled when it was disabled before module unload'
+            When call runGraceBlackwellTeardown wave2 false false
+            The status should be success
+            The output should include "rmmod:nvidia_peermem openibd_enabled=false"
+            The output should include "openibd_enabled_after_unload=false"
+        End
+
+        It 'fails before module unload when openibd cannot be stopped'
+            When call runGraceBlackwellTeardown wave2 false true true
+            The status should be failure
+            The stderr should include "Grace Blackwell service openibd could not be stopped"
+            The output should not include "rmmod:"
+        End
+
+        It 'fails before module unload when openibd remains active'
+            When call runGraceBlackwellTeardown wave2 false true false true
+            The status should be failure
+            The stderr should include "Grace Blackwell service openibd remains active"
+            The output should not include "rmmod:"
+        End
+
+        It 'refreshes the loaded-module snapshot after openibd stops'
+            When call runGraceBlackwellTeardown wave2 false true false false true
+            The status should be success
+            The output should include "openibd_unloaded:nvidia_peermem"
+            The output should not include "rmmod:nvidia_peermem"
+            The output should include "rmmod:nvidia_uvm"
         End
 
         It 'uses a BOM-listed dependency version instead of comparing it to the driver version'

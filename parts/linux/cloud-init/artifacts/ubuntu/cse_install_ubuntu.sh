@@ -538,7 +538,7 @@ cleanUpGraceBlackwellGPUDriver() {
         [ -n "${package}" ] && purge_packages+=("${package}")
     done <<< "${packages}"
 
-    for service in nvidia-device-plugin nvidia-dcgm-exporter nvidia-dcgm nvidia-imex openibd; do
+    for service in nvidia-device-plugin nvidia-dcgm-exporter nvidia-dcgm nvidia-imex; do
         systemctlDisableAndStop "${service}" || return 1
         if systemctl is-active --quiet "${service}" || systemctl is-enabled --quiet "${service}"; then
             echo "Grace Blackwell service ${service} remains active or enabled" >&2
@@ -547,6 +547,17 @@ cleanUpGraceBlackwellGPUDriver() {
     done
 
     modules=$(lsmod) || return 1
+    if grep -q '^nvidia' <<< "${modules}" && systemctl cat openibd &>/dev/null; then
+        systemctl_stop 20 5 25 openibd || {
+            echo "Grace Blackwell service openibd could not be stopped" >&2
+            return 1
+        }
+        if systemctl is-active --quiet openibd; then
+            echo "Grace Blackwell service openibd remains active" >&2
+            return 1
+        fi
+        modules=$(lsmod) || return 1
+    fi
     for module in nvidia_peermem nvidia_uvm nvidia_drm nvidia_modeset nvidia; do
         grep -q "^${module}[[:space:]]" <<< "${modules}" || continue
         rmmod "${module}" || { echo "Failed to unload Grace Blackwell module ${module}" >&2; return 1; }
