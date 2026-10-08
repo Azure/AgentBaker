@@ -157,11 +157,11 @@ func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
 	provisionCustomData := render(false)
 
 	require.NotContains(t, bakeCustomData, bootstrapToken)
-	require.Contains(t, bakeCustomData, `$global:TLSBootstrapToken=""`)
+	require.Contains(t, bakeCustomData, `$global:TLSBootstrapToken=''`)
 	require.Contains(t, bakeCustomData, "function NodePrep")
 	require.Contains(t, bakeCustomData, "Write-BootstrapKubeConfig")
 	require.Contains(t, bakeCustomData, "if (-not $PreProvisionOnly)")
-	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken="%s"`, bootstrapToken))
+	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken='%s'`, bootstrapToken))
 }
 
 type decodedValue struct {

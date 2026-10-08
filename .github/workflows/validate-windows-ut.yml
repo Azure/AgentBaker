@@ -11,6 +11,8 @@ concurrency:
 # To run these tests on a Windows machine, you can use the commands below. However, most people have their git repo
 # stored in WSL. So you'll need to change directory to whereever you have the repo checked out in WSL. Something like this:
 # cd \\wsl$\Ubuntu\home\tim\git\AgentBaker
+# The Windows CSE field suite needs Go (see go.mod) to generate its cases during discovery.
+# Run that suite inside WSL or from a native Windows checkout: Windows Go cannot lock go.mod on a WSL share.
 
 jobs:
   pester-test:
@@ -24,6 +26,11 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
+
+      - name: Set up Go for Windows CSE input tests
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
 
       - name: Setup
         shell: pwsh
@@ -61,6 +68,7 @@ jobs:
 
           $result
           $result.Failed | Format-Table
+          if ($result.Result -ne 'Passed') { exit 1 }
 
       - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
         if: (!cancelled())
