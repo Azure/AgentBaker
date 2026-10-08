@@ -146,8 +146,22 @@ Describe 'cse_install_acl.sh'
 
         It 'resolves the streaming extension against the booted ACL version'
             MCR_REPOSITORY_BASE="mcr.microsoft.com"
-            When call installACLSysext artifact-streaming
-            The output should equal "mergeSysexts artifact-streaming mcr.microsoft.com/azurelinux/3.0/azure-container-linux/artifact-streaming 3.0.20260809"
+            When call installACLSysext artifact-streaming amd64
+            The output should equal "mergeSysexts artifact-streaming mcr.microsoft.com/azurelinux/3.0/azure-container-linux/artifact-streaming 3.0.20260809-amd64"
+            The status should be success
+        End
+
+        It 'selects the ARM64 streaming artifact instead of the AMD64 bare tag'
+            MCR_REPOSITORY_BASE="mcr.microsoft.com"
+            When call installACLSysext artifact-streaming arm64
+            The output should equal "mergeSysexts artifact-streaming mcr.microsoft.com/azurelinux/3.0/azure-container-linux/artifact-streaming 3.0.20260809-arm64"
+            The status should be success
+        End
+
+        It 'preserves the legacy GPU tag when no architecture suffix is requested'
+            MCR_REPOSITORY_BASE="mcr.microsoft.com"
+            When call installACLSysext nvidia-driver-vgpu
+            The output should equal "mergeSysexts nvidia-driver-vgpu mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-vgpu 3.0.20260809"
             The status should be success
         End
 
@@ -174,6 +188,25 @@ Describe 'cse_install_acl.sh'
         End
     End
 
+    Describe 'matchRemoteSysext published streaming tags'
+        BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+        retrycmd_silent() {
+            printf '%s\n' 3.0.20261007 3.0.20261007-amd64 3.0.20261007-arm64
+        }
+
+        It 'resolves the published AMD64 tag'
+            When call matchRemoteSysext example.test/artifact-streaming 3.0.20261007-amd64 x86-64
+            The output should equal "3.0.20261007-amd64"
+            The status should be success
+        End
+
+        It 'resolves the published ARM64 tag rather than the bare AMD64 manifest'
+            When call matchRemoteSysext example.test/artifact-streaming 3.0.20261007-arm64 arm64
+            The output should equal "3.0.20261007-arm64"
+            The status should be success
+        End
+    End
+
     Describe 'installACLGPUSysext compatibility'
         installACLSysext() {
             echo "installACLSysext $*"
@@ -195,6 +228,7 @@ Describe 'cse_install_acl.sh'
     End
 
     Describe 'installArtifactStreamingSysext'
+        getCPUArch() { echo "${TEST_ARCH:-amd64}"; }
         setup_streaming_install() {
             TEST_STREAMING_DIR="$(mktemp -d)"
             ACR_OVERLAYBD_INSTALL_SCRIPT="${TEST_STREAMING_DIR}/install.sh"
@@ -222,7 +256,7 @@ Describe 'cse_install_acl.sh'
 
         It 'merges the extension and prepares writable paths before reloading units'
             When call installArtifactStreamingSysext
-            The line 1 of output should equal "installACLSysext artifact-streaming"
+            The line 1 of output should equal "installACLSysext artifact-streaming amd64"
             The line 2 of output should equal "systemd-tmpfiles --create /usr/lib/tmpfiles.d/artifact-streaming.conf"
             The line 3 of output should equal "prepare overlaybd"
             The line 4 of output should equal "systemctl daemon-reload"
@@ -232,8 +266,23 @@ Describe 'cse_install_acl.sh'
         It 'stops when extension installation fails'
             INSTALL_RC=231
             When call installArtifactStreamingSysext
-            The output should equal "installACLSysext artifact-streaming"
+            The output should equal "installACLSysext artifact-streaming amd64"
             The status should equal 231
+        End
+
+        It 'passes the CPU architecture through to artifact selection'
+            TEST_ARCH=arm64
+            When call installArtifactStreamingSysext
+            The line 1 of output should equal "installACLSysext artifact-streaming arm64"
+            The line 4 of output should equal "systemctl daemon-reload"
+            The status should be success
+        End
+
+        It 'stops if CPU architecture resolution fails'
+            getCPUArch() { return 1; }
+            When call installArtifactStreamingSysext
+            The output should equal ""
+            The status should be failure
         End
 
         It 'stops when writable-path setup fails'

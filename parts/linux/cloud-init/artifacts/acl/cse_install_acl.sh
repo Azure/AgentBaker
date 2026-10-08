@@ -160,9 +160,10 @@ installACLSysext() {
     local sysext_name=$1
     local version_id
     version_id=$(getACLVersionID) || return $ERR_SYSEXT_VERSION_ID_NOT_FOUND
+    local version_tag="${version_id}${2:+-${2}}"
     local mcr_base="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
     local registry_base="${mcr_base%/}/azurelinux/${version_id%.*}/azure-container-linux"
-    mergeSysexts "${sysext_name}" "${registry_base}/${sysext_name}" "${version_id}" \
+    mergeSysexts "${sysext_name}" "${registry_base}/${sysext_name}" "${version_tag}" \
         || return $ERR_ORAS_PULL_SYSEXT_FAIL
 }
 
@@ -172,7 +173,9 @@ installACLGPUSysext() {
 
 installArtifactStreamingSysext() {
     local install_script="${ACR_OVERLAYBD_INSTALL_SCRIPT:-/opt/acr/tools/overlaybd/install.sh}"
-    installACLSysext artifact-streaming || return $?
+    local arch
+    arch=$(getCPUArch) || return $?
+    installACLSysext artifact-streaming "${arch}" || return $?
     systemd-tmpfiles --create /usr/lib/tmpfiles.d/artifact-streaming.conf || return $?
     "${install_script}" || return $?
     systemctl daemon-reload

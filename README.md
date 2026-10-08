@@ -47,10 +47,14 @@ For ShellSpec unit test instructions, see the [ShellSpec README](./spec/README.m
 
 ACL uses the standalone `artifact-streaming` system extension rather than
 installing RPMs into its read-only base OS. When streaming is enabled, CSE
-resolves the extension using the booted ACL `VERSION_ID`, activates it, prepares
+resolves the extension using the booted ACL `VERSION_ID` and CPU architecture
+(`VERSION_ID-amd64` or `VERSION_ID-arm64`), activates it, prepares
 writable configuration/cache paths, reloads units, and uses the existing
 ACR Mirror enablement path. Other operating systems and streaming-disabled
 nodes retain their existing behavior.
+
+The publisher's unsuffixed tag contains the AMD64 manifest; ARM64 must not
+consume it. GPU extension selection retains its existing tag behavior.
 
 The matching extension must be built, signed, and published before enabling
 this path. It contains ACR Mirror and the OverlayBD dependencies; the legacy
