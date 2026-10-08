@@ -477,6 +477,18 @@ function ensure_sig_trusted_launch_supported() {
 	local security_type
 	security_type=$(jq -r '(.properties.features // []) | map(select(.name == "SecurityType")) | .[0].value // ""' <<<"${definition}")
 	if [ "${security_type}" = "TrustedLaunchSupported" ]; then
+		if ! jq -e --arg version "${SIG_IMAGE_VERSION:-}" '
+			def gallery_version:
+				if type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+$") then
+					split(".") | map(tonumber) |
+					if all(.[]; . <= 2147483647) then . else error("gallery version component out of range") end
+				else error("invalid gallery image version") end;
+			((.properties.features | map(select(.name == "SecurityType")) | .[0].startsAtVersion) | gallery_version)
+				<= ($version | gallery_version)
+		' <<<"${definition}" >/dev/null; then
+			echo "Image definition ${definition_id} cannot support build version ${SIG_IMAGE_VERSION:-}: missing, invalid, or newer Trusted Launch boundary" >&2
+			return 1
+		fi
 		return 0
 	fi
 	if [ "$(jq -r '.properties.hyperVGeneration' <<<"${definition}")" != "V2" ]; then
@@ -519,6 +531,10 @@ function ensure_sig_trusted_launch_supported() {
 
 function ensure_sig_vhd_exists() {
 	echo "SIG existence checking for $MODE"
+	local supported_features="DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
+	if [ "${MODE}" = "windowsVhdMode" ]; then
+		supported_features="DiskControllerTypes=SCSI,NVMe SecurityType=Standard"
+	fi
 
 	is_need_create=true
 	state=$(az sig show --resource-group "${AZURE_RESOURCE_GROUP_NAME}" --gallery-name "${SIG_GALLERY_NAME}" | jq -r '.provisioningState') || state=""
@@ -619,7 +635,7 @@ function ensure_sig_vhd_exists() {
 						--hyper-v-generation ${HYPERV_GENERATION} \
 						--location ${AZURE_LOCATION} \
 						--architecture Arm64 \
-						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
+						--features "${supported_features}"
 				else
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -700,7 +716,7 @@ function ensure_sig_vhd_exists() {
 					--os-type ${OS_TYPE} \
 					--hyper-v-generation ${HYPERV_GENERATION} \
 					--location ${AZURE_LOCATION} \
-					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
+					--features "${supported_features}"
 			else
 				# For vanilla Gen2, mark only NVMe
 				az sig image-definition create \
@@ -715,6 +731,24 @@ function ensure_sig_vhd_exists() {
 					--location ${AZURE_LOCATION} \
 					--features DiskControllerTypes=SCSI,NVMe
 			fi
+		fi
+		local create_status=$?
+		if [ "${create_status}" -ne 0 ]; then
+			return "${create_status}"
+		fi
+		if [ "${MODE}" = "windowsVhdMode" ] &&
+			[ "${ENABLE_TRUSTED_LAUNCH,,}" != "true" ] &&
+			[ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+			if ! id=$(az sig image-definition show \
+				--resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
+				--gallery-name "${SIG_GALLERY_NAME}" \
+				--gallery-image-definition "${SIG_IMAGE_NAME}"); then
+				echo "Failed to read newly created image definition ${SIG_IMAGE_NAME}" >&2
+				return 1
+			fi
+			local new_definition_id
+			new_definition_id=$(jq -er '.id' <<<"${id}") || return 1
+			ensure_sig_trusted_launch_supported "${new_definition_id}" || return 1
 		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
