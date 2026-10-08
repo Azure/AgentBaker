@@ -526,6 +526,15 @@ fi
 
 [ "$(hook_jumps PREROUTING)" -ge 1 ] && ok "chain is hooked into PREROUTING" || fail "no PREROUTING jump"
 [ "$(hook_jumps OUTPUT)" -ge 1 ] && ok "chain is hooked into OUTPUT" || fail "no OUTPUT jump"
+
+# DNAT needs conntrack, and localdns's raw-table NOTRACK rules for the listeners run
+# first -- raw is priority -300, nat is -100 -- so an untracked packet skips the nat
+# table entirely. If those rules survived into the outage the whole chain above is
+# inert for pod traffic while still looking perfectly correct in 'iptables -S'.
+nt=$(sudo iptables -w -t raw -S 2>/dev/null | grep -cE -- "-d 169\.254\.10\.(10|11)/32 .*-j NOTRACK")
+[ "$nt" -eq 0 ] \
+  && ok "localdns NOTRACK rules are gone, so the redirect can take effect" \
+  || { diag "NOTRACK survived"; fail "${nt} NOTRACK rule(s) for the listeners survived; the nat redirect is inert for pod traffic"; }
 finish
 `); err != nil {
 		return err
@@ -603,6 +612,13 @@ ok "RECOVERY: the fallback stood down and its nat chain is gone"
 [ "$(hook_jumps PREROUTING)" -eq 0 ] && [ "$(hook_jumps OUTPUT)" -eq 0 ] \
   && ok "RECOVERY: no jumps left in PREROUTING or OUTPUT" || fail "RECOVERY: jumps survived"
 
+# A clean stand-down must not be recorded as a failure. Nothing clears that state --
+# localdns's ExecStartPre runs 'stop', which is not 'reset-failed' -- so a unit left
+# 'failed' here stays failed on a healthy node until reboot.
+systemctl is-failed --quiet localdns-fallback.service \
+  && { diag "fallback failed after recovery"; fail "RECOVERY: fallback unit is 'failed' after a clean handoff"; } \
+  || ok "RECOVERY: fallback unit is not 'failed' (state=$(systemctl is-active localdns-fallback.service))"
+
 wait_for 60 "localdns answers on .11 again" sh -c 'dig +short +timeout=3 +tries=1 kubernetes.default.svc.cluster.local @169.254.10.11 | grep -qE "^[0-9]+\."' \
   && ok "RECOVERY: localdns answers on ${CLUSTER_IP}" || fail "RECOVERY: ${CLUSTER_IP} silent after recovery"
 finish
@@ -623,6 +639,25 @@ case "$out" in
 esac
 chain_exists && fail "GUARD: refused apply still created the chain" \
   || ok "GUARD: refused apply left no chain behind"
+
+# The same refusal, but through systemd rather than by running the script directly.
+# This is what OnFailure= actually does on every start while localdns works through
+# its restart budget, and it is the only assertion here that can tell whether
+# ExecCondition= is doing anything: without it systemd runs apply, apply exits 1,
+# and the unit lands in 'failed' on a node whose localdns is perfectly healthy.
+sudo systemctl reset-failed localdns-fallback.service 2>/dev/null || true
+sudo systemctl start localdns-fallback.service >/dev/null 2>&1 || true
+sleep 2
+if systemctl is-failed --quiet localdns-fallback.service; then
+  diag "gated start left the unit failed"
+  fail "GUARD: starting the unit with localdns healthy left it 'failed'; ExecCondition did not skip it"
+else
+  ok "GUARD: starting the unit with localdns healthy is skipped, not failed (state=$(systemctl is-active localdns-fallback.service))"
+fi
+chain_exists && fail "GUARD: the skipped start still installed a chain" \
+  || ok "GUARD: the skipped start installed nothing"
+sudo systemctl stop localdns-fallback.service >/dev/null 2>&1 || true
+sudo systemctl reset-failed localdns-fallback.service 2>/dev/null || true
 
 # clear is idempotent: recovery already ran it via ExecStop.
 sudo /opt/azure/containers/localdns/localdns-fallback.sh clear >/dev/null 2>&1 \
