@@ -119,22 +119,22 @@ These are intentionally left as seams (they belong to other teams/repos):
    lbagent/cert-tattoo/fluent-bit from `aksarc-vhd/AzureLocal`.
 2. **SFS publish** stages the VHD + manifest; the signed upload is owned by the
    Aks-Arc-Assembly `sfs-publishing` pipeline.
-3. **k8s source alignment with AKS**: `kubelet` is pulled from AKS's own
-   `mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext` image (azlinux3 x86_64
-   variant) via `oras` — the same artifact AKS ships. `kubeadm`/`kubectl` come
-   from PMC `prod/cloud-native` (AKS ships no kubeadm — it uses CSE + a hosted
-   control plane). System images (apiserver/proxy/coredns/pause) already come
-   from `oss/v2/kubernetes/*` (shared with AKS).
+3. **k8s source**: `kubeadm`, `kubelet` and `kubectl` are all sourced from PMC
+   `prod/cloud-native` — the same source the Aks-Arc-Assembly AzureLocal VHD
+   build uses. (We do not pull AKS's `oss/v2/kubernetes/kubelet-sysext` via
+   `oras`: the TME build agent proxies outbound traffic in a way `tdnf` honours
+   but a direct `oras ... mcr.microsoft.com` call does not, so the tag lookup
+   fails. PMC ships kubelet for every target version.) System images
+   (apiserver/proxy/coredns/pause) come from `oss/v2/kubernetes/*` (shared with AKS).
 4. **Multi-version VHD**: `install-k8s-pmc.sh` bakes every version in
-   `K8S_VERSIONS`: kubeadm/kubectl (+deps: cni-plugins/containerd/cri-tools) are
-   **downloaded** as RPMs to `/etc/k8s/<ver>/bin` on the roomy rootfs, and
-   kubelet is staged as a per-version systemd-sysext under
-   `/var/lib/extensions/kubelet-<ver>` (same sysext mechanism AKS uses). Current
-   set: `1.33.12 1.33.13 1.34.11 1.34.12 1.35.7 1.35.8`. The node installs the
-   selected version's local RPMs and activates its kubelet sysext at bring-up.
-   > OSGuard's `/usr` is a small hardened partition, so the build installs only
-   > `oras` into the image (to pull the sysext); everything else is downloaded,
-   > not installed, to avoid overflowing `/usr`.
+   `K8S_VERSIONS`: kubeadm/kubelet/kubectl (+deps: cni-plugins/containerd/
+   cri-tools) are **downloaded** as RPMs to `/etc/k8s/<ver>/bin` on the roomy
+   rootfs, one local repo per version. Current set:
+   `1.33.12 1.33.13 1.34.11 1.34.12 1.35.7 1.35.8`. The node installs the
+   selected version's local RPMs at bring-up.
+   > OSGuard's `/usr` is a small hardened partition (~140MB free), so the build
+   > installs **nothing** into `/usr` — all k8s packages are downloaded to the
+   > rootfs to avoid overflowing `/usr`.
 5. Upstreaming requires **AKS-team ownership + a shared CI lane** so the edge
    path cannot regress the AKS build (analysis §9.5).
 
