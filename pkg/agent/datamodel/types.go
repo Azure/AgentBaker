@@ -163,6 +163,7 @@ const (
 	AKSCBLMarinerV2Gen2Kata                 Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSAzureLinuxV2Gen2Kata                 Distro = "aks-azurelinux-v2-gen2-kata"
 	AKSAzureLinuxV3Gen2Kata                 Distro = "aks-azurelinux-v3-gen2-kata"
+	AKSAzureLinuxV3Gen2KataCC               Distro = "aks-azurelinux-v3-gen2-kata-cc"
 	AKSCBLMarinerV2Gen2TL                   Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL                   Distro = "aks-azurelinux-v2-gen2-tl"
 	AKSAzureLinuxV3Gen2TL                   Distro = "aks-azurelinux-v3-gen2-tl"
@@ -255,6 +256,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV3Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSAzureLinuxV2Gen2Kata,
+	AKSAzureLinuxV3Gen2KataCC,
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
@@ -328,7 +330,7 @@ func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV3Gen2KataCC || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
 }
 
 func (d Distro) IsFlatcarDistro() bool {
