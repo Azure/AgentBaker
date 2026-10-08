@@ -36,7 +36,6 @@ var windowsCSETestValues = map[string]string{
 	"empty":   "",
 }
 
-const windowsCSEFieldsFixture = "testdata/windowscse/fields.tsv"
 const windowsCSEPackageURLWithDollar = "https://example.blob.core.windows.net/$web/windows-cse.zip"
 
 func windowsCSEWCNJSONCases() []struct{ name, input, want string } {
@@ -414,8 +413,8 @@ func windowsCSEFieldStatement(t *testing.T, customData, prefix string) string {
 }
 
 // TestWindowsCSEFieldsFixture covers every input; PowerShell checks actual values and types rather than
-// comparing the rendered text with the production encoder.
-// Set GENERATE_TEST_DATA=true to rewrite the fixture.
+// comparing the rendered text with the production encoder. Pester requests a fresh temporary fixture
+// through WINDOWS_CSE_FIELDS_OUTPUT; compressed helper bytes are never compared with a stored snapshot.
 func TestWindowsCSEFieldsFixture(t *testing.T) {
 	var lines []string
 	add := func(field windowsCSEField, value string) {
@@ -459,13 +458,9 @@ func TestWindowsCSEFieldsFixture(t *testing.T) {
 	got := strings.Join(lines, "\n") + "\n"
 	requireASCII(t, "fixture", got)
 
-	if os.Getenv("GENERATE_TEST_DATA") == "true" {
-		require.NoError(t, os.MkdirAll(filepath.Dir(windowsCSEFieldsFixture), 0o755))
-		require.NoError(t, os.WriteFile(windowsCSEFieldsFixture, []byte(got), 0o600))
+	if output := os.Getenv("WINDOWS_CSE_FIELDS_OUTPUT"); output != "" {
+		require.NoError(t, os.WriteFile(output, []byte(got), 0o600))
 	}
-	want, err := os.ReadFile(windowsCSEFieldsFixture)
-	require.NoError(t, err, "regenerate %s with: make generate-testdata", windowsCSEFieldsFixture)
-	require.Equal(t, string(want), got, "%s is stale; regenerate it with: make generate-testdata", windowsCSEFieldsFixture)
 }
 
 func TestWindowsCSEScriptIsASCII(t *testing.T) {

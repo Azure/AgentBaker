@@ -1,9 +1,32 @@
 # Checks the runtime value and type of every Windows CSE input, independently of its encoding.
-# pkg/agent/windows_cse_fields_test.go generates fields.tsv with all text cases and constrained inputs.
+# Go generates fresh cases during discovery; no generated test data is kept in the repository.
 # Each shell runs the rendered statements in separate scopes; on Windows this includes PowerShell 5.1.
 
 BeforeDiscovery {
-    $fixturePath = [IO.Path]::GetFullPath([IO.Path]::Combine($PSScriptRoot, '..', '..', 'pkg', 'agent', 'testdata', 'windowscse', 'fields.tsv'))
+    $repoRoot = [IO.Path]::GetFullPath([IO.Path]::Combine($PSScriptRoot, '..', '..'))
+    $fixtureDirectory = Join-Path ([IO.Path]::GetTempPath()) ([IO.Path]::GetRandomFileName())
+    New-Item -ItemType Directory -Path $fixtureDirectory -ErrorAction Stop | Out-Null
+    $fixturePath = Join-Path $fixtureDirectory 'fields.tsv'
+    $previousOutput = $env:WINDOWS_CSE_FIELDS_OUTPUT
+    try {
+        Push-Location -LiteralPath $repoRoot -ErrorAction Stop
+        try {
+            $env:WINDOWS_CSE_FIELDS_OUTPUT = $fixturePath
+            $generationOutput = & go test -mod=readonly ./pkg/agent -run '^TestWindowsCSEFieldsFixture$' -count=1 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Windows CSE case generation failed: $($generationOutput -join [Environment]::NewLine)"
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $rows = @(Get-Content -LiteralPath $fixturePath -ErrorAction Stop | Where-Object { $_ })
+        if ($rows.Count -eq 0) { throw 'Windows CSE case generation produced no cases' }
+    }
+    finally {
+        $env:WINDOWS_CSE_FIELDS_OUTPUT = $previousOutput
+        Remove-Item -LiteralPath $fixtureDirectory -Recurse -Force -ErrorAction Stop
+    }
     $types = @{
         string = 'System.String'
         first = 'System.Object[]'
@@ -13,7 +36,7 @@ BeforeDiscovery {
     }
     $cases = @(
         $index = 0
-        foreach ($row in (Get-Content -Path $fixturePath | Where-Object { $_ })) {
+        foreach ($row in $rows) {
             $name, $kind, $expected, $line = $row -split "`t", 4
             if (-not $types.ContainsKey($kind)) { throw "Unknown field kind: $kind" }
             @{ Index = $index; Name = $name; Kind = $kind; ExpectedType = $types[$kind]; Expected = $expected; Line = $line }
