@@ -62,6 +62,7 @@ Describe 'ensure_sig_vhd_exists function'
               return 0
               ;;
             "create")
+              MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="true"
               echo "az $*"
               return 0
               ;;
@@ -128,12 +129,12 @@ Describe 'ensure_sig_vhd_exists function'
 
   Describe 'shared Windows Gen2 image creation'
     Parameters
-      False True TrustedLaunchSupported
+      False True Standard
       True True TrustedLaunch
       False False ''
     End
 
-    It "preserves the expected security capability with TL enabled=$1 supported=$2"
+    It "creates the expected initial security capability with TL enabled=$1 supported=$2"
       MODE="windowsVhdMode"
       AZURE_RESOURCE_GROUP_NAME="test-rg"
       SIG_GALLERY_NAME="test-gallery"
@@ -148,6 +149,11 @@ Describe 'ensure_sig_vhd_exists function'
       MOCK_AZ_SIG_SHOW_STATE="Succeeded"
       MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="false"
 
+      # shellcheck disable=SC2329
+      ensure_sig_trusted_launch_supported() {
+        echo "Reconciled $1"
+      }
+
       When call ensure_sig_vhd_exists
       The status should be success
       The output should include '--gallery-image-definition windows-2025-gen2'
@@ -156,6 +162,11 @@ Describe 'ensure_sig_vhd_exists function'
         The output should include "SecurityType=$3"
       else
         The output should not include 'SecurityType='
+      fi
+      if [ "$1" = "False" ] && [ "$2" = "True" ]; then
+        The output should include 'Reconciled mock-value'
+      else
+        The output should not include 'Reconciled'
       fi
     End
   End
