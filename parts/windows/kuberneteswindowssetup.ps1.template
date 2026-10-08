@@ -369,12 +369,6 @@ function BasePrep {
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    # Install OpenSSH if SSH enabled
-    $sshEnabled=[System.Convert]::ToBoolean("{{WindowsSSHEnabled}}")
-    if ( $sshEnabled ) {
-        Install-OpenSSH -SSHKeys $SSHKeys
-    }
-
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
     Resize-OSDrive
@@ -486,6 +480,10 @@ function BasePrep {
 # ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
+    # Apply the live node policy even when BasePrep was cached in a PIS image.
+    $sshEnabled=[System.Convert]::ToBoolean("{{WindowsSSHEnabled}}")
+    Set-SSHAccess -Enabled $sshEnabled -SSHKeys $global:SSHKeys
+
     # Write the kubeconfigs here, not in BasePrep: BasePrep is skipped on
     # PIS/VHD-cached nodes, so anything written there is baked with stale
     # bake-time values. Both are only consumed in NodePrep, so write them from
