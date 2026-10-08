@@ -512,6 +512,44 @@ EOF
   udevadm control --reload
 }
 
+getLatestDalecSysextTag() {
+  local repository=$1 version=${2#v} architecture=$3
+  local tags tag
+  if ! grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' <<< "${version}" ||
+     ! grep -Eq '^(x86-64|arm64)$' <<< "${architecture}"; then
+    echo "Invalid Dalec sysext version or architecture: ${version} ${architecture}" >&2
+    return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+  fi
+  if ! tags=$(retrycmd_silent 120 5 20 oras repo tags --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" "${repository}"); then
+    echo "Failed to list Dalec sysext tags from ${repository}" >&2
+    return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+  fi
+  # sort -V orders revisions numerically (e.g. 10 after 9), not lexically.
+  if ! tag=$(printf '%s\n' "${tags}" | grep -Ex "v${version//./\\.}-[0-9]+-azlinux3-${architecture}" | sort -V | tail -n1) ||
+     [ -z "${tag}" ]; then
+    echo "No matching Dalec sysext tag in ${repository} for v${version} (${architecture})" >&2
+    return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+  fi
+  echo "${tag}"
+}
+
+cacheDalecSysextFromVersion() {
+  local name=$1 version=$2 evaluatedURL=$3 downloadDir=$4
+  local repository=${evaluatedURL%:*} architecture resolvedTag
+  if ! grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' <<< "${version}"; then
+    echo "Expected fixed vMAJOR.MINOR.PATCH for ${name} sysext, got ${version}" >&2
+    return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+  fi
+  architecture=$(getSystemdArch)
+  resolvedTag=$(getLatestDalecSysextTag "${repository}" "${version}" "${architecture}") || return $?
+  echo "Resolved ${name} sysext version ${version} -> ${repository}:${resolvedTag}"
+  downloadSysextFromVersion "${name}" "${repository}:${resolvedTag}" "${downloadDir}" || return $?
+  echo "  - ${name} sysext ${repository}:${resolvedTag} (requested ${version})" >> "${VHD_LOGS_FILEPATH}"
+  if [ "${name}" = "aks-secure-tls-bootstrap-client" ]; then
+    installSecureTLSBootstrapClientSysext "${resolvedTag%-"${architecture}"}" || return $?
+  fi
+}
+
 cachePackageAndBinaryComponents() {
   # Download/cache all declared packages and binaries within components.json that apply to the respective OS SKU
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
@@ -609,8 +647,7 @@ cachePackageAndBinaryComponents() {
             installRPMPackageFromFile "${name}" "${version}" "/opt/bin/${name}" || exit $?
           elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
             evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-            downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
-            installSecureTLSBootstrapClientSysext "${version}" || exit $?
+            cacheDalecSysextFromVersion "${name}" "${version}" "${evaluatedURL}" "${downloadDir}" || exit $?
           fi
           echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
@@ -658,7 +695,7 @@ cachePackageAndBinaryComponents() {
             downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
           elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
             evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-            downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+            cacheDalecSysextFromVersion "${name}" "${version}" "${evaluatedURL}" "${downloadDir}" || exit $?
           fi
           echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
@@ -670,7 +707,7 @@ cachePackageAndBinaryComponents() {
             cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_K8S_INSTALL_ERR
           elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
             evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-            downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+            cacheDalecSysextFromVersion "${name}" "${version}" "${evaluatedURL}" "${downloadDir}" || exit $?
           fi
           echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
