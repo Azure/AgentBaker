@@ -141,6 +141,10 @@ type Config struct {
 	// VHD is the node image used by the scenario.
 	VHD *config.Image
 
+	// DisableScriptless forces generated CSE for scenarios that must test current
+	// source even when the runner otherwise uses VHD-baked provisioning scripts.
+	DisableScriptless bool
+
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 

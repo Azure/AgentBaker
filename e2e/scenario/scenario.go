@@ -3026,6 +3026,7 @@ func networkIsolatedGRIDScenario(name string, vhd *config.Image) *Scenario {
 	s.Tags.NonAnonymousACR = true
 	s.Cluster = ClusterAzureNetworkIsolatedGPU
 	s.VHD = vhd
+	s.DisableScriptless = true
 
 	gpuMutator := s.BootstrapConfigMutator
 	s.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {

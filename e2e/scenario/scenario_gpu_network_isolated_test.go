@@ -21,6 +21,7 @@ func TestNetworkIsolatedGRIDScenario(t *testing.T) {
 			require.True(t, s.Tags.GPU)
 			require.True(t, s.Tags.NetworkIsolated)
 			require.True(t, s.Tags.NonAnonymousACR)
+			require.True(t, s.DisableScriptless)
 			require.Same(t, vhd, s.VHD)
 			require.NotNil(t, s.Validator)
 
@@ -36,6 +37,7 @@ func TestNetworkIsolatedGRIDScenario(t *testing.T) {
 				EnableScriptlessCSECmd:       true,
 				EnableScriptlessNBCCSECmd:    true,
 			}
+
 			cluster := &Cluster{Model: &armcontainerservice.ManagedCluster{Location: to.Ptr("eastus")}}
 			s.BootstrapConfigMutator(cluster, nbc)
 
@@ -61,6 +63,28 @@ func TestNetworkIsolatedGRIDScenario(t *testing.T) {
 			vmss := &armcompute.VirtualMachineScaleSet{SKU: &armcompute.SKU{}}
 			s.VMConfigMutator(vmss)
 			require.Equal(t, "Standard_NV6ads_A10_v5", *vmss.SKU.Name)
+		})
+	}
+}
+
+func TestScriptlessDeliveryRespectsRunnerAndScenario(t *testing.T) {
+	old := config.Config.DisableScriptless
+	t.Cleanup(func() { config.Config.DisableScriptless = old })
+	for _, tc := range []struct {
+		name     string
+		runner   bool
+		scenario bool
+		want     bool
+	}{
+		{name: "runner and scenario use baked scripts"},
+		{name: "runner requires generated scripts", runner: true, want: true},
+		{name: "scenario requires current generated source", scenario: true, want: true},
+		{name: "both require generated scripts", runner: true, scenario: true, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config.Config.DisableScriptless = tc.runner
+			s := &Scenario{Config: Config{DisableScriptless: tc.scenario}}
+			require.Equal(t, tc.want, scriptlessDisabled(s))
 		})
 	}
 }
