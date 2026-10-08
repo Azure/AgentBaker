@@ -126,12 +126,15 @@ These are intentionally left as seams (they belong to other teams/repos):
    control plane). System images (apiserver/proxy/coredns/pause) already come
    from `oss/v2/kubernetes/*` (shared with AKS).
 4. **Multi-version VHD**: `install-k8s-pmc.sh` bakes every version in
-   `K8S_VERSIONS`: kubeadm/kubectl as a per-version offline repo under
-   `/etc/k8s/<ver>/bin`, and kubelet as a per-version systemd-sysext under
+   `K8S_VERSIONS`: kubeadm/kubectl (+deps: cni-plugins/containerd/cri-tools) are
+   **downloaded** as RPMs to `/etc/k8s/<ver>/bin` on the roomy rootfs, and
+   kubelet is staged as a per-version systemd-sysext under
    `/var/lib/extensions/kubelet-<ver>` (same sysext mechanism AKS uses). Current
-   set: `1.33.12 1.33.13 1.34.11 1.34.12 1.35.7 1.35.8`. The node installs
-   kubeadm/kubectl and activates the kubelet sysext for the selected version at
-   bring-up; nothing is installed into `/usr/bin` at build.
+   set: `1.33.12 1.33.13 1.34.11 1.34.12 1.35.7 1.35.8`. The node installs the
+   selected version's local RPMs and activates its kubelet sysext at bring-up.
+   > OSGuard's `/usr` is a small hardened partition, so the build installs only
+   > `oras` into the image (to pull the sysext); everything else is downloaded,
+   > not installed, to avoid overflowing `/usr`.
 5. Upstreaming requires **AKS-team ownership + a shared CI lane** so the edge
    path cannot regress the AKS build (analysis §9.5).
 

@@ -150,7 +150,7 @@ scripts:
         AGENT_SET: "edge"
         PUBLISH_TARGET: "sfs"
         # k8s versions baked into the VHD (Azure Local multi-version model).
-        # kubeadm/kubectl come from PMC prod/cloud-native (per-version offline
-        # repos); kubelet comes from AKS's own oss/v2/kubernetes/kubelet-sysext
-        # image (azlinux3), staged per version. All verified present for this set.
+        # kubeadm/kubectl (+deps) are downloaded as RPMs from PMC prod/cloud-native
+        # to /etc/k8s/<ver>/bin; kubelet comes from AKS's own
+        # oss/v2/kubernetes/kubelet-sysext image (azlinux3), staged per version.
         K8S_VERSIONS: "1.33.12 1.33.13 1.34.11 1.34.12 1.35.7 1.35.8"

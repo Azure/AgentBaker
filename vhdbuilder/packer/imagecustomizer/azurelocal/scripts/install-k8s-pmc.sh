@@ -6,23 +6,21 @@
 #               systemd-sysext image, azlinux3 variant; all target versions present)
 #   kubeadm  -> PMC prod/cloud-native RPM   (no AKS equivalent: AKS uses CSE +
 #               hosted control plane and ships no kubeadm)
-#   kubectl  -> PMC prod/cloud-native RPM   (bundled with the kubeadm staging)
+#   kubectl  -> PMC prod/cloud-native RPM
+#   cni-plugins / containerd -> pulled in as --alldeps of the above (staged RPMs)
 #   system images (apiserver/proxy/coredns/pause) -> already precached from
 #               oss/v2/kubernetes/* via components.json (shared with AKS)
 #
-# Delivery (mirrors production's multi-version-per-VHD model):
-#   - kubeadm/kubectl (+deps) are downloaded per version into /etc/k8s/<ver>/bin
-#     and turned into an offline tdnf repo (k8s-<ver>.repo); the node installs
-#     the selected version at bring-up.
-#   - kubelet is staged per version as a systemd-sysext image under
-#     /var/lib/extensions/kubelet-<ver>/ ; the node activates the selected
-#     version's sysext at bring-up (same mechanism AKS uses).
+# IMPORTANT (OSGuard base): /usr is a small hardened partition (~140MB free), so
+# we install as FEW tools into the image as possible. Only `oras` is installed
+# (needed to pull the kubelet-sysext from MCR). k8s RPMs are DOWNLOADED (not
+# installed) to /etc/k8s/<ver>/bin on the roomy rootfs; the node installs the
+# selected version's local RPMs + activates its kubelet sysext at bring-up.
 set -euo pipefail
 
 : "${K8S_VERSIONS:?K8S_VERSIONS must be set (space- or comma-separated list)}"
 
 KUBELET_SYSEXT_REPO="${KUBELET_SYSEXT_REPO:-mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext}"
-# Azure Linux 3 / x86_64 sysext variant tag suffix (verified present on MCR).
 SYSEXT_VARIANT="${SYSEXT_VARIANT:-azlinux3-x86-64}"
 SYSEXT_DIR="/var/lib/extensions"
 
@@ -35,17 +33,17 @@ for v in "${_raw[@]}"; do
 done
 echo "[azurelocal] staging k8s versions: ${versions[*]}"
 
-# One-time build deps: createrepo (offline metadata), oras (pull kubelet-sysext
-# from MCR), plus the shared runtime bits (cni-plugins + containerd) from base.
-tdnf install -y createrepo_c oras cni-plugins containerd
-CREATEREPO="$(command -v createrepo_c || command -v createrepo)"
-[ -n "${CREATEREPO}" ] || { echo "[azurelocal] ERROR: createrepo not available" >&2; exit 1; }
+# Keep the /usr footprint minimal: install ONLY oras (needed to pull the
+# kubelet-sysext image). Everything else is downloaded to rootfs, not installed.
+tdnf clean all || true
+tdnf install -y oras
 command -v oras >/dev/null || { echo "[azurelocal] ERROR: oras not available" >&2; exit 1; }
 
 mkdir -p "${SYSEXT_DIR}"
 
 for version in "${versions[@]}"; do
-  # --- kubeadm + kubectl (+deps) from PMC cloud-native -> per-version offline repo
+  # --- kubeadm + kubectl (+ all runtime deps: cni-plugins, containerd, cri-tools)
+  #     DOWNLOADED (not installed) from PMC cloud-native to rootfs -------------
   target_dir="/etc/k8s/${version}/bin"
   echo "[azurelocal] PMC: downloading kubeadm/kubectl ${version} (+deps) -> ${target_dir}"
   mkdir -p "${target_dir}"
@@ -56,17 +54,9 @@ for version in "${versions[@]}"; do
       exit 1
     }
   done
-  "${CREATEREPO}" "${target_dir}"
-  cat > "/etc/yum.repos.d/k8s-${version}.repo" <<REPO
-[k8s-${version}]
-name=Kubernetes Local Repo ${version}
-baseurl=file://${target_dir}
-enabled=1
-gpgcheck=0
-REPO
+  echo "[azurelocal] staged $(ls -1 "${target_dir}"/*.rpm 2>/dev/null | wc -l) RPM(s) for ${version}"
 
-  # --- kubelet from AKS's oss/v2 kubelet-sysext image (same source as AKS) ------
-  # Resolve the newest build of this version's azlinux3 x86_64 sysext tag.
+  # --- kubelet from AKS's oss/v2 kubelet-sysext image (same source as AKS) -----
   tag="$(oras repo tags "${KUBELET_SYSEXT_REPO}" 2>/dev/null \
           | grep -E "^v${version}-[0-9]+-${SYSEXT_VARIANT}$" \
           | sort -V | tail -1 || true)"
@@ -81,14 +71,11 @@ REPO
     echo "[azurelocal] ERROR: oras pull failed for ${KUBELET_SYSEXT_REPO}:${tag}" >&2
     exit 1
   }
-  # Normalize the sysext raw image name so the node can activate kubelet-<ver>.
   raw="$(find "${dest}" -maxdepth 2 -name '*.raw' | head -1 || true)"
   if [ -n "${raw}" ] && [ "${raw}" != "${SYSEXT_DIR}/kubelet-${version}.raw" ]; then
     cp -f "${raw}" "${SYSEXT_DIR}/kubelet-${version}.raw"
   fi
-  echo "[azurelocal] staged k8s ${version}: kubeadm/kubectl(PMC repo) + kubelet sysext(${tag})"
+  echo "[azurelocal] staged k8s ${version}: kubeadm/kubectl RPMs + kubelet sysext(${tag})"
 done
 
-tdnf clean all || true
-tdnf makecache || true
 echo "[azurelocal] staged ${#versions[@]} k8s version(s): ${versions[*]}"
