@@ -12,10 +12,11 @@
 #               oss/v2/kubernetes/* via components.json (shared with AKS)
 #
 # IMPORTANT (OSGuard base): /usr is a small hardened partition (~140MB free), so
-# we install as FEW tools into the image as possible. Only `oras` is installed
-# (needed to pull the kubelet-sysext from MCR). k8s RPMs are DOWNLOADED (not
-# installed) to /etc/k8s/<ver>/bin on the roomy rootfs; the node installs the
-# selected version's local RPMs + activates its kubelet sysext at bring-up.
+# we install NOTHING into /usr. The oras binary is EXTRACTED into /opt/bin (on
+# the roomy rootfs, bind-mounted to /usr/local/bin during build) to pull the
+# kubelet-sysext from MCR. k8s RPMs are DOWNLOADED (not installed) to
+# /etc/k8s/<ver>/bin on the roomy rootfs; the node installs the selected
+# version's local RPMs + activates its kubelet sysext at bring-up.
 set -euo pipefail
 
 : "${K8S_VERSIONS:?K8S_VERSIONS must be set (space- or comma-separated list)}"
@@ -33,11 +34,30 @@ for v in "${_raw[@]}"; do
 done
 echo "[azurelocal] staging k8s versions: ${versions[*]}"
 
-# Keep the /usr footprint minimal: install ONLY oras (needed to pull the
-# kubelet-sysext image). Everything else is downloaded to rootfs, not installed.
+# oras is needed to pull the kubelet-sysext image, but OSGuard's /usr is a tiny
+# hardened partition (~140MB free) and even `tdnf install oras` overflows it
+# (rpm transaction: "needs 15MB more space on the /usr filesystem"). Instead,
+# DOWNLOAD the oras RPM to the roomy rootfs and extract ONLY its binary into
+# /opt/bin. /opt/bin is bind-mounted to /usr/local/bin during the build (see the
+# caller), so bare `oras` resolves on PATH. Mirrors the rpm2cpio|cpio extract
+# pattern in vhdbuilder/packer/install-dependencies.sh (no /usr writes).
 tdnf clean all || true
-tdnf install -y oras
-command -v oras >/dev/null || { echo "[azurelocal] ERROR: oras not available" >&2; exit 1; }
+oras_dl_dir="$(mktemp -d /var/tmp/oras-rpm.XXXXXX)"
+tdnf install -y --downloadonly --downloaddir "${oras_dl_dir}" oras || {
+  echo "[azurelocal] ERROR: failed to download oras RPM from PMC" >&2
+  exit 1
+}
+oras_rpm="$(find "${oras_dl_dir}" -name 'oras-*.rpm' | sort -V | tail -1 || true)"
+if [ -z "${oras_rpm}" ]; then
+  echo "[azurelocal] ERROR: oras RPM not found in ${oras_dl_dir} after download" >&2
+  exit 1
+fi
+mkdir -p /opt/bin
+rpm2cpio "${oras_rpm}" | cpio -i --to-stdout "./usr/bin/oras" "./usr/local/bin/oras" 2>/dev/null \
+  | install -m0755 /dev/stdin /opt/bin/oras
+rm -rf "${oras_dl_dir}"
+command -v oras >/dev/null || { echo "[azurelocal] ERROR: oras not available on PATH after extract" >&2; exit 1; }
+echo "[azurelocal] oras staged into /opt/bin (no /usr install): $(oras version 2>/dev/null | head -1 || true)"
 
 mkdir -p "${SYSEXT_DIR}"
 
