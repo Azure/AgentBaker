@@ -3,7 +3,7 @@
 #
 # Kernel-only pod/node DNS fallback for a localdns.service in terminal 'failed'.
 # No listener, no CoreDNS binary, no corefile -- just NAT redirects that move
-# packets until NPD repairs the node.
+# packets until the node is remediated.
 #
 # WHY NO COREDNS. An earlier revision ran a second CoreDNS against a corefile
 # derived from localdns's own. That shares a failure mode with the thing it is
@@ -35,8 +35,10 @@
 # NOT COVERED, BY DESIGN. .10 clients lose cluster.local, which is the same
 # position they are in on a node with localdns disabled. No cache, no
 # serve_stale, no hosts plugin, no VnetDNS overrides. This is a bridge that
-# keeps DNS moving for the minutes before NPD repairs the node, not a
-# replacement for localdns.
+# keeps DNS moving for the minutes between localdns dying and the node being
+# remediated -- NPD only reports LocalDNSError; aks-operator's alert rules and
+# the remediator do the cordon, drain and reboot -- not a replacement for
+# localdns.
 set -euo pipefail
 
 CHAIN=LOCALDNS-FALLBACK
