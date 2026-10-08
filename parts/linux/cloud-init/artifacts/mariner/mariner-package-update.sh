@@ -48,10 +48,12 @@ read_generic_config() {
         return 1
     fi
     payload="${payload_with_sentinel%.}"
-    if ! printf '%s' "${payload}" | jq -e '
+    if ! printf '%s' "${payload}" | jq -se '
+        length == 1 and (.[0] |
+        (type == "object") and
         (.components | type == "array") and
         (.components | all((.name | type == "string") and (.name | length > 0) and (.nodeConfig | type == "string"))) and
-        ([.components[].name] | length) == ([.components[].name] | unique | length)
+        ([.components[].name] | length) == ([.components[].name] | unique | length))
     ' > /dev/null; then
         echo "live-patching-config payload has invalid envelope" >&2
         return 1

@@ -162,6 +162,47 @@ EOF
             The output should not include 'tdnf mock called'
         End
 
+        Describe 'requires a single JSON envelope'
+            Parameters
+                'multiple documents' $'{"components":[]}\n{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}'
+                'no documents' ''
+            End
+
+            It "rejects $1 before package work or status publication"
+                set_generic_payload "$2"
+
+                When call main
+                The status should be failure
+                The output should include 'live-patching goal is:'
+                The stderr should include 'live-patching-config payload has invalid envelope'
+                The output should not include 'tdnf mock called'
+                The contents of file "${TEST_CALLS_FILE}" should equal ''
+                The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+            End
+        End
+
+        It 'accepts a single envelope with trailing newlines hashed exactly'
+            set_generic_payload $'{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}\n\n'
+
+            When call main
+            The status should be success
+            The output should include 'no action needed'
+            The contents of file "${TEST_CALLS_FILE}" should include "\"currentHash\":\"${TEST_GOAL}\""
+            The contents of file "${TEST_CALLS_FILE}" should include '"securityPatch":{"code":"Succeeded"}'
+        End
+
+        It 'rejects trailing newline changes when the goal hashes only the trimmed payload'
+            set_generic_payload '{"components":[]}'
+            printf '\n' >> "${TEST_CONFIG_FILE}"
+
+            When call main
+            The status should be failure
+            The output should include 'live-patching goal is:'
+            The stderr should include 'goal hash does not match'
+            The contents of file "${TEST_CALLS_FILE}" should equal ''
+            The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+        End
+
         It 'rejects a payload whose hash does not match the goal'
             printf '%s' '{"components":[]}' > "${TEST_CONFIG_FILE}"
             TEST_GOAL='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
