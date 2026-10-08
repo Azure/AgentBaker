@@ -3016,6 +3016,60 @@ func ubuntu2404GRIDScenario(name, vmSize string) *Scenario {
 
 var _ = Register(ubuntu2404GRIDScenario("Ubuntu2404_GPUA10", "Standard_NV6ads_A10_v5"))
 
+var _ = Register(networkIsolatedGRIDScenario("Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR", config.VHDUbuntu2204Gen2Containerd))
+var _ = Register(networkIsolatedGRIDScenario("Ubuntu2404_GPUA10_NetworkIsolated_NonAnonymousACR", config.VHDUbuntu2404Gen2Containerd))
+
+func networkIsolatedGRIDScenario(name string, vhd *config.Image) *Scenario {
+	s := ubuntu2404GRIDScenario(name, "Standard_NV6ads_A10_v5")
+	s.Description = "Tests regular A10 GRID driver acquisition from authenticated private ACR, node readiness and driver health while public MCR is blocked"
+	s.Tags.NetworkIsolated = true
+	s.Tags.NonAnonymousACR = true
+	s.Cluster = ClusterAzureNetworkIsolatedGPU
+	s.VHD = vhd
+
+	gpuMutator := s.BootstrapConfigMutator
+	s.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+		gpuMutator(cluster, nbc)
+		nbc.OutboundType = datamodel.OutboundTypeBlock
+		nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+			PrivateEgress: &datamodel.PrivateEgress{
+				Enabled: true,
+				ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository",
+					config.GetPrivateACRName(true, *cluster.Model.Location)),
+			},
+		}
+		nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+		nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+		version := nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+		nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+			"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+			version, version)
+		nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+		nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+	}
+
+	driverValidator := s.Validator
+	s.Validator = func(ctx context.Context, s *Scenario) error {
+		registry := s.Runtime.NBC.ContainerService.Properties.SecurityProfile.PrivateEgress.ContainerRegistryServer
+		return errors.Join(
+			driverValidator(ctx, s),
+			ValidateNvidiaSMIInstalled(ctx, s),
+			ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"}),
+			runGPUCheck(ctx, s, "bootstrap/authenticated-grid-cache-miss", func(ctx context.Context, s *Scenario) error {
+				return ValidateFileHasContent(ctx, s, "/var/log/azure/aks/cluster-provision.log",
+					"Pulling GPU driver image with authentication for "+registry+"/aks/aks-gpu-grid:")
+			}),
+			runGPUCheck(ctx, s, "network/public-mcr-blocked", func(ctx context.Context, s *Scenario) error {
+				_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					"set -e\ngetent ahostsv4 mcr.microsoft.com\ncurl --noproxy '*' --connect-timeout 5 --max-time 10 --head https://mcr.microsoft.com/v2/",
+					28, "expected direct public MCR access to time out on the network-isolated GPU node")
+				return err
+			}),
+		)
+	}
+	return s
+}
+
 var _ = Register(&Scenario{
 	Name:             "Ubuntu2404_GPU_RTXPro6000_GridV20",
 	Description:      "Tests that an RTX PRO 6000 BSE v6 (grid-v20) GPU node on Ubuntu 2404 bootstraps with the aks-gpu-grid-v20 (595.x) driver",

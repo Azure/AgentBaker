@@ -253,6 +253,13 @@ func clusterAzureNetworkIsolated(ctx context.Context, request ClusterRequest) (*
 	return prepareCluster(ctx, model, true, false)
 }
 
+var ClusterAzureNetworkIsolatedGPU = cachedFunc(clusterAzureNetworkIsolatedGPU)
+
+func clusterAzureNetworkIsolatedGPU(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model := getAzureNetworkClusterModel("abe2e-azure-networkisolated-gpu-v1", request.Location, request.K8sSystemPoolSKU)
+	return prepareCluster(ctx, model, true, false)
+}
+
 var ClusterAzureOverlayNetwork = cachedFunc(clusterAzureOverlayNetwork)
 
 // clusterAzureOverlayNetwork creates a cluster with Azure CNI Overlay networking
