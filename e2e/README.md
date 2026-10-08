@@ -157,6 +157,10 @@ Each AKS cluster gets its own `/20` subnet (4091 usable IPs) in the shared VNet.
 named `aks-subnet-{clusterName}`. CIDRs are auto-allocated from a hash of the cluster name to
 avoid collisions.
 
+Shared setup does not garbage-collect unattached cluster subnets: a concurrent runner can
+create its subnet before its cluster resource exists. Remove only resources owned by the
+completed run; a missing cluster alone is not proof that a shared subnet is orphaned.
+
 ### Cluster Types
 
 All clusters use BYOV (Bring Your Own VNet) with the shared VNet. They differ in networking
