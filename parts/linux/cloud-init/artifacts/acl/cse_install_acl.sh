@@ -33,6 +33,10 @@ matchLocalSysext() {
     # MCR artifacts may place files in an arch subdirectory (e.g. amd64/name.raw),
     # so search up to 2 levels deep.
     match=$(find "${downloadDir}" -maxdepth 2 -name "${seName}.raw" -type f 2>/dev/null | head -n1)
+    # Test/BYOI images can cache extensions on their writable OEM partition.
+    if ! test -f "${match}" && test -f "/oem/aks-sysext-cache/${seName}.raw"; then
+        match="/oem/aks-sysext-cache/${seName}.raw"
+    fi
     echo "${match}"
 }
 

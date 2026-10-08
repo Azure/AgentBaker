@@ -56,6 +56,12 @@ nodes retain their existing behavior.
 The publisher's unsuffixed tag contains the AMD64 manifest; ARM64 must not
 consume it. GPU extension selection retains its existing tag behavior.
 
+For test/BYOI images, `/oem/aks-sysext-cache/<name>.raw` is an additional local
+cache after `/opt/<name>/downloads`. This allows Azure image conversion to
+preload the streaming payload without writing to its read-only root or
+activating the extension. Remote lookup remains the fallback when no cache
+matches.
+
 The matching extension must be built, signed, and published before enabling
 this path. It contains ACR Mirror and the OverlayBD dependencies; the legacy
 `overlaybd` extension alone is not sufficient. A missing payload remains a

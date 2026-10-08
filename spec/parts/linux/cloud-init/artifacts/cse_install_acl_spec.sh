@@ -188,6 +188,58 @@ Describe 'cse_install_acl.sh'
         End
     End
 
+    Describe 'matchLocalSysext OEM cache'
+        setup_local_cache() {
+            OPT_CACHE_FILE=$(mktemp)
+            VERSIONED_MATCH=""
+            LOCAL_MATCH=""
+            OEM_CACHE_STATUS=0
+        }
+        cleanup_local_cache() { rm -f "${OPT_CACHE_FILE}"; }
+        BeforeEach 'setup_local_cache'
+        AfterEach 'cleanup_local_cache'
+        find() {
+            if [[ "${5}" == artifact-streaming-v* ]]; then
+                printf '%s\n' "${VERSIONED_MATCH}"
+            else
+                printf '%s\n' "${LOCAL_MATCH}"
+            fi
+        }
+        test() {
+            if [[ "$#" -eq 2 && "$1" == "-f" && "$2" == "/oem/aks-sysext-cache/artifact-streaming.raw" ]]; then
+                return "${OEM_CACHE_STATUS}"
+            fi
+            builtin test "$@"
+        }
+
+        It 'preserves the versioned opt cache as the first choice'
+            VERSIONED_MATCH="${OPT_CACHE_FILE}"
+            When call matchLocalSysext artifact-streaming 3.0.20261008-amd64 x86-64
+            The output should equal "${OPT_CACHE_FILE}"
+            The status should be success
+        End
+
+        It 'preserves the plain opt cache ahead of the OEM cache'
+            LOCAL_MATCH="${OPT_CACHE_FILE}"
+            When call matchLocalSysext artifact-streaming 3.0.20261008-amd64 x86-64
+            The output should equal "${OPT_CACHE_FILE}"
+            The status should be success
+        End
+
+        It 'finds the preloaded OEM payload when the opt cache is absent'
+            When call matchLocalSysext artifact-streaming 3.0.20261008-amd64 x86-64
+            The output should equal "/oem/aks-sysext-cache/artifact-streaming.raw"
+            The status should be success
+        End
+
+        It 'preserves remote lookup when neither cache has a payload'
+            OEM_CACHE_STATUS=1
+            When call matchLocalSysext artifact-streaming 3.0.20261008-amd64 x86-64
+            The output should equal ""
+            The status should be success
+        End
+    End
+
     Describe 'matchRemoteSysext published streaming tags'
         BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
         retrycmd_silent() {
