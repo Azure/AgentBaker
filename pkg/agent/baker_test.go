@@ -1172,6 +1172,30 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedEnabledFeatures))
 	})
 
+	It("should embed the enabled_features file in classic cloud-init when EnabledFeatures is set", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.EnabledFeatures = map[string]string{
+			"ZED_FEATURE":                "1",
+			"ENABLE_PROVISIONING_HOTFIX": "true",
+		}
+
+		customData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+
+		encodedEnabledFeatures := getBase64EncodedGzippedCustomScriptFromStr("ENABLE_PROVISIONING_HOTFIX=true\nZED_FEATURE=1\n")
+		Expect(customData).To(ContainSubstring(enabledFeaturesFilepath))
+		Expect(customData).To(ContainSubstring(encodedEnabledFeatures))
+	})
+
+	It("should not embed the enabled_features file in classic cloud-init when EnabledFeatures is empty", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(false)
+
+		customData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+
+		Expect(customData).NotTo(ContainSubstring(enabledFeaturesFilepath))
+	})
+
 	It("should render multiple enabled features as sorted KEY=VALUE lines", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
