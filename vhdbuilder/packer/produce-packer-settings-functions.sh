@@ -509,10 +509,10 @@ function ensure_sig_trusted_launch_supported() {
 		echo "Failed to verify Trusted Launch support for ${definition_id}" >&2
 		return 1
 	fi
-	if ! jq -e '.properties.provisioningState == "Succeeded" and
-		any(.properties.features[]; .name == "SecurityType" and .value == "TrustedLaunchSupported")' \
+	if ! jq -e --arg version "${SIG_IMAGE_VERSION}" '.properties.provisioningState == "Succeeded" and
+		any(.properties.features[]; .name == "SecurityType" and .value == "TrustedLaunchSupported" and .startsAtVersion == $version)' \
 		<<<"${definition}" >/dev/null; then
-		echo "Image definition ${definition_id} did not converge to TrustedLaunchSupported" >&2
+		echo "Image definition ${definition_id} did not converge to TrustedLaunchSupported from version ${SIG_IMAGE_VERSION}" >&2
 		return 1
 	fi
 }
