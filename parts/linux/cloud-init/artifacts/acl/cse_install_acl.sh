@@ -153,17 +153,29 @@ getACLVersionID() {
     echo "${version_id}"
 }
 
-# Pulls a GPU-related sysext by name using the ACL MCR registry.
+# Pulls a sysext by name using the ACL MCR registry.
 # Registry path uses major.minor (e.g. 3.0), tag uses full VERSION_ID (e.g. 3.0.20260304).
 # Example: mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda:3.0.20260304
-installACLGPUSysext() {
+installACLSysext() {
     local sysext_name=$1
     local version_id
-    version_id=$(getACLVersionID) || exit $ERR_SYSEXT_VERSION_ID_NOT_FOUND
+    version_id=$(getACLVersionID) || return $ERR_SYSEXT_VERSION_ID_NOT_FOUND
     local mcr_base="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
     local registry_base="${mcr_base%/}/azurelinux/${version_id%.*}/azure-container-linux"
     mergeSysexts "${sysext_name}" "${registry_base}/${sysext_name}" "${version_id}" \
-        || exit $ERR_ORAS_PULL_SYSEXT_FAIL
+        || return $ERR_ORAS_PULL_SYSEXT_FAIL
+}
+
+installACLGPUSysext() {
+    installACLSysext "$1" || exit $?
+}
+
+installArtifactStreamingSysext() {
+    local install_script="${ACR_OVERLAYBD_INSTALL_SCRIPT:-/opt/acr/tools/overlaybd/install.sh}"
+    installACLSysext artifact-streaming || return $?
+    systemd-tmpfiles --create /usr/lib/tmpfiles.d/artifact-streaming.conf || return $?
+    "${install_script}" || return $?
+    systemctl daemon-reload
 }
 
 installGPUDriverSysext() {

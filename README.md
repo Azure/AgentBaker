@@ -43,6 +43,20 @@ checks do not establish application-specific renderer compatibility.
 
 For ShellSpec unit test instructions, see the [ShellSpec README](./spec/README.md).
 
+### ACL artifact streaming
+
+ACL uses the standalone `artifact-streaming` system extension rather than
+installing RPMs into its read-only base OS. When streaming is enabled, CSE
+resolves the extension using the booted ACL `VERSION_ID`, activates it, prepares
+writable configuration/cache paths, reloads units, and uses the existing
+ACR Mirror enablement path. Other operating systems and streaming-disabled
+nodes retain their existing behavior.
+
+The matching extension must be built, signed, and published before enabling
+this path. It contains ACR Mirror and the OverlayBD dependencies; the legacy
+`overlaybd` extension alone is not sufficient. A missing payload remains a
+provisioning error, not a successful fallback to non-streaming behavior.
+
 ### E2E
 
 The E2E suite creates VM scale sets, provisions Kubernetes nodes with AgentBaker output, and validates them against AKS clusters.

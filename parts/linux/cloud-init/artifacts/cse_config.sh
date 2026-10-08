@@ -634,6 +634,9 @@ EOF
 }
 
 ensureArtifactStreaming() {
+  if isACL "$OS" "$OS_VARIANT"; then
+    installArtifactStreamingSysext || exit $ERR_ARTIFACT_STREAMING_INSTALL
+  fi
   waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
   retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter || exit $ERR_ARTIFACT_STREAMING_INSTALL
 

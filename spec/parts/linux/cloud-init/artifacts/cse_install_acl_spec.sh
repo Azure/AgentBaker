@@ -137,6 +137,129 @@ Describe 'cse_install_acl.sh'
         End
     End
 
+    Describe 'installACLSysext'
+        getACLVersionID() { echo "3.0.20260809"; }
+        mergeSysexts() {
+            echo "mergeSysexts $*"
+            return "${MERGE_RC:-0}"
+        }
+
+        It 'resolves the streaming extension against the booted ACL version'
+            MCR_REPOSITORY_BASE="mcr.microsoft.com"
+            When call installACLSysext artifact-streaming
+            The output should equal "mergeSysexts artifact-streaming mcr.microsoft.com/azurelinux/3.0/azure-container-linux/artifact-streaming 3.0.20260809"
+            The status should be success
+        End
+
+        It 'preserves the configured registry'
+            MCR_REPOSITORY_BASE="mirror.example.test/"
+            When call installACLSysext artifact-streaming
+            The output should equal "mergeSysexts artifact-streaming mirror.example.test/azurelinux/3.0/azure-container-linux/artifact-streaming 3.0.20260809"
+            The status should be success
+        End
+
+        It 'returns the sysext error instead of enabling missing services'
+            MERGE_RC=1
+            MCR_REPOSITORY_BASE="mcr.microsoft.com"
+            When call installACLSysext artifact-streaming
+            The output should include "mergeSysexts artifact-streaming"
+            The status should equal "$ERR_ORAS_PULL_SYSEXT_FAIL"
+        End
+
+        It 'rejects a missing ACL version before fetching an extension'
+            getACLVersionID() { return "$ERR_SYSEXT_VERSION_ID_NOT_FOUND"; }
+            When call installACLSysext artifact-streaming
+            The output should equal ""
+            The status should equal "$ERR_SYSEXT_VERSION_ID_NOT_FOUND"
+        End
+    End
+
+    Describe 'installACLGPUSysext compatibility'
+        installACLSysext() {
+            echo "installACLSysext $*"
+            return "${INSTALL_RC:-0}"
+        }
+
+        It 'preserves successful GPU installation'
+            When run installACLGPUSysext nvidia-driver-vgpu
+            The output should equal "installACLSysext nvidia-driver-vgpu"
+            The status should be success
+        End
+
+        It 'preserves the original fatal GPU installation error'
+            INSTALL_RC=231
+            When run installACLGPUSysext nvidia-driver-vgpu
+            The output should equal "installACLSysext nvidia-driver-vgpu"
+            The status should equal 231
+        End
+    End
+
+    Describe 'installArtifactStreamingSysext'
+        setup_streaming_install() {
+            TEST_STREAMING_DIR="$(mktemp -d)"
+            ACR_OVERLAYBD_INSTALL_SCRIPT="${TEST_STREAMING_DIR}/install.sh"
+            printf '#!/bin/sh\necho "prepare overlaybd"\nexit "${COMPAT_RC:-0}"\n' > "${ACR_OVERLAYBD_INSTALL_SCRIPT}"
+            chmod +x "${ACR_OVERLAYBD_INSTALL_SCRIPT}"
+        }
+        cleanup_streaming_install() {
+            rm -f "${TEST_STREAMING_DIR}/install.sh"
+            rmdir "${TEST_STREAMING_DIR}"
+        }
+        BeforeEach 'setup_streaming_install'
+        AfterEach 'cleanup_streaming_install'
+        installACLSysext() {
+            echo "installACLSysext $*"
+            return "${INSTALL_RC:-0}"
+        }
+        systemd-tmpfiles() {
+            echo "systemd-tmpfiles $*"
+            return "${TMPFILES_RC:-0}"
+        }
+        systemctl() {
+            echo "systemctl $*"
+            return "${RELOAD_RC:-0}"
+        }
+
+        It 'merges the extension and prepares writable paths before reloading units'
+            When call installArtifactStreamingSysext
+            The line 1 of output should equal "installACLSysext artifact-streaming"
+            The line 2 of output should equal "systemd-tmpfiles --create /usr/lib/tmpfiles.d/artifact-streaming.conf"
+            The line 3 of output should equal "prepare overlaybd"
+            The line 4 of output should equal "systemctl daemon-reload"
+            The status should be success
+        End
+
+        It 'stops when extension installation fails'
+            INSTALL_RC=231
+            When call installArtifactStreamingSysext
+            The output should equal "installACLSysext artifact-streaming"
+            The status should equal 231
+        End
+
+        It 'stops when writable-path setup fails'
+            TMPFILES_RC=1
+            When call installArtifactStreamingSysext
+            The output should not include "prepare overlaybd"
+            The output should not include "daemon-reload"
+            The status should be failure
+        End
+
+        It 'stops when the compatibility installer fails'
+            export COMPAT_RC=1
+            When call installArtifactStreamingSysext
+            The output should include "prepare overlaybd"
+            The output should not include "daemon-reload"
+            The status should be failure
+        End
+
+        It 'propagates unit reload errors'
+            RELOAD_RC=1
+            When call installArtifactStreamingSysext
+            The output should include "systemctl daemon-reload"
+            The status should be failure
+        End
+    End
+
     Describe 'installGPUDriverSysext grid vs cuda selection'
         # Tests the driver-type routing in installGPUDriverSysext():
         # NVIDIA_GPU_DRIVER_TYPE="grid"     -> nvidia-driver-vgpu sysext (converged A10 sizes)
