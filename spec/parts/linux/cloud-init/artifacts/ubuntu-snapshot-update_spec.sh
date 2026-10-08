@@ -216,6 +216,56 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The contents of file "${TEST_KUBECTL_ARGS_FILE}" should equal 'get cm -n kube-system live-patching-config -o jsonpath={.data.live-patching-config\.json}'
     End
 
+    It 'hashes trailing newline bytes before dispatching a valid payload'
+        set_payload_goal $'{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}\n\n'
+
+        When call knead_main
+        The status should be success
+        The output should include 'updateSecurityPatch called'
+        The output should include "\"currentHash\":\"${TEST_GOAL}\""
+        The output should include '"securityPatch":{"code":"Succeeded"}'
+    End
+
+    It 'rejects trailing newline changes when the goal hashes only the trimmed payload'
+        set_payload_goal '{"components":[]}'
+        printf '\n' >> "${TEST_COMPONENTS_JSON_FILE}"
+
+        When call knead_main
+        The status should be failure
+        The error should include 'goal hash does not match'
+        The output should not include 'updateSecurityPatch called'
+        The output should not include 'annotate mock called'
+    End
+
+    Describe 'requires a single JSON envelope'
+        Parameters
+            'multiple documents' $'{"components":[]}\n{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}'
+            'no documents' ''
+        End
+
+        It "rejects $1 before dispatch or status publication"
+            set_payload_goal "$2"
+
+            When call knead_main
+            The status should be failure
+            The error should include 'live-patching-config payload has invalid envelope'
+            The output should not include 'updateSecurityPatch called'
+            The output should not include 'annotate mock called'
+            The path "${KNEAD_COMPONENT_STATE_FILE}" should not be exist
+        End
+    End
+
+    It 'propagates ConfigMap read failures despite the newline-preservation sentinel'
+        Mock kubectl
+            exit 1
+        End
+
+        When call knead_read_configmap aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        The status should be failure
+        The error should include 'failed to read live-patching-config ConfigMap'
+        The output should be blank
+    End
+
     It 'fails before dispatch when the goal hash does not match the ConfigMap payload'
         printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{}}"}]}' > "${TEST_COMPONENTS_JSON_FILE}"
         TEST_GOAL="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

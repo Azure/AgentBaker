@@ -104,22 +104,27 @@ knead_get_node_annotation() {
 knead_read_configmap() {
     local goal="$1"
     local payload
+    local payload_with_sentinel
     local payload_hash
 
+    # Preserve trailing newlines until the exact ConfigMap bytes have been hashed.
     # shellcheck disable=SC2086
-    if ! payload="$($KUBECTL get cm -n "${KNEAD_COMPONENT_CONFIG_NAMESPACE}" "${KNEAD_COMPONENT_CONFIGMAP}" -o "jsonpath={.data.${KNEAD_COMPONENT_CONFIG_KEY_JSONPATH}}")"; then
+    if ! payload_with_sentinel="$($KUBECTL get cm -n "${KNEAD_COMPONENT_CONFIG_NAMESPACE}" "${KNEAD_COMPONENT_CONFIGMAP}" -o "jsonpath={.data.${KNEAD_COMPONENT_CONFIG_KEY_JSONPATH}}" && printf '.')"; then
         echo "failed to read live-patching-config ConfigMap" >&2
         return 1
     fi
+    payload="${payload_with_sentinel%.}"
 
-    if ! printf '%s' "${payload}" | jq -e '
+    if ! printf '%s' "${payload}" | jq -se '
+        length == 1 and (.[0] |
+        (type == "object") and
         (.components | type == "array") and
         (.components | all(
             (.name | type == "string") and
             (.name | length > 0) and
             (.nodeConfig | type == "string")
         )) and
-        ([.components[].name] | length) == ([.components[].name] | unique | length)
+        ([.components[].name] | length) == ([.components[].name] | unique | length))
     ' > /dev/null; then
         echo "live-patching-config payload has invalid envelope" >&2
         return 1
