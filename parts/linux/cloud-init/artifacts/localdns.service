@@ -12,15 +12,34 @@ ConditionKernelVersion=>=5.15
 # slowest restart cycle (TimeoutStartSec + TimeoutStopSec + RestartSec: 122s on Ubuntu,
 # 107s on Azure Linux). A failure repeating more slowly than the threshold never
 # accumulates StartLimitBurst starts inside the window, so it never reaches 'failed' --
-# which is the state NPD observes and a future OnFailure= handoff fires on.
+# which is the state NPD observes and the OnFailure= handoff below fires on.
 StartLimitIntervalSec=720
 StartLimitBurst=5
+# OnFailure= starts the DNS fallback, which NAT-redirects 169.254.10.10 and
+# 169.254.10.11 so pods and the node keep resolving while localdns is down.
+# Pods have one of those two addresses written into /etc/resolv.conf at sandbox
+# creation and can never be repointed.
+#
+# systemd may fire this more than once -- on a live node (systemd 255)
+# 'Triggering OnFailure= dependencies' appeared once per restart cycle while
+# 'systemctl is-failed' still reported 'activating'. The fallback's apply path
+# refuses anything other than terminal 'failed', so an early fire is a no-op,
+# and its StartLimitIntervalSec=0 stops that burst rate-limiting the real one.
+OnFailure=localdns-fallback.service
 
 [Service]
 Type=notify
 NotifyAccess=all
 WatchdogSec=60
 Restart=on-failure
+# Remove the fallback's NAT redirects before we start serving again, otherwise
+# traffic to .10/.11 would keep being rewritten past the listeners we are about
+# to bind. Stopping the unit runs its ExecStop, which flushes the chain. This
+# synchronous stop is the ONLY handoff -- the fallback deliberately carries no
+# Conflicts=localdns.service, because resolving that conflict stopped this unit
+# and reset its restart counter, so the 720/5 budget above was never spent and
+# 'failed' was never reached. '-' so a not-running fallback is not an error.
+ExecStartPre=-/usr/bin/systemctl stop localdns-fallback.service
 # Load-bearing: give each restart time to sample real system state instead of
 # re-entering the transient it is retrying against. cleanup_iptables_and_dns
 # runs 'networkctl reload' on every start, and the dummy interface carrying the

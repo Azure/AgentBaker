@@ -2571,6 +2571,8 @@ checkLocaldnsScriptsAndConfigs() {
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
+    ["/opt/azure/containers/localdns/localdns-fallback.sh"]=755
+    ["/etc/systemd/system/localdns-fallback.service"]=644
   )
 
   # Flatcar is EOL (June 2026) — exporter files are not installed on Flatcar VHDs
