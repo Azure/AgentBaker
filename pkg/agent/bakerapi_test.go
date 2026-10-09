@@ -240,7 +240,8 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 					)
 
 					customDataVariables := getCustomDataVariables(testConfig)
-					variables := customDataVariables["cloudInitFileData"].(paramsMap)
+					variables, ok := customDataVariables["cloudInitFileData"].(paramsMap)
+					Expect(ok).To(BeTrue())
 					expectedScripts := []struct {
 						path string
 						key  string
@@ -289,7 +290,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 						file := filesByPath[script.path]
 						Expect(file.Permissions).To(Equal("0744"))
 						Expect(file.Encoding).To(BeEmpty())
-						Expect(file.Content).To(Equal(variables[script.key].(string)), script.path)
+						expectedContent, ok := variables[script.key].(string)
+						Expect(ok).To(BeTrue())
+						Expect(file.Content).To(Equal(expectedContent), script.path)
 					}
 					expectedLiteralFiles := []struct {
 						path        string
@@ -305,7 +308,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 						file := filesByPath[expected.path]
 						Expect(file.Permissions).To(Equal(expected.permissions))
 						Expect(file.Encoding).To(BeEmpty())
-						Expect(file.Content).To(Equal(variables[expected.key].(string)), expected.path)
+						expectedContent, ok := variables[expected.key].(string)
+						Expect(ok).To(BeTrue())
+						Expect(file.Content).To(Equal(expectedContent), expected.path)
 					}
 					By(fmt.Sprintf("%s customData size: encoded=%d decoded=%d", name, len(payload), len(customDataBytes)))
 				}

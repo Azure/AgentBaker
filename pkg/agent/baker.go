@@ -660,17 +660,7 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetCloudInitFileProperties"] = func(name string) (string, error) {
-		if files, ok := variables["cloudInitFileData"].(paramsMap); ok {
-			if content, ok := files[name].(string); ok {
-				return renderCloudInitFileContent(content)
-			}
-		}
-		if cloudInitData, ok := variables["cloudInitData"].(paramsMap); ok {
-			if encoded, ok := cloudInitData[name].(string); ok {
-				return fmt.Sprintf("  encoding: gzip\n  content: !!binary |\n    %s\n", encoded), nil
-			}
-		}
-		return "", fmt.Errorf("cloud-init file %q is unavailable", name)
+		return getCloudInitFileProperties(variables, name)
 	}
 
 	funcMap["GetParameter"] = func(s string) interface{} {
@@ -718,6 +708,20 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	}
 
 	return funcMap
+}
+
+func getCloudInitFileProperties(variables paramsMap, name string) (string, error) {
+	if files, ok := variables["cloudInitFileData"].(paramsMap); ok {
+		if content, ok := files[name].(string); ok {
+			return renderCloudInitFileContent(content)
+		}
+	}
+	if cloudInitData, ok := variables["cloudInitData"].(paramsMap); ok {
+		if encoded, ok := cloudInitData[name].(string); ok {
+			return fmt.Sprintf("  encoding: gzip\n  content: !!binary |\n    %s\n", encoded), nil
+		}
+	}
+	return "", fmt.Errorf("cloud-init file %q is unavailable", name)
 }
 
 func renderCloudInitFileContent(content string) (string, error) {

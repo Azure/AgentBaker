@@ -124,7 +124,8 @@ func TestGetCloudInitFilePropertiesKeepsGzipFallback(t *testing.T) {
 			require.NotContains(t, variables, "cloudInitFileData")
 
 			funcMap := getBakerFuncMap(config, getParameters(config), variables)
-			getProperties := funcMap["GetCloudInitFileProperties"].(func(string) (string, error))
+			getProperties, ok := funcMap["GetCloudInitFileProperties"].(func(string) (string, error))
+			require.True(t, ok)
 			properties, err := getProperties("provisionSource")
 			require.NoError(t, err)
 			require.Contains(t, properties, "encoding: gzip")
