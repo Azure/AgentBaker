@@ -12,7 +12,13 @@ ConditionKernelVersion=>=5.15
 # counter is at 1' on every cycle). localdns therefore never spent its 720/5
 # budget and never reached terminal 'failed' -- defeating both the OnFailure=
 # handoff this unit is gated on and the stable state NPD is meant to observe.
-Before=localdns.service
+#
+# No 'Before=localdns.service' either. Ordering only applies within a single
+# transaction, and these two are never in one: this unit is started by
+# OnFailure=, stopped by an ExecStartPre that runs its own transaction, and is
+# not WantedBy any target so it never starts at boot. The ExecStartPre stop is
+# the handoff; an ordering edge adds nothing and would be a deadlock shape if
+# the wiring ever changed.
 # Unbounded start budget. localdns.service's OnFailure= can fire more than once
 # while localdns works through its restart budget, and apply_rules no-ops on
 # anything other than terminal 'failed'. Without this, that burst of gated
