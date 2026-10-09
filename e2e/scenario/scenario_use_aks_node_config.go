@@ -6,6 +6,7 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
@@ -92,7 +93,7 @@ func newUseAKSNodeConfigScenario(name, description string, vhd *config.Image) *S
 					// The toggle actually reached the node. Without this a later assertion
 					// could pass for the wrong reason - e.g. if nbc-cmd were simply absent.
 					ValidateFileHasContent(ctx, s, enabledFeaturesPath, useAKSNodeConfigFeature+"=true"),
-					ValidateFileHasContent(ctx, s, ancLauncherOutput, "USE_AKS_NODE_CONFIG is enabled"),
+					validateLauncherAnnouncedToggle(ctx, s),
 
 					// Both sources are still delivered: this scenario is the reverse-compare
 					// step, not the retirement of nbc-cmd.
@@ -114,4 +115,23 @@ func newUseAKSNodeConfigScenario(name, description string, vhd *config.Image) *S
 			},
 		},
 	}
+}
+
+// validateLauncherAnnouncedToggle asserts the launcher logged the toggle it acted on.
+//
+// That log line lives in aks-node-controller-launcher.sh, which packer bakes into the image
+// (vhdbuilder/packer/packer_source.sh) rather than delivering through CustomData, so a lane that
+// resolved a main-built image runs a launcher predating the toggle and cannot emit it. The binary
+// is not subject to the same lag - the hotfix path compiles it from this branch and ships it to
+// every lane - so the assertions on the executed source stay ungated and keep this scenario
+// meaningful even where the launcher is old. That split is also why the line is only ever a log:
+// the binary reads USE_AKS_NODE_CONFIG itself, and the launcher merely narrates the decision.
+func validateLauncherAnnouncedToggle(ctx context.Context, s *Scenario) error {
+	if laneResolvedMainBuiltImage() {
+		logging.Logf(ctx, "SKIP: this lane resolved a main-built image (%s=%s), which predates the "+
+			"USE_AKS_NODE_CONFIG line in aks-node-controller-launcher.sh; run against the PR's VHD build to exercise it",
+			config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue)
+		return nil
+	}
+	return ValidateFileHasContent(ctx, s, ancLauncherOutput, "USE_AKS_NODE_CONFIG is enabled")
 }
