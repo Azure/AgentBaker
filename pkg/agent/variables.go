@@ -13,36 +13,46 @@ import (
 // getCustomDataVariables returns cloudinit data used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
+	useCloudInitLiteralFiles := !config.IsFlatcar() && !config.IsACL() && !config.EnableScriptlessCSECmd
+	cloudInitFileData := paramsMap{}
+	getCloudInitFile := func(name, filename string) string {
+		content := getCustomScriptContent(filename, config)
+		if useCloudInitLiteralFiles {
+			cloudInitFileData[name] = content
+			return ""
+		}
+		return getBase64EncodedGzippedCustomScriptFromStr(content)
+	}
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
-			"provisionStartScript":                  getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
-			"provisionScript":                       getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
-			"provisionSource":                       getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
-			"provisionSourceUbuntu":                 getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
-			"provisionSourceMariner":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
-			"provisionSourceAzlOSGuard":             getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptAzlOSGuard, config),
-			"provisionSourceFlatcar":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptFlatcar, config),
-			"provisionSourceACL":                    getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptACL, config),
-			"provisionInstalls":                     getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
-			"provisionInstallsUbuntu":               getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
-			"provisionInstallsMariner":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
-			"provisionInstallsAzlOSGuard":           getBase64EncodedGzippedCustomScript(kubernetesCSEInstallAzlOSGuard, config),
-			"provisionInstallsFlatcar":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstallFlatcar, config),
-			"provisionInstallsACL":                  getBase64EncodedGzippedCustomScript(kubernetesCSEInstallACL, config),
-			"provisionConfigs":                      getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
-			"provisionConfigsGPU":                   getBase64EncodedGzippedCustomScript(kubernetesCSEConfigGPU, config),
-			"provisionConfigsLocalDNS":              getBase64EncodedGzippedCustomScript(kubernetesCSEConfigLocalDNS, config),
-			"provisionConfigsKubelet":               getBase64EncodedGzippedCustomScript(kubernetesCSEConfigKubelet, config),
-			"provisionConfigsNetwork":               getBase64EncodedGzippedCustomScript(kubernetesCSEConfigNetwork, config),
-			"provisionConfigsAddons":                getBase64EncodedGzippedCustomScript(kubernetesCSEConfigAddons, config),
+			"provisionStartScript":                  getCloudInitFile("provisionStartScript", kubernetesCSEStartScript),
+			"provisionScript":                       getCloudInitFile("provisionScript", kubernetesCSEMainScript),
+			"provisionSource":                       getCloudInitFile("provisionSource", kubernetesCSEHelpersScript),
+			"provisionSourceUbuntu":                 getCloudInitFile("provisionSourceUbuntu", kubernetesCSEHelpersScriptUbuntu),
+			"provisionSourceMariner":                getCloudInitFile("provisionSourceMariner", kubernetesCSEHelpersScriptMariner),
+			"provisionSourceAzlOSGuard":             getCloudInitFile("provisionSourceAzlOSGuard", kubernetesCSEHelpersScriptAzlOSGuard),
+			"provisionSourceFlatcar":                getCloudInitFile("provisionSourceFlatcar", kubernetesCSEHelpersScriptFlatcar),
+			"provisionSourceACL":                    getCloudInitFile("provisionSourceACL", kubernetesCSEHelpersScriptACL),
+			"provisionInstalls":                     getCloudInitFile("provisionInstalls", kubernetesCSEInstall),
+			"provisionInstallsUbuntu":               getCloudInitFile("provisionInstallsUbuntu", kubernetesCSEInstallUbuntu),
+			"provisionInstallsMariner":              getCloudInitFile("provisionInstallsMariner", kubernetesCSEInstallMariner),
+			"provisionInstallsAzlOSGuard":           getCloudInitFile("provisionInstallsAzlOSGuard", kubernetesCSEInstallAzlOSGuard),
+			"provisionInstallsFlatcar":              getCloudInitFile("provisionInstallsFlatcar", kubernetesCSEInstallFlatcar),
+			"provisionInstallsACL":                  getCloudInitFile("provisionInstallsACL", kubernetesCSEInstallACL),
+			"provisionConfigs":                      getCloudInitFile("provisionConfigs", kubernetesCSEConfig),
+			"provisionConfigsGPU":                   getCloudInitFile("provisionConfigsGPU", kubernetesCSEConfigGPU),
+			"provisionConfigsLocalDNS":              getCloudInitFile("provisionConfigsLocalDNS", kubernetesCSEConfigLocalDNS),
+			"provisionConfigsKubelet":               getCloudInitFile("provisionConfigsKubelet", kubernetesCSEConfigKubelet),
+			"provisionConfigsNetwork":               getCloudInitFile("provisionConfigsNetwork", kubernetesCSEConfigNetwork),
+			"provisionConfigsAddons":                getCloudInitFile("provisionConfigsAddons", kubernetesCSEConfigAddons),
 			"provisionSendLogs":                     getBase64EncodedGzippedCustomScript(kubernetesCSESendLogs, config),
 			"provisionRedactCloudConfig":            getBase64EncodedGzippedCustomScript(kubernetesCSERedactCloudConfig, config),
 			"customSearchDomainsScript":             getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
 			"dhcpv6SystemdService":                  getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
 			"dhcpv6ConfigurationScript":             getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
-			"kubeletSystemdService":                 getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
+			"kubeletSystemdService":                 getCloudInitFile("kubeletSystemdService", kubeletSystemdService),
 			"reconcilePrivateHostsScript":           getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
-			"reconcilePrivateHostsService":          getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
+			"reconcilePrivateHostsService":          getCloudInitFile("reconcilePrivateHostsService", reconcilePrivateHostsService),
 			"ensureNoDupEbtablesScript":             getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
 			"ensureNoDupEbtablesService":            getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
 			"bindMountScript":                       getBase64EncodedGzippedCustomScript(bindMountScript, config),
@@ -62,13 +72,16 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"cloudInitStatusCheckScript":            getBase64EncodedGzippedCustomScript(cloudInitStatusCheckScript, config),
 			"measureTLSBootstrappingLatencyScript":  getBase64EncodedGzippedCustomScript(measureTLSBootstrappingLatencyScript, config),
 			"measureTLSBootstrappingLatencyService": getBase64EncodedGzippedCustomScript(measureTLSBootstrappingLatencyService, config),
-			"configureAzureNetworkScript":           getBase64EncodedGzippedCustomScript(configureAzureNetworkScript, config),
-			"azureNetworkUdevRule":                  getBase64EncodedGzippedCustomScript(azureNetworkUdevRule, config),
+			"configureAzureNetworkScript":           getCloudInitFile("configureAzureNetworkScript", configureAzureNetworkScript),
+			"azureNetworkUdevRule":                  getCloudInitFile("azureNetworkUdevRule", azureNetworkUdevRule),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap) //nolint:errcheck // no error is actually here
-	cloudInitData["initAKSCloud"] = getBase64EncodedGzippedCustomScript(initAKSCloudScript, config)
+	cloudInitData["initAKSCloud"] = getCloudInitFile("initAKSCloud", initAKSCloudScript)
+	if useCloudInitLiteralFiles {
+		cloudInitFiles["cloudInitFileData"] = cloudInitFileData
+	}
 
 	if config.IsFlatcar() || config.IsACL() {
 		cloudInitData["provisionRedactCloudConfig"] = "" // Flatcar and ACL do not have cloud-init

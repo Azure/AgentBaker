@@ -312,13 +312,13 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	parameters := getParameters(config)
 	// get variable cloudInit
 	variables := getCustomDataVariables(config)
-	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
+	str, e := t.getSingleLine(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
 
 	if e != nil {
 		panic(e)
 	}
 
-	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+	return getCustomDataJSONObject(str)
 }
 
 const (
@@ -657,6 +657,20 @@ func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
+	funcMap["GetCloudInitFileProperties"] = func(name string) (string, error) {
+		if files, ok := variables["cloudInitFileData"].(paramsMap); ok {
+			if content, ok := files[name].(string); ok {
+				return renderCloudInitFileContent(content)
+			}
+		}
+		if cloudInitData, ok := variables["cloudInitData"].(paramsMap); ok {
+			if encoded, ok := cloudInitData[name].(string); ok {
+				return fmt.Sprintf("  encoding: gzip\n  content: !!binary |\n    %s\n", encoded), nil
+			}
+		}
+		return "", fmt.Errorf("cloud-init file %q is unavailable", name)
+	}
+
 	funcMap["GetParameter"] = func(s string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
 			if v["value"] == nil {
@@ -702,6 +716,38 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	}
 
 	return funcMap
+}
+
+func renderCloudInitFileContent(content string) (string, error) {
+	style := yaml.LiteralStyle
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "\t") {
+			style = yaml.DoubleQuotedStyle
+			break
+		}
+	}
+	document := &yaml.Node{
+		Kind: yaml.MappingNode,
+		Tag:  "!!map",
+		Content: []*yaml.Node{
+			{Kind: yaml.ScalarNode, Tag: "!!str", Value: "content"},
+			{Kind: yaml.ScalarNode, Tag: "!!str", Value: content, Style: style},
+		},
+	}
+	var buffer bytes.Buffer
+	encoder := yaml.NewEncoder(&buffer)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(document); err != nil {
+		return "", fmt.Errorf("encode cloud-init file content: %w", err)
+	}
+	if err := encoder.Close(); err != nil {
+		return "", fmt.Errorf("close cloud-init file content encoder: %w", err)
+	}
+	lines := strings.Split(strings.TrimSuffix(buffer.String(), "\n"), "\n")
+	for index := range lines {
+		lines[index] = "  " + lines[index]
+	}
+	return strings.Join(lines, "\n") + "\n", nil
 }
 
 /* normalizeResourceGroupNameForLabel normalizes resource group name to be used as a label,

@@ -55,8 +55,8 @@ VERSION_RE = re.compile(r'^\d{6}\.\d{2}\.\d+$')
 SCRIPTS_BEGIN = "# ---- hotfix-scripts: auto-generated ----"
 SCRIPTS_END = "# ---- end hotfix-scripts ----"
 
-# Map from source file paths (relative to artifacts/) to the GetVariableProperty
-# keys used in nodecustomdata.yml. Only scripts that appear as write_files entries
+# Map from source file paths (relative to artifacts/) to the template variable
+# keys used in nodecustomdata.yml. Only files that appear as write_files entries
 # in the traditional section are included.
 SOURCE_TO_VARKEY = {
     # CSE helpers — base (non-distro)
@@ -379,7 +379,9 @@ def parse_write_files_blocks(traditional_lines):
     """Parse write_files blocks from the traditional section.
 
     Each block is either a simple '- path:' entry or an entire conditional
-    block (e.g., {{if IsAzlOSGuard}}...{{end}}) treated as a single unit.
+    block (e.g., {{if IsAzlOSGuard}}...{{end}}) treated as a single unit. File
+    keys may use either the legacy GetVariableProperty form or the literal-file
+    GetCloudInitFileProperties form.
 
     Returns a list of (varkeys_set, lines_list) tuples.
     """
@@ -420,9 +422,17 @@ def parse_write_files_blocks(traditional_lines):
 
         if in_block:
             current_block.append(line)
-            match = re.search(r'GetVariableProperty\s+"cloudInitData"\s+"(\w+)"', stripped)
-            if match:
-                current_varkeys.add(match.group(1))
+            matches = (
+                re.search(
+                    r'GetVariableProperty\s+"cloudInitData"\s+"(\w+)"',
+                    stripped,
+                ),
+                re.search(r'GetCloudInitFileProperties\s+"(\w+)"', stripped),
+            )
+            for match in matches:
+                if match:
+                    current_varkeys.add(match.group(1))
+                    break
 
     if current_block and current_varkeys:
         blocks.append((current_varkeys.copy(), list(current_block)))

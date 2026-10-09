@@ -1,13 +1,19 @@
 package agent
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
+	"fmt"
+	"io"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	agenttoggles "github.com/Azure/agentbaker/pkg/agent/toggles"
 	"github.com/barkimedes/go-deepcopy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 type testToggles struct {
@@ -177,6 +183,162 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
 			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
 			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("2204gen2containerd"))
+		})
+
+		It("should render Linux cloud-init files as literal write_files content without changing their bytes", func() {
+			testCases := []struct {
+				name   string
+				distro datamodel.Distro
+			}{
+				{name: "Ubuntu 22.04", distro: datamodel.AKSUbuntuContainerd2204Gen2},
+				{name: "Ubuntu 24.04", distro: datamodel.AKSUbuntuContainerd2404Gen2},
+				{name: "Azure Linux 3", distro: datamodel.AKSAzureLinuxV3Gen2},
+			}
+
+			for _, testCase := range testCases {
+				for _, preProvisionOnly := range []bool{false, true} {
+					name := testCase.name
+					if preProvisionOnly {
+						name += " PIS"
+					} else {
+						name += " ordinary"
+					}
+					By(name)
+
+					configCopy, err := deepcopy.Anything(config)
+					Expect(err).NotTo(HaveOccurred())
+					testConfig, ok := configCopy.(*datamodel.NodeBootstrappingConfiguration)
+					Expect(ok).To(BeTrue())
+					testConfig.AgentPoolProfile.Distro = testCase.distro
+					testConfig.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
+					testConfig.PreProvisionOnly = preProvisionOnly
+					testConfig.EnableScriptlessCSECmd = false
+					testConfig.ConfigGPUDriverIfNeeded = false
+					testConfig.EnableGPUDevicePluginIfNeeded = false
+					testConfig.EnableNvidia = false
+
+					payload := InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(testConfig)
+					Expect(len(payload)).To(BeNumerically("<", MaxCustomDataLength))
+					encoded, err := base64.StdEncoding.Strict().DecodeString(payload)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(encoded)).To(BeNumerically("<=", 65535))
+					reader, err := gzip.NewReader(bytes.NewReader(encoded))
+					Expect(err).NotTo(HaveOccurred())
+					customDataBytes, err := io.ReadAll(reader)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(reader.Close()).To(Succeed())
+					var customData cloudInit
+					Expect(yaml.Unmarshal(customDataBytes, &customData)).To(Succeed())
+					fmt.Fprintf(
+						GinkgoWriter,
+						"PIS_CUSTOMDATA distro=%s preProvisionOnly=%t base64=%d gzip=%d yaml=%d\n",
+						testCase.distro,
+						preProvisionOnly,
+						len(payload),
+						len(encoded),
+						len(customDataBytes),
+					)
+
+					customDataVariables := getCustomDataVariables(testConfig)
+					variables := customDataVariables["cloudInitFileData"].(paramsMap)
+					expectedScripts := []struct {
+						path string
+						key  string
+					}{
+						{cseHelpersScriptFilepath, "provisionSource"},
+						{cseHelpersScriptDistroFilepath, "provisionSourceUbuntu"},
+						{"/opt/azure/containers/provision_start.sh", "provisionStartScript"},
+						{"/opt/azure/containers/provision.sh", "provisionScript"},
+						{cseInstallScriptFilepath, "provisionInstalls"},
+						{cseInstallScriptDistroFilepath, "provisionInstallsUbuntu"},
+						{cseConfigScriptFilepath, "provisionConfigs"},
+						{cseConfigGPUScriptFilepath, "provisionConfigsGPU"},
+						{cseConfigLocalDNSScriptFilepath, "provisionConfigsLocalDNS"},
+						{cseConfigKubeletScriptFilepath, "provisionConfigsKubelet"},
+						{cseConfigNetworkScriptFilepath, "provisionConfigsNetwork"},
+						{cseConfigAddonsScriptFilepath, "provisionConfigsAddons"},
+					}
+					if testCase.distro == datamodel.AKSAzureLinuxV3Gen2 {
+						expectedScripts[1].key = "provisionSourceMariner"
+						expectedScripts[5].key = "provisionInstallsMariner"
+					}
+
+					expectedPaths := make([]string, 0, len(customData.WriteFiles))
+					for _, script := range expectedScripts {
+						expectedPaths = append(expectedPaths, script.path)
+					}
+					allVariables := customDataVariables["cloudInitData"].(paramsMap)
+					hasChronyScript := allVariables["provisionConfigsChrony"] != nil
+					if hasChronyScript {
+						expectedPaths = append(expectedPaths, "/opt/azure/containers/provision_configs_chrony.sh")
+					}
+					expectedPaths = append(expectedPaths,
+						"/etc/systemd/system/reconcile-private-hosts.service",
+						"/etc/systemd/system/kubelet.service",
+						"/opt/azure-network/configure-azure-network.sh",
+						"/etc/udev/rules.d/99-azure-network.rules",
+					)
+					actualPaths := make([]string, 0, len(customData.WriteFiles))
+					for _, file := range customData.WriteFiles {
+						actualPaths = append(actualPaths, file.Path)
+					}
+					Expect(actualPaths).To(Equal(expectedPaths))
+
+					filesByPath := make(map[string]cloudInitWriteFile, len(customData.WriteFiles))
+					for _, file := range customData.WriteFiles {
+						filesByPath[file.Path] = file
+						Expect(file.Owner).To(Equal("root"))
+					}
+					for _, script := range expectedScripts {
+						file := filesByPath[script.path]
+						Expect(file.Permissions).To(Equal("0744"))
+						Expect(file.Encoding).To(BeEmpty())
+						Expect(file.Content).To(Equal(variables[script.key].(string)), script.path)
+					}
+					expectedLiteralFiles := []struct {
+						path        string
+						key         string
+						permissions string
+					}{
+						{"/etc/systemd/system/reconcile-private-hosts.service", "reconcilePrivateHostsService", "0644"},
+						{"/etc/systemd/system/kubelet.service", "kubeletSystemdService", "0600"},
+						{"/opt/azure-network/configure-azure-network.sh", "configureAzureNetworkScript", "0755"},
+						{"/etc/udev/rules.d/99-azure-network.rules", "azureNetworkUdevRule", "0644"},
+					}
+					for _, expected := range expectedLiteralFiles {
+						file := filesByPath[expected.path]
+						Expect(file.Permissions).To(Equal(expected.permissions))
+						Expect(file.Encoding).To(BeEmpty())
+						Expect(file.Content).To(Equal(variables[expected.key].(string)), expected.path)
+					}
+					expectedGzippedFiles := []struct {
+						path        string
+						key         string
+						permissions string
+					}{}
+					if hasChronyScript {
+						expectedGzippedFiles = append(expectedGzippedFiles, struct {
+							path        string
+							key         string
+							permissions string
+						}{"/opt/azure/containers/provision_configs_chrony.sh", "provisionConfigsChrony", "0744"})
+					}
+					for _, expected := range expectedGzippedFiles {
+						file := filesByPath[expected.path]
+						Expect(file.Permissions).To(Equal(expected.permissions))
+						Expect(file.Encoding).To(Equal("gzip"))
+						encodedFile, err := base64.StdEncoding.DecodeString(allVariables[expected.key].(string))
+						Expect(err).NotTo(HaveOccurred())
+						expectedBytes, err := getGzipDecodedValue(encodedFile)
+						Expect(err).NotTo(HaveOccurred())
+						actualBytes, err := getGzipDecodedValue([]byte(file.Content))
+						Expect(err).NotTo(HaveOccurred())
+						Expect(actualBytes).To(Equal(expectedBytes), expected.path)
+					}
+
+					By(fmt.Sprintf("%s customData size: encoded=%d decoded=%d", name, len(payload), len(customDataBytes)))
+				}
+			}
 		})
 
 		It("should accept supported custom Linux transparent huge page values", func() {
