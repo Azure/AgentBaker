@@ -1759,6 +1759,8 @@ type GetLatestSigImageConfigRequest struct {
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
+const CustomDataOnlyProvisioningFeature = "USE_CUSTOM_DATA_ONLY_PROVISIONING"
+
 type NodeBootstrappingConfiguration struct {
 	ContainerService                *ContainerService
 	CloudSpecConfig                 *AzureEnvironmentSpecConfig
@@ -1851,6 +1853,10 @@ type NodeBootstrappingConfiguration struct {
 	// Dynamic-type secondary NICs are not included in this count as they are
 	// configured by CNS rather than the node bootstrapping scripts.
 	StandardSecondaryNICCount int
+}
+
+func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
+	return c != nil && c.EnabledFeatures[CustomDataOnlyProvisioningFeature] == "true"
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {

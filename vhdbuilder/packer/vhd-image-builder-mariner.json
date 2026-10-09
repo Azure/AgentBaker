@@ -287,6 +287,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/report_ready.py",
+      "destination": "/home/packer/report_ready.py"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/fetch_provision_config.py",
       "destination": "/home/packer/fetch_provision_config.py"
     },

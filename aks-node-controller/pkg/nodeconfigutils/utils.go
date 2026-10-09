@@ -22,14 +22,17 @@ const (
 	// EnabledFeaturesFilePath is read by the wrapper; must match its FEATURES_PATH.
 	EnabledFeaturesFilePath = "/opt/azure/containers/enabled_features.sh"
 
+	customDataOnlyProvisioningFeature = "USE_CUSTOM_DATA_ONLY_PROVISIONING"
+
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers /var/log/azure
-
+mkdir -p /opt/azure/containers /var/lib/waagent /var/log/azure
+`
+	boothookProvisionTemplate = `
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
 cat <<'EOF' | base64 -d >%[1]s
@@ -73,7 +76,14 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, enabledFeaturesBlock(cfg))
+	boothook := boothookTemplate +
+		readyReportHandoffBlock(cfg) +
+		fmt.Sprintf(
+			boothookProvisionTemplate,
+			AKSNodeConfigFilePath,
+			encodedAksNodeConfigJSON,
+			enabledFeaturesBlock(cfg),
+		)
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)
@@ -92,6 +102,24 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(customData.Bytes()), nil
+}
+
+func readyReportHandoffBlock(cfg *aksnodeconfigv1.Configuration) string {
+	if cfg.GetEnabledFeatures()[customDataOnlyProvisioningFeature] != "true" {
+		return ""
+	}
+	return `# azure-experimental-node-ready
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+
+# The VHD-baked cloud-init setting stands down cloud-init. WALinuxAgent reports Ready
+# independently once ovf-env.xml and the SSH host key exist. A sentinel matching this
+# instance's id makes it skip that report, leaving report_ready.py as the only reporter.
+if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi`
 }
 
 // CustomDataFlatcar builds base64-encoded custom data for Flatcar Container Linux nodes.

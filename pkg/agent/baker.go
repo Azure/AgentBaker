@@ -63,8 +63,9 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/bin /opt/azure/containers /var/log/azure
-
+mkdir -p /opt/bin /opt/azure/containers /var/lib/waagent /var/log/azure
+`
+	boothookProvisionTemplate = `
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
 %s
@@ -72,6 +73,19 @@ nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 	hotfixMarkerTemplate = `
 #hotfix-marker
 `
+	readyReportHandoffTemplate = `# azure-experimental-node-ready
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+
+# Patched cloud-init consumes the CustomData marker above before this boothook runs.
+# WALinuxAgent reports Ready independently once ovf-env.xml and the SSH host key exist.
+# A sentinel matching this instance's id makes it skip that report, leaving
+# report_ready.py as the only reporter.
+if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi`
 	cseDownloaderTemplate = `
 if [ -f /opt/azure/containers/fetch_provision_config.py ]; then
 	python3 /opt/azure/containers/fetch_provision_config.py --output /opt/bin/boothook.sh --timeout 60 >>/var/log/azure/aks-early-boothook.log 2>&1 || exit 0
@@ -205,7 +219,9 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
 		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
-		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
+		customData = boothookTemplate +
+			readyReportHandoffBlock(config.IsCustomDataOnlyProvisioningEnabled()) +
+			buildScriptlessCustomData(boothookProvisionTemplate, boothookFileEntry, "\n", encodedFiles)
 		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + hotfixMarkerTemplate + cseDownloaderTemplate))
 	}
 
@@ -224,6 +240,13 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	encodedFinalCustomData := base64.StdEncoding.EncodeToString([]byte(finalCustomData))
 	if len(encodedFinalCustomData) < MaxCustomDataLength {
 		return encodedFinalCustomData
+	}
+	if config.IsCustomDataOnlyProvisioningEnabled() {
+		// Oversized payloads require CSE delivery. Rerender without the readiness handoff so
+		// cloud-init and report_ready.py do not take ownership from the CSE provisioning path.
+		delete(config.EnabledFeatures, datamodel.CustomDataOnlyProvisioningFeature)
+		config.ScriptlessCSEProvisionMode = true
+		return t.getScriptlessBoothook(config)
 	}
 	config.ScriptlessCSEProvisionMode = true
 	return encodedCustomData
@@ -259,7 +282,14 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly
+	return (config.EnableScriptlessNBCCSECmd || config.IsCustomDataOnlyProvisioningEnabled()) && !config.PreProvisionOnly
+}
+
+func readyReportHandoffBlock(enabled bool) string {
+	if !enabled {
+		return ""
+	}
+	return readyReportHandoffTemplate
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
@@ -537,6 +567,9 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 		return t.getWindowsNodeCSECommand(config)
 	}
 	if supportsScriptlessPhase2(config) {
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			return ""
+		}
 		if config.ScriptlessCSEProvisionMode {
 			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
 			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
@@ -754,6 +787,10 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
 		return err
+	}
+
+	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
+		delete(config.EnabledFeatures, datamodel.CustomDataOnlyProvisioningFeature)
 	}
 
 	if config.KubeletConfig == nil {

@@ -917,6 +917,25 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 	return fmt.Errorf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
 }
 
+func ValidateReportReadyRan(ctx context.Context, s *Scenario) error {
+	const reportReadyPath = "/opt/azure/containers/report_ready.py"
+	if _, err := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		"sudo test -x "+reportReadyPath,
+		0,
+		reportReadyPath+" is missing or not executable on the VHD",
+	); err != nil {
+		return err
+	}
+	return ValidateFileHasContent(
+		ctx,
+		s,
+		"/var/log/azure/aks-node-controller.output",
+		"Successfully reported Ready to Azure fabric.",
+	)
+}
+
 // ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
 // The contents doesn't need to be surrounded by non-word characters.
 // E.g.: searching "bcd" in "abcdef" is a match, thus the validation fails.
@@ -4136,21 +4155,32 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	expectedVersion := versions[0]
 
 	const waagentLogFile = "/var/log/waagent.log"
+	autoUpdateMarker := "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation"
+	versionMarker := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
 
-	logResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo cat "+waagentLogFile, 0,
-		"could not read waagent log")
+	var logContents string
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		logResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo cat "+waagentLogFile, 0,
+			"could not read waagent log")
+		if err != nil {
+			logging.Logf(ctx, "waiting for waagent log initialization: %v", err)
+			return false, nil
+		}
+		logContents = logResult.stdout
+		return strings.Contains(logContents, autoUpdateMarker) &&
+			strings.Contains(logContents, versionMarker), nil
+	})
 	if err != nil {
-		return fmt.Errorf("read waagent log: %w", err)
+		return fmt.Errorf("wait for waagent log initialization: %w", err)
 	}
-	logContents := logResult.stdout
 
 	errs := []error{
 		// 1. Verify AutoUpdate is disabled
-		assert.Contains(logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		assert.Contains(logContents, autoUpdateMarker,
 			"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False"),
 		// 2. Verify the correct version is running as ExtHandler (PID varies)
-		assert.Contains(logContents, fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion),
+		assert.Contains(logContents, versionMarker,
 			"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion),
 	}
 
