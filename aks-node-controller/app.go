@@ -105,6 +105,12 @@ type ProvisionResult struct {
 	Output   string `json:"Output"`
 }
 
+func (a *App) logEvent(taskName, message string, level helpers.EventLevel, start, end time.Time) {
+	if a.eventLogger != nil {
+		a.eventLogger.LogEvent(taskName, message, level, start, end)
+	}
+}
+
 func cmdRunner(cmd *exec.Cmd) error {
 	return cmd.Run()
 }
