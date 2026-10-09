@@ -1420,6 +1420,49 @@ var _ = Register(&Scenario{
 	Config: customNodeConfig(config.VHDUbuntu2204Gen2Containerd, ClusterKubenet),
 })
 
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2204_Scriptless_CustomKC_TranslatedFlagSync",
+	Description: "Tests that CustomKC values are preserved and nil config file fields are backfilled from KubeletFlags by syncTranslatedFlagsToConfigFile",
+	Tags: Tags{
+		KubeletCustomConfig: true,
+	},
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+			nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+			customKubeletConfig := &datamodel.CustomKubeletConfig{
+				ImageGcHighThreshold: to.Ptr(int32(90)),
+				ImageGcLowThreshold:  to.Ptr(int32(70)),
+				FailSwapOn:           to.Ptr(true),
+			}
+			nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.KubeletConfig.EnableKubeletConfigFile = true
+			config.KubeletConfig.KubeletConfigFileConfig.ImageGcHighThresholdPercent = to.Ptr(int32(90))
+			config.KubeletConfig.KubeletConfigFileConfig.ImageGcLowThresholdPercent = to.Ptr(int32(70))
+			config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(true)
+			config.KubeletConfig.KubeletConfigFileConfig.EventRecordQps = nil
+			config.KubeletConfig.KubeletFlags["--event-qps"] = "0"
+			config.KubeletConfig.KubeletFlags["--image-gc-high-threshold"] = "85"
+			config.KubeletConfig.KubeletFlags["--image-gc-low-threshold"] = "80"
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
+			return errors.Join(
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"imageGCHighThresholdPercent": 90`),
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"imageGCLowThresholdPercent": 70`),
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"failSwapOn": true`),
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"eventRecordQPS": 0`),
+				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
+			)
+		},
+	},
+})
+
 func customNodeConfig(vhd *config.Image, cluster func(context.Context, ClusterRequest) (*Cluster, error)) Config {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
