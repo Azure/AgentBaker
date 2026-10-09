@@ -49,8 +49,8 @@ const (
 // repositoryFetchBudget caps the whole fast-path fetch (package branch and the sequential
 // InRelease -> gpgv -> Packages metadata branch together) before the package-manager
 // fallback. 60s matches the worst network wait of the pre-retry fast path (two sequential
-// 30s metadata requests). A variable only so tests can shorten it.
-var repositoryFetchBudget = 60 * time.Second
+// 30s metadata requests).
+const repositoryFetchBudget = 60 * time.Second
 
 type integrityError struct {
 	msg string
@@ -121,10 +121,18 @@ func (a *App) fetchPackageAndMetadata(
 	ctx context.Context,
 	plan repositoryDownloadPlan,
 ) (downloadedRepositoryFile, repositoryPackageMetadata, error) {
+	return a.fetchPackageAndMetadataWithBudget(ctx, plan, repositoryFetchBudget)
+}
+
+func (a *App) fetchPackageAndMetadataWithBudget(
+	ctx context.Context,
+	plan repositoryDownloadPlan,
+	budget time.Duration,
+) (downloadedRepositoryFile, repositoryPackageMetadata, error) {
 	// Cap both branches together so per-file retries can never make the fast path slower
 	// than it was before retries existed. Hitting the cap is operational, not integrity,
 	// so the caller still falls back to the package manager.
-	budgetCtx, cancelBudget := context.WithTimeout(ctx, repositoryFetchBudget)
+	budgetCtx, cancelBudget := context.WithTimeout(ctx, budget)
 	defer cancelBudget()
 	branchCtx, cancelBranches := context.WithCancel(budgetCtx)
 	defer cancelBranches()

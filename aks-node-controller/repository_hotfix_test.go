@@ -1772,9 +1772,7 @@ func TestDownloadRepositoryFileDoesNotRetryAfterCallerCancellation(t *testing.T)
 }
 
 func TestRepositoryFetchBudgetCapsStalledFastPath(t *testing.T) {
-	original := repositoryFetchBudget
-	repositoryFetchBudget = 300 * time.Millisecond
-	t.Cleanup(func() { repositoryFetchBudget = original })
+	assert.Equal(t, 60*time.Second, repositoryFetchBudget)
 
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		// Stall well inside the 10s response-header timeout, so only the fetch budget can
@@ -1788,7 +1786,7 @@ func TestRepositoryFetchBudgetCapsStalledFastPath(t *testing.T) {
 
 	app, origin := newRepositoryDownloadTestApp(t, server.URL)
 	start := time.Now()
-	_, _, err := app.fetchPackageAndMetadata(context.Background(), repositoryDownloadPlan{
+	_, _, err := app.fetchPackageAndMetadataWithBudget(context.Background(), repositoryDownloadPlan{
 		packageURL:    server.URL + "/aks-node-controller.deb",
 		trustedOrigin: origin,
 		resolveMetadata: func(ctx context.Context) (repositoryPackageMetadata, error) {
@@ -1796,7 +1794,7 @@ func TestRepositoryFetchBudgetCapsStalledFastPath(t *testing.T) {
 				origin, repositoryMetadataMaxBytes)
 			return repositoryPackageMetadata{}, err
 		},
-	})
+	}, 300*time.Millisecond)
 	elapsed := time.Since(start)
 
 	require.Error(t, err)
