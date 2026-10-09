@@ -211,7 +211,7 @@ Describe 'cse_install_ubuntu.sh'
         }
 
         runGraceBlackwellTeardown() {
-            local wave="${1:-wave2}" retry="${2:-false}" enabled="${3:-true}"
+            local wave="${1:-wave2}" retry="${2:-false}" enabled="${3:-true}" persistenced_stop_failure="${7:-false}"
             setupGraceBlackwellTeardown "$wave"
             gb_openibd_enabled="$enabled"
             gb_openibd_active=true
@@ -222,8 +222,10 @@ Describe 'cse_install_ubuntu.sh'
             systemctlDisableAndStop() {
                 echo "stop:$1"
                 if [ "$1" = nvidia-persistenced ]; then
-                    gb_persistenced_active=false
-                    gb_persistenced_enabled=false
+                    if [ "$persistenced_stop_failure" != true ]; then
+                        gb_persistenced_active=false
+                        gb_persistenced_enabled=false
+                    fi
                 fi
                 if [ "$1" = openibd ]; then
                     gb_services_stopped=true
@@ -378,6 +380,13 @@ Describe 'cse_install_ubuntu.sh'
             The status should be success
             The output should include "rmmod:nvidia_peermem openibd_enabled=false"
             The output should include "openibd_enabled_after_unload=false"
+        End
+
+        It 'fails before module unload when nvidia-persistenced cannot be stopped'
+            When call runGraceBlackwellTeardown wave2 false true false false false true
+            The status should be failure
+            The stderr should include "Grace Blackwell service nvidia-persistenced remains active or enabled"
+            The output should not include "rmmod:"
         End
 
         It 'fails before module unload when openibd cannot be stopped'
