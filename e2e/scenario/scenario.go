@@ -2029,6 +2029,10 @@ var _ = Register(&Scenario{
 	},
 })
 
+// Ubuntu 26.04 requires Kubernetes 1.36+, so use the latest-Kubernetes cluster.
+var _ = Register(ubuntuGRIDScenario("Ubuntu2604_GPUA10", "Standard_NV6ads_A10_v5",
+	config.VHDUbuntu2604MinimalGen2Containerd, ClusterLatestKubernetesVersionKubenet))
+
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal",
 	Description: "Tests that a node using the Ubuntu 2604 minimal VHD can be properly bootstrapped with containerd v2",
@@ -2980,16 +2984,18 @@ var _ = Register(&Scenario{
 	},
 })
 
-func ubuntu2404GRIDScenario(name, vmSize string) *Scenario {
+// ubuntuGRIDScenario defines GRID driver, license, and service checks for an
+// Ubuntu image using the supplied VM size and cluster configuration.
+func ubuntuGRIDScenario(name, vmSize string, vhd *config.Image, cluster func(context.Context, ClusterRequest) (*Cluster, error)) *Scenario {
 	return &Scenario{
 		Name:        name,
-		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2404 VHD can be properly bootstrapped, and that the GRID license is valid", vmSize),
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using the Ubuntu %s VHD can be properly bootstrapped, and that the GRID license is valid", vmSize, vhd.Name),
 		Tags: Tags{
 			GPU: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			Cluster: cluster,
+			VHD:     vhd,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
@@ -3014,7 +3020,8 @@ func ubuntu2404GRIDScenario(name, vmSize string) *Scenario {
 	}
 }
 
-var _ = Register(ubuntu2404GRIDScenario("Ubuntu2404_GPUA10", "Standard_NV6ads_A10_v5"))
+var _ = Register(ubuntuGRIDScenario("Ubuntu2404_GPUA10", "Standard_NV6ads_A10_v5",
+	config.VHDUbuntu2404Gen2Containerd, ClusterKubenet))
 
 var _ = Register(&Scenario{
 	Name:             "Ubuntu2404_GPU_RTXPro6000_GridV20",
