@@ -69,5 +69,5 @@ func ListImages(sku, version string) (*List, error) {
 }
 
 func isID(imageName string) bool {
-	return strings.Contains(imageName, "sha256")
+	return strings.HasPrefix(imageName, "sha256:")
 }
