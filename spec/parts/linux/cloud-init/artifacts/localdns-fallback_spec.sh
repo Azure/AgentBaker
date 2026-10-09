@@ -45,10 +45,20 @@ Describe 'localdns-fallback.sh'
             The status should be failure
         End
 
-        It 'fails rather than hanging when the file never converges'
+        # The reason this function polls at all: ExecStopPost removes the drop-in
+        # and runs 'networkctl reload', which is asynchronous, so the upstream can
+        # appear after the wait has already started. Reading once would return
+        # failure here and leave the node with no fallback at all.
+        It 'picks up an upstream that appears after the wait has started'
+            RESOLV_WAIT_SECONDS=5
             printf 'nameserver 169.254.10.10\n' > "$RESOLV"
+            # Rename rather than write in place so the poll can never observe a
+            # half-written file.
+            ( sleep 1
+              printf 'nameserver 169.254.10.10\nnameserver 168.63.129.16\n' > "${RESOLV}.new"
+              mv "${RESOLV}.new" "$RESOLV" ) &
             When call wait_for_vnet_dns
-            The status should be failure
+            The output should equal "168.63.129.16"
         End
     End
 
