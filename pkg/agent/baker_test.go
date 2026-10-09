@@ -1480,6 +1480,10 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
+
+		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
 	})
 
 	It("should put provisioning in CustomData and omit CSE when CustomData-only provisioning is enabled", func() {
@@ -1492,8 +1496,9 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
 		Expect(string(payload)).To(ContainSubstring(aksNbcCmdFilepath))
 		Expect(string(payload)).To(ContainSubstring(enabledFeaturesFilepath))
-		Expect(string(payload)).To(ContainSubstring("/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg"))
-		Expect(string(payload)).To(ContainSubstring("experimental_skip_ready_report: true"))
+		Expect(string(payload)).To(ContainSubstring("# azure-experimental-node-ready"))
+		Expect(string(payload)).NotTo(ContainSubstring("/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg"))
+		Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
 		Expect(string(payload)).To(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
 		Expect(string(payload)).To(ContainSubstring("cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned"))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(BeEmpty())

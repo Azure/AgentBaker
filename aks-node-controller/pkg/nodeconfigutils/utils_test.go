@@ -347,8 +347,6 @@ func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t
 		customDataOnlyProvisioningFeature: "true",
 	}})
 
-	require.Contains(t, on, "/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg")
-	require.Contains(t, on, "experimental_skip_ready_report: true")
 	require.Contains(t, on, "touch /var/lib/waagent/experimental_skip_ready_report")
 	require.Contains(t, on, "cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned")
 }

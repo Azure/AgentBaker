@@ -73,19 +73,15 @@ nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 	hotfixMarkerTemplate = `
 #hotfix-marker
 `
-	readyReportHandoffTemplate = `mkdir -p /etc/cloud/cloud.cfg.d
-cat <<'EOF' >/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg
-datasource:
-    Azure:
-        experimental_skip_ready_report: true
-EOF
+	readyReportHandoffTemplate = `# azure-experimental-node-ready
 
 touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
-# The marker above only stands down cloud-init. WALinuxAgent reports Ready independently,
-# once ovf-env.xml and the SSH host key exist. A sentinel matching this
-# instance's id makes it skip that report, leaving report_ready.py as the only reporter.
+# Patched cloud-init consumes the CustomData marker above before this boothook runs.
+# WALinuxAgent reports Ready independently once ovf-env.xml and the SSH host key exist.
+# A sentinel matching this instance's id makes it skip that report, leaving
+# report_ready.py as the only reporter.
 if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
     cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
     chmod 0644 /var/lib/waagent/provisioned

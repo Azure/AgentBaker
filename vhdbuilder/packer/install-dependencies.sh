@@ -1110,6 +1110,8 @@ if ! isMarinerOrAzureLinux "$OS"; then
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
+skipCloudInitReadyReport || exit 1
+
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # Install cloud-init patched with experimental_skip_ready_report and
   # runtime datasource-option support, backported from
