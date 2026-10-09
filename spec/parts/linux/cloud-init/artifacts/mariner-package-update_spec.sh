@@ -39,6 +39,7 @@ EOF
         Include "./parts/linux/cloud-init/artifacts/mariner/security-update.sh"
         TEST_DIR="/tmp/live-patching-test"
         mkdir -p ${TEST_DIR}
+        KNEAD_EVENTS_LOGGING_DIR="${TEST_DIR}/events"
         OS_RELEASE_FILE="${TEST_DIR}/os-release"
         SECURITY_PATCH_REPO_DIR="${TEST_DIR}"
         KUBECONFIG="${TEST_DIR}/kubeconfig"
@@ -238,7 +239,7 @@ EOF
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\",\"kubeletVersion\":\"1.30.5\"}}}"}]}'
             mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
             jq -n --arg nodeConfig '{"agentPools":{"ap1":{"goldenTimestamp":"20260815T000000Z","kubeletVersion":"1.30.5"}}}' \
-                '{components:{securityPatch:{nodeConfig:$nodeConfig}}}' > "${LIVE_PATCHING_STATE_FILE}"
+                '{components:[{name:"securityPatch",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
 
             When call main
             The status should be success
@@ -304,7 +305,7 @@ EOF
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\",\"kubeletVersion\":\"\"}}}"}]}'
             mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
             jq -n --arg nodeConfig '{"agentPools":{"ap1":{"goldenTimestamp":"20260815T000000Z"}}}' \
-                '{components:{securityPatch:{nodeConfig:$nodeConfig}}}' > "${LIVE_PATCHING_STATE_FILE}"
+                '{components:[{name:"securityPatch",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
 
             When call main
             The status should be success
@@ -315,7 +316,7 @@ EOF
         It 'preserves sibling checkpoint state after securityPatch succeeds'
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
             mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
-            printf '%s' '{"components":{"npd":{"nodeConfig":"{\"version\":\"v1\"}"}}}' > "${LIVE_PATCHING_STATE_FILE}"
+            printf '%s' '{"components":[{"name":"npd","nodeConfig":"{\"version\":\"v1\"}"}]}' > "${LIVE_PATCHING_STATE_FILE}"
 
             When call main
             The status should be success
@@ -326,18 +327,19 @@ EOF
 
         It 'checkpoints arbitrary components without interpreting their payload'
             mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
-            printf '%s' '{"components":{"securityPatch":{"nodeConfig":"{}"}}}' > "${LIVE_PATCHING_STATE_FILE}"
+            printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}' > "${LIVE_PATCHING_STATE_FILE}"
 
             When call write_component_checkpoint testComponent '{"version":"v2"}'
             The status should be success
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"testComponent"'
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"securityPatch"'
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include 'v2'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"updatedAt"'
         End
 
         It 'delegates checkpoint comparison to the selected component comparator'
             mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
-            printf '%s' '{"components":{"testComponent":{"nodeConfig":"{\"version\":\"v1\"}"}}}' > "${LIVE_PATCHING_STATE_FILE}"
+            printf '%s' '{"components":[{"name":"testComponent","nodeConfig":"{\"version\":\"v1\"}"}]}' > "${LIVE_PATCHING_STATE_FILE}"
             compare_test_component() {
                 [ "$1" = '{"version":"v2"}' ] && [ "$2" = '{"version":"v1"}' ] && [ "$3" = '{"metadata":{}}' ]
             }
@@ -350,7 +352,7 @@ EOF
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"},\"ap2\":{\"goldenTimestamp\":\"20260820T000000Z\"}}}"}]}'
             mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
             jq -n --arg nodeConfig '{"agentPools":{"ap1":{"goldenTimestamp":"20260815T000000Z"},"ap2":{"goldenTimestamp":"20260801T000000Z"}}}' \
-                '{components:{securityPatch:{nodeConfig:$nodeConfig}}}' > "${LIVE_PATCHING_STATE_FILE}"
+                '{components:[{name:"securityPatch",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
 
             When call main
             The status should be success

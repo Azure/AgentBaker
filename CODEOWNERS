@@ -28,6 +28,7 @@ spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh @Azure/agen
 spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/mariner-security-update_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/mariner-update-delivery_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
+spec/parts/linux/cloud-init/artifacts/mariner-reconcile_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
 
 # Code owners for localdns
 

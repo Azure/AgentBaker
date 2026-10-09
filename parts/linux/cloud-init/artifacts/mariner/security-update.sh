@@ -9,6 +9,20 @@ SECURITY_PATCH_REPO_DIR="/etc/yum.repos.d"
 KUBELET_EXECUTABLE="/opt/bin/kubelet"
 SECURITY_PATCH_TMP_DIR="/tmp/security-patch"
 CLUSTER_CA_CERT="/etc/kubernetes/certs/ca.crt"
+
+knead_emit_security_patch_event() {
+    local outcome="$1"
+    local message="$2"
+    local level="${3:-Informational}"
+    if declare -F knead_emit_event > /dev/null; then
+        knead_emit_event "AKS.LivePatching.securityPatch.${outcome}" "${message}" "${level}" || true
+    fi
+}
+
+knead_emit_security_patch_failure_event() {
+    knead_emit_security_patch_event Failed "reason=$1" Error
+}
+
 reconcileDualKernelBoot() {
     local boot_dir="${BOOT_DIR:-/boot}"
     local module_source="${GRUB_MODULE_SOURCE:-/usr/lib/grub/arm64-efi}"
@@ -139,6 +153,7 @@ kubelet_update() {
     kubelet_url_with_token=""
     if ! custom_patching=$($KUBECTL get node "${target_node_name}" -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-custom-patching']}"); then
         echo "failed to read custom patching annotation"
+        knead_emit_security_patch_failure_event CustomPatchingAnnotationReadFailed
         return 1
     fi
     if [ "${custom_patching}" = "true" ]; then
@@ -245,12 +260,15 @@ kubelet_update() {
     fi
     if ! mv "${target_kubelet_path}" "${KUBELET_EXECUTABLE}"; then
         echo "failed to replace kubelet executable"
+        knead_emit_security_patch_failure_event KubeletReplacementFailed
         return 1
     fi
     if ! systemctl restart kubelet.service; then
         echo "failed to restart kubelet.service, restoring previous kubelet"
+        knead_emit_security_patch_failure_event KubeletRestartFailed
         if ! mv "${kubelet_backup}" "${KUBELET_EXECUTABLE}" || ! systemctl restart kubelet.service; then
             echo "failed to restore previous kubelet"
+            knead_emit_security_patch_failure_event KubeletRestoreFailed
         fi
         return 1
     fi
@@ -269,29 +287,40 @@ apply_updates() {
     local live_patching_repo_service
 
     if [ -n "${node_json}" ]; then
-        live_patching_repo_service=$(printf '%s' "${node_json}" | jq -r '(.metadata.annotations // {})["kubernetes.azure.com/live-patching-repo-service"] // empty') || return 1
+        live_patching_repo_service=$(printf '%s' "${node_json}" | jq -r '(.metadata.annotations // {})["kubernetes.azure.com/live-patching-repo-service"] // empty') || {
+            knead_emit_security_patch_failure_event RepositoryEndpointReadFailed
+            return 1
+        }
     else
-        live_patching_repo_service=$($KUBECTL get node "${target_node_name}" -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-repo-service']}") || return 1
+        live_patching_repo_service=$($KUBECTL get node "${target_node_name}" -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-repo-service']}") || {
+            knead_emit_security_patch_failure_event RepositoryEndpointReadFailed
+            return 1
+        }
     fi
     if ! rewrite_repos "${live_patching_repo_service}"; then
         echo "failed to rewrite security patch repositories"
+        knead_emit_security_patch_failure_event RepositoryRewriteFailed
         return 1
     fi
 
     if ! dnf_update "${target_golden_timestamp}"; then
         echo "dnf_update failed"
+        knead_emit_security_patch_failure_event PackageUpdateFailed
         return 1
     fi
     if ! kubelet_update "${target_node_name}" "${target_kubelet_version}" "${target_source}"; then
         echo "kubelet_update failed"
+        knead_emit_security_patch_failure_event KubeletUpdateFailed
         return 1
     fi
     # shellcheck disable=SC2086
     if ! $KUBECTL annotate --overwrite node "${target_node_name}" "kubernetes.azure.com/live-patching-current-timestamp=${target_golden_timestamp}"; then
         echo "failed to update legacy securityPatch status annotation"
+        knead_emit_security_patch_failure_event LegacyStatusAnnotationFailed
         return 1
     fi
     echo "package update completed successfully"
+    knead_emit_security_patch_event Applied "goldenTimestamp=${target_golden_timestamp}"
 }
 
 rewrite_repos() {
@@ -420,25 +449,33 @@ updateSecurityPatch() {
     local kubelet_version
     local timestamp_date
 
-    node_name=$(printf '%s' "${node_json}" | jq -er '.metadata.name // empty') || return 1
+    node_name=$(printf '%s' "${node_json}" | jq -er '.metadata.name // empty') || {
+        knead_emit_security_patch_failure_event NodeNameMissing
+        return 1
+    }
     agent_pool=$(printf '%s' "${node_json}" | jq -er '.metadata.labels["kubernetes.azure.com/agentpool"] // empty') || {
         echo "node agent pool label is not set"
+        knead_emit_security_patch_failure_event AgentPoolLabelMissing
         return 1
     }
     agent_pools_type=$(printf '%s' "${component_payload}" | jq -er 'if has("agentPools") then (.agentPools | type) else "missing" end' 2> /dev/null) || {
         echo "securityPatch configuration is invalid"
+        knead_emit_security_patch_failure_event ConfigurationInvalid
         return 1
     }
     if [ "${agent_pools_type}" = "missing" ]; then
         echo "securityPatch has no profile for agent pool ${agent_pool}; no action needed"
+        knead_emit_security_patch_event NoAction "No profile for agent pool ${agent_pool}"
         return 0
     fi
     if [ "${agent_pools_type}" != "object" ]; then
         echo "securityPatch agentPools must be an object"
+        knead_emit_security_patch_failure_event AgentPoolsInvalid
         return 1
     fi
     if ! printf '%s' "${component_payload}" | jq -e --arg agentPool "${agent_pool}" '.agentPools | has($agentPool)' > /dev/null; then
         echo "securityPatch has no profile for agent pool ${agent_pool}; no action needed"
+        knead_emit_security_patch_event NoAction "No profile for agent pool ${agent_pool}"
         return 0
     fi
     if ! printf '%s' "${component_payload}" | jq -e --arg agentPool "${agent_pool}" '
@@ -447,6 +484,7 @@ updateSecurityPatch() {
         ((.agentPools[$agentPool] | has("kubeletVersion") | not) or (.agentPools[$agentPool].kubeletVersion | type == "string"))
     ' > /dev/null 2>&1; then
         echo "securityPatch profile is invalid for agent pool: ${agent_pool}"
+        knead_emit_security_patch_failure_event ProfileInvalid
         return 1
     fi
     # Validate the complete JSON string before command substitution can trim newlines.
@@ -454,6 +492,7 @@ updateSecurityPatch() {
         .agentPools[$agentPool].goldenTimestamp | (length == 16) and test("^[0-9]{8}T[0-9]{6}Z$")
     ' > /dev/null; then
         echo "securityPatch goldenTimestamp is invalid"
+        knead_emit_security_patch_failure_event GoldenTimestampInvalid
         return 1
     fi
     golden_timestamp=$(printf '%s' "${component_payload}" | jq -r --arg agentPool "${agent_pool}" '.agentPools[$agentPool].goldenTimestamp') || return 1
@@ -461,6 +500,7 @@ updateSecurityPatch() {
     timestamp_date=$(printf '%s' "${golden_timestamp}" | sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)T\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)Z/\1-\2-\3 \4:\5:\6/')
     if ! date -d "${timestamp_date}" > /dev/null 2>&1; then
         echo "securityPatch goldenTimestamp is invalid: ${golden_timestamp}"
+        knead_emit_security_patch_failure_event GoldenTimestampInvalid
         return 1
     fi
     apply_updates "${node_name}" "${golden_timestamp}" "${kubelet_version}" generic "${node_json}"
