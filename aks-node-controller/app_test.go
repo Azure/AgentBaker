@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
@@ -18,6 +20,61 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestBuildCmdFromProvisionConfigValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name, input, want string
+	}{
+		{"malformed", `{"version":"v1",`, "decode provision config"},
+		{"wrong type", `{"version":"v1","kubelet_config":{"enable_kubelet_config_file":"true"}}`, "decode provision config"},
+		{"version", `{"version":"bad"}`, "unsupported version"},
+		{"hugepages", `{"version":"v1","custom_linux_os_config":{"transparent_defrag":"bad"}}`, "transparent_defrag"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.json")
+			require.NoError(t, os.WriteFile(path, []byte(tc.input), 0o600))
+			cmd, err := buildCmdFromProvisionConfig(t.Context(), path, "unused-gpu-path")
+			require.ErrorContains(t, err, tc.want)
+			require.Nil(t, cmd)
+		})
+	}
+
+	t.Run("normalizes before rendering", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "config.json")
+		input := `{
+			"version":"v1", "kubernetes_version":"1.34.0", "future_field":true,
+			"kubelet_config":{
+				"enable_kubelet_config_file":true,
+				"kubelet_flags":{
+					"--docker-endpoint":"obsolete",
+					"--enforce-node-allocatable":"pods,kube-reserved,system-reserved",
+					"--kube-reserved-cgroup":"untrusted",
+					"--feature-gates":"DynamicKubeletConfig=true",
+					"--streaming-connection-idle-timeout":"4h"
+				},
+				"kubelet_config_file_config":{
+					"server_tls_bootstrap":true,
+					"streaming_connection_idle_timeout":"4h"
+				}
+			}
+		}`
+		require.NoError(t, os.WriteFile(path, []byte(input), 0o600))
+		cmd, err := buildCmdFromProvisionConfig(t.Context(), path, writeTestGPUComponentsFile(t))
+		require.NoError(t, err)
+		env := envSliceToMap(cmd.Env)
+		require.NotContains(t, env["KUBELET_FLAGS"], "docker-endpoint")
+		require.NotContains(t, env["KUBELET_FLAGS"], "DynamicKubeletConfig")
+		require.NotContains(t, env["KUBELET_FLAGS"], "streaming-connection-idle-timeout")
+		require.Contains(t, env["KUBELET_FLAGS"], "--kube-reserved-cgroup=/kubereserved.slice")
+		require.Contains(t, env["KUBELET_FLAGS"], "RotateKubeletServerCertificate=true")
+		data, err := base64.StdEncoding.DecodeString(env["KUBELET_CONFIG_FILE_CONTENT"])
+		require.NoError(t, err)
+		var file map[string]any
+		require.NoError(t, json.Unmarshal(data, &file))
+		require.NotContains(t, file, "streamingConnectionIdleTimeout")
+		require.Equal(t, "/kubereserved.slice", file["kubeReservedCgroup"])
+	})
+}
 
 // logRecord holds a captured slog record for test assertions.
 type logRecord struct {

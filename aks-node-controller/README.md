@@ -8,6 +8,55 @@ AKS Node Controller relies on two Azure mechanisms for injecting the necessary b
 
 ## Usage
 
+### Phase 3 through AgentBaker
+
+Set `NodeBootstrappingConfiguration.EnableScriptlessAKSNodeConfig = true` and supply
+the serialized AKSNodeConfig in `AKSNodeConfigJSON` when calling `GetNodeBootstrapping`.
+This opt-in mode takes precedence over `EnableScriptlessNBCCSECmd` and
+`EnableScriptlessCSECmd`: AgentBaker never renders or delivers `nbc-cmd.sh`.
+The launcher receives only the config file and invokes ANC with `--provision-config`,
+without NBC execution or Phase 2.5 comparison.
+
+AgentBaker rejects empty, whitespace-only, malformed, or non-object JSON before
+generating artifacts. The caller remains responsible for the AKSNodeConfig schema
+and supported version; the serialized input is passed through unchanged.
+Windows and `PreProvisionOnly` are not supported in this mode.
+
+Existing boothook and Ignition delivery, supporting files, and CSE `provision-wait`
+are retained. `ScriptlessCSEProvisionMode` selects CSE delivery instead of embedding
+the provisioning config in CustomData; the automatic size fallback uses the same
+config-only payload. Leaving the new flag false preserves legacy, Phase 2, and
+Phase 2.5 behavior.
+
+### Validating and normalizing AKSNodeConfig
+
+Before serializing a typed config, producers such as RP should call:
+
+```go
+if err := nodeconfigutils.ValidateAndNormalizeConfiguration(config); err != nil {
+    return err
+}
+payload, err := nodeconfigutils.MarshalConfigurationV1(config)
+```
+
+The function updates the config in place and is idempotent. It validates the
+contract version, transparent-huge-page values, and (when kubelet settings are
+present) Kubernetes version and command-line feature-gate syntax. It removes
+obsolete kubelet flags, normalizes version-dependent feature gates and serving
+certificate rotation, selects the reserved cgroup slices, and removes
+`streamingConnectionIdleTimeout` for Kubernetes 1.34+. Both command-line and
+config-file settings are handled, with command-line enforcement taking precedence.
+This is provisioning-settings validation, not exhaustive validation of every
+AKSNodeConfig field.
+
+ANC invokes the same function after decoding `--provision-config` and before
+rendering. Invalid serialized input is rejected; unknown protobuf fields remain
+allowed for forward compatibility. NBC execution is unchanged. Phase 2.5 still
+executes NBC and compares against the normalized AKSNodeConfig path.
+The root AgentBaker module does not depend on ANC.
+
+### Direct config delivery
+
 Here is an example of how to retrieve node bootstrapping parameters and use the returned `CSE` and `CustomData` for creating a Virtual Machine Scale Set (VMSS) instance via the CRP API.
 
 ```go

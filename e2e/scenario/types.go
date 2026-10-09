@@ -154,7 +154,7 @@ type Config struct {
 	// so that staleness regressions in the BasePrep->NodePrep split are caught positively.
 	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
-	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
+	// AKSNodeConfigMutator customizes the converted config before it is delivered to ANC.
 	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements

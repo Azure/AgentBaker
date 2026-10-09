@@ -442,6 +442,11 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 	var cse, customData, aksNodeConfig string
 
 	if s.Runtime.AKSNodeConfig != nil {
+		if s.Runtime.NBC != nil && s.Runtime.NBC.EnableScriptlessAKSNodeConfig {
+			if err := nodeconfigutils.ValidateAndNormalizeConfiguration(s.Runtime.AKSNodeConfig); err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("validate AKS node config: %w", err)
+			}
+		}
 		aksNodeConfigBytes, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("marshal AKS node config: %w", err)
@@ -463,7 +468,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("node bootstrapping artifacts are nil")
 	}
 
-	scriptlessNBCCSECmdEnabled := usesScriptlessNBCCSECmd(s)
+	scriptlessProvisioningEnabled := usesScriptlessProvisioning(s)
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
@@ -521,7 +526,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
 		}
 	}
-	if !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
+	if !config.Config.DisableScriptless && !scriptlessProvisioningEnabled && s.VHD.SupportsScriptless() {
 		// Validate that the custom data doesn't contain any script content,
 		// which indicates that the scriptless CSE is working as intended
 		decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
@@ -601,17 +606,21 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 }
 
 func usesScriptlessNBCCSECmd(s *Scenario) bool {
+	return usesScriptlessProvisioning(s) && !s.Runtime.NBC.EnableScriptlessAKSNodeConfig
+}
+
+func usesScriptlessProvisioning(s *Scenario) bool {
 	if s == nil || s.Runtime == nil || s.Runtime.NBC == nil || s.VHD == nil {
 		return false
 	}
 	nbc := s.Runtime.NBC
-	return nbc.EnableScriptlessNBCCSECmd &&
+	return (nbc.EnableScriptlessAKSNodeConfig || nbc.EnableScriptlessNBCCSECmd) &&
 		!nbc.PreProvisionOnly &&
 		s.VHD.SupportsScriptless()
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
-	return usesScriptlessNBCCSECmd(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
+	return usesScriptlessProvisioning(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
