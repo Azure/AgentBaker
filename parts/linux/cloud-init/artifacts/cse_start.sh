@@ -9,6 +9,28 @@ mkdir -p $EVENTS_LOGGING_DIR
 # this is the "global" CSE execution timeout - we allow CSE to run for some time (default 15 minutes) before timeout will attempt to kill the script. We exit early from some of the retry loops using `check_cse_timeout` in `cse_helpers.sh`.`
 timeout -k5s "${CSE_TIMEOUT:-15m}" /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
+
+finalizeBasePrep() {
+    local base_prep_complete_file="${BASE_PREP_COMPLETE_FILE:-/opt/azure/containers/base_prep.complete}"
+    local provision_log_file="${PROVISION_LOG_FILE:-/var/log/azure/cluster-provision.log}"
+
+    if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
+        if [ "$EXIT_CODE" -eq 0 ] &&
+           ! { mkdir -p "$(dirname "${base_prep_complete_file}")" && touch "${base_prep_complete_file}"; }; then
+            EXIT_CODE=1
+            printf '%s\n' "Failed to create base_prep.complete marker file" >> "${provision_log_file}" || true
+        elif [ "$EXIT_CODE" -eq 0 ]; then
+            printf '%s\n' "Stage 1 complete - kubelet configuration skipped, Stage 2 required" \
+                "Created base_prep.complete marker file" >> "${provision_log_file}" || true
+        fi
+    fi
+
+    return "$EXIT_CODE"
+}
+
+# BasePrep marker failures must be reflected in provision.json and the CSE event.
+finalizeBasePrep
+
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
 KERNEL_STARTTIME=$(systemctl show -p KernelTimestamp | sed -e  "s/KernelTimestamp=//g" || true)
@@ -95,6 +117,19 @@ EVENT_JSON=$( jq -n \
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
+publishProvisionComplete() {
+    local provision_complete_file="${PROVISION_COMPLETE_FILE:-/opt/azure/containers/provision.complete}"
+    local provision_log_file="${PROVISION_LOG_FILE:-/var/log/azure/cluster-provision.log}"
+
+    if [ "${PRE_PROVISION_ONLY}" != "true" ]; then
+        { mkdir -p "$(dirname "${provision_complete_file}")" && touch "${provision_complete_file}"; } ||
+            printf '%s\n' "Failed to create provision.complete marker file" >> "${provision_log_file}" || true
+    fi
+}
+
+# provision-wait reads provision.json as soon as it observes this marker.
+publishProvisionComplete
+
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove
 # the VM before it finishes.
@@ -112,19 +147,7 @@ upload_logs() {
         python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
     fi
 }
-# Create the marker for the completed provisioning stage.
-if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
-    # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
-    echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
-    echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-else
-    # provision.complete signals that a normal provisioning attempt finished.
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
-fi
-
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs
 fi
-
 exit "$EXIT_CODE"
