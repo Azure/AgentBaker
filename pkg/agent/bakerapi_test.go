@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	agenttoggles "github.com/Azure/agentbaker/pkg/agent/toggles"
@@ -157,6 +159,46 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 	})
 
 	Context("GetNodeBootstrapping", func() {
+		It("should reject invalid Phase 3 input without returning bootstrapping artifacts", func() {
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			config.EnableScriptlessAKSNodeConfig = true
+			config.EnableScriptlessNBCCSECmd = true
+			// Validation must not be skipped by the nil kubelet-config fast path.
+			config.KubeletConfig = nil
+			for _, input := range []string{"", " \n\t", "{", `{"version":"v1"} trailing`, "null", "[]", `"config"`, "true", "42"} {
+				By(fmt.Sprintf("rejecting %q", input))
+				config.AKSNodeConfigJSON = input
+				artifacts, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
+				Expect(err).To(MatchError(ContainSubstring("AKSNodeConfigJSON")))
+				Expect(artifacts).To(BeNil())
+			}
+		})
+
+		It("should accept Phase 3 input and retain Phase 2.5 when disabled", func() {
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			config.EnableScriptlessNBCCSECmd = true
+			for _, phase3 := range []bool{true, false} {
+				config.EnableScriptlessAKSNodeConfig = phase3
+				config.AKSNodeConfigJSON = " {\"version\":\"v1\"}\n"
+				if !phase3 {
+					// Older modes continue to pass the caller's comparison input through unchanged.
+					config.AKSNodeConfigJSON = "not JSON"
+				}
+				artifacts, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
+				Expect(err).NotTo(HaveOccurred())
+				payload, err := base64.StdEncoding.DecodeString(artifacts.CustomData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(payload)).To(ContainSubstring(aksNodeConfigFilepath))
+				if phase3 {
+					Expect(string(payload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+				} else {
+					Expect(string(payload)).To(ContainSubstring(aksNbcCmdFilepath))
+				}
+			}
+		})
+
 		It("should return correct boot strapping data", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
