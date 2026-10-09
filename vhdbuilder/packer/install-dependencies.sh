@@ -1110,8 +1110,6 @@ if ! isMarinerOrAzureLinux "$OS"; then
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
-skipCloudInitReadyReport || exit 1
-
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # Install cloud-init patched with experimental_skip_ready_report and
   # runtime datasource-option support, backported from
@@ -1129,9 +1127,18 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
       echo "No patched cloud-init deb for Ubuntu ${UBUNTU_RELEASE}, skipping"
       ;;
   esac
-  if [ -n "${CLOUD_INIT_DEB}" ] && [ -f "${CLOUD_INIT_DEB}" ]; then
+  if [ -n "${CLOUD_INIT_DEB}" ]; then
+    if [ ! -f "${CLOUD_INIT_DEB}" ]; then
+      echo "Patched cloud-init package is missing: ${CLOUD_INIT_DEB}"
+      exit 1
+    fi
     dpkg -i "${CLOUD_INIT_DEB}" || apt-get install -f -y || exit 1
     rm -f "${CLOUD_INIT_DEB}"
+    grep -q 'BOOTHOOK_SKIP_READY_MARKER = "# azure-experimental-node-ready"' \
+      /usr/lib/python3/dist-packages/cloudinit/sources/DataSourceAzure.py || {
+        echo "Patched cloud-init boothook marker support is missing after installation"
+        exit 1
+      }
   fi
 fi
 
