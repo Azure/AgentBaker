@@ -577,19 +577,19 @@ var _ = Register(&Scenario{
 				nbc.EnabledFeatures = make(map[string]string)
 			}
 			nbc.EnabledFeatures[datamodel.CustomDataOnlyProvisioningFeature] = "true"
-			// nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
-			// 	HTTPSProxy: to.Ptr(cluster.ProxyURL),
-			// 	NoProxy: &[]string{
-			// 		"localhost",
-			// 		"127.0.0.1",
-			// 		"168.63.129.16",
-			// 		"169.254.169.254",
-			// 		"10.0.0.0/8",
-			// 		"172.16.0.0/12",
-			// 		cluster.ClusterParams.FQDN,
-			// 	},
-			// 	TrustedCA: to.Ptr("foo bar!"),
-			// }
+			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
+				HTTPSProxy: to.Ptr(cluster.ProxyURL),
+				NoProxy: &[]string{
+					"localhost",
+					"127.0.0.1",
+					"168.63.129.16",
+					"169.254.169.254",
+					"10.0.0.0/8",
+					"172.16.0.0/12",
+					cluster.ClusterParams.FQDN,
+				},
+				TrustedCA: to.Ptr("foo bar!"),
+			}
 
 		},
 		// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
