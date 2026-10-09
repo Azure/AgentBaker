@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Masterminds/semver/v3"
 )
 
@@ -77,7 +78,7 @@ func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
 	return applyNodeCustomData(a.getNodeCustomDataPath())
 }
 
-func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) error {
+func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) (resultErr error) {
 	hotfixVersion := cfg.resolveVersion(Version)
 
 	if hotfixVersion == "" {
@@ -101,6 +102,20 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 
 	slog.Info("downloading ANC hotfix", "current", Version, "target", hotfixVersion)
 
+	start := time.Now()
+	route := "fastpath"
+	ctx = context.WithValue(ctx, repositoryTargetKey{}, hotfixVersion)
+	defer func() {
+		event := repositoryEvent{Target: hotfixVersion, Route: route, Outcome: "success"}
+		level := helpers.EventLevelInformational
+		if resultErr != nil {
+			event.Outcome = "failed"
+			event.Error = resultErr.Error()
+			level = helpers.EventLevelError
+		}
+		a.logRepositoryEvent("RepositoryDownloadOutcome", event, level, start, time.Now())
+	}()
+
 	if err := a.tryRepositoryDownload(ctx, hotfixVersion); err == nil {
 		return nil
 	} else if isIntegrityError(err) {
@@ -118,11 +133,18 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 		// Logged at error level: this is not a routine fallback and should stay visible.
 		slog.Error("repository integrity check failed, falling back to package manager",
 			"version", hotfixVersion, "error", err)
+		a.logRepositoryEvent("RepositoryDownloadFallback", repositoryEvent{
+			Target: hotfixVersion, Route: "packageManager", Reason: "integrity", Error: err.Error(),
+		}, helpers.EventLevelError, start, time.Now())
 		a.removeStaleHotfix()
 	} else {
 		slog.Warn("safe repository download unavailable, falling back to package manager",
 			"version", hotfixVersion, "error", err)
+		a.logRepositoryEvent("RepositoryDownloadFallback", repositoryEvent{
+			Target: hotfixVersion, Route: "packageManager", Reason: "unavailable", Error: err.Error(),
+		}, helpers.EventLevelInformational, start, time.Now())
 	}
+	route = "packageManager"
 
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)

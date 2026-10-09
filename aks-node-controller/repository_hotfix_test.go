@@ -71,6 +71,7 @@ func TestDownloadBinaryHotfixGatesRepositoryWork(t *testing.T) {
 
 	assert.Zero(t, requests.Load(), "repository must not be contacted before version gating passes")
 	assert.Zero(t, commands.Load(), "package manager must not run before version gating passes")
+	assert.Empty(t, app.eventLogger.Events(), "skipped acquisitions must not report a success")
 }
 
 func TestUbuntuRepositoryFastPathParallelSuccessExtractsBinary(t *testing.T) {
@@ -166,6 +167,8 @@ func TestUbuntuRepositoryFastPathParallelSuccessExtractsBinary(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []byte("extracted-anc-binary"), staged)
 	assert.NotEqual(t, packageBytes, staged, "the .deb bytes must never be staged as the executable")
+	assertRepositoryOutcome(t, app, "fastpath", "success")
+	assert.Empty(t, repositoryEvents(t, app, "RepositoryDownloadFallback"))
 }
 
 // A checksum mismatch against signed metadata is the strongest tampering signal this path
@@ -237,6 +240,11 @@ func TestUbuntuRepositoryPackageChecksumMismatchFallsBackToApt(t *testing.T) {
 	_, statErr := os.Stat(hotfixPath)
 	assert.False(t, os.IsNotExist(statErr),
 		"a successful fallback re-stages the hotfix binary")
+	fallback := repositoryEvents(t, app, "RepositoryDownloadFallback")
+	require.Len(t, fallback, 1)
+	assert.Equal(t, "integrity", fallback[0].Reason)
+	assert.Contains(t, fallback[0].Error, "SHA-256 mismatch")
+	assertRepositoryOutcome(t, app, "packageManager", "success")
 }
 
 func TestUbuntuRepositoryHTTPErrorFallsBackToApt(t *testing.T) {
@@ -273,6 +281,10 @@ func TestUbuntuRepositoryHTTPErrorFallsBackToApt(t *testing.T) {
 		}
 		return false
 	}, "an operational direct-path failure must invoke apt fallback")
+	fallback := repositoryEvents(t, app, "RepositoryDownloadFallback")
+	require.Len(t, fallback, 1)
+	assert.Equal(t, "unavailable", fallback[0].Reason)
+	assertRepositoryOutcome(t, app, "packageManager", "failed")
 }
 
 func TestUbuntuRepositoryFallbackStagesPackageManagerBinary(t *testing.T) {
@@ -302,6 +314,7 @@ func TestUbuntuRepositoryFallbackStagesPackageManagerBinary(t *testing.T) {
 	staged, err := os.ReadFile(app.hotfixBinaryPath)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("package-manager-binary"), staged)
+	assertRepositoryOutcome(t, app, "packageManager", "success")
 }
 
 func TestParseAptRepositoryFormats(t *testing.T) {
@@ -1684,6 +1697,12 @@ func TestDownloadRepositoryFileRetriesTransientServerError(t *testing.T) {
 	assert.Equal(t, "package-body", string(body))
 	sum := sha256.Sum256([]byte("package-body"))
 	assert.Equal(t, hex.EncodeToString(sum[:]), downloaded.sha256)
+	retries := repositoryEvents(t, app, "RepositoryDownloadRetry")
+	require.Len(t, retries, 1)
+	assert.Equal(t, "/aks-node-controller.deb", retries[0].File)
+	assert.Equal(t, 2, retries[0].Attempt)
+	assert.Equal(t, repositoryDownloadMaxAttempts, retries[0].MaxAttempts)
+	assert.Contains(t, retries[0].Error, "HTTP 503")
 }
 
 func TestDownloadRepositoryFileRetriesDroppedConnection(t *testing.T) {
@@ -1708,6 +1727,9 @@ func TestDownloadRepositoryFileRetriesDroppedConnection(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(downloaded.path) }()
 	assert.Equal(t, int32(2), requests.Load(), "a dropped connection should be retried once")
+	retries := repositoryEvents(t, app, "RepositoryDownloadRetry")
+	require.Len(t, retries, 1)
+	assert.Equal(t, "/dists/jammy/InRelease", retries[0].File)
 }
 
 func TestDownloadRepositoryFileGivesUpAfterMaxAttempts(t *testing.T) {
@@ -1728,6 +1750,9 @@ func TestDownloadRepositoryFileGivesUpAfterMaxAttempts(t *testing.T) {
 	leftovers, globErr := filepath.Glob(filepath.Join(app.repositoryTempDir, ".aks-node-controller-repository-*"))
 	require.NoError(t, globErr)
 	assert.Empty(t, leftovers, "failed attempts must not leak temp files")
+	retries := repositoryEvents(t, app, "RepositoryDownloadRetry")
+	require.Len(t, retries, 1, "exhaustion must not emit a nonexistent third attempt")
+	assert.Contains(t, retries[0].Error, "HTTP 502")
 }
 
 func TestDownloadRepositoryFileDoesNotRetryPermanentFailures(t *testing.T) {
@@ -1751,6 +1776,7 @@ func TestDownloadRepositoryFileDoesNotRetryPermanentFailures(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, isIntegrityError(err))
 	assert.Equal(t, int32(0), requests.Load(), "an integrity rejection must not be retried")
+	assert.Empty(t, repositoryEvents(t, app, "RepositoryDownloadRetry"))
 }
 
 func TestDownloadRepositoryFileDoesNotRetryAfterCallerCancellation(t *testing.T) {
@@ -1769,6 +1795,7 @@ func TestDownloadRepositoryFileDoesNotRetryAfterCallerCancellation(t *testing.T)
 	require.Error(t, err)
 	assert.True(t, isRepositoryCancellationError(err))
 	assert.Equal(t, int32(1), requests.Load(), "a cancelled branch must stop, not retry")
+	assert.Empty(t, repositoryEvents(t, app, "RepositoryDownloadRetry"))
 }
 
 func TestRepositoryFetchBudgetCapsStalledFastPath(t *testing.T) {
