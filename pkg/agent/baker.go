@@ -241,6 +241,13 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	if len(encodedFinalCustomData) < MaxCustomDataLength {
 		return encodedFinalCustomData
 	}
+	if config.IsCustomDataOnlyProvisioningEnabled() {
+		// Oversized payloads require CSE delivery. Rerender without the readiness handoff so
+		// cloud-init and report_ready.py do not take ownership from the CSE provisioning path.
+		delete(config.EnabledFeatures, datamodel.CustomDataOnlyProvisioningFeature)
+		config.ScriptlessCSEProvisionMode = true
+		return t.getScriptlessBoothook(config)
+	}
 	config.ScriptlessCSEProvisionMode = true
 	return encodedCustomData
 }
@@ -780,6 +787,10 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
 		return err
+	}
+
+	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
+		delete(config.EnabledFeatures, datamodel.CustomDataOnlyProvisioningFeature)
 	}
 
 	if config.KubeletConfig == nil {
