@@ -1,4 +1,4 @@
-version = 2
+version = {{getContainerdConfigVersion}}
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 {{- if .GetIsKata }}
@@ -53,19 +53,19 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if .GetIsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   snapshotter = "overlayfs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-v2]
   runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
   pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-v2.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
