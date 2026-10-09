@@ -104,12 +104,14 @@ Describe 'MGLRU image default'
 
   Describe 'post-boot VHD validation'
     setup_validation() {
-      TEST_ROOT=$(mktemp -d)
+      TEST_ROOT="${SHELLSPEC_TMPBASE}/mglru-validation"
       mkdir -p "$TEST_ROOT/etc/tmpfiles.d" "$TEST_ROOT/sys/kernel/mm/lru_gen"
       cp parts/linux/cloud-init/artifacts/aks-mglru.conf "$TEST_ROOT/etc/tmpfiles.d/aks-mglru.conf"
       printf '0x0000\n' > "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
-      OS=UBUNTU OS_VERSION=24.04 OS_VARIANT=''
+      unset OS OS_VARIANT
+      OS_SKU=Ubuntu OS_VERSION=24.04 FEATURE_FLAGS=''
       eval "$(sed -n '/^err()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)"
+      eval "$(sed -n '/^getCurrentPackageTestOS()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)"
       eval "$(sed -n '/^testMGLRUDisabled()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh |
         sed -e "s|\"/etc/tmpfiles.d/aks-mglru.conf\"|\"$TEST_ROOT/etc/tmpfiles.d/aks-mglru.conf\"|" \
             -e "s|\"/sys/kernel/mm/lru_gen/enabled\"|\"$TEST_ROOT/sys/kernel/mm/lru_gen/enabled\"|")"
@@ -120,10 +122,34 @@ Describe 'MGLRU image default'
     BeforeEach 'setup_validation'
     AfterEach 'cleanup_validation'
 
-    It 'accepts a disabled kernel after boot'
+    Describe 'independent execution on included images'
+      Parameters
+        Ubuntu 24.04 ''
+        Ubuntu 26.04 ''
+        AzureLinux 3.0 ''
+        AzureLinux 4.0 ''
+        AzureLinux 3.0 kata
+        AzureLinuxOSGuard 3.0 ''
+      End
+
+      It "validates $1 $2 features=$3 without OS globals"
+        OS_SKU="$1" OS_VERSION="$2" FEATURE_FLAGS="$3"
+        When call testMGLRUDisabled
+        The status should be success
+        The output should include 'MGLRU is disabled after boot'
+        The variable OS should be undefined
+        The variable OS_VARIANT should be undefined
+      End
+    End
+
+    It 'ignores stale OS globals without changing them'
+      OS_SKU=AzureLinux OS_VERSION=3.0
+      OS=FLATCAR OS_VARIANT=AZURECONTAINERLINUX
       When call testMGLRUDisabled
       The status should be success
       The output should include 'MGLRU is disabled after boot'
+      The variable OS should equal FLATCAR
+      The variable OS_VARIANT should equal AZURECONTAINERLINUX
     End
 
     It 'accepts an absent interface while retaining the rule'
@@ -155,13 +181,31 @@ Describe 'MGLRU image default'
       The error should include 'MGLRU override must not be installed'
     End
 
-    It 'does not require MGLRU to be disabled on an excluded OS'
-      OS=AZURELINUX OS_VERSION=3.0 OS_VARIANT=AZURECONTAINERLINUX
-      rm "$TEST_ROOT/etc/tmpfiles.d/aks-mglru.conf"
-      printf '0x0007\n' > "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
+    Describe 'independent execution on excluded images'
+      Parameters
+        Ubuntu 22.04
+        CBLMariner 2.0
+        AzureLinux 2.0
+        Flatcar 4230.2.2
+        AzureContainerLinux 3.0
+      End
+
+      It "does not require MGLRU to be disabled on $1 $2"
+        OS_SKU="$1" OS_VERSION="$2"
+        rm "$TEST_ROOT/etc/tmpfiles.d/aks-mglru.conf"
+        printf '0x0007\n' > "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
+        When call testMGLRUDisabled
+        The status should be success
+        The output should include 'Skipping'
+      End
+    End
+
+    It 'resolves the excluded ACL variant despite stale included-image globals'
+      OS_SKU=AzureContainerLinux OS_VERSION=3.0
+      OS=AZURELINUX OS_VARIANT=''
       When call testMGLRUDisabled
-      The status should be success
-      The output should include 'Skipping'
+      The status should be failure
+      The error should include 'MGLRU override must not be installed on AZURELINUX 3.0 (AZURECONTAINERLINUX)'
     End
 
     It 'is included in the VHD content-test run'
@@ -177,7 +221,7 @@ Describe 'MGLRU image default'
     Skip if 'systemd-tmpfiles is unavailable on this host' tmpfiles_unavailable
 
     setup_tmpfiles() {
-      TEST_ROOT=$(mktemp -d)
+      TEST_ROOT="${SHELLSPEC_TMPBASE}/mglru-tmpfiles"
       mkdir -p "$TEST_ROOT/sys/kernel/mm/lru_gen"
       printf '7' > "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
     }

@@ -1400,13 +1400,17 @@ testMGLRUDisabled() {
   local test="testMGLRUDisabled"
   local config_file="/etc/tmpfiles.d/aks-mglru.conf"
   local enabled_file="/sys/kernel/mm/lru_gen/enabled"
+  local resolvedOSAndVariant
+  resolvedOSAndVariant=$(getCurrentPackageTestOS)
+  local targetOS="${resolvedOSAndVariant%%|*}"
+  local targetOSVariant="${resolvedOSAndVariant#*|}"
 
-  if ! isMGLRUDefaultDisabled "$OS" "$OS_VERSION" "$OS_VARIANT"; then
+  if ! isMGLRUDefaultDisabled "$targetOS" "$OS_VERSION" "$targetOSVariant"; then
     if [ -e "$config_file" ]; then
-      err "$test" "MGLRU override must not be installed on $OS $OS_VERSION ($OS_VARIANT)"
+      err "$test" "MGLRU override must not be installed on $targetOS $OS_VERSION ($targetOSVariant)"
       return 1
     fi
-    echo "$test: Skipping $OS $OS_VERSION ($OS_VARIANT)"
+    echo "$test: Skipping $targetOS $OS_VERSION ($targetOSVariant)"
     return 0
   fi
 
