@@ -52,9 +52,20 @@ if [ -f "$CONFIG_PATH" ]; then
     log "Launching aks-node-controller with config ${CONFIG_PATH}"
     command+=("--provision-config=$CONFIG_PATH")
 fi
+# USE_AKS_NODE_CONFIG (scriptless phase 3) makes the binary provision from the AKSNodeConfig
+# even though the nbc-cmd file is also present. The binary reads the variable itself: the
+# feature-flag reader in anc_run_hotfix_flow above exports it (declare -gx), so the child
+# process inherits it and no extra CLI flag has to be threaded through. We still pass
+# --nbc-cmd: the binary compares the two sources whenever both are available, so the toggle
+# switches which one EXECUTES without blinding the compareEnvs signal exactly when the switch
+# most needs observing. The log below is emitted only when a config is actually present, since
+# with nothing to switch to the binary keeps provisioning from nbc-cmd.
 if [ -f "$NBC_CMD_PATH" ]; then
     log "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
     command+=("--nbc-cmd=$NBC_CMD_PATH")
+    if [ "${USE_AKS_NODE_CONFIG:-}" = "true" ] && [ -f "$CONFIG_PATH" ]; then
+        log "USE_AKS_NODE_CONFIG is enabled: provisioning from ${CONFIG_PATH}, comparing against nbc cmd"
+    fi
 fi
 
 "${command[@]}" &
