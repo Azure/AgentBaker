@@ -26,8 +26,8 @@ InRelease/Packages/RPM metadata), `attempt` (the attempt starting), `maxAttempts
 covers the preceding attempt; fallback duration covers the failed fast path; final
 duration covers the entire acquisition including fallback and staging. Messages stay
 below 3 KiB including timing; diagnostic strings may be truncated. URL authorities,
-userinfo, queries and fragments are excluded from file identity; embedded URLs and
-query strings are redacted from diagnostics before guest-agent emission.
+userinfo, queries and fragments are excluded from file identity. Diagnostic URLs are
+retained, with query strings and fragments redacted before guest-agent emission.
 
 Unit tests validate local event files only. End-to-end guest-agent/Kusto ingestion has
 not yet been validated and requires a rebuilt VHD containing this ANC binary.

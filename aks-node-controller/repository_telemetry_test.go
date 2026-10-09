@@ -58,7 +58,7 @@ func assertRepositoryOutcome(t *testing.T, app *App, route, outcome string) {
 func TestRepositoryTelemetryBoundedAndSanitized(t *testing.T) {
 	app := NewTestApp(t, TestAppConfig{}).App
 	start := time.Now().Add(-25 * time.Millisecond)
-	rawURL := "https://user:password@packages.example/pool/anc.deb?sig=secret#credential"
+	rawURL := "https://packages.example/pool/anc.deb?sig=secret#credential"
 	app.logRepositoryEvent("RepositoryDownloadRetry", repositoryEvent{
 		Target: strings.Repeat("\x00\u754c", 2000),
 		File:   repositoryTelemetryFile(rawURL), Attempt: 2, MaxAttempts: 2,
@@ -72,6 +72,7 @@ func TestRepositoryTelemetryBoundedAndSanitized(t *testing.T) {
 	assert.Equal(t, int64(25), events[0].DurationMs)
 	message := app.eventLogger.Events()[0].Message
 	assert.True(t, utf8.ValidString(message))
+	assert.Contains(t, events[0].Error, "https://packages.example/pool/anc.deb")
 	for _, secret := range []string{"password", "secret", "credential", "hidden", "user:"} {
 		assert.NotContains(t, message, secret)
 	}

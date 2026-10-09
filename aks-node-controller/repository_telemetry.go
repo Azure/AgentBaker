@@ -34,13 +34,10 @@ type repositoryEvent struct {
 	DurationMs  int64  `json:"durationMs"`
 }
 
-// Redact entire embedded URLs rather than parsing error text: even malformed URLs
-// in net/url errors may contain userinfo or query credentials.
-var repositoryTelemetryURL = regexp.MustCompile(`(?i)https?://[^\s"'<>]+`)
+// Preserve repository URLs in diagnostics, excluding potential query/fragment tokens.
 var repositoryTelemetryQuery = regexp.MustCompile(`[?#][^\s"'<>]+`)
 
 func boundedRepositoryTelemetryText(text string, limit int) string {
-	text = repositoryTelemetryURL.ReplaceAllString(text, "[URL redacted]")
 	text = repositoryTelemetryQuery.ReplaceAllString(text, "[query redacted]")
 	// Bound JSON-encoded bytes, not just characters (control characters expand).
 	if len(text) > limit {
