@@ -122,6 +122,7 @@ knead_read_configmap() {
         (.components | all(
             (.name | type == "string") and
             (.name | length > 0) and
+            (.name | test("^[A-Za-z][A-Za-z0-9_-]*\\z")) and
             (.nodeConfig | type == "string")
         )) and
         ([.components[].name] | length) == ([.components[].name] | unique | length))
@@ -187,7 +188,7 @@ knead_write_component_state() {
         return 1
     fi
     if [ -f "${KNEAD_COMPONENT_STATE_FILE}" ]; then
-        if ! state="$(jq -c 'select(.components | type == "array") | {components: .components}' "${KNEAD_COMPONENT_STATE_FILE}" 2> /dev/null)" || [ -z "${state}" ]; then
+        if ! state="$(jq -c 'select(.components | type == "array") | {components: [.components[] | select(type == "object") | select((.name | type == "string") and (.nodeConfig | type == "string"))]}' "${KNEAD_COMPONENT_STATE_FILE}" 2> /dev/null)" || [ -z "${state}" ]; then
             state='{"components":[]}'
         fi
     fi

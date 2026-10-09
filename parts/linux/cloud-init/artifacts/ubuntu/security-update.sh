@@ -9,7 +9,22 @@
 
 is_valid_golden_timestamp() {
     local timestamp="$1"
-    [ "${#timestamp}" -eq 16 ] && printf '%s\n' "${timestamp}" | grep -Eq '^[0-9]{8}T[0-9]{6}Z$'
+    [ "${#timestamp}" -eq 16 ] && printf '%s\n' "${timestamp}" | grep -Eq '^[0-9]{8}T[0-9]{6}Z$' || return 1
+    local timestamp_date
+    timestamp_date="${timestamp:0:4}-${timestamp:4:2}-${timestamp:6:2} ${timestamp:9:2}:${timestamp:11:2}:${timestamp:13:2}Z"
+    date -u -d "${timestamp_date}" > /dev/null 2>&1
+}
+
+# Validate the JSON string before Bash can discard trailing LF or NUL bytes.
+security_patch_timestamp() {
+    local payload="$1"
+    local agent_pool="$2"
+    local timestamp
+    timestamp=$(printf '%s' "${payload}" | jq -er --arg agentPool "${agent_pool}" '
+        .agentPools[$agentPool].goldenTimestamp | select(type == "string") |
+        select(length == 16 and test("^[0-9]{8}T[0-9]{6}Z$"))') || return 1
+    is_valid_golden_timestamp "${timestamp}" || return 1
+    printf '%s' "${timestamp}"
 }
 
 knead_emit_security_patch_event() {
@@ -124,10 +139,10 @@ securityPatchIsCurrent() {
     if ! agent_pool="$(printf '%s' "${node_json}" | jq -er '.metadata.labels["kubernetes.azure.com/agentpool"] // empty')"; then
         return 1
     fi
-    if ! desired_timestamp="$(printf '%s' "${desired_payload}" | jq -er --arg agentPool "${agent_pool}" '.agentPools[$agentPool].goldenTimestamp // empty')"; then
+    if ! desired_timestamp="$(security_patch_timestamp "${desired_payload}" "${agent_pool}")"; then
         return 1
     fi
-    if ! current_timestamp="$(printf '%s' "${current_payload}" | jq -er --arg agentPool "${agent_pool}" '.agentPools[$agentPool].goldenTimestamp // empty')"; then
+    if ! current_timestamp="$(security_patch_timestamp "${current_payload}" "${agent_pool}")"; then
         return 1
     fi
 
@@ -186,13 +201,13 @@ updateSecurityPatch() {
         security_patch_no_action "${agent_pool}"
         return 0
     fi
-    if ! golden_timestamp="$(printf '%s' "${component_payload}" | jq -er --arg agentPool "${agent_pool}" '.agentPools[$agentPool].goldenTimestamp // empty')"; then
+    if ! printf '%s' "${component_payload}" | jq -e --arg agentPool "${agent_pool}" '.agentPools[$agentPool].goldenTimestamp // empty' > /dev/null; then
         echo "securityPatch goldenTimestamp is missing for agent pool: ${agent_pool}"
         knead_emit_security_patch_failure_event "GoldenTimestampMissing"
         return 1
     fi
-    if ! is_valid_golden_timestamp "${golden_timestamp}"; then
-        echo "securityPatch goldenTimestamp is invalid: ${golden_timestamp}"
+    if ! golden_timestamp="$(security_patch_timestamp "${component_payload}" "${agent_pool}")"; then
+        echo "securityPatch goldenTimestamp is invalid"
         knead_emit_security_patch_failure_event "GoldenTimestampInvalid"
         return 1
     fi

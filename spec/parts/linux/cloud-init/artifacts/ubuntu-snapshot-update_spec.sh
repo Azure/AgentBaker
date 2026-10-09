@@ -241,6 +241,8 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         Parameters
             'multiple documents' $'{"components":[]}\n{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}'
             'no documents' ''
+            'newline component alias' '{"components":[{"name":"securityPatch","nodeConfig":"{}"},{"name":"securityPatch\n","nodeConfig":"{}"}]}'
+            'NUL component alias' '{"components":[{"name":"security\u0000Patch","nodeConfig":"{}"}]}'
         End
 
         It "rejects $1 before dispatch or status publication"
@@ -253,6 +255,26 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
             The output should not include 'annotate mock called'
             The path "${KNEAD_COMPONENT_STATE_FILE}" should not be exist
         End
+    End
+
+    It 'repairs malformed checkpoint members and preserves valid siblings'
+        set_payload_goal '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20261007T000000Z\"}}}"}]}'
+        mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+        printf '%s' '{"components":[42,null,{"name":"bad","nodeConfig":false},{"name":"other","nodeConfig":"keep"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+        run_recovery() {
+            knead_main || return 1
+            echo SECOND_TICK
+            knead_main
+        }
+        checkpoint_valid() {
+            jq -e '(.components | length == 2) and (.components[0] == {name:"other",nodeConfig:"keep"}) and (.components[1].name == "securityPatch")' "${KNEAD_COMPONENT_STATE_FILE}" > /dev/null
+        }
+
+        When call run_recovery
+        The status should be success
+        The output should include 'updateSecurityPatch called'
+        The output should include 'component is already current: securityPatch'
+        The result of function checkpoint_valid should be successful
     End
 
     It 'propagates ConfigMap read failures despite the newline-preservation sentinel'

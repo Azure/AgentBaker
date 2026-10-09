@@ -211,7 +211,7 @@ Describe 'security-update.sh'
     It 'fails when the selected golden timestamp is malformed'
         When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"not-a-timestamp"}}}' "${TEST_NODE_JSON}"
         The status should be failure
-        The output should include 'securityPatch goldenTimestamp is invalid: not-a-timestamp'
+        The output should include 'securityPatch goldenTimestamp is invalid'
         The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=GoldenTimestampInvalid|Error'
         The output should not include 'apt_get_update_with_opts called'
     End
@@ -225,6 +225,8 @@ Describe 'security-update.sh'
             'CRLF followed by extra line' $'20260710T000000Z\r\ndeb http://invalid.example/ubuntu ./'
             'extra prefix character' 'x20260710T000000Z'
             'extra suffix character' '20260710T000000Zx'
+            'trailing newline' $'20260710T000000Z\n'
+            'impossible date' '20260230T000000Z'
         End
 
         It "does not create apt configuration for $1"
@@ -232,7 +234,7 @@ Describe 'security-update.sh'
 
             When call updateSecurityPatch "${desired_payload}" "${TEST_NODE_JSON}"
             The status should be failure
-            The output should include 'securityPatch goldenTimestamp is invalid:'
+            The output should include 'securityPatch goldenTimestamp is invalid'
             The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=GoldenTimestampInvalid|Error'
             The path "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should not be exist
             The path "${SECURITY_PATCH_CONFIG_DIR}/apt.conf" should not be exist
@@ -249,7 +251,7 @@ Describe 'security-update.sh'
 
             When call updateSecurityPatch "${desired_payload}" "${TEST_NODE_JSON}"
             The status should be failure
-            The output should include 'securityPatch goldenTimestamp is invalid:'
+            The output should include 'securityPatch goldenTimestamp is invalid'
             The contents of file "${TEST_EVENT_LOG}/events" should include 'AKS.LivePatching.securityPatch.Failed|reason=GoldenTimestampInvalid|Error'
             The contents of file "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should equal 'existing sources'
             The contents of file "${SECURITY_PATCH_CONFIG_DIR}/apt.conf" should equal 'existing apt configuration'
@@ -257,6 +259,37 @@ Describe 'security-update.sh'
             The output should not include 'unattended-upgrade called'
             The output should not include 'kubectl called'
         End
+    End
+
+    Describe 'does not normalize malformed JSON timestamps'
+        Parameters
+            'trailing LF' '20260710T000000Z\n'
+            'embedded NUL' '20260710T\u0000000000Z'
+            'impossible date' '20260230T000000Z'
+        End
+
+        It "does not match a clean checkpoint for $1"
+            desired_payload="{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"$2\"}}}"
+            When call securityPatchIsCurrent "${desired_payload}" '{"agentPools":{"ap1":{"goldenTimestamp":"20260710T000000Z"}}}' "${TEST_NODE_JSON}"
+            The status should be failure
+        End
+
+        It "rejects $1 even with a private repository"
+            desired_payload="{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"$2\"}}}"
+            TEST_NODE_JSON="$(security_patch_test_node_json '10.0.0.1')"
+            When call updateSecurityPatch "${desired_payload}" "${TEST_NODE_JSON}"
+            The status should be failure
+            The output should include 'goldenTimestamp is invalid'
+            The output should not include 'apt_get_update_with_opts called'
+            The output should not include 'kubectl called'
+            The path "${SECURITY_PATCH_CONFIG_DIR}/sources.list" should not be exist
+        End
+    End
+
+    It 'accepts a real leap day in UTC'
+        When call security_patch_timestamp '{"agentPools":{"ap1":{"goldenTimestamp":"20240229T235959Z"}}}' ap1
+        The status should be success
+        The output should equal '20240229T235959Z'
     End
 
     It 'returns failure when apt metadata refresh fails'
