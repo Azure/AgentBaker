@@ -577,6 +577,25 @@ var _ = Register(&Scenario{
 				nbc.EnabledFeatures = make(map[string]string)
 			}
 			nbc.EnabledFeatures[datamodel.CustomDataOnlyProvisioningFeature] = "true"
+		},
+		// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateReportReadyRan(ctx, s)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2204_CustomDataOnlyProvisioning_Failure",
+	Description: "Tests that an Ubuntu 22.04 node returns an error without CSE",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			if nbc.EnabledFeatures == nil {
+				nbc.EnabledFeatures = make(map[string]string)
+			}
+			nbc.EnabledFeatures[datamodel.CustomDataOnlyProvisioningFeature] = "true"
 			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
 				HTTPSProxy: to.Ptr(cluster.ProxyURL),
 				NoProxy: &[]string{
@@ -590,12 +609,9 @@ var _ = Register(&Scenario{
 				},
 				TrustedCA: to.Ptr("foo bar!"),
 			}
-
 		},
 		// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateReportReadyRan(ctx, s)
-		},
+		// ExpectedError: "ExitCode: 161",
 	},
 })
 

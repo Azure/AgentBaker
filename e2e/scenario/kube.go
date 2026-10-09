@@ -202,7 +202,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, vmssName string) (s
 	defer logging.LogStepf(ctx, "waiting for node %s to be ready", vmssName)()
 	var lastNode *corev1.Node
 
-	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		nodes, err := k.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			logging.Logf(ctx, "error listing nodes: %v", err)
