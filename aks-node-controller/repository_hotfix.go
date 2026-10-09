@@ -28,6 +28,13 @@ const (
 	defaultYumReposDir           = "/etc/yum.repos.d"
 	defaultAptTrustedKeyringsDir = "/etc/apt/trusted.gpg.d"
 	repositoryRequestTimeout     = 30 * time.Second
+	// repositoryDownloadMaxAttempts is the total number of attempts per repository file
+	// (1 initial + 1 retry). PMC occasionally drops a TCP connect or stalls response headers
+	// for a single request; one immediate retry recovers that without paying the much
+	// slower package-manager fallback.
+	repositoryDownloadMaxAttempts = 2
+	// repositoryDownloadBudget caps all attempts for one repository file combined.
+	repositoryDownloadBudget     = 45 * time.Second
 	repositoryMetadataMaxBytes   = 128 << 20
 	repositoryPackageMaxBytes    = 512 << 20
 	repositoryBinaryMaxBytes     = 128 << 20
@@ -38,6 +45,12 @@ const (
 	archAMD64 = "amd64"
 	archARM64 = "arm64"
 )
+
+// repositoryFetchBudget caps the whole fast-path fetch (package branch and the sequential
+// InRelease -> gpgv -> Packages metadata branch together) before the package-manager
+// fallback. 60s matches the worst network wait of the pre-retry fast path (two sequential
+// 30s metadata requests).
+const repositoryFetchBudget = 60 * time.Second
 
 type integrityError struct {
 	msg string
@@ -108,7 +121,20 @@ func (a *App) fetchPackageAndMetadata(
 	ctx context.Context,
 	plan repositoryDownloadPlan,
 ) (downloadedRepositoryFile, repositoryPackageMetadata, error) {
-	branchCtx, cancelBranches := context.WithCancel(ctx)
+	return a.fetchPackageAndMetadataWithBudget(ctx, plan, repositoryFetchBudget)
+}
+
+func (a *App) fetchPackageAndMetadataWithBudget(
+	ctx context.Context,
+	plan repositoryDownloadPlan,
+	budget time.Duration,
+) (downloadedRepositoryFile, repositoryPackageMetadata, error) {
+	// Cap both branches together so per-file retries can never make the fast path slower
+	// than it was before retries existed. Hitting the cap is operational, not integrity,
+	// so the caller still falls back to the package manager.
+	budgetCtx, cancelBudget := context.WithTimeout(ctx, budget)
+	defer cancelBudget()
+	branchCtx, cancelBranches := context.WithCancel(budgetCtx)
 	defer cancelBranches()
 
 	var (
@@ -349,7 +375,68 @@ func resolveRepositoryURL(base *url.URL, relative string) (string, error) {
 	return resolved.String(), nil
 }
 
+// downloadRepositoryFile downloads one repository file, retrying once on a transient
+// transport failure. Retrying here rather than around the whole fast path means a single
+// timed-out file (InRelease, Packages, the package itself, or an RPM metadata file) is
+// re-fetched on its own without repeating signature verification or the peer branch.
+// All attempts share repositoryDownloadBudget, so a retry adds at most
+// repositoryDownloadBudget-repositoryRequestTimeout before the package-manager fallback.
 func (a *App) downloadRepositoryFile(
+	ctx context.Context,
+	rawURL string,
+	trustedOrigin *url.URL,
+	maxBytes int64,
+) (downloadedRepositoryFile, error) {
+	budgetCtx, cancel := context.WithTimeout(ctx, repositoryDownloadBudget)
+	defer cancel()
+	return common.RetryFetch(budgetCtx, repositoryDownloadMaxAttempts, isRetryableRepositoryDownloadError,
+		func(attemptCtx context.Context) (downloadedRepositoryFile, error) {
+			return a.downloadRepositoryFileOnce(attemptCtx, rawURL, trustedOrigin, maxBytes)
+		})
+}
+
+// isRetryableRepositoryDownloadError reports whether a failed download is worth one more
+// attempt: transport timeouts, connection failures, truncated bodies, and server-side HTTP
+// statuses. Integrity, unsupported-repository, cancellation, client-side HTTP statuses, and
+// local filesystem errors are permanent for this boot and go straight to the fallback.
+func isRetryableRepositoryDownloadError(err error) bool {
+	if err == nil || isIntegrityError(err) || errors.Is(err, context.Canceled) {
+		return false
+	}
+	var unsupported *unsupportedRepositoryError
+	if errors.As(err, &unsupported) {
+		return false
+	}
+	var statusErr *repositoryHTTPStatusError
+	if errors.As(err, &statusErr) {
+		return statusErr.statusCode >= http.StatusInternalServerError ||
+			statusErr.statusCode == http.StatusTooManyRequests ||
+			statusErr.statusCode == http.StatusRequestTimeout
+	}
+	// A per-attempt deadline (repositoryRequestTimeout) is a slow transfer, not a dead caller:
+	// RetryFetch already stops when the caller's own context is done.
+	if errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	var opErr *net.OpError
+	return errors.As(err, &opErr)
+}
+
+type repositoryHTTPStatusError struct {
+	statusCode int
+	url        string
+}
+
+func (e *repositoryHTTPStatusError) Error() string {
+	return fmt.Sprintf("HTTP %d from %s", e.statusCode, e.url)
+}
+
+func (a *App) downloadRepositoryFileOnce(
 	ctx context.Context,
 	rawURL string,
 	trustedOrigin *url.URL,
@@ -420,7 +507,7 @@ func (a *App) downloadRepositoryFile(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return downloadedRepositoryFile{}, fmt.Errorf("HTTP %d from %s", resp.StatusCode, u.Redacted())
+		return downloadedRepositoryFile{}, &repositoryHTTPStatusError{statusCode: resp.StatusCode, url: u.Redacted()}
 	}
 
 	hasher := sha256.New()
