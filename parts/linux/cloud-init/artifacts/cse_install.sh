@@ -883,3 +883,5 @@ EOF
     systemctl enable nvidia-persistenced.service || exit 1
     systemctl restart nvidia-persistenced.service || exit 1
 }
+
+#EOF

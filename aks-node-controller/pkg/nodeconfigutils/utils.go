@@ -108,7 +108,9 @@ func readyReportHandoffBlock(cfg *aksnodeconfigv1.Configuration) string {
 	if cfg.GetEnabledFeatures()[customDataOnlyProvisioningFeature] != "true" {
 		return ""
 	}
-	return `touch /var/lib/waagent/experimental_skip_ready_report
+	return `# azure-experimental-node-ready
+
+touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
 # The VHD-baked cloud-init setting stands down cloud-init. WALinuxAgent reports Ready

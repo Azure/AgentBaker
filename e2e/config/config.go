@@ -96,7 +96,7 @@ func DefaultConfiguration() *Configuration {
 		BlobStorageAccountPrefix:               "abe2e",
 		BuildID:                                "local",
 		DefaultLocation:                        "westus3",
-		DefaultPollInterval:                    1 * time.Second,
+		DefaultPollInterval:                    15 * time.Second,
 		DefaultSubnetName:                      "aks-subnet",
 		DefaultVMSKU:                           DEFAULT_VMSKU,
 		Gen1SCSIVMSKU:                          DEFAULT_VMSKU,
