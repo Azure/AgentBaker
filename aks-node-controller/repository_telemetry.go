@@ -14,6 +14,8 @@ import (
 
 type repositoryTargetKey struct{}
 
+const repositoryRoutePackageManager = "packageManager"
+
 // The acquisition context carries the target into parallel metadata/package downloads
 // without mutable App state or changing the generic retry helper.
 func repositoryTarget(ctx context.Context) string {

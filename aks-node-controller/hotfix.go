@@ -134,17 +134,17 @@ func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfi
 		slog.Error("repository integrity check failed, falling back to package manager",
 			"version", hotfixVersion, "error", err)
 		a.logRepositoryEvent("RepositoryDownloadFallback", repositoryEvent{
-			Target: hotfixVersion, Route: "packageManager", Reason: "integrity", Error: err.Error(),
+			Target: hotfixVersion, Route: repositoryRoutePackageManager, Reason: "integrity", Error: err.Error(),
 		}, helpers.EventLevelError, start, time.Now())
 		a.removeStaleHotfix()
 	} else {
 		slog.Warn("safe repository download unavailable, falling back to package manager",
 			"version", hotfixVersion, "error", err)
 		a.logRepositoryEvent("RepositoryDownloadFallback", repositoryEvent{
-			Target: hotfixVersion, Route: "packageManager", Reason: "unavailable", Error: err.Error(),
+			Target: hotfixVersion, Route: repositoryRoutePackageManager, Reason: "unavailable", Error: err.Error(),
 		}, helpers.EventLevelInformational, start, time.Now())
 	}
-	route = "packageManager"
+	route = repositoryRoutePackageManager
 
 	if err := a.installFromPMC(ctx, hotfixVersion); err != nil {
 		return fmt.Errorf("install hotfix version %s: %w", hotfixVersion, err)
