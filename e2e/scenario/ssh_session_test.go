@@ -218,6 +218,107 @@ func TestSSHCommandMissingExitStatusIsNotSuccess(t *testing.T) {
 	assert.EqualValues(t, 1, opens.Load())
 }
 
+func TestSSHCommandCancellationUnblocksSetupAndRun(t *testing.T) {
+	for _, test := range []struct {
+		stage     string
+		command   string
+		isWindows bool
+	}{
+		{stage: "channel-open", command: "echo hello"},
+		{stage: "exec-request", command: "echo hello"},
+		{stage: "command", command: "echo hello"},
+		{stage: "channel-open", command: "Write-Output hello", isWindows: true},
+		{stage: "exec-request", command: "Write-Output hello", isWindows: true},
+		{stage: "upload", command: "Write-Output hello", isWindows: true},
+	} {
+		t.Run(fmt.Sprintf("%s/windows=%t", test.stage, test.isWindows), func(t *testing.T) {
+			entered, release := make(chan struct{}), make(chan struct{})
+			stop := sync.OnceFunc(func() { close(release) })
+			client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
+				if test.stage == "channel-open" {
+					close(entered)
+					<-release
+					return nil
+				}
+				channel, requests, err := ch.Accept()
+				if err != nil {
+					return err
+				}
+				defer channel.Close()
+				for request := range requests {
+					if request.Type == "exec" {
+						if test.stage == "command" || test.stage == "upload" {
+							if err := request.Reply(true, nil); err != nil {
+								return err
+							}
+						}
+						close(entered)
+						<-release
+						return nil
+					}
+					if err := request.Reply(false, nil); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			t.Cleanup(stop)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() {
+				_, err := runSSHCommand(ctx, client, test.command, test.isWindows)
+				done <- err
+			}()
+			select {
+			case <-entered:
+			case <-time.After(time.Second):
+				t.Fatal("SSH operation did not reach " + test.stage)
+			}
+			cancel()
+			select {
+			case err := <-done:
+				require.ErrorIs(t, err, context.Canceled)
+				assert.Empty(t, client.operations)
+			case <-time.After(time.Second):
+				_ = client.Close()
+				stop()
+				<-done
+				t.Fatal("SSH operation ignored cancellation at " + test.stage)
+			}
+		})
+	}
+}
+
+func TestSCPCopySetupHonorsDeadline(t *testing.T) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
+		close(entered)
+		<-release
+		return nil
+	})
+	t.Cleanup(func() { close(release) })
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := copyScriptToRemoteIfRequired(ctx, client.Client, "Write-Output hello", true)
+		done <- err
+	}()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("SCP did not attempt to open a channel")
+	}
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+	case <-time.After(time.Second):
+		_ = client.Close()
+		t.Fatal("SCP setup ignored the copy deadline")
+	}
+}
+
 func TestSCPCopyRetriesOnlyRejectedOpens(t *testing.T) {
 	for _, failTransfer := range []bool{false, true} {
 		t.Run(fmt.Sprintf("fail-transfer=%t", failTransfer), func(t *testing.T) {

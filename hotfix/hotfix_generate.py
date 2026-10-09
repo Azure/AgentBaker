@@ -76,6 +76,7 @@ SOURCE_TO_VARKEY = {
     "cse_config_kubelet.sh": "provisionConfigsKubelet",
     "cse_config_network.sh": "provisionConfigsNetwork",
     "cse_config_addons.sh": "provisionConfigsAddons",
+    "cse_config_chrony.sh": "provisionConfigsChrony",
     # CSE main
     "cse_main.sh": "provisionScript",
     # Other scripts present in traditional nodecustomdata

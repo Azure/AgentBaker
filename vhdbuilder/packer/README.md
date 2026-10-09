@@ -17,6 +17,20 @@ external-vhd-src->(func/init: ensure dest existing/static gallery/definition, in
 # Roadmap
 Goal1: remove mariner workflow so things will be simplified.
 
+# Linux build steps
+
+The pipeline's `Build Go binaries` step runs `make -f packer.mk -j4 build-tools`
+to install the latest supported Microsoft Go toolchain, generate the prefetch
+script, and build the target-architecture binaries. The following VHD step runs
+in the same job and reuses those files. For local builds, run `build-tools` before
+`run-packer` or `run-imagecustomizer`.
+
+# Ubuntu BCC build
+
+Ubuntu BCC remains pinned to v0.29.0, fetched with a shallow tag clone, and built
+with at most eight parallel make jobs. Check build-VM peak memory before raising
+this limit, since BCC installation overlaps container-image caching.
+
 # Linux CSE configuration modules
 
 `parts/linux/cloud-init/artifacts/cse_config.sh` is installed as
@@ -27,11 +41,12 @@ Goal1: remove mariner workflow so things will be simplified.
 - `cse_config_kubelet.sh` -> `provision_configs_kubelet.sh`
 - `cse_config_network.sh` -> `provision_configs_network.sh`
 - `cse_config_addons.sh` -> `provision_configs_addons.sh` (autoscaler, ACI connector, Azure Policy)
+- `cse_config_chrony.sh` -> `provision_configs_chrony.sh`
 
 `cse_cmd.sh` and the ANC parser provide their paths through
 `CSE_CONFIG_GPU_FILEPATH`, `CSE_CONFIG_LOCALDNS_FILEPATH`,
 `CSE_CONFIG_KUBELET_FILEPATH`, `CSE_CONFIG_NETWORK_FILEPATH`, and
-`CSE_CONFIG_ADDONS_FILEPATH`; the parent sources each explicitly.
+`CSE_CONFIG_ADDONS_FILEPATH`, and `CSE_CONFIG_CHRONY_FILEPATH`; the parent sources each explicitly.
 If a variable is unset or empty, its path defaults to the corresponding sibling
 of the sourced parent (`provision_configs_*.sh` on-node, `cse_config_*.sh` in the
 source tree). Explicit paths take precedence.
@@ -51,7 +66,7 @@ unless a hotfix explicitly selects an override.
 When adding a module, also register its source-to-variable mapping in
 `hotfix/hotfix_generate.py`. The current keys are `provisionConfigsGPU`,
 `provisionConfigsLocalDNS`, `provisionConfigsKubelet`, `provisionConfigsNetwork`,
-and `provisionConfigsAddons`. Each module can be
+`provisionConfigsAddons`, and `provisionConfigsChrony`. Each module can be
 hotfixed independently; delivering this split to an older VHD requires the
 updated parent and all new modules together. Keep the immutable VHD baseline so
 subsequent hotfix payloads remain cumulative.

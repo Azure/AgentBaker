@@ -140,6 +140,11 @@ write_files:
   owner: root
 {{GetCloudInitFileProperties "provisionConfigsAddons"}}
 
+- path: {{GetCSEConfigChronyScriptFilepath}}
+  permissions: "0744"
+  owner: root
+{{GetCloudInitFileProperties "provisionConfigsChrony"}}
+
 {{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"

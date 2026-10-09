@@ -257,6 +257,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 						{cseConfigKubeletScriptFilepath, "provisionConfigsKubelet"},
 						{cseConfigNetworkScriptFilepath, "provisionConfigsNetwork"},
 						{cseConfigAddonsScriptFilepath, "provisionConfigsAddons"},
+						{cseConfigChronyScriptFilepath, "provisionConfigsChrony"},
 					}
 					if testCase.distro == datamodel.AKSAzureLinuxV3Gen2 {
 						expectedScripts[1].key = "provisionSourceMariner"
@@ -266,11 +267,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 					expectedPaths := make([]string, 0, len(customData.WriteFiles))
 					for _, script := range expectedScripts {
 						expectedPaths = append(expectedPaths, script.path)
-					}
-					allVariables := customDataVariables["cloudInitData"].(paramsMap)
-					hasChronyScript := allVariables["provisionConfigsChrony"] != nil
-					if hasChronyScript {
-						expectedPaths = append(expectedPaths, "/opt/azure/containers/provision_configs_chrony.sh")
 					}
 					expectedPaths = append(expectedPaths,
 						"/etc/systemd/system/reconcile-private-hosts.service",
@@ -311,31 +307,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 						Expect(file.Encoding).To(BeEmpty())
 						Expect(file.Content).To(Equal(variables[expected.key].(string)), expected.path)
 					}
-					expectedGzippedFiles := []struct {
-						path        string
-						key         string
-						permissions string
-					}{}
-					if hasChronyScript {
-						expectedGzippedFiles = append(expectedGzippedFiles, struct {
-							path        string
-							key         string
-							permissions string
-						}{"/opt/azure/containers/provision_configs_chrony.sh", "provisionConfigsChrony", "0744"})
-					}
-					for _, expected := range expectedGzippedFiles {
-						file := filesByPath[expected.path]
-						Expect(file.Permissions).To(Equal(expected.permissions))
-						Expect(file.Encoding).To(Equal("gzip"))
-						encodedFile, err := base64.StdEncoding.DecodeString(allVariables[expected.key].(string))
-						Expect(err).NotTo(HaveOccurred())
-						expectedBytes, err := getGzipDecodedValue(encodedFile)
-						Expect(err).NotTo(HaveOccurred())
-						actualBytes, err := getGzipDecodedValue([]byte(file.Content))
-						Expect(err).NotTo(HaveOccurred())
-						Expect(actualBytes).To(Equal(expectedBytes), expected.path)
-					}
-
 					By(fmt.Sprintf("%s customData size: encoded=%d decoded=%d", name, len(payload), len(customDataBytes)))
 				}
 			}

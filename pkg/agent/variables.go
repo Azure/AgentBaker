@@ -45,6 +45,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"provisionConfigsKubelet":               getCloudInitFile("provisionConfigsKubelet", kubernetesCSEConfigKubelet),
 			"provisionConfigsNetwork":               getCloudInitFile("provisionConfigsNetwork", kubernetesCSEConfigNetwork),
 			"provisionConfigsAddons":                getCloudInitFile("provisionConfigsAddons", kubernetesCSEConfigAddons),
+			"provisionConfigsChrony":                getCloudInitFile("provisionConfigsChrony", kubernetesCSEConfigChrony),
 			"provisionSendLogs":                     getBase64EncodedGzippedCustomScript(kubernetesCSESendLogs, config),
 			"provisionRedactCloudConfig":            getBase64EncodedGzippedCustomScript(kubernetesCSERedactCloudConfig, config),
 			"customSearchDomainsScript":             getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),

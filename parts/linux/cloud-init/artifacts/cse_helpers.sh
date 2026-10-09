@@ -164,6 +164,12 @@ ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
 ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network interface
 # -----------------------------------------------------------------------------
 
+# ----------------------- Chrony ----------------------------------------------
+ERR_CVM_PLATFORM_DETECTION_FAIL=244 # Unable to distinguish SEV-SNP from TDX
+ERR_CHRONY_NTP_SYNC_FAIL=245 # Chrony could not synchronize with the configured NTP pools
+ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for Intel TDX
+# -----------------------------------------------------------------------------
+
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
 [ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
 
@@ -691,6 +697,16 @@ systemctlDisableAndStop() {
     fi
 }
 
+# Like systemctlDisableAndStop, but also reset-failed so a unit we tear down and never start
+# isn't left in systemd "failed" state for node-health checks -- e.g. the vendor
+# compute-domain-kubelet-plugin.service the dra-driver deb auto-starts (and fails) on x86 managed-DRA.
+systemctlDisableStopAndResetFailed() {
+    systemctlDisableAndStop "$1"
+    if systemctl cat "$1" &>/dev/null; then
+        systemctl reset-failed "$1" 2>/dev/null || true
+    fi
+}
+
 # return true if a >= b
 semverCompare() {
     local VERSION_A
@@ -963,7 +979,9 @@ get_imds_vm_tag_value() {
 }
 
 isAmdAmaEnabledNode() {
-    if [ "$(get_compute_sku)" = "Standard_NM16ads_MA35D" ]; then
+    local sku_name
+    sku_name=$(get_compute_sku)
+    if [ "$sku_name" = "Standard_NM16ads_MA35D" ] || [ "$sku_name" = "Standard_NM320ads_MA35D" ]; then
         return 0
     fi
     return 1

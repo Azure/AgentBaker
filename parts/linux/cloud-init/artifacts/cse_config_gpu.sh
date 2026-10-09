@@ -302,8 +302,18 @@ setupAmdAma() {
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
         # Configure huge pages
-        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
-        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        local num_devs
+        num_devs=$(find /dev -maxdepth 1 -name 'ama_transcoder[0-9]*' -printf 1 | wc -c)
+        if [ "$num_devs" -eq 1 ]; then
+            sh -c "echo 'vm.nr_hugepages=2144' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 2144 > /proc/sys/vm/nr_hugepages"
+        elif [ "$num_devs" -eq 20 ]; then
+            sh -c "echo 'vm.nr_hugepages=41056' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 41056 > /proc/sys/vm/nr_hugepages"
+        else
+          echo "Incorrect number of ama_transcoder devices found, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
         if [ "$(systemctl is-active kubelet)" = "active" ]; then
             systemctl restart kubelet
         fi
@@ -340,6 +350,7 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
+        logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
         rm -f "${managed_gpu_marker}"
     fi
 }
@@ -403,6 +414,52 @@ EOF
         systemctl daemon-reload
 
         logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
+
+        # Grace-Blackwell (arm64 MNNVL) nodes also run the compute-domain kubelet plugin
+        # (device class compute-domain.nvidia.com) for cross-node IMEX. The dra-driver-nvidia-gpu deb
+        # (>= 0.5.0) ships the compute-domain-kubelet-plugin binary + the /templates it reads, plus an
+        # args-less compute-domain-kubelet-plugin.service; override it in place with our node args
+        # (same pattern as dra-driver-nvidia-gpu above). --namespace must match where the
+        # microsoft.managedcomputedomain controller extension installs; that chart hard-pins kube-system.
+        if [ "$(isARM64)" -eq 1 ]; then
+            local COMPUTE_DOMAIN_OVERRIDE_DIR="/etc/systemd/system/compute-domain-kubelet-plugin.service.d"
+            mkdir -p "${COMPUTE_DOMAIN_OVERRIDE_DIR}"
+
+            # NVIDIA_VISIBLE_DEVICES=void: this plugin orchestrates IMEX/ComputeDomain and is not a GPU
+            # consumer (the per-domain daemon is), so it claims no GPUs. Overrides the deb unit's
+            # NVIDIA_VISIBLE_DEVICES=all; matches the controller in the microsoft.managedcomputedomain chart.
+            tee "${COMPUTE_DOMAIN_OVERRIDE_DIR}/10-compute-domain-kubelet-plugin.conf" > /dev/null <<EOF
+[Unit]
+Requires=kubelet.service
+After=kubelet.service dra-driver-nvidia-gpu.service
+[Service]
+Environment="NVIDIA_VISIBLE_DEVICES=void"
+ExecStart=
+ExecStart=/usr/bin/compute-domain-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --node-name=${NODE_NAME} --namespace kube-system --nvidia-driver-root / --container-driver-root /
+EOF
+
+            # Reload systemd to pick up the override
+            systemctl daemon-reload
+
+            # Clear any start-limit/failed state left by the deb's args-less vendor unit auto-starting
+            # and crash-looping at install: the non-blocking enqueue below returns once the job is
+            # queued and can't observe or retry an async start-limit failure, and daemon-reload does
+            # not reset it -- without this the unit could stay failed and ComputeDomains unavailable.
+            systemctl reset-failed compute-domain-kubelet-plugin 2>/dev/null || true
+
+            # Off the critical path and non-fatal (same treatment as nvidia-dcgm below): a successful
+            # start only means the process spawned, not that the ComputeDomain reached Ready (that needs
+            # the control-plane controller + node RBAC), so a failure must not block node provisioning.
+            # Use the non-blocking enqueue -- the blocking systemctlEnableAndStart retries restart 100x
+            # with 5s backoff and no CSE-budget check, so a unit that keeps failing to start could burn
+            # the provisioning window; --no-block returns once the job is queued and surfaces a warning.
+            logs_to_events "AKS.CSE.start.compute-domain-kubelet-plugin" "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30" || echo "warning: compute-domain-kubelet-plugin could not be enqueued; cross-node IMEX (ComputeDomain) will be unavailable on this node"
+        else
+            # Non-GB (x86) managed-DRA nodes don't run compute-domain, but the same dra-driver-nvidia-gpu
+            # deb still enables+starts the args-less compute-domain-kubelet-plugin.service at install;
+            # stop+disable it so it isn't left running/failing on nodes that never use it.
+            logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
+        fi
     fi
 
     # 2. Start the nvidia-dcgm service.
