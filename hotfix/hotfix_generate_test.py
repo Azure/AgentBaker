@@ -117,6 +117,16 @@ class HotfixGenerateTests(unittest.TestCase):
                 self.assertIn("encoding: gzip", template)
                 self.assertNotIn("{{if", template)
 
+    def test_mariner_package_update_is_not_embedded_in_custom_data(self):
+        repository = Path(__file__).resolve().parents[1]
+        lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
+            keepends=True
+        )
+        template = "".join(lines)
+        self.assertNotIn("/opt/azure/containers/mariner-package-update.sh", template)
+        self.assertNotIn("/opt/azure/containers/security-update.sh", template)
+        self.assertNotIn("mariner/mariner-package-update.sh", hotfix_generate.SOURCE_TO_VARKEY)
+
     def test_config_refactor_hotfix_selects_parent_and_new_modules(self):
         repository = Path(__file__).resolve().parents[1]
         artifacts = str(repository / hotfix_generate.ARTIFACTS_DIR)
