@@ -566,7 +566,7 @@ copyPackerFiles() {
   #
   # The vulnerable-module block is omitted on fixed Ubuntu 22.04 / 24.04 kernels,
   # and by default on future Ubuntu releases that are not explicitly in mitigation scope,
-  # and on AzureLinux 3.0 (non-OSGuard) because:
+  # and on AzureLinux 3.0 (non-Kata, non-OSGuard) because:
   #   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
   #      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
   #      at runtime if it detects an older vulnerable Ubuntu kernel.
@@ -578,11 +578,14 @@ copyPackerFiles() {
   # is still baked in, so AzureLinux 3.0 keeps the same CIS module hardening as every other
   # OS stream instead of silently losing the whole file. See
   # https://github.com/Azure/AKS/issues/5753.
-  # Other Ubuntu 20.04 kernels, Mariner / AzureLinux 2.0, and AzureLinux OSGuard still get the unmodified bake-in.
+  # Kata uses a separate kernel stream and still needs the unmodified bake-in, as do
+  # other Ubuntu 20.04 kernels, Mariner / AzureLinux 2.0, and AzureLinux OSGuard.
   if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
     bakeModprobeCISWithoutVulnerableModules "on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
-  elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-    bakeModprobeCISWithoutVulnerableModules "on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the full bake-in; the SCTP/DCCP/RDS/TIPC/cramfs/etc. CIS baseline denylist is preserved)"
+  elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] \
+    && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" \
+    && ! grep -q "kata" <<< "${FEATURE_FLAGS:-}" && [ "$OS" != "$AZURELINUX_KATA_OS_NAME" ]; then
+    bakeModprobeCISWithoutVulnerableModules "on regular AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; Kata and OSGuard retain the full bake-in; the SCTP/DCCP/RDS/TIPC/cramfs/etc. CIS baseline denylist is preserved)"
   else
     cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   fi

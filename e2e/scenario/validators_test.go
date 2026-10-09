@@ -5,8 +5,40 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/require"
 )
+
+func TestValidateVulnerableKernelModulesDisabledAzureLinux(t *testing.T) {
+	for _, tc := range []struct {
+		distro datamodel.Distro
+		absent bool
+	}{
+		{datamodel.AKSAzureLinuxV3Gen2, true},
+		{datamodel.AKSAzureLinuxV3Gen2Kata, false},
+		{datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL, false},
+		{datamodel.CustomizedImageKata, false},
+		{datamodel.AKSAzureLinuxV2Gen2, false},
+		{datamodel.AKSAzureLinuxV2Gen2Kata, false},
+	} {
+		t.Run(string(tc.distro), func(t *testing.T) {
+			s := &Scenario{
+				Config:  Config{VHD: &config.Image{OS: config.OSAzureLinux, Distro: tc.distro}},
+				Runtime: &ScenarioRuntime{},
+			}
+			err := ValidateVulnerableKernelModulesDisabled(logging.WithLogger(t.Context(), t), s)
+			// No VM is needed: the contextual error identifies the selected validation path.
+			require.ErrorContains(t, err, "cannot execute script on a nil VM")
+			if tc.absent {
+				require.ErrorContains(t, err, "check that the AzureLinux 3.0 modprobe blacklist is correctly scoped")
+			} else {
+				require.ErrorContains(t, err, "validate vulnerable kernel module mitigation")
+			}
+		})
+	}
+}
 
 func TestValidateSysctlOutput(t *testing.T) {
 	tests := []struct {

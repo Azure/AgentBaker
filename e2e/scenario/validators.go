@@ -4227,9 +4227,10 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) error {
 //     linux-azure 6.8.0-1058-azure include the fixes, thus new VHDs must stop blocking
 //     legitimate module use. Future Ubuntu releases do not inherit this mitigation by default.
 //     Ubuntu 20.04 also removes the mitigation on 5.4 Azure FIPS kernels at ABI 1164 or newer.
-//   - Other Ubuntu 20.04 and vulnerable/unknown 22.04 / 24.04 kernels / Mariner: full check —
+//   - Other Ubuntu 20.04 and vulnerable/unknown 22.04 / 24.04 kernels / Mariner / AzureLinux
+//     Kata / OSGuard: full check —
 //     modprobe config entries are present, modules are NOT loaded, and modprobe refuses to load them.
-//   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
+//   - Regular AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
 //     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
 //     three CVEs upstream, AND customer workloads on AzL3 require those modules (the
 //     blacklist actively blocks legitimate use cases). Only those four lines are stripped
@@ -4246,14 +4247,14 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) e
 		return nil
 	}
 
-	// AzureLinux 3.0 (regular, NOT OSGuard): kernel 6.6.139.1-1.azl3+ supersedes the modprobe
+	// AzureLinux 3.0 (regular, NOT Kata or OSGuard): kernel 6.6.139.1-1.azl3+ supersedes the modprobe
 	// blacklist for algif_aead/esp4/esp6/rxrpc, so only those four lines are stripped because
 	// customers need those modules. Assert the four CVE-related entries are NOT present, but
 	// the rest of the CIS module denylist (e.g. sctp, which AKS documents as a supported
 	// service protocol) must remain intact — it was previously lost entirely because the
-	// whole modprobe-CIS.conf file was skipped on AzL3. AzureLinux OSGuard is intentionally
-	// kept in-scope (falls through to the full presence + load-refusal check below).
-	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() && s.VHD.Distro != datamodel.AKSAzureLinuxV2Gen2 {
+	// whole modprobe-CIS.conf file was skipped on AzL3. Kata uses a separate kernel stream;
+	// Kata and OSGuard fall through to the full presence + load-refusal check below.
+	if s.VHD.OS == config.OSAzureLinux && !s.VHD.Distro.IsAzureLinuxOSGuardDistro() && !s.VHD.Distro.IsKataDistro() && s.VHD.Distro != datamodel.AKSAzureLinuxV2Gen2 {
 		script := strings.Join([]string{
 			`failed=0`,
 			`for mod in algif_aead esp4 esp6 rxrpc; do`,
