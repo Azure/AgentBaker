@@ -748,6 +748,8 @@ function nodePrep {
 # In typical deployments, both stages run sequentially during node provisioning.
 # For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
 # when nodes are created from that VHD image.
+logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync_or_report_error || exit $?
+
 if [ ! -f /opt/azure/containers/base_prep.complete ]; then
     basePrep
 else

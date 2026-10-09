@@ -80,6 +80,11 @@ class HotfixGenerateTests(unittest.TestCase):
                 "provisionConfigsKubelet",
                 "GetCSEConfigKubeletScriptFilepath",
             ),
+            (
+                "cse_config_chrony.sh",
+                "provisionConfigsChrony",
+                "GetCSEConfigChronyScriptFilepath",
+            ),
         )
         artifacts = str(repository / hotfix_generate.ARTIFACTS_DIR)
         hotfix_generate.validate_source_mappings()
@@ -120,6 +125,7 @@ class HotfixGenerateTests(unittest.TestCase):
             "cse_config_gpu.sh",
             "cse_config_localdns.sh",
             "cse_config_kubelet.sh",
+            "cse_config_chrony.sh",
         )
         expected = {hotfix_generate.SOURCE_TO_VARKEY[source] for source in sources}
         result = subprocess.CompletedProcess(
