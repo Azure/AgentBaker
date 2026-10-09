@@ -585,35 +585,35 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_CustomDataOnlyProvisioning_Failure",
-	Description: "Tests that an Ubuntu 22.04 node returns an error without CSE",
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			if nbc.EnabledFeatures == nil {
-				nbc.EnabledFeatures = make(map[string]string)
-			}
-			nbc.EnabledFeatures[datamodel.CustomDataOnlyProvisioningFeature] = "true"
-			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
-				HTTPSProxy: to.Ptr(cluster.ProxyURL),
-				NoProxy: &[]string{
-					"localhost",
-					"127.0.0.1",
-					"168.63.129.16",
-					"169.254.169.254",
-					"10.0.0.0/8",
-					"172.16.0.0/12",
-					cluster.ClusterParams.FQDN,
-				},
-				TrustedCA: to.Ptr("foo bar!"),
-			}
-		},
-		// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
-		// ExpectedError: "ExitCode: 161",
-	},
-})
+// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
+// var _ = Register(&Scenario{
+// 	Name:        "Ubuntu2204_CustomDataOnlyProvisioning_Failure",
+// 	Description: "Tests that an Ubuntu 22.04 node returns an error without CSE",
+// 	Config: Config{
+// 		Cluster: ClusterKubenet,
+// 		VHD:     config.VHDUbuntu2204Gen2Containerd,
+// 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+// 			if nbc.EnabledFeatures == nil {
+// 				nbc.EnabledFeatures = make(map[string]string)
+// 			}
+// 			nbc.EnabledFeatures[datamodel.CustomDataOnlyProvisioningFeature] = "true"
+// 			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
+// 				HTTPSProxy: to.Ptr(cluster.ProxyURL),
+// 				NoProxy: &[]string{
+// 					"localhost",
+// 					"127.0.0.1",
+// 					"168.63.129.16",
+// 					"169.254.169.254",
+// 					"10.0.0.0/8",
+// 					"172.16.0.0/12",
+// 					cluster.ClusterParams.FQDN,
+// 				},
+// 				TrustedCA: to.Ptr("foo bar!"),
+// 			}
+// 		},
+// 		// ExpectedError: "ExitCode: 161",
+// 	},
+// })
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_CustomCA",
