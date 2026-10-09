@@ -109,7 +109,6 @@ enableLocalDNS() {
     echo "localdns should be enabled."
     systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
     echo "Enable localdns succeeded."
-
     # Exporter socket setup is deferred to configureLocalDNSExporterSocket() (after ensureKubelet)
     # to avoid delaying kubelet start. The kubelet node label is added separately in cse_main.sh.
 }

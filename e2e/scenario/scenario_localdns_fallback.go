@@ -14,8 +14,7 @@ import (
 // quarantined or gated independently without destabilizing them.
 //
 // Each entry runs under both the CSE (BootstrapConfigMutator) and ANC
-// (AKSNodeConfigMutator) provisioning paths, on a default service CIDR. A
-// custom-CIDR variant is a follow-up gated on the aks-rp CoreDnsServiceIp fix.
+// (AKSNodeConfigMutator) provisioning paths.
 func init() {
 	tests := []struct {
 		name string

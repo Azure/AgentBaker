@@ -443,10 +443,6 @@ copyPackerFiles() {
   LOCALDNS_FALLBACK_SERVICE_DEST=/etc/systemd/system/localdns-fallback.service
   cpAndMode $LOCALDNS_FALLBACK_SERVICE_SRC $LOCALDNS_FALLBACK_SERVICE_DEST 0644
 
-
-
-
-
   # Skip localdns exporter for Flatcar (EOL June 2026, no new features)
   if ! isFlatcar "$OS"; then
     LOCALDNS_EXPORTER_SCRIPT_SRC=/home/packer/localdns_exporter.sh
