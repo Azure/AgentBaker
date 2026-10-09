@@ -167,6 +167,8 @@ EOF
             Parameters
                 'multiple documents' $'{"components":[]}\n{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}'
                 'no documents' ''
+                'newline component alias' '{"components":[{"name":"securityPatch","nodeConfig":"{}"},{"name":"securityPatch\n","nodeConfig":"{}"}]}'
+                'NUL component alias' '{"components":[{"name":"security\u0000Patch","nodeConfig":"{}"}]}'
             End
 
             It "rejects $1 before package work or status publication"

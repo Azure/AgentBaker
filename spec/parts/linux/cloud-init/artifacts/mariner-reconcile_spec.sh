@@ -140,6 +140,25 @@ Describe 'Azure Linux reconciliation failure isolation and events'
         The output should equal true
     End
 
+    It 'repairs malformed checkpoint members and avoids repeating successful work'
+        printf '%s' '{"components":[42,null,{"name":"bad","nodeConfig":false},{"name":"other","nodeConfig":"keep"}]}' > "${LIVE_PATCHING_STATE_FILE}"
+        read_generic_config() { printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20261007T000000Z\"}}}"}]}'; }
+        updateSecurityPatch() { echo 'handler succeeded'; }
+        run_recovery() {
+            generic_main "${TEST_NODE}" aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa || return 1
+            generic_main "${TEST_NODE}" aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        }
+        checkpoint_valid() {
+            jq -e '(.components | length == 2) and (.components[0] == {name:"other",nodeConfig:"keep"}) and (.components[1].name == "securityPatch")' "${LIVE_PATCHING_STATE_FILE}" > /dev/null
+        }
+
+        When call run_recovery
+        The status should be success
+        The output should include 'handler succeeded'
+        The output should include 'component is already current: securityPatch'
+        The result of function checkpoint_valid should be successful
+    End
+
     It 'does not turn a reconciliation event write failure into reconciliation failure'
         KNEAD_EVENTS_LOGGING_DIR=/dev/null/events
         read_generic_config() { printf '%s' '{"components":[]}'; }

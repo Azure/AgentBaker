@@ -80,7 +80,9 @@ read_generic_config() {
         length == 1 and (.[0] |
         (type == "object") and
         (.components | type == "array") and
-        (.components | all((.name | type == "string") and (.name | length > 0) and (.nodeConfig | type == "string"))) and
+        (.components | all((.name | type == "string") and (.name | length > 0) and
+            (.name | test("^[A-Za-z][A-Za-z0-9_-]*\\z")) and
+            (.nodeConfig | type == "string"))) and
         ([.components[].name] | length) == ([.components[].name] | unique | length))
     ' > /dev/null; then
         echo "live-patching-config payload has invalid envelope" >&2
@@ -120,7 +122,7 @@ write_component_checkpoint() {
 
     mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")" || return 1
     if [ -f "${LIVE_PATCHING_STATE_FILE}" ]; then
-        state=$(jq -c 'select(.components | type == "array") | {components:.components}' "${LIVE_PATCHING_STATE_FILE}" 2> /dev/null) || state='{"components":[]}'
+        state=$(jq -c 'select(.components | type == "array") | {components:[.components[] | select(type == "object") | select((.name | type == "string") and (.nodeConfig | type == "string"))]}' "${LIVE_PATCHING_STATE_FILE}" 2> /dev/null) || state='{"components":[]}'
         [ -n "${state}" ] || state='{"components":[]}'
     fi
     printf '%s' "${state}" | jq --arg component "${component}" --arg nodeConfig "${component_payload}" --arg updatedAt "${updated_at}" \
