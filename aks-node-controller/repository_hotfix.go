@@ -399,7 +399,7 @@ func (a *App) downloadRepositoryFile(
 			now := time.Now()
 			if attempt > 1 {
 				a.logRepositoryEvent("RepositoryDownloadRetry", repositoryEvent{
-					Target: repositoryTarget(ctx), File: repositoryTelemetryFile(rawURL),
+					Target: repositoryTarget(ctx), File: rawURL,
 					Attempt: attempt, MaxAttempts: repositoryDownloadMaxAttempts,
 					Error: previousErr.Error(), Route: "fastpath",
 				}, helpers.EventLevelInformational, attemptStart, now)

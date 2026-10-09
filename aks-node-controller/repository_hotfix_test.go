@@ -1699,7 +1699,7 @@ func TestDownloadRepositoryFileRetriesTransientServerError(t *testing.T) {
 	assert.Equal(t, hex.EncodeToString(sum[:]), downloaded.sha256)
 	retries := repositoryEvents(t, app, "RepositoryDownloadRetry")
 	require.Len(t, retries, 1)
-	assert.Equal(t, "/aks-node-controller.deb", retries[0].File)
+	assert.Equal(t, server.URL+"/aks-node-controller.deb", retries[0].File)
 	assert.Equal(t, 2, retries[0].Attempt)
 	assert.Equal(t, repositoryDownloadMaxAttempts, retries[0].MaxAttempts)
 	assert.Contains(t, retries[0].Error, "HTTP 503")
@@ -1729,7 +1729,7 @@ func TestDownloadRepositoryFileRetriesDroppedConnection(t *testing.T) {
 	assert.Equal(t, int32(2), requests.Load(), "a dropped connection should be retried once")
 	retries := repositoryEvents(t, app, "RepositoryDownloadRetry")
 	require.Len(t, retries, 1)
-	assert.Equal(t, "/dists/jammy/InRelease", retries[0].File)
+	assert.Equal(t, server.URL+"/dists/jammy/InRelease", retries[0].File)
 }
 
 func TestDownloadRepositoryFileGivesUpAfterMaxAttempts(t *testing.T) {

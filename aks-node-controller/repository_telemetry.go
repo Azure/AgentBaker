@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -38,7 +37,6 @@ type repositoryEvent struct {
 var repositoryTelemetryQuery = regexp.MustCompile(`[?#][^\s"'<>]+`)
 
 func boundedRepositoryTelemetryText(text string, limit int) string {
-	text = repositoryTelemetryQuery.ReplaceAllString(text, "[query redacted]")
 	// Bound JSON-encoded bytes, not just characters (control characters expand).
 	if len(text) > limit {
 		text = text[:limit]
@@ -54,19 +52,11 @@ func boundedRepositoryTelemetryText(text string, limit int) string {
 	}
 }
 
-func repositoryTelemetryFile(rawURL string) string {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return "[invalid URL]"
-	}
-	// Only retain the escaped path: no query, fragment, authority, or userinfo.
-	return boundedRepositoryTelemetryText(u.EscapedPath(), 768)
-}
-
 func (a *App) logRepositoryEvent(name string, event repositoryEvent, level helpers.EventLevel, start, end time.Time) {
 	event.Target = boundedRepositoryTelemetryText(event.Target, 128)
 	event.File = boundedRepositoryTelemetryText(event.File, 768)
-	event.Error = boundedRepositoryTelemetryText(event.Error, 1536)
+	event.Error = boundedRepositoryTelemetryText(
+		repositoryTelemetryQuery.ReplaceAllString(event.Error, "[query redacted]"), 1536)
 	event.DurationMs = end.Sub(start).Milliseconds()
 	message, err := json.Marshal(event)
 	if err != nil {

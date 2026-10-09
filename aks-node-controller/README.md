@@ -20,14 +20,14 @@ uploader or Azure Monitor Agent is required. Task names use the prefix
 | `RepositoryDownloadOutcome` | One final outcome after staging: `success` or `failed`, via `fastpath` or `packageManager` (apt/dnf/tdnf). Version-gated skips do not emit acquisition events. |
 
 Messages contain a JSON object followed by the existing EventLogger timing suffix.
-Fields include `target`, `file` (escaped URL path only, distinguishing packages from
+Fields include `target`, `file` (raw download URL, distinguishing packages from
 InRelease/Packages/RPM metadata), `attempt` (the attempt starting), `maxAttempts`,
 `error`, `route`, `outcome`, `reason`, and `durationMs` where applicable. Retry duration
 covers the preceding attempt; fallback duration covers the failed fast path; final
 duration covers the entire acquisition including fallback and staging. Messages stay
-below 3 KiB including timing; diagnostic strings may be truncated. URL authorities,
-userinfo, queries and fragments are excluded from file identity. Diagnostic URLs are
-retained, with query strings and fragments redacted before guest-agent emission.
+below 3 KiB including timing; strings may be truncated. The `file` field retains the
+raw URL without path extraction or redaction. Error diagnostics retain URLs, with
+query strings and fragments redacted before guest-agent emission.
 
 Unit tests validate local event files only. End-to-end guest-agent/Kusto ingestion has
 not yet been validated and requires a rebuilt VHD containing this ANC binary.
