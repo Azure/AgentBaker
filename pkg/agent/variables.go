@@ -15,6 +15,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
+			"enabledFeatures":                       getBase64EncodedGzippedEnabledFeatures(config.EnabledFeatures),
 			"provisionStartScript":                  getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
 			"provisionScript":                       getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
 			"provisionSource":                       getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
