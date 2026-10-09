@@ -31,6 +31,30 @@ Ubuntu BCC remains pinned to v0.29.0, fetched with a shallow tag clone, and buil
 with at most eight parallel make jobs. Check build-VM peak memory before raising
 this limit, since BCC installation overlaps container-image caching.
 
+# MGLRU default
+
+Ubuntu 24.04+ and Azure Linux 3+ images (including OSGuard) install
+`/etc/tmpfiles.d/aks-mglru.conf` to disable Multi-Gen LRU at each boot.
+`systemd-tmpfiles-setup.service` applies the rule during system initialization,
+before kubelet starts. The boot-only `w!` rule writes `0` to
+`/sys/kernel/mm/lru_gen/enabled` if it exists; kernels without MGLRU are skipped.
+The rule is retained even when the build kernel lacks MGLRU, since the image may
+boot a different supported kernel later.
+
+This preserves traditional reclaim behavior in response to the kubelet
+memory-accounting regression reported in
+[kubernetes/kubernetes#127844](https://github.com/kubernetes/kubernetes/issues/127844).
+It is an image default, not a new Custom Node Configuration API. Ubuntu 22.04,
+Azure Linux 2, Flatcar and Azure Container Linux images are unchanged. The rule
+works independently of script-based/ANC provisioning and PIS base-prep markers.
+Existing nodes need a node-image upgrade to receive it; changing CSE alone does
+not retrofit the rule onto an older VHD.
+
+The Linux VHD content test checks both the installed rule and the effective
+disabled state after boot (without applying the rule in the test). Roll out new
+images through the normal canary stages and validate memory-sensitive workloads,
+reclaim CPU, latency, memory pressure, and evictions before broad deployment.
+
 # Linux CSE configuration modules
 
 `parts/linux/cloud-init/artifacts/cse_config.sh` is installed as
