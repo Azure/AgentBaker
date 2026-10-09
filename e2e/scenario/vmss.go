@@ -610,6 +610,17 @@ func usesScriptlessNBCCSECmd(s *Scenario) bool {
 		s.VHD.SupportsScriptless()
 }
 
+// usesAKSNodeConfigSource reports whether the node was told to provision from the AKSNodeConfig
+// rather than the NBC command (scriptless phase 3). Both sources are still delivered in that
+// state - only the toggle decides which one actually executes - so this is the single thing that
+// distinguishes the two, and validators asserting on the executed source have to consult it.
+func usesAKSNodeConfigSource(s *Scenario) bool {
+	if !usesScriptlessNBCCSECmd(s) {
+		return false
+	}
+	return s.Runtime.NBC.EnabledFeatures[useAKSNodeConfigFeature] == "true"
+}
+
 func enableScriptlessCompilation(s *Scenario) bool {
 	return usesScriptlessNBCCSECmd(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
 }
