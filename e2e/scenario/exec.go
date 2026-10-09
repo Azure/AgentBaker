@@ -37,7 +37,6 @@ func (r podExecResult) String() string {
 }
 
 func cleanupBastionTunnel(sshClient *SSHClient) {
-	// We have to do this because az network tunnel creates a new detached process for tunnel
 	if sshClient != nil {
 		_ = sshClient.Close()
 	}
@@ -71,7 +70,14 @@ func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, comma
 	err = retrySSHSessionOpen(ctx, func() error {
 		copyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
-		return scpClient.Copy(copyCtx, strings.NewReader(command), remotePath, "0755", int64(len(command)))
+		stop := context.AfterFunc(copyCtx, func() { _ = client.Close() })
+		defer stop()
+		// SCP must join its workers before closing stdin. Cancellation closes the transport above.
+		err := scpClient.Copy(context.WithoutCancel(copyCtx), strings.NewReader(command), remotePath, "0755", int64(len(command)))
+		if copyCtx.Err() != nil {
+			return copyCtx.Err()
+		}
+		return err
 	})
 	return remoteCommand, err
 }
@@ -81,7 +87,7 @@ func runSSHCommand(
 	client *SSHClient,
 	command string,
 	isWindows bool,
-) (*podExecResult, error) {
+) (result *podExecResult, err error) {
 	if client == nil {
 		return nil, fmt.Errorf("Permission denied: ssh client is nil")
 	}
@@ -98,7 +104,15 @@ func runSSHCommand(
 		return nil, err
 	}
 
-	var err error
+	// Closing the transport also interrupts channel opens and SCP setup, which ignore contexts.
+	stop := context.AfterFunc(ctx, func() { _ = client.Close() })
+	defer func() {
+		stop()
+		if ctx.Err() != nil {
+			result = nil
+			err = fmt.Errorf("SSH command canceled or timed out: %w", ctx.Err())
+		}
+	}()
 	command, err = copyScriptToRemoteIfRequired(ctx, client.Client, command, isWindows)
 	if err != nil {
 		return nil, err
@@ -120,22 +134,7 @@ func runSSHCommand(
 	session.Stdout = &stdout
 	session.Stderr = &stderr
 
-	runErr := make(chan error, 1)
-	go func() {
-		runErr <- session.Run(command)
-	}()
-	select {
-	case err = <-runErr:
-	case <-ctx.Done():
-		_ = session.Close()
-		_ = client.Close()
-		select {
-		case <-runErr:
-		case <-time.After(5 * time.Second):
-		}
-		return nil, fmt.Errorf("SSH command canceled or timed out: %w", ctx.Err())
-	}
-
+	err = session.Run(command)
 	exitCode := 0
 	if err != nil {
 		var exitErr *ssh.ExitError

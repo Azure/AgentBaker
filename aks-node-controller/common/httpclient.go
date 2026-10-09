@@ -55,16 +55,23 @@ func NewBaseTransport(opts HTTPTransportOptions) *http.Transport {
 	}
 }
 
-// RetryStringFetch calls fn up to maxAttempts times and returns the first success. It stops
-// early if the context is done, since a retry cannot then succeed. It does NOT sleep between
-// attempts: each attempt is already bounded by its own timeout and the provisioning path wants
-// fail-fast behavior. Used for the IMDS attested-token fetch (one quick retry).
-func RetryStringFetch(ctx context.Context, maxAttempts int, fn func(context.Context) (string, error)) (string, error) {
+// RetryFetch calls fn up to maxAttempts times and returns the first success. It stops early
+// if the context is done, since a retry cannot then succeed, or if retryable reports the
+// error as permanent (a nil retryable retries every error). It does NOT sleep between
+// attempts: each attempt is already bounded by its own timeout and the provisioning path
+// wants fail-fast behavior.
+func RetryFetch[T any](
+	ctx context.Context,
+	maxAttempts int,
+	retryable func(error) bool,
+	fn func(context.Context) (T, error),
+) (T, error) {
 	// Normalize to at least one attempt so a zero/negative maxAttempts cannot silently return
-	// ("", nil) -- that would make a misconfiguration look like a successful empty fetch.
+	// (zero, nil) -- that would make a misconfiguration look like a successful empty fetch.
 	if maxAttempts < 1 {
 		maxAttempts = 1
 	}
+	var zero T
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		v, err := fn(ctx)
@@ -75,9 +82,18 @@ func RetryStringFetch(ctx context.Context, maxAttempts int, fn func(context.Cont
 		if ctx.Err() != nil {
 			break
 		}
+		if retryable != nil && !retryable(err) {
+			break
+		}
 		if attempt < maxAttempts {
 			slog.Warn("fetch attempt failed, retrying", "attempt", attempt, "maxAttempts", maxAttempts, "error", err)
 		}
 	}
-	return "", lastErr
+	return zero, lastErr
+}
+
+// RetryStringFetch is RetryFetch for string results, retrying every error. Used for the IMDS
+// attested-token fetch (one quick retry).
+func RetryStringFetch(ctx context.Context, maxAttempts int, fn func(context.Context) (string, error)) (string, error) {
+	return RetryFetch(ctx, maxAttempts, nil, fn)
 }

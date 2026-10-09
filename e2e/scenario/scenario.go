@@ -734,7 +734,7 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 		Payload:     payload,
 	}}
 	// Older VHDs do not have the modules sourced by the current provision config.
-	for _, suffix := range []string{"gpu", "localdns", "kubelet", "network", "addons"} {
+	for _, suffix := range []string{"gpu", "localdns", "kubelet", "network", "addons", "chrony"} {
 		name := "cse_config_" + suffix + ".sh"
 		module, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/" + name))
 		if err != nil {
@@ -3079,7 +3079,7 @@ var _ = Register(&Scenario{
 		// RTX PRO 6000 BSE v6 only supports NVMe disk controllers, not ResourceDisk
 		// ephemeral OS disk placement (SupportedEphemeralOSDiskPlacements=NvmeDisk).
 		UseNVMe:             true,
-		SkipOnCapacityError: false,
+		SkipOnCapacityError: true,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.AgentPoolProfile.VMSize = "Standard_NC144ds_xl_RTXPRO6000BSE_v6"
 			nbc.ConfigGPUDriverIfNeeded = true

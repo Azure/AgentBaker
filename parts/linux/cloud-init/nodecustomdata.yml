@@ -182,6 +182,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigsAddons"}}
 
+- path: {{GetCSEConfigChronyScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigsChrony"}}
+
 {{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"
