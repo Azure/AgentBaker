@@ -8,6 +8,192 @@ Describe 'cse_config_gpu.sh'
     CSE_CONFIG_ADDONS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_addons.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'pullGPUDriverImage'
+        BeforeEach setup_gpu_image_pull
+        setup_gpu_image_pull() {
+            NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-grid"
+            NVIDIA_DRIVER_IMAGE_PULL_REF="$NVIDIA_DRIVER_IMAGE"
+            NVIDIA_DRIVER_IMAGE_TAG="570.237-20260817204535"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            ORAS_REGISTRY_CONFIG_FILE="/etc/oras/config.yaml"
+            export MOCK_CPU_ARCH="amd64"
+            export MOCK_ORAS_RESULT=0 MOCK_TAR_RESULT=0 MOCK_IMPORT_RESULT=0
+            MOCK_RETRY_RESULT=0
+            MOCK_TAG_RESULT=0
+            MOCK_RM_RESULT=0
+            export -f mkdir oras tar ctr getCPUArch
+        }
+
+        mktemp() { echo "/tmp/aks-gpu-driver-test"; }
+        mkdir() { echo "mkdir $*"; }
+        getCPUArch() { echo "$MOCK_CPU_ARCH"; }
+        oras() { echo "oras $*"; return "$MOCK_ORAS_RESULT"; }
+        tar() { echo "tar $*"; return "$MOCK_TAR_RESULT"; }
+        rm() { echo "rm $*"; return "$MOCK_RM_RESULT"; }
+        ctr() {
+            echo "ctr $*"
+            case "$3 $4" in
+                "image import") return "$MOCK_IMPORT_RESULT" ;;
+                "image tag") return "${MOCK_TAG_RESULT:-0}" ;;
+                "image rm") return "${MOCK_RM_RESULT:-0}" ;;
+            esac
+        }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $1 $2 $3 $4"
+            shift 3
+            if [ "$MOCK_RETRY_RESULT" -ne 0 ]; then
+                return "$MOCK_RETRY_RESULT"
+            fi
+            "$@"
+        }
+
+        It 'preserves the bounded direct MCR pull when no bootstrap registry is set'
+            When call pullGPUDriverImage
+
+            The status should be success
+            The output should include "retrycmd_if_failure 3 5 120 ctr"
+            The output should include "ctr -n k8s.io image pull mcr.microsoft.com/aks/aks-gpu-grid:570.237-20260817204535"
+            The output should not include "oras"
+            The output should not include "image import"
+            The output should not include "image tag"
+        End
+
+        It 'retags the sovereign MCR pull to the canonical install reference'
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.microsoft.us/aks/aks-gpu-grid"
+
+            When call pullGPUDriverImage
+
+            The status should be success
+            The output should include "ctr -n k8s.io image pull mcr.microsoft.us/aks/aks-gpu-grid:570.237-20260817204535"
+            The output should include "ctr -n k8s.io image tag mcr.microsoft.us/aks/aks-gpu-grid:570.237-20260817204535 mcr.microsoft.com/aks/aks-gpu-grid:570.237-20260817204535"
+            The output should include "ctr -n k8s.io image rm mcr.microsoft.us/aks/aks-gpu-grid:570.237-20260817204535"
+            The output should not include "oras"
+        End
+
+        It 'does not tag an image after a failed direct pull'
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.microsoft.us/aks/aks-gpu-grid"
+            MOCK_RETRY_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should not include "image tag"
+            The output should not include "image rm"
+        End
+
+        It 'does not remove the sovereign reference if canonical tagging fails'
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.microsoft.us/aks/aks-gpu-grid"
+            MOCK_TAG_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "image tag"
+            The output should not include "image rm"
+        End
+
+        Context 'authenticated bootstrap registries'
+            Parameters
+                "grid" "amd64" "myacr.azurecr.io/aks-managed-repository"
+                "grid" "amd64" "myacr.azurecr.io/aks-managed-repository/"
+                "cuda-lts" "arm64" "myacr.azurecr.cn/custom-cache"
+            End
+
+            It "uses authenticated bootstrap acquisition for $1 on $2 with registry $3"
+                NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-$1"
+                NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.microsoft.us/aks/aks-gpu-$1"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="$3"
+                MOCK_CPU_ARCH="$2"
+
+                When call pullGPUDriverImage
+
+                The status should be success
+                The output should include "retrycmd_if_failure 3 5 120 bash"
+                The output should include "oras cp ${3%/}/aks/aks-gpu-$1:570.237-20260817204535 /tmp/aks-gpu-driver-test/layout:570.237-20260817204535"
+                The output should include "--from-registry-config /etc/oras/config.yaml"
+                The output should include "--platform linux/$2"
+                The output should include "tar -cf /tmp/aks-gpu-driver-test/driver-image.tar -C /tmp/aks-gpu-driver-test/layout ."
+                The output should include "ctr -n k8s.io image import --base-name mcr.microsoft.com/aks/aks-gpu-$1 /tmp/aks-gpu-driver-test/driver-image.tar"
+                The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+                The output should not include "image pull"
+                The output should not include "oras login"
+                The output should not include "image tag"
+            End
+        End
+
+        It 'does not import or fall back to public MCR when the authenticated copy fails'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_ORAS_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "oras cp"
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+            The output should not include "tar -cf"
+            The output should not include "image import"
+            The output should not include "image pull"
+        End
+
+        It 'does not import an incomplete archive when tar fails'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_TAR_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "tar -cf"
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+            The output should not include "image import"
+            The output should not include "image pull"
+        End
+
+        It 'reports import failure and removes only the temporary driver layout'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_IMPORT_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "image import"
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+            The output should not include "image pull"
+        End
+
+        It 'honors exhausted CSE budget without attempting the copy or import'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_RETRY_RESULT=2
+
+            When call pullGPUDriverImage
+
+            The status should equal 2
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+            The output should not include "oras cp"
+            The output should not include "image import"
+        End
+
+        It 'reports failure if the temporary staging directory cannot be created'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            mktemp() { return 1; }
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should be blank
+        End
+
+        It 'reports a staging cleanup failure instead of returning success'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_RM_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "image import"
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+        End
+    End
+
     Describe 'GPU driver dispatch'
         getCPUArch() { echo "$MOCK_CPU_ARCH"; }
         logs_to_events() {
@@ -703,6 +889,24 @@ Describe 'cse_config_gpu.sh'
 
             The status should equal 88
             The output should not include "INSTALL_RAN"
+        End
+
+        It 'does not acquire a driver image when the canonical reference is already cached'
+            OS="UBUNTU"
+            logs_to_events() { shift; eval "$@"; }
+            ctr() {
+                if [ "$3 $4" = "images ls" ]; then
+                    echo "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+                fi
+            }
+            pullGPUDriverImage() { echo "PULL_RAN"; return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "INSTALL_RAN"
+            The output should not include "PULL_RAN"
         End
 
         It 'times the driver download and toolkit install on Mariner/AzureLinux'

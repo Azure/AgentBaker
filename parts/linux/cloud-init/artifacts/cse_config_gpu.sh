@@ -16,6 +16,30 @@ EOF
 }
 
 pullGPUDriverImage() {
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ]; then
+        local download_dir
+        download_dir=$(mktemp -d /opt/gpu/driver-image.XXXXXX) || return 1
+        local pull_result=0
+        local image="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}/${NVIDIA_DRIVER_IMAGE#*/}:${NVIDIA_DRIVER_IMAGE_TAG}"
+        echo "Pulling GPU driver image with authentication for $image"
+
+        # ctr does not use the CRI mirror or kubelet credentials. Reuse the ORAS login
+        # and bound the copy, archive and import together by the existing CSE retry budget.
+        # shellcheck disable=SC2016
+        retrycmd_if_failure 3 5 120 bash -c '
+            mkdir -p "$2/layout" &&
+            oras cp "$1" "$2/layout:$3" --to-oci-layout --platform "$4" --from-registry-config "$5" &&
+            tar -cf "$2/driver-image.tar" -C "$2/layout" . &&
+            ctr -n k8s.io image import --base-name "$6" "$2/driver-image.tar"
+        ' gpu-driver-cache \
+            "$image" \
+            "$download_dir" "$NVIDIA_DRIVER_IMAGE_TAG" "linux/$(getCPUArch)" \
+            "$ORAS_REGISTRY_CONFIG_FILE" "$NVIDIA_DRIVER_IMAGE" || pull_result=$?
+
+        rm -rf -- "$download_dir" || return 1
+        return "$pull_result"
+    fi
+
     # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
     # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
     # also self-caps to the CSE budget, so this can't overrun provisioning.
