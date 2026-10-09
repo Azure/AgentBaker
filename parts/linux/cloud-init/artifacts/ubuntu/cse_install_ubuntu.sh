@@ -538,7 +538,7 @@ cleanUpGraceBlackwellGPUDriver() {
         [ -n "${package}" ] && purge_packages+=("${package}")
     done <<< "${packages}"
 
-    for service in nvidia-device-plugin nvidia-dcgm-exporter nvidia-dcgm nvidia-imex; do
+    for service in nvidia-device-plugin nvidia-dcgm-exporter nvidia-dcgm nvidia-imex nvidia-persistenced; do
         systemctlDisableAndStop "${service}" || return 1
         if systemctl is-active --quiet "${service}" || systemctl is-enabled --quiet "${service}"; then
             echo "Grace Blackwell service ${service} remains active or enabled" >&2

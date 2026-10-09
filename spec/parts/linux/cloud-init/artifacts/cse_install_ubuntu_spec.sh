@@ -204,6 +204,8 @@ Describe 'cse_install_ubuntu.sh'
             gb_loaded_modules='nvidia_peermem nvidia_uvm nvidia_drm nvidia_modeset nvidia '
             gb_expected_modules='nvidia_peermem nvidia_uvm nvidia_drm nvidia_modeset nvidia '
             gb_services_stopped=false
+            gb_persistenced_active=true
+            gb_persistenced_enabled=true
             gb_packages_purged=false
             mockGraceBlackwellPackageQueries
         }
@@ -219,6 +221,10 @@ Describe 'cse_install_ubuntu.sh'
             gb_openibd_unloads_module="${6:-false}"
             systemctlDisableAndStop() {
                 echo "stop:$1"
+                if [ "$1" = nvidia-persistenced ]; then
+                    gb_persistenced_active=false
+                    gb_persistenced_enabled=false
+                fi
                 if [ "$1" = openibd ]; then
                     gb_services_stopped=true
                     gb_openibd_active=false
@@ -228,8 +234,14 @@ Describe 'cse_install_ubuntu.sh'
             systemctl() {
                 case "$1" in
                     cat) [ "$2" = openibd ] ;;
-                    is-active) [ "$3" = openibd ] && [ "$gb_openibd_active" = true ] ;;
-                    is-enabled) [ "$3" = openibd ] && [ "$gb_openibd_enabled" = true ] ;;
+                    is-active)
+                        { [ "$3" = openibd ] && [ "$gb_openibd_active" = true ]; } ||
+                            { [ "$3" = nvidia-persistenced ] && [ "$gb_persistenced_active" = true ]; }
+                        ;;
+                    is-enabled)
+                        { [ "$3" = openibd ] && [ "$gb_openibd_enabled" = true ]; } ||
+                            { [ "$3" = nvidia-persistenced ] && [ "$gb_persistenced_enabled" = true ]; }
+                        ;;
                     *) return 1 ;;
                 esac
             }
@@ -256,6 +268,7 @@ Describe 'cse_install_ubuntu.sh'
             }
             rmmod() {
                 [ "$gb_services_stopped" = true ] || return 1
+                [ "$gb_persistenced_active" = false ] || return 1
                 [ "$gb_openibd_active" = false ] || return 1
                 [ "$gb_openibd_enabled" = "$enabled" ] || return 1
                 case " $gb_loaded_modules " in *" $1 "*) ;; *) return 1 ;; esac
@@ -344,6 +357,7 @@ Describe 'cse_install_ubuntu.sh'
             The status should be success
             The output should include "rmmod:nvidia_peermem"
             The output should include "rmmod:nvidia_peermem openibd_enabled=true"
+            The output should include "stop:nvidia-persistenced"
             The output should include "stop:nvidia-imex"
             The output should include "stop:openibd"
             The output should include "purge:"
