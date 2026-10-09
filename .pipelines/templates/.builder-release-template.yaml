@@ -372,7 +372,7 @@ steps:
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
 
   - task: PublishPipelineArtifact@0
-    condition: always()
+    condition: and(always(), ne(variables['BUILD_ONLY'], 'true'))
     displayName: Publish BCC Tools Installation Log
     inputs:
       artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
@@ -411,12 +411,14 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: PublishPipelineArtifact@0
+    condition: ne(variables['BUILD_ONLY'], 'true')
     displayName: Publish Release Notes
     inputs:
       artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
       targetPath: 'release-notes.txt'
 
   - task: PublishPipelineArtifact@0
+    condition: ne(variables['BUILD_ONLY'], 'true')
     displayName: Publish Container Image List
     inputs:
       artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
@@ -534,7 +536,7 @@ steps:
       targetPath: 'vhd-publishing-info.json'
 
   - task: PublishPipelineArtifact@0
-    condition: succeeded()
+    condition: and(succeeded(), ne(variables['BUILD_ONLY'], 'true'))
     displayName: Publish Artifacts
     inputs:
       artifactName: '${{ parameters.artifactName }}'
