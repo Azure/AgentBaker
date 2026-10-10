@@ -769,3 +769,55 @@ func TestBuildCSECmd_FallsBackToV1WhenContainerdDetectionFails(t *testing.T) {
 	assert.Contains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
 	assert.NotContains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
 }
+
+func TestBuildCSECmd_PrefersRPResolvedIsContainerdV2OverSystemDetection(t *testing.T) {
+	// Ensure no containerd binary is on PATH at all. If the code fell back to live
+	// detection despite RP setting IsContainerdV2, detection would fail and (per
+	// isContainerdV2's empty-string handling) default to v1 -- so this also proves
+	// live detection is not consulted when RP's value is present.
+	tmpDir := t.TempDir()
+	t.Setenv("PATH", tmpDir)
+
+	config := &aksnodeconfigv1.Configuration{
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+			IsContainerdV2: to.Ptr(true),
+		},
+	}
+
+	cmd, err := BuildCSECmd(context.TODO(), config, nil)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+
+	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+	require.NoError(t, err)
+	assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
+	assert.NotContains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
+}
+
+func TestBuildCSECmd_PrefersRPResolvedIsContainerdV1OverSystemDetection(t *testing.T) {
+	// Fake containerd binary would report v2 if executed, but RP explicitly says v1.
+	// RP's resolved value should win, proving it is preferred over (not just a
+	// fallback source for) on-node detection.
+	tmpDir := t.TempDir()
+	fakeBin := tmpDir + "/containerd"
+	err := os.WriteFile(fakeBin, []byte("#!/bin/sh\necho 'containerd github.com/containerd/containerd/v2 2.3.2-1 fff62f14765df376e5fc36f5a8f8e795b5670f61'\n"), 0755)
+	require.NoError(t, err)
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+
+	config := &aksnodeconfigv1.Configuration{
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+			IsContainerdV2: to.Ptr(false),
+		},
+	}
+
+	cmd, err := BuildCSECmd(context.TODO(), config, nil)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+
+	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+	require.NoError(t, err)
+	assert.Contains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
+	assert.NotContains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
+}

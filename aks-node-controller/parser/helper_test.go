@@ -17,9 +17,11 @@ limitations under the License.
 package parser
 
 import (
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -497,7 +499,7 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, false); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -651,15 +653,77 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			containerdVersion := tt.args.aksnodeconfig.GetContainerdConfig().GetContainerdVersion()
+			isContainerdV2 := isContainerdV2(tt.args.aksnodeconfig.GetContainerdConfig().GetContainerdVersion())
 			var got string
 			if tt.args.noGpu {
-				got = getNoGPUContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
+				got = getNoGPUContainerdConfigBase64(tt.args.aksnodeconfig, isContainerdV2)
 			} else {
-				got = getContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
+				got = getContainerdConfigBase64(tt.args.aksnodeconfig, isContainerdV2)
 			}
 			if got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_resolveIsContainerdV2(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         *aksnodeconfigv1.Configuration
+		fakeContainerd string // if non-empty, written as the fake "containerd --version" output; PATH has no binary otherwise.
+		want           bool
+	}{
+		{
+			name: "RP resolved true is honored without live detection",
+			config: &aksnodeconfigv1.Configuration{
+				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+					IsContainerdV2: to.Ptr(true),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "RP resolved false is honored without live detection",
+			config: &aksnodeconfigv1.Configuration{
+				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+					IsContainerdV2: to.Ptr(false),
+				},
+			},
+			// Fake binary would report v2 if executed; RP's false must still win.
+			fakeContainerd: "containerd github.com/containerd/containerd/v2 2.3.2-1 abc123",
+			want:           false,
+		},
+		{
+			name: "falls back to live detection when RP did not set it",
+			config: &aksnodeconfigv1.Configuration{
+				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
+			},
+			fakeContainerd: "containerd github.com/containerd/containerd/v2 2.3.2-1 abc123",
+			want:           true,
+		},
+		{
+			name:   "falls back to live detection when ContainerdConfig is nil",
+			config: &aksnodeconfigv1.Configuration{},
+			want:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			if tt.fakeContainerd != "" {
+				fakeBin := tmpDir + "/containerd"
+				if err := os.WriteFile(fakeBin, []byte("#!/bin/sh\necho '"+tt.fakeContainerd+"'\n"), 0755); err != nil {
+					t.Fatalf("writing fake containerd binary: %v", err)
+				}
+				t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+			} else {
+				t.Setenv("PATH", tmpDir)
+			}
+
+			got := resolveIsContainerdV2(context.TODO(), tt.config)
+			if got != tt.want {
+				t.Errorf("resolveIsContainerdV2() = %v, want %v", got, tt.want)
 			}
 		})
 	}
