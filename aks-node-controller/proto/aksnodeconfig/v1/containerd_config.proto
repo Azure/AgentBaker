@@ -12,4 +12,11 @@ message ContainerdConfig {
 
   // The URL for downloading the containerd package.
   string containerd_package_url = 3;
+
+  // Whether the containerd version resolved for this node's VHD/distro is a 2.x
+  // release (as opposed to 1.x). This is resolved by RP ahead of time (statically,
+  // from the node's distro) so that aks-node-controller does not need to shell out
+  // to `containerd --version` on the node to pick the correct CRI plugin schema.
+  // When unset, aks-node-controller falls back to on-node detection.
+  optional bool is_containerd_v2 = 4;
 }
