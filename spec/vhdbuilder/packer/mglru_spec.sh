@@ -25,8 +25,8 @@ Describe 'MGLRU image default'
       AZURELINUX 4.0   ''                  0
       AZURELINUXKATA 3.0 ''                0
       FLATCAR    4230.2.2 ''               1
-      AZURECONTAINERLINUX 3.0 ''           1
-      AZURELINUX 3.0   AZURECONTAINERLINUX 1
+      AZURECONTAINERLINUX 3.0 ''           0
+      AZURELINUX 3.0   AZURECONTAINERLINUX 0
     End
 
     It "returns $4 for $1 $2 variant=$3"
@@ -43,19 +43,21 @@ Describe 'MGLRU image default'
 
     Describe 'included versions'
       Parameters
-        UBUNTU 20.04
-        UBUNTU 22.04
-        UBUNTU 24.04
-        UBUNTU 26.04
-        MARINER 2.0
-        MARINERKATA 2.0
-        AZURELINUX 2.0
-        AZURELINUX 3.0
-        AZURELINUX 4.0
+        UBUNTU 20.04 ''
+        UBUNTU 22.04 ''
+        UBUNTU 24.04 ''
+        UBUNTU 26.04 ''
+        MARINER 2.0 ''
+        MARINERKATA 2.0 ''
+        AZURELINUX 2.0 ''
+        AZURELINUX 3.0 ''
+        AZURELINUX 4.0 ''
+        AZURECONTAINERLINUX 3.0 ''
+        AZURELINUX 3.0 AZURECONTAINERLINUX
       End
 
       It "installs the rule for $1 $2 independently of the build kernel"
-        OS="$1" OS_VERSION="$2" OS_VARIANT=''
+        OS="$1" OS_VERSION="$2" OS_VARIANT="$3"
         When call copyMGLRUConfig
         The status should be success
         The output should equal '/home/packer/aks-mglru.conf /etc/tmpfiles.d/aks-mglru.conf 644'
@@ -65,8 +67,7 @@ Describe 'MGLRU image default'
     Describe 'excluded OS families'
       Parameters
         FLATCAR 4230.2.2 ''
-        AZURECONTAINERLINUX 3.0 ''
-        AZURELINUX 3.0 AZURECONTAINERLINUX
+        DEBIAN 13 ''
       End
 
       It "leaves $1 $2 variant=$3 unchanged"
@@ -91,6 +92,8 @@ Describe 'MGLRU image default'
         mariner
         mariner-arm64
         mariner-cvm
+        acl
+        acl-arm64
       End
 
       It "uploads the rule in the $1 image template"
@@ -142,6 +145,7 @@ Describe 'MGLRU image default'
         AzureLinux 4.0 ''
         AzureLinux 3.0 kata
         AzureLinuxOSGuard 3.0 ''
+        AzureContainerLinux 3.0 ''
       End
 
       It "validates $1 $2 features=$3 without OS globals"
@@ -172,6 +176,7 @@ Describe 'MGLRU image default'
         CBLMariner 2.0
         AzureLinux 2.0
         AzureLinux 3.0
+        AzureContainerLinux 3.0
       End
 
       It "accepts an absent interface on $1 $2 while retaining the rule"
@@ -183,19 +188,29 @@ Describe 'MGLRU image default'
       End
     End
 
-    It 'rejects an enabled kernel without masking failure by applying the rule'
-      printf '0x0007\n' > "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
-      When call testMGLRUDisabled
-      The status should be failure
-      The error should include 'MGLRU is not disabled after boot'
-      The contents of file "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled" should equal '0x0007'
-    End
+    Describe 'required post-boot state'
+      Parameters
+        Ubuntu 24.04
+        AzureLinux 3.0
+        AzureContainerLinux 3.0
+      End
 
-    It 'rejects a missing boot-time rule'
-      rm "$TEST_ROOT/etc/tmpfiles.d/aks-mglru.conf"
-      When call testMGLRUDisabled
-      The status should be failure
-      The error should include 'Missing or incorrect boot-time MGLRU override'
+      It "rejects enabled MGLRU on $1 without applying the rule"
+        OS_SKU="$1" OS_VERSION="$2"
+        printf '0x0007\n' > "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
+        When call testMGLRUDisabled
+        The status should be failure
+        The error should include 'MGLRU is not disabled after boot'
+        The contents of file "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled" should equal '0x0007'
+      End
+
+      It "rejects a missing boot-time rule on $1"
+        OS_SKU="$1" OS_VERSION="$2"
+        rm "$TEST_ROOT/etc/tmpfiles.d/aks-mglru.conf"
+        When call testMGLRUDisabled
+        The status should be failure
+        The error should include 'Missing or incorrect boot-time MGLRU override'
+      End
     End
 
     It 'rejects an override on an excluded OS family'
@@ -208,7 +223,7 @@ Describe 'MGLRU image default'
     Describe 'independent execution on excluded images'
       Parameters
         Flatcar 4230.2.2
-        AzureContainerLinux 3.0
+        Debian 13
       End
 
       It "does not require MGLRU to be disabled on $1 $2"
@@ -221,12 +236,13 @@ Describe 'MGLRU image default'
       End
     End
 
-    It 'resolves the excluded ACL variant despite stale included-image globals'
+    It 'validates ACL despite stale excluded-image globals'
       OS_SKU=AzureContainerLinux OS_VERSION=3.0
-      OS=AZURELINUX OS_VARIANT=''
+      OS=FLATCAR OS_VARIANT=''
       When call testMGLRUDisabled
-      The status should be failure
-      The error should include 'MGLRU override must not be installed on AZURELINUX 3.0 (AZURECONTAINERLINUX)'
+      The status should be success
+      The output should include 'MGLRU is disabled after boot'
+      The variable OS should equal FLATCAR
     End
 
     It 'is included in the VHD content-test run'

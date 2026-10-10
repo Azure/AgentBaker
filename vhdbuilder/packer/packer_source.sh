@@ -17,7 +17,7 @@ isMGLRUDefaultDisabled() {
   local os="$1"
   local os_variant="$2"
 
-  isUbuntu "$os" || isMarinerOrAzureLinux "$os" "$os_variant"
+  isUbuntu "$os" || isMarinerOrAzureLinux "$os" "$os_variant" || isACL "$os" "$os_variant"
 }
 
 copyMGLRUConfig() {
