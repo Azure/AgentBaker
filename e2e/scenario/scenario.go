@@ -606,21 +606,22 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_Early_Failure_Scriptless",
-	SkipReason:  "Need a way to inject early failures into scriptless",
-	Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+	Description: "tests that Phase 3 config validation rejects an unsupported AKSNodeConfig version before VM creation",
+	SkipIf: func(context.Context) string {
+		if config.Config.DisableScriptless || config.Config.TestPreProvision {
+			return "requires Phase 3 provisioning"
+		}
+		return ""
+	},
 	Tags: Tags{
 		Scriptless: true,
 	},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return errors.Join(
-				ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete"),
-				ValidateFileExists(ctx, s, "/var/log/azure/aks/provision.json"),
-			)
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessAKSNodeConfig = true
 		},
-		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 			// Intentionally causing a failure here
 			config.Version = "VeryBadVersion"
@@ -1110,11 +1111,12 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_ArtifactStreaming",
-	Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapped",
+	Description: "tests that an Ubuntu 2204 node using artifact streaming can be bootstrapped with Phase 3",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessAKSNodeConfig = true
 			nbc.EnableArtifactStreaming = true
 		},
 		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
@@ -1164,11 +1166,12 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_ArtifactStreaming",
-	Description: "tests that a new azure linux v3 node using artifact streaming can be properly bootstrapped",
+	Description: "tests that an Azure Linux v3 node using artifact streaming can be bootstrapped with Phase 3",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDAzureLinuxV3Gen2,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessAKSNodeConfig = true
 			nbc.EnableArtifactStreaming = true
 		},
 		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
@@ -1472,7 +1475,7 @@ var _ = Register(ubuntu2204GPUScenario("Ubuntu2204_GPUA100", "Standard_NC24ads_A
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_GPUA10",
-	Description: "Tests that a GPU-enabled node with VM size Standard_NV6ads_A10_v5 using an Ubuntu 2204 VHD can be properly bootstrapped, and that the GRID license is valid",
+	Description: "Tests Phase 3 provisioning of an Ubuntu 2204 GPU node with VM size Standard_NV6ads_A10_v5 and validates the GRID license",
 	Tags: Tags{
 		GPU: true,
 	},
@@ -1480,6 +1483,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessAKSNodeConfig = true
 			nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 			nbc.ConfigGPUDriverIfNeeded = true
 			nbc.EnableGPUDevicePluginIfNeeded = false
@@ -1542,7 +1546,7 @@ func ubuntu2204GPUScenario(name, vmSize, location string) *Scenario {
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_GPUNoDriver",
-	Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
+	Description: "Tests Phase 3 provisioning of an Ubuntu 2204 GPU node opting out of GPU driver installation",
 	Location:    "westus2",
 	Tags: Tags{
 		GPU: true,
@@ -1551,6 +1555,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessAKSNodeConfig = true
 			nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
 			nbc.ConfigGPUDriverIfNeeded = true
 			nbc.EnableGPUDevicePluginIfNeeded = false

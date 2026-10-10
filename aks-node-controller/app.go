@@ -309,22 +309,12 @@ func buildCmdFromProvisionConfig(ctx context.Context, path string, gpuComponents
 
 	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
 	if err != nil {
-		// We try our best to continue unmarshal even if there are unexpected situations such as unknown fields.
-		// It usually happens when a newer version of aksNodeConfig is being parsed by an older version of aks-node-controller.
-		// This allows older versions of aks-node-controller to read configurations that may have fields added in newer versions.
-		// Log the error and continue processing.
-		// Feature owner should be aware that any unrecognized fields will be ignored in older versions of VHD image.
-
-		slog.Info("Unmarshalling aksNodeConfigv1 encounters error but the process will continue."+
-			"This may be due to version mismatch. "+
-			"Usually it is newer aksNodeConfig being parsed by older aks-node-controller. "+
-			"Continuing with partial configuration, but unrecognized fields will be ignored.",
-			"error", err)
+		return nil, fmt.Errorf("decode provision config: %w", err)
 	}
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
-	if config.Version != "v0" && config.Version != "v1" {
-		return nil, fmt.Errorf("unsupported version: %s", config.Version)
+	if err = nodeconfigutils.ValidateAndNormalizeConfiguration(config); err != nil {
+		return nil, fmt.Errorf("validate provision config: %w", err)
 	}
 
 	if config.Version == "v0" {

@@ -146,7 +146,7 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
-	if supportsScriptlessPhase2(config) {
+	if supportsScriptlessProvisioning(config) {
 		return t.getScriptlessBoothook(config)
 	}
 
@@ -168,7 +168,7 @@ type encodedFile struct {
 	content string
 }
 
-// getScriptlessBoothook builds custom data for the scriptless NBC CSE path.
+// getScriptlessBoothook builds custom data for scriptless provisioning.
 // It encodes the node custom data, cse downloader script
 // into the appropriate format (boothook or flatcar ignition).
 func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -229,8 +229,8 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	return encodedCustomData
 }
 
-// getScriptlessNBCCmd builds cse for the scriptless NBC CSE path.
-// It encodes the nbc-cmd script, and optionally AKSNodeConfig JSON,
+// getScriptlessNBCCmd builds CSE for scriptless provisioning.
+// It encodes AKSNodeConfig JSON and/or the NBC command according to the selected mode,
 // into a single base64-encoded string for the cse scriptless phase2 template.
 func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	encodedFiles := t.getScriptlessConfiguration(config)
@@ -242,6 +242,11 @@ func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrapp
 func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBootstrappingConfiguration) []encodedFile {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
+	if config.EnableScriptlessAKSNodeConfig {
+		return []encodedFile{
+			{aksNodeConfigFilepath, getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)},
+		}
+	}
 	nbcCMD := t.getLinuxNodeCSECommand(config)
 	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
 	var encodedAKSNodeConfig string
@@ -258,8 +263,19 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 	return encodedFiles
 }
 
-func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly
+func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return (config.EnableScriptlessAKSNodeConfig || config.EnableScriptlessNBCCSECmd) && !config.PreProvisionOnly
+}
+
+func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
+	input := strings.TrimSpace(config.AKSNodeConfigJSON)
+	if input == "" {
+		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires non-empty AKSNodeConfigJSON")
+	}
+	if !json.Valid([]byte(input)) || input[0] != '{' {
+		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires AKSNodeConfigJSON to be a valid JSON object")
+	}
+	return nil
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
@@ -536,7 +552,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
-	if supportsScriptlessPhase2(config) {
+	if supportsScriptlessProvisioning(config) {
 		if config.ScriptlessCSEProvisionMode {
 			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
 			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
@@ -752,6 +768,13 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 
 // ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
+	if config.EnableScriptlessAKSNodeConfig {
+		if err := validateScriptlessAKSNodeConfig(config); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
 		return err
 	}
@@ -1685,7 +1708,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
+		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessProvisioning(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},

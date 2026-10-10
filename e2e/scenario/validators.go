@@ -3735,7 +3735,7 @@ sudo "$anc_path" check-hotfix`,
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) error {
 	nbc := s.Runtime.NBC
-	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
+	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessProvisioning(s) {
 		return ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 	return nil
@@ -3767,8 +3767,35 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
-// ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars.
+// ValidateScriptlessPhase3 verifies that ANC provisions using only AKSNodeConfig.
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
+	if !usesScriptlessProvisioning(s) || !s.Runtime.NBC.EnableScriptlessAKSNodeConfig {
+		return nil
+	}
+	logFile := "/var/log/azure/aks-node-controller.output"
+	errs := []error{
+		ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-config.json"),
+		ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
+		ValidateFileHasContent(ctx, s, logFile, "Launching aks-node-controller with config"),
+		ValidateFileExcludesContent(ctx, s, logFile, "Launching aks-node-controller with nbc cmd"),
+		ValidateFileExcludesContent(ctx, s, logFile, "Using NBC command for scriptless phase 2"),
+		ValidateFileExcludesContent(ctx, s, logFile, "comparing envs"),
+	}
+	if s.Runtime.NBC.ScriptlessCSEProvisionMode {
+		_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected CSE-delivered scriptless boothook")
+		errs = append(errs, err)
+	}
+	if enableScriptlessCompilation(s) {
+		errs = append(errs,
+			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix"),
+			ValidateFileHasContent(ctx, s, logFile, "Using hotfix binary"),
+		)
+	}
+	return errors.Join(errs...)
+}
+
+// ValidateScriptlessComparison checks Phase 2.5 NBC/AKSNodeConfig environment parity.
+func ValidateScriptlessComparison(ctx context.Context, s *Scenario) error {
 	// skip validation if
 	// 1. AKSNodeConfig not populated
 	// 2. using scriptless phase 1

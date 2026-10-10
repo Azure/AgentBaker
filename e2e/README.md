@@ -56,6 +56,23 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### Scriptless provisioning
+
+Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
+bootstrap config mutator of five scenarios: `Ubuntu2204_ArtifactStreaming`,
+`AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
+and `Ubuntu2204_Early_Failure_Scriptless` (the existing `_Scriptless`-suffix scenario).
+The runner converts the NBC, applies the AKSNodeConfig mutator, validates and
+normalizes Phase 3 settings with `nodeconfigutils.ValidateAndNormalizeConfiguration`,
+and serializes the result for AgentBaker. The early-failure scenario checks that an
+unsupported version is rejected before VM creation. Common validation checks config-only execution and absence
+of the NBC command and comparison path.
+
+All other scenarios retain their existing provisioning mode, including Phase 2/2.5
+coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
+does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
+VHD-caching behavior remain in effect.
+
 ## VM size configuration
 
 The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or
