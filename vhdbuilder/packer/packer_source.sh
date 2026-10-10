@@ -13,6 +13,20 @@ kernelVersionGe() {
   [ "$version_a" = "$highest_version" ]
 }
 
+isMGLRUDefaultDisabled() {
+  local os="$1"
+  local os_variant="$2"
+
+  isUbuntu "$os" || isMarinerOrAzureLinux "$os" "$os_variant" || isACL "$os" "$os_variant"
+}
+
+copyMGLRUConfig() {
+  if isMGLRUDefaultDisabled "$OS" "$OS_VARIANT"; then
+    # Keep the rule even if the build VM's kernel does not expose MGLRU.
+    cpAndMode /home/packer/aks-mglru.conf /etc/tmpfiles.d/aks-mglru.conf 644
+  fi
+}
+
 ubuntuKernelIncludesVulnerableModuleFixes() {
   local kernel_release
   local fixed_kernel
@@ -555,6 +569,7 @@ copyPackerFiles() {
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
+  copyMGLRUConfig
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $LOGROTATE_CIS_CONFIG_SRC $LOGROTATE_CIS_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644

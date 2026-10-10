@@ -475,6 +475,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-mglru.conf",
+      "destination": "/home/packer/aks-mglru.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config",
       "destination": "/home/packer/sshd_config"
     },

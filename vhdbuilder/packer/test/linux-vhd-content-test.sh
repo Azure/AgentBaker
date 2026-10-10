@@ -135,6 +135,7 @@ fi
 
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
+source ./AgentBaker/vhdbuilder/packer/packer_source.sh
 
 validateDownloadPackage() {
   local downloadURL=$1
@@ -1393,6 +1394,40 @@ testUserAdd() {
   echo "$test: useradd is using INACTIVE=30 from $settings_file"
 
   echo "$test:Finish"
+}
+
+testMGLRUDisabled() {
+  local test="testMGLRUDisabled"
+  local config_file="/etc/tmpfiles.d/aks-mglru.conf"
+  local enabled_file="/sys/kernel/mm/lru_gen/enabled"
+  local resolvedOSAndVariant
+  resolvedOSAndVariant=$(getCurrentPackageTestOS)
+  local targetOS="${resolvedOSAndVariant%%|*}"
+  local targetOSVariant="${resolvedOSAndVariant#*|}"
+
+  if ! isMGLRUDefaultDisabled "$targetOS" "$targetOSVariant"; then
+    if [ -e "$config_file" ]; then
+      err "$test" "MGLRU override must not be installed on $targetOS $OS_VERSION ($targetOSVariant)"
+      return 1
+    fi
+    echo "$test: Skipping $targetOS $OS_VERSION ($targetOSVariant)"
+    return 0
+  fi
+
+  if ! grep -qx 'w! /sys/kernel/mm/lru_gen/enabled - - - - 0' "$config_file"; then
+    err "$test" "Missing or incorrect boot-time MGLRU override in $config_file"
+    return 1
+  fi
+  if [ ! -e "$enabled_file" ]; then
+    echo "$test: Kernel does not expose MGLRU; boot-time override is installed"
+    return 0
+  fi
+  # Read the state after boot without applying the rule here, to test persistence.
+  if ! grep -Eq '^(0x)?0+$' "$enabled_file"; then
+    err "$test" "MGLRU is not disabled after boot: $enabled_file"
+    return 1
+  fi
+  echo "$test: MGLRU is disabled after boot"
 }
 
 testNetworkSettings() {
@@ -2869,6 +2904,7 @@ testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings
+testMGLRUDisabled
 testCronPermissions "$IMG_SKU" "$OS_SKU"
 testCoreDumpSettings
 testNfsServerService
