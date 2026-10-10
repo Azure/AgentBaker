@@ -3053,6 +3053,34 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:             "Ubuntu2404_GPUDriverOptOut_VHDCaching",
+	Description:      "Installs the VHD-cached, components-approved NVIDIA driver artifact with a post-basePrep customer RunCommand while managed driver installation remains opted out, then verifies the real driver survives PIS VHD-cached provisioning",
+	K8sSystemPoolSKU: "Standard_D2s_v3",
+	Tags: Tags{
+		GPU: true,
+	},
+	Config: Config{
+		Cluster:                ClusterKubenet,
+		VHD:                    config.VHDUbuntu2404Gen2Containerd,
+		VHDCaching:             true,
+		VHDCachingPostBasePrep: installCustomerNvidiaDriver,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessCSECmd = false
+			nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
+			nbc.ConfigGPUDriverIfNeeded = false
+			nbc.EnableGPUDevicePluginIfNeeded = false
+			nbc.EnableNvidia = false
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateCustomerNvidiaDriver(ctx, s)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_AKSVMExtension_FilesystemCorruption",
 	Description: "Tests Ubuntu 24.04 NPD filesystem-corruption reporting with the AKS VM Extension and hotfix target resolution from the NBC command when ANC JSON is absent",
 	Config: Config{

@@ -68,7 +68,13 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
 			)
 		}
-		return validationErr
+		if validationErr != nil {
+			return validationErr
+		}
+		if original.Config.VHDCachingPostBasePrep != nil {
+			return original.Config.VHDCachingPostBasePrep(ctx, scenario)
+		}
+		return nil
 	}
 
 	bakeScenario.Config.VMConfigMutator = func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -753,6 +759,65 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	}
 	view := *getResp.Properties.InstanceView
 	return view, runCommandScriptError(view)
+}
+
+const (
+	customerGPUDriverImage = "mcr.microsoft.com/aks/aks-gpu-cuda-lts"
+)
+
+func customerGPUDriverImageReference() (string, string, error) {
+	if datamodel.NvidiaCudaLTSDriverVersion == "" || datamodel.AKSGPUCudaLTSVersionSuffix == "" {
+		return "", "", fmt.Errorf("approved NVIDIA CUDA LTS driver image version is unavailable")
+	}
+	version := datamodel.NvidiaCudaLTSDriverVersion
+	tag := version + "-" + datamodel.AKSGPUCudaLTSVersionSuffix
+	return customerGPUDriverImage + ":" + tag, version, nil
+}
+
+// installCustomerNvidiaDriver manually runs the VHD-cached, components-approved installer after
+// basePrep. This models a customer RunCommand install; the scenario leaves managed GPU installation
+// opted out, so nodePrep does not invoke the installer.
+func installCustomerNvidiaDriver(ctx context.Context, s *Scenario) error {
+	imageRef, expectedVersion, err := customerGPUDriverImageReference()
+	if err != nil {
+		return err
+	}
+	command := fmt.Sprintf(`set -euo pipefail
+image_ref=%s
+expected_version=%s
+sudo mkdir -p /opt/gpu /opt/actions
+sudo ctr -n k8s.io images ls -q | grep -Fxq "${image_ref}"
+sudo ctr -n k8s.io run --privileged --rm --net-host \
+  --with-ns pid:/proc/1/ns/pid \
+  --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind \
+  --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind \
+  "${image_ref}" gpuinstall /entrypoint.sh copy
+sudo ctr -n k8s.io images rm "${image_ref}"
+
+installer_dir="/opt/gpu/NVIDIA-Linux-x86_64-${expected_version}"
+test -x "${installer_dir}/nvidia-installer"
+cd "${installer_dir}"
+sudo ./nvidia-installer -s -k="$(uname -r)" --no-drm --dkms
+
+sudo nvidia-modprobe -u -c0
+gpu_info="$(sudo nvidia-smi --query-gpu=driver_version,name --format=csv,noheader | head -n1)"
+driver_version="${gpu_info%%,*}"
+driver_version="$(printf '%%s' "${driver_version}" | tr -d '[:space:]')"
+gpu_name="${gpu_info#*,}"
+case "${gpu_name}" in *T4*) ;; *) echo "expected a T4 GPU, got: ${gpu_name}" >&2; exit 1 ;; esac
+test "${driver_version}" = "${expected_version}"
+sudo nvidia-smi -L | grep -qi 'T4'
+lsmod | grep -q '^nvidia[[:space:]]'
+test "$(sudo modinfo -F version nvidia)" = "${expected_version}"
+`,
+		shellSingleQuote(imageRef),
+		shellSingleQuote(expectedVersion),
+	)
+	_, err = RunCommand(ctx, s, command)
+	if err != nil {
+		return fmt.Errorf("install customer NVIDIA driver from cached approved artifact: %w", err)
+	}
+	return nil
 }
 
 // runCommandScriptError converts a RunCommand instance view into an error if the

@@ -580,6 +580,33 @@ func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) error {
 	return err
 }
 
+func ValidateCustomerNvidiaDriver(ctx context.Context, s *Scenario) error {
+	_, expectedVersion, err := customerGPUDriverImageReference()
+	if err != nil {
+		return err
+	}
+	installerPath := fmt.Sprintf("/opt/gpu/NVIDIA-Linux-x86_64-%s/nvidia-installer", expectedVersion)
+	command := customerNvidiaDriverValidationScript(expectedVersion, installerPath)
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "customer-installed NVIDIA driver did not survive PIS image capture")
+	return err
+}
+
+func customerNvidiaDriverValidationScript(expectedVersion, installerPath string) string {
+	return fmt.Sprintf(`set -euo pipefail
+expected_version=%s
+test -x %s
+lsmod | grep -q '^nvidia[[:space:]]'
+module_version="$(sudo modinfo -F version nvidia)"
+test "${module_version}" = "${expected_version}"
+gpu_version="$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1 | tr -d '[:space:]')"
+test "${gpu_version}" = "${expected_version}"
+sudo nvidia-smi
+`,
+		shellSingleQuote(expectedVersion),
+		shellSingleQuote(installerPath),
+	)
+}
+
 func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) error {
 	command := []string{
 		"set -ex",

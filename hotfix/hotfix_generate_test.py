@@ -54,6 +54,16 @@ TRADITIONAL_TEMPLATE = """- path: {{GetCSEHelpersScriptFilepath}}
 {{end}}
 """
 
+MIXED_ENCODING_TEMPLATE = """- path: /literal.sh
+  owner: root
+{{GetCloudInitFileProperties "literalFile"}}
+- path: /legacy.sh
+  owner: root
+  encoding: gzip
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "legacyFile"}}
+"""
+
 
 class HotfixGenerateTests(unittest.TestCase):
     def test_config_modules_are_independently_hotfixable(self):
@@ -114,7 +124,10 @@ class HotfixGenerateTests(unittest.TestCase):
                 self.assertEqual({variable}, blocks[0][0])
                 self.assertIn(f"- path: {{{{{path_function}}}}}", template)
                 self.assertIn('permissions: "0744"', template)
-                self.assertIn("encoding: gzip", template)
+                self.assertTrue(
+                    f'GetCloudInitFileProperties "{variable}"' in template
+                    or f'GetVariableProperty "cloudInitData" "{variable}"' in template
+                )
                 self.assertNotIn("{{if", template)
 
     def test_config_refactor_hotfix_selects_parent_and_new_modules(self):
@@ -176,6 +189,86 @@ write_files:
             },
             blocks[1][0],
         )
+
+    def test_parse_write_files_blocks_accepts_literal_and_legacy_syntax(self):
+        blocks = hotfix_generate.parse_write_files_blocks(
+            MIXED_ENCODING_TEMPLATE.splitlines(keepends=True)
+        )
+
+        self.assertEqual(
+            [
+                ({"literalFile"}, [
+                    "- path: /literal.sh\n",
+                    "  owner: root\n",
+                    '{{GetCloudInitFileProperties "literalFile"}}\n',
+                ]),
+                ({"legacyFile"}, [
+                    "- path: /legacy.sh\n",
+                    "  owner: root\n",
+                    "  encoding: gzip\n",
+                    "  content: !!binary |\n",
+                    '    {{GetVariableProperty "cloudInitData" "legacyFile"}}\n',
+                ]),
+            ],
+            blocks,
+        )
+
+    def test_current_template_literal_entries_are_injected_and_rendered(self):
+        repository = Path(__file__).resolve().parents[1]
+        template_lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
+            keepends=True
+        )
+        _, outer_else, end = hotfix_generate.find_block_boundaries(template_lines)
+        self.assertIsNotNone(outer_else)
+        self.assertIsNotNone(end)
+        traditional = template_lines[outer_else + 1:end]
+        available = set().union(
+            *(keys for keys, _ in hotfix_generate.parse_write_files_blocks(traditional))
+        )
+        selected = {"provisionConfigsGPU"}
+        self.assertIn("provisionConfigsGPU", available)
+
+        hotfix_template = hotfix_generate.build_hotfix_template(selected, traditional)
+        self.assertIn(
+            '{{GetCloudInitFileProperties "provisionConfigsGPU"}}',
+            hotfix_template,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            injected_template = Path(temp_dir) / "nodecustomdata.yml"
+            injected_template.write_text("".join(template_lines))
+            generated_dir = Path(temp_dir) / "generated"
+            with mock.patch.object(
+                hotfix_generate, "TEMPLATE", str(injected_template)
+            ), mock.patch.object(
+                hotfix_generate, "GENERATED_DIR", str(generated_dir)
+            ):
+                hotfix_generate.update_nodecustomdata(selected)
+                injected = injected_template.read_text()
+                marked_block = injected.split(hotfix_generate.SCRIPTS_BEGIN, 1)[1].split(
+                    hotfix_generate.SCRIPTS_END, 1
+                )[0]
+                self.assertIn(
+                    '{{GetCloudInitFileProperties "provisionConfigsGPU"}}',
+                    marked_block,
+                )
+
+                hotfix_generate.write_rendered_payload(selected, traditional)
+
+            for platform in ("ubuntu", "mariner"):
+                rendered = (
+                    generated_dir / f"rendered_nodecustomdata_{platform}.yml"
+                ).read_text()
+                self.assertIn(
+                    "- path: /opt/azure/containers/provision_configs_gpu.sh",
+                    rendered,
+                )
+                self.assertIn('permissions: "0744"', rendered)
+                self.assertIn(r'content: "#!/bin/bash\n', rendered)
+                self.assertIn("configGPUDrivers() {", rendered)
+                self.assertNotIn("GetCloudInitFileProperties", rendered)
+                self.assertNotIn("{{", rendered)
+                self.assertNotIn("encoding: gzip", rendered)
 
     def test_build_hotfix_template_selects_only_requested_blocks(self):
         rendered = hotfix_generate.build_hotfix_template(
