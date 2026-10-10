@@ -1,7 +1,7 @@
 # NPD in Ubuntu VHDs and generic live patching
 
-This work builds on generic snapshot PR #8952. The RP producer is
-[aks-rp PR 17168496](https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-rp/pullrequest/17168496).
+This work builds on generic snapshot PR #8952. The AKS resource provider publishes
+the `npdConfig` component through the Live Patching Controller.
 
 ## Lifecycle
 
