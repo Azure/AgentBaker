@@ -3748,16 +3748,23 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	}
 	fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 	var errs []error
-	errs = append(errs,
-		ValidateFileExists(ctx, s, fileNameToCheck),
-		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"),
-	)
+	errs = append(errs, ValidateFileExists(ctx, s, fileNameToCheck))
+
+	// USE_AKS_NODE_CONFIG keeps the NBC command on the node as the comparison baseline but
+	// provisions from the AKSNodeConfig, so buildCmdFromNBCCmd - the only place that logs the
+	// phase 2 line - never runs. Assert the source that did execute instead, otherwise this
+	// shared validator contradicts every scenario exercising the toggle.
+	if usesAKSNodeConfigSource(s) {
+		errs = append(errs, ValidateFileHasContent(ctx, s, ancLogPath, ancProvisionSourceConfig))
+	} else {
+		errs = append(errs, ValidateFileHasContent(ctx, s, ancLauncherOutput, "Using NBC command for scriptless phase 2"))
+	}
+
 	if s.Runtime.NBC != nil && s.Runtime.NBC.ScriptlessCSEProvisionMode {
 		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected journalctl to contain 'starting /opt/bin/boothook.sh' for scriptless phase 2"); err != nil {
 			errs = append(errs, fmt.Errorf("check journalctl for 'starting /opt/bin/boothook.sh': %w", err))
 		}
 	}
-	errs = append(errs, ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"))
 	if enableScriptlessCompilation(s) {
 		errs = append(errs,
 			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix"),

@@ -118,6 +118,20 @@ type ProvisionFlags struct {
 	NBCCmd          string
 }
 
+// useAKSNodeConfigEnvVar is the feature toggle that selects AKSNodeConfig as the provisioning
+// source when an NBC command is also available (scriptless phase 3). It is delivered to the
+// node in enabled_features.sh and exported by the aks-node-controller wrapper, so it reaches
+// this process as an inherited environment variable rather than a CLI flag - RP only has to
+// set EnabledFeatures["USE_AKS_NODE_CONFIG"], with no plumbing in between.
+const useAKSNodeConfigEnvVar = "USE_AKS_NODE_CONFIG"
+
+// useAKSNodeConfig reports whether the toggle asks us to provision from the AKSNodeConfig.
+// Only the exact string "true" enables it, so an unset variable, an empty value, or a typo on
+// the producer side all degrade to today's behavior where the NBC command wins.
+func useAKSNodeConfig() bool {
+	return os.Getenv(useAKSNodeConfigEnvVar) == "true"
+}
+
 type ProvisionStatusFiles struct {
 	ProvisionJSONFile     string
 	ProvisionCompleteFile string
@@ -677,22 +691,27 @@ func envSliceToMap(env []string) map[string]string {
 	return m
 }
 
+// provisionSourceName labels the executed provisioning source for logs and events, so a node's
+// logs make it unambiguous which path actually ran rather than inferring it from the flags.
+func provisionSourceName(useProvisionConfig bool) string {
+	if useProvisionConfig {
+		return "provision-config"
+	}
+	return "nbc-cmd"
+}
+
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {
 	provisionResult := &ProvisionResult{}
 
 	var cmd *exec.Cmd
-	if flags.NBCCmd != "" {
-		var err error
-		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
-		if err != nil {
-			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = err.Error()
-			return provisionResult, err
-		}
-	}
-
-	// If NBC command is provided, we prioritize it over the aks node config for provisioning.
-	if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
+	// Selection is separate from comparison below: this picks the source that actually runs,
+	// while compareEnvs still fires whenever both sources are present. NBCCmd keeps precedence
+	// unless the USE_AKS_NODE_CONFIG toggle asks for the config path, so a node without the
+	// toggle behaves exactly as before. The config must actually be present for the toggle to
+	// take effect - otherwise there is nothing to switch to and nbc-cmd stays authoritative.
+	useProvisionConfig := flags.ProvisionConfig != "" && (flags.NBCCmd == "" || useAKSNodeConfig())
+	switch {
+	case useProvisionConfig:
 		var err error
 		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig, a.getGPUComponentsFilePath())
 		if err != nil {
@@ -700,7 +719,22 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 			provisionResult.Error = err.Error()
 			return provisionResult, err
 		}
+	case flags.NBCCmd != "":
+		var err error
+		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
+		if err != nil {
+			provisionResult.ExitCode = strconv.Itoa(240)
+			provisionResult.Error = err.Error()
+			return provisionResult, err
+		}
+	default:
+		// Unreachable via runProvision, which rejects the no-source case up front. Guard anyway
+		// so a direct Provision call can never reach the nil-cmd dereference below.
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = "--provision-config or --nbc-cmd is required"
+		return provisionResult, errors.New(provisionResult.Error)
 	}
+	slog.Info("provisioning source selected", "source", provisionSourceName(useProvisionConfig), useAKSNodeConfigEnvVar, os.Getenv(useAKSNodeConfigEnvVar))
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)

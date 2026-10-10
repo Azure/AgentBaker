@@ -363,6 +363,113 @@ func TestApp_Provision(t *testing.T) {
 		assert.Contains(t, result.Error, "read NBC command file "+scriptPath)
 	})
 
+	t.Run("USE_AKS_NODE_CONFIG selects the config while nbc-cmd is still present", func(t *testing.T) {
+		// The decoupling under test: nbc-cmd is still passed (so compareEnvs keeps both
+		// sources) but the config is what actually executes. Without the toggle, nbc-cmd wins.
+		t.Setenv(useAKSNodeConfigEnvVar, "true")
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho ran nbc_cmd\n"), 0o600))
+
+		var gotCmd *exec.Cmd
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(cmd *exec.Cmd) error {
+				gotCmd = cmd
+				return nil
+			},
+		})
+
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          scriptPath,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, gotCmd)
+		// The config path builds a CSE command, not a "bash -- <script>" invocation, so the
+		// nbc-cmd script must not appear in the args even though its flag was passed.
+		assert.NotContains(t, gotCmd.Args, scriptPath)
+		assert.NotNil(t, result)
+	})
+
+	t.Run("USE_AKS_NODE_CONFIG only takes effect on the exact string true", func(t *testing.T) {
+		// A typo or a "1" on the producer side must degrade to today's behavior rather than
+		// silently switching the provisioning source.
+		t.Setenv(useAKSNodeConfigEnvVar, "1")
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho ran nbc_cmd\n"), 0o600))
+
+		var gotCmd *exec.Cmd
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(cmd *exec.Cmd) error {
+				gotCmd = cmd
+				return cmdRunner(cmd)
+			},
+		})
+
+		_, err := tt.App.Provision(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          scriptPath,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, gotCmd)
+		assert.Equal(t, []string{"/bin/bash", "--", scriptPath}, gotCmd.Args)
+	})
+
+	t.Run("nbc-cmd keeps precedence when USE_AKS_NODE_CONFIG is not set", func(t *testing.T) {
+		// Explicitly clear rather than relying on the ambient environment, so the test pins the
+		// default behavior even if the toggle happens to be set where the suite runs.
+		t.Setenv(useAKSNodeConfigEnvVar, "")
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho ran nbc_cmd\n"), 0o600))
+
+		var gotCmd *exec.Cmd
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(cmd *exec.Cmd) error {
+				gotCmd = cmd
+				return cmdRunner(cmd)
+			},
+		})
+
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{
+			ProvisionConfig: "parser/testdata/test_aksnodeconfig.json",
+			NBCCmd:          scriptPath,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, gotCmd)
+		assert.Equal(t, []string{"/bin/bash", "--", scriptPath}, gotCmd.Args)
+		assert.Contains(t, result.Output, "ran nbc_cmd")
+	})
+
+	t.Run("USE_AKS_NODE_CONFIG is ignored when no config was provided", func(t *testing.T) {
+		// Fail-safe: the toggle must never leave the binary with no source to provision from.
+		t.Setenv(useAKSNodeConfigEnvVar, "true")
+		scriptPath := filepath.Join(t.TempDir(), "test_nbccmd.sh")
+		require.NoError(t, os.WriteFile(scriptPath, []byte("#!/bin/bash\necho ran nbc_cmd\n"), 0o600))
+
+		var gotCmd *exec.Cmd
+		tt := NewTestApp(t, TestAppConfig{
+			RunFunc: func(cmd *exec.Cmd) error {
+				gotCmd = cmd
+				return cmdRunner(cmd)
+			},
+		})
+
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{
+			NBCCmd: scriptPath,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, gotCmd)
+		assert.Equal(t, []string{"/bin/bash", "--", scriptPath}, gotCmd.Args)
+		assert.Equal(t, "0", result.ExitCode)
+	})
+
+	t.Run("Provision with no source returns an error instead of panicking", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		result, err := tt.App.Provision(context.Background(), ProvisionFlags{})
+		require.Error(t, err)
+		assert.Equal(t, "240", result.ExitCode)
+		assert.Contains(t, result.Error, "--provision-config or --nbc-cmd is required")
+	})
+
 	t.Run("compareEnvs failure does not block nbc-cmd provisioning", func(t *testing.T) {
 		// Use an invalid provision-config path so compareEnvs will fail internally.
 		// Provisioning via nbc-cmd should still succeed.
