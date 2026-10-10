@@ -1405,7 +1405,7 @@ testMGLRUDisabled() {
   local targetOS="${resolvedOSAndVariant%%|*}"
   local targetOSVariant="${resolvedOSAndVariant#*|}"
 
-  if ! isMGLRUDefaultDisabled "$targetOS" "$OS_VERSION" "$targetOSVariant"; then
+  if ! isMGLRUDefaultDisabled "$targetOS" "$targetOSVariant"; then
     if [ -e "$config_file" ]; then
       err "$test" "MGLRU override must not be installed on $targetOS $OS_VERSION ($targetOSVariant)"
       return 1

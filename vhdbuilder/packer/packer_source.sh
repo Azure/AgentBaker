@@ -15,20 +15,13 @@ kernelVersionGe() {
 
 isMGLRUDefaultDisabled() {
   local os="$1"
-  local os_version="$2"
-  local os_variant="$3"
+  local os_variant="$2"
 
-  if isUbuntu "$os"; then
-    kernelVersionGe "$os_version" "24.04"
-  elif isMarinerOrAzureLinux "$os" "$os_variant"; then
-    kernelVersionGe "$os_version" "3.0"
-  else
-    return 1
-  fi
+  isUbuntu "$os" || isMarinerOrAzureLinux "$os" "$os_variant"
 }
 
 copyMGLRUConfig() {
-  if isMGLRUDefaultDisabled "$OS" "$OS_VERSION" "$OS_VARIANT"; then
+  if isMGLRUDefaultDisabled "$OS" "$OS_VARIANT"; then
     # Keep the rule even if the build VM's kernel does not expose MGLRU.
     cpAndMode /home/packer/aks-mglru.conf /etc/tmpfiles.d/aks-mglru.conf 644
   fi

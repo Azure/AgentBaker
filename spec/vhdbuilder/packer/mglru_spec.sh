@@ -10,15 +10,16 @@ Describe 'MGLRU image default'
 
   Describe 'OS scope'
     Parameters
-      UBUNTU     20.04 ''                  1
-      UBUNTU     22.04 ''                  1
-      UBUNTU     23.10 ''                  1
-      UBUNTU     24.03 ''                  1
+      UBUNTU     20.04 ''                  0
+      UBUNTU     22.04 ''                  0
+      UBUNTU     23.10 ''                  0
+      UBUNTU     24.03 ''                  0
       UBUNTU     24.04 ''                  0
       UBUNTU     26.04 ''                  0
       UBUNTU     28.04 ''                  0
-      MARINER    2.0   ''                  1
-      AZURELINUX 2.0   ''                  1
+      MARINER    2.0   ''                  0
+      MARINERKATA 2.0  ''                  0
+      AZURELINUX 2.0   ''                  0
       AZURELINUX 3.0   ''                  0
       AZURELINUX 3.0   OSGUARD             0
       AZURELINUX 4.0   ''                  0
@@ -29,7 +30,8 @@ Describe 'MGLRU image default'
     End
 
     It "returns $4 for $1 $2 variant=$3"
-      When call isMGLRUDefaultDisabled "$1" "$2" "$3"
+      OS_VERSION="$2"
+      When call isMGLRUDefaultDisabled "$1" "$3"
       The status should equal "$4"
     End
   End
@@ -41,8 +43,13 @@ Describe 'MGLRU image default'
 
     Describe 'included versions'
       Parameters
+        UBUNTU 20.04
+        UBUNTU 22.04
         UBUNTU 24.04
         UBUNTU 26.04
+        MARINER 2.0
+        MARINERKATA 2.0
+        AZURELINUX 2.0
         AZURELINUX 3.0
         AZURELINUX 4.0
       End
@@ -55,10 +62,10 @@ Describe 'MGLRU image default'
       End
     End
 
-    Describe 'excluded versions'
+    Describe 'excluded OS families'
       Parameters
-        UBUNTU 22.04 ''
-        MARINER 2.0 ''
+        FLATCAR 4230.2.2 ''
+        AZURECONTAINERLINUX 3.0 ''
         AZURELINUX 3.0 AZURECONTAINERLINUX
       End
 
@@ -124,8 +131,13 @@ Describe 'MGLRU image default'
 
     Describe 'independent execution on included images'
       Parameters
+        Ubuntu 20.04 ''
+        Ubuntu 22.04 ''
         Ubuntu 24.04 ''
         Ubuntu 26.04 ''
+        CBLMariner 2.0 ''
+        CBLMariner 2.0 kata
+        AzureLinux 2.0 ''
         AzureLinux 3.0 ''
         AzureLinux 4.0 ''
         AzureLinux 3.0 kata
@@ -152,11 +164,23 @@ Describe 'MGLRU image default'
       The variable OS_VARIANT should equal AZURECONTAINERLINUX
     End
 
-    It 'accepts an absent interface while retaining the rule'
-      rm "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
-      When call testMGLRUDisabled
-      The status should be success
-      The output should include 'Kernel does not expose MGLRU; boot-time override is installed'
+    Describe 'kernels without MGLRU'
+      Parameters
+        Ubuntu 20.04
+        Ubuntu 22.04
+        Ubuntu 24.04
+        CBLMariner 2.0
+        AzureLinux 2.0
+        AzureLinux 3.0
+      End
+
+      It "accepts an absent interface on $1 $2 while retaining the rule"
+        OS_SKU="$1" OS_VERSION="$2"
+        rm "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
+        When call testMGLRUDisabled
+        The status should be success
+        The output should include 'Kernel does not expose MGLRU; boot-time override is installed'
+      End
     End
 
     It 'rejects an enabled kernel without masking failure by applying the rule'
@@ -174,8 +198,8 @@ Describe 'MGLRU image default'
       The error should include 'Missing or incorrect boot-time MGLRU override'
     End
 
-    It 'rejects an override on an excluded OS version'
-      OS_VERSION=22.04
+    It 'rejects an override on an excluded OS family'
+      OS_SKU=Flatcar OS_VERSION=4230.2.2
       When call testMGLRUDisabled
       The status should be failure
       The error should include 'MGLRU override must not be installed'
@@ -183,9 +207,6 @@ Describe 'MGLRU image default'
 
     Describe 'independent execution on excluded images'
       Parameters
-        Ubuntu 22.04
-        CBLMariner 2.0
-        AzureLinux 2.0
         Flatcar 4230.2.2
         AzureContainerLinux 3.0
       End
@@ -254,6 +275,15 @@ Describe 'MGLRU image default'
       When call apply_tmpfiles --boot
       The status should be success
       The path "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled" should not be exist
+    End
+
+    It 'disables MGLRU if a subsequent kernel introduces the interface'
+      rm "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
+      apply_tmpfiles --boot
+      printf '7' > "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
+      When call apply_tmpfiles --boot
+      The status should be success
+      The contents of file "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled" should equal 0
     End
 
     It 'does not reset settings during non-boot tmpfiles runs'

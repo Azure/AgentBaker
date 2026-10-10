@@ -33,19 +33,22 @@ this limit, since BCC installation overlaps container-image caching.
 
 # MGLRU default
 
-Ubuntu 24.04+ and Azure Linux 3+ images (including OSGuard) install
+Ubuntu and Mariner/Azure Linux images (including OSGuard) install
 `/etc/tmpfiles.d/aks-mglru.conf` to disable Multi-Gen LRU at each boot.
 `systemd-tmpfiles-setup.service` applies the rule during system initialization,
 before kubelet starts. The boot-only `w!` rule writes `0` to
 `/sys/kernel/mm/lru_gen/enabled` if it exists; kernels without MGLRU are skipped.
-The rule is retained even when the build kernel lacks MGLRU, since the image may
-boot a different supported kernel later.
+Installation is gated by OS family, not OS or build-kernel version. The rule is
+retained even when the build kernel lacks MGLRU, since the image may boot a
+different supported kernel later. On the current Ubuntu 20.04/22.04 and
+Mariner/Azure Linux 2 kernels without MGLRU, it is a no-op; if a later kernel
+introduces the interface, the same rule disables it at boot.
 
 This preserves traditional reclaim behavior in response to the kubelet
 memory-accounting regression reported in
 [kubernetes/kubernetes#127844](https://github.com/kubernetes/kubernetes/issues/127844).
-It is an image default, not a new Custom Node Configuration API. Ubuntu 22.04,
-Azure Linux 2, Flatcar and Azure Container Linux images are unchanged. The rule
+It is an image default, not a new Custom Node Configuration API.
+Flatcar and Azure Container Linux images remain excluded. The rule
 works independently of script-based/ANC provisioning and PIS base-prep markers.
 Existing nodes need a node-image upgrade to receive it; changing CSE alone does
 not retrofit the rule onto an older VHD.
