@@ -35,12 +35,14 @@ npd_installed_version() {
 
 npd_desired_version() {
     local payload="$1" release="$2" version
+    # Validate the JSON string before Bash command substitution can drop trailing newlines.
     version="$(printf '%s' "${payload}" | jq -er --arg release "${release}" '
         if type != "object" then error("invalid NPD config")
         elif .ubuntuPackageVersions == null then ""
         elif (.ubuntuPackageVersions | type) != "object" then error("invalid version map")
         elif .ubuntuPackageVersions[$release] == null then ""
         elif (.ubuntuPackageVersions[$release] | type) != "string" then error("invalid version")
+        elif (.ubuntuPackageVersions[$release] | test("^[0-9]+\\.[0-9]+\\.[0-9]+-ubuntu[0-9]{2}\\.[0-9]{2}u[1-9][0-9]*\\z") | not) then error("invalid version")
         else .ubuntuPackageVersions[$release] end')" || return 1
     if [ -n "${version}" ]; then
         [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+-ubuntu([0-9]{2}\.[0-9]{2})u[1-9][0-9]*$ ]] || return 1
