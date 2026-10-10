@@ -98,6 +98,12 @@ Describe 'NPD config handler'
         The output should equal '1.0.0-ubuntu28.04u1'
     End
 
+    It 'rejects a version with a trailing newline that command substitution would strip'
+        When call npd_desired_version '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu24.04u1\n"}}' 24.04
+        The status should be failure
+        The stderr should include 'invalid version'
+    End
+
     It 'rejects a malformed version map'
         When call updateNPDConfigs '{"ubuntuPackageVersions":[]}' '{}'
         The status should be failure
