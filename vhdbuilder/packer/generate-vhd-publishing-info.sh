@@ -136,5 +136,14 @@ else
 EOF
 fi
 
+# The downstream publisher must apply these features to the FINAL gallery definition;
+# exporting the intermediate gallery image as a VHD does not carry definition metadata.
+source "$(dirname "${BASH_SOURCE[0]}")/kata-image-features.sh"
+if is_azurelinux3_kata_image; then
+    publishing_info=$(jq --argjson features "$(kata_image_features)" \
+        '.gallery_image_features = $features' vhd-publishing-info.json)
+    printf '%s\n' "$publishing_info" > vhd-publishing-info.json
+fi
+
 # We don't create SAS URLs anymore, though just keep this here to be safe
 sed 's/?.*\",/?***\",/g' < vhd-publishing-info.json

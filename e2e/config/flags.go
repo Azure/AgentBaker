@@ -16,6 +16,7 @@ func Flags() []cli.Flag {
 		&cli.StringFlag{Name: "vm-sku", Value: defaults.DefaultVMSKU, Destination: &Config.DefaultVMSKU, Sources: cli.EnvVars("DEFAULT_VM_SKU")},
 		&cli.StringFlag{Name: "gen1-scsi-vm-sku", Value: defaults.Gen1SCSIVMSKU, Destination: &Config.Gen1SCSIVMSKU, Sources: cli.EnvVars("GEN1_SCSI_VM_SKU"), Usage: "Fallback VM size for images without Gen2 or NVMe support; must support Gen1 and Gen2 boot with SCSI disks"},
 		&cli.StringFlag{Name: "mana-vm-sku", Value: defaults.MANAVMSKU, Destination: &Config.MANAVMSKU, Sources: cli.EnvVars("MANA_VM_SKU"), Usage: "VM size for MANA scenarios; must support MANA and NVMe"},
+		&cli.StringFlag{Name: "kata-direct-virtualization-vm-sku", Destination: &Config.KataDirectVirtualizationVMSKU, Sources: cli.EnvVars("KATA_DIRECT_VIRTUALIZATION_VM_SKU"), Usage: "Enable the Kata direct virtualization scenario on this official L1VH SKU; requires quota in the test region"},
 		&cli.BoolFlag{Name: "disable-scriptless", Value: defaults.DisableScriptless, Destination: &Config.DisableScriptless, Sources: cli.EnvVars("DISABLE_SCRIPTLESS")},
 		&cli.BoolFlag{Name: "disable-scriptless-compilation", Value: defaults.DisableScriptLessCompilation, Destination: &Config.DisableScriptLessCompilation, Sources: cli.EnvVars("DISABLE_SCRIPTLESS_COMPILATION")},
 		&cli.StringFlag{Name: "log-dir", Value: defaults.E2ELoggingDir, Destination: &Config.E2ELoggingDir, Sources: cli.EnvVars("LOGGING_DIR")},
