@@ -712,6 +712,36 @@
     },
     {
       "type": "file",
+      "source": "kata-containers-cc.img",
+      "destination": "/home/packer/kata-containers-cc.img"
+    },
+    {
+      "type": "file",
+      "source": "kata-containers-igvm.img",
+      "destination": "/home/packer/kata-containers-igvm.img"
+    },
+    {
+      "type": "file",
+      "source": "kata-containers-igvm-debug.img",
+      "destination": "/home/packer/kata-containers-igvm-debug.img"
+    },
+    {
+      "type": "file",
+      "source": "igvm-measurement.cose",
+      "destination": "/home/packer/igvm-measurement.cose"
+    },
+    {
+      "type": "file",
+      "source": "igvm-debug-measurement.cose",
+      "destination": "/home/packer/igvm-debug-measurement.cose"
+    },
+    {
+      "type": "file",
+      "source": "reference-info-base64",
+      "destination": "/home/packer/reference-info-base64"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },

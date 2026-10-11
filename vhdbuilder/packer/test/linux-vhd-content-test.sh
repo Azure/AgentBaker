@@ -1012,6 +1012,38 @@ testLSMBPF() {
 }
 
 
+testKataCC() {
+  test="testKataCC"
+  echo "$test:Start"
+
+  if ! echo "$FEATURE_FLAGS" | grep -q "kata"; then
+    echo "$test: not a Kata SKU, skipping"
+    echo "$test:Finish"
+    return 0
+  fi
+
+  # The UVM is only built when the image builder enables kata-cc; vanilla kata images skip it.
+  local katacc_dir=/opt/confidential-containers/share/kata-containers
+  if [ ! -s "$katacc_dir/kata-containers.img" ]; then
+    echo "$test: no kata-cc UVM in the image, skipping"
+    echo "$test:Finish"
+    return 0
+  fi
+
+  # ASSUMPTION: stub file names until the 4.1.0.kata1 recipes land (see packer_source.sh).
+  for f in kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose igvm-debug-measurement.cose reference-info-base64; do
+    [ -s "$katacc_dir/$f" ] || err $test "$katacc_dir/$f is missing or empty"
+  done
+  [ -x /usr/local/bin/containerd-shim-kata-cc-v2 ] || err $test "containerd-shim-kata-cc-v2 is missing"
+  [ -f /opt/confidential-containers/share/defaults/kata-containers/configuration-openvmm-azure-snp-runtime-rs.toml ] ||
+    err $test "kata-cc runtime configuration is missing"
+  for m in erofs dm_verity; do
+    grep -qx "$m" /etc/modules-load.d/kata-cc.conf 2>/dev/null || err $test "$m is not in /etc/modules-load.d/kata-cc.conf"
+  done
+
+  echo "$test:Finish"
+}
+
 testCloudInit() {
   local test="testCloudInit"
   echo "$test:Start"
@@ -2821,6 +2853,7 @@ testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testLSMBPF $OS_SKU $OS_VERSION
+testKataCC
 testCloudInit $OS_SKU
 testAppArmorInstalled $OS_SKU $OS_VERSION
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout

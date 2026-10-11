@@ -167,6 +167,11 @@ enableMarinerKata() {
     sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /HvLoader.efi\n    chainloader /HvLoader.efi lxhvloader.dll MSHV_ROOT=\\\\Windows MSHV_ENABLE=TRUE MSHV_SCHEDULER_TYPE=ROOT MSHV_X2APIC_POLICY=ENABLE MSHV_SEV_SNP=TRUE MSHV_LOAD_OPTION=INCLUDETRACEMETADATA=1\n    boot\n    search --no-floppy --fs-uuid '"$boot_uuid"' --set=root\n    linux $bootprefix/$mariner_linux_mshv $mariner_cmdline_mshv $systemd_cmdline root=$rootdevice\n    if [ -f $bootprefix/$mariner_initrd_mshv ]; then\n    initrd $bootprefix/$mariner_initrd_mshv\n    fi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
 }
 
+# containerd's EROFS snapshotter (dmverity_mode) and its CRI plugin fail to load without these modules.
+enableKataCCKernelModules() {
+    printf '%s\n' erofs dm_verity > /etc/modules-load.d/kata-cc.conf
+}
+
 activateNfConntrack() {
     # explicitly activate nf_conntrack module so associated sysctls can be properly set
     echo nf_conntrack >> /etc/modules-load.d/contrack.conf

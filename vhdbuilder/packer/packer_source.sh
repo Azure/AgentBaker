@@ -313,6 +313,18 @@ copyPackerFiles() {
       KATA_IMAGE_SRC=/home/packer/kata-containers.img
       KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
+
+      # ASSUMPTION: stub names/paths for the kata-cc (OpenVMM SNP) UVM until the 4.1.0.kata1 recipes land;
+      # they must match the image/igvm paths in configuration-openvmm-azure-snp-runtime-rs.toml.
+      # The image builder uploads empty placeholders when it doesn't build kata-cc, so only install non-empty files.
+      KATACC_IMAGE_SRC=/home/packer/kata-containers-cc.img
+      KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
+      if [ -s "$KATACC_IMAGE_SRC" ]; then
+        cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0644
+        for KATACC_FILE in kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose igvm-debug-measurement.cose reference-info-base64; do
+          cpAndMode /home/packer/$KATACC_FILE $KATACC_CONFIG_DIR/$KATACC_FILE 0644
+        done
+      fi
     fi
   fi
 
