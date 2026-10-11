@@ -2,6 +2,29 @@
 
 VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
 
+# Preserve the current confidential-container package layout. Future OpenVMM
+# package/layout changes belong here, not in the RP image-selection contract.
+installKataCCPayload() {
+  local source_dir=$1
+  local destination=$2
+  local name
+  for name in kata-containers.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64 signing-build-id; do
+    if [ ! -s "$source_dir/$name" ]; then
+      echo "Missing signed Kata-CC payload: $name" >&2
+      return 1
+    fi
+  done
+  mkdir -p "$destination" || return 1
+  for name in kata-containers.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64 signing-build-id; do
+    install -m 0644 "$source_dir/$name" "$destination/$name" || return 1
+  done
+  for name in kata-containers-igvm-debug.img igvm-debug-measurement.cose; do
+    if [ -f "$source_dir/$name" ]; then
+      install -m 0644 "$source_dir/$name" "$destination/$name" || return 1
+    fi
+  done
+}
+
 kernelVersionGe() {
   local version_a="$1"
   local version_b="$2"
@@ -401,6 +424,9 @@ copyPackerFiles() {
       KATA_IMAGE_SRC=/home/packer/kata-containers.img
       KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
+      if [[ ",${FEATURE_FLAGS}," == *",kata-cc,"* ]]; then
+        installKataCCPayload /home/packer/kata-cc-payload "$KATACC_CONFIG_DIR" || exit 1
+      fi
     fi
   fi
 

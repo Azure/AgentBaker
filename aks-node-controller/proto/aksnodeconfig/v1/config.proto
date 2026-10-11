@@ -25,6 +25,8 @@ option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aks
 enum WorkloadRuntime {
   WORKLOAD_RUNTIME_UNSPECIFIED = 0;
   WORKLOAD_RUNTIME_OCI_CONTAINER = 1;
+  // Stable workload intent; the VHD owns the hypervisor, guest and configuration.
+  WORKLOAD_RUNTIME_KATA_CC_ISOLATION = 2;
 }
 
 message Configuration {

@@ -54,12 +54,17 @@ else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 else ifeq (${OS_SKU},AzureLinux)
+ifneq ($(findstring kata-cc,$(FEATURE_FLAGS)),)
+	@jq '.provisioners |= (.[0:1] + [{"type":"file","source":"kata-cc-payload","destination":"/home/packer"}] + .[1:])' vhdbuilder/packer/vhd-image-builder-mariner.json > vhdbuilder/packer/vhd-image-builder-kata-cc.generated.json
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-kata-cc.generated.json
+else
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
 	@echo "Using packer template file vhd-image-builder-mariner-cvm.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-cvm.json
 else
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+endif
 endif
 else ifeq (${OS_SKU},AzureContainerLinux)
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)

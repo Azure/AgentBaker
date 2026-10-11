@@ -8,6 +8,12 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: kataCC
+    type: boolean
+    default: false
+  - name: kataCCSigningBuildId
+    type: string
+    default: ''
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -46,7 +52,7 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
 
   - task: DownloadPipelineArtifact@2
-    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
+    condition: and(eq('${{ parameters.kataCC }}', false), or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
     displayName: 'Download Kata and Kata CC AzureLinux3_0 UVM artifact'
     inputs:
       source: specific
@@ -62,6 +68,36 @@ steps:
         **/kata-containers.img**
         **/kata-containers-version.txt
       downloadPath: $(Build.SourcesDirectory)
+
+  - ${{ if eq(parameters.kataCC, true) }}:
+    - bash: |
+        [[ "$SIGNING_BUILD_ID" =~ ^[1-9][0-9]*$ ]] || { echo 'A successful signing pipeline run ID is required'; exit 1; }
+      displayName: Validate pinned Kata-CC signing run
+      env:
+        SIGNING_BUILD_ID: ${{ parameters.kataCCSigningBuildId }}
+    - task: DownloadPipelineArtifact@2
+      displayName: Download signed AZL3 Kata-CC payload
+      inputs:
+        source: specific
+        project: CloudNativeCompute
+        pipeline: 318279
+        buildVersionToDownload: specific
+        buildId: ${{ parameters.kataCCSigningBuildId }}
+        allowPartiallySucceededBuilds: false
+        allowFailedBuilds: false
+        artifactName: drop_container_job_sign_uvm_azl3
+        itemPattern: |
+          **/kata-containers.img
+          **/kata-containers-igvm.img
+          **/kata-containers-igvm-debug.img
+          **/igvm-measurement.cose
+          **/igvm-debug-measurement.cose
+          **/reference-info-base64
+        downloadPath: $(Build.SourcesDirectory)/kata-cc-signed
+    - bash: bash vhdbuilder/packer/prepare-kata-cc-artifacts.sh kata-cc-signed
+      displayName: Prepare signed Kata-CC files for Packer
+      env:
+        KATA_CC_SIGNING_BUILD_ID: ${{ parameters.kataCCSigningBuildId }}
 
   - bash: |
       set -euo pipefail
