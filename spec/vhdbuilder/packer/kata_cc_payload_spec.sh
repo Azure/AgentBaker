@@ -6,7 +6,7 @@ Describe 'AZL3 Kata-CC signed payload'
   setup() {
     TEST_DIR=$(mktemp -d)
     mkdir -p "$TEST_DIR/source/nested"
-    for name in kata-containers.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64; do
+    for name in kata-containers.img kata-containers-cc.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64; do
       printf 'test-only %s\n' "$name" > "$TEST_DIR/source/nested/$name"
     done
     PREPARE_SCRIPT="$PWD/vhdbuilder/packer/prepare-kata-cc-artifacts.sh"
@@ -44,6 +44,7 @@ Describe 'AZL3 Kata-CC signed payload'
     When call installKataCCPayload "$TEST_DIR/payload" "$TEST_DIR/installed"
     The status should be success
     The contents of file "$TEST_DIR/installed/igvm-measurement.cose" should eq 'test-only igvm-measurement.cose'
+    The contents of file "$TEST_DIR/installed/kata-containers-cc.img" should eq 'test-only kata-containers-cc.img'
     The contents of file "$TEST_DIR/installed/signing-build-id" should eq '123'
   End
 End

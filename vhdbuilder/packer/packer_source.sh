@@ -8,14 +8,14 @@ installKataCCPayload() {
   local source_dir=$1
   local destination=$2
   local name
-  for name in kata-containers.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64 signing-build-id; do
+  for name in kata-containers.img kata-containers-cc.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64 signing-build-id; do
     if [ ! -s "$source_dir/$name" ]; then
       echo "Missing signed Kata-CC payload: $name" >&2
       return 1
     fi
   done
   mkdir -p "$destination" || return 1
-  for name in kata-containers.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64 signing-build-id; do
+  for name in kata-containers.img kata-containers-cc.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64 signing-build-id; do
     install -m 0644 "$source_dir/$name" "$destination/$name" || return 1
   done
   for name in kata-containers-igvm-debug.img igvm-debug-measurement.cose; do

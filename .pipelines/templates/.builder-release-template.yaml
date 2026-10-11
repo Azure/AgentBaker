@@ -88,6 +88,7 @@ steps:
         artifactName: drop_container_job_sign_uvm_azl3
         itemPattern: |
           **/kata-containers.img
+          **/kata-containers-cc.img
           **/kata-containers-igvm.img
           **/kata-containers-igvm-debug.img
           **/igvm-measurement.cose

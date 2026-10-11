@@ -6,7 +6,7 @@ set -euo pipefail
 source_dir=${1:?signed artifact directory is required}
 destination=${2:-kata-cc-payload}
 mkdir -p "$destination"
-for name in kata-containers.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64; do
+for name in kata-containers.img kata-containers-cc.img kata-containers-igvm.img igvm-measurement.cose reference-info-base64; do
     mapfile -t matches < <(find "$source_dir" -type f -name "$name")
     if [ "${#matches[@]}" -ne 1 ] || [ ! -s "${matches[0]}" ]; then
         echo "Expected one nonempty signed payload file: $name" >&2
