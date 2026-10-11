@@ -52,10 +52,11 @@ steps:
       source: specific
       project: CloudNativeCompute
       pipeline: 417429
-      specificBuildWithTriggering: true
+      specificBuildWithTriggering: false
       allowPartiallySucceededBuilds: false
-      buildVersionToDownload: 'latestFromBranch'
-      branchName: 'refs/heads/master'
+      # Test-only pin to the producer PR run; do not merge this override.
+      buildVersionToDownload: 'specific'
+      pipelineId: 185168866
       downloadType: 'single'
       artifactName: 'mariner-kata-3-0-uvm'
       itemPattern: |
