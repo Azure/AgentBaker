@@ -1357,6 +1357,13 @@ func TestAgentPoolProfileIsACL(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "ACL Kata distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLKataGen2TL,
+			},
+			expected: true,
+		},
+		{
 			name: "Flatcar distro is not ACL",
 			ap: AgentPoolProfile{
 				Distro: AKSFlatcarGen2,
