@@ -168,4 +168,31 @@ Describe 'Azure Linux reconciliation failure isolation and events'
         The output should include 'generic live-patching completed successfully'
         The stderr should include 'Not a directory'
     End
+    It 'dispatches the RP NPD contract alongside securityPatch'
+        updateSecurityPatch() { echo "security handler: $1"; }
+        securityPatchIsCurrent() { return 1; }
+        updateNPDConfigs() { echo "npd handler: $1"; }
+        npdConfigsIsCurrent() { return 1; }
+
+        When call apply_components '{"components":[{"name":"npdConfig","nodeConfig":"{\"azureLinuxPackageVersions\":{\"3.0\":\"1.0.0-1.azl3\"}}"},{"name":"securityPatch","nodeConfig":"{}"}]}' "${TEST_NODE}"
+        The status should be success
+        The output should include 'npd handler: {"azureLinuxPackageVersions":{"3.0":"1.0.0-1.azl3"}}'
+        The output should include 'security handler: {}'
+        The variable LIVE_PATCHING_COMPONENT_RESULTS should equal '{"npdConfig":{"code":"Succeeded"},"securityPatch":{"code":"Succeeded"}}'
+        The contents of file "${LIVE_PATCHING_STATE_FILE}" should include 'npdConfig'
+    End
+
+    It 'continues securityPatch when NPD fails'
+        updateSecurityPatch() { echo 'security handler ran'; }
+        securityPatchIsCurrent() { return 1; }
+        updateNPDConfigs() { return 1; }
+        npdConfigsIsCurrent() { return 1; }
+
+        When call apply_components '{"components":[{"name":"npdConfig","nodeConfig":"{}"},{"name":"securityPatch","nodeConfig":"{}"}]}' "${TEST_NODE}"
+        The status should be failure
+        The output should include 'component failed: npdConfig'
+        The output should include 'security handler ran'
+        The variable LIVE_PATCHING_COMPONENT_RESULTS should equal '{"npdConfig":{"code":"Failed"},"securityPatch":{"code":"Succeeded"}}'
+        The contents of file "${LIVE_PATCHING_STATE_FILE}" should not include 'npdConfig'
+    End
 End

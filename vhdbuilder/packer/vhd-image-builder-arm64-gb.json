@@ -376,7 +376,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/npd-update.sh",
+      "source": "parts/linux/cloud-init/artifacts/npd-update.sh",
       "destination": "/home/packer/npd-update.sh"
     },
     {

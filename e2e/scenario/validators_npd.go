@@ -20,16 +20,23 @@ func ValidateBakedNPD(ctx context.Context, s *Scenario) error {
 		return nil
 	}
 	const script = `set -e
+package_version() {
+  if command -v dpkg-query >/dev/null; then
+    [ "$(dpkg-query -W -f='${db:Status-Status}' "$1" 2>/dev/null)" = installed ] || return 1
+    dpkg-query -W -f='${Version}' "$1"
+  else
+    rpm -q --qf '%{VERSION}-%{RELEASE}' "$1" 2>/dev/null
+  fi
+}
 # Specialized MAI images have the marker but do not use our config package.
-if ! command -v dpkg-query >/dev/null || ! dpkg-query -W -f='${db:Status-Status}' node-problem-detector-aks-config 2>/dev/null | grep -qx installed; then
+if ! config_version="$(package_version node-problem-detector-aks-config)"; then
   echo "marker present without AgentBaker config package; skipping"
   exit 0
 fi
 systemctl is-enabled node-problem-detector.service >/dev/null
 for attempt in $(seq 1 30); do
   if systemctl is-active --quiet node-problem-detector.service && curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:20256/healthz >/dev/null; then
-    echo "enabled and healthy: binary $(dpkg-query -W -f='${Version}' node-problem-detector-kubernetes 2>/dev/null)," \
-      "config $(dpkg-query -W -f='${Version}' node-problem-detector-aks-config 2>/dev/null)"
+    echo "enabled and healthy: binary $(package_version node-problem-detector-kubernetes), config ${config_version}"
     exit 0
   fi
   sleep 2

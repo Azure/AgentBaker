@@ -13,7 +13,7 @@ Describe 'snapshot update service commands'
             jq -e '
                 [.. | objects | .source? // empty] as $sources |
                 ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/security-update.sh")) != null and
-                ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/npd-update.sh")) != null and
+                ($sources | index("parts/linux/cloud-init/artifacts/npd-update.sh")) != null and
                 ($sources | index("vhdbuilder/packer/install-npd.sh")) != null and
                 ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh")) != null and
                 ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service")) != null and

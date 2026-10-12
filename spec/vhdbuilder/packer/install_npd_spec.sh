@@ -24,9 +24,68 @@ Describe 'NPD package selection'
         The output should not include 'ubuntu26.04u'
     End
 
-    It 'leaves Azure Linux extension-managed'
+    It 'selects exact RPM releases for Azure Linux 3'
         When call select_npd_packages AZURELINUX 3.0
         The status should be success
+        The output should include 'node-problem-detector-kubernetes: 0.8.25-16.azl3'
+        The output should include 'node-problem-detector-aks-config: 1.0.0-1.azl3'
+    End
+
+    select_npd_variant_packages() {
+        local package
+        while IFS= read -r package; do
+            updatePackageVersions "${package}" AZURELINUX 3.0 OSGUARD
+            printf '%s: %s\n' "$(jq -r .name <<< "${package}")" "${PACKAGE_VERSIONS[*]}"
+        done < <(jq -c '.Packages[] | select(.name | startswith("node-problem-detector"))' parts/common/components.json)
+    }
+
+    It 'leaves Azure Linux OSGuard extension-managed'
+        When call select_npd_variant_packages
+        The status should be success
+        The output should not include 'azl3'
+    End
+
+    It 'leaves Mariner extension-managed'
+        When call select_npd_packages MARINER 2.0
+        The status should be success
         The output should not include 'ubuntu'
+        The output should not include 'azl'
+    End
+End
+
+Describe 'NPD VHD installation helper'
+    Include ./vhdbuilder/packer/install-npd.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_TDNF_LOCK_FILE="${TEST_DIR}/locks.d/node-problem-detector.conf"
+        VHD_LOGS_FILEPATH="${TEST_DIR}/vhd.log"
+        TEST_CALLS="${TEST_DIR}/calls"
+        touch "${TEST_CALLS}"
+        export TEST_CALLS
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    isUbuntu() { return 1; }
+    isAzureLinux() { return 0; }
+    Mock tdnf
+        echo "tdnf $*" >> "${TEST_CALLS}"
+    End
+    dnf_install() { echo "dnf_install $*" >> "${TEST_CALLS}"; }
+
+    It 'installs and locks the Azure Linux binary without caching it'
+        When call installNPDPackage node-problem-detector-kubernetes 0.8.25-16.azl3
+        The status should be success
+        The contents of file "${TEST_CALLS}" should equal 'dnf_install 30 1 600 node-problem-detector-kubernetes-0.8.25-16.azl3'
+        The contents of file "${NPD_TDNF_LOCK_FILE}" should equal 'node-problem-detector-kubernetes'
+    End
+
+    It 'locks each Azure Linux package once'
+        holdNPDPackage node-problem-detector-kubernetes
+        When call holdNPDPackage node-problem-detector-kubernetes
+        The status should be success
+        The lines of contents of file "${NPD_TDNF_LOCK_FILE}" should equal 1
     End
 End

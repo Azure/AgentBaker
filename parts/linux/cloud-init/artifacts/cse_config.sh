@@ -673,13 +673,19 @@ configureNodeExporter() {
 
 configureNodeProblemDetector() {
     local skip_file="${NPD_SKIP_FILE:-/etc/node-problem-detector.d/skip_vhd_npd}"
-    if [ "${OS}" != "${UBUNTU_OS_NAME}" ] || [ ! -f "${skip_file}" ]; then
+    if ! { isUbuntu || isAzureLinux; } || [ ! -f "${skip_file}" ]; then
         echo "Skipping baked NPD configuration: this node remains extension-managed"
         return 0
     fi
     # The MAI image path also uses the skip marker; only manage the PMC package
     # installed by AgentBaker here.
-    if ! dpkg-query -W -f='${db:Status-Status}' node-problem-detector-aks-config 2>/dev/null | grep -qx installed; then
+    local installed
+    if isUbuntu; then
+        installed="$(dpkg-query -W -f='${db:Status-Status}' node-problem-detector-aks-config 2>/dev/null)"
+    else
+        rpm -q node-problem-detector-aks-config >/dev/null 2>&1 && installed=installed
+    fi
+    if [ "${installed:-}" != installed ]; then
         echo "Skipping NPD activation: AgentBaker config package is not installed"
         return 0
     fi
