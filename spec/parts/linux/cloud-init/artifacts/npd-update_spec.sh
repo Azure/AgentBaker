@@ -409,3 +409,27 @@ Describe 'CSE baked NPD activation'
         The status should equal 4
     End
 End
+
+Describe 'GPU driver NPD restart'
+    Include ./parts/linux/cloud-init/artifacts/cse_config_gpu.sh
+    setup_gpu() { NPD_SKIP_FILE="$(mktemp)"; }
+    cleanup_gpu() { rm -f "${NPD_SKIP_FILE}"; }
+    BeforeEach setup_gpu
+    AfterEach cleanup_gpu
+    Mock systemctl
+        echo "systemctl $*"
+    End
+
+    It 'leaves baked NPD for nodePrep activation'
+        When call restartExtensionManagedNPD
+        The status should be success
+        The output should equal ''
+    End
+
+    It 'still restarts extension-managed NPD'
+        rm "${NPD_SKIP_FILE}"
+        When call restartExtensionManagedNPD
+        The status should be success
+        The output should equal 'systemctl restart node-problem-detector'
+    End
+End
