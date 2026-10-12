@@ -44,7 +44,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		}
 	}
 
-	containerdVersion, _ := detectContainerdVersion(ctx)
+	isContainerdV2 := resolveIsContainerdV2(ctx, config)
 	cloudProviderSettings := getCloudProviderSettings(config)
 	isMIGNode := getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())
 	env := map[string]string{
@@ -187,8 +187,8 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"AZURE_ENVIRONMENT_FILEPATH":                           getAzureEnvironmentFilepath(config),
 		"KUBE_CA_CRT":                                          config.GetKubernetesCaCert(),
 		"KUBENET_TEMPLATE":                                     getKubenetTemplate(),
-		"CONTAINERD_CONFIG_CONTENT":                            getContainerdConfigBase64(config, containerdVersion),
-		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                     getNoGPUContainerdConfigBase64(config, containerdVersion),
+		"CONTAINERD_CONFIG_CONTENT":                            getContainerdConfigBase64(config, isContainerdV2),
+		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                     getNoGPUContainerdConfigBase64(config, isContainerdV2),
 		"IS_KATA":                                              fmt.Sprintf("%v", config.GetIsKata()),
 		"ARTIFACT_STREAMING_ENABLED":                           fmt.Sprintf("%v", config.GetEnableArtifactStreaming()),
 		"SYSCTL_CONTENT":                                       getSysctlContent(config.GetCustomLinuxOsConfig().GetSysctlConfig()),

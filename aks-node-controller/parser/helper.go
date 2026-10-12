@@ -172,12 +172,12 @@ func getKubenetTemplate() string {
 }
 
 // getContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
+func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, isContainerdV2 bool) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false, containerdVersion)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false, isContainerdV2)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -186,12 +186,12 @@ func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, con
 }
 
 // getNoGPUContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
+func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, isContainerdV2 bool) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true, containerdVersion)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true, isContainerdV2)
 	if err != nil {
 		return fmt.Sprintf("error getting No GPU containerd config from node bootstrap variables: %v", err)
 	}
@@ -199,7 +199,7 @@ func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool, containerdVersion string) (string, error) {
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool, isContainerdV2 bool) (string, error) {
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
@@ -208,7 +208,7 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
 	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
 	var _template *template.Template
-	if isContainerdV2(containerdVersion) {
+	if isContainerdV2 {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
@@ -248,6 +248,22 @@ func isContainerdV2(version string) bool {
 		return false
 	}
 	return IsKubernetesVersionGe(version, "2.0.0")
+}
+
+// resolveIsContainerdV2 determines whether the node's containerd is a 2.x release, i.e.
+// which CRI plugin schema to render in containerd's config.toml.
+//
+// It prefers config.GetContainerdConfig().IsContainerdV2, which RP resolves ahead of time
+// (statically, from the node's distro/VHD) when it builds the AKSNodeConfig. This avoids a
+// live exec on the node in the common case. If RP did not set it (e.g. an older control
+// plane that predates this field), it falls back to the original on-node detection via
+// `containerd --version`, so behavior is unchanged for nodes bootstrapped by older RPs.
+func resolveIsContainerdV2(ctx context.Context, config *aksnodeconfigv1.Configuration) bool {
+	if cc := config.GetContainerdConfig(); cc != nil && cc.IsContainerdV2 != nil {
+		return cc.GetIsContainerdV2()
+	}
+	version, _ := detectContainerdVersion(ctx)
+	return isContainerdV2(version)
 }
 
 func getIsMIGNode(gpuInstanceProfile string, migProfileLayout []string) bool {
