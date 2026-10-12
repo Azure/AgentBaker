@@ -65,5 +65,7 @@ func (a *App) logRepositoryEvent(name string, event repositoryEvent, level helpe
 		slog.Error("failed to marshal repository telemetry", "error", err)
 		return
 	}
-	a.logEvent(name, string(message), level, start, end)
+	if a.eventLogger != nil {
+		a.eventLogger.LogEvent(name, string(message), level, start, end)
+	}
 }

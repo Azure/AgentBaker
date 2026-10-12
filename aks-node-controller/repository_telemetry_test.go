@@ -89,7 +89,6 @@ func TestRepositoryTelemetryNilLogger(t *testing.T) {
 	app := &App{}
 	now := time.Now()
 	require.NotPanics(t, func() {
-		app.logEvent("test", "message", helpers.EventLevelInformational, now, now)
 		app.logRepositoryEvent("RepositoryDownloadOutcome", repositoryEvent{
 			Route: "fastpath", Outcome: "success",
 		}, helpers.EventLevelInformational, now, now)
