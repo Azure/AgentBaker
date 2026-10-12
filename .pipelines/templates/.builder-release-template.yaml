@@ -56,7 +56,7 @@ steps:
       allowPartiallySucceededBuilds: false
       # Test-only pin to the producer PR run; do not merge this override.
       buildVersionToDownload: 'specific'
-      pipelineId: 185168866
+      pipelineId: 185349533
       downloadType: 'single'
       artifactName: 'mariner-kata-3-0-uvm'
       itemPattern: |
