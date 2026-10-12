@@ -393,6 +393,19 @@ enable_debug = {str(debug).lower()}
         self.assertIn("/dev/mshv", host)
         self.assertIn('integration/check-image.sh', host)
 
+    def test_installer_uses_agentbaker_package_manager(self):
+        script = Path("vhdbuilder/packer/openvmm/install.sh").read_text()
+        self.assertIn('dnf install -y "${packages[@]}"', script)
+        self.assertIn('dnf upgrade -y "${packages[@]}"', script)
+        self.assertNotIn("tdnf ", script)
+
+    def test_kernel_module_checks_use_packaged_driver_name(self):
+        for name in ("install.sh", "check-image.sh", "check-host.sh"):
+            with self.subTest(script=name):
+                text = Path("vhdbuilder/packer/openvmm", name).read_text()
+                self.assertIn("for module in mshv_root loop dm_mod dm_zero dm_verity erofs overlay;", text)
+                self.assertNotIn("for module in mshv ", text)
+
     def test_containerd_contract(self):
         path = Path("vhdbuilder/packer/openvmm/containerd-v2.toml")
         variants = [path.read_text(), subprocess.check_output([

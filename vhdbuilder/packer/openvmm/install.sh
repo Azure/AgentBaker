@@ -31,7 +31,7 @@ assert c["name"] == os.environ["OPENVMM_BUILD_VM_NAME"], "not the approved dispo
 python3 "$integration/validate.py" "$bundle"
 prefix=/opt/kata-openvmm
 [ ! -e "$prefix" ] || { echo "$prefix already exists; refusing overwrite" >&2; exit 1; }
-for tool in tdnf grub2-mkconfig grub2-script-check dracut depmod modinfo python3 findmnt; do
+for tool in dnf grub2-mkconfig grub2-script-check dracut depmod modinfo python3 findmnt; do
     command -v "$tool" >/dev/null
 done
 
@@ -43,9 +43,9 @@ PY
 )
 mapfile -t packages <<< "$package_names"
 # Buddy repositories are configured by the image pipeline, not this installer.
-tdnf install -y "${packages[@]}" device-mapper util-linux
+dnf install -y "${packages[@]}" device-mapper util-linux
 # Also update packages already present in the marketplace image.
-tdnf upgrade -y "${packages[@]}"
+dnf upgrade -y "${packages[@]}"
 for tool in dmsetup losetup mount; do command -v "$tool" >/dev/null; done
 kernel_release=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["kernel_release"])' "$bundle/bundle.json")
 test -x /etc/grub.d/50_mariner_mshv_menuentry
@@ -54,7 +54,7 @@ python3 "$integration/validate.py" --installed-host "$bundle/bundle.json"
 test -s "/boot/vmlinuz-$kernel_release"
 test -d "/lib/modules/$kernel_release"
 depmod "$kernel_release"
-for module in mshv loop dm_mod dm_zero dm_verity erofs overlay; do
+for module in mshv_root loop dm_mod dm_zero dm_verity erofs overlay; do
     modinfo -k "$kernel_release" "$module" >/dev/null
 done
 if [ ! -s "/boot/initramfs-$kernel_release.img" ]; then

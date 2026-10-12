@@ -7,7 +7,7 @@ python3 "$prefix/integration/validate.py" --installed-host "$manifest"
 expected=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["kernel_release"])' "$manifest")
 test -s "/boot/vmlinuz-$expected"
 test -s "/boot/initramfs-$expected.img"
-for module in mshv loop dm_mod dm_zero dm_verity erofs overlay; do
+for module in mshv_root loop dm_mod dm_zero dm_verity erofs overlay; do
     modinfo -k "$expected" "$module" >/dev/null
 done
 export PATH="$prefix/bin:$PATH"

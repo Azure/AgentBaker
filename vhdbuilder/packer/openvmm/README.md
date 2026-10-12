@@ -15,7 +15,8 @@ repositories containing:
 - Matching `mshv`, `mshv-bootloader-lx` and `mshv-kd` packages.
 - `openvmm`, including the confidential-only low-ECAM fix.
 
-The installer installs/upgrades these package names, then checks their exact installed
+The installer uses `dnf`, matching ordinary AgentBaker repository handling,
+to install/upgrade these package names, then checks their exact installed
 epoch/version/release/architecture against `bundle.json` and verifies RPM payloads.
 Configure repository snapshots/priorities to resolve those versions; a mismatch
 fails the build instead of silently accepting a different stack. Kernel module
@@ -93,9 +94,12 @@ The former `host-components.json` and
 ## Installation and boot
 
 Normal dependencies supply `kata-packages-host`, its existing `HvLoader.efi`,
-and the stock Dom0 generator. This integration uses `tdnf` for the pinned
+and the stock Dom0 generator. This integration uses `dnf` for the pinned
 kernel/MSHV/OpenVMM packages, retains or generates the matching initramfs,
 and verifies kernel module availability.
+
+The packaged MSHV driver is named `mshv_root`; checks must not assume a
+module named `mshv` merely because the device is `/dev/mshv`.
 
 `grub-menuentry.sh` reuses the stock Dom0 generator's root/kernel discovery
 under a separate `OpenVMM SNP` entry and adds `MSHV_FORCE_NESTED=TRUE`. The

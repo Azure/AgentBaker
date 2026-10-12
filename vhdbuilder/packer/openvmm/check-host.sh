@@ -9,7 +9,7 @@ expected=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["kern
     echo "OpenVMM requires kernel $expected with matching modules; running $(uname -r)" >&2
     exit 1
 }
-for module in mshv loop dm_mod dm_zero dm_verity erofs overlay; do modprobe "$module"; done
+for module in mshv_root loop dm_mod dm_zero dm_verity erofs overlay; do modprobe "$module"; done
 test -c /dev/mshv
 python3 "$prefix/integration/validate.py" --boot-evidence \
     "$manifest" "$prefix/provenance/pre-reboot-boot-id"
