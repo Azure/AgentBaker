@@ -3,6 +3,7 @@ package scenario
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -12,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // Shared shell prelude for every node-side phase: logging, assertion counters, a
@@ -164,6 +166,68 @@ host_resolves_external_via() { dig +short +timeout=3 +tries=1 mcr.microsoft.com 
 var localDNSFallbackArtifacts = []string{
 	"/etc/systemd/system/localdns-fallback.service",
 	"/opt/azure/containers/localdns/localdns-fallback.sh",
+}
+
+// nativeLookupAnswered reports whether a busybox nslookup actually resolved.
+//
+// Not the exit code: busybox nslookup returns 0 on NXDOMAIN in several builds, so the
+// answer section is the only trustworthy signal. And not "any Address line" either --
+// busybox prints the SERVER as "Server:"/"Address:" before the answer, so that would
+// match on a failed lookup too. Only addresses after the "Name:" line are answers.
+//
+//	Server:    169.254.10.11
+//	Address:   169.254.10.11:53     <- the server, present even on NXDOMAIN
+//
+//	Name:      kubernetes.default.svc.cluster.local
+//	Address 1: 10.0.0.1             <- the answer
+func nativeLookupAnswered(out string) bool {
+	seenName := false
+	for _, line := range strings.Split(out, "\n") {
+		t := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(t, "Name:"):
+			seenName = true
+		case seenName && strings.HasPrefix(t, "Address"):
+			return true
+		}
+	}
+	return false
+}
+
+// validateLocalDNSPodNativeResolution resolves from inside the container, the way an
+// application does: no explicit server, so the pod's own /etc/resolv.conf, search list
+// and ndots decide the lookup.
+//
+// This is additive to the nsenter assertions, not a replacement, because they answer
+// different questions. 'nsenter --net=<pod netns> dig @169.254.10.11' proves packets
+// leave the pod's network namespace and reach a working resolver. It says nothing about
+// the resolver configuration kubelet wrote into the sandbox, which is what an
+// application actually depends on. If the two ever disagree, that is a bug neither sees
+// alone.
+//
+// Wrapped in the per-attempt cap plus poll that ValidateWireserverBlocked uses
+// (validation.go): exec streams can hang under konnectivity churn, and client-go can
+// return without an exit status (kube.go:42). The nsenter checks run first and remain
+// the authoritative signal, so a slow exec cannot by itself turn a working fallback red.
+func validateLocalDNSPodNativeResolution(ctx context.Context, s *Scenario, podName, fqdn, label string) error {
+	var last string
+	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 45*time.Second, true, func(ctx context.Context) (bool, error) {
+		attemptCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+		res, execErr := execOnPod(attemptCtx, s.Runtime.Kube, defaultNamespace, podName, []string{"nslookup", fqdn})
+		if execErr != nil {
+			logging.Logf(ctx, "%s: exec in %s failed, retrying: %v", label, podName, execErr)
+			return false, nil
+		}
+		last = res.stdout
+		return nativeLookupAnswered(last), nil
+	})
+	if err != nil {
+		return fmt.Errorf("%s: pod %s could not resolve %s through its own resolv.conf: %w (last nslookup output: %q)",
+			label, podName, fqdn, err, last)
+	}
+	logging.Logf(ctx, "%s: pod %s resolved %s natively, using its own resolv.conf", label, podName, fqdn)
+	return nil
 }
 
 func localDNSProbePod(s *Scenario, suffix string, policy corev1.DNSPolicy, hostNetwork bool) *corev1.Pod {
@@ -479,6 +543,24 @@ finish
 		return err
 	}
 
+	// ---- The same question, asked the way an application asks it --------------
+	// Phase 3 proved packets route out of each pod's netns to a working resolver.
+	// This proves the pod's own resolver configuration still produces an answer --
+	// search list, ndots, libc -- which is what a workload actually depends on and
+	// what the nsenter checks cannot reach.
+	if err := validateLocalDNSPodNativeResolution(ctx, s, podCF,
+		"kubernetes.default.svc.cluster.local", "OUTAGE"); err != nil {
+		return err
+	}
+	if err := validateLocalDNSPodNativeResolution(ctx, s, podDefault,
+		"mcr.microsoft.com", "OUTAGE"); err != nil {
+		return err
+	}
+	if err := validateLocalDNSPodNativeResolution(ctx, s, podDuring,
+		"kubernetes.default.svc.cluster.local", "OUTAGE"); err != nil {
+		return err
+	}
+
 	// ---- Phase 4: recovery ---------------------------------------------------
 	if err := phase("phase4-recovery", `
 rm -f "$FAULT"
@@ -536,6 +618,18 @@ host_resolves_external_via "$NODE_IP" \
   || { diag "node external after recovery"; fail "RECOVERY: node cannot resolve through ${NODE_IP}"; }
 finish
 `, podCF, podDefault, podDuring)); err != nil {
+		return err
+	}
+
+	// ---- And again natively, now that localdns is serving ---------------------
+	// The handoff is only correct if the pod's own resolver still answers once the
+	// nat chain is gone and localdns has rebound the listeners.
+	if err := validateLocalDNSPodNativeResolution(ctx, s, podCF,
+		"kubernetes.default.svc.cluster.local", "RECOVERY"); err != nil {
+		return err
+	}
+	if err := validateLocalDNSPodNativeResolution(ctx, s, podDefault,
+		"mcr.microsoft.com", "RECOVERY"); err != nil {
 		return err
 	}
 
