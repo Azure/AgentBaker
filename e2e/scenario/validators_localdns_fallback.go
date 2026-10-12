@@ -32,8 +32,8 @@ set -uo pipefail
 CLUSTER_IP=169.254.10.11
 NODE_IP=169.254.10.10
 CHAIN=LOCALDNS-FALLBACK
-ENVF=/etc/localdns/environment
-ENVBAK=/run/localdns-fallback-e2e-env.bak
+FAULT_DIR=/run/systemd/system/localdns.service.d
+FAULT=$FAULT_DIR/zz-e2e-fault.conf
 KUBELET_DEFAULT_FILE=/etc/default/kubelet
 RESOLV=/run/systemd/resolve/resolv.conf
 FAIL=0
@@ -185,9 +185,12 @@ func startLocalDNSProbePod(ctx context.Context, s *Scenario, suffix string, poli
 // also breaks external resolution for .11 clients whose query lands on a CoreDNS
 // replica running on this same node -- that replica resolves through its own .10.
 //
-// Fault injection corrupts LOCALDNS_COREFILE_BASE in /etc/localdns/environment.
-// Corrupting localdns.corefile does NOT work: localdns.sh rebuilds it from the
-// base64 on every start, so it self-heals and the node never breaks.
+// Fault injection overrides ExecStart with /bin/false, the same fault
+// scenario_localdns_restart_budget.go uses, so the unit spends its burst and
+// lands in terminal 'failed' in ~12s. Note what does NOT work: corrupting
+// localdns.corefile, because localdns.sh rebuilds it from the base64 in
+// /etc/localdns/environment on every start, so the node self-heals and never
+// breaks.
 func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) (err error) {
 	// The artifacts ship in the VHD (vhdbuilder/packer/packer_source.sh and, for
 	// OSGuard images, azlosguard.yml), not through CustomData, so their absence is a
@@ -234,7 +237,8 @@ func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) (err err
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
 		defer cancel()
 		restore := localDNSFallbackPrelude + `
-[ -f "$ENVBAK" ] && cp -a "$ENVBAK" "$ENVF"
+rm -f "$FAULT"
+systemctl daemon-reload
 systemctl stop localdns-fallback.service 2>/dev/null || true
 /opt/azure/containers/localdns/localdns-fallback.sh clear 2>/dev/null || true
 systemctl reset-failed localdns.service 2>/dev/null || true
@@ -289,7 +293,6 @@ finish
 	if err := phase("phase1-induce-failure", fmt.Sprintf(`
 POD_CF=%q
 POD_DEF=%q
-sudo cp -a "$ENVF" "$ENVBAK"
 
 [ "$(pod_nameserver "$POD_CF")" = "$CLUSTER_IP" ] \
   && ok "baseline: ClusterFirst pod is pinned to ${CLUSTER_IP}" \
@@ -298,17 +301,33 @@ sudo cp -a "$ENVF" "$ENVBAK"
   && ok "baseline: Default pod is pinned to ${NODE_IP}" \
   || fail "baseline: Default pod nameserver is $(pod_nameserver "$POD_DEF")"
 
-bad=$(printf 'THIS IS NOT A VALID COREFILE {{{\n' | base64 -w0)
-tmp=$(mktemp)
-while IFS= read -r l; do
-  case "$l" in LOCALDNS_COREFILE_BASE=*) echo "LOCALDNS_COREFILE_BASE=${bad}" ;; *) echo "$l" ;; esac
-done < "$ENVF" > "$tmp"
-sudo cp "$tmp" "$ENVF"; rm -f "$tmp"
+# Same fault the restart-budget validation uses (scenario_localdns_restart_budget.go):
+# override ExecStart so every start fails immediately. Five starts at RestartSec=2
+# and the refused sixth reach terminal 'failed' in ~12s, against ~69s for a
+# malformed Corefile, which has to run the real startup path to its timeout on
+# every attempt.
+#
+# It drives the fallback's gate identically. 'restart' stops the healthy localdns
+# first, so its ExecStopPost runs the real 'localdns.sh cleanup': the .10 drop-in
+# comes off, networkctl reload puts the DHCP upstream back, and the raw-table
+# NOTRACK rules go. Those are exactly the three things apply needs -- terminal
+# 'failed', a non-.10 upstream, and conntrack restored for the listeners.
+#
+# The shorter cycle also tightens the race the fallback's resolv.conf poll exists
+# for: OnFailure= fires as soon as ExecStopPost returns, while networkctl reload
+# is still asynchronous. Reaching 'failed' in 12s rather than 69s gives that poll
+# less slack, not more.
+#
+# /run, so a reboot cannot leave the fault behind; zz- so it sorts after anything
+# shipped in the unit directory.
+mkdir -p "$FAULT_DIR"
+printf '[Service]\nExecStart=\nExecStart=/bin/false\n' > "$FAULT"
+systemctl daemon-reload
 log "injected fault; restarting localdns"
 sudo systemctl reset-failed localdns.service 2>/dev/null || true
 sudo systemctl restart --no-block localdns.service
 
-wait_for 240 "localdns reaches terminal 'failed'" sh -c 'systemctl is-failed --quiet localdns.service' \
+wait_for 120 "localdns reaches terminal 'failed'" sh -c 'systemctl is-failed --quiet localdns.service' \
   || { diag "no terminal failed"; fail "localdns never reached terminal 'failed'"; finish; }
 ok "localdns reached terminal 'failed'"
 
@@ -426,7 +445,8 @@ finish
 
 	// ---- Phase 4: recovery ---------------------------------------------------
 	if err := phase("phase4-recovery", `
-sudo cp -a "$ENVBAK" "$ENVF"
+rm -f "$FAULT"
+systemctl daemon-reload
 log "fault removed; restarting localdns"
 sudo systemctl reset-failed localdns.service 2>/dev/null || true
 sudo systemd-run --unit=localdns-e2e-recover --collect /bin/systemctl restart localdns.service >/dev/null 2>&1 || true
