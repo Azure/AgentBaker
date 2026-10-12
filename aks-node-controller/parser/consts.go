@@ -65,3 +65,11 @@ const (
 	// defaultLocalDnsMemoryLimitInMb specifies the default Memory limit used in akslocaldns.
 	defaultLocalDnsMemoryLimitInMb string = "128M"
 )
+
+const (
+	// kubeletFlagRotateServerCertificates is the kubelet flag carrying serving certificate
+	// rotation intent when the kubelet config file is disabled. When the config file is
+	// enabled the RP strips this flag and sends the value as
+	// KubeletConfigFileConfig.serverTLSBootstrap instead.
+	kubeletFlagRotateServerCertificates string = "--rotate-server-certificates"
+)

@@ -2736,3 +2736,91 @@ func Test_getStringFromNetworkPolicyType(t *testing.T) {
 		})
 	}
 }
+
+func Test_getEnableKubeletServingCertificateRotation(t *testing.T) {
+	type args struct {
+		kubeletConfig *aksnodeconfigv1.KubeletConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			// Regression: the RP leaves KubeletConfigFileConfig nil when the config file is
+			// disabled, so reading it alone reported false while nbc-cmd reported true.
+			name: "config file disabled, rotation enabled via flag",
+			args: args{
+				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: false,
+					KubeletFlags:            map[string]string{"--rotate-server-certificates": "true"},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "config file disabled, rotation disabled via flag",
+			args: args{
+				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: false,
+					KubeletFlags:            map[string]string{"--rotate-server-certificates": "false"},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "config file enabled, flag translated away, rotation enabled",
+			args: args{
+				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: true,
+					KubeletFlags:            map[string]string{},
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{ServerTlsBootstrap: true},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "config file enabled, flag translated away, rotation disabled",
+			args: args{
+				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: true,
+					KubeletFlags:            map[string]string{},
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{ServerTlsBootstrap: false},
+				},
+			},
+			want: false,
+		},
+		{
+			// The NBC-derived conversion populates KubeletConfigFileConfig unconditionally,
+			// so both channels can be present at once. The flag is authoritative.
+			name: "both channels populated, flag wins",
+			args: args{
+				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: false,
+					KubeletFlags:            map[string]string{"--rotate-server-certificates": "true"},
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{ServerTlsBootstrap: true},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "neither channel set",
+			args: args{
+				kubeletConfig: &aksnodeconfigv1.KubeletConfig{},
+			},
+			want: false,
+		},
+		{
+			name: "nil kubelet config",
+			args: args{kubeletConfig: nil},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getEnableKubeletServingCertificateRotation(tt.args.kubeletConfig); got != tt.want {
+				t.Errorf("getEnableKubeletServingCertificateRotation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

@@ -767,6 +767,30 @@ func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletCon
 	return base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig)))
 }
 
+// getEnableKubeletServingCertificateRotation reports whether kubelet serving certificate
+// rotation is enabled for this node.
+//
+// The RP delivers this intent through exactly one of two mutually exclusive channels,
+// depending on whether the kubelet config file is enabled:
+//
+//   - config file enabled: --rotate-server-certificates is stripped from KubeletFlags
+//     (it is a translated flag) and the value lives in
+//     KubeletConfigFileConfig.serverTLSBootstrap.
+//   - config file disabled: KubeletConfigFileConfig is nil and the value lives only in
+//     the --rotate-server-certificates kubelet flag.
+//
+// Reading the config file alone therefore reports false for every node that has the
+// config file disabled, even when rotation is explicitly enabled — which silently sends
+// CSE down the self-signed certificate path while kubelet still runs with
+// --rotate-server-certificates=true. Prefer the flag when it is present so both shapes
+// resolve to the same answer.
+func getEnableKubeletServingCertificateRotation(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
+	if flag, ok := kubeletConfig.GetKubeletFlags()[kubeletFlagRotateServerCertificates]; ok {
+		return flag == "true"
+	}
+	return kubeletConfig.GetKubeletConfigFileConfig().GetServerTlsBootstrap()
+}
+
 func getEnableSwapConfig(v *aksnodeconfigv1.CustomLinuxOsConfig) bool {
 	return v.GetEnableSwapConfig() && v.GetSwapFileSize() > 0
 }

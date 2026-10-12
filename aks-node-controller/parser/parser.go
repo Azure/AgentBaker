@@ -160,7 +160,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"SECURE_TLS_BOOTSTRAPPING_GET_ATTESTED_DATA_TIMEOUT":   config.GetBootstrappingConfig().GetSecureTlsBootstrappingGetAttestedDataTimeout(),
 		"SECURE_TLS_BOOTSTRAPPING_GET_CREDENTIAL_TIMEOUT":      config.GetBootstrappingConfig().GetSecureTlsBootstrappingGetCredentialTimeout(),
 		"CUSTOM_SECURE_TLS_BOOTSTRAPPING_CLIENT_DOWNLOAD_URL":  config.GetBootstrappingConfig().GetSecureTlsBootstrappingCustomClientDownloadUrl(),
-		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":          fmt.Sprintf("%v", config.GetKubeletConfig().GetKubeletConfigFileConfig().GetServerTlsBootstrap()),
+		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":          fmt.Sprintf("%v", getEnableKubeletServingCertificateRotation(config.GetKubeletConfig())),
 		"DHCPV6_SERVICE_FILEPATH":                              getDHCPV6ServiceFilepath(),
 		"DHCPV6_CONFIG_FILEPATH":                               getDHCPV6ConfigFilepath(),
 		"THP_ENABLED":                                          config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),
