@@ -31,33 +31,50 @@ func init() {
 			cluster = ClusterLatestKubernetesVersionKubenet
 		}
 		Register(&Scenario{
-			Name:        "LocalDNSHostsPlugin/" + tt.name,
-			Description: "Tests that localdns hosts plugin works correctly on " + tt.name,
+			Name:        "LocalDNS/" + tt.name,
+			Description: "Tests localdns end to end on " + tt.name + ": hosts plugin, service lifecycle, restart budget, and the pod-DNS fallback",
 			Config: Config{
 				Cluster: cluster,
 				VHD:     tt.vhd,
 				BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 					nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 					nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+					// Enabling LocalDNS is only half of what the RP does for a LocalDNS
+					// pool; it also points kubelet at the cluster listener, which is what
+					// bakes 169.254.10.11 into every pod's resolv.conf. Without this the
+					// node runs LocalDNS but no pod on it ever uses .11, so every
+					// pod-level assertion skips and the premise of the fallback goes
+					// untested.
+					nbc.KubeletConfig["--cluster-dns"] = localDNSClusterListenerIP
 				},
 				AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 					config.LocalDnsProfile.EnableHostsPlugin = true
 					config.LocalDnsProfile.EnableLocalDns = true
+					config.KubeletConfig.KubeletFlags["--cluster-dns"] = localDNSClusterListenerIP
+					// The flag alone is not parity with the CSE path. '--cluster-dns' is in
+					// pkg/agent.TranslatedKubeletConfigFlags, so on the CSE path setting the
+					// flag also rewrites KubeletConfiguration.clusterDNS in the kubelet config
+					// file. On the ANC path the flag and the config-file field are independent
+					// proto fields, so the flag alone leaves clusterDNS at the cluster default
+					// and the two paths emit different KUBELET_CONFIG_FILE_CONTENT -- which the
+					// provision-config/nbc-cmd env parity validator fails on.
+					config.KubeletConfig.KubeletConfigFileConfig.ClusterDns = []string{localDNSClusterListenerIP}
 				},
 				VMConfigMutator: tt.vmConfigMutator,
 				Validator: func(ctx context.Context, s *Scenario) error {
-					// Validate the full LocalDNS service lifecycle (including the
-					// unexpected-exit DNS teardown this PR fixes) on the target
-					// distros. The hosts-plugin functionality itself is covered by
-					// the scenario's default provisioning validation.
+					// The hosts-plugin functionality itself is covered by the scenario's
+					// default provisioning validation (ValidateCommonLocalDNS). What runs
+					// here is the failure behaviour, on the distros that carry it.
 					if tt.name != "Ubuntu2204" && tt.name != "Ubuntu2404" && tt.name != "AzureLinuxV3" {
 						return nil
 					}
 					if err := validateLocalDNSLifecycle(ctx, s); err != nil {
 						return err
 					}
-					// Then assert the restart budget actually bounds failures.
-					return validateLocalDNSRestartBudget(ctx, s)
+					// One fault, asserted twice: that the restart budget bounds it in
+					// terminal 'failed', and that the fallback keeps pod and node DNS
+					// working while it sits there.
+					return validateLocalDNSFailureAndFallback(ctx, s)
 				},
 			},
 		})
@@ -125,7 +142,7 @@ func init() {
 // Restart=on-failure and not by something else.
 //
 // The StartLimit journal check is scoped with --since to these cycles: deliberately
-// exhausting the budget is the expected outcome of validateLocalDNSRestartBudget, which
+// exhausting the budget is the expected outcome of driveLocalDNSToTerminalFailed, which
 // runs after this returns. The cgroup teardown warning is surfaced but not failed on --
 // fixing it is out of scope for this PR.
 //

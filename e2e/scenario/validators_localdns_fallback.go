@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -214,7 +215,7 @@ func startLocalDNSProbePod(ctx context.Context, s *Scenario, suffix string, poli
 	return created.Name, del, nil
 }
 
-// ValidateLocalDNSFallbackRecovery exercises the kernel-NAT fallback end to end on
+// validateLocalDNSFailureAndFallback exercises the kernel-NAT fallback end to end on
 // a node whose localdns has reached terminal 'failed'.
 //
 // The fallback runs no CoreDNS and holds no socket. It installs one nat chain that
@@ -239,10 +240,28 @@ func startLocalDNSProbePod(ctx context.Context, s *Scenario, suffix string, poli
 // localdns.corefile, because localdns.sh rebuilds it from the base64 in
 // /etc/localdns/environment on every start, so the node self-heals and never
 // breaks.
-func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) (err error) {
+func validateLocalDNSFailureAndFallback(ctx context.Context, s *Scenario) (err error) {
+	// The budget directives and the fallback artifacts are both baked into the VHD,
+	// so a main-built image legitimately has neither until this merges. Skip the whole
+	// block there, as the restart-budget validation already did on its own.
+	if laneResolvedMainBuiltImage() {
+		logging.Logf(ctx, "SKIP: this lane resolved a main-built image (%s=%s), which predates the "+
+			"LocalDNS restart budget and fallback artifacts baked into the VHD; run against the "+
+			"PR's VHD build to exercise them",
+			config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue)
+		return nil
+	}
+
+	// Static half of the restart budget first: it needs nothing from the node beyond
+	// the unit file, and running it before the fault means a budget regression is
+	// reported as such rather than as a fallback that never activated.
+	if err := validateLocalDNSRestartBudgetDirectives(ctx, s); err != nil {
+		return err
+	}
+
 	// The artifacts ship in the VHD (vhdbuilder/packer/packer_source.sh and, for
 	// OSGuard images, azlosguard.yml), not through CustomData, so their absence is a
-	// packaging failure and this scenario says so rather than working around it.
+	// packaging failure and this says so rather than working around it.
 	//
 	// This replaces staging the branch's copies onto the node. Staging let the
 	// scenario run before the artifacts shipped, but once they do it is a mask: it
@@ -250,14 +269,6 @@ func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) (err err
 	// which is why the OSGuard mode split was invisible here. Modes are asserted by
 	// checkLocaldnsScriptsAndConfigs in vhdbuilder/packer/test/linux-vhd-content-test.sh,
 	// against the image itself.
-	//
-	// Deliberately NOT gated on whether the lane resolved a main-built image. Until a
-	// main VHD carrying these is published, the standalone e2e lane goes red; that is
-	// bounded by one VHD release and self-clearing. A gate would trade that temporary
-	// red for a permanent one: "this image is older than the feature" and "this image
-	// was built without the feature" look identical from here, so forgiving the first
-	// forgives the second, and a packaging regression that actually shipped to main
-	// would be skipped instead of reported.
 	for _, f := range localDNSFallbackArtifacts {
 		if err := ValidateFileExists(ctx, s, f); err != nil {
 			return fmt.Errorf("the localdns fallback artifacts are not baked into this VHD: %w", err)
@@ -337,8 +348,11 @@ finish
 	}
 	defer delDefault()
 
-	// ---- Phase 1: baseline, then induce an unrecoverable failure -------------
-	if err := phase("phase1-induce-failure", fmt.Sprintf(`
+	// ---- Phase 0: baseline, BEFORE the fault ---------------------------------
+	// Their resolv.conf is written at sandbox creation and never revisited; that is
+	// the whole reason the fallback has to exist, so it has to be recorded while
+	// localdns is still healthy.
+	if err := phase("phase0-baseline", fmt.Sprintf(`
 POD_CF=%q
 POD_DEF=%q
 
@@ -348,33 +362,22 @@ POD_DEF=%q
 [ "$(pod_nameserver "$POD_DEF")" = "$NODE_IP" ] \
   && ok "baseline: Default pod is pinned to ${NODE_IP}" \
   || fail "baseline: Default pod nameserver is $(pod_nameserver "$POD_DEF")"
+finish
+`, podCF, podDefault)); err != nil {
+		return err
+	}
 
-# Same fault the restart-budget validation uses (scenario_localdns_restart_budget.go):
-# override ExecStart so every start fails immediately. Five starts at RestartSec=2
-# and the refused sixth reach terminal 'failed' in ~12s, against ~69s for a
-# malformed Corefile, which has to run the real startup path to its timeout on
-# every attempt.
-#
-# It drives the fallback's gate identically. 'restart' stops the healthy localdns
-# first, so its ExecStopPost runs the real 'localdns.sh cleanup': the .10 drop-in
-# comes off, networkctl reload puts the DHCP upstream back, and the raw-table
-# NOTRACK rules go. Those are exactly the three things apply needs -- terminal
-# 'failed', a non-.10 upstream, and conntrack restored for the listeners.
-#
-# The shorter cycle also tightens the race the fallback's resolv.conf poll exists
-# for: OnFailure= fires as soon as ExecStopPost returns, while networkctl reload
-# is still asynchronous. Reaching 'failed' in 12s rather than 69s gives that poll
-# less slack, not more.
-#
-# /run, so a reboot cannot leave the fault behind; zz- so it sorts after anything
-# shipped in the unit directory.
-mkdir -p "$FAULT_DIR"
-printf '[Service]\nExecStart=\nExecStart=/bin/false\n' > "$FAULT"
-systemctl daemon-reload
-log "injected fault; restarting localdns"
-sudo systemctl reset-failed localdns.service 2>/dev/null || true
-sudo systemctl restart --no-block localdns.service
+	// ---- The fault ------------------------------------------------------------
+	// Owned by the restart-budget validation, which asserts the limiter is what
+	// stopped the unit and deliberately leaves it in 'failed'. Everything below
+	// runs against that state. The deferred restore above is what brings it back,
+	// on every path including this one failing.
+	if err := driveLocalDNSToTerminalFailed(ctx, s); err != nil {
+		return err
+	}
 
+	// ---- Phase 1: the handoff -------------------------------------------------
+	if err := phase("phase1-handoff", `
 wait_for 120 "localdns reaches terminal 'failed'" sh -c 'systemctl is-failed --quiet localdns.service' \
   || { diag "no terminal failed"; fail "localdns never reached terminal 'failed'"; finish; }
 ok "localdns reached terminal 'failed'"
@@ -390,7 +393,7 @@ wait_for 60 "fallback active" sh -c 'systemctl is-active --quiet localdns-fallba
   || { diag "fallback not active"; fail "OnFailure= did not bring the fallback up"; finish; }
 ok "OnFailure= started the fallback"
 finish
-`, podCF, podDefault)); err != nil {
+`); err != nil {
 		return err
 	}
 
@@ -519,6 +522,31 @@ wait_for 60 "localdns answers on .11 again" sh -c 'dig +short +timeout=3 +tries=
   && ok "RECOVERY: localdns answers on ${CLUSTER_IP}" || fail "RECOVERY: ${CLUSTER_IP} silent after recovery"
 finish
 `); err != nil {
+		return err
+	}
+
+	// ---- Phase 4b: the pods again, now that localdns is serving ---------------
+	// The handoff is only correct if traffic reaches the listeners localdns just
+	// bound. Asserting it from the node alone would miss a nat rule that survived
+	// for pod traffic while the node's own path looked fine.
+	if err := phase("phase4b-pod-resolution-after-recovery", fmt.Sprintf(`
+POD_CF=%q
+POD_DEF=%q
+POD_DURING=%q
+
+expect_resolves 60 "RECOVERY: pre-failure ClusterFirst pod resolves a cluster name" \
+  pod_resolves_cluster_via "$POD_CF" "$CLUSTER_IP"
+expect_resolves 30 "RECOVERY: pre-failure ClusterFirst pod resolves an external name" \
+  pod_resolves_external_via "$POD_CF" "$CLUSTER_IP"
+expect_resolves 30 "RECOVERY: Default-policy pod resolves an external name" \
+  pod_resolves_external_via "$POD_DEF" "$NODE_IP"
+expect_resolves 30 "RECOVERY: during-failure pod resolves a cluster name" \
+  pod_resolves_cluster_via "$POD_DURING" "$CLUSTER_IP"
+host_resolves_external_via "$NODE_IP" \
+  && ok "RECOVERY: node resolves an external name through ${NODE_IP}" \
+  || { diag "node external after recovery"; fail "RECOVERY: node cannot resolve through ${NODE_IP}"; }
+finish
+`, podCF, podDefault, podDuring)); err != nil {
 		return err
 	}
 
