@@ -226,6 +226,23 @@ Describe 'cse_config.sh'
             The contents of file "${TEST_FSTAB_FILE}" should equal '/other none swap sw 0 0'
         End
     End
+    Describe 'disableSSH'
+        systemctlDisableAndStop() {
+            echo "$1"
+        }
+
+        It 'disables socket units before service units'
+            When call disableSSH
+
+            The status should be success
+            The lines of output should equal 4
+            The line 1 of output should equal "ssh.socket"
+            The line 2 of output should equal "sshd.socket"
+            The line 3 of output should equal "ssh"
+            The line 4 of output should equal "sshd"
+        End
+    End
+
     Describe 'disableSSHPubkeyAuth'
         setup() {
             SSHD_CONFIG_FILE="$(mktemp)"

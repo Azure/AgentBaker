@@ -728,6 +728,10 @@ users:
 # Wrapped as functions so logs_to_events can time each step; the install's
 # bash -c command can't be passed to logs_to_events inline (it word-splits args).
 disableSSH() {
+    # ACL uses socket-activated SSH, while other distros may use service activation.
+    # Stop sockets first so they cannot reactivate the daemon while it is being disabled.
+    systemctlDisableAndStop ssh.socket || exit $ERR_DISABLE_SSH
+    systemctlDisableAndStop sshd.socket || exit $ERR_DISABLE_SSH
     # On ubuntu, the ssh service is named "ssh.service"
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
     # On AzureLinux, the ssh service is named "sshd.service"
