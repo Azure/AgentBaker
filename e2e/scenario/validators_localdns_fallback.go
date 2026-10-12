@@ -270,67 +270,6 @@ finish
 		}
 	}()
 
-	// ---- Phase 0: wiring -----------------------------------------------------
-	if err := phase("phase0-wiring", `
-systemctl show localdns.service -p OnFailure 2>/dev/null | grep -q "OnFailure=localdns-fallback.service" \
-  && ok "localdns declares OnFailure=localdns-fallback.service" || fail "localdns missing OnFailure="
-
-# Conflicts= would be resolved by STOPPING localdns, and a stop resets its restart
-# counter -- so it would never spend the 720/5 budget and never reach terminal
-# 'failed', defeating both the handoff and the state NPD observes.
-conflicts=$(systemctl show localdns-fallback.service -p Conflicts --value 2>/dev/null || true)
-case "$conflicts" in
-  *localdns.service*) fail "fallback declares Conflicts=localdns.service" ;;
-  *) ok "fallback declares no Conflicts= on localdns.service" ;;
-esac
-
-# OnFailure= can fire more than once while localdns works through its restart
-# budget. Those extra starts are gated no-ops, and without an unbounded budget they
-# would rate-limit the one start that matters.
-sli=$(systemctl show localdns-fallback.service -p StartLimitIntervalUSec --value 2>/dev/null || true)
-case "$sli" in
-  0|0s|infinity) ok "fallback StartLimitIntervalUSec=${sli}" ;;
-  *) fail "fallback StartLimitIntervalUSec should be 0; got '$sli'" ;;
-esac
-
-# A oneshot that stays 'active' after exit: there is no daemon, so RemainAfterExit
-# is what makes 'systemctl stop' meaningful and lets ExecStop tear the rules down.
-[ "$(systemctl show localdns-fallback.service -p Type --value)" = "oneshot" ] \
-  && ok "fallback is Type=oneshot" || fail "fallback Type is $(systemctl show localdns-fallback.service -p Type --value)"
-[ "$(systemctl show localdns-fallback.service -p RemainAfterExit --value)" = "yes" ] \
-  && ok "fallback is RemainAfterExit=yes" || fail "fallback RemainAfterExit is not yes"
-systemctl show localdns-fallback.service -p ExecStop --value 2>/dev/null | grep -q "localdns-fallback.sh clear" \
-  && ok "fallback tears rules down via ExecStop" || fail "fallback has no 'clear' ExecStop"
-
-# Those gated no-op starts must be recorded as skips, not failures. Without this
-# the unit lands in 'failed' on a node whose localdns recovered, which is both a
-# false alarm in the field and a failed-unit assertion away from a red scenario.
-systemctl show localdns-fallback.service -p ExecCondition --value 2>/dev/null | grep -q "is-failed localdns.service" \
-  && ok "fallback gates activation on terminal localdns via ExecCondition" \
-  || fail "fallback has no 'is-failed localdns.service' ExecCondition"
-
-# No listener means nothing to collide with on recovery -- but it also means the
-# script must never bind anything.
-grep -qE "coredns|-conf |bind " /opt/azure/containers/localdns/localdns-fallback.sh \
-  && fail "fallback script still references a CoreDNS listener" \
-  || ok "fallback script runs no CoreDNS and binds nothing"
-
-command -v dig >/dev/null 2>&1 && ok "dig is present for the assertions below" || fail "dig missing"
-
-# While localdns serves, its drop-in pins the node resolver to .10 alone
-# (DNS=169.254.10.10, UseDNS=false), so there is deliberately NO other upstream
-# here. The one the fallback forwards .10 at only reappears once localdns exits
-# and its ExecStopPost restores the DHCP resolvers -- which is why apply reads
-# this file rather than being handed an address, and why it has to wait for the
-# asynchronous networkctl reload to land.
-[ -z "$(vnet_dns)" ] \
-  && ok "with localdns serving, ${RESOLV} holds only ${NODE_IP} as expected" \
-  || log "note: ${RESOLV} already lists an upstream ($(vnet_dns)) while localdns serves"
-finish
-`); err != nil {
-		return err
-	}
-
 	// ---- Probe pods, created BEFORE the fault --------------------------------
 	// Their resolv.conf is written now and never revisited; that is the whole
 	// reason the fallback has to exist.

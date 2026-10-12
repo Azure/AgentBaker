@@ -309,3 +309,95 @@ EOF
         End
     End
 End
+
+Describe 'localdns-fallback.service unit wiring'
+# These directives are what make the handoff work, and each one has a failure
+# mode that is silent if it regresses. They were asserted in the e2e scenario
+# against 'systemctl show' on a live node; that is a VM and a crash storm to
+# learn whether a line is present in a file the VHD ships verbatim.
+#
+# What stays in e2e is the half this cannot cover: that the directives actually
+# bind. ExecCondition= in particular is proven behaviourally there -- start the
+# unit while localdns is healthy and assert the unit is skipped rather than
+# left 'failed' -- which goes red if the directive is removed, whereas a grep
+# only proves someone typed it.
+#------------------------------------------------------------------------------
+    UNIT="./parts/linux/cloud-init/artifacts/localdns-fallback.service"
+    LOCALDNS_UNIT="./parts/linux/cloud-init/artifacts/localdns.service"
+
+    # Without this the unit lands in 'failed' on a node whose localdns recovered:
+    # OnFailure= fires on every failed start attempt, not only the terminal one,
+    # and apply exits 1 on all of them. ExecStart= has no exit code meaning
+    # "nothing to do", so the gate has to be a condition rather than a return.
+    It 'gates activation on terminal localdns via ExecCondition'
+        When run grep -q "^ExecCondition=/usr/bin/systemctl is-failed localdns.service$" "$UNIT"
+        The status should be success
+    End
+
+    # No daemon and no socket: ExecStart installs nat rules and exits. Without
+    # RemainAfterExit the unit would go inactive immediately and 'systemctl stop'
+    # would never run ExecStop, so the rules would outlive a recovered localdns.
+    It 'is Type=oneshot'
+        When run grep -q "^Type=oneshot$" "$UNIT"
+        The status should be success
+    End
+
+    It 'is RemainAfterExit=yes'
+        When run grep -q "^RemainAfterExit=yes$" "$UNIT"
+        The status should be success
+    End
+
+    It 'tears the rules down via ExecStop'
+        When run grep -q "^ExecStop=/opt/azure/containers/localdns/localdns-fallback.sh clear$" "$UNIT"
+        The status should be success
+    End
+
+    # OnFailure= can fire once per restart attempt while localdns works through
+    # its 720/5 budget -- six times on systemd 255. Those gated no-ops would
+    # spend the default 5-start allowance and systemd would then refuse the one
+    # start that matters.
+    It 'has an unbounded start budget so early no-op fires cannot rate-limit the real one'
+        When run grep -q "^StartLimitIntervalSec=0$" "$UNIT"
+        The status should be success
+    End
+
+    # Resolving a Conflicts= would STOP localdns, and a stop resets its restart
+    # counter -- so it would never spend the 720/5 budget, never reach terminal
+    # 'failed', and defeat both this handoff and the state NPD observes.
+    It 'declares no Conflicts= on localdns.service'
+        When run grep -qE "^Conflicts=.*localdns\.service" "$UNIT"
+        The status should be failure
+    End
+
+    # The unit is activated only through OnFailure=. An [Install] section would
+    # let 'systemctl enable' start it at boot, before localdns has ever run.
+    It 'is not installable, so it can never start at boot'
+        When run grep -q "^\[Install\]$" "$UNIT"
+        The status should be failure
+    End
+
+    It 'is started by localdns.service OnFailure='
+        When run grep -q "^OnFailure=localdns-fallback.service$" "$LOCALDNS_UNIT"
+        The status should be success
+    End
+
+    # The synchronous stop is the ONLY handoff back. Without it a recovering
+    # localdns would bind .10/.11 while the nat chain still rewrote traffic past
+    # the listeners it had just bound.
+    It 'is stopped by localdns.service before it serves again'
+        When run grep -q "^ExecStartPre=-/usr/bin/systemctl stop localdns-fallback.service$" "$LOCALDNS_UNIT"
+        The status should be success
+    End
+End
+
+Describe 'localdns-fallback.sh binds nothing'
+# The fallback is kernel NAT precisely so it cannot share a failure mode with
+# the CoreDNS it backs up: a second resolver would inherit the same binary and
+# the same corefile directives and die the same way. A listener creeping back in
+# would also collide with localdns on recovery.
+#------------------------------------------------------------------------------
+    It 'runs no CoreDNS and opens no socket'
+        When run grep -qE "coredns|-conf |bind " "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
+        The status should be failure
+    End
+End
