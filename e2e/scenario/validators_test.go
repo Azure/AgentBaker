@@ -3,10 +3,47 @@ package scenario
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestCustomerNvidiaDriverValidationRequiresStagedInstaller(t *testing.T) {
+	const expectedVersion = "580.159.04"
+	binDir := t.TempDir()
+	installerPath := filepath.Join(t.TempDir(), "nvidia-installer")
+	require.NoError(t, os.WriteFile(filepath.Join(binDir, "lsmod"), []byte("#!/bin/sh\nprintf 'nvidia 123 0\\n'\n"), 0o755))
+	sudo := fmt.Sprintf(`#!/bin/sh
+case "$1" in
+  modinfo) printf '%%s\n' '%s'; exit 0 ;;
+  nvidia-smi)
+    if [ "$2" = "--query-gpu=driver_version" ]; then
+      printf '%%s\n' '%s'
+    fi
+    exit 0
+    ;;
+esac
+exit 1
+`, expectedVersion, expectedVersion)
+	require.NoError(t, os.WriteFile(filepath.Join(binDir, "sudo"), []byte(sudo), 0o755))
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	runValidation := func() error {
+		output, err := exec.Command("bash", "-x", "-c", customerNvidiaDriverValidationScript(expectedVersion, installerPath)).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%w: %s", err, output)
+		}
+		return nil
+	}
+	require.Error(t, runValidation(), "validation must reject correct driver state when the staged installer was removed")
+
+	require.NoError(t, os.WriteFile(installerPath, []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, runValidation(), "validation must pass when the staged installer and driver state are present")
+}
 
 func TestValidateSysctlOutput(t *testing.T) {
 	tests := []struct {

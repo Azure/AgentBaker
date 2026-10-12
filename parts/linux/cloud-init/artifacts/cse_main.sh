@@ -407,6 +407,11 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    if [ "${PRE_PROVISION_ONLY}" = "true" ] && [ "${GPU_NODE}" != "true" ] &&
+       { [ "${OS}" = "${UBUNTU_OS_NAME}" ] || { isMarinerOrAzureLinux "$OS" "$OS_VARIANT" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; }; }; then
+        logs_to_events "AKS.CSE.cleanUpGPUDriversForBasePrep" cleanUpGPUDriversForBasePrep || exit $ERR_NVIDIA_DRIVER_INSTALL
+    fi
+
     # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
     # If hosts plugin is enabled, enableAKSLocalDNSHostsSetup() was already called at the
     # very start of basePrep (before disableSystemdResolved) to give the timer a head start
@@ -644,7 +649,7 @@ function nodePrep {
 
 
     # Clean up GPU drivers if not a GPU node or if skipping driver install
-    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
+    if [ "${BASE_PREP_RAN}" = "true" ] && { [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; }; then
         logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
     fi
 
@@ -752,6 +757,7 @@ logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync_or_repor
 
 if [ ! -f /opt/azure/containers/base_prep.complete ]; then
     basePrep
+    BASE_PREP_RAN=true
 else
     echo "Skipping basePrep - base_prep.complete file exists"
 fi

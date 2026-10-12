@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"github.com/vincent-petithory/dataurl"
+	"gopkg.in/yaml.v3"
 )
 
 // this regex looks for groups of the following forms, returning KEY and VALUE as submatches.
@@ -72,6 +73,72 @@ write_files:
 			require.NoError(t, err)
 			require.Contains(t, rendered, "- path: "+test.expected)
 			require.False(t, strings.Contains(rendered, "{{"))
+		})
+	}
+}
+
+func TestRenderCloudInitFileContentRoundTrips(t *testing.T) {
+	testCases := []struct {
+		name    string
+		content string
+	}{
+		{name: "empty", content: ""},
+		{name: "no trailing newline", content: "echo ready"},
+		{name: "one trailing newline", content: "echo ready\n"},
+		{name: "multiple trailing newlines", content: "echo ready\n\n"},
+		{name: "YAML-significant text", content: "---\n# shell text\nkey: value\n"},
+		{name: "tabs and indentation", content: "\tcommand\n  indented\n"},
+		{name: "Unicode", content: "printf 'héllo 🌍'\n"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			content, err := renderCloudInitFileContent(testCase.content)
+			require.NoError(t, err)
+
+			customData := "#cloud-config\nwrite_files:\n- path: /opt/script.sh\n  owner: root\n" + content
+			var parsed cloudInit
+			require.NoError(t, yaml.Unmarshal([]byte(customData), &parsed))
+			require.Len(t, parsed.WriteFiles, 1)
+			require.Equal(t, testCase.content, parsed.WriteFiles[0].Content)
+		})
+	}
+}
+
+func TestGetCloudInitFilePropertiesKeepsGzipFallback(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		distro                 datamodel.Distro
+		enableScriptlessCSECmd bool
+	}{
+		{name: "Flatcar", distro: datamodel.AKSFlatcarGen2},
+		{name: "ACL", distro: datamodel.AKSACLGen2TL},
+		{name: "scriptless", distro: datamodel.AKSUbuntuContainerd2204Gen2, enableScriptlessCSECmd: true},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			config := newNodeCustomDataRenderConfig(testCase.distro)
+			config.EnableScriptlessCSECmd = testCase.enableScriptlessCSECmd
+			variables := getCustomDataVariables(config)
+			require.NotContains(t, variables, "cloudInitFileData")
+
+			funcMap := getBakerFuncMap(config, getParameters(config), variables)
+			getProperties, ok := funcMap["GetCloudInitFileProperties"].(func(string) (string, error))
+			require.True(t, ok)
+			properties, err := getProperties("provisionSource")
+			require.NoError(t, err)
+			require.Contains(t, properties, "encoding: gzip")
+
+			customData := "#cloud-config\nwrite_files:\n- path: /opt/script.sh\n  owner: root\n" + properties
+			var parsed cloudInit
+			require.NoError(t, yaml.Unmarshal([]byte(customData), &parsed))
+			require.Len(t, parsed.WriteFiles, 1)
+			require.Equal(t, "gzip", parsed.WriteFiles[0].Encoding)
+
+			actual, err := getGzipDecodedValue([]byte(parsed.WriteFiles[0].Content))
+			require.NoError(t, err)
+			require.Equal(t, getCustomScriptContent(kubernetesCSEHelpersScript, config), string(actual))
 		})
 	}
 }
@@ -1368,8 +1435,15 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
 
 		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNodeCustomDataFilepath))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		var parsedCustomData cloudInit
+		Expect(yaml.Unmarshal(decompressedPayload, &parsedCustomData)).To(Succeed())
+		for _, file := range parsedCustomData.WriteFiles {
+			Expect(file.Path).NotTo(Equal(aksNodeCustomDataFilepath))
+			Expect(file.Path).NotTo(Equal(aksNbcCmdFilepath))
+		}
+		for _, command := range parsedCustomData.BootCommands {
+			Expect(command).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		}
 	})
 })
 
