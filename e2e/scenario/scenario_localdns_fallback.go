@@ -60,10 +60,6 @@ func init() {
 // limiter. The budget is asserted on the LocalDNS/<distro> nodes, which reach the same
 // terminal state in ~12s with /bin/false rather than ~69s of pidfile timeouts.
 func validateLocalDNSCorefileStartupFailure(ctx context.Context, s *Scenario) error {
-	// No lane gate. What this asserts -- that localdns.sh runs its startup path, times
-	// out waiting for a pidfile CoreDNS never writes, and that ExecStopPost restores
-	// node DNS on the way out -- all ships on main already (#9360), so skipping it on
-	// main-built images would suppress an assertion that passes.
 	res, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, localdnsCorefileFaultScript, 0,
 		"LocalDNS did not fail and clean up correctly on a malformed corefile")
 	// Logged on success too. execScriptOnVMForScenarioValidateExitCode only prints on
