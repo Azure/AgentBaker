@@ -98,13 +98,6 @@ func init() {
 // Comments cost the same as code on that wire and buy nothing at runtime, so the reasoning
 // lives here instead. Keep the shell terse; put the "why" in this comment.
 //
-// # Lane gating (EXPECT_EXECSTOPPOST)
-//
-// Set from the lane's own image selection rather than probed from the node. Asking
-// 'systemctl show -p ExecStopPost' whether to test ExecStopPost means the assertion only
-// runs where it is already guaranteed to pass, and deleting the hook would silently turn
-// the block off everywhere instead of failing it. See laneResolvedMainBuiltImage.
-//
 // # The EXIT trap
 //
 // Installed before any service mutation so 'set -e' cannot leave the node carrying the
@@ -168,23 +161,18 @@ func init() {
 // "restored" -- a failed read would otherwise mask the regression. Removing the address is
 // not sufficient on its own, so a working resolver is verified with getent afterwards.
 func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
-	expectExecStopPost := "true"
-	if laneResolvedMainBuiltImage() {
-		expectExecStopPost = "false"
-	}
 	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		localdnsLifecycleScript(expectExecStopPost), 0, "LocalDNS lifecycle validation failed")
+		localdnsLifecycleScript(), 0, "LocalDNS lifecycle validation failed")
 	return err
 }
 
 // localdnsLifecycleScript renders the script validateLocalDNSLifecycle runs on the node.
 // Split out from the caller so the assembled result can be measured by a size guard -- see
 // this file's doc comment for why the size matters.
-func localdnsLifecycleScript(expectExecStopPost string) string {
+func localdnsLifecycleScript() string {
 	return `
 set -eu
 
-EXPECT_EXECSTOPPOST=` + expectExecStopPost + `
 
 NORESTART=/run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
 
@@ -279,7 +267,6 @@ if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep 
 fi
 dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
 
-if [ "$EXPECT_EXECSTOPPOST" = true ]; then
 # Assert the hook; do not use its presence as permission to look.
 if ! sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
     echo "FAIL: ExecStopPost=localdns.sh cleanup is missing from localdns.service"
@@ -352,9 +339,6 @@ fi
 if ! getent hosts mcr.microsoft.com >/dev/null 2>&1; then
     echo "FAIL: node cannot resolve DNS after localdns died"
     exit 1
-fi
-else
-    echo "SKIP: this lane resolved a main-built image, which predates the ExecStopPost cleanup hook"
 fi
 `
 }
