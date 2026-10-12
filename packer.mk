@@ -14,7 +14,7 @@ ifneq ($(strip $(OPENVMM_ARTIFACT_DIR)$(filter true,$(OPENVMM_UNSIGNED_TEST_ONLY
 	@test "$(OPENVMM_UNSIGNED_TEST_ONLY)" = true || { echo "Set OPENVMM_UNSIGNED_TEST_ONLY=true for local unsigned test artifacts"; exit 1; }
 	@test -n "$(OPENVMM_ARTIFACT_DIR)" || { echo "OPENVMM_ARTIFACT_DIR is required for the opt-in test build"; exit 1; }
 	@test "$(OS_SKU):$(ARCHITECTURE):$(HYPERV_GENERATION):$(FEATURE_FLAGS)" = "AzureLinux:X86_64:V2:kata" || { echo "OpenVMM supports only AzureLinux X86_64 V2 kata test builds"; exit 1; }
-	@case "$(OS_VERSION)" in V3kata|3.0) ;; *) echo "OpenVMM requires the AL3 Kata pipeline label V3kata (or local 3.0)"; exit 1 ;; esac
+	@case "$(OS_VERSION)" in V3|V3kata|3.0) ;; *) echo "OpenVMM requires Azure Linux 3 (V3, V3kata, or 3.0) with FEATURE_FLAGS=kata"; exit 1 ;; esac
 	@test -n "$(BUILD_ID)" || { echo "BUILD_ID is required for an approved MAP image build"; exit 1; }
 	python3 vhdbuilder/packer/openvmm/prepare.py --allow-unsigned-test-artifacts --artifacts "$(OPENVMM_ARTIFACT_DIR)" --map-settings "$(OPENVMM_MAP_SETTINGS)" --build-id "$(BUILD_ID)" --output vhdbuilder/packer/openvmm-test.generated.json
 endif

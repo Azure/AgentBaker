@@ -185,7 +185,7 @@ After reviewing MAP's settings, preparation alone can be exercised with:
 
 ```bash
 make -f packer.mk prepare-openvmm-test \
-  OS_SKU=AzureLinux OS_VERSION=V3kata ARCHITECTURE=X86_64 \
+  OS_SKU=AzureLinux OS_VERSION=V3 ARCHITECTURE=X86_64 \
   HYPERV_GENERATION=V2 FEATURE_FLAGS=kata \
   OPENVMM_UNSIGNED_TEST_ONLY=true \
   OPENVMM_ARTIFACT_DIR=/absolute/path/to/artifacts \

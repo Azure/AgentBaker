@@ -331,16 +331,31 @@ enable_debug = {str(debug).lower()}
         self.assertIn("OPENVMM_ARTIFACT_DIR is required", result.stdout)
 
     def test_make_accepts_real_pipeline_os_label(self):
-        result = subprocess.run([
-            "make", "-f", "packer.mk", "prepare-openvmm-test",
-            "OPENVMM_UNSIGNED_TEST_ONLY=true", f"OPENVMM_ARTIFACT_DIR={self.root}/missing",
-            f"OPENVMM_MAP_SETTINGS={self.root}/settings.json", "BUILD_ID=123456",
-            "OS_SKU=AzureLinux", "OS_VERSION=V3kata", "ARCHITECTURE=X86_64",
-            "HYPERV_GENERATION=V2", "FEATURE_FLAGS=kata",
-        ], capture_output=True, text=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("bundle.json", result.stderr)
-        self.assertNotIn("requires the AL3 Kata pipeline label", result.stdout)
+        for os_version in ("V3", "V3kata", "3.0"):
+            with self.subTest(os_version=os_version):
+                result = subprocess.run([
+                    "make", "-f", "packer.mk", "prepare-openvmm-test",
+                    "OPENVMM_UNSIGNED_TEST_ONLY=true", f"OPENVMM_ARTIFACT_DIR={self.root}/missing",
+                    f"OPENVMM_MAP_SETTINGS={self.root}/settings.json", "BUILD_ID=123456",
+                    "OS_SKU=AzureLinux", f"OS_VERSION={os_version}", "ARCHITECTURE=X86_64",
+                    "HYPERV_GENERATION=V2", "FEATURE_FLAGS=kata",
+                ], capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("bundle.json", result.stderr)
+                self.assertNotIn("requires Azure Linux 3", result.stdout)
+
+    def test_make_rejects_wrong_os_or_non_kata_feature(self):
+        for os_version, feature in (("V2", "kata"), ("V3", "None")):
+            with self.subTest(os_version=os_version, feature=feature):
+                result = subprocess.run([
+                    "make", "-f", "packer.mk", "prepare-openvmm-test",
+                    "OPENVMM_UNSIGNED_TEST_ONLY=true", f"OPENVMM_ARTIFACT_DIR={self.bundle}",
+                    "BUILD_ID=123456", "OS_SKU=AzureLinux", f"OS_VERSION={os_version}",
+                    "ARCHITECTURE=X86_64", "HYPERV_GENERATION=V2", f"FEATURE_FLAGS={feature}",
+                ], capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertIn("OpenVMM", result.stdout)
 
     def test_make_requires_build_id(self):
         result = subprocess.run([
@@ -374,7 +389,7 @@ enable_debug = {str(debug).lower()}
             "make", "-f", "packer.mk", "prepare-openvmm-test",
             "OPENVMM_UNSIGNED_TEST_ONLY=true", f"OPENVMM_ARTIFACT_DIR={self.bundle}",
             f"OPENVMM_MAP_SETTINGS={settings}", "BUILD_ID=123456",
-            "OS_SKU=AzureLinux", "OS_VERSION=V3kata", "ARCHITECTURE=X86_64",
+            "OS_SKU=AzureLinux", "OS_VERSION=V3", "ARCHITECTURE=X86_64",
             "HYPERV_GENERATION=V2", "FEATURE_FLAGS=kata",
         ], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
