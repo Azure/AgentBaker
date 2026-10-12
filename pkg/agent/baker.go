@@ -752,6 +752,12 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 
 // ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
+	// TODO(mheberling): replace this guard when the signed AZL3 Kata-CC payload
+	// and OpenVMM package/configuration contract have been integrated and tested.
+	// Do not render the legacy cloud-hypervisor/SNP configuration for this image.
+	if config.AgentPoolProfile != nil && config.AgentPoolProfile.Distro == datamodel.AKSAzureLinuxV3Gen2KataCC {
+		return fmt.Errorf("AZL3 Kata-CC bootstrap is not ready: signed payload and OpenVMM runtime configuration must be integrated")
+	}
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
 		return err
 	}
