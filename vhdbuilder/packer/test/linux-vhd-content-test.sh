@@ -2575,6 +2575,20 @@ checkLocaldnsScriptsAndConfigs() {
     ["/etc/systemd/system/localdns-fallback.service"]=644
   )
 
+  # OSGuard images are built by imagecustomizer from azlosguard.yml, which installs
+  # units 0600 where packer_source.sh uses 0644. That has been azlosguard's
+  # convention since the file was authored (#6784) and covers 26 of its 36 unit
+  # entries, so it is recorded here rather than reconciled: systemd reads unit files
+  # as root either way, which makes this a read-access difference only, and the
+  # convention belongs to the OSGuard image owners, not to this test.
+  #
+  # Without this branch the assertion is wrong for every OSGuard build -- as it has
+  # been for localdns.service since that entry was added.
+  if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
+    localdnsfiles["/etc/systemd/system/localdns.service"]=600
+    localdnsfiles["/etc/systemd/system/localdns-fallback.service"]=600
+  fi
+
   # Flatcar is EOL (June 2026) — exporter files are not installed on Flatcar VHDs
   if [ "$os_sku" != "Flatcar" ]; then
     localdnsfiles["/opt/azure/containers/localdns/localdns_exporter.sh"]=755
