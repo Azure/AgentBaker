@@ -26,4 +26,5 @@ assert isinstance(s["default_size"], str)
 for option in --tar --mkfs-time --sort; do
     mkfs.erofs --help 2>&1 | grep -q -- "$option"
 done
+python3 "$prefix/integration/containerd_config.py" --check
 echo "OpenVMM image contents verified; SNP hardware and guest launch have not been tested."

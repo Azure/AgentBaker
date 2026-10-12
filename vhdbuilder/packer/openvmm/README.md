@@ -118,6 +118,9 @@ tool capabilities without requiring SNP-capable build hardware.
 it additionally requires a changed boot ID, exact running kernel, expected
 Hyper-V version/root partition/SNP availability, `/dev/mshv`, loops and DM
 targets. These are prerequisites, not a guest-launch or attestation-chain test.
+Modules are loaded through the image's `modules-load.d/openvmm.conf` at boot.
+The host gate only checks them; it does not load missing modules, restart
+services, fix configuration, or relabel nodes.
 Booting the refreshed nested Hyper-V path on the ordinary MAP build SKU
 still needs real image-build validation; there is no speculative boot deferral.
 
@@ -153,6 +156,42 @@ checks remain in place; packaging alone does not prove compatibility.
 These settings affect the evaluation node, not ordinary images. Complete
 old-kata-cc policy/hash-binding parity and report signature-chain validation
 are still separate work.
+
+### Temporary protection against live CSE configuration replacement
+
+Building this AgentBaker branch does **not** deploy its server-side code into
+AKS RP. Legacy RP-supplied CSE can replace `/etc/containerd/config.toml` with
+a config lacking the OpenVMM imports, even when the image-baked node-controller
+templates have them.
+
+The opt-in service drop-in therefore runs `containerd_config.py` before each
+containerd start. It preserves the generated configuration and unrelated
+imports, replaces only the owned import entry, and selects the fragment for
+the root schema (version 2 versus versions 3/4). It uses the installed
+containerd binary to load/migrate/merge a candidate in the same directory,
+then checks both runtime handlers and the EROFS integrity settings before
+atomically replacing the original file, retaining its permissions/ownership.
+Malformed configs, missing fragments, disabled required plugins and conflicting
+effective settings fail startup; there is no permissive fallback.
+
+This is **temporary image-side workaround code** until every supported live
+RP/ANC provisioning path preserves the same runtime contract. Remove the hook
+only after that is verified; keep the read-only acceptance checks. It does
+not copy the historical CLH/tardev repair script or change ordinary images.
+
+Only the installer can explicitly initialize a missing build-machine config
+from containerd defaults. Normal startup refuses a missing config. The service
+declares its `/run/kata-openvmm` directory through systemd and regenerates a
+configuration fingerprint on every start, rather than depending on a directory
+or receipt left by Packer. The host gate checks the fingerprint against the
+current effective config, the service's running binary/config arguments, and
+live CRI/EROFS plugin health. Configuration values are not printed because
+they can include registry credentials.
+
+The remote replay tests cover legacy configs without imports, the ANC import
+form, schema changes, unrelated/nested imports, repeated CSE replacements,
+cleared `/run` state, and failure without modifying the original configuration.
+They do not substitute for first boot, live AKS CSE, or a fresh-node reboot.
 
 ## Resource and execution boundary
 
@@ -205,5 +244,9 @@ require a separately reviewed execution plan.
 Run the contract tests on the remote validation machine from AgentBaker root:
 
 ```bash
-python3 -m unittest discover -s vhdbuilder/packer/openvmm -p 'test_*.py'
+CONTAINERD=/path/to/evaluated/containerd \
+  python3 -m unittest discover -s vhdbuilder/packer/openvmm -p 'test_*.py'
 ```
+
+Set `CONTAINERD` to the actual bundle binary to execute the configuration
+replay cases; without it those cases are explicitly skipped.

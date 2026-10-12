@@ -93,6 +93,7 @@ rpm -q kernel-mshv mshv mshv-bootloader-lx mshv-kd openvmm > "$prefix/provenance
 cat /proc/sys/kernel/random/boot_id > "$prefix/provenance/pre-reboot-boot-id"
 install -m 0755 "$integration/check-host.sh" "$integration/check-image.sh" "$prefix/integration/"
 install -m 0644 "$integration/validate.py" "$prefix/integration/"
+install -m 0755 "$integration/containerd_config.py" "$prefix/integration/"
 install -m 0644 "$integration/containerd-v2.toml" "$prefix/containerd/v2/openvmm.toml"
 # The newer snapshotter enforcement knob is optional, not an old-baseline prerequisite.
 dmverity_mode_supported=$("$prefix/bin/containerd" config default | python3 -c '
@@ -115,13 +116,22 @@ cat >> "$prefix/containerd/v1/openvmm.toml" <<'EOF'
 EOF
 
 install -d /etc/systemd/system/containerd.service.d
+# Temporary image-side workaround until deployed AKS RP and ANC both preserve
+# OpenVMM imports. Run on every service start, including after live CSE rewrites.
 cat > /etc/systemd/system/containerd.service.d/zz-openvmm-test.conf <<'EOF'
 [Service]
 Environment="PATH=/opt/kata-openvmm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+RuntimeDirectory=kata-openvmm
+RuntimeDirectoryMode=0700
+ExecStartPre=/usr/bin/python3 /opt/kata-openvmm/integration/containerd_config.py
 ExecStartPre=/opt/kata-openvmm/integration/check-image.sh
 ExecStart=
-ExecStart=/opt/kata-openvmm/bin/containerd
+ExecStart=/opt/kata-openvmm/bin/containerd --config /etc/containerd/config.toml
 EOF
+# Boot prerequisites belong to the image, not a validation pod's modprobe calls.
+install -d /etc/modules-load.d
+printf '%s\n' mshv_root loop dm_mod dm_zero dm_verity erofs overlay > /etc/modules-load.d/openvmm.conf
+python3 "$prefix/integration/containerd_config.py" --initialize
 printf '%s\n' \
     'UNSIGNED LOCAL TEST ARTIFACTS — NOT PRODUCTION CONFIDENTIAL SUPPORT' \
     'old kata-cc policy parity: NOT VERIFIED (OpenVMM/EROFS policy and hash-binding port pending)' > "$prefix/TEST-ONLY"
