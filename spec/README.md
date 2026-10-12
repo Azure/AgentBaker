@@ -45,3 +45,12 @@ Assuming you have run at least once `make shellspec` to build the dockerfile loc
 For example, `docker run -t -v "$PWD:/src" shellspec-docker --shell bash spec/parts/linux/cloud-init/artifacts/cse_helpers_spec.sh`
 
 You can also run shellspec in focus mode via the `make shellspec-focus` target. This will run shellspec with the `--focus` flag, which can be useful for debugging multiple test cases at once. For more details, please refer to the official shellspec docs regarding this feature: # allows usage of focus mode: https://github.com/shellspec/shellspec/tree/master?tab=readme-ov-file#fdescribe-fcontext-fexamplegroup---focused-example-group.
+
+### SSH disable ordering
+
+The `disableSSH` examples in [cse_config_spec.sh](./parts/linux/cloud-init/artifacts/cse_config_spec.sh)
+include a connection arriving through an active socket immediately after the
+daemon stops. Both the socket and daemon must remain inactive: successful
+stop/disable commands alone do not establish this. Stop the socket before
+the service, while preserving the existing missing-unit, failure, and telemetry
+checks.

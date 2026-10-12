@@ -734,7 +734,8 @@ disableSSH() {
     # Ubuntu uses ssh, Azure Linux uses sshd, and ACL also uses sshd.socket.
     # Keep going after a failure so a later unit still gets disabled, on ACL the
     # socket owns port 22 and skipping it would leave SSH reachable.
-    for unit in ssh sshd sshd.socket; do
+    # Stop the socket first so connections cannot reactivate the stopped daemon.
+    for unit in sshd.socket ssh sshd; do
         if ! systemctlDisableAndStop "$unit" "$attempt_id"; then
             result=$ERR_DISABLE_SSH
         fi

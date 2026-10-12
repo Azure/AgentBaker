@@ -287,14 +287,50 @@ Describe 'cse_config.sh'
             :
         }
 
+        Describe 'when socket activation races with the service stop'
+            setup_socket_activation() {
+                SSH_RACE_SOCKET_STATE=active
+                SSH_RACE_SERVICE_STATE=active
+            }
+
+            systemctlDisableAndStop() {
+                case "$1" in
+                    sshd.socket) SSH_RACE_SOCKET_STATE=inactive ;;
+                    sshd)
+                        SSH_RACE_SERVICE_STATE=inactive
+                        # A connection can restart sshd while its socket still listens.
+                        if [ "$SSH_RACE_SOCKET_STATE" = active ]; then
+                            SSH_RACE_SERVICE_STATE=active
+                        fi
+                        ;;
+                esac
+                return 0
+            }
+
+            disable_ssh_with_connection() {
+                disableSSH
+                printf 'socket=%s\nservice=%s\n' \
+                    "$SSH_RACE_SOCKET_STATE" "$SSH_RACE_SERVICE_STATE"
+            }
+
+            BeforeEach setup_socket_activation
+
+            It 'leaves both the socket and daemon inactive after a connection'
+                When call disable_ssh_with_connection
+                The status should be success
+                The output should equal "socket=inactive
+service=inactive"
+            End
+        End
+
         It 'stops and disables every SSH unit that is present'
             When call disableSSH
-            The output should equal "stop ssh
+            The output should equal "stop sshd.socket
+disable sshd.socket
+stop ssh
 disable ssh
 stop sshd
-disable sshd
-stop sshd.socket
-disable sshd.socket"
+disable sshd"
             The status should be success
             SSH_EVENT_FILTER='
                 length == 8 and
