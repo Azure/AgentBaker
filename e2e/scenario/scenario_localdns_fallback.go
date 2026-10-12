@@ -5,6 +5,7 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
@@ -60,10 +61,19 @@ func init() {
 // terminal state in ~12s with /bin/false rather than ~69s of pidfile timeouts.
 func validateLocalDNSCorefileStartupFailure(ctx context.Context, s *Scenario) error {
 	if laneResolvedMainBuiltImage() {
+		logging.Logf(ctx, "SKIP: this lane resolved a main-built image (%s=%s), which predates the "+
+			"localdns cleanup this asserts; run against the PR's VHD build to exercise it",
+			config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue)
 		return nil
 	}
-	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, localdnsCorefileFaultScript, 0,
+	res, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, localdnsCorefileFaultScript, 0,
 		"LocalDNS did not fail and clean up correctly on a malformed corefile")
+	// Logged on success too. execScriptOnVMForScenarioValidateExitCode only prints on
+	// failure, so a passing run was indistinguishable from a validator that returned
+	// nil early -- confirming it had run meant reading the node's journal afterwards.
+	if res != nil {
+		logging.Logf(ctx, "localdns malformed-corefile validation output:\n%s", res.stdout)
+	}
 	return err
 }
 

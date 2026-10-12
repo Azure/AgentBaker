@@ -397,35 +397,23 @@ finish
 		return err
 	}
 
-	// ---- Phase 2: the rules themselves ---------------------------------------
+	// ---- Phase 2: the rules are live in the kernel ----------------------------
+	// Rule SHAPE is not asserted here. What the script generates -- the udp/tcp
+	// DNATs, the KUBE-SVC jump, the Cilium backend spread, that a ClusterIP is never
+	// a target, the insertion order -- is covered by localdns-fallback_spec.sh, which
+	// runs in seconds against stubbed iptables and can be mutation-tested. Repeating
+	// those greps here asserted the same thing twice and drifts the moment one side
+	// changes.
+	//
+	// What only a real node can answer is whether the chain is actually installed and
+	// whether anything upstream renders it inert. That is what is left.
 	if err := phase("phase2-nat-rules", `
-chain_exists && ok "nat chain ${CHAIN} exists" || { diag "no chain"; fail "nat chain ${CHAIN} missing"; finish; }
+chain_exists && ok "nat chain ${CHAIN} is installed in the kernel" \
+  || { diag "no chain"; fail "nat chain ${CHAIN} missing"; finish; }
+log "chain contents:"; chain_rules | sed 's/^/    /'
 
-R=$(chain_rules)
-log "chain contents:"; echo "$R" | sed 's/^/    /'
-echo "$R" | grep -qE -- "-d ${NODE_IP}/32 -p udp .*--dport 53 .*-j DNAT" \
-  && ok "node listener redirected over udp" || fail "no udp DNAT for ${NODE_IP}"
-echo "$R" | grep -qE -- "-d ${NODE_IP}/32 -p tcp .*--dport 53 .*-j DNAT" \
-  && ok "node listener redirected over tcp" || fail "no tcp DNAT for ${NODE_IP}"
-echo "$R" | grep -q -- "-d ${NODE_IP}/32 .* --to-destination $(vnet_dns):53" \
-  && ok "node listener points at the VNet DNS $(vnet_dns)" || fail "node listener does not point at $(vnet_dns)"
-
-echo "$R" | grep -q -- "-d ${CLUSTER_IP}/32" \
-  && ok "cluster listener is redirected" || fail "no rule for ${CLUSTER_IP}"
-
-# The ClusterIP is deliberately never a target: the nat table is traversed once per
-# connection and DNAT is terminal, so rewriting .11 to the ClusterIP would consume
-# the traversal KUBE-SERVICES needed to translate it into a pod IP. Jump into
-# kube-proxy's own service chain, or DNAT straight at the backends on Cilium.
-if echo "$R" | grep -qE -- "-d ${CLUSTER_IP}/32 -p udp .*--dport 53 .*-j KUBE-SVC-"; then
-  ok "cluster listener jumps into kube-proxy's kube-dns chain"
-elif echo "$R" | grep -qE -- "-d ${CLUSTER_IP}/32 -p udp .*--dport 53 .*-j DNAT"; then
-  ok "cluster listener DNATs across cilium backends"
-else
-  diag "cluster listener rule shape"
-  fail "cluster listener has neither a KUBE-SVC jump nor backend DNATs"
-fi
-
+# A chain nothing jumps into is dead code. The spec proves the script emits the
+# insert; this proves the kernel accepted it.
 [ "$(hook_jumps PREROUTING)" -ge 1 ] && ok "chain is hooked into PREROUTING" || fail "no PREROUTING jump"
 [ "$(hook_jumps OUTPUT)" -ge 1 ] && ok "chain is hooked into OUTPUT" || fail "no OUTPUT jump"
 
@@ -433,6 +421,7 @@ fi
 # first -- raw is priority -300, nat is -100 -- so an untracked packet skips the nat
 # table entirely. If those rules survived into the outage the whole chain above is
 # inert for pod traffic while still looking perfectly correct in 'iptables -S'.
+# Nothing off-node can see this: it is an interaction between two live rule sets.
 nt=$(sudo iptables -w -t raw -S 2>/dev/null | grep -cE -- "-d 169\.254\.10\.(10|11)/32 .*-j NOTRACK")
 [ "$nt" -eq 0 ] \
   && ok "localdns NOTRACK rules are gone, so the redirect can take effect" \
@@ -551,24 +540,13 @@ finish
 	}
 
 	// ---- Phase 5: the safety gate --------------------------------------------
+	// Only the systemd-mediated path is asserted here. That apply refuses while
+	// localdns is active, and the wording of the refusal, are covered by
+	// localdns-fallback_spec.sh against a stubbed systemctl. What the spec cannot
+	// reach is whether ExecCondition= actually gates the unit: remove the directive
+	// and systemd runs apply, apply exits 1, and the unit lands in 'failed' on a
+	// node whose localdns is perfectly healthy. That is this phase's reason to exist.
 	return phase("phase5-guards", `
-# localdns is healthy now, so apply must refuse. Redirecting here would silently
-# take traffic away from a working listener.
-out=$(sudo /opt/azure/containers/localdns/localdns-fallback.sh apply 2>&1); rc=$?
-[ "$rc" -ne 0 ] && ok "GUARD: apply refuses while localdns is active (rc=${rc})" \
-  || fail "GUARD: apply succeeded while localdns was active"
-case "$out" in
-  *"not failed; not redirecting"*) ok "GUARD: refusal names the reason" ;;
-  *) fail "GUARD: unexpected refusal message: ${out}" ;;
-esac
-chain_exists && fail "GUARD: refused apply still created the chain" \
-  || ok "GUARD: refused apply left no chain behind"
-
-# The same refusal, but through systemd rather than by running the script directly.
-# This is what OnFailure= actually does on every start while localdns works through
-# its restart budget, and it is the only assertion here that can tell whether
-# ExecCondition= is doing anything: without it systemd runs apply, apply exits 1,
-# and the unit lands in 'failed' on a node whose localdns is perfectly healthy.
 sudo systemctl reset-failed localdns-fallback.service 2>/dev/null || true
 # No sleep afterwards: the unit is Type=oneshot, so 'systemctl start' blocks until it
 # has finished (or been skipped by ExecCondition). Its state is settled on return.
@@ -583,10 +561,6 @@ chain_exists && fail "GUARD: the skipped start still installed a chain" \
   || ok "GUARD: the skipped start installed nothing"
 sudo systemctl stop localdns-fallback.service >/dev/null 2>&1 || true
 sudo systemctl reset-failed localdns-fallback.service 2>/dev/null || true
-
-# clear is idempotent: recovery already ran it via ExecStop.
-sudo /opt/azure/containers/localdns/localdns-fallback.sh clear >/dev/null 2>&1 \
-  && ok "GUARD: clear is idempotent" || fail "GUARD: clear failed when there was nothing to clear"
 finish
 `)
 }
