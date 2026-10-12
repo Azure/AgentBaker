@@ -2,10 +2,7 @@ package scenario
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
@@ -20,10 +17,17 @@ import (
 // bounded waiter, and helpers for inspecting the fallback's nat chain. Each phase
 // is a separate SSH invocation, so this cannot live in one long-lived script.
 //
-// The shebang is load-bearing: these are uploaded as files and executed, and
-// without it the node runs them with /bin/sh (dash), which rejects 'pipefail' and
+// The shebang is load-bearing. execScriptOnVMForScenario SCPs any multi-line script
+// to the node and executes the file (exec.go: copyScriptToRemoteIfRequired), so
+// without it the node runs these with /bin/sh (dash), which rejects 'pipefail' and
 // every other bashism below with "Illegal option -o pipefail".
+//
+// That helper runs the script as azureuser. These phases drive systemd units,
+// iptables and /etc/localdns, so the prelude re-execs once as root rather than
+// prefixing every line below with sudo -- which is also what keeps the reads
+// (the environment file, journalctl) working regardless of their modes.
 const localDNSFallbackPrelude = `#!/bin/bash
+[ "$(id -u)" -eq 0 ] || exec sudo -E "$0" "$@"
 set -uo pipefail
 CLUSTER_IP=169.254.10.11
 NODE_IP=169.254.10.10
@@ -105,150 +109,12 @@ pod_resolves_external_via() {
 host_resolves_external_via() { dig +short +timeout=3 +tries=1 mcr.microsoft.com "@$1" 2>/dev/null | grep -qE '[0-9]+\.'; }
 `
 
-// vhdHasLocalDNSFallbackArtifacts reports whether the VHD under test already has
-// the fallback artifacts baked in. The pipeline runs against VHDs built from main,
-// which will not include them until this PR merges, so the scenario stages them
-// rather than skipping.
-func vhdHasLocalDNSFallbackArtifacts(ctx context.Context, s *Scenario) (bool, error) {
-	result, err := execScriptOnVMForScenario(ctx, s,
-		"test -f /etc/systemd/system/localdns-fallback.service && "+
-			"test -x /opt/azure/containers/localdns/localdns-fallback.sh")
-	if err != nil {
-		return false, fmt.Errorf("failed to check for localdns fallback artifacts on the VM: %w", err)
-	}
-	return result.exitCode == "0", nil
-}
-
-func uploadAndRunOnVM(ctx context.Context, s *Scenario, content, remotePath string, runCmd func(remote string) string, label string) (*podExecResult, error) {
-	encoded := base64.StdEncoding.EncodeToString([]byte(content))
-	remoteB64 := remotePath + ".b64"
-	const chunkSize = 4096
-	for i := 0; i < len(encoded); i += chunkSize {
-		end := min(i+chunkSize, len(encoded))
-		redirect := ">>"
-		if i == 0 {
-			redirect = ">"
-		}
-		// Each chunk appends to the last, so a failed chunk leaves a truncated file:
-		// abort rather than continue.
-		cmd := fmt.Sprintf("echo -n '%s' %s %s", encoded[i:end], redirect, remoteB64)
-		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-			fmt.Sprintf("%s: upload chunk at offset %d", label, i)); err != nil {
-			return nil, err
-		}
-	}
-	decode := fmt.Sprintf("base64 -d %s > %s && chmod +x %s && rm -f %s", remoteB64, remotePath, remotePath, remoteB64)
-	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, decode, 0, label+": decode uploaded file"); err != nil {
-		return nil, err
-	}
-	run := runCmd(remotePath)
-	if run == "" {
-		return nil, nil
-	}
-	res, err := execScriptOnVMForScenario(ctx, s, run)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", label, err)
-	}
-	return res, nil
-}
-
-// localDNSFallbackArtifacts are the files this PR adds to or changes in the VHD.
-// Kept in one place so staging and the presence check cannot drift apart.
-//
-// localdns.sh and localdns.service must be staged as a PAIR with the fallback.
-// The unit's ExecStopPost calls 'localdns.sh cleanup', a mode older scripts do not
-// have, and ExecStopPost carries no '-' prefix -- so a mismatched pair fails on
-// every stop and leaves the unit 'failed' instead of 'inactive'.
-var localDNSFallbackArtifacts = []struct {
-	repoFile string
-	dest     string
-	mode     string
-}{
-	{"localdns.sh", "/opt/azure/containers/localdns/localdns.sh", "0755"},
-	{"localdns.service", "/etc/systemd/system/localdns.service", "0644"},
-	{"localdns-fallback.service", "/etc/systemd/system/localdns-fallback.service", "0644"},
-	{"localdns-fallback.sh", "/opt/azure/containers/localdns/localdns-fallback.sh", "0755"},
-}
-
-// stageLocalDNSFallbackArtifacts installs this branch's localdns artifacts onto
-// the node.
-//
-// Without it this scenario can never run before the PR merges: the files are baked
-// into the VHD by packer rather than delivered at provision time, so
-// vhdHasLocalDNSFallbackArtifacts is false on every pipeline run and the scenario
-// would first execute only after merging, which is exactly backwards. It is a
-// no-op once the artifacts ship.
-func stageLocalDNSFallbackArtifacts(ctx context.Context, s *Scenario) error {
-	// One small command per file. A single command carrying every file inline is
-	// ~150KB of base64, and execScriptOnVMForScenario scp's the script under a 10s
-	// timeout (exec.go), so a large payload over a tunneled connection fails as
-	// "remote command exited without exit status or exit signal" -- a transport
-	// error that says nothing about what went wrong. Per-file also means a failure
-	// names the file it failed on.
-	for _, a := range localDNSFallbackArtifacts {
-		src := repoPath(filepath.Join("parts", "linux", "cloud-init", "artifacts", a.repoFile))
-		content, err := os.ReadFile(src)
-		if err != nil {
-			return fmt.Errorf("read %s for staging: %w", src, err)
-		}
-		staged := "/home/azureuser/stage_" + a.repoFile
-		install := func(remote string) string {
-			return fmt.Sprintf("sudo mkdir -p $(dirname %s) && sudo cp %s %s && sudo chmod %s %s && test -s %s && echo staged %s",
-				a.dest, remote, a.dest, a.mode, a.dest, a.dest, a.dest)
-		}
-		res, err := uploadAndRunOnVM(ctx, s, string(content), staged, install, "stage "+a.repoFile)
-		if err != nil {
-			return fmt.Errorf("stage %s: %w", a.repoFile, err)
-		}
-		if res.exitCode != "0" {
-			return fmt.Errorf("stage %s: exit %s: %s", a.repoFile, res.exitCode, res.stderr)
-		}
-	}
-
-	// localdns.service was replaced, so the loaded unit is stale until reloaded.
-	// Deliberately NO restart here: see restartLocalDNSDetached below.
-	reload := `set -euo pipefail
-sudo systemctl daemon-reload
-echo "staged: daemon reloaded"`
-	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, reload, 0,
-		"reload systemd after staging localdns fallback artifacts"); err != nil {
-		return fmt.Errorf("reload after staging: %w", err)
-	}
-	return restartLocalDNSDetached(ctx, s)
-}
-
-// restartLocalDNSDetached restarts localdns without holding the SSH session open
-// across the restart, then waits for it to come back in separate calls.
-//
-// Restarting localdns inline is what a straightforward implementation does, and it
-// fails: localdns owns the node resolver, so the restart tears down DNS underneath
-// the connection running it and the channel closes with "remote command exited
-// without exit status or exit signal" -- the command's real result is lost, and the
-// caller sees a transport error rather than anything about localdns. Detaching the
-// restart keeps the disruptive part off the connection, and the readiness poll is
-// retried because those probes can themselves land in the DNS-down window.
-func restartLocalDNSDetached(ctx context.Context, s *Scenario) error {
-	kick := `set -uo pipefail
-sudo systemctl reset-failed localdns.service 2>/dev/null || true
-sudo systemd-run --unit=localdns-e2e-restart --collect /bin/systemctl restart localdns.service >/dev/null 2>&1 || true
-echo kicked`
-	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, kick, 0, "kick localdns restart"); err != nil {
-		return fmt.Errorf("kick localdns restart: %w", err)
-	}
-	var lastErr error
-	for i := 0; i < 12; i++ {
-		time.Sleep(10 * time.Second)
-		res, err := execScriptOnVMForScenario(ctx, s, "systemctl is-active --quiet localdns.service && echo up || echo down")
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		if res.exitCode == "0" && res.stdout != "" && res.stdout[0] == 'u' {
-			logging.Logf(ctx, "localdns is active again after staging")
-			return nil
-		}
-	}
-	return fmt.Errorf("localdns did not come back after staging: %w", lastErr)
+// localDNSFallbackArtifacts are the files this scenario needs on the node. They are
+// baked into the VHD by vhdbuilder/packer/packer_source.sh rather than delivered at
+// provision time, so whether they are present is a property of the image.
+var localDNSFallbackArtifacts = []string{
+	"/etc/systemd/system/localdns-fallback.service",
+	"/opt/azure/containers/localdns/localdns-fallback.sh",
 }
 
 func localDNSProbePod(s *Scenario, suffix string, policy corev1.DNSPolicy, hostNetwork bool) *corev1.Pod {
@@ -322,29 +188,33 @@ func startLocalDNSProbePod(ctx context.Context, s *Scenario, suffix string, poli
 // Fault injection corrupts LOCALDNS_COREFILE_BASE in /etc/localdns/environment.
 // Corrupting localdns.corefile does NOT work: localdns.sh rebuilds it from the
 // base64 on every start, so it self-heals and the node never breaks.
-func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) error {
-	hasArtifacts, err := vhdHasLocalDNSFallbackArtifacts(ctx, s)
-	if err != nil {
-		return fmt.Errorf("detect localdns fallback artifacts: %w", err)
-	}
-	if !hasArtifacts {
-		logging.Logf(ctx, "VHD lacks the localdns fallback artifacts; staging this branch's copies")
-		if err := stageLocalDNSFallbackArtifacts(ctx, s); err != nil {
-			return fmt.Errorf("stage localdns fallback artifacts: %w", err)
-		}
-		staged, err := vhdHasLocalDNSFallbackArtifacts(ctx, s)
-		if err != nil {
-			return fmt.Errorf("re-check fallback artifacts after staging: %w", err)
-		}
-		if !staged {
-			return fmt.Errorf("localdns fallback artifacts still absent after staging")
+func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) (err error) {
+	// The artifacts ship in the VHD (vhdbuilder/packer/packer_source.sh and, for
+	// OSGuard images, azlosguard.yml), not through CustomData, so their absence is a
+	// packaging failure and this scenario says so rather than working around it.
+	//
+	// This replaces staging the branch's copies onto the node. Staging let the
+	// scenario run before the artifacts shipped, but once they do it is a mask: it
+	// repaired the exact gap the scenario exists to detect and then reported a pass --
+	// which is why the OSGuard mode split was invisible here. Modes are asserted by
+	// checkLocaldnsScriptsAndConfigs in vhdbuilder/packer/test/linux-vhd-content-test.sh,
+	// against the image itself.
+	//
+	// Deliberately NOT gated on whether the lane resolved a main-built image. Until a
+	// main VHD carrying these is published, the standalone e2e lane goes red; that is
+	// bounded by one VHD release and self-clearing. A gate would trade that temporary
+	// red for a permanent one: "this image is older than the feature" and "this image
+	// was built without the feature" look identical from here, so forgiving the first
+	// forgives the second, and a packaging regression that actually shipped to main
+	// would be skipped instead of reported.
+	for _, f := range localDNSFallbackArtifacts {
+		if err := ValidateFileExists(ctx, s, f); err != nil {
+			return fmt.Errorf("the localdns fallback artifacts are not baked into this VHD: %w", err)
 		}
 	}
 
 	phase := func(name, script string) error {
-		remote := "/home/azureuser/localdns_fallback_" + name + ".sh"
-		res, err := uploadAndRunOnVM(ctx, s, localDNSFallbackPrelude+script, remote,
-			func(r string) string { return "sudo " + r }, "localdns fallback e2e: "+name)
+		res, err := execScriptOnVMForScenario(ctx, s, localDNSFallbackPrelude+script)
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
@@ -357,23 +227,46 @@ func ValidateLocalDNSFallbackRecovery(ctx context.Context, s *Scenario) error {
 
 	// Always put the node back, even if a phase fails part-way. A node left with a
 	// corrupted localdns environment or a live nat chain would poison every later
-	// scenario sharing it.
+	// scenario sharing it -- so a restore that does not land is a failure of this
+	// scenario, not a log line. It only overwrites err when the test itself passed:
+	// the original failure is the more useful one to report.
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
 		defer cancel()
 		restore := localDNSFallbackPrelude + `
-[ -f "$ENVBAK" ] && sudo cp -a "$ENVBAK" "$ENVF"
-sudo systemctl stop localdns-fallback.service 2>/dev/null || true
-sudo /opt/azure/containers/localdns/localdns-fallback.sh clear 2>/dev/null || true
-sudo systemctl reset-failed localdns.service 2>/dev/null || true
-sudo systemctl start localdns.service 2>/dev/null || true
-sleep 10
-log "post-test state: localdns=$(systemctl is-active localdns.service) chain=$(chain_exists && echo present || echo absent)"
-exit 0
+[ -f "$ENVBAK" ] && cp -a "$ENVBAK" "$ENVF"
+systemctl stop localdns-fallback.service 2>/dev/null || true
+/opt/azure/containers/localdns/localdns-fallback.sh clear 2>/dev/null || true
+systemctl reset-failed localdns.service 2>/dev/null || true
+systemctl start localdns.service 2>/dev/null || true
+
+# Wait for the state the next scenario needs, rather than sleeping a fixed 10s and
+# reporting whatever happened to be true at that moment.
+wait_for 120 "localdns healthy again after the test" \
+  sh -c 'systemctl is-active --quiet localdns.service' || { diag "restore: localdns not healthy"; }
+wait_for 30 "fallback nat chain gone after the test" \
+  sh -c '! iptables -w -t nat -S LOCALDNS-FALLBACK >/dev/null 2>&1' || { diag "restore: chain survived"; }
+systemctl reset-failed localdns-fallback.service 2>/dev/null || true
+finish
 `
-		if _, err := uploadAndRunOnVM(cleanupCtx, s, restore, "/home/azureuser/localdns_fallback_restore.sh",
-			func(r string) string { return "sudo " + r }, "localdns fallback e2e: restore"); err != nil {
-			logging.Logf(ctx, "localdns fallback e2e: node restore failed: %v", err)
+		res, cerr := execScriptOnVMForScenario(cleanupCtx, s, restore)
+		if res != nil {
+			logging.Logf(ctx, "localdns fallback e2e restore output:\n%s", res.stdout)
+		}
+		switch {
+		case cerr != nil:
+			cerr = fmt.Errorf("localdns fallback e2e: node restore failed: %w", cerr)
+		case res.exitCode != "0":
+			cerr = fmt.Errorf("localdns fallback e2e: node restore failed (exit %s): the node is left "+
+				"without a healthy localdns or with fallback rules still installed\nstdout: %s\nstderr: %s",
+				res.exitCode, res.stdout, res.stderr)
+		default:
+			return
+		}
+		if err == nil {
+			err = cerr
+		} else {
+			logging.Logf(ctx, "%v (reporting the earlier test failure instead)", cerr)
 		}
 	}()
 
@@ -646,8 +539,9 @@ chain_exists && fail "GUARD: refused apply still created the chain" \
 # ExecCondition= is doing anything: without it systemd runs apply, apply exits 1,
 # and the unit lands in 'failed' on a node whose localdns is perfectly healthy.
 sudo systemctl reset-failed localdns-fallback.service 2>/dev/null || true
+# No sleep afterwards: the unit is Type=oneshot, so 'systemctl start' blocks until it
+# has finished (or been skipped by ExecCondition). Its state is settled on return.
 sudo systemctl start localdns-fallback.service >/dev/null 2>&1 || true
-sleep 2
 if systemctl is-failed --quiet localdns-fallback.service; then
   diag "gated start left the unit failed"
   fail "GUARD: starting the unit with localdns healthy left it 'failed'; ExecCondition did not skip it"
