@@ -81,12 +81,30 @@ diag() {
 # server are required: 'nsenter -n' changes only the network namespace, so a bare
 # dig would read the HOST's /etc/resolv.conf and silently measure the wrong
 # resolver.
+#
+# Exit codes are load-bearing throughout this group:
+#
+#   0  the query ran and resolved
+#   1  the query ran and did not resolve   <- a DNS failure, what we are testing
+#   2  we never got as far as querying     <- a broken probe, says nothing about DNS
+#
+# Collapsing 2 into 1 reports a crictl/nsenter problem as a pod DNS outage, which
+# is the exact conclusion this scenario exists to draw. PROBE_ERR carries the
+# detail so the failure names what actually went wrong.
+PROBE_ERR=""
+
 pod_netns() {
-  local sandbox
+  local sandbox ns
   sandbox=$(sudo crictl pods --name "$1" --state Ready -q 2>/dev/null | head -1)
-  [ -z "$sandbox" ] && return 1
-  sudo crictl inspectp "$sandbox" 2>/dev/null | grep -oE '/var/run/netns/[A-Za-z0-9._-]+' | head -1
+  if [ -z "$sandbox" ]; then PROBE_ERR="crictl found no Ready sandbox for pod $1"; return 2; fi
+  # Assigned, then tested. Ending the function on a pipeline would return head's
+  # status, which is 0 even when grep matched nothing, so an empty netns would
+  # reach nsenter as '--net=' and fail there instead of here.
+  ns=$(sudo crictl inspectp "$sandbox" 2>/dev/null | grep -oE '/var/run/netns/[A-Za-z0-9._-]+' | head -1)
+  if [ -z "$ns" ]; then PROBE_ERR="crictl inspectp reported no netns path for pod $1 (sandbox $sandbox)"; return 2; fi
+  printf '%s' "$ns"
 }
+
 pod_nameserver() {
   local sandbox
   sandbox=$(sudo crictl pods --name "$1" --state Ready -q 2>/dev/null | head -1)
@@ -95,16 +113,46 @@ pod_nameserver() {
     /var/lib/containerd/io.containerd.grpc.v1.cri/sandboxes/"$sandbox"/resolv.conf 2>/dev/null \
     | head -1 | awk '{print $2}'
 }
-pod_resolves_cluster_via() {   # <pod> <server>
-  local ns; ns=$(pod_netns "$1") || return 1
-  sudo nsenter --net="$ns" dig +short +timeout=3 +tries=1 \
-    kubernetes.default.svc.cluster.local "@$2" 2>/dev/null | grep -qE '^[0-9]+\.'
+
+# <pod> <server> <fqdn> <answer-pattern>
+pod_digs() {
+  local ns out
+  ns=$(pod_netns "$1") || return 2
+  # Prove the namespace is enterable before attributing anything to DNS. Without
+  # this, an nsenter that cannot run at all is indistinguishable from a dig that
+  # ran and got no answer.
+  sudo nsenter --net="$ns" true 2>/dev/null || {
+    PROBE_ERR="cannot enter netns $ns for pod $1"; return 2; }
+  out=$(sudo nsenter --net="$ns" dig +short +timeout=3 +tries=1 "$3" "@$2" 2>/dev/null)
+  printf '%s\n' "$out" | grep -qE "$4" && return 0
+  PROBE_ERR="dig $3 @$2 from pod $1 returned: [$(printf '%s' "$out" | tr '\n' ' ')]"
+  return 1
 }
-pod_resolves_external_via() {
-  local ns; ns=$(pod_netns "$1") || return 1
-  sudo nsenter --net="$ns" dig +short +timeout=3 +tries=1 \
-    mcr.microsoft.com "@$2" 2>/dev/null | grep -qE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+'
+
+pod_resolves_cluster_via()  { pod_digs "$1" "$2" kubernetes.default.svc.cluster.local '^[0-9]+\.'; }
+pod_resolves_external_via() { pod_digs "$1" "$2" mcr.microsoft.com '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+'; }
+
+# Poll until a lookup succeeds, then report by cause rather than by outcome. A
+# probe that never ran is not evidence that DNS is down, and must not be recorded
+# as though it were.
+# <secs> <desc> <fn> <args...>
+expect_resolves() {
+  local secs="$1" desc="$2"; shift 2
+  local i=0 rc=2
+  while [ "$i" -lt "$secs" ]; do
+    "$@"; rc=$?
+    [ "$rc" -eq 0 ] && { ok "${desc} (after ${i}s)"; return 0; }
+    sleep 1; i=$((i+1))
+  done
+  diag "$desc"
+  if [ "$rc" -eq 2 ]; then
+    fail "PROBE ERROR: ${desc} -- could not query from inside the pod, so this says nothing about DNS: ${PROBE_ERR}"
+  else
+    fail "${desc}: ${PROBE_ERR}"
+  fi
+  return 1
 }
+
 # hostNetwork pods share the host netns, so query directly.
 host_resolves_external_via() { dig +short +timeout=3 +tries=1 mcr.microsoft.com "@$1" 2>/dev/null | grep -qE '[0-9]+\.'; }
 `
@@ -410,21 +458,18 @@ POD_DURING=%q
 [ "$(pod_nameserver "$POD_CF")" = "$CLUSTER_IP" ] \
   && ok "pre-failure ClusterFirst pod is still pinned to ${CLUSTER_IP}" \
   || fail "pre-failure pod nameserver changed to $(pod_nameserver "$POD_CF")"
-wait_for 45 "ClusterFirst pod cluster lookup" pod_resolves_cluster_via "$POD_CF" "$CLUSTER_IP" \
-  && ok "pre-failure pod resolves a cluster name through the fallback" \
-  || { diag "cf cluster"; fail "pre-failure pod cannot resolve a cluster name"; }
-pod_resolves_external_via "$POD_CF" "$CLUSTER_IP" \
-  && ok "pre-failure pod resolves an external name through the fallback" \
-  || { diag "cf external"; fail "pre-failure pod cannot resolve an external name"; }
+expect_resolves 45 "pre-failure pod resolves a cluster name through the fallback" \
+  pod_resolves_cluster_via "$POD_CF" "$CLUSTER_IP"
+expect_resolves 5 "pre-failure pod resolves an external name through the fallback" \
+  pod_resolves_external_via "$POD_CF" "$CLUSTER_IP"
 
 # .10 clients -- the group the .11-only design black-holed. CoreDNS itself,
 # konnectivity-agent and the CSI node drivers all live here.
 [ "$(pod_nameserver "$POD_DEF")" = "$NODE_IP" ] \
   && ok "Default-policy pod is pinned to ${NODE_IP}" \
   || fail "Default-policy pod nameserver is $(pod_nameserver "$POD_DEF")"
-wait_for 45 "Default pod external lookup" pod_resolves_external_via "$POD_DEF" "$NODE_IP" \
-  && ok "Default-policy pod resolves an external name through the fallback" \
-  || { diag "default external"; fail "Default-policy pod cannot resolve externally"; }
+expect_resolves 45 "Default-policy pod resolves an external name through the fallback" \
+  pod_resolves_external_via "$POD_DEF" "$NODE_IP"
 
 # The node itself, and every hostNetwork pod, uses .10 the same way.
 host_resolves_external_via "$NODE_IP" \
@@ -435,9 +480,8 @@ host_resolves_external_via "$NODE_IP" \
 [ "$(pod_nameserver "$POD_DURING")" = "$CLUSTER_IP" ] \
   && ok "during-failure pod was born with nameserver ${CLUSTER_IP}" \
   || fail "during-failure pod nameserver is $(pod_nameserver "$POD_DURING")"
-wait_for 45 "during-failure pod cluster lookup" pod_resolves_cluster_via "$POD_DURING" "$CLUSTER_IP" \
-  && ok "during-failure pod resolves a cluster name through the fallback" \
-  || { diag "during cluster"; fail "during-failure pod cannot resolve"; }
+expect_resolves 45 "during-failure pod resolves a cluster name through the fallback" \
+  pod_resolves_cluster_via "$POD_DURING" "$CLUSTER_IP"
 finish
 `, podCF, podDefault, podDuring)); err != nil {
 		return err
