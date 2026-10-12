@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	containerd "github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -20,15 +21,15 @@ const (
 	pullSizeThreshold = 200 * 1024 * 1024 // 200 MiB
 )
 
-// fetchImage uses client.Fetch() which:
+// fetchImage can delegate registry fetching to the host Transfer service.
+// Otherwise, it uses client.Fetch(), which:
 //   - Downloads all blobs (manifest, config, layers) into the content store
 //   - Creates an image record in the metadata database
 //   - Does NOT unpack layers into the snapshotter
 //
-// If the total image content size is below pullSizeThreshold (150 MiB),
-// client.Pull() is called to additionally unpack the layers. Pull reuses
-// already-fetched content from the store and handles snapshotter resolution
-// internally (namespace label → platform default).
+// If the total image content size is below pullSizeThreshold (200 MiB),
+// ACL unpacks locally into overlayfs. Other images use client.Pull() for
+// platform-aware snapshotter resolution.
 func fetchImage(ctx context.Context, client *containerd.Client, ref string) error {
 	fetchOnly := os.Getenv("IMAGE_FETCH_ONLY") == "true"
 
@@ -41,42 +42,51 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	}
 	platformMatcher := platforms.OnlyStrict(p)
 
-	imageMeta, err := client.Fetch(ctx, ref,
-		containerd.WithPlatformMatcher(platformMatcher),
-	)
+	serverTransfer := os.Getenv(serverTransferEnv) == "true"
+	var image containerd.Image
+	if serverTransfer {
+		image, err = transferImage(ctx, client, ref, p)
+	} else {
+		var imageMeta images.Image
+		imageMeta, err = client.Fetch(ctx, ref, containerd.WithPlatformMatcher(platformMatcher))
+		image = containerd.NewImageWithPlatform(client, imageMeta, platformMatcher)
+	}
 	if err != nil {
 		return fmt.Errorf("fetch failed: %w", err)
 	}
 
-	image := containerd.NewImageWithPlatform(client, imageMeta, platformMatcher)
 	if err := validateImagePlatform(ctx, image, p); err != nil {
 		return err
 	}
 
 	if fetchOnly {
-		fmt.Printf("OK    %s -> %s (fetched)\n", imageMeta.Name, imageMeta.Target.Digest)
+		fmt.Printf("OK    %s -> %s (fetched)\n", image.Name(), image.Target().Digest)
 		return nil
 	}
 
 	size, err := image.Size(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "WARN  %s: could not determine image size, skipping unpack: %v\n", ref, err)
-		fmt.Printf("OK    %s -> %s (fetched)\n", imageMeta.Name, imageMeta.Target.Digest)
+		fmt.Printf("OK    %s -> %s (fetched)\n", image.Name(), image.Target().Digest)
 		return nil
 	}
 
 	if size < pullSizeThreshold {
-		// We use pull here instead of use unpack because some runtimes (e.g. containerd-shim-runsc-v1),
-		// require pull to trigger unpacking into the correct snapshotter based on the image's platform.
-		if _, err := client.Pull(ctx, ref,
-			containerd.WithPlatformMatcher(platformMatcher),
-			containerd.WithPullUnpack,
-		); err != nil {
+		if serverTransfer {
+			err = image.Unpack(ctx, "overlayfs")
+		} else {
+			// Other runtimes require Pull for platform-aware snapshotter resolution.
+			_, err = client.Pull(ctx, ref,
+				containerd.WithPlatformMatcher(platformMatcher),
+				containerd.WithPullUnpack,
+			)
+		}
+		if err != nil {
 			return fmt.Errorf("pull failed: %w", err)
 		}
-		fmt.Printf("OK    %s -> %s (pulled, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
+		fmt.Printf("OK    %s -> %s (pulled, %s)\n", image.Name(), image.Target().Digest, formatSize(size))
 	} else {
-		fmt.Printf("OK    %s -> %s (fetched, %s)\n", imageMeta.Name, imageMeta.Target.Digest, formatSize(size))
+		fmt.Printf("OK    %s -> %s (fetched, %s)\n", image.Name(), image.Target().Digest, formatSize(size))
 	}
 
 	return nil
