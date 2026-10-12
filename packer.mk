@@ -1,12 +1,25 @@
 SHELL=/bin/bash -o pipefail
+.DEFAULT_GOAL := build-packer
 
 GOARCH=amd64
 ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
+OPENVMM_MAP_SETTINGS ?= vhdbuilder/packer/settings.json
 
-build-packer: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+.PHONY: prepare-openvmm-test
+prepare-openvmm-test:
+ifneq ($(strip $(OPENVMM_ARTIFACT_DIR)$(filter true,$(OPENVMM_UNSIGNED_TEST_ONLY))),)
+	@test "$(OPENVMM_UNSIGNED_TEST_ONLY)" = true || { echo "Set OPENVMM_UNSIGNED_TEST_ONLY=true for local unsigned test artifacts"; exit 1; }
+	@test -n "$(OPENVMM_ARTIFACT_DIR)" || { echo "OPENVMM_ARTIFACT_DIR is required for the opt-in test build"; exit 1; }
+	@test "$(OS_SKU):$(ARCHITECTURE):$(HYPERV_GENERATION):$(FEATURE_FLAGS)" = "AzureLinux:X86_64:V2:kata" || { echo "OpenVMM supports only AzureLinux X86_64 V2 kata test builds"; exit 1; }
+	@case "$(OS_VERSION)" in V3kata|3.0) ;; *) echo "OpenVMM requires the AL3 Kata pipeline label V3kata (or local 3.0)"; exit 1 ;; esac
+	@test -n "$(BUILD_ID)" || { echo "BUILD_ID is required for an approved MAP image build"; exit 1; }
+	python3 vhdbuilder/packer/openvmm/prepare.py --allow-unsigned-test-artifacts --artifacts "$(OPENVMM_ARTIFACT_DIR)" --map-settings "$(OPENVMM_MAP_SETTINGS)" --build-id "$(BUILD_ID)" --output vhdbuilder/packer/openvmm-test.generated.json
+endif
+
+build-packer: prepare-openvmm-test setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -53,8 +66,13 @@ ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
 	@echo "Using packer template file vhd-image-builder-mariner-cvm.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-cvm.json
 else
+ifneq ($(strip $(OPENVMM_ARTIFACT_DIR)),)
+	@echo "UNSIGNED TEST ONLY: using local OpenVMM artifacts"
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json -var 'feature_flags=kata' -var 'hyperv_generation=V2' vhdbuilder/packer/openvmm-test.generated.json
+else
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+endif
 endif
 else ifeq (${OS_SKU},AzureContainerLinux)
 	@echo "Using packer template file vhd-image-builder-acl.json"

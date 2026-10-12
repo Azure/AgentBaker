@@ -1,4 +1,5 @@
-version = 2
+version = 2{{if .GetIsKata }}
+imports = ["/opt/kata-openvmm/containerd/v2/*.toml"]{{end}}
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]

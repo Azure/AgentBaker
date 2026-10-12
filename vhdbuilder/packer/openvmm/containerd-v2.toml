@@ -1,0 +1,37 @@
+# Test-node-wide differ settings; never installed on ordinary Kata/CLH images.
+version = 2
+required_plugins = ["io.containerd.differ.v1.erofs", "io.containerd.snapshotter.v1.erofs"]
+[plugins."io.containerd.cri.v1.images"]
+  use_local_image_pull = false
+  snapshotter = "erofs"
+  disable_snapshot_annotations = false
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-openvmm]
+  snapshotter = "erofs"
+  runtime_type = "io.containerd.kata-openvmm.v2"
+  runtime_path = "/opt/kata-openvmm/bin/containerd-shim-kata-openvmm-v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-openvmm.options]
+    ConfigPath = "/opt/kata-openvmm/share/defaults/kata-containers/configuration-openvmm-azure-snp-runtime-rs.toml"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "erofs"
+  runtime_type = "io.containerd.kata-openvmm.v2"
+  runtime_path = "/opt/kata-openvmm/bin/containerd-shim-kata-openvmm-v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/kata-openvmm/share/defaults/kata-containers/configuration-openvmm-azure-snp-runtime-rs.toml"
+[plugins."io.containerd.service.v1.diff-service"]
+  default = ["erofs"]
+[plugins."io.containerd.differ.v1.erofs"]
+  enable_dmverity = true
+  enable_tar_index = false
+  mkfs_options = ["-T0", "--mkfs-time", "--sort=none"]
+[plugins."io.containerd.snapshotter.v1.erofs"]
+  default_size = "0"
+  dmverity_mode = "on"
+[[plugins."io.containerd.transfer.v1.local".unpack_config]]
+  platform = "linux/amd64"
+  snapshotter = "erofs"
+  differ = "erofs"
+  optional = false
