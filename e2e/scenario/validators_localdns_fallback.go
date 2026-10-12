@@ -2,12 +2,12 @@ package scenario
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,651 +15,287 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// Shared shell prelude for every node-side phase: logging, assertion counters, a
-// bounded waiter, and helpers for inspecting the fallback's nat chain. Each phase
-// is a separate SSH invocation, so this cannot live in one long-lived script.
-//
-// The shebang is load-bearing. execScriptOnVMForScenario SCPs any multi-line script
-// to the node and executes the file (exec.go: copyScriptToRemoteIfRequired), so
-// without it the node runs these with /bin/sh (dash), which rejects 'pipefail' and
-// every other bashism below with "Illegal option -o pipefail".
-//
-// That helper runs the script as azureuser. These phases drive systemd units,
-// iptables and /etc/localdns, so the prelude re-execs once as root rather than
-// prefixing every line below with sudo -- which is also what keeps the reads
-// (the environment file, journalctl) working regardless of their modes.
-const localDNSFallbackPrelude = `#!/bin/bash
-[ "$(id -u)" -eq 0 ] || exec sudo -E "$0" "$@"
-set -uo pipefail
-CLUSTER_IP=169.254.10.11
-NODE_IP=169.254.10.10
-CHAIN=LOCALDNS-FALLBACK
-FAULT_DIR=/run/systemd/system/localdns.service.d
-FAULT=$FAULT_DIR/zz-e2e-fault.conf
-KUBELET_DEFAULT_FILE=/etc/default/kubelet
-RESOLV=/run/systemd/resolve/resolv.conf
-FAIL=0
-
-log()  { echo "fallback-e2e: $*"; }
-ok()   { echo "fallback-e2e: PASS: $*"; }
-fail() { echo "fallback-e2e: FAIL: $*" >&2; FAIL=1; }
-finish() { [ "$FAIL" -eq 0 ] || { echo "fallback-e2e: phase FAILED" >&2; exit 1; }; echo "fallback-e2e: phase passed"; exit 0; }
-
-wait_for() {
-  local secs="$1" desc="$2"; shift 2
-  local i=0
-  while [ "$i" -lt "$secs" ]; do
-    if "$@"; then log "condition met: ${desc} (after ${i}s)"; return 0; fi
-    sleep 1; i=$((i+1))
-  done
-  fail "timed out waiting for: ${desc} (${secs}s)"
-  return 1
-}
-
-kubelet_cluster_dns() { grep -oE '\-\-cluster-dns=[^" ]+' "$KUBELET_DEFAULT_FILE" 2>/dev/null | head -1 | cut -d= -f2-; }
-
-# The fallback installs no listener, so there is no socket to attribute. Its
-# entire observable state is the nat chain and the two jumps into it.
-chain_exists()  { sudo iptables -w -t nat -S "$CHAIN" >/dev/null 2>&1; }
-chain_rules()   { sudo iptables -w -t nat -S "$CHAIN" 2>/dev/null; }
-hook_jumps()    { sudo iptables -w -t nat -S "$1" 2>/dev/null | grep -c -- "-j ${CHAIN}"; }
-vnet_dns()      { awk -v self="$NODE_IP" '$1 == "nameserver" && $2 != self { print $2; exit }' "$RESOLV" 2>/dev/null; }
-
-diag() {
-  echo "fallback-e2e: ---- diagnostics: $* ----"
-  echo "  localdns=$(systemctl is-active localdns.service)/$(systemctl is-failed localdns.service) fallback=$(systemctl is-active localdns-fallback.service)"
-  echo "  kubelet --cluster-dns=$(kubelet_cluster_dns)"
-  echo "  resolv upstream=$(vnet_dns)  [$(grep -c '^nameserver' "$RESOLV" 2>/dev/null) nameserver lines]"
-  echo "  --- nat chain ---"; chain_rules | sed 's/^/    /' || echo "    (absent)"
-  echo "  PREROUTING jumps=$(hook_jumps PREROUTING)  OUTPUT jumps=$(hook_jumps OUTPUT)"
-  echo "  node dig @.11: [$(dig +short +timeout=3 +tries=1 kubernetes.default.svc.cluster.local "@${CLUSTER_IP}" 2>&1 | tr '\n' ' ')]"
-  echo "  node dig @.10: [$(dig +short +timeout=3 +tries=1 mcr.microsoft.com "@${NODE_IP}" 2>&1 | tr '\n' ' ')]"
-  echo "  --- fallback journal ---"; journalctl -u localdns-fallback.service --since "-5min" --no-pager -o cat 2>/dev/null | tail -12 | sed 's/^/    /'
-  echo "  --- localdns journal ---"; journalctl -u localdns.service --since "-5min" --no-pager -o cat 2>/dev/null | tail -8 | sed 's/^/    /'
-  echo "fallback-e2e: ---- end diagnostics ----"
-}
-
-# Resolve from inside a pod's network namespace. Both the netns AND an explicit
-# server are required: 'nsenter -n' changes only the network namespace, so a bare
-# dig would read the HOST's /etc/resolv.conf and silently measure the wrong
-# resolver.
-#
-# Exit codes are load-bearing throughout this group:
-#
-#   0  the query ran and resolved
-#   1  the query ran and did not resolve   <- a DNS failure, what we are testing
-#   2  we never got as far as querying     <- a broken probe, says nothing about DNS
-#
-# Collapsing 2 into 1 reports a crictl/nsenter problem as a pod DNS outage, which
-# is the exact conclusion this scenario exists to draw. PROBE_ERR carries the
-# detail so the failure names what actually went wrong.
-PROBE_ERR=""
-
-pod_netns() {
-  local sandbox ns
-  sandbox=$(sudo crictl pods --name "$1" --state Ready -q 2>/dev/null | head -1)
-  if [ -z "$sandbox" ]; then PROBE_ERR="crictl found no Ready sandbox for pod $1"; return 2; fi
-  # Assigned, then tested. Ending the function on a pipeline would return head's
-  # status, which is 0 even when grep matched nothing, so an empty netns would
-  # reach nsenter as '--net=' and fail there instead of here.
-  ns=$(sudo crictl inspectp "$sandbox" 2>/dev/null | grep -oE '/var/run/netns/[A-Za-z0-9._-]+' | head -1)
-  if [ -z "$ns" ]; then PROBE_ERR="crictl inspectp reported no netns path for pod $1 (sandbox $sandbox)"; return 2; fi
-  printf '%s' "$ns"
-}
-
-pod_nameserver() {
-  local sandbox
-  sandbox=$(sudo crictl pods --name "$1" --state Ready -q 2>/dev/null | head -1)
-  [ -z "$sandbox" ] && return 1
-  sudo grep -oE '^nameserver .*' \
-    /var/lib/containerd/io.containerd.grpc.v1.cri/sandboxes/"$sandbox"/resolv.conf 2>/dev/null \
-    | head -1 | awk '{print $2}'
-}
-
-# <pod> <server> <fqdn> <answer-pattern>
-pod_digs() {
-  local ns out
-  ns=$(pod_netns "$1") || return 2
-  # Prove the namespace is enterable before attributing anything to DNS. Without
-  # this, an nsenter that cannot run at all is indistinguishable from a dig that
-  # ran and got no answer.
-  sudo nsenter --net="$ns" true 2>/dev/null || {
-    PROBE_ERR="cannot enter netns $ns for pod $1"; return 2; }
-  out=$(sudo nsenter --net="$ns" dig +short +timeout=3 +tries=1 "$3" "@$2" 2>/dev/null)
-  printf '%s\n' "$out" | grep -qE "$4" && return 0
-  PROBE_ERR="dig $3 @$2 from pod $1 returned: [$(printf '%s' "$out" | tr '\n' ' ')]"
-  return 1
-}
-
-pod_resolves_cluster_via()  { pod_digs "$1" "$2" kubernetes.default.svc.cluster.local '^[0-9]+\.'; }
-pod_resolves_external_via() { pod_digs "$1" "$2" mcr.microsoft.com '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+'; }
-
-# Poll until a lookup succeeds, then report by cause rather than by outcome. A
-# probe that never ran is not evidence that DNS is down, and must not be recorded
-# as though it were.
-# <secs> <desc> <fn> <args...>
-expect_resolves() {
-  local secs="$1" desc="$2"; shift 2
-  local i=0 rc=2
-  while [ "$i" -lt "$secs" ]; do
-    "$@"; rc=$?
-    [ "$rc" -eq 0 ] && { ok "${desc} (after ${i}s)"; return 0; }
-    sleep 1; i=$((i+1))
-  done
-  diag "$desc"
-  if [ "$rc" -eq 2 ]; then
-    fail "PROBE ERROR: ${desc} -- could not query from inside the pod, so this says nothing about DNS: ${PROBE_ERR}"
-  else
-    fail "${desc}: ${PROBE_ERR}"
-  fi
-  return 1
-}
-
-# hostNetwork pods share the host netns, so query directly.
-host_resolves_external_via() { dig +short +timeout=3 +tries=1 mcr.microsoft.com "@$1" 2>/dev/null | grep -qE '[0-9]+\.'; }
-`
-
-// localDNSFallbackArtifacts are the files this scenario needs on the node. They are
-// baked into the VHD by vhdbuilder/packer/packer_source.sh rather than delivered at
-// provision time, so whether they are present is a property of the image.
-var localDNSFallbackArtifacts = []string{
-	"/etc/systemd/system/localdns-fallback.service",
-	"/opt/azure/containers/localdns/localdns-fallback.sh",
-}
-
-// nativeLookupAnswered reports whether a busybox nslookup actually resolved.
-//
-// Not the exit code: busybox nslookup returns 0 on NXDOMAIN in several builds, so the
-// answer section is the only trustworthy signal. And not "any Address line" either --
-// busybox prints the SERVER as "Server:"/"Address:" before the answer, so that would
-// match on a failed lookup too. Only addresses after the "Name:" line are answers.
-//
-//	Server:    169.254.10.11
-//	Address:   169.254.10.11:53     <- the server, present even on NXDOMAIN
-//
-//	Name:      kubernetes.default.svc.cluster.local
-//	Address 1: 10.0.0.1             <- the answer
-func nativeLookupAnswered(out string) bool {
-	seenName := false
-	for _, line := range strings.Split(out, "\n") {
-		t := strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(t, "Name:"):
-			seenName = true
-		case seenName && strings.HasPrefix(t, "Address"):
-			return true
+func validateLocalDNSFailureAndFallback(ctx context.Context, s *Scenario) (err error) {
+	if err := validateLocalDNSRestartBudgetDirectives(ctx, s); err != nil {
+		return err
+	}
+	for _, path := range []string{
+		"/etc/systemd/system/localdns-fallback.service",
+		"/opt/azure/containers/localdns/localdns-fallback.sh",
+	} {
+		if err := ValidateFileExists(ctx, s, path); err != nil {
+			return fmt.Errorf("LocalDNS fallback artifact missing from VHD: %w", err)
 		}
 	}
-	return false
+	// Baseline probes also pull the image before the DNS disruption.
+	if err := validateLocalDNSLookupPods(ctx, s); err != nil {
+		return fmt.Errorf("LocalDNS baseline: %w", err)
+	}
+
+	// The normal path restores once below. Any failure after fault injection also
+	// restores, including a failed guard that installed unexpected NAT rules.
+	defer func() {
+		if err == nil {
+			return
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
+		defer cancel()
+		output, diagErr := runLocalDNSNodeCommand(cleanupCtx, s,
+			"sudo journalctl -u localdns.service -u localdns-fallback.service -n 40 --no-pager")
+		logging.Logf(ctx, "LocalDNS failure journal:\n%s\njournal error: %v", output, diagErr)
+		// Force cleanup only after failure, so it cannot mask a broken handoff.
+		for _, command := range []string{
+			"sudo systemctl stop localdns-fallback.service",
+			"sudo /opt/azure/containers/localdns/localdns-fallback.sh clear",
+			"sudo systemctl reset-failed localdns-fallback.service",
+		} {
+			if _, cleanupErr := runLocalDNSNodeCommand(cleanupCtx, s, command); cleanupErr != nil {
+				err = errors.Join(err, cleanupErr)
+			}
+		}
+		if cleanupErr := restoreLocalDNSAfterFault(cleanupCtx, s); cleanupErr != nil {
+			err = errors.Join(err, fmt.Errorf("restore LocalDNS: %w", cleanupErr))
+		}
+	}()
+
+	if err := driveLocalDNSToTerminalFailed(ctx, s); err != nil {
+		return err
+	}
+	if err := waitForLocalDNSState(ctx, s, "localdns-fallback.service", "active", time.Minute); err != nil {
+		return err
+	}
+	resolvers, err := runLocalDNSNodeCommand(ctx, s, "cat /run/systemd/resolve/resolv.conf")
+	if err != nil {
+		return err
+	}
+	upstreamRestored := false
+	for _, line := range strings.Split(resolvers, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[0] == "nameserver" && fields[1] != "169.254.10.10" {
+			upstreamRestored = true
+		}
+	}
+	if !upstreamRestored {
+		return fmt.Errorf("DHCP resolvers were not restored after LocalDNS exit:\n%s", resolvers)
+	}
+	if err := checkLocalDNSNAT(ctx, s, true); err != nil {
+		return err
+	}
+	if err := validateLocalDNSLookupPods(ctx, s); err != nil {
+		return fmt.Errorf("LocalDNS fallback: %w", err)
+	}
+
+	if err := restoreLocalDNSAfterFault(ctx, s); err != nil {
+		return err
+	}
+	if err := validateLocalDNSLookupPods(ctx, s); err != nil {
+		return fmt.Errorf("LocalDNS recovery: %w", err)
+	}
+
+	// A blocking start must be skipped by ExecCondition while LocalDNS is healthy.
+	if _, err := runLocalDNSNodeCommand(ctx, s, "sudo systemctl start localdns-fallback.service"); err != nil {
+		return err
+	}
+	state, err := runLocalDNSNodeCommand(ctx, s, "systemctl show localdns-fallback.service -p ActiveState --value")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(state) != "inactive" {
+		return fmt.Errorf("fallback start was not skipped while LocalDNS was healthy: %s", state)
+	}
+	return checkLocalDNSNAT(ctx, s, false)
 }
 
-// validateLocalDNSPodNativeResolution resolves from inside the container, the way an
-// application does: no explicit server, so the pod's own /etc/resolv.conf, search list
-// and ndots decide the lookup.
-//
-// This is additive to the nsenter assertions, not a replacement, because they answer
-// different questions. 'nsenter --net=<pod netns> dig @169.254.10.11' proves packets
-// leave the pod's network namespace and reach a working resolver. It says nothing about
-// the resolver configuration kubelet wrote into the sandbox, which is what an
-// application actually depends on. If the two ever disagree, that is a bug neither sees
-// alone.
-//
-// Wrapped in the per-attempt cap plus poll that ValidateWireserverBlocked uses
-// (validation.go): exec streams can hang under konnectivity churn, and client-go can
-// return without an exit status (kube.go:42). The nsenter checks run first and remain
-// the authoritative signal, so a slow exec cannot by itself turn a working fallback red.
-func validateLocalDNSPodNativeResolution(ctx context.Context, s *Scenario, podName, fqdn, label string) error {
-	var last string
-	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 45*time.Second, true, func(ctx context.Context) (bool, error) {
-		attemptCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		defer cancel()
-		res, execErr := execOnPod(attemptCtx, s.Runtime.Kube, defaultNamespace, podName, []string{"nslookup", fqdn})
-		if execErr != nil {
-			logging.Logf(ctx, "%s: exec in %s failed, retrying: %v", label, podName, execErr)
-			return false, nil
+func runLocalDNSNodeCommand(ctx context.Context, s *Scenario, command string) (string, error) {
+	// Single-line commands avoid the SSH helper's SCP upload path.
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"bash -euo pipefail -c '"+strings.ReplaceAll(command, "'", "'\"'\"'")+"'", 0, "LocalDNS node check failed")
+	if err != nil {
+		return "", err
+	}
+	return result.stdout, nil
+}
+
+func waitForLocalDNSState(ctx context.Context, s *Scenario, unit, want string, timeout time.Duration) error {
+	var state string
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		output, err := runLocalDNSNodeCommand(ctx, s, "systemctl show "+unit+" -p ActiveState --value")
+		if err != nil {
+			return false, err
 		}
-		last = res.stdout
-		return nativeLookupAnswered(last), nil
+		state = strings.TrimSpace(output)
+		return state == want, nil
 	})
 	if err != nil {
-		return fmt.Errorf("%s: pod %s could not resolve %s through its own resolv.conf: %w (last nslookup output: %q)",
-			label, podName, fqdn, err, last)
+		return fmt.Errorf("waiting for %s=%s (last state %q): %w", unit, want, state, err)
 	}
-	logging.Logf(ctx, "%s: pod %s resolved %s natively, using its own resolv.conf", label, podName, fqdn)
 	return nil
 }
 
-func localDNSProbePod(s *Scenario, suffix string, policy corev1.DNSPolicy, hostNetwork bool) *corev1.Pod {
+func restoreLocalDNSAfterFault(ctx context.Context, s *Scenario) error {
+	if _, err := runLocalDNSNodeCommand(ctx, s, fmt.Sprintf(
+		"sudo rm -f %s; sudo systemctl daemon-reload; sudo systemctl reset-failed localdns.service; sudo systemctl restart localdns.service --no-block",
+		localdnsFaultDropIn)); err != nil {
+		return err
+	}
+	if err := waitForLocalDNSState(ctx, s, "localdns.service", "active", 2*time.Minute); err != nil {
+		return err
+	}
+	if err := waitForLocalDNSState(ctx, s, "localdns-fallback.service", "inactive", 30*time.Second); err != nil {
+		return err
+	}
+	return checkLocalDNSNAT(ctx, s, false)
+}
+
+func checkLocalDNSNAT(ctx context.Context, s *Scenario, active bool) error {
+	nat, err := runLocalDNSNodeCommand(ctx, s, "sudo iptables -w 5 -t nat -S")
+	if err != nil {
+		return err
+	}
+	var raw string
+	if active {
+		raw, err = runLocalDNSNodeCommand(ctx, s, "sudo iptables -w 5 -t raw -S")
+		if err != nil {
+			return err
+		}
+	}
+	return validateLocalDNSNATRules(nat, raw, active)
+}
+
+func validateLocalDNSNATRules(nat, raw string, active bool) error {
+	if !active {
+		if strings.Contains(nat, "LOCALDNS-FALLBACK") {
+			return fmt.Errorf("fallback NAT rules or hooks survived recovery:\n%s", nat)
+		}
+		return nil
+	}
+	for _, rule := range []string{
+		"-N LOCALDNS-FALLBACK",
+		"-A PREROUTING -j LOCALDNS-FALLBACK",
+		"-A OUTPUT -j LOCALDNS-FALLBACK",
+	} {
+		if !strings.Contains("\n"+nat+"\n", "\n"+rule+"\n") {
+			return fmt.Errorf("missing fallback rule %q:\n%s", rule, nat)
+		}
+	}
+	for _, line := range strings.Split(raw, "\n") {
+		if strings.Contains(line, " -j NOTRACK") &&
+			(strings.Contains(line, " -d 169.254.10.10/32 ") ||
+				strings.Contains(line, " -d 169.254.10.11/32 ")) {
+			return fmt.Errorf("LocalDNS NOTRACK rule survived failure: %s", line)
+		}
+	}
+	return nil
+}
+
+func validateLocalDNSLookupPods(ctx context.Context, s *Scenario) error {
+	for _, probe := range []struct {
+		name, server string
+		names        []string
+	}{
+		{"node-dns", "169.254.10.10", []string{"mcr.microsoft.com"}},
+		{"cluster-dns", localDNSClusterListenerIP, []string{"kubernetes.default.svc.cluster.local", "mcr.microsoft.com"}},
+	} {
+		if err := runLocalDNSLookupPod(ctx, s, localDNSLookupPod(s, probe.name, probe.server, probe.names)); err != nil {
+			return err
+		}
+	}
+	// Pod traffic exercises PREROUTING; retain the host's OUTPUT-path check too.
+	for _, query := range []string{
+		"mcr.microsoft.com @169.254.10.10",
+		"kubernetes.default.svc.cluster.local @169.254.10.11",
+	} {
+		if _, err := runLocalDNSNodeCommand(ctx, s,
+			`dig +short +timeout=3 +tries=1 `+query+` | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'`); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func localDNSLookupPod(s *Scenario, suffix, server string, names []string) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	if s.Tags.MockAzureChinaCloud {
 		image = "mcr.azk8s.cn/cbl-mariner/busybox:2.0"
 	}
+	containers := make([]corev1.Container, 0, len(names))
+	for i, name := range names {
+		containers = append(containers, corev1.Container{
+			Name: fmt.Sprintf("lookup-%d", i), Image: image, ImagePullPolicy: corev1.PullIfNotPresent,
+			// Explicit server: a new Default pod during fallback otherwise inherits
+			// VNet DNS and bypasses the dead LocalDNS listener.
+			Command:                  []string{"nslookup", name, server},
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		})
+	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-localdns-%s", s.Runtime.VM.KubeName, suffix),
+			Name:      uniqueKubernetesResourceName(s.Runtime.VM.KubeName + "-localdns-" + suffix),
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
-			DNSPolicy:   policy,
-			HostNetwork: hostNetwork,
-			Containers: []corev1.Container{
-				{Name: "probe", Image: image, Command: []string{"sleep", "infinity"}},
-			},
-			Tolerations:  getPodTolerations(),
-			NodeSelector: getNodeSelectorForScenario(s),
+			RestartPolicy:         corev1.RestartPolicyNever,
+			ActiveDeadlineSeconds: to.Ptr(int64(120)),
+			DNSPolicy:             corev1.DNSDefault,
+			Containers:            containers,
+			Tolerations:           getPodTolerations(),
+			NodeSelector:          getNodeSelectorForScenario(s),
 		},
 	}
 }
 
-func startLocalDNSProbePod(ctx context.Context, s *Scenario, suffix string, policy corev1.DNSPolicy, hostNetwork bool) (string, func(), error) {
-	kube := s.Runtime.Kube
-	pod := localDNSProbePod(s, suffix, policy, hostNetwork)
-	pod.Name = uniqueKubernetesResourceName(pod.Name)
+func runLocalDNSLookupPod(ctx context.Context, s *Scenario, pod *corev1.Pod) (err error) {
 	if err := setScenarioNodeOwnerReference(ctx, s, pod); err != nil {
-		return "", func() {}, fmt.Errorf("set owner reference on %q: %w", pod.Name, err)
+		return err
 	}
-	created, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+	pods := s.Runtime.Kube.Typed.CoreV1().Pods(pod.Namespace)
+	created, err := pods.Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
-		return "", func() {}, fmt.Errorf("create pod %q: %w", pod.Name, err)
+		return fmt.Errorf("create DNS pod %s: %w", pod.Name, err)
 	}
-	del := func() {
+	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
-		opts := metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))}
-		if err := kube.Typed.CoreV1().Pods(created.Namespace).Delete(cleanupCtx, created.Name, opts); err != nil && !apierrors.IsNotFound(err) {
-			logging.Logf(ctx, "could not delete pod %s: %v", created.Name, err)
-		}
-	}
-	if _, err := kube.WaitUntilPodRunning(ctx, created.Namespace, "", "metadata.name="+created.Name); err != nil {
-		del()
-		return "", func() {}, fmt.Errorf("wait for pod %q to run: %w", created.Name, err)
-	}
-	logging.Logf(ctx, "localdns probe pod %q (%s, hostNetwork=%v) is running", created.Name, policy, hostNetwork)
-	return created.Name, del, nil
-}
-
-// validateLocalDNSFailureAndFallback exercises the kernel-NAT fallback end to end on
-// a node whose localdns has reached terminal 'failed'.
-//
-// The fallback runs no CoreDNS and holds no socket. It installs one nat chain that
-// redirects both listeners, so every assertion here is about iptables state and
-// about what pods can actually resolve -- never about who owns a port.
-//
-// Both listeners matter, and this is the point the .11-only design missed. A pod's
-// /etc/resolv.conf is written once at sandbox creation and never revisited, and
-// which address it gets depends on its dnsPolicy:
-//
-//	ClusterFirst                     -> 169.254.10.11
-//	Default, hostNetwork+ClusterFirst -> 169.254.10.10
-//
-// The second group includes CoreDNS itself, konnectivity-agent, the CSI node
-// drivers, kube-proxy and azure-cns. Leaving .10 dark black-holes all of them, and
-// also breaks external resolution for .11 clients whose query lands on a CoreDNS
-// replica running on this same node -- that replica resolves through its own .10.
-//
-// Fault injection overrides ExecStart with /bin/false, the same fault
-// scenario_localdns_restart_budget.go uses, so the unit spends its burst and
-// lands in terminal 'failed' in ~12s. Note what does NOT work: corrupting
-// localdns.corefile, because localdns.sh rebuilds it from the base64 in
-// /etc/localdns/environment on every start, so the node self-heals and never
-// breaks.
-func validateLocalDNSFailureAndFallback(ctx context.Context, s *Scenario) (err error) {
-	// Deliberately NOT gated on whether the lane resolved a main-built image.
-	//
-	// A gate here cannot tell "this image predates the feature" from "this image was
-	// built without the feature" -- they look identical from the node -- so forgiving
-	// the first forgives the second permanently, and a packaging regression that
-	// actually shipped to main would be skipped rather than reported. It would also
-	// mean this block never runs on the nightly main cron or on any PR touching
-	// e2e/**, which is a scenario reporting green in every lane but one.
-	//
-	// The cost is bounded and self-clearing: until a main VHD carrying the fallback is
-	// published, the standalone e2e lane goes red on the artifact check below. One VHD
-	// release, on a check that does not gate merges.
-	//
-	// Note also that the budget half needs no gate at all any more: #9439 merged, so
-	// main's localdns.service already ships StartLimitIntervalSec=720, StartLimitBurst=5
-	// and RestartSec=2. Only the fallback artifacts are genuinely absent there.
-
-	// Static half of the restart budget first: it needs nothing from the node beyond
-	// the unit file, and running it before the fault means a budget regression is
-	// reported as such rather than as a fallback that never activated.
-	if err := validateLocalDNSRestartBudgetDirectives(ctx, s); err != nil {
-		return err
-	}
-
-	// The artifacts ship in the VHD (vhdbuilder/packer/packer_source.sh and, for
-	// OSGuard images, azlosguard.yml), not through CustomData, so their absence is a
-	// packaging failure and this says so rather than working around it.
-	//
-	// This replaces staging the branch's copies onto the node. Staging let the
-	// scenario run before the artifacts shipped, but once they do it is a mask: it
-	// repaired the exact gap the scenario exists to detect and then reported a pass --
-	// which is why the OSGuard mode split was invisible here. Modes are asserted by
-	// checkLocaldnsScriptsAndConfigs in vhdbuilder/packer/test/linux-vhd-content-test.sh,
-	// against the image itself.
-	for _, f := range localDNSFallbackArtifacts {
-		if err := ValidateFileExists(ctx, s, f); err != nil {
-			return fmt.Errorf("the localdns fallback artifacts are not baked into this VHD: %w", err)
-		}
-	}
-
-	phase := func(name, script string) error {
-		res, err := execScriptOnVMForScenario(ctx, s, localDNSFallbackPrelude+script)
-		if err != nil {
-			return fmt.Errorf("%s: %w", name, err)
-		}
-		logging.Logf(ctx, "localdns fallback e2e %s output:\n%s", name, res.stdout)
-		if res.exitCode != "0" {
-			return fmt.Errorf("%s failed (exit %s)\nstdout: %s\nstderr: %s", name, res.exitCode, res.stdout, res.stderr)
-		}
-		return nil
-	}
-
-	// Always put the node back, even if a phase fails part-way. A node left with a
-	// corrupted localdns environment or a live nat chain would poison every later
-	// scenario sharing it -- so a restore that does not land is a failure of this
-	// scenario, not a log line. It only overwrites err when the test itself passed:
-	// the original failure is the more useful one to report.
-	defer func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
-		defer cancel()
-		restore := localDNSFallbackPrelude + `
-rm -f "$FAULT"
-systemctl daemon-reload
-systemctl stop localdns-fallback.service 2>/dev/null || true
-/opt/azure/containers/localdns/localdns-fallback.sh clear 2>/dev/null || true
-systemctl reset-failed localdns.service 2>/dev/null || true
-systemctl start localdns.service 2>/dev/null || true
-
-# Wait for the state the next scenario needs, rather than sleeping a fixed 10s and
-# reporting whatever happened to be true at that moment.
-wait_for 120 "localdns healthy again after the test" \
-  sh -c 'systemctl is-active --quiet localdns.service' || { diag "restore: localdns not healthy"; }
-wait_for 30 "fallback nat chain gone after the test" \
-  sh -c '! iptables -w -t nat -S LOCALDNS-FALLBACK >/dev/null 2>&1' || { diag "restore: chain survived"; }
-systemctl reset-failed localdns-fallback.service 2>/dev/null || true
-finish
-`
-		res, cerr := execScriptOnVMForScenario(cleanupCtx, s, restore)
-		if res != nil {
-			logging.Logf(ctx, "localdns fallback e2e restore output:\n%s", res.stdout)
-		}
-		switch {
-		case cerr != nil:
-			cerr = fmt.Errorf("localdns fallback e2e: node restore failed: %w", cerr)
-		case res.exitCode != "0":
-			cerr = fmt.Errorf("localdns fallback e2e: node restore failed (exit %s): the node is left "+
-				"without a healthy localdns or with fallback rules still installed\nstdout: %s\nstderr: %s",
-				res.exitCode, res.stdout, res.stderr)
-		default:
-			return
-		}
-		if err == nil {
-			err = cerr
-		} else {
-			logging.Logf(ctx, "%v (reporting the earlier test failure instead)", cerr)
+		if cleanupErr := pods.Delete(cleanupCtx, created.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))}); cleanupErr != nil && !apierrors.IsNotFound(cleanupErr) {
+			err = errors.Join(err, fmt.Errorf("delete DNS pod %s: %w", created.Name, cleanupErr))
 		}
 	}()
+	if err := waitForLocalDNSLookupPod(ctx, s.Runtime.Kube, created); err != nil {
+		return err
+	}
+	logging.Logf(ctx, "DNS pod %s succeeded", created.Name)
+	return nil
+}
 
-	// ---- Probe pods, created BEFORE the fault --------------------------------
-	// Their resolv.conf is written now and never revisited; that is the whole
-	// reason the fallback has to exist.
-	podCF, delCF, err := startLocalDNSProbePod(ctx, s, "clusterfirst", corev1.DNSClusterFirst, false)
+func waitForLocalDNSLookupPod(ctx context.Context, kube *Kubeclient, pod *corev1.Pod) error {
+	last := pod
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		current, err := kube.Typed.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		last = current
+		switch current.Status.Phase {
+		case corev1.PodSucceeded:
+			return true, nil
+		case corev1.PodFailed:
+			return false, fmt.Errorf("DNS pod %s failed: %s %s; %s",
+				pod.Name, current.Status.Reason, current.Status.Message, formatPodDiagnostics(current))
+		default:
+			return false, nil
+		}
+	})
 	if err != nil {
-		return fmt.Errorf("create ClusterFirst probe pod: %w", err)
+		debugCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		logPodDebugInfo(debugCtx, kube, last)
+		for _, container := range last.Status.ContainerStatuses {
+			if terminated := container.State.Terminated; terminated != nil && terminated.ExitCode != 0 {
+				logging.Logf(debugCtx, "DNS container %s exited %d: %s\n%s",
+					container.Name, terminated.ExitCode, terminated.Reason, terminated.Message)
+			}
+		}
+		return fmt.Errorf("waiting for DNS pod %s to succeed (last phase %s): %w", pod.Name, last.Status.Phase, err)
 	}
-	defer delCF()
-
-	podDefault, delDefault, err := startLocalDNSProbePod(ctx, s, "default", corev1.DNSDefault, false)
-	if err != nil {
-		return fmt.Errorf("create Default probe pod: %w", err)
-	}
-	defer delDefault()
-
-	// ---- Phase 0: baseline, BEFORE the fault ---------------------------------
-	// Their resolv.conf is written at sandbox creation and never revisited; that is
-	// the whole reason the fallback has to exist, so it has to be recorded while
-	// localdns is still healthy.
-	if err := phase("phase0-baseline", fmt.Sprintf(`
-POD_CF=%q
-POD_DEF=%q
-
-[ "$(pod_nameserver "$POD_CF")" = "$CLUSTER_IP" ] \
-  && ok "baseline: ClusterFirst pod is pinned to ${CLUSTER_IP}" \
-  || fail "baseline: ClusterFirst pod nameserver is $(pod_nameserver "$POD_CF")"
-[ "$(pod_nameserver "$POD_DEF")" = "$NODE_IP" ] \
-  && ok "baseline: Default pod is pinned to ${NODE_IP}" \
-  || fail "baseline: Default pod nameserver is $(pod_nameserver "$POD_DEF")"
-finish
-`, podCF, podDefault)); err != nil {
-		return err
-	}
-
-	// ---- The fault ------------------------------------------------------------
-	// Owned by the restart-budget validation, which asserts the limiter is what
-	// stopped the unit and deliberately leaves it in 'failed'. Everything below
-	// runs against that state. The deferred restore above is what brings it back,
-	// on every path including this one failing.
-	if err := driveLocalDNSToTerminalFailed(ctx, s); err != nil {
-		return err
-	}
-
-	// ---- Phase 1: the handoff -------------------------------------------------
-	if err := phase("phase1-handoff", `
-wait_for 120 "localdns reaches terminal 'failed'" sh -c 'systemctl is-failed --quiet localdns.service' \
-  || { diag "no terminal failed"; fail "localdns never reached terminal 'failed'"; finish; }
-ok "localdns reached terminal 'failed'"
-
-# localdns's ExecStopPost removes the resolv.conf drop-in and reloads networkd,
-# which is what puts a usable upstream back for the .10 redirect. The reload is
-# asynchronous, so apply polls for it rather than reading once.
-wait_for 30 "DHCP resolvers restored after localdns exit" sh -c '[ -n "$(awk '"'"'$1 == "nameserver" && $2 != "169.254.10.10" { print $2; exit }'"'"' /run/systemd/resolve/resolv.conf 2>/dev/null)" ]' \
-  && ok "an upstream other than ${NODE_IP} is back in ${RESOLV}: $(vnet_dns)" \
-  || { diag "no upstream"; fail "resolv.conf never regained a usable upstream"; }
-
-wait_for 60 "fallback active" sh -c 'systemctl is-active --quiet localdns-fallback.service' \
-  || { diag "fallback not active"; fail "OnFailure= did not bring the fallback up"; finish; }
-ok "OnFailure= started the fallback"
-finish
-`); err != nil {
-		return err
-	}
-
-	// ---- Phase 2: the rules are live in the kernel ----------------------------
-	// Rule SHAPE is not asserted here. What the script generates -- the udp/tcp
-	// DNATs, the KUBE-SVC jump, the Cilium backend spread, that a ClusterIP is never
-	// a target, the insertion order -- is covered by localdns-fallback_spec.sh, which
-	// runs in seconds against stubbed iptables and can be mutation-tested. Repeating
-	// those greps here asserted the same thing twice and drifts the moment one side
-	// changes.
-	//
-	// What only a real node can answer is whether the chain is actually installed and
-	// whether anything upstream renders it inert. That is what is left.
-	if err := phase("phase2-nat-rules", `
-chain_exists && ok "nat chain ${CHAIN} is installed in the kernel" \
-  || { diag "no chain"; fail "nat chain ${CHAIN} missing"; finish; }
-log "chain contents:"; chain_rules | sed 's/^/    /'
-
-# A chain nothing jumps into is dead code. The spec proves the script emits the
-# insert; this proves the kernel accepted it.
-[ "$(hook_jumps PREROUTING)" -ge 1 ] && ok "chain is hooked into PREROUTING" || fail "no PREROUTING jump"
-[ "$(hook_jumps OUTPUT)" -ge 1 ] && ok "chain is hooked into OUTPUT" || fail "no OUTPUT jump"
-
-# DNAT needs conntrack, and localdns's raw-table NOTRACK rules for the listeners run
-# first -- raw is priority -300, nat is -100 -- so an untracked packet skips the nat
-# table entirely. If those rules survived into the outage the whole chain above is
-# inert for pod traffic while still looking perfectly correct in 'iptables -S'.
-# Nothing off-node can see this: it is an interaction between two live rule sets.
-nt=$(sudo iptables -w -t raw -S 2>/dev/null | grep -cE -- "-d 169\.254\.10\.(10|11)/32 .*-j NOTRACK")
-[ "$nt" -eq 0 ] \
-  && ok "localdns NOTRACK rules are gone, so the redirect can take effect" \
-  || { diag "NOTRACK survived"; fail "${nt} NOTRACK rule(s) for the listeners survived; the nat redirect is inert for pod traffic"; }
-finish
-`); err != nil {
-		return err
-	}
-
-	// ---- A pod created DURING the outage -------------------------------------
-	podDuring, delDuring, err := startLocalDNSProbePod(ctx, s, "during", corev1.DNSClusterFirst, false)
-	if err != nil {
-		return fmt.Errorf("create during-failure probe pod: %w", err)
-	}
-	defer delDuring()
-
-	// ---- Phase 3: what pods can actually resolve -----------------------------
-	if err := phase("phase3-pod-resolution", fmt.Sprintf(`
-POD_CF=%q
-POD_DEF=%q
-POD_DURING=%q
-
-# .11 clients: both cluster and external names. External matters because the query
-# goes .11 -> a CoreDNS replica -> that replica's own .10; if .10 were dark this
-# would fail even though .11 is covered.
-[ "$(pod_nameserver "$POD_CF")" = "$CLUSTER_IP" ] \
-  && ok "pre-failure ClusterFirst pod is still pinned to ${CLUSTER_IP}" \
-  || fail "pre-failure pod nameserver changed to $(pod_nameserver "$POD_CF")"
-expect_resolves 45 "pre-failure pod resolves a cluster name through the fallback" \
-  pod_resolves_cluster_via "$POD_CF" "$CLUSTER_IP"
-expect_resolves 5 "pre-failure pod resolves an external name through the fallback" \
-  pod_resolves_external_via "$POD_CF" "$CLUSTER_IP"
-
-# .10 clients -- the group the .11-only design black-holed. CoreDNS itself,
-# konnectivity-agent and the CSI node drivers all live here.
-[ "$(pod_nameserver "$POD_DEF")" = "$NODE_IP" ] \
-  && ok "Default-policy pod is pinned to ${NODE_IP}" \
-  || fail "Default-policy pod nameserver is $(pod_nameserver "$POD_DEF")"
-expect_resolves 45 "Default-policy pod resolves an external name through the fallback" \
-  pod_resolves_external_via "$POD_DEF" "$NODE_IP"
-
-# The node itself, and every hostNetwork pod, uses .10 the same way.
-host_resolves_external_via "$NODE_IP" \
-  && ok "node resolves an external name through ${NODE_IP}" \
-  || { diag "node external"; fail "node cannot resolve through ${NODE_IP}"; }
-
-# A pod born during the outage gets the same treatment as one that predates it.
-[ "$(pod_nameserver "$POD_DURING")" = "$CLUSTER_IP" ] \
-  && ok "during-failure pod was born with nameserver ${CLUSTER_IP}" \
-  || fail "during-failure pod nameserver is $(pod_nameserver "$POD_DURING")"
-expect_resolves 45 "during-failure pod resolves a cluster name through the fallback" \
-  pod_resolves_cluster_via "$POD_DURING" "$CLUSTER_IP"
-finish
-`, podCF, podDefault, podDuring)); err != nil {
-		return err
-	}
-
-	// ---- The same question, asked the way an application asks it --------------
-	// Phase 3 proved packets route out of each pod's netns to a working resolver.
-	// This proves the pod's own resolver configuration still produces an answer --
-	// search list, ndots, libc -- which is what a workload actually depends on and
-	// what the nsenter checks cannot reach.
-	if err := validateLocalDNSPodNativeResolution(ctx, s, podCF,
-		"kubernetes.default.svc.cluster.local", "OUTAGE"); err != nil {
-		return err
-	}
-	if err := validateLocalDNSPodNativeResolution(ctx, s, podDefault,
-		"mcr.microsoft.com", "OUTAGE"); err != nil {
-		return err
-	}
-	if err := validateLocalDNSPodNativeResolution(ctx, s, podDuring,
-		"kubernetes.default.svc.cluster.local", "OUTAGE"); err != nil {
-		return err
-	}
-
-	// ---- Phase 4: recovery ---------------------------------------------------
-	if err := phase("phase4-recovery", `
-rm -f "$FAULT"
-systemctl daemon-reload
-log "fault removed; restarting localdns"
-sudo systemctl reset-failed localdns.service 2>/dev/null || true
-sudo systemd-run --unit=localdns-e2e-recover --collect /bin/systemctl restart localdns.service >/dev/null 2>&1 || true
-
-wait_for 180 "localdns active again" sh -c 'systemctl is-active --quiet localdns.service' \
-  || { diag "no recovery"; fail "localdns did not come back"; finish; }
-ok "localdns is serving again"
-
-# localdns.service's ExecStartPre stops the fallback, whose ExecStop flushes the
-# chain. If that handoff did not happen, traffic to .10/.11 would keep being
-# rewritten past the listeners localdns just bound.
-wait_for 30 "nat chain removed" sh -c '! sudo iptables -w -t nat -S LOCALDNS-FALLBACK >/dev/null 2>&1' \
-  || { diag "chain survived"; fail "nat chain survived localdns recovery"; finish; }
-ok "RECOVERY: the fallback stood down and its nat chain is gone"
-[ "$(hook_jumps PREROUTING)" -eq 0 ] && [ "$(hook_jumps OUTPUT)" -eq 0 ] \
-  && ok "RECOVERY: no jumps left in PREROUTING or OUTPUT" || fail "RECOVERY: jumps survived"
-
-# A clean stand-down must not be recorded as a failure. Nothing clears that state --
-# localdns's ExecStartPre runs 'stop', which is not 'reset-failed' -- so a unit left
-# 'failed' here stays failed on a healthy node until reboot.
-systemctl is-failed --quiet localdns-fallback.service \
-  && { diag "fallback failed after recovery"; fail "RECOVERY: fallback unit is 'failed' after a clean handoff"; } \
-  || ok "RECOVERY: fallback unit is not 'failed' (state=$(systemctl is-active localdns-fallback.service))"
-
-wait_for 60 "localdns answers on .11 again" sh -c 'dig +short +timeout=3 +tries=1 kubernetes.default.svc.cluster.local @169.254.10.11 | grep -qE "^[0-9]+\."' \
-  && ok "RECOVERY: localdns answers on ${CLUSTER_IP}" || fail "RECOVERY: ${CLUSTER_IP} silent after recovery"
-finish
-`); err != nil {
-		return err
-	}
-
-	// ---- Phase 4b: the pods again, now that localdns is serving ---------------
-	// The handoff is only correct if traffic reaches the listeners localdns just
-	// bound. Asserting it from the node alone would miss a nat rule that survived
-	// for pod traffic while the node's own path looked fine.
-	if err := phase("phase4b-pod-resolution-after-recovery", fmt.Sprintf(`
-POD_CF=%q
-POD_DEF=%q
-POD_DURING=%q
-
-expect_resolves 60 "RECOVERY: pre-failure ClusterFirst pod resolves a cluster name" \
-  pod_resolves_cluster_via "$POD_CF" "$CLUSTER_IP"
-expect_resolves 30 "RECOVERY: pre-failure ClusterFirst pod resolves an external name" \
-  pod_resolves_external_via "$POD_CF" "$CLUSTER_IP"
-expect_resolves 30 "RECOVERY: Default-policy pod resolves an external name" \
-  pod_resolves_external_via "$POD_DEF" "$NODE_IP"
-expect_resolves 30 "RECOVERY: during-failure pod resolves a cluster name" \
-  pod_resolves_cluster_via "$POD_DURING" "$CLUSTER_IP"
-host_resolves_external_via "$NODE_IP" \
-  && ok "RECOVERY: node resolves an external name through ${NODE_IP}" \
-  || { diag "node external after recovery"; fail "RECOVERY: node cannot resolve through ${NODE_IP}"; }
-finish
-`, podCF, podDefault, podDuring)); err != nil {
-		return err
-	}
-
-	// ---- And again natively, now that localdns is serving ---------------------
-	// The handoff is only correct if the pod's own resolver still answers once the
-	// nat chain is gone and localdns has rebound the listeners.
-	if err := validateLocalDNSPodNativeResolution(ctx, s, podCF,
-		"kubernetes.default.svc.cluster.local", "RECOVERY"); err != nil {
-		return err
-	}
-	if err := validateLocalDNSPodNativeResolution(ctx, s, podDefault,
-		"mcr.microsoft.com", "RECOVERY"); err != nil {
-		return err
-	}
-
-	// ---- Phase 5: the safety gate --------------------------------------------
-	// Only the systemd-mediated path is asserted here. That apply refuses while
-	// localdns is active, and the wording of the refusal, are covered by
-	// localdns-fallback_spec.sh against a stubbed systemctl. What the spec cannot
-	// reach is whether ExecCondition= actually gates the unit: remove the directive
-	// and systemd runs apply, apply exits 1, and the unit lands in 'failed' on a
-	// node whose localdns is perfectly healthy. That is this phase's reason to exist.
-	return phase("phase5-guards", `
-sudo systemctl reset-failed localdns-fallback.service 2>/dev/null || true
-# No sleep afterwards: the unit is Type=oneshot, so 'systemctl start' blocks until it
-# has finished (or been skipped by ExecCondition). Its state is settled on return.
-sudo systemctl start localdns-fallback.service >/dev/null 2>&1 || true
-if systemctl is-failed --quiet localdns-fallback.service; then
-  diag "gated start left the unit failed"
-  fail "GUARD: starting the unit with localdns healthy left it 'failed'; ExecCondition did not skip it"
-else
-  ok "GUARD: starting the unit with localdns healthy is skipped, not failed (state=$(systemctl is-active localdns-fallback.service))"
-fi
-chain_exists && fail "GUARD: the skipped start still installed a chain" \
-  || ok "GUARD: the skipped start installed nothing"
-sudo systemctl stop localdns-fallback.service >/dev/null 2>&1 || true
-sudo systemctl reset-failed localdns-fallback.service 2>/dev/null || true
-finish
-`)
+	return nil
 }
