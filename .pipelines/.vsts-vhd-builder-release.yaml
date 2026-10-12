@@ -36,11 +36,7 @@ parameters:
   - name: buildAzureLinuxV3gen2katacc
     displayName: Build AzureLinuxV3 Gen2 Kata-CC
     type: boolean
-    default: false
-  - name: kataCCSigningBuildId
-    displayName: Successful AZL3 signing pipeline 318279 run ID (required for Kata-CC)
-    type: string
-    default: ''
+    default: true
   - name: buildAzureLinuxV3ARM64
     displayName: Build AzureLinuxV3 Gen2 - ARM64
     type: boolean
@@ -366,7 +362,6 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv3-gen2-kata-cc
               kataCC: true
-              kataCCSigningBuildId: ${{ parameters.kataCCSigningBuildId }}
       - job: buildAzureLinuxV3gen2TrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV3gen2TrustedLaunch }}', true)
         dependsOn: [ ]
