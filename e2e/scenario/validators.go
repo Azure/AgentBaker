@@ -2327,13 +2327,23 @@ test "$request_rule_count" = "8" || { echo "expected 8 request-direction localdn
 test "$response_rule_count" = "4" || { echo "expected 4 response-direction localdns NOTRACK rules, got $response_rule_count"; exit 1; }
 test "$prerouting_response_rule_count" = "0" || { echo "expected 0 PREROUTING response-direction localdns NOTRACK rules, got $prerouting_response_rule_count"; exit 1; }
 
+# Patterns are spelled out in full, matching the exact "iptables -t raw -S" output format, so that a
+# malformed rule (extra matchers, wrong protocol, interface-scoped) is rejected rather than absorbed
+# by a wildcard. tcp and udp are listed separately rather than as "-p (tcp|udp)" so that a corrupted
+# rule for one protocol cannot be masked by its intact sibling for the other.
 for rule in \
-  '^-A OUTPUT .* -s 169\.254\.10\.10/32 .* --sport 53 .* -j NOTRACK$' \
-  '^-A OUTPUT .* -s 169\.254\.10\.11/32 .* --sport 53 .* -j NOTRACK$' \
-  '^-A OUTPUT .* -d 169\.254\.10\.10/32 .* --dport 53 .* -j NOTRACK$' \
-  '^-A OUTPUT .* -d 169\.254\.10\.11/32 .* --dport 53 .* -j NOTRACK$' \
-  '^-A PREROUTING .* -d 169\.254\.10\.10/32 .* --dport 53 .* -j NOTRACK$' \
-  '^-A PREROUTING .* -d 169\.254\.10\.11/32 .* --dport 53 .* -j NOTRACK$'; do
+  '^-A OUTPUT -s 169\.254\.10\.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK$' \
+  '^-A OUTPUT -s 169\.254\.10\.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK$' \
+  '^-A OUTPUT -s 169\.254\.10\.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK$' \
+  '^-A OUTPUT -s 169\.254\.10\.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK$' \
+  '^-A OUTPUT -d 169\.254\.10\.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
+  '^-A OUTPUT -d 169\.254\.10\.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$' \
+  '^-A OUTPUT -d 169\.254\.10\.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
+  '^-A OUTPUT -d 169\.254\.10\.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$' \
+  '^-A PREROUTING -d 169\.254\.10\.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
+  '^-A PREROUTING -d 169\.254\.10\.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$' \
+  '^-A PREROUTING -d 169\.254\.10\.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
+  '^-A PREROUTING -d 169\.254\.10\.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$'; do
   echo "$rules" | grep -Eq "$rule" || { echo "missing expected localdns NOTRACK rule matching: $rule"; exit 1; }
 done
 `
