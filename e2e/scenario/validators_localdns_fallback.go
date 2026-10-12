@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -305,16 +304,22 @@ func startLocalDNSProbePod(ctx context.Context, s *Scenario, suffix string, poli
 // /etc/localdns/environment on every start, so the node self-heals and never
 // breaks.
 func validateLocalDNSFailureAndFallback(ctx context.Context, s *Scenario) (err error) {
-	// The budget directives and the fallback artifacts are both baked into the VHD,
-	// so a main-built image legitimately has neither until this merges. Skip the whole
-	// block there, as the restart-budget validation already did on its own.
-	if laneResolvedMainBuiltImage() {
-		logging.Logf(ctx, "SKIP: this lane resolved a main-built image (%s=%s), which predates the "+
-			"LocalDNS restart budget and fallback artifacts baked into the VHD; run against the "+
-			"PR's VHD build to exercise them",
-			config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue)
-		return nil
-	}
+	// Deliberately NOT gated on whether the lane resolved a main-built image.
+	//
+	// A gate here cannot tell "this image predates the feature" from "this image was
+	// built without the feature" -- they look identical from the node -- so forgiving
+	// the first forgives the second permanently, and a packaging regression that
+	// actually shipped to main would be skipped rather than reported. It would also
+	// mean this block never runs on the nightly main cron or on any PR touching
+	// e2e/**, which is a scenario reporting green in every lane but one.
+	//
+	// The cost is bounded and self-clearing: until a main VHD carrying the fallback is
+	// published, the standalone e2e lane goes red on the artifact check below. One VHD
+	// release, on a check that does not gate merges.
+	//
+	// Note also that the budget half needs no gate at all any more: #9439 merged, so
+	// main's localdns.service already ships StartLimitIntervalSec=720, StartLimitBurst=5
+	// and RestartSec=2. Only the fallback artifacts are genuinely absent there.
 
 	// Static half of the restart budget first: it needs nothing from the node beyond
 	// the unit file, and running it before the fault means a budget regression is
