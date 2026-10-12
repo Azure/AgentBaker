@@ -89,3 +89,46 @@ Describe 'NPD VHD installation helper'
         The lines of contents of file "${NPD_TDNF_LOCK_FILE}" should equal 1
     End
 End
+
+Describe 'NPD VHD installation helper on Ubuntu'
+    Include ./vhdbuilder/packer/install-npd.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        VHD_LOGS_FILEPATH="${TEST_DIR}/vhd.log"
+        TEST_CALLS="${TEST_DIR}/calls"
+        touch "${TEST_CALLS}"
+        export TEST_CALLS
+        APT_FAILS=false
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    isUbuntu() { return 0; }
+    isAzureLinux() { return 1; }
+    apt_get_install() { echo "apt_get_install $*" >> "${TEST_CALLS}"; [ "${APT_FAILS}" = false ]; }
+    apt-mark() { echo "apt-mark $*" >> "${TEST_CALLS}"; }
+    apt-get() { echo "apt-get $*" >> "${TEST_CALLS}"; }
+    systemctl() { echo "systemctl $*" >> "${TEST_CALLS}"; }
+    ln() { :; }
+
+    It 'propagates package installation failure without holding the package'
+        APT_FAILS=true
+        When call installNPDPackage node-problem-detector-kubernetes 0.8.25-ubuntu24.04u16
+        The status should be failure
+        The contents of file "${TEST_CALLS}" should not include 'apt-mark'
+    End
+
+    It 'installs, holds and caches the config package before validating it'
+        When call installNPDPackage node-problem-detector-aks-config 1.0.0-ubuntu24.04u1
+        The contents of file "${TEST_CALLS}" should include 'apt_get_install 30 1 600 node-problem-detector-aks-config=1.0.0-ubuntu24.04u1'
+        The contents of file "${TEST_CALLS}" should include 'apt-get download node-problem-detector-aks-config=1.0.0-ubuntu24.04u1'
+        The contents of file "${TEST_CALLS}" should include 'apt-mark hold node-problem-detector-aks-config'
+        # Package-owned executables are absent in the test image, so activation
+        # assets must not be prepared and the capture marker must not be written.
+        The status should be failure
+        The output should include 'Missing executable'
+        The contents of file "${TEST_CALLS}" should not include 'systemctl'
+    End
+End

@@ -55,7 +55,9 @@ installing it. A durable pending marker records the prior cached version before
 mutation. It installs the held package, cleans obsolete package-owned config
 files, reloads systemd, restarts NPD, and checks the local health endpoint. A
 failure reinstalls the cached prior package to restore both package-manager and
-file state. Interrupted transactions are recovered on the next invocation.
+file state. Interrupted transactions are recovered on the next invocation, first
+finishing an interrupted dpkg run (`dpkg --configure -a`) or dropping a duplicate
+rpm database entry left by an interrupted upgrade.
 `/healthz` establishes process startup, not successful reporting of every monitor
 or node condition.
 

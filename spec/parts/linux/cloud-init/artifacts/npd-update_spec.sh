@@ -39,6 +39,11 @@ Describe 'NPD config handler'
     }
     npd_validate_package() { echo validate >> "${TEST_CALLS}"; }
     npd_install_package() { echo "install $1" >> "${TEST_CALLS}"; }
+    # dpkg journal repair runs through timeout; record it instead of touching dpkg.
+    Mock timeout
+        echo "repair $*" >> "${TEST_CALLS}"
+        exit "${REPAIR_STATUS:-0}"
+    End
     npd_restart_and_check() {
         echo restart >> "${TEST_CALLS}"
         if [ "${FAIL_ACTIVATION}" = true ]; then
@@ -165,6 +170,25 @@ Describe 'NPD config handler'
         The path "${NPD_UPDATE_DIR}/pending" should not be exist
     End
 
+    It 'finishes an interrupted package-manager transaction before restoring the prior package'
+        printf '%s' "${INSTALLED_VERSION}" > "${NPD_UPDATE_DIR}/pending"
+        When call npd_recover_pending
+        The status should be success
+        The contents of file "${TEST_CALLS}" should equal "repair 300 dpkg --force-confdef --force-confold --configure -a
+install ${NPD_PACKAGE_CACHE}/${INSTALLED_VERSION}.deb
+restart"
+    End
+
+    It 'keeps the pending marker when package-manager repair fails'
+        printf '%s' "${INSTALLED_VERSION}" > "${NPD_UPDATE_DIR}/pending"
+        export REPAIR_STATUS=1
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be failure
+        The output should include 'RecoveryFailed'
+        The contents of file "${TEST_CALLS}" should not include 'install'
+        The path "${NPD_UPDATE_DIR}/pending" should be exist
+    End
+
     It 'recognizes checkpointed work with an installed matching version'
         INSTALLED_VERSION='1.1.0-ubuntu24.04u1'
         When call npdConfigsIsCurrent "${TEST_DESIRED}" "${TEST_DESIRED}" '{}'
@@ -239,7 +263,9 @@ Describe 'NPD config handler on Azure Linux 3'
                 elif dpkg --compare-versions "$a" gt "$b"; then echo 1
                 else echo -1; fi
                 ;;
-            -U) echo "rpm $*" >> "${TEST_CALLS}" ;;
+            -U|-e) echo "rpm $*" >> "${TEST_CALLS}" ;;
+            -qp) printf 'node-problem-detector-aks-config-1.0.0-1.azl3.x86_64' ;;
+            -q) printf '%s\n' ${RPM_ENTRIES:-node-problem-detector-aks-config-1.0.0-1.azl3.x86_64} ;;
             *) exit 1 ;;
         esac
     End
@@ -329,6 +355,19 @@ Describe 'NPD config handler on Azure Linux 3'
         The path "${NPD_CONFIG_DIR}/plugin/dropped.json.rpmsave" should not be exist
         The contents of file "${NPD_UNIT_FILE}" should equal unit
         The path "${NPD_SKIP_FILE}" should be exist
+    End
+
+    It 'drops a stale rpm database entry left by an interrupted upgrade'
+        export RPM_ENTRIES='node-problem-detector-aks-config-1.0.0-1.azl3.x86_64 node-problem-detector-aks-config-1.1.0-1.azl3.x86_64'
+        When call npd_remove_stale_rpm_entries "${NPD_PACKAGE_CACHE}/1.0.0-1.azl3.rpm"
+        The status should be success
+        The contents of file "${TEST_CALLS}" should equal 'rpm -e --justdb --nodeps --noscripts node-problem-detector-aks-config-1.1.0-1.azl3.x86_64'
+    End
+
+    It 'does not need rpm database repair before restoring'
+        When call npd_repair_package_state
+        The status should be success
+        The contents of file "${TEST_CALLS}" should equal ''
     End
 
     It 'does not duplicate the tdnf lock'

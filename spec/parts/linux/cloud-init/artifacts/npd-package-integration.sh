@@ -90,6 +90,29 @@ test -f "${removed}"
 test ! -f "${added}"
 test -f "${NPD_SKIP_FILE}"
 
+# Simulate a transaction killed inside the package manager after the new package
+# landed: dpkg leaves an unapplied journal entry that blocks apt; rpm leaves both
+# versions in its database. Recovery must repair that state and restore the old package.
+updateNPDConfigs "${desired}" '{}'
+test "$(npd_installed_version)" = "${new_version}"
+case "${format}" in
+    deb)
+        mkdir -p /var/lib/dpkg/updates
+        dpkg-query -s node-problem-detector-aks-config | sed 's/^Status: .*/Status: install ok half-configured/' > /var/lib/dpkg/updates/0000
+        ;;
+    rpm) rpm -i --justdb --nodeps --replacefiles --oldpackage "${NPD_PACKAGE_CACHE}/old.rpm" ;;
+esac
+printf '%s\n' "${old_version}" > "${NPD_UPDATE_DIR}/pending"
+updateNPDConfigs '{}' '{}'
+test "$(npd_installed_version)" = "${old_version}"
+test -f "${removed}"
+test ! -f "${added}"
+test ! -f "${NPD_UPDATE_DIR}/pending"
+case "${format}" in
+    deb) test -z "$(ls -A /var/lib/dpkg/updates)" ;;
+    rpm) test "$(rpm -q node-problem-detector-aks-config | wc -l)" -eq 1 ;;
+esac
+
 # Fail the new service once; the real handler must reinstall the old package.
 npd_restart_and_check() {
     if [ "$(npd_installed_version)" = "${new_version}" ]; then return 1; fi
@@ -103,4 +126,4 @@ test -f "${removed}"
 test ! -f "${added}"
 test -f "${NPD_SKIP_FILE}"
 test ! -f "${NPD_UPDATE_DIR}/pending"
-echo "PASS: ${distro} real package install, held upgrade, local-edit replacement, obsolete cleanup, recovery, and failed activation"
+echo "PASS: ${distro} real package install, held upgrade, local-edit replacement, obsolete cleanup, recovery (including an interrupted package manager), and failed activation"

@@ -249,11 +249,39 @@ npd_install_package() {
                 -o DPkg::Lock::Timeout=120 -o Dpkg::Options::=--force-confnew \
                 -o Dpkg::Options::=--force-confmiss install "${package}" || return 1
             ;;
-        rpm) rpm -U --oldpackage --replacepkgs "${package}" || return 1 ;;
+        rpm)
+            rpm -U --oldpackage --replacepkgs "${package}" || return 1
+            npd_remove_stale_rpm_entries "${package}" || return 1
+            ;;
         *) return 1 ;;
     esac
     npd_hold_packages || return 1
     npd_remove_obsolete_configs
+}
+
+# An interrupted rpm upgrade can leave both versions in the rpm database. The
+# package just installed owns the files, so only stale database entries remain.
+npd_remove_stale_rpm_entries() {
+    local keep entry
+    keep="$(rpm -qp --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}' "$1" 2>/dev/null)" || return 1
+    while IFS= read -r entry; do
+        if [ -n "${entry}" ] && [ "${entry}" != "${keep}" ]; then
+            rpm -e --justdb --nodeps --noscripts "${entry}" || return 1
+        fi
+    done < <(rpm -q --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' node-problem-detector-aks-config 2>/dev/null)
+}
+
+# An interrupted dpkg run blocks every later apt transaction until its journal
+# is finished. Use the safe conffile defaults: unrelated packages may be pending,
+# and the NPD package is reinstalled with its own options afterwards.
+npd_repair_package_state() {
+    case "$(npd_package_format)" in
+        deb)
+            DEBIAN_FRONTEND=noninteractive timeout 300 dpkg --force-confdef --force-confold --configure -a
+            ;;
+        rpm) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 # Package-manager backups of NPD config files and the unit.
@@ -319,6 +347,7 @@ npd_recover_pending() {
     [ -f "${NPD_UPDATE_DIR}/pending" ] || return 0
     old_version="$(cat "${NPD_UPDATE_DIR}/pending")" || return 1
     package="$(npd_find_cached_package "${old_version}")" || return 1
+    npd_repair_package_state || return 1
     npd_install_package "${package}" && npd_restart_and_check || return 1
     rm -f "${NPD_UPDATE_DIR}/pending"
 }
