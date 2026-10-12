@@ -24,5 +24,6 @@ fi
 echo "Kata host RPM: $host_version; UVM tools RPM: $guest_version"
 if [[ "$host_version" != "$guest_version" ]]; then
   echo "Kata host/UVM version mismatch: host=$host_version, guest=$guest_version. Rebuild the UVM and VHD with matching Kata packages." >&2
+  echo "Run the Kata UVM build pipeline: https://dev.azure.com/msazure/CloudNativeCompute/_build?definitionId=417429 . After it succeeds with matching Kata packages, rerun this VHD build." >&2
   exit 1
 fi
