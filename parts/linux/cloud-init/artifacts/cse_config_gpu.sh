@@ -401,13 +401,20 @@ EOF
         DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR="/etc/systemd/system/dra-driver-nvidia-gpu.service.d"
         mkdir -p "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}"
 
+        # Match kubelet's RFC-1123 (lowercased) Node name: the DRA plugins run as
+        # system:node:<name> and the ResourceSlice NodeRestriction only permits publishing
+        # slices whose spec.nodeName matches. Azure uppercases VMSS hostnames for base-36
+        # instance suffixes >= 10 (e.g. ...vmss00000J), which would otherwise mismatch.
+        local NODE_NAME_DRA
+        NODE_NAME_DRA=$(echo "${NODE_NAME}" | tr '[:upper:]' '[:lower:]')
+
         tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
 [Unit]
 Requires=kubelet.service
 After=kubelet.service
 [Service]
 ExecStart=
-ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME}
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME_DRA}
 EOF
 
         # Reload systemd to pick up the override
@@ -435,7 +442,7 @@ After=kubelet.service dra-driver-nvidia-gpu.service
 [Service]
 Environment="NVIDIA_VISIBLE_DEVICES=void"
 ExecStart=
-ExecStart=/usr/bin/compute-domain-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --node-name=${NODE_NAME} --namespace kube-system --nvidia-driver-root / --container-driver-root /
+ExecStart=/usr/bin/compute-domain-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --node-name=${NODE_NAME_DRA} --namespace kube-system --nvidia-driver-root / --container-driver-root /
 EOF
 
             # Reload systemd to pick up the override
