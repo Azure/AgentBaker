@@ -19,23 +19,38 @@ import (
 
 func TestLocalDNSLookupPod(t *testing.T) {
 	s := &Scenario{Runtime: &ScenarioRuntime{VM: &ScenarioVM{KubeName: "scenario-node"}}}
-	names := []string{"kubernetes.default.svc.cluster.local", "mcr.microsoft.com"}
-	pod := localDNSLookupPod(s, "cluster", "169.254.10.11", names)
+	pod := localDNSLookupPod(s, "cluster-svc", "169.254.10.11", "kubernetes.default.svc.cluster.local")
 
 	assert.Equal(t, corev1.RestartPolicyNever, pod.Spec.RestartPolicy)
 	assert.Equal(t, int64(120), *pod.Spec.ActiveDeadlineSeconds)
 	assert.Equal(t, "scenario-node", pod.Spec.NodeSelector["kubernetes.io/hostname"])
 	assert.False(t, pod.Spec.HostNetwork)
-	require.Len(t, pod.Spec.Containers, 2)
-	for i, container := range pod.Spec.Containers {
-		assert.Equal(t, []string{"nslookup", names[i], "169.254.10.11"}, container.Command)
-		assert.Equal(t, corev1.PullIfNotPresent, container.ImagePullPolicy)
-	}
-	assert.NotEqual(t, pod.Name, localDNSLookupPod(s, "cluster", "169.254.10.11", names).Name)
 
-	pod = localDNSLookupPod(s, "node", "169.254.10.10", names[1:])
+	// One container per pod. GetLogs needs an explicit container name on a
+	// multi-container pod and logPodDebugInfo does not pass one, so a second
+	// container would silently cost us the nslookup output on failure.
 	require.Len(t, pod.Spec.Containers, 1)
-	assert.Equal(t, []string{"nslookup", "mcr.microsoft.com", "169.254.10.10"}, pod.Spec.Containers[0].Command)
+	c := pod.Spec.Containers[0]
+	assert.Equal(t, "lookup", c.Name)
+	assert.Equal(t, corev1.PullIfNotPresent, c.ImagePullPolicy)
+	assert.Equal(t, corev1.TerminationMessageFallbackToLogsOnError, c.TerminationMessagePolicy)
+
+	require.Len(t, c.Command, 3)
+	assert.Equal(t, []string{"sh", "-c"}, c.Command[:2])
+	script := c.Command[2]
+	// Retried: a single timeout on the longest path must not fail the scenario.
+	assert.Contains(t, script, "seq 1 10")
+	assert.Contains(t, script, "sleep 3")
+	// The last attempt must not be silenced, or a failure says only "exit 1".
+	assert.Regexp(t, `nslookup kubernetes\.default\.svc\.cluster\.local 169\.254\.10\.11$`, script)
+	assert.Equal(t, 1, strings.Count(script, ">/dev/null 2>&1"), "only the retry loop should be silenced")
+
+	assert.NotEqual(t, pod.Name,
+		localDNSLookupPod(s, "cluster-svc", "169.254.10.11", "kubernetes.default.svc.cluster.local").Name)
+
+	pod = localDNSLookupPod(s, "node-ext", "169.254.10.10", "mcr.microsoft.com")
+	require.Len(t, pod.Spec.Containers, 1)
+	assert.Contains(t, pod.Spec.Containers[0].Command[2], "nslookup mcr.microsoft.com 169.254.10.10")
 }
 
 func TestLocalDNSLookupWaitRequiresCompletion(t *testing.T) {
@@ -58,7 +73,7 @@ func TestLocalDNSLookupWaitRequiresCompletion(t *testing.T) {
 			}
 			if tc.phase == corev1.PodFailed {
 				pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
-					Name: "lookup-1",
+					Name: "lookup",
 					State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
 						ExitCode: 1, Reason: "Error", Message: "server returned NXDOMAIN",
 					}},
@@ -74,7 +89,7 @@ func TestLocalDNSLookupWaitRequiresCompletion(t *testing.T) {
 				require.NoError(t, err)
 			case corev1.PodFailed:
 				require.ErrorContains(t, err, "DNS pod dns-probe failed")
-				assert.ErrorContains(t, err, "lookup-1 terminated(reason=Error, exitCode=1)")
+				assert.ErrorContains(t, err, "lookup terminated(reason=Error, exitCode=1)")
 				assert.Contains(t, strings.Join(logger.logs, "\n"), "server returned NXDOMAIN")
 			default:
 				require.ErrorIs(t, err, context.DeadlineExceeded)
@@ -106,7 +121,7 @@ func TestLocalDNSLookupPodCleanup(t *testing.T) {
 			s := &Scenario{Runtime: &ScenarioRuntime{
 				VM: &ScenarioVM{KubeName: node.Name}, Kube: &Kubeclient{Typed: client},
 			}}
-			pod := localDNSLookupPod(s, "test", "169.254.10.10", []string{"mcr.microsoft.com"})
+			pod := localDNSLookupPod(s, "test", "169.254.10.10", "mcr.microsoft.com")
 			client.PrependReactor("get", "pods", func(k8stesting.Action) (bool, runtime.Object, error) {
 				current := pod.DeepCopy()
 				current.Status.Phase = phase

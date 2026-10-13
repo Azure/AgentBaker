@@ -189,14 +189,15 @@ func validateLocalDNSNATRules(nat, raw string, active bool) error {
 }
 
 func validateLocalDNSLookupPods(ctx context.Context, s *Scenario) error {
-	for _, probe := range []struct {
-		name, server string
-		names        []string
-	}{
-		{"node-dns", "169.254.10.10", []string{"mcr.microsoft.com"}},
-		{"cluster-dns", localDNSClusterListenerIP, []string{"kubernetes.default.svc.cluster.local", "mcr.microsoft.com"}},
+	// One name per pod, so a failure names itself and logPodDebugInfo can fetch the
+	// container's output -- GetLogs needs an explicit container on a multi-container
+	// pod, and swallows the 400 it returns otherwise.
+	for _, probe := range []struct{ suffix, server, name string }{
+		{"node-ext", "169.254.10.10", "mcr.microsoft.com"},
+		{"cluster-svc", localDNSClusterListenerIP, "kubernetes.default.svc.cluster.local"},
+		{"cluster-ext", localDNSClusterListenerIP, "mcr.microsoft.com"},
 	} {
-		if err := runLocalDNSLookupPod(ctx, s, localDNSLookupPod(s, probe.name, probe.server, probe.names)); err != nil {
+		if err := runLocalDNSLookupPod(ctx, s, localDNSLookupPod(s, probe.suffix, probe.server, probe.name)); err != nil {
 			return err
 		}
 	}
@@ -213,21 +214,23 @@ func validateLocalDNSLookupPods(ctx context.Context, s *Scenario) error {
 	return nil
 }
 
-func localDNSLookupPod(s *Scenario, suffix, server string, names []string) *corev1.Pod {
+func localDNSLookupPod(s *Scenario, suffix, server, name string) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	if s.Tags.MockAzureChinaCloud {
 		image = "mcr.azk8s.cn/cbl-mariner/busybox:2.0"
 	}
-	containers := make([]corev1.Container, 0, len(names))
-	for i, name := range names {
-		containers = append(containers, corev1.Container{
-			Name: fmt.Sprintf("lookup-%d", i), Image: image, ImagePullPolicy: corev1.PullIfNotPresent,
-			// Explicit server: a new Default pod during fallback otherwise inherits
-			// VNet DNS and bypasses the dead LocalDNS listener.
-			Command:                  []string{"nslookup", name, server},
-			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		})
-	}
+	// Retried, not one-shot. Resolving an external name through the cluster listener
+	// is the longest path here -- pod -> .11 -> KUBE-SVC -> a CoreDNS replica -> its
+	// own .10 -> VNet DNS -- and a single timeout anywhere along it would otherwise
+	// fail the scenario. The shell this replaced polled for the same reason.
+	//
+	// The last attempt runs with output attached so nslookup's own message reaches
+	// the container log, which is what TerminationMessageFallbackToLogsOnError and
+	// logPodDebugInfo surface on failure. Without it a failure says only "exit 1".
+	script := fmt.Sprintf(
+		"for i in $(seq 1 10); do nslookup %s %s >/dev/null 2>&1 && exit 0; sleep 3; done; "+
+			"echo \"final attempt, %s via %s:\"; nslookup %s %s",
+		name, server, name, server, name, server)
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      uniqueKubernetesResourceName(s.Runtime.VM.KubeName + "-localdns-" + suffix),
@@ -237,9 +240,15 @@ func localDNSLookupPod(s *Scenario, suffix, server string, names []string) *core
 			RestartPolicy:         corev1.RestartPolicyNever,
 			ActiveDeadlineSeconds: to.Ptr(int64(120)),
 			DNSPolicy:             corev1.DNSDefault,
-			Containers:            containers,
-			Tolerations:           getPodTolerations(),
-			NodeSelector:          getNodeSelectorForScenario(s),
+			Containers: []corev1.Container{{
+				Name: "lookup", Image: image, ImagePullPolicy: corev1.PullIfNotPresent,
+				// Explicit server: a new Default pod during fallback otherwise inherits
+				// VNet DNS and bypasses the dead LocalDNS listener.
+				Command:                  []string{"sh", "-c", script},
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+			}},
+			Tolerations:  getPodTolerations(),
+			NodeSelector: getNodeSelectorForScenario(s),
 		},
 	}
 }
