@@ -1626,6 +1626,30 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:        "Ubuntu2204_KubeletServingCertificateRotation_NoKubeletConfigFile",
+	Description: "tests that a node on ubuntu 2204 enables kubelet serving certificate rotation when the kubelet config file is disabled and the intent is carried only by the --rotate-server-certificates kubelet flag, which is the shape the RP sends on this path",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableKubeletConfigFile = false
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			// The default e2e fixture populates KubeletConfigFileConfig unconditionally, which
+			// does not match the RP: processKubeletConfigFileContent returns nil when the
+			// kubelet config file is disabled, leaving --rotate-server-certificates as the only
+			// carrier of the rotation intent. Reproduce that shape so this path is covered.
+			config.KubeletConfig.EnableKubeletConfigFile = false
+			config.KubeletConfig.KubeletConfigFileConfig = nil
+			if config.KubeletConfig.KubeletFlags == nil {
+				config.KubeletConfig.KubeletFlags = map[string]string{}
+			}
+			config.KubeletConfig.KubeletFlags["--rotate-server-certificates"] = "true"
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_DisableKubeletServingCertificateRotationWithTags",
 	Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 	Config: Config{
