@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -162,6 +163,20 @@ func checkLocalDNSNAT(ctx context.Context, s *Scenario, active bool) error {
 	return validateLocalDNSNATRules(nat, raw, active)
 }
 
+// localDNSFallbackHooks are the chain and the two jumps that must exist while the
+// fallback is active.
+//
+// Matched as patterns, not exact lines, because the jumps now carry
+// -m comment --comment "AKS managed: added by AgentBaker ..." between the hook and
+// the -j. Both forms have to pass: a lane resolving a main-built image gets a
+// localdns-fallback.sh that predates the comment, while the VHD gate builds from
+// the branch and gets one that has it.
+var localDNSFallbackHooks = []*regexp.Regexp{
+	regexp.MustCompile(`(?m)^-N LOCALDNS-FALLBACK$`),
+	regexp.MustCompile(`(?m)^-A PREROUTING .*-j LOCALDNS-FALLBACK$`),
+	regexp.MustCompile(`(?m)^-A OUTPUT .*-j LOCALDNS-FALLBACK$`),
+}
+
 func validateLocalDNSNATRules(nat, raw string, active bool) error {
 	if !active {
 		if strings.Contains(nat, "LOCALDNS-FALLBACK") {
@@ -169,13 +184,9 @@ func validateLocalDNSNATRules(nat, raw string, active bool) error {
 		}
 		return nil
 	}
-	for _, rule := range []string{
-		"-N LOCALDNS-FALLBACK",
-		"-A PREROUTING -j LOCALDNS-FALLBACK",
-		"-A OUTPUT -j LOCALDNS-FALLBACK",
-	} {
-		if !strings.Contains("\n"+nat+"\n", "\n"+rule+"\n") {
-			return fmt.Errorf("missing fallback rule %q:\n%s", rule, nat)
+	for _, want := range localDNSFallbackHooks {
+		if !want.MatchString(nat) {
+			return fmt.Errorf("no fallback rule matching %q:\n%s", want, nat)
 		}
 	}
 	for _, line := range strings.Split(raw, "\n") {
