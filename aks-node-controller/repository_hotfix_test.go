@@ -10,8 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1603,4 +1605,200 @@ func newcArchive(entries [][2]string) []byte {
 	}
 	write("TRAILER!!!", "", 0)
 	return out.Bytes()
+}
+
+// headerTimeoutError mimics net/http's unexported "timeout awaiting response headers" error.
+type headerTimeoutError struct{}
+
+func (headerTimeoutError) Error() string   { return "net/http: timeout awaiting response headers" }
+func (headerTimeoutError) Timeout() bool   { return true }
+func (headerTimeoutError) Temporary() bool { return true }
+
+func TestIsRetryableRepositoryDownloadError(t *testing.T) {
+	pkgURL := "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/a/aks-node-controller/x.deb"
+	dialTimeout := &url.Error{Op: "Get", URL: pkgURL, Err: &net.OpError{
+		Op: "dial", Net: "tcp", Err: os.ErrDeadlineExceeded}}
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		// The two failure shapes observed against PMC in the ANC download soak.
+		{"dial i/o timeout", dialTimeout, true},
+		{"response header timeout", &url.Error{Op: "Get", URL: pkgURL, Err: headerTimeoutError{}}, true},
+		{"wrapped dial timeout", fmt.Errorf("download InRelease: %w", dialTimeout), true},
+		{"connection refused", &url.Error{Op: "Get", URL: pkgURL, Err: &net.OpError{
+			Op: "dial", Net: "tcp", Err: errors.New("connect: connection refused")}}, true},
+		{"unexpected EOF mid-body", fmt.Errorf("stream x: %w", io.ErrUnexpectedEOF), true},
+		{"per-attempt deadline", &url.Error{Op: "Get", URL: pkgURL, Err: context.DeadlineExceeded}, true},
+		{"HTTP 503", &repositoryHTTPStatusError{statusCode: http.StatusServiceUnavailable}, true},
+		{"HTTP 500", &repositoryHTTPStatusError{statusCode: http.StatusInternalServerError}, true},
+		{"HTTP 429", &repositoryHTTPStatusError{statusCode: http.StatusTooManyRequests}, true},
+		{"HTTP 408", &repositoryHTTPStatusError{statusCode: http.StatusRequestTimeout}, true},
+		{"HTTP 404", &repositoryHTTPStatusError{statusCode: http.StatusNotFound}, false},
+		{"HTTP 403", &repositoryHTTPStatusError{statusCode: http.StatusForbidden}, false},
+		{"integrity", newIntegrityError("package SHA-256 mismatch"), false},
+		{"wrapped integrity", fmt.Errorf("download Packages: %w", newIntegrityError("outside origin")), false},
+		{"unsupported repository", newUnsupportedRepositoryError("plain HTTP"), false},
+		{"peer cancellation", &url.Error{Op: "Get", URL: pkgURL, Err: context.Canceled}, false},
+		{"local filesystem", fmt.Errorf("create repository temp file: %w", os.ErrPermission), false},
+		{"oversized response", errors.New("repository response exceeds 10 bytes"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isRetryableRepositoryDownloadError(tt.err))
+		})
+	}
+}
+
+func newRepositoryDownloadTestApp(t *testing.T, serverURL string) (*App, *url.URL) {
+	t.Helper()
+	origin, err := validateRepositoryURL(serverURL)
+	require.NoError(t, err)
+	app := NewTestApp(t, TestAppConfig{}).App
+	app.repositoryTempDir = t.TempDir()
+	return app, origin
+}
+
+func TestDownloadRepositoryFileRetriesTransientServerError(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if requests.Add(1) == 1 {
+			http.Error(w, "transient", http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte("package-body"))
+	}))
+	defer server.Close()
+
+	app, origin := newRepositoryDownloadTestApp(t, server.URL)
+	downloaded, err := app.downloadRepositoryFile(context.Background(),
+		server.URL+"/aks-node-controller.deb", origin, repositoryPackageMaxBytes)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(downloaded.path) }()
+
+	assert.Equal(t, int32(2), requests.Load(), "a transient 503 should be retried exactly once")
+	body, err := os.ReadFile(downloaded.path)
+	require.NoError(t, err)
+	assert.Equal(t, "package-body", string(body))
+	sum := sha256.Sum256([]byte("package-body"))
+	assert.Equal(t, hex.EncodeToString(sum[:]), downloaded.sha256)
+}
+
+func TestDownloadRepositoryFileRetriesDroppedConnection(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if requests.Add(1) == 1 {
+			// Drop the connection without a response, as a reset/stalled PMC edge would.
+			hijacker, ok := w.(http.Hijacker)
+			require.True(t, ok)
+			conn, _, err := hijacker.Hijack()
+			require.NoError(t, err)
+			_ = conn.Close()
+			return
+		}
+		_, _ = w.Write([]byte("metadata"))
+	}))
+	defer server.Close()
+
+	app, origin := newRepositoryDownloadTestApp(t, server.URL)
+	downloaded, err := app.downloadRepositoryFile(context.Background(),
+		server.URL+"/dists/jammy/InRelease", origin, repositoryMetadataMaxBytes)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(downloaded.path) }()
+	assert.Equal(t, int32(2), requests.Load(), "a dropped connection should be retried once")
+}
+
+func TestDownloadRepositoryFileGivesUpAfterMaxAttempts(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		http.Error(w, "still down", http.StatusBadGateway)
+	}))
+	defer server.Close()
+
+	app, origin := newRepositoryDownloadTestApp(t, server.URL)
+	_, err := app.downloadRepositoryFile(context.Background(),
+		server.URL+"/aks-node-controller.deb", origin, repositoryPackageMaxBytes)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HTTP 502")
+	assert.False(t, isIntegrityError(err))
+	assert.Equal(t, int32(repositoryDownloadMaxAttempts), requests.Load())
+	leftovers, globErr := filepath.Glob(filepath.Join(app.repositoryTempDir, ".aks-node-controller-repository-*"))
+	require.NoError(t, globErr)
+	assert.Empty(t, leftovers, "failed attempts must not leak temp files")
+}
+
+func TestDownloadRepositoryFileDoesNotRetryPermanentFailures(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	app, origin := newRepositoryDownloadTestApp(t, server.URL)
+	_, err := app.downloadRepositoryFile(context.Background(),
+		server.URL+"/aks-node-controller.deb", origin, repositoryPackageMaxBytes)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HTTP 404")
+	assert.Equal(t, int32(1), requests.Load(), "a 404 is permanent and must go straight to the fallback")
+
+	requests.Store(0)
+	_, err = app.downloadRepositoryFile(context.Background(),
+		"https://elsewhere.example.com/aks-node-controller.deb", origin, repositoryPackageMaxBytes)
+	require.Error(t, err)
+	assert.True(t, isIntegrityError(err))
+	assert.Equal(t, int32(0), requests.Load(), "an integrity rejection must not be retried")
+}
+
+func TestDownloadRepositoryFileDoesNotRetryAfterCallerCancellation(t *testing.T) {
+	var requests atomic.Int32
+	ctx, cancel := context.WithCancel(context.Background())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		cancel() // the peer branch failed and cancelled this one mid-request
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	app, origin := newRepositoryDownloadTestApp(t, server.URL)
+	_, err := app.downloadRepositoryFile(ctx,
+		server.URL+"/dists/jammy/InRelease", origin, repositoryMetadataMaxBytes)
+	require.Error(t, err)
+	assert.True(t, isRepositoryCancellationError(err))
+	assert.Equal(t, int32(1), requests.Load(), "a cancelled branch must stop, not retry")
+}
+
+func TestRepositoryFetchBudgetCapsStalledFastPath(t *testing.T) {
+	assert.Equal(t, 60*time.Second, repositoryFetchBudget)
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		// Stall well inside the 10s response-header timeout, so only the fetch budget can
+		// end the request; give up after 5s so a regression fails instead of hanging.
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer server.Close()
+
+	app, origin := newRepositoryDownloadTestApp(t, server.URL)
+	start := time.Now()
+	_, _, err := app.fetchPackageAndMetadataWithBudget(context.Background(), repositoryDownloadPlan{
+		packageURL:    server.URL + "/aks-node-controller.deb",
+		trustedOrigin: origin,
+		resolveMetadata: func(ctx context.Context) (repositoryPackageMetadata, error) {
+			_, err := app.downloadRepositoryFile(ctx, server.URL+"/dists/jammy/InRelease",
+				origin, repositoryMetadataMaxBytes)
+			return repositoryPackageMetadata{}, err
+		},
+	}, 300*time.Millisecond)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.False(t, isIntegrityError(err),
+		"hitting the fetch budget must fall back to the package manager, not disarm the hotfix")
+	assert.Less(t, elapsed, 3*time.Second, "the fetch budget must bound both branches and their retries")
 }

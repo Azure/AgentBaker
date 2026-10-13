@@ -250,6 +250,8 @@ copyPackerFiles() {
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   SECURE_TLS_BOOTSTRAP_SERVICE_SRC=/home/packer/secure-tls-bootstrap.service
   SECURE_TLS_BOOTSTRAP_SERVICE_DEST=/etc/systemd/system/secure-tls-bootstrap.service
+  SECURITY_UPDATE_SH_SRC=/home/packer/security-update.sh
+  SECURITY_UPDATE_SH_DEST=/opt/azure/containers/security-update.sh
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
@@ -618,6 +620,7 @@ copyPackerFiles() {
   if isMarinerOrAzureLinux "$OS"; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
+    cpAndMode /home/packer/security-update.sh /opt/azure/containers/security-update.sh 544
 
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
@@ -647,6 +650,7 @@ copyPackerFiles() {
     cpAndMode $PAM_D_COMMON_ACCOUNT_SRC $PAM_D_COMMON_ACCOUNT_DEST 644
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
+    cpAndMode $SECURITY_UPDATE_SH_SRC $SECURITY_UPDATE_SH_DEST 544
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
 
     if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then
