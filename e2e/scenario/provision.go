@@ -1079,13 +1079,22 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 		return false, err
 	})
 
-	// If we timed out while retrying reboot-related errors, provide a better error message
-	if err != nil && lastSSHError != nil {
-		elapsed := time.Since(startTime)
+	return sshConnectivityError(ctx.Err(), err, lastSSHError, time.Since(startTime))
+}
+
+// sshConnectivityError reports a reboot wait only when the poll's own timeout expired.
+// Parent cancellation and non-reboot errors are returned unchanged.
+func sshConnectivityError(parentErr, pollErr, lastSSHError error, elapsed time.Duration) error {
+	if pollErr == nil {
+		return nil
+	}
+	if parentErr != nil {
+		return parentErr
+	}
+	if lastSSHError != nil && wait.Interrupted(pollErr) {
 		return fmt.Errorf("SSH connection failed after waiting %s for node to reboot and come back up. Last SSH error: %w", elapsed, lastSSHError)
 	}
-
-	return err
+	return pollErr
 }
 
 // attemptSSHConnection performs a single SSH connectivity check
