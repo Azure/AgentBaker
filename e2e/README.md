@@ -268,23 +268,6 @@ Give more than one name to run multiple scenarios:
 ./e2e-local.sh AzureLinuxV2 Ubuntu2204_CustomLinuxOSConfig_Taints_ANC
 ```
 
-The authenticated GPU-cache regressions run regular A10 GRID nodes with public MCR blocked:
-
-```bash
-./e2e-local.sh --parallel 1 --disable-scriptless \
-  Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR \
-  Ubuntu2404_GPUA10_NetworkIsolated_NonAnonymousACR \
-  Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR_VHDCaching
-```
-
-These scenarios reuse the existing network-isolated cluster. The existing
-`--disable-scriptless` option tests generated CSE from the checkout instead of VHD-baked
-scripts; GPU PR CI selects that option through `DISABLE_SCRIPTLESS`, while main and
-scheduled runs retain baked-VHD validation. The cases require authenticated private-cache
-acquisition, node readiness, the expected GRID driver and license, and a direct public-MCR
-connection timeout. The VHD-caching case uses separate bake and real-node boots and verifies
-that `basePrep` was skipped and the GPU acquisition path refreshed live-identity login.
-
 ### Debugging
 
 Set `KEEP_VMSS=true` to retain bootstrapped VMs for debugging. Setting this will also have the VM's private SSH key

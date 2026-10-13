@@ -8,8 +8,6 @@ variables:
   E2E_GO_TEST_TIMEOUT: "75m"
   E2E_FAILED_TESTS_RETRY_COUNT: 2
   DISABLE_SCRIPTLESS_COMPILATION: true
-  # PRs exercise generated CSE from the checkout; main/scheduled runs validate baked VHDs.
-  DISABLE_SCRIPTLESS: $[eq(variables['Build.Reason'], 'PullRequest')]
 schedules:
   - cron: "0 9 * * *"
     displayName: Daily 1am PST
