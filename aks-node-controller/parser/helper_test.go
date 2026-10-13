@@ -2725,8 +2725,10 @@ func Test_getStringFromNetworkPolicyType(t *testing.T) {
 	}{
 		{"azure", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE, helpers.NetworkPolicyAzure},
 		{"calico", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO, helpers.NetworkPolicyCalico},
+		{"cilium matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CILIUM, "cilium"},
 		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE, helpers.NetworkPolicyNone},
 		{"unspecified", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED, ""},
+		{"unknown", aksnodeconfigv1.NetworkPolicy(99), ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

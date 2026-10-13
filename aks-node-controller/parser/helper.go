@@ -127,6 +127,8 @@ func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 		return helpers.NetworkPolicyAzure
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO:
 		return helpers.NetworkPolicyCalico
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CILIUM:
+		return helpers.NetworkPolicyCilium
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE:
 		// The scriptful (NBC/CSE) path emits the raw "none" string for the network
 		// policy; mirror it here so NETWORK_POLICY matches when policy is "none".
