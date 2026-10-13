@@ -1,0 +1,51 @@
+# Conversion runs natively; source build jobs own immutable VHD promotion.
+parameters:
+  - name: jobName
+    type: string
+  - name: dependsOnJob
+    type: string
+  - name: architecture
+    type: string
+    values:
+      - X86_64
+      - ARM64
+  - name: artifactName
+    type: string
+  - name: imgSku
+    type: string
+  - name: enableFips
+    type: boolean
+    default: false
+
+jobs:
+  - job: ${{ parameters.jobName }}
+    condition: and(succeeded(), in(dependencies.${{ parameters.dependsOnJob }}.result, 'Succeeded', 'SucceededWithIssues'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    dependsOn: ${{ parameters.dependsOnJob }}
+    timeoutInMinutes: 120
+    pool:
+      ${{ if eq(parameters.architecture, 'ARM64') }}:
+        name: $(NODE_SIG_TME_POOL_ARM64_NAME)
+      ${{ else }}:
+        name: $(POOL_NAME)
+    variables:
+      CAPTURED_SIG_VERSION: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportCapturedSigVersion.CAPTURED_SIG_VERSION'] ]
+      IMAGE_VERSION: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportImageVersion.IMAGE_VERSION'] ]
+      VHD_SAS_URL: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportVhdSas.VHD_SAS_URL'] ]
+      DESTINATION_STORAGE_CONTAINER: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportDestinationStorageContainer.DESTINATION_STORAGE_CONTAINER'] ]
+    steps:
+      - bash: |
+          echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+          echo '##vso[task.setvariable variable=OS_VERSION]acl'
+          echo '##vso[task.setvariable variable=IMG_SKU]${{ parameters.imgSku }}'
+          echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+          echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+          echo '##vso[task.setvariable variable=ARCHITECTURE]${{ parameters.architecture }}'
+          echo '##vso[task.setvariable variable=ENABLE_FIPS]${{ parameters.enableFips }}'
+          echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+          echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
+          echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
+        displayName: Setup Build Variables
+
+      - template: ./.builder-cosi-convert-template.yaml
+        parameters:
+          artifactName: ${{ parameters.artifactName }}

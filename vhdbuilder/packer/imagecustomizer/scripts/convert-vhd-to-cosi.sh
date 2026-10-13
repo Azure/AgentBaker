@@ -192,6 +192,7 @@ echo "Staged COSI for upload at ${STAGED_COSI}"
 COSI_SHA256=$(sha256sum "$STAGED_COSI" | awk '{print $1}')
 COSI_SHA1=$(sha1sum "$STAGED_COSI" | awk '{print $1}')
 COSI_SIZE=$(stat -c%s "$STAGED_COSI")
+METADATA_SHA384=$(tar -xOf "$STAGED_COSI" --occurrence=1 metadata.json | openssl dgst -sha384 -binary | base64)
 
 # Normalize only the Nebraska-facing version; IMAGE_VERSION itself is unchanged.
 if ! COSI_IMAGE_VERSION="$(generate_cosi_package_version "${IMAGE_VERSION}" "${ENABLE_FIPS:-false}")"; then
@@ -221,7 +222,8 @@ cat <<EOF > cosi-publishing-info.json
     "offer_name": "${OFFER_NAME:-}",
     "hyperv_generation": "${HYPERV_GENERATION:-}",
     "image_architecture": "${IMAGE_ARCH}",
-    "image_version": "${COSI_IMAGE_VERSION}"
+    "image_version": "${COSI_IMAGE_VERSION}",
+    "metadata_sha384": "${METADATA_SHA384}"
 }
 EOF
 

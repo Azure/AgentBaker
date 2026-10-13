@@ -2,6 +2,14 @@
 
 VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
 
+enableTridentACLAgent() {
+  if ! systemctl cat trident-acl-agent.service >/dev/null 2>&1; then
+    echo "Trident ACL agent is not installed in this base image; skipping startup trigger"
+    return 0
+  fi
+  systemctlEnableAndStart trident-acl-agent.path 30
+}
+
 kernelVersionGe() {
   local version_a="$1"
   local version_b="$2"
@@ -630,6 +638,19 @@ copyPackerFiles() {
     # not Debian-style common-auth/common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+
+    # Configuration for the Trident ACL Agent, which drives A/B OS updates on
+    # ACL nodes. The agent itself and its unit come from the trident-acl-agent
+    # package in the ACL base image; only its configuration and its start
+    # trigger are supplied here.
+    # cpAndMode creates the .service.d directory, so no mkdir is needed.
+    TAA_OVERRIDE_SRC=/home/packer/trident-acl-agent-override.conf
+    TAA_OVERRIDE_DEST=/etc/systemd/system/trident-acl-agent.service.d/10-aks.conf
+    cpAndMode $TAA_OVERRIDE_SRC $TAA_OVERRIDE_DEST 600
+
+    TAA_PATH_UNIT_SRC=/home/packer/trident-acl-agent.path
+    TAA_PATH_UNIT_DEST=/etc/systemd/system/trident-acl-agent.path
+    cpAndMode $TAA_PATH_UNIT_SRC $TAA_PATH_UNIT_DEST 600
   else
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644

@@ -17,6 +17,9 @@ func Register(s *Scenario) *Scenario {
 	if name == "" {
 		panic("scenario name must not be empty")
 	}
+	if s.Config.LocalValidator != nil && (s.Config.Cluster != nil || s.VHD != nil || s.Config.VMConfigMutator != nil) {
+		panic("scenario " + name + ": LocalValidator cannot be combined with Cluster, VHD, or VMConfigMutator")
+	}
 
 	lower := strings.ToLower(name)
 	if _, exists := registryNames[lower]; exists {

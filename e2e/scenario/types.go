@@ -11,6 +11,7 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
@@ -27,6 +28,7 @@ type Tags struct {
 	WASM                   bool
 	Kata                   bool
 	BootstrapTokenFallback bool
+	COSIUpdate             bool
 	KubeletCustomConfig    bool
 	Scriptless             bool
 	VHDCaching             bool
@@ -183,6 +185,9 @@ type Config struct {
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
 
+	// SkipScriptlessNBCCSECmd prevents RunScenario from automatically repeating the scenario using scriptless NBC provisioning.
+	SkipScriptlessNBCCSECmd bool
+
 	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
 	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
 	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.
@@ -204,6 +209,13 @@ type Config struct {
 	// This prevents the Guest Agent from sweeping events before they can be read.
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
+
+	// LocalValidator, when set, makes the scenario run entirely on the test
+	// runner without provisioning a VM or cluster. Register rejects it if
+	// Cluster, VHD, or VMConfigMutator is also set. Use this for scenarios
+	// that validate an artifact (e.g. downloading and checking a COSI file)
+	// rather than exercising node bootstrap behavior.
+	LocalValidator func(ctx context.Context) error
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
@@ -212,15 +224,9 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 	if s.VHD == nil {
 		return fmt.Errorf("scenario VHD is nil")
 	}
-	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
-		Image:    *s.VHD,
-		Location: s.Location,
-	})
+	imageReference, err := resolveImageReference(ctx, s.VHD, s.Location)
 	if err != nil {
 		return fmt.Errorf("prepare VHD: %w", err)
-	}
-	if resourceID == "" {
-		return fmt.Errorf("VHD selector returned an empty resource ID")
 	}
 	if vmss == nil {
 		return fmt.Errorf("input virtual machine scale set is nil")
@@ -244,9 +250,7 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 	if vmss.Properties.VirtualMachineProfile.StorageProfile == nil {
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
-	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(resourceID)),
-	}
+	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = imageReference
 
 	// Override OS disk size if the VHD requires a non-default size.
 	if s.VHD.OSDiskSizeGB > 0 {
@@ -258,6 +262,22 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 
 	s.updateTags(ctx, vmss)
 	return nil
+}
+
+func resolveImageReference(ctx context.Context, image *config.Image, location string) (*armcompute.ImageReference, error) {
+	if image.SharedGalleryImageID != "" {
+		logging.Logf(ctx, "Using shared gallery image ID: %s", image.SharedGalleryImageID)
+		return &armcompute.ImageReference{SharedGalleryImageID: to.Ptr(string(image.SharedGalleryImageID))}, nil
+	}
+
+	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{Image: *image, Location: location})
+	if err != nil {
+		return nil, err
+	}
+	if resourceID == "" {
+		return nil, fmt.Errorf("VHD selector returned an empty resource ID")
+	}
+	return &armcompute.ImageReference{ID: to.Ptr(string(resourceID))}, nil
 }
 
 func (s *Scenario) SecureTLSBootstrappingEnabled() bool {

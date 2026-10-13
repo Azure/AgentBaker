@@ -271,6 +271,7 @@ Describe 'COSI artifact names'
     export IMG_CUSTOMIZER_CONTAINER_FALLBACK=registry.invalid/fallback@sha256:1111111111111111111111111111111111111111111111111111111111111111
     export EXPECTED_IMG_CUSTOMIZER_REF="$IMG_CUSTOMIZER_CONTAINER"
     export MOCK_PRIMARY_PULL_FAIL=0
+    export MOCK_COSI_METADATA=true
     export AFD_DOWNLOAD_HOSTNAME=download.invalid
     export AFD_UPLOAD_ENDPOINT=https://upload.invalid
     export COSI_CONTAINER=cosi
@@ -281,7 +282,12 @@ Describe 'COSI artifact names'
         return 1
       elif [ "$1" = run ]; then
         [ "$9" = "$EXPECTED_IMG_CUSTOMIZER_REF" ] || return 1
-        printf 'mock COSI\n' > "$PWD/cosi-convert/out/${CAPTURED_SIG_VERSION}.cosi"
+        if [ "$MOCK_COSI_METADATA" = true ]; then
+          printf '%s\n' '{"version":"1.2"}' > "$PWD/cosi-convert/metadata.json"
+          tar -cf "$PWD/cosi-convert/out/${CAPTURED_SIG_VERSION}.cosi" -C "$PWD/cosi-convert" metadata.json
+        else
+          tar -cf "$PWD/cosi-convert/out/${CAPTURED_SIG_VERSION}.cosi" --files-from=/dev/null
+        fi
       fi
     }
     export -f azcopy docker
@@ -304,6 +310,29 @@ Describe 'COSI artifact names'
     bash "$convert_script" >/dev/null || return $?
     jq -r .image_version cosi-publishing-info.json
   }
+
+  check_metadata_hash() {
+    cd "$test_dir" || return 1
+    bash "$convert_script" >/dev/null || return $?
+    local expected_hash
+    expected_hash=$(printf '%s\n' '{"version":"1.2"}' | openssl dgst -sha384 -binary | base64)
+    [ "$(jq -r .metadata_sha384 cosi-publishing-info.json)" = "$expected_hash" ]
+  }
+
+  It 'publishes the base64 SHA384 of the embedded metadata'
+    export SKU_NAME=aclgen2TL
+    When call check_metadata_hash
+    The status should be success
+    The output should be blank
+  End
+
+  It 'rejects COSI output without embedded metadata'
+    export SKU_NAME=aclgen2TL MOCK_COSI_METADATA=false
+    When call check_artifact_name
+    The status should be failure
+    The output should be blank
+    The error should include 'metadata.json: Not found in archive'
+  End
 
   It 'keeps the build version when conversion starts on a later UTC date'
     export SKU_NAME=aclgen2arm64fipsTL ARCHITECTURE=ARM64 ENABLE_FIPS=true

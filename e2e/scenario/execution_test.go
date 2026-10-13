@@ -27,6 +27,23 @@ func (l *executionLogger) Logf(format string, args ...any) {
 	l.logs = append(l.logs, fmt.Sprintf(format, args...))
 }
 
+func TestExecutionLocalValidatorWithoutProvisioning(t *testing.T) {
+	for _, expectedErr := range []error{nil, errors.New("invalid artifact")} {
+		called := false
+		original := &Scenario{Name: "Local", Config: Config{
+			LocalValidator: func(ctx context.Context) error {
+				require.NoError(t, ctx.Err())
+				called = true
+				return expectedErr
+			},
+		}}
+		outcome := Run(t.Context(), "Local", "Local", original)
+		require.ErrorIs(t, outcome.Error, expectedErr)
+		require.True(t, called)
+		require.Nil(t, original.Runtime)
+	}
+}
+
 func TestExecutionKeepsLoggerThroughSkipRunAndCleanup(t *testing.T) {
 	for _, cancelled := range []bool{false, true} {
 		t.Run(fmt.Sprintf("cancelled=%t", cancelled), func(t *testing.T) {
