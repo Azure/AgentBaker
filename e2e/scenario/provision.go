@@ -27,7 +27,7 @@ func runScenarioFlow(ctx context.Context, name string, s *Scenario) error {
 	if config.Config.TestPreProvision || s.VHDCaching {
 		return runVHDCachingScenario(ctx, name, s)
 	}
-	if scriptlessDisabled(s) || scriptlessUnsupported(s) {
+	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
 		return runScenario(ctx, name, s)
 	}
 
@@ -36,10 +36,6 @@ func runScenarioFlow(ctx context.Context, name string, s *Scenario) error {
 	}
 	s.Runtime.EnableScriptlessNBCCSECmd = true
 	return runScenario(ctx, name, s)
-}
-
-func scriptlessDisabled(s *Scenario) bool {
-	return config.Config.DisableScriptless || s.DisableScriptless
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
@@ -276,10 +272,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
 	}
 
-	if !scriptlessDisabled(s) {
+	if !config.Config.DisableScriptless {
 		nbc.EnableScriptlessCSECmd = true
 	}
-	if !scriptlessDisabled(s) && s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
+	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
 		nbc.EnableScriptlessNBCCSECmd = true
 		nbc.EnableScriptlessCSECmd = false
 	}
@@ -315,7 +311,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
 		// scriptless tag means provisioning with aksnodeconfig is used
-		if !scriptlessDisabled(s) && !s.Tags.Scriptless &&
+		if !config.Config.DisableScriptless && !s.Tags.Scriptless &&
 			(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
 			nbc.EnableScriptlessNBCCSECmd = true
 		}

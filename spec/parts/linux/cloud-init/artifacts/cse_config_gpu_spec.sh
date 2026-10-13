@@ -16,6 +16,10 @@ Describe 'cse_config_gpu.sh'
             NVIDIA_DRIVER_IMAGE_TAG="570.237-20260817204535"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
             ORAS_REGISTRY_CONFIG_FILE="/etc/oras/config.yaml"
+            USER_ASSIGNED_IDENTITY_ID="live-kubelet-client"
+            TENANT_ID="live-node-tenant"
+            MOCK_LOGIN_RESULT=0
+            export MOCK_AUTH_STATE="not-required"
             export MOCK_CPU_ARCH="amd64"
             export MOCK_ORAS_RESULT=0 MOCK_TAR_RESULT=0 MOCK_IMPORT_RESULT=0
             MOCK_RETRY_RESULT=0
@@ -27,7 +31,21 @@ Describe 'cse_config_gpu.sh'
         mktemp() { echo "/tmp/aks-gpu-driver-test"; }
         mkdir() { echo "mkdir $*"; }
         getCPUArch() { echo "$MOCK_CPU_ARCH"; }
-        oras() { echo "oras $*"; return "$MOCK_ORAS_RESULT"; }
+        oras() {
+            echo "oras $*"
+            if [ "$MOCK_AUTH_STATE" = "missing" ] || [ "$MOCK_AUTH_STATE" = "stale-baked" ]; then
+                echo "ORAS copy attempted without fresh node credentials" >&2
+                return 1
+            fi
+            return "$MOCK_ORAS_RESULT"
+        }
+        oras_login_with_kubelet_identity() {
+            echo "refresh_login $*"
+            if [ "$MOCK_LOGIN_RESULT" -ne 0 ]; then
+                return "$MOCK_LOGIN_RESULT"
+            fi
+            export MOCK_AUTH_STATE="live-node"
+        }
         tar() { echo "tar $*"; return "$MOCK_TAR_RESULT"; }
         rm() { echo "rm $*"; return "$MOCK_RM_RESULT"; }
         ctr() {
@@ -56,6 +74,7 @@ Describe 'cse_config_gpu.sh'
             The output should not include "oras"
             The output should not include "image import"
             The output should not include "image tag"
+            The output should not include "refresh_login"
         End
 
         It 'retags the sovereign MCR pull to the canonical install reference'
@@ -111,6 +130,7 @@ Describe 'cse_config_gpu.sh'
                 The output should include "retrycmd_if_failure 3 5 120 bash"
                 The output should include "oras cp ${3%/}/aks/aks-gpu-$1:570.237-20260817204535 /tmp/aks-gpu-driver-test/layout:570.237-20260817204535"
                 The output should include "--from-registry-config /etc/oras/config.yaml"
+                The output should include "refresh_login ${3%%/*} live-kubelet-client live-node-tenant"
                 The output should include "--platform linux/$2"
                 The output should include "tar -cf /tmp/aks-gpu-driver-test/driver-image.tar -C /tmp/aks-gpu-driver-test/layout ."
                 The output should include "ctr -n k8s.io image import --base-name mcr.microsoft.com/aks/aks-gpu-$1 /tmp/aks-gpu-driver-test/driver-image.tar"
@@ -119,6 +139,40 @@ Describe 'cse_config_gpu.sh'
                 The output should not include "oras login"
                 The output should not include "image tag"
             End
+        End
+
+        Context 'PIS nodePrep without basePrep login'
+            Parameters
+                "missing"
+                "stale-baked"
+            End
+
+            It "refreshes $1 credentials from the live node before copying the driver"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                MOCK_AUTH_STATE="$1"
+
+                When call pullGPUDriverImage
+
+                The status should be success
+                The line 1 of output should equal "refresh_login myacr.azurecr.io live-kubelet-client live-node-tenant"
+                The output should include "oras cp myacr.azurecr.io/aks-managed-repository/aks/aks-gpu-grid:"
+                The output should include "ctr -n k8s.io image import"
+                The output should not include "image pull"
+            End
+        End
+
+        It 'propagates live identity login failure without staging or copying the driver'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_LOGIN_RESULT=67
+
+            When call pullGPUDriverImage
+
+            The status should equal 67
+            The output should equal "refresh_login myacr.azurecr.io live-kubelet-client live-node-tenant"
+            The output should not include "retrycmd_if_failure"
+            The output should not include "oras cp"
+            The output should not include "image import"
+            The output should not include "image pull"
         End
 
         It 'does not import or fall back to public MCR when the authenticated copy fails'
@@ -179,7 +233,7 @@ Describe 'cse_config_gpu.sh'
             When call pullGPUDriverImage
 
             The status should be failure
-            The output should be blank
+            The output should equal "refresh_login myacr.azurecr.io live-kubelet-client live-node-tenant"
         End
 
         It 'reports a staging cleanup failure instead of returning success'
@@ -907,6 +961,22 @@ Describe 'cse_config_gpu.sh'
             The status should be success
             The output should include "INSTALL_RAN"
             The output should not include "PULL_RAN"
+        End
+
+        It 'exits with the GPU driver failure code when refreshing live ACR login fails'
+            OS="UBUNTU"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            USER_ASSIGNED_IDENTITY_ID="live-kubelet-client"
+            TENANT_ID="live-node-tenant"
+            logs_to_events() { shift; eval "$@"; }
+            oras_login_with_kubelet_identity() { echo "LOGIN_FAILED"; return 67; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should include "LOGIN_FAILED"
+            The output should not include "INSTALL_RAN"
         End
 
         It 'times the driver download and toolkit install on Mariner/AzureLinux'

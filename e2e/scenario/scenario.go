@@ -3019,14 +3019,37 @@ var _ = Register(ubuntu2404GRIDScenario("Ubuntu2404_GPUA10", "Standard_NV6ads_A1
 var _ = Register(networkIsolatedGRIDScenario("Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR", config.VHDUbuntu2204Gen2Containerd))
 var _ = Register(networkIsolatedGRIDScenario("Ubuntu2404_GPUA10_NetworkIsolated_NonAnonymousACR", config.VHDUbuntu2404Gen2Containerd))
 
+var _ = Register(networkIsolatedGRIDCachingScenario())
+
+func networkIsolatedGRIDCachingScenario() *Scenario {
+	s := networkIsolatedGRIDScenario("Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR_VHDCaching", config.VHDUbuntu2204Gen2Containerd)
+	s.Description = "Tests authenticated A10 GPU acquisition after a bake/real-node split, with basePrep skipped and no reusable ORAS credentials"
+	s.VHDCaching = true
+	s.Tags.VHDCaching = true
+	s.CustomDataWriteFiles = []CustomDataWriteFile{{
+		Path:        "/etc/oras/config.yaml",
+		Permissions: "0600",
+		Owner:       "root:root",
+		Content:     `{"auths":{}}`,
+	}}
+	driverValidator := s.Validator
+	s.Validator = func(ctx context.Context, s *Scenario) error {
+		return errors.Join(
+			driverValidator(ctx, s),
+			ValidateFileHasContent(ctx, s, "/var/log/azure/aks/cluster-provision.log",
+				"Skipping basePrep - base_prep.complete file exists"),
+		)
+	}
+	return s
+}
+
 func networkIsolatedGRIDScenario(name string, vhd *config.Image) *Scenario {
 	s := ubuntu2404GRIDScenario(name, "Standard_NV6ads_A10_v5")
 	s.Description = "Tests regular A10 GRID driver acquisition from authenticated private ACR, node readiness and driver health while public MCR is blocked"
 	s.Tags.NetworkIsolated = true
 	s.Tags.NonAnonymousACR = true
-	s.Cluster = ClusterAzureNetworkIsolatedGPU
+	s.Cluster = ClusterAzureNetworkIsolated
 	s.VHD = vhd
-	s.DisableScriptless = true
 
 	gpuMutator := s.BootstrapConfigMutator
 	s.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {

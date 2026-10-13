@@ -157,10 +157,6 @@ Each AKS cluster gets its own `/20` subnet (4091 usable IPs) in the shared VNet.
 named `aks-subnet-{clusterName}`. CIDRs are auto-allocated from a hash of the cluster name to
 avoid collisions.
 
-Shared setup does not garbage-collect unattached cluster subnets: a concurrent runner can
-create its subnet before its cluster resource exists. Remove only resources owned by the
-completed run; a missing cluster alone is not proof that a shared subnet is orphaned.
-
 ### Cluster Types
 
 All clusters use BYOV (Bring Your Own VNet) with the shared VNet. They differ in networking
@@ -277,12 +273,17 @@ The authenticated GPU-cache regressions run regular A10 GRID nodes with public M
 ```bash
 ./e2e-local.sh --parallel 1 --disable-scriptless \
   Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR \
-  Ubuntu2404_GPUA10_NetworkIsolated_NonAnonymousACR
+  Ubuntu2404_GPUA10_NetworkIsolated_NonAnonymousACR \
+  Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR_VHDCaching
 ```
 
-These scenarios use a GPU-specific network-isolated cluster and force generated scripts from
-the tested source even when the runner defaults to VHD-baked CSE. They require an authenticated private-cache pull, node
-readiness, the expected GRID driver and license, and a direct public-MCR connection timeout.
+These scenarios reuse the existing network-isolated cluster. The existing
+`--disable-scriptless` option tests generated CSE from the checkout instead of VHD-baked
+scripts; GPU PR CI selects that option through `DISABLE_SCRIPTLESS`, while main and
+scheduled runs retain baked-VHD validation. The cases require authenticated private-cache
+acquisition, node readiness, the expected GRID driver and license, and a direct public-MCR
+connection timeout. The VHD-caching case uses separate bake and real-node boots, clears ORAS
+credentials before provisioning, and verifies that `basePrep` was skipped.
 
 ### Debugging
 

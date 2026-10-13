@@ -17,13 +17,17 @@ EOF
 
 pullGPUDriverImage() {
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ]; then
+        # PIS nodes skip basePrep, so refresh credentials using this node's identity.
+        oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+            "$USER_ASSIGNED_IDENTITY_ID" "$TENANT_ID" || return $?
+
         local download_dir
         download_dir=$(mktemp -d /opt/gpu/driver-image.XXXXXX) || return 1
         local pull_result=0
         local image="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}/${NVIDIA_DRIVER_IMAGE#*/}:${NVIDIA_DRIVER_IMAGE_TAG}"
         echo "Pulling GPU driver image with authentication for $image"
 
-        # ctr does not use the CRI mirror or kubelet credentials. Reuse the ORAS login
+        # ctr does not use the CRI mirror or kubelet credentials. Use the refreshed ORAS login
         # and bound the copy, archive and import together by the existing CSE retry budget.
         # shellcheck disable=SC2016
         retrycmd_if_failure 3 5 120 bash -c '
