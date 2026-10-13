@@ -2,6 +2,7 @@ package agent
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
@@ -187,6 +188,46 @@ func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
 	require.Contains(t, bakeCustomData, "Write-BootstrapKubeConfig")
 	require.Contains(t, bakeCustomData, "if (-not $PreProvisionOnly)")
 	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken="%s"`, bootstrapToken))
+}
+
+func TestWindowsCustomDataOmitsPostResetHealthGate(t *testing.T) {
+	for _, preProvisionOnly := range []bool{false, true} {
+		t.Run(fmt.Sprintf("PreProvisionOnly=%t", preProvisionOnly), func(t *testing.T) {
+			config := newNodeCustomDataRenderConfig(datamodel.AKSWindows2022Containerd)
+			config.AgentPoolProfile.OSType = datamodel.Windows
+			config.ContainerService.Properties.WindowsProfile = &datamodel.WindowsProfile{}
+			config.PreProvisionOnly = preProvisionOnly
+			config.KubeletConfig = map[string]string{
+				"--healthz-bind-address": "127.0.0.1",
+				"--healthz-port":         "10248",
+			}
+
+			payload := InitializeTemplateGenerator().getWindowsNodeBootstrappingPayload(config)
+			decoded, err := base64.StdEncoding.DecodeString(payload)
+			require.NoError(t, err)
+			customData := string(decoded)
+			require.NotContains(t, customData, "KubeletHealthzEndpoint")
+			require.Contains(t, customData, `"--healthz-bind-address=127.0.0.1"`)
+			require.Contains(t, customData, `"--healthz-port=10248"`)
+			require.Contains(t, customData, "Start-NodeResetScriptTask")
+
+			matches := regexp.MustCompile(`\$zippedFiles="([^"]+)"`).FindStringSubmatch(customData)
+			require.Len(t, matches, 2)
+			archive, err := base64.StdEncoding.DecodeString(matches[1])
+			require.NoError(t, err)
+			reader, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+			require.NoError(t, err)
+			helper, err := reader.Open(kubernetesWindowsCSEHelperPS1)
+			require.NoError(t, err)
+			defer helper.Close()
+			helperContents, err := io.ReadAll(helper)
+			require.NoError(t, err)
+			currentHelper, err := parts.Templates.ReadFile(kubernetesWindowsCSEHelperPS1)
+			require.NoError(t, err)
+			require.Equal(t, currentHelper, helperContents)
+			require.NotContains(t, string(helperContents), "KubeletHealthzEndpoint")
+		})
+	}
 }
 
 type decodedValue struct {
