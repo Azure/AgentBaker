@@ -130,6 +130,51 @@ EOF
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '20260815T000000Z'
         End
 
+        It 'dispatches localDNS and writes successful status'
+            mkdir -p /opt/azure/containers
+            cat > /opt/azure/containers/aks-node-controller <<'EOF'
+#!/bin/bash
+echo "aks-node-controller called with args: $*"
+cat > /tmp/localdns-livepatch-payload-mariner
+echo applied
+EOF
+            chmod +x /opt/azure/containers/aks-node-controller
+            Mock systemctl
+                echo "systemctl called with args: $*"
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'applying component: localDNS'
+            The output should include 'aks-node-controller called with args: apply-localdns-config --config-file - --output /opt/azure/containers/localdns/livepatched.localdns.corefile'
+            The contents of file "/tmp/localdns-livepatch-payload-mariner" should include '"configChecksum":"localdns-v1"'
+            The output should include 'systemctl called with args: restart localdns.service'
+            The output should include 'localDNS update completed successfully'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded"}'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"localDNS"'
+        End
+
+        It 'marks localDNS failed when service restart fails'
+            mkdir -p /opt/azure/containers
+            cat > /opt/azure/containers/aks-node-controller <<'EOF'
+#!/bin/bash
+echo applied
+EOF
+            chmod +x /opt/azure/containers/aks-node-controller
+            Mock systemctl
+                echo "systemctl called with args: $*"
+                exit 1
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+
+            When call main
+            The status should be failure
+            The output should include 'failed to restart localdns.service'
+            The output should include 'component failed: localDNS'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Failed"}'
+        End
+
         It 'reads kubeletVersion from the generic securityPatch profile'
             KUBELET_EXECUTABLE="${TEST_DIR}/missing-kubelet"
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\",\"kubeletVersion\":\"1.35.5\"}}}"}]}'

@@ -143,6 +143,62 @@ set_component_result() {
     LIVE_PATCHING_COMPONENT_RESULTS="${results}"
 }
 
+# localDNS handler. Unlike securityPatch, nothing here is OS-specific: the work is
+# delegated to aks-node-controller, which owns the payload schema and the Corefile
+# render. Kept inline (rather than in a sourced sibling) so a missing file can never
+# take the whole reconciler down with it, matching the Ubuntu reconciler.
+localDNSIsCurrent() {
+    local desired_payload="$1"
+    local current_payload="$2"
+
+    [ "${desired_payload}" = "${current_payload}" ]
+}
+
+updateLocalDNS() {
+    local component_payload="${1:-}"
+    local outcome
+
+    if [ ! -x /opt/azure/containers/aks-node-controller ]; then
+        echo "aks-node-controller binary is required for localDNS live patching"
+        return 1
+    fi
+
+    if ! outcome="$(printf '%s' "${component_payload}" | /opt/azure/containers/aks-node-controller apply-localdns-config \
+        --config-file - \
+        --output /opt/azure/containers/localdns/livepatched.localdns.corefile)"; then
+        echo "localDNS config apply failed"
+        return 1
+    fi
+    printf '%s\n' "${outcome}"
+
+    case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
+        applied)
+            if ! systemctl restart localdns.service; then
+                echo "failed to restart localdns.service"
+                return 1
+            fi
+            echo "localDNS update completed successfully"
+            ;;
+        alreadyCurrent)
+            echo "localDNS is already current"
+            ;;
+        notFound)
+            # In the runtime apply path the payload is supplied inline, so notFound is not expected;
+            # treat it as a failure so the reconciler does not checkpoint an unapplied config as succeeded.
+            echo "localDNS LPS config is not available"
+            return 1
+            ;;
+        noCorefileData)
+            echo "localDNS LPS config has no node-applicable payload"
+            return 1
+            ;;
+        *)
+            echo "unexpected localDNS apply outcome: ${outcome}"
+            return 1
+            ;;
+    esac
+}
+
 write_generic_status() {
     local node_name="$1"
     local goal="$2"
@@ -193,6 +249,10 @@ apply_components() {
             securityPatch)
                 component_handler=updateSecurityPatch
                 component_comparator=securityPatchIsCurrent
+                ;;
+            localDNS)
+                component_handler=updateLocalDNS
+                component_comparator=localDNSIsCurrent
                 ;;
             *)
                 echo "unsupported component: ${component_name}"
