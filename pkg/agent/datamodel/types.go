@@ -1838,11 +1838,18 @@ type NodeBootstrappingConfiguration struct {
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
 
-	// ScriptlessCSEProvisionMode specifies the provisioning mode for scriptless phase 2,
+	// EnableScriptlessAKSNodeConfig enables Phase 3 provisioning using only AKSNodeConfigJSON.
+	// It takes precedence over EnableScriptlessNBCCSECmd and EnableScriptlessCSECmd:
+	// no NBC command is rendered or delivered, and ANC does not enter comparison mode.
+	// Requires a non-empty serialized JSON object. Windows and PreProvisionOnly are unsupported.
+	EnableScriptlessAKSNodeConfig bool
+
+	// ScriptlessCSEProvisionMode specifies the delivery mode for scriptless phases 2 and 3,
 	// which uses CSE to provide provision nbc or aks nc configs
 	ScriptlessCSEProvisionMode bool
 
-	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
+	// AKSNodeConfigJSON is the serialized provisioning config required by EnableScriptlessAKSNodeConfig.
+	// Otherwise, it is optional and accompanies the NBC command for Phase 2.5 comparison.
 	AKSNodeConfigJSON string
 
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
