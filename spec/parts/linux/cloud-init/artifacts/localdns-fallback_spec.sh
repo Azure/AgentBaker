@@ -138,8 +138,8 @@ EOF
 
         It 'removes the jumps from both hooks, then flushes and deletes the chain'
             When call clear_rules
-            The contents of file "$CALLS" should include "-D PREROUTING -j LOCALDNS-FALLBACK"
-            The contents of file "$CALLS" should include "-D OUTPUT -j LOCALDNS-FALLBACK"
+            The contents of file "$CALLS" should include "-D PREROUTING -m comment --comment AKS managed: added by AgentBaker localdns-fallback -j LOCALDNS-FALLBACK"
+            The contents of file "$CALLS" should include "-D OUTPUT -m comment --comment AKS managed: added by AgentBaker localdns-fallback -j LOCALDNS-FALLBACK"
             The contents of file "$CALLS" should include "-F LOCALDNS-FALLBACK"
             The contents of file "$CALLS" should include "-X LOCALDNS-FALLBACK"
         End
@@ -222,8 +222,8 @@ EOF
         It 'redirects the node listener at the VNet DNS over udp and tcp'
             When call apply_rules
             The stderr should include "applied (kube-proxy)"
-            The contents of file "$RULES" should include "-d 169.254.10.10/32 -p udp --dport 53 -j DNAT --to-destination 168.63.129.16:53"
-            The contents of file "$RULES" should include "-d 169.254.10.10/32 -p tcp --dport 53 -j DNAT --to-destination 168.63.129.16:53"
+            The contents of file "$RULES" should include "-d 169.254.10.10/32 -p udp --dport 53 -m comment --comment AKS managed: added by AgentBaker localdns-fallback -j DNAT --to-destination 168.63.129.16:53"
+            The contents of file "$RULES" should include "-d 169.254.10.10/32 -p tcp --dport 53 -m comment --comment AKS managed: added by AgentBaker localdns-fallback -j DNAT --to-destination 168.63.129.16:53"
         End
 
         # The ClusterIP is deliberately not a target: the nat table is traversed
@@ -233,8 +233,8 @@ EOF
         It 'jumps the cluster listener into kube-proxy own kube-dns chains'
             When call apply_rules
             The stderr should include "applied"
-            The contents of file "$RULES" should include "-d 169.254.10.11/32 -p udp --dport 53 -j KUBE-SVC-TCOU7JCQXEZGVUNU"
-            The contents of file "$RULES" should include "-d 169.254.10.11/32 -p tcp --dport 53 -j KUBE-SVC-ERIFXISQEP7F7OF4"
+            The contents of file "$RULES" should include "-d 169.254.10.11/32 -p udp --dport 53 -m comment --comment AKS managed: added by AgentBaker localdns-fallback -j KUBE-SVC-TCOU7JCQXEZGVUNU"
+            The contents of file "$RULES" should include "-d 169.254.10.11/32 -p tcp --dport 53 -m comment --comment AKS managed: added by AgentBaker localdns-fallback -j KUBE-SVC-ERIFXISQEP7F7OF4"
         End
 
         It 'never DNATs the cluster listener at a ClusterIP'
@@ -246,8 +246,8 @@ EOF
         It 'inserts the chain ahead of everything else in nat'
             When call apply_rules
             The stderr should include "applied"
-            The contents of file "$RULES" should include "-I PREROUTING 1 -j LOCALDNS-FALLBACK"
-            The contents of file "$RULES" should include "-I OUTPUT 1 -j LOCALDNS-FALLBACK"
+            The contents of file "$RULES" should include "-I PREROUTING 1 -m comment --comment AKS managed: added by AgentBaker localdns-fallback -j LOCALDNS-FALLBACK"
+            The contents of file "$RULES" should include "-I OUTPUT 1 -m comment --comment AKS managed: added by AgentBaker localdns-fallback -j LOCALDNS-FALLBACK"
         End
     End
 
@@ -305,7 +305,7 @@ EOF
         It 'still redirects the node listener at the VNet DNS'
             When call apply_rules
             The stderr should include "applied (cilium)"
-            The contents of file "$RULES" should include "-d 169.254.10.10/32 -p udp --dport 53 -j DNAT --to-destination 168.63.129.16:53"
+            The contents of file "$RULES" should include "-d 169.254.10.10/32 -p udp --dport 53 -m comment --comment AKS managed: added by AgentBaker localdns-fallback -j DNAT --to-destination 168.63.129.16:53"
         End
     End
 End
@@ -399,5 +399,38 @@ Describe 'localdns-fallback.sh binds nothing'
     It 'runs no CoreDNS and opens no socket'
         When run grep -qE "coredns|-conf |bind " "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
         The status should be failure
+    End
+End
+
+Describe 'rules are tagged as AgentBaker-managed'
+# azure-iptables-monitor labels a Cilium node kubernetes.azure.com/user-iptables-rules
+# for any rule it cannot match, which blocks enabling ACNS Performance on the cluster.
+# The allowlist already carries a global pattern for AgentBaker-managed rules:
+#
+#     ^.*--comment.*AKS managed: added by AgentBaker
+#
+# It has no trailing anchor, so the suffix is free -- but the literal before it is
+# matched exactly, and getting it wrong fails silently: the rules install, work, and
+# are reported as user iptables rules for the duration of an outage. Nothing on the
+# node complains, so pin it here.
+#------------------------------------------------------------------------------
+    FALLBACK_SH="./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
+
+    It 'uses the exact literal the allowlist pattern matches'
+        When run grep -q 'RULE_COMMENT="AKS managed: added by AgentBaker' "$FALLBACK_SH"
+        The status should be success
+    End
+
+    # -D matches on the full rule spec, so a comment on the insert without the same
+    # comment on the delete leaves the hook jumps behind, and the fallback keeps
+    # redirecting past a recovered localdns.
+    It 'deletes the hook jumps with the same comment it inserts them with'
+        When run grep -qE '\-D "\$\{hook\}" -m comment --comment "\$\{RULE_COMMENT\}"' "$FALLBACK_SH"
+        The status should be success
+    End
+
+    It 'tags every rule it installs' # 2 hook inserts + 5 rule sites + 1 delete + 1 assignment
+        When run sh -c "grep -c 'RULE_COMMENT' $FALLBACK_SH"
+        The output should equal "9"
     End
 End
