@@ -22,7 +22,9 @@ required_plugins = ["io.containerd.differ.v1.erofs", "io.containerd.snapshotter.
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/kata-openvmm/share/defaults/kata-containers/configuration-openvmm-azure-snp-runtime-rs.toml"
 [plugins."io.containerd.service.v1.diff-service"]
-  default = ["erofs"]
+  # Ordinary AgentBaker ctr prefetch uses overlayfs mounts. Keep EROFS first,
+  # but allow walking when EROFS reports an unsupported mount type.
+  default = ["erofs", "walking"]
 [plugins."io.containerd.differ.v1.erofs"]
   enable_dmverity = true
   enable_tar_index = false

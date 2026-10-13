@@ -163,7 +163,10 @@ def check_running(config=CONFIG, prefix=PREFIX, receipt=RECEIPT):
     argv = (proc / "cmdline").read_bytes().rstrip(b"\0").split(b"\0")
     if argv[1:] != [b"--config", os.fsencode(config)]:
         raise ValueError("containerd service is not using the validated config path")
-    address = effective.get("grpc", {}).get("address")
+    # Config v4 moves the listener into a server plugin; config dump migrates
+    # older inputs, so checking only the original [grpc] table misses it.
+    server = effective.get("plugins", {}).get("io.containerd.server.v1.grpc")
+    address = (server if server is not None else effective.get("grpc", {})).get("address")
     if not address:
         raise ValueError("effective containerd gRPC address is missing")
     output = subprocess.check_output(

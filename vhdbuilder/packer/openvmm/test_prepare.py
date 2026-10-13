@@ -207,6 +207,46 @@ enable_debug = {str(debug).lower()}
             prepare(self.bundle, self.root / "redirect-packer.json", settings, "123456")
         self.assertFalse((self.root / "redirect-packer.json").exists())
 
+    def test_map_retry_reuses_only_identical_output(self):
+        settings = self.root / "settings.json"
+        settings.write_text(json.dumps({"subscription_id": "035db282-f1c8-4ce7-b78f-2a7265d5398c"}))
+        output = self.root / "retry.json"
+        prepare(self.bundle, output, settings, "123456")
+        original = output.read_bytes()
+        modified_time = output.stat().st_mtime_ns
+        prepare(self.bundle, output, settings, "123456")
+        self.assertEqual(output.read_bytes(), original)
+        self.assertEqual(output.stat().st_mtime_ns, modified_time)
+        with self.assertRaisesRegex(FileExistsError, "refusing to reuse"):
+            prepare(self.bundle, output, settings, "123457")
+        for replacement in (b"operator edit\n", original + b" ", b""):
+            output.write_bytes(replacement)
+            with self.assertRaisesRegex(FileExistsError, "refusing to reuse"):
+                prepare(self.bundle, output, settings, "123456")
+            self.assertEqual(output.read_bytes(), replacement)
+
+    def test_map_retry_rejects_symlink_output(self):
+        settings = self.root / "settings.json"
+        settings.write_text(json.dumps({"subscription_id": "035db282-f1c8-4ce7-b78f-2a7265d5398c"}))
+        target = self.root / "target.json"
+        prepare(self.bundle, target, settings, "123456")
+        output = self.root / "retry.json"
+        output.symlink_to(target.name)
+        with self.assertRaisesRegex(FileExistsError, "non-regular template"):
+            prepare(self.bundle, output, settings, "123456")
+        self.assertTrue(output.is_symlink())
+
+    def test_map_retry_validates_inputs_before_reuse(self):
+        settings = self.root / "settings.json"
+        settings.write_text(json.dumps({"subscription_id": "035db282-f1c8-4ce7-b78f-2a7265d5398c"}))
+        output = self.root / "retry.json"
+        prepare(self.bundle, output, settings, "123456")
+        original = output.read_bytes()
+        (self.bundle / "ctr").write_text("modified artifact")
+        with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+            prepare(self.bundle, output, settings, "123456")
+        self.assertEqual(output.read_bytes(), original)
+
     def test_map_build_id_required(self):
         settings = self.root / "settings.json"
         settings.write_text(json.dumps({"subscription_id": "035db282-f1c8-4ce7-b78f-2a7265d5398c"}))
@@ -397,6 +437,9 @@ enable_debug = {str(debug).lower()}
         self.assertEqual(template["variables"]["openvmm_install_host"], "true")
         self.assertEqual(template["builders"][0]["temp_compute_name"], "openvmm-123456")
         self.assertIn("shared_image_gallery_destination", template["builders"][0])
+        retry = subprocess.run(result.args, capture_output=True, text=True)
+        self.assertEqual(retry.returncode, 0, retry.stdout + retry.stderr)
+        self.assertIn("Reusing identical MAP Packer template", retry.stdout)
 
     def test_image_check_does_not_require_snp_hardware(self):
         image = Path("vhdbuilder/packer/openvmm/check-image.sh").read_text()
@@ -442,7 +485,7 @@ enable_debug = {str(debug).lower()}
             })
             self.assertEqual(plugins["io.containerd.snapshotter.v1.erofs"]["default_size"], "0")
             self.assertEqual(plugins["io.containerd.snapshotter.v1.erofs"]["dmverity_mode"], "on")
-            self.assertEqual(plugins["io.containerd.service.v1.diff-service"]["default"], ["erofs"])
+            self.assertEqual(plugins["io.containerd.service.v1.diff-service"]["default"], ["erofs", "walking"])
             self.assertEqual(plugins["io.containerd.transfer.v1.local"]["unpack_config"], [{
                 "platform": "linux/amd64", "snapshotter": "erofs", "differ": "erofs", "optional": False,
             }])
@@ -455,7 +498,7 @@ enable_debug = {str(debug).lower()}
         self.assertNotIn("dmverity_mode", plugins["io.containerd.snapshotter.v1.erofs"])
         self.assertEqual(plugins["io.containerd.snapshotter.v1.erofs"]["default_size"], "0")
         self.assertIs(plugins["io.containerd.differ.v1.erofs"]["enable_dmverity"], True)
-        self.assertEqual(plugins["io.containerd.service.v1.diff-service"]["default"], ["erofs"])
+        self.assertEqual(plugins["io.containerd.service.v1.diff-service"]["default"], ["erofs", "walking"])
         self.assertEqual(plugins["io.containerd.transfer.v1.local"]["unpack_config"][0]["differ"], "erofs")
 
 

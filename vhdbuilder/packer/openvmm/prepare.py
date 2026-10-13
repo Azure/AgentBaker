@@ -78,10 +78,18 @@ def prepare(bundle, output, map_settings=None, build_id=None):
     provisioners.insert(check_index, {"type": "shell", "inline": [
         "sudo /opt/kata-openvmm/integration/check-image.sh"
     ]})
-    # Never replace an operator's existing generated template.
+    rendered = json.dumps(template, indent=2) + "\n"
+    # MAP retries this task after transient Packer failures (including quota).
+    # Reuse only identical output for this build; never overwrite an operator's
+    # edits or trust stale output instead of validating the current inputs above.
+    if map_settings is not None and output.exists():
+        if output.is_symlink() or not output.is_file() or output.read_bytes() != rendered.encode():
+            raise FileExistsError(f"refusing to reuse differing or non-regular template: {output}")
+        print(f"Reusing identical MAP Packer template for build {build_id}")
+        return
+    # Standalone preparation still refuses any existing output.
     with output.open("x") as stream:
-        json.dump(template, stream, indent=2)
-        stream.write("\n")
+        stream.write(rendered)
 
 
 if __name__ == "__main__":

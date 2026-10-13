@@ -153,6 +153,14 @@ The opt-in containerd fragments require host EROFS transfer pulls,
 `dmverity_mode="on"` is enabled only when supported. Required capability
 checks remain in place; packaging alone does not prove compatibility.
 
+The default diff service uses `["erofs", "walking"]`, in that order.
+AgentBaker's ordinary `ctr images mount` prefetch can unpack into overlayfs;
+an EROFS-only default breaks that operation. Containerd tries the next differ
+only for `NotImplemented` (such as EROFS rejecting a non-EROFS mount), not for
+arbitrary extraction/integrity failures. Kata-CC transfer unpack still explicitly
+selects `snapshotter="erofs"` and `differ="erofs"` with dm-verity enabled.
+This is mixed-snapshotter compatibility, not a temporary integrity bypass.
+
 These settings affect the evaluation node, not ordinary images. Complete
 old-kata-cc policy/hash-binding parity and report signature-chain validation
 are still separate work.
@@ -187,6 +195,8 @@ or receipt left by Packer. The host gate checks the fingerprint against the
 current effective config, the service's running binary/config arguments, and
 live CRI/EROFS plugin health. Configuration values are not printed because
 they can include registry credentials.
+The live check reads the migrated v4 gRPC server-plugin address emitted by
+containerd 2.3.3, with support for the older `[grpc]` layout as well.
 
 The remote replay tests cover legacy configs without imports, the ANC import
 form, schema changes, unrelated/nested imports, repeated CSE replacements,
@@ -218,7 +228,14 @@ python3 vhdbuilder/packer/openvmm/prepare.py \
   --output /absolute/path/to/eval-packer.json
 ```
 
-The output must not already exist. Secure Boot/vTPM/ConfidentialVM settings
+Standalone preparation requires a new output path. MAP preparation with
+`--map-settings` and `--build-id` permits task retries to reuse only a
+byte-identical generated template after validating the current bundle and
+settings again. Differing output, symlinks and output from another build are
+rejected without overwriting them. This handles preparation retries after
+transient Packer failures; it cannot resolve Azure quota exhaustion.
+
+Secure Boot/vTPM/ConfidentialVM settings
 and production signing are not established by this evaluation flow.
 After reviewing MAP's settings, preparation alone can be exercised with:
 
@@ -250,3 +267,21 @@ CONTAINERD=/path/to/evaluated/containerd \
 
 Set `CONTAINERD` to the actual bundle binary to execute the configuration
 replay cases; without it those cases are explicitly skipped.
+
+The privileged differ regression uses a generated, local OCI archive and a
+separate daemon/store to reproduce the EROFS-only prefetch failure, then checks
+ordinary prefetch and explicit EROFS transfer unpack with the corrected config.
+Run it only on the remote validation machine, in a private mount namespace:
+
+```bash
+sudo env CONTAINERD=/path/to/evaluated/containerd OPENVMM_DIFFER_INTEGRATION=1 \
+  unshare --mount --propagation private \
+  python3 -m unittest discover -s vhdbuilder/packer/openvmm -p test_differ_integration.py
+```
+
+It requires the matching `ctr` beside `containerd`, `mkfs.erofs`, `fsck.erofs`, and host
+snapshotter prerequisites. The test verifies the effective listener paths
+before starting its daemon, isolates `/run`, and cleans up its backing mounts.
+It refuses to run in the host's mount namespace. It inspects the unpacked EROFS
+layer with `fsck.erofs` rather than activating globally named dm-verity devices
+that could collide with another daemon's snapshot IDs.

@@ -31,7 +31,8 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(replace_imports(text, ["a"]), 'imports = ["a"]\n' + text)
 
     def test_running_gate_checks_receipt_process_and_plugin_health(self):
-        effective = {"grpc": {"address": "/run/containerd/containerd.sock"}}
+        effective = {"plugins": {"io.containerd.server.v1.grpc": {
+            "address": "/run/containerd/containerd.sock"}}}
         plugins = "\n".join(["TYPE ID PLATFORMS STATUS"] + [
             f"{kind} {name} - ok" for kind, name in (
                 ("io.containerd.differ.v1", "erofs"),
