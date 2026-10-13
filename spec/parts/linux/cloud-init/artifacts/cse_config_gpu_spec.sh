@@ -46,6 +46,7 @@ Describe 'cse_config_gpu.sh'
             fi
             export MOCK_AUTH_STATE="live-node"
         }
+        logs_to_events() { shift; "$@"; }
         tar() { echo "tar $*"; return "$MOCK_TAR_RESULT"; }
         rm() { echo "rm $*"; return "$MOCK_RM_RESULT"; }
         ctr() {

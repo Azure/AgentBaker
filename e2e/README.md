@@ -282,8 +282,8 @@ These scenarios reuse the existing network-isolated cluster. The existing
 scripts; GPU PR CI selects that option through `DISABLE_SCRIPTLESS`, while main and
 scheduled runs retain baked-VHD validation. The cases require authenticated private-cache
 acquisition, node readiness, the expected GRID driver and license, and a direct public-MCR
-connection timeout. The VHD-caching case uses separate bake and real-node boots, clears ORAS
-credentials before provisioning, and verifies that `basePrep` was skipped.
+connection timeout. The VHD-caching case uses separate bake and real-node boots and verifies
+that `basePrep` was skipped and the GPU acquisition path refreshed live-identity login.
 
 ### Debugging
 

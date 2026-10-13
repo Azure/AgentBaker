@@ -18,7 +18,7 @@ EOF
 pullGPUDriverImage() {
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ]; then
         # PIS nodes skip basePrep, so refresh credentials using this node's identity.
-        oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+        logs_to_events "AKS.CSE.configGPUDrivers.orasLogin" oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
             "$USER_ASSIGNED_IDENTITY_ID" "$TENANT_ID" || return $?
 
         local download_dir

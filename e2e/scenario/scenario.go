@@ -3023,21 +3023,17 @@ var _ = Register(networkIsolatedGRIDCachingScenario())
 
 func networkIsolatedGRIDCachingScenario() *Scenario {
 	s := networkIsolatedGRIDScenario("Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR_VHDCaching", config.VHDUbuntu2204Gen2Containerd)
-	s.Description = "Tests authenticated A10 GPU acquisition after a bake/real-node split, with basePrep skipped and no reusable ORAS credentials"
+	s.Description = "Tests authenticated A10 GPU acquisition after a bake/real-node split, with basePrep skipped and live kubelet-identity login refreshed before acquisition"
 	s.VHDCaching = true
 	s.Tags.VHDCaching = true
-	s.CustomDataWriteFiles = []CustomDataWriteFile{{
-		Path:        "/etc/oras/config.yaml",
-		Permissions: "0600",
-		Owner:       "root:root",
-		Content:     `{"auths":{}}`,
-	}}
 	driverValidator := s.Validator
 	s.Validator = func(ctx context.Context, s *Scenario) error {
 		return errors.Join(
 			driverValidator(ctx, s),
 			ValidateFileHasContent(ctx, s, "/var/log/azure/aks/cluster-provision.log",
 				"Skipping basePrep - base_prep.complete file exists"),
+			ValidateFileHasContent(ctx, s, "/var/log/azure/aks/cluster-provision.log",
+				"AKS.CSE.configGPUDrivers.orasLogin"),
 		)
 	}
 	return s
