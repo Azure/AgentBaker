@@ -3,6 +3,7 @@ package datamodel
 
 import (
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -76,6 +77,15 @@ func TestLoadConfig(t *testing.T) {
 	}
 	if !suffixPattern.MatchString(AKSGPUCudaLTSVersionSuffix) {
 		t.Errorf("AKSGPUCudaLTSVersionSuffix '%s' does not match expected format", AKSGPUCudaLTSVersionSuffix)
+	}
+}
+
+func TestGPUGridDriverBranches(t *testing.T) {
+	if !strings.HasPrefix(NvidiaGridDriverVersion, "580.") {
+		t.Errorf("A10 GRID driver must remain on R580 LTS, got %q", NvidiaGridDriverVersion)
+	}
+	if !strings.HasPrefix(NvidiaGridV20DriverVersion, "595.") {
+		t.Errorf("GRID v20 driver must remain on R595, got %q", NvidiaGridV20DriverVersion)
 	}
 }
 

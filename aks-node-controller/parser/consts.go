@@ -28,6 +28,7 @@ const (
 	cseConfigKubeletScriptFilepath       = "/opt/azure/containers/provision_configs_kubelet.sh"
 	cseConfigNetworkScriptFilepath       = "/opt/azure/containers/provision_configs_network.sh"
 	cseConfigAddonsScriptFilepath        = "/opt/azure/containers/provision_configs_addons.sh"
+	cseConfigChronyScriptFilepath        = "/opt/azure/containers/provision_configs_chrony.sh"
 	customSearchDomainsCSEScriptFilepath = "/opt/azure/containers/setup-custom-search-domains.sh"
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"

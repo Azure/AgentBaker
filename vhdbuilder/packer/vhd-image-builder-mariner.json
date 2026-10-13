@@ -202,6 +202,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_chrony.sh",
+      "destination": "/home/packer/provision_configs_chrony.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
       "destination": "/home/packer/provision.sh"
     },
@@ -359,6 +364,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh",
       "destination": "/home/packer/mariner-package-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/security-update.sh",
+      "destination": "/home/packer/security-update.sh"
     },
     {
       "type": "file",

@@ -141,6 +141,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"CSE_CONFIG_KUBELET_FILEPATH":                          getCSEConfigKubeletFilepath(),
 		"CSE_CONFIG_NETWORK_FILEPATH":                          getCSEConfigNetworkFilepath(),
 		"CSE_CONFIG_ADDONS_FILEPATH":                           getCSEConfigAddonsFilepath(),
+		"CSE_CONFIG_CHRONY_FILEPATH":                           getCSEConfigChronyFilepath(),
 		"AZURE_PRIVATE_REGISTRY_SERVER":                        config.GetAzurePrivateRegistryServer(),
 		"HAS_CUSTOM_SEARCH_DOMAIN":                             fmt.Sprintf("%v", getHasSearchDomain(config.GetCustomSearchDomainConfig())),
 		"CUSTOM_SEARCH_DOMAIN_FILEPATH":                        getCustomSearchDomainFilepath(),
