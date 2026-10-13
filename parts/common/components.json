@@ -2262,19 +2262,19 @@
           "r2004": {
             "versionsV2": [{
               "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=20.04",
-              "latestVersion": "0.8.25-ubuntu20.04u16"
+              "latestVersion": "0.8.25"
             }]
           },
           "r2204": {
             "versionsV2": [{
               "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=22.04",
-              "latestVersion": "0.8.25-ubuntu22.04u16"
+              "latestVersion": "0.8.25"
             }]
           },
           "r2404": {
             "versionsV2": [{
               "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=24.04",
-              "latestVersion": "0.8.25-ubuntu24.04u16"
+              "latestVersion": "0.8.25"
             }]
           },
           "r2604": {
@@ -2285,7 +2285,7 @@
           "v3.0": {
             "versionsV2": [{
               "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-problem-detector-kubernetes, os=azurelinux, release=3.0",
-              "latestVersion": "0.8.25-16.azl3"
+              "latestVersion": "0.8.25"
             }]
           },
           "OSGUARD/v3.0": {
@@ -2307,19 +2307,19 @@
           "r2004": {
             "versionsV2": [{
               "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=20.04",
-              "latestVersion": "1.0.0-ubuntu20.04u1"
+              "latestVersion": "1.0.0"
             }]
           },
           "r2204": {
             "versionsV2": [{
               "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=22.04",
-              "latestVersion": "1.0.0-ubuntu22.04u1"
+              "latestVersion": "1.0.0"
             }]
           },
           "r2404": {
             "versionsV2": [{
               "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=24.04",
-              "latestVersion": "1.0.0-ubuntu24.04u1"
+              "latestVersion": "1.0.0"
             }]
           },
           "r2604": {
@@ -2330,7 +2330,7 @@
           "v3.0": {
             "versionsV2": [{
               "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=node-problem-detector-aks-config, os=azurelinux, release=3.0",
-              "latestVersion": "1.0.0-1.azl3"
+              "latestVersion": "1.0.0"
             }]
           },
           "OSGUARD/v3.0": {

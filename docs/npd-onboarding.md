@@ -11,7 +11,9 @@ rpm/tdnf on Azure Linux.
 ## Lifecycle
 
 - `components.json` independently pins `node-problem-detector-kubernetes` and
-  `node-problem-detector-aks-config` from PMC. Both distributions ship the same
+  `node-problem-detector-aks-config` from PMC as revisionless upstream versions,
+  like other package-backed components; the VHD build bakes the newest matching
+  package revision and logs the resolution. Both distributions ship the same
   config payload (monitors, scripts, `/opt/bin/node-problem-detector-startup.sh`,
   and the systemd unit).
 - The VHD installs both packages, holds them, and caches the config package for

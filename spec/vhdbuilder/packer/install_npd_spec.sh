@@ -11,24 +11,25 @@ Describe 'NPD package selection'
         done < <(jq -c '.Packages[] | select(.name | startswith("node-problem-detector"))' parts/common/components.json)
     }
 
-    It 'selects both packages for Ubuntu 24.04'
+    It 'selects revisionless versions for Ubuntu 24.04'
         When call select_npd_packages UBUNTU 24.04
         The status should be success
-        The output should include 'node-problem-detector-kubernetes: 0.8.25-ubuntu24.04u16'
-        The output should include 'node-problem-detector-aks-config: 1.0.0-ubuntu24.04u1'
+        The output should include 'node-problem-detector-kubernetes: 0.8.25'
+        The output should include 'node-problem-detector-aks-config: 1.0.0'
     End
 
     It 'leaves unpublished Ubuntu 26.04 packages empty'
         When call select_npd_packages UBUNTU 26.04
         The status should be success
-        The output should not include 'ubuntu26.04u'
+        The output should not include '0.8.25'
+        The output should not include '1.0.0'
     End
 
-    It 'selects exact RPM releases for Azure Linux 3'
+    It 'selects revisionless versions for Azure Linux 3'
         When call select_npd_packages AZURELINUX 3.0
         The status should be success
-        The output should include 'node-problem-detector-kubernetes: 0.8.25-16.azl3'
-        The output should include 'node-problem-detector-aks-config: 1.0.0-1.azl3'
+        The output should include 'node-problem-detector-kubernetes: 0.8.25'
+        The output should include 'node-problem-detector-aks-config: 1.0.0'
     End
 
     select_npd_variant_packages() {
@@ -42,14 +43,15 @@ Describe 'NPD package selection'
     It 'leaves Azure Linux OSGuard extension-managed'
         When call select_npd_variant_packages
         The status should be success
-        The output should not include 'azl3'
+        The output should not include '0.8.25'
+        The output should not include '1.0.0'
     End
 
     It 'leaves Mariner extension-managed'
         When call select_npd_packages MARINER 2.0
         The status should be success
-        The output should not include 'ubuntu'
-        The output should not include 'azl'
+        The output should not include '0.8.25'
+        The output should not include '1.0.0'
     End
 End
 
@@ -74,12 +76,24 @@ Describe 'NPD VHD installation helper'
         echo "tdnf $*" >> "${TEST_CALLS}"
     End
     dnf_install() { echo "dnf_install $*" >> "${TEST_CALLS}"; }
+    getLatestRPMPackageVersion() { printf '%s-16.azl3' "$2"; }
+    logResolvedPackageVersion() { echo "resolved $*" >> "${TEST_CALLS}"; }
 
-    It 'installs and locks the Azure Linux binary without caching it'
-        When call installNPDPackage node-problem-detector-kubernetes 0.8.25-16.azl3
+    It 'resolves the newest revision, installs and locks the Azure Linux binary without caching it'
+        When call installNPDPackage node-problem-detector-kubernetes 0.8.25
         The status should be success
-        The contents of file "${TEST_CALLS}" should equal 'dnf_install 30 1 600 node-problem-detector-kubernetes-0.8.25-16.azl3'
+        The contents of file "${TEST_CALLS}" should equal 'resolved node-problem-detector-kubernetes 0.8.25 0.8.25-16.azl3
+dnf_install 30 1 600 node-problem-detector-kubernetes-0.8.25-16.azl3'
         The contents of file "${NPD_TDNF_LOCK_FILE}" should equal 'node-problem-detector-kubernetes'
+    End
+
+    It 'fails when no package revision matches the pinned version'
+        getLatestRPMPackageVersion() { return 0; }
+        When call installNPDPackage node-problem-detector-kubernetes 9.9.9
+        The status should be failure
+        The output should include 'Failed to find node-problem-detector-kubernetes version 9.9.9'
+        The contents of file "${TEST_CALLS}" should equal ''
+        The path "${NPD_TDNF_LOCK_FILE}" should not be exist
     End
 
     It 'locks each Azure Linux package once'
@@ -108,6 +122,8 @@ Describe 'NPD VHD installation helper on Ubuntu'
     isUbuntu() { return 0; }
     isAzureLinux() { return 1; }
     apt_get_install() { echo "apt_get_install $*" >> "${TEST_CALLS}"; [ "${APT_FAILS}" = false ]; }
+    getLatestDebPackageVersion() { printf '%s-ubuntu24.04u1' "$2"; }
+    logResolvedPackageVersion() { echo "resolved $*" >> "${TEST_CALLS}"; }
     apt-mark() { echo "apt-mark $*" >> "${TEST_CALLS}"; }
     apt-get() { echo "apt-get $*" >> "${TEST_CALLS}"; }
     systemctl() { echo "systemctl $*" >> "${TEST_CALLS}"; }
@@ -115,13 +131,14 @@ Describe 'NPD VHD installation helper on Ubuntu'
 
     It 'propagates package installation failure without holding the package'
         APT_FAILS=true
-        When call installNPDPackage node-problem-detector-kubernetes 0.8.25-ubuntu24.04u16
+        When call installNPDPackage node-problem-detector-kubernetes 0.8.25
         The status should be failure
         The contents of file "${TEST_CALLS}" should not include 'apt-mark'
     End
 
     It 'installs, holds and caches the config package before validating it'
-        When call installNPDPackage node-problem-detector-aks-config 1.0.0-ubuntu24.04u1
+        When call installNPDPackage node-problem-detector-aks-config 1.0.0
+        The contents of file "${TEST_CALLS}" should include 'resolved node-problem-detector-aks-config 1.0.0 1.0.0-ubuntu24.04u1'
         The contents of file "${TEST_CALLS}" should include 'apt_get_install 30 1 600 node-problem-detector-aks-config=1.0.0-ubuntu24.04u1'
         The contents of file "${TEST_CALLS}" should include 'apt-get download node-problem-detector-aks-config=1.0.0-ubuntu24.04u1'
         The contents of file "${TEST_CALLS}" should include 'apt-mark hold node-problem-detector-aks-config'

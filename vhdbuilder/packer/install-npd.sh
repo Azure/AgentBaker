@@ -23,24 +23,36 @@ installNPDPackage() {
     local package="$1"
     local version="$2"
     local cache_dir="/opt/node-problem-detector/downloads"
+    local full_version
 
+    # components.json pins revisionless upstream versions; bake the newest
+    # matching package revision, as for other package-backed components.
     mkdir -p "${cache_dir}" /opt/bin || return 1
     if isUbuntu; then
-        apt_get_install 30 1 600 "${package}=${version}" || return 1
-        if [ "${package}" = "node-problem-detector-aks-config" ]; then
-            (cd "${cache_dir}" && apt-get download "${package}=${version}") || return 1
-        fi
+        full_version="$(getLatestDebPackageVersion "${package}" "${version}")" || full_version=""
     elif isAzureLinux; then
-        # tdnf skips downloading an installed package, so cache before installing.
-        if [ "${package}" = "node-problem-detector-aks-config" ]; then
-            tdnf install -y --downloadonly --downloaddir "${cache_dir}" "${package}-${version}" || return 1
-        fi
-        dnf_install 30 1 600 "${package}-${version}" || return 1
+        full_version="$(getLatestRPMPackageVersion "${package}" "${version}")" || full_version=""
     else
         return 1
     fi
+    if [ -z "${full_version}" ]; then
+        echo "[npd] Failed to find ${package} version ${version}"
+        return 1
+    fi
+    logResolvedPackageVersion "${package}" "${version}" "${full_version}"
+    if isUbuntu; then
+        apt_get_install 30 1 600 "${package}=${full_version}" || return 1
+        if [ "${package}" = "node-problem-detector-aks-config" ]; then
+            (cd "${cache_dir}" && apt-get download "${package}=${full_version}") || return 1
+        fi
+    else
+        # tdnf skips downloading an installed package, so cache before installing.
+        if [ "${package}" = "node-problem-detector-aks-config" ]; then
+            tdnf install -y --downloadonly --downloaddir "${cache_dir}" "${package}-${full_version}" || return 1
+        fi
+        dnf_install 30 1 600 "${package}-${full_version}" || return 1
+    fi
     holdNPDPackage "${package}" || return 1
-    echo "  - ${package} version ${version}" >> "${VHD_LOGS_FILEPATH}"
 
     [ "${package}" = "node-problem-detector-aks-config" ] || return 0
     ln -snf /usr/bin/node-problem-detector /opt/bin/node-problem-detector || return 1
