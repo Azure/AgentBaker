@@ -377,16 +377,14 @@ func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourc
 		logging.Logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
 		return vhd, nil
 	default:
-		builderImage := i
-		builderImage.Name = i.vhdBuilderGalleryImageName()
-		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &builderImage, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
+		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
 		if err != nil {
 			return "", fmt.Errorf("failed to get latest image by tag %s=%s: %w", Config.SIGVersionTagName, Config.SIGVersionTagValue, err)
 		}
 		if vhd != "" {
-			logging.Logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, builderImage.azurePortalImageVersionUrl())
+			logging.Logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
 		} else {
-			logging.Logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, builderImage.azurePortalImageUrl())
+			logging.Logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
 		}
 		return vhd, nil
 	}
@@ -416,8 +414,9 @@ func loadVHDMetadata(path string) (map[string]vhdMetadataEntry, error) {
 func getVHDResourceIDFromMetadata(metadata map[string]vhdMetadataEntry, image Image, location string) (VHDResourceID, error) {
 	var entry vhdMetadataEntry
 	var found bool
+	builderGalleryImageName := image.vhdBuilderGalleryImageName()
 	for imageName, candidate := range metadata {
-		if strings.EqualFold(imageName, image.Name) {
+		if strings.EqualFold(imageName, image.Name) || strings.EqualFold(imageName, builderGalleryImageName) {
 			entry = candidate
 			found = true
 			break

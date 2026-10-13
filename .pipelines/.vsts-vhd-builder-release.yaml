@@ -383,7 +383,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv3-cvm-gen2
-              e2eImageName: V3gen2CVM
       - job: buildAzureLinuxOSGuardV3gen2fipsTL
         condition: eq('${{ parameters.buildAzureLinuxOSGuardV3gen2fipsTL }}', true)
         dependsOn: [ ]
@@ -691,7 +690,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-cvm-gen2-containerd
-              e2eImageName: 2404gen2CVMcontainerd
       - job: build2404gen2containerd
         condition: eq('${{ parameters.build2404gen2containerd }}', true)
         dependsOn: [ ]
@@ -767,7 +765,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-cvm-gen2-containerd
-              e2eImageName: 2004gen2CVMcontainerd
       - job: build2204tlgen2containerd
         condition: eq('${{ parameters.build2204tlgen2containerd }}', true)
         dependsOn: [ ]
@@ -867,7 +864,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2604-minimal-cvm-gen2-containerd
-              e2eImageName: 2604minimalgen2CVMcontainerd
       - job: buildacltlgen2
         condition: eq('${{ parameters.buildacltlgen2 }}', true)
         dependsOn: [ ]
