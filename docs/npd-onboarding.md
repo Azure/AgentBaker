@@ -10,11 +10,9 @@ rpm/tdnf on Azure Linux.
 
 ## Lifecycle
 
-- `components.json` independently pins `node-problem-detector-kubernetes` and
-  `node-problem-detector-aks-config` from PMC as revisionless upstream versions,
-  like other package-backed components; the VHD build bakes the newest matching
-  package revision and logs the resolution. Both distributions ship the same
-  config payload (monitors, scripts, `/opt/bin/node-problem-detector-startup.sh`,
+- `components.json` pins the NPD binary and config packages; see
+  [VHD package pins](#vhd-package-pins-componentsjson). Both distributions ship the
+  same config payload (monitors, scripts, `/opt/bin/node-problem-detector-startup.sh`,
   and the systemd unit).
 - The VHD installs both packages, holds them, and caches the config package for
   recovery. Ubuntu uses `apt-mark hold`. Azure Linux uses
@@ -31,7 +29,29 @@ rpm/tdnf on Azure Linux.
   Azure Linux OSGuard, Kata, Azure Container Linux, Mariner 2 and other OSes remain
   extension-managed.
 
-## Live configuration
+## VHD package pins (`components.json`)
+
+`node-problem-detector-kubernetes` and `node-problem-detector-aks-config` follow the
+same convention as other package-backed components (see
+`parts/linux/cloud-init/artifacts/README-COMPONENTS.md`): entries are revisionless
+upstream versions, for example `0.8.25` and `1.0.0`.
+
+- During the VHD build, `install-npd.sh` resolves each pin to the newest matching
+  package revision in PMC (`getLatestDebPackageVersion` on Ubuntu,
+  `getLatestRPMPackageVersion` on Azure Linux), for example `0.8.25` ->
+  `0.8.25-ubuntu24.04u22` or `0.8.25-22.azl3`. The resolution is logged and written
+  to the VHD release notes.
+- That exact resolved version is installed, held, and, for the config package,
+  cached for recovery. A VHD therefore carries one fixed revision even though the
+  pin is revisionless.
+- Renovate tracks upstream versions only; new package revisions are picked up by the
+  next VHD build without a `components.json` change.
+- The build fails if no published revision matches the pin.
+
+This governs only what a new VHD bakes. It goes through the normal VHD build,
+validation, and release process.
+
+## Live configuration (LPC version selection)
 
 Each generic updater dispatches `npdConfig` with the RP payload. Each node reads
 only its own distribution's map:
@@ -43,14 +63,32 @@ only its own distribution's map:
 }
 ```
 
-Versions are exact package versions. The release embedded in the version must
-match the map key (`ubuntu24.04` for `24.04`, `azl3` for `3.0`).
+Unlike the VHD pins, these are exact package versions including the revision. The
+release embedded in the version must match the map key (`ubuntu24.04` for `24.04`,
+`azl3` for `3.0`).
+
+The payload is the rollout control for running nodes. The RP toggle selects exactly
+which revision each cluster moves to, through its staged rollout. Nodes never
+resolve "the newest revision" themselves, so publishing a new revision to PMC does
+not change running nodes until the toggle selects it. Every node given the same
+selection converges to the same package.
+
+Selection is forward-only (fix forward):
+
+- An installed version equal to or newer than the selection is successful
+  no-action. This includes VHDs that baked a newer revision than the one selected.
+- Selecting an older version, or clearing the toggle, does not revert nodes.
+- To recover from a config that installed successfully but behaves badly, publish
+  the known-good content to PMC under a higher version and select it. For example,
+  if `1.0.0-ubuntu22.04u3` is bad, publish the fix as `u4` and select `u4`; selecting
+  `u2` is a no-op on `u3` nodes.
+- Local rollback is separate: a package that fails to install or start is replaced
+  by the cached prior package automatically (see below).
 
 The node compares the target against its installed config version with the native
 package ordering (`dpkg --compare-versions` or `rpm.vercmp`) before accessing
 repositories. No target, an equal/newer installed version, or an extension-managed
-node is successful no-action. Updates are forward-only; recover from a bad config
-by publishing known-good content under a higher version.
+node is successful no-action.
 
 For an update, the handler downloads and checks the desired package before
 installing it. A durable pending marker records the prior cached version before
