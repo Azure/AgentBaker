@@ -134,6 +134,7 @@ Like the generic updaters and securityPatch handlers, `npd-update.sh` is deliver
 only by the VHD. It is not written by provisioning CustomData or hotfix delivery,
 which avoids CustomData growth. Nodes gain the handler through new VHDs.
 
-The current PMC config pins are a usable integration baseline. Refreshing their
-source content and supplying Ubuntu 26.04 packages are separate package-production
-work.
+Config package content comes from the AKS VM extension's NPD configuration. Before
+baked NPD ships, the config packages must be refreshed from current extension
+content so baked nodes keep the extension's monitor coverage. Publishing Ubuntu
+26.04 packages is separate follow-up work.
