@@ -345,6 +345,19 @@ func (i *Image) SupportsScriptless() bool {
 	return !i.Flatcar && !i.Distro.IsWindowsDistro() && i.Distro != datamodel.AKSAzureLinuxV2Gen2
 }
 
+func (i Image) vhdBuilderGalleryImageName() string {
+	switch i.Distro {
+	case datamodel.AKSUbuntuContainerd2004CVMGen2,
+		datamodel.AKSUbuntuContainerd2404CVMGen2,
+		datamodel.AKSUbuntuMinimalContainerd2604CVMGen2:
+		return i.Name + "Specialized"
+	case datamodel.AKSAzureLinuxV3CVMGen2:
+		return "AzureLinux" + i.Name
+	default:
+		return i.Name
+	}
+}
+
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
 	if i.Version == "" && Config.vhdMetadata != nil {
 		vhd, err := getVHDResourceIDFromMetadata(Config.vhdMetadata, i, location)
@@ -364,14 +377,16 @@ func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourc
 		logging.Logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
 		return vhd, nil
 	default:
-		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
+		builderImage := i
+		builderImage.Name = i.vhdBuilderGalleryImageName()
+		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &builderImage, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
 		if err != nil {
 			return "", fmt.Errorf("failed to get latest image by tag %s=%s: %w", Config.SIGVersionTagName, Config.SIGVersionTagValue, err)
 		}
 		if vhd != "" {
-			logging.Logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
+			logging.Logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, builderImage.azurePortalImageVersionUrl())
 		} else {
-			logging.Logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
+			logging.Logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, builderImage.azurePortalImageUrl())
 		}
 		return vhd, nil
 	}
