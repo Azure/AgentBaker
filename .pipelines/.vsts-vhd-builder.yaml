@@ -23,6 +23,7 @@ pr:
     - go.mod
     - go.sum
     exclude:
+    - CODEOWNERS
     - schemas/windows_settings.cue
     - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
