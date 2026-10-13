@@ -370,7 +370,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-cvm'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC4ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
@@ -383,7 +383,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv3-cvm-gen2
-              e2eImageName: V3gen2CVM
       - job: buildAzureLinuxOSGuardV3gen2fipsTL
         condition: eq('${{ parameters.buildAzureLinuxOSGuardV3gen2fipsTL }}', true)
         dependsOn: [ ]
@@ -679,7 +678,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]cvm'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC4ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
@@ -691,7 +690,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-cvm-gen2-containerd
-              e2eImageName: 2404gen2CVMcontainerd
       - job: build2404gen2containerd
         condition: eq('${{ parameters.build2404gen2containerd }}', true)
         dependsOn: [ ]
@@ -755,7 +753,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-cvm'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC4ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
@@ -767,7 +765,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-cvm-gen2-containerd
-              e2eImageName: 2004gen2CVMcontainerd
       - job: build2204tlgen2containerd
         condition: eq('${{ parameters.build2204tlgen2containerd }}', true)
         dependsOn: [ ]
@@ -856,7 +853,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]server-cvm'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC4ads_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]minimal,cvm'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
@@ -867,7 +864,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2604-minimal-cvm-gen2-containerd
-              e2eImageName: 2604minimalgen2CVMcontainerd
       - job: buildacltlgen2
         condition: eq('${{ parameters.buildacltlgen2 }}', true)
         dependsOn: [ ]

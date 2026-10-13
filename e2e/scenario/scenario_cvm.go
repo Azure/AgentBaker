@@ -114,6 +114,7 @@ func configureConfidentialVM(vmss *armcompute.VirtualMachineScaleSet, vmSize str
 		vmss.Properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
 	}
 	profile := vmss.Properties.VirtualMachineProfile
+	profile.OSProfile = nil
 	if profile.SecurityProfile == nil {
 		profile.SecurityProfile = &armcompute.SecurityProfile{}
 	}

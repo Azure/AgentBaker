@@ -345,6 +345,19 @@ func (i *Image) SupportsScriptless() bool {
 	return !i.Flatcar && !i.Distro.IsWindowsDistro() && i.Distro != datamodel.AKSAzureLinuxV2Gen2
 }
 
+func (i Image) vhdBuilderGalleryImageName() string {
+	switch i.Distro {
+	case datamodel.AKSUbuntuContainerd2004CVMGen2,
+		datamodel.AKSUbuntuContainerd2404CVMGen2,
+		datamodel.AKSUbuntuMinimalContainerd2604CVMGen2:
+		return i.Name + "Specialized"
+	case datamodel.AKSAzureLinuxV3CVMGen2:
+		return "AzureLinux" + i.Name
+	default:
+		return i.Name
+	}
+}
+
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
 	if i.Version == "" && Config.vhdMetadata != nil {
 		vhd, err := getVHDResourceIDFromMetadata(Config.vhdMetadata, i, location)
@@ -401,8 +414,9 @@ func loadVHDMetadata(path string) (map[string]vhdMetadataEntry, error) {
 func getVHDResourceIDFromMetadata(metadata map[string]vhdMetadataEntry, image Image, location string) (VHDResourceID, error) {
 	var entry vhdMetadataEntry
 	var found bool
+	builderGalleryImageName := image.vhdBuilderGalleryImageName()
 	for imageName, candidate := range metadata {
-		if strings.EqualFold(imageName, image.Name) {
+		if strings.EqualFold(imageName, image.Name) || strings.EqualFold(imageName, builderGalleryImageName) {
 			entry = candidate
 			found = true
 			break

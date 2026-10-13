@@ -64,7 +64,13 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 }
 
 func TestConfigureConfidentialVM(t *testing.T) {
-	vmss := &armcompute.VirtualMachineScaleSet{}
+	vmss := &armcompute.VirtualMachineScaleSet{
+		Properties: &armcompute.VirtualMachineScaleSetProperties{
+			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
+				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{},
+			},
+		},
+	}
 
 	configureConfidentialVM(vmss, cvmTDXSKU)
 
@@ -75,6 +81,7 @@ func TestConfigureConfidentialVM(t *testing.T) {
 	require.NotNil(t, vmss.Properties)
 	require.NotNil(t, vmss.Properties.VirtualMachineProfile)
 	profile := vmss.Properties.VirtualMachineProfile
+	assert.Nil(t, profile.OSProfile)
 	require.NotNil(t, profile.SecurityProfile)
 	require.NotNil(t, profile.SecurityProfile.SecurityType)
 	assert.Equal(t, armcompute.SecurityTypesConfidentialVM, *profile.SecurityProfile.SecurityType)
