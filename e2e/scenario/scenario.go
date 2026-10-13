@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -3015,6 +3016,95 @@ func ubuntu2404GRIDScenario(name, vmSize string) *Scenario {
 }
 
 var _ = Register(ubuntu2404GRIDScenario("Ubuntu2404_GPUA10", "Standard_NV6ads_A10_v5"))
+
+var _ = Register(networkIsolatedGRIDScenario("Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR", config.VHDUbuntu2204Gen2Containerd))
+var _ = Register(networkIsolatedGRIDScenario("Ubuntu2404_GPUA10_NetworkIsolated_NonAnonymousACR", config.VHDUbuntu2404Gen2Containerd))
+
+var _ = Register(networkIsolatedGRIDCachingScenario())
+
+func networkIsolatedGRIDCachingScenario() *Scenario {
+	s := networkIsolatedGRIDScenario("Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR_VHDCaching", config.VHDUbuntu2204Gen2Containerd)
+	s.Description = "Tests authenticated A10 GPU acquisition after a bake/real-node split, with basePrep skipped and live kubelet-identity login refreshed before acquisition"
+	s.VHDCaching = true
+	s.Tags.VHDCaching = true
+	driverValidator := s.Validator
+	s.Validator = func(ctx context.Context, s *Scenario) error {
+		return errors.Join(
+			driverValidator(ctx, s),
+			ValidateFileHasContent(ctx, s, "/var/log/azure/aks/cluster-provision.log",
+				"Skipping basePrep - base_prep.complete file exists"),
+			ValidateFileHasContent(ctx, s, "/var/log/azure/aks/cluster-provision.log",
+				"AKS.CSE.configGPUDrivers.orasLogin"),
+		)
+	}
+	return s
+}
+
+func networkIsolatedGRIDScenario(name string, vhd *config.Image) *Scenario {
+	s := ubuntu2404GRIDScenario(name, "Standard_NV6ads_A10_v5")
+	s.Description = "Tests regular A10 GRID driver acquisition from authenticated private ACR, node readiness and driver health while public MCR is blocked"
+	s.Tags.NetworkIsolated = true
+	s.Tags.NonAnonymousACR = true
+	s.Cluster = ClusterAzureNetworkIsolated
+	s.VHD = vhd
+
+	gpuMutator := s.BootstrapConfigMutator
+	s.BootstrapConfigMutator = func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+		gpuMutator(cluster, nbc)
+		nbc.OutboundType = datamodel.OutboundTypeBlock
+		nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+			PrivateEgress: &datamodel.PrivateEgress{
+				Enabled: true,
+				ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks-managed-repository",
+					config.GetPrivateACRName(true, *cluster.Model.Location)),
+			},
+		}
+		nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+		nbc.AgentPoolProfile.KubernetesConfig.UseManagedIdentity = true
+		version := nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+		nbc.K8sComponents.LinuxCredentialProviderURL = fmt.Sprintf(
+			"https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz",
+			version, version)
+		nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+		nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+	}
+
+	driverValidator := s.Validator
+	s.Validator = func(ctx context.Context, s *Scenario) error {
+		if config.Config.DisableScriptless || s.Runtime == nil || s.Runtime.NBC == nil ||
+			(!s.Runtime.NBC.EnableScriptlessCSECmd && !s.Runtime.NBC.EnableScriptlessNBCCSECmd) {
+			return fmt.Errorf("GPU ACR regression requires normal scriptless provisioning from the tested VHD")
+		}
+		source, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/cse_config_gpu.sh"))
+		if err != nil {
+			return fmt.Errorf("read expected baked GPU provisioning source: %w", err)
+		}
+		expectedHash := fmt.Sprintf("%x", sha256.Sum256(source))
+		registry := s.Runtime.NBC.ContainerService.Properties.SecurityProfile.PrivateEgress.ContainerRegistryServer
+		return errors.Join(
+			driverValidator(ctx, s),
+			ValidateNvidiaSMIInstalled(ctx, s),
+			ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"}),
+			runGPUCheck(ctx, s, "bootstrap/baked-gpu-source", func(ctx context.Context, s *Scenario) error {
+				command := fmt.Sprintf("set -euo pipefail\nactual=$(sudo sha256sum /opt/azure/containers/provision_configs_gpu.sh | cut -d' ' -f1)\nprintf 'baked GPU source SHA256=%%s\\n' \"$actual\"\ntest \"$actual\" = %q", expectedHash)
+				_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0,
+					"baked GPU script does not match the source under test")
+				return err
+			}),
+			runGPUCheck(ctx, s, "bootstrap/authenticated-grid-cache-miss", func(ctx context.Context, s *Scenario) error {
+				return ValidateFileHasContent(ctx, s, "/var/log/azure/aks/cluster-provision.log",
+					"Pulling GPU driver image with authentication for "+registry+"/aks/aks-gpu-grid:")
+			}),
+			runGPUCheck(ctx, s, "network/public-mcr-blocked", func(ctx context.Context, s *Scenario) error {
+				_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+					"set -e\ngetent ahostsv4 mcr.microsoft.com\ncurl --noproxy '*' --connect-timeout 5 --max-time 10 --head https://mcr.microsoft.com/v2/",
+					28, "expected direct public MCR access to time out on the network-isolated GPU node")
+				return err
+			}),
+		)
+	}
+	return s
+}
 
 var _ = Register(&Scenario{
 	Name:             "Ubuntu2404_GPU_RTXPro6000_GridV20",

@@ -14,6 +14,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBuiltVHDGPUStageSelectsOnlyNetworkIsolatedRegressions(t *testing.T) {
+	runnable, _, err := partitionScenarios(scenario.List(), tagFilter{
+		run:  "gpu=true,networkisolated=true",
+		skip: "os=windows,os=azurelinux,os=azurecontainerlinux",
+	})
+	require.NoError(t, err)
+	names := make([]string, 0, len(runnable))
+	for _, s := range runnable {
+		names = append(names, s.Name)
+	}
+	require.ElementsMatch(t, []string{
+		"Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR",
+		"Ubuntu2404_GPUA10_NetworkIsolated_NonAnonymousACR",
+		"Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR_VHDCaching",
+	}, names)
+	t.Logf("focused built-VHD GPU cases: %v", names)
+}
+
 func TestPartitionScenariosKeepsRegisteredScenariosUnchanged(t *testing.T) {
 	scenarios := []*scenario.Scenario{
 		{Name: "Excluded"},

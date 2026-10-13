@@ -335,3 +335,20 @@ stages:
         parameters:
           IgnoreScenariosWithMissingVhd: true
           useVhdMetadataArtifacts: true
+
+  - stage: gpu_bootstrap_e2e
+    displayName: Network-isolated GPU from built VHDs
+    dependsOn: build
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      TAGS_TO_RUN: gpu=true,networkisolated=true
+      TAGS_TO_SKIP: os=windows,os=azurelinux,os=azurecontainerlinux
+      DISABLE_SCRIPTLESS_COMPILATION: true
+      SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: $[eq(variables['Build.Reason'], 'PullRequest')]
+    jobs:
+      - template: ./templates/e2e-template.yaml
+        parameters:
+          name: Network-isolated GPU from built VHDs
+          IgnoreScenariosWithMissingVhd: false
+          useVhdMetadataArtifacts: true
