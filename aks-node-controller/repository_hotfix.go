@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/common"
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"golang.org/x/net/http/httpproxy"
 )
 
@@ -389,9 +390,24 @@ func (a *App) downloadRepositoryFile(
 ) (downloadedRepositoryFile, error) {
 	budgetCtx, cancel := context.WithTimeout(ctx, repositoryDownloadBudget)
 	defer cancel()
+	var attempt int
+	var previousErr error
+	var attemptStart time.Time
 	return common.RetryFetch(budgetCtx, repositoryDownloadMaxAttempts, isRetryableRepositoryDownloadError,
 		func(attemptCtx context.Context) (downloadedRepositoryFile, error) {
-			return a.downloadRepositoryFileOnce(attemptCtx, rawURL, trustedOrigin, maxBytes)
+			attempt++
+			now := time.Now()
+			if attempt > 1 {
+				a.logRepositoryEvent("RepositoryDownloadRetry", repositoryEvent{
+					Target: repositoryTarget(ctx), File: rawURL,
+					Attempt: attempt, MaxAttempts: repositoryDownloadMaxAttempts,
+					Error: previousErr.Error(), Route: "fastpath",
+				}, helpers.EventLevelInformational, attemptStart, now)
+			}
+			attemptStart = now
+			file, err := a.downloadRepositoryFileOnce(attemptCtx, rawURL, trustedOrigin, maxBytes)
+			previousErr = err
+			return file, err
 		})
 }
 

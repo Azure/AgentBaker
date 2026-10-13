@@ -6,6 +6,32 @@ AKS Node Controller is a go binary that is responsible for bootstrapping AKS nod
 
 AKS Node Controller relies on two Azure mechanisms for injecting the necessary bootstrap data during provisioning: [`Custom Script Extension (CSE)`](https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-linux) and [`Custom Data`](https://learn.microsoft.com/en-us/azure/virtual-machines/custom-data}). The bootstrapper should use `GetNodeBootstrapping` which returns the corresponding `CustomData` and `CSE` based on the given `AKSNodeConfig`. For guidance on populating the config, please refer to this [doc](https://github.com/Azure/AgentBaker/tree/master/aks-node-controller/proto).
 
+### Repository hotfix acquisition telemetry
+
+ANC keeps its local `slog` logs and adds guest-agent events through the existing
+Custom Script Extension events directory and WALA upload infrastructure. No new
+uploader or Azure Monitor Agent is required. Task names use the prefix
+`AKS.AKSNodeController.`:
+
+| Task suffix | Meaning |
+| --- | --- |
+| `RepositoryDownloadRetry` | A second attempt starts for the actual repository file, with the previous attempt's error and elapsed time. |
+| `RepositoryDownloadFallback` | Fast-path acquisition failed; package-manager fallback starts. `reason` is `integrity` or `unavailable`, not a claim of tampering or a network root cause. |
+| `RepositoryDownloadOutcome` | One final outcome after staging: `success` or `failed`, via `fastpath` or `packageManager` (apt/dnf/tdnf). Version-gated skips do not emit acquisition events. |
+
+Messages contain a JSON object followed by the existing EventLogger timing suffix.
+Fields include `target`, `file` (raw download URL, distinguishing packages from
+InRelease/Packages/RPM metadata), `attempt` (the attempt starting), `maxAttempts`,
+`error`, `route`, `outcome`, `reason`, and `durationMs` where applicable. Retry duration
+covers the preceding attempt; fallback duration covers the failed fast path; final
+duration covers the entire acquisition including fallback and staging. Messages stay
+below 3 KiB including timing; strings may be truncated. The `file` field retains the
+raw URL without path extraction or redaction. Error diagnostics retain URLs, with
+query strings and fragments redacted before guest-agent emission.
+
+Unit tests validate local event files only. End-to-end guest-agent/Kusto ingestion has
+not yet been validated and requires a rebuilt VHD containing this ANC binary.
+
 ## Usage
 
 Here is an example of how to retrieve node bootstrapping parameters and use the returned `CSE` and `CustomData` for creating a Virtual Machine Scale Set (VMSS) instance via the CRP API.
