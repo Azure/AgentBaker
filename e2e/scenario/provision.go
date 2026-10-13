@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -1038,10 +1040,42 @@ func isRebootRelatedSSHError(err error, stderr string) bool {
 	return false
 }
 
+func dialScenarioSSHOverBastion(ctx context.Context, s *Scenario) (*SSHClient, error) {
+	return DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, s.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
+}
+
+// isStaleSSHConnectionError reports errors from a connection that may have died
+// with a reboot: a stalled operation or a closed transport.
+func isStaleSSHConnectionError(err error) bool {
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed)
+}
+
+func ensureScenarioSSHClient(ctx context.Context, s *Scenario, dial func(context.Context, *Scenario) (*SSHClient, error)) error {
+	if s.Runtime.VM.SSHClient != nil {
+		return nil
+	}
+	client, err := dial(ctx, s)
+	if err != nil {
+		return err
+	}
+	s.Runtime.VM.SSHClient = client
+	return nil
+}
+
 func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
+	return waitForSSHConnectivity(ctx, s, attemptSSHConnection, dialScenarioSSHOverBastion, 5*time.Second)
+}
+
+func waitForSSHConnectivity(
+	ctx context.Context,
+	s *Scenario,
+	check func(context.Context, *Scenario) error,
+	dial func(context.Context, *Scenario) (*SSHClient, error),
+	pollInterval time.Duration,
+) error {
 	// If WaitForSSHAfterReboot is not set, use the original single-attempt behavior
-	if s.Config.WaitForSSHAfterReboot == 0 {
-		return attemptSSHConnection(ctx, s)
+	if s.WaitForSSHAfterReboot == 0 {
+		return check(ctx, s)
 	}
 
 	// Retry logic with exponential backoff for scenarios that may reboot
@@ -1049,8 +1083,13 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 	startTime := time.Now()
 	var lastSSHError error
 
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, s.Config.WaitForSSHAfterReboot, true, func(ctx context.Context) (bool, error) {
-		err := attemptSSHConnection(ctx, s)
+	err := wait.PollUntilContextTimeout(ctx, pollInterval, s.WaitForSSHAfterReboot, true, func(ctx context.Context) (bool, error) {
+		if err := ensureScenarioSSHClient(ctx, s, dial); err != nil {
+			lastSSHError = err
+			logging.Logf(ctx, "SSH reconnect failed, will retry: %v", err)
+			return false, nil
+		}
+		err := check(ctx, s)
 		if err == nil {
 			elapsed := time.Since(startTime)
 			logging.Logf(ctx, "SSH connectivity established after %s", elapsed)
@@ -1069,10 +1108,15 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 			}
 		}
 
-		// Check if this is a reboot-related error
-		if isRebootRelatedSSHError(err, stderr) {
-			logging.Logf(ctx, "Detected reboot-related SSH error, will retry: %v", err)
-			return false, nil // Continue polling
+		// The connection may predate a reboot, so reconnect before the next attempt.
+		if isRebootRelatedSSHError(err, stderr) || isStaleSSHConnectionError(err) {
+			logging.Logf(ctx, "Detected reboot-related SSH error, will reconnect and retry: %v", err)
+			// Keep the client if the wait itself expired; cleanup may still collect logs with it.
+			if ctx.Err() == nil {
+				cleanupBastionTunnel(s.Runtime.VM.SSHClient)
+				s.Runtime.VM.SSHClient = nil
+			}
+			return false, nil
 		}
 
 		// Not a reboot error, fail immediately
@@ -1104,7 +1148,7 @@ func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 	connectionResult, err = runSSHCommand(ctx, s.Runtime.VM.SSHClient, "echo 'SSH_CONNECTION_OK'", s.IsWindows())
 
 	if err != nil {
-		return fmt.Errorf("SSH connection to %s failed: %s", s.Runtime.VM.PrivateIP, err)
+		return fmt.Errorf("SSH connection to %s failed: %w", s.Runtime.VM.PrivateIP, err)
 	}
 
 	if !strings.Contains(connectionResult.stdout, "SSH_CONNECTION_OK") {

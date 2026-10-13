@@ -16,10 +16,19 @@ func TestValidateSSHConnectivityReturnsNonRebootErrorUnchanged(t *testing.T) {
 			VHD:                   &config.Image{OS: config.OSWindows},
 			WaitForSSHAfterReboot: 5 * time.Minute,
 		},
-		Runtime: &ScenarioRuntime{VM: &ScenarioVM{PrivateIP: "10.0.0.4"}},
+		Runtime: &ScenarioRuntime{VM: &ScenarioVM{
+			PrivateIP: "10.0.0.4",
+			SSHClient: newSessionTestSSHClient(t, rejectAllChannels),
+		}},
+	}
+	stub := sshConnectivityStub{
+		check: func(context.Context, *Scenario) error {
+			return errors.New("SSH connection to 10.0.0.4 failed: Permission denied (publickey)")
+		},
+		dial: failOnDial(t),
 	}
 
-	err := validateSSHConnectivity(context.Background(), s)
+	err := stub.wait(context.Background(), s)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "SSH connection to 10.0.0.4 failed")
