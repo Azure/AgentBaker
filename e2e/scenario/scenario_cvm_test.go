@@ -17,6 +17,7 @@ func TestNewCVMScenarioUsesWestEuropeAndDefaultValidation(t *testing.T) {
 		config.VHDUbuntu2404CVMGen2Containerd,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 	)
 
@@ -24,7 +25,7 @@ func TestNewCVMScenarioUsesWestEuropeAndDefaultValidation(t *testing.T) {
 	assert.True(t, s.Tags.CVM)
 	assert.Equal(t, config.VHDUbuntu2404CVMGen2Containerd, s.VHD)
 	assert.False(t, s.SkipDefaultValidation)
-	assert.Nil(t, s.Validator)
+	assert.NotNil(t, s.Validator)
 
 	nbc := &datamodel.NodeBootstrappingConfiguration{
 		AgentPoolProfile: &datamodel.AgentPoolProfile{},
@@ -57,6 +58,7 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 		assert.Equal(t, want.vhd, s.VHD)
 		assert.Equal(t, want.useNVMe, s.UseNVMe)
 		assert.False(t, s.SkipDefaultValidation)
+		assert.NotNil(t, s.Validator)
 	}
 	assert.Equal(t, len(expected), found)
 }
