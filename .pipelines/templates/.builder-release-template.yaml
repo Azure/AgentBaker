@@ -2,6 +2,9 @@ parameters:
   - name: artifactName
     type: string
     default: 2404-gen2-containerd
+  - name: e2eImageName
+    type: string
+    default: ''
   - name: useOverrides
     type: boolean
     default: false
@@ -293,8 +296,10 @@ steps:
         --arg replications "${REPLICATIONS:-}" \
         '([$buildLocation] + ($replications | split(",") | map(split("=")[0] | gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))) | unique')"
 
+      metadata_image_name="${E2E_IMAGE_NAME:-${SIG_IMAGE_NAME}}"
+
       jq -n \
-        --arg imageName "${SIG_IMAGE_NAME}" \
+        --arg imageName "$metadata_image_name" \
         --arg resourceId "${MANAGED_SIG_ID}" \
         --arg version "${CAPTURED_SIG_VERSION}" \
         --argjson regions "$regions" \
@@ -303,6 +308,7 @@ steps:
     displayName: Create E2E VHD metadata
     env:
       VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
+      E2E_IMAGE_NAME: ${{ parameters.e2eImageName }}
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
       MANAGED_SIG_ID: $(MANAGED_SIG_ID)
