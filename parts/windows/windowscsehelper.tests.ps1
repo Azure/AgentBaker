@@ -666,11 +666,17 @@ Describe "Start-NodeResetScriptTask" {
     Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 0
   }
 
-  It "retries until kubelet becomes healthy" {
+  It "retries until kubelet becomes healthy on attempt <HealthyAttempt>" -TestCases @(
+    @{ HealthyAttempt = 3 }
+    @{ HealthyAttempt = 31 }
+    @{ HealthyAttempt = 121 }
+    @{ HealthyAttempt = 180 }
+  ) {
+    param($HealthyAttempt)
     $script:healthCheckCallCount = 0
     Mock Invoke-WebRequest -MockWith {
       $script:healthCheckCallCount++
-      if ($script:healthCheckCallCount -lt 3) {
+      if ($script:healthCheckCallCount -lt $HealthyAttempt) {
         throw "connection refused"
       }
       return [pscustomobject]@{ StatusCode = 200 }
@@ -678,15 +684,20 @@ Describe "Start-NodeResetScriptTask" {
 
     Start-NodeResetScriptTask
 
-    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 3
-    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 2 -ParameterFilter { $Seconds -eq 1 }
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times $HealthyAttempt -ParameterFilter {
+      $Uri -eq "http://127.0.0.1:10248/healthz" -and $TimeoutSec -eq 1 -and $ErrorAction -eq "Stop"
+    }
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times ($HealthyAttempt - 1) -ParameterFilter { $Seconds -eq 1 }
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 0
   }
 
   It "fails when kubelet does not become healthy" {
     Mock Invoke-WebRequest -MockWith { throw "connection refused" }
 
     { Start-NodeResetScriptTask } | Should -Throw "*kubelet did not become healthy*connection refused*"
-    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 30
+    Assert-MockCalled -CommandName Invoke-WebRequest -Exactly -Times 180
+    Assert-MockCalled -CommandName Start-Sleep -Exactly -Times 179 -ParameterFilter { $Seconds -eq 1 }
+    Assert-MockCalled -CommandName Set-ExitCode -Exactly -Times 1
   }
 
   It "checks the service state when the health endpoint is disabled" {
