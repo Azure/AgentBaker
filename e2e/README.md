@@ -56,6 +56,23 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### Scriptless provisioning
+
+Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
+bootstrap config mutator of five scenarios: `Ubuntu2204_ArtifactStreaming`,
+`AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
+and `Ubuntu2204_Early_Failure_Scriptless` (the existing `_Scriptless`-suffix scenario).
+The runner converts the NBC, applies the AKSNodeConfig mutator, validates and
+normalizes Phase 3 settings with `nodeconfigutils.Validate`,
+and serializes the result for AgentBaker. The early-failure scenario checks that an
+unsupported version is rejected before VM creation. Common validation checks config-only execution and absence
+of the NBC command and comparison path.
+
+All other scenarios retain their existing provisioning mode, including Phase 2/2.5
+coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
+does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
+VHD-caching behavior remain in effect.
+
 ## VM size configuration
 
 The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or
@@ -74,12 +91,15 @@ configuration and the VMSS SKU. Command-line arguments take precedence over envi
 
 ## ACL COSI Validation
 
-The Linux pipelines accept `aclBaseImageSource` (`marketplace`, `acg`, or
-`acldevel`) and an optional `aclBaseImageVersion` gallery-version override.
-Marketplace remains the default. Secure Boot stays enabled for signed sources;
+The four ACL Trusted Launch variants accept `aclBaseImageSource` (`marketplace`,
+`acg`, or `acldevel`) and an optional `aclBaseImageVersion` gallery-version
+override. The production ACG source is the default. Secure Boot stays enabled for signed sources;
 selecting `acldevel` disables Secure Boot only for ACL test VMs. Older base images
 without `trident-acl-agent` still build; images containing the agent enable its
 kubeconfig-triggered startup.
+
+ACL CVM builds keep the production ACG source and are not part of the
+four-variant COSI validation.
 
 Publishing runs convert all four ACL variants in architecture-matched jobs and
 produce `cosi-publishing-info-*` artifacts with a base64 `metadata_sha384` value.
@@ -322,6 +342,11 @@ The runner writes plain-text scenario logs. It does not write a JUnit file by de
 
 ADO uses `--output grouped`. Local runs stream prefixed logs when three or fewer scenario entry points are selected.
 
+After the suite's shutdown allowance expires, the runner stops waiting for blocked
+scenarios and publishes their collected logs with a timeout failure. JUnit retains
+log attachments, elapsed time, and prior attempts. The runner ignores later writes
+to finalized logs. Blocked operations and guest cleanup may remain unfinished.
+
 ### Logging
 
 Use `logging.Log(ctx, ...)` or `logging.Logf(ctx, ...)` from `e2e/logging`.
@@ -344,6 +369,11 @@ For cleanup that must continue after cancellation, derive its context with
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
 shutdown to clean up resources. Old VMs are deleted on startup unless created with `KEEP_VMSS=true`.
 
+Cluster setup renews `deletion_due_time` only on the selected clusters' node resource groups.
+The shared `abe2e-{location}` resource groups keep their existing GC tags and deadlines so obsolete
+clusters can expire. Node resource group renewal does not prevent GC from deleting the shared
+resource group and its clusters.
+
 ## Package Structure
 
 The executable entry point is [main.go](main.go). It handles signals and starts the CLI.
@@ -364,6 +394,16 @@ Linux log collection runs commands concurrently in one remote Bash script and re
 compressed archive through the shared SSH execution layer. Each log retains its stdout,
 stderr, and exit code. Commands have a timeout that reserves time to return partial output.
 Collection errors are saved in the affected log files; the console reports failed file names.
+
+SSH uses `websocket.NetConn` for Bastion tunneling. Dial and handshake contexts bound
+connection setup; an established connection remains available for cleanup. Canceling
+an active SSH operation closes its shared connection, including other active commands,
+to interrupt blocked channel opens and SCP setup. Canceling a queued operation does
+not close the connection.
+
+Bastion token deletion runs asynchronously after a failed dial or tunnel closure.
+It has a separate 30-second timeout and logs failures without delaying cancellation.
+This cleanup is best effort and can be interrupted by process exit.
 
 The other directories contain helper packages and embedded resources.
 

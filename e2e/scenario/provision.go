@@ -19,7 +19,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -95,6 +95,7 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 			}
 			nbc.PreProvisionOnly = true
 			nbc.EnableScriptlessNBCCSECmd = false
+			nbc.EnableScriptlessAKSNodeConfig = false
 			// Bake-only mutation: lets a scenario deliberately diverge bake-time
 			// state from provision-time state (e.g. a stale sentinel bootstrap token).
 			if original.PreProvisionBootstrapConfigMutator != nil {
@@ -296,14 +297,27 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 			return nil, fmt.Errorf("mutate bootstrap configuration: %w", err)
 		}
 	}
-	if s.AKSNodeConfigMutator != nil {
+	if config.Config.DisableScriptless || scriptlessUnsupported(s) || !s.VHD.SupportsScriptless() {
+		nbc.EnableScriptlessAKSNodeConfig = false
+	}
+	if nbc.EnableScriptlessAKSNodeConfig {
+		nbc.EnableScriptlessNBCCSECmd = false
+	}
+	if nbc.EnableScriptlessAKSNodeConfig || s.AKSNodeConfigMutator != nil {
 		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
 		if err != nil {
 			return nil, fmt.Errorf("convert NBC to AKS node config: %w", err)
 		}
-		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
+		if s.AKSNodeConfigMutator != nil {
+			s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
+		}
 		s.Runtime.AKSNodeConfig = nodeconfig
 
+		if nbc.EnableScriptlessAKSNodeConfig {
+			if err := nodeconfigutils.Validate(nodeconfig); err != nil {
+				return nil, fmt.Errorf("validate AKS node config: %w", err)
+			}
+		}
 		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
 		if err != nil {
 			return nil, fmt.Errorf("marshal AKS node config: %w", err)
@@ -311,10 +325,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
 
 		nbc.EnableScriptlessCSECmd = false
-
-		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
-		// scriptless tag means provisioning with aksnodeconfig is used
-		if !config.Config.DisableScriptless && !s.Tags.Scriptless &&
+		if !nbc.EnableScriptlessAKSNodeConfig && !config.Config.DisableScriptless && !s.Tags.Scriptless &&
 			(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
 			nbc.EnableScriptlessNBCCSECmd = true
 		}

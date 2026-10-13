@@ -108,10 +108,6 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
-    fi
-
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
 
     if which nvidia-smi; then
@@ -189,8 +185,23 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
-    if [ "$(isARM64)" -eq 1 ]; then
-        return
+    # arm64 GPU is supported in two cases; skip otherwise:
+    #  - AzureLinux 3.0 arm64 base image (non-FIPS) -- the existing arm64 GPU path.
+    #  - Grace-Blackwell (GB200/GB300): managed install on an AKS-managed Ubuntu VHD when the driver
+    #    was requested (CONFIG_GPU_DRIVER_IF_NEEDED = --gpu-driver Install / managed experience).
+    #    BYOI/custom images are IS_VHD=false (e.g. MAI's driver-baked GB image) -- skip so we never
+    #    run the aks-gpu install over a customer-baked driver.
+    local cpu_arch
+    cpu_arch=$(getCPUArch)
+    # arm64 Ubuntu (GB) is handled first so it isn't caught by the AzureLinux arm64 gate below.
+    if [ "$cpu_arch" = "arm64" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" != true ] || [ "${IS_VHD,,}" != "true" ]; then
+            return
+        fi
+    elif [ "$cpu_arch" = "arm64" ]; then
+        if [ "$OS_VERSION" != "3.0" ] || [ "${ENABLE_FIPS,,}" = "true" ] || ! isAzureLinuxArm64BaseImage "$OS" "$cpu_arch" "$OS_VARIANT"; then
+            return
+        fi
     fi
 
     # Tear down a mismatched cuda-lts VHD prebake before a GRID node installs its own driver, or the
@@ -291,8 +302,18 @@ setupAmdAma() {
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
         # Configure huge pages
-        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
-        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        local num_devs
+        num_devs=$(find /dev -maxdepth 1 -name 'ama_transcoder[0-9]*' -printf 1 | wc -c)
+        if [ "$num_devs" -eq 1 ]; then
+            sh -c "echo 'vm.nr_hugepages=2144' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 2144 > /proc/sys/vm/nr_hugepages"
+        elif [ "$num_devs" -eq 20 ]; then
+            sh -c "echo 'vm.nr_hugepages=41056' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 41056 > /proc/sys/vm/nr_hugepages"
+        else
+          echo "Incorrect number of ama_transcoder devices found, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
         if [ "$(systemctl is-active kubelet)" = "active" ]; then
             systemctl restart kubelet
         fi
@@ -329,6 +350,7 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
+        logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
         rm -f "${managed_gpu_marker}"
     fi
 }
@@ -379,19 +401,72 @@ EOF
         DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR="/etc/systemd/system/dra-driver-nvidia-gpu.service.d"
         mkdir -p "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}"
 
+        # Match kubelet's RFC-1123 (lowercased) Node name: the DRA plugins run as
+        # system:node:<name> and the ResourceSlice NodeRestriction only permits publishing
+        # slices whose spec.nodeName matches. Azure uppercases VMSS hostnames for base-36
+        # instance suffixes >= 10 (e.g. ...vmss00000J), which would otherwise mismatch.
+        local NODE_NAME_DRA
+        NODE_NAME_DRA=$(echo "${NODE_NAME}" | tr '[:upper:]' '[:lower:]')
+
         tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
 [Unit]
 Requires=kubelet.service
 After=kubelet.service
 [Service]
 ExecStart=
-ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME}
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME_DRA}
 EOF
 
         # Reload systemd to pick up the override
         systemctl daemon-reload
 
         logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
+
+        # Grace-Blackwell (arm64 MNNVL) nodes also run the compute-domain kubelet plugin
+        # (device class compute-domain.nvidia.com) for cross-node IMEX. The dra-driver-nvidia-gpu deb
+        # (>= 0.5.0) ships the compute-domain-kubelet-plugin binary + the /templates it reads, plus an
+        # args-less compute-domain-kubelet-plugin.service; override it in place with our node args
+        # (same pattern as dra-driver-nvidia-gpu above). --namespace must match where the
+        # microsoft.managedcomputedomain controller extension installs; that chart hard-pins kube-system.
+        if [ "$(isARM64)" -eq 1 ]; then
+            local COMPUTE_DOMAIN_OVERRIDE_DIR="/etc/systemd/system/compute-domain-kubelet-plugin.service.d"
+            mkdir -p "${COMPUTE_DOMAIN_OVERRIDE_DIR}"
+
+            # NVIDIA_VISIBLE_DEVICES=void: this plugin orchestrates IMEX/ComputeDomain and is not a GPU
+            # consumer (the per-domain daemon is), so it claims no GPUs. Overrides the deb unit's
+            # NVIDIA_VISIBLE_DEVICES=all; matches the controller in the microsoft.managedcomputedomain chart.
+            tee "${COMPUTE_DOMAIN_OVERRIDE_DIR}/10-compute-domain-kubelet-plugin.conf" > /dev/null <<EOF
+[Unit]
+Requires=kubelet.service
+After=kubelet.service dra-driver-nvidia-gpu.service
+[Service]
+Environment="NVIDIA_VISIBLE_DEVICES=void"
+ExecStart=
+ExecStart=/usr/bin/compute-domain-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --node-name=${NODE_NAME_DRA} --namespace kube-system --nvidia-driver-root / --container-driver-root /
+EOF
+
+            # Reload systemd to pick up the override
+            systemctl daemon-reload
+
+            # Clear any start-limit/failed state left by the deb's args-less vendor unit auto-starting
+            # and crash-looping at install: the non-blocking enqueue below returns once the job is
+            # queued and can't observe or retry an async start-limit failure, and daemon-reload does
+            # not reset it -- without this the unit could stay failed and ComputeDomains unavailable.
+            systemctl reset-failed compute-domain-kubelet-plugin 2>/dev/null || true
+
+            # Off the critical path and non-fatal (same treatment as nvidia-dcgm below): a successful
+            # start only means the process spawned, not that the ComputeDomain reached Ready (that needs
+            # the control-plane controller + node RBAC), so a failure must not block node provisioning.
+            # Use the non-blocking enqueue -- the blocking systemctlEnableAndStart retries restart 100x
+            # with 5s backoff and no CSE-budget check, so a unit that keeps failing to start could burn
+            # the provisioning window; --no-block returns once the job is queued and surfaces a warning.
+            logs_to_events "AKS.CSE.start.compute-domain-kubelet-plugin" "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30" || echo "warning: compute-domain-kubelet-plugin could not be enqueued; cross-node IMEX (ComputeDomain) will be unavailable on this node"
+        else
+            # Non-GB (x86) managed-DRA nodes don't run compute-domain, but the same dra-driver-nvidia-gpu
+            # deb still enables+starts the args-less compute-domain-kubelet-plugin.service at install;
+            # stop+disable it so it isn't left running/failing on nodes that never use it.
+            logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
+        fi
     fi
 
     # 2. Start the nvidia-dcgm service.

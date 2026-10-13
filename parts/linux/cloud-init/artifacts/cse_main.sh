@@ -507,8 +507,8 @@ function nodePrep {
             elif isACL "$OS" "$OS_VARIANT"; then
                 logs_to_events "AKS.CSE.installNvidiaFabricManagerSysext" installNvidiaFabricManagerSysext
             fi
-            # Start fabric manager service
-            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+            # NVSwitch fabric initialization can exceed 30s; let it finish before retrying.
+            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 60" || exit $ERR_GPU_DRIVERS_START_FAIL
         else
             # Disable fabric manager service if it's not needed
             # The NVIDIA driver installation may automatically enable this service,
@@ -748,6 +748,8 @@ function nodePrep {
 # In typical deployments, both stages run sequentially during node provisioning.
 # For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
 # when nodes are created from that VHD image.
+logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync_or_report_error || exit $?
+
 if [ ! -f /opt/azure/containers/base_prep.complete ]; then
     basePrep
 else

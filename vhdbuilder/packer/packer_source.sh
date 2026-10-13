@@ -190,6 +190,12 @@ copyPackerFiles() {
   CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST=/opt/scripts/cgroup-memory-telemetry.sh
   CGROUP_MEMORY_TELEMETRY_TIMER_SRC=/home/packer/cgroup-memory-telemetry.timer
   CGROUP_MEMORY_TELEMETRY_TIMER_DEST=/etc/systemd/system/cgroup-memory-telemetry.timer
+  CGROUP_CPU_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-cpu-telemetry.service
+  CGROUP_CPU_TELEMETRY_SERVICE_DEST=/etc/systemd/system/cgroup-cpu-telemetry.service
+  CGROUP_CPU_TELEMETRY_SCRIPT_SRC=/home/packer/cgroup-cpu-telemetry.sh
+  CGROUP_CPU_TELEMETRY_SCRIPT_DEST=/opt/scripts/cgroup-cpu-telemetry.sh
+  CGROUP_CPU_TELEMETRY_TIMER_SRC=/home/packer/cgroup-cpu-telemetry.timer
+  CGROUP_CPU_TELEMETRY_TIMER_DEST=/etc/systemd/system/cgroup-cpu-telemetry.timer
   CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-pressure-telemetry.service
   CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST=/etc/systemd/system/cgroup-pressure-telemetry.service
   CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC=/home/packer/cgroup-pressure-telemetry.sh
@@ -258,6 +264,8 @@ copyPackerFiles() {
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   SECURE_TLS_BOOTSTRAP_SERVICE_SRC=/home/packer/secure-tls-bootstrap.service
   SECURE_TLS_BOOTSTRAP_SERVICE_DEST=/etc/systemd/system/secure-tls-bootstrap.service
+  SECURITY_UPDATE_SH_SRC=/home/packer/security-update.sh
+  SECURITY_UPDATE_SH_DEST=/opt/azure/containers/security-update.sh
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
@@ -385,7 +393,7 @@ copyPackerFiles() {
   cpAndMode $CSE_CONFIG_SRC $CSE_CONFIG_DEST 0744
 
   local config_module
-  for config_module in provision_configs_gpu.sh provision_configs_localdns.sh provision_configs_kubelet.sh provision_configs_network.sh provision_configs_addons.sh; do
+  for config_module in provision_configs_gpu.sh provision_configs_localdns.sh provision_configs_kubelet.sh provision_configs_network.sh provision_configs_addons.sh provision_configs_chrony.sh; do
     cpAndMode "/home/packer/${config_module}" "/opt/azure/containers/${config_module}" 0744
   done
 
@@ -608,6 +616,9 @@ copyPackerFiles() {
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SERVICE_SRC $CGROUP_MEMORY_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SCRIPT_SRC $CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST 755
   cpAndMode $CGROUP_MEMORY_TELEMETRY_TIMER_SRC $CGROUP_MEMORY_TELEMETRY_TIMER_DEST 644
+  cpAndMode $CGROUP_CPU_TELEMETRY_SERVICE_SRC $CGROUP_CPU_TELEMETRY_SERVICE_DEST 644
+  cpAndMode $CGROUP_CPU_TELEMETRY_SCRIPT_SRC $CGROUP_CPU_TELEMETRY_SCRIPT_DEST 755
+  cpAndMode $CGROUP_CPU_TELEMETRY_TIMER_SRC $CGROUP_CPU_TELEMETRY_TIMER_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC $CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC $CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST 755
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_TIMER_SRC $CGROUP_PRESSURE_TELEMETRY_TIMER_DEST 644
@@ -626,10 +637,21 @@ copyPackerFiles() {
   if isMarinerOrAzureLinux "$OS"; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
+    cpAndMode /home/packer/security-update.sh /opt/azure/containers/security-update.sh 544
 
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+
+    if [ "$OS_VERSION" = "3.0" ] && [ "${ENABLE_FIPS,,}" != "true" ] && isAzureLinuxArm64BaseImage "$OS" "$CPU_ARCH" "$OS_VARIANT"; then
+      GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
+      GRUB_AZ_NV_SCRIPT_DEST=/etc/grub.d/10_azure_nvidia
+      cpAndMode $GRUB_AZ_NV_SCRIPT_SRC $GRUB_AZ_NV_SCRIPT_DEST 755
+
+      GRUB_AZ_NV_ENV_SRC=/home/packer/51-azure-nvidia.cfg
+      GRUB_AZ_NV_ENV_DEST=/etc/default/grub.d/51-azure-nvidia.cfg
+      cpAndMode $GRUB_AZ_NV_ENV_SRC $GRUB_AZ_NV_ENV_DEST 644
+    fi
   elif isACL "$OS" "$OS_VARIANT"; then
     # ACL cannot share the isMarinerOrAzureLinux block because:
     # - containerd.service: ACL provides containerd via sysext.
@@ -658,6 +680,7 @@ copyPackerFiles() {
     cpAndMode $PAM_D_COMMON_ACCOUNT_SRC $PAM_D_COMMON_ACCOUNT_DEST 644
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
+    cpAndMode $SECURITY_UPDATE_SH_SRC $SECURITY_UPDATE_SH_DEST 544
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
 
     if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then

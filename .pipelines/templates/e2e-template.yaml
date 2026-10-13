@@ -41,7 +41,7 @@ parameters:
     default: []
   - name: aclBaseImageSource
     type: string
-    default: marketplace
+    default: acg
     values:
       - marketplace
       - acg

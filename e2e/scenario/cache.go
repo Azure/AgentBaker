@@ -9,7 +9,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 )
 
@@ -299,7 +299,7 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 }
 
 var CachedEnsureResourceGroup = cachedFunc(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
-	return ensureResourceGroup(ctx, config.Azure, config.Config, location)
+	return ensureResourceGroup(ctx, config.Azure, location)
 })
 var CachedCreateVMManagedIdentity = cachedFunc(func(ctx context.Context, location string) (string, error) {
 	// Shared storage uses DefaultLocation even when the scenario runs elsewhere.

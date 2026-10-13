@@ -61,7 +61,7 @@ Describe 'ensure_sig_vhd_exists function'
               return 0
               ;;
             "create")
-              echo "Image definition created successfully"
+              echo "az $*"
               return 0
               ;;
             "delete")
@@ -281,7 +281,31 @@ Describe 'ensure_sig_vhd_exists function'
 
       When call ensure_sig_vhd_exists
       The status should be success
-      The output should be present
+      The output should include "--os-state Specialized"
+      The output should include "SecurityType=ConfidentialVM"
+    End
+
+    It 'should create a generalized combined-security definition for ACL CVM'
+      MODE="linuxVhdMode"
+      AZURE_RESOURCE_GROUP_NAME="test-rg"
+      SIG_GALLERY_NAME="test-gallery"
+      SIG_IMAGE_NAME="aclgen2"
+      AZURE_LOCATION="eastus"
+      OS_TYPE="Linux"
+      OS_SKU="AzureContainerLinux"
+      HYPERV_GENERATION="V2"
+      ARCHITECTURE="x64"
+      FEATURE_FLAGS="cvm"
+      ENABLE_TRUSTED_LAUNCH="False"
+      MOCK_AZ_SIG_SHOW_EXISTS="false"
+      MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="false"
+
+      When call ensure_sig_vhd_exists
+      The status should be success
+      The output should include "--gallery-image-definition aclgen2"
+      The output should include "--os-state Generalized"
+      The output should include "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchAndConfidentialVmSupported"
+      The output should not include "--os-state Specialized"
     End
 
     It 'should create image definition with HyperV Generation V1'

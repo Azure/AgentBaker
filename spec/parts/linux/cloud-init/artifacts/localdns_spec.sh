@@ -528,6 +528,10 @@ EOF
                 "PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
                 "PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
                 "PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
+                "OUTPUT -p tcp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p tcp -s 169.254.10.11 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.11 --sport 53 -j NOTRACK"
             )
             all_rules_found=true
             for expected_rule in "${expected_rules[@]}"; do
@@ -546,6 +550,51 @@ EOF
                 fi
             done
             The value "${#IPTABLES_RULES[@]}" should equal "${#expected_rules[@]}"
+        End
+
+        It 'should build NOTRACK rules for both DNS request and response directions'
+            When call build_localdns_iptable_rules
+            The status should be success
+
+            request_rule_count=0
+            response_rule_count=0
+            prerouting_response_rule_count=0
+            for actual_rule in "${IPTABLES_RULES[@]}"; do
+                if [[ "$actual_rule" == *"--dport 53 -j NOTRACK"* ]]; then
+                    request_rule_count=$((request_rule_count + 1))
+                fi
+                if [[ "$actual_rule" == *"--sport 53 -j NOTRACK"* ]]; then
+                    response_rule_count=$((response_rule_count + 1))
+                fi
+                if [[ "$actual_rule" == PREROUTING*"--sport 53 -j NOTRACK"* ]]; then
+                    prerouting_response_rule_count=$((prerouting_response_rule_count + 1))
+                fi
+            done
+
+            The value "$request_rule_count" should equal "8"
+            The value "$response_rule_count" should equal "4"
+            The value "$prerouting_response_rule_count" should equal "0"
+
+            expected_response_rules=(
+                "OUTPUT -p tcp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p tcp -s 169.254.10.11 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.11 --sport 53 -j NOTRACK"
+            )
+            for expected_rule in "${expected_response_rules[@]}"; do
+                found=false
+                for actual_rule in "${IPTABLES_RULES[@]}"; do
+                    if [[ "$actual_rule" == "$expected_rule" ]]; then
+                        found=true
+                        break
+                    fi
+                done
+
+                if [[ "$found" == false ]]; then
+                    echo "Missing response rule: $expected_rule"
+                    exit 1
+                fi
+            done
         End
 
         #------------------------- verify_default_route_interface --------------------------------------------------
@@ -1328,6 +1377,77 @@ EOF
     End
 
 
+# This section tests the signal traps installed at the bottom of localdns.sh.
+#---------------------------------------------------------------------------------------------------
+# These cannot be reached with Include: they sit below "${__SOURCED__:+return}", which is what
+# stops sourcing from running the main block. The trap wiring is nonetheless the thing that
+# decides what a systemd stop does -- a stop sends SIGTERM, and whether that reaps the watchdog
+# sleep, runs cleanup in-process, and exits 0 is entirely determined by those three lines.
+#
+# So extract the real trap lines out of the shipped script and execute them, rather than
+# restating them here. A spec that restated them would pass even if the traps were deleted,
+# which is the failure mode worth avoiding: it would report healthy while a stop reverted to
+# bash dying on the default action, leaving the watchdog sleep orphaned in the cgroup and
+# cleanup to ExecStopPost alone.
+    Describe 'signal traps'
+        LOCALDNS_SRC="./parts/linux/cloud-init/artifacts/localdns.sh"
+
+        # Build a harness containing the real trap lines plus stubs for what they call, so the
+        # assertions below are about the shipped text and not about a copy of it.
+        build_trap_harness() {
+            harness=$(mktemp)
+            {
+                echo '#!/bin/bash'
+                echo 'cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 0; }'
+                echo 'stop_watchdog_sleep() { echo "WATCHDOG_REAPED"; }'
+                echo 'ERR_LOCALDNS_FAIL=99'
+                grep -E "^trap .*TERM$" "$LOCALDNS_SRC"
+                grep -E "^trap .*EXIT$" "$LOCALDNS_SRC"
+                echo 'kill -TERM $$'
+                # Long enough that the process is unambiguously still here if the signal is
+                # ignored, so a missing trap shows up as a timeout rather than a pass.
+                echo 'sleep 10'
+                echo 'echo "REACHED_AFTER_SIGNAL"'
+            } > "$harness"
+        }
+        cleanup_harness() {
+            rm -f "$harness"
+        }
+        BeforeEach 'build_trap_harness'
+        AfterEach 'cleanup_harness'
+
+        It 'reaps the watchdog sleep and runs cleanup in-process on SIGTERM'
+            # This is what changed a systemd stop: before SIGTERM was trapped, bash died on the
+            # default action and neither of these ran. Both now do, which is what makes a stop
+            # cost the LOCALDNS_SHUTDOWN_DELAY drain and tear the dummy interface down.
+            When run command bash "$harness"
+            The output should include "Received SIGTERM, shutting down."
+            The output should include "WATCHDOG_REAPED"
+            The output should include "Executing cleanup function."
+            The output should include "CLEANUP_RAN"
+            The status should be success
+        End
+
+        It 'exits 0 on SIGTERM so Restart=on-failure does not fire for a requested stop'
+            # A non-zero exit here would make systemd treat every 'systemctl stop' as a failure
+            # and restart the unit, and would also spend a slot of the StartLimitBurst budget.
+            When run command bash "$harness"
+            The status should equal 0
+            The output should not include "REACHED_AFTER_SIGNAL"
+        End
+
+        It 'reports cleanup failure rather than exiting non-zero'
+            # The EXIT trap deliberately swallows a cleanup failure: a best-effort cleanup error
+            # must not turn a requested stop into a systemd failure.
+            sed -i 's/cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 0; }/cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 1; }/' "$harness"
+            When run command bash "$harness"
+            The output should include "CLEANUP_RAN"
+            The output should include "Cleanup failed with error code: 99."
+            The status should equal 0
+        End
+    End
+
+
 # This section tests - start_localdns_watchdog
 # These functions is also defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
@@ -1345,6 +1465,73 @@ EOF
             export_resource_metrics() { return 0; }
             When call start_localdns_watchdog
             The status should be success
+        End
+    End
+
+# This section tests - stop_watchdog_sleep
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#
+# The watchdog waits by backgrounding 'sleep' so a signal can interrupt the wait. With
+# KillMode=mixed systemd signals only the main process, so the child has to be reaped
+# explicitly or it holds the unit's cgroup open and delays the stop. These use real
+# processes and real signals rather than mocks -- a mocked kill would prove nothing about
+# whether the child actually goes away.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'stop_watchdog_sleep'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        BeforeEach 'setup'
+
+        It 'should kill an in-flight watchdog sleep'
+            start_and_stop_sleep() {
+                sleep 300 &
+                WATCHDOG_SLEEP_PID=$!
+                # Keep our own copy: stop_watchdog_sleep clears WATCHDOG_SLEEP_PID, so
+                # checking that variable afterwards would test 'kill -0 ""' and pass even
+                # if the child were still alive.
+                child_pid=$WATCHDOG_SLEEP_PID
+                # the child must genuinely be running before we try to stop it
+                kill -0 "$child_pid" 2>/dev/null || { echo "child never started"; return 1; }
+                stop_watchdog_sleep
+                # and genuinely gone afterwards
+                if kill -0 "$child_pid" 2>/dev/null; then
+                    echo "child $child_pid survived stop_watchdog_sleep"
+                    kill -9 "$child_pid" 2>/dev/null
+                    return 1
+                fi
+                echo "child reaped"
+                return 0
+            }
+            When call start_and_stop_sleep
+            The status should be success
+            The output should include "child reaped"
+        End
+
+        It 'should clear the recorded pid so a second call is a no-op'
+            stop_twice() {
+                sleep 300 &
+                WATCHDOG_SLEEP_PID=$!
+                stop_watchdog_sleep
+                [ -z "${WATCHDOG_SLEEP_PID}" ] || { echo "pid not cleared"; return 1; }
+                # calling again with nothing in flight must not error
+                stop_watchdog_sleep
+                echo "second call was a no-op"
+            }
+            When call stop_twice
+            The status should be success
+            The output should include "second call was a no-op"
+        End
+
+        It 'should do nothing when no sleep is in flight'
+            no_sleep() {
+                WATCHDOG_SLEEP_PID=""
+                stop_watchdog_sleep
+                echo "no-op ok"
+            }
+            When call no_sleep
+            The status should be success
+            The output should include "no-op ok"
         End
     End
 

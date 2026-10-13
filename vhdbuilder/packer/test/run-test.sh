@@ -91,8 +91,17 @@ fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-    VM_SIZE="Standard_DC8ads_v5"
-    TARGET_COMMAND_STRING="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    VM_SIZE="${CVM_TEST_VM_SIZE:-Standard_DC8ads_v5}"
+    TARGET_COMMAND_STRING="--size $VM_SIZE --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+    # ACL publishes a generalized CVM image; other SKUs still capture specialized.
+    if [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
+      TARGET_COMMAND_STRING+=" --specialized true"
+    fi
+fi
+
+TEST_VM_USER_DATA_ARGS=()
+if [ "${OS_TYPE}" = "Linux" ] && [ "${OS_SKU:-}" = "AzureContainerLinux" ]; then
+  TEST_VM_USER_DATA_ARGS=(--user-data "@./vhdbuilder/packer/acl-customdata.json")
 fi
 
 # NVIDIA GB specific test VM configuration (uses standard ARM64 VM for now)
@@ -134,6 +143,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
         --admin-username "$TEST_VM_ADMIN_USERNAME" \
         --admin-password "$TEST_VM_ADMIN_PASSWORD" \
         --nics "$TESTING_NIC_ID" \
+        "${TEST_VM_USER_DATA_ARGS[@]}" \
         ${TARGET_COMMAND_STRING}
   fi
 else
@@ -161,13 +171,15 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
   # If the pipeline that called this didn't set a branch, default to master.
   GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
   GIT_COMMIT_HASH="${GIT_COMMIT_HASH:-$(git rev-parse HEAD)}"
+  AGENTBAKER_REPOSITORY_URL="${AGENTBAKER_REPOSITORY_URL:-https://github.com/Azure/AgentBaker.git}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
+  # Prefix optional values so Run Command does not drop empty positional arguments.
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name "$VM_NAME" \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --scripts "@$SCRIPT_PATH" \
-      --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}") && break
+      --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "img-sku:${IMG_SKU}" "feature-flags:${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}" "${AGENTBAKER_REPOSITORY_URL}") && break
     if [ "$i" -eq 3 ]; then
       echo "Linux content-test Run Command failed after ${i} attempts." >&2
       exit 1

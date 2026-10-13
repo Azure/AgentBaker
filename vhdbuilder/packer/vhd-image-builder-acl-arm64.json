@@ -1,5 +1,6 @@
 {
   "variables": {
+    "use_shallow_replication": "{{or (env `USE_SHALLOW_REPLICATION`) `false`}}",
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "gallery_subscription_id": "{{user `gallery_subscription_id`}}",
     "location": "{{env `PACKER_BUILD_LOCATION`}}",
@@ -65,6 +66,7 @@
       "polling_duration_timeout": "1h",
       "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
+        "use_shallow_replication": "{{user `use_shallow_replication`}}",
         "subscription": "{{user `gallery_subscription_id`}}",
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
@@ -190,6 +192,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
       "destination": "/home/packer/provision_configs_addons.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_chrony.sh",
+      "destination": "/home/packer/provision_configs_chrony.sh"
     },
     {
       "type": "file",
@@ -505,6 +512,21 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer",
       "destination": "/home/packer/cgroup-memory-telemetry.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh",
+      "destination": "/home/packer/cgroup-cpu-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.service",
+      "destination": "/home/packer/cgroup-cpu-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.timer",
+      "destination": "/home/packer/cgroup-cpu-telemetry.timer"
     },
     {
       "type": "file",

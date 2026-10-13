@@ -8,6 +8,72 @@ Describe 'cse_config_gpu.sh'
     CSE_CONFIG_ADDONS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_addons.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'GPU driver dispatch'
+        getCPUArch() { echo "$MOCK_CPU_ARCH"; }
+        logs_to_events() {
+            shift
+            eval "$@"
+        }
+        configGPUDrivers() { echo "configGPUDrivers called"; }
+        validateGPUDrivers() { echo "validateGPUDrivers called"; }
+        cleanUpGridNodeCudaPrebake() { :; }
+        systemctlEnableAndStart() { :; }
+        logGPUDriverPrebakeReadiness() { :; }
+
+        Parameters
+            "$AZURELINUX_OS_NAME" "3.0" "" false true  "configGPUDrivers called"   "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" false false "validateGPUDrivers called" "arm64"
+            # arm64 Ubuntu (Grace-Blackwell) is IS_VHD-gated -- covered by the dedicated
+            # "ensureGPUDrivers arm64 GB (Ubuntu VHD) gate" block below (this block sets no IS_VHD).
+            "$AZURELINUX_OS_NAME" "2.0" "" false true "" "arm64"
+            "$AZURELINUX_OS_NAME" "2.0" "" false false "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false true "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false false "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "$ACL_OS_VARIANT" false true "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" true true "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" TRUE false "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" false true  "configGPUDrivers called"   "amd64"
+            "$AZURELINUX_OS_NAME" "3.0" "" false false "validateGPUDrivers called" "amd64"
+            "$AZURELINUX_OS_NAME" "2.0" "" false true  "configGPUDrivers called"   "amd64"
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false true "configGPUDrivers called" "amd64"
+            "$AZURELINUX_OS_NAME" "3.0" "" true false "validateGPUDrivers called" "amd64"
+            "$UBUNTU_OS_NAME"     "24.04" "" false true  "configGPUDrivers called"   "amd64"
+            "$UBUNTU_OS_NAME"     "24.04" "" false false "validateGPUDrivers called" "amd64"
+        End
+
+        It "dispatches driver setup for OS=$1 version=$2 variant=$3 fips=$4 install=$5 arch=$7"
+            OS=$1
+            OS_VERSION=$2
+            OS_VARIANT=$3
+            ENABLE_FIPS=$4
+            CONFIG_GPU_DRIVER_IF_NEEDED=$5
+            MOCK_CPU_ARCH=$7
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should equal "$6"
+        End
+    End
+
+    Describe 'ARM64 GPU driver validation'
+        isARM64() { echo 1; }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $*" >&2
+            return 0
+        }
+        which() { return 0; }
+
+        It 'checks modprobe and nvidia-smi'
+            When call validateGPUDrivers
+
+            The status should be success
+            The output should include "gpu driver loaded"
+            The stderr should include "retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0"
+            The stderr should include "retrycmd_if_failure 24 5 30 nvidia-smi"
+        End
+    End
+
     Describe 'logGPUDriverPrebakeReadiness'
         It 'reports marker_present=false when no prebake marker exists'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
@@ -233,6 +299,10 @@ Describe 'cse_config_gpu.sh'
             echo "systemctlDisableAndStop $1"
             return 0
         }
+        systemctlDisableStopAndResetFailed() {
+            echo "systemctlDisableStopAndResetFailed $1"
+            return 0
+        }
 
         addKubeletNodeLabel() {
             echo "addKubeletNodeLabel $1"
@@ -309,6 +379,23 @@ Describe 'cse_config_gpu.sh'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=enabled'
             The output should include "mkdir -p /opt/azure/containers"
             The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            # device-plugin and DRA flavors are immutable (RP rejects a switch), so compute-domain
+            # is NOT torn down here -- mirrors dra-driver-nvidia-gpu, which also has no cleanup here
+            The output should not include "compute-domain"
+        End
+
+        It 'installs the package and defers service start in DRA mode'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The output should include "installNvidiaManagedExpPkgFromCache called"
+            # DRA defers service start (incl the compute-domain override) to startNvidiaManagedExpServices
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "compute-domain"
         End
 
         It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
@@ -321,6 +408,8 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlDisableAndStop nvidia-device-plugin"
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
+            # the compute-domain kubelet plugin is torn down here too, mirroring the dra-driver teardown
+            The output should include "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
@@ -345,6 +434,12 @@ Describe 'cse_config_gpu.sh'
         }
         systemctl() {
             echo "systemctl $@"
+        }
+        systemctlDisableAndStop() {
+            echo "systemctlDisableAndStop $@"
+        }
+        systemctlDisableStopAndResetFailed() {
+            echo "systemctlDisableStopAndResetFailed $@"
         }
 
         BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
@@ -386,6 +481,100 @@ Describe 'cse_config_gpu.sh'
             The output should not include "systemctlEnableAndStart nvidia-device-plugin 30"
             The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
             The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
+        End
+
+        It 'overrides and starts the compute-domain kubelet plugin on arm64 (GB) in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="gbnode0"
+            CD_CONF=$(mktemp)
+            tee() { cat >> "$CD_CONF"; echo "tee $1"; }
+
+            When call startNvidiaManagedExpServices
+
+            # the gpu-kubelet-plugin still comes up for all DRA nodes
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # we override the deb's vendor unit in place (same pattern as dra-driver) and start it
+            The output should include "mkdir -p /etc/systemd/system/compute-domain-kubelet-plugin.service.d"
+            # clear any start-limit/failed state from the vendor unit's crash-loop before enqueueing --
+            # the non-blocking start can't observe/retry an async start-limit failure
+            The output should include "systemctl reset-failed compute-domain-kubelet-plugin"
+            # off the critical path -- enqueue (non-blocking) so a persistently-failing optional unit
+            # can't consume the CSE provisioning budget via the blocking 100x/5s restart retry
+            The output should include "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30"
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
+            # the override targets the controller extension's pinned namespace + this node, and resets ExecStart
+            The contents of file "$CD_CONF" should include "ExecStart="
+            The contents of file "$CD_CONF" should include "--namespace kube-system"
+            The contents of file "$CD_CONF" should include "--node-name=gbnode0"
+            The contents of file "$CD_CONF" should include 'NVIDIA_VISIBLE_DEVICES=void'
+        End
+
+        It 'lowercases --node-name for both DRA plugins when the VMSS hostname is uppercase'
+            # Azure sets the VMSS computer name (hostname) uppercased for base-36 instance
+            # suffixes with a letter (instance index >= 10, e.g. instance 19 -> ...vmss00000J),
+            # but kubelet registers the Node lowercased (RFC-1123) and authenticates as
+            # system:node:<lowercase>. The ResourceSlice NodeRestriction authorizer only lets a
+            # node publish slices whose spec.nodeName matches its own (lowercase) name, so both
+            # kubelet-plugins must receive the lowercased --node-name. Guards the regression:
+            # with an uppercase NODE_NAME this fails unless the normalization is present.
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="aks-gb300-28447045-vmss00000J"
+            CD_CONF=$(mktemp)
+            tee() { cat >> "$CD_CONF"; echo "tee $1"; }
+
+            When call startNvidiaManagedExpServices
+
+            # the gpu-kubelet-plugin (dra-driver) service still comes up for all DRA nodes
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # both plugin overrides are generated
+            The contents of file "$CD_CONF" should include "/usr/bin/gpu-kubelet-plugin"
+            The contents of file "$CD_CONF" should include "/usr/bin/compute-domain-kubelet-plugin"
+            # both receive the lowercased node name, and the uppercase form never leaks through
+            The contents of file "$CD_CONF" should include "--node-name=aks-gb300-28447045-vmss00000j"
+            The contents of file "$CD_CONF" should not include "vmss00000J"
+        End
+
+        It 'does not block provisioning when the compute-domain plugin cannot be enqueued (arm64)'
+            # Command-failure path: the optional compute-domain start fails on every attempt. It must
+            # stay off the critical path -- using the non-blocking enqueue (not the blocking
+            # systemctlEnableAndStart whose restart retries 100x/5s with no CSE-budget check) and
+            # treating the failure as non-fatal, so it cannot consume the provisioning window.
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="gbnode0"
+            tee() { cat > /dev/null; echo "tee $1"; }
+            # only the optional compute-domain start fails; required services still succeed
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                case "$1" in compute-domain-kubelet-plugin) return 1 ;; esac
+            }
+
+            When call startNvidiaManagedExpServices
+
+            The status should be success
+            The output should include "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30"
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
+            The output should include "warning: compute-domain-kubelet-plugin could not be enqueued"
+        End
+
+        It 'stops the vendor compute-domain plugin on non-arm64 DRA nodes (GB-only)'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 0; }
+
+            When call startNvidiaManagedExpServices
+
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # the 0.5.0 deb auto-starts an args-less vendor unit on x86 too -- stop it (compute-domain is GB-only)
+            The output should include "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
+            # but we do not configure or start our override on non-arm64
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin"
+            The output should not include "compute-domain-kubelet-plugin.service.d"
         End
     End
     Describe 'nvidia-cdi-refresh handling'
@@ -574,6 +763,110 @@ Describe 'cse_config_gpu.sh'
             The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
         End
     End
+    Describe 'ensureGPUDrivers arm64 gate'
+        # ensureGPUDrivers no-ops on arm64 EXCEPT for Ubuntu with the managed driver install
+        # requested (CONFIG_GPU_DRIVER_IF_NEEDED=true) -- the Grace-Blackwell (GB200/GB300) path.
+        # RP collapses both --gpu-driver Install and the managed GPU experience into that flag.
+        # logs_to_events is mocked to print only the event name, so the branch targets never run;
+        # the tests assert the DISPATCH decision (configGPUDrivers vs validateGPUDrivers vs return).
+        logs_to_events() { echo "logs_to_events $1"; }
+        # observability-only; called directly at the end on Ubuntu -- silence it.
+        logGPUDriverPrebakeReadiness() { :; }
+        UBUNTU_OS_NAME="UBUNTU"
+        ERR_GPU_DRIVERS_START_FAIL=88
+        # default to an AKS-managed VHD; the BYOI example overrides this.
+        BeforeEach 'IS_VHD="true"'
+
+        It 'installs on an AKS-managed arm64 Ubuntu VHD when the managed install is requested (GB200/GB300)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            IS_VHD="true"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+            # GB nodes now fall into the full Ubuntu install sequence, not just the dispatch:
+            # the prebake cleanup runs before, and nvidia-modprobe is enabled after.
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake"
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.nvidia-modprobe"
+        End
+
+        It 'skips on arm64 Ubuntu when IS_VHD is empty/unset (fail-safe: do not install without a confirmed AKS VHD)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            IS_VHD=""
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'skips on a BYOI/custom arm64 image (IS_VHD=false) to preserve a customer-baked driver (MAI dedicated GB VHD)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            # UseCustomizedOSImage header -> Distro=CustomizedImage -> IsVHDDistro()=false -> IS_VHD=false.
+            IS_VHD="false"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'no-ops on arm64 Ubuntu when driver install is not requested (BYOI / --gpu-driver none)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            # early return: neither the prebake cleanup nor either driver dispatch is reached.
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'no-ops on non-Ubuntu arm64 even when driver install is requested (no arm64 GPU path there)'
+            getCPUArch() { echo "arm64"; }
+            OS="MARINER"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+
+        It 'is unaffected on x86 Ubuntu: installs when driver install is requested'
+            getCPUArch() { echo "amd64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+
+            When call ensureGPUDrivers
+
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+
+        It 'is unaffected on x86 Ubuntu: validates (not installs) when driver install is off (prebaked VHD path)'
+            getCPUArch() { echo "amd64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+
+            When call ensureGPUDrivers
+
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+    End
     Describe 'managedGPUPackageList on Ubuntu'
         Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 
@@ -622,6 +915,10 @@ Describe 'cse_config_gpu.sh'
 
         uname() {
             echo "6.6.139.1-1.azl3"
+        }
+
+        find() {
+            echo -n "1"
         }
 
         dnf_install() {

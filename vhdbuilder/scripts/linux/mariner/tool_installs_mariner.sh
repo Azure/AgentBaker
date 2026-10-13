@@ -36,10 +36,10 @@ EOF
   if [ "$OS_VERSION" = "3.0" ]; then
         AZURELINUX_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/azurelinux-nvidia.repo"
         touch "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
-        cat << EOF > "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
+        cat << 'EOF' > "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
 [azurelinux-official-nvidia]
-name=Azure Linux Official Nvidia 3.0 x86_64
-baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/x86_64/
+name=Azure Linux Official Nvidia 3.0 $basearch
+baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/$basearch/
 gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
 gpgcheck=1
 repo_gpgcheck=1

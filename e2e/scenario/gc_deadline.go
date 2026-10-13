@@ -16,7 +16,8 @@ import (
 
 const deletionDueTimeTag = "deletion_due_time"
 
-func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, location string) (armresources.ResourceGroup, error) {
+// Preserve existing shared RG tags and deadlines so obsolete clusters can expire.
+func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, location string) (armresources.ResourceGroup, error) {
 	name := config.ResourceGroupName(location)
 	response, err := azure.ResourceGroup.Get(ctx, name, nil)
 	rg := response.ResourceGroup
@@ -34,14 +35,13 @@ func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, cfg *co
 	if rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting") {
 		return armresources.ResourceGroup{}, fmt.Errorf("RG %q is deleting", name)
 	}
-	renewResourceGroupDeadline(ctx, azure, cfg, rg)
 	return rg, nil
 }
 
-// GC expires parent and node RGs independently. Allow a suite plus cleanup from
-// now, without a permanent exemption. Renewal is best-effort so tag failures do
-// not block usable infrastructure. This cannot stop a DELETE already selected
-// by GC or protect the node RG before the initial AKS lookup.
+// Renew only node RGs for a suite plus cleanup, without a permanent exemption.
+// Renewal is best-effort so tag failures do not block usable infrastructure.
+// This cannot stop a DELETE already selected by GC or protect the node RG
+// before the initial AKS lookup.
 func renewResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, rg armresources.ResourceGroup) bool {
 	if err := extendResourceGroupDeadline(ctx, azure, cfg, rg); err != nil {
 		logging.Logf(ctx, "warning: failed to renew resource group GC deadline: %v", err)

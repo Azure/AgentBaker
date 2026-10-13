@@ -5,10 +5,9 @@
 # need the signed flag (e.g. the e2e stage) can invoke directly instead.
 #
 # aclBaseImageSource selects where the ACL base image comes from:
-#   marketplace - Azure Marketplace image (what "main" uses today). Default
+#   marketplace - Azure Marketplace image.
+#   acg         - the ACL prod pipeline's Azure Compute Gallery image. Default
 #                 when not specified.
-#   acg         - the ACL prod pipeline's Azure Compute Gallery image
-#                 (see aadagarwal/switch-acl-base-image-to-acg)
 #   acldevel    - the acldevel dev pipeline's unsigned image (see PR #9458).
 #                 See .acl-base-image-signed-vars.yaml for how this affects
 #                 ACL_BASE_IMAGE_SIGNED.
@@ -25,7 +24,7 @@
 parameters:
   - name: aclBaseImageSource
     type: string
-    default: marketplace
+    default: acg
     values:
       - marketplace
       - acg
@@ -83,10 +82,10 @@ steps:
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-3.0-arm64'
             displayName: Set ACL base image vars (acg, arm64)
       - ${{ if and(eq(parameters.variant, 'amd64'), eq(parameters.sigSourceImageVersionOverride, '')) }}:
-          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]20260909.1200337.0'
+          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]20261006.1217966.0'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acg, amd64, default)
       - ${{ if and(eq(parameters.variant, 'arm64'), eq(parameters.sigSourceImageVersionOverride, '')) }}:
-          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]20260909.1199780.0'
+          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]20261006.1217969.0'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acg, arm64, default)
       - ${{ if ne(parameters.sigSourceImageVersionOverride, '') }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.sigSourceImageVersionOverride }}'

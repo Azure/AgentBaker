@@ -66,6 +66,7 @@
       "security_type": "ConfidentialVM",
       "security_encryption_type": "VMGuestStateOnly",
       "shared_image_gallery_destination": {
+        "use_shallow_replication": false,
         "specialized": true,
         "confidential_vm_image_encryption_type": "EncryptedVMGuestStateOnlyWithPmk",
         "subscription": "{{user `gallery_subscription_id`}}",
@@ -203,6 +204,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
       "destination": "/home/packer/provision_configs_addons.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config_chrony.sh",
+      "destination": "/home/packer/provision_configs_chrony.sh"
     },
     {
       "type": "file",
@@ -353,6 +359,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh",
       "destination": "/home/packer/setup-custom-search-domains.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/security-update.sh",
+      "destination": "/home/packer/security-update.sh"
     },
     {
       "type": "file",
@@ -598,6 +609,21 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer",
       "destination": "/home/packer/cgroup-memory-telemetry.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh",
+      "destination": "/home/packer/cgroup-cpu-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.service",
+      "destination": "/home/packer/cgroup-cpu-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.timer",
+      "destination": "/home/packer/cgroup-cpu-telemetry.timer"
     },
     {
       "type": "file",

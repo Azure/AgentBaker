@@ -1,0 +1,186 @@
+package scenario
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
+	"k8s.io/apimachinery/pkg/util/wait"
+)
+
+const (
+	ancHotfixPointerPath = "/opt/azure/containers/aks-node-controller-hotfix.json"
+	ancHotfixBinaryPath  = "/opt/azure/containers/aks-node-controller-hotfix"
+	ancBakedBinaryPath   = "/opt/azure/containers/aks-node-controller"
+	ancNBCCmdPath        = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
+	ancLogPath           = "/var/log/azure/aks-node-controller.log"
+	ancLauncherOutput    = "/var/log/azure/aks-node-controller.output"
+
+	// provisionCompletePath and ancNBCCmdMarker cover the provision status the no-op NBC
+	// command has to publish on its own: it bypasses cse_start.sh, which is what normally
+	// writes both artifacts, and the CSE's provision-wait blocks until provision.complete
+	// appears. The marker goes in provision.json's Output field so the validator can tell
+	// our status apart from one written by any other path. (provisionJSONPath already
+	// exists in cse_timing.go.)
+	provisionCompletePath = "/opt/azure/containers/provision.complete"
+	ancNBCCmdMarker       = "anc-hotfix-flow-nbc-executed"
+
+	// ancHotfixFlowTargetVersion is a real published ANC hotfix (git tag
+	// aks-node-controller/hotfix/v202608.21.1), so download-hotfix performs a real PMC
+	// download rather than hitting a synthetic artifact. The validators pin the run to the
+	// authenticated repository fast path, which extracts and stages the package itself, so
+	// no apt/dnf/tdnf installation is exercised here.
+	//
+	// The PR-built ANC is stamped to ancHotfixFlowBaseVersion so it shares the "202608.21"
+	// base and sits at a strictly lower patch, which is what makes the pointer applicable:
+	// download-hotfix derives the base from the running binary's version and only upgrades
+	// when the base matches and the target patch is higher.
+	ancHotfixFlowBaseVersion   = "202608.21.0"
+	ancHotfixFlowTargetVersion = "202608.21.1"
+)
+
+// The fixture writes the hotfix pointer directly instead of letting check-hotfix fetch it
+// from the live-patching service. LPS only serves the ANC hotfix map where the aks-rp
+// aks-node-controller-hotfixes toggle matches, and that toggle is scoped to deploy-env
+// staging plus a single subscription that is not the AgentBaker E2E subscription, so
+// check-hotfix here would always receive an empty config and write no pointer.
+//
+// Writing the pointer keeps this scenario deterministic and leaves the LPS leg to the
+// aks-rp e2ev3 scenario that already covers it end to end (AKSNodeControllerCheckHotfix).
+// Everything downstream of the pointer - download, extraction, staging, binary selection
+// and provisioning - still runs for real against the published hotfix.
+var _ = Register(newANCHotfixFlowScenario(
+	"Ubuntu2204_ANCHotfixFlow",
+	"Validates the real ANC hotfix download/stage/select flow on Ubuntu from a seeded hotfix pointer",
+	config.VHDUbuntu2204Gen2Containerd,
+))
+
+var _ = Register(newANCHotfixFlowScenario(
+	"AzureLinuxV3_ANCHotfixFlow",
+	"Validates the real ANC hotfix download/stage/select flow on Azure Linux from a seeded hotfix pointer",
+	config.VHDAzureLinuxV3Gen2,
+))
+
+func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scenario {
+	return &Scenario{
+		Name:        name,
+		Description: description,
+		SkipIf: func(context.Context) string {
+			if config.Config.TestPreProvision {
+				return "ANC hotfix flow E2E does not run during two-stage VHD caching"
+			}
+			if config.Config.DisableScriptless || config.Config.DisableScriptLessCompilation {
+				return "ANC hotfix flow E2E requires scriptless ANC compilation"
+			}
+			return ""
+		},
+		Config: Config{
+			Cluster:              ClusterKubenet,
+			VHD:                  vhd,
+			ANCHotfixFlowFixture: true,
+			// The no-op NBC command validates hotfix execution, not node readiness.
+			SkipDefaultValidation: true,
+			Validator: func(ctx context.Context, s *Scenario) error {
+				// The boothook starts the launcher under nohup and SkipDefaultValidation
+				// removes the node-readiness wait, so SSH can come up while download-hotfix
+				// is still running. Every assertion below is a one-shot read, and the
+				// package-manager exclusion would pass vacuously against a half-written log,
+				// so gate them all on the launcher's terminal message first.
+				if err := waitForANCLauncherCompletion(ctx, s); err != nil {
+					return err
+				}
+				return errors.Join(
+					ValidateANCBakedBinaryVersion(ctx, s, ancHotfixFlowBaseVersion),
+					ValidateFileHasContent(ctx, s, ancHotfixPointerPath, fmt.Sprintf(`"%s":"%s"`, hotfixBaseVersion(ancHotfixFlowBaseVersion), ancHotfixFlowTargetVersion)),
+					ValidateFileHasContent(ctx, s, ancLauncherOutput, "Found ANC hotfix config"),
+					ValidateFileHasContent(ctx, s, ancLogPath, "downloading ANC hotfix"),
+					// Assert the fast path's full message rather than the "downloaded ANC hotfix"
+					// prefix it shares with the package-manager path (hotfix.go:135). The prefix
+					// matches either route, so it cannot show which one ran - and since
+					// downloadBinaryHotfixIfNeeded returns as soon as tryRepositoryDownload
+					// succeeds (hotfix.go:104), the route exercised here is the repository fast
+					// path, which extracts and stages the package itself without apt/dnf/tdnf.
+					ValidateFileHasContent(ctx, s, ancLogPath, "downloaded ANC hotfix through authenticated repository fast path"),
+					// Catch a silent regression into the package-manager fallback: both fallback
+					// branches log this before handing off (hotfix.go:119 and :123).
+					ValidateFileExcludesContent(ctx, s, ancLogPath, "falling back to package manager"),
+					ValidateFileHasContent(ctx, s, ancLauncherOutput, "ANC download-hotfix completed"),
+					ValidateFileExists(ctx, s, ancHotfixBinaryPath),
+					ValidateFileHasContent(ctx, s, ancLauncherOutput, "Using hotfix binary"),
+					ValidateFileHasContent(ctx, s, ancLauncherOutput, "aks-node-controller completed successfully"),
+					ValidateANCHotfixBinaryVersion(ctx, s, ancHotfixFlowTargetVersion),
+					// The no-op NBC command publishes the provision status itself, since it
+					// bypasses cse_start.sh which normally writes both artifacts. Without them
+					// the CSE's provision-wait never unblocks. Assert the marker rather than
+					// mere existence so a status written by some other path cannot satisfy this.
+					ValidateFileHasContent(ctx, s, provisionJSONPath, ancNBCCmdMarker),
+					ValidateFileExists(ctx, s, provisionCompletePath),
+				)
+			},
+		},
+	}
+}
+
+// ancLauncherCompletionTimeout bounds the wait for the launcher to finish. The run includes a
+// real PMC download plus extraction and staging, so it is generous enough to absorb a slow
+// download while still failing the scenario rather than hanging it.
+const ancLauncherCompletionTimeout = 10 * time.Minute
+
+// waitForANCLauncherCompletion blocks until the launcher logs its terminal message, so the
+// one-shot assertions that follow read a settled log instead of racing provisioning.
+func waitForANCLauncherCompletion(ctx context.Context, s *Scenario) error {
+	const terminalMessage = "aks-node-controller completed successfully"
+	err := wait.PollUntilContextTimeout(ctx, 10*time.Second, ancLauncherCompletionTimeout, true,
+		func(ctx context.Context) (bool, error) {
+			hasContent, err := fileHasContent(ctx, s, ancLauncherOutput, terminalMessage)
+			if err != nil {
+				// The file may not exist yet, and SSH can be flaky right after boot.
+				logging.Logf(ctx, "waiting for ANC launcher completion: %v", err)
+				return false, nil
+			}
+			return hasContent, nil
+		})
+	if err != nil {
+		return fmt.Errorf("timed out after %s waiting for %q in %s: %w",
+			ancLauncherCompletionTimeout, terminalMessage, ancLauncherOutput, err)
+	}
+	return nil
+}
+
+func hotfixBaseVersion(version string) string {
+	parts := strings.SplitN(version, ".", 3)
+	if len(parts) < 2 {
+		return version
+	}
+	return parts[0] + "." + parts[1]
+}
+
+func ValidateANCBakedBinaryVersion(ctx context.Context, s *Scenario, expectedVersion string) error {
+	return validateANCBinaryVersion(ctx, s, ancBakedBinaryPath, expectedVersion, "version-stamped aks-node-controller version command failed")
+}
+
+func ValidateANCHotfixBinaryVersion(ctx context.Context, s *Scenario, expectedVersion string) error {
+	return validateANCBinaryVersion(ctx, s, ancHotfixBinaryPath, expectedVersion, "hotfixed aks-node-controller version command failed")
+}
+
+func validateANCBinaryVersion(ctx context.Context, s *Scenario, path, expectedVersion, failureMessage string) error {
+	result, err := execScriptOnVMForScenarioValidateExitCode(
+		ctx,
+		s,
+		fmt.Sprintf("sudo %s version", path),
+		0,
+		failureMessage,
+	)
+	if err != nil {
+		return err
+	}
+	actual := strings.TrimSpace(result.stdout)
+	if actual != expectedVersion {
+		return fmt.Errorf("expected %s version %q, got %q", path, expectedVersion, actual)
+	}
+	return nil
+}

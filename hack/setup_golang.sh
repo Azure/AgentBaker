@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-go_minor_version="1.26"
+go_minor_version="1.27"
 
 # This script installs Microsoft's Go distribution via apt-get (Ubuntu).
 # On hosts without apt-get (e.g. Azure Linux build agents), the build environment

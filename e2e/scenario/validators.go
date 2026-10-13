@@ -630,6 +630,31 @@ func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) erro
 	return err
 }
 
+func nvidiaDriverVersionValidationScript(expected string) (string, error) {
+	if !regexp.MustCompile(`^[0-9]+(\.[0-9]+)+$`).MatchString(expected) {
+		return "", fmt.Errorf("invalid expected NVIDIA driver version %q; check GPUContainerImages in components.json", expected)
+	}
+	return strings.Join([]string{
+		"#!/usr/bin/env bash",
+		"set -euo pipefail",
+		"driver_versions=$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader)",
+		"echo \"nvidia driver_versions=$driver_versions\"",
+		"while IFS= read -r driver_version; do",
+		"  driver_version=${driver_version//[[:space:]]/}",
+		fmt.Sprintf("  if [ \"$driver_version\" != %q ]; then echo \"expected NVIDIA driver %s, got '$driver_version'\"; exit 1; fi", expected, expected),
+		"done <<< \"$driver_versions\"",
+	}, "\n"), nil
+}
+
+func ValidateNvidiaDriverVersion(ctx context.Context, s *Scenario, expected string) error {
+	script, err := nvidiaDriverVersionValidationScript(expected)
+	if err != nil {
+		return err
+	}
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, fmt.Sprintf("expected NVIDIA driver version %s on every GPU", expected))
+	return err
+}
+
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) error {
 	command := []string{
 		"set -ex",
@@ -2281,6 +2306,53 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	)
 }
 
+// ValidateLocalDNSConntrackRules checks that localdns skips conntrack for both request and response DNS traffic.
+func ValidateLocalDNSConntrackRules(ctx context.Context, s *Scenario) error {
+	script := `set -euo pipefail
+localdns_script="/opt/azure/containers/localdns/localdns.sh"
+if ! sudo grep -q -- '--sport 53 -j NOTRACK' "$localdns_script"; then
+  echo "WARNING: VHD localdns.sh does not contain reply-direction NOTRACK support; skipping rule validation for this image."
+  exit 0
+fi
+
+rules=$(sudo iptables -t raw -S)
+awk '/localdns: skip conntrack/ { print }' <<< "$rules"
+
+request_rule_count=$(awk '/localdns: skip conntrack/ && /--dport 53/ { count++ } END { print count + 0 }' <<< "$rules")
+response_rule_count=$(awk '/localdns: skip conntrack/ && /--sport 53/ { count++ } END { print count + 0 }' <<< "$rules")
+prerouting_response_rule_count=$(awk '/^-A PREROUTING/ && /localdns: skip conntrack/ && /--sport 53/ { count++ } END { print count + 0 }' <<< "$rules")
+
+echo "localdns conntrack rules: request=$request_rule_count response=$response_rule_count prerouting_response=$prerouting_response_rule_count"
+test "$request_rule_count" = "8" || { echo "expected 8 request-direction localdns NOTRACK rules, got $request_rule_count"; exit 1; }
+test "$response_rule_count" = "4" || { echo "expected 4 response-direction localdns NOTRACK rules, got $response_rule_count"; exit 1; }
+test "$prerouting_response_rule_count" = "0" || { echo "expected 0 PREROUTING response-direction localdns NOTRACK rules, got $prerouting_response_rule_count"; exit 1; }
+
+# Patterns are spelled out in full, matching the exact "iptables -t raw -S" output format, so that a
+# malformed rule (extra matchers, wrong protocol, interface-scoped) is rejected rather than absorbed
+# by a wildcard. tcp and udp are listed separately rather than as "-p (tcp|udp)" so that a corrupted
+# rule for one protocol cannot be masked by its intact sibling for the other.
+for rule in \
+  '^-A OUTPUT -s 169\.254\.10\.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK$' \
+  '^-A OUTPUT -s 169\.254\.10\.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK$' \
+  '^-A OUTPUT -s 169\.254\.10\.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK$' \
+  '^-A OUTPUT -s 169\.254\.10\.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK$' \
+  '^-A OUTPUT -d 169\.254\.10\.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
+  '^-A OUTPUT -d 169\.254\.10\.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$' \
+  '^-A OUTPUT -d 169\.254\.10\.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
+  '^-A OUTPUT -d 169\.254\.10\.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$' \
+  '^-A PREROUTING -d 169\.254\.10\.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
+  '^-A PREROUTING -d 169\.254\.10\.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$' \
+  '^-A PREROUTING -d 169\.254\.10\.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
+  '^-A PREROUTING -d 169\.254\.10\.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$'; do
+  echo "$rules" | grep -Eq "$rule" || { echo "missing expected localdns NOTRACK rule matching: $rule"; exit 1; }
+done
+`
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should install request and response direction NOTRACK rules"); err != nil {
+		return fmt.Errorf("validate localdns conntrack rules: %w", err)
+	}
+	return nil
+}
+
 // ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
 // This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
 // can rotate between queries. We verify presence, not exact IP matching.
@@ -2375,7 +2447,7 @@ func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) erro
 // ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
 // via the CoreDNS hosts plugin. It checks:
 //  1. The node has the kubernetes.azure.com/localdns-hosts-plugin=enabled annotation
-//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners
+//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners and includes loadbalance
 //  3. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN
 //
 // We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
@@ -2451,6 +2523,17 @@ fi
 echo "✓ hosts plugin configuration looks correct"
 echo ""
 
+echo "Checking if Corefile contains loadbalance plugin directive..."
+if ! grep -Eq '^[[:space:]]*loadbalance[[:space:]]*$' "$corefile"; then
+    echo "ERROR: Corefile does not contain 'loadbalance' directive"
+    echo ""
+    echo "Corefile contents:"
+    cat "$corefile"
+    exit 1
+fi
+echo "✓ Found 'loadbalance' directive in Corefile"
+echo ""
+
 echo "Corefile contents:"
 cat "$corefile"
 echo ""
@@ -2458,8 +2541,8 @@ echo "=== Corefile validation successful ==="
 `
 
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
-		"Corefile should contain hosts plugin configuration"); err != nil {
-		return fmt.Errorf("check Corefile hosts plugin configuration: %w", err)
+		"Corefile should contain hosts and loadbalance plugin configuration"); err != nil {
+		return fmt.Errorf("check Corefile hosts and loadbalance plugin configuration: %w", err)
 	}
 
 	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
@@ -3699,7 +3782,7 @@ sudo "$anc_path" check-hotfix`,
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) error {
 	nbc := s.Runtime.NBC
-	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
+	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessProvisioning(s) {
 		return ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 	return nil
@@ -3731,8 +3814,35 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
-// ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars.
+// ValidateScriptlessPhase3 verifies that ANC provisions using only AKSNodeConfig.
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
+	if !usesScriptlessProvisioning(s) || !s.Runtime.NBC.EnableScriptlessAKSNodeConfig {
+		return nil
+	}
+	logFile := "/var/log/azure/aks-node-controller.output"
+	errs := []error{
+		ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-config.json"),
+		ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
+		ValidateFileHasContent(ctx, s, logFile, "Launching aks-node-controller with config"),
+		ValidateFileExcludesContent(ctx, s, logFile, "Launching aks-node-controller with nbc cmd"),
+		ValidateFileExcludesContent(ctx, s, logFile, "Using NBC command for scriptless phase 2"),
+		ValidateFileExcludesContent(ctx, s, logFile, "comparing envs"),
+	}
+	if s.Runtime.NBC.ScriptlessCSEProvisionMode {
+		_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected CSE-delivered scriptless boothook")
+		errs = append(errs, err)
+	}
+	if enableScriptlessCompilation(s) {
+		errs = append(errs,
+			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix"),
+			ValidateFileHasContent(ctx, s, logFile, "Using hotfix binary"),
+		)
+	}
+	return errors.Join(errs...)
+}
+
+// ValidateScriptlessComparison checks Phase 2.5 NBC/AKSNodeConfig environment parity.
+func ValidateScriptlessComparison(ctx context.Context, s *Scenario) error {
 	// skip validation if
 	// 1. AKSNodeConfig not populated
 	// 2. using scriptless phase 1

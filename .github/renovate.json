@@ -519,7 +519,9 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes-csi/**"
+        "oss/kubernetes-csi/**",
+        "oss/v2/kubernetes-csi/**",
+        "oss/v2/azure/secrets-store/provider-azure"
       ],
       "groupName": "csi",
       "assignees": [
@@ -706,6 +708,7 @@
       ],
       "groupName": "nvidia-gpu-grid",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?-(?<prerelease>\\d{14})$",
+      "allowedVersions": "/^580\\./",
       "automerge": false,
       "enabled": true,
       "ignoreUnstable": false,
@@ -730,6 +733,7 @@
       ],
       "groupName": "nvidia-gpu-grid-v20",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "allowedVersions": "/^595\\./",
       "automerge": false,
       "enabled": true,
       "ignoreUnstable": false,
@@ -1006,14 +1010,15 @@
     },
     {
       "customType": "regex",
-      "description": "auto update trivy version in trivy-scan.sh from PMC",
+      "description": "auto update revisionless trivy versions in trivy-scan.sh",
       "managerFilePatterns": [
         "/trivy-scan\\.sh/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*VERSION=\"(?<currentValue>[^\"]+)\""
-      ]
+      ],
+      "extractVersionTemplate": "^v?(?<version>\\d+\\.\\d+\\.\\d+).*$"
     }
   ],
   "customDatasources": {

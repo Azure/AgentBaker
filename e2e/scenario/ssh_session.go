@@ -80,6 +80,7 @@ func isSSHSessionCapacityError(err error) bool {
 	if !ok {
 		return false
 	}
-	return message == "ssh: rejected: connect failed (open failed)" ||
+	openFailed := &ssh.OpenChannelError{Reason: ssh.ConnectionFailed, Message: "open failed"}
+	return message == openFailed.Error() ||
 		(strings.HasPrefix(message, "ssh: rejected: resource shortage (") && strings.HasSuffix(message, ")"))
 }

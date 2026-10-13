@@ -43,17 +43,15 @@ installBcc() {
 
     mkdir -p /tmp/bcc
     pushd /tmp/bcc || exit 1
-    git clone https://github.com/iovisor/bcc.git
+    git clone --depth 1 --branch v0.29.0 https://github.com/iovisor/bcc.git || exit 1
     mkdir bcc/build; cd bcc/build || exit 1
 
-    git checkout v0.29.0
-
     cmake -DENABLE_EXAMPLES=off .. || exit 1
-    make
+    make -j8 || exit 1
     sudo make install || exit 1
     cmake -DPYTHON_CMD=python3 .. || exit 1 # build python3 binding
     pushd src/python/ || exit 1
-    make
+    make -j8 || exit 1
     sudo make install || exit 1
     popd || exit 1
     popd || exit 1

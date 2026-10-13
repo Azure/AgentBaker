@@ -314,6 +314,10 @@ func getCSEConfigAddonsFilepath() string {
 	return cseConfigAddonsScriptFilepath
 }
 
+func getCSEConfigChronyFilepath() string {
+	return cseConfigChronyScriptFilepath
+}
+
 func getCustomSearchDomainFilepath() string {
 	return customSearchDomainsCSEScriptFilepath
 }

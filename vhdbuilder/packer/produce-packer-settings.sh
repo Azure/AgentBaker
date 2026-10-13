@@ -247,6 +247,11 @@ cat <<EOF > vhdbuilder/packer/settings.json
 }
 EOF
 
+if [ "$MODE" = "linuxVhdMode" ] && [ "$OS_SKU" = "AzureContainerLinux" ]; then
+  echo "ACL base image: ${SIG_SOURCE_GALLERY_UNIQUE_NAME}/${SIG_SOURCE_IMAGE_NAME}/${SIG_SOURCE_IMAGE_VERSION}"
+  echo "Packer build region: ${PACKER_BUILD_LOCATION}"
+fi
+
 # so we don't accidently log UA_TOKEN, though ADO will automatically mask it if it appears in stdout
 # since it's coming from a variable group
 echo "packer settings:"

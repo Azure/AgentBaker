@@ -13,6 +13,45 @@ Describe 'cse_install.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
+    Describe 'pullContainerImage'
+        retrycmd_if_failure() {
+            printf 'retry argument: %s\n' "$@"
+            return "${MOCK_PULL_STATUS:-0}"
+        }
+
+        It 'uses cache-image with the existing retry policy for containerd'
+            When call pullContainerImage ctr 'registry.example/image:v1'
+            The status should be success
+            The output should include 'retry argument: 10'
+            The output should include 'retry argument: 1'
+            The output should include 'retry argument: 600'
+            The output should include 'retry argument: /opt/azure/containers/image-fetcher'
+            The output should include 'retry argument: cache-image'
+            The output should include 'retry argument: --image'
+            The output should include 'retry argument: registry.example/image:v1'
+        End
+
+        It 'propagates image-fetcher failures'
+            MOCK_PULL_STATUS=7
+            When call pullContainerImage ctr 'registry.example/image:v1'
+            The status should equal 7
+            The output should include 'failed to pull image registry.example/image:v1 using ctr, exit code: 7'
+        End
+
+        Parameters
+            crictl
+            docker
+        End
+
+        It "preserves the $1 pull command"
+            When call pullContainerImage "$1" 'registry.example/image:v1'
+            The status should be success
+            The output should include "retry argument: $1"
+            The output should include 'retry argument: pull'
+            The output should not include 'retry argument: cache-image'
+        End
+    End
+
     Describe 'installContainerRuntime'
         logs_to_events() {
             echo "mock logs to events calling with $1"

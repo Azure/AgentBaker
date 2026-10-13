@@ -1719,6 +1719,7 @@ const expectedlocalDNSCorefile = `# ********************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -1743,6 +1744,7 @@ health-check.localdns.local:53 {
         serve_stale 3600s immediate
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -1769,6 +1771,7 @@ cluster.local:53 {
         denial 9984
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -1788,6 +1791,7 @@ testdomain456.com:53 {
         serve_stale 3600s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -1814,6 +1818,7 @@ testdomain456.com:53 {
         serve_stale 72000s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253
@@ -1904,6 +1909,29 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 				includeHostsPlugin: true,
 			},
 			wantContains: "",
+		},
+		{
+			name: "enabled LocalDNS with nil overrides still enables reload",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true},
+				},
+			},
+			wantContains: "health-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    reload\n    whoami\n}",
+		},
+		{
+			name: "enabled LocalDNS with empty overrides still enables reload",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+						EnableLocalDns:   true,
+						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{},
+						KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{},
+					},
+				},
+				includeHostsPlugin: true,
+			},
+			wantContains: "health-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    reload\n    whoami\n}",
 		},
 		{
 			name: "LocalDNSProfile enabled returns base64 string with hosts plugin",
@@ -2006,7 +2034,26 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, tt.args.includeHostsPlugin)
 			assertCorefileBase64Contains(t, got, tt.wantContains, tt.wantNotContains)
+			if tt.args.aksnodeconfig.GetLocalDnsProfile().GetEnableLocalDns() {
+				decoded, err := base64.StdEncoding.DecodeString(got)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if strings.Count(string(decoded), "\n    reload\n") != 1 {
+					t.Errorf("expected exactly one Corefile reload directive, got:\n%s", decoded)
+				}
+				assertLocalDNSLoadBalanceBlocks(t, string(decoded))
+			}
 		})
+	}
+}
+
+func assertLocalDNSLoadBalanceBlocks(t *testing.T, corefile string) {
+	t.Helper()
+	for _, block := range strings.Split(corefile, "\n}\n") {
+		if strings.Contains(block, "\n    forward . ") && strings.Count(block, "\n    loadbalance\n") != 1 {
+			t.Errorf("expected loadbalance in every forwarding server block:\n%s", block)
+		}
 	}
 }
 
@@ -2156,14 +2203,158 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 				t.Fatalf("failed to decode generated corefile: %v", err)
 			}
 			corefile := normalizeCorefileString(string(decoded))
-			if tt.wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(tt.wantContains)) {
-				t.Fatalf("expected generated corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
+			assertCorefileContents(t, corefile, string(decoded), tt.wantContains, tt.wantNotContains)
+		})
+	}
+}
+
+// assertCorefileContents checks a normalized corefile against inclusion and exclusion
+// expectations. raw is the un-normalized corefile, reported on failure so the message
+// shows the template's real output.
+func assertCorefileContents(t *testing.T, corefile, raw, wantContains string, wantNotContains []string) {
+	t.Helper()
+	if wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(wantContains)) {
+		t.Fatalf("expected generated corefile to contain %q, got:\n%s", wantContains, raw)
+	}
+	for _, want := range wantNotContains {
+		if strings.Contains(corefile, normalizeCorefileString(want)) {
+			t.Fatalf("expected generated corefile not to contain %q, got:\n%s", want, raw)
+		}
+	}
+}
+
+// Test_getLocalDNSCorefileBase64ServeStalePolicy covers the serve_stale_policy directive
+// (CoreDNS >= 1.14.7). The directive is only valid alongside an emitted serve_stale line,
+// so the template must never render it on its own, and it is restricted to the default
+// (".") server block, so it must never render in a per-domain block.
+func Test_getLocalDNSCorefileBase64ServeStalePolicy(t *testing.T) {
+	tests := []struct {
+		name            string
+		domain          string // defaults to "." when empty
+		serveStale      string
+		policy          string
+		kubeDNS         bool
+		wantContains    string
+		wantNotContains []string
+	}{
+		{
+			name:            "no policy omits serve_stale_policy",
+			serveStale:      "Immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:       "prefer positive with immediate",
+			serveStale: "Immediate",
+			policy:     "PreferPositive",
+			wantContains: strings.Join([]string{
+				"serve_stale 3600s immediate",
+				"serve_stale_policy prefer_positive",
+			}, "\n        "),
+		},
+		{
+			name:       "prefer positive with verify",
+			serveStale: "Verify",
+			policy:     "PreferPositive",
+			wantContains: strings.Join([]string{
+				"serve_stale 3600s verify",
+				"serve_stale_policy prefer_positive",
+			}, "\n        "),
+		},
+		{
+			// serve_stale is not emitted at all, so the policy must not be either.
+			name:            "prefer positive with disable omits both",
+			serveStale:      "Disable",
+			policy:          "PreferPositive",
+			wantNotContains: []string{"serve_stale_policy", "serve_stale "},
+		},
+		{
+			// Guards against a dangling directive if ServeStale ever carries a value
+			// outside the known set: the outer "ne Disable" check would pass, but no
+			// serve_stale line is rendered.
+			name:            "prefer positive with unknown serve stale omits both",
+			serveStale:      "Bogus",
+			policy:          "PreferPositive",
+			wantNotContains: []string{"serve_stale_policy", "serve_stale "},
+		},
+		{
+			name:            "unknown policy value omits serve_stale_policy",
+			serveStale:      "Immediate",
+			policy:          "PreferNegative",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:       "renders in KubeDNS overrides",
+			serveStale: "Immediate",
+			policy:     "PreferPositive",
+			kubeDNS:    true,
+			wantContains: strings.Join([]string{
+				"serve_stale 3600s immediate",
+				"serve_stale_policy prefer_positive",
+			}, "\n        "),
+		},
+		{
+			// The policy is restricted to the default (".") server block. A per-domain
+			// block still gets its serve_stale line, but never the policy.
+			name:            "omitted in a cluster.local VnetDNS block",
+			domain:          "cluster.local",
+			serveStale:      "Immediate",
+			policy:          "PreferPositive",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:            "omitted in a cluster.local KubeDNS block",
+			domain:          "cluster.local",
+			serveStale:      "Verify",
+			policy:          "PreferPositive",
+			kubeDNS:         true,
+			wantContains:    "serve_stale 3600s verify",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			// A custom domain takes a different path through the template than
+			// cluster.local, which is special-cased by $fwdToClusterCoreDNS.
+			name:            "omitted in a custom-domain VnetDNS block",
+			domain:          "testdomain.com",
+			serveStale:      "Immediate",
+			policy:          "PreferPositive",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			override := &aksnodeconfigv1.LocalDnsOverrides{
+				QueryLogging:                "Log",
+				Protocol:                    "PreferUDP",
+				ForwardDestination:          "VnetDNS",
+				ForwardPolicy:               "Sequential",
+				MaxConcurrent:               to.Ptr(int32(1000)),
+				CacheDurationInSeconds:      to.Ptr(int32(3600)),
+				ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+				ServeStale:                  tt.serveStale,
+				ServeStalePolicy:            tt.policy,
 			}
-			for _, wantNotContains := range tt.wantNotContains {
-				if strings.Contains(corefile, normalizeCorefileString(wantNotContains)) {
-					t.Fatalf("expected generated corefile not to contain %q, got:\n%s", wantNotContains, string(decoded))
-				}
+			profile := &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true}
+			domain := tt.domain
+			if domain == "" {
+				domain = "."
 			}
+			if tt.kubeDNS {
+				profile.KubeDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{domain: override}
+			} else {
+				profile.VnetDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{domain: override}
+			}
+			got := getLocalDnsCorefileBase64WithHostsPlugin(&aksnodeconfigv1.Configuration{LocalDnsProfile: profile}, false)
+
+			decoded, err := base64.StdEncoding.DecodeString(got)
+			if err != nil {
+				t.Fatalf("failed to decode generated corefile: %v", err)
+			}
+			corefile := normalizeCorefileString(string(decoded))
+			assertCorefileContents(t, corefile, string(decoded), tt.wantContains, tt.wantNotContains)
 		})
 	}
 }

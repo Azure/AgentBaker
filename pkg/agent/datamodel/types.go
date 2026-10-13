@@ -203,6 +203,7 @@ const (
 	AKSACLArm64Gen2TL                       Distro = "aks-acl-arm64-gen2-tl"
 	AKSACLGen2FIPSTL                        Distro = "aks-acl-gen2-fips-tl"
 	AKSACLArm64Gen2FIPSTL                   Distro = "aks-acl-arm64-gen2-fips-tl"
+	AKSACLCVMGen2                           Distro = "aks-acl-cvm-gen2"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -295,6 +296,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSACLArm64Gen2TL,
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
+	AKSACLCVMGen2,
 }
 
 type CustomConfigurationComponent string
@@ -343,6 +345,9 @@ func (d Distro) IsAzureLinuxOSGuardDistro() bool {
 
 func (d Distro) IsAzureLinuxV3Distro() bool {
 	return slices.Contains(AvailableAzureLinuxV3Distros, d)
+}
+func (d Distro) IsUbuntuDistro() bool {
+	return slices.Contains(AvailableUbuntuDistros, d)
 }
 
 /*
@@ -1833,11 +1838,18 @@ type NodeBootstrappingConfiguration struct {
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
 
-	// ScriptlessCSEProvisionMode specifies the provisioning mode for scriptless phase 2,
+	// EnableScriptlessAKSNodeConfig enables Phase 3 provisioning using only AKSNodeConfigJSON.
+	// It takes precedence over EnableScriptlessNBCCSECmd and EnableScriptlessCSECmd:
+	// no NBC command is rendered or delivered, and ANC does not enter comparison mode.
+	// Requires a non-empty serialized JSON object. Windows and PreProvisionOnly are unsupported.
+	EnableScriptlessAKSNodeConfig bool
+
+	// ScriptlessCSEProvisionMode specifies the delivery mode for scriptless phases 2 and 3,
 	// which uses CSE to provide provision nbc or aks nc configs
 	ScriptlessCSEProvisionMode bool
 
-	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
+	// AKSNodeConfigJSON is the serialized provisioning config required by EnableScriptlessAKSNodeConfig.
+	// Otherwise, it is optional and accompanies the NBC command for Phase 2.5 comparison.
 	AKSNodeConfigJSON string
 
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
@@ -2685,6 +2697,11 @@ type LocalDNSOverrides struct {
 	FailfastAllUnhealthyUpstreams *bool `json:"failfastAllUnhealthyUpstreams,omitempty"`
 	// Configures CoreDNS forward plugin health checking behavior for upstream servers.
 	HealthCheck *LocalDNSHealthCheck `json:"healthCheck,omitempty"`
+	// Policy applied on top of serve_stale when choosing between a stale
+	// positive answer and a cached negative one, on the default server block
+	// only. Valid values - PreferPositive. Empty leaves CoreDNS on its default.
+	// Requires a node image with CoreDNS >= 1.14.7.
+	ServeStalePolicy string `json:"serveStalePolicy,omitempty"`
 }
 
 // ShouldEnableLocalDNS returns true if AgentPoolProfile, LocalDNSProfile is not nil and

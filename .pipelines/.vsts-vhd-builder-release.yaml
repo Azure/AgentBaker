@@ -7,7 +7,7 @@ pool:
 parameters:
   - name: aclBaseImageSource
     type: string
-    default: marketplace
+    default: acg
     values:
       - marketplace
       - acg
@@ -143,6 +143,10 @@ parameters:
     displayName: Build Azure Container Linux TL Gen2
     type: boolean
     default: true
+  - name: buildaclcvmgen2
+    displayName: Build Azure Container Linux CVM Gen2
+    type: boolean
+    default: false
   - name: buildaclarm64tlgen2
     displayName: Build Azure Container Linux ARM64 TL Gen2
     type: boolean
@@ -635,10 +639,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-              # NVIDIA_CUDA_PREBAKE bakes the CUDA driver kernel module into this shared x86 gen2 image so GPU
-              # nodes can later skip the ~80-150s in-CSE DKMS compile via the configGPUDrivers skip-build path
-              # (PR #8787); non-GPU and --gpu-driver None nodes tear the module down during provisioning.
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]NVIDIA_CUDA_PREBAKE'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -713,10 +714,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-              # NVIDIA_CUDA_PREBAKE bakes the CUDA driver kernel module into this shared x86 gen2 image so GPU
-              # nodes can later skip the ~80-150s in-CSE DKMS compile via the configGPUDrivers skip-build path
-              # (PR #8787); non-GPU and --gpu-driver None nodes tear the module down during provisioning.
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]NVIDIA_CUDA_PREBAKE'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -906,6 +904,32 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-tl-gen2
               enableCosiPublishing: true
+      - job: buildaclcvmgen2
+        condition: eq('${{ parameters.buildaclcvmgen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 360
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]acl'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4ads_v5'
+              echo '##vso[task.setvariable variable=CVM_TEST_VM_SIZE]Standard_DC8es_v6'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.acl-base-image-vars.yaml
+            parameters:
+              aclBaseImageSource: acg
+              variant: amd64
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              artifactName: acl-cvm-gen2
       - job: buildaclarm64tlgen2
         condition: eq('${{ parameters.buildaclarm64tlgen2 }}', true)
         dependsOn: [ ]

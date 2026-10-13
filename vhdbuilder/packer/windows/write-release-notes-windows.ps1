@@ -77,6 +77,7 @@ foreach ($update in $updates)
 Log ""
 
 . c:/k/windows-vhd-configuration.ps1
+. c:/k/containerd_helpers.ps1
 
 Log "Windows Update Registry Settings"
 Log "`thttps://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings"
@@ -104,24 +105,21 @@ $wuRegistryNames = @(
 
 foreach ($key in $wuRegistryKeys)
 {
-    # Windows 2019 does not have the Windows Containers key
-    if ($( $systemInfo.CurrentBuildNumber ) -eq 17763 -and $key -eq "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers")
+    $regKey = Get-Item -Path $key -ErrorAction Ignore
+    if (-not $regKey)
     {
         continue
     }
-    $regPath = (Get-Item -Path $key -ErrorAction Ignore)
-    if ($regPath)
-    {
-        Log ("`t{0}" -f $key)
-        Get-Item -Path $key |
-                Select-Object -ExpandProperty property |
-                ForEach-Object {
-                    if ($wuRegistryNames -contains $_)
-                    {
-                        Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
-                    }
+
+    Log ("`t{0}" -f $key)
+    $regKey |
+            Select-Object -ExpandProperty property |
+            ForEach-Object {
+                if ($wuRegistryNames -contains $_)
+                {
+                    Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
                 }
-    }
+            }
 }
 
 LogReleaseNotesForWindowsRegistryKeys $windowsSettingsJson | ForEach-Object { Log $_ }
@@ -129,14 +127,13 @@ LogReleaseNotesForWindowsRegistryKeys $windowsSettingsJson | ForEach-Object { Lo
 Log ""
 
 Log "ContainerD Info"
-# starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1
-Start-Job -Name containerd -ScriptBlock { containerd.exe }
-$containerDVersion = (ctr.exe --version) | Out-String
-Log ("Version: {0}" -f $containerDVersion)
-Log "Images:"
-Log (ctr.exe -n k8s.io image ls)
-Stop-Job  -Name containerd
-Remove-Job -Name containerd
+Invoke-WithContainerd -ScriptBlock {
+    $containerDVersion = Invoke-Ctr -Arguments @("--version") -FailureMessage "Failed to get the containerd version." | Out-String
+    Log ("Version: {0}" -f $containerDVersion)
+    Log "Images:"
+    $images = Invoke-Ctr -Arguments @("-n", "k8s.io", "image", "ls") -FailureMessage "Failed to list containerd images."
+    Log $images
+}
 Log ""
 
 Log "Cached Files:"

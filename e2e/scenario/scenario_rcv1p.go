@@ -29,7 +29,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	azruntime "github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
 // rcv1pOptInTag is the ARM tag that must be set on the VM resource for wireserver to serve

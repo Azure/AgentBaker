@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -63,6 +64,8 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 		ValidateScriptlessCSECmd,
 		ValidateScriptlessNBCCSECmd,
 		ValidateScriptlessPhase3,
+		ValidateScriptlessComparison,
+		ValidateANCHotfix,
 		ValidateNodeExporter,
 		ValidateCommonSysctlConfig,
 		ValidateAKSLogDirectory,
@@ -82,6 +85,30 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 		runValidator(ctx, s, ValidateVulnerableKernelModulesDisabled),
 		runValidator(ctx, s, ValidateNoFailedSystemdUnits),
 	)
+}
+
+func ValidateANCHotfix(ctx context.Context, s *Scenario) error {
+	if enableScriptlessCompilation(s) {
+		logging.Logf(ctx, "SKIP: ANC hotfix validation cannot inspect a downloaded hotfix because this scenario injects a test ANC binary")
+		return nil
+	}
+
+	if (!s.VHD.Distro.IsUbuntuDistro() && !s.VHD.Distro.IsAzureLinuxV3Distro()) || s.VHD.Distro.IsAzureLinuxOSGuardDistro() {
+		logging.Logf(ctx, "SKIP: ANC hotfix validation is only supported on Ubuntu and Azure Linux V3, got %s", s.VHD.Distro)
+		return nil
+	}
+
+	script, err := os.ReadFile(repoPath("e2e/scenario/validate_anc_hotfix.sh"))
+	if err != nil {
+		return fmt.Errorf("read ANC hotfix validation script: %w", err)
+	}
+	command := "sudo /bin/bash <<'ANC_HOTFIX_VALIDATION'\n" + string(script) + "\nANC_HOTFIX_VALIDATION\n"
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "ANC hotfix validation failed")
+	if err != nil {
+		return err
+	}
+	logging.Logf(ctx, "ANC hotfix validation: %s", strings.TrimSpace(result.stdout))
+	return nil
 }
 
 func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
@@ -145,6 +172,7 @@ func ValidateCommonLocalDNS(ctx context.Context, s *Scenario) error {
 	errs := []error{
 		ValidateLocalDNSService(ctx, s, "enabled"),
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10"),
+		ValidateLocalDNSConntrackRules(ctx, s),
 		ValidateLocalDNSExporterMetrics(ctx, s),
 	}
 	if !s.IsHostsPluginEnabled() {
@@ -311,6 +339,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 		},
 		"raw": {
 			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
+			`^-A OUTPUT -s 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --sport 53 -j NOTRACK$`,
 		},
 		"security": {
 			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,

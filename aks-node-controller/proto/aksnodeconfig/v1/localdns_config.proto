@@ -68,6 +68,12 @@ message LocalDnsOverrides {
 
   // Configures CoreDNS forward plugin health checking behavior for upstream servers.
   LocalDnsHealthCheck health_check = 10;
+
+  // Policy applied on top of serve_stale when choosing between a stale
+  // positive answer and a cached negative one, on the default server block
+  // only. Valid values - PreferPositive. Empty leaves CoreDNS on its default.
+  // Requires a node image with CoreDNS >= 1.14.7.
+  string serve_stale_policy = 11;
 }
 
 message LocalDnsHealthCheck {

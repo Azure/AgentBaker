@@ -8,10 +8,9 @@
 # need a larger redesign, not just a parameter added here.
 #
 # aclBaseImageSource selects where the ACL base image comes from:
-#   marketplace - Azure Marketplace image (what "main" uses today). Default
+#   marketplace - Azure Marketplace image. Signed.
+#   acg         - the ACL prod pipeline's Azure Compute Gallery image. Default
 #                 when not specified. Signed.
-#   acg         - the ACL prod pipeline's Azure Compute Gallery image
-#                 (see aadagarwal/switch-acl-base-image-to-acg). Signed.
 #   acldevel    - the acldevel dev pipeline's unsigned image (see PR #9458).
 #                 Sets ACL_BASE_IMAGE_SIGNED=false because acldevel images
 #                 are unsigned and cannot pass UEFI Secure Boot signature
@@ -24,7 +23,7 @@
 parameters:
   - name: aclBaseImageSource
     type: string
-    default: marketplace
+    default: acg
     values:
       - marketplace
       - acg

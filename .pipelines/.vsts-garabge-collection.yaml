@@ -3,6 +3,14 @@ parameters:
   displayName: Dry Run
   type: boolean
   default: false
+- name: STANDARD_RETENTION_SECONDS
+  displayName: Standard retention in seconds (default 4 hours)
+  type: number
+  default: 14400
+- name: SKIP_RETENTION_SECONDS
+  displayName: Retention for gc.skip=true groups in seconds (default 7 days)
+  type: number
+  default: 604800
 
 schedules:
 - cron: '0 */4 * * *'
@@ -34,4 +42,6 @@ jobs:
       env:
         SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
         DRY_RUN: ${{ parameters.DRY_RUN }}
+        STANDARD_RETENTION_SECONDS: ${{ parameters.STANDARD_RETENTION_SECONDS }}
+        SKIP_RETENTION_SECONDS: ${{ parameters.SKIP_RETENTION_SECONDS }}
       displayName: Garbage collect resource groups
