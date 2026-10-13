@@ -286,6 +286,14 @@ func renderEnabledFeatures(features map[string]string) string {
 	return b.String()
 }
 
+func getBase64EncodedGzippedEnabledFeatures(features map[string]string) string {
+	content := renderEnabledFeatures(features)
+	if content == "" {
+		return ""
+	}
+	return getBase64EncodedGzippedCustomScriptFromStr(content)
+}
+
 // featureKeyRe matches a valid shell identifier ([a-zA-Z_][a-zA-Z0-9_]*) - the same set the
 // aks-node-controller wrapper parses out of enabled_features.sh.
 var featureKeyRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)

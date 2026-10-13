@@ -135,6 +135,28 @@ Describe 'NVIDIA Fabric Manager startup timeout'
     End
 End
 
+Describe 'networking image pre-pull ordering'
+    It 'runs after containerd is healthy and before kubelet starts'
+        ordering_is_valid() {
+            containerd_line="$(grep -n 'checkServiceHealth containerd' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
+            prepull_line="$(grep -n 'prepull-networking-images' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
+            kubelet_line="$(grep -n 'logs_to_events "AKS.CSE.ensureKubelet"' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
+            [ "${containerd_line}" -lt "${prepull_line}" ] && [ "${prepull_line}" -lt "${kubelet_line}" ]
+        }
+
+        When call ordering_is_valid
+        The status should be success
+    End
+
+    It 'uses the hotfix-selected ANC binary and remains fail-open'
+        When run sed -n '/ENABLE_NETWORKING_IMAGE_CACHE/,/^    fi$/p' parts/linux/cloud-init/artifacts/cse_main.sh
+        The output should include '${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}'
+        The output should include '"${networking_image_cache_anc}" prepull-networking-images'
+        The output should include 'continuing (fail-open)'
+        The status should be success
+    End
+End
+
 Describe 'proxy environment exports'
     setup() {
         unset HTTP_PROXY http_proxy HTTPS_PROXY https_proxy NO_PROXY no_proxy

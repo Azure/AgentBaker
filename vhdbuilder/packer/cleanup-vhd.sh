@@ -120,7 +120,6 @@ if [ -f /boot/acl/uki-addons/firstboot.addon.efi ]; then
 fi
 # Cleanup disk usage diagnostics file (created by generate-disk-usage.sh)
 rm -f /opt/azure/disk-usage.txt
-# remove image-fetcher binary from the image since it's only needed during build and is not expected to be present on the final image
-rm -f /opt/azure/containers/image-fetcher
+# image-fetcher remains on the node for the pre-kubelet networking image cache path.
 # Cleanup IMDS instance metadata cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json

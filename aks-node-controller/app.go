@@ -86,6 +86,13 @@ type App struct {
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
 	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
+	// networkingImageCacheFetcher overrides the LPS networking image config fetch for tests.
+	networkingImageCacheFetcher func(ctx context.Context) ([]byte, error)
+	networkingImagePuller       func(ctx context.Context, reference string) (networkingImagePullOutput, error)
+	networkingImageRetryWait    func(ctx context.Context) error
+	// imageFetcherPath and networkingImageCacheStatusPath override node paths for tests.
+	imageFetcherPath               string
+	networkingImageCacheStatusPath string
 	// fetchAttestedToken overrides retrieval of the IMDS attested-data token used as the
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
@@ -205,6 +212,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 						slog.Warn("ignoring unexpected check-hotfix arguments", "args", strings.Join(extra, " "))
 					}
 					return a.runCheckHotfixCommand(ctx)
+				},
+			},
+			{
+				Name:  "prepull-networking-images",
+				Usage: "Pull and unpack the synth-rendered Cilium/CNS images before kubelet starts (fail-open)",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if extra := cmd.Args().Slice(); len(extra) > 0 {
+						slog.Warn("ignoring unexpected prepull-networking-images arguments", "args", strings.Join(extra, " "))
+					}
+					return a.runPrepullNetworkingImagesCommand(ctx)
 				},
 			},
 		},
