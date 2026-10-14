@@ -147,6 +147,42 @@ func TestLocalDNSLookupPodCleanup(t *testing.T) {
 	}
 }
 
+func TestDNSAnswerHasAddress(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		answer string
+		want   bool
+	}{
+		// What a healthy "dig +short" looks like.
+		{"single address", "10.0.0.10\n", true},
+		{"no trailing newline", "10.0.0.10", true},
+		{"cname then address", "mcr-dsvc.trafficmanager.net.\n204.79.197.219\n", true},
+		// ParseIP rejects a trailing \r, so CRLF stdout must still be recognised.
+		{"crlf line endings", "10.0.0.10\r\n", true},
+
+		// The failure modes the old regex-in-bash check was standing in for. Each of
+		// these made dig print something while answering nothing, and the shell
+		// pipeline reported all of them identically as "exit 1".
+		{"empty (NXDOMAIN or timeout)", "", false},
+		{"whitespace only", "\n  \n", false},
+		{"cname with no address", "mcr-dsvc.trafficmanager.net.\n", false},
+		{"dig error text", ";; communications error to 169.254.10.11#53: timed out\n", false},
+		{"no servers could be reached", ";; no servers could be reached\n", false},
+
+		// IPv4 only, matching the check this replaced.
+		{"ipv6 only", "2606:2800:220:1:248:1893:25c8:1946\n", false},
+		{"ipv6 then ipv4", "2606:2800:220::1\n204.79.197.219\n", true},
+
+		// Not addresses, but shaped a little like them.
+		{"version string", "9.18.39\n", false},
+		{"truncated octets", "10.0.0\n", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, dnsAnswerHasAddress(tc.answer))
+		})
+	}
+}
+
 func TestLocalDNSNATRules(t *testing.T) {
 	// Both forms must pass. A lane resolving a main-built image runs a
 	// localdns-fallback.sh that predates the AgentBaker-managed comment; the VHD

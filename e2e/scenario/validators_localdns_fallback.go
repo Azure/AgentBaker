@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"strings"
 	"time"
@@ -213,16 +214,51 @@ func validateLocalDNSLookupPods(ctx context.Context, s *Scenario) error {
 		}
 	}
 	// Pod traffic exercises PREROUTING; retain the host's OUTPUT-path check too.
-	for _, query := range []string{
-		"mcr.microsoft.com @169.254.10.10",
-		"kubernetes.default.svc.cluster.local @169.254.10.11",
+	for _, probe := range []struct{ server, name string }{
+		{"169.254.10.10", "mcr.microsoft.com"},
+		{localDNSClusterListenerIP, "kubernetes.default.svc.cluster.local"},
 	} {
-		if _, err := runLocalDNSNodeCommand(ctx, s,
-			`dig +short +timeout=3 +tries=1 `+query+` | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'`); err != nil {
+		if err := digFromNode(ctx, s, probe.server, probe.name); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// digFromNode resolves one name from the node itself, retrying for as long as the
+// pod probes get. The retry is here rather than in the command because the node
+// only has to run a bare dig: a shell loop would need its own errexit guard (dig
+// exits non-zero on timeout, which would abort the loop) and its own way to carry
+// the last answer back out past the exit code.
+func digFromNode(ctx context.Context, s *Scenario, server, name string) error {
+	var last string
+	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, 30*time.Second, true,
+		func(ctx context.Context) (bool, error) {
+			// Not the exit-code-validating helper: a timed-out attempt is a retry,
+			// not a failure.
+			result, err := execScriptOnVMForScenario(ctx, s,
+				fmt.Sprintf("dig +short +timeout=3 +tries=1 %s @%s", name, server))
+			if err != nil {
+				return false, err // SSH itself broke, not a DNS answer
+			}
+			last = result.stdout
+			return dnsAnswerHasAddress(result.stdout), nil
+		})
+	if err != nil {
+		return fmt.Errorf("node could not resolve %s via %s (last answer %q): %w", name, server, last, err)
+	}
+	return nil
+}
+
+// dnsAnswerHasAddress reports whether "dig +short" returned an address rather than
+// nothing, a CNAME on its own, or an error line.
+func dnsAnswerHasAddress(answer string) bool {
+	for _, line := range strings.Split(answer, "\n") {
+		if ip := net.ParseIP(strings.TrimSpace(line)); ip != nil && ip.To4() != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func localDNSLookupPod(s *Scenario, suffix, server, name string) *corev1.Pod {
