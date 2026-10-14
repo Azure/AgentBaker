@@ -303,7 +303,7 @@ func decodeBoothook(t *testing.T, cfg *aksnodeconfigv1.Configuration) string {
 
 func TestEnabledFeaturesBlockEmptyWhenDisabled(t *testing.T) {
 	// The empty return is the load-bearing byte-identity guarantee: with no features set the
-	// boothook template's %[3]s placeholder expands to "", so custom data is byte-identical to
+	// boothook template's %[4]s placeholder expands to "", so custom data is byte-identical to
 	// the output produced before this feature existed. This protects the 6-month VHD window.
 	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{}), "expected no features block when EnabledFeatures is unset")
 	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}}))

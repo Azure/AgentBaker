@@ -31,15 +31,14 @@ set -euo pipefail
 logger -t aks-boothook "boothook start $(date -Ins)"
 
 mkdir -p /opt/azure/containers /var/lib/waagent /var/log/azure
-`
-	boothookProvisionTemplate = `
+%[1]s
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
-cat <<'EOF' | base64 -d >%[1]s
-%[2]s
-EOF
-chmod 0600 %[1]s
+cat <<'EOF' | base64 -d >%[2]s
 %[3]s
+EOF
+chmod 0600 %[2]s
+%[4]s
 logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
 if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
 	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
@@ -52,6 +51,19 @@ fi
 runcmd:
 - echo "AKS Node Controller cloud-init completed at $(date)"
 `
+
+	readyReportHandoffTemplate = `# azure-experimental-node-ready
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+
+# The VHD-baked cloud-init setting stands down cloud-init. WALinuxAgent reports Ready
+# independently once ovf-env.xml and the SSH host key exist. A sentinel matching this
+# instance's id makes it skip that report, leaving report_ready.py as the only reporter.
+if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi`
 
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
@@ -76,14 +88,13 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := boothookTemplate +
-		readyReportHandoffBlock(cfg) +
-		fmt.Sprintf(
-			boothookProvisionTemplate,
-			AKSNodeConfigFilePath,
-			encodedAksNodeConfigJSON,
-			enabledFeaturesBlock(cfg),
-		)
+	boothook := fmt.Sprintf(
+		boothookTemplate,
+		readyReportHandoffBlock(cfg),
+		AKSNodeConfigFilePath,
+		encodedAksNodeConfigJSON,
+		enabledFeaturesBlock(cfg),
+	)
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)
@@ -108,18 +119,7 @@ func readyReportHandoffBlock(cfg *aksnodeconfigv1.Configuration) string {
 	if cfg.GetEnabledFeatures()[customDataOnlyProvisioningFeature] != "true" {
 		return ""
 	}
-	return `# azure-experimental-node-ready
-
-touch /var/lib/waagent/experimental_skip_ready_report
-chmod 0644 /var/lib/waagent/experimental_skip_ready_report
-
-# The VHD-baked cloud-init setting stands down cloud-init. WALinuxAgent reports Ready
-# independently once ovf-env.xml and the SSH host key exist. A sentinel matching this
-# instance's id makes it skip that report, leaving report_ready.py as the only reporter.
-if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
-    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
-    chmod 0644 /var/lib/waagent/provisioned
-fi`
+	return readyReportHandoffTemplate
 }
 
 // CustomDataFlatcar builds base64-encoded custom data for Flatcar Container Linux nodes.
