@@ -1,6 +1,11 @@
 [Unit]
 Description=Emit system cgroup pressure telemetry
+OnSuccess=service-execution-telemetry@cgroup\x2dpressure\x2dtelemetry.service.service
+OnFailure=service-execution-telemetry@cgroup\x2dpressure\x2dtelemetry.service.service
 
 [Service]
 Type=oneshot
+CPUAccounting=true
+MemoryAccounting=true
 ExecStart=/bin/bash /opt/scripts/cgroup-pressure-telemetry.sh
+ExecStopPost=-/opt/scripts/service-execution-telemetry.sh --snapshot-memory-peak %n

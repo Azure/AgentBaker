@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
-	"net"
 	neturl "net/url"
 	"slices"
 	"sort"
@@ -1622,29 +1621,6 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	return strings.TrimSuffix(buf.String(), ", ")
 }
 
-// GetKubeletHealthzEndpoint returns the local URL matching the effective Windows kubelet configuration.
-func (config *NodeBootstrappingConfiguration) GetKubeletHealthzEndpoint(customKc *CustomKubeletConfig) string {
-	kubeletConfig := config.getWindowsKubeletConfig(customKc)
-
-	address := kubeletConfig["--healthz-bind-address"]
-	port := kubeletConfig["--healthz-port"]
-	if port == "" {
-		port = "10248"
-	}
-	if port == "0" {
-		return ""
-	}
-
-	switch address {
-	case "", "0.0.0.0":
-		address = "127.0.0.1"
-	case "::":
-		address = "::1"
-	}
-
-	return fmt.Sprintf("http://%s/healthz", net.JoinHostPort(address, port))
-}
-
 /*
 GetOrderedKubeproxyConfigStringForPowershell returns an ordered string of key/val pairs
 for Powershell script consumption.
@@ -1838,11 +1814,18 @@ type NodeBootstrappingConfiguration struct {
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
 
-	// ScriptlessCSEProvisionMode specifies the provisioning mode for scriptless phase 2,
+	// EnableScriptlessAKSNodeConfig enables Phase 3 provisioning using only AKSNodeConfigJSON.
+	// It takes precedence over EnableScriptlessNBCCSECmd and EnableScriptlessCSECmd:
+	// no NBC command is rendered or delivered, and ANC does not enter comparison mode.
+	// Requires a non-empty serialized JSON object. Windows and PreProvisionOnly are unsupported.
+	EnableScriptlessAKSNodeConfig bool
+
+	// ScriptlessCSEProvisionMode specifies the delivery mode for scriptless phases 2 and 3,
 	// which uses CSE to provide provision nbc or aks nc configs
 	ScriptlessCSEProvisionMode bool
 
-	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
+	// AKSNodeConfigJSON is the serialized provisioning config required by EnableScriptlessAKSNodeConfig.
+	// Otherwise, it is optional and accompanies the NBC command for Phase 2.5 comparison.
 	AKSNodeConfigJSON string
 
 	// StandardSecondaryNICCount is the number of Standard-type secondary network

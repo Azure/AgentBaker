@@ -446,6 +446,8 @@ function Get-ContainerImages
     $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
     $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
 
+    # Every servercore/nanoserver entry maps to the same tarballs, so import each one once.
+    $importedBaseImageUrls = @{}
     foreach ($image in $imagesToPull)
     {
         $imagePrefix = $image.Split(":")[0]
@@ -470,6 +472,13 @@ function Get-ContainerImages
 
             foreach ($url in $containerBaseImageurls)
             {
+                if ($importedBaseImageUrls.ContainsKey($url))
+                {
+                    Write-Log "Skipping $url for $image, already imported"
+                    continue
+                }
+                $importedBaseImageUrls[$url] = $true
+
                 $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
                 $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
                 Write-Log "Downloading image $image to $tmpDest"

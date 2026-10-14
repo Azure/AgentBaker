@@ -1184,6 +1184,12 @@ echo "VHD will be built with containerd as the container runtime"
 # Cache packages and binaries declared within components.json
 cachePackageAndBinaryComponents
 
+# Delegate ACL AMD64 image fetching to the host containerd Transfer service.
+export IMAGE_FETCHER_USE_TRANSFER="false"
+if isACL "$OS" "$OS_VARIANT" && [ "$CPU_ARCH" = "amd64" ]; then
+  export IMAGE_FETCHER_USE_TRANSFER="true"
+fi
+
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io 2>/dev/null || true
 
@@ -1288,6 +1294,10 @@ fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+  systemctlEnableAndStart cgroup-cpu-telemetry.timer 30 || exit 1
+  systemctl enable cgroup-cpu-telemetry.service || exit 1
+  systemctl restart cgroup-cpu-telemetry.service
+
   systemctlEnableAndStart cgroup-pressure-telemetry.timer 30 || exit 1
   systemctl enable cgroup-pressure-telemetry.service || exit 1
   systemctl restart cgroup-pressure-telemetry.service
