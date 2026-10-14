@@ -73,6 +73,22 @@ coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
 VHD-caching behavior remain in effect.
 
+### LocalDNS fallback checks
+
+The existing LocalDNS scenarios use short-lived DNS pods on the scenario node
+before failure, after the fallback becomes active, and after LocalDNS recovers.
+Each pod has `restartPolicy: Never`. The validator waits for `Succeeded`, not
+`Running` or `Ready`; failures include pod diagnostics.
+
+Commands query `169.254.10.10` for an external name and `169.254.10.11` for both
+cluster and external names. Explicit server addresses prevent a new pod from
+bypassing the failed listener through its inherited VNet resolver. These probes
+do not check that an existing pod retains its original `resolv.conf`.
+
+Go controls polling and cleanup. Short SSH commands inspect systemd, resolver,
+and NAT state; ShellSpec covers static rule construction. The fallback validator
+requires the baked artifacts, including when the image selector points at main.
+
 ## VM size configuration
 
 The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or

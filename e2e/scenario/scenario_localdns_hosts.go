@@ -2,9 +2,11 @@ package scenario
 
 import (
 	"context"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
@@ -31,33 +33,50 @@ func init() {
 			cluster = ClusterLatestKubernetesVersionKubenet
 		}
 		Register(&Scenario{
-			Name:        "LocalDNSHostsPlugin/" + tt.name,
-			Description: "Tests that localdns hosts plugin works correctly on " + tt.name,
+			Name:        "LocalDNS/" + tt.name,
+			Description: "Tests localdns end to end on " + tt.name + ": hosts plugin, service lifecycle, restart budget, and the pod-DNS fallback",
 			Config: Config{
 				Cluster: cluster,
 				VHD:     tt.vhd,
 				BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 					nbc.AgentPoolProfile.LocalDNSProfile.EnableHostsPlugin = true
 					nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+					// Enabling LocalDNS is only half of what the RP does for a LocalDNS
+					// pool; it also points kubelet at the cluster listener, which is what
+					// bakes 169.254.10.11 into every pod's resolv.conf. Without this the
+					// node runs LocalDNS but no pod on it ever uses .11, so every
+					// pod-level assertion skips and the premise of the fallback goes
+					// untested.
+					nbc.KubeletConfig["--cluster-dns"] = localDNSClusterListenerIP
 				},
 				AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 					config.LocalDnsProfile.EnableHostsPlugin = true
 					config.LocalDnsProfile.EnableLocalDns = true
+					config.KubeletConfig.KubeletFlags["--cluster-dns"] = localDNSClusterListenerIP
+					// The flag alone is not parity with the CSE path. '--cluster-dns' is in
+					// pkg/agent.TranslatedKubeletConfigFlags, so on the CSE path setting the
+					// flag also rewrites KubeletConfiguration.clusterDNS in the kubelet config
+					// file. On the ANC path the flag and the config-file field are independent
+					// proto fields, so the flag alone leaves clusterDNS at the cluster default
+					// and the two paths emit different KUBELET_CONFIG_FILE_CONTENT -- which the
+					// provision-config/nbc-cmd env parity validator fails on.
+					config.KubeletConfig.KubeletConfigFileConfig.ClusterDns = []string{localDNSClusterListenerIP}
 				},
 				VMConfigMutator: tt.vmConfigMutator,
 				Validator: func(ctx context.Context, s *Scenario) error {
-					// Validate the full LocalDNS service lifecycle (including the
-					// unexpected-exit DNS teardown this PR fixes) on the target
-					// distros. The hosts-plugin functionality itself is covered by
-					// the scenario's default provisioning validation.
+					// The hosts-plugin functionality itself is covered by the scenario's
+					// default provisioning validation (ValidateCommonLocalDNS). What runs
+					// here is the failure behaviour, on the distros that carry it.
 					if tt.name != "Ubuntu2204" && tt.name != "Ubuntu2404" && tt.name != "AzureLinuxV3" {
 						return nil
 					}
 					if err := validateLocalDNSLifecycle(ctx, s); err != nil {
 						return err
 					}
-					// Then assert the restart budget actually bounds failures.
-					return validateLocalDNSRestartBudget(ctx, s)
+					// One fault, asserted twice: that the restart budget bounds it in
+					// terminal 'failed', and that the fallback keeps pod and node DNS
+					// working while it sits there.
+					return validateLocalDNSFailureAndFallback(ctx, s)
 				},
 			},
 		})
@@ -80,13 +99,6 @@ func init() {
 //
 // Comments cost the same as code on that wire and buy nothing at runtime, so the reasoning
 // lives here instead. Keep the shell terse; put the "why" in this comment.
-//
-// # Lane gating (EXPECT_EXECSTOPPOST)
-//
-// Set from the lane's own image selection rather than probed from the node. Asking
-// 'systemctl show -p ExecStopPost' whether to test ExecStopPost means the assertion only
-// runs where it is already guaranteed to pass, and deleting the hook would silently turn
-// the block off everywhere instead of failing it. See laneResolvedMainBuiltImage.
 //
 // # The EXIT trap
 //
@@ -125,7 +137,7 @@ func init() {
 // Restart=on-failure and not by something else.
 //
 // The StartLimit journal check is scoped with --since to these cycles: deliberately
-// exhausting the budget is the expected outcome of validateLocalDNSRestartBudget, which
+// exhausting the budget is the expected outcome of driveLocalDNSToTerminalFailed, which
 // runs after this returns. The cgroup teardown warning is surfaced but not failed on --
 // fixing it is out of scope for this PR.
 //
@@ -150,24 +162,40 @@ func init() {
 // asynchronously, and it rejects empty or unreadable snapshots rather than treating them as
 // "restored" -- a failed read would otherwise mask the regression. Removing the address is
 // not sufficient on its own, so a working resolver is verified with getent afterwards.
-func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
-	expectExecStopPost := "true"
-	if laneResolvedMainBuiltImage() {
-		expectExecStopPost = "false"
-	}
-	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		localdnsLifecycleScript(expectExecStopPost), 0, "LocalDNS lifecycle validation failed")
+func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) (err error) {
+	// A failed systemctl start reports one line -- "Job for localdns.service failed
+	// because a timeout was exceeded" -- and the script's own stdout is empty,
+	// because set -eu aborts it mid-call before it can print anything. A start-limit
+	// refusal, a bind conflict and a genuinely slow start all look identical that
+	// way, which is why build 185670984 could not be diagnosed. Result and the
+	// journal both outlive the failure, so collecting them here is enough; only live
+	// port ownership would have to be captured in-script.
+	defer func() {
+		if err == nil {
+			return
+		}
+		diagCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		state, stateErr := runLocalDNSNodeCommand(diagCtx, s,
+			"systemctl show localdns.service -p Result -p ActiveState -p SubState -p NRestarts -p ExecMainStatus -p TimeoutStartUSec")
+		journal, journalErr := runLocalDNSNodeCommand(diagCtx, s,
+			"sudo journalctl -u localdns.service --no-pager -n 50")
+		logging.Logf(ctx, "LocalDNS lifecycle failure diagnostics:\n%s\n%s\n(state err=%v, journal err=%v)",
+			state, journal, stateErr, journalErr)
+	}()
+
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		localdnsLifecycleScript(), 0, "LocalDNS lifecycle validation failed")
 	return err
 }
 
 // localdnsLifecycleScript renders the script validateLocalDNSLifecycle runs on the node.
 // Split out from the caller so the assembled result can be measured by a size guard -- see
 // this file's doc comment for why the size matters.
-func localdnsLifecycleScript(expectExecStopPost string) string {
+func localdnsLifecycleScript() string {
 	return `
 set -eu
 
-EXPECT_EXECSTOPPOST=` + expectExecStopPost + `
 
 NORESTART=/run/systemd/system/localdns.service.d/99-e2e-no-restart.conf
 
@@ -262,7 +290,6 @@ if sudo journalctl -u localdns.service --since "@$test_start" --no-pager | grep 
 fi
 dig +short +time=5 +tries=1 mcr.microsoft.com @169.254.10.10 | grep -q .
 
-if [ "$EXPECT_EXECSTOPPOST" = true ]; then
 # Assert the hook; do not use its presence as permission to look.
 if ! sudo systemctl show localdns.service -p ExecStopPost --value | grep -q 'localdns.sh cleanup'; then
     echo "FAIL: ExecStopPost=localdns.sh cleanup is missing from localdns.service"
@@ -335,9 +362,6 @@ fi
 if ! getent hosts mcr.microsoft.com >/dev/null 2>&1; then
     echo "FAIL: node cannot resolve DNS after localdns died"
     exit 1
-fi
-else
-    echo "SKIP: this lane resolved a main-built image, which predates the ExecStopPost cleanup hook"
 fi
 `
 }
