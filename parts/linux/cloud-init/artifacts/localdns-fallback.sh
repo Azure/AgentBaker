@@ -60,35 +60,13 @@ CILIUM_SOCK="${CILIUM_SOCK:-/var/run/cilium/cilium.sock}"
 # bigger problem than DNS fallback.
 RESOLV_WAIT_SECONDS="${RESOLV_WAIT_SECONDS:-10}"
 
-# Every rule this script installs carries this comment, and the exact literal
-# matters. azure-iptables-monitor runs on Cilium nodes, scans all tables against
-# an allowlist, and labels the CiliumNode kubernetes.azure.com/user-iptables-rules
-# when it finds a rule it does not recognise -- which makes the RP reject enabling
-# ACNS Performance on that cluster (aks-rp advancednetworkingprofile.go,
-# validateNoUserIPTablesRules).
-#
-# The allowlist already carries a global pattern for AgentBaker-managed rules:
-#
-#     ^.*--comment.*AKS managed: added by AgentBaker
-#
-# so tagging these the way ensure_imds_restriction.sh tags its own means no
-# aks-rp change is needed. The pattern has no trailing anchor, so the suffix
-# below is free; but the literal before it must match exactly -- a different
-# capitalisation or a hyphen silently stops matching, and the rules would be
-# reported as user iptables rules for the duration of an outage.
-RULE_COMMENT="AKS managed: added by AgentBaker localdns-fallback"
-
 log() { echo "localdns-fallback: $*" >&2; }
 die() { log "$*"; exit 1; }
 
 clear_rules() {
     local hook
     for hook in PREROUTING OUTPUT; do
-        # The delete must carry the same comment as the insert: iptables -D matches
-        # on the full rule spec, so dropping it here would leave the hook jumps in
-        # place and keep redirecting traffic past a recovered localdns.
-        while iptables -w -t nat -D "${hook}" -m comment --comment "${RULE_COMMENT}" \
-            -j "${CHAIN}" 2>/dev/null; do :; done
+        while iptables -w -t nat -D "${hook}" -j "${CHAIN}" 2>/dev/null; do :; done
     done
     iptables -w -t nat -F "${CHAIN}" 2>/dev/null || true
     iptables -w -t nat -X "${CHAIN}" 2>/dev/null || true
@@ -155,11 +133,9 @@ add_spread() {
             iptables -w -t nat -A "${CHAIN}" -d "${CLUSTER_IP}/32" -p "${proto}" --dport 53 \
                 -m statistic --mode random \
                 --probability "$(awk -v n="${n}" -v i="${i}" 'BEGIN { printf "%.5f", 1 / (n - i) }')" \
-                -m comment --comment "${RULE_COMMENT}" \
                 -j DNAT --to-destination "${ip}:53"
         else
             iptables -w -t nat -A "${CHAIN}" -d "${CLUSTER_IP}/32" -p "${proto}" --dport 53 \
-                -m comment --comment "${RULE_COMMENT}" \
                 -j DNAT --to-destination "${ip}:53"
         fi
         i=$((i + 1))
@@ -198,14 +174,11 @@ apply_rules() {
     iptables -w -t nat -N "${CHAIN}"
     for proto in udp tcp; do
         iptables -w -t nat -A "${CHAIN}" -d "${NODE_IP}/32" -p "${proto}" --dport 53 \
-            -m comment --comment "${RULE_COMMENT}" \
             -j DNAT --to-destination "${vnet_dns}:53"
     done
     if [ "${mode}" = "kube-proxy" ]; then
-        iptables -w -t nat -A "${CHAIN}" -d "${CLUSTER_IP}/32" -p udp --dport 53 \
-            -m comment --comment "${RULE_COMMENT}" -j "${udp_chain}"
-        iptables -w -t nat -A "${CHAIN}" -d "${CLUSTER_IP}/32" -p tcp --dport 53 \
-            -m comment --comment "${RULE_COMMENT}" -j "${tcp_chain}"
+        iptables -w -t nat -A "${CHAIN}" -d "${CLUSTER_IP}/32" -p udp --dport 53 -j "${udp_chain}"
+        iptables -w -t nat -A "${CHAIN}" -d "${CLUSTER_IP}/32" -p tcp --dport 53 -j "${tcp_chain}"
         log "applied (kube-proxy): ${NODE_IP} -> ${vnet_dns}, ${CLUSTER_IP} -> ${udp_chain}/${tcp_chain}"
     else
         # shellcheck disable=SC2086
@@ -218,8 +191,8 @@ apply_rules() {
 
     # Ahead of KUBE-SERVICES, so the redirect is decided before anything else in
     # nat gets a chance at the packet.
-    iptables -w -t nat -I PREROUTING 1 -m comment --comment "${RULE_COMMENT}" -j "${CHAIN}"
-    iptables -w -t nat -I OUTPUT 1 -m comment --comment "${RULE_COMMENT}" -j "${CHAIN}"
+    iptables -w -t nat -I PREROUTING 1 -j "${CHAIN}"
+    iptables -w -t nat -I OUTPUT 1 -j "${CHAIN}"
 }
 
 # When sourced (e.g. by ShellSpec), stop here so functions can be tested without

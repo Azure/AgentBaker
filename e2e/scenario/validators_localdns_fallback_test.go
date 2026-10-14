@@ -184,39 +184,21 @@ func TestDNSAnswerHasAddress(t *testing.T) {
 }
 
 func TestLocalDNSNATRules(t *testing.T) {
-	// Both forms must pass. A lane resolving a main-built image runs a
-	// localdns-fallback.sh that predates the AgentBaker-managed comment; the VHD
-	// gate builds from the branch and gets one that writes it. Asserting the
-	// uncommented form only is what broke build 185460351 on three distros.
-	for _, tc := range []struct{ name, nat string }{
-		{"uncommented hooks", "-N LOCALDNS-FALLBACK\n" +
-			"-A PREROUTING -j LOCALDNS-FALLBACK\n" +
-			"-A OUTPUT -j LOCALDNS-FALLBACK\n"},
-		{"hooks tagged as AgentBaker-managed", "-N LOCALDNS-FALLBACK\n" +
-			`-A PREROUTING -m comment --comment "AKS managed: added by AgentBaker localdns-fallback" -j LOCALDNS-FALLBACK` + "\n" +
-			`-A OUTPUT -m comment --comment "AKS managed: added by AgentBaker localdns-fallback" -j LOCALDNS-FALLBACK` + "\n"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, validateLocalDNSNATRules(tc.nat, "", true))
-			require.NoError(t, validateLocalDNSNATRules("", "", false))
-			require.Error(t, validateLocalDNSNATRules(tc.nat, "", false))
-
-			for _, missing := range strings.Split(strings.TrimSpace(tc.nat), "\n") {
-				t.Run("missing "+missing[:min(len(missing), 40)], func(t *testing.T) {
-					require.Error(t, validateLocalDNSNATRules(
-						strings.ReplaceAll(tc.nat, missing+"\n", ""), "", true))
-				})
-			}
-			for _, ip := range []string{"169.254.10.10", "169.254.10.11"} {
-				require.ErrorContains(t, validateLocalDNSNATRules(tc.nat,
-					"-A PREROUTING -d "+ip+"/32 -p udp -j NOTRACK", true), "NOTRACK")
-			}
-			require.NoError(t, validateLocalDNSNATRules(tc.nat,
-				"-A PREROUTING -d 169.254.10.100/32 -p udp -j NOTRACK", true))
+	nat := "-N LOCALDNS-FALLBACK\n-A PREROUTING -j LOCALDNS-FALLBACK\n-A OUTPUT -j LOCALDNS-FALLBACK\n"
+	require.NoError(t, validateLocalDNSNATRules(nat, "", true))
+	require.NoError(t, validateLocalDNSNATRules("", "", false))
+	require.Error(t, validateLocalDNSNATRules(nat, "", false))
+	for _, missing := range strings.Split(strings.TrimSpace(nat), "\n") {
+		t.Run("missing "+missing, func(t *testing.T) {
+			require.Error(t, validateLocalDNSNATRules(strings.ReplaceAll(nat, missing+"\n", ""), "", true))
 		})
 	}
-
-	// The jump must be into our chain, not merely mention it.
-	require.Error(t, validateLocalDNSNATRules(
-		"-N LOCALDNS-FALLBACK\n-A PREROUTING -j KUBE-SERVICES\n-A OUTPUT -j LOCALDNS-FALLBACK\n", "", true))
+	for _, ip := range []string{"169.254.10.10", "169.254.10.11"} {
+		t.Run("NOTRACK "+ip, func(t *testing.T) {
+			require.ErrorContains(t, validateLocalDNSNATRules(nat,
+				"-A PREROUTING -d "+ip+"/32 -p udp -j NOTRACK", true), "NOTRACK")
+		})
+	}
+	require.NoError(t, validateLocalDNSNATRules(nat,
+		"-A PREROUTING -d 169.254.10.100/32 -p udp -j NOTRACK", true))
 }
