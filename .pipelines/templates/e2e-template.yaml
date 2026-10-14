@@ -43,7 +43,6 @@ parameters:
     type: string
     default: acg
     values:
-      - marketplace
       - acg
       - acldevel
 

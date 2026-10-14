@@ -8,7 +8,6 @@
 # need a larger redesign, not just a parameter added here.
 #
 # aclBaseImageSource selects where the ACL base image comes from:
-#   marketplace - Azure Marketplace image. Signed.
 #   acg         - the ACL prod pipeline's Azure Compute Gallery image. Default
 #                 when not specified. Signed.
 #   acldevel    - the acldevel dev pipeline's unsigned image (see PR #9458).
@@ -25,7 +24,6 @@ parameters:
     type: string
     default: acg
     values:
-      - marketplace
       - acg
       - acldevel
 

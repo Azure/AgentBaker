@@ -5,7 +5,6 @@
 # need the signed flag (e.g. the e2e stage) can invoke directly instead.
 #
 # aclBaseImageSource selects where the ACL base image comes from:
-#   marketplace - Azure Marketplace image.
 #   acg         - the ACL prod pipeline's Azure Compute Gallery image. Default
 #                 when not specified.
 #   acldevel    - the acldevel dev pipeline's unsigned image (see PR #9458).
@@ -26,7 +25,6 @@ parameters:
     type: string
     default: acg
     values:
-      - marketplace
       - acg
       - acldevel
   - name: variant
@@ -53,22 +51,6 @@ steps:
       echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]${{ parameters.imgCustomizerContainer }}'
       echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]${{ parameters.imgCustomizerContainerFallback }}'
     displayName: Set ACL image-customizer vars
-
-  - ${{ if eq(parameters.aclBaseImageSource, 'marketplace') }}:
-      - ${{ if eq(parameters.variant, 'amd64') }}:
-          - bash: |
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
-              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
-            displayName: Set ACL base image vars (marketplace, amd64)
-      - ${{ if eq(parameters.variant, 'arm64') }}:
-          - bash: |
-              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
-              echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
-            displayName: Set ACL base image vars (marketplace, arm64)
 
   - ${{ if eq(parameters.aclBaseImageSource, 'acg') }}:
       - ${{ if eq(parameters.variant, 'amd64') }}:
@@ -108,16 +90,3 @@ steps:
       - ${{ if ne(parameters.sigSourceImageVersionOverride, '') }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.sigSourceImageVersionOverride }}'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, override)
-
-  - bash: |
-      set -euo pipefail
-      if [ '${{ parameters.aclBaseImageSource }}' = marketplace ]; then
-        image_id=""
-      else
-        image_id="/SharedGalleries/${SIG_SOURCE_GALLERY_UNIQUE_NAME:?}/Images/${SIG_SOURCE_IMAGE_NAME:?}/Versions/${SIG_SOURCE_IMAGE_VERSION:?}"
-        for variable in IMG_PUBLISHER IMG_OFFER IMG_SKU IMG_VERSION; do
-          echo "##vso[task.setvariable variable=${variable}]"
-        done
-      fi
-      echo "##vso[task.setvariable variable=SIG_SOURCE_IMAGE_ID]${image_id}"
-    displayName: Select ACL Packer source
