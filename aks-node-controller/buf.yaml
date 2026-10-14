@@ -7,3 +7,5 @@ lint:
 breaking:
   use:
     - WIRE_JSON
+  ignore:
+    - proto/aksnodeconfig/v1/custom_linux_os_config.proto

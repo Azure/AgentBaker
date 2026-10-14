@@ -174,10 +174,12 @@ net.ipv4.tcp_retries2=8
 					NetIpv4TcpMaxSynBacklog: to.Ptr(int32(9999)),
 					NetCoreRmemDefault:      to.Ptr(int32(9999)),
 					NetIpv4IpLocalPortRange: to.Ptr("32768 62535"),
+					FsFileMax:               to.Ptr(int64(9223372036854775807)),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString(
-				[]byte(`net.core.message_burst=80
+				[]byte(`fs.file-max=9223372036854775807
+net.core.message_burst=80
 net.core.message_cost=40
 net.core.rmem_default=9999
 net.core.somaxconn=16384

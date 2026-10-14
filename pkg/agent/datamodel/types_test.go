@@ -41,6 +41,14 @@ func TestHasAadProfile(t *testing.T) {
 	}
 }
 
+func TestSysctlConfigUnmarshalsInt64FsFileMax(t *testing.T) {
+	var config SysctlConfig
+	err := json.Unmarshal([]byte(`{"fsFileMax":9223372036854775807}`), &config)
+
+	assert.NoError(t, err)
+	assert.Equal(t, int64(9223372036854775807), *config.FsFileMax)
+}
+
 func TestGetCustomEnvironmentJSON(t *testing.T) {
 	properties := getMockProperitesWithCustomClouEnv()
 	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}` //nolint: lll
