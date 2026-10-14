@@ -822,6 +822,33 @@ Describe 'cse_config_gpu.sh'
             The contents of file "$CD_CONF" should include 'NVIDIA_VISIBLE_DEVICES=void'
         End
 
+        It 'lowercases --node-name for both DRA plugins when the VMSS hostname is uppercase'
+            # Azure sets the VMSS computer name (hostname) uppercased for base-36 instance
+            # suffixes with a letter (instance index >= 10, e.g. instance 19 -> ...vmss00000J),
+            # but kubelet registers the Node lowercased (RFC-1123) and authenticates as
+            # system:node:<lowercase>. The ResourceSlice NodeRestriction authorizer only lets a
+            # node publish slices whose spec.nodeName matches its own (lowercase) name, so both
+            # kubelet-plugins must receive the lowercased --node-name. Guards the regression:
+            # with an uppercase NODE_NAME this fails unless the normalization is present.
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="aks-gb300-28447045-vmss00000J"
+            CD_CONF=$(mktemp)
+            tee() { cat >> "$CD_CONF"; echo "tee $1"; }
+
+            When call startNvidiaManagedExpServices
+
+            # the gpu-kubelet-plugin (dra-driver) service still comes up for all DRA nodes
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # both plugin overrides are generated
+            The contents of file "$CD_CONF" should include "/usr/bin/gpu-kubelet-plugin"
+            The contents of file "$CD_CONF" should include "/usr/bin/compute-domain-kubelet-plugin"
+            # both receive the lowercased node name, and the uppercase form never leaks through
+            The contents of file "$CD_CONF" should include "--node-name=aks-gb300-28447045-vmss00000j"
+            The contents of file "$CD_CONF" should not include "vmss00000J"
+        End
+
         It 'does not block provisioning when the compute-domain plugin cannot be enqueued (arm64)'
             # Command-failure path: the optional compute-domain start fails on every attempt. It must
             # stay off the critical path -- using the non-blocking enqueue (not the blocking

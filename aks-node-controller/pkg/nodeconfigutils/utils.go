@@ -184,6 +184,9 @@ func UnmarshalConfigurationV1(data []byte) (*aksnodeconfigv1.Configuration, erro
 	return cfg, err
 }
 
+// Validate checks required fields, then validates and normalizes provisioning settings in place.
+// Producers (RP, E2E) call it before serialization and ANC calls it before rendering, so both
+// sides enforce the same contract. It is idempotent.
 func Validate(cfg *aksnodeconfigv1.Configuration) error {
 	requiredStrings := map[string]string{
 		"version":                                           cfg.GetVersion(),
@@ -200,5 +203,5 @@ func Validate(cfg *aksnodeconfigv1.Configuration) error {
 			return fmt.Errorf("required field %v is missing", field)
 		}
 	}
-	return nil
+	return validateAndNormalize(cfg)
 }
