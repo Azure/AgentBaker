@@ -285,6 +285,30 @@ Give more than one name to run multiple scenarios:
 ./e2e-local.sh AzureLinuxV2 Ubuntu2204_CustomLinuxOSConfig_Taints_ANC
 ```
 
+The authenticated GPU-cache regressions run regular A10 GRID nodes with public MCR blocked:
+
+```bash
+./e2e-local.sh --parallel 1 --disable-scriptless-compilation \
+  --vhd-metadata-file /path/to/exact-pr-vhd-metadata.json \
+  Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR \
+  Ubuntu2404_GPUA10_NetworkIsolated_NonAnonymousACR \
+  Ubuntu2204_GPUA10_NetworkIsolated_NonAnonymousACR_VHDCaching
+```
+
+These scenarios reuse the existing network-isolated cluster and require normal scriptless
+provisioning. Select the exact VHD built from the tested source through the existing VHD
+metadata or build-ID controls; do not disable scriptless or inject a newly compiled controller.
+The VHD check-in pipeline runs the focused cases only after its own image build and passes
+that build's metadata artifacts. Each live node must have the expected baked GPU-script
+SHA256; an older main VHD or generated-script path fails validation.
+For a stacked test PR, wait for the production dependency to merge and for main VHD
+artifacts containing it to be published before retargeting to main: standalone GPU CI
+still selects main artifacts. Do not bypass the source-hash check during that interval.
+The cases require authenticated private-cache
+acquisition, node readiness, the expected GRID driver and license, and a direct public-MCR
+connection timeout. The VHD-caching case uses separate bake and real-node boots and verifies
+that `basePrep` was skipped and the GPU acquisition path refreshed live-identity login.
+
 ### Debugging
 
 Set `KEEP_VMSS=true` to retain bootstrapped VMs for debugging. Setting this will also have the VM's private SSH key
