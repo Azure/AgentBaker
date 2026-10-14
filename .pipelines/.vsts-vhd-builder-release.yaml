@@ -136,7 +136,7 @@ parameters:
   - name: buildaclcvmgen2
     displayName: Build Azure Container Linux CVM Gen2
     type: boolean
-    default: false
+    default: true
   - name: buildaclarm64tlgen2
     displayName: Build Azure Container Linux ARM64 TL Gen2
     type: boolean
