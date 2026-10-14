@@ -57,15 +57,17 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 		assert.Equal(t, want.vhd, s.VHD)
 		assert.Equal(t, want.useNVMe, s.UseNVMe)
 		assert.False(t, s.SkipDefaultValidation)
+		assert.Nil(t, s.Validator)
 	}
 	assert.Equal(t, len(expected), found)
 }
 
 func TestConfigureConfidentialVM(t *testing.T) {
+	osProfile := &armcompute.VirtualMachineScaleSetOSProfile{}
 	vmss := &armcompute.VirtualMachineScaleSet{
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{},
+				OSProfile: osProfile,
 			},
 		},
 	}
@@ -79,7 +81,7 @@ func TestConfigureConfidentialVM(t *testing.T) {
 	require.NotNil(t, vmss.Properties)
 	require.NotNil(t, vmss.Properties.VirtualMachineProfile)
 	profile := vmss.Properties.VirtualMachineProfile
-	assert.Nil(t, profile.OSProfile)
+	assert.Same(t, osProfile, profile.OSProfile)
 	require.NotNil(t, profile.SecurityProfile)
 	require.NotNil(t, profile.SecurityProfile.SecurityType)
 	assert.Equal(t, armcompute.SecurityTypesConfidentialVM, *profile.SecurityProfile.SecurityType)
