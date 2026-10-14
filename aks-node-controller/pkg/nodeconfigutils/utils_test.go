@@ -343,9 +343,7 @@ func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
 }
 
 func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t *testing.T) {
-	on := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{
-		customDataOnlyProvisioningFeature: "true",
-	}})
+	on := decodeBoothook(t, &aksnodeconfigv1.Configuration{CustomDataOnlyProvisioning: true})
 
 	require.Contains(t, on, "touch /var/lib/waagent/experimental_skip_ready_report")
 	require.Contains(t, on, "cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned")

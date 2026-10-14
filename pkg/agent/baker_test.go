@@ -943,6 +943,18 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("DISABLE_PUBKEY_AUTH", "false"))
 	})
 
+	It("should set CUSTOM_DATA_ONLY_PROVISIONING", func() {
+		baseConfig.CustomDataOnlyProvisioning = true
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("CUSTOM_DATA_ONLY_PROVISIONING", "true"))
+	})
+
 	It("should handle FIPS enabled configuration", func() {
 		baseConfig.FIPSEnabled = true
 
@@ -1652,13 +1664,13 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 	It("should put provisioning in CustomData and omit CSE when CustomData-only provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
-		config.EnabledFeatures = map[string]string{datamodel.CustomDataOnlyProvisioningFeature: "true"}
+		config.CustomDataOnlyProvisioning = true
 
 		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
 		Expect(string(payload)).To(ContainSubstring(aksNbcCmdFilepath))
-		Expect(string(payload)).To(ContainSubstring(enabledFeaturesFilepath))
+		Expect(string(payload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
 		Expect(string(payload)).To(ContainSubstring("# azure-experimental-node-ready"))
 		Expect(string(payload)).NotTo(ContainSubstring("/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg"))
 		Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
@@ -1670,7 +1682,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 	It("should fall back to CSE when CustomData-only provisioning exceeds the CustomData limit", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
-		config.EnabledFeatures = map[string]string{datamodel.CustomDataOnlyProvisioningFeature: "true"}
+		config.CustomDataOnlyProvisioning = true
 		certificate := make([]byte, 87*1024)
 		_, err := rand.Read(certificate)
 		Expect(err).NotTo(HaveOccurred())
@@ -1690,7 +1702,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
 		config.PreProvisionOnly = true
-		config.EnabledFeatures = map[string]string{datamodel.CustomDataOnlyProvisioningFeature: "true"}
+		config.CustomDataOnlyProvisioning = true
 
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
 	})
@@ -1704,7 +1716,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		} {
 			config := newScriptlessCmdTestConfig()
 			config.AgentPoolProfile.Distro = distro
-			config.EnabledFeatures = map[string]string{datamodel.CustomDataOnlyProvisioningFeature: "true"}
+			config.CustomDataOnlyProvisioning = true
 
 			Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed(), string(distro))
 			Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse(), string(distro))
@@ -1718,7 +1730,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 
 	It("should allow CustomData-only provisioning for cloud-init images", func() {
 		config := newScriptlessCmdTestConfig()
-		config.EnabledFeatures = map[string]string{datamodel.CustomDataOnlyProvisioningFeature: "true"}
+		config.CustomDataOnlyProvisioning = true
 		Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed())
 	})
 })

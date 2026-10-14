@@ -22,8 +22,6 @@ const (
 	// EnabledFeaturesFilePath is read by the wrapper; must match its FEATURES_PATH.
 	EnabledFeaturesFilePath = "/opt/azure/containers/enabled_features.sh"
 
-	customDataOnlyProvisioningFeature = "USE_CUSTOM_DATA_ONLY_PROVISIONING"
-
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
@@ -116,7 +114,7 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 }
 
 func readyReportHandoffBlock(cfg *aksnodeconfigv1.Configuration) string {
-	if cfg.GetEnabledFeatures()[customDataOnlyProvisioningFeature] != "true" {
+	if !cfg.GetCustomDataOnlyProvisioning() {
 		return ""
 	}
 	return readyReportHandoffTemplate

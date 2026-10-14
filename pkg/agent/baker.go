@@ -244,7 +244,7 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	if config.IsCustomDataOnlyProvisioningEnabled() {
 		// Oversized payloads require CSE delivery. Rerender without the readiness handoff so
 		// cloud-init and report_ready.py do not take ownership from the CSE provisioning path.
-		delete(config.EnabledFeatures, datamodel.CustomDataOnlyProvisioningFeature)
+		config.CustomDataOnlyProvisioning = false
 		config.ScriptlessCSEProvisionMode = true
 		return t.getScriptlessBoothook(config)
 	}
@@ -813,7 +813,7 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	}
 
 	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
-		delete(config.EnabledFeatures, datamodel.CustomDataOnlyProvisioningFeature)
+		config.CustomDataOnlyProvisioning = false
 	}
 
 	if config.KubeletConfig == nil {
@@ -1042,6 +1042,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsCgroupV2": func() bool {
 			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() || profile.Is2604VHDDistro() ||
 				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
+		},
+		"IsCustomDataOnlyProvisioningEnabled": func() bool {
+			return config.IsCustomDataOnlyProvisioningEnabled()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()

@@ -573,10 +573,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			if nbc.EnabledFeatures == nil {
-				nbc.EnabledFeatures = make(map[string]string)
-			}
-			nbc.EnabledFeatures[datamodel.CustomDataOnlyProvisioningFeature] = "true"
+			nbc.CustomDataOnlyProvisioning = true
 		},
 		// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
 		Validator: func(ctx context.Context, s *Scenario) error {
@@ -593,10 +590,7 @@ var _ = Register(&Scenario{
 // 		Cluster: ClusterKubenet,
 // 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 // 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-// 			if nbc.EnabledFeatures == nil {
-// 				nbc.EnabledFeatures = make(map[string]string)
-// 			}
-// 			nbc.EnabledFeatures[datamodel.CustomDataOnlyProvisioningFeature] = "true"
+// 			nbc.CustomDataOnlyProvisioning = true
 // 			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
 // 				HTTPSProxy: to.Ptr(cluster.ProxyURL),
 // 				NoProxy: &[]string{

@@ -1735,8 +1735,6 @@ type GetLatestSigImageConfigRequest struct {
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
-const CustomDataOnlyProvisioningFeature = "USE_CUSTOM_DATA_ONLY_PROVISIONING"
-
 type NodeBootstrappingConfiguration struct {
 	ContainerService                *ContainerService
 	CloudSpecConfig                 *AzureEnvironmentSpecConfig
@@ -1830,6 +1828,10 @@ type NodeBootstrappingConfiguration struct {
 	// Otherwise, it is optional and accompanies the NBC command for Phase 2.5 comparison.
 	AKSNodeConfigJSON string
 
+	// CustomDataOnlyProvisioning indicates whether the node should be provisioned using only custom data.
+	// When true, the node will not rely on CSE for reporting provisioning status.
+	CustomDataOnlyProvisioning bool
+
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
 	// interfaces configured on the agent pool. The node bootstrapping scripts use
 	// this to detect and configure the additional NICs at the OS level.
@@ -1839,7 +1841,7 @@ type NodeBootstrappingConfiguration struct {
 }
 
 func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
-	return c != nil && c.EnabledFeatures[CustomDataOnlyProvisioningFeature] == "true"
+	return c != nil && c.CustomDataOnlyProvisioning
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {

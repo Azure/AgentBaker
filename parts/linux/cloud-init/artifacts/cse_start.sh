@@ -96,7 +96,7 @@ EVENT_JSON=$( jq -n \
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
 
-if [ -x /opt/azure/containers/report_ready.py ] && [ "${USE_CUSTOM_DATA_ONLY_PROVISIONING}" = "true" ]; then
+if [ -x /opt/azure/containers/report_ready.py ] && [ "${CUSTOM_DATA_ONLY_PROVISIONING}" = "true" ]; then
     if [ "$EXIT_CODE" -eq 0 ]; then
         python3 /opt/azure/containers/report_ready.py -v || echo "WARNING: Failed to report ready to Azure fabric"
     else

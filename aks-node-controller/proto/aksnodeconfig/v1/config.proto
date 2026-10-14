@@ -175,4 +175,8 @@ message Configuration {
   // an exported environment variable (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true"). Using a map
   // lets new toggles be added without producer-side code changes. Empty/absent => no file, no-op.
   map<string, string> enabled_features = 45;
+
+  // Indicates whether the node should be provisioned using only custom data.
+  // When true, the node will not rely on CSE for reporting provisioning status.
+  bool custom_data_only_provisioning = 46;
 }
