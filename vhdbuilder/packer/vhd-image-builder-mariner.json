@@ -11,6 +11,8 @@
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "kata_uvm_version": "{{env `KATA_UVM_VERSION`}}",
+    "system_collection_uri": "{{env `SYSTEM_COLLECTIONURI`}}",
+    "system_team_project_id": "{{env `SYSTEM_TEAMPROJECTID`}}",
     "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "sku_name": "{{env `SKU_NAME`}}",
@@ -805,7 +807,9 @@
       "script": "vhdbuilder/packer/validate-kata-uvm-version.sh",
       "environment_vars": [
         "FEATURE_FLAGS={{user `feature_flags`}}",
-        "IMG_OFFER={{user `img_offer`}}"
+        "IMG_OFFER={{user `img_offer`}}",
+        "SYSTEM_COLLECTIONURI={{user `system_collection_uri`}}",
+        "SYSTEM_TEAMPROJECTID={{user `system_team_project_id`}}"
       ]
     },
     {

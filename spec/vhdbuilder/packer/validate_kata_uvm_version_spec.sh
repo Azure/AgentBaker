@@ -4,6 +4,8 @@ Describe 'Kata UVM version validation'
   setup() {
     export IMG_OFFER=azure-linux-3 FEATURE_FLAGS=kata
     export HOST_VERSION=4.1.0.kata0-1.azl3 RPM_STATUS=0
+    export SYSTEM_COLLECTIONURI=https://example.com/organization/
+    export SYSTEM_TEAMPROJECTID=test-project
     version_file="$SHELLSPEC_TMPBASE/kata-containers-version.txt"
     printf '%s\n' "$HOST_VERSION" > "$version_file"
   }
@@ -31,6 +33,7 @@ Describe 'Kata UVM version validation'
       The status should be failure
       The output should include 'Kata host RPM:'
       The stderr should include 'Kata host/UVM version mismatch'
+      The stderr should include 'https://example.com/organization/test-project/_build?definitionId=417429'
     End
   End
 
