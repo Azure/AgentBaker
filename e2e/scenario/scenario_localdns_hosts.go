@@ -2,9 +2,11 @@ package scenario
 
 import (
 	"context"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
@@ -160,8 +162,29 @@ func init() {
 // asynchronously, and it rejects empty or unreadable snapshots rather than treating them as
 // "restored" -- a failed read would otherwise mask the regression. Removing the address is
 // not sufficient on its own, so a working resolver is verified with getent afterwards.
-func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) error {
-	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+func validateLocalDNSLifecycle(ctx context.Context, s *Scenario) (err error) {
+	// A failed systemctl start reports one line -- "Job for localdns.service failed
+	// because a timeout was exceeded" -- and the script's own stdout is empty,
+	// because set -eu aborts it mid-call before it can print anything. A start-limit
+	// refusal, a bind conflict and a genuinely slow start all look identical that
+	// way, which is why build 185670984 could not be diagnosed. Result and the
+	// journal both outlive the failure, so collecting them here is enough; only live
+	// port ownership would have to be captured in-script.
+	defer func() {
+		if err == nil {
+			return
+		}
+		diagCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		state, stateErr := runLocalDNSNodeCommand(diagCtx, s,
+			"systemctl show localdns.service -p Result -p ActiveState -p SubState -p NRestarts -p ExecMainStatus -p TimeoutStartUSec")
+		journal, journalErr := runLocalDNSNodeCommand(diagCtx, s,
+			"sudo journalctl -u localdns.service --no-pager -n 50")
+		logging.Logf(ctx, "LocalDNS lifecycle failure diagnostics:\n%s\n%s\n(state err=%v, journal err=%v)",
+			state, journal, stateErr, journalErr)
+	}()
+
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		localdnsLifecycleScript(), 0, "LocalDNS lifecycle validation failed")
 	return err
 }
