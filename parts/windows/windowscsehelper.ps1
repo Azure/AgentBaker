@@ -235,6 +235,11 @@ function Set-SSHAccess {
             # Install-OpenSSH starts the service, which fails if it was previously disabled.
             Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
         }
+        $authorizedKeysPath = 'C:\ProgramData\ssh\administrators_authorized_keys'
+        if (Test-Path -LiteralPath $authorizedKeysPath -ErrorAction Stop) {
+            # Replace keys inherited from a cached image while preserving the file ACL.
+            Clear-Content -LiteralPath $authorizedKeysPath -Force -ErrorAction Stop
+        }
         Install-OpenSSH -SSHKeys $SSHKeys -ErrorAction Stop
     }
     elseif ($sshdService) {
