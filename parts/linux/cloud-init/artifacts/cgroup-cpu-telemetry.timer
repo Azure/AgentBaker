@@ -1,0 +1,10 @@
+[Unit]
+Description=Emit per-service cgroup CPU telemetry every five minutes
+
+[Timer]
+OnBootSec=0min
+OnCalendar=*-*-* *:0/5:0
+Unit=cgroup-cpu-telemetry.service
+
+[Install]
+WantedBy=multi-user.target

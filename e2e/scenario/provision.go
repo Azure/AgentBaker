@@ -92,6 +92,7 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 			}
 			nbc.PreProvisionOnly = true
 			nbc.EnableScriptlessNBCCSECmd = false
+			nbc.EnableScriptlessAKSNodeConfig = false
 			// Bake-only mutation: lets a scenario deliberately diverge bake-time
 			// state from provision-time state (e.g. a stale sentinel bootstrap token).
 			if original.PreProvisionBootstrapConfigMutator != nil {
@@ -293,14 +294,27 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 			return nil, fmt.Errorf("mutate bootstrap configuration: %w", err)
 		}
 	}
-	if s.AKSNodeConfigMutator != nil {
+	if config.Config.DisableScriptless || scriptlessUnsupported(s) || !s.VHD.SupportsScriptless() {
+		nbc.EnableScriptlessAKSNodeConfig = false
+	}
+	if nbc.EnableScriptlessAKSNodeConfig {
+		nbc.EnableScriptlessNBCCSECmd = false
+	}
+	if nbc.EnableScriptlessAKSNodeConfig || s.AKSNodeConfigMutator != nil {
 		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
 		if err != nil {
 			return nil, fmt.Errorf("convert NBC to AKS node config: %w", err)
 		}
-		s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
+		if s.AKSNodeConfigMutator != nil {
+			s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
+		}
 		s.Runtime.AKSNodeConfig = nodeconfig
 
+		if nbc.EnableScriptlessAKSNodeConfig {
+			if err := nodeconfigutils.Validate(nodeconfig); err != nil {
+				return nil, fmt.Errorf("validate AKS node config: %w", err)
+			}
+		}
 		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
 		if err != nil {
 			return nil, fmt.Errorf("marshal AKS node config: %w", err)
@@ -308,10 +322,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
 
 		nbc.EnableScriptlessCSECmd = false
-
-		// for scriptless phase 2.5, we are using nbc cse cmd for provisioning but passing aksnodeconfig and nbc cse cmd to compare env variables
-		// scriptless tag means provisioning with aksnodeconfig is used
-		if !config.Config.DisableScriptless && !s.Tags.Scriptless &&
+		if !nbc.EnableScriptlessAKSNodeConfig && !config.Config.DisableScriptless && !s.Tags.Scriptless &&
 			(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
 			nbc.EnableScriptlessNBCCSECmd = true
 		}
@@ -429,6 +440,18 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) error {
 		if err != nil {
 			return fmt.Errorf("get nanoserver workload images for %s: %w", s.VHD.Name, err)
 		}
+		if !s.SkipSSHConnectivityValidation {
+			cached, err := listCachedImagesWindows(ctx, s)
+			if err != nil {
+				return err
+			}
+			if serverCorePods, err = keepCachedImages(ctx, serverCorePods, cached); err != nil {
+				return err
+			}
+			if nanoServerPods, err = keepCachedImages(ctx, nanoServerPods, cached); err != nil {
+				return err
+			}
+		}
 		for i, pod := range serverCorePods {
 			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("servercore%d", i), pod), numberRetries))
 		}
@@ -440,6 +463,39 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) error {
 		errs = append(errs, ValidatePodRunningWithRetry(ctx, s, podHTTPServerLinux(s), numberRetries))
 	}
 	return errors.Join(errs...)
+}
+
+func listCachedImagesWindows(ctx context.Context, s *Scenario) (map[string]bool, error) {
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `& "$env:ProgramFiles\containerd\ctr.exe" -n k8s.io images ls -q`, 0, "could not list cached container images")
+	if err != nil {
+		return nil, err
+	}
+	cached := map[string]bool{}
+	for _, ref := range strings.Fields(result.stdout) {
+		cached[ref] = true
+	}
+	return cached, nil
+}
+
+// keepCachedImages drops base images the VHD doesn't cache. Pre-release VHDs import base
+// images from tarballs that only carry the ltsc tags, so pinned tags from components.json
+// are missing there. Regular VHDs cache every tag, which the VHD content test enforces.
+func keepCachedImages(ctx context.Context, images []string, cached map[string]bool) ([]string, error) {
+	var kept, skipped []string
+	for _, image := range images {
+		if cached[image] {
+			kept = append(kept, image)
+		} else {
+			skipped = append(skipped, image)
+		}
+	}
+	if len(kept) == 0 {
+		return nil, fmt.Errorf("none of the base images %v are cached on the node", images)
+	}
+	if len(skipped) > 0 {
+		logging.Logf(ctx, "skipping base images not cached on the node: %v", skipped)
+	}
+	return kept, nil
 }
 
 func validateVM(ctx context.Context, s *Scenario) error {
@@ -1068,13 +1124,22 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 		return false, err
 	})
 
-	// If we timed out while retrying reboot-related errors, provide a better error message
-	if err != nil && lastSSHError != nil {
-		elapsed := time.Since(startTime)
+	return sshConnectivityError(ctx.Err(), err, lastSSHError, time.Since(startTime))
+}
+
+// sshConnectivityError reports a reboot wait only when the poll's own timeout expired.
+// Parent cancellation and non-reboot errors are returned unchanged.
+func sshConnectivityError(parentErr, pollErr, lastSSHError error, elapsed time.Duration) error {
+	if pollErr == nil {
+		return nil
+	}
+	if parentErr != nil {
+		return parentErr
+	}
+	if lastSSHError != nil && wait.Interrupted(pollErr) {
 		return fmt.Errorf("SSH connection failed after waiting %s for node to reboot and come back up. Last SSH error: %w", elapsed, lastSSHError)
 	}
-
-	return err
+	return pollErr
 }
 
 // attemptSSHConnection performs a single SSH connectivity check

@@ -584,6 +584,31 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh",
+      "destination": "/home/packer/cgroup-cpu-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/service-execution-telemetry.sh",
+      "destination": "/home/packer/service-execution-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/service-execution-telemetry@.service",
+      "destination": "/home/packer/service-execution-telemetry@.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.service",
+      "destination": "/home/packer/cgroup-cpu-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.timer",
+      "destination": "/home/packer/cgroup-cpu-telemetry.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh",
       "destination": "/home/packer/cgroup-pressure-telemetry.sh"
     },
@@ -766,6 +791,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns.service",
       "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.sh",
+      "destination": "/home/packer/localdns-fallback.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.service",
+      "destination": "/home/packer/localdns-fallback.service"
     },
     {
       "type": "file",

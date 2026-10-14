@@ -2306,6 +2306,59 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	)
 }
 
+// ValidateLocalDNSConntrackRules checks that localdns skips conntrack for both request and response DNS traffic.
+func ValidateLocalDNSConntrackRules(ctx context.Context, s *Scenario) error {
+	script := `set -euo pipefail
+localdns_script="/opt/azure/containers/localdns/localdns.sh"
+if ! sudo grep -q -- '--sport 53 -j NOTRACK' "$localdns_script"; then
+  echo "WARNING: VHD localdns.sh does not contain reply-direction NOTRACK support; skipping rule validation for this image."
+  exit 0
+fi
+
+rules=$(sudo iptables -t raw -S)
+
+# awk and sort read to EOF, so these pipes cannot orphan the writer. A reader that
+# exits early instead (grep -q, head) kills the writer with SIGPIPE, which pipefail
+# then reports as a failed pipeline -- a false "missing rule" whenever the raw table
+# exceeds the 64KB pipe buffer. Keep early-exiting readers out of this check.
+actual=$(printf '%s\n' "$rules" | awk '/localdns: skip conntrack/' | sort)
+
+# Rules are spelled out in full, matching the exact "iptables -t raw -S" output format, so that a
+# malformed rule (extra matchers, wrong protocol, interface-scoped) is rejected rather than absorbed
+# by a wildcard. tcp and udp are listed separately rather than as "-p (tcp|udp)" so that a corrupted
+# rule for one protocol cannot be masked by its intact sibling for the other. Comparing the whole
+# set at once also rejects duplicate or unexpected extra rules, which per-rule matching cannot.
+expected=$(printf '%s\n' \
+  '-A OUTPUT -s 169.254.10.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -s 169.254.10.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -s 169.254.10.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -s 169.254.10.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  | sort)
+
+if [ "$actual" != "$expected" ]; then
+  echo "localdns NOTRACK rules do not match the expected set."
+  # Size is reported because the only known way to reach a false failure here was an
+  # oversized raw table; if that recurs, this says what is filling it.
+  echo "raw table: $(printf '%s\n' "$rules" | wc -l) rules, $(printf '%s' "$rules" | wc -c) bytes"
+  echo "--- expected (<) vs actual (>) ---"
+  diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
+  exit 1
+fi
+`
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should install request and response direction NOTRACK rules"); err != nil {
+		return fmt.Errorf("validate localdns conntrack rules: %w", err)
+	}
+	return nil
+}
+
 // ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
 // This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
 // can rotate between queries. We verify presence, not exact IP matching.
@@ -3735,7 +3788,7 @@ sudo "$anc_path" check-hotfix`,
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) error {
 	nbc := s.Runtime.NBC
-	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
+	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessProvisioning(s) {
 		return ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 	return nil
@@ -3767,8 +3820,35 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
-// ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars.
+// ValidateScriptlessPhase3 verifies that ANC provisions using only AKSNodeConfig.
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
+	if !usesScriptlessProvisioning(s) || !s.Runtime.NBC.EnableScriptlessAKSNodeConfig {
+		return nil
+	}
+	logFile := "/var/log/azure/aks-node-controller.output"
+	errs := []error{
+		ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-config.json"),
+		ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
+		ValidateFileHasContent(ctx, s, logFile, "Launching aks-node-controller with config"),
+		ValidateFileExcludesContent(ctx, s, logFile, "Launching aks-node-controller with nbc cmd"),
+		ValidateFileExcludesContent(ctx, s, logFile, "Using NBC command for scriptless phase 2"),
+		ValidateFileExcludesContent(ctx, s, logFile, "comparing envs"),
+	}
+	if s.Runtime.NBC.ScriptlessCSEProvisionMode {
+		_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected CSE-delivered scriptless boothook")
+		errs = append(errs, err)
+	}
+	if enableScriptlessCompilation(s) {
+		errs = append(errs,
+			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix"),
+			ValidateFileHasContent(ctx, s, logFile, "Using hotfix binary"),
+		)
+	}
+	return errors.Join(errs...)
+}
+
+// ValidateScriptlessComparison checks Phase 2.5 NBC/AKSNodeConfig environment parity.
+func ValidateScriptlessComparison(ctx context.Context, s *Scenario) error {
 	// skip validation if
 	// 1. AKSNodeConfig not populated
 	// 2. using scriptless phase 1
