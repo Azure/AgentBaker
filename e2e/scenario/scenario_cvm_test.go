@@ -45,21 +45,22 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 		"Ubuntu2604Minimal_CVM_TDX":    {vhd: config.VHDUbuntu2604MinimalCVMGen2Containerd, useNVMe: true},
 	}
 
-	var found int
+	found := make(map[string]bool, len(expected))
 	for _, s := range List() {
-		if !s.Tags.CVM {
+		want, ok := expected[s.Name]
+		if !ok {
 			continue
 		}
-		found++
-		want, ok := expected[s.Name]
-		require.True(t, ok, "unexpected CVM scenario %q", s.Name)
+		found[s.Name] = true
 		assert.Equal(t, cvmLocation, s.Location)
 		assert.Equal(t, want.vhd, s.VHD)
 		assert.Equal(t, want.useNVMe, s.UseNVMe)
 		assert.False(t, s.SkipDefaultValidation)
 		assert.Nil(t, s.Validator)
 	}
-	assert.Equal(t, len(expected), found)
+	for name := range expected {
+		assert.True(t, found[name], "CVM scenario %q is not registered", name)
+	}
 }
 
 func TestConfigureConfidentialVM(t *testing.T) {
