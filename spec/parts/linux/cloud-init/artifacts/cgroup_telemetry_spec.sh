@@ -7,6 +7,8 @@ Describe 'cgroup telemetry'
         EVENTS_ROOT="${TEST_ROOT}/events"
         export MOCK_WALINUXAGENT_CGROUP="/system.slice/walinuxagent.service"
         export MOCK_SYSTEMCTL_STATUS=0
+        export MOCK_WAAGENT_CGROUP=""
+        export MOCK_WAAGENT_SYSTEMCTL_STATUS=0
         mkdir -p "${CGROUP_ROOT}" "${EVENTS_ROOT}"
         printf 'MemTotal: 1000 kB\n' > "${TEST_ROOT}/meminfo"
     }
@@ -93,12 +95,20 @@ Describe 'cgroup telemetry'
     AfterEach 'cleanup_cgroup_telemetry_test'
 
     Mock systemctl
-        if [ "$*" != "show walinuxagent.service -p ControlGroup --value" ]; then
-            echo "Unexpected systemctl arguments: $*" >&2
-            exit 1
-        fi
-        printf '%s\n' "${MOCK_WALINUXAGENT_CGROUP}"
-        exit "${MOCK_SYSTEMCTL_STATUS}"
+        case "$*" in
+            "show walinuxagent.service -p ControlGroup --value")
+                printf '%s\n' "${MOCK_WALINUXAGENT_CGROUP}"
+                exit "${MOCK_SYSTEMCTL_STATUS}"
+                ;;
+            "show waagent.service -p ControlGroup --value")
+                printf '%s\n' "${MOCK_WAAGENT_CGROUP}"
+                exit "${MOCK_WAAGENT_SYSTEMCTL_STATUS}"
+                ;;
+            *)
+                echo "Unexpected systemctl arguments: $*" >&2
+                exit 1
+                ;;
+        esac
     End
 
     It 'emits memory for the additional services and tolerates an unavailable service'
@@ -117,6 +127,8 @@ Describe 'cgroup telemetry'
         create_memory_stat system.slice/node-problem-detector.service 10 20
         create_memory_stat system.slice/node-exporter.service 30 40
         create_memory_stat system.slice/walinuxagent.service 20 30
+        MOCK_WAAGENT_CGROUP="/azure.slice/waagent.service"
+        create_memory_stat azure.slice/waagent.service 200 300
         create_memory_stat localdns.slice/localdns.service 50 60
         prepare_memory_script
 
@@ -147,6 +159,8 @@ Describe 'cgroup telemetry'
         create_memory_stat_v1 system.slice/node-exporter.service 30 40
         MOCK_WALINUXAGENT_CGROUP="/azure.slice/walinuxagent.service"
         create_memory_stat_v1 azure.slice/walinuxagent.service 20 30
+        MOCK_WAAGENT_CGROUP="/azure.slice/waagent.service"
+        create_memory_stat_v1 azure.slice/waagent.service 200 300
         prepare_memory_script tmpfs
 
         When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
@@ -190,6 +204,9 @@ Describe 'cgroup telemetry'
         create_cpu_stat_v2 system.slice/kubelet.service
         MOCK_WALINUXAGENT_CGROUP="/azure.slice/walinuxagent.service"
         create_cpu_stat_v2 azure.slice/walinuxagent.service
+        MOCK_WAAGENT_CGROUP="/azure.slice/waagent.service"
+        create_cpu_stat_v2 azure.slice/waagent.service
+        printf 'usage_usec 999\n' > "${CGROUP_ROOT}/azure.slice/waagent.service/cpu.stat"
         prepare_cpu_script
 
         When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
@@ -233,17 +250,65 @@ Describe 'cgroup telemetry'
         The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_cpu_usage\":{\"usage_usec\":\"Not Found\",\"user_usec\":\"60\",\"system_usec\":\"Not Found\",\"nr_periods\":\"Not Found\",\"nr_throttled\":\"3\",\"throttled_usec\":\"Not Found\"}'
     End
 
+    Describe 'fallback WALinuxAgent unit name'
+        Parameters
+            '' 0
+            '/' 0
+            '' 1
+            '/azure.slice/rejected.service' 1
+        End
+
+        BeforeEach 'setup_waagent_fallback'
+
+        setup_waagent_fallback() {
+            MOCK_WALINUXAGENT_CGROUP="$1"
+            MOCK_SYSTEMCTL_STATUS="$2"
+            MOCK_WAAGENT_CGROUP="/azure.slice/waagent.service"
+        }
+
+        It 'emits CPU counters from waagent.service'
+            create_cpu_stat_v2 azure.slice/waagent.service
+            prepare_cpu_script
+
+            When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+            The status should be success
+            The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_cpu_usage\":{\"usage_usec\":\"100\",\"user_usec\":\"60\",\"system_usec\":\"40\",\"nr_periods\":\"20\",\"nr_throttled\":\"3\",\"throttled_usec\":\"7\"}'
+        End
+
+        It 'emits cgroup v2 memory from waagent.service'
+            create_memory_stat azure.slice/waagent.service 20 30
+            prepare_memory_script
+
+            When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+            The status should be success
+            The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_memory\":\"50\"'
+        End
+
+        It 'emits cgroup v1 memory from waagent.service'
+            create_memory_stat_v1 azure.slice/waagent.service 20 30
+            prepare_memory_script tmpfs
+
+            When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+            The status should be success
+            The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_memory\":\"50\"'
+        End
+    End
+
     Describe 'unavailable WALinuxAgent cgroup'
         Parameters
             '' 0
             '/' 0
             '' 1
+            '/azure.slice/rejected.service' 1
         End
 
         It 'does not report root cgroup CPU counters as WALinuxAgent usage'
             MOCK_WALINUXAGENT_CGROUP="$1"
             MOCK_SYSTEMCTL_STATUS="$2"
+            MOCK_WAAGENT_CGROUP="$1"
+            MOCK_WAAGENT_SYSTEMCTL_STATUS="$2"
             create_cpu_stat_v2 .
+            create_cpu_stat_v2 azure.slice/rejected.service
             prepare_cpu_script
 
             When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
@@ -254,7 +319,10 @@ Describe 'cgroup telemetry'
         It 'does not report root cgroup v2 memory as WALinuxAgent usage'
             MOCK_WALINUXAGENT_CGROUP="$1"
             MOCK_SYSTEMCTL_STATUS="$2"
+            MOCK_WAAGENT_CGROUP="$1"
+            MOCK_WAAGENT_SYSTEMCTL_STATUS="$2"
             create_memory_stat . 20 30
+            create_memory_stat azure.slice/rejected.service 20 30
             prepare_memory_script
 
             When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
@@ -265,7 +333,10 @@ Describe 'cgroup telemetry'
         It 'does not report root cgroup v1 memory as WALinuxAgent usage'
             MOCK_WALINUXAGENT_CGROUP="$1"
             MOCK_SYSTEMCTL_STATUS="$2"
+            MOCK_WAAGENT_CGROUP="$1"
+            MOCK_WAAGENT_SYSTEMCTL_STATUS="$2"
             create_memory_stat_v1 . 20 30
+            create_memory_stat_v1 azure.slice/rejected.service 20 30
             prepare_memory_script tmpfs
 
             When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"

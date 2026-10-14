@@ -28,7 +28,11 @@ An unavailable service is emitted as `"Not Found"`. If a service cgroup exists
 but a counter is absent or malformed, only that counter is emitted as
 `"Not Found"` so the remaining counters in the observation remain usable.
 The WALinuxAgent cgroup is resolved from systemd because distributions can
-place the service in `azure.slice` instead of `system.slice`.
+place the service in `azure.slice` instead of `system.slice`. The CPU and memory
+collectors try `walinuxagent.service` first, then `waagent.service` if the first
+lookup fails or returns an empty or root cgroup. The metric names remain
+`walinuxagent_service_cpu_usage` and `walinuxagent_service_memory` for either
+unit name.
 
 # Recurring service execution telemetry
 

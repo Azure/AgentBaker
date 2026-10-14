@@ -9,16 +9,21 @@ isNonNegativeInteger() {
 }
 
 getServiceCgroup() {
-    local service="$1"
+    local service
     local control_group
 
-    control_group=$(systemctl show "${service}" -p ControlGroup --value 2>/dev/null)
-    if [ -z "${control_group}" ] || [ "${control_group}" = "/" ]; then
-        echo "not-found"
-        return
-    fi
+    for service in "$@"; do
+        if ! control_group=$(systemctl show "${service}" -p ControlGroup --value 2>/dev/null); then
+            continue
+        fi
 
-    echo "${control_group#/}"
+        if [ -n "${control_group}" ] && [ "${control_group}" != "/" ]; then
+            echo "${control_group#/}"
+            return
+        fi
+    done
+
+    echo "not-found"
 }
 
 readCounter() {
@@ -69,7 +74,7 @@ eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
 
 CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
 KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
-WALINUXAGENT_CGROUP=$(getServiceCgroup walinuxagent.service)
+WALINUXAGENT_CGROUP=$(getServiceCgroup walinuxagent.service waagent.service)
 
 if [ "${CGROUP_VERSION}" != "cgroup2fs" ]; then
     echo "cgroup v2 is required. Exiting"
