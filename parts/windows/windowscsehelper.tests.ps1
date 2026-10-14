@@ -46,6 +46,12 @@ Describe 'Set-SSHAccess' {
     }
     Mock Stop-Service { $script:sshActions += 'Stop' }
     Mock Install-OpenSSH { $script:sshActions += 'Install' }
+    Mock Test-Path { $false } -ParameterFilter {
+      $LiteralPath -eq 'C:\ProgramData\ssh\administrators_authorized_keys'
+    }
+    Mock Clear-Content {} -ParameterFilter {
+      $LiteralPath -eq 'C:\ProgramData\ssh\administrators_authorized_keys'
+    }
   }
 
   It 'disables startup and stops a running service' {
@@ -55,6 +61,7 @@ Describe 'Set-SSHAccess' {
     Assert-MockCalled Set-Service -Exactly -Times 1 -ParameterFilter { $Name -eq 'sshd' -and $StartupType -eq 'Disabled' }
     Assert-MockCalled Stop-Service -Exactly -Times 1 -ParameterFilter { $Name -eq 'sshd' }
     Assert-MockCalled Install-OpenSSH -Exactly -Times 0
+    Assert-MockCalled Clear-Content -Exactly -Times 0
   }
 
   It 'keeps an already stopped service disabled on repeated calls' {
@@ -93,6 +100,59 @@ Describe 'Set-SSHAccess' {
 
     $script:sshActions | Should -Be @('Install')
     Assert-MockCalled Install-OpenSSH -Exactly -Times 1 -ParameterFilter { $SSHKeys[0] -eq 'ssh-rsa live-node-key' }
+    Assert-MockCalled Clear-Content -Exactly -Times 0
+  }
+
+  It 'replaces baked keys with only live keys on repeated calls without deleting the file' {
+    $script:authorizedKeysFile = Join-Path $TestDrive 'administrators_authorized_keys'
+    [System.IO.File]::WriteAllText($script:authorizedKeysFile, "ssh-rsa baked-key`n")
+    Mock Test-Path {
+      Test-Path -LiteralPath $script:authorizedKeysFile
+    } -ParameterFilter {
+      $LiteralPath -eq 'C:\ProgramData\ssh\administrators_authorized_keys'
+    }
+    Mock Clear-Content {
+      Clear-Content -LiteralPath $script:authorizedKeysFile -Force -ErrorAction Stop
+    } -ParameterFilter {
+      $LiteralPath -eq 'C:\ProgramData\ssh\administrators_authorized_keys'
+    }
+    Mock Install-OpenSSH {
+      param($SSHKeys)
+      Test-Path -LiteralPath $script:authorizedKeysFile | Should -BeTrue
+      (Get-Item -LiteralPath $script:authorizedKeysFile).Length | Should -Be 0
+      $SSHKeys | ForEach-Object { Add-Content -LiteralPath $script:authorizedKeysFile -Value $_ }
+    }
+
+    1..2 | ForEach-Object {
+      Set-SSHAccess -Enabled $true -SSHKeys @('ssh-rsa live-key-1', 'ssh-rsa live-key-2')
+
+      @(Get-Content -LiteralPath $script:authorizedKeysFile) | Should -Be @('ssh-rsa live-key-1', 'ssh-rsa live-key-2')
+    }
+    Assert-MockCalled Clear-Content -Exactly -Times 2 -ParameterFilter {
+      $LiteralPath -eq 'C:\ProgramData\ssh\administrators_authorized_keys' -and $Force -and $ErrorAction -eq 'Stop'
+    }
+  }
+
+  It 'does not install SSH if clearing inherited keys fails' {
+    Mock Test-Path { $true } -ParameterFilter {
+      $LiteralPath -eq 'C:\ProgramData\ssh\administrators_authorized_keys'
+    }
+    Mock Clear-Content { Write-Error 'cannot clear authorized keys' } -ParameterFilter {
+      $LiteralPath -eq 'C:\ProgramData\ssh\administrators_authorized_keys'
+    }
+
+    { Set-SSHAccess -Enabled $true -SSHKeys @('ssh-rsa live-node-key') } | Should -Throw '*cannot clear authorized keys*'
+    Assert-MockCalled Install-OpenSSH -Exactly -Times 0
+  }
+
+  It 'does not install SSH if checking the authorized keys file fails' {
+    Mock Test-Path { Write-Error 'cannot inspect authorized keys' } -ParameterFilter {
+      $LiteralPath -eq 'C:\ProgramData\ssh\administrators_authorized_keys'
+    }
+
+    { Set-SSHAccess -Enabled $true -SSHKeys @('ssh-rsa live-node-key') } | Should -Throw '*cannot inspect authorized keys*'
+    Assert-MockCalled Install-OpenSSH -Exactly -Times 0
+    Assert-MockCalled Clear-Content -Exactly -Times 0
   }
 
   It 'preserves enabled SSH configuration with the live node keys' {
