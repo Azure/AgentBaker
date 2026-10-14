@@ -19,6 +19,7 @@ Describe 'cse_config_gpu.sh'
             USER_ASSIGNED_IDENTITY_ID="live-kubelet-client"
             TENANT_ID="live-node-tenant"
             MOCK_LOGIN_RESULT=0
+            MOCK_LOGOUT_RESULT=0
             export MOCK_AUTH_STATE="not-required"
             export MOCK_CPU_ARCH="amd64"
             export MOCK_ORAS_RESULT=0 MOCK_TAR_RESULT=0 MOCK_IMPORT_RESULT=0
@@ -33,6 +34,12 @@ Describe 'cse_config_gpu.sh'
         getCPUArch() { echo "$MOCK_CPU_ARCH"; }
         oras() {
             echo "oras $*"
+            if [ "$1" = "logout" ]; then
+                if [ "$MOCK_LOGOUT_RESULT" -eq 0 ]; then
+                    export MOCK_AUTH_STATE="anonymous"
+                fi
+                return "$MOCK_LOGOUT_RESULT"
+            fi
             if [ "$MOCK_AUTH_STATE" = "missing" ] || [ "$MOCK_AUTH_STATE" = "stale-baked" ]; then
                 echo "ORAS copy attempted without fresh node credentials" >&2
                 return 1
@@ -160,6 +167,69 @@ Describe 'cse_config_gpu.sh'
                 The output should include "ctr -n k8s.io image import"
                 The output should not include "image pull"
             End
+        End
+
+        Context 'PIS nodePrep with incomplete live identity'
+            Parameters
+                "" "live-node-tenant"
+                "live-kubelet-client" ""
+                "" ""
+            End
+
+            # Exercise the real helper's early return without replacing the caller's retry mock.
+            oras_login_with_kubelet_identity() (
+                . "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                oras_login_with_kubelet_identity "$@"
+            )
+
+            It "clears baked credentials before an anonymous pull with client=$1 tenant=$2"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                USER_ASSIGNED_IDENTITY_ID="$1"
+                TENANT_ID="$2"
+                MOCK_AUTH_STATE="stale-baked"
+
+                When call pullGPUDriverImage
+
+                The status should be success
+                The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+                The output should include "client_id or tenant_id are not set"
+                The output should include "oras cp myacr.azurecr.io/aks-managed-repository/aks/aks-gpu-grid:"
+                The output should include "ctr -n k8s.io image import"
+                The output should not include "image pull"
+            End
+
+            It "does not import or fall back when anonymous access is denied with client=$1 tenant=$2"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                USER_ASSIGNED_IDENTITY_ID="$1"
+                TENANT_ID="$2"
+                MOCK_AUTH_STATE="stale-baked"
+                MOCK_ORAS_RESULT=1
+
+                When call pullGPUDriverImage
+
+                The status should be failure
+                The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+                The output should include "oras cp"
+                The output should not include "image import"
+                The output should not include "image pull"
+            End
+        End
+
+        It 'propagates credential-clearing failure before allowing an identity-free copy'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            USER_ASSIGNED_IDENTITY_ID=""
+            MOCK_AUTH_STATE="stale-baked"
+            MOCK_LOGOUT_RESULT=67
+
+            When call pullGPUDriverImage
+
+            The status should equal 67
+            The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+            The output should not include "refresh_login"
+            The output should not include "retrycmd_if_failure"
+            The output should not include "oras cp"
+            The output should not include "image import"
+            The output should not include "image pull"
         End
 
         It 'propagates live identity login failure without staging or copying the driver'
@@ -750,6 +820,33 @@ Describe 'cse_config_gpu.sh'
             The contents of file "$CD_CONF" should include "--namespace kube-system"
             The contents of file "$CD_CONF" should include "--node-name=gbnode0"
             The contents of file "$CD_CONF" should include 'NVIDIA_VISIBLE_DEVICES=void'
+        End
+
+        It 'lowercases --node-name for both DRA plugins when the VMSS hostname is uppercase'
+            # Azure sets the VMSS computer name (hostname) uppercased for base-36 instance
+            # suffixes with a letter (instance index >= 10, e.g. instance 19 -> ...vmss00000J),
+            # but kubelet registers the Node lowercased (RFC-1123) and authenticates as
+            # system:node:<lowercase>. The ResourceSlice NodeRestriction authorizer only lets a
+            # node publish slices whose spec.nodeName matches its own (lowercase) name, so both
+            # kubelet-plugins must receive the lowercased --node-name. Guards the regression:
+            # with an uppercase NODE_NAME this fails unless the normalization is present.
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="aks-gb300-28447045-vmss00000J"
+            CD_CONF=$(mktemp)
+            tee() { cat >> "$CD_CONF"; echo "tee $1"; }
+
+            When call startNvidiaManagedExpServices
+
+            # the gpu-kubelet-plugin (dra-driver) service still comes up for all DRA nodes
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # both plugin overrides are generated
+            The contents of file "$CD_CONF" should include "/usr/bin/gpu-kubelet-plugin"
+            The contents of file "$CD_CONF" should include "/usr/bin/compute-domain-kubelet-plugin"
+            # both receive the lowercased node name, and the uppercase form never leaks through
+            The contents of file "$CD_CONF" should include "--node-name=aks-gb300-28447045-vmss00000j"
+            The contents of file "$CD_CONF" should not include "vmss00000J"
         End
 
         It 'does not block provisioning when the compute-domain plugin cannot be enqueued (arm64)'
