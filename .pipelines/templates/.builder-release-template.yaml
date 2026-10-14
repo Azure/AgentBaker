@@ -68,7 +68,7 @@ steps:
 
   - ${{ if eq(parameters.kataCC, true) }}:
     - task: DownloadPipelineArtifact@2
-      displayName: Download signed Kata-CC payload
+      displayName: Download signed Kata-CC payload for AZL3
       inputs:
         source: specific
         project: CloudNativeCompute
@@ -77,7 +77,7 @@ steps:
         branchName: refs/heads/master
         allowPartiallySucceededBuilds: false
         allowFailedBuilds: false
-        artifactName: drop_container_job_sign_uvm
+        artifactName: drop_container_job_sign_uvm_azl3
         itemPattern: |
           **/kata-containers.img
           **/kata-containers-cc.img
