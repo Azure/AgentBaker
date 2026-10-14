@@ -15,6 +15,26 @@ EOF
     systemctlEnableAndStart mig-partition 300
 }
 
+loginGPUDriverRegistry() {
+    if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+        # Keep the shell body behind a function: logs_to_events splits its command arguments.
+        # Bound all nested login retries by the same CSE-aware guard used for the copy.
+        # shellcheck disable=SC2016
+        retrycmd_if_failure 1 0 120 bash -c '
+            source "$1" || exit $?
+            ORAS_REGISTRY_CONFIG_FILE="$2"
+            ARM_RESOURCE_ENDPOINT="$3"
+            oras_login_with_kubelet_identity "$4" "$5" "$6"
+        ' gpu-driver-login "$CSE_HELPERS_FILEPATH" "$ORAS_REGISTRY_CONFIG_FILE" \
+            "${ARM_RESOURCE_ENDPOINT:-https://management.azure.com/}" \
+            "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}"
+    else
+        oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}"
+    fi
+}
+
 pullGPUDriverImage() {
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ]; then
         # PIS nodes skip basePrep. The shared helper returns early for incomplete identity,
@@ -23,8 +43,7 @@ pullGPUDriverImage() {
             oras logout "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
                 --registry-config "$ORAS_REGISTRY_CONFIG_FILE" || return $?
         fi
-        logs_to_events "AKS.CSE.configGPUDrivers.orasLogin" oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
-            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}" || return $?
+        logs_to_events "AKS.CSE.configGPUDrivers.orasLogin" loginGPUDriverRegistry || return $?
 
         local download_dir
         download_dir=$(mktemp -d /opt/gpu/driver-image.XXXXXX) || return 1

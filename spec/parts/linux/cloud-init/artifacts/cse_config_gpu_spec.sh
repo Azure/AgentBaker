@@ -26,6 +26,7 @@ Describe 'cse_config_gpu.sh'
             MOCK_RETRY_RESULT=0
             MOCK_TAG_RESULT=0
             MOCK_RM_RESULT=0
+            unset CSE_STARTTIME_SECONDS CSE_MAX_DURATION_SECONDS
             export -f mkdir oras tar ctr getCPUArch
         }
 
@@ -53,7 +54,7 @@ Describe 'cse_config_gpu.sh'
             fi
             export MOCK_AUTH_STATE="live-node"
         }
-        logs_to_events() { shift; "$@"; }
+        logs_to_events() { shift; ${@}; }
         tar() { echo "tar $*"; return "$MOCK_TAR_RESULT"; }
         rm() { echo "rm $*"; return "$MOCK_RM_RESULT"; }
         ctr() {
@@ -230,6 +231,120 @@ Describe 'cse_config_gpu.sh'
             The output should not include "oras cp"
             The output should not include "image import"
             The output should not include "image pull"
+        End
+
+        Context 'live login within the remaining CSE budget'
+            BeforeEach setup_gpu_login_budget
+            AfterEach cleanup_gpu_login_budget
+
+            setup_gpu_login_budget() {
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                CSE_STARTTIME_SECONDS=$(date +%s)
+                CSE_MAX_DURATION_SECONDS=780
+                GPU_TEST_HELPER_FILE=$(command mktemp)
+                CSE_HELPERS_FILEPATH="$GPU_TEST_HELPER_FILE"
+                export GPU_TEST_LOGIN_DELAY=0 GPU_TEST_LOGIN_STATUS=0
+                cat > "$CSE_HELPERS_FILEPATH" <<'EOF'
+ORAS_REGISTRY_CONFIG_FILE="/fixture-default"
+ARM_RESOURCE_ENDPOINT="/fixture-default"
+oras_login_with_kubelet_identity() {
+    printf 'fixture_login %s %s %s config=%s arm=%s\n' "$1" "$2" "$3" "$ORAS_REGISTRY_CONFIG_FILE" "$ARM_RESOURCE_ENDPOINT"
+    sleep "$GPU_TEST_LOGIN_DELAY"
+    return "$GPU_TEST_LOGIN_STATUS"
+}
+EOF
+            }
+            cleanup_gpu_login_budget() { command rm -f -- "$GPU_TEST_HELPER_FILE"; }
+            retrycmd_if_failure() (
+                . "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                retrycmd_if_failure "$@"
+            )
+
+            It 'does not begin login or staging with no CSE budget remaining'
+                CSE_STARTTIME_SECONDS=$(( $(date +%s) - 3 ))
+                CSE_MAX_DURATION_SECONDS=2
+
+                When call pullGPUDriverImage
+
+                The status should equal 2
+                The stderr should include "CSE timeout"
+                The output should not include "refresh_login"
+                The output should not include "fixture_login"
+                The output should not include "mkdir"
+                The output should not include "oras cp"
+            End
+
+            It 'bounds a blocking login to the two seconds remaining rather than the outer timeout'
+                CSE_MAX_DURATION_SECONDS=2
+                GPU_TEST_LOGIN_DELAY=8
+                verify_login_deadline() {
+                    local started result=0 elapsed
+                    started=$(date +%s)
+                    pullGPUDriverImage || result=$?
+                    elapsed=$(( $(date +%s) - started ))
+                    echo "login_elapsed_seconds=$elapsed"
+                    [ "$result" -ne 0 ] && [ "$elapsed" -le 3 ]
+                }
+
+                When call verify_login_deadline
+
+                The status should be success
+                The stderr should be present
+                The output should include "fixture_login"
+                The output should not include "oras cp"
+                The output should not include "image import"
+                The output should not include "image pull"
+            End
+
+            It 'caps a fresh CSE login at 120 seconds and preserves shared config and sovereign ARM endpoint'
+                ORAS_REGISTRY_CONFIG_FILE="/tmp/live-oras.yaml"
+                ARM_RESOURCE_ENDPOINT="https://management.chinacloudapi.cn/"
+                timeout() { echo "timeout $1"; shift; "$@"; }
+
+                When call pullGPUDriverImage
+
+                The status should be success
+                The line 1 of output should equal "timeout 120"
+                The output should include "fixture_login myacr.azurecr.io live-kubelet-client live-node-tenant config=/tmp/live-oras.yaml arm=https://management.chinacloudapi.cn/"
+                The output should include "oras cp"
+            End
+
+            It 'reports bounded-login failure without attempting image acquisition'
+                GPU_TEST_LOGIN_STATUS=67
+
+                When call pullGPUDriverImage
+
+                The status should be failure
+                The stderr should include "last exit status: 67"
+                The output should include "fixture_login"
+                The output should not include "oras cp"
+                The output should not include "image import"
+                The output should not include "image pull"
+            End
+
+            Context 'anonymous access through the bounded real helper'
+                Parameters
+                    "" "live-node-tenant"
+                    "live-kubelet-client" ""
+                    "" ""
+                End
+
+                It "clears baked credentials with budgeted client=$1 tenant=$2"
+                    CSE_HELPERS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                    USER_ASSIGNED_IDENTITY_ID="$1"
+                    TENANT_ID="$2"
+                    MOCK_AUTH_STATE="stale-baked"
+
+                    When call pullGPUDriverImage
+
+                    The status should be success
+                    The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+                    The output should include "client_id or tenant_id are not set"
+                    The output should include "oras cp"
+                    The output should include "image import"
+                    The output should not include "image pull"
+                End
+            End
         End
 
         It 'propagates live identity login failure without staging or copying the driver'
