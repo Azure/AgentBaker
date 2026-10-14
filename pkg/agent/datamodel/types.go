@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
-	"net"
 	neturl "net/url"
 	"slices"
 	"sort"
@@ -1620,29 +1619,6 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeletConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
-}
-
-// GetKubeletHealthzEndpoint returns the local URL matching the effective Windows kubelet configuration.
-func (config *NodeBootstrappingConfiguration) GetKubeletHealthzEndpoint(customKc *CustomKubeletConfig) string {
-	kubeletConfig := config.getWindowsKubeletConfig(customKc)
-
-	address := kubeletConfig["--healthz-bind-address"]
-	port := kubeletConfig["--healthz-port"]
-	if port == "" {
-		port = "10248"
-	}
-	if port == "0" {
-		return ""
-	}
-
-	switch address {
-	case "", "0.0.0.0":
-		address = "127.0.0.1"
-	case "::":
-		address = "::1"
-	}
-
-	return fmt.Sprintf("http://%s/healthz", net.JoinHostPort(address, port))
 }
 
 /*
