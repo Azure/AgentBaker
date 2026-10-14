@@ -141,6 +141,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
 	AKSACLCVMGen2,
+	AKSACLCVMGen2FIPS,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -216,6 +217,7 @@ var AvailableGen2Distros = []Distro{
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
 	AKSACLCVMGen2,
+	AKSACLCVMGen2FIPS,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
 	AKSAzureLinuxV3Gen2,
@@ -327,6 +329,7 @@ var AvailableACLDistros = []Distro{
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
 	AKSACLCVMGen2,
+	AKSACLCVMGen2FIPS,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -858,6 +861,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGACLCVMGen2FIPSImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "aclgen2CVMFips",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -952,7 +962,7 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	// to ensure that missing image versions under a new image definition does not block AgentBaker rollout.
 	// Definitions only need to be added to this list that have not yet been built and released at least once by
 	// the time it's corresponding SIGImageConfigTemplate is added to AgentBaker.
-	definitionsToSkip := []string{"aclgen2CVM"}
+	definitionsToSkip := []string{"aclgen2CVM", "aclgen2CVMFips"}
 
 	maintained := map[Distro]SigImageConfig{}
 	for _, m := range imageConfigMaps {
@@ -1032,6 +1042,7 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSACLGen2FIPSTL:                 SIGACLGen2FIPSTLImageConfigTemplate.WithOptions(opts...),
 		AKSACLArm64Gen2FIPSTL:            SIGACLArm64Gen2FIPSTLImageConfigTemplate.WithOptions(opts...),
 		AKSACLCVMGen2:                    SIGACLCVMGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSACLCVMGen2FIPS:                SIGACLCVMGen2FIPSImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
