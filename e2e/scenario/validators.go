@@ -2316,36 +2316,42 @@ if ! sudo grep -q -- '--sport 53 -j NOTRACK' "$localdns_script"; then
 fi
 
 rules=$(sudo iptables -t raw -S)
-awk '/localdns: skip conntrack/ { print }' <<< "$rules"
 
-request_rule_count=$(awk '/localdns: skip conntrack/ && /--dport 53/ { count++ } END { print count + 0 }' <<< "$rules")
-response_rule_count=$(awk '/localdns: skip conntrack/ && /--sport 53/ { count++ } END { print count + 0 }' <<< "$rules")
-prerouting_response_rule_count=$(awk '/^-A PREROUTING/ && /localdns: skip conntrack/ && /--sport 53/ { count++ } END { print count + 0 }' <<< "$rules")
+# awk and sort read to EOF, so these pipes cannot orphan the writer. A reader that
+# exits early instead (grep -q, head) kills the writer with SIGPIPE, which pipefail
+# then reports as a failed pipeline -- a false "missing rule" whenever the raw table
+# exceeds the 64KB pipe buffer. Keep early-exiting readers out of this check.
+actual=$(printf '%s\n' "$rules" | awk '/localdns: skip conntrack/' | sort)
 
-echo "localdns conntrack rules: request=$request_rule_count response=$response_rule_count prerouting_response=$prerouting_response_rule_count"
-test "$request_rule_count" = "8" || { echo "expected 8 request-direction localdns NOTRACK rules, got $request_rule_count"; exit 1; }
-test "$response_rule_count" = "4" || { echo "expected 4 response-direction localdns NOTRACK rules, got $response_rule_count"; exit 1; }
-test "$prerouting_response_rule_count" = "0" || { echo "expected 0 PREROUTING response-direction localdns NOTRACK rules, got $prerouting_response_rule_count"; exit 1; }
-
-# Patterns are spelled out in full, matching the exact "iptables -t raw -S" output format, so that a
+# Rules are spelled out in full, matching the exact "iptables -t raw -S" output format, so that a
 # malformed rule (extra matchers, wrong protocol, interface-scoped) is rejected rather than absorbed
 # by a wildcard. tcp and udp are listed separately rather than as "-p (tcp|udp)" so that a corrupted
-# rule for one protocol cannot be masked by its intact sibling for the other.
-for rule in \
-  '^-A OUTPUT -s 169\.254\.10\.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK$' \
-  '^-A OUTPUT -s 169\.254\.10\.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK$' \
-  '^-A OUTPUT -s 169\.254\.10\.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK$' \
-  '^-A OUTPUT -s 169\.254\.10\.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK$' \
-  '^-A OUTPUT -d 169\.254\.10\.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
-  '^-A OUTPUT -d 169\.254\.10\.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$' \
-  '^-A OUTPUT -d 169\.254\.10\.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
-  '^-A OUTPUT -d 169\.254\.10\.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$' \
-  '^-A PREROUTING -d 169\.254\.10\.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
-  '^-A PREROUTING -d 169\.254\.10\.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$' \
-  '^-A PREROUTING -d 169\.254\.10\.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK$' \
-  '^-A PREROUTING -d 169\.254\.10\.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK$'; do
-  echo "$rules" | grep -Eq "$rule" || { echo "missing expected localdns NOTRACK rule matching: $rule"; exit 1; }
-done
+# rule for one protocol cannot be masked by its intact sibling for the other. Comparing the whole
+# set at once also rejects duplicate or unexpected extra rules, which per-rule matching cannot.
+expected=$(printf '%s\n' \
+  '-A OUTPUT -s 169.254.10.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -s 169.254.10.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -s 169.254.10.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -s 169.254.10.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  | sort)
+
+if [ "$actual" != "$expected" ]; then
+  echo "localdns NOTRACK rules do not match the expected set."
+  # Size is reported because the only known way to reach a false failure here was an
+  # oversized raw table; if that recurs, this says what is filling it.
+  echo "raw table: $(printf '%s\n' "$rules" | wc -l) rules, $(printf '%s' "$rules" | wc -c) bytes"
+  echo "--- expected (<) vs actual (>) ---"
+  diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
+  exit 1
+fi
 `
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should install request and response direction NOTRACK rules"); err != nil {
 		return fmt.Errorf("validate localdns conntrack rules: %w", err)
