@@ -20,6 +20,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -170,11 +171,12 @@ net.ipv4.tcp_retries2=8
 		{
 			name: "SysctlConfig with custom values",
 			args: args{
+				// The kernel caps fs.file-max at LONG_MAX, which is MaxInt64 on 64-bit nodes.
 				s: &aksnodeconfigv1.SysctlConfig{
 					NetIpv4TcpMaxSynBacklog: to.Ptr(int32(9999)),
 					NetCoreRmemDefault:      to.Ptr(int32(9999)),
 					NetIpv4IpLocalPortRange: to.Ptr("32768 62535"),
-					FsFileMax:               to.Ptr(int64(9223372036854775807)),
+					FsFileMax:               to.Ptr(int64(math.MaxInt64)),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString(

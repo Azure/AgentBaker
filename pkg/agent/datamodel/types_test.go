@@ -5,6 +5,7 @@ package datamodel
 
 import (
 	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 
@@ -43,10 +44,11 @@ func TestHasAadProfile(t *testing.T) {
 
 func TestSysctlConfigUnmarshalsInt64FsFileMax(t *testing.T) {
 	var config SysctlConfig
+	// The kernel caps fs.file-max at LONG_MAX, which is MaxInt64 on 64-bit nodes.
 	err := json.Unmarshal([]byte(`{"fsFileMax":9223372036854775807}`), &config)
 
 	assert.NoError(t, err)
-	assert.Equal(t, int64(9223372036854775807), *config.FsFileMax)
+	assert.Equal(t, int64(math.MaxInt64), *config.FsFileMax)
 }
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
