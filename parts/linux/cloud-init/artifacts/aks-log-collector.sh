@@ -15,13 +15,47 @@
 # extended pattern matching
 shopt -s nullglob nocaseglob extglob
 
+# Bundle location expected by aks-log-collector-send.py
+LOG_BUNDLE_DIR=/var/lib/waagent/logcollector
+LOG_BUNDLE="${LOG_BUNDLE_DIR}/logs.zip"
+
+# Publishes the bundle for upload readable only by root. Any existing file is removed first
+# because cp onto an existing file keeps that file's (possibly world-readable) mode.
+# USAGE: publishLogBundle ZIPFILE
+function publishLogBundle {
+  mkdir -p "$LOG_BUNDLE_DIR" || return
+  rm -f "$LOG_BUNDLE"
+  (umask 077 && cp "$1" "$LOG_BUNDLE")
+}
+
+# Removes the published bundle and the temporary working directory, and logs termination.
+function cleanup {
+  # The bundle is only needed for the upload, so don't leave it on the node
+  rm -f "$LOG_BUNDLE"
+
+  # Make sure WORKDIR is a proper temp directory so we don't rm something we shouldn't
+  # shellcheck disable=SC3010
+  if [[ $WORKDIR =~ ^/tmp/tmp\.[a-zA-Z0-9]+$ ]]; then
+    if [ "$DEBUG" != "1" ]; then
+      echo "Cleaning up $WORKDIR..."
+      rm -rf "$WORKDIR"
+    else
+      echo "DEBUG active or $WORKDIR looks wrong; leaving $WORKDIR behind."
+    fi
+  else
+    echo "ERROR: WORKDIR ($WORKDIR) doesn't look like a proper mktemp directory; not removing it for safety reasons!"
+    exit 255
+  fi
+  echo "Log collection finished."
+}
+
+${__SOURCED__:+return}
+
 # Fetch configuration from IMDS - expected is a JSON object in the aks-log-collector tag
 # JSON body:
 # {
 #   "disable": false,
 #   "waagent_full": false,
-#   "files": [ "/etc/skel/.bashrc", "/etc/skel/.bash_profile" ],
-#   "pod_log_namespaces": [ "default", "pahealy" ],
 #   "iptables": false,
 #   "nftables": false,
 #   "netns": true,
@@ -53,16 +87,6 @@ ZIP_STORE_SUFFIXES=".gz:.bz2:.xz:.zst:.zip"
 # File globs to include
 # Smaller and more critical files are closer to the top so that we can be certain they're included.
 declare -a GLOBS
-
-# Add explicitly included files at the top to make sure they're included
-for FILE in $(<<<"$CONFIG" jq -esRr 'try fromjson catch ("" | halt_error) | .files[]'); do
-  GLOBS+=("${FILE}")
-done
-
-# Add extra_namespaces to the top to make sure those pod logs are included
-for NAMESPACE in $(<<<"$CONFIG" jq -esRr 'try fromjson catch ("" | halt_error) | .pod_log_namespaces[]'); do
-  GLOBS+=("/var/log/pods/${NAMESPACE}_*/**/*")
-done
 
 # AKS specific entries
 GLOBS+=(/etc/cni/net.d/*)
@@ -103,7 +127,6 @@ GLOBS+=(/var/log/azure/custom-script/handler.log)
 GLOBS+=(/var/log/azure/run-command/handler.log)
 
 # Extension state
-GLOBS+=(/var/lib/waagent/ovf-env.xml)
 GLOBS+=(/var/lib/waagent/waagent_status.json)
 GLOBS+=(/var/lib/waagent/*/status/*.status)
 GLOBS+=(/var/lib/waagent/*/config/*.settings)
@@ -163,24 +186,6 @@ if [ -z "$WORKDIR" ] || [ "$WORKDIR" = "/" ] || [ "$WORKDIR" = "/tmp" ] || [ ! -
 fi
 cd $WORKDIR || { echo "Failed to change directory to $WORKDIR. Exiting."; exit 1; }
 echo "Created temporary directory: $WORKDIR"
-
-# Function to clean up the output directory and log termination
-function cleanup {
-  # Make sure WORKDIR is a proper temp directory so we don't rm something we shouldn't
-  # shellcheck disable=SC3010
-  if [[ $WORKDIR =~ ^/tmp/tmp\.[a-zA-Z0-9]+$ ]]; then
-    if [ "$DEBUG" != "1" ]; then
-      echo "Cleaning up $WORKDIR..."
-      rm -rf "$WORKDIR"
-    else
-      echo "DEBUG active or $WORKDIR looks wrong; leaving $WORKDIR behind."
-    fi
-  else
-    echo "ERROR: WORKDIR ($WORKDIR) doesn't look like a proper mktemp directory; not removing it for safety reasons!"
-    exit 255
-  fi
-  echo "Log collection finished."
-}
 
 # Execute the cleanup function if the script terminates
 trap "exit 1" HUP INT PIPE QUIT TERM
@@ -353,7 +358,6 @@ done
 # Copy the log bundle to the expected path for uploading, then trigger
 # the upload script to push it to the host storage location.
 echo "Log bundle size: $(du -hs ${ZIP})"
-mkdir -p /var/lib/waagent/logcollector
-cp ${ZIP} /var/lib/waagent/logcollector/logs.zip
+publishLogBundle "${ZIP}" || { echo "ERROR: Failed to publish log bundle to $LOG_BUNDLE"; exit 1; }
 echo -n "Uploading log bundle: "
 /usr/bin/env python3 /opt/azure/containers/aks-log-collector-send.py
