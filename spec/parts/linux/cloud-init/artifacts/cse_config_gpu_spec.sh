@@ -19,6 +19,7 @@ Describe 'cse_config_gpu.sh'
             USER_ASSIGNED_IDENTITY_ID="live-kubelet-client"
             TENANT_ID="live-node-tenant"
             MOCK_LOGIN_RESULT=0
+            MOCK_LOGOUT_RESULT=0
             export MOCK_AUTH_STATE="not-required"
             export MOCK_CPU_ARCH="amd64"
             export MOCK_ORAS_RESULT=0 MOCK_TAR_RESULT=0 MOCK_IMPORT_RESULT=0
@@ -33,6 +34,12 @@ Describe 'cse_config_gpu.sh'
         getCPUArch() { echo "$MOCK_CPU_ARCH"; }
         oras() {
             echo "oras $*"
+            if [ "$1" = "logout" ]; then
+                if [ "$MOCK_LOGOUT_RESULT" -eq 0 ]; then
+                    export MOCK_AUTH_STATE="anonymous"
+                fi
+                return "$MOCK_LOGOUT_RESULT"
+            fi
             if [ "$MOCK_AUTH_STATE" = "missing" ] || [ "$MOCK_AUTH_STATE" = "stale-baked" ]; then
                 echo "ORAS copy attempted without fresh node credentials" >&2
                 return 1
@@ -160,6 +167,69 @@ Describe 'cse_config_gpu.sh'
                 The output should include "ctr -n k8s.io image import"
                 The output should not include "image pull"
             End
+        End
+
+        Context 'PIS nodePrep with incomplete live identity'
+            Parameters
+                "" "live-node-tenant"
+                "live-kubelet-client" ""
+                "" ""
+            End
+
+            # Exercise the real helper's early return without replacing the caller's retry mock.
+            oras_login_with_kubelet_identity() (
+                . "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                oras_login_with_kubelet_identity "$@"
+            )
+
+            It "clears baked credentials before an anonymous pull with client=$1 tenant=$2"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                USER_ASSIGNED_IDENTITY_ID="$1"
+                TENANT_ID="$2"
+                MOCK_AUTH_STATE="stale-baked"
+
+                When call pullGPUDriverImage
+
+                The status should be success
+                The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+                The output should include "client_id or tenant_id are not set"
+                The output should include "oras cp myacr.azurecr.io/aks-managed-repository/aks/aks-gpu-grid:"
+                The output should include "ctr -n k8s.io image import"
+                The output should not include "image pull"
+            End
+
+            It "does not import or fall back when anonymous access is denied with client=$1 tenant=$2"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                USER_ASSIGNED_IDENTITY_ID="$1"
+                TENANT_ID="$2"
+                MOCK_AUTH_STATE="stale-baked"
+                MOCK_ORAS_RESULT=1
+
+                When call pullGPUDriverImage
+
+                The status should be failure
+                The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+                The output should include "oras cp"
+                The output should not include "image import"
+                The output should not include "image pull"
+            End
+        End
+
+        It 'propagates credential-clearing failure before allowing an identity-free copy'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            USER_ASSIGNED_IDENTITY_ID=""
+            MOCK_AUTH_STATE="stale-baked"
+            MOCK_LOGOUT_RESULT=67
+
+            When call pullGPUDriverImage
+
+            The status should equal 67
+            The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+            The output should not include "refresh_login"
+            The output should not include "retrycmd_if_failure"
+            The output should not include "oras cp"
+            The output should not include "image import"
+            The output should not include "image pull"
         End
 
         It 'propagates live identity login failure without staging or copying the driver'

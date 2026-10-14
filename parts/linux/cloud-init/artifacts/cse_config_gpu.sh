@@ -17,9 +17,14 @@ EOF
 
 pullGPUDriverImage() {
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ]; then
-        # PIS nodes skip basePrep, so refresh credentials using this node's identity.
+        # PIS nodes skip basePrep. The shared helper returns early for incomplete identity,
+        # so clear baked credentials before that anonymous path instead of reusing them.
+        if [ -z "${USER_ASSIGNED_IDENTITY_ID:-}" ] || [ -z "${TENANT_ID:-}" ]; then
+            oras logout "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+                --registry-config "$ORAS_REGISTRY_CONFIG_FILE" || return $?
+        fi
         logs_to_events "AKS.CSE.configGPUDrivers.orasLogin" oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
-            "$USER_ASSIGNED_IDENTITY_ID" "$TENANT_ID" || return $?
+            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}" || return $?
 
         local download_dir
         download_dir=$(mktemp -d /opt/gpu/driver-image.XXXXXX) || return 1
