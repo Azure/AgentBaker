@@ -16,6 +16,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestBuildCSECmd(t *testing.T) {
@@ -404,6 +405,29 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	// The value should be exactly the secret, without additional base64 encoding.
 	// Actually the client which passes the secret to aks-node-controller should have base64 encoded it first.
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
+}
+
+func TestBuildCSECmd_CiliumNetworkPolicy(t *testing.T) {
+	for _, policy := range []string{"4", `"NETWORK_POLICY_CILIUM"`} {
+		t.Run(policy, func(t *testing.T) {
+			cfg := &aksnodeconfigv1.Configuration{}
+			err := protojson.Unmarshal([]byte(fmt.Sprintf(`{
+				"networkConfig": {
+					"networkPlugin": "NETWORK_PLUGIN_AZURE",
+					"networkPolicy": %s
+				}
+			}`, policy)), cfg)
+			require.NoError(t, err)
+
+			cmd, err := BuildCSECmd(context.TODO(), cfg, nil)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			assert.Equal(t, "azure", vars["NETWORK_PLUGIN"])
+			assert.Equal(t, "cilium", vars["NETWORK_POLICY"])
+			assert.Equal(t, "false", vars["ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE"])
+		})
+	}
 }
 
 func TestBuildCSECmd_SetsEnableManagedGpuDra(t *testing.T) {

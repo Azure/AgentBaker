@@ -132,7 +132,15 @@ func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*data
 		if cluster.Model.Properties.CurrentKubernetesVersion == nil {
 			return nil, fmt.Errorf("cluster has no current Kubernetes version")
 		}
+		if cluster.Model.Properties.NodeResourceGroup == nil {
+			return nil, fmt.Errorf("cluster is missing its node resource group")
+		}
 		nbc, err = baseTemplateLinux(*cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+		if err == nil {
+			// RP always sets these; AKSNodeConfig validation requires them.
+			nbc.SubscriptionID = config.Config.SubscriptionID
+			nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -163,8 +171,11 @@ func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*data
 // eventually we want to phase out usage of nbc
 func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksnodeconfigv1.Configuration, error) {
 	cs := nbc.ContainerService
-	if err := agent.ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(nbc); err != nil {
-		return nil, err
+	// Phase 3 validates the typed config after conversion and scenario mutations.
+	if !nbc.EnableScriptlessAKSNodeConfig {
+		if err := agent.ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(nbc); err != nil {
+			return nil, err
+		}
 	}
 
 	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
