@@ -504,6 +504,35 @@ oom_score = -999
 	}
 }
 
+func TestContainerdV1KataConfigMatchesNodeBootstrappingConfig(t *testing.T) {
+	config := &aksnodeconfigv1.Configuration{
+		IsKata: true,
+	}
+
+	for _, noGPU := range []bool{false, true} {
+		t.Run(map[bool]string{false: "GPU", true: "no GPU"}[noGPU], func(t *testing.T) {
+			got, err := containerdConfigFromAKSNodeConfig(config, noGPU, "1.7.22")
+			if err != nil {
+				t.Fatalf("containerdConfigFromAKSNodeConfig() error = %v", err)
+			}
+
+			for _, want := range []string{
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`,
+				`privileged_without_host_devices = true`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]`,
+				`ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"`,
+			} {
+				if !strings.Contains(got, want) {
+					t.Errorf("containerd config does not contain %q", want)
+				}
+			}
+			if strings.Contains(got, `.containerd.runtimes.katacli`) {
+				t.Error("containerd config contains the obsolete katacli runtime")
+			}
+		})
+	}
+}
+
 func Test_getContainerdConfigV2(t *testing.T) {
 	type args struct {
 		aksnodeconfig *aksnodeconfigv1.Configuration
