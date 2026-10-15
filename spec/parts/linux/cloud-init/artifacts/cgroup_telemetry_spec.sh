@@ -91,6 +91,24 @@ Describe 'cgroup telemetry'
         fi
     }
 
+    emitted_events() {
+        cat "${EVENTS_ROOT}"/*.json
+    }
+
+    validate_pressure_events() {
+        jq -se '
+            length > 1 and length <= 6 and
+            all(.[]; (.Message | utf8bytelength) <= 3072 and (tojson | utf8bytelength) <= 6144) and
+            ([.[].Message | fromjson | .Pressure | keys[]] | length == 18) and
+            ([.[].Message | fromjson | .Pressure | keys[]] | unique | length == 18) and
+            ([.[].Message | fromjson] | sort_by(.TelemetryChunk.index) |
+                length as $count |
+                (map(.TelemetryChunk.id) | unique | length == 1) and
+                (map(.TelemetryChunk.index) == [range(0; $count)]) and
+                all(.[]; .TelemetryChunk.encoding == "json" and .TelemetryChunk.count == $count))
+        ' "${EVENTS_ROOT}"/*.json
+    }
+
     BeforeEach 'setup_cgroup_telemetry_test'
     AfterEach 'cleanup_cgroup_telemetry_test'
 
@@ -189,14 +207,40 @@ Describe 'cgroup telemetry'
 
         When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
         The status should be success
-        The contents of file "${EVENTS_ROOT}"/* should include '\"kubelet_service_pressure\":{\"CPUPressure\":{'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_pressure\":{\"CPUPressure\":{'
-        The contents of file "${EVENTS_ROOT}"/* should include 'node_problem_detector_service_pressure'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"node_problem_detector_service_pressure\":\"Not Found\"'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_pressure\":{'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"CPUPressure\":{\"some_avg10\":\"1.00\",\"some_avg60\":\"2.00\",\"some_avg300\":\"3.00\",\"some_total\":\"4\"}'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_pressure\":{'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_pressure\":{'
+        The result of function emitted_events should include '\"kubelet_service_pressure\":{\"CPUPressure\":{'
+        The result of function emitted_events should include '\"containerd_service_pressure\":{\"CPUPressure\":{'
+        The result of function emitted_events should include '\"node_problem_detector_service_pressure\":\"Not Found\"'
+        The result of function emitted_events should include '\"node_exporter_service_pressure\":{'
+        The result of function emitted_events should include '\"CPUPressure\":{\"some_avg10\":\"1.00\",\"some_avg60\":\"2.00\",\"some_avg300\":\"3.00\",\"some_total\":\"4\"}'
+        The result of function emitted_events should include '\"sync_container_logs_service_pressure\":{'
+        The result of function emitted_events should include '\"localdns_service_pressure\":{'
+        The result of function validate_pressure_events should equal true
+    End
+
+    It 'bounds pressure events with every supported service and large counters'
+        for cgroup_path in \
+            . system.slice azure.slice kubepods.slice \
+            system.slice/kubelet.service system.slice/containerd.service \
+            system.slice/node-problem-detector.service system.slice/node-exporter.service \
+            system.slice/sync-container-logs.service localdns.slice/localdns.service \
+            system.slice/nvidia-persistenced.service system.slice/nvidia-gridd.service \
+            system.slice/nvidia-fabricmanager.service system.slice/nvidia-device-plugin.service \
+            system.slice/dra-driver-nvidia-gpu.service system.slice/nvidia-dcgm.service \
+            system.slice/nvidia-dcgm-exporter.service system.slice/openibd.service; do
+            create_pressure_files "${cgroup_path}"
+            sed -i -E 's/total=[0-9]+/total=18446744073709551615/g' "${CGROUP_ROOT}/${cgroup_path}/"*.pressure
+        done
+        prepare_pressure_script
+        validate_service_values() {
+            jq -se '[.[].Message | fromjson | .Pressure[]] |
+                all(.[]; .CPUPressure.some_total == "18446744073709551615" and
+                    .MemoryPressure.full_total == "18446744073709551615" and
+                    .IOPressure.full_total == "18446744073709551615")' "${EVENTS_ROOT}"/*.json
+        }
+        When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+        The status should be success
+        The result of function validate_pressure_events should equal true
+        The result of function validate_service_values should equal true
     End
 
     It 'emits cgroup v2 CPU usage and throttling counters with explicit units'

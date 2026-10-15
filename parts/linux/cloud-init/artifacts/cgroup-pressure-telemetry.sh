@@ -41,7 +41,7 @@ getServicePressure() {
 }
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
-EVENTS_FILE_NAME=$(date +%s%3N)
+EVENTS_FILE_NAME="$(date +%s%N)${BASHPID}"
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
@@ -304,7 +304,7 @@ fi
 
 message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
-EVENT_JSON=$( jq -n \
+if ! EVENT_JSON=$( jq -cn \
     --arg Timestamp     "${STARTTIME_FORMATTED}" \
     --arg OperationId   "${ENDTIME_FORMATTED}" \
     --arg Version       "1.23" \
@@ -313,8 +313,39 @@ EVENT_JSON=$( jq -n \
     --arg Message       "${message_string}" \
     --arg EventPid      "0" \
     --arg EventTid      "0" \
-    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
-)
+    --arg id "${EVENTS_FILE_NAME}" '
+    def fits: (.Message | utf8bytelength) <= 3072 and (tojson | utf8bytelength) <= 6144;
+    {Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName,
+     EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid} as $event |
+    if ($event | fits) then [$event] else
+        ($Message | fromjson) as $payload |
+        ($payload.Pressure | to_entries) as $entries |
+        (($entries | length) / 4 | ceil) as $count |
+        [range(0; $count) as $index |
+            $payload |
+            .Pressure = ($entries[$index * 4:($index + 1) * 4] | from_entries) |
+            .TelemetryChunk = {id: $id, index: $index, count: $count, encoding: "json"} |
+            tojson as $message | $event | .Message = $message]
+    end |
+    if length > 0 and all(.[]; fits) then .[]
+    else error("pressure event exceeds guest agent transport limits") end
+'); then
+    echo "pressure telemetry: failed to bound event payload" >&2
+    exit 1
+fi
 
-mkdir -p "${EVENTS_LOGGING_DIR}"
-echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
+mkdir -p "${EVENTS_LOGGING_DIR}" || exit 1
+event_index=0
+while IFS= read -r event; do
+    printf -v target '%s/%s%06d.json' "${EVENTS_LOGGING_DIR%/}" "${EVENTS_FILE_NAME}" "${event_index}"
+    temporary=$(mktemp "${EVENTS_LOGGING_DIR%/}/.pressure-event.XXXXXXXX") || exit 1
+    # Publish complete files only, without overwriting another sample or fragment.
+    if ! printf '%s\n' "${event}" > "${temporary}" ||
+        ! chmod 0644 "${temporary}" || ! ln "${temporary}" "${target}"; then
+        echo "pressure telemetry: failed to publish ${target}" >&2
+        rm -f "${temporary}"
+        exit 1
+    fi
+    rm -f "${temporary}" || exit 1
+    event_index=$((event_index + 1))
+done <<< "${EVENT_JSON}"
