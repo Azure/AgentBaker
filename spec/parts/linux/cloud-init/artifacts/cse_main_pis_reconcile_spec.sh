@@ -114,6 +114,40 @@ Describe 'cse_main.sh PIS-safe configuration'
         End
     End
 
+    Describe 'NVIDIA GPU driver mode'
+        It 'publishes the mode once in nodePrep and never in basePrep'
+            mode_writer_counts() {
+                phase_count "basePrep" "configureNvidiaGPUDriverMode"
+                phase_count "nodePrep" "configureNvidiaGPUDriverMode"
+                script_count "configureNvidiaGPUDriverMode"
+            }
+            When call mode_writer_counts
+            The line 1 of output should equal "0"
+            The line 2 of output should equal "1"
+            The line 3 of output should equal "1"
+        End
+
+        It 'publishes before GPU detection, installation, and kubelet startup'
+            mode_writer_order() {
+                phase_body "nodePrep" | code_lines |
+                    grep -E 'configureNvidiaGPUDriverMode|skip_nvidia_driver_install=|AKS.CSE.ensureGPUDrivers|AKS.CSE.ensureKubelet'
+            }
+            When call mode_writer_order
+            The line 1 of output should include 'configureNvidiaGPUDriverMode'
+            The line 2 of output should include 'skip_nvidia_driver_install='
+            The line 3 of output should include 'AKS.CSE.ensureGPUDrivers'
+            The line 4 of output should include 'AKS.CSE.ensureKubelet'
+        End
+
+        It 'fails provisioning when the mode cannot be reconciled'
+            mode_writer_call() {
+                phase_body "nodePrep" | code_lines | grep 'AKS.CSE.configureNvidiaGPUDriverMode'
+            }
+            When call mode_writer_call
+            The output should include 'configureNvidiaGPUDriverMode || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"'
+        End
+    End
+
     Describe 'stage gate'
         It 'configures Chrony before either provisioning stage'
             When call chrony_dispatch_calls

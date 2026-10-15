@@ -320,6 +320,36 @@ setupAmdAma() {
     fi
 }
 
+# Records the requested gpuProfile.nvidia.driverMode for host agents such as NPD.
+# DRA nodes have a root-owned, readable file containing "DRA"; other nodes leave
+# it absent, including removal of a stale DRA value. This is configuration, not
+# evidence that driver installation or service startup succeeded.
+# The optional destination lets callers use a different filesystem root.
+configureNvidiaGPUDriverMode() {
+    local driver_mode_file="${1:-/opt/azure/containers/nvidia-gpu-driver-mode}"
+    local temp_file
+
+    case "${ENABLE_MANAGED_GPU_DRA:-}" in
+        [Tt][Rr][Uu][Ee]) ;;
+        *)
+            rm -f "${driver_mode_file}"
+            return
+            ;;
+    esac
+
+    [ ! -d "${driver_mode_file}" ] || return 1
+    mkdir -p "$(dirname "${driver_mode_file}")" || return 1
+    temp_file=$(mktemp "${driver_mode_file}.XXXXXX") || return 1
+    # Publish only the complete value, with its final ownership and permissions.
+    if ! { printf 'DRA\n' > "${temp_file}" &&
+        chown root:root "${temp_file}" &&
+        chmod 0644 "${temp_file}" &&
+        mv -f "${temp_file}" "${driver_mode_file}"; }; then
+        rm -f "${temp_file}"
+        return 1
+    fi
+}
+
 configureManagedGPUExperience() {
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return

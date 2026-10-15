@@ -431,6 +431,10 @@ function nodePrep {
     logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
     logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
+    # Keep the node's requested mode out of PIS images and publish it before GPU
+    # setup can fail or restart NPD. Both provisioning paths use this function.
+    logs_to_events "AKS.CSE.configureNvidiaGPUDriverMode" configureNvidiaGPUDriverMode || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
+
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
     reconcileVulnerableKernelModuleMitigation
 
