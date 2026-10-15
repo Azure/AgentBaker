@@ -17,7 +17,7 @@ const (
 
 var (
 	_ = Register(newCVMScenario(
-		"Ubuntu2004_CVM_SEVSNP",
+		"Ubuntu2004_CVM_SNP",
 		"Tests that an Ubuntu 20.04 Confidential VM node can be provisioned and pass standard node validation",
 		config.VHDUbuntu2004CVMGen2Containerd,
 		ClusterKubenet,
@@ -25,7 +25,7 @@ var (
 		false,
 	))
 	_ = Register(newCVMScenario(
-		"Ubuntu2404_CVM_SEVSNP",
+		"Ubuntu2404_CVM_SNP",
 		"Tests that an Ubuntu 24.04 Confidential VM node can be provisioned and pass standard node validation",
 		config.VHDUbuntu2404CVMGen2Containerd,
 		ClusterKubenet,
@@ -33,7 +33,7 @@ var (
 		false,
 	))
 	_ = Register(newCVMScenario(
-		"AzureLinuxV3_CVM_SEVSNP",
+		"AzureLinuxV3_CVM_SNP",
 		"Tests that an Azure Linux V3 Confidential VM node can be provisioned and pass standard node validation",
 		config.VHDAzureLinuxV3CVMGen2,
 		ClusterKubenet,
@@ -41,7 +41,7 @@ var (
 		false,
 	))
 	_ = Register(newCVMScenario(
-		"Ubuntu2604Minimal_CVM_SEVSNP",
+		"Ubuntu2604Minimal_CVM_SNP",
 		"Tests that an Ubuntu 26.04 minimal Confidential VM node can be provisioned on SEV-SNP and pass standard node validation",
 		config.VHDUbuntu2604MinimalCVMGen2Containerd,
 		ClusterLatestKubernetesVersionKubenet,

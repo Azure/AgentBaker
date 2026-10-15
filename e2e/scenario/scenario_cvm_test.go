@@ -38,11 +38,11 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 		vhd     *config.Image
 		useNVMe bool
 	}{
-		"Ubuntu2004_CVM_SEVSNP":        {vhd: config.VHDUbuntu2004CVMGen2Containerd},
-		"Ubuntu2404_CVM_SEVSNP":        {vhd: config.VHDUbuntu2404CVMGen2Containerd},
-		"AzureLinuxV3_CVM_SEVSNP":      {vhd: config.VHDAzureLinuxV3CVMGen2},
-		"Ubuntu2604Minimal_CVM_SEVSNP": {vhd: config.VHDUbuntu2604MinimalCVMGen2Containerd},
-		"Ubuntu2604Minimal_CVM_TDX":    {vhd: config.VHDUbuntu2604MinimalCVMGen2Containerd, useNVMe: true},
+		"Ubuntu2004_CVM_SNP":        {vhd: config.VHDUbuntu2004CVMGen2Containerd},
+		"Ubuntu2404_CVM_SNP":        {vhd: config.VHDUbuntu2404CVMGen2Containerd},
+		"AzureLinuxV3_CVM_SNP":      {vhd: config.VHDAzureLinuxV3CVMGen2},
+		"Ubuntu2604Minimal_CVM_SNP": {vhd: config.VHDUbuntu2604MinimalCVMGen2Containerd},
+		"Ubuntu2604Minimal_CVM_TDX": {vhd: config.VHDUbuntu2604MinimalCVMGen2Containerd, useNVMe: true},
 	}
 
 	found := make(map[string]bool, len(expected))
