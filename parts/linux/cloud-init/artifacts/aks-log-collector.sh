@@ -84,6 +84,7 @@ MAX_COLLECT_SIZE=$((10 * 1024 * 1024))
 # Already-compressed files should be stored in the ZIP without recompression.
 ZIP_STORE_SUFFIXES=".gz:.bz2:.xz:.zst:.zip"
 IO_RECORDER_DIR="/var/log/azure/aks/io-recorder"
+IO_RECORDER_STAGING_DIR="/var/log/azure/aks/.io-recorder-staging"
 
 # File globs to include
 # Smaller and more critical files are closer to the top so that we can be certain they're included.
@@ -418,9 +419,9 @@ fi
 # adding things to the archive.
 echo "Adding log files to zip archive with max file size: $MAX_COLLECT_SIZE bytes..."
 for file in "${GLOBS[@]}"; do
-  # Never retry rejected captures through the generic truncating path.
+  # Never export producer staging or retry rejected captures through this path.
   case "$file" in
-    "$IO_RECORDER_DIR"|"$IO_RECORDER_DIR"/*) continue ;;
+    "$IO_RECORDER_DIR"|"$IO_RECORDER_DIR"/*|"$IO_RECORDER_STAGING_DIR"|"$IO_RECORDER_STAGING_DIR"/*) continue ;;
   esac
   test -e "$file" || continue
 

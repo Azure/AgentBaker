@@ -1,8 +1,10 @@
 # Incident-time I/O evidence in AKS support bundles
 
-The AKS VM extension owns the opt-in I/O recorder, its NPD trigger, capture
+The AKS VM extension owns the I/O recorder, its NPD trigger, capture
 schema, redaction, and retention. AgentBaker does not install a second recorder
-or sampling timer. The existing `aks-log-collector.timer` starts collection
+or sampling timer. Activation policy and production rollout require separate
+approval; this integration does not enable the producer. The existing
+`aks-log-collector.timer` starts collection
 10 minutes after activation and every 60 minutes thereafter; `nodePrep` starts
 the timer on real nodes, including PIS-cached nodes.
 
@@ -11,8 +13,9 @@ the timer on real nodes, including PIS-cached nodes.
 The extension publishes flat, immutable
 `/var/log/azure/aks/io-recorder/capture-<id>.json` files. IDs contain only ASCII
 letters, digits, and hyphens. The directory and files must be root-only.
-Publication uses atomic rename from a staging directory outside the export
-directory on the same filesystem. Published files are never modified.
+Publication uses atomic rename from the sibling
+`/var/log/azure/aks/.io-recorder-staging` directory on the same filesystem.
+Published files are never modified. Producer staging is never exported.
 
 The agreed producer limits are one MiB (1,048,576 bytes) per capture, eight
 captures/eight MiB total, and a maximum age of 24 hours. These are **upper
@@ -46,9 +49,10 @@ The manifest distinguishes `not_present`, `empty`, `invalid_directory`,
 `complete`, and `partial` exports. Per-file failures distinguish invalid names,
 nonregular files/symlinks, vanished files, read errors/timeouts, oversize,
 invalid JSON, hash failures, and ZIP failures. Rejected files are never
-tail-truncated. The recorder directory is excluded from subsequent generic
-file collection, including explicitly requested files, so rejected captures
-cannot reappear through that path. Export errors also produce warnings in the
+tail-truncated. Both the recorder directory and its producer staging directory
+are excluded from subsequent generic file collection, including explicitly
+requested files, so rejected or unpublished captures cannot reappear through
+that path. Export errors also produce warnings in the
 collector's existing logs; inability to archive the manifest is itself logged.
 
 The recorder adds at most eight MiB of capture data plus a small manifest and
@@ -80,7 +84,7 @@ manifest nor repository code proves downstream ingestion, searchable retention,
 access authorization, or a retrieval SLA. Before claiming incident evidence
 is available after recovery, an approved-environment rollout must demonstrate:
 
-- Extension opt-in, bounded overhead, trigger operation, and retention behavior
+- Extension activation approval, bounded overhead, trigger operation, and retention behavior
   on the supported Ubuntu/Azure Linux kernels.
 - A successful upload log correlated to the actual bundle hash, followed by
   authorized retrieval containing matching capture hashes and incident IDs.

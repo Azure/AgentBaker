@@ -93,8 +93,10 @@ Describe 'I/O recorder support bundle export'
     export_with_generic_collection() {
         export_captures || return 1
         local ZIP="${WORK_DIR}/logs.zip" IO_RECORDER_DIR="$SOURCE_DIR"
+        local IO_RECORDER_STAGING_DIR="${TEST_ROOT}/.io-recorder-staging"
         local MAX_COLLECT_SIZE=10485760 MAX_SIZE=104857600 ZIP_STORE_SUFFIXES=".gz:.zip"
         local -a GLOBS=("$SOURCE_DIR" "$SOURCE_DIR"/* "${TEST_ROOT}/normal.log")
+        GLOBS+=("$IO_RECORDER_STAGING_DIR" "$IO_RECORDER_STAGING_DIR/capture.pending" "$IO_RECORDER_STAGING_DIR/.pending")
         stat() { wc -c < "${*: -1}"; }
         # shellcheck disable=SC1090
         . "$GENERIC_SCRIPT"
@@ -297,6 +299,9 @@ Describe 'I/O recorder support bundle export'
         capture valid
         sized_capture 1048577
         printf 'ordinary support log' > "${TEST_ROOT}/normal.log"
+        mkdir "${TEST_ROOT}/.io-recorder-staging"
+        printf 'unpublished evidence' > "${TEST_ROOT}/.io-recorder-staging/capture.pending"
+        printf 'unpublished evidence' > "${TEST_ROOT}/.io-recorder-staging/.pending"
         When call export_with_generic_collection
         The status should be success
         The stderr should include oversized
@@ -304,6 +309,7 @@ Describe 'I/O recorder support bundle export'
         The value "$(unzip -Z1 "${WORK_DIR}/logs.zip")" should include collect/io-recorder/capture-valid.json
         The value "$(unzip -Z1 "${WORK_DIR}/logs.zip")" should not include capture-sized.json
         The value "$(unzip -Z1 "${WORK_DIR}/logs.zip")" should not include '/captures/'
+        The value "$(unzip -Z1 "${WORK_DIR}/logs.zip")" should not include '.io-recorder-staging'
         The value "$(unzip -p "${WORK_DIR}/logs.zip" collect/io-recorder/capture-valid.json)" should equal "$(cat "${SOURCE_DIR}/capture-valid.json")"
         The value "$(unzip -Z1 "${WORK_DIR}/logs.zip" | head -n 1)" should equal collect/io-recorder/capture-valid.json
     End
