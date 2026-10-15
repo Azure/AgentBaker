@@ -132,6 +132,8 @@ EOF
     The contents of file "${AZ_CALLS}" should include "--source https://storage.example/ubuntu.vhd"
     The contents of file "${AZ_CALLS}" should include "<sig image-version create"
     The contents of file "${AZ_CALLS}" should include "--target-regions eastus westeurope"
+    The contents of file "${AZ_CALLS}" should include "buildId=12345"
+    The contents of file "${AZ_CALLS}" should not include "sourceBuildId"
   End
 
   It 'publishes an Azure Linux CVM staging VHD'

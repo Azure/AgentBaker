@@ -189,7 +189,7 @@ managed_image_id="$(
         --hyper-v-generation V2 \
         --storage-sku Standard_LRS \
         --tags \
-            "sourceBuildId=${BUILD_BUILDID}" \
+            "buildId=${BUILD_BUILDID}" \
             "createdBy=aks-vhd-pipeline" \
         --query id \
         --output tsv \
@@ -206,7 +206,7 @@ az sig image-version create \
     --managed-image "${managed_image_id}" \
     --target-regions eastus westeurope \
     --tags \
-        "sourceBuildId=${BUILD_BUILDID}" \
+        "buildId=${BUILD_BUILDID}" \
         "createdBy=aks-vhd-pipeline" \
     --only-show-errors >/dev/null
 
