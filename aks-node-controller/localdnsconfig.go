@@ -26,8 +26,17 @@ import (
 const (
 	localDNSLivePatchingComponentName = "localDNS"
 	defaultLocalDNSCorefilePath       = "/opt/azure/containers/localdns/livepatched.localdns.corefile"
-	localDNSHostsFilePath             = "/etc/localdns/hosts"
-	localDNSAgentPoolLabel            = "kubernetes.azure.com/agentpool"
+	// defaultLocalDNSBakedCorefilePath is the Corefile localdns.sh regenerates from CustomData on
+	// every start. It records what bootstrap decided for this node, so node-specific values the
+	// live-patching payload does not carry are read back from it.
+	defaultLocalDNSBakedCorefilePath = "/opt/azure/containers/localdns/localdns.corefile"
+	defaultLocalDNSHostsFilePath     = "/etc/localdns/hosts"
+	localDNSAgentPoolLabel           = "kubernetes.azure.com/agentpool"
+	// unresolvedCoreDNSServiceIP stands in for the CoreDNS service IP when no bootstrap source on
+	// the node carries it. The parser would otherwise substitute its 10.0.0.10 default, which is
+	// wrong for any cluster with a custom service CIDR; rendering this marker instead lets a profile
+	// that actually forwards to CoreDNS be refused rather than silently misrouted.
+	unresolvedCoreDNSServiceIP = "unresolved-coredns-service-ip"
 )
 
 type localDNSConfigFetcher func(context.Context) (string, error)
@@ -317,19 +326,29 @@ func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPo
 	if !profile.GetEnableLocalDns() {
 		return update, nil
 	}
-	nodeConfig, err := a.nodeConfigWithLocalDNSProfile(profile)
-	if err != nil {
-		return localDNSCorefileUpdate{}, err
+	// The Corefile template reads exactly one field off Configuration outside of LocalDnsProfile:
+	// ClusterConfig.ClusterNetworkConfig.CoreDnsServiceIp. Everything else comes from the profile.
+	nodeConfig := &aksnodeconfigv1.Configuration{
+		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+			ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
+				CoreDnsServiceIp: a.localDNSCoreDNSServiceIP(),
+			},
+		},
+		LocalDnsProfile: profile,
 	}
 	includeHostsPlugin := a.includeHostsPluginForCorefile(profile)
 	if includeHostsPlugin {
-		if _, statErr := os.Stat(localDNSHostsFilePath); statErr != nil {
+		if _, statErr := os.Stat(a.getLocalDNSHostsFilePath()); statErr != nil {
 			includeHostsPlugin = false
 		}
 	}
 	corefile, err := parser.GenerateLocalDnsCorefileFromAKSNodeConfig(nodeConfig, includeHostsPlugin)
 	if err != nil {
 		return localDNSCorefileUpdate{}, err
+	}
+	if strings.Contains(corefile, unresolvedCoreDNSServiceIP) {
+		return localDNSCorefileUpdate{}, fmt.Errorf("localDNS profile forwards to the cluster CoreDNS service, " +
+			"but no bootstrap source on this node carries its IP")
 	}
 	update.corefile = corefile
 	update.hasCorefile = true
@@ -382,25 +401,62 @@ func (a *App) nodeAgentPoolName() (string, error) {
 	return agentPool, nil
 }
 
-func (a *App) nodeConfigWithLocalDNSProfile(profile *aksnodeconfigv1.LocalDnsProfile) (*aksnodeconfigv1.Configuration, error) {
-	path := a.getNodeConfigPath()
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			slog.Info("node config not found, trying nbc-cmd.sh fallback", "path", path)
-			return a.nodeConfigWithLocalDNSProfileFromNBCCmd(profile)
+// localDNSCoreDNSServiceIP returns the CoreDNS service IP for the cluster.local blocks, taken from
+// what bootstrap already rendered for this node rather than recomputed.
+//
+// The baked Corefile comes first because it exists in every provisioning mode and is exactly what
+// this node has been serving. The AKSNodeConfig JSON and nbc-cmd.sh only exist for scriptless
+// provisioning, so they are fallbacks. When none of them carries the IP the marker is returned and
+// the caller refuses the render if the profile needs it.
+func (a *App) localDNSCoreDNSServiceIP() string {
+	bakedPath := a.getLocalDNSBakedCorefilePath()
+	if baked, err := os.ReadFile(bakedPath); err == nil {
+		if ip := coreDNSServiceIPFromCorefile(string(baked)); ip != "" {
+			slog.Info("loaded CoreDNS service IP from the baked localDNS corefile", "coreDnsServiceIp", ip, "path", bakedPath)
+			return ip
 		}
-		return nil, fmt.Errorf("reading node config %s: %w", path, err)
+	}
+	if ip := a.coreDNSServiceIPFromNodeConfig(); ip != "" {
+		slog.Info("loaded CoreDNS service IP from node config", "coreDnsServiceIp", ip)
+		return ip
+	}
+	if vars, path, err := a.nbcCmdEnvVars(); err == nil {
+		if ip, err := coreDNSServiceIPFromBootstrapCorefiles(vars); err == nil {
+			slog.Info("loaded CoreDNS service IP from nbc-cmd.sh fallback", "coreDnsServiceIp", ip, "path", path)
+			return ip
+		}
+	}
+	slog.Warn("no bootstrap source carries the CoreDNS service IP", "bakedCorefile", bakedPath)
+	return unresolvedCoreDNSServiceIP
+}
+
+// coreDNSServiceIPFromNodeConfig reads the CoreDNS service IP straight off the AKSNodeConfig JSON,
+// returning "" when the file or field is absent. It deliberately does not go through the parser's
+// getter, which would substitute the 10.0.0.10 default.
+func (a *App) coreDNSServiceIPFromNodeConfig() string {
+	raw, err := os.ReadFile(a.getNodeConfigPath())
+	if err != nil {
+		return ""
 	}
 	cfg, perr := nodeconfigutils.UnmarshalConfigurationV1(raw)
 	if perr != nil {
 		slog.Info("node config parsed with errors, continuing with partial config", "error", perr)
 	}
-	if cfg == nil {
-		return nil, fmt.Errorf("node config %s could not be parsed", path)
+	return cfg.GetClusterConfig().GetClusterNetworkConfig().GetCoreDnsServiceIp()
+}
+
+func (a *App) getLocalDNSBakedCorefilePath() string {
+	if a.localDNSBakedCorefilePath != "" {
+		return a.localDNSBakedCorefilePath
 	}
-	cfg.LocalDnsProfile = profile
-	return cfg, nil
+	return defaultLocalDNSBakedCorefilePath
+}
+
+func (a *App) getLocalDNSHostsFilePath() string {
+	if a.localDNSHostsFilePath != "" {
+		return a.localDNSHostsFilePath
+	}
+	return defaultLocalDNSHostsFilePath
 }
 
 func writeLocalDNSCorefile(path string, corefile string) error {
@@ -481,34 +537,6 @@ func (a *App) nodeAgentPoolNameFromNBCCmd() (string, error) {
 	return agentPool, nil
 }
 
-// nodeConfigWithLocalDNSProfileFromNBCCmd builds the minimal Configuration needed to render the
-// LocalDNS Corefile when the full AKSNodeConfig JSON is absent (e.g. Staging Phase 2).
-//
-// The Corefile template reads exactly one field off Configuration outside of LocalDnsProfile:
-// ClusterConfig.ClusterNetworkConfig.CoreDnsServiceIp. That value is NOT carried as a standalone
-// variable in nbc-cmd.sh -- note that --cluster-dns points at the localdns cluster listener
-// (169.254.10.11), not at the CoreDNS service. It is, however, already baked into the Corefile
-// that bootstrap rendered into LOCALDNS_COREFILE_BASE, so recover it from there.
-func (a *App) nodeConfigWithLocalDNSProfileFromNBCCmd(profile *aksnodeconfigv1.LocalDnsProfile) (*aksnodeconfigv1.Configuration, error) {
-	vars, path, err := a.nbcCmdEnvVars()
-	if err != nil {
-		return nil, err
-	}
-	coreDNSServiceIP, err := coreDNSServiceIPFromBootstrapCorefiles(vars)
-	if err != nil {
-		return nil, fmt.Errorf("nbc-cmd %s: %w", path, err)
-	}
-	slog.Info("loaded CoreDNS service IP from nbc-cmd.sh fallback", "coreDnsServiceIp", coreDNSServiceIP, "path", path)
-	return &aksnodeconfigv1.Configuration{
-		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
-			ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
-				CoreDnsServiceIp: coreDNSServiceIP,
-			},
-		},
-		LocalDnsProfile: profile,
-	}, nil
-}
-
 // nbcCmdEnvVars reads and parses the command-scoped environment variables out of nbc-cmd.sh.
 func (a *App) nbcCmdEnvVars() (map[string]string, string, error) {
 	path := a.getNBCCmdPath()
@@ -536,7 +564,9 @@ func labelValueFromCSV(labels string, key string) string {
 
 // coreDNSServiceIPFromBootstrapCorefiles recovers the CoreDNS service IP from a Corefile that
 // bootstrap already rendered. In the generated Corefile the cluster.local server block forwards
-// to the CoreDNS service, so the forward target there is the value we need.
+// to the CoreDNS service, so the forward target there is the value we need. nbc-cmd.sh carries no
+// standalone variable for it -- --cluster-dns points at the localdns cluster listener
+// (169.254.10.11), not at the CoreDNS service.
 func coreDNSServiceIPFromBootstrapCorefiles(vars map[string]string) (string, error) {
 	for _, name := range []string{"LOCALDNS_COREFILE_BASE", "LOCALDNS_COREFILE_WITH_HOSTS", "LOCALDNS_GENERATED_COREFILE"} {
 		encoded := strings.TrimSpace(vars[name])
@@ -583,15 +613,25 @@ func coreDNSServiceIPFromCorefile(corefile string) string {
 // includeHostsPluginForCorefile decides whether the re-rendered Corefile keeps the hosts plugin
 // block.
 //
-// The hosts plugin is currently driven by a control-plane toggle that bootstrap resolves into
-// SHOULD_ENABLE_HOSTS_PLUGIN (see withLocalDNSHostsPlugin on the RP side); the LPS LocalDnsProfile
-// carries enableHostsPlugin off HostsPluginConfig, which is not populated on the HCP proto yet and
-// therefore reads false. Honouring the profile alone would silently drop the hosts block from a
-// node that booted with it, so prefer the bootstrap-resolved value and fall back to the profile.
+// Whether a node runs the hosts plugin is decided at bootstrap: the RP resolves a control-plane
+// toggle into SHOULD_ENABLE_HOSTS_PLUGIN, and only then does CSE set up aks-localdns-hosts-setup
+// and /etc/localdns/hosts. The live-patching payload cannot change that -- it carries
+// enableHostsPlugin off HostsPluginConfig, which is not populated on the HCP proto, so it reads
+// false, and turning the plugin on at runtime would need the hosts setup bootstrap never ran.
+// Honouring the payload would silently strip the hosts block from a node that booted with it.
+//
+// So the baked Corefile decides: it is the variant localdns.sh selected for this node, which also
+// captures bootstrap's own fallback to the no-hosts variant when the hosts file was missing. The
+// nbc-cmd.sh value and then the payload are only consulted when no baked Corefile is readable.
 func (a *App) includeHostsPluginForCorefile(profile *aksnodeconfigv1.LocalDnsProfile) bool {
+	bakedPath := a.getLocalDNSBakedCorefilePath()
+	if baked, err := os.ReadFile(bakedPath); err == nil && len(bytes.TrimSpace(baked)) > 0 {
+		return corefileHasHostsPlugin(string(baked), a.getLocalDNSHostsFilePath())
+	}
 	vars, path, err := a.nbcCmdEnvVars()
 	if err != nil {
-		slog.Info("could not read nbc-cmd.sh for hosts plugin state, using LPS profile value", "error", err)
+		slog.Info("could not read the baked corefile or nbc-cmd.sh for hosts plugin state, using LPS profile value",
+			"bakedCorefile", bakedPath, "error", err)
 		return profile.GetEnableHostsPlugin()
 	}
 	switch strings.TrimSpace(vars["SHOULD_ENABLE_HOSTS_PLUGIN"]) {
@@ -602,4 +642,14 @@ func (a *App) includeHostsPluginForCorefile(profile *aksnodeconfigv1.LocalDnsPro
 	}
 	slog.Info("nbc-cmd.sh has no SHOULD_ENABLE_HOSTS_PLUGIN, using LPS profile value", "path", path)
 	return profile.GetEnableHostsPlugin()
+}
+
+// corefileHasHostsPlugin reports whether a Corefile loads the hosts plugin from hostsPath.
+func corefileHasHostsPlugin(corefile string, hostsPath string) bool {
+	for _, line := range strings.Split(corefile, "\n") {
+		if fields := strings.Fields(line); len(fields) >= 2 && fields[0] == "hosts" && fields[1] == hostsPath {
+			return true
+		}
+	}
+	return false
 }
