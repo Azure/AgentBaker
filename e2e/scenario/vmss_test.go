@@ -16,6 +16,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -50,6 +51,8 @@ type vmssCreationTestCase struct {
 	running       bool
 	sshFails      bool
 	skipSSH       bool
+	windows       bool
+	preProvision  bool
 	viewFails     bool
 	noVM          bool
 	noNetwork     bool
@@ -84,6 +87,10 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 		{name: "instance view unavailable", provisionCode: "AllocationFailed", viewFails: true, sshFails: true},
 		{name: "creation succeeded but SSH failed", running: true, sshFails: true, wantSSH: true},
 		{name: "creation and SSH succeeded", running: true, wantSSH: true},
+		{name: "Windows PIS bake without SSH", windows: true, preProvision: true, running: true},
+		{name: "Windows PIS bake CSE failure without SSH", windows: true, preProvision: true, provisionCode: "VMExtensionProvisioningError", running: true},
+		{name: "Windows real node still needs SSH", windows: true, running: true, wantSSH: true},
+		{name: "Linux PIS bake still needs SSH", preProvision: true, running: true, wantSSH: true},
 		{name: "network available before creation completes", running: true, pendingPolls: 2, wantSSH: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -91,9 +98,14 @@ func TestCreateVMSSProvisioningErrorPrecedence(t *testing.T) {
 				previousAzure := config.Azure
 				config.Azure = tt.client(t)
 				t.Cleanup(func() { config.Azure = previousAzure })
+				image := &config.Image{OS: config.OSUbuntu}
+				if tt.windows {
+					image.OS = config.OSWindows
+				}
 				s := &Scenario{
-					Config: Config{SkipSSHConnectivityValidation: tt.skipSSH},
+					Config: Config{VHD: image, SkipSSHConnectivityValidation: tt.skipSSH},
 					Runtime: &ScenarioRuntime{
+						NBC:      &datamodel.NodeBootstrappingConfiguration{PreProvisionOnly: tt.preProvision},
 						VMSSName: "vmss",
 						Cluster: &Cluster{Model: &armcontainerservice.ManagedCluster{
 							Location: to.Ptr("southeastasia"),
