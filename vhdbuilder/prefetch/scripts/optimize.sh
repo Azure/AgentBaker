@@ -356,6 +356,9 @@ copy_optimized_vhd() {
 
     wait_for_vhd_copy || return $?
 
+    "$(dirname "${BASH_SOURCE[0]}")/../../packer/publish-generalized-cvm-if-needed.sh" \
+        "${STAGING_VHD_URI}" || return $?
+
     # the optimized VHD is now safely in the immutable vhd container, so the staging copy is no longer
     # needed - delete it as best-effort cleanup so staging blobs do not accumulate in the destination account.
     # Use no-wait since we don't need to wait for the blob to be deleted in this case.
