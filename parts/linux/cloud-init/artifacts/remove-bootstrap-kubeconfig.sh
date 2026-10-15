@@ -2,9 +2,8 @@
 set -uo pipefail
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
-
-KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
 BOOTSTRAP_KUBECONFIG_PATH="${BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/bootstrap-kubeconfig}"
+KUBELET_CLIENT_CURRENT_PEM_PATH="${KUBELET_CLIENT_CURRENT_PEM_PATH:-/var/lib/kubelet/pki/kubelet-client-current.pem}"
 
 logs_to_events() {
     local task=$1; shift
@@ -38,8 +37,9 @@ removeBootstrapKubeconfig() {
         return 0
     fi
 
-    # wait until kubelet has a valid kubeconfig (TLS bootstrapping is completed at that point)
-    while [ ! -f "$KUBECONFIG_PATH" ]; do
+    # wait until kubelet-client-current.pem is a symlink to an existing file, indicating kubelet has safely finished TLS bootstrapping
+    # and no longer needs the bootstrap credentials present within bootstrap-kubeconfig
+    while [ ! -L "$KUBELET_CLIENT_CURRENT_PEM_PATH" ] || [ ! -f "$KUBELET_CLIENT_CURRENT_PEM_PATH" ]; do
         sleep 1
     done
 

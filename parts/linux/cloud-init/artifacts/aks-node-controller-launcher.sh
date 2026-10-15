@@ -66,11 +66,10 @@ exit_code=$?
 
 if [ "$exit_code" -eq 0 ]; then
     log "aks-node-controller completed successfully"
+    rm -f $CONFIG_PATH
+    rm -f $NBC_CMD_PATH
 else
     log "aks-node-controller exited with code ${exit_code}"
 fi
-
-rm -f $CONFIG_PATH
-rm -f $NBC_CMD_PATH
 
 exit $exit_code
