@@ -325,66 +325,6 @@ knead_apply_components() {
     [ -z "${failed_components}" ] && [ "${infrastructure_failed}" = false ]
 }
 
-localDNSIsCurrent() {
-    local desired_payload="$1"
-    local current_payload="$2"
-
-    [ "${desired_payload}" = "${current_payload}" ]
-}
-
-updateLocalDNS() {
-    local component_payload="${1:-}"
-    local outcome
-
-    if [ ! -x /opt/azure/containers/aks-node-controller ]; then
-        echo "aks-node-controller binary is required for localDNS live patching"
-        return 1
-    fi
-
-    if ! outcome="$(printf '%s' "${component_payload}" | /opt/azure/containers/aks-node-controller apply-localdns-config \
-        --config-file - \
-        --output /opt/azure/containers/localdns/livepatched.localdns.corefile)"; then
-        echo "localDNS config apply failed"
-        return 1
-    fi
-    printf '%s\n' "${outcome}"
-
-    case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
-        applied)
-            if ! systemctl restart localdns.service; then
-                echo "failed to restart localdns.service"
-                return 1
-            fi
-            echo "localDNS update completed successfully"
-            ;;
-        alreadyCurrent)
-            echo "localDNS is already current"
-            ;;
-        notFound)
-            # In the runtime apply path the payload is supplied inline, so notFound is not expected;
-            # treat it as a failure so knead does not checkpoint an unapplied config as succeeded.
-            echo "localDNS LPS config is not available"
-            return 1
-            ;;
-        noCorefileData)
-            # Nothing in this payload applies to this node: either no pool in the cluster has
-            # localDNS enabled, or this node's pool does not. The component config is delivered
-            # cluster-wide, so nodes outside the enabled pools see this on every tick.
-            #
-            # That is an authoritative answer from the control plane, not a failed apply, and the
-            # bootstrap path already reads it that way. Reporting failure here would peg those
-            # nodes at localDNS=Failed forever -- and because the reconcile loop only converges
-            # once every component succeeds, it would also re-dispatch every component on every
-            # tick for the life of the node.
-            echo "localDNS has no config applicable to this node; nothing to apply"
-            ;;
-        *)
-            echo "unexpected localDNS apply outcome: ${outcome}"
-            return 1
-            ;;
-    esac
-}
-
 # Records the processed hash and per-component results in the node status annotation.
 knead_write_status() {
     local node_name="$1"
@@ -480,5 +420,14 @@ ${__SOURCED__:+return}
 
 # shellcheck disable=SC1091
 source /opt/azure/containers/security-update.sh
+
+# localDNS handler, shared with the other OS reconciler. Guarded because both scripts run
+# under `set -e`: an unguarded source of a missing file aborts the reconciler outright. On a
+# VHD baked before this file shipped, localDNS is simply an unregistered component and the
+# "unsupported component" path skips it while everything else still converges.
+if [ -f /opt/azure/containers/localdns-livepatch-handler.sh ]; then
+    # shellcheck disable=SC1091
+    source /opt/azure/containers/localdns-livepatch-handler.sh
+fi
 
 knead_main "$@"
