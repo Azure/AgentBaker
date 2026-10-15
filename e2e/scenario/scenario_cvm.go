@@ -15,58 +15,71 @@ const (
 	cvmTDXSKU   = "Standard_DC2eds_v6"
 )
 
+type cvmPlatform string
+
+const (
+	cvmPlatformSEVSNP cvmPlatform = "sevsnp"
+	cvmPlatformTDX    cvmPlatform = "tdx"
+)
+
 var (
 	_ = Register(newCVMScenario(
 		"Ubuntu2004_CVM_SNP",
-		"Tests that an Ubuntu 20.04 Confidential VM node can be provisioned and pass standard node validation",
+		"Tests that an Ubuntu 20.04 Confidential VM node can be provisioned, pass standard node validation, and attest as SEV-SNP",
 		config.VHDUbuntu2004CVMGen2Containerd,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"Ubuntu2404_CVM_SNP",
-		"Tests that an Ubuntu 24.04 Confidential VM node can be provisioned and pass standard node validation",
+		"Tests that an Ubuntu 24.04 Confidential VM node can be provisioned, pass standard node validation, and attest as SEV-SNP",
 		config.VHDUbuntu2404CVMGen2Containerd,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"AzureLinuxV3_CVM_SNP",
-		"Tests that an Azure Linux V3 Confidential VM node can be provisioned and pass standard node validation",
+		"Tests that an Azure Linux V3 Confidential VM node can be provisioned, pass standard node validation, and attest as SEV-SNP",
 		config.VHDAzureLinuxV3CVMGen2,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"AzureContainerLinux_CVM_SNP",
-		"Tests that an Azure Container Linux Confidential VM node can be provisioned and pass standard node validation",
+		"Tests that an Azure Container Linux Confidential VM node can be provisioned, pass standard node validation, and attest as SEV-SNP",
 		config.VHDACLCVMGen2,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"Ubuntu2604Minimal_CVM_SNP",
-		"Tests that an Ubuntu 26.04 minimal Confidential VM node can be provisioned on SEV-SNP and pass standard node validation",
+		"Tests that an Ubuntu 26.04 minimal Confidential VM node can be provisioned, pass standard node validation, and attest as SEV-SNP",
 		config.VHDUbuntu2604MinimalCVMGen2Containerd,
 		ClusterLatestKubernetesVersionKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesDiskWithVMGuestState,
 	))
 	_ = Register(newCVMScenario(
 		"Ubuntu2604Minimal_CVM_TDX",
-		"Tests that an Ubuntu 26.04 minimal Confidential VM node can be provisioned on TDX and pass standard node validation",
+		"Tests that an Ubuntu 26.04 minimal Confidential VM node can be provisioned, pass standard node validation, and attest as TDX",
 		config.VHDUbuntu2604MinimalCVMGen2Containerd,
 		ClusterLatestKubernetesVersionKubenet,
 		cvmTDXSKU,
+		cvmPlatformTDX,
 		true,
 		armcompute.SecurityEncryptionTypesDiskWithVMGuestState,
 	))
@@ -78,6 +91,7 @@ func newCVMScenario(
 	vhd *config.Image,
 	cluster func(context.Context, ClusterRequest) (*Cluster, error),
 	vmSize string,
+	platform cvmPlatform,
 	useNVMe bool,
 	securityEncryptionType armcompute.SecurityEncryptionTypes,
 ) *Scenario {
@@ -98,6 +112,7 @@ func newCVMScenario(
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				configureConfidentialVM(vmss, vmSize, securityEncryptionType)
 			},
+			Validator: validateCVM(platform),
 		},
 	}
 }
