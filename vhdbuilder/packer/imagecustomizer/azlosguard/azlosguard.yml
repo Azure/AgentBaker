@@ -203,6 +203,9 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
       destination: /etc/sysctl.d/60-CIS.conf
       permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-mglru.conf
+      destination: /etc/tmpfiles.d/aks-mglru.conf
+      permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/sshd_config
       destination: /etc/ssh/sshd_config
       permissions: 600
