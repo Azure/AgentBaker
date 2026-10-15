@@ -181,6 +181,8 @@ copyPackerFiles() {
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
   MPU_SH_DEST=/opt/azure/containers/mariner-package-update.sh
+  LOCALDNS_LIVEPATCH_HANDLER_SRC=/home/packer/localdns-livepatch-handler.sh
+  LOCALDNS_LIVEPATCH_HANDLER_DEST=/opt/azure/containers/localdns-livepatch-handler.sh
   SNAPSHOT_UPDATE_SERVICE_SRC=/home/packer/snapshot-update.service
   SNAPSHOT_UPDATE_SERVICE_DEST=/etc/systemd/system/snapshot-update.service
   SNAPSHOT_UPDATE_TIMER_SRC=/home/packer/snapshot-update.timer
@@ -542,6 +544,7 @@ copyPackerFiles() {
   if isMarinerOrAzureLinux "$OS"; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
+    cpAndMode $LOCALDNS_LIVEPATCH_HANDLER_SRC $LOCALDNS_LIVEPATCH_HANDLER_DEST 544
     cpAndMode /home/packer/security-update.sh /opt/azure/containers/security-update.sh 544
     cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
 
@@ -589,6 +592,7 @@ copyPackerFiles() {
     cpAndMode $SECURITY_UPDATE_SH_SRC $SECURITY_UPDATE_SH_DEST 544
     cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
+    cpAndMode $LOCALDNS_LIVEPATCH_HANDLER_SRC $LOCALDNS_LIVEPATCH_HANDLER_DEST 544
 
     if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then
       GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
