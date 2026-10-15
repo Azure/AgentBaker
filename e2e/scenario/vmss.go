@@ -740,7 +740,11 @@ func createVMSS(
 	}
 	// We combine the az aks get credentials in the same line so we don't overwrite the user's kubeconfig.
 	result += fmt.Sprintf(`az network bastion ssh --target-resource-id "%s" --name "%s" --resource-group %s --auth-type ssh-key --username azureuser --ssh-key %s`, *vm.VM.ID, SharedBastionName, config.ResourceGroupName(*s.Runtime.Cluster.Model.Location), config.VMSSHPrivateKeyFileName) + "\n"
-	logging.Log(ctx, result)
+	if s.isWindowsPreProvision() {
+		logging.Log(ctx, "Windows PIS bake does not install SSH keys; use VMSS RunCommand for guest diagnostics.")
+	} else {
+		logging.Log(ctx, result)
+	}
 
 	vmssResp, provisionErr := operation.PollUntilDone(ctx, config.PollUntilDoneOptions())
 
@@ -757,7 +761,8 @@ func createVMSS(
 		}
 		logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
 	}
-	if !s.Config.SkipSSHConnectivityValidation && (provisionErr == nil || vmssVMRunningAfterFailure(ctx, s, vm.VM)) {
+	if !s.Config.SkipSSHConnectivityValidation && !s.isWindowsPreProvision() &&
+		(provisionErr == nil || vmssVMRunningAfterFailure(ctx, s, vm.VM)) {
 		var bastErr error
 		vm.SSHClient, bastErr = dialSSH(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
 		if bastErr != nil {
