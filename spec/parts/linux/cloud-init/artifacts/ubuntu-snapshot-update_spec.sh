@@ -225,42 +225,58 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The contents of file "${TEST_KUBECTL_ARGS_FILE}" should equal 'get cm -n kube-system live-patching-config -o jsonpath={.data.live-patching-config\.json}'
     End
 
+    # Points the real localDNS handler at this test's directory. The handler's own behavior
+    # (reload, fallback restart, revocation) is covered by localdns-livepatch-handler_spec.sh;
+    # these cases only pin how the reconciler dispatches to it and records the result.
+    use_test_localdns_paths() {
+        LOCALDNS_AKS_NODE_CONTROLLER="${TEST_DIR}/aks-node-controller"
+        LOCALDNS_LIVEPATCHED_COREFILE="${TEST_DIR}/localdns/livepatched.localdns.corefile"
+        LOCALDNS_BAKED_COREFILE="${TEST_DIR}/localdns/localdns.corefile"
+        LOCALDNS_SERVED_COREFILE="${TEST_DIR}/localdns/updated.localdns.corefile"
+        LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/run/vnet-dns-forward-servers"
+        mkdir -p "${TEST_DIR}/localdns"
+    }
+
     It 'dispatches localDNS and writes successful status'
-        mkdir -p /opt/azure/containers
-        cat > /opt/azure/containers/aks-node-controller <<'EOF'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<EOF
 #!/bin/bash
-echo "aks-node-controller called with args: $*"
-cat > /tmp/localdns-livepatch-payload
+echo "aks-node-controller called with args: \$*"
+cat > "${TEST_DIR}/localdns-livepatch-payload"
 echo applied
 EOF
-        chmod +x /opt/azure/containers/aks-node-controller
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
         Mock systemctl
             echo "systemctl called with args: $*"
+            # localdns.service is not running, so the patch is left for its next start.
+            [ "$1" != "is-active" ]
         End
         set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
 
         When call knead_main
         The status should be success
         The output should include 'applying component: localDNS'
-        The output should include 'aks-node-controller called with args: apply-localdns-config --config-file - --output /opt/azure/containers/localdns/livepatched.localdns.corefile'
-        The contents of file "/tmp/localdns-livepatch-payload" should include '"configChecksum":"localdns-v1"'
-        The output should include 'systemctl called with args: restart localdns.service'
+        The output should include "aks-node-controller called with args: apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE}"
+        The contents of file "${TEST_DIR}/localdns-livepatch-payload" should include '"configChecksum":"localdns-v1"'
+        The output should not include 'systemctl called with args: restart localdns.service'
         The output should include 'localDNS update completed successfully'
         The output should include 'annotate mock called with args: annotate --overwrite node aks-node-1 kubernetes.azure.com/live-patching-status={"currentHash":"'
         The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
         The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include '"localDNS"'
     End
 
-    It 'marks localDNS failed when service restart fails'
-        mkdir -p /opt/azure/containers
-        cat > /opt/azure/containers/aks-node-controller <<'EOF'
+    It 'marks localDNS failed when the fallback restart fails'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
 #!/bin/bash
 echo applied
 EOF
-        chmod +x /opt/azure/containers/aks-node-controller
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
         Mock systemctl
             echo "systemctl called with args: $*"
-            exit 1
+            # Running, but no forward servers were recorded, so the handler falls back to a
+            # restart -- which fails.
+            [ "$1" = "is-active" ]
         End
         set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
 
@@ -273,14 +289,15 @@ EOF
     End
 
     It 'converges localDNS when no config applies to this node'
-        mkdir -p /opt/azure/containers
-        cat > /opt/azure/containers/aks-node-controller <<'EOF'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
 #!/bin/bash
 echo noCorefileData
 EOF
-        chmod +x /opt/azure/containers/aks-node-controller
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
         Mock systemctl
             echo "systemctl called with args: $*"
+            [ "$1" != "is-active" ]
         End
         set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"other-pool\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
 

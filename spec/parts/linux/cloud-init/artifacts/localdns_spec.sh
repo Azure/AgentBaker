@@ -25,6 +25,9 @@ Describe 'localdns.sh'
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
+            LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/run/localdns/vnet-dns-forward-servers"
+            # No kubelet kubeconfig yet, i.e. a bootstrap start.
+            KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             # Use production-realistic corefile format with brace syntax
             cat > "$LOCALDNS_CORE_FILE" <<'EOF'
@@ -72,6 +75,7 @@ EOF
             rm -rf "$LOCALDNS_SLICE_PATH"
             rm -rf "$COREDNS_BINARY_PATH"
             rm -rf "$RESOLV_CONF"
+            rm -rf "${TEST_DIR}/run" "${TEST_DIR}/var" "${TEST_DIR}/blocker"
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
@@ -499,6 +503,77 @@ EOF
             The status should be failure
             The stdout should include "AZURE_DNS_IP is not set or is empty."
         End
+
+        #------------------------- VNet DNS forward servers record ---------------------------------------------
+        It 'should record the substituted VNet DNS servers for the live-patching handler'
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The stdout should include "Recorded VNet DNS forward servers at ${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE}: 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+            The contents of file "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE}" should equal "10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+            Assert check_file_permissions "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE}" "644"
+        End
+
+        It 'should record 168.63.129.16 when the VNet uses Azure DNS'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 168.63.129.16
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The stdout should include "Skipping DNS IP replacement."
+            The contents of file "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE}" should equal "168.63.129.16"
+        End
+
+        It 'should record 168.63.129.16 when resolv.conf still lists the localdns listener'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The stdout should include "Skipping DNS IP replacement."
+            The contents of file "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE}" should equal "168.63.129.16"
+        End
+
+        It 'should drop a stale record when the substitution fails'
+            mkdir -p "$(dirname "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE}")"
+            echo "10.9.9.9" > "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE}"
+cat <<EOF > "$RESOLV_CONF"
+invalid
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be failure
+            The stdout should include "No Upstream VNET DNS servers found"
+            The path "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE}" should not be exist
+        End
+
+        It 'should still succeed when the record cannot be written'
+            # A regular file where the record directory should be makes mkdir -p fail.
+            echo "not a directory" > "${TEST_DIR}/blocker"
+            LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/blocker/vnet-dns-forward-servers"
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The stdout should include "WARNING: Failed to record VNet DNS forward servers"
+            The stderr should be present
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4"
+        End
+
+        #------------------------- refresh_localdns_corefile_from_lps bootstrap gating --------------------------
+        It 'should skip the LPS fetch once the kubelet kubeconfig exists'
+            AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/aks-node-controller"
+            cat > "${AKS_NODE_CONTROLLER_BINARY}" <<'EOF'
+#!/bin/bash
+echo "anc args: $*"
+echo "notFound"
+EOF
+            chmod +x "${AKS_NODE_CONTROLLER_BINARY}"
+            mkdir -p "$(dirname "${KUBECONFIG}")"
+            touch "${KUBECONFIG}"
+            echo "livepatched" > "${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+            When run refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "Kubelet kubeconfig ${KUBECONFIG} exists, so this is not a bootstrap start; skipping LocalDNS LPS config fetch."
+            The output should not include "anc args"
+            The contents of file "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should equal "livepatched"
+        End
     End
 
 # This section tests - localdns_source_corefile, discard_livepatched_localdns_corefile and the
@@ -514,6 +589,8 @@ EOF
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
             AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/aks-node-controller"
+            # No kubelet kubeconfig yet, i.e. a bootstrap start, where the LPS fetch runs.
+            KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
 
             # The baked corefile is rewritten from live CustomData on every startup by
@@ -2650,6 +2727,7 @@ End
             LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/run/localdns/vnet-dns-forward-servers"
             mkdir -p "${LOCALDNS_SCRIPT_PATH}" "$(dirname "${RESOLV_CONF}")"
             echo 'nameserver 10.0.0.1' > "${RESOLV_CONF}"
         }
