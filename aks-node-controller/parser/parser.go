@@ -31,7 +31,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 }
 
 //nolint:funlen
-func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
+func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) (map[string]string, error) {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
 	// Clear it from both KubeletFlags and KubeletConfigFileConfig so it doesn't appear
 	// on the command line or in the marshaled config file JSON.
@@ -45,6 +45,22 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 	}
 
 	containerdVersion, _ := detectContainerdVersion(ctx)
+	kubeletConfigFileContent, err := getKubeletConfigFileContentBase64(config.GetKubeletConfig())
+	if err != nil {
+		return nil, fmt.Errorf("generating kubelet config file: %w", err)
+	}
+	containerdConfigContent, err := getContainerdConfigBase64(config, containerdVersion)
+	if err != nil {
+		return nil, fmt.Errorf("generating containerd config: %w", err)
+	}
+	containerdConfigNoGPUContent, err := getNoGPUContainerdConfigBase64(config, containerdVersion)
+	if err != nil {
+		return nil, fmt.Errorf("generating no-GPU containerd config: %w", err)
+	}
+	sysctlContent, err := getSysctlContent(config.GetCustomLinuxOsConfig())
+	if err != nil {
+		return nil, fmt.Errorf("generating sysctl config: %w", err)
+	}
 	cloudProviderSettings := getCloudProviderSettings(config)
 	isMIGNode := getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())
 	env := map[string]string{
@@ -169,7 +185,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"KUBELET_CLIENT_CONTENT":                               config.GetKubeletConfig().GetKubeletClientKey(),
 		"KUBELET_CLIENT_CERT_CONTENT":                          config.GetKubeletConfig().GetKubeletClientCertContent(),
 		"KUBELET_CONFIG_FILE_ENABLED":                          fmt.Sprintf("%v", config.GetKubeletConfig().GetEnableKubeletConfigFile()),
-		"KUBELET_CONFIG_FILE_CONTENT":                          getKubeletConfigFileContentBase64(config.GetKubeletConfig()),
+		"KUBELET_CONFIG_FILE_CONTENT":                          kubeletConfigFileContent,
 		"SWAP_FILE_SIZE_MB":                                    fmt.Sprintf("%v", config.GetCustomLinuxOsConfig().GetSwapFileSize()),
 		"GPU_DRIVER_VERSION":                                   getGpuDriverVersion(config.GetVmSize(), gpuConfig),
 		"GPU_IMAGE_SHA":                                        getGpuImageSha(config.GetVmSize(), gpuConfig),
@@ -187,11 +203,13 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"AZURE_ENVIRONMENT_FILEPATH":                           getAzureEnvironmentFilepath(config),
 		"KUBE_CA_CRT":                                          config.GetKubernetesCaCert(),
 		"KUBENET_TEMPLATE":                                     getKubenetTemplate(),
-		"CONTAINERD_CONFIG_CONTENT":                            getContainerdConfigBase64(config, containerdVersion),
-		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                     getNoGPUContainerdConfigBase64(config, containerdVersion),
+		"CONTAINERD_CONFIG_CONTENT":                            containerdConfigContent,
+		"CONTAINERD_CONFIG_NO_GPU_CONTENT":                     containerdConfigNoGPUContent,
 		"IS_KATA":                                              fmt.Sprintf("%v", config.GetIsKata()),
 		"ARTIFACT_STREAMING_ENABLED":                           fmt.Sprintf("%v", config.GetEnableArtifactStreaming()),
-		"SYSCTL_CONTENT":                                       getSysctlContent(config.GetCustomLinuxOsConfig().GetSysctlConfig()),
+		"SYSCTL_CONTENT":                                       sysctlContent,
+		"HAS_ADDITIONAL_CONTAINERD_CONFIG":                     fmt.Sprintf("%v", len(config.GetContainerdConfig().GetAdditionalContainerdConfig().GetFields()) > 0),
+		"HAS_ADDITIONAL_SYSCTLS":                               fmt.Sprintf("%v", len(config.GetCustomLinuxOsConfig().GetAdditionalSysctls()) > 0),
 		"PRIVATE_EGRESS_PROXY_ADDRESS":                         config.GetPrivateEgressProxyAddress(),
 		"BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER":          config.GetBootstrapProfileContainerRegistryServer(),
 		"ENABLE_IMDS_RESTRICTION":                              fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
@@ -226,7 +244,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 	for i, cert := range config.CustomCaCerts {
 		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = removeNewlines(cert)
 	}
-	return env
+	return env, nil
 }
 
 type cloudProviderSettings struct {
@@ -321,7 +339,11 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration, gpu
 	// Convert to one-liner
 	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
-	env := mapToEnviron(getCSEEnv(ctx, config, gpuConfig))
+	cseEnv, err := getCSEEnv(ctx, config, gpuConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate CSE environment: %w", err)
+	}
+	env := mapToEnviron(cseEnv)
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables
 	sort.Strings(cmd.Env)
 	return cmd, nil

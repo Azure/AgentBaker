@@ -17,6 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var _ = Register(&Scenario{
@@ -1111,7 +1112,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_ArtifactStreaming",
-	Description: "tests that an Ubuntu 2204 node using artifact streaming can be bootstrapped with Phase 3",
+	Description: "tests that an Ubuntu 2204 node using artifact streaming and additional kubelet, containerd, and sysctl configuration can be bootstrapped with Phase 3",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1120,7 +1121,30 @@ var _ = Register(&Scenario{
 			nbc.EnableArtifactStreaming = true
 		},
 		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.Version = "v2"
 			config.EnableArtifactStreaming = true
+			config.KubeletConfig.EnableKubeletConfigFile = true
+			config.KubeletConfig.AdditionalKubeletConfig = &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"memorySwap": structpb.NewStructValue(&structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"swapBehavior": structpb.NewStringValue("NoSwap"),
+						},
+					}),
+				},
+			}
+			config.ContainerdConfig.AdditionalContainerdConfig = &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"timeouts": structpb.NewStructValue(&structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"io.containerd.timeout.shim.cleanup": structpb.NewStringValue("5s"),
+						},
+					}),
+				},
+			}
+			config.CustomLinuxOsConfig.AdditionalSysctls = map[string]string{
+				"kernel.pid_max": "4194304",
+			}
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
@@ -1129,6 +1153,10 @@ var _ = Register(&Scenario{
 				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
 				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"swapBehavior": "NoSwap"`),
+				ValidateFileHasContent(ctx, s, "/etc/containerd/config.toml", `"io.containerd.timeout.shim.cleanup"`),
+				ValidateFileHasContent(ctx, s, "/etc/containerd/config.toml", `"5s"`),
+				ValidateFileHasContent(ctx, s, "/etc/sysctl.d/999-sysctl-aks.conf", "kernel.pid_max=4194304"),
 			)
 		},
 	},

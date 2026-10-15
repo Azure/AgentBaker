@@ -61,6 +61,10 @@ func setFieldValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, de
 	case fd.Kind() == protoreflect.MessageKind:
 		// Handle singular message fields - use Mutable to get/create the message
 		nestedMsg := msg.Mutable(fd).Message()
+		if fd.Message().FullName() == "google.protobuf.Struct" {
+			nestedMsg.Mutable(nestedMsg.Descriptor().Fields().ByName("fields")).Map()
+			return
+		}
 		populateMessage(nestedMsg, depth+1)
 	default:
 		// Handle singular primitive fields

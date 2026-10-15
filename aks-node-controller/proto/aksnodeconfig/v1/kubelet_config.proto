@@ -1,6 +1,8 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
 
 message KubeletConfig {
@@ -27,6 +29,10 @@ message KubeletConfig {
 
   // The path used to mount docker images, emptyDir volumes, and kubelet data.
   string container_data_dir = 8;
+
+  // Additional validated kubelet configuration fields that are not represented
+  // by the typed AKSNodeConfig contract.
+  google.protobuf.Struct additional_kubelet_config = 9;
 }
 
 enum KubeletDisk {

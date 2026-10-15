@@ -433,6 +433,7 @@ function nodePrep {
 
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
     reconcileVulnerableKernelModuleMitigation
+    logs_to_events "AKS.CSE.reconcileAdditionalSysctls" reconcileAdditionalSysctls
 
     if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" = "true" ]; then
         logs_to_events "AKS.CSE.applyTransparentHugePageValues" applyTransparentHugePageValues
@@ -614,6 +615,7 @@ function nodePrep {
         exit $VALIDATION_ERR
     fi
 
+    logs_to_events "AKS.CSE.reconcileAdditionalContainerdConfig" reconcileAdditionalContainerdConfig
     checkServiceHealth containerd || exit $ERR_SYSTEMCTL_START_FAIL
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         checkServiceHealth secure-tls-bootstrap || true

@@ -6,6 +6,7 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestValidateAndNormalize(t *testing.T) {
@@ -101,6 +102,7 @@ func TestValidateAndNormalizeErrors(t *testing.T) {
 			require.ErrorContains(t, validateAndNormalize(tc.cfg), tc.want)
 		})
 	}
+
 	for _, enabled := range []string{"", "always", "madvise", "never"} {
 		for _, defrag := range []string{"", "always", "defer", "defer+madvise", "madvise", "never"} {
 			require.NoError(t, validateAndNormalize(&aksnodeconfigv1.Configuration{
@@ -111,6 +113,33 @@ func TestValidateAndNormalizeErrors(t *testing.T) {
 			}))
 		}
 	}
+}
+
+func TestValidateAdditionalNodeConfigurationVersion(t *testing.T) {
+	additionalKubelet, err := structpb.NewStruct(map[string]any{"memorySwap": map[string]any{"swapBehavior": "LimitedSwap"}})
+	require.NoError(t, err)
+
+	require.ErrorContains(t, validateAndNormalize(&aksnodeconfigv1.Configuration{
+		Version: "v1",
+		CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+			AdditionalSysctls: map[string]string{"kernel.pid_max": "4194304"},
+		},
+	}), "requires version v2")
+
+	require.ErrorContains(t, validateAndNormalize(&aksnodeconfigv1.Configuration{
+		Version:           "v2",
+		KubernetesVersion: "1.34.0",
+		KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+			AdditionalKubeletConfig: additionalKubelet,
+		},
+	}), "requires enable_kubelet_config_file")
+
+	require.NoError(t, validateAndNormalize(&aksnodeconfigv1.Configuration{
+		Version: "v2",
+		CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+			AdditionalSysctls: map[string]string{"kernel.pid_max": "4194304"},
+		},
+	}))
 }
 
 func TestNormalizeReservedCgroups(t *testing.T) {

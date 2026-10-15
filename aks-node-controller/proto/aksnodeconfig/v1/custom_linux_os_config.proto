@@ -24,6 +24,9 @@ message CustomLinuxOsConfig {
   // Valid values are "always", "madvise" and "never"
   // If it's unset or set to empty string, it will use the default value in the VHD "madvise"
   string transparent_defrag = 6;
+
+  // Additional validated sysctl settings keyed by canonical Linux sysctl name.
+  map<string, string> additional_sysctls = 7;
 }
 
 message SysctlConfig {

@@ -8,6 +8,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/google/go-cmp v0.7.0
+	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.8.0
 	golang.org/x/net v0.58.0
