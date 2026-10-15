@@ -43,6 +43,9 @@ are split into groups of at most four pressure entries, preserving metric names,
 values, `CgroupVersion`, and the original event metadata. Every part is checked
 again; a sample that still exceeds either bound is rejected with an error before
 any parts are published, rather than silently truncated.
+The bounds work with jq 1.5: 3,072 and 6,144 bytes correspond exactly to
+4,096 and 8,192 Base64 characters. Base64 is used only to measure size;
+the emitted messages remain JSON strings.
 
 Each split message includes `TelemetryChunk` with a shared `id`, zero-based
 `index`, total `count`, and `encoding: "json"`. Consumers must read entries across

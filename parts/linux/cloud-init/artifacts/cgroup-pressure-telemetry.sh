@@ -314,13 +314,14 @@ if ! EVENT_JSON=$( jq -cn \
     --arg EventPid      "0" \
     --arg EventTid      "0" \
     --arg id "${EVENTS_FILE_NAME}" '
-    def fits: (.Message | utf8bytelength) <= 3072 and (tojson | utf8bytelength) <= 6144;
+    # These byte limits are multiples of 3, so their Base64 length bounds are exact on jq 1.5.
+    def fits: (.Message | @base64 | length) <= 4096 and (tojson | @base64 | length) <= 8192;
     {Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName,
      EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid} as $event |
     if ($event | fits) then [$event] else
         ($Message | fromjson) as $payload |
         ($payload.Pressure | to_entries) as $entries |
-        (($entries | length) / 4 | ceil) as $count |
+        ((($entries | length) + 3) / 4 | floor) as $count |
         [range(0; $count) as $index |
             $payload |
             .Pressure = ($entries[$index * 4:($index + 1) * 4] | from_entries) |
