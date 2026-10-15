@@ -241,13 +241,7 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	if len(encodedFinalCustomData) < MaxCustomDataLength {
 		return encodedFinalCustomData
 	}
-	if config.IsCustomDataOnlyProvisioningEnabled() {
-		// Oversized payloads require CSE delivery. Rerender without the readiness handoff so
-		// cloud-init and report_ready.py do not take ownership from the CSE provisioning path.
-		config.CustomDataOnlyProvisioning = false
-		config.ScriptlessCSEProvisionMode = true
-		return t.getScriptlessBoothook(config)
-	}
+	config.CustomDataOnlyProvisioning = false
 	config.ScriptlessCSEProvisionMode = true
 	return encodedCustomData
 }
