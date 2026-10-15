@@ -101,7 +101,7 @@ func readLocalDNSConfigInput(configPath string) (string, error) {
 }
 
 func (a *App) applyLocalDNSConfig(ctx context.Context, config string, outputPath string) (localDNSConfigOutcome, error) {
-	return a.fetchAndApplyLocalDNSConfigWithFetcher(ctx, outputPath, func(context.Context) (string, error) {
+	return a.fetchAndApplyLocalDNSConfig(ctx, outputPath, func(context.Context) (string, error) {
 		return config, nil
 	})
 }
@@ -121,7 +121,7 @@ func (a *App) runFetchLocalDNSConfigCommand(ctx context.Context, outputPath stri
 		}
 	}()
 
-	outcome, err := a.fetchAndApplyLocalDNSConfig(ctx, outputPath)
+	outcome, err := a.fetchAndApplyLocalDNSConfig(ctx, outputPath, a.fetchLocalDNSConfig)
 	level := helpers.EventLevelInformational
 	if outcome == outcomeLocalDNSConfigFailed {
 		level = helpers.EventLevelError
@@ -143,11 +143,7 @@ func (a *App) runFetchLocalDNSConfigCommand(ctx context.Context, outputPath stri
 	return nil
 }
 
-func (a *App) fetchAndApplyLocalDNSConfig(ctx context.Context, outputPath string) (localDNSConfigOutcome, error) {
-	return a.fetchAndApplyLocalDNSConfigWithFetcher(ctx, outputPath, a.fetchLocalDNSConfig)
-}
-
-func (a *App) fetchAndApplyLocalDNSConfigWithFetcher(ctx context.Context, outputPath string, fetcher localDNSConfigFetcher) (localDNSConfigOutcome, error) {
+func (a *App) fetchAndApplyLocalDNSConfig(ctx context.Context, outputPath string, fetcher localDNSConfigFetcher) (localDNSConfigOutcome, error) {
 	if outputPath == "" {
 		outputPath = defaultLocalDNSCorefilePath
 	}
