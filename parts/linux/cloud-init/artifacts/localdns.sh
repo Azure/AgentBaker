@@ -353,8 +353,13 @@ discard_livepatched_localdns_corefile() {
 
 refresh_localdns_corefile_from_lps() {
     if [ -z "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
-        echo "LIVEPATCHED_LOCALDNS_CORE_FILE is not set or is empty."
-        return 1
+        # Fail open, like every other path in this function. localdns.sh runs under `set -e`
+        # and this is called unguarded, so returning non-zero here aborts startup and costs the
+        # node localdns entirely -- over a variable that is assigned unconditionally at the top
+        # of this file. With no path to write, there is simply no live patch to apply, and
+        # replace_azurednsip_in_corefile falls through to the baked corefile on its own.
+        echo "LIVEPATCHED_LOCALDNS_CORE_FILE is not set or is empty; skipping LocalDNS LPS config fetch."
+        return 0
     fi
 
     if [ ! -x "${AKS_NODE_CONTROLLER_BINARY}" ]; then
