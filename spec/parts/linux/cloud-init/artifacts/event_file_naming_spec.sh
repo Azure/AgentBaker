@@ -5,7 +5,7 @@ Describe 'WALinuxAgent event file naming'
     COMPLIANT_NAME='="\$\(date \+%s%N\)\$\{BASHPID\}(\.json)?"$'
 
     emitters() {
-        grep -rlE 'EVENTS_LOGGING_(DIR|PATH)|events_logging_dir' "${ARTIFACTS_DIR}"/*.sh | sort
+        grep -rlE --include='*.sh' 'EVENTS_LOGGING_(DIR|PATH)|events_logging_dir' "${ARTIFACTS_DIR}" | sort
     }
 
     emitters_without_compliant_name() {
@@ -19,14 +19,14 @@ Describe 'WALinuxAgent event file naming'
     }
 
     noncompliant_name_expressions() {
-        grep -hE '=.*\$\(date \+%s%[0-9]*N\)' "${ARTIFACTS_DIR}"/*.sh \
+        grep -rhE --include='*.sh' '=.*\$\(date \+%s%[0-9]*N\)' "${ARTIFACTS_DIR}" \
             | grep -vE "${COMPLIANT_NAME}" \
             | sed 's/^[[:space:]]*//'
         echo done
     }
 
     compliant_name_count() {
-        grep -hE "${COMPLIANT_NAME}" "${ARTIFACTS_DIR}"/*.sh | wc -l | tr -d ' '
+        grep -rhE --include='*.sh' "${COMPLIANT_NAME}" "${ARTIFACTS_DIR}" | wc -l | tr -d ' '
     }
 
     It 'builds every emitted event file name from a nanosecond timestamp and the process id'
@@ -41,7 +41,7 @@ Describe 'WALinuxAgent event file naming'
 
     It 'covers all known emission sites'
         When call compliant_name_count
-        The output should equal 13
+        The output should equal 15
     End
 
     Describe 'repeated emission from a single process'
