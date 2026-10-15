@@ -754,9 +754,10 @@ disableSSH() {
     emitSSHDisableEvent "$attempt_id" Started "" "$start_time" 0 null '{}' ||
         echo "WARNING: could not emit SSH disable start event" >&2
     # Ubuntu uses ssh, Azure Linux uses sshd, and ACL also uses sshd.socket.
+    # Close the listening socket first so no new connection is accepted mid-teardown.
     # Keep going after a failure so a later unit still gets disabled, on ACL the
     # socket owns port 22 and skipping it would leave SSH reachable.
-    for unit in ssh sshd sshd.socket; do
+    for unit in sshd.socket ssh sshd; do
         if ! systemctlDisableAndStop "$unit" "$attempt_id"; then
             result=$ERR_DISABLE_SSH
         fi
