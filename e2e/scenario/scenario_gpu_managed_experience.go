@@ -291,7 +291,7 @@ curl -fL --retry 3 --retry-all-errors -o '%s' "%s/$package"`,
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_NvidiaDevicePluginRunning",
-	Description: "Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 24.04 via NBC EnableManagedGPU without a VMSS tag",
+	Description: "Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 24.04 via NBC EnableManagedGPU without a VMSS tag and the DRA driver-mode file is absent",
 	Tags: Tags{
 		GPU: true,
 	},
@@ -329,6 +329,7 @@ var _ = Register(&Scenario{
 				return err
 			}
 			if err := errors.Join(
+				ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
 				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
 				// Validate that the NVIDIA device plugin systemd service is running
 				ValidateNvidiaDevicePluginServiceRunning(ctx, s),
