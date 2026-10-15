@@ -859,7 +859,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_DraDriverNvidiaGpuRunning",
-	Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2",
+	Description: "Tests DRA driver and persisted driver mode on Ubuntu 24.04 VHD with containerd v2",
 	Tags: Tags{
 		GPU: true,
 	},
@@ -888,6 +888,8 @@ var _ = Register(&Scenario{
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
+				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
 				ValidateRuncVersion(ctx, s, runcVersions),
 				ValidateContainerRuntimePlugins(ctx, s),
@@ -904,7 +906,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_DraDriverNvidiaGpuRunning_AKSNodeController",
-	Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2 using aks-node-controller",
+	Description: "Tests DRA driver and persisted driver mode on Ubuntu 24.04 VHD with containerd v2 using aks-node-controller",
 	Tags: Tags{
 		GPU:        true,
 		Scriptless: true,
@@ -940,6 +942,8 @@ var _ = Register(&Scenario{
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
+				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
 				ValidateRuncVersion(ctx, s, runcVersions),
 				ValidateContainerRuntimePlugins(ctx, s),
