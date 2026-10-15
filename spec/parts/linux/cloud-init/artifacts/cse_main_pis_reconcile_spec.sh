@@ -115,36 +115,65 @@ Describe 'cse_main.sh PIS-safe configuration'
     End
 
     Describe 'NVIDIA GPU driver mode'
-        It 'publishes the mode once in nodePrep and never in basePrep'
+        It 'configures managed GPU mode once in nodePrep and never in basePrep'
             mode_writer_counts() {
-                phase_count "basePrep" "configureNvidiaGPUDriverMode"
-                phase_count "nodePrep" "configureNvidiaGPUDriverMode"
+                phase_count "basePrep" "configureManagedGPUExperience"
+                phase_count "nodePrep" "configureManagedGPUExperience"
+                script_count "configureManagedGPUExperience"
                 script_count "configureNvidiaGPUDriverMode"
             }
             When call mode_writer_counts
             The line 1 of output should equal "0"
             The line 2 of output should equal "1"
             The line 3 of output should equal "1"
+            The line 4 of output should equal "0"
         End
 
-        It 'publishes before GPU detection, installation, and kubelet startup'
+        It 'configures the mode after eligibility is resolved and before kubelet startup'
             mode_writer_order() {
                 phase_body "nodePrep" | code_lines |
-                    grep -E 'configureNvidiaGPUDriverMode|skip_nvidia_driver_install=|AKS.CSE.ensureGPUDrivers|AKS.CSE.ensureKubelet'
+                    grep -E 'skip_nvidia_driver_install=|ENABLE_MANAGED_GPU_EXPERIENCE_DRA=|AKS.CSE.configureManagedGPUExperience|AKS.CSE.ensureKubelet'
             }
             When call mode_writer_order
-            The line 1 of output should include 'configureNvidiaGPUDriverMode'
-            The line 2 of output should include 'skip_nvidia_driver_install='
-            The line 3 of output should include 'AKS.CSE.ensureGPUDrivers'
+            The line 1 of output should include 'skip_nvidia_driver_install='
+            The line 2 of output should include 'ENABLE_MANAGED_GPU_EXPERIENCE_DRA='
+            The line 3 of output should include 'AKS.CSE.configureManagedGPUExperience'
             The line 4 of output should include 'AKS.CSE.ensureKubelet'
         End
 
         It 'fails provisioning when the mode cannot be reconciled'
             mode_writer_call() {
-                phase_body "nodePrep" | code_lines | grep 'AKS.CSE.configureNvidiaGPUDriverMode'
+                phase_body "nodePrep" | code_lines | grep 'AKS.CSE.configureManagedGPUExperience'
             }
             When call mode_writer_call
-            The output should include 'configureNvidiaGPUDriverMode || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"'
+            The output should include 'configureManagedGPUExperience || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"'
+        End
+
+        Describe 'ineligible nodes'
+            Parameters
+                false false
+                true true
+            End
+
+            It "reaches mode cleanup for GPU_NODE=$1 and skip_nvidia_driver_install=$2"
+                GPU_NODE=$1
+                skip_nvidia_driver_install=$2
+                logs_to_events() { echo "$1"; }
+                run_gpu_configuration() {
+                    # Execute the GPU block with hardware setup gated off. Only
+                    # managed-mode reconciliation must run, including on PIS nodes.
+                    eval "$(phase_body nodePrep | awk '
+                        /# Install and configure GPU drivers if this is a GPU node/ { inside = 1 }
+                        /# Install and configure AMD AMA/ { exit }
+                        inside { print }
+                    ')"
+                }
+
+                When call run_gpu_configuration
+
+                The status should be success
+                The output should equal 'AKS.CSE.configureManagedGPUExperience'
+            End
         End
     End
 

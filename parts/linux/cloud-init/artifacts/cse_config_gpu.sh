@@ -320,22 +320,19 @@ setupAmdAma() {
     fi
 }
 
-# Records the requested gpuProfile.nvidia.driverMode for host agents such as NPD.
-# DRA nodes have a root-owned, readable file containing "DRA"; other nodes leave
-# it absent, including removal of a stale DRA value. This is configuration, not
-# evidence that driver installation or service startup succeeded.
-# The optional destination lets callers use a different filesystem root.
+# Records gpuProfile.nvidia.driverMode selected by the caller for eligible, fully
+# managed GPU nodes. "DRA" publishes a root-owned, readable file; any other mode
+# removes it. This is configuration, not evidence that service startup succeeded.
+# The optional second argument overrides the destination for another filesystem root.
 configureNvidiaGPUDriverMode() {
-    local driver_mode_file="${1:-/opt/azure/containers/nvidia-gpu-driver-mode}"
+    local driver_mode="${1:-}"
+    local driver_mode_file="${2:-/opt/azure/containers/nvidia-gpu-driver-mode}"
     local temp_file
 
-    case "${ENABLE_MANAGED_GPU_DRA:-}" in
-        [Tt][Rr][Uu][Ee]) ;;
-        *)
-            rm -f "${driver_mode_file}"
-            return
-            ;;
-    esac
+    if [ "${driver_mode}" != "DRA" ]; then
+        rm -f "${driver_mode_file}"
+        return
+    fi
 
     [ ! -d "${driver_mode_file}" ] || return 1
     mkdir -p "$(dirname "${driver_mode_file}")" || return 1
@@ -351,6 +348,16 @@ configureNvidiaGPUDriverMode() {
 }
 
 configureManagedGPUExperience() {
+    # Resolve the mode only for eligible managed GPU nodes. The device-plugin and
+    # DRA flags select different managed modes; neither is the other's parent flag.
+    # Reconcile even when ineligible so stale DRA files cannot survive an early return.
+    local driver_mode=""
+    if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ] &&
+        [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ] && [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" != "true" ]; then
+        driver_mode="DRA"
+    fi
+    logs_to_events "AKS.CSE.configureNvidiaGPUDriverMode" configureNvidiaGPUDriverMode "${driver_mode}" || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
+
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return
     fi

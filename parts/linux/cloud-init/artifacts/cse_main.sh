@@ -431,10 +431,6 @@ function nodePrep {
     logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
     logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
-    # Keep the node's requested mode out of PIS images and publish it before GPU
-    # setup can fail or restart NPD. Both provisioning paths use this function.
-    logs_to_events "AKS.CSE.configureNvidiaGPUDriverMode" configureNvidiaGPUDriverMode || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
-
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
     reconcileVulnerableKernelModuleMitigation
 
@@ -562,10 +558,12 @@ function nodePrep {
 
         echo "Fully Managed GPU device plugin mode: ${ENABLE_MANAGED_GPU_EXPERIENCE}, DRA mode: ${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}"
 
-        logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
-
         echo $(date),$(hostname), "End configuring GPU drivers"
     fi
+
+    # This also clears stale driver-mode files on non-GPU and driver-skipped nodes.
+    # Keep it in nodePrep so PIS images do not capture a node-specific mode.
+    logs_to_events "AKS.CSE.configureManagedGPUExperience" configureManagedGPUExperience || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
 
     # Install and configure AMD AMA (Supernova) drivers if this is an AMA node
     if isAmdAmaEnabledNode; then

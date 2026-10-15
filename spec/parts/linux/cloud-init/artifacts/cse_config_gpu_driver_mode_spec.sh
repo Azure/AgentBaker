@@ -7,7 +7,7 @@ Describe 'NVIDIA GPU driver mode configuration'
         command mkdir -p "${PWD}/tmp"
         TEST_DIR=$(command mktemp -d "${PWD}/tmp/nvidia-gpu-driver-mode.XXXXXX")
         MODE_FILE="${TEST_DIR}/containers/nvidia-gpu-driver-mode"
-        ENABLE_MANAGED_GPU_DRA=true
+        DRIVER_MODE=DRA
         FAIL_STEP=''
         CHECK_ATOMIC_REPLACE=false
     }
@@ -78,52 +78,43 @@ Describe 'NVIDIA GPU driver mode configuration'
         done
     }
 
-    Describe 'DRA'
-        Parameters
-            true
-            TRUE
-            TrUe
-        End
-
-        It "writes the exact DRA value for $1"
-            ENABLE_MANAGED_GPU_DRA=$1
-            When call configureNvidiaGPUDriverMode "${MODE_FILE}"
-            The status should be success
-            The contents of file "${MODE_FILE}" should equal 'DRA'
-            The path "${MODE_FILE}" should be file
-            The value "$(wc -c < "${MODE_FILE}" | tr -d '[:space:]')" should equal '4'
-            The value "$(mode_permissions)" should equal '644'
-            The value "$(temporary_files)" should equal ''
-        End
+    It 'writes the exact DRA value for the selected DRA mode'
+        When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
+        The status should be success
+        The contents of file "${MODE_FILE}" should equal 'DRA'
+        The path "${MODE_FILE}" should be file
+        The value "$(wc -c < "${MODE_FILE}" | tr -d '[:space:]')" should equal '4'
+        The value "$(mode_permissions)" should equal '644'
+        The value "$(temporary_files)" should equal ''
     End
 
     Describe 'non-DRA'
         Parameters
-            false
-            FALSE
+            DevicePlugin
             ''
         End
 
         It "leaves the file and directory absent for '$1'"
-            ENABLE_MANAGED_GPU_DRA=$1
-            When call configureNvidiaGPUDriverMode "${MODE_FILE}"
+            DRIVER_MODE=$1
+            When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
             The status should be success
             The path "${MODE_FILE}" should not be exist
             The path "${TEST_DIR}/containers" should not be exist
         End
 
         It "removes a stale DRA value for '$1'"
-            ENABLE_MANAGED_GPU_DRA=$1
+            DRIVER_MODE=$1
             seed_mode DRA
-            When call configureNvidiaGPUDriverMode "${MODE_FILE}"
+            When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
             The status should be success
             The path "${MODE_FILE}" should not be exist
         End
     End
 
-    It 'leaves the file absent when the flag is unset'
-        unset ENABLE_MANAGED_GPU_DRA
-        When call configureNvidiaGPUDriverMode "${MODE_FILE}"
+    It 'does not infer the mode from the raw DRA flag'
+        ENABLE_MANAGED_GPU_DRA=true
+        DRIVER_MODE=''
+        When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
         The status should be success
         The path "${MODE_FILE}" should not be exist
     End
@@ -131,7 +122,7 @@ Describe 'NVIDIA GPU driver mode configuration'
     It 'replaces an old value only after the DRA value is complete'
         seed_mode old-value
         CHECK_ATOMIC_REPLACE=true
-        When call configureNvidiaGPUDriverMode "${MODE_FILE}"
+        When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
         The status should be success
         The contents of file "${MODE_FILE}" should equal 'DRA'
         The value "$(temporary_files)" should equal ''
@@ -139,7 +130,7 @@ Describe 'NVIDIA GPU driver mode configuration'
 
     It 'is safe to repeat on a DRA node'
         write_twice() {
-            configureNvidiaGPUDriverMode "${MODE_FILE}" && configureNvidiaGPUDriverMode "${MODE_FILE}"
+            configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}" && configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
         }
         When call write_twice
         The status should be success
@@ -150,8 +141,8 @@ Describe 'NVIDIA GPU driver mode configuration'
     It 'does not change the existing managed-GPU marker'
         seed_mode DRA
         builtin printf 'unchanged\n' > "${TEST_DIR}/containers/managed-gpu-experience.enabled"
-        ENABLE_MANAGED_GPU_DRA=false
-        When call configureNvidiaGPUDriverMode "${MODE_FILE}"
+        DRIVER_MODE=DevicePlugin
+        When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
         The status should be success
         The contents of file "${TEST_DIR}/containers/managed-gpu-experience.enabled" should equal 'unchanged'
     End
@@ -168,7 +159,7 @@ Describe 'NVIDIA GPU driver mode configuration'
 
         It "returns an error and does not publish a partial value when $1 fails"
             FAIL_STEP=$1
-            When call configureNvidiaGPUDriverMode "${MODE_FILE}"
+            When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
             The status should be failure
             The path "${MODE_FILE}" should not be exist
             The value "$(temporary_files)" should equal ''
@@ -177,7 +168,7 @@ Describe 'NVIDIA GPU driver mode configuration'
         It "preserves the old value and cleans up when $1 fails"
             seed_mode old-value
             FAIL_STEP=$1
-            When call configureNvidiaGPUDriverMode "${MODE_FILE}"
+            When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
             The status should be failure
             The contents of file "${MODE_FILE}" should equal 'old-value'
             The value "$(temporary_files)" should equal ''
@@ -186,16 +177,16 @@ Describe 'NVIDIA GPU driver mode configuration'
 
     It 'returns an error if a stale DRA value cannot be removed'
         seed_mode DRA
-        ENABLE_MANAGED_GPU_DRA=false
+        DRIVER_MODE=DevicePlugin
         FAIL_STEP=rm
-        When call configureNvidiaGPUDriverMode "${MODE_FILE}"
+        When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
         The status should be failure
         The contents of file "${MODE_FILE}" should equal 'DRA'
     End
 
     It 'rejects a directory at the destination instead of publishing inside it'
         command mkdir -p "${MODE_FILE}"
-        When call configureNvidiaGPUDriverMode "${MODE_FILE}"
+        When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
         The status should be failure
         The path "${MODE_FILE}" should be directory
         The value "$(temporary_files)" should equal ''
