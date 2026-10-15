@@ -72,7 +72,7 @@ steps:
       fi
       version=$(cat "$version_file")
       if [[ ! "$version" =~ ^[a-zA-Z0-9._+~^-]+$ ]]; then
-        echo "Missing or invalid Kata UVM version. Rebuild pipeline 417429 with version metadata." >&2
+        echo "Invalid Kata UVM version value. Rebuild pipeline 417429 with version metadata." >&2
         exit 1
       fi
       echo "Kata UVM tools RPM version-release: $version"
