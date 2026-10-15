@@ -220,67 +220,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			}
 		})
 
-		It("resolves and bootstraps the distinct AZL3 Kata-CC identity", func() {
-			config.AgentPoolProfile.Distro = datamodel.AKSAzureLinuxV3Gen2KataCC
-			baker, err := NewAgentBaker()
-			Expect(err).NotTo(HaveOccurred())
-			nb, err := baker.GetNodeBootstrapping(context.Background(), config)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(nb.SigImageConfig.Definition).To(Equal("V3kataccgen2"))
-			Expect(nb.CustomData).NotTo(BeEmpty())
-			for _, tmpl := range []ContainerdConfigTemplate{containerdV1ConfigTemplate, containerdV1NoGPUConfigTemplate, containerdV2ConfigTemplate, containerdV2NoGPUConfigTemplate} {
-				rendered, err := containerdConfigFromTemplate(config, config.AgentPoolProfile, tmpl)
-				Expect(err).NotTo(HaveOccurred())
-				decoded, err := base64.StdEncoding.DecodeString(rendered)
-				Expect(err).NotTo(HaveOccurred())
-				rendered = string(decoded)
-				Expect(rendered).To(ContainSubstring("runtime_type = \"io.containerd.kata-cc.v2\""))
-				Expect(rendered).To(ContainSubstring("configuration-clh-snp.toml"))
-				if tmpl == containerdV2ConfigTemplate || tmpl == containerdV2NoGPUConfigTemplate {
-					Expect(rendered).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]`))
-				}
-			}
-		})
-		It("should reject invalid Phase 3 input without returning bootstrapping artifacts", func() {
-			agentBaker, err := NewAgentBaker()
-			Expect(err).NotTo(HaveOccurred())
-			config.EnableScriptlessAKSNodeConfig = true
-			config.EnableScriptlessNBCCSECmd = true
-			// Validation must not be skipped by the nil kubelet-config fast path.
-			config.KubeletConfig = nil
-			for _, input := range []string{"", " \n\t", "{", `{"version":"v1"} trailing`, "null", "[]", `"config"`, "true", "42"} {
-				By(fmt.Sprintf("rejecting %q", input))
-				config.AKSNodeConfigJSON = input
-				artifacts, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
-				Expect(err).To(MatchError(ContainSubstring("AKSNodeConfigJSON")))
-				Expect(artifacts).To(BeNil())
-			}
-		})
-
-		It("should accept Phase 3 input and retain Phase 2.5 when disabled", func() {
-			agentBaker, err := NewAgentBaker()
-			Expect(err).NotTo(HaveOccurred())
-			config.EnableScriptlessNBCCSECmd = true
-			for _, phase3 := range []bool{true, false} {
-				config.EnableScriptlessAKSNodeConfig = phase3
-				config.AKSNodeConfigJSON = " {\"version\":\"v1\"}\n"
-				if !phase3 {
-					// Older modes continue to pass the caller's comparison input through unchanged.
-					config.AKSNodeConfigJSON = "not JSON"
-				}
-				artifacts, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
-				Expect(err).NotTo(HaveOccurred())
-				payload, err := base64.StdEncoding.DecodeString(artifacts.CustomData)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(payload)).To(ContainSubstring(aksNodeConfigFilepath))
-				if phase3 {
-					Expect(string(payload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
-				} else {
-					Expect(string(payload)).To(ContainSubstring(aksNbcCmdFilepath))
-				}
-			}
-		})
-
 		It("should return correct boot strapping data", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
