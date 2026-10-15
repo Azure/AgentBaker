@@ -352,7 +352,7 @@ Describe 'cse_config_gpu.sh'
             When call configureManagedGPUExperience
 
             The status should be success
-            The line 2 of output should equal "configureNvidiaGPUDriverMode mode="
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
@@ -368,7 +368,7 @@ Describe 'cse_config_gpu.sh'
             When call configureManagedGPUExperience
 
             The status should be success
-            The line 2 of output should equal "configureNvidiaGPUDriverMode mode="
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
@@ -376,14 +376,14 @@ Describe 'cse_config_gpu.sh'
             The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
-        It 'clears the DRA mode when GPU driver installation is skipped'
+        It 'does not write a driver mode when GPU driver installation is skipped'
             skip_nvidia_driver_install="true"
             ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
 
             When call configureManagedGPUExperience
 
             The status should be success
-            The line 2 of output should equal "configureNvidiaGPUDriverMode mode="
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "systemctlDisableAndStop"
@@ -397,7 +397,7 @@ Describe 'cse_config_gpu.sh'
             When call configureManagedGPUExperience
 
             The status should be success
-            The line 2 of output should equal "configureNvidiaGPUDriverMode mode="
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
@@ -412,7 +412,7 @@ Describe 'cse_config_gpu.sh'
             When call configureManagedGPUExperience
 
             The status should be success
-            The line 2 of output should equal "configureNvidiaGPUDriverMode mode="
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DevicePlugin"
             The output should include "installNvidiaManagedExpPkgFromCache called"
             The output should include "startNvidiaManagedExpServices called"
             The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
@@ -449,7 +449,7 @@ Describe 'cse_config_gpu.sh'
             When call configureManagedGPUExperience
 
             The status should be success
-            The line 2 of output should equal "configureNvidiaGPUDriverMode mode="
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should include "systemctlDisableAndStop nvidia-device-plugin"
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
@@ -465,19 +465,19 @@ Describe 'cse_config_gpu.sh'
             When call configureManagedGPUExperience
 
             The status should be success
-            The line 2 of output should equal "configureNvidiaGPUDriverMode mode="
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
-        It 'clears the mode and fails when both managed modes are selected'
+        It 'fails without writing a mode when both managed modes are selected'
             ENABLE_MANAGED_GPU_EXPERIENCE="true"
             ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
 
             When run configureManagedGPUExperience
 
             The status should equal "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
-            The line 2 of output should equal "configureNvidiaGPUDriverMode mode="
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should include "cannot both be true"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
@@ -485,18 +485,19 @@ Describe 'cse_config_gpu.sh'
 
         Describe 'mode write failures'
             Parameters
-                true
-                false
+                true false DRA
+                false true DevicePlugin
             End
 
-            It "fails before package or service changes when DRA=$1"
+            It "fails before package or service changes when writing $3"
                 ENABLE_MANAGED_GPU_EXPERIENCE_DRA=$1
+                ENABLE_MANAGED_GPU_EXPERIENCE=$2
                 MODE_WRITE_STATUS=1
 
                 When run configureManagedGPUExperience
 
                 The status should equal "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
-                The output should include "configureNvidiaGPUDriverMode mode="
+                The line 2 of output should equal "configureNvidiaGPUDriverMode mode=$3"
                 The output should not include "installNvidiaManagedExpPkgFromCache called"
                 The output should not include "startNvidiaManagedExpServices called"
                 The output should not include "systemctlDisableAndStop"
