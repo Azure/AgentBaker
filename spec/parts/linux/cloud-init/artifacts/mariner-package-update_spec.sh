@@ -175,6 +175,25 @@ EOF
             The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Failed"}'
         End
 
+        It 'converges localDNS when no config applies to this node'
+            mkdir -p /opt/azure/containers
+            cat > /opt/azure/containers/aks-node-controller <<'EOF'
+#!/bin/bash
+echo noCorefileData
+EOF
+            chmod +x /opt/azure/containers/aks-node-controller
+            Mock systemctl
+                echo "systemctl called with args: $*"
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"other-pool\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'localDNS has no config applicable to this node'
+            The output should not include 'systemctl called with args: restart localdns.service'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded"}'
+        End
+
         It 'reads kubeletVersion from the generic securityPatch profile'
             KUBELET_EXECUTABLE="${TEST_DIR}/missing-kubelet"
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\",\"kubeletVersion\":\"1.35.5\"}}}"}]}'
