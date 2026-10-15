@@ -430,6 +430,10 @@ func (s *Scenario) IsWindows() bool {
 	return s.VHD.OS == config.OSWindows
 }
 
+func (s *Scenario) isWindowsPreProvision() bool {
+	return s.Runtime != nil && s.Runtime.NBC != nil && s.Runtime.NBC.PreProvisionOnly && s.IsWindows()
+}
+
 func (s *Scenario) IsLinux() bool {
 	return !s.IsWindows()
 }
