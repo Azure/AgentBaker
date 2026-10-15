@@ -19,9 +19,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -231,22 +229,14 @@ func (a *App) fetchLocalDNSConfigFromLPS(ctx context.Context) (string, error) {
 		ComponentName: localDNSLivePatchingComponentName,
 	})
 	if err != nil {
-		if localDNSLPSUnavailable(status.Code(err)) {
-			return "", errLPSUnavailable
-		}
-		return "", fmt.Errorf("get %s component config: %w", localDNSLivePatchingComponentName, err)
+		// mapGRPCError is the shared LPS classifier: it folds NotFound/PermissionDenied/
+		// Unauthenticated into errLPSUnavailable -- which the caller tests via isLPSUnavailable
+		// -- while keeping the gRPC code and message, and passes non-status errors through
+		// untouched. %w keeps that chain intact through this wrap.
+		return "", fmt.Errorf("get %s component config: %w",
+			localDNSLivePatchingComponentName, mapGRPCError(err))
 	}
 	return resp.GetConfig(), nil
-}
-
-func localDNSLPSUnavailable(code codes.Code) bool {
-	//exhaustive:ignore // benign codes handled explicitly; every other code is a real error.
-	switch code {
-	case codes.NotFound, codes.PermissionDenied, codes.Unauthenticated:
-		return true
-	default:
-		return false
-	}
 }
 
 func (a *App) localDNSCorefileUpdateFromConfig(config string) (localDNSCorefileUpdate, error) {
