@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -21,9 +19,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -34,8 +30,6 @@ const (
 	defaultLocalDNSCorefilePath       = "/opt/azure/containers/localdns/livepatched.localdns.corefile"
 	localDNSHostsFilePath             = "/etc/localdns/hosts"
 	localDNSAgentPoolLabel            = "kubernetes.azure.com/agentpool"
-	localDNSLPSALPNProto              = "aks-live-patching"
-	localDNSALPNH2Proto               = "h2"
 )
 
 type localDNSConfigFetcher func(context.Context) (string, error)
@@ -217,29 +211,15 @@ func (a *App) fetchLocalDNSConfigFromLPS(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("imds attested token: %w", err)
 	}
-	rootCAs, err := certPoolFromPEM(caPEM)
-	if err != nil {
-		return "", err
-	}
-	host := fqdn
-	if h, _, splitErr := net.SplitHostPort(fqdn); splitErr == nil {
-		host = h
-	}
-	target := net.JoinHostPort(host, lpsAPIServerPort)
-	tlsConfig := &tls.Config{
-		MinVersion:            tls.VersionTLS12,
-		RootCAs:               rootCAs,
-		NextProtos:            []string{localDNSLPSALPNProto, localDNSALPNH2Proto},
-		InsecureSkipVerify:    true, //nolint:gosec // SNI stays on the apiserver FQDN for ALPN routing; chain and hostname are verified below.
-		VerifyPeerCertificate: localDNSVerifyChainAgainstPool(rootCAs, host),
-	}
 	ctx, cancel := context.WithTimeout(ctx, lpsFetchTimeout)
 	defer cancel()
 
-	conn, err := grpc.NewClient(
-		target,
-		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
-	)
+	// Share the check-hotfix dialer rather than building a second TLS config: it targets the same
+	// apiserver FQDN with the same ALPN protocols and the same cluster CA, so LPS presents a
+	// certificate issued for the dialed hostname and grpc-go's standard verification covers both
+	// the chain and the hostname. Reusing it also picks up grpc.WithNoProxy(), which this path was
+	// missing, and keeps the two LPS clients from drifting.
+	conn, err := a.dialLPSGRPC(fqdn, caPEM)
 	if err != nil {
 		return "", fmt.Errorf("creating LPS client: %w", err)
 	}
@@ -260,47 +240,13 @@ func (a *App) fetchLocalDNSConfigFromLPS(ctx context.Context) (string, error) {
 }
 
 func localDNSLPSUnavailable(code codes.Code) bool {
+	//exhaustive:ignore // benign codes handled explicitly; every other code is a real error.
 	switch code {
 	case codes.NotFound, codes.PermissionDenied, codes.Unauthenticated:
 		return true
 	default:
 		return false
 	}
-}
-
-func localDNSVerifyChainAgainstPool(pool *x509.CertPool, serverName string) func([][]byte, [][]*x509.Certificate) error {
-	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-		if len(rawCerts) == 0 {
-			return fmt.Errorf("server presented no certificates")
-		}
-		leaf, err := x509.ParseCertificate(rawCerts[0])
-		if err != nil {
-			return fmt.Errorf("failed to parse server certificate: %w", err)
-		}
-		intermediates := x509.NewCertPool()
-		for _, raw := range rawCerts[1:] {
-			cert, err := x509.ParseCertificate(raw)
-			if err != nil {
-				return fmt.Errorf("failed to parse intermediate certificate: %w", err)
-			}
-			intermediates.AddCert(cert)
-		}
-		if _, err := leaf.Verify(x509.VerifyOptions{Roots: pool, Intermediates: intermediates, DNSName: serverName}); err != nil {
-			return fmt.Errorf("server certificate verification failed: %w", err)
-		}
-		return nil
-	}
-}
-
-func certPoolFromPEM(caPEM []byte) (*x509.CertPool, error) {
-	if len(caPEM) == 0 {
-		return nil, fmt.Errorf("cluster CA unavailable from provision-config; refusing to fetch over unverified TLS")
-	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(caPEM) {
-		return nil, fmt.Errorf("failed to parse cluster CA PEM")
-	}
-	return pool, nil
 }
 
 func (a *App) localDNSCorefileUpdateFromConfig(config string) (localDNSCorefileUpdate, error) {
