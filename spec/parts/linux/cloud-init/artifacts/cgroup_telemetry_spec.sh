@@ -97,6 +97,10 @@ Describe 'cgroup telemetry'
 
     validate_pressure_events() {
         jq -se '
+            def utf8bytelength:
+                reduce explode[] as $codepoint (0;
+                    . + (if $codepoint < 128 then 1 elif $codepoint < 2048 then 2
+                         elif $codepoint < 65536 then 3 else 4 end));
             length > 1 and length <= 6 and
             all(.[]; (.Message | utf8bytelength) <= 3072 and (tojson | utf8bytelength) <= 6144) and
             ([.[].Message | fromjson | .Pressure | keys[]] | length == 18) and
@@ -241,6 +245,36 @@ Describe 'cgroup telemetry'
         The status should be success
         The result of function validate_pressure_events should equal true
         The result of function validate_service_values should equal true
+    End
+
+    It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
+        check_pressure_size_boundaries() {
+            local fits_filter
+            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh)
+            [ -n "${fits_filter}" ] || return 1
+            jq -ne "${fits_filter}"'
+                def repeat_text($text; $count): [range(0; $count) | $text] | join("");
+                [
+                    ([3071, 3072, 3073][] as $bytes |
+                        {Message: repeat_text("a"; $bytes)} |
+                        fits == ($bytes <= 3072)),
+                    (["\u00e9", "\u20ac", "\ud83d\ude00"][] as $text |
+                        (if $text == "\u00e9" then 1536 elif $text == "\u20ac" then 1024 else 768 end) as $count |
+                        repeat_text($text; $count) as $message |
+                        ({Message: $message} | fits) and
+                        ({Message: ($message + "a")} | fits | not)),
+                    ([6143, 6144, 6145][] as $bytes |
+                        {Message: "", Padding: ""} |
+                        .Padding = repeat_text("a"; $bytes - (tojson | length)) |
+                        fits == ($bytes <= 6144)),
+                    ({Message: repeat_text("\""; 3072)} | fits | not)
+                ] | all
+            '
+        }
+
+        When call check_pressure_size_boundaries
+        The status should be success
+        The output should equal true
     End
 
     Context 'when WALinuxAgent cleans the queue before publication'
