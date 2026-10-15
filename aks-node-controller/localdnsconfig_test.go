@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func writeLocalDNSTestNodeConfig(t *testing.T, app *App) {
@@ -198,6 +199,10 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 	})
 }
 
+// TestLocalDNSLPSUnavailable pins the contract the localDNS fetch path depends on: the shared
+// mapGRPCError classifier must fold exactly the benign LPS codes into errLPSUnavailable, which is
+// what turns into the notFound outcome. It guards against a change to mapGRPCError silently
+// reclassifying one of these into a hard failure for localDNS.
 func TestLocalDNSLPSUnavailable(t *testing.T) {
 	tests := []struct {
 		name string
@@ -211,7 +216,8 @@ func TestLocalDNSLPSUnavailable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.ok, localDNSLPSUnavailable(tt.code))
+			mapped := mapGRPCError(status.Error(tt.code, "from LPS"))
+			assert.Equal(t, tt.ok, isLPSUnavailable(mapped))
 		})
 	}
 }
