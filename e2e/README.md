@@ -123,9 +123,8 @@ Production publication and RP image-version admission remain separate checks.
 
 `Windows2025Gen2TrustedLaunch` continues to validate the dedicated
 `windows-2025-gen2-tl` image during the shared-image rollout.
-The shared-image scenario runs in the Windows VHD-build gate, which selects
-that build's image. The general Windows job skips it while main-tagged images
-can still predate the capability boundary.
+The shared-image scenario runs in both the Windows VHD-build gate, using that
+build's image, and the general Windows E2E job, using the main-tagged test image.
 
 ## VM size configuration
 
