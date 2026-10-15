@@ -279,6 +279,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh",
+      "destination": "/home/packer/remove-bootstrap-kubeconfig.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
