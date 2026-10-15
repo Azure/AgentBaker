@@ -97,6 +97,11 @@ type App struct {
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
 	// fetchLocalDNSConfigFn overrides the real LPS LocalDNS config fetch for tests.
 	fetchLocalDNSConfigFn localDNSConfigFetcher
+	// localDNSBakedCorefilePath overrides the baked localdns.corefile path for testing. The LocalDNS
+	// render reads bootstrap's CoreDNS service IP and hosts plugin choice back from it.
+	localDNSBakedCorefilePath string
+	// localDNSHostsFilePath overrides the /etc/localdns/hosts path for testing.
+	localDNSHostsFilePath string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
