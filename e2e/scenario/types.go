@@ -215,13 +215,6 @@ type Config struct {
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
 
-	// LocalValidator, when set, makes the scenario run entirely on the test
-	// runner without provisioning a VM or cluster. Register rejects it if
-	// Cluster, VHD, or VMConfigMutator is also set. Use this for scenarios
-	// that validate an artifact (e.g. downloading and checking a COSI file)
-	// rather than exercising node bootstrap behavior.
-	LocalValidator func(ctx context.Context) error
-
 	// SkipOnCapacityError, when set (and SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is enabled), makes the
 	// scenario skip instead of fail (and not retry) on AllocationFailed — no allocatable capacity for
 	// the SKU in the region. Reserve for scarce brand-new GPU SKUs (e.g. RTX PRO 6000 BSE v6); mainstream

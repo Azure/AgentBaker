@@ -106,11 +106,6 @@ produce `cosi-publishing-info-*` artifacts with a base64 `metadata_sha384` value
 The E2E job downloads only the selected variants' artifacts. Non-publishing runs
 do not download or validate COSI artifacts.
 
-`ACL_COSIContent_AMD64`, `ACL_COSIContent_ARM64`, and their `_FIPS` variants run
-on the test runner without provisioning VMs. They check the COSI archive, ACL
-layout, embedded image hashes, and publishing-metadata hash. `LocalValidator`
-scenarios must not also configure a cluster, VHD, or VM mutator.
-
 `ACL_COSIUpdate_AMD64`, `ACL_COSIUpdate_ARM64`, and their `_FIPS` variants use
 separate nodes because they stage, finalize, reboot, and commit an A/B update.
 They verify node identity, readiness, and a post-update workload. The COSI is

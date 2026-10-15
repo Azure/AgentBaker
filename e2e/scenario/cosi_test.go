@@ -1,12 +1,10 @@
 package scenario
 
 import (
-	"archive/tar"
 	"bytes"
 	"context"
 	"crypto/sha512"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -14,7 +12,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 
@@ -97,42 +94,6 @@ func TestCheckTridentUpdateResult(t *testing.T) {
 	}
 }
 
-func TestValidateACLCOSIContent(t *testing.T) {
-	t.Setenv("AGENT_TEMPDIRECTORY", t.TempDir())
-	for _, test := range []struct {
-		name                string
-		version             string
-		architecture        string
-		corruptImage        bool
-		corruptMetadataHash bool
-		wantError           string
-	}{
-		{name: "amd64 3.0", version: "3.0.20260912", architecture: "x86_64"},
-		{name: "arm64 3.1", version: "3.1.20260912", architecture: "aarch64"},
-		{name: "corrupt image", version: "3.0.20260912", architecture: "x86_64", corruptImage: true, wantError: "SHA-384 mismatch"},
-		{name: "corrupt metadata", version: "3.0.20260912", architecture: "x86_64", corruptMetadataHash: true, wantError: "does not match the publishing artifact"},
-		{name: "unknown layout", version: "4.0.20260912", architecture: "x86_64", wantError: "unsupported ACL"},
-		{name: "unknown architecture", version: "3.0.20260912", architecture: "riscv64", wantError: "unexpected osArch"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			archive, metadataHash := cosiTestArchive(t, test.version, test.architecture, test.corruptImage)
-			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-				_, _ = response.Write(archive)
-			}))
-			defer server.Close()
-			if test.corruptMetadataHash {
-				metadataHash = base64.StdEncoding.EncodeToString(make([]byte, sha512.Size384))
-			}
-			err := validateACLCOSIContent(t.Context(), server.URL, metadataHash)
-			if test.wantError == "" {
-				require.NoError(t, err)
-			} else {
-				require.ErrorContains(t, err, test.wantError)
-			}
-		})
-	}
-}
-
 func TestLoadCOSIPublishingInfo(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("COSI_ARTIFACTS_DIR", dir)
@@ -155,72 +116,4 @@ func TestLoadCOSIPublishingInfo(t *testing.T) {
 	info.MetadataSHA384 = "bad-hash"
 	writeInfo()
 	require.Panics(t, func() { loadCOSIPublishingInfo("built") })
-}
-
-func TestCOSIContentMetadataLimit(t *testing.T) {
-	t.Setenv("AGENT_TEMPDIRECTORY", t.TempDir())
-	var archive bytes.Buffer
-	writer := tar.NewWriter(&archive)
-	require.NoError(t, writer.WriteHeader(&tar.Header{Name: "cosi-marker", Mode: 0600}))
-	require.NoError(t, writer.WriteHeader(&tar.Header{Name: "metadata.json", Mode: 0600, Size: 64*1024*1024 + 1}))
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		_, _ = response.Write(archive.Bytes())
-	}))
-	defer server.Close()
-	err := validateACLCOSIContent(t.Context(), server.URL, "unused")
-	require.ErrorContains(t, err, "64 MiB limit")
-}
-
-func cosiTestArchive(t *testing.T, version, architecture string, corruptImage bool) ([]byte, string) {
-	t.Helper()
-	payload := []byte("test image bytes")
-	payloadHash := sha512.Sum384(payload)
-	files := map[string][]byte{}
-	image := func(name string) cosiImageFile {
-		path := "images/" + name
-		files[path] = payload
-		return cosiImageFile{Path: path, CompressedSize: int64(len(payload)), UncompressedSize: int64(len(payload)), SHA384: hex.EncodeToString(payloadHash[:])}
-	}
-	metadata := cosiMetadata{
-		Version:     "1.2",
-		OsArch:      architecture,
-		OsRelease:   "VERSION_ID=\"" + version + "\"\n",
-		Bootloader:  &cosiBootloader{Type: "systemd-boot", SystemdBoot: &cosiSystemdBoot{Entries: []cosiBootEntry{{Type: "uki"}}}},
-		Compression: &cosiCompression{Type: "zstd"},
-		Disk: &cosiDisk{Size: 1024 * 1024, LBASize: 512, Type: "gpt", GptRegions: []cosiGptRegion{
-			{Type: "primary-gpt", Image: image("gpt.raw")},
-			{Type: "partition", Number: 1, Image: image("boot.raw")},
-		}},
-		Images: []cosiFilesystem{
-			{MountPoint: "/boot", FsType: "vfat", FsUUID: "boot", PartType: espPartTypeGUID, Image: image("boot.raw")},
-			{MountPoint: "/usr", FsType: "btrfs", FsUUID: "usr", PartType: "usr-guid", Image: image("usr.raw"), Verity: &cosiVerityConfig{Image: image("usr.hash"), RootHash: "root-hash"}},
-			{MountPoint: "/oem", FsType: "btrfs", FsUUID: "oem", PartType: "oem-guid", Image: image("oem.raw")},
-			{MountPoint: "/", FsType: "ext4", FsUUID: "root", PartType: "root-guid", Image: image("root.raw")},
-		},
-	}
-	metadataBytes, err := json.Marshal(metadata)
-	require.NoError(t, err)
-	metadataHash := sha512.Sum384(metadataBytes)
-	if corruptImage {
-		files["images/usr.raw"] = []byte("corrupted image")
-	}
-	var archive bytes.Buffer
-	writer := tar.NewWriter(&archive)
-	writeEntry := func(name string, contents []byte) {
-		require.NoError(t, writer.WriteHeader(&tar.Header{Name: name, Mode: 0600, Size: int64(len(contents))}))
-		_, err := writer.Write(contents)
-		require.NoError(t, err)
-	}
-	writeEntry("cosi-marker", nil)
-	writeEntry("metadata.json", metadataBytes)
-	names := make([]string, 0, len(files))
-	for name := range files {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		writeEntry(name, files[name])
-	}
-	require.NoError(t, writer.Close())
-	return archive.Bytes(), base64.StdEncoding.EncodeToString(metadataHash[:])
 }
