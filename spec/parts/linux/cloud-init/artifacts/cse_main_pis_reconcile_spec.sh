@@ -146,7 +146,7 @@ Describe 'cse_main.sh PIS-safe configuration'
                 phase_body "nodePrep" | code_lines | grep 'AKS.CSE.configureManagedGPUExperience'
             }
             When call mode_writer_call
-            The output should include 'configureManagedGPUExperience || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"'
+            The output should include 'configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE'
         End
 
         Describe 'ineligible nodes'
@@ -155,13 +155,13 @@ Describe 'cse_main.sh PIS-safe configuration'
                 true true
             End
 
-            It "reaches mode cleanup for GPU_NODE=$1 and skip_nvidia_driver_install=$2"
+            It "skips managed GPU configuration for GPU_NODE=$1 and skip_nvidia_driver_install=$2"
                 GPU_NODE=$1
                 skip_nvidia_driver_install=$2
                 logs_to_events() { echo "$1"; }
                 run_gpu_configuration() {
-                    # Execute the GPU block with hardware setup gated off. Only
-                    # managed-mode reconciliation must run, including on PIS nodes.
+                    # The existing GPU guard must skip both hardware setup and
+                    # managed-mode reconciliation on ineligible nodes.
                     eval "$(phase_body nodePrep | awk '
                         /# Install and configure GPU drivers if this is a GPU node/ { inside = 1 }
                         /# Install and configure AMD AMA/ { exit }
@@ -172,7 +172,7 @@ Describe 'cse_main.sh PIS-safe configuration'
                 When call run_gpu_configuration
 
                 The status should be success
-                The output should equal 'AKS.CSE.configureManagedGPUExperience'
+                The output should equal ''
             End
         End
     End
