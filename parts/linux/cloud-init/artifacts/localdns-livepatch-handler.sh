@@ -13,6 +13,10 @@
 # and the reconciler's "ignore unknown components" rule skips the component and keeps
 # converging everything else.
 
+# Path localdns.sh reads as the live-patched Corefile source. Defined once here because the
+# handler both writes it and, on a rejected restart, has to remove it.
+LOCALDNS_LIVEPATCHED_COREFILE="${LOCALDNS_LIVEPATCHED_COREFILE:-/opt/azure/containers/localdns/livepatched.localdns.corefile}"
+
 localDNSIsCurrent() {
     local desired_payload="$1"
     local current_payload="$2"
@@ -31,7 +35,7 @@ updateLocalDNS() {
 
     if ! outcome="$(printf '%s' "${component_payload}" | /opt/azure/containers/aks-node-controller apply-localdns-config \
         --config-file - \
-        --output /opt/azure/containers/localdns/livepatched.localdns.corefile)"; then
+        --output "${LOCALDNS_LIVEPATCHED_COREFILE}")"; then
         echo "localDNS config apply failed"
         return 1
     fi
@@ -40,7 +44,19 @@ updateLocalDNS() {
     case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
         applied)
             if ! systemctl restart localdns.service; then
-                echo "failed to restart localdns.service"
+                # CoreDNS refused this Corefile, so it is known-bad, not last-known-good.
+                # Leaving it on disk would outlive the failed patch: localdns_source_corefile
+                # prefers any non-empty live-patched file, and the boot-time LPS refresh keeps
+                # the existing one when LPS is unreachable (discarding on a transient error
+                # would flap a *working* node). So one rejected patch plus one unlucky boot
+                # brings the node up on a Corefile already proven unusable. Drop it and let the
+                # node come back on the baked Corefile.
+                #
+                # Recovering the running unit is deliberately left to its own tuned
+                # Restart=/StartLimitBurst/OnFailure machinery; this only stops the failure
+                # from persisting past the reboot.
+                rm -f "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+                echo "failed to restart localdns.service; discarded the rejected corefile"
                 return 1
             fi
             echo "localDNS update completed successfully"
