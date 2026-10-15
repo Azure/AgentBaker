@@ -104,6 +104,43 @@ Describe 'ensure_sig_trusted_launch_supported'
     The file "${PUT_BODY}" should not be exist
   End
 
+  Describe 'existing capability without a boundary'
+    Parameters
+      absent '{"name":"SecurityType","value":"TrustedLaunchSupported"}'
+      null '{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":null}'
+    End
+
+    It "accepts an $1 boundary without modifying the staging definition"
+      INITIAL_DEFINITION=$(jq --argjson feature "$2" '
+        .properties.features += [$feature]
+      ' <<<"${INITIAL_DEFINITION}")
+
+      When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
+      The status should be success
+      The output should equal ''
+      The stderr should equal ''
+      The contents of file "${AZ_CALLS}" should not include '--method put'
+      The contents of file "${AZ_CALLS}" should not include 'image-definition wait'
+      The file "${PUT_BODY}" should not be exist
+    End
+  End
+
+  It 'reuses an existing supported staging definition without a boundary during build setup'
+    MODE="windowsVhdMode"
+    ENABLE_TRUSTED_LAUNCH="False"
+    TRUSTED_LAUNCH_SUPPORTED="True"
+    jq '.properties.features += [{name:"SecurityType",value:"TrustedLaunchSupported"}]' \
+      <<<"${INITIAL_DEFINITION}" > "${TEST_DIR}/created-definition"
+
+    When call ensure_sig_vhd_exists
+    The status should be success
+    The output should include 'Image definition windows-2025-gen2 existing'
+    The stderr should equal ''
+    The contents of file "${AZ_CALLS}" should not include '--method put'
+    The contents of file "${AZ_CALLS}" should not include 'image-definition create'
+    The file "${PUT_BODY}" should not be exist
+  End
+
   Describe 'valid existing capability boundaries'
     Parameters
       equal '26100.1.261006'
@@ -124,19 +161,19 @@ Describe 'ensure_sig_trusted_launch_supported'
 
   Describe 'invalid existing capability boundaries'
     Parameters
-      missing ''
+      empty ''
       malformed 'invalid'
       short '26100.1'
       nonnumeric '26100.1.bad'
       future '26100.1.261007'
       futureminor '26100.10.1'
+      outofrange '26100.1.2147483648'
     End
 
     It "rejects an existing $1 boundary without updating it"
       INITIAL_DEFINITION=$(jq --arg version "$2" '
         .properties.hyperVGeneration = "V2" |
-        if $version == "" then del(.properties.features[0].startsAtVersion)
-        else .properties.features[0].startsAtVersion = $version end
+        .properties.features[0].startsAtVersion = $version
       ' <<<"${UPDATED_DEFINITION}")
 
       When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
