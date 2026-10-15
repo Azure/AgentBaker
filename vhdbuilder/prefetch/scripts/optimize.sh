@@ -356,7 +356,7 @@ copy_optimized_vhd() {
 
     wait_for_vhd_copy || return $?
 
-    "$(dirname "${BASH_SOURCE[0]}")/../../packer/publish-generalized-cvm-if-needed.sh" \
+    "$(dirname "${BASH_SOURCE[0]}")/../../packer/publish-generalized-cvm-if-required.sh" \
         "${STAGING_VHD_URI}" || return $?
 
     # the optimized VHD is now safely in the immutable vhd container, so the staging copy is no longer
