@@ -96,6 +96,12 @@ requires the baked artifacts, including when the image selector points at main.
 The image definition is published as `TrustedLaunchSupported`; this capability
 does not enable Trusted Launch on standard nodes.
 
+The builder reuses already-capable staging definitions without `startsAtVersion`
+without modifying them. Explicit boundaries must be valid and at or below the
+build version; new capability migrations still establish and verify a boundary.
+The VHD-build gate validates the actual build's image, not historical versions.
+Production publication and RP image-version admission remain separate checks.
+
 `Windows2025Gen2TrustedLaunch` continues to validate the dedicated
 `windows-2025-gen2-tl` image during the shared-image rollout.
 The shared-image scenario runs in the Windows VHD-build gate, which selects

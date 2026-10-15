@@ -477,16 +477,18 @@ function ensure_sig_trusted_launch_supported() {
 	local security_type
 	security_type=$(jq -r '(.properties.features // []) | map(select(.name == "SecurityType")) | .[0].value // ""' <<<"${definition}")
 	if [ "${security_type}" = "TrustedLaunchSupported" ]; then
+		# Existing staging definitions may advertise support without a version boundary.
 		if ! jq -e --arg version "${SIG_IMAGE_VERSION:-}" '
 			def gallery_version:
 				if type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+$") then
 					split(".") | map(tonumber) |
 					if all(.[]; . <= 2147483647) then . else error("gallery version component out of range") end
 				else error("invalid gallery image version") end;
-			((.properties.features | map(select(.name == "SecurityType")) | .[0].startsAtVersion) | gallery_version)
-				<= ($version | gallery_version)
+			(.properties.features | map(select(.name == "SecurityType")) | .[0].startsAtVersion) as $start
+			| if $start == null then true
+			  else ($start | gallery_version) <= ($version | gallery_version) end
 		' <<<"${definition}" >/dev/null; then
-			echo "Image definition ${definition_id} cannot support build version ${SIG_IMAGE_VERSION:-}: missing, invalid, or newer Trusted Launch boundary" >&2
+			echo "Image definition ${definition_id} cannot support build version ${SIG_IMAGE_VERSION:-}: invalid or newer Trusted Launch boundary" >&2
 			return 1
 		fi
 		return 0
