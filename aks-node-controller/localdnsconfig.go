@@ -341,7 +341,7 @@ func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPo
 			includeHostsPlugin = false
 		}
 	}
-	corefile, err := parser.GenerateLocalDNSCorefileFromAKSNodeConfig(nodeConfig, includeHostsPlugin)
+	corefile, err := parser.GenerateLocalDnsCorefileFromAKSNodeConfig(nodeConfig, includeHostsPlugin)
 	if err != nil {
 		return localDNSCorefileUpdate{}, err
 	}
