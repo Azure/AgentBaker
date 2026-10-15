@@ -139,7 +139,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 			}
 			return errors.New("missing command argument")
 		},
-		Commands: []*cli.Command{
+		Commands: append([]*cli.Command{
 			{
 				Name:  "provision",
 				Usage: "Run node provisioning",
@@ -209,38 +209,46 @@ func (a *App) Run(ctx context.Context, args []string) int {
 					return a.runCheckHotfixCommand(ctx)
 				},
 			},
-			{
-				Name:  "fetch-localdns-config",
-				Usage: "Read the LocalDNS config from the live-patching-service and update the Corefile (fail-open)",
-				Flags: []cli.Flag{
-					&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
-				},
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					if extra := cmd.Args().Slice(); len(extra) > 0 {
-						slog.Warn("ignoring unexpected fetch-localdns-config arguments", "args", strings.Join(extra, " "))
-					}
-					return a.runFetchLocalDNSConfigCommand(ctx, cmd.String("output"))
-				},
-			},
-			{
-				Name:  "apply-localdns-config",
-				Usage: "Apply a dispatched LocalDNS live-patching config slice to the Corefile",
-				Flags: []cli.Flag{
-					&cli.StringFlag{Name: "config-file", Usage: "path to the LocalDNS config JSON; reads stdin when omitted or '-'"},
-					&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
-				},
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					if extra := cmd.Args().Slice(); len(extra) > 0 {
-						return fmt.Errorf("unexpected apply-localdns-config arguments: %s", strings.Join(extra, " "))
-					}
-					return a.runApplyLocalDNSConfigCommand(ctx, cmd.String("config-file"), cmd.String("output"), cmd.Root().Writer)
-				},
-			},
-		},
+		}, a.localDNSCommands()...),
 	}
 
 	err := cmd.Run(ctx, args)
 	return errToExitCode(err)
+}
+
+// localDNSCommands returns the LocalDNS live-patching subcommands: `fetch-localdns-config` pulls
+// the config from LPS during bootstrap, `apply-localdns-config` applies a slice the knead
+// reconciler already has in hand at runtime. Kept out of Run so it stays within funlen.
+func (a *App) localDNSCommands() []*cli.Command {
+	return []*cli.Command{
+		{
+			Name:  "fetch-localdns-config",
+			Usage: "Read the LocalDNS config from the live-patching-service and update the Corefile (fail-open)",
+			Flags: []cli.Flag{
+				&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
+			},
+			Action: func(ctx context.Context, cmd *cli.Command) error {
+				if extra := cmd.Args().Slice(); len(extra) > 0 {
+					slog.Warn("ignoring unexpected fetch-localdns-config arguments", "args", strings.Join(extra, " "))
+				}
+				return a.runFetchLocalDNSConfigCommand(ctx, cmd.String("output"))
+			},
+		},
+		{
+			Name:  "apply-localdns-config",
+			Usage: "Apply a dispatched LocalDNS live-patching config slice to the Corefile",
+			Flags: []cli.Flag{
+				&cli.StringFlag{Name: "config-file", Usage: "path to the LocalDNS config JSON; reads stdin when omitted or '-'"},
+				&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
+			},
+			Action: func(ctx context.Context, cmd *cli.Command) error {
+				if extra := cmd.Args().Slice(); len(extra) > 0 {
+					return fmt.Errorf("unexpected apply-localdns-config arguments: %s", strings.Join(extra, " "))
+				}
+				return a.runApplyLocalDNSConfigCommand(ctx, cmd.String("config-file"), cmd.String("output"), cmd.Root().Writer)
+			},
+		},
+	}
 }
 
 func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dryRun bool) error {
