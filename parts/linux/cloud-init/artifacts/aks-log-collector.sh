@@ -83,6 +83,7 @@ MAX_SIZE=104857600
 MAX_COLLECT_SIZE=$((10 * 1024 * 1024))
 # Already-compressed files should be stored in the ZIP without recompression.
 ZIP_STORE_SUFFIXES=".gz:.bz2:.xz:.zst:.zip"
+IO_RECORDER_DIR="/var/log/azure/aks/io-recorder"
 
 # File globs to include
 # Smaller and more critical files are closer to the top so that we can be certain they're included.
@@ -202,12 +203,105 @@ function collectToZip {
   zip -gumDZ deflate --fifo "${ZIP}" "${1}"
 }
 
+# Published captures are immutable. Snapshot whole JSON files before the generic
+# collector can exhaust its budget or truncate them; retention may race reads.
+function collectIORecorderCaptures {
+  local source_dir="$1" archive="$2"
+  local max_capture_bytes=1048576 max_captures=8
+  local staging_dir="collect/io-recorder" manifest="collect/io-recorder-export.json"
+  local collected_utc source_status="complete" records='[]'
+  local file name staged size checksum status read_status
+  local examined=0 unexamined=0
+  local -a files=()
+
+  collected_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ) || return 1
+  mkdir -p "$staging_dir" || return 1
+  if [ -L "$source_dir" ] || { [ -e "$source_dir" ] && [ ! -d "$source_dir" ]; }; then
+    source_status="invalid_directory"
+    echo "WARNING: I/O recorder export directory is not a regular directory." >&2
+  elif [ ! -d "$source_dir" ]; then
+    source_status="not_present"
+  else
+    files=("$source_dir"/capture-*.json)
+    # Also work when called without the main script's nullglob option.
+    if [ "${#files[@]}" -eq 1 ] && [ "${files[0]}" = "$source_dir/capture-*.json" ] &&
+      [ ! -e "${files[0]}" ] && [ ! -L "${files[0]}" ]; then
+      files=()
+    fi
+    if [ "${#files[@]}" -eq 0 ]; then
+      source_status="empty"
+    fi
+  fi
+
+  for file in "${files[@]}"; do
+    if [ "$examined" -ge "$max_captures" ]; then
+      unexamined=$((${#files[@]} - examined))
+      source_status="partial"
+      echo "WARNING: I/O recorder export file limit reached; $unexamined files not examined." >&2
+      break
+    fi
+    examined=$((examined + 1))
+    name="${file##*/}"
+    staged="${staging_dir}/${name}"
+    size=0 checksum="" status="included"
+    if [[ ! "$name" =~ ^capture-[a-zA-Z0-9-]+\.json$ ]]; then
+      status="invalid_name"
+    elif [ -L "$file" ] || { [ -e "$file" ] && [ ! -f "$file" ]; }; then
+      status="not_regular"
+    elif [ ! -f "$file" ]; then
+      status="vanished"
+    else
+      read_status=0
+      timeout -k 1s 5s head -c "$((max_capture_bytes + 1))" "$file" > "$staged" || read_status=$?
+      if [ "$read_status" -eq 124 ] || [ "$read_status" -eq 137 ]; then
+        status="read_timeout"
+      elif [ "$read_status" -ne 0 ]; then
+        status="read_failed"
+      elif ! size=$(wc -c < "$staged"); then
+        status="read_failed"
+      elif [ "$size" -gt "$max_capture_bytes" ]; then
+        status="oversized"
+      elif ! jq -es 'length == 1 and (.[0] | type == "object")' "$staged" > /dev/null; then
+        status="invalid_json"
+      elif ! checksum=$(sha256sum "$staged"); then
+        status="hash_failed"
+      elif ! zip -qg -DZ deflate "$archive" "$staged"; then
+        status="zip_failed"
+      else
+        checksum="${checksum%% *}"
+      fi
+    fi
+    if [ "$status" != "included" ]; then
+      source_status="partial"
+      checksum=""
+      echo "WARNING: I/O recorder export $name: $status." >&2
+    fi
+    records=$(jq -cn --argjson records "$records" --arg file "$name" \
+      --arg status "$status" --argjson bytes "$size" --arg sha256 "$checksum" \
+      '$records + [{file: $file, status: $status, bytes: $bytes, sha256: $sha256}]') || return 1
+    rm -f -- "$staged" || return 1
+  done
+
+  jq -n --arg collected_utc "$collected_utc" --arg source_directory "$source_dir" \
+    --arg status "$source_status" --argjson files "$records" --argjson unexamined "$unexamined" \
+    --argjson max_capture_bytes "$max_capture_bytes" --argjson max_captures "$max_captures" \
+    '{schema_version: 1, collected_utc: $collected_utc, source_directory: $source_directory,
+      status: $status, files: $files, unexamined_files: $unexamined,
+      limits: {max_capture_bytes: $max_capture_bytes, max_captures: $max_captures,
+        max_total_bytes: ($max_capture_bytes * $max_captures)}}' > "$manifest" || return 1
+  zip -qg -DZ deflate "$archive" "$manifest"
+}
+
 # Collect general system information
 echo "Collecting system information..."
 mkdir collect
 
-# Collect general information and create the ZIP in the first place
-zip -DZ deflate "${ZIP}" /proc/@(cmdline|loadavg|meminfo|mounts|uptime|version*)
+collectIORecorderCaptures "$IO_RECORDER_DIR" "$ZIP" || {
+  echo "WARNING: Could not finish I/O recorder export or archive its manifest." >&2
+}
+
+# The I/O export normally creates the archive; -g also creates it if export failed.
+zip -gDZ deflate "${ZIP}" /proc/@(cmdline|loadavg|meminfo|mounts|uptime|version*)
 
 if [ "$COLLECT_SYSINFO" = "true" ]; then
   # Extensive proc info
@@ -324,6 +418,10 @@ fi
 # adding things to the archive.
 echo "Adding log files to zip archive with max file size: $MAX_COLLECT_SIZE bytes..."
 for file in "${GLOBS[@]}"; do
+  # Never retry rejected captures through the generic truncating path.
+  case "$file" in
+    "$IO_RECORDER_DIR"|"$IO_RECORDER_DIR"/*) continue ;;
+  esac
   test -e "$file" || continue
 
   fsize=$(stat --printf "%s" "$file")
@@ -355,9 +453,11 @@ for file in "${GLOBS[@]}"; do
   fi
 done
 
-# Copy the log bundle to the expected path for uploading, then trigger
-# the upload script to push it to the host storage location.
+# Keep the conventional local copy, but upload this invocation's private bundle
+# rather than a shared path that another guest-agent collector can overwrite.
 echo "Log bundle size: $(du -hs ${ZIP})"
-publishLogBundle "${ZIP}" || { echo "ERROR: Failed to publish log bundle to $LOG_BUNDLE"; exit 1; }
+if ! publishLogBundle "$ZIP"; then
+  echo "WARNING: Could not retain the conventional local log bundle copy." >&2
+fi
 echo -n "Uploading log bundle: "
-/usr/bin/env python3 /opt/azure/containers/aks-log-collector-send.py
+/usr/bin/env python3 /opt/azure/containers/aks-log-collector-send.py "$WORKDIR/$ZIP"

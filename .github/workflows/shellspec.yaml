@@ -23,6 +23,8 @@ jobs:
     - run: |
         make shellspec-ci
       name: Run shell/bash script unit tests with shellspec
+    - run: python3 -m unittest discover -s spec/parts/linux/cloud-init/artifacts -p 'test_aks_log_collector_send.py' -v
+      name: Test support bundle upload acknowledgments without network access
     - run: echo "Shell/Bash script unit tests failed. Please check the logs for details. To run the shellspec unit tests locally, please refer to ./spec/README.md"
       if: failure()
       name: Print failure message
