@@ -4,6 +4,9 @@
 Describe 'ubuntu-snapshot-update.sh generic reconciliation'
     setup() {
         Include ./parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh
+        # The reconciler sources this at runtime, after the ${__SOURCED__:+return} guard,
+        # so Include it explicitly or the localDNS handler is undefined under spec.
+        Include ./parts/linux/cloud-init/artifacts/localdns-livepatch-handler.sh
         TEST_DIR="/tmp/knead-component-test"
         rm -rf "${TEST_DIR}"
         mkdir -p "${TEST_DIR}"

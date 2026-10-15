@@ -37,6 +37,8 @@ EOF
     setup() {
         Include "./parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh"
         Include "./parts/linux/cloud-init/artifacts/mariner/security-update.sh"
+        # Sourced at runtime after the ${__SOURCED__:+return} guard, like security-update.sh.
+        Include "./parts/linux/cloud-init/artifacts/localdns-livepatch-handler.sh"
         TEST_DIR="/tmp/live-patching-test"
         mkdir -p ${TEST_DIR}
         KNEAD_EVENTS_LOGGING_DIR="${TEST_DIR}/events"
