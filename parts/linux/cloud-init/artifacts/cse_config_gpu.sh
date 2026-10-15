@@ -321,9 +321,9 @@ setupAmdAma() {
 }
 
 # Records the caller-selected gpuProfile.nvidia.driverMode as "DRA" or
-# "DevicePlugin" in a root-owned, readable file. Invalid modes fail without
-# changing the file. This is configuration, not evidence that services are enabled
-# or healthy. The destination is replaced on success, never removed on failure.
+# "DevicePlugin" in a root-owned, readable file. Missing or unrecognized modes
+# succeed without changing the file. This is configuration, not evidence of service
+# enablement or health. The destination is replaced on success, never removed on failure.
 # The optional second argument overrides the destination for another filesystem root.
 configureNvidiaGPUDriverMode() {
     local driver_mode="${1:-}"
@@ -332,7 +332,7 @@ configureNvidiaGPUDriverMode() {
 
     case "${driver_mode}" in
         DRA|DevicePlugin) ;;
-        *) return 1 ;;
+        *) return 0 ;;
     esac
 
     [ ! -d "${driver_mode_file}" ] || return 1

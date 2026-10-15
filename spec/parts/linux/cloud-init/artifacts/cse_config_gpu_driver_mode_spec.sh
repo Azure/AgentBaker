@@ -150,30 +150,56 @@ Describe 'NVIDIA GPU driver mode configuration'
         End
     End
 
-    Describe 'invalid modes'
+    Describe 'unselected modes'
         Parameters
             ''
+            false
             true
             dra
+            deviceplugin
+            None
             unsupported
         End
 
-        It "rejects '$1' without creating a file or directory"
+        It "skips '$1' without creating a file or directory"
             DRIVER_MODE=$1
             When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
-            The status should be failure
+            The status should be success
             The path "${MODE_FILE}" should not be exist
             The path "${TEST_DIR}/containers" should not be exist
         End
 
-        It "rejects '$1' without removing or changing an existing file"
+        It "skips '$1' without removing or changing an existing file"
             DRIVER_MODE=$1
             seed_mode DRA
             When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
-            The status should be failure
+            The status should be success
             The contents of file "${MODE_FILE}" should equal 'DRA'
             The value "$(temporary_files)" should equal ''
         End
+
+        It "skips '$1' even when the destination is a directory"
+            DRIVER_MODE=$1
+            command mkdir -p "${MODE_FILE}"
+            When call configureNvidiaGPUDriverMode "${DRIVER_MODE}" "${MODE_FILE}"
+            The status should be success
+            The path "${MODE_FILE}" should be directory
+            The value "$(temporary_files)" should equal ''
+        End
+    End
+
+    It 'succeeds without arguments under nounset and does not touch the default path'
+        call_without_mode() (
+            set -u
+            # Block writes to the real default path if the guard regresses.
+            mkdir() { echo 'unexpected directory creation' >&2; return 1; }
+            rm() { echo 'unexpected file removal' >&2; return 1; }
+            configureNvidiaGPUDriverMode
+        )
+        When run call_without_mode
+        The status should be success
+        The output should equal ''
+        The stderr should equal ''
     End
 
     It 'does not infer the mode from the raw DRA flag'

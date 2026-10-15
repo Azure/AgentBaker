@@ -404,6 +404,37 @@ Describe 'cse_config_gpu.sh'
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
         End
 
+        Describe 'neither managed mode selected'
+            Parameters
+                false false
+                '' ''
+                false ''
+                '' false
+                unset unset
+            End
+
+            It "succeeds without calling the mode writer for DevicePlugin='$1', DRA='$2'"
+                if [ "$1" = unset ]; then
+                    unset ENABLE_MANAGED_GPU_EXPERIENCE
+                else
+                    ENABLE_MANAGED_GPU_EXPERIENCE=$1
+                fi
+                if [ "$2" = unset ]; then
+                    unset ENABLE_MANAGED_GPU_EXPERIENCE_DRA
+                else
+                    ENABLE_MANAGED_GPU_EXPERIENCE_DRA=$2
+                fi
+                MODE_WRITE_STATUS=1
+
+                When call configureManagedGPUExperience
+
+                The status should be success
+                The output should not include "configureNvidiaGPUDriverMode"
+                The output should not include "installNvidiaManagedExpPkgFromCache called"
+                The output should not include "startNvidiaManagedExpServices called"
+            End
+        End
+
         It 'should enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is true'
             GPU_NODE="true"
             skip_nvidia_driver_install="false"
