@@ -134,7 +134,10 @@ Like the generic updaters and securityPatch handlers, `npd-update.sh` is deliver
 only by the VHD. It is not written by provisioning CustomData or hotfix delivery,
 which avoids CustomData growth. Nodes gain the handler through new VHDs.
 
-Config package content comes from the AKS VM extension's NPD configuration. Before
-baked NPD ships, the config packages must be refreshed from current extension
-content so baked nodes keep the extension's monitor coverage. Publishing Ubuntu
-26.04 packages is separate follow-up work.
+Config package content comes from the AKS VM extension's NPD configuration. The
+`1.0.0` revision 2 packages (`1.0.0-ubuntu<release>u2`, `1.0.0-2.azl3`) carry current
+extension content, including the node-exporter, intrusive-probe, CPU-throttle IG and
+GPU ECC monitors. Because the pins are revisionless, VHD builds bake the newest
+published revision, so new VHDs start on current config and running nodes only need
+LPC for changes published after their image was built. Publishing Ubuntu 26.04
+packages is separate follow-up work.
