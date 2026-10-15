@@ -132,6 +132,56 @@ func newNodeCustomDataRenderConfig(distro datamodel.Distro) *datamodel.NodeBoots
 	}
 }
 
+func TestLinuxNodeBootstrappingPayloadSizeBudget(t *testing.T) {
+	for _, distro := range []datamodel.Distro{
+		datamodel.AKSUbuntuContainerd2204Gen2,
+		datamodel.AKSAzureLinuxV2Gen2,
+		datamodel.AKSAzureLinuxV3Gen2,
+	} {
+		for _, cloud := range []struct {
+			name   string
+			custom bool
+		}{
+			{name: "public"},
+			{name: "custom", custom: true},
+		} {
+			t.Run(fmt.Sprintf("%s/%s", distro, cloud.name), func(t *testing.T) {
+				config := newNodeCustomDataRenderConfig(distro)
+				// Exercise legacy NPS-style delivery with provisioning scripts in customData.
+				config.EnableKubeletConfigFile = true
+				config.EnableScriptlessCSECmd = false
+				config.EnableScriptlessNBCCSECmd = false
+				config.EnableScriptlessAKSNodeConfig = false
+				config.PreProvisionOnly = false
+				if cloud.custom {
+					config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+						Name: "akscustom",
+					}
+				}
+
+				payload := InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(config)
+				compressed, err := base64.StdEncoding.Strict().DecodeString(payload)
+				require.NoError(t, err)
+				decoded, err := getGzipDecodedValue(compressed)
+				require.NoError(t, err)
+				require.True(t, strings.HasPrefix(string(decoded), "#cloud-config\n"))
+				require.False(t, config.ScriptlessCSEProvisionMode)
+
+				// Ensure the custom-cloud measurement includes its required initializer.
+				if cloud.custom {
+					require.Contains(t, string(decoded), initAKSCloudFilepath)
+				} else {
+					require.NotContains(t, string(decoded), initAKSCloudFilepath)
+				}
+
+				// Check the final base64-encoded payload against Compute's customData limit.
+				t.Logf("customData: %d encoded characters, %d characters remaining", len(payload), MaxCustomDataLength-len(payload))
+				require.LessOrEqual(t, len(payload), MaxCustomDataLength, "legacy customData exceeds Compute's encoded size limit")
+			})
+		}
+	}
+}
+
 func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
 	const bootstrapToken = "bake00.0123456789abcdef"
 
