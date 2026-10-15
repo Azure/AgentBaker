@@ -761,7 +761,7 @@ emitSSHDisableEvent() {
     mkdir -p "$EVENTS_LOGGING_DIR" || return 1
     event_file=$(mktemp "${EVENTS_LOGGING_DIR%/}/ssh-disable.XXXXXX") || return 1
     # Publish complete JSON atomically, with unique filenames even within a millisecond.
-    if ! printf '%s\n' "$event_json" > "$event_file" || ! mv "$event_file" "${event_file}.json"; then
+    if ! printf '%s\n' "$event_json" > "$event_file" || ! mv "$event_file" "${EVENTS_LOGGING_DIR%/}/$(date +%s%N)${BASHPID:-$$}${RANDOM}.json"; then
         rm -f "$event_file"
         return 1
     fi
