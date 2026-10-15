@@ -37,7 +37,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
 		got, err := os.ReadFile(out)
@@ -55,7 +55,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
 		got, err := os.ReadFile(out)
@@ -78,7 +78,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 				base64.StdEncoding.EncodeToString([]byte(original)) + `"}}}`, nil
 		}
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigAlreadyCurrent, outcome)
 		got, err := os.ReadFile(out)
@@ -98,7 +98,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 				base64.StdEncoding.EncodeToString([]byte(want)) + `"}}}`, nil
 		}
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
 		got, err := os.ReadFile(out)
@@ -114,7 +114,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigNoCorefileData, outcome)
 		_, statErr := os.Stat(out)
@@ -162,7 +162,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
 		got, err := os.ReadFile(out)
@@ -182,7 +182,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigNoCorefileData, outcome)
 		_, statErr := os.Stat(out)
