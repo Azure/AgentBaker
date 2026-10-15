@@ -306,7 +306,7 @@ Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfi
 EOF
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0600 "${BOOTSTRAP_KUBECONFIG_FILE}"
         tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config

@@ -70,4 +70,7 @@ else
     log "aks-node-controller exited with code ${exit_code}"
 fi
 
+rm -f $CONFIG_PATH
+rm -f $NBC_CMD_PATH
+
 exit $exit_code
