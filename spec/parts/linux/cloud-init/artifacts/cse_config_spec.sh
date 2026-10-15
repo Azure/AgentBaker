@@ -289,12 +289,12 @@ Describe 'cse_config.sh'
 
         It 'stops and disables every SSH unit that is present'
             When call disableSSH
-            The output should equal "stop ssh
+            The output should equal "stop sshd.socket
+disable sshd.socket
+stop ssh
 disable ssh
 stop sshd
-disable sshd
-stop sshd.socket
-disable sshd.socket"
+disable sshd"
             The status should be success
             SSH_EVENT_FILTER='
                 length == 8 and
