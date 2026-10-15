@@ -18,6 +18,7 @@ func TestNewCVMScenarioUsesWestEuropeAndDefaultValidation(t *testing.T) {
 		ClusterKubenet,
 		cvmSNPSKU,
 		false,
+		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	)
 
 	assert.Equal(t, cvmLocation, s.Location)
@@ -35,14 +36,35 @@ func TestNewCVMScenarioUsesWestEuropeAndDefaultValidation(t *testing.T) {
 
 func TestRegisteredCVMScenarios(t *testing.T) {
 	expected := map[string]struct {
-		vhd     *config.Image
-		useNVMe bool
+		vhd                    *config.Image
+		useNVMe                bool
+		securityEncryptionType armcompute.SecurityEncryptionTypes
 	}{
-		"Ubuntu2004_CVM_SNP":        {vhd: config.VHDUbuntu2004CVMGen2Containerd},
-		"Ubuntu2404_CVM_SNP":        {vhd: config.VHDUbuntu2404CVMGen2Containerd},
-		"AzureLinuxV3_CVM_SNP":      {vhd: config.VHDAzureLinuxV3CVMGen2},
-		"Ubuntu2604Minimal_CVM_SNP": {vhd: config.VHDUbuntu2604MinimalCVMGen2Containerd},
-		"Ubuntu2604Minimal_CVM_TDX": {vhd: config.VHDUbuntu2604MinimalCVMGen2Containerd, useNVMe: true},
+		"Ubuntu2004_CVM_SNP": {
+			vhd:                    config.VHDUbuntu2004CVMGen2Containerd,
+			securityEncryptionType: armcompute.SecurityEncryptionTypesVMGuestStateOnly,
+		},
+		"Ubuntu2404_CVM_SNP": {
+			vhd:                    config.VHDUbuntu2404CVMGen2Containerd,
+			securityEncryptionType: armcompute.SecurityEncryptionTypesVMGuestStateOnly,
+		},
+		"AzureLinuxV3_CVM_SNP": {
+			vhd:                    config.VHDAzureLinuxV3CVMGen2,
+			securityEncryptionType: armcompute.SecurityEncryptionTypesVMGuestStateOnly,
+		},
+		"AzureContainerLinux_CVM_SNP": {
+			vhd:                    config.VHDACLCVMGen2,
+			securityEncryptionType: armcompute.SecurityEncryptionTypesVMGuestStateOnly,
+		},
+		"Ubuntu2604Minimal_CVM_SNP": {
+			vhd:                    config.VHDUbuntu2604MinimalCVMGen2Containerd,
+			securityEncryptionType: armcompute.SecurityEncryptionTypesDiskWithVMGuestState,
+		},
+		"Ubuntu2604Minimal_CVM_TDX": {
+			vhd:                    config.VHDUbuntu2604MinimalCVMGen2Containerd,
+			useNVMe:                true,
+			securityEncryptionType: armcompute.SecurityEncryptionTypesDiskWithVMGuestState,
+		},
 	}
 
 	found := make(map[string]bool, len(expected))
@@ -57,6 +79,14 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 		assert.Equal(t, want.useNVMe, s.UseNVMe)
 		assert.False(t, s.SkipDefaultValidation)
 		assert.Nil(t, s.Validator)
+
+		vmss := &armcompute.VirtualMachineScaleSet{}
+		s.VMConfigMutator(vmss)
+		assert.Equal(
+			t,
+			want.securityEncryptionType,
+			*vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.ManagedDisk.SecurityProfile.SecurityEncryptionType,
+		)
 	}
 	for name := range expected {
 		assert.True(t, found[name], "CVM scenario %q is not registered", name)
@@ -73,7 +103,7 @@ func TestConfigureConfidentialVM(t *testing.T) {
 		},
 	}
 
-	configureConfidentialVM(vmss, cvmTDXSKU)
+	configureConfidentialVM(vmss, cvmTDXSKU, armcompute.SecurityEncryptionTypesDiskWithVMGuestState)
 
 	require.NotNil(t, vmss.SKU)
 	require.NotNil(t, vmss.SKU.Name)
@@ -101,7 +131,7 @@ func TestConfigureConfidentialVM(t *testing.T) {
 	require.NotNil(t, profile.StorageProfile.OSDisk.ManagedDisk.SecurityProfile.SecurityEncryptionType)
 	assert.Equal(
 		t,
-		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
+		armcompute.SecurityEncryptionTypesDiskWithVMGuestState,
 		*profile.StorageProfile.OSDisk.ManagedDisk.SecurityProfile.SecurityEncryptionType,
 	)
 }

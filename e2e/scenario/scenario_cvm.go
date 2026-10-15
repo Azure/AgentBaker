@@ -23,6 +23,7 @@ var (
 		ClusterKubenet,
 		cvmSNPSKU,
 		false,
+		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"Ubuntu2404_CVM_SNP",
@@ -31,6 +32,7 @@ var (
 		ClusterKubenet,
 		cvmSNPSKU,
 		false,
+		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"AzureLinuxV3_CVM_SNP",
@@ -39,6 +41,16 @@ var (
 		ClusterKubenet,
 		cvmSNPSKU,
 		false,
+		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
+	))
+	_ = Register(newCVMScenario(
+		"AzureContainerLinux_CVM_SNP",
+		"Tests that an Azure Container Linux Confidential VM node can be provisioned and pass standard node validation",
+		config.VHDACLCVMGen2,
+		ClusterKubenet,
+		cvmSNPSKU,
+		false,
+		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"Ubuntu2604Minimal_CVM_SNP",
@@ -47,6 +59,7 @@ var (
 		ClusterLatestKubernetesVersionKubenet,
 		cvmSNPSKU,
 		false,
+		armcompute.SecurityEncryptionTypesDiskWithVMGuestState,
 	))
 	_ = Register(newCVMScenario(
 		"Ubuntu2604Minimal_CVM_TDX",
@@ -55,6 +68,7 @@ var (
 		ClusterLatestKubernetesVersionKubenet,
 		cvmTDXSKU,
 		true,
+		armcompute.SecurityEncryptionTypesDiskWithVMGuestState,
 	))
 )
 
@@ -65,6 +79,7 @@ func newCVMScenario(
 	cluster func(context.Context, ClusterRequest) (*Cluster, error),
 	vmSize string,
 	useNVMe bool,
+	securityEncryptionType armcompute.SecurityEncryptionTypes,
 ) *Scenario {
 	return &Scenario{
 		Name:        name,
@@ -81,13 +96,17 @@ func newCVMScenario(
 				nbc.AgentPoolProfile.VMSize = vmSize
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				configureConfidentialVM(vmss, vmSize)
+				configureConfidentialVM(vmss, vmSize, securityEncryptionType)
 			},
 		},
 	}
 }
 
-func configureConfidentialVM(vmss *armcompute.VirtualMachineScaleSet, vmSize string) {
+func configureConfidentialVM(
+	vmss *armcompute.VirtualMachineScaleSet,
+	vmSize string,
+	securityEncryptionType armcompute.SecurityEncryptionTypes,
+) {
 	if vmss.SKU == nil {
 		vmss.SKU = &armcompute.SKU{}
 	}
@@ -124,5 +143,5 @@ func configureConfidentialVM(vmss *armcompute.VirtualMachineScaleSet, vmSize str
 		profile.StorageProfile.OSDisk.ManagedDisk.SecurityProfile = &armcompute.VMDiskSecurityProfile{}
 	}
 	profile.StorageProfile.OSDisk.ManagedDisk.SecurityProfile.SecurityEncryptionType =
-		to.Ptr(armcompute.SecurityEncryptionTypesVMGuestStateOnly)
+		to.Ptr(securityEncryptionType)
 }

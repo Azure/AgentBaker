@@ -229,6 +229,16 @@ var (
 		OSDiskSizeGB: 60,
 	}
 
+	VHDACLCVMGen2 = &Image{
+		Name:         "aclgen2CVM",
+		OS:           OSACL,
+		Arch:         "amd64",
+		Distro:       datamodel.AKSACLCVMGen2,
+		Gallery:      &Config.GalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
+	}
+
 	VHDACLArm64Gen2TL = &Image{
 		Name:         "aclgen2arm64TL",
 		OS:           OSACL,
