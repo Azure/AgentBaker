@@ -243,6 +243,39 @@ Describe 'cgroup telemetry'
         The result of function validate_service_values should equal true
     End
 
+    Context 'when WALinuxAgent cleans the queue before publication'
+        Mock ln
+            if [ ! -f "${MOCK_EVENTS_ROOT}/../cleaned" ]; then
+                # Match WALinuxAgent's cleanup, including hidden staging files.
+                find "${MOCK_EVENTS_ROOT}" -maxdepth 1 -type f -delete
+                touch "${MOCK_EVENTS_ROOT}/../cleaned"
+            fi
+            /bin/ln "$@"
+        End
+
+        It 'publishes every pressure fragment despite the concurrent cleanup'
+            export MOCK_EVENTS_ROOT="${EVENTS_ROOT}"
+            touch "${EVENTS_ROOT}/.residue"
+            for cgroup_path in \
+                . system.slice azure.slice kubepods.slice \
+                system.slice/kubelet.service system.slice/containerd.service; do
+                create_pressure_files "${cgroup_path}"
+            done
+            prepare_pressure_script
+            remaining_staging_files() {
+                find "${TEST_ROOT}" -maxdepth 1 -name '.pressure-event.*' -print
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+            The status should be success
+            The stderr should equal ""
+            The file "${TEST_ROOT}/cleaned" should be exist
+            The file "${EVENTS_ROOT}/.residue" should not be exist
+            The result of function validate_pressure_events should equal true
+            The result of function remaining_staging_files should equal ""
+        End
+    End
+
     It 'emits cgroup v2 CPU usage and throttling counters with explicit units'
         create_cpu_stat_v2 system.slice/containerd.service
         create_cpu_stat_v2 system.slice/kubelet.service

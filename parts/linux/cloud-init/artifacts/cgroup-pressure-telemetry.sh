@@ -338,7 +338,8 @@ mkdir -p "${EVENTS_LOGGING_DIR}" || exit 1
 event_index=0
 while IFS= read -r event; do
     printf -v target '%s/%s%06d.json' "${EVENTS_LOGGING_DIR%/}" "${EVENTS_FILE_NAME}" "${event_index}"
-    temporary=$(mktemp "${EVENTS_LOGGING_DIR%/}/.pressure-event.XXXXXXXX") || exit 1
+    # WALinuxAgent deletes all entries in events/, including hidden staging files.
+    temporary=$(mktemp "${EVENTS_LOGGING_DIR%/}/../.pressure-event.XXXXXXXX") || exit 1
     # Publish complete files only, without overwriting another sample or fragment.
     if ! printf '%s\n' "${event}" > "${temporary}" ||
         ! chmod 0644 "${temporary}" || ! ln "${temporary}" "${target}"; then
