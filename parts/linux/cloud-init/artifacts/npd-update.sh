@@ -347,7 +347,10 @@ npd_recover_pending() {
     [ -f "${NPD_UPDATE_DIR}/pending" ] || return 0
     old_version="$(cat "${NPD_UPDATE_DIR}/pending")" || return 1
     package="$(npd_find_cached_package "${old_version}")" || return 1
-    npd_repair_package_state || return 1
+    # A repair can fail when a package's maintainer script keeps failing. Still
+    # attempt the rollback: reinstalling the prior package replaces a broken NPD
+    # package, and the install and health checks keep pending until it succeeds.
+    npd_repair_package_state || echo "npdConfig: package-manager repair failed; attempting rollback"
     npd_install_package "${package}" && npd_restart_and_check || return 1
     rm -f "${NPD_UPDATE_DIR}/pending"
 }

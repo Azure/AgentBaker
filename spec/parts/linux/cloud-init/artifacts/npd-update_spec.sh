@@ -179,13 +179,23 @@ install ${NPD_PACKAGE_CACHE}/${INSTALLED_VERSION}.deb
 restart"
     End
 
-    It 'keeps the pending marker when package-manager repair fails'
+    It 'still restores the prior package when package-manager repair fails'
         printf '%s' "${INSTALLED_VERSION}" > "${NPD_UPDATE_DIR}/pending"
         export REPAIR_STATUS=1
+        When call npd_recover_pending
+        The status should be success
+        The output should include 'repair failed; attempting rollback'
+        The contents of file "${TEST_CALLS}" should include "install ${NPD_PACKAGE_CACHE}/${INSTALLED_VERSION}.deb"
+        The path "${NPD_UPDATE_DIR}/pending" should not be exist
+    End
+
+    It 'keeps the pending marker when both repair and rollback fail'
+        printf '%s' "${INSTALLED_VERSION}" > "${NPD_UPDATE_DIR}/pending"
+        export REPAIR_STATUS=1
+        npd_install_package() { echo "install $1" >> "${TEST_CALLS}"; return 1; }
         When call updateNPDConfigs "${TEST_DESIRED}" '{}'
         The status should be failure
         The output should include 'RecoveryFailed'
-        The contents of file "${TEST_CALLS}" should not include 'install'
         The path "${NPD_UPDATE_DIR}/pending" should be exist
     End
 

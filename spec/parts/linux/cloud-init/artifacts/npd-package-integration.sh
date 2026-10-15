@@ -113,6 +113,29 @@ case "${format}" in
     rpm) test "$(rpm -q node-problem-detector-aks-config | wc -l)" -eq 1 ;;
 esac
 
+# A new package whose maintainer script fails leaves it unconfigured, and a dpkg
+# repair re-runs the failing script. Recovery must still restore the old package.
+if [ "${format}" = deb ]; then
+    broken="$(mktemp -d)"
+    dpkg-deb -R "${NPD_PACKAGE_CACHE}/new.deb" "${broken}"
+    sed -i "s/^Version: .*/Version: 1.0.2-ubuntu${release}u1/" "${broken}/DEBIAN/control"
+    printf '#!/bin/sh\nexit 1\n' > "${broken}/DEBIAN/postinst"
+    chmod 0755 "${broken}/DEBIAN/postinst"
+    dpkg-deb --build "${broken}" "${NPD_PACKAGE_CACHE}/broken.deb" >/dev/null
+    rm -rf "${broken}"
+    printf '%s\n' "${old_version}" > "${NPD_UPDATE_DIR}/pending"
+    if dpkg -i --force-confnew "${NPD_PACKAGE_CACHE}/broken.deb"; then
+        echo 'expected the broken postinst to fail' >&2
+        exit 1
+    fi
+    test "$(dpkg-query -W -f='${db:Status-Status}' node-problem-detector-aks-config)" = half-configured
+    updateNPDConfigs '{}' '{}'
+    test "$(npd_installed_version)" = "${old_version}"
+    test "$(dpkg-query -W -f='${db:Status-Status}' node-problem-detector-aks-config)" = installed
+    test ! -f "${NPD_UPDATE_DIR}/pending"
+    rm -f "${NPD_PACKAGE_CACHE}/broken.deb"
+fi
+
 # Fail the new service once; the real handler must reinstall the old package.
 npd_restart_and_check() {
     if [ "$(npd_installed_version)" = "${new_version}" ]; then return 1; fi
@@ -126,4 +149,4 @@ test -f "${removed}"
 test ! -f "${added}"
 test -f "${NPD_SKIP_FILE}"
 test ! -f "${NPD_UPDATE_DIR}/pending"
-echo "PASS: ${distro} real package install, held upgrade, local-edit replacement, obsolete cleanup, recovery (including an interrupted package manager), and failed activation"
+echo "PASS: ${distro} real package install, held upgrade, local-edit replacement, obsolete cleanup, recovery (including an interrupted package manager and a failing maintainer script), and failed activation"
