@@ -189,8 +189,16 @@ updateLocalDNS() {
             return 1
             ;;
         noCorefileData)
-            echo "localDNS LPS config has no node-applicable payload"
-            return 1
+            # Nothing in this payload applies to this node: either no pool in the cluster has
+            # localDNS enabled, or this node's pool does not. The component config is delivered
+            # cluster-wide, so nodes outside the enabled pools see this on every tick.
+            #
+            # That is an authoritative answer from the control plane, not a failed apply, and the
+            # bootstrap path already reads it that way. Reporting failure here would peg those
+            # nodes at localDNS=Failed forever -- and because the reconcile loop only converges
+            # once every component succeeds, it would also re-dispatch every component on every
+            # tick for the life of the node.
+            echo "localDNS has no config applicable to this node; nothing to apply"
             ;;
         *)
             echo "unexpected localDNS apply outcome: ${outcome}"
