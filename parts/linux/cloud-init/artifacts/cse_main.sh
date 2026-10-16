@@ -597,6 +597,8 @@ function nodePrep {
                 VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
             else
                 VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
+                # custom DNS failed: record whether Azure DNS can resolve the name from this subnet
+                logAzureDNSDirectLookup "${API_SERVER_NAME}"
             fi
         else
             logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 15 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL

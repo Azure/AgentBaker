@@ -351,6 +351,36 @@ retrycmd_nslookup() {
     echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
 }
 
+# Queries Azure DNS (168.63.129.16) directly for a record that failed to resolve through the VNet's custom DNS servers.
+# AKS links the API server's private DNS zone to the cluster VNet, so comparing both results tells
+# a custom DNS server that doesn't forward the zone to Azure DNS (Azure DNS resolves the record) apart from a
+# problem on the Azure side (Azure DNS fails too).
+# Prints a single "AzureDNSDirectLookup:" line that AKS parses to explain the failure. Always returns 0.
+logAzureDNSDirectLookup() {
+    local record=$1
+    local output status result addresses
+    output=$(nslookup -timeout=15 -retry=0 "${record}" 168.63.129.16 2>&1)
+    status=$?
+    if [ "${status}" -eq 0 ]; then
+        addresses=$(echo "${output}" | awk '/^Address: /{print $2}' | paste -sd, -)
+        if [ -n "${addresses}" ]; then
+            echo "AzureDNSDirectLookup: result=resolved server=168.63.129.16 name=${record} addresses=${addresses}"
+            return 0
+        fi
+        result="noanswer"
+    else
+        case "${output}" in
+            *NXDOMAIN*) result="NXDOMAIN" ;;
+            *SERVFAIL*) result="SERVFAIL" ;;
+            *REFUSED*) result="REFUSED" ;;
+            *"timed out"*|*"no servers could be reached"*) result="timeout" ;;
+            *) result="failed" ;;
+        esac
+    fi
+    echo "AzureDNSDirectLookup: result=${result} server=168.63.129.16 name=${record}"
+    return 0
+}
+
 _retry_file_curl_internal() {
     # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
     # maxBudget (4th arg): if > 0, the total wall-clock seconds this operation is allowed to spend across all retries.
