@@ -1,0 +1,45 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+variables:
+  TAGS_TO_RUN: "vmSeriesCoverageTest=true"
+  TAGS_TO_SKIP: "os=windows"
+  SKIP_E2E_TESTS: false
+  SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
+  E2E_GO_TEST_TIMEOUT: "75m"
+  E2E_LOCATION: "eastus2"
+  DEFAULT_VM_SIZE: "standard_d2ds_v7"
+trigger:
+  branches:
+    include:
+      - main
+pr:
+  branches:
+    include:
+      - official/*
+      - windows/*
+      - main
+  paths:
+    include:
+      - .pipelines/e2e.yaml
+      - .pipelines/e2e-next-gen.yaml
+      - .pipelines/templates/e2e-template.yaml
+      - .pipelines/scripts/e2e_run.sh
+      - e2e
+      - parts/linux
+      - parts/common/components.json
+      - pkg/agent
+      - go.mod
+      - go.sum
+    exclude:
+      - pkg/agent/datamodel/sig_config*.go # SIG config changes
+      - pkg/agent/datamodel/*.json # SIG version changes
+      - pkg/agent/testdata/AKSWindows* # Windows test data
+      - staging/cse/windows/README
+      - /**/*.md
+      - e2e/scenario_win_test.go
+
+jobs:
+  - template: ./templates/e2e-template.yaml
+    parameters:
+      name: Linux Next Gen VM Series Tests
+      IgnoreScenariosWithMissingVhd: false
+
