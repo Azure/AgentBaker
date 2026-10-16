@@ -430,22 +430,7 @@ var _ = Register(&Scenario{
 			// actually exercised, which ValidateKataHostReadiness asserts.
 			nbc.DisableUnattendedUpgrades = false
 		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			if err := errors.Join(
-				ValidateKataContainerdConfig(ctx, s),
-				ValidateKataErofsContainerdConfig(ctx, s),
-				ValidateKataContainerdConfigDump(ctx, s),
-				ValidateKataHostReadiness(ctx, s),
-			); err != nil {
-				return err
-			}
-			for _, handler := range kataRuntimeHandlers {
-				if err := ValidateKataPodIsIsolated(ctx, s, handler); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
+		Validator: ValidateKataWorkloads,
 	},
 })
 
