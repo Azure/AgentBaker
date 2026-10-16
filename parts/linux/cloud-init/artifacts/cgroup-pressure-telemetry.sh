@@ -335,6 +335,11 @@ if ! EVENT_JSON=$( jq -cn \
     exit 1
 fi
 
+if [[ -z "${EVENT_JSON}" ]]; then
+    echo "pressure telemetry: no events generated" >&2
+    exit 1
+fi
+
 mkdir -p "${EVENTS_LOGGING_DIR}" || exit 1
 event_index=0
 while IFS= read -r event; do
