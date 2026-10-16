@@ -35,6 +35,10 @@ parameters:
       because they cannot verify the not-opted-in behavior on such subscriptions.
       Msft tenant E2E subs auto-inject; the RCV1P subscription does not.
     default: true
+  - name: selectGpuE2eProfile
+    type: boolean
+    displayName: Select the GPU E2E profile from PR metadata
+    default: false
 
 jobs:
   - job: e2e
@@ -52,6 +56,14 @@ jobs:
         path: s
         fetchTags: false
         fetchDepth: 1
+
+      - ${{ if eq(parameters.selectGpuE2eProfile, true) }}:
+        - bash: .pipelines/scripts/select_gpu_e2e_profile.sh
+          displayName: Select GPU E2E profile
+          env:
+            BUILD_REASON: $(Build.Reason)
+            BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
+            SYSTEM_PULLREQUEST_PULLREQUESTNUMBER: $(System.PullRequest.PullRequestNumber)
 
       - ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
         - task: DownloadPipelineArtifact@2
