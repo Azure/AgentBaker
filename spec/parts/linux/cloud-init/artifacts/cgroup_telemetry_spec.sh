@@ -277,6 +277,27 @@ Describe 'cgroup telemetry'
         The output should equal true
     End
 
+    Context 'when jq succeeds without emitting events'
+        Mock jq
+            exit 0
+        End
+
+        It 'fails explicitly without publishing an empty event'
+            for cgroup_path in . system.slice azure.slice kubepods.slice; do
+                create_pressure_files "${cgroup_path}"
+            done
+            prepare_pressure_script
+            remaining_event_files() {
+                find "${EVENTS_ROOT}" -mindepth 1 -print
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+            The status should equal 1
+            The stderr should equal 'pressure telemetry: no events generated'
+            The result of function remaining_event_files should equal ""
+        End
+    End
+
     Context 'when WALinuxAgent cleans the queue before publication'
         Mock ln
             if [ ! -f "${MOCK_EVENTS_ROOT}/../cleaned" ]; then
