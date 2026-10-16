@@ -67,3 +67,30 @@ func TestNewAPIServerRejectsInvalidOverloadEnvironmentVariables(t *testing.T) {
 		t.Fatal("expected invalid limiter capacity to fail")
 	}
 }
+
+func TestNewAPIServerRejectsPProfOnAPIAddress(t *testing.T) {
+	if _, err := NewAPIServer(&Options{Addr: ":8080", PProfAddr: ":8080"}); err == nil {
+		t.Fatal("expected matching API and pprof addresses to fail")
+	}
+}
+
+func TestPProfHandlerIsSeparateFromAPIRouter(t *testing.T) {
+	api, err := NewAPIServer(&Options{Addr: ":8080"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	apiRequest := httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	apiResponse := httptest.NewRecorder()
+	api.NewRouter().ServeHTTP(apiResponse, apiRequest)
+	if apiResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected API router status 404, got %d", apiResponse.Code)
+	}
+
+	profileRequest := httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	profileResponse := httptest.NewRecorder()
+	newPProfHandler().ServeHTTP(profileResponse, profileRequest)
+	if profileResponse.Code != http.StatusOK {
+		t.Fatalf("expected pprof router status 200, got %d", profileResponse.Code)
+	}
+}
