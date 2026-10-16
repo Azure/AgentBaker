@@ -22,7 +22,6 @@ pr:
     - parts/common/components.json
     - go.mod
     - go.sum
-    - e2e/**
     exclude:
     - CODEOWNERS
     - schemas/windows_settings.cue
@@ -214,34 +213,6 @@ stages:
           parameters:
             artifactName: azurelinuxv3-gen2-kata
 
-    # Build the exact PR image for the required Kata-CC smoke stage.
-    - job: buildAzureLinuxV3gen2katacc
-      timeoutInMinutes: 360
-      variables:
-        REPLICATIONS: eastus2=1
-        USE_SHALLOW_REPLICATION: "false"
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
-            echo '##vso[task.setvariable variable=OS_VERSION]V3katacc'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-gen2'
-            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata,kata-cc'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]False'
-            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: azurelinuxv3-gen2-kata-cc
-            kataCC: true
-
     - job: buildAzureLinuxV3ARM64gen2fips
       timeoutInMinutes: 360
       steps:
@@ -358,27 +329,10 @@ stages:
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
-      TAGS_TO_SKIP: gpu=true,os=windows,Name=AzureLinuxV3Gen2KataCC_Runc
+      TAGS_TO_SKIP: gpu=true,os=windows
       DISABLE_SCRIPTLESS_COMPILATION: true
     jobs:
       - template: ./templates/e2e-template.yaml
         parameters:
           IgnoreScenariosWithMissingVhd: true
-          useVhdMetadataArtifacts: true
-
-  - stage: e2e_katacc
-    displayName: Kata-CC VHD runc smoke
-    dependsOn: build
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
-    variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      TAGS_TO_RUN: Name=AzureLinuxV3Gen2KataCC_Runc
-      TAGS_TO_SKIP: ""
-      DISABLE_SCRIPTLESS_COMPILATION: true
-    jobs:
-      - template: ./templates/e2e-template.yaml
-        parameters:
-          name: Kata-CC VHD runc smoke
-          subscriptionId: c0f60687-8f09-4186-801b-9dd11d82d2e1
-          IgnoreScenariosWithMissingVhd: false
           useVhdMetadataArtifacts: true

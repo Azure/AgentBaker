@@ -128,14 +128,6 @@ var (
 		Gallery: &Config.GalleryLinux,
 	}
 
-	VHDAzureLinuxV3Gen2KataCC = &Image{
-		Name:    "AzureLinuxV3kataccgen2",
-		OS:      OSAzureLinux,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSAzureLinuxV3Gen2KataCC,
-		Gallery: &Config.GalleryLinux,
-	}
-
 	VHDAzureLinuxV3Gen2FIPS = &Image{
 		Name:                "AzureLinuxV3gen2fips",
 		OS:                  OSAzureLinux,
