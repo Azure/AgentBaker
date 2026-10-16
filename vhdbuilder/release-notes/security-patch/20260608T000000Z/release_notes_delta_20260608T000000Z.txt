@@ -1,0 +1,35 @@
+Release notes for security patch 20260608T000000Z timestamp
+Package difference between 20260524T000000Z and 20260608T000000Z
+No reboot required
+Upgrade: vim:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30), vim-common:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30), vim-tiny:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30), vim-runtime:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30)
+Upgrade: xxd:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-179.189, 5.15.0-181.191)
+Upgrade: nano:amd64 (6.2-1ubuntu0.1, 6.2-1ubuntu0.2)
+Upgrade: libgcrypt20:amd64 (1.9.4-3ubuntu3, 1.9.4-3ubuntu3.2)
+Upgrade: linux-libc-dev:amd64 (5.15.0-179.189, 5.15.0-181.191)
+Upgrade: python3-twisted:amd64 (22.1.0-2ubuntu2.6, 22.1.0-2ubuntu2.7)
+Upgrade: python3-urllib3:amd64 (1.26.5-1~exp1ubuntu0.6, 1.26.5-1~exp1ubuntu0.7)
+Upgrade: distro-info-data:amd64 (0.52ubuntu0.11, 0.52ubuntu0.12)
+Upgrade: xz-utils:amd64 (5.2.5-2ubuntu1, 5.2.5-2ubuntu1.1)
+Upgrade: libwbclient0:amd64 (2:4.15.13+dfsg-0ubuntu1.10, 2:4.15.13+dfsg-0ubuntu1.12)
+Upgrade: linux-tools-common:amd64 (5.15.0-179.189, 5.15.0-181.191)
+Upgrade: liblzma5:amd64 (5.2.5-2ubuntu1, 5.2.5-2ubuntu1.1)
+
+Package difference between AKSUbuntu-2204gen2containerd-202605.14.0 and 20260608T000000Z
+No reboot required
+Upgrade: xxd:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30)
+Upgrade: libgnutls30:amd64 (3.7.3-4ubuntu1.8, 3.7.3-4ubuntu1.9)
+Upgrade: bind9-host:amd64 (1:9.18.39-0ubuntu0.22.04.3, 1:9.18.39-0ubuntu0.22.04.4), bind9-dnsutils:amd64 (1:9.18.39-0ubuntu0.22.04.3, 1:9.18.39-0ubuntu0.22.04.4), bind9-libs:amd64 (1:9.18.39-0ubuntu0.22.04.3, 1:9.18.39-0ubuntu0.22.04.4)
+Upgrade: linux-tools-common:amd64 (5.15.0-177.187, 5.15.0-181.191)
+Upgrade: vim:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30), vim-common:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30), vim-tiny:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30), vim-runtime:amd64 (2:8.2.3995-1ubuntu2.29, 2:8.2.3995-1ubuntu2.30)
+Upgrade: linux-libc-dev:amd64 (5.15.0-177.187, 5.15.0-181.191)
+Upgrade: nano:amd64 (6.2-1ubuntu0.1, 6.2-1ubuntu0.2)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-177.187, 5.15.0-181.191)
+Upgrade: rsync:amd64 (3.2.7-0ubuntu0.22.04.4, 3.2.7-0ubuntu0.22.04.6)
+Upgrade: libgcrypt20:amd64 (1.9.4-3ubuntu3, 1.9.4-3ubuntu3.2)
+Upgrade: python3-twisted:amd64 (22.1.0-2ubuntu2.6, 22.1.0-2ubuntu2.7)
+Upgrade: libwbclient0:amd64 (2:4.15.13+dfsg-0ubuntu1.10, 2:4.15.13+dfsg-0ubuntu1.12)
+Upgrade: liblzma5:amd64 (5.2.5-2ubuntu1, 5.2.5-2ubuntu1.1)
+Upgrade: xz-utils:amd64 (5.2.5-2ubuntu1, 5.2.5-2ubuntu1.1)
+Upgrade: libarchive13:amd64 (3.6.0-1ubuntu1.6, 3.6.0-1ubuntu1.7)
+Upgrade: python3-urllib3:amd64 (1.26.5-1~exp1ubuntu0.6, 1.26.5-1~exp1ubuntu0.7)
