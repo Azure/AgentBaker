@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -21,6 +22,9 @@ import (
 )
 
 var AllowedSSHPrefixes = []string{ssh.KeyAlgoED25519, ssh.KeyAlgoRSA, ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512}
+
+// Match Azure CLI's Bastion tunnel buffer to avoid oversized WebSocket messages.
+const bastionWriteChunkSize = 4096
 
 type Bastion struct {
 	credential                                 azcore.TokenCredential
@@ -53,6 +57,26 @@ type tunnelSession struct {
 	session   *sessionToken
 	closeOnce sync.Once
 	closeErr  error
+	writeMu   sync.Mutex
+}
+
+func (t *tunnelSession) Write(p []byte) (int, error) {
+	t.writeMu.Lock()
+	defer t.writeMu.Unlock()
+	written := 0
+	for len(p) > 0 {
+		chunk := p[:min(len(p), bastionWriteChunkSize)]
+		n, err := t.Conn.Write(chunk)
+		written += n
+		if err != nil {
+			return written, err
+		}
+		if n != len(chunk) {
+			return written, io.ErrShortWrite
+		}
+		p = p[n:]
+	}
+	return written, nil
 }
 
 func (b *Bastion) NewTunnelSession(ctx context.Context, targetHost string, port uint16) (*tunnelSession, error) {

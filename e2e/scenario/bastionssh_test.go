@@ -81,7 +81,10 @@ func TestBastionSSHSurvivesClearedHandshakeDeadline(t *testing.T) {
 		defer server.Close()
 		go ssh.DiscardRequests(requests)
 		for channel := range channels {
-			if err := serveSessionTestCommand(channel, func(_ string, channel ssh.Channel) uint32 {
+			if err := serveSessionTestCommand(channel, func(command string, channel ssh.Channel) uint32 {
+				if isSessionTestUpload(command) {
+					return receiveSessionTestScript(t, channel, "echo hello")
+				}
 				_, err := io.WriteString(channel, "hello\n")
 				assert.NoError(t, err)
 				return 0
@@ -113,6 +116,75 @@ func TestBastionSSHSurvivesClearedHandshakeDeadline(t *testing.T) {
 	require.NoError(t, client.Close())
 	require.NoError(t, tunnel.Close())
 	assert.Eventually(t, func() bool { return deleted.Load() == 1 }, time.Second, time.Millisecond)
+}
+
+func TestBastionLargeSSHMessages(t *testing.T) {
+	for _, test := range []struct {
+		name, script string
+		isWindows    bool
+	}{
+		{name: "Linux script", script: "set -e\n" + strings.Repeat("echo payload\n", 2000)},
+		{name: "Windows script", script: strings.Repeat("Write-Output payload\n", 1300), isWindows: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			_, key, err := ed25519.GenerateKey(rand.Reader)
+			require.NoError(t, err)
+			signer, err := ssh.NewSignerFromKey(key)
+			require.NoError(t, err)
+			config := &ssh.ServerConfig{NoClientAuth: true}
+			config.AddHostKey(signer)
+			var opens atomic.Int32
+			bastion, deleted := newTestBastion(t, func(w http.ResponseWriter, r *http.Request) {
+				ws, err := websocket.Accept(w, r, nil)
+				if !assert.NoError(t, err) {
+					return
+				}
+				defer ws.CloseNow()
+				stream := websocket.NetConn(ctx, ws, websocket.MessageBinary)
+				ws.SetReadLimit(8192)
+				server, channels, requests, err := ssh.NewServerConn(stream, config)
+				if !assert.NoError(t, err) {
+					return
+				}
+				defer server.Close()
+				go ssh.DiscardRequests(requests)
+				for channel := range channels {
+					opens.Add(1)
+					assert.NoError(t, serveSessionTestCommand(channel, func(command string, channel ssh.Channel) uint32 {
+						if isSessionTestUpload(command) {
+							return receiveSessionTestScript(t, channel, test.script)
+						}
+						if test.isWindows {
+							assert.True(t, strings.HasPrefix(command, "powershell -NoProfile -NonInteractive -File c:/script_file_"))
+						} else {
+							assert.True(t, strings.HasPrefix(command, "bash /home/azureuser/remote_script_"))
+						}
+						_, err := io.WriteString(channel, "complete\n")
+						assert.NoError(t, err)
+						return 0
+					}))
+				}
+			})
+			tunnel, err := bastion.NewTunnelSession(ctx, "127.0.0.1", 22)
+			require.NoError(t, err)
+			defer tunnel.Close()
+			conn, channels, requests, err := ssh.NewClientConn(tunnel, "fixture", &ssh.ClientConfig{
+				User: "test", HostKeyCallback: ssh.FixedHostKey(signer.PublicKey()),
+			})
+			require.NoError(t, err)
+			client := newSSHClient(ssh.NewClient(conn, channels, requests))
+			defer client.Close()
+			result, err := runSSHCommand(ctx, client, test.script, test.isWindows)
+			require.NoError(t, err)
+			assert.Equal(t, "0", result.exitCode)
+			assert.Equal(t, "complete\n", result.stdout)
+			assert.EqualValues(t, 2, opens.Load())
+			require.NoError(t, client.Close())
+			assert.Eventually(t, func() bool { return deleted.Load() == 1 }, time.Second, time.Millisecond)
+		})
+	}
 }
 
 func TestBastionCancellationDoesNotWaitForSessionDeletion(t *testing.T) {

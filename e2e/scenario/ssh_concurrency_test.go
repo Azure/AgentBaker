@@ -1,7 +1,6 @@
 package scenario
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -17,82 +16,62 @@ import (
 )
 
 func TestSSHCommandConcurrencyPerConnection(t *testing.T) {
-	for _, test := range []struct {
-		name      string
-		command   string
-		isWindows bool
-		upload    bool
-	}{
-		{name: "command", command: "echo hello"},
-		{name: "Linux script", command: "echo hello\necho world", upload: true},
-		{name: "Windows script", command: "Write-Output hello", isWindows: true, upload: true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			const operations = 24
-			opened := make(chan struct{}, operations*2)
-			executing := make(chan struct{}, operations)
-			uploadGate := make(chan struct{})
-			commandGate := make(chan struct{})
-			releaseUploads := sync.OnceFunc(func() { close(uploadGate) })
-			releaseCommands := sync.OnceFunc(func() { close(commandGate) })
-			client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
-				opened <- struct{}{}
-				return serveSessionTestCommand(ch, func(command string, channel ssh.Channel) uint32 {
-					if strings.HasPrefix(command, "scp -qt ") {
-						<-uploadGate
-						return receiveSessionTestScript(t, channel, test.command)
-					}
-					executing <- struct{}{}
-					<-commandGate
-					return 0
-				})
-			})
-			t.Cleanup(releaseCommands)
-			t.Cleanup(releaseUploads)
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			results := make(chan error, operations)
-			for range operations {
-				go func() {
-					result, err := runSSHCommand(ctx, client, test.command, test.isWindows)
-					if err == nil && result.exitCode != "0" {
-						err = fmt.Errorf("exit code: %s", result.exitCode)
-					}
-					results <- err
-				}()
+	const operations = 24
+	const script = "echo hello\necho world"
+	opened := make(chan struct{}, operations*2)
+	executing := make(chan struct{}, operations)
+	uploadGate, commandGate := make(chan struct{}), make(chan struct{})
+	releaseUploads := sync.OnceFunc(func() { close(uploadGate) })
+	releaseCommands := sync.OnceFunc(func() { close(commandGate) })
+	client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
+		opened <- struct{}{}
+		return serveSessionTestCommand(ch, func(command string, channel ssh.Channel) uint32 {
+			if isSessionTestUpload(command) {
+				<-uploadGate
+				return receiveSessionTestScript(t, channel, script)
 			}
-
-			for range 8 {
-				requireSessionTestSignal(t, ctx, opened)
-			}
-			requireNoSessionTestSignal(t, opened)
-			if test.upload {
-				releaseUploads()
-				for range 8 {
-					requireSessionTestSignal(t, ctx, opened)
-				}
-			}
-			for range 8 {
-				requireSessionTestSignal(t, ctx, executing)
-			}
-			requireNoSessionTestSignal(t, opened)
-			releaseCommands()
-			for range operations {
-				select {
-				case err := <-results:
-					require.NoError(t, err)
-				case <-ctx.Done():
-					t.Fatal(ctx.Err())
-				}
-			}
-			assert.Empty(t, client.operations)
-			wantRemainingOpens := operations - 8
-			if test.upload {
-				wantRemainingOpens *= 2
-			}
-			assert.Len(t, opened, wantRemainingOpens)
+			executing <- struct{}{}
+			<-commandGate
+			return 0
 		})
+	})
+	t.Cleanup(releaseCommands)
+	t.Cleanup(releaseUploads)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	results := make(chan error, operations)
+	for range operations {
+		go func() {
+			result, err := runSSHCommand(ctx, client, script, false)
+			if err == nil && result.exitCode != "0" {
+				err = fmt.Errorf("exit code: %s", result.exitCode)
+			}
+			results <- err
+		}()
 	}
+	for range 8 {
+		requireSessionTestSignal(t, ctx, opened)
+	}
+	requireNoSessionTestSignal(t, opened)
+	releaseUploads()
+	for range 8 {
+		requireSessionTestSignal(t, ctx, opened)
+	}
+	for range 8 {
+		requireSessionTestSignal(t, ctx, executing)
+	}
+	requireNoSessionTestSignal(t, opened)
+	releaseCommands()
+	for range operations {
+		select {
+		case err := <-results:
+			require.NoError(t, err)
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		}
+	}
+	assert.Empty(t, client.operations)
+	assert.Len(t, opened, (operations-8)*2)
 }
 
 func TestSSHQueuedCancellationAndIndependentConnection(t *testing.T) {
@@ -101,7 +80,10 @@ func TestSSHQueuedCancellationAndIndependentConnection(t *testing.T) {
 	release := sync.OnceFunc(func() { close(gate) })
 	client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
 		opened <- struct{}{}
-		return serveSessionTestCommand(ch, func(_ string, _ ssh.Channel) uint32 {
+		return serveSessionTestCommand(ch, func(command string, channel ssh.Channel) uint32 {
+			if isSessionTestUpload(command) {
+				return discardSessionTestScript(t, channel)
+			}
 			<-gate
 			return 0
 		})
@@ -116,7 +98,7 @@ func TestSSHQueuedCancellationAndIndependentConnection(t *testing.T) {
 			results <- err
 		}()
 	}
-	for range 8 {
+	for range 16 {
 		requireSessionTestSignal(t, ctx, opened)
 	}
 
@@ -139,7 +121,12 @@ func TestSSHQueuedCancellationAndIndependentConnection(t *testing.T) {
 	assert.Len(t, client.operations, 8)
 
 	otherClient := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
-		return serveSessionTestCommand(ch, func(_ string, _ ssh.Channel) uint32 { return 0 })
+		return serveSessionTestCommand(ch, func(command string, channel ssh.Channel) uint32 {
+			if isSessionTestUpload(command) {
+				return receiveSessionTestScript(t, channel, "independent")
+			}
+			return 0
+		})
 	})
 	result, err := runSSHCommand(ctx, otherClient, "independent", false)
 	require.NoError(t, err)
@@ -157,7 +144,7 @@ func TestSSHQueuedCancellationAndIndependentConnection(t *testing.T) {
 	result, err = runSSHCommand(ctx, client, "still healthy", false)
 	require.NoError(t, err)
 	assert.Equal(t, "0", result.exitCode)
-	assert.Len(t, opened, 1)
+	assert.Len(t, opened, 2)
 	assert.Empty(t, client.operations)
 }
 
@@ -165,7 +152,12 @@ func TestSSHAlreadyCanceledDoesNotOpenSession(t *testing.T) {
 	var opens atomic.Int32
 	client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
 		opens.Add(1)
-		return serveSessionTestCommand(ch, func(_ string, _ ssh.Channel) uint32 { return 0 })
+		return serveSessionTestCommand(ch, func(command string, channel ssh.Channel) uint32 {
+			if isSessionTestUpload(command) {
+				return receiveSessionTestScript(t, channel, "still healthy")
+			}
+			return 0
+		})
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -176,15 +168,15 @@ func TestSSHAlreadyCanceledDoesNotOpenSession(t *testing.T) {
 	result, err := runSSHCommand(context.Background(), client, "still healthy", false)
 	require.NoError(t, err)
 	assert.Equal(t, "0", result.exitCode)
-	assert.EqualValues(t, 1, opens.Load())
+	assert.EqualValues(t, 2, opens.Load())
 }
 
 func TestSSHOperationFailuresReleaseCapacity(t *testing.T) {
 	for _, failure := range []string{"open", "start", "upload", "exit"} {
 		t.Run(failure, func(t *testing.T) {
-			var opens atomic.Int32
+			var opens, executions atomic.Int32
 			client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
-				if opens.Add(1) <= 9 {
+				if opens.Add(1) <= 9 && failure != "exit" {
 					switch failure {
 					case "open":
 						return ch.Reject(ssh.Prohibited, "denied")
@@ -199,20 +191,25 @@ func TestSSHOperationFailuresReleaseCapacity(t *testing.T) {
 					}
 					return serveSessionTestCommand(ch, func(_ string, channel ssh.Channel) uint32 {
 						if failure == "upload" {
-							_, err := io.WriteString(channel, "\x01transfer failed\n")
+							_, err := io.WriteString(channel.Stderr(), "transfer failed\n")
 							assert.NoError(t, err)
 						}
 						return 17
 					})
 				}
-				return serveSessionTestCommand(ch, func(_ string, _ ssh.Channel) uint32 { return 0 })
+				return serveSessionTestCommand(ch, func(command string, channel ssh.Channel) uint32 {
+					if isSessionTestUpload(command) {
+						return discardSessionTestScript(t, channel)
+					}
+					if executions.Add(1) <= 9 && failure == "exit" {
+						return 17
+					}
+					return 0
+				})
 			})
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			command := "fail"
-			if failure == "upload" {
-				command += "\nscript"
-			}
 			for range 9 {
 				result, err := runSSHCommand(ctx, client, command, false)
 				if failure == "exit" {
@@ -220,36 +217,51 @@ func TestSSHOperationFailuresReleaseCapacity(t *testing.T) {
 					assert.Equal(t, "17", result.exitCode)
 				} else {
 					require.Error(t, err)
+					if failure == "upload" {
+						var exitErr *ssh.ExitError
+						require.ErrorAs(t, err, &exitErr)
+						assert.ErrorContains(t, err, "transfer failed")
+						assert.Nil(t, result)
+						assert.Zero(t, executions.Load(), "a failed upload must not execute the script")
+					}
 				}
 				assert.Empty(t, client.operations)
 			}
 			result, err := runSSHCommand(ctx, client, "still healthy", false)
 			require.NoError(t, err)
 			assert.Equal(t, "0", result.exitCode)
-			assert.EqualValues(t, 10, opens.Load())
+			if failure == "exit" {
+				assert.EqualValues(t, 20, opens.Load())
+				assert.EqualValues(t, 10, executions.Load())
+			} else {
+				assert.EqualValues(t, 11, opens.Load())
+			}
 			assert.Empty(t, client.operations)
 		})
 	}
 }
 
-func receiveSessionTestScript(t *testing.T, channel ssh.Channel, script string) uint32 {
+func isSessionTestUpload(command string) bool {
+	return strings.HasPrefix(command, "umask 077;") ||
+		strings.HasPrefix(command, `powershell -NoProfile -NonInteractive -Command "`)
+}
+
+func discardSessionTestScript(t *testing.T, channel ssh.Channel) uint32 {
 	t.Helper()
-	reader := bufio.NewReader(channel)
-	header, err := reader.ReadString('\n')
+	_, err := io.Copy(io.Discard, channel)
 	if !assert.NoError(t, err) {
 		return 1
 	}
-	assert.True(t, strings.HasPrefix(header, fmt.Sprintf("C0755 %d ", len(script))))
-	if _, err := channel.Write([]byte{0}); !assert.NoError(t, err) {
+	return 0
+}
+
+func receiveSessionTestScript(t *testing.T, channel ssh.Channel, script string) uint32 {
+	t.Helper()
+	content, err := io.ReadAll(channel)
+	if !assert.NoError(t, err) {
 		return 1
 	}
-	content := make([]byte, len(script)+1)
-	if _, err := io.ReadFull(reader, content); !assert.NoError(t, err) {
-		return 1
-	}
-	assert.Equal(t, script+"\x00", string(content))
-	_, err = channel.Write([]byte{0})
-	assert.NoError(t, err)
+	assert.Equal(t, script, string(content))
 	return 0
 }
 
