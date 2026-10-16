@@ -155,13 +155,34 @@ Describe 'legacy CA certificate filenames'
         The contents of file "${TEST_DIR}/certs/second.crt" should eq $'line one\nline "two"\\end'
     End
 
-    It 'reports malformed JSON without writing certificates'
-        CERT_RESPONSE='{"Certificates":['
+    It 'accepts an empty certificate array without writing certificates'
+        CERT_RESPONSE='{"Certificates":[]}'
         When call retrieve_legacy_certs
-        The status should eq 1
-        The stdout should eq 'Warning: failed to parse legacy custom cloud certificates'
+        The status should be success
+        The stdout should be blank
         The stderr should be blank
         The path "${TEST_DIR}/certs/valid.crt" should not be exist
+    End
+
+    Describe 'invalid certificate responses'
+        Parameters
+            '{"Certificates":['
+            '{"Certificates":[{"Name":"valid.cer","CertBody":"unused-body"}]'
+            '{"Certificates":[]}{"Certificates":[]}'
+            '{"Certificates":null}'
+            '{"Certificates":{}}'
+            '{}'
+            ' '
+        End
+
+        It "reports invalid response '$1' without writing certificates"
+            CERT_RESPONSE=$1
+            When call retrieve_legacy_certs
+            The status should eq 1
+            The stdout should eq 'Warning: failed to parse legacy custom cloud certificates'
+            The stderr should be blank
+            The path "${TEST_DIR}/certs/valid.crt" should not be exist
+        End
     End
 End
 

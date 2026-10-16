@@ -185,7 +185,11 @@ function retrieve_legacy_certs {
         return 1
     fi
 
-    if ! certs=$(jq -c '.Certificates[]' <<< "$certs" 2>/dev/null); then
+    if ! certs=$(jq -cs '
+        if length == 1 and (.[0].Certificates | type == "array")
+        then .[0].Certificates[]
+        else error("invalid certificate response")
+        end' <<< "$certs" 2>/dev/null); then
         echo "Warning: failed to parse legacy custom cloud certificates"
         return 1
     fi
