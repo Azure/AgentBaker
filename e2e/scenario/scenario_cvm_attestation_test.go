@@ -100,6 +100,112 @@ func TestVerifyCVMAttestationToken(t *testing.T) {
 			assert.Equal(t, "azure-compliant-cvm", summary.ComplianceStatus)
 			assert.Equal(t, cvmNonceDigest(nonce), summary.UserDataDigest)
 			assert.NotEmpty(t, summary.PolicyClaims)
+			assert.Equal(t, cvmStatusPassed, cvmAttestationStatus(err))
+
+			for _, test := range []struct {
+				name                string
+				change              func(jwt.MapClaims)
+				invalidateSignature bool
+				check               string
+				observed            any
+			}{
+				{
+					name: "wrong-nonce",
+					change: func(claims jwt.MapClaims) {
+						claims["x-ms-runtime"].(map[string]any)["user-data"] = "wrong-nonce"
+					},
+				},
+				{
+					name: "wrong-platform", check: "attestationType", observed: "unexpected",
+					change: func(claims jwt.MapClaims) { claims["x-ms-attestation-type"] = "unexpected" },
+				},
+				{
+					name: "non-compliant", check: "maaCompliance", observed: "non-compliant",
+					change: func(claims jwt.MapClaims) { claims["x-ms-compliance-status"] = "non-compliant" },
+				},
+				{
+					name: "secure-boot-disabled", check: "secureBoot", observed: false,
+					change: func(claims jwt.MapClaims) {
+						claims["x-ms-runtime"].(map[string]any)["vm-configuration"].(map[string]any)["secure-boot"] = false
+					},
+				},
+				{
+					name: "vtpm-disabled", check: "vTPM", observed: false,
+					change: func(claims jwt.MapClaims) {
+						claims["x-ms-runtime"].(map[string]any)["vm-configuration"].(map[string]any)["tpm-enabled"] = false
+					},
+				},
+				{
+					name:   "expired",
+					change: func(claims jwt.MapClaims) { claims["exp"] = time.Now().Add(-time.Hour).Unix() },
+				},
+				{
+					name: "rejected-platform-policy",
+					change: func(claims jwt.MapClaims) {
+						if platform == cvmPlatformTDX {
+							claims["attester_tcb_status"] = "Revoked"
+						} else {
+							claims["x-ms-sevsnpvm-is-debuggable"] = true
+						}
+					},
+				},
+				{
+					name: "invalid-signature-and-disabled-boot", invalidateSignature: true,
+					change: func(claims jwt.MapClaims) {
+						claims["x-ms-runtime"].(map[string]any)["vm-configuration"].(map[string]any)["secure-boot"] = false
+					},
+				},
+				{
+					name: "wrong-nonce-and-disabled-boot",
+					change: func(claims jwt.MapClaims) {
+						runtime := claims["x-ms-runtime"].(map[string]any)
+						runtime["user-data"] = "wrong-nonce"
+						runtime["vm-configuration"].(map[string]any)["secure-boot"] = false
+					},
+				},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					claims := validCVMAttestationClaims(platform, issuer, nonce)
+					test.change(claims)
+					token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+					token.Header["kid"] = keyID
+					token.Header["jku"] = issuer + "/certs"
+					encoded, err := token.SignedString(privateKey)
+					require.NoError(t, err)
+					if test.invalidateSignature {
+						parts := strings.Split(encoded, ".")
+						signature, err := base64.RawURLEncoding.DecodeString(parts[2])
+						require.NoError(t, err)
+						signature[0] ^= 1
+						parts[2] = base64.RawURLEncoding.EncodeToString(signature)
+						encoded = strings.Join(parts, ".")
+					}
+					summary, err := verifyCVMAttestationToken(context.Background(), server.Client(), encoded, issuer, platform, nonce)
+					require.Error(t, err)
+					assert.Nil(t, summary)
+					assert.Equal(t, cvmStatusFailed, cvmAttestationStatus(err))
+					var failure *cvmAttestationFailure
+					require.ErrorAs(t, err, &failure)
+					assert.Equal(t, test.check, failure.check)
+					assert.Equal(t, test.observed, failure.observed)
+				})
+			}
+
+			t.Run("metadata-unavailable", func(t *testing.T) {
+				unavailable := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+				}))
+				defer unavailable.Close()
+				token := jwt.NewWithClaims(jwt.SigningMethodRS256, validCVMAttestationClaims(platform, unavailable.URL, nonce))
+				token.Header["kid"] = keyID
+				token.Header["jku"] = unavailable.URL + "/certs"
+				encoded, err := token.SignedString(privateKey)
+				require.NoError(t, err)
+				summary, err := verifyCVMAttestationToken(context.Background(), unavailable.Client(), encoded, unavailable.URL, platform, nonce)
+				require.Error(t, err)
+				assert.Nil(t, summary)
+				assert.Equal(t, cvmStatusUnableToVerify, cvmAttestationStatus(err))
+			})
 		})
 	}
 }

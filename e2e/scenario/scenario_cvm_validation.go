@@ -12,9 +12,16 @@ import (
 
 const cvmEvidenceLimit = 128 * 1024
 
+const (
+	cvmStatusPassed         = "passed"
+	cvmStatusFailed         = "failed"
+	cvmStatusUnableToVerify = "unable_to_verify"
+)
+
 type cvmCheck struct {
 	Name     string         `json:"name"`
 	Passed   bool           `json:"passed"`
+	Status   string         `json:"status"`
 	Expected any            `json:"expected,omitempty"`
 	Observed any            `json:"observed,omitempty"`
 	Evidence map[string]any `json:"evidence,omitempty"`
@@ -43,18 +50,23 @@ func validateCVM(platform cvmPlatform, securityEncryptionType armcompute.Securit
 			validationErrors = append(validationErrors, err)
 		}
 
-		attestationErr := validateCVMAttestation(platform)(ctx, s)
-		checks = append(checks, newCVMCheck(
+		attestationSummary, attestationErr := validateCVMAttestation(ctx, s, platform)
+		attestationCheck := newCVMCheck(
 			"attestation.verified",
 			"valid MAA signature, freshness, nonce, compliance, platform, and policy claims",
 			cvmAttestationObserved(attestationErr),
 			attestationErr == nil,
 			"cvm/attestation-claims.json",
 			"",
-		))
+		)
+		attestationCheck.Status = cvmAttestationStatus(attestationErr)
 		if attestationErr != nil {
-			validationErrors = append(validationErrors, attestationErr)
-			if err := writeFailedCVMAttestationSummary(s, attestationErr); err != nil {
+			attestationCheck.Evidence = map[string]any{"path": "cvm-attestation-summary.json", "claim": "/0/attestation"}
+		}
+		checks = append(checks, attestationCheck)
+		if attestationErr != nil {
+			validationErrors = append(validationErrors, fmt.Errorf("CVM attestation %s: %w", attestationCheck.Status, attestationErr))
+			if err := writeFailedCVMAttestationSummary(s, attestationSummary, attestationErr); err != nil {
 				validationErrors = append(validationErrors, err)
 			}
 		}
@@ -83,19 +95,35 @@ func cvmAttestationObserved(err error) string {
 	return err.Error()
 }
 
-func writeFailedCVMAttestationSummary(s *Scenario, attestationErr error) error {
-	failure := map[string]any{
-		"passed":   false,
-		"observed": attestationErr.Error(),
-		"evidence": map[string]any{"path": "cvm/attestation-output-redacted.log"},
+func writeFailedCVMAttestationSummary(s *Scenario, verifiedSummary *cvmAttestationSummary, attestationErr error) error {
+	record := map[string]any{}
+	if verifiedSummary != nil {
+		record = cvmAttestationVerdicts(verifiedSummary)[0]
+	} else {
+		for _, name := range []string{"maaCompliance", "attestationType", "secureBoot", "vTPM"} {
+			record[name] = map[string]any{
+				"status":   cvmStatusUnableToVerify,
+				"passed":   nil,
+				"observed": nil,
+				"reason":   "no accepted attestation result is available",
+			}
+		}
+		var failure *cvmAttestationFailure
+		if errors.As(attestationErr, &failure) && failure.check != "" {
+			record[failure.check] = map[string]any{
+				"status":   cvmStatusFailed,
+				"passed":   false,
+				"observed": failure.observed,
+				"reason":   failure.Error(),
+			}
+		}
 	}
-	summary := []map[string]any{{
-		"maaCompliance":   failure,
-		"attestationType": failure,
-		"secureBoot":      failure,
-		"vTPM":            failure,
-	}}
-	summaryJSON, err := json.MarshalIndent(summary, "", "  ")
+	record["attestation"] = map[string]any{
+		"status": cvmAttestationStatus(attestationErr),
+		"passed": false,
+		"reason": attestationErr.Error(),
+	}
+	summaryJSON, err := json.MarshalIndent([]map[string]any{record}, "", "  ")
 	if err != nil {
 		return fmt.Errorf("serialize failed CVM attestation summary: %w", err)
 	}
@@ -242,7 +270,11 @@ func newCVMCheck(name string, expected, observed any, passed bool, path, claim s
 	if claim != "" {
 		evidence["claim"] = claim
 	}
-	return cvmCheck{Name: name, Passed: passed, Expected: expected, Observed: observed, Evidence: evidence}
+	status := cvmStatusFailed
+	if passed {
+		status = cvmStatusPassed
+	}
+	return cvmCheck{Name: name, Passed: passed, Status: status, Expected: expected, Observed: observed, Evidence: evidence}
 }
 
 func failedCVMChecks(checks []cvmCheck) error {

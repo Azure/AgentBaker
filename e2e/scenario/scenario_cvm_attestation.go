@@ -44,76 +44,94 @@ type cvmAttestationSummary struct {
 	PolicyClaims      map[string]any `json:"policyClaims"`
 }
 
-func validateCVMAttestation(platform cvmPlatform) validator {
-	return func(ctx context.Context, s *Scenario) (retErr error) {
-		if platform != cvmPlatformSEVSNP && platform != cvmPlatformTDX {
-			return fmt.Errorf("unsupported CVM platform %q", platform)
-		}
+type cvmAttestationFailure struct {
+	err      error
+	check    string
+	observed any
+}
 
-		nonce, err := randomHex(32)
-		if err != nil {
-			return fmt.Errorf("generate attestation nonce: %w", err)
-		}
-		remoteSuffix, err := randomHex(16)
-		if err != nil {
-			return fmt.Errorf("generate attestation workspace name: %w", err)
-		}
-		remoteDir := "/tmp/agentbaker-cvm-attestation-" + remoteSuffix
-		tokenPath := remoteDir + "/token.jwt"
-		defer func() {
-			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
-			defer cancel()
-			result, cleanupErr := execScriptOnVMForScenario(cleanupCtx, s, "sudo rm -rf -- "+remoteDir)
-			if cleanupErr == nil && result == nil {
-				cleanupErr = errors.New("remote cleanup returned no result")
-			} else if cleanupErr == nil && result.exitCode != "0" {
-				cleanupErr = fmt.Errorf("remote cleanup exited with code %s: %s", result.exitCode, result.stderr)
-			}
-			retErr = errors.Join(retErr, cleanupErr)
-		}()
+func (failure *cvmAttestationFailure) Error() string { return failure.err.Error() }
+func (failure *cvmAttestationFailure) Unwrap() error { return failure.err }
 
-		result, err := execScriptOnVMForScenario(ctx, s, cvmAttestationCollectorScript(platform, nonce, remoteDir))
-		if result != nil {
-			artifactErr := writeToFile(s.artifactName, "cvm/attestation-output-redacted.log", result.String())
-			retErr = errors.Join(retErr, artifactErr)
-		}
-		if err != nil {
-			return errors.Join(retErr, fmt.Errorf("run CVM attestation collector: %w", err))
-		}
-		if result.exitCode != "0" {
-			return errors.Join(retErr, fmt.Errorf("CVM attestation collector exited with code %s; see redacted artifact", result.exitCode))
-		}
-
-		tokenBytes, err := copyFileFromVM(ctx, s, tokenPath, cvmAttestationTokenMax)
-		if err != nil {
-			return errors.Join(retErr, fmt.Errorf("retrieve CVM attestation token: %w", err))
-		}
-		defer clear(tokenBytes)
-		token := strings.TrimSpace(string(tokenBytes))
-		if token == "" {
-			return errors.Join(retErr, errors.New("CVM attestation collector returned an empty token"))
-		}
-
-		summary, err := verifyCVMAttestationToken(ctx, cvmAttestationHTTPClient, token, cvmAttestationIssuer, platform, nonce)
-		if err != nil {
-			return errors.Join(retErr, fmt.Errorf("verify CVM attestation token: %w", err))
-		}
-		claimsJSON, err := json.MarshalIndent(summary, "", "  ")
-		if err != nil {
-			return errors.Join(retErr, fmt.Errorf("serialize verified CVM attestation claims: %w", err))
-		}
-		if err := writeToFile(s.artifactName, "cvm/attestation-claims.json", string(claimsJSON)+"\n"); err != nil {
-			return errors.Join(retErr, fmt.Errorf("write verified CVM attestation claims: %w", err))
-		}
-		summaryJSON, err := json.MarshalIndent(cvmAttestationVerdicts(summary), "", "  ")
-		if err != nil {
-			return errors.Join(retErr, fmt.Errorf("serialize CVM attestation summary: %w", err))
-		}
-		if err := writeToFile(s.artifactName, "cvm-attestation-summary.json", string(summaryJSON)+"\n"); err != nil {
-			return errors.Join(retErr, fmt.Errorf("write CVM attestation summary: %w", err))
-		}
-		return retErr
+func cvmAttestationStatus(err error) string {
+	if err == nil {
+		return cvmStatusPassed
 	}
+	var failure *cvmAttestationFailure
+	if errors.As(err, &failure) {
+		return cvmStatusFailed
+	}
+	return cvmStatusUnableToVerify
+}
+
+func validateCVMAttestation(ctx context.Context, s *Scenario, platform cvmPlatform) (summary *cvmAttestationSummary, retErr error) {
+	if platform != cvmPlatformSEVSNP && platform != cvmPlatformTDX {
+		return nil, fmt.Errorf("unsupported CVM platform %q", platform)
+	}
+
+	nonce, err := randomHex(32)
+	if err != nil {
+		return nil, fmt.Errorf("generate attestation nonce: %w", err)
+	}
+	remoteSuffix, err := randomHex(16)
+	if err != nil {
+		return nil, fmt.Errorf("generate attestation workspace name: %w", err)
+	}
+	remoteDir := "/tmp/agentbaker-cvm-attestation-" + remoteSuffix
+	tokenPath := remoteDir + "/token.jwt"
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		result, cleanupErr := execScriptOnVMForScenario(cleanupCtx, s, "sudo rm -rf -- "+remoteDir)
+		if cleanupErr == nil && result == nil {
+			cleanupErr = errors.New("remote cleanup returned no result")
+		} else if cleanupErr == nil && result.exitCode != "0" {
+			cleanupErr = fmt.Errorf("remote cleanup exited with code %s: %s", result.exitCode, result.stderr)
+		}
+		retErr = errors.Join(retErr, cleanupErr)
+	}()
+
+	result, err := execScriptOnVMForScenario(ctx, s, cvmAttestationCollectorScript(platform, nonce, remoteDir))
+	if result != nil {
+		artifactErr := writeToFile(s.artifactName, "cvm/attestation-output-redacted.log", result.String())
+		retErr = errors.Join(retErr, artifactErr)
+	}
+	if err != nil {
+		return nil, errors.Join(retErr, fmt.Errorf("run CVM attestation collector: %w", err))
+	}
+	if result.exitCode != "0" {
+		return nil, errors.Join(retErr, fmt.Errorf("CVM attestation collector exited with code %s; see redacted artifact", result.exitCode))
+	}
+
+	tokenBytes, err := copyFileFromVM(ctx, s, tokenPath, cvmAttestationTokenMax)
+	if err != nil {
+		return nil, errors.Join(retErr, fmt.Errorf("retrieve CVM attestation token: %w", err))
+	}
+	defer clear(tokenBytes)
+	token := strings.TrimSpace(string(tokenBytes))
+	if token == "" {
+		return nil, errors.Join(retErr, errors.New("CVM attestation collector returned an empty token"))
+	}
+
+	summary, err = verifyCVMAttestationToken(ctx, cvmAttestationHTTPClient, token, cvmAttestationIssuer, platform, nonce)
+	if err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("verify CVM attestation token: %w", err))
+	}
+	claimsJSON, err := json.MarshalIndent(summary, "", "  ")
+	if err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("serialize verified CVM attestation claims: %w", err))
+	}
+	if err := writeToFile(s.artifactName, "cvm/attestation-claims.json", string(claimsJSON)+"\n"); err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("write verified CVM attestation claims: %w", err))
+	}
+	summaryJSON, err := json.MarshalIndent(cvmAttestationVerdicts(summary), "", "  ")
+	if err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("serialize CVM attestation summary: %w", err))
+	}
+	if err := writeToFile(s.artifactName, "cvm-attestation-summary.json", string(summaryJSON)+"\n"); err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("write CVM attestation summary: %w", err))
+	}
+	return summary, retErr
 }
 
 func randomHex(size int) (string, error) {
@@ -269,18 +287,18 @@ func verifyCVMAttestationToken(
 	unverifiedClaims := jwt.MapClaims{}
 	unverifiedToken, _, err := jwt.NewParser().ParseUnverified(encodedToken, unverifiedClaims)
 	if err != nil {
-		return nil, fmt.Errorf("parse token header: %w", err)
+		return nil, &cvmAttestationFailure{err: fmt.Errorf("parse token header: %w", err)}
 	}
 	if unverifiedToken.Method.Alg() != jwt.SigningMethodRS256.Alg() {
-		return nil, fmt.Errorf("unexpected signing algorithm %q", unverifiedToken.Method.Alg())
+		return nil, &cvmAttestationFailure{err: fmt.Errorf("unexpected signing algorithm %q", unverifiedToken.Method.Alg())}
 	}
 	keyID, ok := unverifiedToken.Header["kid"].(string)
 	if !ok || keyID == "" {
-		return nil, errors.New("attestation token has no signing key ID")
+		return nil, &cvmAttestationFailure{err: errors.New("attestation token has no signing key ID")}
 	}
 	expectedJWKSURL := expectedIssuer + "/certs"
 	if jku, ok := unverifiedToken.Header["jku"].(string); !ok || jku != expectedJWKSURL {
-		return nil, fmt.Errorf("unexpected attestation signing keys URL")
+		return nil, &cvmAttestationFailure{err: errors.New("unexpected attestation signing keys URL")}
 	}
 
 	publicKey, err := fetchMAASigningKey(ctx, client, expectedIssuer, expectedJWKSURL, keyID)
@@ -298,10 +316,10 @@ func verifyCVMAttestationToken(
 		return publicKey, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("validate signature and registered claims: %w", err)
+		return nil, &cvmAttestationFailure{err: fmt.Errorf("validate signature and registered claims: %w", err)}
 	}
 	if !parsedToken.Valid {
-		return nil, errors.New("attestation token is invalid")
+		return nil, &cvmAttestationFailure{err: errors.New("attestation token is invalid")}
 	}
 
 	return validateCVMAttestationClaims(claims, platform, nonce)
@@ -392,26 +410,15 @@ func getJSON(ctx context.Context, client *http.Client, endpoint string, output a
 	return nil
 }
 
-func validateCVMAttestationClaims(claims jwt.MapClaims, platform cvmPlatform, nonce string) (*cvmAttestationSummary, error) {
-	expectedType := "sevsnpvm"
-	if platform == cvmPlatformTDX {
-		expectedType = "tdxvm"
-	}
-	attestationType, err := requiredStringClaim(claims, "x-ms-attestation-type")
-	if err != nil {
-		return nil, err
-	}
-	if attestationType != expectedType {
-		return nil, fmt.Errorf("expected attestation type %q, got %q", expectedType, attestationType)
-	}
-	complianceStatus, err := requiredStringClaim(claims, "x-ms-compliance-status")
-	if err != nil {
-		return nil, err
-	}
-	if complianceStatus != "azure-compliant-cvm" {
-		return nil, fmt.Errorf("unexpected compliance status %q", complianceStatus)
-	}
-
+func validateCVMAttestationClaims(claims jwt.MapClaims, platform cvmPlatform, nonce string) (summary *cvmAttestationSummary, retErr error) {
+	defer func() {
+		if retErr != nil {
+			var failure *cvmAttestationFailure
+			if !errors.As(retErr, &failure) {
+				retErr = &cvmAttestationFailure{err: retErr}
+			}
+		}
+	}()
 	runtimeData, ok := claims["x-ms-runtime"].(map[string]any)
 	if !ok {
 		return nil, errors.New("attestation token has no x-ms-runtime object")
@@ -424,20 +431,54 @@ func validateCVMAttestationClaims(claims jwt.MapClaims, platform cvmPlatform, no
 	if !strings.EqualFold(userDataDigest, expectedDigest) {
 		return nil, errors.New("attestation token user-data digest does not match the scenario nonce")
 	}
+
+	expectedType := expectedCVMAttestationType(platform)
+	attestationType, err := requiredStringClaim(claims, "x-ms-attestation-type")
+	if err != nil {
+		return nil, err
+	}
+	if attestationType != expectedType {
+		return nil, &cvmAttestationFailure{
+			err:   fmt.Errorf("expected attestation type %q, got %q", expectedType, attestationType),
+			check: "attestationType", observed: attestationType,
+		}
+	}
+	complianceStatus, err := requiredStringClaim(claims, "x-ms-compliance-status")
+	if err != nil {
+		return nil, err
+	}
+	if complianceStatus != "azure-compliant-cvm" {
+		return nil, &cvmAttestationFailure{
+			err:   fmt.Errorf("unexpected compliance status %q", complianceStatus),
+			check: "maaCompliance", observed: complianceStatus,
+		}
+	}
 	vmConfiguration, ok := runtimeData["vm-configuration"].(map[string]any)
 	if !ok {
 		return nil, errors.New("attestation token has no x-ms-runtime.vm-configuration object")
 	}
 	secureBoot, ok := vmConfiguration["secure-boot"].(bool)
-	if !ok || !secureBoot {
+	if !ok {
 		return nil, errors.New("attestation token does not assert Secure Boot is enabled")
 	}
+	if !secureBoot {
+		return nil, &cvmAttestationFailure{
+			err:   errors.New("attestation token does not assert Secure Boot is enabled"),
+			check: "secureBoot", observed: false,
+		}
+	}
 	vtpm, ok := vmConfiguration["tpm-enabled"].(bool)
-	if !ok || !vtpm {
+	if !ok {
 		return nil, errors.New("attestation token does not assert vTPM is enabled")
 	}
+	if !vtpm {
+		return nil, &cvmAttestationFailure{
+			err:   errors.New("attestation token does not assert vTPM is enabled"),
+			check: "vTPM", observed: false,
+		}
+	}
 
-	summary := &cvmAttestationSummary{
+	summary = &cvmAttestationSummary{
 		Platform:         platform,
 		Issuer:           claimString(claims, "iss"),
 		AttestationType:  attestationType,
@@ -537,22 +578,30 @@ func validateCVMAttestationClaims(claims jwt.MapClaims, platform cvmPlatform, no
 func cvmAttestationVerdicts(summary *cvmAttestationSummary) []map[string]any {
 	claimsPath := "cvm/attestation-claims.json"
 	return []map[string]any{{
+		"attestation": map[string]any{
+			"passed": true,
+			"status": cvmStatusPassed,
+		},
 		"maaCompliance": map[string]any{
+			"status":   cvmStatusPassed,
 			"passed":   summary.ComplianceStatus == "azure-compliant-cvm",
 			"observed": summary.ComplianceStatus,
 			"evidence": map[string]any{"path": claimsPath, "claim": "/complianceStatus"},
 		},
 		"attestationType": map[string]any{
+			"status":   cvmStatusPassed,
 			"passed":   summary.AttestationType == expectedCVMAttestationType(summary.Platform),
 			"observed": summary.AttestationType,
 			"evidence": map[string]any{"path": claimsPath, "claim": "/attestationType"},
 		},
 		"secureBoot": map[string]any{
+			"status":   cvmStatusPassed,
 			"passed":   summary.SecureBoot,
 			"observed": summary.SecureBoot,
 			"evidence": map[string]any{"path": claimsPath, "claim": "/secureBoot"},
 		},
 		"vTPM": map[string]any{
+			"status":   cvmStatusPassed,
 			"passed":   summary.VTPM,
 			"observed": summary.VTPM,
 			"evidence": map[string]any{"path": claimsPath, "claim": "/vTPM"},
