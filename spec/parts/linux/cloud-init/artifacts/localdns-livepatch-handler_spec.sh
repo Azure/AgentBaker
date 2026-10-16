@@ -319,4 +319,80 @@ EOF
             The output should include 'aks-node-controller binary is required for localDNS live patching'
         End
     End
+
+    Describe 'is-current check'
+        NODE_AP1='{"metadata":{"labels":{"kubernetes.azure.com/agentpool":"ap1"}}}'
+        AP1_V1='"ap1":{"corefileVersion":"v1","localDnsProfile":{"enableLocalDns":true}}'
+        AP1_V2='"ap1":{"corefileVersion":"v2","localDnsProfile":{"enableLocalDns":true}}'
+        AP2_V1='"ap2":{"corefileVersion":"v1","localDnsProfile":{"enableLocalDns":true}}'
+        AP2_V2='"ap2":{"corefileVersion":"v2","localDnsProfile":{"enableLocalDns":true}}'
+
+        It 'is current when the payloads are identical'
+            When call localDNSIsCurrent "{\"agentPools\":{${AP1_V1}}}" "{\"agentPools\":{${AP1_V1}}}" "${NODE_AP1}"
+            The status should be success
+        End
+
+        It 'is current when only another agent pool changed'
+            When call localDNSIsCurrent "{\"agentPools\":{${AP1_V1},${AP2_V2}}}" "{\"agentPools\":{${AP1_V1},${AP2_V1}}}" "${NODE_AP1}"
+            The status should be success
+        End
+
+        It 'is current when this pool is absent from both and another pool changed'
+            When call localDNSIsCurrent "{\"agentPools\":{${AP2_V2}}}" "{\"agentPools\":{${AP2_V1}}}" "${NODE_AP1}"
+            The status should be success
+        End
+
+        It 'compares the pool entry by content, not key order'
+            When call localDNSIsCurrent \
+                '{"agentPools":{"ap1":{"localDnsProfile":{"enableLocalDns":true},"corefileVersion":"v1"},"ap2":{}}}' \
+                "{\"agentPools\":{${AP1_V1}}}" "${NODE_AP1}"
+            The status should be success
+        End
+
+        It 'is not current when this pool changed'
+            When call localDNSIsCurrent "{\"agentPools\":{${AP1_V2},${AP2_V1}}}" "{\"agentPools\":{${AP1_V1},${AP2_V1}}}" "${NODE_AP1}"
+            The status should be failure
+        End
+
+        It 'is not current when this pool was removed, so the handler revokes the patch'
+            When call localDNSIsCurrent "{\"agentPools\":{${AP2_V1}}}" "{\"agentPools\":{${AP1_V1},${AP2_V1}}}" "${NODE_AP1}"
+            The status should be failure
+        End
+
+        It 'is not current when this pool was added'
+            When call localDNSIsCurrent "{\"agentPools\":{${AP1_V1},${AP2_V1}}}" "{\"agentPools\":{${AP2_V1}}}" "${NODE_AP1}"
+            The status should be failure
+        End
+
+        It 'selects this pool from the profiles key the same way'
+            When call localDNSIsCurrent '{"profiles":{"ap1":{"configChecksum":"c1"},"ap2":{"configChecksum":"c2"}}}' \
+                '{"profiles":{"ap1":{"configChecksum":"c1"},"ap2":{"configChecksum":"c1"}}}' "${NODE_AP1}"
+            The status should be success
+        End
+
+        It 'is not current when this pool changed under the profiles key'
+            When call localDNSIsCurrent '{"profiles":{"ap1":{"configChecksum":"c2"}}}' '{"profiles":{"ap1":{"configChecksum":"c1"}}}' "${NODE_AP1}"
+            The status should be failure
+        End
+
+        It 'compares the whole payload when it is not keyed by agent pool'
+            When call localDNSIsCurrent '{"corefile":"b"}' '{"corefile":"a"}' "${NODE_AP1}"
+            The status should be failure
+        End
+
+        It 'is not current when the node has no agent pool label'
+            When call localDNSIsCurrent "{\"agentPools\":{${AP1_V1},${AP2_V2}}}" "{\"agentPools\":{${AP1_V1},${AP2_V1}}}" '{"metadata":{"labels":{}}}'
+            The status should be failure
+        End
+
+        It 'is not current when the desired payload is malformed'
+            When call localDNSIsCurrent '{"agentPools":"ap1"}' "{\"agentPools\":{${AP1_V1}}}" "${NODE_AP1}"
+            The status should be failure
+        End
+
+        It 'is not current when the recorded payload is not JSON'
+            When call localDNSIsCurrent "{\"agentPools\":{${AP1_V1}}}" 'not-json' "${NODE_AP1}"
+            The status should be failure
+        End
+    End
 End
