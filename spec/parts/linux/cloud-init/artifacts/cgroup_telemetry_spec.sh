@@ -91,6 +91,28 @@ Describe 'cgroup telemetry'
         fi
     }
 
+    emitted_events() {
+        cat "${EVENTS_ROOT}"/*.json
+    }
+
+    validate_pressure_events() {
+        jq -se '
+            def utf8bytelength:
+                reduce explode[] as $codepoint (0;
+                    . + (if $codepoint < 128 then 1 elif $codepoint < 2048 then 2
+                         elif $codepoint < 65536 then 3 else 4 end));
+            length > 1 and length <= 6 and
+            all(.[]; (.Message | utf8bytelength) <= 3072 and (tojson | utf8bytelength) <= 6144) and
+            ([.[].Message | fromjson | .Pressure | keys[]] | length == 18) and
+            ([.[].Message | fromjson | .Pressure | keys[]] | unique | length == 18) and
+            ([.[].Message | fromjson] | sort_by(.TelemetryChunk.index) |
+                length as $count |
+                (map(.TelemetryChunk.id) | unique | length == 1) and
+                (map(.TelemetryChunk.index) == [range(0; $count)]) and
+                all(.[]; .TelemetryChunk.encoding == "json" and .TelemetryChunk.count == $count))
+        ' "${EVENTS_ROOT}"/*.json
+    }
+
     BeforeEach 'setup_cgroup_telemetry_test'
     AfterEach 'cleanup_cgroup_telemetry_test'
 
@@ -189,14 +211,124 @@ Describe 'cgroup telemetry'
 
         When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
         The status should be success
-        The contents of file "${EVENTS_ROOT}"/* should include '\"kubelet_service_pressure\":{\"CPUPressure\":{'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_pressure\":{\"CPUPressure\":{'
-        The contents of file "${EVENTS_ROOT}"/* should include 'node_problem_detector_service_pressure'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"node_problem_detector_service_pressure\":\"Not Found\"'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_pressure\":{'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"CPUPressure\":{\"some_avg10\":\"1.00\",\"some_avg60\":\"2.00\",\"some_avg300\":\"3.00\",\"some_total\":\"4\"}'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_pressure\":{'
-        The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_pressure\":{'
+        The result of function emitted_events should include '\"kubelet_service_pressure\":{\"CPUPressure\":{'
+        The result of function emitted_events should include '\"containerd_service_pressure\":{\"CPUPressure\":{'
+        The result of function emitted_events should include '\"node_problem_detector_service_pressure\":\"Not Found\"'
+        The result of function emitted_events should include '\"node_exporter_service_pressure\":{'
+        The result of function emitted_events should include '\"CPUPressure\":{\"some_avg10\":\"1.00\",\"some_avg60\":\"2.00\",\"some_avg300\":\"3.00\",\"some_total\":\"4\"}'
+        The result of function emitted_events should include '\"sync_container_logs_service_pressure\":{'
+        The result of function emitted_events should include '\"localdns_service_pressure\":{'
+        The result of function validate_pressure_events should equal true
+    End
+
+    It 'bounds pressure events with every supported service and large counters'
+        for cgroup_path in \
+            . system.slice azure.slice kubepods.slice \
+            system.slice/kubelet.service system.slice/containerd.service \
+            system.slice/node-problem-detector.service system.slice/node-exporter.service \
+            system.slice/sync-container-logs.service localdns.slice/localdns.service \
+            system.slice/nvidia-persistenced.service system.slice/nvidia-gridd.service \
+            system.slice/nvidia-fabricmanager.service system.slice/nvidia-device-plugin.service \
+            system.slice/dra-driver-nvidia-gpu.service system.slice/nvidia-dcgm.service \
+            system.slice/nvidia-dcgm-exporter.service system.slice/openibd.service; do
+            create_pressure_files "${cgroup_path}"
+            sed -i -E 's/total=[0-9]+/total=18446744073709551615/g' "${CGROUP_ROOT}/${cgroup_path}/"*.pressure
+        done
+        prepare_pressure_script
+        validate_service_values() {
+            jq -se '[.[].Message | fromjson | .Pressure[]] |
+                all(.[]; .CPUPressure.some_total == "18446744073709551615" and
+                    .MemoryPressure.full_total == "18446744073709551615" and
+                    .IOPressure.full_total == "18446744073709551615")' "${EVENTS_ROOT}"/*.json
+        }
+        When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+        The status should be success
+        The result of function validate_pressure_events should equal true
+        The result of function validate_service_values should equal true
+    End
+
+    It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
+        check_pressure_size_boundaries() {
+            local fits_filter
+            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh)
+            [ -n "${fits_filter}" ] || return 1
+            jq -ne "${fits_filter}"'
+                def repeat_text($text; $count): [range(0; $count) | $text] | join("");
+                [
+                    ([3071, 3072, 3073][] as $bytes |
+                        {Message: repeat_text("a"; $bytes)} |
+                        fits == ($bytes <= 3072)),
+                    (["\u00e9", "\u20ac", "\ud83d\ude00"][] as $text |
+                        (if $text == "\u00e9" then 1536 elif $text == "\u20ac" then 1024 else 768 end) as $count |
+                        repeat_text($text; $count) as $message |
+                        ({Message: $message} | fits) and
+                        ({Message: ($message + "a")} | fits | not)),
+                    ([6143, 6144, 6145][] as $bytes |
+                        {Message: "", Padding: ""} |
+                        .Padding = repeat_text("a"; $bytes - (tojson | length)) |
+                        fits == ($bytes <= 6144)),
+                    ({Message: repeat_text("\""; 3072)} | fits | not)
+                ] | all
+            '
+        }
+
+        When call check_pressure_size_boundaries
+        The status should be success
+        The output should equal true
+    End
+
+    Context 'when jq succeeds without emitting events'
+        Mock jq
+            exit 0
+        End
+
+        It 'fails explicitly without publishing an empty event'
+            for cgroup_path in . system.slice azure.slice kubepods.slice; do
+                create_pressure_files "${cgroup_path}"
+            done
+            prepare_pressure_script
+            remaining_event_files() {
+                find "${EVENTS_ROOT}" -mindepth 1 -print
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+            The status should equal 1
+            The stderr should equal 'pressure telemetry: no events generated'
+            The result of function remaining_event_files should equal ""
+        End
+    End
+
+    Context 'when WALinuxAgent cleans the queue before publication'
+        Mock ln
+            if [ ! -f "${MOCK_EVENTS_ROOT}/../cleaned" ]; then
+                # Match WALinuxAgent's cleanup, including hidden staging files.
+                find "${MOCK_EVENTS_ROOT}" -maxdepth 1 -type f -delete
+                touch "${MOCK_EVENTS_ROOT}/../cleaned"
+            fi
+            /bin/ln "$@"
+        End
+
+        It 'publishes every pressure fragment despite the concurrent cleanup'
+            export MOCK_EVENTS_ROOT="${EVENTS_ROOT}"
+            touch "${EVENTS_ROOT}/.residue"
+            for cgroup_path in \
+                . system.slice azure.slice kubepods.slice \
+                system.slice/kubelet.service system.slice/containerd.service; do
+                create_pressure_files "${cgroup_path}"
+            done
+            prepare_pressure_script
+            remaining_staging_files() {
+                find "${TEST_ROOT}" -maxdepth 1 -name '.pressure-event.*' -print
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+            The status should be success
+            The stderr should equal ""
+            The file "${TEST_ROOT}/cleaned" should be exist
+            The file "${EVENTS_ROOT}/.residue" should not be exist
+            The result of function validate_pressure_events should equal true
+            The result of function remaining_staging_files should equal ""
+        End
     End
 
     It 'emits cgroup v2 CPU usage and throttling counters with explicit units'
