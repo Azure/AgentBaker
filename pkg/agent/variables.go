@@ -116,17 +116,30 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		agentPoolProfileWindows = &datamodel.AgentPoolWindowsProfile{}
 	}
 
+	subnetName := ""
+	if config.SubnetName != nil {
+		subnetName = *config.SubnetName
+	} else {
+		subnetName = cs.Properties.GetSubnetName()
+	}
+	routeTableName := ""
+	if config.RouteTableName != nil {
+		routeTableName = *config.RouteTableName
+	} else {
+		routeTableName = cs.Properties.GetRouteTableName()
+	}
+
 	return map[string]interface{}{
 		"tenantID":                               config.TenantID,
 		"subscriptionId":                         config.SubscriptionID,
 		"resourceGroup":                          config.ResourceGroupName,
 		"location":                               cs.Location,
 		"vmType":                                 cs.Properties.GetVMType(),
-		"subnetName":                             cs.Properties.GetSubnetName(),
+		"subnetName":                             subnetName,
 		"nsgName":                                cs.Properties.GetNSGName(),
 		"virtualNetworkName":                     cs.Properties.GetVirtualNetworkName(),
 		"virtualNetworkResourceGroupName":        cs.Properties.GetVNetResourceGroupName(),
-		"routeTableName":                         cs.Properties.GetRouteTableName(),
+		"routeTableName":                         routeTableName,
 		"primaryAvailabilitySetName":             cs.Properties.GetPrimaryAvailabilitySetName(),
 		"primaryScaleSetName":                    config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":            useManagedIdentity(cs),

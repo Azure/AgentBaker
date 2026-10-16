@@ -1851,6 +1851,11 @@ type NodeBootstrappingConfiguration struct {
 	// Dynamic-type secondary NICs are not included in this count as they are
 	// configured by CNS rather than the node bootstrapping scripts.
 	StandardSecondaryNICCount int
+
+	// RouteTableName overrides the derived CSE route table name when non-nil, including an empty value.
+	RouteTableName *string
+	// SubnetName overrides the derived CSE subnet name when non-nil, including an empty value.
+	SubnetName *string
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {
