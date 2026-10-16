@@ -396,9 +396,9 @@ EOF
             The status should be success
         End
 
-        It 'compares the pool entry by content, not key order'
+        It "is current when this pool's version is unchanged, whatever else in its entry changed"
             When call localDNSIsCurrent \
-                '{"agentPools":{"ap1":{"localDnsProfile":{"enableLocalDns":true},"corefileVersion":"v1"},"ap2":{}}}' \
+                '{"agentPools":{"ap1":{"corefileVersion":"v1","localDnsProfile":{"enableLocalDns":true,"cpuLimitInMilliCores":4000}}}}' \
                 "{\"agentPools\":{${AP1_V1}}}" "${NODE_AP1}"
             The status should be success
         End
@@ -429,13 +429,20 @@ EOF
             The status should be failure
         End
 
-        It 'compares the whole payload when it is not keyed by agent pool'
-            When call localDNSIsCurrent '{"corefile":"b"}' '{"corefile":"a"}' "${NODE_AP1}"
+        # Without a version to compare, the handler runs and checks what is applied on disk.
+        It "is not current when this pool's entry has no version, even if unchanged"
+            When call localDNSIsCurrent '{"agentPools":{"ap1":{"localDnsProfile":{"enableLocalDns":true}}}}' \
+                '{"agentPools":{"ap1":{"localDnsProfile":{"enableLocalDns":true}}}}' "${NODE_AP1}"
             The status should be failure
         End
 
-        It 'is not current when the node has no agent pool label'
-            When call localDNSIsCurrent "{\"agentPools\":{${AP1_V1},${AP2_V2}}}" "{\"agentPools\":{${AP1_V1},${AP2_V1}}}" '{"metadata":{"labels":{}}}'
+        It 'is not current when the payload is not keyed by agent pool, even if unchanged'
+            When call localDNSIsCurrent '{"corefile":"a"}' '{"corefile":"a"}' "${NODE_AP1}"
+            The status should be failure
+        End
+
+        It 'is not current when the node has no agent pool label, even if the payload is unchanged'
+            When call localDNSIsCurrent "{\"agentPools\":{${AP1_V1}}}" "{\"agentPools\":{${AP1_V1}}}" '{"metadata":{"labels":{}}}'
             The status should be failure
         End
 
