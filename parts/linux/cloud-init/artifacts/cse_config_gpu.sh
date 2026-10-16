@@ -15,7 +15,59 @@ EOF
     systemctlEnableAndStart mig-partition 300
 }
 
+loginGPUDriverRegistry() {
+    if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+        # Keep the shell body behind a function: logs_to_events splits its command arguments.
+        # Bound all nested login retries by the same CSE-aware guard used for the copy.
+        # shellcheck disable=SC2016
+        retrycmd_if_failure 1 0 120 bash -c '
+            source "$1" || exit $?
+            ORAS_REGISTRY_CONFIG_FILE="$2"
+            ARM_RESOURCE_ENDPOINT="$3"
+            oras_login_with_kubelet_identity "$4" "$5" "$6"
+        ' gpu-driver-login "$CSE_HELPERS_FILEPATH" "$ORAS_REGISTRY_CONFIG_FILE" \
+            "${ARM_RESOURCE_ENDPOINT:-https://management.azure.com/}" \
+            "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}"
+    else
+        oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}"
+    fi
+}
+
 pullGPUDriverImage() {
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ]; then
+        # PIS nodes skip basePrep. The shared helper returns early for incomplete identity,
+        # so clear baked credentials before that anonymous path instead of reusing them.
+        if [ -z "${USER_ASSIGNED_IDENTITY_ID:-}" ] || [ -z "${TENANT_ID:-}" ]; then
+            oras logout "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+                --registry-config "$ORAS_REGISTRY_CONFIG_FILE" || return $?
+        fi
+        logs_to_events "AKS.CSE.configGPUDrivers.orasLogin" loginGPUDriverRegistry || return $?
+
+        local download_dir
+        download_dir=$(mktemp -d /opt/gpu/driver-image.XXXXXX) || return 1
+        local pull_result=0
+        local image="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}/${NVIDIA_DRIVER_IMAGE#*/}:${NVIDIA_DRIVER_IMAGE_TAG}"
+        echo "Pulling GPU driver image with authentication for $image"
+
+        # ctr does not use the CRI mirror or kubelet credentials. Use the refreshed ORAS login
+        # and bound the copy, archive and import together by the existing CSE retry budget.
+        # shellcheck disable=SC2016
+        retrycmd_if_failure 3 5 120 bash -c '
+            mkdir -p "$2/layout" &&
+            oras cp "$1" "$2/layout:$3" --to-oci-layout --platform "$4" --from-registry-config "$5" &&
+            tar -cf "$2/driver-image.tar" -C "$2/layout" . &&
+            ctr -n k8s.io image import --base-name "$6" "$2/driver-image.tar"
+        ' gpu-driver-cache \
+            "$image" \
+            "$download_dir" "$NVIDIA_DRIVER_IMAGE_TAG" "linux/$(getCPUArch)" \
+            "$ORAS_REGISTRY_CONFIG_FILE" "$NVIDIA_DRIVER_IMAGE" || pull_result=$?
+
+        rm -rf -- "$download_dir" || return 1
+        return "$pull_result"
+    fi
+
     # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
     # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
     # also self-caps to the CSE budget, so this can't overrun provisioning.
