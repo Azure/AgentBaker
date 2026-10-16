@@ -335,7 +335,7 @@ if ! EVENT_JSON=$( jq -cn \
     exit 1
 fi
 
-if [[ -z "${EVENT_JSON}" ]]; then
+if [ -z "${EVENT_JSON}" ]; then
     echo "pressure telemetry: no events generated" >&2
     exit 1
 fi
