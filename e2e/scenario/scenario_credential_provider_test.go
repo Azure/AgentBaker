@@ -2,7 +2,6 @@ package scenario
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -35,6 +34,7 @@ func TestCredentialProviderScenariosRegisteredOnce(t *testing.T) {
 	}{
 		{"Ubuntu2204_PMC_CredentialProvider_Kubernetes133", config.VHDUbuntu2204Gen2Containerd, ClusterKubenet},
 		{"Windows2022_Dalec_CredentialProvider", config.VHDWindows2022ContainerdGen2, ClusterAzureNetwork},
+		{"Windows2022Gen1_Dalec_CredentialProvider", config.VHDWindows2022Containerd, ClusterAzureNetwork},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var matches []*Scenario
@@ -66,6 +66,13 @@ func TestCredentialProviderScenariosRegisteredOnce(t *testing.T) {
 				require.Equal(t, "/var/lib/kubelet/credential-provider", nbc.KubeletConfig["--image-credential-provider-bin-dir"])
 				require.Equal(t, "published-cse", nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL)
 			} else {
+				nbc := credentialProviderTestNBC()
+				require.NoError(t, s.BootstrapConfigMutatorWithError(t.Context(), nil, nbc))
+				expected := credentialProviderTestNBC()
+				require.NoError(t, configureWindowsDalecCredentialProvider(expected,
+					components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"),
+					components.GetExpectedPackageVersions("windows credential provider", "windows", "default")))
+				require.Equal(t, expected, nbc)
 				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 				require.ErrorIs(t, s.BootstrapConfigMutatorWithError(ctx, nil, credentialProviderTestNBC()), context.Canceled)
@@ -130,24 +137,19 @@ func TestCredentialProviderScenarioMetadataSetup(t *testing.T) {
 	})
 }
 
-func TestCredentialProviderWindowsCSEDeferred(t *testing.T) {
+func TestCredentialProviderWindowsPreservesCSEURL(t *testing.T) {
+	t.Chdir(t.TempDir())
+	for _, url := range []string{"", "https://packages.aks.azure.com/aks/windows/cse/", "https://example.invalid/custom-cse.zip"} {
+		t.Run(url, func(t *testing.T) {
+			nbc := credentialProviderTestNBC()
+			nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = url
+			require.NoError(t, windowsDalecCredentialProviderMutator(t.Context(), nil, nbc))
+			require.Equal(t, url, nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL)
+		})
+	}
+
 	nbc := credentialProviderTestNBC()
-	calls := 0
-	ctx := t.Context()
-	mutate := windowsDalecCredentialProviderMutator(func(gotContext context.Context, request windowsDalecCSEZipRequest) (string, error) {
-		calls++
-		require.Equal(t, ctx, gotContext)
-		require.Equal(t, config.Config.DefaultLocation, request.Location)
-		require.Equal(t, "published-cse", nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL)
-		require.NotEmpty(t, nbc.K8sComponents.WindowsPackageURL, "metadata setup must precede CSE preparation")
-		return "branch-cse", nil
-	})
-	require.Zero(t, calls, "constructing the registered mutator must not prepare CSE")
-	require.NotEmpty(t, List())
-	require.Zero(t, calls, "listing must not prepare CSE")
-	require.NoError(t, mutate(ctx, nil, nbc))
-	require.Equal(t, 1, calls)
-	require.Equal(t, "branch-cse", nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL)
+	require.NoError(t, windowsDalecCredentialProviderMutator(t.Context(), nil, nbc))
 
 	version := nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
 	require.Contains(t, components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"), "v"+version)
@@ -157,22 +159,10 @@ func TestCredentialProviderWindowsCSEDeferred(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", legacyVersion, legacyVersion), nbc.K8sComponents.WindowsCredentialProviderURL)
 }
 
-func TestCredentialProviderWindowsCSEPreparationErrors(t *testing.T) {
-	wantErr := errors.New("CSE upload failed")
-	calls := 0
-	mutate := windowsDalecCredentialProviderMutator(func(context.Context, windowsDalecCSEZipRequest) (string, error) {
-		calls++
-		return "", wantErr
-	})
+func TestCredentialProviderWindowsCancellation(t *testing.T) {
 	nbc := credentialProviderTestNBC()
-	err := mutate(t.Context(), nil, nbc)
-	require.ErrorIs(t, err, wantErr)
-	require.ErrorContains(t, err, "prepare Windows Dalec credential-provider branch CSE")
-	require.Equal(t, "published-cse", nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL)
-	require.Equal(t, 1, calls)
-
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	require.ErrorIs(t, mutate(ctx, nil, credentialProviderTestNBC()), context.Canceled)
-	require.Equal(t, 1, calls, "cancellation must not prepare CSE")
+	require.ErrorIs(t, windowsDalecCredentialProviderMutator(ctx, nil, nbc), context.Canceled)
+	require.Equal(t, credentialProviderTestNBC(), nbc)
 }
