@@ -123,6 +123,8 @@
         "moby-containerd",
         "moby-runc",
         "node-exporter-kubernetes",
+        "node-problem-detector-aks-config",
+        "node-problem-detector-kubernetes",
         "nvidia-device-plugin"
       ],
       "extractVersion": "^(?:\\d+:)?(?<version>\\d+\\.\\d+\\.\\d+)(?:[-+].*)?$",

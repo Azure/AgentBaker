@@ -2246,6 +2246,96 @@
       }
     },
     {
+      "name": "node-problem-detector-kubernetes",
+      "downloadLocation": "/opt/node-problem-detector/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": []
+          }
+        },
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=20.04",
+              "latestVersion": "0.8.25"
+            }]
+          },
+          "r2204": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=22.04",
+              "latestVersion": "0.8.25"
+            }]
+          },
+          "r2404": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=24.04",
+              "latestVersion": "0.8.25"
+            }]
+          },
+          "r2604": {
+            "versionsV2": []
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [{
+              "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-problem-detector-kubernetes, os=azurelinux, release=3.0",
+              "latestVersion": "0.8.25"
+            }]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": []
+          }
+        }
+      }
+    },
+    {
+      "name": "node-problem-detector-aks-config",
+      "downloadLocation": "/opt/node-problem-detector/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": []
+          }
+        },
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=20.04",
+              "latestVersion": "1.0.0"
+            }]
+          },
+          "r2204": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=22.04",
+              "latestVersion": "1.0.0"
+            }]
+          },
+          "r2404": {
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=24.04",
+              "latestVersion": "1.0.0"
+            }]
+          },
+          "r2604": {
+            "versionsV2": []
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [{
+              "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=node-problem-detector-aks-config, os=azurelinux, release=3.0",
+              "latestVersion": "1.0.0"
+            }]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": []
+          }
+        }
+      }
+    },
+    {
       "name": "node-exporter",
       "downloadLocation": "/opt/node-exporter",
       "downloadURIs": {

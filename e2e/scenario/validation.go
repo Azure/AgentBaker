@@ -67,6 +67,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 		ValidateScriptlessComparison,
 		ValidateANCHotfix,
 		ValidateNodeExporter,
+		ValidateBakedNPD,
 		ValidateCommonSysctlConfig,
 		ValidateAKSLogDirectory,
 		ValidateKubeletNodeIPIfSupported,
