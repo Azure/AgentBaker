@@ -1,50 +1,50 @@
-Starting build on  Thu Oct 8 00:32:24 UTC 2026
+Starting build on  Thu Oct 15 00:28:11 UTC 2026
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
-  - oras version 1.3.3
+  - oras version 1.3.4
   - aks-secure-tls-bootstrap-client package version 1.1.4-2.azl3 (requested 1.1.4)
   - aks-secure-tls-bootstrap-client version 1.1.4
   - containerd2 package version 2.2.4-8.azl3 (requested 2.2.4)
   - containerd version 2.2.4
   - CNI plugin version 1.6.2
-  - containernetworking-plugins package version 1.9.1-47.azl3 (requested 1.9.1)
+  - containernetworking-plugins package version 1.9.1-51.azl3 (requested 1.9.1)
   - containernetworking-plugins version 1.9.1
   - Azure CNI version 1.5.38
   - Azure CNI version 1.6.21
-  - kubernetes-cri-tools package version 1.34.0-34.azl3 (requested 1.34.0)
-  - kubelet package version 1.34.11-7.azl3 (requested 1.34.11)
+  - kubernetes-cri-tools package version 1.34.0-38.azl3 (requested 1.34.0)
+  - kubelet package version 1.34.11-12.azl3 (requested 1.34.11)
   - cached kubelet binary at /opt/bin/kubelet-1.34.11
   - kubelet version 1.34.11
-  - kubelet package version 1.34.10-12.azl3 (requested 1.34.10)
+  - kubelet package version 1.34.10-17.azl3 (requested 1.34.10)
   - cached kubelet binary at /opt/bin/kubelet-1.34.10
   - kubelet version 1.34.10
-  - kubelet package version 1.35.8-6.azl3 (requested 1.35.8)
+  - kubelet package version 1.35.8-9.azl3 (requested 1.35.8)
   - cached kubelet binary at /opt/bin/kubelet-1.35.8
   - kubelet version 1.35.8
-  - kubelet package version 1.35.7-11.azl3 (requested 1.35.7)
+  - kubelet package version 1.35.7-15.azl3 (requested 1.35.7)
   - cached kubelet binary at /opt/bin/kubelet-1.35.7
   - kubelet version 1.35.7
-  - kubelet package version 1.36.4-6.azl3 (requested 1.36.4)
+  - kubelet package version 1.36.4-8.azl3 (requested 1.36.4)
   - cached kubelet binary at /opt/bin/kubelet-1.36.4
   - kubelet version 1.36.4
-  - kubelet package version 1.36.3-7.azl3 (requested 1.36.3)
+  - kubelet package version 1.36.3-9.azl3 (requested 1.36.3)
   - cached kubelet binary at /opt/bin/kubelet-1.36.3
   - kubelet version 1.36.3
-  - kubectl package version 1.34.11-2.azl3 (requested 1.34.11)
+  - kubectl package version 1.34.11-4.azl3 (requested 1.34.11)
   - cached kubectl binary at /opt/bin/kubectl-1.34.11
   - kubectl version 1.34.11
-  - kubectl package version 1.34.10-8.azl3 (requested 1.34.10)
+  - kubectl package version 1.34.10-10.azl3 (requested 1.34.10)
   - cached kubectl binary at /opt/bin/kubectl-1.34.10
   - kubectl version 1.34.10
-  - kubectl package version 1.35.8-1.azl3 (requested 1.35.8)
+  - kubectl package version 1.35.8-4.azl3 (requested 1.35.8)
   - cached kubectl binary at /opt/bin/kubectl-1.35.8
   - kubectl version 1.35.8
-  - kubectl package version 1.35.7-5.azl3 (requested 1.35.7)
+  - kubectl package version 1.35.7-8.azl3 (requested 1.35.7)
   - cached kubectl binary at /opt/bin/kubectl-1.35.7
   - kubectl version 1.35.7
-  - kubectl package version 1.36.4-1.azl3 (requested 1.36.4)
+  - kubectl package version 1.36.4-3.azl3 (requested 1.36.4)
   - cached kubectl binary at /opt/bin/kubectl-1.36.4
   - kubectl version 1.36.4
-  - kubectl package version 1.36.3-5.azl3 (requested 1.36.3)
+  - kubectl package version 1.36.3-7.azl3 (requested 1.36.3)
   - cached kubectl binary at /opt/bin/kubectl-1.36.3
   - kubectl version 1.36.3
   - kubernetes-binaries version v1.33.13
@@ -53,102 +53,102 @@ Components downloaded in this VHD build (some of the below components might get 
   - azure-acr-credential-provider version v1.31.12
   - azure-acr-credential-provider version v1.32.11
   - azure-acr-credential-provider version v1.33.7
-  - ig package version 0.56.0-4.azl3 (requested 0.56.0)
-  - ig-gadgets package version 0.56.0-1.azl3 (requested 0.56.0)
-  - ig version 0.56.0
-  - azure-acr-credential-provider package version 1.33.18-1.azl3 (requested 1.33.18)
-  - azure-acr-credential-provider version 1.33.18
-  - azure-acr-credential-provider package version 1.34.14-1.azl3 (requested 1.34.14)
-  - azure-acr-credential-provider version 1.34.14
-  - azure-acr-credential-provider package version 1.35.9-1.azl3 (requested 1.35.9)
-  - azure-acr-credential-provider version 1.35.9
-  - azure-acr-credential-provider package version 1.36.6-1.azl3 (requested 1.36.6)
-  - azure-acr-credential-provider version 1.36.6
-  - azure-acr-credential-provider package version 1.37.0-1.azl3 (requested 1.37.0)
+  - ig package version 0.57.0-2.azl3 (requested 0.57.0)
+  - ig-gadgets package version 0.57.0-1.azl3 (requested 0.57.0)
+  - ig version 0.57.0
+  - azure-acr-credential-provider package version 1.33.19-2.azl3 (requested 1.33.19)
+  - azure-acr-credential-provider version 1.33.19
+  - azure-acr-credential-provider package version 1.34.15-1.azl3 (requested 1.34.15)
+  - azure-acr-credential-provider version 1.34.15
+  - azure-acr-credential-provider package version 1.35.10-2.azl3 (requested 1.35.10)
+  - azure-acr-credential-provider version 1.35.10
+  - azure-acr-credential-provider package version 1.36.7-1.azl3 (requested 1.36.7)
+  - azure-acr-credential-provider version 1.36.7
+  - azure-acr-credential-provider package version 1.37.0-2.azl3 (requested 1.37.0)
   - azure-acr-credential-provider version 1.37.0
-  - nvidia-device-plugin package version 0.19.3-16.azl3 (requested 0.19.3)
+  - nvidia-device-plugin package version 0.19.3-18.azl3 (requested 0.19.3)
   - nvidia-device-plugin version 0.19.3
-  - dra-driver-nvidia-gpu package version 0.5.0-5.azl3 (requested 0.5.0)
+  - dra-driver-nvidia-gpu package version 0.5.0-6.azl3 (requested 0.5.0)
   - dra-driver-nvidia-gpu version 0.5.0
   - datacenter-gpu-manager-4-core package version 4.5.3-1 (requested 4.5.3)
   - datacenter-gpu-manager-4-core version 4.5.3
   - datacenter-gpu-manager-4-proprietary package version 4.5.3-1 (requested 4.5.3)
   - datacenter-gpu-manager-4-proprietary version 4.5.3
-  - dcgm-exporter package version 4.8.2-16.azl3 (requested 4.8.2)
+  - dcgm-exporter package version 4.8.2-18.azl3 (requested 4.8.2)
   - dcgm-exporter version 4.8.2
-  - node-exporter-kubernetes package version 1.12.1-9.azl3 (requested 1.12.1)
+  - node-exporter-kubernetes package version 1.12.1-10.azl3 (requested 1.12.1)
   - node-exporter version 1.12.1
   - acr-mirror version 1.0.0
   - aznfs version 3.0.15-1
   - bpftrace v0.23.5
 images pre-pulled:
-  - mcr.microsoft.com/containernetworking/azure-ipam:v0.4.0-0
-  - mcr.microsoft.com/containernetworking/azure-ipam:v0.3.0
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
+  - mcr.microsoft.com/oss/v2/kubernetes/pause:3.6
+  - mcr.microsoft.com/containernetworking/azure-ipam:v0.3.0
+  - mcr.microsoft.com/containernetworking/azure-ipam:v0.4.0-0
   - mcr.microsoft.com/containernetworking/azure-cni:v1.7.17-0
   - mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2
-  - mcr.microsoft.com/oss/v2/kubernetes/pause:3.6
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.14-260923
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.7-2
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-32
   - mcr.microsoft.com/containernetworking/azure-cni:v1.6.44-0
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-25
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.3-18
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-25
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-32
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-20
   - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-29
-  - mcr.microsoft.com/containernetworking/v2/azure-cns:v1.8.13
-  - mcr.microsoft.com/containernetworking/v2/azure-cni:v1.8.13
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.14-260923
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.12-260811
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.8-260923
   - mcr.microsoft.com/containernetworking/azure-npm:v1.6.42
+  - mcr.microsoft.com/containernetworking/v2/azure-cni:v1.8.13
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.8-260923
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.6-260811
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.44-0
+  - mcr.microsoft.com/containernetworking/v2/azure-cns:v1.8.13
   - mcr.microsoft.com/containernetworking/azure-cns:v1.7.17-0
   - mcr.microsoft.com/containernetworking/cilium-log-collector:v0.0.2-0
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.44-0
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.6-260811
   - mcr.microsoft.com/containernetworking/azure-iptables-monitor:v0.0.5-0
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.8.0-ci-prod-09-03-2026-fd42f68c
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b
+  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.32.1-11
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.34.15-1
   - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.8.2-11
   - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.6.1-1
-  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.32.1-11
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.37.0-1
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
   - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-27
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-22
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.36.6-1
-  - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-16
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.33.18-1
-  - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-17
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.33.19-1
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.35.10-1
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.36.7-1
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-targetallocator
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.34.14-1
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.35.9-1
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.37.0-1
+  - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-17
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-22
+  - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-16
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.34.5
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.11
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.6
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.7
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.18.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.19.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.17.0
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.6-260811
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.12-260811
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.14-260923
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.12-260811
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.6-260811
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.8-260923
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.11
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.19.0
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.18.0
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.17.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.16.0
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.9
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.15
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.7
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.16
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.10
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.8
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.8
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.6
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.7
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.10
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.9
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.16
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.9
-  - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.14.1
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.33.13-11
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.4-4
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.11-5
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.35.8-4
+  - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-cfg
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.35.8-4
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.33.13-11
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.11-5
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.4-4
   - bcc-tools
   - libbcc-examples
 Successfully copied coredns binary of v1.14.7-2
@@ -162,18 +162,18 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  60395704 May 27 21:30 /opt/bin/kubectl-1.33.12
 -rwxr-xr-x 1 root root  82022692 Jun 26 00:26 /opt/bin/kubelet-1.33.13
 -rwxr-xr-x 1 root root  60444856 Jun 26 00:26 /opt/bin/kubectl-1.33.13
--rwxr-xr-x 1 root root  61473856 Oct  8 00:35 /opt/bin/kubelet-1.34.11
--rwxr-xr-x 1 root root 117069072 Oct  8 00:36 /opt/bin/kubelet-1.34.10
--rwxr-xr-x 1 root root  60109664 Oct  8 00:36 /opt/bin/kubelet-1.35.8
--rwxr-xr-x 1 root root  60105664 Oct  8 00:36 /opt/bin/kubelet-1.35.7
--rwxr-xr-x 1 root root  61185856 Oct  8 00:36 /opt/bin/kubelet-1.36.4
--rwxr-xr-x 1 root root 117088080 Oct  8 00:36 /opt/bin/kubelet-1.36.3
--rwxr-xr-x 1 root root 110592816 Oct  8 00:36 /opt/bin/kubectl-1.34.11
--rwxr-xr-x 1 root root 110596976 Oct  8 00:36 /opt/bin/kubectl-1.34.10
--rwxr-xr-x 1 root root 106537640 Oct  8 00:36 /opt/bin/kubectl-1.35.8
--rwxr-xr-x 1 root root 106537704 Oct  8 00:36 /opt/bin/kubectl-1.35.7
--rwxr-xr-x 1 root root 107316624 Oct  8 00:36 /opt/bin/kubectl-1.36.4
--rwxr-xr-x 1 root root 107316656 Oct  8 00:37 /opt/bin/kubectl-1.36.3
+-rwxr-xr-x 1 root root  61593856 Oct 15 00:31 /opt/bin/kubelet-1.34.11
+-rwxr-xr-x 1 root root 117205152 Oct 15 00:31 /opt/bin/kubelet-1.34.10
+-rwxr-xr-x 1 root root  60287584 Oct 15 00:31 /opt/bin/kubelet-1.35.8
+-rwxr-xr-x 1 root root  60275328 Oct 15 00:31 /opt/bin/kubelet-1.35.7
+-rwxr-xr-x 1 root root  61251392 Oct 15 00:31 /opt/bin/kubelet-1.36.4
+-rwxr-xr-x 1 root root 116981568 Oct 15 00:32 /opt/bin/kubelet-1.36.3
+-rwxr-xr-x 1 root root 111360824 Oct 15 00:32 /opt/bin/kubectl-1.34.11
+-rwxr-xr-x 1 root root 111360856 Oct 15 00:32 /opt/bin/kubectl-1.34.10
+-rwxr-xr-x 1 root root 106712872 Oct 15 00:32 /opt/bin/kubectl-1.35.8
+-rwxr-xr-x 1 root root 106712904 Oct 15 00:32 /opt/bin/kubectl-1.35.7
+-rwxr-xr-x 1 root root 107316704 Oct 15 00:32 /opt/bin/kubectl-1.36.4
+-rwxr-xr-x 1 root root 107316656 Oct 15 00:32 /opt/bin/kubectl-1.36.3
 === Installed Packages Begin
 filesystem-1.1-21.azl3.x86_64
 glibc-2.38-21.azl3.x86_64
@@ -184,8 +184,6 @@ zlib-1.3.2-1.azl3.x86_64
 xz-libs-5.4.4-3.azl3.x86_64
 libattr-2.6.0-1.azl3.x86_64
 SymCrypt-103.8.0-1.azl3.x86_64
-openssl-libs-3.3.7-6.azl3.x86_64
-openssl-3.3.7-6.azl3.x86_64
 SymCrypt-OpenSSL-1.10.2-1.azl3.x86_64
 attr-2.6.0-1.azl3.x86_64
 libacl-2.4.0-1.azl3.x86_64
@@ -314,7 +312,6 @@ python3-blinker-1.9.0-1.azl3.noarch
 python3-wcwidth-0.2.6-2.azl3.noarch
 python3-prettytable-3.10.0-1.azl3.noarch
 python3-charset-normalizer-3.2.0-1.azl3.noarch
-python3-urllib3-2.0.7-6.azl3.noarch
 python3-asn1crypto-1.5.1-2.azl3.noarch
 python3-pyasn1-0.4.8-3.azl3.noarch
 ca-certificates-shared-3.0.0-16.azl3.noarch
@@ -353,11 +350,6 @@ grub2-configuration-2.06-27.azl3.x86_64
 grub2-tools-minimal-2.06-27.azl3.x86_64
 grub2-2.06-27.azl3.x86_64
 grubby-8.40-47.azl3.x86_64
-hyperv-daemons-license-6.6.157.1-1.azl3.noarch
-hypervvssd-6.6.157.1-1.azl3.x86_64
-hypervkvpd-6.6.157.1-1.azl3.x86_64
-hypervfcopyd-6.6.157.1-1.azl3.x86_64
-hyperv-daemons-6.6.157.1-1.azl3.x86_64
 netplan-libs-1.0.1-1.azl3.x86_64
 python3-dbus-1.3.2-1.azl3.x86_64
 netplan-default-backend-networkd-1.0.1-1.azl3.noarch
@@ -395,7 +387,6 @@ iw-6.7-1.azl3.x86_64
 wireless-regdb-2023.05.03-1.azl3.noarch
 shim-16.1-1.azl3.x86_64
 systemd-boot-255-34.azl3.x86_64
-kernel-uki-6.6.157.1-1.azl3.x86_64
 curl-8.11.1-11.azl3.x86_64
 tpm2-tools-5.5.1-1.azl3.x86_64
 p11-kit-trust-0.26.5-1.azl3.x86_64
@@ -432,24 +423,34 @@ tdnf-cli-libs-3.5.8-8.azl3.x86_64
 tdnf-3.5.8-8.azl3.x86_64
 tdnf-plugin-repogpgcheck-3.5.8-8.azl3.x86_64
 core-packages-container-3.0-7.azl3.x86_64
-bind-license-9.20.26-1.azl3.noarch
 libuv-1.48.0-1.azl3.x86_64
 userspace-rcu-0.14.0-2.azl3.x86_64
-bind-libs-9.20.26-1.azl3.x86_64
-bind-utils-9.20.26-1.azl3.x86_64
 chrony-4.5-1.azl3.x86_64
 core-packages-base-image-3.0-7.azl3.x86_64
 gpg-pubkey-3135ce90-5e6fda74
 oniguruma-6.9.8-1.azl3.x86_64
 jq-1.7.1-8.azl3.x86_64
 inotify-tools-4.23.9.0-1.azl3.x86_64
-expat-libs-2.8.5-1.azl3.x86_64
-expat-2.8.5-1.azl3.x86_64
+openssl-libs-3.3.7-7.azl3.x86_64
+hyperv-daemons-license-6.6.158.1-1.azl3.noarch
+expat-libs-2.9.0-1.azl3.x86_64
+expat-2.9.0-1.azl3.x86_64
+hypervfcopyd-6.6.158.1-1.azl3.x86_64
+hypervkvpd-6.6.158.1-1.azl3.x86_64
+hypervvssd-6.6.158.1-1.azl3.x86_64
+openssl-3.3.7-7.azl3.x86_64
 python3-3.12.15-1.azl3.x86_64
 python3-libs-3.12.15-1.azl3.x86_64
+bind-license-9.20.29-1.azl3.noarch
+bind-libs-9.20.29-1.azl3.x86_64
+bind-utils-9.20.29-1.azl3.x86_64
 python3-curses-3.12.15-1.azl3.x86_64
 python3-jwt-2.15.1-1.azl3.noarch
+python3-urllib3-2.0.7-7.azl3.noarch
+hyperv-daemons-6.6.158.1-1.azl3.x86_64
 sudo-1.9.17-4.azl3.x86_64
+kernel-uki-6.6.158.1-1.azl3.x86_64
+kernel-6.6.158.1-1.azl3.x86_64
 azurelinux-repos-cloud-native-preview-3.0-5.azl3.noarch
 python3-dateutil-2.7.3-5.azl3.noarch
 python3-dnf-plugins-core-4.0.24-3.azl3.noarch
@@ -498,13 +499,13 @@ kpartx-0.9.6-1.azl3.x86_64
 device-mapper-multipath-0.9.6-1.azl3.x86_64
 runc-1.4.3-1.azl3.x86_64
 containerd2-2.2.4-8.azl3.x86_64
-containernetworking-plugins-1.9.1-47.azl3.x86_64
-kubernetes-cri-tools-1.34.0-34.azl3.x86_64
-ig-0.56.0-4.azl3.x86_64
-ig-gadgets-0.56.0-1.azl3.x86_64
-node-exporter-kubernetes-1.12.1-9.azl3.x86_64
+containernetworking-plugins-1.9.1-51.azl3.x86_64
+kubernetes-cri-tools-1.34.0-38.azl3.x86_64
+ig-0.57.0-2.azl3.x86_64
+ig-gadgets-0.57.0-1.azl3.x86_64
+node-exporter-kubernetes-1.12.1-10.azl3.x86_64
 containerd-overlaybd-1.0.18-2.azl3.x86_64
-containerd-accelerated-container-image-1.4.5-3.azl3.x86_64
+containerd-accelerated-container-image-1.4.5-4.azl3.x86_64
 acr-mirror-1.0.0-1.x86_64
 stunnel-5.74-1.azl3.x86_64
 aznfs-3.0.15-1.x86_64
@@ -569,7 +570,7 @@ bcc-examples-0.29.1-5.azl3.x86_64
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda2        29G   21G  7.7G  73% /
+/dev/sda2        29G   21G  7.6G  73% /
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            31G     0   31G   0% /dev/shm
 efivarfs        128K   37K   87K  30% /sys/firmware/efi/efivars
@@ -590,11 +591,11 @@ BUG_REPORT_URL="https://aka.ms/azurelinux"
 SUPPORT_URL="https://aka.ms/azurelinux"
 === os-release End
 Using kernel:
-Linux version 6.6.157.1-1.azl3 (root@CBL-Mariner) (gcc (GCC) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP PREEMPT_DYNAMIC Wed Sep 23 15:24:03 UTC 2026
-Install completed successfully on  Thu Oct 8 00:43:00 UTC 2026
-VSTS Build NUMBER: 20261008.1_main_184689713
-VSTS Build ID: 184689713
-Commit: d689282c9cb3fe8e075bcc2a9c61a9baad1d8a1d
+Linux version 6.6.158.1-1.azl3 (root@CBL-Mariner) (gcc (GCC) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP PREEMPT_DYNAMIC Tue Oct 13 21:55:41 UTC 2026
+Install completed successfully on  Thu Oct 15 00:36:34 UTC 2026
+VSTS Build NUMBER: 20261015.1_main_185843800
+VSTS Build ID: 185843800
+Commit: 218fc2c1b533f90c10297b97ea48fcb780ae5872
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: cvm
