@@ -1679,6 +1679,25 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(BeEmpty())
 	})
 
+	It("should omit the Ready reporting handoff when CSE delivery is already selected", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newScriptlessCmdTestConfig()
+		config.CustomDataOnlyProvisioning = false
+		config.ScriptlessCSEProvisionMode = true
+		config.EnableScriptlessNBCCSECmd = true
+
+		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
+		Expect(string(payload)).NotTo(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
+		Expect(string(payload)).To(ContainSubstring("fetch_provision_config.py"))
+		Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse())
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(fmt.Sprintf(
+			cseScriptlessPhase2Template,
+			getBase64EncodedGzippedCustomScriptFromStr(templateGenerator.getScriptlessNBCCmd(config)),
+		)))
+	})
+
 	It("should fall back to CSE when CustomData-only provisioning exceeds the CustomData limit", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
@@ -1690,11 +1709,17 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 			CustomCATrustCerts: []string{string(certificate)},
 		}
 
-		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+		encodedPayload := templateGenerator.getNodeBootstrappingPayload(config)
+		Expect(len(encodedPayload)).To(BeNumerically("<", MaxCustomDataLength))
+		payload, err := base64.StdEncoding.DecodeString(encodedPayload)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse())
 		Expect(config.ScriptlessCSEProvisionMode).To(BeTrue())
+		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
 		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
+		Expect(string(payload)).NotTo(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
+		Expect(string(payload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		Expect(string(payload)).To(ContainSubstring("fetch_provision_config.py"))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(BeEmpty())
 	})
 

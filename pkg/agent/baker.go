@@ -219,10 +219,13 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
 		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
-		customData = boothookTemplate +
-			readyReportHandoffBlock(config.IsCustomDataOnlyProvisioningEnabled()) +
-			buildScriptlessCustomData(boothookProvisionTemplate, boothookFileEntry, "\n", encodedFiles)
-		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + hotfixMarkerTemplate + cseDownloaderTemplate))
+		provisionCustomData := buildScriptlessCustomData(boothookProvisionTemplate, boothookFileEntry, "\n", encodedFiles)
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(boothookTemplate + provisionCustomData + hotfixMarkerTemplate + cseDownloaderTemplate))
+		customData = boothookTemplate
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			customData += readyReportHandoffTemplate
+		}
+		customData += provisionCustomData
 	}
 
 	if config.ScriptlessCSEProvisionMode {
@@ -293,13 +296,6 @@ func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfigur
 		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires AKSNodeConfigJSON to be a valid JSON object")
 	}
 	return nil
-}
-
-func readyReportHandoffBlock(enabled bool) string {
-	if !enabled {
-		return ""
-	}
-	return readyReportHandoffTemplate
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
