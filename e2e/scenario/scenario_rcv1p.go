@@ -347,7 +347,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 			rcv1pOptInVMConfigMutator(vmss)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {

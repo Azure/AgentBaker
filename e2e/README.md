@@ -105,6 +105,33 @@ which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SK
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
 
+## ACL COSI Validation
+
+The four ACL Trusted Launch variants accept `aclBaseImageSource` (`acg` or
+`acldevel`) and an optional `aclBaseImageVersion` gallery-version
+override. The production ACG source is the default. Secure Boot stays enabled for signed sources;
+selecting `acldevel` disables Secure Boot only for ACL test VMs. Older base images
+without `trident-acl-agent` still build; images containing the agent enable its
+kubeconfig-triggered startup.
+
+ACL CVM builds keep the production ACG source and are not part of the
+four-variant COSI validation.
+
+Publishing runs convert all four ACL variants in architecture-matched jobs and
+produce `cosi-publishing-info-*` artifacts with a base64 `metadata_sha384` value.
+The E2E job downloads only the selected variants' artifacts. Non-publishing runs
+do not download or validate COSI artifacts.
+
+`ACL_COSIUpdate_AMD64`, `ACL_COSIUpdate_ARM64`, and their `_FIPS` variants use
+separate nodes because they stage, finalize, reboot, and commit an A/B update.
+They verify node identity, readiness, and a post-update workload. The COSI is
+staged in a unique test-owned blob on the already-allowed E2E storage endpoint;
+cleanup deletes that blob. These scenarios do not change shared firewall rules.
+They exercise the Trident update path, not annotation-driven agent orchestration.
+
+Run offline unit tests with `go test -short ./...` from this directory. Live
+four-variant builds and update scenarios require the pipeline service connections.
+
 ## Gallery replication
 
 When selecting a gallery image by version or tag, the runner adds the test region
