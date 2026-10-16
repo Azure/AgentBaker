@@ -401,6 +401,13 @@ copyPackerFiles() {
       KATA_IMAGE_SRC=/home/packer/kata-containers.img
       KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
+      if [[ ",${FEATURE_FLAGS}," == *",kata-cc,"* ]]; then
+        # Current signed confidential guest/package layout; separate from the
+        # ordinary AZL3 guest installed above.
+        for file in kata-containers.img kata-containers-cc.img kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose reference-info-base64; do
+          cpAndMode "/home/packer/kata-cc/$file" "$KATACC_CONFIG_DIR/$file" 0644
+        done
+      fi
     fi
   fi
 

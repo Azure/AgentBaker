@@ -159,6 +159,27 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 	})
 
 	Context("GetNodeBootstrapping", func() {
+		It("resolves and bootstraps the distinct AZL3 Kata-CC identity", func() {
+			config.AgentPoolProfile.Distro = datamodel.AKSAzureLinuxV3Gen2KataCC
+			baker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			nb, err := baker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(nb.SigImageConfig.Definition).To(Equal("V3kataccgen2"))
+			Expect(nb.CustomData).NotTo(BeEmpty())
+			for _, tmpl := range []ContainerdConfigTemplate{containerdV1ConfigTemplate, containerdV1NoGPUConfigTemplate, containerdV2ConfigTemplate, containerdV2NoGPUConfigTemplate} {
+				rendered, err := containerdConfigFromTemplate(config, config.AgentPoolProfile, tmpl)
+				Expect(err).NotTo(HaveOccurred())
+				decoded, err := base64.StdEncoding.DecodeString(rendered)
+				Expect(err).NotTo(HaveOccurred())
+				rendered = string(decoded)
+				Expect(rendered).To(ContainSubstring("runtime_type = \"io.containerd.kata-cc.v2\""))
+				Expect(rendered).To(ContainSubstring("configuration-clh-snp.toml"))
+				if tmpl == containerdV2ConfigTemplate || tmpl == containerdV2NoGPUConfigTemplate {
+					Expect(rendered).To(ContainSubstring(`[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]`))
+				}
+			}
+		})
 		It("should reject invalid Phase 3 input without returning bootstrapping artifacts", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
