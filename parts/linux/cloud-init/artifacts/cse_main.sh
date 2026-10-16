@@ -446,6 +446,9 @@ function nodePrep {
     # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels,
     # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
     logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+    if [ "${IS_KATA}" = "true" ]; then
+        logs_to_events "AKS.CSE.addKataCPUProfileNodeLabel" addKataCPUProfileNodeLabel || true
+    fi
 
     # This function first creates the systemd drop-in directory for kubelet.service.
     # Pay attention to ordering relative to other functions that create kubelet drop-ins.

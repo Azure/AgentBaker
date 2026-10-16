@@ -1,0 +1,10 @@
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 143
+model name      : This value is intentionally different
+stepping        : 8
+cpu MHz         : 9999.999
+flags           : xsave avx2 fpu arch_capabilities avx sse2 avx2
+bugs            : spectre_v1 spectre_v2 retbleed
+address sizes   : 46 bits physical, 48 bits virtual
