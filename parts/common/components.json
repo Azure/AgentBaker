@@ -1884,22 +1884,27 @@
               {
                 "k8sVersion": "1.33",
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.33.17-1"
+                "latestVersion": "1.33.19-1"
               },
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.34.12-1"
+                "latestVersion": "1.34.15-1"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.35.8-2"
+                "latestVersion": "1.35.10-1"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.36.5-1"
+                "latestVersion": "1.36.7-1"
+              },
+              {
+                "k8sVersion": "1.37",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.37.0-1"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/$($version.Split('-')[0])/windows/amd64/azure-acr-credential-provider_${version}_amd64.zip"
