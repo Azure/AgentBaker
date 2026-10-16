@@ -22,7 +22,7 @@ import (
 
 const (
 	cvmAttestationToolsCommit = "26755c86f5034605d41053bfe0e1a7f8ae68b23b"
-	cvmAttestationIssuer      = "https://sharedweu.weu.attest.azure.net"
+	cvmAttestationIssuer      = "https://sharedwus.wus.attest.azure.net"
 	cvmAttestationTokenMax    = 128 * 1024
 )
 
