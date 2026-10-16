@@ -31,6 +31,18 @@ Describe 'remove-bootstrap-kubeconfig.sh'
         exit 99
     }
 
+    missing_bootstrap_message() {
+        echo "$BOOTSTRAP_KUBECONFIG_PATH does not exist, nothing to remove"
+    }
+
+    waiting_message() {
+        echo "$KUBELET_CLIENT_CURRENT_PEM_PATH does not yet exist a file or valid symlink, waiting 1s..."
+    }
+
+    removing_message() {
+        echo "$KUBELET_CLIENT_CURRENT_PEM_PATH exists, removing $BOOTSTRAP_KUBECONFIG_PATH..."
+    }
+
     BeforeEach 'setup'
     AfterEach 'cleanup'
 
@@ -38,7 +50,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
         It 'returns immediately when bootstrap kubeconfig and the certificate symlink are absent'
             When run removeBootstrapKubeconfig
             The status should be success
-            The output should be blank
+            The output should equal "$(missing_bootstrap_message)"
             The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should not be exist
             The path "$BOOTSTRAP_KUBECONFIG_PATH" should not be exist
         End
@@ -48,7 +60,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
 
             When run removeBootstrapKubeconfig
             The status should be success
-            The output should be blank
+            The output should equal "$(missing_bootstrap_message)"
             The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should be symlink
             The contents of file "$KUBELET_CLIENT_CURRENT_PEM_PATH" should equal 'client credentials'
             The contents of file "$CLIENT_CERT_PATH" should equal 'client credentials'
@@ -61,7 +73,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
 
             When run removeBootstrapKubeconfig
             The status should be success
-            The output should be blank
+            The output should equal "$(removing_message)"
             The path "$BOOTSTRAP_KUBECONFIG_PATH" should not be exist
             The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should be symlink
             The contents of file "$KUBELET_CLIENT_CURRENT_PEM_PATH" should equal 'client credentials'
@@ -84,7 +96,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
 
             When call removeBootstrapKubeconfig
             The status should be success
-            The output should be blank
+            The output should equal "$(printf '%s\n%s\n%s\n%s' "$(waiting_message)" "$(waiting_message)" "$(waiting_message)" "$(removing_message)")"
             The variable SLEEP_CALLS should equal 3
             The path "$BOOTSTRAP_KUBECONFIG_PATH" should not be exist
             The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should be symlink
@@ -139,7 +151,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
 
                 When call removeBootstrapKubeconfig
                 The status should be success
-                The output should be blank
+                The output should equal "$(printf '%s\n%s' "$(waiting_message)" "$(removing_message)")"
                 The variable SLEEP_CALLS should equal 1
                 The path "$BOOTSTRAP_KUBECONFIG_PATH" should not be exist
                 The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should be symlink
@@ -159,7 +171,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
 
             When run removeBootstrapKubeconfig
             The status should equal 13
-            The stdout should be blank
+            The stdout should equal "$(removing_message)"
             The stderr should equal 'cannot remove bootstrap kubeconfig'
             The path "$BOOTSTRAP_KUBECONFIG_PATH" should be file
             The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should be symlink
@@ -176,7 +188,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
 
             When run remove_twice
             The status should be success
-            The output should be blank
+            The output should equal "$(printf '%s\n%s' "$(removing_message)" "$(missing_bootstrap_message)")"
             The path "$BOOTSTRAP_KUBECONFIG_PATH" should not be exist
             The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should be symlink
             The contents of file "$KUBELET_CLIENT_CURRENT_PEM_PATH" should equal 'client credentials'
