@@ -475,8 +475,6 @@ steps:
         export AZCOPY_CONCURRENCY_VALUE="AUTO"
         az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
         echo "Successfully copied to immutable container"
-        ./vhdbuilder/packer/publish-generalized-cvm-if-required.sh \
-          "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" || exit 1
         # Remove old VHD from staging container after copy to immutable container is complete
         azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
     condition: |
@@ -490,15 +488,6 @@ steps:
         )
       )
     displayName: Copy to Immutable Storage Container
-    env:
-      OS_SKU: $(OS_SKU)
-      FEATURE_FLAGS: $(FEATURE_FLAGS)
-      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
-      SKU_NAME: $(SKU_NAME)
-      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
-      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
-      BUILD_BUILDID: $(Build.BuildId)
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program
