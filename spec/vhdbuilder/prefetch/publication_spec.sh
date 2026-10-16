@@ -39,14 +39,15 @@ Describe 'Post-prefetch CVM publication'
     az() {
       printf '%s\n' "$*" >> "${AZ_MOCK_LOG}"
       case "$1 $2 $3" in
-        'sig image-definition show')
+        'sig image-definition list')
           if [ "${MOCK_DEFINITION_EXISTS}" = false ] && [ ! -f "${TEST_ROOT}/definition-created" ]; then
-            return 3
+            return 0
           fi
           echo definition
           ;;
         'sig image-definition create')
           touch "${TEST_ROOT}/definition-created"
+          echo definition
           ;;
         'resource update --ids')
           ;;
@@ -82,7 +83,15 @@ Describe 'Post-prefetch CVM publication'
           [ "${MOCK_GALLERY_FAILURE}" = true ] && return 7
           touch "${TEST_ROOT}/version-created"
           ;;
-        'sig image-version delete'|'sig image-version wait')
+        'sig image-version wait')
+          if [ "${MOCK_REPLICATION_PENDING_ONCE}" = true ]; then
+            sleep 60
+          fi
+          if [ "${MOCK_REPLICATION_FAILURE}" = true ]; then
+            echo 'Gallery replication did not complete' >&2
+            return 8
+          fi
+          touch "${TEST_ROOT}/replication-ready"
           ;;
         'storage account list')
           if [ "${MOCK_STORAGE_ACCOUNT_MISSING}" = true ]; then
@@ -115,7 +124,7 @@ Describe 'Post-prefetch CVM publication'
           ;;
         'storage blob delete')
           if [ "${MOCK_VERSION_STATE}" != succeeded ] && [ "${FEATURE_FLAGS}" = cvm ]; then
-            [ -f "${TEST_ROOT}/gallery-finished" ] || return 91
+            [ -f "${TEST_ROOT}/replication-ready" ] || return 91
           fi
           ;;
         'resource show --ids')
@@ -205,9 +214,10 @@ Describe 'Post-prefetch CVM publication'
       MOCK_REPLICATION_PENDING_ONCE=true
       When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh "${SOURCE_URI}"
       The status should be success
-      The output should include 'replication: InProgress'
+      The output should include 'sig image-version wait'
+      The output should include '--expand ReplicationStatus --custom'
+      The output should include "provisioningState=='Succeeded' && replicationStatus.aggregatedState=='Completed'"
       The output should include 'sleep 60'
-      The output should include 'replication: Completed'
     End
 
     It 'fails explicitly if the source storage metadata is unavailable'
@@ -222,27 +232,37 @@ Describe 'Post-prefetch CVM publication'
       MOCK_VERSION_STATE=missing
       When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh --check-only
       The status should be failure
-      The output should include 'publication is not complete'
-      The output should not include 'image-definition show'
+      The output should include 'ResourceNotFound'
+      The output should not include 'image-definition list'
       The output should not include 'image-version create'
       The output should not include 'image-version delete'
     End
 
-    It 'surfaces authorization failures rather than treating them as missing versions'
+    It 'surfaces authorization failures when checking completion'
       MOCK_VERSION_READ_FAILURE=true
-      When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh "${SOURCE_URI}"
+      When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh --check-only
       The status should be failure
       The output should include 'AuthorizationFailed'
       The output should not include 'image-version create'
       The output should not include 'image-version delete'
     End
 
+    It 'does not inspect or delete failed versions before publishing'
+      MOCK_VERSION_STATE=failed
+      When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh "${SOURCE_URI}"
+      The status should be success
+      The output should include 'sig image-version create'
+      The output should not include 'sig image-version show'
+      The output should not include 'sig image-version delete'
+      The output should not include '--deleted'
+    End
+
     It 'does not succeed when gallery replication fails'
       MOCK_REPLICATION_FAILURE=true
       When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh "${SOURCE_URI}"
       The status should be failure
-      The output should include 'replication: Failed'
-      The output should include 'did not complete publication'
+      The output should include 'Gallery replication did not complete'
+      The output should not include 'provisioned successfully'
     End
 
     It 'does not treat incomplete replication as completed delivery'

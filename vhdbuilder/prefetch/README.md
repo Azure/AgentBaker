@@ -15,3 +15,7 @@ before returning success. The existing cleanup task runs afterward only on succe
 no additional cleanup guard or wait loop is needed. On failure, cleanup is blocked;
 retries reuse the original output and do not skip missing gallery publication just
 because the immutable VHD already exists.
+
+The publisher uses Azure CLI's built-in wait for provisioning and replication.
+It does not inspect, delete, or recover failed image versions before publication;
+Azure CLI failures propagate to the prefetch task.
