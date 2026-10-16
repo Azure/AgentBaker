@@ -163,7 +163,7 @@ EOF
             When call main
             The status should be success
             The output should include 'applying component: localDNS'
-            The output should include "aks-node-controller called with args: apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE}"
+            The output should include "aks-node-controller called with args: apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE} --agent-pool ap1"
             The contents of file "${TEST_DIR}/localdns-livepatch-payload" should include '"configChecksum":"localdns-v1"'
             The output should not include 'systemctl called with args: restart localdns.service'
             The output should include 'localDNS update completed successfully'

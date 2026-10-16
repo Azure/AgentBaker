@@ -245,12 +245,13 @@ func (a *App) localDNSCommands() []*cli.Command {
 			Flags: []cli.Flag{
 				&cli.StringFlag{Name: "config-file", Usage: "path to the LocalDNS config JSON; reads stdin when omitted or '-'"},
 				&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
+				&cli.StringFlag{Name: "agent-pool", Usage: "this node's agent pool; read from the node config files when omitted"},
 			},
 			Action: func(ctx context.Context, cmd *cli.Command) error {
 				if extra := cmd.Args().Slice(); len(extra) > 0 {
 					return fmt.Errorf("unexpected apply-localdns-config arguments: %s", strings.Join(extra, " "))
 				}
-				return a.runApplyLocalDNSConfigCommand(ctx, cmd.String("config-file"), cmd.String("output"), cmd.Root().Writer)
+				return a.runApplyLocalDNSConfigCommand(ctx, cmd.String("config-file"), cmd.String("output"), cmd.String("agent-pool"), cmd.Root().Writer)
 			},
 		},
 	}

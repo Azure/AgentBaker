@@ -50,6 +50,7 @@ EOF
         cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
 #!/bin/bash
 cat > /dev/null
+printf '%s\n' "$*" > "${TEST_ANC_ARGS_FILE}"
 output=""
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -68,10 +69,11 @@ EOF
 
         TEST_ANC_OUTCOME="applied"
         TEST_ANC_EXIT=0
+        TEST_ANC_ARGS_FILE="${TEST_DIR}/anc-args"
         TEST_LOCALDNS_ACTIVE="true"
         TEST_RESTART_STATUS=0
         TEST_RELOAD_MODE="reload"
-        export TEST_ANC_OUTCOME TEST_ANC_EXIT TEST_PATCH_SOURCE
+        export TEST_ANC_OUTCOME TEST_ANC_EXIT TEST_ANC_ARGS_FILE TEST_PATCH_SOURCE
     }
 
     cleanup() {
@@ -317,6 +319,22 @@ EOF
             When call updateLocalDNS '{}'
             The status should be failure
             The output should include 'aks-node-controller binary is required for localDNS live patching'
+        End
+    End
+
+    Describe 'agent pool selection'
+        It "passes the Node object's agent pool to aks-node-controller"
+            When call updateLocalDNS '{}' '{"metadata":{"labels":{"kubernetes.azure.com/agentpool":"ap1"}}}'
+            The status should be success
+            The output should include 'localDNS update completed successfully'
+            The contents of file "${TEST_ANC_ARGS_FILE}" should equal "apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE} --agent-pool ap1"
+        End
+
+        It 'leaves the agent pool to aks-node-controller when the Node object has no label'
+            When call updateLocalDNS '{}' '{"metadata":{"labels":{}}}'
+            The status should be success
+            The output should include 'localDNS update completed successfully'
+            The contents of file "${TEST_ANC_ARGS_FILE}" should equal "apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE}"
         End
     End
 
