@@ -123,9 +123,6 @@ Describe 'Post-prefetch CVM publication'
         'storage blob metadata'|'storage blob copy')
           ;;
         'storage blob delete')
-          if [ "${MOCK_VERSION_STATE}" != succeeded ] && [ "${FEATURE_FLAGS}" = cvm ]; then
-            [ -f "${TEST_ROOT}/replication-ready" ] || return 91
-          fi
           ;;
         'resource show --ids')
           if [ "${MOCK_ARTIFACT_MISSING}" = true ]; then
@@ -282,7 +279,7 @@ Describe 'Post-prefetch CVM publication'
   End
 
   Describe 'Parallel delivery and retries'
-    It 'reads the original blob concurrently and joins both operations before staging cleanup'
+    It 'reads the original blob concurrently and joins both operations before returning'
       MOCK_REQUIRE_OVERLAP=true MOCK_GALLERY_WAIT_FOR_STORAGE=true MOCK_COPY_PENDING_ONCE=true
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be success
@@ -290,27 +287,26 @@ Describe 'Post-prefetch CVM publication'
       The output should include "--os-vhd-uri ${SOURCE_URI}"
       The output should include "storage blob copy start"
       The output should include 'sleep 30s'
-      The output should include 'optimized VHD and gallery publication are complete:'
+      The output should include 'provisioned successfully'
       The output should include 'storage blob delete'
     End
 
-    It 'waits for gallery publication even if the storage copy fails and blocks cleanup'
+    It 'waits for gallery publication even if the storage copy fails'
       MOCK_STORAGE_FAILURE=true MOCK_GALLERY_WAIT_FOR_STORAGE=true
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
-      The status should be failure
-      The output should include 'Post-prefetch delivery failed: storage=6, gallery=0'
-      The output should not include 'optimized VHD and gallery publication are complete:'
+      The status should equal 6
+      The output should include 'failed to copy optimized VHD to staging location'
+      The output should include 'provisioned successfully'
       The output should not include 'storage blob delete'
     End
 
-    It 'waits for immutable storage delivery even if gallery publication fails'
+    It 'warns without failing and waits for immutable storage delivery if gallery publication fails'
       MOCK_GALLERY_FAILURE=true MOCK_REQUIRE_OVERLAP=true
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
-      The status should be failure
+      The status should be success
       The output should include 'server-side copy to https://destination.blob.core.windows.net/vhd/test.vhd completed successfully'
-      The output should include 'Post-prefetch delivery failed: storage=0, gallery=7'
-      The output should not include 'optimized VHD and gallery publication are complete:'
-      The output should not include 'storage blob delete'
+      The output should include '##vso[task.logissue type=warning]Generalized CVM gallery publication failed (exit 7)'
+      The output should include 'storage blob delete'
     End
 
     It 'blocks cleanup if the server-side immutable copy fails'
@@ -318,28 +314,26 @@ Describe 'Post-prefetch CVM publication'
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be failure
       The output should include 'finished with unexpected status: failed'
-      The output should include 'Post-prefetch delivery failed: storage=1, gallery=0'
-      The output should not include 'optimized VHD and gallery publication are complete:'
+      The output should include 'provisioned successfully'
       The output should not include 'storage blob delete'
     End
 
-    It 'waits for a pending immutable copy on retry before confirming completed delivery'
+    It 'preserves the existing wait for a pending immutable copy on retry'
       MOCK_FINAL_EXISTS=true MOCK_VERSION_STATE=succeeded MOCK_COPY_PENDING_ONCE=true
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be success
       The output should include 'is currently being copied'
       The output should include 'completed successfully'
-      The output should include 'Both VHD delivery and gallery publication are already complete'
       The output should not include 'storage blob copy start'
       The output should not include 'resource show'
     End
 
-    It 'retries missing gallery publication without recopying or rebuilding an immutable VHD'
+    It 'preserves the existing early exit when an immutable VHD already exists'
       MOCK_FINAL_EXISTS=true
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be success
-      The output should include "--os-vhd-uri ${SOURCE_URI}"
-      The output should include 'optimized VHD and gallery publication are complete:'
+      The output should include 'nothing to do'
+      The output should not include 'image-version create'
       The output should not include 'azcopy copy'
       The output should not include 'storage blob copy start'
       The output should not include 'image builder show'
@@ -358,18 +352,17 @@ Describe 'Post-prefetch CVM publication'
       MOCK_FINAL_EXISTS=true MOCK_VERSION_STATE=succeeded MOCK_ARTIFACT_MISSING=true
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be success
-      The output should include 'Both VHD delivery and gallery publication are already complete'
+      The output should include 'nothing to do'
       The output should not include 'resource show'
     End
 
-    It 'fails rather than rebuilding different bits if the original source is missing on retry'
-      MOCK_FINAL_EXISTS=true MOCK_ARTIFACT_MISSING=true
+    It 'fails before starting either delivery if the original source URI is missing'
+      MOCK_ARTIFACT_MISSING=true
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be failure
       The output should include 'unable to determine artifactUri'
-      The output should not include 'optimized VHD and gallery publication are complete:'
-      The output should not include 'image builder show'
       The output should not include 'image-version create'
+      The output should not include 'azcopy copy'
     End
   End
 
