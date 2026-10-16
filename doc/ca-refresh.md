@@ -2,6 +2,9 @@
 
 ## Linux
 
+Legacy certificate retrieval accepts leaf filenames only, retaining the existing
+`.cer` to `.crt` conversion. Invalid names are skipped with a warning.
+
 `init-aks-cloud.sh` is embedded in CustomData, which has a strict size limit.
 Keep diagnostics small and account for the encoded payload size, not just the
 script's source size.
@@ -57,6 +60,10 @@ imports CA certificates during provisioning and scheduled refreshes. Normal
 output includes the endpoint mode, concise opt-in status for RCV1P, and a count
 of certificates successfully imported. Legacy mode does not perform an opt-in
 check.
+
+Legacy filenames must be nonempty leaf names without path or drive separators.
+Invalid names are skipped with a warning; if none remain, refresh returns false
+or throws when `-FailOnError` is set.
 
 Successful first-attempt requests and individual certificate writes/imports are
 not logged. The CA-specific request helper still logs genuine retry attempts and

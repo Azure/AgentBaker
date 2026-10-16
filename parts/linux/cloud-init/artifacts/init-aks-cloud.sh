@@ -177,6 +177,8 @@ function retrieve_legacy_certs {
     local cert_names
     local cert_bodies
     local i
+    local cert_name
+    local sanitized_filename
 
     certs=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=cacertificates&ext=json")
     if [ -z "$certs" ]; then
@@ -184,12 +186,19 @@ function retrieve_legacy_certs {
         return 1
     fi
 
-    IFS_backup=$IFS
+    local IFS_backup=$IFS
     IFS=$'\r\n'
     cert_names=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
     cert_bodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
     for i in ${!cert_bodies[@]}; do
-        echo ${cert_bodies[$i]} | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${cert_names[$i]} | sed 's/.cer/.crt/g')"
+        cert_name="${cert_names[$i]:-}"
+        sanitized_filename=$(basename -- "$cert_name")
+        if [ "$sanitized_filename" != "$cert_name" ] || [ -z "$sanitized_filename" ] || \
+           [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
+            echo "Warning: rejecting invalid certificate filename: '$cert_name'"
+            continue
+        fi
+        echo "${cert_bodies[$i]}" | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo "$sanitized_filename" | sed 's/.cer/.crt/g')"
     done
     IFS=$IFS_backup
 }
