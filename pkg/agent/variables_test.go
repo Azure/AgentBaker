@@ -15,7 +15,8 @@ func TestNetworkNameOverrides(t *testing.T) {
 	profileRouteTable := "profile-route-table"
 	profileSubnet := "profile-subnet"
 	empty := ""
-	customSubnetID := "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-resource-group/providers/Microsoft.Network/virtualNetworks/test-vnet/subnets/pool-subnet"
+	customSubnetID := "/subscriptions/00000000-0000-0000-0000-000000000000" +
+		"/resourceGroups/test-resource-group/providers/Microsoft.Network/virtualNetworks/test-vnet/subnets/pool-subnet"
 	tests := []struct {
 		name           string
 		subnetID       string

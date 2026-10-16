@@ -117,17 +117,13 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		agentPoolProfileWindows = &datamodel.AgentPoolWindowsProfile{}
 	}
 
-	subnetName := ""
+	subnetName := cs.Properties.GetSubnetName()
 	if config.SubnetName != nil {
 		subnetName = *config.SubnetName
-	} else {
-		subnetName = cs.Properties.GetSubnetName()
 	}
-	routeTableName := ""
+	routeTableName := cs.Properties.GetRouteTableName()
 	if config.RouteTableName != nil {
 		routeTableName = *config.RouteTableName
-	} else {
-		routeTableName = cs.Properties.GetRouteTableName()
 	}
 
 	return map[string]interface{}{
