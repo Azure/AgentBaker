@@ -506,6 +506,9 @@ configureK8s() {
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
         if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+            # client.key is the kubelet client private key; restrict to root before writing
+            touch /etc/kubernetes/certs/client.key
+            chmod 0600 /etc/kubernetes/certs/client.key
             echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
         fi
         if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
