@@ -21,11 +21,10 @@ Describe 'Post-prefetch CVM publication'
     export MOCK_FINAL_EXISTS=false MOCK_STAGING_COMPLETE=false MOCK_VERSION_STATE=missing
     export MOCK_STORAGE_FAILURE=false MOCK_GALLERY_FAILURE=false MOCK_REQUIRE_OVERLAP=false
     export MOCK_GALLERY_WAIT_FOR_STORAGE=false MOCK_REPLICATION_PENDING_ONCE=false
-    export MOCK_ARTIFACT_MISSING=false MOCK_TEMPLATE_DELETE_FAILURE=false
+    export MOCK_ARTIFACT_MISSING=false
     export MOCK_DEFINITION_EXISTS=true MOCK_VERSION_READ_FAILURE=false
     export MOCK_REPLICATION_FAILURE=false
     export MOCK_COPY_PENDING_ONCE=false MOCK_COPY_STATUS=success
-    export PREFETCH_DELIVERY_COMPLETE=False
 
     wait_for_marker() {
       local attempt
@@ -134,13 +133,7 @@ Describe 'Post-prefetch CVM publication'
           ;;
         'image builder wait')
           ;;
-        'image builder delete')
-          [ "${MOCK_TEMPLATE_DELETE_FAILURE}" = true ] && return 8
-          touch "${TEST_ROOT}/template-deleted"
-          return 0
-          ;;
         'group delete -g')
-          [ -f "${TEST_ROOT}/template-deleted" ] || return 92
           ;;
         *)
           echo "Unexpected Azure call: $*" >&2
@@ -277,7 +270,7 @@ Describe 'Post-prefetch CVM publication'
       The output should include "--os-vhd-uri ${SOURCE_URI}"
       The output should include "storage blob copy start"
       The output should include 'sleep 30s'
-      The output should include 'variable=PREFETCH_DELIVERY_COMPLETE]True'
+      The output should include 'optimized VHD and gallery publication are complete:'
       The output should include 'storage blob delete'
     End
 
@@ -286,7 +279,7 @@ Describe 'Post-prefetch CVM publication'
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be failure
       The output should include 'Post-prefetch delivery failed: storage=6, gallery=0'
-      The output should not include 'variable=PREFETCH_DELIVERY_COMPLETE]True'
+      The output should not include 'optimized VHD and gallery publication are complete:'
       The output should not include 'storage blob delete'
     End
 
@@ -296,7 +289,7 @@ Describe 'Post-prefetch CVM publication'
       The status should be failure
       The output should include 'server-side copy to https://destination.blob.core.windows.net/vhd/test.vhd completed successfully'
       The output should include 'Post-prefetch delivery failed: storage=0, gallery=7'
-      The output should not include 'variable=PREFETCH_DELIVERY_COMPLETE]True'
+      The output should not include 'optimized VHD and gallery publication are complete:'
       The output should not include 'storage blob delete'
     End
 
@@ -306,7 +299,7 @@ Describe 'Post-prefetch CVM publication'
       The status should be failure
       The output should include 'finished with unexpected status: failed'
       The output should include 'Post-prefetch delivery failed: storage=1, gallery=0'
-      The output should not include 'variable=PREFETCH_DELIVERY_COMPLETE]True'
+      The output should not include 'optimized VHD and gallery publication are complete:'
       The output should not include 'storage blob delete'
     End
 
@@ -316,7 +309,7 @@ Describe 'Post-prefetch CVM publication'
       The status should be success
       The output should include 'is currently being copied'
       The output should include 'completed successfully'
-      The output should include 'variable=PREFETCH_DELIVERY_COMPLETE]True'
+      The output should include 'Both VHD delivery and gallery publication are already complete'
       The output should not include 'storage blob copy start'
       The output should not include 'resource show'
     End
@@ -326,7 +319,7 @@ Describe 'Post-prefetch CVM publication'
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be success
       The output should include "--os-vhd-uri ${SOURCE_URI}"
-      The output should include 'variable=PREFETCH_DELIVERY_COMPLETE]True'
+      The output should include 'optimized VHD and gallery publication are complete:'
       The output should not include 'azcopy copy'
       The output should not include 'storage blob copy start'
       The output should not include 'image builder show'
@@ -346,7 +339,6 @@ Describe 'Post-prefetch CVM publication'
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be success
       The output should include 'Both VHD delivery and gallery publication are already complete'
-      The output should include 'variable=PREFETCH_DELIVERY_COMPLETE]True'
       The output should not include 'resource show'
     End
 
@@ -355,34 +347,18 @@ Describe 'Post-prefetch CVM publication'
       When call run_script vhdbuilder/prefetch/scripts/optimize.sh
       The status should be failure
       The output should include 'unable to determine artifactUri'
-      The output should not include 'variable=PREFETCH_DELIVERY_COMPLETE]True'
+      The output should not include 'optimized VHD and gallery publication are complete:'
       The output should not include 'image builder show'
       The output should not include 'image-version create'
     End
   End
 
   Describe 'Image Builder cleanup'
-    It 'rejects cleanup without confirmation that both deliveries completed'
-      When call run_script vhdbuilder/prefetch/scripts/cleanup.sh
-      The status should be failure
-      The output should include 'must both complete before cleanup'
-      The output should not include 'image builder delete'
-      The output should not include 'group delete'
-    End
-
-    It 'deletes the template before requesting resource group deletion'
-      PREFETCH_DELIVERY_COMPLETE=True
+    It 'retains resource group cleanup without additional prerequisites'
       When call run_script vhdbuilder/prefetch/scripts/cleanup.sh
       The status should be success
-      The output should include 'image builder delete -g image-builder-1.2.3-run -n template-1.2.3-run'
       The output should include 'group delete -g image-builder-1.2.3-run --yes --no-wait'
-    End
-
-    It 'does not delete the resource group if template deletion fails'
-      PREFETCH_DELIVERY_COMPLETE=True MOCK_TEMPLATE_DELETE_FAILURE=true
-      When call run_script vhdbuilder/prefetch/scripts/cleanup.sh
-      The status should be failure
-      The output should not include 'group delete'
+      The output should not include 'image builder delete'
     End
   End
 End

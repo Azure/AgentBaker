@@ -60,13 +60,11 @@ GENERALIZED_CVM_PUBLISHER="$(dirname "${BASH_SOURCE[0]}")/../../packer/publish-g
 VHD_COPY_COMPLETE=false
 
 main() {
-    echo "##vso[task.setvariable variable=PREFETCH_DELIVERY_COMPLETE]False"
     check_for_existing_vhd || exit $?
 
     if [ "${VHD_COPY_COMPLETE}" = true ]; then
         if "${GENERALIZED_CVM_PUBLISHER}" --check-only; then
             echo "Both VHD delivery and gallery publication are already complete"
-            echo "##vso[task.setvariable variable=PREFETCH_DELIVERY_COMPLETE]True"
             return 0
         fi
         # Reuse the original output on publication retries; rebuilding could publish different
@@ -76,7 +74,6 @@ main() {
         run_image_builder_template || exit $?
     fi
     copy_optimized_vhd || exit $?
-    echo "##vso[task.setvariable variable=PREFETCH_DELIVERY_COMPLETE]True"
 }
 
 check_for_existing_vhd() {
