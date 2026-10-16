@@ -668,6 +668,14 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 	}
 }
 
+func getKubeletConfigFileContentForNode(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.KubeletConfigFileConfig != nil && IsKubeletConfigFileEnabled(config.ContainerService, config.AgentPoolProfile, config.EnableKubeletConfigFile) {
+		content, _ := json.MarshalIndent(config.KubeletConfigFileConfig, "", "    ")
+		return string(content)
+	}
+	return GetKubeletConfigFileContent(config.KubeletConfig, config.AgentPoolProfile.CustomKubeletConfig)
+}
+
 // GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
 func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
 	if kc == nil {
