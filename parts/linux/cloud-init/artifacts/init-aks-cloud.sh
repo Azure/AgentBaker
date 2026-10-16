@@ -196,7 +196,7 @@ function retrieve_legacy_certs {
 
     while IFS= read -r certificate; do
         [ -n "$certificate" ] || continue
-        if ! cert_name=$(jq -r '.Name // "" | strings' <<< "$certificate" 2>/dev/null); then
+        if ! cert_name=$(jq -r '.Name // "" | strings | select(index("\u0000") == null)' <<< "$certificate" 2>/dev/null); then
             echo "Warning: failed to parse legacy certificate name"
             return 1
         fi

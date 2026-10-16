@@ -155,6 +155,15 @@ Describe 'legacy CA certificate filenames'
         The contents of file "${TEST_DIR}/certs/second.crt" should eq $'line one\nline "two"\\end'
     End
 
+    It 'rejects a NUL-containing name without overwriting a valid certificate'
+        CERT_RESPONSE='{"Certificates":[{"Name":"valid.cer","CertBody":"valid-body"},{"Name":"valid\u0000.cer","CertBody":"rejected-body"}]}'
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should include 'Warning: rejecting invalid certificate filename:'
+        The stderr should be blank
+        The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid-body'
+    End
+
     It 'accepts an empty certificate array without writing certificates'
         CERT_RESPONSE='{"Certificates":[]}'
         When call retrieve_legacy_certs
