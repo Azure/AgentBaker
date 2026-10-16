@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-SOURCE_VHD_URI="${1:?source VHD URI or --check-only is required}"
+SOURCE_VHD_URI="${1:?source VHD URI is required}"
 
 if [[ "${FEATURE_FLAGS,,}" != *cvm* || ! "${OS_SKU,,}" =~ ^(ubuntu|azurelinux)$ ]]; then
     echo "Generalized CVM publication is not required for OS_SKU=${OS_SKU:-unset}, FEATURE_FLAGS=${FEATURE_FLAGS:-unset}"
@@ -16,15 +16,6 @@ gallery_args=(
 )
 definition_args=("${gallery_args[@]}" --gallery-image-definition "${SKU_NAME:?}")
 version_args=("${definition_args[@]}" --gallery-image-version "${CAPTURED_SIG_VERSION:?}")
-
-if [[ "${SOURCE_VHD_URI}" = "--check-only" ]]; then
-    version_info="$(az sig image-version show "${version_args[@]}" --expand ReplicationStatus --output json)"
-    if ! jq -e '.provisioningState == "Succeeded" and .replicationStatus.aggregatedState == "Completed"' <<<"${version_info}" >/dev/null; then
-        echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} publication is not complete" >&2
-        exit 1
-    fi
-    exit 0
-fi
 
 if [[ ! "${SOURCE_VHD_URI}" =~ ^https://([a-z0-9]{3,24})\.blob\.[^/]+/.+ ]]; then
     echo "Source VHD must be an Azure Storage blob URL" >&2
@@ -57,16 +48,11 @@ if [[ -z "${definition_id}" || "${definition_id}" = "None" ]]; then
     az resource update --ids "${definition_id}" --set properties.allowUpdateImage=true --only-show-errors >/dev/null
 fi
 
-target_regions=(eastus westeurope)
-if [[ "${source_location}" != "eastus" && "${source_location}" != "westeurope" ]]; then
-    target_regions+=("${source_location}")
-fi
-
 az sig image-version create "${version_args[@]}" \
     --location "${source_location}" \
     --os-vhd-uri "${SOURCE_VHD_URI}" \
     --os-vhd-storage-account "${source_storage_id}" \
-    --target-regions "${target_regions[@]}" \
+    --target-regions westus \
     --tags "buildId=${BUILD_BUILDID:?}" "createdBy=aks-vhd-pipeline" >/dev/null
 
 az sig image-version wait "${version_args[@]}" --expand ReplicationStatus \

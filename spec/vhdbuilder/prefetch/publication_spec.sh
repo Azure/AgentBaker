@@ -184,18 +184,19 @@ Describe 'Post-prefetch CVM publication'
       The output should include "--os-vhd-uri ${SOURCE_URI}"
       The output should include '--os-vhd-storage-account /subscriptions/test-subscription/resourceGroups/IT_staging/providers/Microsoft.Storage/storageAccounts/sourceaccount'
       The output should include '--location northeurope'
-      The output should include '--target-regions eastus westeurope northeurope'
+      The output should include '--target-regions westus --tags'
       The output should include 'buildId=123'
       The output should not include '--managed-image'
       The output should not include 'image create'
       The output should not include 'image delete'
     End
 
-    It 'does not duplicate the source region when it is already a replication target'
-      MOCK_SOURCE_LOCATION=eastus
+    It 'replicates only to West US'
       When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh "${SOURCE_URI}"
       The status should be success
-      The output should include '--target-regions eastus westeurope --tags'
+      The output should include '--target-regions westus --tags'
+      The output should not include 'eastus'
+      The output should not include 'westeurope'
     End
 
     It 'creates a generalized Gen2 confidential-VM-supported definition when needed'
@@ -225,25 +226,6 @@ Describe 'Post-prefetch CVM publication'
       The output should not include 'image-version create'
     End
 
-    It 'checks completion without mutating Azure resources'
-      MOCK_VERSION_STATE=missing
-      When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh --check-only
-      The status should be failure
-      The output should include 'ResourceNotFound'
-      The output should not include 'image-definition list'
-      The output should not include 'image-version create'
-      The output should not include 'image-version delete'
-    End
-
-    It 'surfaces authorization failures when checking completion'
-      MOCK_VERSION_READ_FAILURE=true
-      When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh --check-only
-      The status should be failure
-      The output should include 'AuthorizationFailed'
-      The output should not include 'image-version create'
-      The output should not include 'image-version delete'
-    End
-
     It 'does not inspect or delete failed versions before publishing'
       MOCK_VERSION_STATE=failed
       When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh "${SOURCE_URI}"
@@ -260,13 +242,6 @@ Describe 'Post-prefetch CVM publication'
       The status should be failure
       The output should include 'Gallery replication did not complete'
       The output should not include 'provisioned successfully'
-    End
-
-    It 'does not treat incomplete replication as completed delivery'
-      MOCK_VERSION_STATE=succeeded MOCK_REPLICATION_PENDING_ONCE=true
-      When call run_script vhdbuilder/packer/publish-generalized-cvm-if-required.sh --check-only
-      The status should be failure
-      The output should include 'publication is not complete'
     End
 
     It 'skips unsupported OS flavors without storage lookups'
