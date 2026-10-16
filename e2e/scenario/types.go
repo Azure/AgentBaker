@@ -141,6 +141,13 @@ type Config struct {
 	// VHD is the node image used by the scenario.
 	VHD *config.Image
 
+	// ClusterTest owns node provisioning and validation after the shared AKS cluster
+	// and per-test Kubernetes client are ready. When set, the normal AgentBaker
+	// raw-VMSS provisioning path is skipped. This is intended for compatibility
+	// scenarios which must exercise an external node provisioner, such as OSS
+	// Karpenter, rather than an AgentBaker-generated VMSS model.
+	ClusterTest func(ctx context.Context, s *Scenario) error
+
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
