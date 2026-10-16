@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -182,6 +183,59 @@ func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) (*p
 		return nil, fmt.Errorf("execute command %q on VM: %w", cmd, err)
 	}
 	return result, nil
+}
+
+func copyFileFromVM(ctx context.Context, s *Scenario, remotePath string, maxBytes int64) (data []byte, err error) {
+	if s == nil || s.Runtime == nil || s.Runtime.VM == nil || s.Runtime.VM.SSHClient == nil {
+		return nil, fmt.Errorf("cannot copy remote file without an SSH client")
+	}
+	if maxBytes <= 0 {
+		return nil, fmt.Errorf("maximum remote file size must be positive")
+	}
+
+	client := s.Runtime.VM.SSHClient
+	select {
+	case client.operations <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-client.operations }()
+
+	scpClient, err := scp.NewClientBySSH(client.Client)
+	if err != nil {
+		return nil, fmt.Errorf("create SCP client: %w", err)
+	}
+	defer scpClient.Close()
+
+	var buffer bytes.Buffer
+	writer := &boundedWriter{writer: &buffer, remaining: maxBytes}
+	stop := context.AfterFunc(ctx, func() { _ = client.Close() })
+	defer func() {
+		stop()
+		if ctx.Err() != nil {
+			data = nil
+			err = fmt.Errorf("SCP download canceled or timed out: %w", ctx.Err())
+		}
+	}()
+
+	if err := scpClient.CopyFromRemotePassThru(context.WithoutCancel(ctx), writer, remotePath, nil); err != nil {
+		return nil, fmt.Errorf("copy remote file %q: %w", remotePath, err)
+	}
+	return buffer.Bytes(), nil
+}
+
+type boundedWriter struct {
+	writer    io.Writer
+	remaining int64
+}
+
+func (w *boundedWriter) Write(p []byte) (int, error) {
+	if int64(len(p)) > w.remaining {
+		return 0, fmt.Errorf("remote file exceeds maximum size")
+	}
+	n, err := w.writer.Write(p)
+	w.remaining -= int64(n)
+	return n, err
 }
 
 func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) (*podExecResult, error) {
