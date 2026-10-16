@@ -45,11 +45,51 @@ LOCALDNS_METRICS_URL="${LOCALDNS_METRICS_URL:-http://127.0.0.1:9253/metrics}"
 LOCALDNS_RELOAD_TIMEOUT_SECONDS="${LOCALDNS_RELOAD_TIMEOUT_SECONDS:-90}"
 LOCALDNS_RELOAD_POLL_SECONDS="${LOCALDNS_RELOAD_POLL_SECONDS:-2}"
 
+# Prints the part of a localDNS payload that this node's apply depends on, mirroring how
+# aks-node-controller selects it (selectLocalDNSAgentPoolConfig): when the payload is keyed by agent
+# pool, only this pool's entry; otherwise the whole payload. Keys are sorted so the output compares
+# by content. Fails on a payload aks-node-controller would reject, so the caller runs the handler
+# and lets it report the error.
+localDNSAgentPoolSlice() {
+    local payload="$1"
+    local agent_pool="$2"
+
+    printf '%s' "${payload}" | jq -ceS --arg agentPool "${agent_pool}" '
+        if type != "object" then error("localDNS payload is not an object")
+        elif ((.agentPools // {}) | type) != "object" or ((.profiles // {}) | type) != "object" then
+            error("localDNS agentPools/profiles must be objects")
+        elif ((.agentPools // {}) | length) == 0 and ((.profiles // {}) | length) == 0 then {payload: .}
+        else {agentPool: .agentPools[$agentPool], profile: .profiles[$agentPool]}
+        end' 2> /dev/null
+}
+
+# The payload carries every agent pool, so it changes whenever any pool's localDNS config changes.
+# Compare only this node's slice: a change to another pool must not run the handler here, where it
+# can still restart localdns (no usable forward-server record) or fail (no agent pool on disk) even
+# though this node's Corefile would not change. A pool that disappears from the payload still
+# differs (entry -> null), so the handler runs and revokes the earlier patch.
 localDNSIsCurrent() {
     local desired_payload="$1"
     local current_payload="$2"
+    local node_json="$3"
+    local agent_pool
+    local desired_slice
+    local current_slice
 
-    [ "${desired_payload}" = "${current_payload}" ]
+    if [ "${desired_payload}" = "${current_payload}" ]; then
+        return 0
+    fi
+    if ! agent_pool="$(printf '%s' "${node_json}" | jq -er '.metadata.labels["kubernetes.azure.com/agentpool"] // empty' 2> /dev/null)"; then
+        return 1
+    fi
+    if ! desired_slice="$(localDNSAgentPoolSlice "${desired_payload}" "${agent_pool}")"; then
+        return 1
+    fi
+    if ! current_slice="$(localDNSAgentPoolSlice "${current_payload}" "${agent_pool}")"; then
+        return 1
+    fi
+
+    [ "${desired_slice}" = "${current_slice}" ]
 }
 
 # Prints the VNet DNS forward servers localdns.sh recorded on its last start. Fails when the record is

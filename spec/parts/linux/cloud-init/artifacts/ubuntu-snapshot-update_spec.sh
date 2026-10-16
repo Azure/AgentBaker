@@ -309,6 +309,50 @@ EOF
         The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
     End
 
+    # The localDNS payload carries every agent pool, so a change to another pool must be
+    # filtered out by the comparator before the handler runs on this node.
+    It 'does not rerun localDNS when only another agent pool changes'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo "aks-node-controller called with args: $*"
+echo applied
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+        printf '%s' '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"},\"ap2\":{\"corefileVersion\":\"v1\"}}}"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"},\"ap2\":{\"corefileVersion\":\"v2\"}}}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should include 'component is already current: localDNS'
+        The output should not include 'aks-node-controller called'
+        The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
+    End
+
+    It 'reruns localDNS when this agent pool changes'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo "aks-node-controller called with args: $*"
+echo applied
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            [ "$1" != "is-active" ]
+        End
+        mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+        printf '%s' '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"},\"ap2\":{\"corefileVersion\":\"v1\"}}}"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"},\"ap2\":{\"corefileVersion\":\"v1\"}}}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should not include 'component is already current: localDNS'
+        The output should include 'aks-node-controller called with args: apply-localdns-config'
+        The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include 'v2'
+    End
 
     It 'hashes trailing newline bytes before dispatching a valid payload'
         set_payload_goal $'{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}\n\n'
