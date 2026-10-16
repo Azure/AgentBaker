@@ -41,7 +41,7 @@ removeBootstrapKubeconfig() {
     # wait until kubelet-client-current.pem is a symlink to an existing file, indicating kubelet has safely finished TLS bootstrapping
     # and no longer needs the bootstrap credentials present within bootstrap-kubeconfig
     while [ ! -L "$KUBELET_CLIENT_CURRENT_PEM_PATH" ] || [ ! -f "$KUBELET_CLIENT_CURRENT_PEM_PATH" ]; do
-        echo "$KUBELET_CLIENT_CURRENT_PEM_PATH does not yet exist a file or valid symlink, waiting 1s..."
+        echo "$KUBELET_CLIENT_CURRENT_PEM_PATH does not yet exist as a file or valid symlink, waiting another 1s before attempting to remove $BOOTSTRAP_KUBECONFIG_PATH..."
         sleep 1
     done
 
