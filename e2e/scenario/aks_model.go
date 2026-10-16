@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -676,11 +674,6 @@ func createPrivateAzureContainerRegistryPullSecret(ctx context.Context, cluster 
 	privateACRName := config.GetPrivateACRName(isNonAnonymousPull, *cluster.Location)
 	if isNonAnonymousPull {
 		logging.Logf(ctx, "Creating the secret for non-anonymous pull ACR for the e2e debug pods")
-		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
-		if err := fetchAndSaveKubeconfig(ctx, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
-			logging.Logf(ctx, "failed to fetch kubeconfig: %v", err)
-			return err
-		}
 		username, password, err := getAzureContainerRegistryCredentials(ctx, resourceGroup, privateACRName)
 		if err != nil {
 			logging.Logf(ctx, "failed to get private ACR credentials: %v", err)
@@ -770,25 +763,6 @@ func getAzureContainerRegistryCredentials(ctx context.Context, resourceGroup, pr
 	password := *acrCreds.Passwords[0].Value
 	logging.Logf(ctx, "Private Azure Container Registry credentials retrieved")
 	return username, password, nil
-}
-
-func fetchAndSaveKubeconfig(ctx context.Context, resourceGroup, clusterName, kubeconfigPath string) error {
-	adminCredentials, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroup, clusterName, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get cluster admin credentials: %w", err)
-	}
-	if len(adminCredentials.Kubeconfigs) == 0 {
-		return fmt.Errorf("no kubeconfig returned for cluster %s", clusterName)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(kubeconfigPath), 0700); err != nil {
-		return fmt.Errorf("failed to create kubeconfig directory: %w", err)
-	}
-	if err := os.WriteFile(kubeconfigPath, adminCredentials.Kubeconfigs[0].Value, 0600); err != nil {
-		return fmt.Errorf("failed to save kubeconfig to %s: %w", kubeconfigPath, err)
-	}
-	logging.Logf(ctx, "Kubeconfig successfully saved to %s", kubeconfigPath)
-	return nil
 }
 
 func deletePrivateAzureContainerRegistry(ctx context.Context, resourceGroup, privateACRName string) error {
