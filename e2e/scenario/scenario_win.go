@@ -616,46 +616,39 @@ var _ = Register(&Scenario{
 	},
 })
 
-// The gate-specific Kubernetes version and branch CSE require a separate node
-// from the default Windows scenarios.
-var _ = Register(&Scenario{
-	Name:        "Windows2022_Dalec_CredentialProvider",
-	Description: "Tests Windows 2022 selects the Dalec credential provider at Kubernetes 1.33 with a stock RP legacy URL, without falling back",
-	Config: Config{
-		Cluster:                         ClusterAzureNetwork,
-		VHD:                             config.VHDWindows2022ContainerdGen2,
-		VMConfigMutator:                 EmptyVMConfigMutator,
-		BootstrapConfigMutatorWithError: windowsDalecCredentialProviderMutator(cachedWindowsDalecCSEPackageURL),
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return errors.Join(
-				ValidateFileExists(ctx, s, `C:\var\lib\kubelet\credential-provider\acr-credential-provider.exe`),
-				ValidateFileExists(ctx, s, `C:\k\credential-provider-config.yaml`),
-				ValidateFileHasContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Using dalec credential provider"),
-				ValidateFileExcludesContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Failed to install dalec credential provider, falling back to RP URL."),
-			)
-		},
-	},
-})
+// The gate-specific Kubernetes version requires a separate node for each generation.
+// These scenarios require freshly built VHDs with branch CSE and component metadata.
+var _ = Register(newWindowsDalecCredentialProviderScenario("Windows2022_Dalec_CredentialProvider", config.VHDWindows2022ContainerdGen2))
+var _ = Register(newWindowsDalecCredentialProviderScenario("Windows2022Gen1_Dalec_CredentialProvider", config.VHDWindows2022Containerd))
 
-func windowsDalecCredentialProviderMutator(csePackageURL func(context.Context, windowsDalecCSEZipRequest) (string, error)) func(context.Context, *Cluster, *datamodel.NodeBootstrappingConfiguration) error {
-	return func(ctx context.Context, _ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if err := configureWindowsDalecCredentialProvider(nbc,
-			components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"),
-			components.GetExpectedPackageVersions("windows credential provider", "windows", "default")); err != nil {
-			return err
-		}
-		// Remove the branch override once these CSE scripts are published. Preparing
-		// it here keeps registration and CLI listing free of Azure side effects.
-		url, err := csePackageURL(ctx, windowsDalecCSEZipRequest{Location: config.Config.DefaultLocation})
-		if err != nil {
-			return fmt.Errorf("prepare Windows Dalec credential-provider branch CSE: %w", err)
-		}
-		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = url
-		return nil
+func newWindowsDalecCredentialProviderScenario(name string, vhd *config.Image) *Scenario {
+	return &Scenario{
+		Name:        name,
+		Description: "Tests Windows 2022 VHD-embedded CSE selects the Dalec credential provider at Kubernetes 1.33 with a stock RP legacy URL, without falling back",
+		Config: Config{
+			Cluster:                         ClusterAzureNetwork,
+			VHD:                             vhd,
+			VMConfigMutator:                 EmptyVMConfigMutator,
+			BootstrapConfigMutatorWithError: windowsDalecCredentialProviderMutator,
+			Validator: func(ctx context.Context, s *Scenario) error {
+				return errors.Join(
+					ValidateFileExists(ctx, s, `C:\var\lib\kubelet\credential-provider\acr-credential-provider.exe`),
+					ValidateFileExists(ctx, s, `C:\k\credential-provider-config.yaml`),
+					ValidateFileHasContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Using dalec credential provider"),
+					ValidateFileExcludesContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Failed to install dalec credential provider, falling back to RP URL."),
+				)
+			},
+		},
 	}
+}
+
+func windowsDalecCredentialProviderMutator(ctx context.Context, _ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return configureWindowsDalecCredentialProvider(nbc,
+		components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"),
+		components.GetExpectedPackageVersions("windows credential provider", "windows", "default"))
 }
 
 func configureWindowsDalecCredentialProvider(nbc *datamodel.NodeBootstrappingConfiguration, kubeletVersions, legacyProviderVersions []string) error {
