@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-STAGING_VHD_URI="${1:?staging VHD URI is required}"
+SOURCE_VHD_URI="${1:?source VHD URI or --check-only is required}"
 
 cvm_requires_publishing() {
     grep -q "cvm" <<<"${FEATURE_FLAGS,,}" || return 1
@@ -79,34 +79,34 @@ ensure_generalized_image_definition() {
 }
 
 wait_for_successful_provisioning() {
-    local provisioning_state
-
-    echo "Waiting five minutes before checking image version provisioning"
-    sleep 300
+    local version_info provisioning_state replication_state
 
     while true; do
-        if provisioning_state="$(
+        if version_info="$(
             az sig image-version show \
                 --resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
                 --gallery-name "${SIG_GALLERY_NAME}" \
                 --gallery-image-definition "${SKU_NAME}" \
                 --gallery-image-version "${CAPTURED_SIG_VERSION}" \
-                --query provisioningState \
-                --output tsv \
-                --only-show-errors 2>/dev/null
+                --expand ReplicationStatus \
+                --output json \
+                --only-show-errors
         )"; then
-            echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} provisioning state: ${provisioning_state:-unknown}"
+            provisioning_state="$(jq -r '.provisioningState' <<<"${version_info}")"
+            replication_state="$(jq -r '.replicationStatus.aggregatedState' <<<"${version_info}")"
+            echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} provisioning: ${provisioning_state}, replication: ${replication_state}"
 
-            case "${provisioning_state,,}" in
-                succeeded)
+            case "${provisioning_state,,}/${replication_state,,}" in
+                succeeded/completed)
                     return 0
                     ;;
-                failed)
+                failed/*|*/failed)
                     return 1
                     ;;
             esac
         else
-            echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} does not exist yet"
+            echo "Unable to read image version status" >&2
+            return 1
         fi
 
         sleep 60
@@ -132,87 +132,98 @@ delete_failed_image_version() {
         --only-show-errors
 }
 
-cleanup_managed_image() {
-    if az image show \
-        --resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
-        --name "${SKU_NAME}-${CAPTURED_SIG_VERSION}-generalized-${BUILD_BUILDID}" \
-        --only-show-errors >/dev/null 2>&1; then
-        echo "Deleting temporary managed image"
-
-        az image delete \
-            --resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
-            --name "${SKU_NAME}-${CAPTURED_SIG_VERSION}-generalized-${BUILD_BUILDID}" \
-            --only-show-errors
-    fi
-}
-
-ensure_generalized_image_definition
-
-if provisioning_state="$(
+if version_info="$(
     az sig image-version show \
         --resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
         --gallery-name "${SIG_GALLERY_NAME}" \
         --gallery-image-definition "${SKU_NAME}" \
         --gallery-image-version "${CAPTURED_SIG_VERSION}" \
-        --query provisioningState \
-        --output tsv \
-        --only-show-errors 2>/dev/null
+        --expand ReplicationStatus \
+        --output json \
+        --only-show-errors 2>&1
 )"; then
-    case "${provisioning_state,,}" in
-        succeeded)
-            echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} is already provisioned"
+    provisioning_state="$(jq -r '.provisioningState' <<<"${version_info}")"
+    replication_state="$(jq -r '.replicationStatus.aggregatedState' <<<"${version_info}")"
+    case "${provisioning_state,,}/${replication_state,,}" in
+        succeeded/completed)
+            echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} is already provisioned and replicated"
             exit 0
             ;;
-        failed)
-            delete_failed_image_version
-            ;;
-        *)
-            echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} already exists and is provisioning"
-
-            if wait_for_successful_provisioning; then
-                echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} provisioned successfully"
-                exit 0
-            fi
-
-            delete_failed_image_version
-            ;;
     esac
+else
+    if [[ "${version_info}" != *"(ResourceNotFound)"* && "${version_info}" != *"(ParentResourceNotFound)"* ]]; then
+        echo "Unable to read image version: ${version_info}" >&2
+        exit 1
+    fi
+    provisioning_state="missing"
+    replication_state="missing"
 fi
 
-managed_image_id="$(
-    az image create \
-        --resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
-        --name "${SKU_NAME}-${CAPTURED_SIG_VERSION}-generalized-${BUILD_BUILDID}" \
-        --location "${PACKER_BUILD_LOCATION}" \
-        --source "${STAGING_VHD_URI}" \
-        --os-type Linux \
-        --hyper-v-generation V2 \
-        --storage-sku Standard_LRS \
-        --tags \
-            "buildId=${BUILD_BUILDID}" \
-            "createdBy=aks-vhd-pipeline" \
-        --query id \
-        --output tsv \
+if [[ "${SOURCE_VHD_URI}" = "--check-only" ]]; then
+    echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} publication is not complete"
+    exit 1
+fi
+
+ensure_generalized_image_definition
+
+case "${provisioning_state,,}/${replication_state,,}" in
+    missing/*)
+        ;;
+    failed/*|*/failed)
+        delete_failed_image_version
+        ;;
+    *)
+        echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} already exists and is provisioning"
+
+        if wait_for_successful_provisioning; then
+            echo "${SKU_NAME}/${CAPTURED_SIG_VERSION} provisioned successfully"
+            exit 0
+        fi
+
+        echo "Generalized CVM image version did not complete publication" >&2
+        exit 1
+        ;;
+esac
+
+if [[ ! "${SOURCE_VHD_URI}" =~ ^https://([a-z0-9]{3,24})\.blob\.[^/]+/.+ ]]; then
+    echo "Source VHD must be an Azure Storage blob URL" >&2
+    exit 1
+fi
+source_storage_account="${BASH_REMATCH[1]}"
+source_storage_info="$(
+    az storage account list \
+        --query "[?name=='${source_storage_account}'].{id:id,location:location} | [0]" \
+        --output json \
         --only-show-errors
 )"
+source_storage_id="$(jq -r '.id // empty' <<<"${source_storage_info}")"
+source_location="$(jq -r '.location // empty' <<<"${source_storage_info}")"
+if [[ -z "${source_storage_id}" || -z "${source_location}" ]]; then
+    echo "Unable to resolve source storage account ${source_storage_account} and its location" >&2
+    exit 1
+fi
 
-trap cleanup_managed_image EXIT
+target_regions=(eastus westeurope)
+if [[ "${source_location}" != "eastus" && "${source_location}" != "westeurope" ]]; then
+    target_regions+=("${source_location}")
+fi
 
 az sig image-version create \
     --resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
     --gallery-name "${SIG_GALLERY_NAME}" \
     --gallery-image-definition "${SKU_NAME}" \
     --gallery-image-version "${CAPTURED_SIG_VERSION}" \
-    --managed-image "${managed_image_id}" \
-    --target-regions eastus westeurope \
+    --location "${source_location}" \
+    --os-vhd-uri "${SOURCE_VHD_URI}" \
+    --os-vhd-storage-account "${source_storage_id}" \
+    --target-regions "${target_regions[@]}" \
     --tags \
         "buildId=${BUILD_BUILDID}" \
         "createdBy=aks-vhd-pipeline" \
     --only-show-errors >/dev/null
 
 if ! wait_for_successful_provisioning; then
-    delete_failed_image_version
-    echo "Generalized CVM image version failed to provision" >&2
+    echo "Generalized CVM image version did not complete publication" >&2
     exit 1
 fi
 

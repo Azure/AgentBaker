@@ -56,46 +56,62 @@ DESTINATION_STORAGE_ACCOUNT_NAME="${STORAGE_ACCOUNT_BLOB_URL#*://}"
 DESTINATION_STORAGE_ACCOUNT_NAME="${DESTINATION_STORAGE_ACCOUNT_NAME%%.*}"
 DESTINATION_CONTAINER_NAME="${STORAGE_ACCOUNT_BLOB_URL##*/}"
 STAGING_VHD_URI="${STORAGE_ACCOUNT_BLOB_URL_STAGING}/${VHD_NAME}"
+GENERALIZED_CVM_PUBLISHER="$(dirname "${BASH_SOURCE[0]}")/../../packer/publish-generalized-cvm-if-required.sh"
+VHD_COPY_COMPLETE=false
 
 main() {
-    # for idempotency, check whether the target VHD already exists. If a previous run already produced it
-    # successfully, exit early; if a server-side copy is still in progress, wait for it to finish. Because
-    # the destination container may be immutable, a VHD left in a bad state cannot be deleted and recreated
-    # and is treated as fatal.
-    check_for_existing_vhd
+    echo "##vso[task.setvariable variable=PREFETCH_DELIVERY_COMPLETE]False"
+    check_for_existing_vhd || exit $?
 
-    # attempt to perform prefetch optimization, distributing the optimized image as a VHD into the
-    # image builder staging storage account, then copy that VHD into the target storage account
-    ensure_image_builder_rg || exit $?
-    run_image_builder_template || exit $?
+    if [ "${VHD_COPY_COMPLETE}" = true ]; then
+        if "${GENERALIZED_CVM_PUBLISHER}" --check-only; then
+            echo "Both VHD delivery and gallery publication are already complete"
+            echo "##vso[task.setvariable variable=PREFETCH_DELIVERY_COMPLETE]True"
+            return 0
+        fi
+        # Reuse the original output on publication retries; rebuilding could publish different
+        # contents from those already delivered to the immutable container.
+    else
+        ensure_image_builder_rg || exit $?
+        run_image_builder_template || exit $?
+    fi
     copy_optimized_vhd || exit $?
+    echo "##vso[task.setvariable variable=PREFETCH_DELIVERY_COMPLETE]True"
 }
 
 check_for_existing_vhd() {
-    if [ "$(az storage blob exists --blob-url "${VHD_URI}" --auth-mode login | jq -r '.exists')" = "false" ]; then
+    local exists copy_status
+    exists="$(az storage blob exists --blob-url "${VHD_URI}" --auth-mode login | jq -r '.exists')" || return $?
+    if [ "${exists}" = "false" ]; then
         echo "no existing VHD was found at: ${VHD_URI}, will proceed with optimization and VHD creation"
         return 0
+    fi
+    if [ "${exists}" != "true" ]; then
+        echo "Unable to determine whether VHD ${VHD_URI} exists" >&2
+        return 1
     fi
     echo "VHD already exists at: ${VHD_URI}"
 
     # the VHD in a potentially immutable container is produced by a server-side blob copy, so its copy status
     # tells us whether a previous run already completed. Because the container may have an immutability policy,
     # a VHD in a bad state cannot be deleted and recreated, so any non-success terminal state is fatal.
-    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
+    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')" || return $?
     if [ "${copy_status,,}" = "success" ]; then
-        echo "VHD ${VHD_URI} was already produced by a previous prefetch optimization run, nothing to do"
-        exit 0
+        echo "VHD ${VHD_URI} was already produced by a previous prefetch optimization run"
+        VHD_COPY_COMPLETE=true
+        return 0
     fi
     if [ "${copy_status,,}" = "pending" ]; then
         echo "VHD ${VHD_URI} is currently being copied by a previous prefetch optimization run, will wait for completion"
         if wait_for_vhd_copy; then
-            exit 0
+            VHD_COPY_COMPLETE=true
+            return 0
         fi
     fi
     # the VHD exists in a non-success state within the immutable container. It cannot be deleted due to
     # the immutability policy, so there is nothing we can do to recover - fail the script.
     echo "VHD ${VHD_URI} exists in an unrecoverable copy state: '${copy_status}'"
-    exit 1
+    return 1
 }
 
 ensure_image_builder_rg() {
@@ -308,6 +324,34 @@ create_temp_storage() {
 # 1. azcopy the optimized VHD into the staging container (STORAGE_ACCOUNT_BLOB_URL_STAGING)
 # 2. perform a single server-side blob copy from the staging container into the immutable vhd container
 copy_optimized_vhd() {
+    local artifact_uri gallery_pid gallery_status=0 storage_status=0
+    artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv)" || return $?
+    if [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
+        echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue"
+        return 1
+    fi
+
+    "${GENERALIZED_CVM_PUBLISHER}" "${artifact_uri}" &
+    gallery_pid=$!
+    copy_vhd_to_storage "${artifact_uri}" || storage_status=$?
+    # Always join the publisher, even when storage delivery fails, so cleanup cannot race either reader.
+    wait "${gallery_pid}" || gallery_status=$?
+    if [ "${storage_status}" -ne 0 ] || [ "${gallery_status}" -ne 0 ]; then
+        echo "Post-prefetch delivery failed: storage=${storage_status}, gallery=${gallery_status}" >&2
+        return 1
+    fi
+
+    delete_staging_vhd true || echo "unable to delete staging VHD ${STAGING_VHD_URI}, will proceed"
+    echo "optimized VHD and gallery publication are complete: ${VHD_URI}"
+}
+
+copy_vhd_to_storage() {
+    local artifact_uri="${1:?Image Builder artifact URI is required}"
+    local staging_info staging_blob_name azcopy_exit_code
+    if [ "${VHD_COPY_COMPLETE}" = true ]; then
+        return 0
+    fi
+
     # The staging container should never have an immutability policy, so copying from image builder staging storage is
     # fully retriable. If a previous run already produced a complete staging blob (marked with the
     # prefetched metadata flag) but failed before finishing the server-side copy into the
@@ -323,11 +367,6 @@ copy_optimized_vhd() {
             delete_staging_vhd || return $?
         fi
 
-        artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv 2>/dev/null)"
-        if [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
-            echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue"
-            return 1
-        fi
         echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
         export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
         export AZCOPY_CONCURRENCY_VALUE="AUTO"
@@ -355,24 +394,15 @@ copy_optimized_vhd() {
         --source-uri "${STAGING_VHD_URI}" || return $?
 
     wait_for_vhd_copy || return $?
-
-    "$(dirname "${BASH_SOURCE[0]}")/../../packer/publish-generalized-cvm-if-required.sh" \
-        "${STAGING_VHD_URI}" || return $?
-
-    # the optimized VHD is now safely in the immutable vhd container, so the staging copy is no longer
-    # needed - delete it as best-effort cleanup so staging blobs do not accumulate in the destination account.
-    # Use no-wait since we don't need to wait for the blob to be deleted in this case.
-    delete_staging_vhd true || echo "unable to delete staging VHD ${STAGING_VHD_URI}, will proceed"
-
-    echo "optimized VHD has been published to: ${VHD_URI}"
 }
 
 wait_for_vhd_copy() {
-    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
+    local copy_status
+    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')" || return $?
     while [ "${copy_status,,}" = "pending" ]; do
         echo "server-side copy to ${VHD_URI} is still pending, will wait 30s before checking again"
         sleep 30s
-        copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
+        copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')" || return $?
     done
     if [ "${copy_status,,}" != "success" ]; then
         echo "server-side copy to ${VHD_URI} finished with unexpected status: ${copy_status}"

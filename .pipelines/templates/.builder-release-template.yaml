@@ -382,6 +382,7 @@ steps:
     condition: |
       and(
         succeeded(),
+        eq(variables.PREFETCH_DELIVERY_COMPLETE, 'True'),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
         eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'),
         eq(variables.PREFETCH_COMPATIBLE, 'True')
@@ -390,6 +391,7 @@ steps:
     env:
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+      PREFETCH_DELIVERY_COMPLETE: $(PREFETCH_DELIVERY_COMPLETE)
 
   - task: PublishPipelineArtifact@0
     condition: always()
