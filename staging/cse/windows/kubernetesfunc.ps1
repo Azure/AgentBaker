@@ -409,7 +409,7 @@ function Get-CACertificates {
             foreach ($certificate in $caCerts.Certificates) {
                 $name = $certificate.Name
                 if ([string]::IsNullOrWhiteSpace($name) -or $name -in @('.', '..') -or
-                    $name -match '[\\/:]' -or [IO.Path]::GetFileName($name) -cne $name) {
+                    $name -match '[\\/:*?"<>|\x00-\x1f]' -or [IO.Path]::GetFileName($name) -cne $name) {
                     Write-Log "Warning: rejecting invalid certificate filename: '$name'"
                     continue
                 }

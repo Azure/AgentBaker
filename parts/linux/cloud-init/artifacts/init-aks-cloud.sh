@@ -174,10 +174,9 @@ function is_opted_in_for_root_certs {
 
 function retrieve_legacy_certs {
     local certs
-    local cert_names
-    local cert_bodies
-    local i
+    local certificate
     local cert_name
+    local cert_body
     local sanitized_filename
 
     certs=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=cacertificates&ext=json")
@@ -186,21 +185,29 @@ function retrieve_legacy_certs {
         return 1
     fi
 
-    local IFS_backup=$IFS
-    IFS=$'\r\n'
-    cert_names=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
-    cert_bodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
-    for i in ${!cert_bodies[@]}; do
-        cert_name="${cert_names[$i]:-}"
+    if ! certs=$(jq -c '.Certificates[]' <<< "$certs" 2>/dev/null); then
+        echo "Warning: failed to parse legacy custom cloud certificates"
+        return 1
+    fi
+
+    while IFS= read -r certificate; do
+        [ -n "$certificate" ] || continue
+        if ! cert_name=$(jq -r '.Name // "" | strings' <<< "$certificate" 2>/dev/null); then
+            echo "Warning: failed to parse legacy certificate name"
+            return 1
+        fi
         sanitized_filename=$(basename -- "$cert_name")
         if [ "$sanitized_filename" != "$cert_name" ] || [ -z "$sanitized_filename" ] || \
            [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
             echo "Warning: rejecting invalid certificate filename: '$cert_name'"
             continue
         fi
-        echo "${cert_bodies[$i]}" | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo "$sanitized_filename" | sed 's/.cer/.crt/g')"
-    done
-    IFS=$IFS_backup
+        if ! cert_body=$(jq -er '.CertBody | strings' <<< "$certificate" 2>/dev/null); then
+            echo "Warning: failed to parse legacy certificate body: '$cert_name'"
+            return 1
+        fi
+        printf '%s\n' "${cert_body//$'\r\n'/$'\n'}" > "/root/AzureCACertificates/$(echo "$sanitized_filename" | sed 's/.cer/.crt/g')"
+    done <<< "$certs"
 }
 
 function process_cert_operations {

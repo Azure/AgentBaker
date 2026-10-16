@@ -350,16 +350,34 @@ Describe 'Get-CACertificates' {
         ($logs -join "`n") | Should -Not -Match 'refresh completed'
     }
 
-    It 'continues importing valid legacy certificates after rejecting an invalid name' {
+    It 'continues importing valid legacy certificates after rejecting an invalid name' -TestCases @(
+        @{ Name = '../outside.crt' }
+        @{ Name = 'invalid|name.crt' }
+        @{ Name = 'invalid"name.crt' }
+        @{ Name = 'invalid<name.crt' }
+        @{ Name = 'invalid>name.crt' }
+        @{ Name = 'invalid?name.crt' }
+        @{ Name = 'invalid*name.crt' }
+        @{ Name = "invalid$([char]0)name.crt" }
+        @{ Name = "invalid$([char]31)name.crt" }
+    ) {
+        param($Name)
+        $script:legacyResponse = @{
+            Certificates = @(
+                @{ Name = $Name; CertBody = 'unused-body' }
+                @{ Name = 'Root CA.crt'; CertBody = 'valid-body' }
+            )
+        } | ConvertTo-Json -Depth 3
         Mock Invoke-CACertificatesRequest -MockWith {
-            return [PSCustomObject]@{
-                Content = '{"Certificates":[{"Name":"../outside.crt","CertBody":"unused-body"},{"Name":"Root CA.crt","CertBody":"valid-body"}]}'
-            }
+            return [PSCustomObject]@{ Content = $script:legacyResponse }
         }
 
-        Get-CACertificates -Location 'usnatwest' -FailOnError | Should -Be $true
+        Get-CACertificates -Location 'usnatwest' -FailOnError -InformationVariable logs 6>$null | Should -Be $true
 
         Get-Content (Join-Path $TestDrive 'Root CA.crt') | Should -Be 'valid-body'
+        Assert-MockCalled Join-Path -Exactly -Times 1 -ParameterFilter { $Path -eq 'C:\ca' }
+        ($logs -join "`n") | Should -Match 'Warning: rejecting invalid certificate filename:'
+        Assert-MockCalled Import-Certificate -Exactly -Times 1
         Assert-MockCalled Import-Certificate -Exactly -Times 1 -ParameterFilter {
             $FilePath -eq (Join-Path $TestDrive 'Root CA.crt') -and
             $CertStoreLocation -eq 'Cert:\LocalMachine\Root'

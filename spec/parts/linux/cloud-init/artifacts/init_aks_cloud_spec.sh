@@ -127,6 +127,42 @@ Describe 'legacy CA certificate filenames'
         The path "${TEST_DIR}/outside.crt" should not be exist
         The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid-body'
     End
+
+    Describe 'name and body pairing'
+        Parameters
+            '"Name": "",'
+            '"Name": null,'
+            ''
+        End
+
+        It "keeps the valid body paired after a nameless entry with '$1'"
+            CERT_RESPONSE="{\"Certificates\":[{$1\"CertBody\": \"rejected-body\"},{\"Name\": \"valid.cer\",\"CertBody\": \"valid-body\"}]}"
+            When call retrieve_legacy_certs
+            The status should be success
+            The stdout should include 'Warning: rejecting invalid certificate filename:'
+            The stderr should be blank
+            The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid-body'
+        End
+    End
+
+    It 'preserves JSON-escaped contents in compact responses'
+        CERT_RESPONSE='{"Certificates":[{"Name":"first.cer","CertBody":""},{"Name":"second.cer","CertBody":"line one\r\nline \"two\"\\end"}]}'
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The contents of file "${TEST_DIR}/certs/first.crt" should eq ''
+        The contents of file "${TEST_DIR}/certs/second.crt" should eq $'line one\nline "two"\\end'
+    End
+
+    It 'reports malformed JSON without writing certificates'
+        CERT_RESPONSE='{"Certificates":['
+        When call retrieve_legacy_certs
+        The status should eq 1
+        The stdout should eq 'Warning: failed to parse legacy custom cloud certificates'
+        The stderr should be blank
+        The path "${TEST_DIR}/certs/valid.crt" should not be exist
+    End
 End
 
 Describe 'cse_config_chrony.sh distro routing'
