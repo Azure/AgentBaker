@@ -75,10 +75,10 @@ fi`
     }`
 )
 
-// CustomData builds a base64-encoded MIME multipart document to be used as VM custom data for cloud-init.
-// It encodes the node configuration as JSON, embeds it in a cloud-boothook script that writes the config
-// to disk and starts the aks-node-controller service, then pairs it with a cloud-config part. Cloud-init
-// processes each MIME part according to its Content-Type during the VM's first boot.
+// CustomData builds base64-encoded VM custom data for cloud-init. The boothook writes the node
+// configuration and starts aks-node-controller. CustomData-only provisioning uses a plain boothook
+// so patched cloud-init recognizes the top-level Ready reporting marker. Other modes pair the
+// boothook with a cloud-config part in a MIME multipart document.
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
@@ -93,6 +93,10 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 		encodedAksNodeConfigJSON,
 		enabledFeaturesBlock(cfg),
 	)
+
+	if cfg.GetCustomDataOnlyProvisioning() {
+		return base64.StdEncoding.EncodeToString([]byte(boothook)), nil
+	}
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)
@@ -121,7 +125,7 @@ func readyReportHandoffBlock(cfg *aksnodeconfigv1.Configuration) string {
 }
 
 // CustomDataFlatcar builds base64-encoded custom data for Flatcar Container Linux nodes.
-// Unlike Ubuntu/Azure Linux which use cloud-init and expect MIME multipart custom data,
+// Unlike Ubuntu/Azure Linux which use cloud-init,
 // Flatcar uses Ignition (configured via Butane) to process machine configuration. Ignition
 // consumes a JSON document that declaratively specifies files to write to disk, so we embed
 // the node config directly as a base64 data URI in an Ignition storage entry instead of

@@ -343,10 +343,20 @@ func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
 }
 
 func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t *testing.T) {
-	on := decodeBoothook(t, &aksnodeconfigv1.Configuration{CustomDataOnlyProvisioning: true})
+	customData, err := CustomData(&aksnodeconfigv1.Configuration{CustomDataOnlyProvisioning: true})
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+	on := string(decoded)
 
+	require.True(t, strings.HasPrefix(on, "#cloud-boothook\n"))
+	require.NotContains(t, on, "MIME-Version:")
+	require.NotContains(t, on, "multipart/mixed")
+	require.Contains(t, on, "# azure-experimental-node-ready")
 	require.Contains(t, on, "touch /var/lib/waagent/experimental_skip_ready_report")
 	require.Contains(t, on, "cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned")
+	require.Contains(t, on, AKSNodeConfigFilePath)
+	require.Contains(t, on, "systemctl start --no-block aks-node-controller.service")
 }
 
 func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {
