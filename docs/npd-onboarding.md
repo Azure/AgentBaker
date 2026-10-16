@@ -15,7 +15,8 @@ rpm/tdnf on Azure Linux.
   same config payload (monitors, scripts, `/opt/bin/node-problem-detector-startup.sh`,
   and the systemd unit).
 - The VHD installs both packages, holds them, and caches the config package for
-  recovery. Ubuntu uses `apt-mark hold`. Azure Linux uses
+  recovery. Ubuntu holds them with `dpkg --set-selections` (like `walinuxagent`, avoiding
+  apt-mark's slow apt initialization). Azure Linux uses
   `/etc/tdnf/locks.d/node-problem-detector.conf`; this matters because Azure Linux
   security patching runs `tdnf update` over the ms-oss repository that carries the
   config package. A locked package is skipped without failing that update.

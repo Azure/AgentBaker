@@ -227,7 +227,8 @@ npd_validate_package() {
 
 npd_hold_packages() {
     case "$(npd_package_format)" in
-        deb) apt-mark hold node-problem-detector-aks-config ;;
+        # dpkg selections avoid apt's slow initialization (see holdWALinuxAgent).
+        deb) printf 'node-problem-detector-aks-config hold\n' | dpkg --set-selections ;;
         rpm)
             mkdir -p "$(dirname "${NPD_TDNF_LOCK_FILE}")" || return 1
             grep -qsx node-problem-detector-aks-config "${NPD_TDNF_LOCK_FILE}" ||

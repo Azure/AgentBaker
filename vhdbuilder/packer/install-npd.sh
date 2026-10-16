@@ -12,7 +12,8 @@ NPD_TDNF_LOCK_FILE="/etc/tdnf/locks.d/node-problem-detector.conf"
 holdNPDPackage() {
     local package="$1"
     if isUbuntu; then
-        apt-mark hold "${package}"
+        # dpkg selections avoid apt's slow initialization (see holdWALinuxAgent).
+        printf '%s hold\n' "${package}" | dpkg --set-selections
     else
         mkdir -p "$(dirname "${NPD_TDNF_LOCK_FILE}")" || return 1
         grep -qsx "${package}" "${NPD_TDNF_LOCK_FILE}" || printf '%s\n' "${package}" >> "${NPD_TDNF_LOCK_FILE}"

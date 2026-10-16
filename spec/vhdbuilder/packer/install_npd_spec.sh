@@ -124,7 +124,7 @@ Describe 'NPD VHD installation helper on Ubuntu'
     apt_get_install() { echo "apt_get_install $*" >> "${TEST_CALLS}"; [ "${APT_FAILS}" = false ]; }
     getLatestDebPackageVersion() { printf '%s-ubuntu24.04u1' "$2"; }
     logResolvedPackageVersion() { echo "resolved $*" >> "${TEST_CALLS}"; }
-    apt-mark() { echo "apt-mark $*" >> "${TEST_CALLS}"; }
+    dpkg() { echo "dpkg $* $(cat)" >> "${TEST_CALLS}"; }
     apt-get() { echo "apt-get $*" >> "${TEST_CALLS}"; }
     systemctl() { echo "systemctl $*" >> "${TEST_CALLS}"; }
     ln() { :; }
@@ -133,7 +133,7 @@ Describe 'NPD VHD installation helper on Ubuntu'
         APT_FAILS=true
         When call installNPDPackage node-problem-detector-kubernetes 0.8.25
         The status should be failure
-        The contents of file "${TEST_CALLS}" should not include 'apt-mark'
+        The contents of file "${TEST_CALLS}" should not include 'hold'
     End
 
     It 'installs, holds and caches the config package before validating it'
@@ -141,7 +141,7 @@ Describe 'NPD VHD installation helper on Ubuntu'
         The contents of file "${TEST_CALLS}" should include 'resolved node-problem-detector-aks-config 1.0.0 1.0.0-ubuntu24.04u1'
         The contents of file "${TEST_CALLS}" should include 'apt_get_install 30 1 600 node-problem-detector-aks-config=1.0.0-ubuntu24.04u1'
         The contents of file "${TEST_CALLS}" should include 'apt-get download node-problem-detector-aks-config=1.0.0-ubuntu24.04u1'
-        The contents of file "${TEST_CALLS}" should include 'apt-mark hold node-problem-detector-aks-config'
+        The contents of file "${TEST_CALLS}" should include 'dpkg --set-selections node-problem-detector-aks-config hold'
         # Package-owned executables are absent in the test image, so activation
         # assets must not be prepared and the capture marker must not be written.
         The status should be failure
