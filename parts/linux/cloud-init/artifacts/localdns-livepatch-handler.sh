@@ -54,51 +54,59 @@ localDNSNodeAgentPool() {
     printf '%s' "${node_json}" | jq -er '.metadata.labels["kubernetes.azure.com/agentpool"] // empty' 2> /dev/null
 }
 
-# Prints the part of a localDNS payload that this node's apply depends on, mirroring how
-# aks-node-controller selects it (selectLocalDNSAgentPoolConfig): when the payload is keyed by agent
-# pool, only this pool's entry; otherwise the whole payload. Keys are sorted so the output compares
-# by content. Fails on a payload aks-node-controller would reject, so the caller runs the handler
-# and lets it report the error.
-localDNSAgentPoolSlice() {
+# Prints this node's localDNS version from a payload: the corefileVersion (else configChecksum) of
+# this pool's entry, selected the way aks-node-controller selects it (selectLocalDNSAgentPoolConfig):
+# agentPools, else profiles. That is the value aks-node-controller records in the .version file. The
+# RP computes corefileVersion as a hash of the pool's LocalDNS profile, so it changes exactly when
+# this pool's config does. Prints {"absent":true} when the payload has no entry for this pool. Fails
+# when there is no version to compare -- an entry without one, a payload not keyed by pool, or a
+# payload aks-node-controller would reject -- so the caller runs the handler instead of skipping it.
+localDNSAgentPoolVersion() {
     local payload="$1"
     local agent_pool="$2"
 
-    printf '%s' "${payload}" | jq -ceS --arg agentPool "${agent_pool}" '
+    printf '%s' "${payload}" | jq -ce --arg agentPool "${agent_pool}" '
         if type != "object" then error("localDNS payload is not an object")
         elif ((.agentPools // {}) | type) != "object" or ((.profiles // {}) | type) != "object" then
             error("localDNS agentPools/profiles must be objects")
-        elif ((.agentPools // {}) | length) == 0 and ((.profiles // {}) | length) == 0 then {payload: .}
-        else {agentPool: .agentPools[$agentPool], profile: .profiles[$agentPool]}
+        elif ((.agentPools // {}) | length) == 0 and ((.profiles // {}) | length) == 0 then
+            error("localDNS payload is not keyed by agent pool")
+        else
+            (.agentPools[$agentPool] // .profiles[$agentPool]) as $entry
+            | if $entry == null then {absent: true}
+              elif ($entry | type) != "object" then error("localDNS agent pool entry is not an object")
+              else
+                  [$entry.corefileVersion, $entry.configChecksum] | map(select(type == "string" and . != "")) | first
+                  | if . == null then error("localDNS agent pool entry has no version") else {version: .} end
+              end
         end' 2> /dev/null
 }
 
 # The payload carries every agent pool, so it changes whenever any pool's localDNS config changes.
-# Compare only this node's slice: a change to another pool must not run the handler here, where it
-# can still restart localdns (no usable forward-server record) or fail (no agent pool on disk) even
-# though this node's Corefile would not change. A pool that disappears from the payload still
-# differs (entry -> null), so the handler runs and revokes the earlier patch.
+# Compare only this node's pool, by its corefileVersion: a change to another pool must not run the
+# handler here, where it can still restart localdns (no usable forward-server record) even though
+# this node's Corefile would not change. A pool that disappears from the payload still differs
+# (version -> absent), so the handler runs and revokes the earlier patch. Without a version to
+# compare, the handler runs; it checks what is applied on disk and is a no-op when nothing changed.
 localDNSIsCurrent() {
     local desired_payload="$1"
     local current_payload="$2"
     local node_json="$3"
     local agent_pool
-    local desired_slice
-    local current_slice
+    local desired_version
+    local current_version
 
-    if [ "${desired_payload}" = "${current_payload}" ]; then
-        return 0
-    fi
     if ! agent_pool="$(localDNSNodeAgentPool "${node_json}")"; then
         return 1
     fi
-    if ! desired_slice="$(localDNSAgentPoolSlice "${desired_payload}" "${agent_pool}")"; then
+    if ! desired_version="$(localDNSAgentPoolVersion "${desired_payload}" "${agent_pool}")"; then
         return 1
     fi
-    if ! current_slice="$(localDNSAgentPoolSlice "${current_payload}" "${agent_pool}")"; then
+    if ! current_version="$(localDNSAgentPoolVersion "${current_payload}" "${agent_pool}")"; then
         return 1
     fi
 
-    [ "${desired_slice}" = "${current_slice}" ]
+    [ "${desired_version}" = "${current_version}" ]
 }
 
 # Prints the VNet DNS forward servers localdns.sh recorded on its last start. Fails when the record is
