@@ -15,7 +15,7 @@ func TestNetworkNameOverrides(t *testing.T) {
 	profileRouteTable := "profile-route-table"
 	profileSubnet := "profile-subnet"
 	empty := ""
-	customSubnetID := "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnets/pool-subnet"
+	customSubnetID := "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-resource-group/providers/Microsoft.Network/virtualNetworks/test-vnet/subnets/pool-subnet"
 	tests := []struct {
 		name           string
 		subnetID       string
@@ -26,11 +26,11 @@ func TestNetworkNameOverrides(t *testing.T) {
 	}{
 		{
 			name:           "unset overrides preserve generated names",
-			wantRouteTable: "aks-agentpool-36873793-routetable", wantSubnet: "aks-subnet",
+			wantRouteTable: "aks-agentpool-test-cluster-routetable", wantSubnet: "aks-subnet",
 		},
 		{
 			name: "unset overrides preserve pool subnet", subnetID: customSubnetID,
-			wantRouteTable: "aks-agentpool-36873793-routetable", wantSubnet: "pool-subnet",
+			wantRouteTable: "aks-agentpool-test-cluster-routetable", wantSubnet: "pool-subnet",
 		},
 		{
 			name:           "profile names override generated names",
@@ -55,7 +55,7 @@ func TestNetworkNameOverrides(t *testing.T) {
 		{
 			name:           "subnet override preserves generated route table",
 			subnetName:     &profileSubnet,
-			wantRouteTable: "aks-agentpool-36873793-routetable", wantSubnet: profileSubnet,
+			wantRouteTable: "aks-agentpool-test-cluster-routetable", wantSubnet: profileSubnet,
 		},
 	}
 	for name, render := range map[string]func(*datamodel.NodeBootstrappingConfiguration) paramsMap{
@@ -66,7 +66,7 @@ func TestNetworkNameOverrides(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					config := getDefaultNBC()
-					config.ContainerService.Properties.ClusterID = "36873793"
+					config.ContainerService.Properties.ClusterID = "test-cluster"
 					config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = tt.subnetID
 					config.RouteTableName = tt.routeTableName
 					config.SubnetName = tt.subnetName
