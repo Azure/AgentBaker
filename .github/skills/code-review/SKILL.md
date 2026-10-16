@@ -58,6 +58,25 @@ Analyze PRs for these compatibility scenarios:
   - Missing feature detection to determine which mode is running
   - Hardcoded paths that differ between deployment modes
 
+**3a. Classic vs ANC Provisioning Divergence**
+
+- **Context**: Linux provisioning is implemented through both the classic script path and aks-node-controller (ANC). The implementations may intentionally differ, but behavior that is meant to be shared must remain aligned while the migration is in progress.
+- **What to check**: For every changed provisioning behavior, classify the affected path as classic-only, ANC-only, shared, or intentionally divergent. Compare the two paths for equivalent inputs, outputs, ordering, error handling, and lifecycle placement.
+- **Review surfaces**:
+  - Classic scripts under `parts/linux/cloud-init/artifacts/`
+  - ANC code under `aks-node-controller/`
+  - Generated ANC payloads under `aks-node-controller/generated/`
+  - Wiring and command selection in `pkg/agent/`
+  - Template delivery in `parts/linux/cloud-init/nodecustomdata.yml`
+- For example, for proxy-related changes, compare uppercase and lowercase exports (`HTTP_PROXY`/`http_proxy`, `HTTPS_PROXY`/`https_proxy`, and `NO_PROXY`/`no_proxy`) across classic CSE, ANC compatibility payloads, and generated scripts. Confirm that customer-controlled values remain data passed through dedicated environment variables rather than shell code evaluated by legacy VHDs.
+- **Breaking signals**:
+  - A fix changes only the classic script or only ANC without documenting why the other path is unaffected
+  - The paths use different configuration inputs, environment variables, file paths, commands, or exit/error behavior for the same feature
+  - A change moves work between `basePrep` and `nodePrep` in one path but not the other, causing stale PIS-cached state or unnecessary provisioning work
+  - ANC hotfix generation, embedded payload selection, or version mapping omits a script change that still affects classic provisioning
+  - A new ANC assumption is not available on older VHDs, or classic fallback behavior is lost
+- **Required conclusion**: State whether the changed behavior is aligned across classic and ANC, intentionally divergent with a compatibility justification, or an accidental divergence requiring correction.
+
 **4. PIS / VHD Caching — basePrep vs nodePrep split (Windows + Linux)**
 
 - **Context**: PIS bakes a VHD from a temporary VM, then boots many real nodes from it. Same model in Windows `parts/windows/kuberneteswindowssetup.ps1.template` (`BasePrep`/`NodePrep`) and Linux `parts/linux/cloud-init/artifacts/cse_main.sh` (`basePrep`/`nodePrep`):
