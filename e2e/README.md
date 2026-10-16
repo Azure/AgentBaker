@@ -56,6 +56,18 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### CVM validation
+
+The existing CVM scenarios run standard node validation plus CVM-specific VMSS,
+guest platform, measured-boot PCR, Chrony, and Microsoft Azure Attestation checks.
+Disk security is checked against each scenario's configured encryption mode.
+Attestation verifies the signature, issuer, token validity, scenario nonce, compliance,
+Secure Boot, vTPM, and SEV-SNP or TDX policy claims. The collector retrieves a pinned
+revision of `Azure/cvm-attestation-tools` and its Python dependencies on the test VM.
+Evidence is written under the scenario's `cvm/` artifact directory, with verdicts in
+`cvm/cvm-checks.json` and `cvm-attestation-summary.json`; raw attestation tokens are
+not published.
+
 ### Scriptless provisioning
 
 Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
