@@ -34,15 +34,18 @@ logs_to_events() {
 
 removeBootstrapKubeconfig() {
     if [ ! -f "$BOOTSTRAP_KUBECONFIG_PATH" ]; then
+        echo "$BOOTSTRAP_KUBECONFIG_PATH does not exist, nothing to remove"
         return 0
     fi
 
     # wait until kubelet-client-current.pem is a symlink to an existing file, indicating kubelet has safely finished TLS bootstrapping
     # and no longer needs the bootstrap credentials present within bootstrap-kubeconfig
     while [ ! -L "$KUBELET_CLIENT_CURRENT_PEM_PATH" ] || [ ! -f "$KUBELET_CLIENT_CURRENT_PEM_PATH" ]; do
+        echo "$KUBELET_CLIENT_CURRENT_PEM_PATH does not yet exist a file or valid symlink, waiting 1s..."
         sleep 1
     done
 
+    echo "$KUBELET_CLIENT_CURRENT_PEM_PATH exists, removing $BOOTSTRAP_KUBECONFIG_PATH..."
     rm -f "$BOOTSTRAP_KUBECONFIG_PATH"
 }
 
