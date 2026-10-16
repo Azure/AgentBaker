@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewCVMScenarioUsesWestEuropeAndDefaultValidation(t *testing.T) {
+func TestNewCVMScenarioUsesWestUSAndDefaultValidation(t *testing.T) {
 	s := newCVMScenario(
 		"test",
 		"description",
@@ -21,7 +21,7 @@ func TestNewCVMScenarioUsesWestEuropeAndDefaultValidation(t *testing.T) {
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	)
 
-	assert.Equal(t, cvmLocation, s.Location)
+	assert.Equal(t, "westus", s.Location)
 	assert.True(t, s.Tags.CVM)
 	assert.Equal(t, config.VHDUbuntu2404CVMGen2Containerd, s.VHD)
 	assert.False(t, s.SkipDefaultValidation)
@@ -74,7 +74,7 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 			continue
 		}
 		found[s.Name] = true
-		assert.Equal(t, cvmLocation, s.Location)
+		assert.Equal(t, "westus", s.Location)
 		assert.Equal(t, want.vhd, s.VHD)
 		assert.Equal(t, want.useNVMe, s.UseNVMe)
 		assert.False(t, s.SkipDefaultValidation)

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	cvmLocation = "westeurope"
+	cvmLocation = "westus"
 	cvmSNPSKU   = "Standard_DC2ads_v5"
 	cvmTDXSKU   = "Standard_DC2eds_v6"
 )
