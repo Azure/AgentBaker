@@ -502,7 +502,7 @@ func keepCachedImages(ctx context.Context, images []string, cached map[string]bo
 
 func validateVM(ctx context.Context, s *Scenario) error {
 	defer logging.LogStep(ctx, "validating VM")()
-	if !s.Config.SkipSSHConnectivityValidation {
+	if !s.Config.SkipSSHConnectivityValidation && !s.isWindowsPreProvision() {
 		if err := validateSSHConnectivity(ctx, s); err != nil {
 			return err
 		}
@@ -753,6 +753,15 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 // It is generally slower than SSH because each call creates a VirtualMachineRunCommand
 // resource on the VM and waits for it to provision.
 func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
+	view, err := runCommand(ctx, s, command)
+	if err != nil {
+		return view, err
+	}
+	return view, runCommandScriptError(view)
+}
+
+// runCommand preserves script exit codes for validators that expect non-zero results.
+func runCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
 	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
 		s.Runtime.VM == nil || s.Runtime.VM.VM == nil || s.Runtime.VM.VM.InstanceID == nil {
@@ -809,8 +818,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	if getResp.Properties == nil || getResp.Properties.InstanceView == nil {
 		return armcompute.VirtualMachineRunCommandInstanceView{}, errors.New("RunCommand result missing instance view")
 	}
-	view := *getResp.Properties.InstanceView
-	return view, runCommandScriptError(view)
+	return *getResp.Properties.InstanceView, nil
 }
 
 // runCommandScriptError converts a RunCommand instance view into an error if the

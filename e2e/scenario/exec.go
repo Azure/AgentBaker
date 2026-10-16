@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	scp "github.com/bramvdbogaerde/go-scp"
+	"github.com/samber/lo"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -155,6 +157,26 @@ func runSSHCommand(
 func execScriptOnVm(ctx context.Context, s *Scenario, vm *ScenarioVM, script string) (*podExecResult, error) {
 	if vm == nil {
 		return nil, fmt.Errorf("cannot execute script on a nil VM")
+	}
+	// Windows installs live SSH keys in NodePrep, which does not run during the PIS bake.
+	if s.isWindowsPreProvision() {
+		view, err := runCommand(ctx, s, script)
+		if err != nil {
+			return nil, err
+		}
+		if view.ExitCode == nil {
+			return nil, errors.New("RunCommand result missing exit code")
+		}
+		state := lo.FromPtr(view.ExecutionState)
+		if state != armcompute.ExecutionStateSucceeded &&
+			(state != armcompute.ExecutionStateFailed || *view.ExitCode == 0) {
+			return nil, runCommandScriptError(view)
+		}
+		return &podExecResult{
+			exitCode: strconv.Itoa(int(*view.ExitCode)),
+			stdout:   lo.FromPtr(view.Output),
+			stderr:   lo.FromPtr(view.Error),
+		}, nil
 	}
 	return runSSHCommand(ctx, vm.SSHClient, script, s.IsWindows())
 }
