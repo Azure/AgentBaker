@@ -418,7 +418,9 @@ function DownloadFileWithOras {
         [Parameter(Mandatory = $false)][string]
         $Platform = "windows/amd64",
         [Parameter(Mandatory = $false)][string]
-        $CachedFile = ""
+        $CachedFile = "",
+        [Parameter(Mandatory = $false)][int]
+        $TimeoutSeconds = 300
     )
     # If CachedFile is provided and exists, copy it to the destination path instead of downloading
     # If NetworkIsolatedClusterTestMode is enabled (only in e2e test), skip using cached file to ensure we cover the download logic
@@ -447,18 +449,21 @@ function DownloadFileWithOras {
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
     $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
-    $orasArgs = @(
-        "pull",
-        $Reference,
-        "--platform=$Platform",
-        "--registry-config=$($global:OrasRegistryConfigFile)",
-        "--output", $tempDir
-    )
-    & $global:OrasPath @orasArgs
-    if ($LASTEXITCODE -ne 0) {
+    $orasArgString = "pull `"$Reference`" --platform=`"$Platform`" --registry-config=`"$($global:OrasRegistryConfigFile)`" --output `"$tempDir`""
+    $process = Start-Process -FilePath $global:OrasPath -ArgumentList $orasArgString -NoNewWindow -Wait:$false -PassThru
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        try {
+            $process.Kill()
+            [void]$process.WaitForExit(5000)
+        } catch { }
         $downloadTimer.Stop()
         Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
-        throw "oras pull failed with exit code $LASTEXITCODE for $Reference"
+        throw "oras pull timed out after ${TimeoutSeconds}s for $Reference"
+    }
+    if ($process.ExitCode -ne 0) {
+        $downloadTimer.Stop()
+        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        throw "oras pull failed with exit code $($process.ExitCode) for $Reference"
     }
     $downloadTimer.Stop()
     $elapsedMs = $downloadTimer.ElapsedMilliseconds
