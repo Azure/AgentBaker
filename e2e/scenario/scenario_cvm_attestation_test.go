@@ -104,6 +104,32 @@ func TestVerifyCVMAttestationToken(t *testing.T) {
 	}
 }
 
+func TestCVMAttestationCollectorTimeout(t *testing.T) {
+	script := cvmAttestationCollectorScript(cvmPlatformSEVSNP, "nonce", "/tmp/test")
+	var timeoutArgs []string
+	for _, line := range strings.Split(script, "\n") {
+		if strings.HasPrefix(line, "sudo timeout ") {
+			timeoutArgs = strings.Fields(strings.SplitN(line, " env ", 2)[0])[2:]
+			break
+		}
+	}
+	require.Equal(t, []string{"--verbose", "--signal=TERM", "--kill-after=10s", "180s"}, timeoutArgs)
+	if _, err := exec.LookPath("timeout"); err != nil {
+		t.Skip("GNU timeout is not installed")
+	}
+
+	timeoutArgs[len(timeoutArgs)-1] = "0.1s"
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, "timeout", append(timeoutArgs, "sh", "-c", "sleep 30")...)
+	output, err := command.CombinedOutput()
+	require.NoError(t, ctx.Err(), "collector timeout did not terminate the stalled command")
+	var exitErr *exec.ExitError
+	require.ErrorAs(t, err, &exitErr)
+	assert.Equal(t, 124, exitErr.ExitCode())
+	assert.Contains(t, string(output), "sending signal TERM")
+}
+
 func TestBoundedWriterRejectsOversizedRemoteFile(t *testing.T) {
 	var output strings.Builder
 	writer := &boundedWriter{writer: &output, remaining: 4}

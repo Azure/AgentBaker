@@ -149,14 +149,14 @@ deps_dir="${work_dir}/deps"
 token_path="${work_dir}/token.jwt"
 mkdir -p "${work_dir}"
 
-if ! command -v git >/dev/null || ! command -v python3 >/dev/null || ! python3 -m pip --version >/dev/null 2>&1 || ! command -v tpm2_pcrread >/dev/null; then
+if ! command -v git >/dev/null || ! command -v python3 >/dev/null || ! python3 -m pip --version >/dev/null 2>&1 || ! command -v tpm2_pcrread >/dev/null || ! command -v timeout >/dev/null; then
   if command -v apt-get >/dev/null; then
     sudo env DEBIAN_FRONTEND=noninteractive apt-get update -qq
-    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git python3 python3-pip tpm2-tools ca-certificates
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git python3 python3-pip tpm2-tools ca-certificates coreutils
   elif command -v dnf >/dev/null; then
-    sudo dnf install -y -q git python3 python3-pip tpm2-tools ca-certificates
+    sudo dnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
   elif command -v tdnf >/dev/null; then
-    sudo tdnf install -y -q git python3 python3-pip tpm2-tools ca-certificates
+    sudo tdnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
   else
     echo "no supported package manager found" >&2
     exit 1
@@ -176,7 +176,7 @@ python3 -m pip install --quiet --disable-pip-version-check --target "${deps_dir}
   'cryptography==50.0.2; python_version >= "3.9"' \
   construct==2.10.70
 
-sudo env PYTHONPATH="${deps_dir}:${repo_dir}/cvm-attestation" python3 - "@@PLATFORM@@" "@@NONCE@@" "${token_path}" "@@ENDPOINT@@" <<'PY'
+sudo timeout --verbose --signal=TERM --kill-after=10s 180s env PYTHONPATH="${deps_dir}:${repo_dir}/cvm-attestation" python3 - "@@PLATFORM@@" "@@NONCE@@" "${token_path}" "@@ENDPOINT@@" <<'PY'
 import json
 import os
 import sys

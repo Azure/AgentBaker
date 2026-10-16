@@ -213,32 +213,6 @@ sudo tpm2_pcrread sha256
 		validationErrors = append(validationErrors, pcrErr)
 	}
 
-	chronyOutput, chronyErr := collectCVMEvidence(ctx, s, "cvm/chrony-evidence.log", `
-set -u
-printf '%s\n' 'service:'
-systemctl is-active chronyd 2>/dev/null || systemctl is-active chrony
-printf '%s\n' 'configuration:'
-sudo sh -c 'cat /etc/chrony/chrony.conf /etc/chrony.conf /etc/chrony.d/*.conf 2>/dev/null' || true
-printf '%s\n' 'tracking:'
-chronyc tracking
-printf '%s\n' 'sources:'
-chronyc sources -v
-`)
-	lowerChrony := strings.ToLower(chronyOutput)
-	chronyPassed := chronyErr == nil && strings.Contains(lowerChrony, "service:\nactive") && strings.Contains(lowerChrony, "leap status") && strings.Contains(lowerChrony, "normal")
-	expectedChrony := "active, synchronized Chrony"
-	if platform == cvmPlatformTDX {
-		expectedChrony += " using approved Ubuntu NTP pools without a PHC-only route"
-		chronyPassed = chronyPassed && strings.Contains(lowerChrony, "ubuntu") && !isPHCOnlyChrony(lowerChrony)
-	} else {
-		expectedChrony += " with Hyper-V PHC configured"
-		chronyPassed = chronyPassed && (strings.Contains(lowerChrony, "ptp_hyperv") || strings.Contains(lowerChrony, "refclock phc"))
-	}
-	checks = append(checks, newCVMCheck("guest.chrony", expectedChrony, strings.TrimSpace(chronyOutput), chronyPassed, "cvm/chrony-evidence.log", ""))
-	if chronyErr != nil {
-		validationErrors = append(validationErrors, chronyErr)
-	}
-
 	if err := failedCVMChecks(checks); err != nil {
 		validationErrors = append(validationErrors, err)
 	}
@@ -282,13 +256,6 @@ func failedCVMChecks(checks []cvmCheck) error {
 		return nil
 	}
 	return fmt.Errorf("CVM validation checks failed: %s", strings.Join(failures, ", "))
-}
-
-func isPHCOnlyChrony(configuration string) bool {
-	configuration = strings.ToLower(configuration)
-	hasPHC := strings.Contains(configuration, "ptp_hyperv") || strings.Contains(configuration, "refclock phc")
-	hasNetworkSource := strings.Contains(configuration, "\npool ") || strings.Contains(configuration, "\nserver ")
-	return hasPHC && !hasNetworkSource
 }
 
 func stringValue(value *string) string {

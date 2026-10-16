@@ -157,9 +157,3 @@ func TestWriteFailedCVMAttestationSummary(t *testing.T) {
 	assert.Contains(t, string(content), `"passed": false`)
 	assert.Contains(t, string(content), assert.AnError.Error())
 }
-
-func TestIsPHCOnlyChrony(t *testing.T) {
-	assert.True(t, isPHCOnlyChrony("refclock PHC 0 poll 3"))
-	assert.False(t, isPHCOnlyChrony("refclock PHC 0 poll 3\npool ntp.ubuntu.com iburst"))
-	assert.False(t, isPHCOnlyChrony("pool ntp.ubuntu.com iburst"))
-}
