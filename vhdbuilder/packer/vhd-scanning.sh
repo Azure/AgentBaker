@@ -61,7 +61,8 @@ else
 fi
 
 set +x
-SCAN_VM_ADMIN_PASSWORD="ScanVM@$CURRENT_TIME"
+# use a random, non-guessable admin password (prefix guarantees upper/lower/special to satisfy Azure VM complexity rules)
+SCAN_VM_ADMIN_PASSWORD="ScanVM@$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9')"
 set -x
 
 RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$CURRENT_TIME-$RANDOM"

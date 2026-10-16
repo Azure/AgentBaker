@@ -24,7 +24,8 @@ fi
 echo "SIG image version ID from packer output: ${MANAGED_SIG_ID}"
 
 set +x
-TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
+# use a random, non-guessable admin password (prefix guarantees upper/lower/special to satisfy Azure VM complexity rules)
+TEST_VM_ADMIN_PASSWORD="TestVM@$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9')"
 set -x
 
 # For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
@@ -136,6 +137,8 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       "" \
       "$TEST_VM_RESOURCE_GROUP_NAME" || exit $?
   else
+    # disable tracing so the admin password isn't emitted to the build log
+    set +x
     az vm create \
         --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
         --name "$VM_NAME" \
@@ -145,8 +148,11 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
         --nics "$TESTING_NIC_ID" \
         "${TEST_VM_USER_DATA_ARGS[@]}" \
         ${TARGET_COMMAND_STRING}
+    set -x
   fi
 else
+  # disable tracing so the admin password isn't emitted to the build log
+  set +x
   az vm create \
       --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
@@ -156,9 +162,10 @@ else
       --admin-password "$TEST_VM_ADMIN_PASSWORD" \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
+  set -x
 fi
 
-echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME"
 
 time az vm wait -g "$TEST_VM_RESOURCE_GROUP_NAME" -n "$VM_NAME" --created
 capture_benchmark "${SCRIPT_NAME}_create_test_vm"
