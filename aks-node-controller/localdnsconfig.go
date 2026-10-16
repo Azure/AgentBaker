@@ -79,12 +79,16 @@ type localDNSCorefileUpdate struct {
 	hasCorefile    bool
 }
 
-func (a *App) runApplyLocalDNSConfigCommand(ctx context.Context, configPath string, outputPath string, writer io.Writer) error {
+// runApplyLocalDNSConfigCommand applies a payload the reconciler already has in hand. agentPool is
+// the node's kubernetes.azure.com/agentpool label as the reconciler read it off the Node object; it
+// selects this node's entry on every provisioning mode, including classic CSE, where neither file
+// nodeAgentPoolName reads exists. Empty falls back to nodeAgentPoolName.
+func (a *App) runApplyLocalDNSConfigCommand(ctx context.Context, configPath, outputPath, agentPool string, writer io.Writer) error {
 	config, err := readLocalDNSConfigInput(configPath)
 	if err != nil {
 		return err
 	}
-	outcome, err := a.applyLocalDNSConfig(ctx, config, outputPath)
+	outcome, err := a.applyLocalDNSConfig(ctx, config, outputPath, agentPool)
 	if writer != nil {
 		_, _ = fmt.Fprintf(writer, "%s\n", outcome)
 	}
@@ -109,8 +113,8 @@ func readLocalDNSConfigInput(configPath string) (string, error) {
 	return string(data), nil
 }
 
-func (a *App) applyLocalDNSConfig(ctx context.Context, config string, outputPath string) (localDNSConfigOutcome, error) {
-	return a.fetchAndApplyLocalDNSConfig(ctx, outputPath, func(context.Context) (string, error) {
+func (a *App) applyLocalDNSConfig(ctx context.Context, config, outputPath, agentPool string) (localDNSConfigOutcome, error) {
+	return a.fetchAndApplyLocalDNSConfig(ctx, outputPath, agentPool, func(context.Context) (string, error) {
 		return config, nil
 	})
 }
@@ -130,7 +134,9 @@ func (a *App) runFetchLocalDNSConfigCommand(ctx context.Context, outputPath stri
 		}
 	}()
 
-	outcome, err := a.fetchAndApplyLocalDNSConfig(ctx, outputPath, a.fetchLocalDNSConfig)
+	// There is no Node object before the node joins, so the agent pool comes from the provisioning
+	// files. Reaching LPS needs those same files, so a node without them never gets this far.
+	outcome, err := a.fetchAndApplyLocalDNSConfig(ctx, outputPath, "", a.fetchLocalDNSConfig)
 	level := helpers.EventLevelInformational
 	if outcome == outcomeLocalDNSConfigFailed {
 		level = helpers.EventLevelError
@@ -152,7 +158,7 @@ func (a *App) runFetchLocalDNSConfigCommand(ctx context.Context, outputPath stri
 	return nil
 }
 
-func (a *App) fetchAndApplyLocalDNSConfig(ctx context.Context, outputPath string, fetcher localDNSConfigFetcher) (localDNSConfigOutcome, error) {
+func (a *App) fetchAndApplyLocalDNSConfig(ctx context.Context, outputPath, agentPool string, fetcher localDNSConfigFetcher) (localDNSConfigOutcome, error) {
 	if outputPath == "" {
 		outputPath = defaultLocalDNSCorefilePath
 	}
@@ -163,7 +169,7 @@ func (a *App) fetchAndApplyLocalDNSConfig(ctx context.Context, outputPath string
 		}
 		return outcomeLocalDNSConfigFailed, err
 	}
-	update, err := a.localDNSCorefileUpdateFromConfig(config)
+	update, err := a.localDNSCorefileUpdateFromConfig(config, agentPool)
 	if err != nil {
 		return outcomeLocalDNSConfigFailed, err
 	}
@@ -244,7 +250,7 @@ func (a *App) fetchLocalDNSConfigFromLPS(ctx context.Context) (string, error) {
 	return resp.GetConfig(), nil
 }
 
-func (a *App) localDNSCorefileUpdateFromConfig(config string) (localDNSCorefileUpdate, error) {
+func (a *App) localDNSCorefileUpdateFromConfig(config, agentPool string) (localDNSCorefileUpdate, error) {
 	config = strings.TrimSpace(config)
 	if config == "" {
 		return localDNSCorefileUpdate{}, nil
@@ -255,7 +261,7 @@ func (a *App) localDNSCorefileUpdateFromConfig(config string) (localDNSCorefileU
 		return localDNSCorefileUpdate{}, fmt.Errorf("parsing localDNS LPS config: %w", err)
 	}
 
-	selected, found, err := a.selectLocalDNSAgentPoolConfig(payload)
+	selected, found, err := a.selectLocalDNSAgentPoolConfig(payload, agentPool)
 	if err != nil || !found {
 		return localDNSCorefileUpdate{}, err
 	}
@@ -266,7 +272,7 @@ func (a *App) localDNSCorefileUpdateFromConfig(config string) (localDNSCorefileU
 	return a.localDNSCorefileUpdateFromAgentPoolConfig(selected, update)
 }
 
-func (a *App) selectLocalDNSAgentPoolConfig(payload localDNSConfigPayload) (localDNSAgentPoolConfig, bool, error) {
+func (a *App) selectLocalDNSAgentPoolConfig(payload localDNSConfigPayload, agentPool string) (localDNSAgentPoolConfig, bool, error) {
 	selected := localDNSAgentPoolConfig{
 		Corefile:           payload.Corefile,
 		CorefileBase64:     payload.CorefileBase64,
@@ -279,9 +285,11 @@ func (a *App) selectLocalDNSAgentPoolConfig(payload localDNSConfigPayload) (loca
 		return selected, true, nil
 	}
 
-	agentPool, err := a.nodeAgentPoolName()
-	if err != nil {
-		return localDNSAgentPoolConfig{}, false, err
+	if agentPool == "" {
+		var err error
+		if agentPool, err = a.nodeAgentPoolName(); err != nil {
+			return localDNSAgentPoolConfig{}, false, err
+		}
 	}
 	if selected, ok := payload.AgentPools[agentPool]; ok {
 		return selected, true, nil

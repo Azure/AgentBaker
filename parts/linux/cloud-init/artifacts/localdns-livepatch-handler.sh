@@ -45,6 +45,16 @@ LOCALDNS_METRICS_URL="${LOCALDNS_METRICS_URL:-http://127.0.0.1:9253/metrics}"
 LOCALDNS_RELOAD_TIMEOUT_SECONDS="${LOCALDNS_RELOAD_TIMEOUT_SECONDS:-90}"
 LOCALDNS_RELOAD_POLL_SECONDS="${LOCALDNS_RELOAD_POLL_SECONDS:-2}"
 
+# Prints this node's agent pool from its Node object (the reconciler's node_json). The is-current
+# check and the apply both take the pool from here, so they always select the same entry, and it
+# works on every provisioning mode -- unlike the provisioning files aks-node-controller falls back to,
+# which classic-CSE nodes do not have.
+localDNSNodeAgentPool() {
+    local node_json="$1"
+
+    printf '%s' "${node_json}" | jq -er '.metadata.labels["kubernetes.azure.com/agentpool"] // empty' 2> /dev/null
+}
+
 # Prints the part of a localDNS payload that this node's apply depends on, mirroring how
 # aks-node-controller selects it (selectLocalDNSAgentPoolConfig): when the payload is keyed by agent
 # pool, only this pool's entry; otherwise the whole payload. Keys are sorted so the output compares
@@ -79,7 +89,7 @@ localDNSIsCurrent() {
     if [ "${desired_payload}" = "${current_payload}" ]; then
         return 0
     fi
-    if ! agent_pool="$(printf '%s' "${node_json}" | jq -er '.metadata.labels["kubernetes.azure.com/agentpool"] // empty' 2> /dev/null)"; then
+    if ! agent_pool="$(localDNSNodeAgentPool "${node_json}")"; then
         return 1
     fi
     if ! desired_slice="$(localDNSAgentPoolSlice "${desired_payload}" "${agent_pool}")"; then
@@ -318,6 +328,9 @@ localDNSRestore() {
 
 updateLocalDNS() {
     local component_payload="${1:-}"
+    local node_json="${2:-}"
+    local agent_pool
+    local apply_args
     local outcome
     local source_corefile
     local backup_dir
@@ -337,9 +350,12 @@ updateLocalDNS() {
         return 1
     fi
 
-    if ! outcome="$(printf '%s' "${component_payload}" | "${LOCALDNS_AKS_NODE_CONTROLLER}" apply-localdns-config \
-        --config-file - \
-        --output "${LOCALDNS_LIVEPATCHED_COREFILE}")"; then
+    apply_args=(apply-localdns-config --config-file - --output "${LOCALDNS_LIVEPATCHED_COREFILE}")
+    # Without the label, aks-node-controller falls back to the node's provisioning files.
+    if agent_pool="$(localDNSNodeAgentPool "${node_json}")"; then
+        apply_args+=(--agent-pool "${agent_pool}")
+    fi
+    if ! outcome="$(printf '%s' "${component_payload}" | "${LOCALDNS_AKS_NODE_CONTROLLER}" "${apply_args[@]}")"; then
         echo "localDNS config apply failed"
         localDNSRestore "${backup_dir}"
         rm -rf "${backup_dir}"

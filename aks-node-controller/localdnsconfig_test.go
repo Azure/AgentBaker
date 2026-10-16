@@ -102,7 +102,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
 		got, err := os.ReadFile(out)
@@ -120,7 +120,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
 		got, err := os.ReadFile(out)
@@ -143,7 +143,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 				base64.StdEncoding.EncodeToString([]byte(original)) + `"}}}`, nil
 		}
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigAlreadyCurrent, outcome)
 		got, err := os.ReadFile(out)
@@ -163,7 +163,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 				base64.StdEncoding.EncodeToString([]byte(want)) + `"}}}`, nil
 		}
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
 		got, err := os.ReadFile(out)
@@ -179,7 +179,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigNoCorefileData, outcome)
 		_, statErr := os.Stat(out)
@@ -195,7 +195,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
 		got, err := os.ReadFile(out)
@@ -216,7 +216,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		}
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigNoCorefileData, outcome)
 		_, statErr := os.Stat(out)
@@ -243,7 +243,7 @@ func TestLocalDNSRenderReusesBootstrapValues(t *testing.T) {
 			return localDNSTestProfilePayload, nil
 		}
 		out := filepath.Join(t.TempDir(), "livepatched.localdns.corefile")
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, tt.App.fetchLocalDNSConfig)
+		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
 		got, _ := os.ReadFile(out)
 		return string(got), outcome, err
 	}
@@ -313,6 +313,90 @@ func TestLocalDNSRenderReusesBootstrapValues(t *testing.T) {
 		got, _, err := render(t, tt)
 		require.NoError(t, err)
 		assert.NotContains(t, got, "hosts /etc/localdns/hosts")
+	})
+}
+
+// TestLocalDNSApplyAgentPoolFlag pins how apply-localdns-config picks this node's entry. The runtime
+// reconciler passes the Node object's agentpool label as --agent-pool; that has to work on nodes
+// provisioned without the scriptless files (classic CSE), and it has to win over those files so the
+// reconciler's is-current check and the apply always agree on the pool.
+func TestLocalDNSApplyAgentPoolFlag(t *testing.T) {
+	const pool1Corefile = ".:53 {\n    forward . 168.63.129.16\n}\n"
+	payload := `{"agentPools":{"pool1":{"corefileVersion":"v1","corefileBase64":"` +
+		base64.StdEncoding.EncodeToString([]byte(pool1Corefile)) + `"},"pool2":{"corefileVersion":"v2","corefileBase64":"` +
+		base64.StdEncoding.EncodeToString([]byte("pool2-corefile")) + `"}}}`
+
+	// withoutScriptlessFiles points both provisioning-file lookups at paths that do not exist, as on
+	// a classic-CSE node.
+	withoutScriptlessFiles := func(t *testing.T, app *App) {
+		t.Helper()
+		app.nodeConfigPath = filepath.Join(t.TempDir(), "missing-aks-node-controller-config.json")
+		app.nbcCmdPath = filepath.Join(t.TempDir(), "missing-nbc-cmd.sh")
+	}
+	apply := func(t *testing.T, app *App, agentPool string) (string, string, localDNSConfigOutcome, error) {
+		t.Helper()
+		out := filepath.Join(t.TempDir(), "livepatched.localdns.corefile")
+		outcome, err := app.applyLocalDNSConfig(context.Background(), payload, out, agentPool)
+		got, _ := os.ReadFile(out)
+		version, _ := os.ReadFile(localDNSCorefileVersionPath(out))
+		return string(got), string(version), outcome, err
+	}
+
+	t.Run("flag selects the pool when no provisioning files exist", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		withoutScriptlessFiles(t, tt.App)
+
+		got, version, outcome, err := apply(t, tt.App, "pool1")
+		require.NoError(t, err)
+		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
+		assert.Equal(t, pool1Corefile, got)
+		assert.Equal(t, "v1\n", version)
+	})
+
+	t.Run("without the flag a node with no provisioning files fails", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		withoutScriptlessFiles(t, tt.App)
+
+		got, _, outcome, err := apply(t, tt.App, "")
+		require.Error(t, err)
+		assert.Equal(t, outcomeLocalDNSConfigFailed, outcome)
+		assert.Empty(t, got)
+	})
+
+	t.Run("flag wins over the node config file", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		writeLocalDNSTestNodeConfig(t, tt.App) // names pool1
+
+		got, version, outcome, err := apply(t, tt.App, "pool2")
+		require.NoError(t, err)
+		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
+		assert.Equal(t, "pool2-corefile", got)
+		assert.Equal(t, "v2\n", version)
+	})
+
+	t.Run("flag for a pool missing from the payload is no corefile data", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		withoutScriptlessFiles(t, tt.App)
+
+		got, _, outcome, err := apply(t, tt.App, "pool3")
+		require.NoError(t, err)
+		assert.Equal(t, outcomeLocalDNSConfigNoCorefileData, outcome)
+		assert.Empty(t, got)
+	})
+
+	t.Run("cli passes the flag through", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		withoutScriptlessFiles(t, tt.App)
+		configFile := filepath.Join(t.TempDir(), "localdns-config.json")
+		require.NoError(t, os.WriteFile(configFile, []byte(payload), 0o600))
+		out := filepath.Join(t.TempDir(), "livepatched.localdns.corefile")
+
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "apply-localdns-config",
+			"--config-file", configFile, "--output", out, "--agent-pool", "pool1"})
+		assert.Equal(t, 0, exitCode)
+		got, err := os.ReadFile(out)
+		require.NoError(t, err)
+		assert.Equal(t, pool1Corefile, string(got))
 	})
 }
 
