@@ -13,3 +13,6 @@ jobs:
     - run: |
         make validate-image-version
       name: Verify image versions to be pulled
+    - run: |
+        python3 -m unittest discover -s vhdbuilder/packer -p 'test_acl_release_notes.py'
+      name: Verify ACL release provenance and weekly rollups

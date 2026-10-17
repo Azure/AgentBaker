@@ -49,6 +49,38 @@ The E2E suite creates VM scale sets, provisions Kubernetes nodes with AgentBaker
 
 See the [E2E directory](e2e/).
 
+## ACL release provenance
+
+ACL builds enrich the exported `release-notes.txt` before publication with the
+guest's actual `VERSION_ID`, its upstream release URL candidate, and the exact
+pinned ACG gallery/image-definition/version. URL candidates are explicitly marked
+`unverified`: publication is checked by the weekly rollup, not during VHD builds.
+Development versions without stable release-tag syntax have no release URL.
+The enrichment is offline, does not modify the guest, and does not change the
+existing `vhd-publishing-info.json` schema.
+
+To generate weekly notes, provide two snapshots of
+`vhdbuilder/release-notes/AKSAzureContainerLinux`, containing the per-SKU
+`latest.txt` files selected by the publisher:
+
+```sh
+python3 vhdbuilder/packer/acl_release_notes.py weekly --previous-notes previous-published-acl --current-notes current-published-acl --output acl-weekly-notes.md
+```
+
+The previous snapshot must represent the last **published** image for each SKU,
+not the previous pin-bump PR or an arbitrary build. The output links the shipped
+release, the previous-to-current comparison, and all intervening published stable
+ACL releases on the shipped source history. It verifies that the baseline and
+shipped releases are published; API errors stop generation rather than producing
+incomplete notes. Baselines are independent per SKU and architecture; unchanged
+releases, ACG rebuilds, new SKUs, and rollbacks are explicit.
+Historical notes containing only the `os-release` section remain supported.
+
+This command is the integration entry point for the separate weekly SIG publisher;
+AgentBaker does not invoke it automatically or edit GitHub release descriptions.
+Both commands use only Python's standard library. `GH_TOKEN` or `GITHUB_TOKEN` can
+optionally authenticate public GitHub API reads.
+
 ## Contributor License Agreement (CLA)
 
 This project welcomes contributions and suggestions. Most contributions require you to agree to a

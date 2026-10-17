@@ -426,6 +426,12 @@ steps:
         cis-report.txt
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+  - bash: |
+      set -euo pipefail
+      python3 vhdbuilder/packer/acl_release_notes.py image release-notes.txt
+    condition: and(succeeded(), eq(variables.OS_SKU, 'AzureContainerLinux'))
+    displayName: Enrich ACL Base Image Release Notes
+
   - task: PublishPipelineArtifact@0
     displayName: Publish Release Notes
     inputs:
