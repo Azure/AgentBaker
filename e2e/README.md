@@ -279,41 +279,6 @@ Azure credentials and infrastructure configuration remain in [config.go](config/
 
 ### Running Specific Tests
 
-#### Opt-in ACL IPE audit qualification
-
-For `.pipelines/.vsts-vhd-builder-release.yaml`, enable only `buildacltlgen2`
-and `buildaclarm64tlgen2` for a focused non-FIPS Trusted Launch run; set all
-other `build*` parameters to false. Set `aclSourceGalleryUniqueName`,
-`aclAmd64SourceImageVersion`, and `aclArm64SourceImageVersion` to the exact
-published gallery versions, then set `aclIpeAuditE2E=true`.
-The source defaults are unchanged; CVM/FIPS source images are not overridden.
-The target gallery must already be shared with the build subscription or
-tenant and replicated to the build region. This does not grant gallery access.
-
-The opt-in selects `ACL`, `ACL_ARM64`, `ACL_IPEAudit`, and
-`ACL_ARM64_IPEAudit` using this run's immutable VHD metadata artifacts.
-Missing VHDs are failures rather than skips. The existing ACL scenarios also
-assert inactive IPE with no profile tag. The new scenarios require different
-boot-time tags, so they use separate nodes with
-`acl-node-security-profile=ipe=audit`; default E2E runs skip them.
-
-Audit scenarios require an active `acl_ipe_boot_policy`, `enforce=0`, and a
-unique executable copied to writable `/opt` that succeeds while generating
-an IPE EXECUTE/DENY record with `enforcing=0` for that exact path. They repeat
-the checks after reboot, verify node readiness, and run a pod again. Normal
-bootstrap/node/pod checks remain enabled. Logs retain policy and audit evidence.
-Require all four selected scenarios to pass; filtered-out scenarios are not
-coverage. This qualifies AgentBaker-created nodes, not an AKS RP-managed
-cluster's tag propagation or full production release.
-
-For a separately configured local E2E run against these built VHDs, set
-`ACL_IPE_AUDIT_E2E=true` and use
-`--tags "name=ACL,name=ACL_ARM64,name=ACL_IPEAudit,name=ACL_ARM64_IPEAudit"`.
-Pin the VHD build/metadata explicitly; do not use the default main-image
-selector as evidence for the candidate images.
-
-#### Scenario selection
-
 Use `--tags` to select scenarios by tag. Separate multiple tags with commas. Tag names are case-insensitive.
 
 Example:
