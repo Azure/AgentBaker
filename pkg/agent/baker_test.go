@@ -943,6 +943,18 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("DISABLE_PUBKEY_AUTH", "false"))
 	})
 
+	It("should set CUSTOM_DATA_ONLY_PROVISIONING", func() {
+		baseConfig.CustomDataOnlyProvisioning = true
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("CUSTOM_DATA_ONLY_PROVISIONING", "true"))
+	})
+
 	It("should handle FIPS enabled configuration", func() {
 		baseConfig.FIPSEnabled = true
 
@@ -1643,6 +1655,108 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
+
+		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
+	})
+
+	It("should put provisioning in CustomData and omit CSE when CustomData-only provisioning is enabled", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newScriptlessCmdTestConfig()
+		config.CustomDataOnlyProvisioning = true
+
+		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
+		Expect(string(payload)).To(ContainSubstring(aksNbcCmdFilepath))
+		Expect(string(payload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
+		Expect(string(payload)).To(ContainSubstring("# azure-experimental-node-ready"))
+		Expect(string(payload)).NotTo(ContainSubstring("/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg"))
+		Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
+		Expect(string(payload)).To(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
+		Expect(string(payload)).To(ContainSubstring("cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned"))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(BeEmpty())
+	})
+
+	It("should omit the Ready reporting handoff when CSE delivery is already selected", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newScriptlessCmdTestConfig()
+		config.CustomDataOnlyProvisioning = false
+		config.ScriptlessCSEProvisionMode = true
+		config.EnableScriptlessNBCCSECmd = true
+
+		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
+		Expect(string(payload)).NotTo(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
+		Expect(string(payload)).To(ContainSubstring("fetch_provision_config.py"))
+		Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse())
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(fmt.Sprintf(
+			cseScriptlessPhase2Template,
+			getBase64EncodedGzippedCustomScriptFromStr(templateGenerator.getScriptlessNBCCmd(config)),
+		)))
+	})
+
+	It("should fall back to CSE when CustomData-only provisioning exceeds the CustomData limit", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newScriptlessCmdTestConfig()
+		config.CustomDataOnlyProvisioning = true
+		certificate := make([]byte, 87*1024)
+		_, err := rand.Read(certificate)
+		Expect(err).NotTo(HaveOccurred())
+		config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+			CustomCATrustCerts: []string{string(certificate)},
+		}
+
+		encodedPayload := templateGenerator.getNodeBootstrappingPayload(config)
+		Expect(len(encodedPayload)).To(BeNumerically("<", MaxCustomDataLength))
+		payload, err := base64.StdEncoding.DecodeString(encodedPayload)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse())
+		Expect(config.ScriptlessCSEProvisionMode).To(BeTrue())
+		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
+		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
+		Expect(string(payload)).NotTo(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
+		Expect(string(payload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		Expect(string(payload)).To(ContainSubstring("fetch_provision_config.py"))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(BeEmpty())
+	})
+
+	It("should not enable CustomData-only provisioning for pre-provisioning", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newScriptlessCmdTestConfig()
+		config.PreProvisionOnly = true
+		config.CustomDataOnlyProvisioning = true
+
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+	})
+
+	It("should disable CustomData-only provisioning for unsupported images", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		for _, distro := range []datamodel.Distro{
+			datamodel.AKSFlatcarGen2,
+			datamodel.AKSACLGen2TL,
+			datamodel.AKSAzureLinuxV3Gen2,
+		} {
+			config := newScriptlessCmdTestConfig()
+			config.AgentPoolProfile.Distro = distro
+			config.CustomDataOnlyProvisioning = true
+
+			Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed(), string(distro))
+			Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse(), string(distro))
+			Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(BeEmpty(), string(distro))
+
+			payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+			Expect(err).NotTo(HaveOccurred(), string(distro))
+			Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"), string(distro))
+		}
+	})
+
+	It("should allow CustomData-only provisioning for cloud-init images", func() {
+		config := newScriptlessCmdTestConfig()
+		config.CustomDataOnlyProvisioning = true
+		Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed())
 	})
 })
 

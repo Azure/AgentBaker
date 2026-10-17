@@ -303,7 +303,7 @@ func decodeBoothook(t *testing.T, cfg *aksnodeconfigv1.Configuration) string {
 
 func TestEnabledFeaturesBlockEmptyWhenDisabled(t *testing.T) {
 	// The empty return is the load-bearing byte-identity guarantee: with no features set the
-	// boothook template's %[3]s placeholder expands to "", so custom data is byte-identical to
+	// boothook template's %[4]s placeholder expands to "", so custom data is byte-identical to
 	// the output produced before this feature existed. This protects the 6-month VHD window.
 	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{}), "expected no features block when EnabledFeatures is unset")
 	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}}))
@@ -314,6 +314,9 @@ func TestCustomDataOmitsEnabledFeaturesWhenHotfixDisabled(t *testing.T) {
 	off := decodeBoothook(t, &aksnodeconfigv1.Configuration{})
 	require.NotContains(t, off, "enabled_features.sh")
 	require.NotContains(t, off, "ENABLE_PROVISIONING_HOTFIX")
+	require.NotContains(t, off, "81_azure_skip_ready_report.cfg")
+	require.NotContains(t, off, "experimental_skip_ready_report")
+	require.NotContains(t, off, "/var/lib/waagent/provisioned")
 
 	// Byte-identity: an empty features map must produce the same output as an unset one.
 	emptyMap := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}})
@@ -334,6 +337,26 @@ func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
 	require.NotEqual(t, -1, featuresIdx)
 	require.NotEqual(t, -1, startIdx)
 	require.Less(t, featuresIdx, startIdx, "enabled_features.sh must be written before the service starts")
+	require.NotContains(t, on, "81_azure_skip_ready_report.cfg")
+	require.NotContains(t, on, "experimental_skip_ready_report")
+	require.NotContains(t, on, "/var/lib/waagent/provisioned")
+}
+
+func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t *testing.T) {
+	customData, err := CustomData(&aksnodeconfigv1.Configuration{CustomDataOnlyProvisioning: true})
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+	on := string(decoded)
+
+	require.True(t, strings.HasPrefix(on, "#cloud-boothook\n"))
+	require.NotContains(t, on, "MIME-Version:")
+	require.NotContains(t, on, "multipart/mixed")
+	require.Contains(t, on, "# azure-experimental-node-ready")
+	require.Contains(t, on, "touch /var/lib/waagent/experimental_skip_ready_report")
+	require.Contains(t, on, "cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned")
+	require.Contains(t, on, AKSNodeConfigFilePath)
+	require.Contains(t, on, "systemctl start --no-block aks-node-controller.service")
 }
 
 func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {
