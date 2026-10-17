@@ -281,6 +281,10 @@ knead_apply_components() {
                 component_comparator=securityPatchIsCurrent
                 component_handler=updateSecurityPatch
                 ;;
+            localDNS)
+                component_comparator=localDNSIsCurrent
+                component_handler=updateLocalDNS
+                ;;
             *)
                 echo "unsupported component: ${component}"
                 component_index=$((component_index + 1))
@@ -416,5 +420,14 @@ ${__SOURCED__:+return}
 
 # shellcheck disable=SC1091
 source /opt/azure/containers/security-update.sh
+
+# localDNS handler, shared with the other OS reconciler. Guarded because both scripts run
+# under `set -e`: an unguarded source of a missing file aborts the reconciler outright. On a
+# VHD baked before this file shipped, localDNS is simply an unregistered component and the
+# "unsupported component" path skips it while everything else still converges.
+if [ -f /opt/azure/containers/localdns-livepatch-handler.sh ]; then
+    # shellcheck disable=SC1091
+    source /opt/azure/containers/localdns-livepatch-handler.sh
+fi
 
 knead_main "$@"

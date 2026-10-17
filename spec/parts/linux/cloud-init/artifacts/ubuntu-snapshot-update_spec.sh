@@ -4,6 +4,9 @@
 Describe 'ubuntu-snapshot-update.sh generic reconciliation'
     setup() {
         Include ./parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh
+        # The reconciler sources this at runtime, after the ${__SOURCED__:+return} guard,
+        # so Include it explicitly or the localDNS handler is undefined under spec.
+        Include ./parts/linux/cloud-init/artifacts/localdns-livepatch-handler.sh
         TEST_DIR="/tmp/knead-component-test"
         rm -rf "${TEST_DIR}"
         mkdir -p "${TEST_DIR}"
@@ -22,9 +25,10 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         TEST_REPO_SERVICE=""
         printf '%s' '{"components":[]}' > "${TEST_COMPONENTS_JSON_FILE}"
         TEST_SECURITY_STATUS=0
+        TEST_LOCALDNS_STATUS=0
         TEST_ANNOTATE_STATUS=0
         export KUBECTL KNEAD_COMPONENT_STATE_FILE KNEAD_EVENTS_LOGGING_DIR TEST_COMPONENTS_JSON_FILE TEST_KUBECTL_ARGS_FILE
-        export TEST_STATUS TEST_GOAL TEST_AGENT_POOL TEST_REPO_SERVICE TEST_SECURITY_STATUS TEST_ANNOTATE_STATUS
+        export TEST_STATUS TEST_GOAL TEST_AGENT_POOL TEST_REPO_SERVICE TEST_SECURITY_STATUS TEST_LOCALDNS_STATUS TEST_ANNOTATE_STATUS
     }
 
     cleanup() {
@@ -65,6 +69,11 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
     updateSecurityPatch() {
         echo "updateSecurityPatch called with args: $*"
         return "${TEST_SECURITY_STATUS}"
+    }
+
+    updateLocalDNS() {
+        echo "updateLocalDNS called with args: $*"
+        return "${TEST_LOCALDNS_STATUS}"
     }
 
     securityPatchIsCurrent() {
@@ -214,6 +223,135 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The status should be success
         The output should equal '{"components":[]}'
         The contents of file "${TEST_KUBECTL_ARGS_FILE}" should equal 'get cm -n kube-system live-patching-config -o jsonpath={.data.live-patching-config\.json}'
+    End
+
+    # Points the real localDNS handler at this test's directory. The handler's own behavior
+    # (reload, fallback restart, revocation) is covered by localdns-livepatch-handler_spec.sh;
+    # these cases only pin how the reconciler dispatches to it and records the result.
+    use_test_localdns_paths() {
+        LOCALDNS_AKS_NODE_CONTROLLER="${TEST_DIR}/aks-node-controller"
+        LOCALDNS_LIVEPATCHED_COREFILE="${TEST_DIR}/localdns/livepatched.localdns.corefile"
+        LOCALDNS_BAKED_COREFILE="${TEST_DIR}/localdns/localdns.corefile"
+        LOCALDNS_SERVED_COREFILE="${TEST_DIR}/localdns/updated.localdns.corefile"
+        LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/run/vnet-dns-forward-servers"
+        mkdir -p "${TEST_DIR}/localdns"
+    }
+
+    It 'dispatches localDNS and writes successful status'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<EOF
+#!/bin/bash
+echo "aks-node-controller called with args: \$*"
+cat > "${TEST_DIR}/localdns-livepatch-payload"
+echo applied
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            # localdns.service is not running, so the patch is left for its next start.
+            [ "$1" != "is-active" ]
+        End
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should include 'applying component: localDNS'
+        The output should include "aks-node-controller called with args: apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE}"
+        The contents of file "${TEST_DIR}/localdns-livepatch-payload" should include '"configChecksum":"localdns-v1"'
+        The output should not include 'systemctl called with args: restart localdns.service'
+        The output should include 'localDNS update completed successfully'
+        The output should include 'annotate mock called with args: annotate --overwrite node aks-node-1 kubernetes.azure.com/live-patching-status={"currentHash":"'
+        The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include '"localDNS"'
+    End
+
+    It 'marks localDNS failed when the fallback restart fails'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo applied
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            # Running, but no forward servers were recorded, so the handler falls back to a
+            # restart -- which fails.
+            [ "$1" = "is-active" ]
+        End
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+
+        When call knead_main
+        The status should be failure
+        The output should include 'applying component: localDNS'
+        The output should include 'failed to restart localdns.service'
+        The output should include 'component failed: localDNS'
+        The output should include '"components":{"localDNS":{"code":"Failed"}}}'
+    End
+
+    It 'converges localDNS when no config applies to this node'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo noCorefileData
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            [ "$1" != "is-active" ]
+        End
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"other-pool\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should include 'applying component: localDNS'
+        The output should include 'localDNS has no config applicable to this node'
+        The output should not include 'systemctl called with args: restart localdns.service'
+        The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
+    End
+
+    # The localDNS payload carries every agent pool, so a change to another pool must be
+    # filtered out by the comparator before the handler runs on this node.
+    It 'does not rerun localDNS when only another agent pool changes'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo "aks-node-controller called with args: $*"
+echo applied
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+        printf '%s' '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"},\"ap2\":{\"corefileVersion\":\"v1\"}}}"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"},\"ap2\":{\"corefileVersion\":\"v2\"}}}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should include 'component is already current: localDNS'
+        The output should not include 'aks-node-controller called'
+        The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
+    End
+
+    It 'reruns localDNS when this agent pool changes'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo "aks-node-controller called with args: $*"
+echo applied
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            [ "$1" != "is-active" ]
+        End
+        mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+        printf '%s' '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"},\"ap2\":{\"corefileVersion\":\"v1\"}}}"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"},\"ap2\":{\"corefileVersion\":\"v1\"}}}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should not include 'component is already current: localDNS'
+        The output should include 'aks-node-controller called with args: apply-localdns-config'
+        The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include 'v2'
     End
 
     It 'hashes trailing newline bytes before dispatching a valid payload'

@@ -903,7 +903,7 @@ func getLocalDnsCorefileBase64WithHostsPlugin(aksnodeconfig *aksnodeconfigv1.Con
 		variant = "without hosts plugin"
 	}
 
-	localDnsConfig, err := generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig, includeHostsPlugin)
+	localDnsConfig, err := GenerateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig, includeHostsPlugin)
 	if err != nil {
 		log.Printf("error getting localdns corefile (%s) from aks node config: %v", variant, err)
 		return ""
@@ -919,7 +919,9 @@ type localDnsCorefileTemplateData struct {
 
 // Corefile is created using localdns.toml.gtpl template and aksnodeconfig values.
 // includeHostsPlugin controls whether the hosts plugin block is included in the generated Corefile.
-func generateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) (string, error) {
+// Exported so the live-patching path can re-render the Corefile from a profile delivered by
+// LPC/LPS and get output identical to what bootstrap bakes.
+func GenerateLocalDnsCorefileFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, includeHostsPlugin bool) (string, error) {
 	var corefileBuffer bytes.Buffer
 	templateData := localDnsCorefileTemplateData{
 		Config:             aksnodeconfig,

@@ -24,7 +24,16 @@ LOCALDNS_CGROUP_DIR="/sys/fs/cgroup/localdns.slice/localdns.service"
 LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
 
 # This is the localdns corefile that has updated UpstreamDNSServerIPs and will be used by the localdns systemd unit.
+LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
+
 UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
+
+# What the Azure DNS placeholder resolved to in UPDATED_LOCALDNS_CORE_FILE on this start: the VNet DNS
+# servers when they were substituted, or 168.63.129.16 itself when no substitution applied. The runtime
+# live-patching handler (localdns-livepatch-handler.sh) rebuilds the served corefile with exactly these
+# servers instead of re-reading resolv.conf, which lists the localdns listener while localdns runs.
+# Under /run so a value from an earlier boot can never outlive the start that wrote it.
+LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="/run/localdns/vnet-dns-forward-servers"
 
 # This is slice file used by localdns systemd unit.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
@@ -76,6 +85,10 @@ START_LOCALDNS_TIMEOUT=10
 # DNS health check timeout.
 DNS_HEALTH_CHECK_TIMEOUT=2
 DNS_HEALTH_CHECK_TRIES=2
+
+AKS_NODE_CONTROLLER_BINARY="/opt/azure/containers/aks-node-controller"
+LOCALDNS_LIVE_PATCHING_COMPONENT_NAME="localDNS"
+LOCALDNS_LIVE_PATCHING_STATUS_ANNOTATION="kubernetes.azure.com/live-patching-status"
 
 # Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -165,8 +178,45 @@ regenerate_localdns_corefile() {
     return 0
 }
 
+localdns_source_corefile() {
+    if [ -s "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
+        echo "${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+        return 0
+    fi
+    echo "${LOCALDNS_CORE_FILE}"
+}
+
+# Record which servers the Azure DNS placeholder now resolves to in the served corefile (see
+# LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE). Best effort: without the record the runtime handler falls
+# back to restarting localdns.service, which redoes the substitution here, so a failed write must not
+# fail startup.
+record_vnet_dns_forward_servers() {
+    local forward_servers="$1"
+    local record_file="${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE:-}"
+    local tmp
+
+    if [ -z "${record_file}" ]; then
+        return 0
+    fi
+    if ! mkdir -p "$(dirname "${record_file}")" || ! tmp="$(mktemp "${record_file}.XXXXXX")"; then
+        echo "WARNING: Failed to record VNet DNS forward servers at ${record_file}."
+        return 0
+    fi
+    if ! printf '%s\n' "${forward_servers}" > "${tmp}" || ! chmod 0644 "${tmp}" || ! mv -f "${tmp}" "${record_file}"; then
+        rm -f "${tmp}"
+        echo "WARNING: Failed to record VNet DNS forward servers at ${record_file}."
+        return 0
+    fi
+    echo "Recorded VNet DNS forward servers at ${record_file}: ${forward_servers}"
+    return 0
+}
+
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs if necessary.
 replace_azurednsip_in_corefile() {
+    # Drop the previous record first: the served corefile is being rebuilt, so a record that outlived
+    # a failed substitution would describe a corefile that no longer exists.
+    rm -f "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE:-}" 2>/dev/null || true
+
     if [ -z "${RESOLV_CONF:-}" ]; then
         echo "RESOLV_CONF is not set or is empty."
         return 1
@@ -195,17 +245,21 @@ replace_azurednsip_in_corefile() {
     # and also not equal to the localdns node listener IP to avoid creating a circular dependency.
     # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
-    cp "${LOCALDNS_CORE_FILE}" "${UPDATED_LOCALDNS_CORE_FILE}" || {
-        echo "Failed to copy ${LOCALDNS_CORE_FILE} to ${UPDATED_LOCALDNS_CORE_FILE}"
+    local source_corefile
+    source_corefile="$(localdns_source_corefile)"
+    cp "${source_corefile}" "${UPDATED_LOCALDNS_CORE_FILE}" || {
+        echo "Failed to copy ${source_corefile} to ${UPDATED_LOCALDNS_CORE_FILE}"
         return 1
     }
 
+    local forward_servers="${AZURE_DNS_IP}"
     if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ] && [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
         echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${UPDATED_LOCALDNS_CORE_FILE}"
         sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${UPDATED_LOCALDNS_CORE_FILE}" || {
             echo "Replacing AzureDNSIP in corefile failed."
             return 1
         }
+        forward_servers="${UPSTREAM_VNET_DNS_SERVERS}"
         echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
     else
         echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
@@ -220,6 +274,8 @@ replace_azurednsip_in_corefile() {
         echo "Failed to set permissions on ${UPDATED_LOCALDNS_CORE_FILE}"
         return 1
     }
+
+    record_vnet_dns_forward_servers "${forward_servers}"
 
     # Export forward IPs to .prom file for metrics exporter (best-effort)
     # This avoids parsing the corefile on every metrics scrape
@@ -310,6 +366,193 @@ replace_azurednsip_in_corefile() {
     echo "Persisted upstream DNS servers to ${upstream_dns_file}: ${UPSTREAM_VNET_DNS_SERVERS}"
 
     return 0
+}
+
+# Discard the live-patched corefile (and its version sidecar) so localdns_source_corefile falls
+# back to the baked corefile that regenerate_localdns_corefile just rebuilt from live CustomData.
+#
+# This is what keeps a live patch from outliving the config that justified it. The live-patched
+# corefile is written once and never expires on its own, while the baked corefile is regenerated on
+# every startup, so without this a node that was live-patched once would keep serving that frozen
+# corefile forever -- including after the agent pool's DNS config legitimately changed.
+discard_livepatched_localdns_corefile() {
+    local reason="${1:-}"
+    if [ -z "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
+        return 0
+    fi
+    if [ ! -e "${LIVEPATCHED_LOCALDNS_CORE_FILE}" ] && [ ! -e "$(localdns_corefile_version_file)" ]; then
+        return 0
+    fi
+    rm -f "${LIVEPATCHED_LOCALDNS_CORE_FILE}" "$(localdns_corefile_version_file)" || {
+        echo "WARNING: Failed to discard live-patched localdns corefile ${LIVEPATCHED_LOCALDNS_CORE_FILE}."
+        return 1
+    }
+    echo "Discarded live-patched localdns corefile (${reason}); falling back to ${LOCALDNS_CORE_FILE}."
+    return 0
+}
+
+refresh_localdns_corefile_from_lps() {
+    if [ -z "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
+        # Fail open, like every other path in this function. localdns.sh runs under `set -e`
+        # and this is called unguarded, so returning non-zero here aborts startup and costs the
+        # node localdns entirely -- over a variable that is assigned unconditionally at the top
+        # of this file. With no path to write, there is simply no live patch to apply, and
+        # replace_azurednsip_in_corefile falls through to the baked corefile on its own.
+        echo "LIVEPATCHED_LOCALDNS_CORE_FILE is not set or is empty; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+
+    # LPS is only for bootstrap: the node has no usable kubeconfig yet, so it cannot read the
+    # live-patching ConfigMap and asks LPS instead. Once the kubelet kubeconfig exists this is a
+    # restart or a reboot, and the runtime live-patching loop owns the live-patched corefile. Fetching
+    # here as well would let a stale or empty LPS answer overwrite or revoke what that loop applied --
+    # the handler's fallback restart of localdns.service lands right here -- and would block every
+    # restart on IMDS and LPS while node DNS is torn down. CSE starts localdns before kubelet, so the
+    # first start on a node always takes the fetch.
+    local kubeconfig="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
+    if [ -e "${kubeconfig}" ]; then
+        echo "Kubelet kubeconfig ${kubeconfig} exists, so this is not a bootstrap start; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+
+    if [ ! -x "${AKS_NODE_CONTROLLER_BINARY}" ]; then
+        echo "AKS node controller binary not found at ${AKS_NODE_CONTROLLER_BINARY}; skipping LocalDNS LPS config fetch."
+        # No binary means live patching cannot be reasserted on this node, so any corefile left
+        # behind by an earlier boot is unverifiable. Drop it rather than serve it indefinitely.
+        discard_livepatched_localdns_corefile "aks-node-controller binary unavailable" || true
+        return 0
+    fi
+
+    # The fetch command is fail-open and always exits successfully. Its final stdout line is the
+    # machine-readable outcome.
+    #
+    # Outcomes split by whether LPS is authoritative about this node:
+    #   applied/alreadyCurrent - LPS published a corefile; keep the live-patched source.
+    #   notFound/noCorefileData - LPS is reachable and has nothing (or nothing usable) for this
+    #     node. That is authoritative, so any previously live-patched corefile is revoked and the
+    #     baked corefile takes over again.
+    #   failed/unexpected - the fetch itself broke, so LPS said nothing either way. Keep the last
+    #     known-good live-patched corefile; discarding on a transient error would flap this node's
+    #     DNS config on every network hiccup.
+    local outcome
+    # `outcome=$(...)` on its own line propagates the command's status, so under `set -e` a
+    # non-zero exit aborts startup -- which the comment above assumes cannot happen. It can:
+    # aks-node-controller is replaceable independently of this script via the hotfix path, so
+    # a binary without this subcommand exits non-zero even though the -x check passed.
+    if ! outcome="$("${AKS_NODE_CONTROLLER_BINARY}" fetch-localdns-config --output "${LIVEPATCHED_LOCALDNS_CORE_FILE}")"; then
+        # A non-zero exit is not one of the documented outcomes -- the binary never got far
+        # enough to report one. Behave like `failed` (keep whatever corefile we have), but log
+        # it distinctly so a broken or version-mismatched binary is not read as LPS trouble.
+        echo "LocalDNS LPS config fetch command exited non-zero; continuing with existing corefile."
+        return 0
+    fi
+    case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
+        applied|alreadyCurrent)
+            echo "LocalDNS LPS config fetch outcome: ${outcome}"
+            ;;
+        notFound|noCorefileData)
+            echo "LocalDNS LPS config fetch outcome: ${outcome}; LPS has no corefile for this node."
+            discard_livepatched_localdns_corefile "LPS outcome ${outcome}" || true
+            ;;
+        failed)
+            echo "LocalDNS LPS config fetch outcome: ${outcome}; continuing with existing corefile."
+            ;;
+        *)
+            echo "Unexpected LocalDNS LPS config fetch outcome: ${outcome}; continuing with existing corefile."
+            ;;
+    esac
+    return 0
+}
+
+localdns_corefile_version_file() {
+    echo "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version"
+}
+
+wait_for_kubeconfig_and_node() {
+    if [ ! -x /opt/bin/kubectl ]; then
+        echo "kubectl binary not found at /opt/bin/kubectl, skipping annotation." >&2
+        return 1
+    fi
+
+    local kubeconfig="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
+    local wait_count=0
+    local max_wait="${KUBECONFIG_WAIT_ATTEMPTS:-60}"
+    while [ ! -f "${kubeconfig}" ]; do
+        if [ $wait_count -ge $max_wait ]; then
+            echo "Timeout waiting for kubeconfig at ${kubeconfig} after ${max_wait} attempts, skipping annotation." >&2
+            return 1
+        fi
+        echo "Waiting for TLS bootstrapping to complete (attempt $((wait_count + 1))/${max_wait})..." >&2
+        sleep 3
+        wait_count=$((wait_count + 1))
+    done
+    echo "Kubeconfig found at ${kubeconfig}" >&2
+
+    local node_name
+    node_name=$(hostname)
+    if [ -z "${node_name}" ]; then
+        echo "Cannot get node name, skipping annotation." >&2
+        return 1
+    fi
+    node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
+    echo "Waiting for node ${node_name} to be registered in the cluster..." >&2
+    local node_wait_count=0
+    local max_node_wait="${NODE_REGISTRATION_WAIT_ATTEMPTS:-30}"
+    while [ $node_wait_count -lt $max_node_wait ]; do
+        if /opt/bin/kubectl --kubeconfig "${kubeconfig}" get node "${node_name}" >/dev/null 2>&1; then
+            echo "${kubeconfig}|${node_name}"
+            return 0
+        fi
+        echo "Waiting for node registration (attempt $((node_wait_count + 1))/${max_node_wait})..." >&2
+        sleep 3
+        node_wait_count=$((node_wait_count + 1))
+    done
+
+    echo "Timeout waiting for node ${node_name} to be registered after ${max_node_wait} attempts, skipping annotation." >&2
+    return 1
+}
+
+annotate_node_with_localdns_livepatch_status() {
+    local version_file
+    version_file="$(localdns_corefile_version_file)"
+    if [ ! -s "${version_file}" ]; then
+        echo "LocalDNS corefile version file not found at ${version_file}, skipping live patching status annotation."
+        return 0
+    fi
+
+    local corefile_version
+    corefile_version="$(tr -d '[:space:]' < "${version_file}")"
+    if [ -z "${corefile_version}" ]; then
+        echo "LocalDNS corefile version file is empty, skipping live patching status annotation."
+        return 0
+    fi
+
+    local kube_node
+    kube_node="$(wait_for_kubeconfig_and_node)" || return 0
+    local kubeconfig="${kube_node%%|*}"
+    local node_name="${kube_node#*|}"
+    local current_status
+    current_status=$(/opt/bin/kubectl --kubeconfig "${kubeconfig}" get node "${node_name}" -o "jsonpath={.metadata.annotations['kubernetes\.azure\.com/live-patching-status']}" 2>/dev/null || true)
+    if [ -z "${current_status}" ]; then
+        current_status='{}'
+    fi
+
+    local updated_status
+    if ! updated_status="$(printf '%s' "${current_status}" | jq -c \
+        --arg component "${LOCALDNS_LIVE_PATCHING_COMPONENT_NAME}" \
+        --arg current "${corefile_version}" \
+        '.components = (.components // {}) | .components[$component].current = $current')"; then
+        echo "Failed to render LocalDNS live patching status annotation."
+        return 0
+    fi
+
+    echo "Setting LocalDNS live patching current version ${corefile_version} for node ${node_name}."
+    if /opt/bin/kubectl --kubeconfig "${kubeconfig}" annotate --overwrite node "${node_name}" "${LOCALDNS_LIVE_PATCHING_STATUS_ANNOTATION}=${updated_status}"; then
+        echo "Successfully set LocalDNS live patching status annotation."
+    else
+        echo "Warning: Failed to set LocalDNS live patching status annotation (this is non-fatal)."
+    fi
 }
 
 # Build iptables rules to skip conntrack for DNS traffic to and from localdns.
@@ -1206,6 +1449,13 @@ if ! wait_for_localdns_removed_from_resolv_conf 5; then
     exit $ERR_LOCALDNS_FAIL
 fi
 
+# Fetch LocalDNS config from LPS on a bootstrap start. This is fail-open: no config or fetch errors keep
+# the locally generated corefile. If LPS returns a usable profile/corefile, LIVEPATCHED_LOCALDNS_CORE_FILE
+# is written before VNET DNS replacement builds UPDATED_LOCALDNS_CORE_FILE for CoreDNS. Later starts skip
+# the fetch and reuse whatever live-patched corefile is on disk.
+# ---------------------------------------------------------------------------------------------------------------------
+refresh_localdns_corefile_from_lps
+
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs.
 # ---------------------------------------------------------------------------------------------------------------------
 replace_azurednsip_in_corefile || exit $ERR_LOCALDNS_FAIL
@@ -1284,6 +1534,17 @@ echo "Startup complete - serving node and pod DNS traffic."
 
 # Export initial resource metrics so the exporter has data before the first watchdog tick.
 export_resource_metrics
+
+# The generic knead live-patching loop owns kubernetes.azure.com/live-patching-status at runtime.
+# Keep this legacy/bootstrap writer opt-in to avoid racing knead's status update.
+# --------------------------------------------------------------------------------------------------------------------
+if [ "${LOCALDNS_ENABLE_LEGACY_LIVEPATCH_STATUS:-false}" = "true" ]; then
+    annotate_node_with_localdns_livepatch_status &
+    LOCALDNS_LIVEPATCH_ANNOTATION_PID=$!
+    echo "Started LocalDNS live-patching status annotation in background (PID: ${LOCALDNS_LIVEPATCH_ANNOTATION_PID})"
+else
+    echo "Skipping LocalDNS live-patching status annotation; knead owns live-patching-status."
+fi
 
 # Set node annotation to indicate hosts plugin is in use (if applicable).
 # --------------------------------------------------------------------------------------------------------------------

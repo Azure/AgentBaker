@@ -620,7 +620,16 @@ func usesScriptlessProvisioning(s *Scenario) bool {
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
-	return usesScriptlessProvisioning(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
+	if !usesScriptlessProvisioning(s) || config.Config.DisableScriptLessCompilation || s.Tags.NetworkIsolated || s.VHD.Flatcar {
+		return false
+	}
+	// A scenario that ships CustomDataWriteFiles normally falls back to the
+	// non-compiled path. The LPS scenarios need both: their write-files stage the
+	// fetcher wrapper, and the compiled aks-node-controller is the binary under test.
+	if s.Config.ForceScriptlessCompilation {
+		return true
+	}
+	return len(s.Config.CustomDataWriteFiles) <= 0
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
@@ -1627,16 +1636,28 @@ func injectWriteFilesEntriesToBoothookCustomData(decoded []byte, entries []Custo
 		return "", err
 	}
 
-	insertPos := strings.Index(boothookStr, "/bin/bash /opt/azure/containers/aks-node-controller-launcher.sh")
-	if insertPos == -1 {
-		insertPos = strings.Index(boothookStr, "systemctl start --no-block aks-node-controller.service")
-	}
+	insertPos := boothookInsertionPoint(boothookStr)
 	if insertPos == -1 {
 		return "", fmt.Errorf("cloud-boothook customData missing aks-node-controller service start")
 	}
 
 	boothookStr = boothookStr[:insertPos] + entryBlock + boothookStr[insertPos:]
 	return base64.StdEncoding.EncodeToString([]byte(boothookStr)), nil
+}
+
+func boothookInsertionPoint(boothookStr string) int {
+	launcherPos := strings.Index(boothookStr, "/opt/azure/containers/aks-node-controller-launcher.sh")
+	if launcherPos == -1 {
+		launcherPos = strings.Index(boothookStr, "systemctl start --no-block aks-node-controller.service")
+	}
+	if launcherPos == -1 {
+		return -1
+	}
+	lineStart := strings.LastIndex(boothookStr[:launcherPos], "\n")
+	if lineStart == -1 {
+		return 0
+	}
+	return lineStart + 1
 }
 
 func renderBoothookWriteFilesEntries(entries []CustomDataWriteFile) (string, error) {
