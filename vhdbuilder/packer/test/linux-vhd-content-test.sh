@@ -11,14 +11,31 @@ ACL_OS_VARIANT="AZURECONTAINERLINUX"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
+err() {
+  echo "$1:Error: $2" >>/dev/stderr
+}
+
+# Legacy callers may omit the repository URL and use the default below.
+if [ "$#" -lt 7 ] || [ "$#" -gt 8 ]; then
+  err 'arguments' "Expected 7 or 8 positional arguments, received $#"
+  exit 1
+fi
+
 OS_VERSION="$1"
 ENABLE_FIPS="$2"
 OS_SKU="$3"
 GIT_BRANCH="$4"
-IMG_SKU="$5"
-FEATURE_FLAGS="$6"
+# Strip transport prefixes while accepting legacy unprefixed arguments.
+IMG_SKU="${5#img-sku:}"
+FEATURE_FLAGS="${6#feature-flags:}"
 GIT_COMMIT_HASH="$7"
 AGENTBAKER_REPOSITORY_URL="${8:-https://github.com/Azure/AgentBaker.git}"
+
+# shellcheck disable=SC3010
+if ! [[ "$GIT_COMMIT_HASH" =~ ^[[:xdigit:]]{40}$ ]]; then
+  err 'arguments' 'GIT_COMMIT_HASH must be a full 40-character hexadecimal commit SHA'
+  exit 1
+fi
 
 systemctl daemon-reload && systemctl restart containerd
 
@@ -29,10 +46,6 @@ systemctl daemon-reload && systemctl restart containerd
 CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
   "Command ['hostname', '-f']"
 )
-
-err() {
-  echo "$1:Error: $2" >>/dev/stderr
-}
 
 # assertPackageVersion verifies that the installed deb/rpm package version matches
 # either the exact expected version or, when allowed, that upstream version plus
@@ -88,10 +101,6 @@ else
 fi
 
 if [ "$SKIP_GIT_CLONE" = "true" ]; then
-  if [ -z "$GIT_COMMIT_HASH" ]; then
-    echo "GIT_COMMIT_HASH is not defined, exiting."
-    exit 1
-  fi
   echo "Skipping git clone and pulling .tar.gz artifact for commit $GIT_COMMIT_HASH"
 
   AGENTBAKER_ARCHIVE_URL="${AGENTBAKER_REPOSITORY_URL%.git}/archive/${GIT_COMMIT_HASH}.tar.gz"

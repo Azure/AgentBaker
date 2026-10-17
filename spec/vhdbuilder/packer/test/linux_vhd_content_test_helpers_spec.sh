@@ -1,7 +1,99 @@
 #!/bin/bash
-# shellcheck disable=SC2329
+# shellcheck disable=SC2034,SC2329
 
 # ShellSpec tests for parseAutologinSessions helper function
+
+Describe 'Linux content-test legacy parameters'
+  read_legacy_parameters() {
+    eval "$(sed -n '/^OS_VERSION=/,/^AGENTBAKER_REPOSITORY_URL=/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)"
+    printf '<%s>\n' "$OS_VERSION" "$ENABLE_FIPS" "$OS_SKU" "$GIT_BRANCH" \
+      "$IMG_SKU" "$FEATURE_FLAGS" "$GIT_COMMIT_HASH" "$AGENTBAKER_REPOSITORY_URL"
+  }
+
+  Parameters
+    ''
+    'https://github.com/example/AgentBaker.git'
+  End
+
+  It 'accepts unprefixed values and retains the repository URL default'
+    arguments=(22.04 false Ubuntu refs/heads/main 22_04-lts-gen2 cvm 8953aad36d3e3fea8ec3f3b720c68a26913f7f09)
+    if [ -n "$1" ]; then arguments+=("$1"); fi
+    expected_output=$(printf '<%s>\n' "${arguments[@]:0:7}" "${1:-https://github.com/Azure/AgentBaker.git}")
+
+    When call read_legacy_parameters "${arguments[@]}"
+    The status should be success
+    The output should equal "$expected_output"
+  End
+End
+
+Describe 'Linux content-test argument validation'
+  run_content_test() (
+    systemctl() { echo 'guest setup started'; exit 99; }
+    export -f systemctl
+    bash vhdbuilder/packer/test/linux-vhd-content-test.sh "$@"
+  )
+
+  Describe 'argument counts'
+    Parameters
+      0
+      6
+      9
+    End
+
+    It "rejects $1 arguments before guest setup"
+      arguments=(acl false AzureContainerLinux refs/heads/main img-sku: feature-flags:None
+        8953aad36d3e3fea8ec3f3b720c68a26913f7f09 https://github.com/Azure/AgentBaker.git extra)
+
+      When run run_content_test "${arguments[@]:0:$1}"
+      The status should equal 1
+      The output should be blank
+      The error should include "arguments:Error: Expected 7 or 8 positional arguments, received $1"
+    End
+  End
+
+  Describe 'commit hashes'
+    Parameters
+      ''
+      'https://github.com/Azure/AgentBaker.git'
+      '8953aad'
+      'g953aad36d3e3fea8ec3f3b720c68a26913f7f09'
+      '8953aad36d3e3fea8ec3f3b720c68a26913f7f090'
+    End
+
+    It "rejects invalid commit '$1' before guest setup"
+      When run run_content_test acl false AzureContainerLinux refs/heads/main img-sku: feature-flags:None \
+        "$1" https://github.com/Azure/AgentBaker.git
+      The status should equal 1
+      The output should be blank
+      The error should include 'arguments:Error: GIT_COMMIT_HASH must be a full 40-character hexadecimal commit SHA'
+    End
+  End
+
+  Describe 'legacy argument counts'
+    Parameters
+      7
+      8
+    End
+
+    It "accepts $1 arguments with a full commit SHA"
+      arguments=(acl false AzureContainerLinux refs/heads/main img-sku: feature-flags:None
+        8953aad36d3e3fea8ec3f3b720c68a26913f7f09 https://github.com/Azure/AgentBaker.git)
+
+      When run run_content_test "${arguments[@]:0:$1}"
+      The status should equal 99
+      The output should equal 'guest setup started'
+      The error should be blank
+    End
+  End
+
+  It 'rejects the original shifted repository URL instead of fetching it'
+    When run run_content_test acl false AzureContainerLinux refs/heads/official/v20261003 None \
+      8953aad36d3e3fea8ec3f3b720c68a26913f7f09 https://github.com/Azure/AgentBaker.git
+    The status should equal 1
+    The output should be blank
+    The error should include 'arguments:Error: GIT_COMMIT_HASH must be a full 40-character hexadecimal commit SHA'
+  End
+End
 
 Describe 'parseAutologinSessions helper function'
   # Extract only the function definition using sed - clean approach!

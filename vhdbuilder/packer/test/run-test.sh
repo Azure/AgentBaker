@@ -173,12 +173,13 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
   GIT_COMMIT_HASH="${GIT_COMMIT_HASH:-$(git rev-parse HEAD)}"
   AGENTBAKER_REPOSITORY_URL="${AGENTBAKER_REPOSITORY_URL:-https://github.com/Azure/AgentBaker.git}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
+  # Prefix optional values so Run Command does not drop empty positional arguments.
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name "$VM_NAME" \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --scripts "@$SCRIPT_PATH" \
-      --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}" "${AGENTBAKER_REPOSITORY_URL}") && break
+      --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "img-sku:${IMG_SKU}" "feature-flags:${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}" "${AGENTBAKER_REPOSITORY_URL}") && break
     if [ "$i" -eq 3 ]; then
       echo "Linux content-test Run Command failed after ${i} attempts." >&2
       exit 1
