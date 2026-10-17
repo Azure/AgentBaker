@@ -15,6 +15,14 @@ spec.loader.exec_module(diagnostic)
 
 
 class BootDiagnosticTests(unittest.TestCase):
+    def test_gallery_and_vm_use_their_own_api_versions(self):
+        with patch.object(diagnostic, "az") as azure:
+            diagnostic.rest("get", diagnostic.CAPTURE, query="$expand=UefiSettings",
+                            api_version="2023-07-03")
+            self.assertIn("?api-version=2023-07-03&$expand=UefiSettings", azure.call_args.args[-1])
+            diagnostic.rest("get", "/vm")
+            self.assertTrue(azure.call_args.args[-1].endswith("?api-version=2024-07-01"))
+
     def test_identical_security_configuration_for_both_images(self):
         images = [{"sharedGalleryImageId": diagnostic.SOURCE}, {"id": diagnostic.CAPTURE}]
         bodies = [diagnostic.vm_body("vm", image, "/nic", "public-key", {}) for image in images]

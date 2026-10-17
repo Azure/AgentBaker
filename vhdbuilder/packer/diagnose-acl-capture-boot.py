@@ -43,9 +43,9 @@ def az(*args):
     return json.loads(result.stdout) if result.stdout.strip() else None
 
 
-def rest(method, resource, body=None, query=None):
+def rest(method, resource, body=None, query=None, api_version=API):
     args = ["rest", "--method", method, "--url",
-            f"{ARM}{resource}?api-version={API}" + (f"&{query}" if query else "")]
+            f"{ARM}{resource}?api-version={api_version}" + (f"&{query}" if query else "")]
     if body is None:
         return az(*args)
     with tempfile.TemporaryDirectory() as tmp:
@@ -162,10 +162,10 @@ def diagnose():
     group, tags, output = context()
     if az("group", "exists", "--name", group):
         raise RuntimeError("Diagnostic resource group already exists; refusing reuse")
+    save(output, "capture-image.json",
+         rest("get", CAPTURE, query="$expand=UefiSettings", api_version="2023-07-03"))
     az("group", "create", "--name", group, "--location", REGION,
        "--tags", *[f"{key}={value}" for key, value in tags.items()])
-    save(output, "capture-image.json",
-         rest("get", CAPTURE, query="$expand=UefiSettings"))
     images = {"original": {"sharedGalleryImageId": SOURCE}, "captured": {"id": CAPTURE}}
     vm_ids = {}
     with tempfile.TemporaryDirectory() as tmp:
