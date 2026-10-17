@@ -5,6 +5,10 @@ pool:
   name: $(POOL_NAME)
 
 parameters:
+  - name: aclBootDiagnosticsOnly
+    displayName: Diagnose the retained ACL capture from run 186253350 (no build or publication)
+    type: boolean
+    default: false
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
@@ -175,7 +179,41 @@ variables:
   - group: aks-vuln-to-kusto-tme
 
 stages:
+  - stage: acl_boot_diagnostics
+    condition: eq('${{ parameters.aclBootDiagnosticsOnly }}', true)
+    jobs:
+      - job: compare_original_and_capture
+        timeoutInMinutes: 30
+        cancelTimeoutInMinutes: 15
+        steps:
+          - task: AzureCLI@2
+            displayName: Compare original and captured images with Secure Boot
+            timeoutInMinutes: 20
+            inputs:
+              azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: python3 vhdbuilder/packer/diagnose-acl-capture-boot.py diagnose
+            env:
+              DIAGNOSTIC_OUTPUT: $(Build.ArtifactStagingDirectory)/acl-boot-diagnostics
+          - task: AzureCLI@2
+            displayName: Delete only this diagnostic run's resource group
+            condition: always()
+            timeoutInMinutes: 12
+            inputs:
+              azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: python3 vhdbuilder/packer/diagnose-acl-capture-boot.py cleanup
+            env:
+              DIAGNOSTIC_OUTPUT: $(Build.ArtifactStagingDirectory)/acl-boot-diagnostics
+          - publish: $(Build.ArtifactStagingDirectory)/acl-boot-diagnostics
+            artifact: acl-boot-diagnostics
+            condition: always()
+            displayName: Retain boot evidence even when provisioning fails
   - stage: build
+    dependsOn: []
+    condition: and(succeeded(), eq('${{ parameters.aclBootDiagnosticsOnly }}', false))
     jobs:
       - job: buildAzureLinuxV3gen1
         condition: eq('${{ parameters.buildAzureLinuxV3gen1 }}', true)
@@ -1043,7 +1081,7 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gb-gen2-containerd
   - stage: e2e
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    condition: and(succeeded(), eq('${{ parameters.aclBootDiagnosticsOnly }}', false), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_SKIP: "os=windows"
