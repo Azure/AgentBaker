@@ -13,6 +13,22 @@ parameters:
     displayName: Branch in aks-rp to use for overrides
     type: string
     default: master
+  - name: aclSourceGalleryUniqueName
+    displayName: Source shared gallery for non-FIPS ACL Trusted Launch builds
+    type: string
+    default: ae6ab47f-1fc9-4b67-8f82-4636119119c9-ACL
+  - name: aclAmd64SourceImageVersion
+    displayName: Exact source version for non-FIPS ACL AMD64 Trusted Launch
+    type: string
+    default: 20261013.1223148.0
+  - name: aclArm64SourceImageVersion
+    displayName: Exact source version for non-FIPS ACL ARM64 Trusted Launch
+    type: string
+    default: 20261013.1223150.0
+  - name: aclIpeAuditE2E
+    displayName: Run focused ACL IPE audit and default-mode E2E on this build's VHDs
+    type: boolean
+    default: false
   - name: buildAzureLinuxV3gen1
     displayName: Build AzureLinuxV3 Gen1
     type: boolean
@@ -870,11 +886,14 @@ stages:
         timeoutInMinutes: 360
         steps:
           - bash: |
+              set -euo pipefail
+              [[ "$ACL_SOURCE_GALLERY" =~ ^[A-Za-z0-9-]+$ ]] || { echo "Invalid ACL source gallery" >&2; exit 1; }
+              [[ "$ACL_SOURCE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "An exact ACL source version is required" >&2; exit 1; }
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]acl'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]ae6ab47f-1fc9-4b67-8f82-4636119119c9-ACL'
+              echo "##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]${ACL_SOURCE_GALLERY}"
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-3.0-amd64'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]20261013.1223148.0'
+              echo "##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${ACL_SOURCE_VERSION}"
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -884,6 +903,9 @@ stages:
               echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
+            env:
+              ACL_SOURCE_GALLERY: ${{ parameters.aclSourceGalleryUniqueName }}
+              ACL_SOURCE_VERSION: ${{ parameters.aclAmd64SourceImageVersion }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -920,11 +942,14 @@ stages:
         timeoutInMinutes: 360
         steps:
           - bash: |
+              set -euo pipefail
+              [[ "$ACL_SOURCE_GALLERY" =~ ^[A-Za-z0-9-]+$ ]] || { echo "Invalid ACL source gallery" >&2; exit 1; }
+              [[ "$ACL_SOURCE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "An exact ACL source version is required" >&2; exit 1; }
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]acl'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]ae6ab47f-1fc9-4b67-8f82-4636119119c9-ACL'
+              echo "##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]${ACL_SOURCE_GALLERY}"
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-3.0-arm64'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]20261013.1223150.0'
+              echo "##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${ACL_SOURCE_VERSION}"
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -934,6 +959,9 @@ stages:
               echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
+            env:
+              ACL_SOURCE_GALLERY: ${{ parameters.aclSourceGalleryUniqueName }}
+              ACL_SOURCE_VERSION: ${{ parameters.aclArm64SourceImageVersion }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -1021,9 +1049,12 @@ stages:
       TAGS_TO_SKIP: "os=windows"
       # VHD already contains the binary under test; skip the compile+download hack.
       DISABLE_SCRIPTLESS_COMPILATION: true
+      ${{ if eq(parameters.aclIpeAuditE2E, true) }}:
+        ACL_IPE_AUDIT_E2E: true
+        TAGS_TO_RUN: "name=ACL,name=ACL_ARM64,name=ACL_IPEAudit,name=ACL_ARM64_IPEAudit"
     jobs:
       - template: ./templates/e2e-template.yaml
         parameters:
           name: All Linux
-          IgnoreScenariosWithMissingVhd: true
+          IgnoreScenariosWithMissingVhd: ${{ not(parameters.aclIpeAuditE2E) }}
           useVhdMetadataArtifacts: true

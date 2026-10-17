@@ -73,6 +73,7 @@ var _ = Register(&Scenario{
 			return errors.Join(
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				validateACLIPEDisabledControl(ctx, s),
 			)
 		},
 	},
@@ -128,6 +129,7 @@ var _ = Register(&Scenario{
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt"),
+				validateACLIPEDisabledControl(ctx, s),
 			)
 		},
 	},
