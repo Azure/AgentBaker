@@ -2077,8 +2077,8 @@ testNodeExporter () {
   echo "$test: checking if node-exporter was successfully installed"
 
   # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
-  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
-  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 (including Kata) gets node-exporter
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ]; then
     if [ -f "$skip_file" ]; then
       err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
       return 1
