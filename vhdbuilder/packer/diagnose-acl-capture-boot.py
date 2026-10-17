@@ -141,7 +141,7 @@ def capture_diagnostics(output, name, vm_id, suffix):
                 raise RuntimeError(f"Boot diagnostics did not return {key}")
             parsed = urlsplit(uri)
             if (parsed.scheme != "https" or not parsed.hostname
-                    or not parsed.hostname.endswith(".blob.core.windows.net")):
+                    or not parsed.hostname.endswith((".blob.core.windows.net", ".blob.storage.azure.net"))):
                 raise ValueError("Unexpected boot diagnostics download host")
             with urlopen(uri, timeout=60) as response:
                 data = response.read()

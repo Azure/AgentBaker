@@ -93,6 +93,23 @@ class BootDiagnosticTests(unittest.TestCase):
             self.assertNotIn("SECRET", content)
             self.assertIn("HTTP 403", content)
 
+    def test_managed_storage_diagnostic_download(self):
+        host = "https://md-example.z49.blob.storage.azure.net"
+        links = {
+            "serialConsoleLogBlobUri": host + "/serial?sig=SECRET",
+            "consoleScreenshotBlobUri": host + "/screen?sig=SECRET",
+        }
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(diagnostic, "rest", side_effect=[{}, {"statuses": []}, links]), \
+                patch.object(diagnostic, "urlopen") as download:
+            download.return_value.__enter__.return_value.read.return_value = b"boot evidence"
+            diagnostic.capture_diagnostics(Path(tmp), "captured", "/vm", "final")
+            self.assertEqual(download.call_count, 2)
+            self.assertEqual((Path(tmp) / "captured-final-serial.log").read_bytes(), b"boot evidence")
+            self.assertEqual((Path(tmp) / "captured-final-screenshot.bmp").read_bytes(), b"boot evidence")
+            self.assertFalse((Path(tmp) / "captured-final-download-error.json").exists())
+            self.assertNotIn("SECRET", "".join(p.read_text() for p in Path(tmp).iterdir()))
+
 
 if __name__ == "__main__":
     unittest.main()
