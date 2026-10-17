@@ -90,11 +90,9 @@ func TestKubeletConfigFileFieldsRoundTrip(t *testing.T) {
 			require.NoError(t, proto.Unmarshal(wire, decoded))
 			require.True(t, proto.Equal(original, decoded), "protobuf wire round trip")
 
-			content, err := getKubeletConfigFileContent(restored.GetKubeletConfig())
-			require.NoError(t, err)
+			content := getKubeletConfigFileContent(restored.GetKubeletConfig())
 			require.JSONEq(t, test.want, content)
-			encoded, err := getKubeletConfigFileContentBase64(restored.GetKubeletConfig())
-			require.NoError(t, err)
+			encoded := getKubeletConfigFileContentBase64(restored.GetKubeletConfig())
 			decodedContent, err := base64.StdEncoding.DecodeString(encoded)
 			require.NoError(t, err)
 			require.Equal(t, content, string(decodedContent))
@@ -112,21 +110,15 @@ func TestKubeletConfigFileLegacyOutputUnchanged(t *testing.T) {
 			CpuCfsQuota:    proto.Bool(false),
 		},
 	}
-	content, err := getKubeletConfigFileContent(config)
-	require.NoError(t, err)
 	require.Equal(t, `{
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
     "address": "0.0.0.0",
     "eventRecordQPS": 0,
     "cpuCFSQuota": false
-}`, content)
-	content, err = getKubeletConfigFileContent(nil)
-	require.NoError(t, err)
-	require.Equal(t, "", content)
-	content, err = getKubeletConfigFileContent(&aksnodeconfigv1.KubeletConfig{})
-	require.NoError(t, err)
-	require.Equal(t, "{}", content)
+}`, getKubeletConfigFileContent(config))
+	require.Equal(t, "", getKubeletConfigFileContent(nil))
+	require.Equal(t, "{}", getKubeletConfigFileContent(&aksnodeconfigv1.KubeletConfig{}))
 }
 
 func TestKubeletConfigSchemaDoesNotActivateFlagMigration(t *testing.T) {

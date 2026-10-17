@@ -16,11 +16,8 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 	if cfg == nil {
 		return fmt.Errorf("AKSNodeConfig is required")
 	}
-	if cfg.Version != "v0" && cfg.Version != "v1" && cfg.Version != "v2" {
+	if cfg.Version != "v0" && cfg.Version != "v1" {
 		return fmt.Errorf("unsupported version: %s", cfg.Version)
-	}
-	if hasAdditionalNodeConfiguration(cfg) && cfg.Version != "v2" {
-		return fmt.Errorf("additional node configuration requires version v2")
 	}
 	if err := validateCustomLinuxOSConfig(cfg.GetCustomLinuxOsConfig()); err != nil {
 		return err
@@ -29,9 +26,6 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 	kubelet := cfg.GetKubeletConfig()
 	if kubelet == nil {
 		return nil
-	}
-	if len(kubelet.GetAdditionalKubeletConfig().GetFields()) > 0 && !kubelet.GetEnableKubeletConfigFile() {
-		return fmt.Errorf("additional kubelet config requires enable_kubelet_config_file")
 	}
 	version, err := semver.NewVersion(cfg.KubernetesVersion)
 	if err != nil {
@@ -61,12 +55,6 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 	}
 	normalizeKubeletConfigFile(kubelet.GetKubeletConfigFileConfig(), version, kubeReserved, systemReserved)
 	return nil
-}
-
-func hasAdditionalNodeConfiguration(cfg *aksnodeconfigv1.Configuration) bool {
-	return len(cfg.GetKubeletConfig().GetAdditionalKubeletConfig().GetFields()) > 0 ||
-		len(cfg.GetContainerdConfig().GetAdditionalContainerdConfig().GetFields()) > 0 ||
-		len(cfg.GetCustomLinuxOsConfig().GetAdditionalSysctls()) > 0
 }
 
 func validateCustomLinuxOSConfig(osConfig *aksnodeconfigv1.CustomLinuxOsConfig) error {

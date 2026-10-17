@@ -1,8 +1,6 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
-import "google/protobuf/struct.proto";
-
 option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
 
 message ContainerdConfig {
@@ -14,8 +12,4 @@ message ContainerdConfig {
 
   // The URL for downloading the containerd package.
   string containerd_package_url = 3;
-
-  // Additional validated containerd configuration fields that are not
-  // represented by the typed AKSNodeConfig contract.
-  google.protobuf.Struct additional_containerd_config = 4;
 }

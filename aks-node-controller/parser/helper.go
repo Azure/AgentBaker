@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"os/exec"
 	"sort"
 	"strconv"
@@ -36,7 +35,6 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Masterminds/semver/v3"
-	"github.com/pelletier/go-toml/v2"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -176,31 +174,31 @@ func getKubenetTemplate() string {
 }
 
 // getContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) (string, error) {
+func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
 	if aksnodeconfig == nil {
-		return "", nil
+		return ""
 	}
 
 	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false, containerdVersion)
 	if err != nil {
-		return "", fmt.Errorf("getting containerd config from AKSNodeConfig: %w", err)
+		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(containerdConfig)), nil
+	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
 // getNoGPUContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) (string, error) {
+func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration, containerdVersion string) string {
 	if aksnodeconfig == nil {
-		return "", nil
+		return ""
 	}
 
 	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true, containerdVersion)
 	if err != nil {
-		return "", fmt.Errorf("getting no-GPU containerd config from AKSNodeConfig: %w", err)
+		return fmt.Sprintf("error getting No GPU containerd config from node bootstrap variables: %v", err)
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(containerdConfig)), nil
+	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
 func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool, containerdVersion string) (string, error) {
@@ -229,109 +227,7 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 		return "", fmt.Errorf("error executing containerd config template for AKSNodeConfig: %w", err)
 	}
 
-	additional := aksnodeconfig.GetContainerdConfig().GetAdditionalContainerdConfig()
-	if additional == nil || len(additional.GetFields()) == 0 {
-		return buffer.String(), nil
-	}
-
-	return mergeAdditionalContainerdConfig(buffer.String(), additional.AsMap())
-}
-
-func mergeAdditionalContainerdConfig(base string, additional map[string]any) (string, error) {
-	var merged map[string]any
-	if err := toml.Unmarshal([]byte(base), &merged); err != nil {
-		return "", fmt.Errorf("parsing generated containerd config: %w", err)
-	}
-
-	normalized, err := normalizeAdditionalTOMLValue(additional, nil)
-	if err != nil {
-		return "", err
-	}
-	if err := mergeAdditionalTOMLMap(merged, normalized.(map[string]any), nil); err != nil {
-		return "", err
-	}
-
-	content, err := toml.Marshal(merged)
-	if err != nil {
-		return "", fmt.Errorf("marshalling merged containerd config: %w", err)
-	}
-	return string(content), nil
-}
-
-func normalizeAdditionalTOMLValue(value any, path []string) (any, error) {
-	switch value := value.(type) {
-	case map[string]any:
-		normalized := make(map[string]any, len(value))
-		for key, child := range value {
-			childPath := appendPath(path, key)
-			normalizedChild, err := normalizeAdditionalTOMLValue(child, childPath)
-			if err != nil {
-				return nil, err
-			}
-			normalized[key] = normalizedChild
-		}
-		return normalized, nil
-	case []any:
-		normalized := make([]any, len(value))
-		for i, child := range value {
-			childPath := appendPath(path, strconv.Itoa(i))
-			normalizedChild, err := normalizeAdditionalTOMLValue(child, childPath)
-			if err != nil {
-				return nil, err
-			}
-			normalized[i] = normalizedChild
-		}
-		return normalized, nil
-	case float64:
-		if math.IsNaN(value) || math.IsInf(value, 0) {
-			return nil, fmt.Errorf("additional containerd config %q has a non-finite number", strings.Join(path, "."))
-		}
-		if value == math.Trunc(value) && value >= math.MinInt64 && value <= math.MaxInt64 {
-			return int64(value), nil
-		}
-		return value, nil
-	case nil:
-		return nil, fmt.Errorf("additional containerd config %q cannot be null", strings.Join(path, "."))
-	case string, bool:
-		return value, nil
-	default:
-		return nil, fmt.Errorf("additional containerd config %q has unsupported value type %T", strings.Join(path, "."), value)
-	}
-}
-
-func mergeAdditionalTOMLMap(destination, additional map[string]any, path []string) error {
-	for key, additionalValue := range additional {
-		currentPath := appendPath(path, key)
-		existingValue, exists := destination[key]
-		if !exists {
-			destination[key] = additionalValue
-			continue
-		}
-
-		existingMap, existingIsMap := existingValue.(map[string]any)
-		additionalMap, additionalIsMap := additionalValue.(map[string]any)
-		if existingIsMap && additionalIsMap {
-			if err := mergeAdditionalTOMLMap(existingMap, additionalMap, currentPath); err != nil {
-				return err
-			}
-			continue
-		}
-		if !canOverrideGeneratedContainerdConfig(currentPath) {
-			return fmt.Errorf("additional containerd config collides with generated field %q", strings.Join(currentPath, "."))
-		}
-		destination[key] = additionalValue
-	}
-	return nil
-}
-
-func canOverrideGeneratedContainerdConfig([]string) bool {
-	return false
-}
-
-func appendPath(path []string, value string) []string {
-	result := make([]string, len(path), len(path)+1)
-	copy(result, path)
-	return append(result, value)
+	return buffer.String(), nil
 }
 
 // detectContainerdVersion runs "containerd --version" and parses the version string.
@@ -436,14 +332,13 @@ func getDHCPV6ConfigFilepath() string {
 	return dhcpV6ConfigCSEScriptFilepath
 }
 
-// getSysctlContent converts CustomLinuxOsConfig to a string with key=value pairs, with default values.
+// getSysctlContent converts aksnodeconfigv1.SysctlConfig to a string with key=value pairs, with default values.
 //
 //gocyclo:ignore
 //nolint:funlen,gocognit,cyclop // This function is long because it has to handle all the sysctl values.
-func getSysctlContent(osConfig *aksnodeconfigv1.CustomLinuxOsConfig) (string, error) {
+func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 	// This is a partial workaround to this upstream Kubernetes issue:
 	// https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
-	s := osConfig.GetSysctlConfig()
 
 	if s == nil {
 		// If the sysctl config is nil, setting it to non-nil so that it can go through the defaulting logic below to get the default values.
@@ -588,38 +483,7 @@ func getSysctlContent(osConfig *aksnodeconfigv1.CustomLinuxOsConfig) (string, er
 		m["vm.vfs_cache_pressure"] = s.GetVmVfsCachePressure()
 	}
 
-	for key, value := range osConfig.GetAdditionalSysctls() {
-		if !isValidAdditionalSysctlKey(key) {
-			return "", fmt.Errorf("additional sysctl key %q is not a canonical Linux sysctl name", key)
-		}
-		if strings.ContainsAny(value, "\r\n\x00") {
-			return "", fmt.Errorf("additional sysctl %q contains an invalid value", key)
-		}
-		if _, exists := m[key]; exists && !canOverrideGeneratedSysctl(key) {
-			return "", fmt.Errorf("additional sysctl %q collides with generated configuration", key)
-		}
-		m[key] = value
-	}
-
-	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n") + "\n")), nil
-}
-
-func isValidAdditionalSysctlKey(key string) bool {
-	if key == "" {
-		return false
-	}
-	for _, char := range key {
-		if (char < 'a' || char > 'z') &&
-			(char < '0' || char > '9') &&
-			char != '.' && char != '_' && char != '-' {
-			return false
-		}
-	}
-	return true
-}
-
-func canOverrideGeneratedSysctl(string) bool {
-	return false
+	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n") + "\n"))
 }
 
 func getShouldConfigContainerdUlimits(u *aksnodeconfigv1.UlimitConfig) bool {
@@ -887,60 +751,22 @@ func marshalToJSON(v any) ([]byte, error) {
 	}
 }
 
-// getKubeletConfigFileContent converts kubelet flags we set to a file, and returns the JSON content.
-func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) (string, error) {
+// getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
+func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	if kubeletConfig == nil {
-		return "", nil
+		return ""
 	}
 	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
 	kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
 	if err != nil {
-		return "", fmt.Errorf("marshalling generated kubelet config file content: %w", err)
+		log.Printf("error marshalling kubelet config file content: %v", err)
+		return ""
 	}
-
-	additional := kubeletConfig.GetAdditionalKubeletConfig()
-	if additional == nil || len(additional.GetFields()) == 0 {
-		return string(kubeletConfigFileConfigByte), nil
-	}
-	if !kubeletConfig.GetEnableKubeletConfigFile() {
-		return "", fmt.Errorf("additional kubelet config requires enable_kubelet_config_file")
-	}
-
-	var merged map[string]json.RawMessage
-	if err := json.Unmarshal(kubeletConfigFileConfigByte, &merged); err != nil {
-		return "", fmt.Errorf("parsing generated kubelet config file content: %w", err)
-	}
-	additionalJSON, err := protojson.Marshal(additional)
-	if err != nil {
-		return "", fmt.Errorf("marshalling additional kubelet config: %w", err)
-	}
-	var additions map[string]json.RawMessage
-	if err := json.Unmarshal(additionalJSON, &additions); err != nil {
-		return "", fmt.Errorf("parsing additional kubelet config: %w", err)
-	}
-	for key, value := range additions {
-		if _, exists := merged[key]; exists && !canOverrideGeneratedKubeletConfig(key) {
-			return "", fmt.Errorf("additional kubelet config collides with generated field %q", key)
-		}
-		merged[key] = value
-	}
-	content, err := json.MarshalIndent(merged, "", "    ")
-	if err != nil {
-		return "", fmt.Errorf("marshalling merged kubelet config file content: %w", err)
-	}
-	return string(content), nil
+	return string(kubeletConfigFileConfigByte)
 }
 
-func canOverrideGeneratedKubeletConfig(string) bool {
-	return false
-}
-
-func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletConfig) (string, error) {
-	content, err := getKubeletConfigFileContent(kubeletConfig)
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString([]byte(content)), nil
+func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
+	return base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig)))
 }
 
 func getEnableSwapConfig(v *aksnodeconfigv1.CustomLinuxOsConfig) bool {

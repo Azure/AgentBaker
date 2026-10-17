@@ -135,38 +135,6 @@ Describe 'NVIDIA Fabric Manager startup timeout'
     End
 End
 
-Describe 'BootstrapUserData node reconciliation ordering'
-    additional_sysctl_reconciliation_is_ordered() {
-        awk '
-            /function nodePrep/ { in_node_prep = 1 }
-            in_node_prep && /reconcileAdditionalSysctls/ { sysctl = NR }
-            in_node_prep && /configureKubeletServing/ { kubelet = NR; exit }
-            END { exit !(sysctl > 0 && kubelet > sysctl) }
-        ' parts/linux/cloud-init/artifacts/cse_main.sh
-    }
-
-    additional_containerd_reconciliation_is_ordered() {
-        awk '
-            /function nodePrep/ { in_node_prep = 1 }
-            in_node_prep && /reconcileAdditionalContainerdConfig/ { reconcile = NR }
-            in_node_prep && /checkServiceHealth containerd/ { health = NR; exit }
-            END { exit !(reconcile > 0 && health > reconcile) }
-        ' parts/linux/cloud-init/artifacts/cse_main.sh
-    }
-
-    It 'reconciles additional sysctls at the start of nodePrep'
-        When call additional_sysctl_reconciliation_is_ordered
-
-        The status should be success
-    End
-
-    It 'reconciles additional containerd config before checking containerd health'
-        When call additional_containerd_reconciliation_is_ordered
-
-        The status should be success
-    End
-End
-
 Describe 'proxy environment exports'
     setup() {
         unset HTTP_PROXY http_proxy HTTPS_PROXY https_proxy NO_PROXY no_proxy

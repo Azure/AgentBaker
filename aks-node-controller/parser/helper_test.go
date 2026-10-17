@@ -196,11 +196,7 @@ net.ipv4.tcp_retries2=8
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getSysctlContent(&aksnodeconfigv1.CustomLinuxOsConfig{SysctlConfig: tt.args.s})
-			if err != nil {
-				t.Fatalf("getSysctlContent() error = %v", err)
-			}
-			if got != tt.want {
+			if got := getSysctlContent(tt.args.s); got != tt.want {
 				t.Errorf("getSysctlContent() = %v, want %v", got, tt.want)
 			}
 		})
@@ -505,11 +501,7 @@ oom_score = -999
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getContainerdConfigBase64(tt.args.aksnodeconfig, "")
-			if err != nil {
-				t.Fatalf("getContainerdConfigBase64() error = %v", err)
-			}
-			if got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -694,14 +686,10 @@ oom_score = -999
 		t.Run(tt.name, func(t *testing.T) {
 			containerdVersion := tt.args.aksnodeconfig.GetContainerdConfig().GetContainerdVersion()
 			var got string
-			var err error
 			if tt.args.noGpu {
-				got, err = getNoGPUContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
+				got = getNoGPUContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
 			} else {
-				got, err = getContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
-			}
-			if err != nil {
-				t.Fatalf("getContainerdConfigBase64() error = %v", err)
+				got = getContainerdConfigBase64(tt.args.aksnodeconfig, containerdVersion)
 			}
 			if got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
@@ -1682,11 +1670,7 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getKubeletConfigFileContent(tt.args.kubeletConfig)
-			if err != nil {
-				t.Fatalf("getKubeletConfigFileContent() error = %v", err)
-			}
-			if got != tt.want {
+			if got := getKubeletConfigFileContent(tt.args.kubeletConfig); got != tt.want {
 				// Normalize JSON strings to avoid any formatting differences such as space, indent, line breaking
 				var gotJSON, wantJSON map[string]any
 				if err := json.Unmarshal([]byte(got), &gotJSON); err != nil {

@@ -548,11 +548,26 @@ EOF
 
   mkdir -p /etc/containerd
 
-  if grep -q 'BinaryName = "/usr/bin/nvidia-container-runtime"' /etc/containerd/config.toml 2>/dev/null &&
-    [ "${HAS_ADDITIONAL_CONTAINERD_CONFIG:-false}" != "true" ]; then
+  if grep -q 'BinaryName = "/usr/bin/nvidia-container-runtime"' /etc/containerd/config.toml 2>/dev/null; then
     echo "NVIDIA containerd config already exists at /etc/containerd/config.toml, skipping generation"
   else
-    reconcileContainerdConfigFile || exit "$ERR_FILE_WATCH_TIMEOUT"
+    # Remove in case this is an existing symlink or non-NVIDIA config
+    rm -f /etc/containerd/config.toml
+    if [ "${GPU_NODE}" = "true" ]; then
+      # Check VM tag directly to determine if GPU drivers should be skipped
+      export -f should_skip_nvidia_drivers
+      should_skip=$(should_skip_nvidia_drivers)
+      if [ "$?" -eq 0 ] && [ "${should_skip}" = "true" ]; then
+        echo "Generating non-GPU containerd config for GPU node due to VM tags"
+        echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+      else
+        echo "Generating GPU containerd config..."
+        echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+      fi
+    else
+      echo "Generating containerd config..."
+      echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+    fi
   fi
 
   export -f should_e2e_mock_azure_china_cloud
@@ -582,67 +597,6 @@ EOF
   fi
 
   systemctlEnableAndStartNoBlock containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
-writeBase64FileAtomically() {
-  local encoded_content="$1"
-  local destination="$2"
-  local mode="$3"
-  local temporary_file
-
-  RECONCILED_FILE_CHANGED=false
-  temporary_file=$(mktemp "${destination}.XXXXXX") || return 1
-  if ! printf '%s' "${encoded_content}" | base64 -d > "${temporary_file}"; then
-    rm -f "${temporary_file}"
-    return 1
-  fi
-  if ! chmod "${mode}" "${temporary_file}"; then
-    rm -f "${temporary_file}"
-    return 1
-  fi
-  if [ -f "${destination}" ] && cmp -s "${destination}" "${temporary_file}"; then
-    rm -f "${temporary_file}"
-    return 0
-  fi
-  if ! mv "${temporary_file}" "${destination}"; then
-    rm -f "${temporary_file}"
-    return 1
-  fi
-  RECONCILED_FILE_CHANGED=true
-}
-
-setDesiredContainerdConfigContent() {
-  if [ "${GPU_NODE}" = "true" ]; then
-    export -f should_skip_nvidia_drivers
-    local should_skip
-    if should_skip=$(should_skip_nvidia_drivers) && [ "${should_skip}" = "true" ]; then
-      echo "Generating non-GPU containerd config for GPU node due to VM tags"
-      DESIRED_CONTAINERD_CONFIG_CONTENT="${CONTAINERD_CONFIG_NO_GPU_CONTENT}"
-    else
-      echo "Generating GPU containerd config..."
-      DESIRED_CONTAINERD_CONFIG_CONTENT="${CONTAINERD_CONFIG_CONTENT}"
-    fi
-  else
-    echo "Generating containerd config..."
-    DESIRED_CONTAINERD_CONFIG_CONTENT="${CONTAINERD_CONFIG_CONTENT}"
-  fi
-}
-
-reconcileContainerdConfigFile() {
-  mkdir -p /etc/containerd || return 1
-  setDesiredContainerdConfigContent
-  writeBase64FileAtomically "${DESIRED_CONTAINERD_CONFIG_CONTENT}" /etc/containerd/config.toml 0644
-}
-
-reconcileAdditionalContainerdConfig() {
-  if [ "${HAS_ADDITIONAL_CONTAINERD_CONFIG:-false}" != "true" ]; then
-    return 0
-  fi
-
-  reconcileContainerdConfigFile || exit "$ERR_FILE_WATCH_TIMEOUT"
-  if [ "${RECONCILED_FILE_CHANGED}" = "true" ]; then
-    systemctl_restart 100 5 30 containerd || exit "$ERR_SYSTEMCTL_START_FAIL"
-  fi
 }
 
 configureContainerdRegistryHost() {
@@ -718,23 +672,12 @@ configureNodeExporter() {
 }
 
 ensureSysctl() {
-    local SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
+    SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
-    writeBase64FileAtomically "${SYSCTL_CONTENT}" "${SYSCTL_CONFIG_FILE}" 0644 || return 1
+    touch "${SYSCTL_CONFIG_FILE}"
+    chmod 0644 "${SYSCTL_CONFIG_FILE}"
+    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
-}
-
-reconcileAdditionalSysctls() {
-    if [ "${HAS_ADDITIONAL_SYSCTLS:-false}" != "true" ]; then
-        return 0
-    fi
-
-    local SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")" || exit "$ERR_SYSCTL_RELOAD"
-    writeBase64FileAtomically "${SYSCTL_CONTENT}" "${SYSCTL_CONFIG_FILE}" 0644 || exit "$ERR_SYSCTL_RELOAD"
-    if [ "${RECONCILED_FILE_CHANGED}" = "true" ]; then
-        retrycmd_if_failure 24 5 25 sysctl --system || exit "$ERR_SYSCTL_RELOAD"
-    fi
 }
 
 ensureK8sControlPlane() {

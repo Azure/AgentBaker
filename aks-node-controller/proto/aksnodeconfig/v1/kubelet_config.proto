@@ -1,8 +1,6 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
-import "google/protobuf/struct.proto";
-
 option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
 
 message KubeletConfig {
@@ -29,10 +27,6 @@ message KubeletConfig {
 
   // The path used to mount docker images, emptyDir volumes, and kubelet data.
   string container_data_dir = 8;
-
-  // Additional validated kubelet configuration fields that are not represented
-  // by the typed AKSNodeConfig contract.
-  google.protobuf.Struct additional_kubelet_config = 9;
 }
 
 enum KubeletDisk {
@@ -463,6 +457,60 @@ message KubeletConfigFileConfig {
   string container_runtime_endpoint = 50;
   repeated KubeletTaint register_with_taints = 51;
   string hairpin_mode = 52;
+
+  // eventBurst is the maximum size of a burst of event creations.
+  // If eventRecordQPS is 0, this field is ignored.
+  // Default: 10
+  // +optional
+  optional int32 event_burst = 53 [json_name = "eventBurst"];
+
+  // nodeLeaseDurationSeconds is the duration the Kubelet will set on its corresponding Lease.
+  // Default: 40
+  // +optional
+  optional int32 node_lease_duration_seconds = 54 [json_name = "nodeLeaseDurationSeconds"];
+
+  // singleProcessOOMKill controls whether a single process in a memory cgroup will be killed
+  // if the cgroup reaches its memory limit.
+  // +optional
+  optional bool single_process_oom_kill = 55 [json_name = "singleProcessOOMKill"];
+
+  // kubeAPIQPS is the QPS to use while talking with the Kubernetes API server.
+  // Default: 50
+  // +optional
+  optional int32 kube_api_qps = 56 [json_name = "kubeAPIQPS"];
+
+  // kubeAPIBurst is the burst to allow while talking with the Kubernetes API server.
+  // Default: 100
+  // +optional
+  optional int32 kube_api_burst = 57 [json_name = "kubeAPIBurst"];
+
+  // registryPullQPS is the limit of registry pulls per second.
+  // Setting it to 0 means no limit.
+  // Default: 5
+  // +optional
+  optional int32 registry_pull_qps = 58 [json_name = "registryPullQPS"];
+
+  // registryBurst is the maximum size of a burst of image pulls.
+  // If registryPullQPS is 0, this field is ignored.
+  // Default: 10
+  // +optional
+  optional int32 registry_burst = 59 [json_name = "registryBurst"];
+
+  // maxParallelImagePulls limits the maximum number of image pulls in progress at any point in time.
+  // This field cannot be set if serializeImagePulls is true.
+  // +optional
+  optional int32 max_parallel_image_pulls = 60 [json_name = "maxParallelImagePulls"];
+
+  // memorySwap configures swap memory available to containers.
+  // +optional
+  MemorySwapConfiguration memory_swap = 61 [json_name = "memorySwap"];
+}
+
+message MemorySwapConfiguration {
+  // swapBehavior configures the swap behavior of container workloads.
+  // Valid values are "NoSwap" and "LimitedSwap".
+  // +optional
+  optional string swap_behavior = 1 [json_name = "swapBehavior"];
 }
 
 message KubeletTaint {
