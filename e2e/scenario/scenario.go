@@ -3802,17 +3802,17 @@ var _ = Register(&Scenario{
 	},
 })
 
-// The 1.33 inputs need a separate node to exercise the natural PMC gate rather
+// The 1.33 inputs need a separate node to exercise the natural Dalec gate rather
 // than the enforced-install path or the suite's default Kubernetes version.
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_PMC_CredentialProvider_Kubernetes133",
-	Description: "Tests Ubuntu 22.04 installs the PMC credential provider at the natural Kubernetes 1.33 gate",
+	Name:        "Ubuntu2204_Dalec_CredentialProvider_Kubernetes133",
+	Description: "Tests Ubuntu 22.04 installs the Dalec credential provider at the natural Kubernetes 1.33 gate",
 	Config: Config{
 		Cluster:         ClusterKubenet,
 		VHD:             config.VHDUbuntu2204Gen2Containerd,
 		VMConfigMutator: EmptyVMConfigMutator,
 		BootstrapConfigMutatorWithError: func(_ context.Context, _ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
-			return configureUbuntuPMCCredentialProvider(nbc,
+			return configureUbuntuDalecCredentialProvider(nbc,
 				components.GetExpectedPackageVersions("kubernetes-binaries", "default", "current"))
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
@@ -3824,8 +3824,8 @@ var _ = Register(&Scenario{
 	},
 })
 
-func configureUbuntuPMCCredentialProvider(nbc *datamodel.NodeBootstrappingConfiguration, kubeletVersions []string) error {
-	version, err := credentialProvider133Version(kubeletVersions, "kubernetes-binaries/default/current")
+func configureUbuntuDalecCredentialProvider(nbc *datamodel.NodeBootstrappingConfiguration, kubeletVersions []string) error {
+	version, err := credentialProviderVersion(kubeletVersions, "kubernetes-binaries/default/current", 33)
 	if err != nil {
 		return err
 	}
