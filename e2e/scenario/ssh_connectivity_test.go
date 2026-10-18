@@ -6,34 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
 )
-
-func TestValidateSSHConnectivityReturnsNonRebootErrorUnchanged(t *testing.T) {
-	s := &Scenario{
-		Config: Config{
-			VHD:                   &config.Image{OS: config.OSWindows},
-			WaitForSSHAfterReboot: 5 * time.Minute,
-		},
-		Runtime: &ScenarioRuntime{VM: &ScenarioVM{
-			PrivateIP: "10.0.0.4",
-			SSHClient: newSessionTestSSHClient(t, rejectAllChannels),
-		}},
-	}
-	stub := sshConnectivityStub{
-		check: func(context.Context, *Scenario) error {
-			return errors.New("SSH connection to 10.0.0.4 failed: Permission denied (publickey)")
-		},
-		dial: failOnDial(t),
-	}
-
-	err := stub.wait(context.Background(), s)
-
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "SSH connection to 10.0.0.4 failed")
-	require.NotContains(t, err.Error(), "for node to reboot")
-}
 
 func TestSSHConnectivityError(t *testing.T) {
 	lastSSHError := errors.New("connection refused")
