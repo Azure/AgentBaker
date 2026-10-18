@@ -3,6 +3,7 @@ package nodeconfigutils
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	customnodeconfig "github.com/Azure/agentbaker/custom-node-config"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -67,13 +69,31 @@ runcmd:
 // to disk and starts the aks-node-controller service, then pairs it with a cloud-config part. Cloud-init
 // processes each MIME part according to its Content-Type during the VM's first boot.
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
+	return CustomDataWithUserData(cfg, nil)
+}
+
+// CustomDataWithUserData stages a pinned profile before the existing boothook
+// launches ANC. It never executes customer code in cloud-init's competing stages.
+func CustomDataWithUserData(cfg *aksnodeconfigv1.Configuration, profile *customnodeconfig.Profile) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, enabledFeaturesBlock(cfg))
+	extra := enabledFeaturesBlock(cfg)
+	if profile != nil {
+		if err := profile.Validate(); err != nil {
+			return "", err
+		}
+		data, err := json.Marshal(profile)
+		if err != nil {
+			return "", err
+		}
+		extra += fmt.Sprintf("cat <<'EOF' | base64 -d >%s\n%s\nEOF\nchmod 0600 %s\n",
+			customnodeconfig.ProfilePath, base64.StdEncoding.EncodeToString(data), customnodeconfig.ProfilePath)
+	}
+	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, extra)
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)
@@ -89,6 +109,9 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 	if err := writer.Close(); err != nil {
 		return "", fmt.Errorf("failed to finalize multipart custom data: %w", err)
+	}
+	if profile != nil && customData.Len() > 64*1024 {
+		return "", fmt.Errorf("composed custom data exceeds POC transport limit 65536 bytes")
 	}
 
 	return base64.StdEncoding.EncodeToString(customData.Bytes()), nil
