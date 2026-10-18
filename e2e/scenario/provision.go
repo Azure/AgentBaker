@@ -465,13 +465,19 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) error {
 				return err
 			}
 		}
+		var checks []func(context.Context) error
 		for i, pod := range serverCorePods {
-			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("servercore%d", i), pod), numberRetries))
+			checks = append(checks, func(ctx context.Context) error {
+				return ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("servercore%d", i), pod), numberRetries)
+			})
 		}
 
 		for i, pod := range nanoServerPods {
-			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("nanoserver%d", i), pod), numberRetries))
+			checks = append(checks, func(ctx context.Context) error {
+				return ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("nanoserver%d", i), pod), numberRetries)
+			})
 		}
+		errs = append(errs, runConcurrent(ctx, checks...))
 	} else {
 		errs = append(errs, ValidatePodRunningWithRetry(ctx, s, podHTTPServerLinux(s), numberRetries))
 	}
