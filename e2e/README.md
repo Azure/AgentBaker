@@ -183,6 +183,13 @@ graph TB
 The shared infrastructure is created **automatically** on first test run via cached idempotent
 functions — no separate setup script is needed.
 
+Shared setup does not delete cluster subnets: an empty subnet with no AKS cluster may belong
+to another runner that is still creating its cluster. The external resource-group garbage
+collector owns cleanup of abandoned subnets.
+
+Bastion and Firewall provisioning run concurrently after sequential subnet setup.
+Windows Server Core and Nano Server pod checks run concurrently on the scenario node.
+
 Cluster setup keeps three Konnectivity agents to avoid scale-down interruptions during pod exec.
 See [Azure's autoscaler configuration](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/connectivity/tunnel-connectivity-issues#solution-6-cluster-proportional-autoscaler-for-konnectivity-agent).
 
