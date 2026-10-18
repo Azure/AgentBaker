@@ -35,6 +35,14 @@ var (
 )
 
 var (
+	VHDUbuntu2004CVMGen2Containerd = &Image{
+		Name:    "2004gen2CVMcontainerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuContainerd2004CVMGen2,
+		Gallery: &Config.GalleryLinux,
+	}
+
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
 		Name:    "2204gen2arm64containerd",
 		OS:      OSUbuntu,
@@ -115,6 +123,14 @@ var (
 		Gallery: &Config.GalleryLinux,
 	}
 
+	VHDAzureLinuxV3CVMGen2 = &Image{
+		Name:    "V3gen2CVM",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV3CVMGen2,
+		Gallery: &Config.GalleryLinux,
+	}
+
 	// VHDAzureLinuxV3Gen2Kata is the AzureLinux V3 Gen2 VHD built with FEATURE_FLAGS=kata.
 	// The image definition name mirrors the SIG_IMAGE_NAME produced by the VHD builder for
 	// OS_VERSION=V3kata + HYPERV_GENERATION=V2 (SKU_NAME=V3katagen2, prefixed with "AzureLinux").
@@ -154,6 +170,14 @@ var (
 		Gallery: &Config.GalleryLinux,
 	}
 
+	VHDUbuntu2404CVMGen2Containerd = &Image{
+		Name:    "2404gen2CVMcontainerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuContainerd2404CVMGen2,
+		Gallery: &Config.GalleryLinux,
+	}
+
 	VHDUbuntu2404ArmContainerd = &Image{
 		Name:    "2404gen2arm64containerd",
 		OS:      OSUbuntu,
@@ -167,6 +191,14 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuMinimalContainerd2604Gen2,
+		Gallery: &Config.GalleryLinux,
+	}
+
+	VHDUbuntu2604MinimalCVMGen2Containerd = &Image{
+		Name:    "2604minimalgen2CVMcontainerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuMinimalContainerd2604CVMGen2,
 		Gallery: &Config.GalleryLinux,
 	}
 
@@ -313,6 +345,19 @@ func (i *Image) SupportsScriptless() bool {
 	return !i.Flatcar && !i.Distro.IsWindowsDistro() && i.Distro != datamodel.AKSAzureLinuxV2Gen2
 }
 
+func (i Image) vhdBuilderGalleryImageName() string {
+	switch i.Distro {
+	case datamodel.AKSUbuntuContainerd2004CVMGen2,
+		datamodel.AKSUbuntuContainerd2404CVMGen2,
+		datamodel.AKSUbuntuMinimalContainerd2604CVMGen2:
+		return i.Name + "Specialized"
+	case datamodel.AKSAzureLinuxV3CVMGen2:
+		return "AzureLinux" + i.Name
+	default:
+		return i.Name
+	}
+}
+
 func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourceID, error) {
 	if i.Version == "" && Config.vhdMetadata != nil {
 		vhd, err := getVHDResourceIDFromMetadata(Config.vhdMetadata, i, location)
@@ -369,8 +414,9 @@ func loadVHDMetadata(path string) (map[string]vhdMetadataEntry, error) {
 func getVHDResourceIDFromMetadata(metadata map[string]vhdMetadataEntry, image Image, location string) (VHDResourceID, error) {
 	var entry vhdMetadataEntry
 	var found bool
+	builderGalleryImageName := image.vhdBuilderGalleryImageName()
 	for imageName, candidate := range metadata {
-		if strings.EqualFold(imageName, image.Name) {
+		if strings.EqualFold(imageName, image.Name) || strings.EqualFold(imageName, builderGalleryImageName) {
 			entry = candidate
 			found = true
 			break

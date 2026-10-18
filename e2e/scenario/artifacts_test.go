@@ -238,13 +238,16 @@ func TestArtifactHelpersUseTheGivenArtifactName(t *testing.T) {
 	assert.Equal(t, filepath.Join(loggingDir, artifactName), artifactDir(artifactName))
 
 	require.NoError(t, writeToFile(artifactName, "single.log", "single"))
+	require.NoError(t, writeToFile(artifactName, "nested/claims.json", "claims"))
 	require.NoError(t, dumpFileMapToDir(artifactName, map[string]string{"/var/log/nested/mapped.log": "mapped"}))
 
-	for name, want := range map[string]string{"single.log": "single", "mapped.log": "mapped"} {
+	for name, want := range map[string]string{"single.log": "single", "nested/claims.json": "claims", "mapped.log": "mapped"} {
 		got, err := os.ReadFile(filepath.Join(artifactDir(artifactName), name))
 		require.NoError(t, err, "read %s", name)
 		assert.Equal(t, want, string(got), name)
 	}
+
+	require.Error(t, writeToFile(artifactName, "../outside.log", "blocked"))
 }
 
 func TestGenerateVMSSNameLinuxUsesTheGivenArtifactName(t *testing.T) {
