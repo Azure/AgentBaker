@@ -12,6 +12,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -45,7 +46,7 @@ type SharedInfra struct {
 	TenantID       string // tenant ID of the user-assigned managed identity
 }
 
-var CachedEnsureSharedInfra = cachedFunc(ensureSharedInfra)
+var CachedEnsureSharedInfra = toolkit.Memoize(ensureSharedInfra)
 
 func ensureSharedInfra(ctx context.Context, location string) (*SharedInfra, error) {
 	defer logging.LogStep(ctx, "ensuring shared infrastructure")()
@@ -567,7 +568,7 @@ type ClusterSubnetRequest struct {
 	DualStack   bool
 }
 
-var CachedEnsureClusterSubnet = cachedFunc(ensureClusterSubnet)
+var CachedEnsureClusterSubnet = toolkit.Memoize(ensureClusterSubnet)
 
 func ensureClusterSubnet(ctx context.Context, req ClusterSubnetRequest) (string, error) {
 	rg := config.ResourceGroupName(req.Location)

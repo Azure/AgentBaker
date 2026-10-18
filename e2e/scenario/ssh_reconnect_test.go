@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -118,8 +121,11 @@ func TestClosedSSHClientErrorIsStale(t *testing.T) {
 	client := newSessionTestSSHClient(t, rejectAllChannels)
 	require.NoError(t, client.Close())
 
-	_, err := runSSHCommand(t.Context(), client, "echo 'SSH_CONNECTION_OK'", false)
+	s := newRebootScenario(client, 0)
+	s.Config.VHD = &config.Image{OS: config.OSUbuntu}
+	err := attemptSSHConnection(t.Context(), s)
 	require.Error(t, err)
+	require.True(t, errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed), "transport error was lost: %v", err)
 	require.True(t, isStaleSSHConnectionError(err), "unexpected error type: %v", err)
 }
 

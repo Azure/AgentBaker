@@ -1,7 +1,6 @@
 package scenario
 
 import (
-	"bufio"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -38,11 +37,6 @@ func TestSSHSessionCapacityErrors(t *testing.T) {
 		{"transport closed", io.EOF, false},
 		{"authentication", errors.New("ssh: handshake failed: unable to authenticate"), false},
 		{"untyped rejection", errors.New("ssh: rejected: resource shortage (full)"), false},
-		{"SCP resource shortage", errors.New("Error creating ssh session in copy to remote: ssh: rejected: resource shortage (full)"), true},
-		{"SCP OpenSSH session limit", fmt.Errorf("Error creating ssh session in copy to remote: %v", &ssh.OpenChannelError{Reason: ssh.ConnectionFailed, Message: "open failed"}), true},
-		{"SCP permission denied", errors.New("Error creating ssh session in copy to remote: ssh: rejected: administratively prohibited (open failed)"), false},
-		{"SCP transport closed", errors.New("Error creating ssh session in copy to remote: EOF"), false},
-		{"SCP transfer failure", errors.New("file transfer failed: ssh: rejected: resource shortage (full)"), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			assert.Equal(t, test.want, isSSHSessionCapacityError(test.err))
@@ -155,8 +149,11 @@ func TestSSHCommandRetriesRejectedOpensButRunsOnce(t *testing.T) {
 			return ch.Reject(ssh.ConnectionFailed, "open failed")
 		}
 		return serveSessionTestCommand(ch, func(command string, channel ssh.Channel) uint32 {
+			if isSessionTestUpload(command) {
+				return receiveSessionTestScript(t, channel, "echo hello")
+			}
 			commands.Add(1)
-			assert.Equal(t, "echo hello", command)
+			assert.True(t, strings.HasPrefix(command, "bash /home/azureuser/remote_script_"))
 			_, err := io.WriteString(channel, "hello\n")
 			assert.NoError(t, err)
 			return 0
@@ -168,7 +165,7 @@ func TestSSHCommandRetriesRejectedOpensButRunsOnce(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "hello\n", result.stdout)
 	assert.Equal(t, "0", result.exitCode)
-	assert.EqualValues(t, 2, opens.Load())
+	assert.EqualValues(t, 3, opens.Load())
 	assert.EqualValues(t, 1, commands.Load())
 }
 
@@ -176,7 +173,10 @@ func TestSSHCommandFailureIsNotRetried(t *testing.T) {
 	var opens atomic.Int32
 	client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
 		opens.Add(1)
-		return serveSessionTestCommand(ch, func(_ string, channel ssh.Channel) uint32 {
+		return serveSessionTestCommand(ch, func(command string, channel ssh.Channel) uint32 {
+			if isSessionTestUpload(command) {
+				return receiveSessionTestScript(t, channel, "false")
+			}
 			_, err := io.WriteString(channel.Stderr(), "ssh: rejected: resource shortage (full)")
 			assert.NoError(t, err)
 			return 17
@@ -187,13 +187,17 @@ func TestSSHCommandFailureIsNotRetried(t *testing.T) {
 	result, err := runSSHCommand(ctx, client, "false", false)
 	require.NoError(t, err)
 	assert.Equal(t, "17", result.exitCode)
-	assert.EqualValues(t, 1, opens.Load())
+	assert.EqualValues(t, 2, opens.Load())
 }
 
 func TestSSHCommandMissingExitStatusIsNotSuccess(t *testing.T) {
 	var opens atomic.Int32
 	client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
-		opens.Add(1)
+		if opens.Add(1) == 1 {
+			return serveSessionTestCommand(ch, func(_ string, channel ssh.Channel) uint32 {
+				return receiveSessionTestScript(t, channel, "false")
+			})
+		}
 		channel, requests, err := ch.Accept()
 		if err != nil {
 			return err
@@ -215,27 +219,23 @@ func TestSSHCommandMissingExitStatusIsNotSuccess(t *testing.T) {
 	var missingStatus *ssh.ExitMissingError
 	require.ErrorAs(t, err, &missingStatus)
 	assert.Nil(t, result)
-	assert.EqualValues(t, 1, opens.Load())
+	assert.EqualValues(t, 2, opens.Load())
 }
 
 func TestSSHCommandCancellationUnblocksSetupAndRun(t *testing.T) {
-	for _, test := range []struct {
-		stage     string
-		command   string
-		isWindows bool
-	}{
-		{stage: "channel-open", command: "echo hello"},
-		{stage: "exec-request", command: "echo hello"},
-		{stage: "command", command: "echo hello"},
-		{stage: "channel-open", command: "Write-Output hello", isWindows: true},
-		{stage: "exec-request", command: "Write-Output hello", isWindows: true},
-		{stage: "upload", command: "Write-Output hello", isWindows: true},
-	} {
-		t.Run(fmt.Sprintf("%s/windows=%t", test.stage, test.isWindows), func(t *testing.T) {
+	const script = "echo hello\necho world"
+	for _, stage := range []string{"channel-open", "exec-request", "upload", "command"} {
+		t.Run(stage, func(t *testing.T) {
 			entered, release := make(chan struct{}), make(chan struct{})
 			stop := sync.OnceFunc(func() { close(release) })
+			var opens atomic.Int32
 			client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
-				if test.stage == "channel-open" {
+				if opens.Add(1) == 1 && stage == "command" {
+					return serveSessionTestCommand(ch, func(_ string, channel ssh.Channel) uint32 {
+						return receiveSessionTestScript(t, channel, script)
+					})
+				}
+				if stage == "channel-open" {
 					close(entered)
 					<-release
 					return nil
@@ -247,7 +247,7 @@ func TestSSHCommandCancellationUnblocksSetupAndRun(t *testing.T) {
 				defer channel.Close()
 				for request := range requests {
 					if request.Type == "exec" {
-						if test.stage == "command" || test.stage == "upload" {
+						if stage == "command" || stage == "upload" {
 							if err := request.Reply(true, nil); err != nil {
 								return err
 							}
@@ -267,13 +267,13 @@ func TestSSHCommandCancellationUnblocksSetupAndRun(t *testing.T) {
 			defer cancel()
 			done := make(chan error, 1)
 			go func() {
-				_, err := runSSHCommand(ctx, client, test.command, test.isWindows)
+				_, err := runSSHCommand(ctx, client, script, false)
 				done <- err
 			}()
 			select {
 			case <-entered:
 			case <-time.After(time.Second):
-				t.Fatal("SSH operation did not reach " + test.stage)
+				t.Fatal("SSH operation did not reach " + stage)
 			}
 			cancel()
 			select {
@@ -284,13 +284,13 @@ func TestSSHCommandCancellationUnblocksSetupAndRun(t *testing.T) {
 				_ = client.Close()
 				stop()
 				<-done
-				t.Fatal("SSH operation ignored cancellation at " + test.stage)
+				t.Fatal("SSH operation ignored cancellation at " + stage)
 			}
 		})
 	}
 }
 
-func TestSCPCopySetupHonorsDeadline(t *testing.T) {
+func TestScriptUploadSetupHonorsDeadline(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
 	client := newSessionTestSSHClient(t, func(ch ssh.NewChannel) error {
 		close(entered)
@@ -302,24 +302,24 @@ func TestSCPCopySetupHonorsDeadline(t *testing.T) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		_, err := copyScriptToRemoteIfRequired(ctx, client.Client, "Write-Output hello", true)
+		_, err := uploadSSHScript(ctx, client.Client, "Write-Output hello", true)
 		done <- err
 	}()
 	select {
 	case <-entered:
 	case <-time.After(time.Second):
-		t.Fatal("SCP did not attempt to open a channel")
+		t.Fatal("upload did not attempt to open a channel")
 	}
 	select {
 	case err := <-done:
 		require.ErrorIs(t, err, context.DeadlineExceeded)
 	case <-time.After(time.Second):
 		_ = client.Close()
-		t.Fatal("SCP setup ignored the copy deadline")
+		t.Fatal("upload setup ignored the copy deadline")
 	}
 }
 
-func TestSCPCopyRetriesOnlyRejectedOpens(t *testing.T) {
+func TestScriptUploadRetriesOnlyRejectedOpens(t *testing.T) {
 	for _, failTransfer := range []bool{false, true} {
 		t.Run(fmt.Sprintf("fail-transfer=%t", failTransfer), func(t *testing.T) {
 			var opens, transfers atomic.Int32
@@ -330,37 +330,23 @@ func TestSCPCopyRetriesOnlyRejectedOpens(t *testing.T) {
 				}
 				return serveSessionTestCommand(ch, func(command string, channel ssh.Channel) uint32 {
 					transfers.Add(1)
-					assert.True(t, strings.HasPrefix(command, "scp -qt "))
-					reader := bufio.NewReader(channel)
-					header, err := reader.ReadString('\n')
-					if !assert.NoError(t, err) {
-						return 1
-					}
-					assert.True(t, strings.HasPrefix(header, fmt.Sprintf("C0755 %d remote_script_", len(script))))
+					assert.True(t, strings.HasPrefix(command, "umask 077; set -C; cat > "))
 					if failTransfer {
-						_, err := io.WriteString(channel, "\x01ssh: rejected: resource shortage (full)\n")
+						_, err := io.WriteString(channel.Stderr(), "ssh: rejected: resource shortage (full)\n")
 						assert.NoError(t, err)
 						return 1
 					}
-					_, err = channel.Write([]byte{0})
-					assert.NoError(t, err)
-					content := make([]byte, len(script)+1)
-					_, err = io.ReadFull(reader, content)
-					assert.NoError(t, err)
-					assert.Equal(t, script+"\x00", string(content))
-					_, err = channel.Write([]byte{0})
-					assert.NoError(t, err)
-					return 0
+					return receiveSessionTestScript(t, channel, script)
 				})
 			})
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			remote, err := copyScriptToRemoteIfRequired(ctx, client.Client, script, false)
+			remote, err := uploadSSHScript(ctx, client.Client, script, false)
 			if failTransfer {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				assert.True(t, strings.HasPrefix(remote, "/home/azureuser/remote_script_"))
+				assert.True(t, strings.HasPrefix(remote, "bash /home/azureuser/remote_script_"))
 			}
 			assert.EqualValues(t, 2, opens.Load())
 			assert.EqualValues(t, 1, transfers.Load())
@@ -386,7 +372,9 @@ func newSessionTestSSHClient(t *testing.T, handle func(ssh.NewChannel) error) *S
 			return
 		}
 		defer conn.Close()
-		assert.NoError(t, conn.SetDeadline(time.Now().Add(10*time.Second)))
+		if deadline, ok := t.Deadline(); ok {
+			assert.NoError(t, conn.SetDeadline(deadline))
+		}
 		server, channels, requests, err := ssh.NewServerConn(conn, config)
 		if !assert.NoError(t, err) {
 			return
