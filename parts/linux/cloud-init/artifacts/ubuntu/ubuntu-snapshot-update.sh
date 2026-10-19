@@ -225,6 +225,35 @@ knead_set_component_result() {
     KNEAD_COMPONENT_RESULTS="${updated_results}"
 }
 
+# Adds a field a component reports about itself ("message", "current") to the component's status
+# entry, for components that register a reporter for it. Reporting is best-effort: it never changes
+# the component's code or fails the run, and a reporter that prints nothing leaves the field out.
+knead_set_component_field() {
+    local component="$1"
+    local field="$2"
+    local reporter="$3"
+    local node_json="$4"
+    local value
+    local updated_results
+
+    if [ -z "${reporter}" ]; then
+        return 0
+    fi
+    if ! value="$("${reporter}" "${node_json}")" || [ -z "${value}" ]; then
+        return 0
+    fi
+    if ! updated_results="$(printf '%s' "${KNEAD_COMPONENT_RESULTS}" | jq -ce \
+        --arg component "${component}" \
+        --arg field "${field}" \
+        --arg value "${value}" \
+        'if has($component) then .[$component][$field] = $value else . end')" || [ -z "${updated_results}" ]; then
+        echo "failed to record component ${field}: ${component}"
+        return 0
+    fi
+
+    KNEAD_COMPONENT_RESULTS="${updated_results}"
+}
+
 # Dispatches every known component and returns failure only after all have been attempted.
 #
 # This is the main error boundary for node disruption. A broken component should
@@ -242,6 +271,8 @@ knead_apply_components() {
     local component_count
     local component_comparator
     local component_handler
+    local component_message_reporter
+    local component_current_reporter
     local component_index=0
     local component_payload
     local infrastructure_failed=false
@@ -280,6 +311,14 @@ knead_apply_components() {
             securityPatch)
                 component_comparator=securityPatchIsCurrent
                 component_handler=updateSecurityPatch
+                component_message_reporter=""
+                component_current_reporter=""
+                ;;
+            localDNS)
+                component_comparator=localDNSIsCurrent
+                component_handler=updateLocalDNS
+                component_message_reporter=localDNSFailureMessage
+                component_current_reporter=localDNSCurrent
                 ;;
             *)
                 echo "unsupported component: ${component}"
@@ -309,6 +348,10 @@ knead_apply_components() {
         elif ! knead_set_component_result "${component}" "Succeeded"; then
             infrastructure_failed=true
         fi
+        # Report why a patch failed, and what is applied whether the handler ran, failed, or was
+        # skipped as current.
+        knead_set_component_field "${component}" message "${component_message_reporter}" "${node_json}"
+        knead_set_component_field "${component}" current "${component_current_reporter}" "${node_json}"
         component_index=$((component_index + 1))
     done
 
@@ -416,5 +459,7 @@ ${__SOURCED__:+return}
 
 # shellcheck disable=SC1091
 source /opt/azure/containers/security-update.sh
+# shellcheck disable=SC1091
+source /opt/azure/containers/localdns-livepatch-handler.sh
 
 knead_main "$@"
