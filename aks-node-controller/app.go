@@ -30,7 +30,6 @@ func isExpectedDiffCSEVar(key string) bool {
 	switch key {
 	case "CLOUD_INIT_STATUS_SCRIPT",
 		"HYPERKUBE_URL",
-		"MCR_REPOSITORY_BASE",
 		"BLOCK_OUTBOUND_NETWORK",
 		"REPO_DEPOT_ENDPOINT",
 		"SKIP_WAAGENT_HOLD",

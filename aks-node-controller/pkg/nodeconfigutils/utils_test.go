@@ -210,6 +210,44 @@ func TestMarsalConfiguratioV1(t *testing.T) {
 	require.JSONEq(t, `{"version":"v1","auth_config":{"subscription_id":"test-subscription"}, "workload_runtime":"WORKLOAD_RUNTIME_OCI_CONTAINER"}`, string(data))
 }
 
+func TestConfigurationMCRRepositoryBase(t *testing.T) {
+	tests := []struct {
+		name     string
+		json     string
+		expected string
+	}{
+		{name: "legacy missing cloud config", json: `{"version":"v1"}`},
+		{name: "legacy omitted base", json: `{"version":"v1","custom_cloud_config":{}}`},
+		{name: "explicit empty base", json: `{"version":"v1","custom_cloud_config":{"mcr_repository_base":""}}`},
+		{
+			name:     "proto field names",
+			json:     `{"version":"v1","custom_cloud_config":{"mcr_repository_base":"mcr.azure.cn/"}}`,
+			expected: "mcr.azure.cn/",
+		},
+		{
+			name:     "JSON field names",
+			json:     `{"version":"v1","customCloudConfig":{"mcrRepositoryBase":"mcr.microsoft.scloud/"}}`,
+			expected: "mcr.microsoft.scloud/",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := UnmarshalConfigurationV1([]byte(tt.json))
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, cfg.GetCustomCloudConfig().GetMcrRepositoryBase())
+
+			data, err := MarshalConfigurationV1(cfg)
+			require.NoError(t, err)
+			if tt.expected != "" {
+				assert.Contains(t, string(data), `"mcr_repository_base": "`+tt.expected+`"`)
+			}
+			roundTrip, err := UnmarshalConfigurationV1(data)
+			require.NoError(t, err)
+			assert.True(t, proto.Equal(cfg, roundTrip))
+		})
+	}
+}
+
 func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	cfg := &aksnodeconfigv1.Configuration{
 		Version: "v1",

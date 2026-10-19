@@ -622,6 +622,13 @@ func getIsAksCustomCloud(customCloudConfig *aksnodeconfigv1.CustomCloudConfig) b
 	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), helpers.AksCustomCloudName)
 }
 
+func getMCRRepositoryBase(customCloudConfig *aksnodeconfigv1.CustomCloudConfig) string {
+	if base := customCloudConfig.GetMcrRepositoryBase(); base != "" {
+		return base
+	}
+	return "mcr.microsoft.com"
+}
+
 func getCloudLocation(v *aksnodeconfigv1.Configuration) string {
 	return strings.ToLower(strings.Join(strings.Fields(v.GetClusterConfig().GetLocation()), ""))
 }

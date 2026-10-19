@@ -145,6 +145,7 @@ oom_score = -999
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.ClusterConfig.Location = "chinaeast2"
 				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = helpers.AzureChinaCloud
+				aksNodeConfig.CustomCloudConfig.McrRepositoryBase = "mcr.azure.cn/"
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -152,6 +153,7 @@ oom_score = -999
 				assert.Equal(t, helpers.AzureChinaCloud, vars["TARGET_CLOUD"])
 				assert.Equal(t, "false", vars["IS_CUSTOM_CLOUD"])
 				assert.Equal(t, "https://management.chinacloudapi.cn/", vars["ARM_RESOURCE_ENDPOINT"])
+				assertHasKeyWithValue(t, vars, "MCR_REPOSITORY_BASE", "mcr.azure.cn/")
 			},
 		},
 		{
@@ -393,6 +395,67 @@ oom_score = -999
 	}
 }
 
+func TestBuildCSECmd_MCRRepositoryBase(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *aksnodeconfigv1.Configuration
+		expected string
+	}{
+		{
+			name:     "missing cloud config",
+			config:   &aksnodeconfigv1.Configuration{},
+			expected: "mcr.microsoft.com",
+		},
+		{
+			name: "empty base",
+			config: &aksnodeconfigv1.Configuration{
+				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{McrRepositoryBase: ""},
+			},
+			expected: "mcr.microsoft.com",
+		},
+		{
+			name: "no cloud inference",
+			config: &aksnodeconfigv1.Configuration{
+				ClusterConfig:     &aksnodeconfigv1.ClusterConfig{Location: "chinaeast2"},
+				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{CustomCloudEnvName: helpers.AzureChinaCloud},
+			},
+			expected: "mcr.microsoft.com",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd, err := BuildCSECmd(context.Background(), tt.config, nil)
+			require.NoError(t, err)
+			assertHasKeyWithValue(t, environToMap(cmd.Env), "MCR_REPOSITORY_BASE", tt.expected)
+		})
+	}
+
+	for _, base := range []string{
+		"mcr.microsoft.com",
+		"mcr.azure.cn",
+		"mcr.microsoft.scloud",
+		"mcr.microsoft.eaglex.ic.gov",
+		"mcr.sovcloud-azure.fr",
+		"mcr.sovcloud-azure.de",
+	} {
+		for _, suffix := range []string{"", "/"} {
+			for _, cloud := range []string{helpers.DefaultCloudName, helpers.AzureChinaCloud, helpers.AksCustomCloudName} {
+				t.Run(fmt.Sprintf("%s/%s/trailing-slash=%t", cloud, base, suffix != ""), func(t *testing.T) {
+					config := &aksnodeconfigv1.Configuration{
+						CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+							CustomCloudEnvName: cloud,
+							McrRepositoryBase:  base + suffix,
+						},
+					}
+					cmd, err := BuildCSECmd(context.Background(), config, nil)
+					require.NoError(t, err)
+					assertHasKeyWithValue(t, environToMap(cmd.Env), "MCR_REPOSITORY_BASE", base+suffix)
+				})
+			}
+		}
+	}
+}
+
 func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	secret := "super-secret-value"
 	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
@@ -570,6 +633,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NO_PROXY_URLS", "")
 				assertHasKeyWithValue(t, vars, "HTTP_PROXY_TRUSTED_CA", "")
 				assertHasKeyWithValue(t, vars, "TARGET_ENVIRONMENT", helpers.DefaultCloudName)
+				assertHasKeyWithValue(t, vars, "MCR_REPOSITORY_BASE", "mcr.microsoft.com")
 				assertHasKeyWithValue(t, vars, "ARM_RESOURCE_ENDPOINT", "https://management.azure.com/")
 				assertHasKeyWithValue(t, vars, "TLS_BOOTSTRAP_TOKEN", "")
 				assertHasKeyWithValue(t, vars, "ENABLE_SECURE_TLS_BOOTSTRAPPING", "false")

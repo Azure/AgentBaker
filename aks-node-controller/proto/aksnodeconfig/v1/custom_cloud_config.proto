@@ -15,4 +15,8 @@ message CustomCloudConfig {
 
   // AKSCustomCloudContainerRegistryDNSSuffix specifies a custom cloud container registry dns suffix for credential provider
   string container_registry_dns_suffix = 4;
+
+  // MCR registry base for all clouds, without a URL scheme. Defaults to mcr.microsoft.com when empty.
+  // A configured trailing slash is preserved for compatibility with existing provisioning scripts.
+  string mcr_repository_base = 5;
 }
