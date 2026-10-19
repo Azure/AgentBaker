@@ -739,31 +739,37 @@ func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult
 // runProvision encapsulates execution for the "provision" subcommand after CLI parsing.
 // It returns an error describing any failure; callers should pass that error to
 // writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
-func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (provisionResult *ProvisionResult, err error) {
-	provisionResult = &ProvisionResult{}
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("panic recovered in runProvision", "panic", r)
+func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (*ProvisionResult, error) {
+	provisionResult := &ProvisionResult{}
+	var provisionErr error
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("panic recovered in runProvision", "panic", r)
+				provisionResult.ExitCode = strconv.Itoa(240)
+				provisionResult.Error = fmt.Sprintf("panic during provisioning: %v", r)
+				provisionErr = fmt.Errorf("panic during provisioning: %v", r)
+				a.writeCompleteFileOnError(provisionResult, provisionErr)
+			}
+		}()
+
+		if flags.ProvisionConfig == "" && flags.NBCCmd == "" {
 			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = fmt.Sprintf("panic during provisioning: %v", r)
-			err = fmt.Errorf("panic during provisioning: %v", r)
-			a.writeCompleteFileOnError(provisionResult, err)
+			provisionResult.Error = "--provision-config or --nbc-cmd is required"
+			provisionErr = errors.New(provisionResult.Error)
+			return
 		}
-		if !dryRun {
-			a.reportProvisionStatus(ctx, provisionResult, err)
+		if dryRun {
+			a.cmdRun = cmdRunnerDryRun
 		}
+		provisionResult, provisionErr = a.Provision(ctx, flags)
 	}()
 
-	if flags.ProvisionConfig == "" && flags.NBCCmd == "" {
-		provisionResult.ExitCode = strconv.Itoa(240)
-		provisionResult.Error = "--provision-config or --nbc-cmd is required"
-		return provisionResult, errors.New(provisionResult.Error)
+	if !dryRun {
+		a.reportProvisionStatus(ctx, provisionResult, provisionErr)
 	}
-	if dryRun {
-		a.cmdRun = cmdRunnerDryRun
-	}
-	provisionResult, err = a.Provision(ctx, flags)
-	return provisionResult, err
+	return provisionResult, provisionErr
 }
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
