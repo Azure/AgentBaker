@@ -131,7 +131,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"CUSTOM_ENV_JSON":                                      config.GetCustomCloudConfig().GetCustomEnvJsonContent(),
 		"IS_CUSTOM_CLOUD":                                      fmt.Sprintf("%v", getIsAksCustomCloud(config.GetCustomCloudConfig())),
 		"AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX":       config.GetCustomCloudConfig().GetContainerRegistryDnsSuffix(),
-		"MCR_REPOSITORY_BASE":                                  getMCRRepositoryBase(config.GetCustomCloudConfig()),
+		"MCR_REPOSITORY_BASE":                                  getMCRRepositoryBase(config),
 		"CSE_HELPERS_FILEPATH":                                 getCSEHelpersFilepath(),
 		"CSE_DISTRO_HELPERS_FILEPATH":                          getCSEDistroHelpersFilepath(),
 		"CSE_INSTALL_FILEPATH":                                 getCSEInstallFilepath(),

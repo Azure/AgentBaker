@@ -11,7 +11,7 @@ This table is describing the all the `AKSNodeConfig` Fields converted to .go fil
 |------------|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------|
 | `Version` | `string` | Semantic version of this AKSNodeConfig                                                                                                                                                                                                                                   | N/A, new |
 | `KubeBinaryConfig` | `KubeBinaryConfig` | Kubernetes binary URL configuration                                                                                                                                                                                                                                      | `KUBE_BINARY_URL`, `CUSTOM_KUBE_BINARY_URL`, `PRIVATE_KUBE_BINARY_URL` , `CREDENTIAL_PROVIDER_DOWNLOAD_URL` |
-| `CustomCloudConfig` | `CustomCloudConfig` | Cloud-specific endpoints and custom cloud configuration                                                                                                                                                                                                                  | `IS_CUSTOM_CLOUD`, `AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX`, `REPO_DEPOT_ENDPOINT`, `CUSTOM_ENV_JSON`, `MCR_REPOSITORY_BASE` |
+| `CustomCloudConfig` | `CustomCloudConfig` | Custom cloud configuration                                                                                                                                                                                                                                               | `IS_CUSTOM_CLOUD`, `AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX`, `REPO_DEPOT_ENDPOINT`, `CUSTOM_ENV_JSON` |
 | `ApiServerConfig` | `ApiServerConfig` | Kubernetes API server configuration                                                                                                                                                                                                                                      | `APISERVER_PUBLIC_KEY`, `API_SERVER_NAME` |
 | `ClusterConfig` | `ClusterConfig` | Various Kubernetes cluster level configuration                                                                                                                                                                                                                           | `RESOURCE_GROUP`, `LOCATION`, `VM_TYPE`, `PRIMARY_AVAILABILITY_SET`, `PRIMARY_SCALE_SET`, `USE_INSTANCE_METADATA` |
 | -`ClusterNetworkConfig` | `ClusterNetworkConfig` | Cluster network config. We assumed network mode is always "transparent" now so it's removed from the contract.                                                                                                                                                           | `VIRTUAL_NETWORK`, `VIRTUAL_NETWORK_RESOURCE_GROUP`, `SUBNET`, `NETWORK_SECURITY_GROUP`, `ROUTE_TABLE` |
@@ -58,26 +58,18 @@ Many variables are changed to optional and we have a builder function as a helpe
 
 ## MCR repository base
 
-`CustomCloudConfig.McrRepositoryBase` (`custom_cloud_config.mcr_repository_base` in
-the serialized contract; protobuf JSON also accepts
-`customCloudConfig.mcrRepositoryBase`) supplies `MCR_REPOSITORY_BASE` to the
-provisioning scripts. Despite the enclosing message's name, this field applies to
-**all clouds**, not only AKS custom clouds. Producers should populate it from their existing cloud
-specification rather than infer an endpoint from the region or cloud name.
+The parser derives `MCR_REPOSITORY_BASE` from `ClusterConfig.Location`, matching
+RP's location-to-cloud MCR selection for the legacy NBC path. Location matching
+ignores case and whitespace. China, USNat, USSec, Bleu, and Delos use their
+respective MCR endpoints; all other locations, including USGov/DoD, legacy
+Germany, GovSG, empty, and unknown locations, use public MCR.
 
-The value is a registry base without a URL scheme.
-An absent message, omitted field, or empty string defaults to `mcr.microsoft.com`.
-Configured values are passed through unchanged, including a trailing slash,
-matching the legacy NBC CSE behavior. Existing shell consumers handle the
-trailing slash where needed. This field does not replace
-`BootstrapProfileContainerRegistryServer`, which remains the network-isolated
-cluster's bootstrap registry.
-
-Older node-controller binaries ignore the new field and continue to use their
-existing behavior. Producers must use an official ANC module release containing
-the field and deploy compatible node-controller binaries before relying on it for
-non-public endpoints. Both NBC-to-AKSNodeConfig conversion and direct
-AKSNodeConfig construction must populate the same cloud-spec value.
+The emitted registry base has no URL scheme and includes a trailing slash,
+matching RP's cloud specifications. This derivation also applies when
+`CustomCloudConfig.CustomCloudEnvName` is the generic custom-cloud marker.
+It does not change other cloud/ARM settings or
+`BootstrapProfileContainerRegistryServer`. No new contract field or RP producer
+change is required.
 
 ## Additional kubelet configuration fields
 

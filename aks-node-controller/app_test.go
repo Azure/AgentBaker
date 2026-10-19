@@ -911,8 +911,8 @@ func TestDiffEnvMaps_MCRRepositoryBase(t *testing.T) {
 	}{
 		{
 			name: "matching public default",
-			pc:   map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com"},
-			nbc:  map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com"},
+			pc:   map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com/"},
+			nbc:  map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com/"},
 		},
 		{
 			name: "matching non-public base with slash",
