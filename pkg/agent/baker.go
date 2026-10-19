@@ -990,6 +990,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
+		"RemoveBootstrapKubeconfig": func() bool {
+			return config.RemoveBootstrapKubeconfig
+		},
 		"EnableKubeletServingCertificateRotation": func() bool {
 			return IsKubeletServingCertificateRotationEnabled(config)
 		},
