@@ -143,6 +143,27 @@ set_component_result() {
     LIVE_PATCHING_COMPONENT_RESULTS="${results}"
 }
 
+# Adds the value a component's reporter prints as "current" to the component's status entry, for
+# components that register a reporter. Reporting is best-effort: it never changes the component's
+# code or fails the run, and a reporter that prints nothing leaves "current" out.
+set_component_current() {
+    local component="$1"
+    local component_reporter="$2"
+    local node_json="$3"
+    local current
+    local results
+
+    [ -n "${component_reporter}" ] || return 0
+    if ! current=$("${component_reporter}" "${node_json}") || [ -z "${current}" ]; then
+        return 0
+    fi
+    if ! results=$(printf '%s' "${LIVE_PATCHING_COMPONENT_RESULTS}" | jq -ce --arg component "${component}" --arg current "${current}" 'if has($component) then .[$component].current=$current else . end') || [ -z "${results}" ]; then
+        echo "failed to record component current value: ${component}"
+        return 0
+    fi
+    LIVE_PATCHING_COMPONENT_RESULTS="${results}"
+}
+
 write_generic_status() {
     local node_name="$1"
     local goal="$2"
@@ -162,7 +183,7 @@ apply_components() {
     local payload="$1"
     local node_json="$2"
     local component_count component_name component_payload
-    local component_handler component_comparator
+    local component_handler component_comparator component_reporter
     local component_index=0
     local failed=false
     LIVE_PATCHING_COMPONENT_RESULTS='{}'
@@ -193,10 +214,12 @@ apply_components() {
             securityPatch)
                 component_handler=updateSecurityPatch
                 component_comparator=securityPatchIsCurrent
+                component_reporter=""
                 ;;
             localDNS)
                 component_handler=updateLocalDNS
                 component_comparator=localDNSIsCurrent
+                component_reporter=localDNSCurrent
                 ;;
             *)
                 echo "unsupported component: ${component_name}"
@@ -224,6 +247,8 @@ apply_components() {
             LIVE_PATCHING_COMPONENT_RESULTS_VALID=false
             failed=true
         fi
+        # Report what is applied whether the handler ran, failed, or was skipped as current.
+        set_component_current "${component_name}" "${component_reporter}" "${node_json}"
         component_index=$((component_index + 1))
     done
 

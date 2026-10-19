@@ -225,6 +225,33 @@ knead_set_component_result() {
     KNEAD_COMPONENT_RESULTS="${updated_results}"
 }
 
+# Adds the value a component's reporter prints as "current" to the component's status entry, for
+# components that register a reporter. Reporting is best-effort: it never changes the component's
+# code or fails the run, and a reporter that prints nothing leaves "current" out.
+knead_set_component_current() {
+    local component="$1"
+    local component_reporter="$2"
+    local node_json="$3"
+    local current
+    local updated_results
+
+    if [ -z "${component_reporter}" ]; then
+        return 0
+    fi
+    if ! current="$("${component_reporter}" "${node_json}")" || [ -z "${current}" ]; then
+        return 0
+    fi
+    if ! updated_results="$(printf '%s' "${KNEAD_COMPONENT_RESULTS}" | jq -ce \
+        --arg component "${component}" \
+        --arg current "${current}" \
+        'if has($component) then .[$component].current = $current else . end')" || [ -z "${updated_results}" ]; then
+        echo "failed to record component current value: ${component}"
+        return 0
+    fi
+
+    KNEAD_COMPONENT_RESULTS="${updated_results}"
+}
+
 # Dispatches every known component and returns failure only after all have been attempted.
 #
 # This is the main error boundary for node disruption. A broken component should
@@ -242,6 +269,7 @@ knead_apply_components() {
     local component_count
     local component_comparator
     local component_handler
+    local component_reporter
     local component_index=0
     local component_payload
     local infrastructure_failed=false
@@ -280,10 +308,12 @@ knead_apply_components() {
             securityPatch)
                 component_comparator=securityPatchIsCurrent
                 component_handler=updateSecurityPatch
+                component_reporter=""
                 ;;
             localDNS)
                 component_comparator=localDNSIsCurrent
                 component_handler=updateLocalDNS
+                component_reporter=localDNSCurrent
                 ;;
             *)
                 echo "unsupported component: ${component}"
@@ -313,6 +343,8 @@ knead_apply_components() {
         elif ! knead_set_component_result "${component}" "Succeeded"; then
             infrastructure_failed=true
         fi
+        # Report what is applied whether the handler ran, failed, or was skipped as current.
+        knead_set_component_current "${component}" "${component_reporter}" "${node_json}"
         component_index=$((component_index + 1))
     done
 

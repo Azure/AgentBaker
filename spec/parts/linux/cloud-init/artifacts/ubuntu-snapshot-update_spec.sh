@@ -354,6 +354,67 @@ EOF
         The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include 'v2'
     End
 
+    # localDNS reports "current" from the .version file aks-node-controller writes with a patch;
+    # securityPatch registers no reporter, so its status entry stays {code}.
+    It 'reports the applied corefileVersion as localDNS current and nothing new for securityPatch'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+cat > /dev/null
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output) output="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+echo "patched-corefile" > "${output}"
+echo "v2" > "${output}.version"
+echo applied
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            [ "$1" != "is-active" ]
+        End
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"}}}"},{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260623T000000Z\"}}}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should include '"localDNS":{"code":"Succeeded","current":"v2"}'
+        The output should include '"securityPatch":{"code":"Succeeded"}'
+    End
+
+    It 'reports localDNS current when the handler is skipped as already current'
+        use_test_localdns_paths
+        echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+        mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+        printf '%s' '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"}}}"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"}}}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should include 'component is already current: localDNS'
+        The output should include '"components":{"localDNS":{"code":"Succeeded","current":"v1"}}}'
+    End
+
+    It 'reports the previous localDNS current when the patch fails'
+        use_test_localdns_paths
+        echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo failed
+exit 1
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"}}}"}]}'
+
+        When call knead_main
+        The status should be failure
+        The output should include 'component failed: localDNS'
+        The output should include '"components":{"localDNS":{"code":"Failed","current":"v1"}}}'
+    End
+
     It 'hashes trailing newline bytes before dispatching a valid payload'
         set_payload_goal $'{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}\n\n'
 
