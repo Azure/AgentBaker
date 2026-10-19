@@ -481,17 +481,6 @@ EOF
             The status should be failure
         End
 
-        It 'selects this pool from the profiles key the same way'
-            When call localDNSIsCurrent '{"profiles":{"ap1":{"configChecksum":"c1"},"ap2":{"configChecksum":"c2"}}}' \
-                '{"profiles":{"ap1":{"configChecksum":"c1"},"ap2":{"configChecksum":"c1"}}}' "${NODE_AP1}"
-            The status should be success
-        End
-
-        It 'is not current when this pool changed under the profiles key'
-            When call localDNSIsCurrent '{"profiles":{"ap1":{"configChecksum":"c2"}}}' '{"profiles":{"ap1":{"configChecksum":"c1"}}}' "${NODE_AP1}"
-            The status should be failure
-        End
-
         # Without a version to compare, the handler runs and checks what is applied on disk.
         It "is not current when this pool's entry has no version, even if unchanged"
             When call localDNSIsCurrent '{"agentPools":{"ap1":{"localDnsProfile":{"enableLocalDns":true}}}}' \
@@ -499,8 +488,14 @@ EOF
             The status should be failure
         End
 
-        It 'is not current when the payload is not keyed by agent pool, even if unchanged'
-            When call localDNSIsCurrent '{"corefile":"a"}' '{"corefile":"a"}' "${NODE_AP1}"
+        # A payload without agentPools has no entry for any pool -- what LPS serves when none is enabled.
+        It 'is current when neither payload has agentPools'
+            When call localDNSIsCurrent '{}' '{}' "${NODE_AP1}"
+            The status should be success
+        End
+
+        It 'is not current when the agentPools disappear, so the handler revokes the patch'
+            When call localDNSIsCurrent '{}' "{\"agentPools\":{${AP1_V1}}}" "${NODE_AP1}"
             The status should be failure
         End
 

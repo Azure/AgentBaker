@@ -51,26 +51,17 @@ const (
 	outcomeLocalDNSConfigFailed         localDNSConfigOutcome = "failed"
 )
 
+// localDNSConfigPayload is the localDNS component's nodeConfig as LPC and LPS publish it: one entry
+// per agent pool that has LocalDNS enabled. LPS serves "{}" when no pool has it enabled.
 type localDNSConfigPayload struct {
-	Corefile           string                             `json:"corefile"`
-	CorefileBase64     string                             `json:"corefileBase64"`
-	CorefileBase64Alt  string                             `json:"corefile_base64"`
-	CoreFile           string                             `json:"coreFile"`
-	LocalDNSProfile    json.RawMessage                    `json:"localDnsProfile"`
-	LocalDNSProfileAlt json.RawMessage                    `json:"local_dns_profile"`
-	AgentPools         map[string]localDNSAgentPoolConfig `json:"agentPools"`
-	Profiles           map[string]localDNSAgentPoolConfig `json:"profiles"`
+	AgentPools map[string]localDNSAgentPoolConfig `json:"agentPools"`
 }
 
+// localDNSAgentPoolConfig is one agent pool's entry: the RP's hash of the pool's LocalDNS profile, and
+// the profile this node renders its Corefile from.
 type localDNSAgentPoolConfig struct {
-	CorefileVersion    string          `json:"corefileVersion"`
-	ConfigChecksum     string          `json:"configChecksum"`
-	Corefile           string          `json:"corefile"`
-	CorefileBase64     string          `json:"corefileBase64"`
-	CorefileBase64Alt  string          `json:"corefile_base64"`
-	CoreFile           string          `json:"coreFile"`
-	LocalDNSProfile    json.RawMessage `json:"localDnsProfile"`
-	LocalDNSProfileAlt json.RawMessage `json:"local_dns_profile"`
+	CorefileVersion string          `json:"corefileVersion"`
+	LocalDNSProfile json.RawMessage `json:"localDnsProfile"`
 }
 
 type localDNSCorefileUpdate struct {
@@ -186,24 +177,18 @@ func (a *App) fetchAndApplyLocalDNSConfig(ctx context.Context, outputPath, agent
 		return outcomeLocalDNSConfigFailed, fmt.Errorf("reading localDNS corefile %s: %w", outputPath, readErr)
 	}
 	contentMatches := readErr == nil && bytes.Equal(current, []byte(update.corefile))
-	if update.desiredVersion != "" {
-		currentVersion, err := readLocalDNSCorefileVersion(versionPath)
-		if err != nil {
-			return outcomeLocalDNSConfigFailed, err
-		}
-		if currentVersion == update.desiredVersion && contentMatches {
-			return outcomeLocalDNSConfigAlreadyCurrent, nil
-		}
-	} else if contentMatches {
+	currentVersion, err := readLocalDNSCorefileVersion(versionPath)
+	if err != nil {
+		return outcomeLocalDNSConfigFailed, err
+	}
+	if currentVersion == update.desiredVersion && contentMatches {
 		return outcomeLocalDNSConfigAlreadyCurrent, nil
 	}
 	if err := writeLocalDNSCorefile(outputPath, update.corefile); err != nil {
 		return outcomeLocalDNSConfigFailed, err
 	}
-	if update.desiredVersion != "" {
-		if err := writeLocalDNSCorefileVersion(versionPath, update.desiredVersion); err != nil {
-			return outcomeLocalDNSConfigFailed, err
-		}
+	if err := writeLocalDNSCorefileVersion(versionPath, update.desiredVersion); err != nil {
+		return outcomeLocalDNSConfigFailed, err
 	}
 	return outcomeLocalDNSConfigApplied, nil
 }
@@ -269,70 +254,42 @@ func (a *App) localDNSCorefileUpdateFromConfig(config, agentPool string) (localD
 	if err != nil || !found {
 		return localDNSCorefileUpdate{}, err
 	}
-
-	update := localDNSCorefileUpdate{
-		desiredVersion: firstNonEmpty(selected.CorefileVersion, selected.ConfigChecksum),
+	// The RP stamps a corefileVersion on every pool it publishes; the node records it with the patch
+	// and compares against it, so an entry without one cannot be applied consistently.
+	desiredVersion := strings.TrimSpace(selected.CorefileVersion)
+	if desiredVersion == "" {
+		return localDNSCorefileUpdate{}, fmt.Errorf("localDNS config for this node's agent pool has no corefileVersion")
 	}
+
+	update := localDNSCorefileUpdate{desiredVersion: desiredVersion}
 	return a.localDNSCorefileUpdateFromAgentPoolConfig(selected, update)
 }
 
+// selectLocalDNSAgentPoolConfig returns this node's entry. A payload without entries, or without one
+// for this pool, is not found: no LocalDNS config applies to this node.
 func (a *App) selectLocalDNSAgentPoolConfig(payload localDNSConfigPayload, agentPool string) (localDNSAgentPoolConfig, bool, error) {
-	selected := localDNSAgentPoolConfig{
-		Corefile:           payload.Corefile,
-		CorefileBase64:     payload.CorefileBase64,
-		CorefileBase64Alt:  payload.CorefileBase64Alt,
-		CoreFile:           payload.CoreFile,
-		LocalDNSProfile:    payload.LocalDNSProfile,
-		LocalDNSProfileAlt: payload.LocalDNSProfileAlt,
+	if len(payload.AgentPools) == 0 {
+		return localDNSAgentPoolConfig{}, false, nil
 	}
-	if len(payload.AgentPools) == 0 && len(payload.Profiles) == 0 {
-		return selected, true, nil
-	}
-
 	if agentPool == "" {
 		var err error
 		if agentPool, err = a.nodeAgentPoolName(); err != nil {
 			return localDNSAgentPoolConfig{}, false, err
 		}
 	}
-	if selected, ok := payload.AgentPools[agentPool]; ok {
-		return selected, true, nil
-	}
-	if selected, ok := payload.Profiles[agentPool]; ok {
-		return selected, true, nil
-	}
-	return localDNSAgentPoolConfig{}, false, nil
+	selected, ok := payload.AgentPools[agentPool]
+	return selected, ok, nil
 }
 
 func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPoolConfig, update localDNSCorefileUpdate) (localDNSCorefileUpdate, error) {
-	switch {
-	case strings.TrimSpace(selected.Corefile) != "":
-		update.corefile = selected.Corefile
-		update.hasCorefile = true
-		return update, nil
-	case strings.TrimSpace(selected.CoreFile) != "":
-		update.corefile = selected.CoreFile
-		update.hasCorefile = true
-		return update, nil
-	case strings.TrimSpace(selected.CorefileBase64) != "":
-		return update.withCorefileBase64(selected.CorefileBase64)
-	case strings.TrimSpace(selected.CorefileBase64Alt) != "":
-		return update.withCorefileBase64(selected.CorefileBase64Alt)
-	}
-	profileJSON := selected.LocalDNSProfile
-	if len(profileJSON) == 0 {
-		profileJSON = selected.LocalDNSProfileAlt
-	}
-	if len(profileJSON) == 0 {
-		if selected.CorefileVersion != "" || selected.ConfigChecksum != "" {
-			slog.Info("localDNS LPS config has only version/checksum; Corefile content is required for bootstrap mutation",
-				"corefileVersion", selected.CorefileVersion, "configChecksum", selected.ConfigChecksum)
-		}
+	if len(selected.LocalDNSProfile) == 0 {
+		slog.Info("localDNS config has a corefileVersion but no localDnsProfile to render",
+			"corefileVersion", selected.CorefileVersion)
 		return update, nil
 	}
 	profile := &aksnodeconfigv1.LocalDnsProfile{}
 	unmarshalOptions := protojson.UnmarshalOptions{DiscardUnknown: true}
-	if err := unmarshalOptions.Unmarshal(profileJSON, profile); err != nil {
+	if err := unmarshalOptions.Unmarshal(selected.LocalDNSProfile, profile); err != nil {
 		return localDNSCorefileUpdate{}, fmt.Errorf("parsing localDNS profile: %w", err)
 	}
 	if !profile.GetEnableLocalDns() {
@@ -365,28 +322,6 @@ func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPo
 	update.corefile = corefile
 	update.hasCorefile = true
 	return update, nil
-}
-
-func (u localDNSCorefileUpdate) withCorefileBase64(v string) (localDNSCorefileUpdate, error) {
-	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(v))
-	if err != nil {
-		return localDNSCorefileUpdate{}, fmt.Errorf("decoding localDNS corefileBase64: %w", err)
-	}
-	if len(strings.TrimSpace(string(decoded))) == 0 {
-		return u, nil
-	}
-	u.corefile = string(decoded)
-	u.hasCorefile = true
-	return u, nil
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return strings.TrimSpace(v)
-		}
-	}
-	return ""
 }
 
 func (a *App) nodeAgentPoolName() (string, error) {
