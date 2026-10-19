@@ -19,13 +19,16 @@ From a high-level, for each scenario,
 ### VHD image metadata
 
 The Linux VHD release pipeline publishes E2E image metadata after the image-publication
-steps. Ubuntu and Azure Linux CVM builds retain their original captured-image entry
-and add a generalized entry keyed by `SKU_NAME`. The generalized resource ID and
-completed replica regions are read from Azure; missing or unready generalized versions
-fail metadata creation instead of silently skipping their scenarios. ACL and non-CVM
-builds retain their existing captured-image metadata.
-The generalized publisher currently runs in the prefetch path; a non-prefetch CVM
-build must already have a ready generalized version to pass metadata creation.
+steps. All builds retain their original captured-image entry. Ubuntu and Azure Linux
+CVM builds also attempt generalized gallery publication for AgentBaker E2Es when
+prefetch runs (`GENERATE_PUBLISHING_INFO`, `RUN_PREFETCH_OPTIMIZATION`, and
+`PREFETCH_COMPATIBLE` are all true). Metadata then adds a generalized entry keyed by
+`SKU_NAME`, using the actual resource ID and completed replica regions read from Azure.
+Publication is best-effort: missing or unready generalized versions produce warnings
+and are omitted without failing the VHD build. Non-prefetch builds do not query or
+advertise generalized versions, even if an older version exists. Metadata-backed E2Es
+skip missing CVM images when `IgnoreScenariosWithMissingVhd` is enabled; otherwise
+image selection fails. Production VHD output and ACL/non-CVM metadata are unchanged.
 
 ## Writing and extending scenarios
 

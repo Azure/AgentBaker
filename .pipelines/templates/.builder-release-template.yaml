@@ -464,6 +464,9 @@ steps:
     condition: succeeded()
     displayName: Create E2E VHD metadata
     env:
+      GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
+      RUN_PREFETCH_OPTIMIZATION: $(RUN_PREFETCH_OPTIMIZATION)
+      PREFETCH_COMPATIBLE: $(PREFETCH_COMPATIBLE)
       VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       SKU_NAME: $(SKU_NAME)

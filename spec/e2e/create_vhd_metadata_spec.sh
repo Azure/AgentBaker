@@ -8,6 +8,7 @@ Describe 'create-e2e-vhd-metadata.sh'
     export QUERY_LOG="${TEST_ROOT}/query.log"
     : >"${QUERY_LOG}"
     export OS_SKU=Ubuntu FEATURE_FLAGS=cvm PACKER_BUILD_LOCATION=eastus
+    export GENERATE_PUBLISHING_INFO=True RUN_PREFETCH_OPTIMIZATION=True PREFETCH_COMPATIBLE=True
     export REPLICATIONS='westus=1, eastus2=2'
     export SKU_NAME=2404gen2CVMcontainerd SIG_IMAGE_NAME=2404gen2CVMcontainerdSpecialized
     export CAPTURED_SIG_VERSION=1.2.3
@@ -64,23 +65,49 @@ Describe 'create-e2e-vhd-metadata.sh'
       grep -Fxq ReplicationStatus "${QUERY_LOG}"
   }
 
+  check_captured_metadata() {
+    jq -e '
+      length == 1 and .[env.SIG_IMAGE_NAME] == {
+        resourceId: env.MANAGED_SIG_ID,
+        version: env.CAPTURED_SIG_VERSION,
+        regions: ["eastus", "eastus2", "westus"]
+      }
+    ' "${METADATA_FILE}" >/dev/null
+  }
+
   Describe 'generalized CVM metadata'
     Parameters
-      Ubuntu True 2404gen2CVMcontainerd 2404gen2CVMcontainerdSpecialized
-      Ubuntu False 2604minimalgen2CVMcontainerd 2604minimalgen2CVMcontainerdSpecialized
-      AzureLinux True V3gen2CVM AzureLinuxV3gen2CVM
-      AzureLinux False V3gen2CVM AzureLinuxV3gen2CVM
+      Ubuntu 2404gen2CVMcontainerd 2404gen2CVMcontainerdSpecialized
+      Ubuntu 2604minimalgen2CVMcontainerd 2604minimalgen2CVMcontainerdSpecialized
+      AzureLinux V3gen2CVM AzureLinuxV3gen2CVM
     End
 
-    It "adds the actual generalized ID for $1 with prefetch=$2 and preserves the captured entry"
-      OS_SKU="$1" SKU_NAME="$3" SIG_IMAGE_NAME="$4"
-      export RUN_PREFETCH_OPTIMIZATION="$2"
+    It "adds the actual generalized ID for prefetched $1/$2 and preserves the captured entry"
+      OS_SKU="$1" SKU_NAME="$2" SIG_IMAGE_NAME="$3"
       MANAGED_SIG_ID="${GALLERY_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
       set_mock_version
       When call create_and_check_metadata
       The status should be success
       The output should include "Added image ready for E2Es: ${SKU_NAME}/${CAPTURED_SIG_VERSION}"
       The output should include 'Created E2E VHD metadata:'
+    End
+  End
+
+  Describe 'CVM builds without prefetch'
+    Parameters
+      Ubuntu False True True
+      AzureLinux True False True
+      Ubuntu True True False
+      AzureLinux '' '' ''
+    End
+
+    It "omits generalized metadata for $1 with publishing=$2, prefetch=$3, compatible=$4 without querying Azure"
+      OS_SKU="$1" GENERATE_PUBLISHING_INFO="$2" RUN_PREFETCH_OPTIMIZATION="$3" PREFETCH_COMPATIBLE="$4"
+      When run bash .pipelines/scripts/create-e2e-vhd-metadata.sh "${METADATA_FILE}"
+      The status should be success
+      The output should include 'Created E2E VHD metadata:'
+      The contents of file "${QUERY_LOG}" should equal ''
+      The result of function check_captured_metadata should be successful
     End
   End
 
@@ -113,6 +140,7 @@ Describe 'create-e2e-vhd-metadata.sh'
 
   It 'matches the publisher gate case-insensitively'
     OS_SKU=ubuntu FEATURE_FLAGS=CVM
+    GENERATE_PUBLISHING_INFO=true RUN_PREFETCH_OPTIMIZATION=TRUE PREFETCH_COMPATIBLE=true
     When call create_and_check_metadata
     The status should be success
     The output should include 'Added image ready for E2Es:'
@@ -131,23 +159,27 @@ Describe 'create-e2e-vhd-metadata.sh'
       invalid-region '.replicationStatus.summary = [{region:null,state:"Completed"}]'
     End
 
-    It "rejects $1 without writing metadata"
+    It "omits $1 with a warning and preserves captured metadata"
       MOCK_VERSION="$(jq -c "$2" <<<"${MOCK_VERSION}")"
       When run bash .pipelines/scripts/create-e2e-vhd-metadata.sh "${METADATA_FILE}"
-      The status should be failure
+      The status should be success
       The output should include 'Reading generalized CVM image'
-      The stderr should include 'is not ready with confirmed replica regions'
-      The path "${METADATA_FILE}" should not be exist
+      The output should include 'Created E2E VHD metadata:'
+      The stderr should include 'task.logissue type=warning'
+      The stderr should include 'is not ready with confirmed replica regions; omitting it'
+      The result of function check_captured_metadata should be successful
     End
   End
 
-  It 'fails explicitly when the generalized image lookup fails'
+  It 'warns and preserves captured metadata when the generalized image lookup fails'
     MOCK_AZ_STATUS=37
     When run bash .pipelines/scripts/create-e2e-vhd-metadata.sh "${METADATA_FILE}"
-    The status should equal 37
+    The status should be success
     The output should include 'Reading generalized CVM image'
+    The output should include 'Created E2E VHD metadata:'
+    The stderr should include 'task.logissue type=warning'
     The stderr should include 'Unable to read generalized CVM image'
-    The path "${METADATA_FILE}" should not be exist
+    The result of function check_captured_metadata should be successful
   End
 
   It 'rejects a missing captured image ID'
