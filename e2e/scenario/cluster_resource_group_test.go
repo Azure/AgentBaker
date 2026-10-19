@@ -170,6 +170,61 @@ current-context: test
 	}
 }
 
+func TestACRRecreationDeletesClusterInDedicatedResourceGroup(t *testing.T) {
+	previousAzure, previousConfig := config.Azure, config.Config
+	t.Cleanup(func() { config.Azure, config.Config = previousAzure, previousConfig })
+	config.Config = &config.Configuration{AzureContainerRegistrytargetRepository: "cache/*"}
+	const sharedRG = "abe2e-westus3"
+	const registryPath = "/subscriptions/test/resourcegroups/" + sharedRG + "/providers/microsoft.containerregistry/registries/abe2eprivatewestus3"
+	const cachePath = registryPath + "/cacherules/aks-managed-rule"
+	const clusterPath = "/subscriptions/test/resourcegroups/westus3-abe2e-test-12345/providers/microsoft.containerservice/managedclusters/abe2e-test-12345"
+	cluster := &armcontainerservice.ManagedCluster{
+		Name: to.Ptr("abe2e-test-12345"), Location: to.Ptr("westus3"),
+	}
+	var requests []string
+	respond := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+		path := strings.ToLower(req.URL.Path)
+		request := req.Method + " " + path
+		requests = append(requests, request)
+		switch request {
+		case http.MethodGet + " " + registryPath, http.MethodPut + " " + registryPath:
+			return gcResponse(req, http.StatusOK, `{"id":"`+registryPath+`","location":"westus3","sku":{"name":"Premium"},"properties":{"provisioningState":"Succeeded"}}`)
+		case http.MethodGet + " " + cachePath:
+			return gcResponse(req, http.StatusNotFound, `{}`)
+		case http.MethodDelete + " " + registryPath, http.MethodDelete + " " + clusterPath:
+			return gcResponse(req, http.StatusNoContent, "")
+		case http.MethodGet + " " + clusterPath:
+			return gcResponse(req, http.StatusOK, `{"id":"`+clusterPath+`","name":"abe2e-test-12345","location":"westus3","properties":{"provisioningState":"Succeeded"}}`)
+		case http.MethodPut + " " + cachePath:
+			return gcResponse(req, http.StatusOK, `{"id":"`+cachePath+`","properties":{"provisioningState":"Succeeded","targetRepository":"cache/*"}}`)
+		default:
+			t.Fatalf("unexpected request: %s", request)
+			return nil
+		}
+	})
+	opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{respond}}}
+	config.Azure = &config.AzureClient{}
+	var err error
+	config.Azure.AKS, err = armcontainerservice.NewManagedClustersClient("test", nil, opts)
+	require.NoError(t, err)
+	config.Azure.RegistriesClient, err = armcontainerregistry.NewRegistriesClient("test", nil, opts)
+	require.NoError(t, err)
+	config.Azure.CacheRulesClient, err = armcontainerregistry.NewCacheRulesClient("test", nil, opts)
+	require.NoError(t, err)
+
+	err = createPrivateAzureContainerRegistry(logging.WithLogger(t.Context(), t), cluster, sharedRG, false)
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		http.MethodGet + " " + registryPath,
+		http.MethodGet + " " + cachePath,
+		http.MethodDelete + " " + registryPath,
+		http.MethodGet + " " + clusterPath,
+		http.MethodDelete + " " + clusterPath,
+		http.MethodPut + " " + registryPath,
+		http.MethodPut + " " + cachePath,
+	}, requests)
+}
+
 func TestPrepareClusterIsolatesLegacyResources(t *testing.T) {
 	previousAzure, previousConfig := config.Azure, config.Config
 	previousInfra, previousSubnet := CachedEnsureSharedInfra, CachedEnsureClusterSubnet
