@@ -3526,7 +3526,7 @@ fi`)
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
 	// Use VMSS RunCommand to check SSH service status directly on the node
 	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	resp, err := RunCommand(ctx, s, `#!/bin/bash
+	command := `#!/bin/bash
 # Determine the correct SSH service name based on the distro
 # Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
 if [ -f /etc/os-release ]; then
@@ -3560,7 +3560,17 @@ if echo "$status_output" | grep -q "Active: inactive (dead)"; then
 else
     echo "FAILED: SSH service is not inactive"
     exit 1
-fi`)
+fi`
+	if s.IsWindows() {
+		command = `$ErrorActionPreference = 'Stop'
+$service = Get-Service -Name sshd -ErrorAction Stop
+if ($service.Status -ne 'Stopped' -or $service.StartType -ne 'Disabled') {
+    throw "SSH service is not stopped and disabled: Status=$($service.Status), StartType=$($service.StartType)"
+}
+Write-Output 'SUCCESS: SSH service is disabled and stopped'
+`
+	}
+	resp, err := RunCommand(ctx, s, command)
 	if err != nil {
 		return fmt.Errorf("run command to check SSH service status: %w", err)
 	}
