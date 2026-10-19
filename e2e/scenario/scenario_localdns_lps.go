@@ -8,13 +8,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -28,8 +25,6 @@ const (
 	localDNSBakedCorefile       = "/opt/azure/containers/localdns/localdns.corefile"
 	localDNSUpdatedCorefile     = "/opt/azure/containers/localdns/updated.localdns.corefile"
 	localDNSLivepatchedCorefile = "/opt/azure/containers/localdns/livepatched.localdns.corefile"
-
-	livePatchingStatusAnnotation = "kubernetes.azure.com/live-patching-status"
 )
 
 func init() {
@@ -39,9 +34,10 @@ func init() {
 	// delegates to the real apply-localdns-config implementation. The scenario verifies
 	// that localdns.sh:
 	//  1. invokes the fetcher before CoreDNS starts,
-	//  2. renders the supplied LocalDNS profile payload into updated.localdns.corefile,
-	//  3. persists the paired corefileVersion, and
-	//  4. stamps components.localDNS.current after kubeconfig/node registration.
+	//  2. renders the supplied LocalDNS profile payload into updated.localdns.corefile, and
+	//  3. persists the paired corefileVersion.
+	// Reporting that version in live-patching-status is the knead reconciler's job on its first
+	// run after the node joins; this E2E has no LPC driving localDNS, so it checks the file.
 	Register(&Scenario{
 		Name:        "LocalDNSLPSBootstrapPatch",
 		Description: "Tests LocalDNS LPS bootstrap patching applies Corefile and reports corefileVersion",
@@ -166,12 +162,7 @@ func mustReadCompressedLocalDNSArtifact() string {
 }
 
 func localDNSBranchScriptDropIn() string {
-	// LOCALDNS_ENABLE_LEGACY_LIVEPATCH_STATUS makes localdns.sh write the
-	// live-patching-status node annotation itself. In production the knead
-	// live-patching loop owns this annotation, but knead does not drive the
-	// localDNS component in this E2E, so opt into the bootstrap writer here.
 	return `[Service]
-Environment="LOCALDNS_ENABLE_LEGACY_LIVEPATCH_STATUS=true"
 ExecStartPre=/bin/bash -c 'base64 -d ` + localDNSBranchScriptArchivePath + ` | gzip -d > /opt/azure/containers/localdns/localdns.sh && chmod 0544 /opt/azure/containers/localdns/localdns.sh'
 `
 }
@@ -288,18 +279,6 @@ func validateLocalDNSLPSBootstrapPatch(ctx context.Context, s *Scenario) error {
 	if err := ValidateLocalDNSResolution(ctx, s, "169.254.10.10"); err != nil {
 		return err
 	}
-
-	want := `"localDNS":{"current":"` + desiredLocalDNSVersion + `"}`
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-		node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-		if err != nil {
-			return false, nil
-		}
-		return strings.Contains(node.Annotations[livePatchingStatusAnnotation], want), nil
-	})
-	if err != nil {
-		return fmt.Errorf("node did not report LocalDNS live-patching current version %q: %w", desiredLocalDNSVersion, err)
-	}
 	return nil
 }
 
@@ -328,15 +307,6 @@ func validateLocalDNSLPSUnavailableFallback(ctx context.Context, s *Scenario) er
 	}
 	if err := ValidateLocalDNSResolution(ctx, s, "169.254.10.10"); err != nil {
 		return err
-	}
-
-	// No LocalDNS live-patching version should be reported when LPS had nothing to apply.
-	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("getting node %s: %w", s.Runtime.VM.KubeName, err)
-	}
-	if status := node.Annotations[livePatchingStatusAnnotation]; strings.Contains(status, `"localDNS"`) {
-		return fmt.Errorf("node unexpectedly reported a LocalDNS live-patching status when LPS had no config: %q", status)
 	}
 	return nil
 }
