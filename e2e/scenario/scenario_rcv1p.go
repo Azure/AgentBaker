@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	azruntime "github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -67,7 +66,7 @@ func skipIfRCV1PNotExplicit(ctx context.Context) string {
 
 // CachedPlatformSettingsOverrideFeatureFlag checks the Microsoft.Compute/PlatformSettingsOverride
 // feature flag, caching the result (including errors) per subscription ID.
-var CachedPlatformSettingsOverrideFeatureFlag = toolkit.Memoize(queryFeatureFlag)
+var CachedPlatformSettingsOverrideFeatureFlag = cachedFunc(queryFeatureFlag)
 
 // getE2ESubscriptionFeatureFlag returns the PlatformSettingsOverride feature flag status on the
 // default E2E subscription.
@@ -125,7 +124,7 @@ type branchCSEZipRequest struct {
 // pipeline packaging in .pipelines/scripts/windows_package_cse.sh), uploads it to the
 // E2E blob storage and returns a SAS-signed URL. The result, including any error, is
 // cached so the zip is built and uploaded at most once per location across all parallel tests.
-var CachedBranchCSEPackageURL = toolkit.Memoize(buildBranchCSEPackageURL)
+var CachedBranchCSEPackageURL = cachedFunc(buildBranchCSEPackageURL)
 
 func buildBranchCSEPackageURL(ctx context.Context, request branchCSEZipRequest) (string, error) {
 	// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.

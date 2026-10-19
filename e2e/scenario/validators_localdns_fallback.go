@@ -108,7 +108,7 @@ func validateLocalDNSFailureAndFallback(ctx context.Context, s *Scenario) (err e
 }
 
 func runLocalDNSNodeCommand(ctx context.Context, s *Scenario, command string) (string, error) {
-	// Strict shell options make command and pipeline failures visible to the polling loop.
+	// Single-line commands avoid the SSH helper's SCP upload path.
 	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"bash -euo pipefail -c '"+strings.ReplaceAll(command, "'", "'\"'\"'")+"'", 0, "LocalDNS node check failed")
 	if err != nil {

@@ -37,6 +37,9 @@ func TestCollectCommandLogsConcurrency(t *testing.T) {
 	require.NoError(t, collectCommandLogs(ctx, "batch", commands, func(ctx context.Context, command string) (*podExecResult, error) {
 		calls++
 		require.NotContains(t, command, "\n")
+		remoteCommand, err := copyScriptToRemoteIfRequired(ctx, nil, command, false)
+		require.NoError(t, err)
+		assert.Equal(t, command, remoteCommand)
 		return runLocalLogCommand(ctx, command)
 	}))
 	assert.Equal(t, 1, calls)

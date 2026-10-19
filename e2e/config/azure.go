@@ -964,31 +964,51 @@ func (v vmExtensionVersion) cmp(other vmExtensionVersion) int {
 	return cmp.Compare(v.patch, other.patch)
 }
 
-// ListVMResourceSKUs loads the complete regional VM SKU catalogue, keyed by uppercase size.
-func (a *AzureClient) ListVMResourceSKUs(ctx context.Context, location string) (map[string]*armcompute.ResourceSKU, error) {
+// getResourceSKU queries the Azure Resource SKUs API to find the SKU for the given VM size and location.
+func (a *AzureClient) getResourceSKU(ctx context.Context, location, vmSize string) (*armcompute.ResourceSKU, error) {
 	filter := fmt.Sprintf("location eq '%s'", location)
 	pager := a.ResourceSKUs.NewListPager(&armcompute.ResourceSKUsClientListOptions{
 		Filter: &filter,
 	})
 
-	catalogue := make(map[string]*armcompute.ResourceSKU)
+	upperVMSize := strings.ToUpper(vmSize)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("listing resource SKUs: %w", err)
 		}
 		for _, sku := range page.Value {
-			if sku == nil || sku.ResourceType == nil || sku.Name == nil ||
-				!strings.EqualFold(*sku.ResourceType, "virtualMachines") {
+			if sku.ResourceType == nil || !strings.EqualFold(*sku.ResourceType, "virtualMachines") {
 				continue
 			}
-			key := strings.ToUpper(*sku.Name)
-			if catalogue[key] == nil {
-				catalogue[key] = sku
+			if sku.Name == nil || strings.ToUpper(*sku.Name) != upperVMSize {
+				continue
 			}
+			return sku, nil
 		}
 	}
-	return catalogue, nil
+
+	return nil, fmt.Errorf("VM size %q not found in location %q", vmSize, location)
+}
+
+// VMSizeSupportsNVMe queries the Azure Resource SKUs API to determine if the given VM size
+// supports the NVMe disk controller type.
+func (a *AzureClient) VMSizeSupportsNVMe(ctx context.Context, location, vmSize string) (bool, error) {
+	sku, err := a.getResourceSKU(ctx, location, vmSize)
+	if err != nil {
+		return false, err
+	}
+	return SkuSupportsNVMe(sku), nil
+}
+
+// IsVMSizeGen2Only queries the Azure Resource SKUs API to determine if the given VM size
+// only supports the Gen2 hypervisor (i.e., does not support Gen1).
+func (a *AzureClient) IsVMSizeGen2Only(ctx context.Context, location, vmSize string) (bool, error) {
+	sku, err := a.getResourceSKU(ctx, location, vmSize)
+	if err != nil {
+		return false, err
+	}
+	return SkuSupportsOnlyGen2(sku), nil
 }
 
 // SkuSupportsNVMe checks the DiskControllerTypes capability of a resource SKU.

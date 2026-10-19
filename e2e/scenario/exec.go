@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
+	scp "github.com/bramvdbogaerde/go-scp"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -41,51 +42,44 @@ func cleanupBastionTunnel(sshClient *SSHClient) {
 	}
 }
 
-func uploadSSHScript(ctx context.Context, client *ssh.Client, command string, isWindows bool) (remoteCommand string, err error) {
+func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, command string, isWindows bool) (string, error) {
+	if !strings.Contains(command, "\n") && !isWindows {
+		return command, nil
+	}
+
 	randBytes := make([]byte, 16)
 	if _, err := rand.Read(randBytes); err != nil {
 		return "", fmt.Errorf("generate remote script path: %w", err)
 	}
 
-	var remotePath, uploadCommand string
+	var remotePath, remoteCommand string
 	if isWindows {
 		remotePath = fmt.Sprintf("c:/script_file_%x.ps1", randBytes)
-		remoteCommand = fmt.Sprintf("powershell -NoProfile -NonInteractive -File %s", remotePath)
-		// Copy raw bytes so PowerShell does not change the script's encoding or line endings.
-		uploadCommand = fmt.Sprintf(`powershell -NoProfile -NonInteractive -Command "$ErrorActionPreference='Stop'; $file=[IO.File]::Open('%s',[IO.FileMode]::CreateNew); try { [Console]::OpenStandardInput().CopyTo($file) } finally { $file.Dispose() }"`, remotePath)
+		remoteCommand = fmt.Sprintf("powershell %s", remotePath)
 	} else {
 		remotePath = filepath.Join("/home/azureuser", fmt.Sprintf("remote_script_%x.sh", randBytes))
-		remoteCommand = "bash " + remotePath
-		uploadCommand = fmt.Sprintf("umask 077; set -C; cat > %s", remotePath)
+		remoteCommand = remotePath
 	}
 
-	copyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	stop := context.AfterFunc(copyCtx, func() { _ = client.Close() })
-	defer func() {
-		stop()
-		if copyCtx.Err() != nil {
-			err = fmt.Errorf("upload script: %w", copyCtx.Err())
-		}
-	}()
-
-	var session *ssh.Session
-	err = retrySSHSessionOpen(copyCtx, func() error {
-		var openErr error
-		session, openErr = client.NewSession()
-		return openErr
-	})
+	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
-		return "", fmt.Errorf("open script upload session: %w", err)
+		return "", err
 	}
-	defer session.Close()
-	session.Stdin = strings.NewReader(command)
-	var stderr bytes.Buffer
-	session.Stderr = &stderr
-	if err := session.Run(uploadCommand); err != nil {
-		return "", fmt.Errorf("upload script: %w; stderr: %s", err, stderr.String())
-	}
-	return remoteCommand, nil
+	defer scpClient.Close()
+
+	err = retrySSHSessionOpen(ctx, func() error {
+		copyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		stop := context.AfterFunc(copyCtx, func() { _ = client.Close() })
+		defer stop()
+		// SCP must join its workers before closing stdin. Cancellation closes the transport above.
+		err := scpClient.Copy(context.WithoutCancel(copyCtx), strings.NewReader(command), remotePath, "0755", int64(len(command)))
+		if copyCtx.Err() != nil {
+			return copyCtx.Err()
+		}
+		return err
+	})
+	return remoteCommand, err
 }
 
 func runSSHCommand(
@@ -110,7 +104,7 @@ func runSSHCommand(
 		return nil, err
 	}
 
-	// Closing the transport also interrupts channel opens and uploads, which ignore contexts.
+	// Closing the transport also interrupts channel opens and SCP setup, which ignore contexts.
 	stop := context.AfterFunc(ctx, func() { _ = client.Close() })
 	defer func() {
 		stop()
@@ -119,7 +113,7 @@ func runSSHCommand(
 			err = fmt.Errorf("SSH command canceled or timed out: %w", ctx.Err())
 		}
 	}()
-	command, err = uploadSSHScript(ctx, client.Client, command, isWindows)
+	command, err = copyScriptToRemoteIfRequired(ctx, client.Client, command, isWindows)
 	if err != nil {
 		return nil, err
 	}

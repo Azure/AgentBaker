@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strings"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
@@ -75,5 +76,11 @@ func isSSHSessionCapacityError(err error) bool {
 			(rejection.Reason == ssh.ConnectionFailed && rejection.Message == "open failed")
 	}
 
-	return false
+	message, ok := strings.CutPrefix(err.Error(), "Error creating ssh session in copy to remote: ")
+	if !ok {
+		return false
+	}
+	openFailed := &ssh.OpenChannelError{Reason: ssh.ConnectionFailed, Message: "open failed"}
+	return message == openFailed.Error() ||
+		(strings.HasPrefix(message, "ssh: rejected: resource shortage (") && strings.HasSuffix(message, ")"))
 }

@@ -3,6 +3,8 @@ package scenario
 import (
 	"context"
 	"errors"
+	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 )
@@ -45,7 +47,15 @@ func (c *scenarioCleanup) runCleanups(ctx context.Context) error {
 		if len(cleanups) == 0 {
 			return errors.Join(errs...)
 		}
-		errs = append(errs, runConcurrent(ctx, cleanups...))
+		batchErrs := make([]error, len(cleanups))
+		var wg sync.WaitGroup
+		for i, fn := range cleanups {
+			wg.Go(func() {
+				batchErrs[i] = runWithPanicRecovery(ctx, fn)
+			})
+		}
+		wg.Wait()
+		errs = append(errs, batchErrs...)
 	}
 }
 
@@ -60,4 +70,13 @@ func (c *scenarioCleanup) takeCleanups() []func(context.Context) error {
 	cleanups := c.cleanups
 	c.cleanups = nil
 	return cleanups
+}
+
+func runWithPanicRecovery(ctx context.Context, fn func(context.Context) error) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("scenario cleanup panicked: %v\n%s", recovered, debug.Stack())
+		}
+	}()
+	return fn(ctx)
 }
