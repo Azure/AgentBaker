@@ -122,7 +122,7 @@ func TestResourceGroupDeadline(t *testing.T) {
 					require.NotContains(t, strings.Join(logger.logs, "\n"), "warning:")
 				}
 				if tt.name == "deleting" {
-					_, err := ensureResourceGroup(t.Context(), azure, "westus3")
+					_, err := ensureResourceGroup(t.Context(), azure, cfg, "westus3")
 					require.ErrorContains(t, err, "is deleting")
 				}
 			})
@@ -157,7 +157,7 @@ func TestCachedResourceGroupSetupRenewsOnlyNodeDeadline(t *testing.T) {
 		})
 		ctx := logging.WithLogger(t.Context(), t)
 		ensure := toolkit.Memoize(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
-			return ensureResourceGroup(ctx, azure, location)
+			return ensureResourceGroup(ctx, azure, cfg, location)
 		})
 		prepareCluster := toolkit.Memoize(func(ctx context.Context, name string) (bool, error) {
 			renewNodeResourceGroupDeadline(ctx, azure, cfg, &armcontainerservice.ManagedCluster{
@@ -217,7 +217,7 @@ func TestEnsureResourceGroup(t *testing.T) {
 				return gcResponse(req, status, string(body))
 			})
 			logger := &executionLogger{}
-			rg, err := ensureResourceGroup(logging.WithLogger(t.Context(), logger), azure, "westus3")
+			rg, err := ensureResourceGroup(logging.WithLogger(t.Context(), logger), azure, &config.Configuration{}, "westus3")
 			if tt.failure != "" {
 				require.ErrorContains(t, err, tt.failure)
 			} else {
@@ -227,5 +227,120 @@ func TestEnsureResourceGroup(t *testing.T) {
 			require.Equal(t, tt.wantMethods, methods)
 			require.NotContains(t, strings.Join(logger.logs, "\n"), "warning:")
 		})
+	}
+}
+
+func TestSaturdayDeadline(t *testing.T) {
+	for _, tt := range []struct {
+		name, earliest, want string
+	}{
+		{"Sunday", "2026-10-18T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Monday", "2026-10-19T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Tuesday", "2026-10-20T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Wednesday", "2026-10-21T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Thursday", "2026-10-22T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Friday", "2026-10-23T23:59:59.999999999Z", "2026-10-24T08:00:00Z"},
+		{"Saturday midnight", "2026-10-24T00:00:00Z", "2026-10-24T08:00:00Z"},
+		{"before cutoff", "2026-10-24T07:59:59.999999999Z", "2026-10-24T08:00:00Z"},
+		{"at cutoff", "2026-10-24T08:00:00Z", "2026-10-24T08:00:00Z"},
+		{"after cutoff", "2026-10-24T08:00:00.000000001Z", "2026-10-31T08:00:00Z"},
+		{"Saturday end", "2026-10-24T23:59:59.999999999Z", "2026-10-31T08:00:00Z"},
+		{"local Saturday UTC Friday", "2026-10-24T01:00:00+13:00", "2026-10-24T08:00:00Z"},
+		{"local Sunday UTC Saturday", "2026-10-25T01:00:00+13:00", "2026-10-31T08:00:00Z"},
+		{"year boundary", "2026-12-31T12:00:00Z", "2027-01-02T08:00:00Z"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			earliest, err := time.Parse(time.RFC3339Nano, tt.earliest)
+			require.NoError(t, err)
+			due := saturdayDeadline(earliest)
+			require.Equal(t, tt.want, due.Format(time.RFC3339Nano))
+			require.Equal(t, time.UTC, due.Location())
+			require.False(t, due.Before(earliest))
+		})
+	}
+}
+
+func TestADOResourceGroupDeadline(t *testing.T) {
+	for _, shared := range []bool{false, true} {
+		kind := "node"
+		if shared {
+			kind = "shared"
+		}
+		for _, tt := range []struct {
+			name, existing, want string
+			create               bool
+			elapsed              time.Duration
+		}{
+			{name: "missing", want: "2000-01-08T08:00:00Z"},
+			{name: "expired", existing: "1999-12-31T00:00:00Z", want: "2000-01-08T08:00:00Z"},
+			{name: "later weekday", existing: "2000-01-09T12:00:00Z", want: "2000-01-15T08:00:00Z"},
+			{name: "equal", existing: "2000-01-08T08:00:00Z", want: "2000-01-08T08:00:00Z"},
+			{name: "Saturday before cutoff", existing: "2000-01-08T00:00:00Z", want: "2000-01-08T08:00:00Z"},
+			{name: "Saturday after cutoff", existing: "2000-01-08T12:00:00Z", want: "2000-01-15T08:00:00Z"},
+			{name: "later Saturday", existing: "2000-01-15T08:00:00Z", want: "2000-01-15T08:00:00Z"},
+			{name: "new shared RG", create: true, want: "2000-01-08T08:00:00Z"},
+			{name: "suite crosses into Saturday", elapsed: 6*24*time.Hour + 23*time.Hour, want: "2000-01-08T08:00:00Z"},
+			{name: "suite ends at cutoff", elapsed: 7*24*time.Hour + 6*time.Hour, want: "2000-01-08T08:00:00Z"},
+			{name: "suite crosses cutoff", elapsed: 7*24*time.Hour + 6*time.Hour + time.Nanosecond, want: "2000-01-15T08:00:00Z"},
+			{name: "suite crosses into Sunday", elapsed: 7*24*time.Hour + 23*time.Hour, want: "2000-01-15T08:00:00Z"},
+		} {
+			if tt.create && !shared {
+				continue
+			}
+			t.Run(kind+"/"+tt.name, func(t *testing.T) {
+				t.Parallel()
+				synctest.Test(t, func(t *testing.T) {
+					// The synthetic clock starts on Saturday, 2000-01-01.
+					elapsed := tt.elapsed
+					if elapsed == 0 {
+						elapsed = 48 * time.Hour
+					}
+					time.Sleep(elapsed)
+					cfg := &config.Configuration{InADO: true, SuiteTimeout: 2*time.Hour - CleanupTimeout}
+					writes := 0
+					azure := gcTestAzure(t, func(req *http.Request) *http.Response {
+						if req.Method == http.MethodGet && tt.create {
+							return gcResponse(req, 404, `{}`)
+						}
+						if req.Method == http.MethodPatch {
+							writes++
+							var patch armresources.TagsPatchResource
+							require.NoError(t, json.NewDecoder(req.Body).Decode(&patch))
+							require.Equal(t, armresources.TagsPatchOperationMerge, *patch.Operation)
+							require.Equal(t, map[string]*string{deletionDueTimeTag: to.Ptr(tt.want)}, patch.Properties.Tags)
+							return gcResponse(req, 200, `{"properties":{"tags":{}}}`)
+						}
+						require.Contains(t, []string{http.MethodGet, http.MethodPut}, req.Method)
+						if req.Method == http.MethodPut {
+							require.True(t, tt.create)
+						}
+						tags := map[string]*string{"owner": to.Ptr("keep")}
+						if tt.existing != "" {
+							tags[deletionDueTimeTag] = to.Ptr(tt.existing)
+						}
+						body, err := json.Marshal(armresources.ResourceGroup{
+							Name: to.Ptr("rg"), ID: to.Ptr("/subscriptions/test/resourceGroups/rg"), Tags: tags,
+						})
+						require.NoError(t, err)
+						return gcResponse(req, 200, string(body))
+					})
+					ctx := logging.WithLogger(t.Context(), t)
+					if shared {
+						_, err := ensureResourceGroup(ctx, azure, cfg, "westus3")
+						require.NoError(t, err)
+					} else {
+						require.True(t, renewNodeResourceGroupDeadline(ctx, azure, cfg, &armcontainerservice.ManagedCluster{
+							Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr("rg")},
+						}))
+					}
+					if tt.existing == tt.want {
+						require.Zero(t, writes)
+					} else {
+						require.Equal(t, 1, writes)
+					}
+				})
+			})
+		}
 	}
 }
