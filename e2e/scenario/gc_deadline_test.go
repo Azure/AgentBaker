@@ -25,6 +25,7 @@ func gcTestAzure(t *testing.T, respond vmssCreationTestPolicy) *config.AzureClie
 	t.Helper()
 	opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{respond}}}
 	client := &config.AzureClient{}
+	client.Blob = clusterLeaseTestClient(t, &testClusterLeaseStore{})
 	var err error
 	client.ResourceGroup, err = armresources.NewResourceGroupsClient("test", nil, opts)
 	require.NoError(t, err)

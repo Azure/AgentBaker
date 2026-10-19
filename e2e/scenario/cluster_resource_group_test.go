@@ -79,9 +79,9 @@ func TestClusterResourceGroupDeletionRecovery(t *testing.T) {
 					case nodePath:
 						require.Equal(t, http.MethodGet, req.Method)
 						if !clusterCreated {
-							require.True(t, detached)
 							nodePolls++
 							if nodePolls >= 3 {
+								require.True(t, detached)
 								nodeDeleted = true
 								return gcResponse(req, http.StatusNotFound, `{}`)
 							}
@@ -131,7 +131,10 @@ func TestClusterResourceGroupDeletionRecovery(t *testing.T) {
 				require.NoError(t, err)
 				ctx, cancel := context.WithTimeout(logging.WithLogger(t.Context(), t), time.Minute)
 				defer cancel()
-				ready, err := getOrCreateCluster(ctx, cluster)
+				lock, err := acquireClusterLease(ctx, parentRG)
+				require.NoError(t, err)
+				defer func() { require.NoError(t, lock.close()) }()
+				ready, err := getOrCreateCluster(lock.ctx, cluster, lock)
 				require.NoError(t, err)
 				require.Equal(t, cluster, ready)
 				require.True(t, detached && parentCreated && clusterCreated)
@@ -141,7 +144,7 @@ func TestClusterResourceGroupDeletionRecovery(t *testing.T) {
 	}
 }
 
-func TestClusterResourceGroupRecoveryFailuresAndConcurrentRecovery(t *testing.T) {
+func TestClusterResourceGroupRecoveryFailuresAndStateRecheck(t *testing.T) {
 	for _, tt := range []struct {
 		name, failure, parentState, nodeState, wantError string
 		parentMissing                                    bool
@@ -149,12 +152,13 @@ func TestClusterResourceGroupRecoveryFailuresAndConcurrentRecovery(t *testing.T)
 		{name: "AKS read fails", failure: "aks", wantError: "getting cluster"},
 		{name: "subnet read fails", failure: "subnet-read", wantError: "getting subnet"},
 		{name: "subnet detachment fails", failure: "subnet-write", wantError: "detaching subnet references"},
-		{name: "parent poll fails", failure: "parent", wantError: "waiting for parent resource group"},
+		{name: "recovery marker write fails", failure: "marker", wantError: "updating cluster recovery marker"},
+		{name: "parent recheck fails", failure: "parent", wantError: "rechecking parent resource group"},
 		{name: "node poll fails", failure: "node", wantError: "waiting for node resource group"},
 		{name: "deletion times out", parentState: "Deleting", nodeState: "Deleting", wantError: "context deadline exceeded"},
 		{name: "parent gone before node deletion", parentMissing: true, nodeState: "Succeeded", wantError: "context deadline exceeded"},
-		{name: "parent recovered before node deletion", parentState: "Succeeded", nodeState: "Deleting", wantError: "context deadline exceeded"},
-		{name: "another runner recreated both groups", parentState: "Succeeded", nodeState: "Succeeded"},
+		{name: "parent recovered before cleanup", parentState: "Succeeded", nodeState: "Deleting"},
+		{name: "groups recovered before cleanup", parentState: "Succeeded", nodeState: "Succeeded"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -174,6 +178,8 @@ func TestClusterResourceGroupRecoveryFailuresAndConcurrentRecovery(t *testing.T)
 						}
 						return gcResponse(req, http.StatusNotFound, `{}`)
 					case subnetPath:
+						require.NotEqual(t, "marker", tt.failure, "cleanup requires a durable recovery marker")
+						require.NotEqual(t, "Succeeded", tt.parentState, "recovered resources must not be touched")
 						if tt.failure == "subnet-read" {
 							require.Equal(t, http.MethodGet, req.Method)
 							return gcResponse(req, http.StatusForbidden, `{}`)
@@ -189,6 +195,9 @@ func TestClusterResourceGroupRecoveryFailuresAndConcurrentRecovery(t *testing.T)
 					case parentPath, nodePath:
 						require.Equal(t, http.MethodGet, req.Method)
 						state := tt.parentState
+						if state == "" {
+							state = "Deleting"
+						}
 						if path == parentPath {
 							if tt.failure == "parent" {
 								return gcResponse(req, http.StatusForbidden, `{}`)
@@ -201,6 +210,9 @@ func TestClusterResourceGroupRecoveryFailuresAndConcurrentRecovery(t *testing.T)
 								return gcResponse(req, http.StatusForbidden, `{}`)
 							}
 							state = tt.nodeState
+							if state == "" {
+								state = "Deleting"
+							}
 						}
 						return gcResponse(req, http.StatusOK, `{"properties":{"provisioningState":"`+state+`"}}`)
 					default:
@@ -209,6 +221,9 @@ func TestClusterResourceGroupRecoveryFailuresAndConcurrentRecovery(t *testing.T)
 					return nil
 				})
 				config.Azure = gcTestAzure(t, respond)
+				if tt.failure == "marker" {
+					config.Azure.Blob = clusterLeaseTestClient(t, &testClusterLeaseStore{failAction: "metadata"})
+				}
 				opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{respond}}}
 				var err error
 				config.Azure.AKS, err = armcontainerservice.NewManagedClustersClient("test", nil, opts)
@@ -217,9 +232,12 @@ func TestClusterResourceGroupRecoveryFailuresAndConcurrentRecovery(t *testing.T)
 				require.NoError(t, err)
 				ctx, cancel := context.WithTimeout(logging.WithLogger(t.Context(), t), 12*time.Second)
 				defer cancel()
-				err = recoverDeletingClusterResourceGroups(ctx, &armcontainerservice.ManagedCluster{
+				lock, err := acquireClusterLease(ctx, "westus3-abe2e-test-12345")
+				require.NoError(t, err)
+				defer func() { require.NoError(t, lock.close()) }()
+				err = recoverDeletingClusterResourceGroups(lock.ctx, &armcontainerservice.ManagedCluster{
 					Name: to.Ptr("abe2e-test-12345"), Location: to.Ptr("westus3"),
-				})
+				}, lock)
 				if tt.wantError == "" {
 					require.NoError(t, err)
 				} else {
@@ -231,6 +249,111 @@ func TestClusterResourceGroupRecoveryFailuresAndConcurrentRecovery(t *testing.T)
 			})
 		})
 	}
+}
+
+func TestClusterRecoveryQuarantinesRolledBackDeletionAcrossRunners(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		previousAzure, previousConfig := config.Azure, config.Config
+		t.Cleanup(func() { config.Azure, config.Config = previousAzure, previousConfig })
+		config.Config = &config.Configuration{SuiteTimeout: time.Hour, BlobContainer: "abe2e"}
+		const parentRG = "westus3-abe2e-test-12345"
+		const nodeRG = parentRG + "-nodes"
+		const parentPath = "/subscriptions/test/resourcegroups/" + parentRG
+		const nodePath = parentPath + "-nodes"
+		const clusterPath = parentPath + "/providers/microsoft.containerservice/managedclusters/abe2e-test-12345"
+		const subnetPath = "/subscriptions/test/resourcegroups/abe2e-westus3/providers/microsoft.network/virtualnetworks/abe2e-shared-vnet/subnets/aks-subnet-abe2e-test-12345"
+		cluster := &armcontainerservice.ManagedCluster{
+			Name: to.Ptr("abe2e-test-12345"), Location: to.Ptr("westus3"),
+			Properties: &armcontainerservice.ManagedClusterProperties{
+				ProvisioningState: to.Ptr("Succeeded"), NodeResourceGroup: to.Ptr(nodeRG),
+			},
+		}
+		clusterBody, err := json.Marshal(cluster)
+		require.NoError(t, err)
+		detached, oldGroupsGone, parentCreated, clusterCreated := false, false, false, false
+		clusterReads, subnetWrites, renewals := 0, 0, 0
+		respond := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+			path := strings.ToLower(req.URL.Path)
+			switch path {
+			case parentPath, nodePath:
+				if req.Method == http.MethodPut {
+					require.Equal(t, parentPath, path)
+					require.True(t, oldGroupsGone, "rollback must never be mistaken for completed deletion")
+					parentCreated = true
+				}
+				if oldGroupsGone && ((path == parentPath && !parentCreated) || (path == nodePath && !clusterCreated)) {
+					return gcResponse(req, http.StatusNotFound, `{}`)
+				}
+				state := "Deleting"
+				if detached || oldGroupsGone {
+					state = "Succeeded"
+				}
+				return gcResponse(req, http.StatusOK, `{"id":"`+path+`","name":"`+strings.Split(path, "/")[4]+`","properties":{"provisioningState":"`+state+`"}}`)
+			case clusterPath:
+				if req.Method == http.MethodGet {
+					clusterReads++
+					if oldGroupsGone {
+						return gcResponse(req, http.StatusNotFound, `{}`)
+					}
+				} else {
+					require.Equal(t, http.MethodPut, req.Method)
+					require.True(t, oldGroupsGone && parentCreated)
+					clusterCreated = true
+				}
+				return gcResponse(req, http.StatusOK, string(clusterBody))
+			case subnetPath:
+				if req.Method == http.MethodGet {
+					return gcResponse(req, http.StatusOK, `{"properties":{"routeTable":{"id":"`+nodePath+`/providers/Microsoft.Network/routeTables/rt"},"networkSecurityGroup":{"id":"`+nodePath+`/providers/Microsoft.Network/networkSecurityGroups/nsg"}}}`)
+				}
+				require.Equal(t, http.MethodPut, req.Method)
+				var subnet armnetwork.Subnet
+				require.NoError(t, json.NewDecoder(req.Body).Decode(&subnet))
+				require.Nil(t, subnet.Properties.RouteTable)
+				require.Nil(t, subnet.Properties.NetworkSecurityGroup)
+				subnetWrites++
+				detached = true
+				return gcResponse(req, http.StatusOK, `{"properties":{"provisioningState":"Succeeded"}}`)
+			case parentPath + "/providers/microsoft.resources/tags/default", nodePath + "/providers/microsoft.resources/tags/default":
+				require.True(t, oldGroupsGone, "quarantined groups must not have their GC deadlines extended")
+				renewals++
+				return gcResponse(req, http.StatusOK, `{"properties":{"tags":{}}}`)
+			default:
+				t.Fatalf("unexpected recovery request: %s %s", req.Method, req.URL)
+			}
+			return nil
+		})
+		config.Azure = gcTestAzure(t, respond)
+		opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{respond}}}
+		config.Azure.AKS, err = armcontainerservice.NewManagedClustersClient("test", nil, opts)
+		require.NoError(t, err)
+		config.Azure.Subnet, err = armnetwork.NewSubnetsClient("test", nil, opts)
+		require.NoError(t, err)
+		for range 2 {
+			ctx, cancel := context.WithTimeout(logging.WithLogger(t.Context(), t), 12*time.Second)
+			lock, err := acquireClusterLease(ctx, parentRG)
+			require.NoError(t, err)
+			ready, err := getOrCreateCluster(lock.ctx, cluster, lock)
+			require.ErrorIs(t, err, context.DeadlineExceeded)
+			require.Nil(t, ready)
+			require.Equal(t, nodeRG, lock.nodeName, "a failed recovery must remain quarantined")
+			require.NoError(t, lock.close())
+			cancel()
+		}
+		require.Equal(t, 1, clusterReads, "a subsequent runner must resume recovery before looking up AKS for reuse")
+		require.Equal(t, 1, subnetWrites)
+		require.Zero(t, renewals)
+		oldGroupsGone = true
+		ctx := logging.WithLogger(t.Context(), t)
+		lock, err := acquireClusterLease(ctx, parentRG)
+		require.NoError(t, err)
+		ready, err := getOrCreateCluster(lock.ctx, cluster, lock)
+		require.NoError(t, err)
+		require.Equal(t, cluster, ready)
+		require.Empty(t, lock.nodeName, "only confirmed deletion may clear quarantine")
+		require.True(t, clusterCreated)
+		require.Equal(t, 2, renewals)
+		require.NoError(t, lock.close())
+	})
 }
 
 func TestClusterResourceGroupLifecycle(t *testing.T) {
@@ -350,7 +473,10 @@ current-context: test
 			config.Azure.RegistriesClient, err = armcontainerregistry.NewRegistriesClient("test", nil, opts)
 			require.NoError(t, err)
 			ctx := logging.WithLogger(t.Context(), t)
-			ready, err := getOrCreateCluster(ctx, cluster)
+			lock, err := acquireClusterLease(ctx, parentRG)
+			require.NoError(t, err)
+			defer func() { require.NoError(t, lock.close()) }()
+			ready, err := getOrCreateCluster(lock.ctx, cluster, lock)
 			require.NoError(t, err)
 			require.Equal(t, cluster, ready)
 			require.Equal(t, map[string]bool{parentRG: true, nodeRG: true}, renewed)
@@ -438,11 +564,14 @@ func TestACRRecreationDeletesClusterInDedicatedResourceGroup(t *testing.T) {
 func TestPrepareClusterIsolatesLegacyResources(t *testing.T) {
 	previousAzure, previousConfig := config.Azure, config.Config
 	previousInfra, previousSubnet := CachedEnsureSharedInfra, CachedEnsureClusterSubnet
+	previousIdentity := CachedCreateVMManagedIdentity
 	t.Cleanup(func() {
 		config.Azure, config.Config = previousAzure, previousConfig
 		CachedEnsureSharedInfra, CachedEnsureClusterSubnet = previousInfra, previousSubnet
+		CachedCreateVMManagedIdentity = previousIdentity
 	})
 	config.Config = &config.Configuration{TestTimeoutCluster: time.Minute}
+	CachedCreateVMManagedIdentity = func(context.Context, string) (string, error) { return "test-identity", nil }
 	CachedEnsureSharedInfra = func(context.Context, string) (*SharedInfra, error) {
 		return &SharedInfra{IdentityID: "/subscriptions/test/resourceGroups/abe2e-westus3/providers/Microsoft.ManagedIdentity/userAssignedIdentities/shared"}, nil
 	}

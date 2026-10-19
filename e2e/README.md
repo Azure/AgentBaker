@@ -392,11 +392,23 @@ renewed, so they can expire independently. Shared infrastructure in `abe2e-{loca
 has its own deadline renewal. Renewal preserves unrelated tags and later deadlines,
 logs failures as warnings, and cannot stop deletion already selected by GC.
 
-If GC has already started deleting a cluster's parent group, setup detaches
-route-table and NSG references to its node group from that cluster's shared subnet.
-It waits for pending deletions within the cluster provisioning timeout before
-resuming normal creation or reuse. Other clusters' subnet associations are left
-unchanged. Cleanup and polling failures stop setup.
+If GC has already started deleting a cluster's parent group, setup rechecks deletion
+state before detaching route-table and NSG references to its node group from that
+cluster's shared subnet. Other clusters' subnet associations are left unchanged.
+Cleanup and polling failures stop setup.
+
+Cluster setup holds a renewable, per-cluster blob lease in the existing E2E storage
+container through cluster creation and network setup. The configuration hash includes
+the lease-store namespace, so older runners and runners using different stores do
+not share these clusters or subnets. Lease acquisition is bounded by the cluster
+provisioning timeout; renewal failure cancels setup, and release failures are surfaced.
+
+Recovery records the node group in the lease blob before detaching subnet references.
+This marker survives runner cancellation and prevents another runner from reusing a
+partially cleaned-up cluster. Setup clears it only after both old groups are confirmed
+absent. If deletion rolls back, setup waits for GC to finish rather than reusing the
+cluster or extending its deadlines; a timeout leaves the marker in place for the next
+runner.
 
 ## Package Structure
 
