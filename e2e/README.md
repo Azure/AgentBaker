@@ -73,6 +73,23 @@ coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
 VHD-caching behavior remain in effect.
 
+### Ubuntu PIS GPU cleanup
+
+`Ubuntu2404_GPUDriverOptOut_VHDCaching` must bake from a newly built Ubuntu
+24.04 Gen2 VHD containing the GPU-preservation changes in the current branch;
+an older gallery image cannot verify those changes. Use the VHD builder
+pipeline's same-run E2E VHD metadata, or pass `--vhd-metadata-file`
+(`E2E_VHD_METADATA_FILE`) with `2404gen2containerd` mapped to the new image
+resource ID and replicated regions.
+
+This scenario enables scriptless CSE command execution (Phase 1): the command
+uses the CSE scripts baked into that VHD instead of delivering those scripts in
+CustomData. It does not enable ANC/NBC scriptless provisioning (Phase 2), and
+other scenarios and their provisioning-mode coverage are unchanged. The opt-out
+is limited to this PIS scenario; ordinary provisioning with an older VHD and a
+newly delivered CSE continues to use the existing path. This worktree
+validation does not claim a live-cloud E2E run.
+
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node
