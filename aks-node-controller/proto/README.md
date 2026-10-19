@@ -65,7 +65,7 @@ provisioning scripts. Despite the enclosing message's name, this field applies t
 **all clouds**, not only AKS custom clouds. Producers should populate it from their existing cloud
 specification rather than infer an endpoint from the region or cloud name.
 
-The value is a registry base without a URL scheme, such as `mcr.azure.cn/`.
+The value is a registry base without a URL scheme.
 An absent message, omitted field, or empty string defaults to `mcr.microsoft.com`.
 Configured values are passed through unchanged, including a trailing slash,
 matching the legacy NBC CSE behavior. Existing shell consumers handle the
