@@ -83,7 +83,7 @@ executes NBC and compares against the normalized AKSNodeConfig path.
 The root AgentBaker module does not depend on ANC.
 
 Phase 2.5 accepts comparison differences for `GPU_IMAGE_SHA`, `SUBNET`
-(`SubnetName`), and `ROUTE_TABLE` (`RouteTableName`), including variables present
+(`SubnetName`), `ROUTE_TABLE` (`RouteTableName`), and `VM_TYPE`, including variables present
 only in NBC. This suppresses comparison diffs; it does not correct source values
 or change rendering. Variables present only in provision-config are still reported.
 

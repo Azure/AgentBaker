@@ -37,6 +37,7 @@ func isExpectedDiffCSEVar(key string) bool {
 		"GPU_IMAGE_SHA",
 		"SUBNET",
 		"ROUTE_TABLE",
+		"VM_TYPE",
 		"PROXY_VARS":
 		return true
 	}
