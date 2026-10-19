@@ -80,7 +80,7 @@ func TestCredentialProviderScenariosRegisteredOnce(t *testing.T) {
 				expected := credentialProviderTestNBC()
 				require.NoError(t, configureWindowsCredentialProvider(expected,
 					components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"),
-					components.GetExpectedPackageVersions("windows credential provider", "windows", "default"), tc.minor))
+					components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), tc.minor))
 				require.Equal(t, expected, nbc)
 				require.True(t, strings.HasPrefix(nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, fmt.Sprintf("1.%d.", tc.minor)))
 				ctx, cancel := context.WithCancel(t.Context())
@@ -239,7 +239,7 @@ func TestCredentialProviderScenarioMetadataSetup(t *testing.T) {
 			})
 			t.Run("Windows missing legacy provider never infers kubelet release", func(t *testing.T) {
 				nbc := credentialProviderTestNBC()
-				require.ErrorContains(t, configureWindowsCredentialProvider(nbc, []string{fmt.Sprintf("v1.%d.12", minor)}, []string{"1.31.8"}, minor), "windows credential provider/windows/default")
+				require.ErrorContains(t, configureWindowsCredentialProvider(nbc, []string{fmt.Sprintf("v1.%d.12", minor)}, []string{"1.31.8"}, minor), "azure-acr-credential-provider/windows/default")
 				require.Equal(t, credentialProviderTestNBC(), nbc)
 			})
 		})
@@ -265,7 +265,7 @@ func TestCredentialProviderWindowsPreservesCSEURL(t *testing.T) {
 			version := nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
 			require.Contains(t, components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"), "v"+version)
 			require.Equal(t, fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", version, version), nbc.K8sComponents.WindowsPackageURL)
-			legacyVersion, err := credentialProviderVersion(components.GetExpectedPackageVersions("windows credential provider", "windows", "default"), "windows credential provider/windows/default", minor)
+			legacyVersion, err := credentialProviderVersion(components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), "azure-acr-credential-provider/windows/default", minor)
 			require.NoError(t, err)
 			legacyURL, err := windowsLegacyCredentialProviderURL(legacyVersion)
 			require.NoError(t, err)
@@ -285,7 +285,7 @@ func TestCredentialProviderWindowsCancellation(t *testing.T) {
 }
 
 func TestCredentialProviderWindowsLegacyURLMetadata(t *testing.T) {
-	metadata := []byte(`{"Packages":[{"name":"windows credential provider","downloadURIs":{"windows":{"default":{"downloadURL":"https://metadata.example.invalid/releases/${version}/provider-${version}.tar.gz"}}}}]}`)
+	metadata := []byte(`{"Packages":[{"name":"azure-acr-credential-provider","downloadURIs":{"windows":{"default":{"downloadURL":"https://metadata.example.invalid/releases/${version}/provider-${version}.tar.gz"}}}}]}`)
 	got, err := resolveWindowsLegacyCredentialProviderURL(metadata, "1.32.8")
 	require.NoError(t, err)
 	require.Equal(t, "https://metadata.example.invalid/releases/1.32.8/provider-1.32.8.tar.gz", got)
@@ -296,21 +296,21 @@ func TestCredentialProviderWindowsLegacyURLMetadata(t *testing.T) {
 	}{
 		{"invalid JSON", `{`},
 		{"missing package", `{"Packages":[]}`},
-		{"missing windows", `{"Packages":[{"name":"windows credential provider","downloadURIs":{"default":{}}}]}`},
-		{"missing URL", `{"Packages":[{"name":"windows credential provider","downloadURIs":{"windows":{"default":{}}}}]}`},
+		{"missing windows", `{"Packages":[{"name":"azure-acr-credential-provider","downloadURIs":{"default":{}}}]}`},
+		{"missing URL", `{"Packages":[{"name":"azure-acr-credential-provider","downloadURIs":{"windows":{"default":{}}}}]}`},
 		{"unversioned URL", strings.ReplaceAll(string(metadata), "${version}", "fixed")},
 		{"unresolved variable", strings.ReplaceAll(string(metadata), "provider-", "${unknown}-")},
 		{"invalid URL", strings.ReplaceAll(string(metadata), "https://metadata.example.invalid", "://broken")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := resolveWindowsLegacyCredentialProviderURL([]byte(tc.data), "1.32.8")
-			require.ErrorContains(t, err, "components.json windows credential provider/windows/default/downloadURL")
+			require.ErrorContains(t, err, "components.json azure-acr-credential-provider/windows/default/downloadURL")
 		})
 	}
 }
 
 func TestCredentialProviderWindowsLegacyLog(t *testing.T) {
-	version, err := credentialProviderVersion(components.GetExpectedPackageVersions("windows credential provider", "windows", "default"), "windows credential provider/windows/default", 32)
+	version, err := credentialProviderVersion(components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), "azure-acr-credential-provider/windows/default", 32)
 	require.NoError(t, err)
 	legacyURL, err := windowsLegacyCredentialProviderURL(version)
 	require.NoError(t, err)

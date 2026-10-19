@@ -830,35 +830,6 @@
       }
     },
     {
-      "name": "windows credential provider",
-      "windowsDownloadLocation": "c:\\akse-cache\\credential-provider\\",
-      "downloadURIs": {
-        "windows": {
-          "default": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.30.15"
-              },
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.31.9"
-              },
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.32.8"
-              },
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.33.3"
-              }
-            ],
-            "downloadURL": "https://packages.aks.azure.com/cloud-provider-azure/v${version}/binaries/azure-acr-credential-provider-windows-amd64-v${version}.tar.gz"
-          }
-        }
-      }
-    },
-    {
       "name": "windows credential provider dalec",
       "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
       "downloadURIs": {
@@ -866,16 +837,36 @@
           "default": {
             "versionsV2": [
               {
+                "k8sVersion": "1.32",
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "1.32.11-1"
               },
               {
+                "k8sVersion": "1.33",
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.33.6-1"
+                "latestVersion": "1.33.19-1",
+                "previousLatestVersion": "1.33.6-1"
               },
               {
+                "k8sVersion": "1.34",
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.34.3-1"
+                "latestVersion": "1.34.15-1",
+                "previousLatestVersion": "1.34.3-1"
+              },
+              {
+                "k8sVersion": "1.35",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.35.10-1"
+              },
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.36.7-1"
+              },
+              {
+                "k8sVersion": "1.37",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.37.0-1"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/$($version.Split('-')[0])/windows/amd64/azure-acr-credential-provider_${version}_amd64.zip"
@@ -1772,10 +1763,29 @@
     {
       "name": "azure-acr-credential-provider",
       "downloadLocation": "/opt/credentialprovider/downloads",
+      "windowsDownloadLocation": "c:\\akse-cache\\credential-provider\\",
       "downloadURIs": {
         "windows": {
           "default": {
-            "versionsV2": []
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.30.15"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.31.9"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.32.8"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.33.3"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/cloud-provider-azure/v${version}/binaries/azure-acr-credential-provider-windows-amd64-v${version}.tar.gz"
           }
         },
         "default": {
@@ -1880,40 +1890,7 @@
     {
       "name": "azure-acr-credential-provider-pmc",
       "downloadLocation": "/opt/azure-acr-credential-provider/downloads",
-      "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
       "downloadURIs": {
-        "windows": {
-          "default": {
-            "versionsV2": [
-              {
-                "k8sVersion": "1.33",
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.33.19-1"
-              },
-              {
-                "k8sVersion": "1.34",
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.34.15-1"
-              },
-              {
-                "k8sVersion": "1.35",
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.35.10-1"
-              },
-              {
-                "k8sVersion": "1.36",
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.36.7-1"
-              },
-              {
-                "k8sVersion": "1.37",
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.37.0-1"
-              }
-            ],
-            "downloadURL": "https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/$($version.Split('-')[0])/windows/amd64/azure-acr-credential-provider_${version}_amd64.zip"
-          }
-        },
         "ubuntu": {
           "r2604": {
             "versionsV2": [
