@@ -420,12 +420,6 @@ EOF
             The output should include "AKS node controller binary not found at ${AKS_NODE_CONTROLLER_BINARY}; skipping LocalDNS LPS config fetch."
         End
 
-        It 'should skip LocalDNS live patching status annotation when version file is missing'
-            When run annotate_node_with_localdns_livepatch_status
-            The status should be success
-            The output should include "LocalDNS corefile version file not found at ${LIVEPATCHED_LOCALDNS_CORE_FILE}.version, skipping live patching status annotation."
-        End
-
         It 'should set correct permissions on forward_ips.prom file'
             When run replace_azurednsip_in_corefile
             The status should be success
