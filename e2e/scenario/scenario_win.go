@@ -691,7 +691,7 @@ func windowsCredentialProviderMutator(ctx context.Context, _ *Cluster, nbc *data
 	}
 	return configureWindowsCredentialProvider(nbc,
 		components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"),
-		components.GetExpectedPackageVersions("windows credential provider", "windows", "default"), minor)
+		components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), minor)
 }
 
 func configureWindowsCredentialProvider(nbc *datamodel.NodeBootstrappingConfiguration, kubeletVersions, legacyProviderVersions []string, minor uint64) error {
@@ -701,7 +701,7 @@ func configureWindowsCredentialProvider(nbc *datamodel.NodeBootstrappingConfigur
 	}
 	// Legacy provider releases differ from Kubernetes patches; use their own
 	// cached metadata to keep the populated RP fallback URL valid.
-	legacyVersion, err := credentialProviderVersion(legacyProviderVersions, "windows credential provider/windows/default", minor)
+	legacyVersion, err := credentialProviderVersion(legacyProviderVersions, "azure-acr-credential-provider/windows/default", minor)
 	if err != nil {
 		return err
 	}
@@ -746,11 +746,11 @@ func windowsLegacyCredentialProviderURL(version string) (string, error) {
 }
 
 func resolveWindowsLegacyCredentialProviderURL(data []byte, version string) (string, error) {
-	const metadataPath = "components.json windows credential provider/windows/default/downloadURL"
+	const metadataPath = "components.json azure-acr-credential-provider/windows/default/downloadURL"
 	if !gjson.ValidBytes(data) {
 		return "", fmt.Errorf("%s: invalid JSON", metadataPath)
 	}
-	template := gjson.GetBytes(data, `Packages.#(name="windows credential provider").downloadURIs.windows.default.downloadURL`)
+	template := gjson.GetBytes(data, `Packages.#(name="azure-acr-credential-provider").downloadURIs.windows.default.downloadURL`)
 	if template.Type != gjson.String || !strings.Contains(template.String(), "${version}") {
 		return "", fmt.Errorf("%s: requires a downloadURL template containing ${version}", metadataPath)
 	}
@@ -763,7 +763,7 @@ func resolveWindowsLegacyCredentialProviderURL(data []byte, version string) (str
 }
 
 func validateWindowsLegacyCredentialProvider(ctx context.Context, s *Scenario) error {
-	version, err := credentialProviderVersion(components.GetExpectedPackageVersions("windows credential provider", "windows", "default"), "windows credential provider/windows/default", 32)
+	version, err := credentialProviderVersion(components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), "azure-acr-credential-provider/windows/default", 32)
 	if err != nil {
 		return err
 	}
