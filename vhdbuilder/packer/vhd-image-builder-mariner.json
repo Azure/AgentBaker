@@ -770,6 +770,11 @@
     },
     {
       "type": "file",
+      "source": "kata-cc",
+      "destination": "/home/packer"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },
