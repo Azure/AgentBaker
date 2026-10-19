@@ -82,6 +82,11 @@ allowed for forward compatibility. NBC execution is unchanged. Phase 2.5 still
 executes NBC and compares against the normalized AKSNodeConfig path.
 The root AgentBaker module does not depend on ANC.
 
+Phase 2.5 accepts comparison differences for `GPU_IMAGE_SHA`, `SUBNET`
+(`SubnetName`), and `ROUTE_TABLE` (`RouteTableName`), including variables present
+only in NBC. This suppresses comparison diffs; it does not correct source values
+or change rendering. Variables present only in provision-config are still reported.
+
 ### Direct config delivery
 
 Here is an example of how to retrieve node bootstrapping parameters and use the returned `CSE` and `CustomData` for creating a Virtual Machine Scale Set (VMSS) instance via the CRP API.

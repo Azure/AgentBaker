@@ -902,6 +902,52 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 	assert.True(t, found, "expected CompareEnvs guest agent event")
 }
 
+func TestIsExpectedDiffCSEVar(t *testing.T) {
+	for _, key := range []string{
+		"CLOUD_INIT_STATUS_SCRIPT",
+		"HYPERKUBE_URL",
+		"MCR_REPOSITORY_BASE",
+		"BLOCK_OUTBOUND_NETWORK",
+		"REPO_DEPOT_ENDPOINT",
+		"SKIP_WAAGENT_HOLD",
+		"PROXY_VARS",
+		"GPU_IMAGE_SHA",
+		"SUBNET",
+		"ROUTE_TABLE",
+	} {
+		t.Run(key, func(t *testing.T) {
+			assert.True(t, isExpectedDiffCSEVar(key))
+		})
+	}
+
+	for _, key := range []string{"", "VM_TYPE", "EXTRA_VAR", "SubnetName", "RouteTableName", "gpu_image_sha"} {
+		t.Run("unexpected_"+key, func(t *testing.T) {
+			assert.False(t, isExpectedDiffCSEVar(key))
+		})
+	}
+}
+
+func TestDiffEnvMaps_AcceptsRequestedCSEVarDifferences(t *testing.T) {
+	for _, key := range []string{"GPU_IMAGE_SHA", "SUBNET", "ROUTE_TABLE"} {
+		t.Run(key, func(t *testing.T) {
+			t.Run("differing_values", func(t *testing.T) {
+				pcEnv := map[string]string{key: "pc-value", "VM_TYPE": "vmss"}
+				nbcEnv := map[string]string{key: "nbc-value", "VM_TYPE": "standard"}
+				assert.Equal(t, []string{"differs: VM_TYPE"}, diffEnvMaps(pcEnv, nbcEnv))
+			})
+			t.Run("only_in_nbc", func(t *testing.T) {
+				pcEnv := map[string]string{}
+				nbcEnv := map[string]string{key: "nbc-value", "EXTRA_VAR": "extra"}
+				assert.Equal(t, []string{"only-in-nbc: EXTRA_VAR"}, diffEnvMaps(pcEnv, nbcEnv))
+			})
+			t.Run("only_in_pc_still_reported", func(t *testing.T) {
+				pcEnv := map[string]string{key: "pc-value"}
+				assert.Equal(t, []string{"only-in-pc: " + key}, diffEnvMaps(pcEnv, nil))
+			})
+		})
+	}
+}
+
 func TestDiffEnvMaps_IgnoresProxyVarsCompatibilityDifference(t *testing.T) {
 	pcEnv := map[string]string{
 		"PROXY_VARS": `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}"; fi`,
