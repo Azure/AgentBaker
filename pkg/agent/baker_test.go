@@ -1739,24 +1739,36 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 			datamodel.AKSACLGen2TL,
 			datamodel.AKSAzureLinuxV3Gen2,
 		} {
-			config := newScriptlessCmdTestConfig()
-			config.AgentPoolProfile.Distro = distro
-			config.CustomDataOnlyProvisioning = true
+			for _, phase3 := range []bool{false, true} {
+				description := fmt.Sprintf("distro=%s/phase3=%t", distro, phase3)
+				By(description)
+				config := newScriptlessCmdTestConfig()
+				config.AgentPoolProfile.Distro = distro
+				config.CustomDataOnlyProvisioning = true
+				config.EnableScriptlessAKSNodeConfig = phase3
+				config.AKSNodeConfigJSON = `{"version":"v1"}`
 
-			Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed(), string(distro))
-			Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse(), string(distro))
-			Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(BeEmpty(), string(distro))
+				Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed(), description)
+				Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse(), description)
+				Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(BeEmpty(), description)
 
-			payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
-			Expect(err).NotTo(HaveOccurred(), string(distro))
-			Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"), string(distro))
+				payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
+				Expect(err).NotTo(HaveOccurred(), description)
+				Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"), description)
+				Expect(string(payload)).NotTo(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"), description)
+			}
 		}
 	})
 
 	It("should allow CustomData-only provisioning for cloud-init images", func() {
-		config := newScriptlessCmdTestConfig()
-		config.CustomDataOnlyProvisioning = true
-		Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed())
+		for _, phase3 := range []bool{false, true} {
+			config := newScriptlessCmdTestConfig()
+			config.CustomDataOnlyProvisioning = true
+			config.EnableScriptlessAKSNodeConfig = phase3
+			config.AKSNodeConfigJSON = `{"version":"v1"}`
+			Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed())
+			Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeTrue())
+		}
 	})
 })
 

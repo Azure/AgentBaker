@@ -791,6 +791,10 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 
 // ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
+	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
+		config.CustomDataOnlyProvisioning = false
+	}
+
 	if config.EnableScriptlessAKSNodeConfig {
 		if err := validateScriptlessAKSNodeConfig(config); err != nil {
 			return err
@@ -800,10 +804,6 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
 		return err
-	}
-
-	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
-		config.CustomDataOnlyProvisioning = false
 	}
 
 	if config.KubeletConfig == nil {

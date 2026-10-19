@@ -1830,6 +1830,7 @@ type NodeBootstrappingConfiguration struct {
 
 	// CustomDataOnlyProvisioning indicates whether the node should be provisioned using only custom data.
 	// When true, the node will not rely on CSE for reporting provisioning status.
+	// Linux validation disables this for Flatcar, ACL, and Azure Linux, including in scriptless Phase 3.
 	CustomDataOnlyProvisioning bool
 
 	// StandardSecondaryNICCount is the number of Standard-type secondary network

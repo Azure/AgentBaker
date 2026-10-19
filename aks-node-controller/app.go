@@ -83,6 +83,8 @@ type App struct {
 	nbcCmdPath string
 	// gpuComponentsFilePath overrides the default GPU components.json location for testing.
 	gpuComponentsFilePath string
+	// readyReportMarkerPath overrides the readiness handoff marker location for testing.
+	readyReportMarkerPath string
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
 	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
@@ -671,31 +673,25 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	provisionResult := &ProvisionResult{}
 
 	var cmd *exec.Cmd
+	var err error
 	if flags.NBCCmd != "" {
-		var err error
 		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
-		if err != nil {
-			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = err.Error()
-			return provisionResult, err
-		}
 	}
 
 	// If NBC command is provided, we prioritize it over the aks node config for provisioning.
 	if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
-		var err error
 		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig, a.getGPUComponentsFilePath())
-		if err != nil {
-			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = err.Error()
-			return provisionResult, err
-		}
+	}
+	if err != nil {
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = err.Error()
+		return provisionResult, err
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err := a.cmdRun(cmd)
+	err = a.cmdRun(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
@@ -715,14 +711,36 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
+func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult, provisionErr error) {
+	markerPath := a.readyReportMarkerPath
+	if markerPath == "" {
+		markerPath = readyReportMarkerPath
+	}
+	if _, err := os.Stat(markerPath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			slog.Error("failed to stat Ready reporting handoff marker", "path", markerPath, "error", err)
+		}
+		return
+	}
+
+	args := []string{readyReportScriptPath, "-v"}
+	if provisionErr != nil {
+		description := fmt.Sprintf("ExitCode: %s, %s", result.ExitCode, result.Error)
+		args = append(args, "--failure", "--description", description)
+	}
+	cmd := exec.CommandContext(ctx, "python3", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := a.cmdRun(cmd); err != nil {
+		slog.Error("failed to report provisioning status to Azure fabric", "error", err)
+	}
+}
+
 // runProvision encapsulates execution for the "provision" subcommand after CLI parsing.
 // It returns an error describing any failure; callers should pass that error to
 // writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
-func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (*ProvisionResult, error) {
-	// Handle panics gracefully to ensure we always return a valid result
-	provisionResult := &ProvisionResult{}
-	var err error
-
+func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (provisionResult *ProvisionResult, err error) {
+	provisionResult = &ProvisionResult{}
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("panic recovered in runProvision", "panic", r)
@@ -730,6 +748,9 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 			provisionResult.Error = fmt.Sprintf("panic during provisioning: %v", r)
 			err = fmt.Errorf("panic during provisioning: %v", r)
 			a.writeCompleteFileOnError(provisionResult, err)
+		}
+		if !dryRun {
+			a.reportProvisionStatus(ctx, provisionResult, err)
 		}
 	}()
 
@@ -741,7 +762,8 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 	if dryRun {
 		a.cmdRun = cmdRunnerDryRun
 	}
-	return a.Provision(ctx, flags)
+	provisionResult, err = a.Provision(ctx, flags)
+	return provisionResult, err
 }
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,

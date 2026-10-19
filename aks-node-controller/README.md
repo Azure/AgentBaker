@@ -217,6 +217,7 @@ Key components:
 2. `aks-node-controller` go binary with two modes:
 
 - **provision**: Parses the node configuration and starts the bootstrap sequence.
+    - When `/var/lib/waagent/experimental_skip_ready_report` marks an active readiness handoff, ANC invokes `report_ready.py` after the provisioning command exits. Successful provisioning reports Ready; failures report NotReady after synchronous failure log collection completes. Config validation, GPU metadata loading, and other errors before the script starts use the same reporting path. Reporting errors are logged without replacing the original provisioning result, and dry runs do not send reports.
     - The controller performs a tolerant (forward‑compatible) parse of `aksnodeconfigv1.Configuration`: unknown fields, additional enum values, or future‑version knobs are ignored (and may be logged) so that a newer control‑plane can talk to an older VHD image.
     - If the config cannot be safely interpreted (e.g. unsupported `Version`, malformed required field, or incompatible schema change), the controller fails fast. It writes the sentinel file `provision.complete` early so the `provision-wait` process stops polling and can surface an error instead of hanging indefinitely.
     - In a fail‑fast path the normal bootstrap scripts never run, therefore `provision.json` (which would contain the serialized `CSEStatus`) is never created. A typical error looks like:
