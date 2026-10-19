@@ -80,24 +80,23 @@ func extendResourceGroupDeadline(ctx context.Context, azure *config.AzureClient,
 	if rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting") {
 		return fmt.Errorf("cannot renew GC deadline for deleting RG %q", resourceGroup)
 	}
-	var existing time.Time
 	if value, exists := rg.Tags[deletionDueTimeTag]; exists {
 		if value == nil {
 			return fmt.Errorf("RG %q has a null %s tag", resourceGroup, deletionDueTimeTag)
 		}
-		var err error
-		existing, err = time.Parse(time.RFC3339Nano, *value)
+		existing, err := time.Parse(time.RFC3339Nano, *value)
 		if err != nil {
 			return fmt.Errorf("parsing %s for RG %q: %w", deletionDueTimeTag, resourceGroup, err)
+		}
+		// Preserve Saturday expiry so repeated runs do not postpone collection.
+		if existing.UTC().Weekday() == time.Saturday {
+			return nil
 		}
 		if existing.After(due) {
 			due = existing
 		}
 	}
 	due = saturdayDeadline(due)
-	if !existing.Before(due) {
-		return nil
-	}
 	if rg.ID == nil || *rg.ID == "" {
 		return fmt.Errorf("RG %q has no resource ID", resourceGroup)
 	}

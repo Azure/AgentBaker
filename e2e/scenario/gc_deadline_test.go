@@ -76,7 +76,8 @@ func TestResourceGroupDeadline(t *testing.T) {
 		write                bool
 	}{
 		{name: "missing", write: true},
-		{name: "expired", value: `"2000-01-01T00:00:00Z"`, write: true},
+		{name: "expired weekday", value: `"1999-12-31T00:00:00Z"`, write: true},
+		{name: "expired Saturday", value: `"2000-01-01T00:00:00Z"`},
 		{name: "equal"},
 		{name: "later"},
 		{name: "null", value: "null", failure: "null deletion_due_time"},
@@ -166,7 +167,7 @@ func TestCachedADOResourceGroupSetupRenewsBothDeadlines(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		cfg := &config.Configuration{InADO: true, SuiteTimeout: 47 * time.Minute}
-		expired := "2000-01-01T00:00:00Z"
+		expired := "1999-12-31T00:00:00Z"
 		tags := map[string]string{"abe2e-westus3": expired, "unused-node-rg": expired}
 		reads := map[string]int{}
 		writes := map[string]int{}
@@ -308,8 +309,13 @@ func TestADOResourceGroupDeadline(t *testing.T) {
 			{name: "expired", existing: "1999-12-31T00:00:00Z", want: "2000-01-08T08:00:00Z"},
 			{name: "later weekday", existing: "2000-01-09T12:00:00Z", want: "2000-01-15T08:00:00Z"},
 			{name: "equal", existing: "2000-01-08T08:00:00Z", want: "2000-01-08T08:00:00Z"},
-			{name: "Saturday before cutoff", existing: "2000-01-08T00:00:00Z", want: "2000-01-08T08:00:00Z"},
-			{name: "Saturday after cutoff", existing: "2000-01-08T12:00:00Z", want: "2000-01-15T08:00:00Z"},
+			{name: "Saturday before cutoff", existing: "2000-01-08T00:00:00Z", want: "2000-01-08T00:00:00Z"},
+			{name: "Saturday after cutoff", existing: "2000-01-08T12:00:00Z", want: "2000-01-08T12:00:00Z"},
+			{name: "expired Saturday", existing: "2000-01-01T08:00:00Z", want: "2000-01-01T08:00:00Z"},
+			{name: "Saturday expires during suite", elapsed: 7*24*time.Hour + 7*time.Hour, existing: "2000-01-08T08:00:00Z", want: "2000-01-08T08:00:00Z"},
+			{name: "local Friday UTC Saturday", existing: "2000-01-07T23:00:00-02:00", want: "2000-01-07T23:00:00-02:00"},
+			{name: "local Sunday UTC Saturday", existing: "2000-01-09T01:00:00+13:00", want: "2000-01-09T01:00:00+13:00"},
+			{name: "local Saturday UTC Friday", existing: "2000-01-08T01:00:00+13:00", want: "2000-01-08T08:00:00Z"},
 			{name: "later Saturday", existing: "2000-01-15T08:00:00Z", want: "2000-01-15T08:00:00Z"},
 			{name: "new shared RG", create: true, want: "2000-01-08T08:00:00Z"},
 			{name: "suite crosses into Saturday", elapsed: 6*24*time.Hour + 23*time.Hour, want: "2000-01-08T08:00:00Z"},
