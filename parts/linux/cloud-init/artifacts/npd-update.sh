@@ -73,6 +73,26 @@ npd_version_ge() {
     esac
 }
 
+# The config package content is the same on every release. Ubuntu releases
+# without their own config build use another release's package: they read that
+# release's payload entry and download from its repository. Prints
+# "<release> <codename>" of the source, or nothing when the node has its own build.
+npd_ubuntu_config_source() {
+    case "$1" in
+        26.04) printf '24.04 noble' ;;
+    esac
+}
+
+# Prints the release whose payload entry and package version this node follows.
+npd_config_release() {
+    local distro="$1" release="$2" source
+    if [ "${distro}" = ubuntu ]; then
+        source="$(npd_ubuntu_config_source "${release}")"
+        [ -z "${source}" ] || release="${source%% *}"
+    fi
+    printf '%s' "${release}"
+}
+
 # Prints the version selected for this node, or nothing when it is not targeted.
 # Ubuntu: ubuntuPackageVersions["22.04"] = "1.0.0-ubuntu22.04u1".
 # Azure Linux: azureLinuxPackageVersions["3.0"] = "1.0.0-1.azl3".
@@ -122,6 +142,7 @@ npdConfigsIsCurrent() {
     [ -f "${NPD_SKIP_FILE}" ] || return 1
     platform="$(npd_platform)" || return 1
     read -r distro release <<< "${platform}"
+    release="$(npd_config_release "${distro}" "${release}")"
     version="$(npd_desired_version "${desired}" "${distro}" "${release}")" || return 1
     [ -n "${version}" ] || return 1
     [ "${version}" = "$(npd_desired_version "${current}" "${distro}" "${release}")" ] || return 1
@@ -169,10 +190,41 @@ npd_tdnf() {
     tdnf -c "${config_dir}/tdnf.conf" "$@"
 }
 
+# Prints a private apt configuration that reads only the config source release's
+# Microsoft repository, or nothing when the node has its own config build. System
+# apt sources, lists and caches are untouched; packages are still signature-checked
+# against the keys apt already trusts.
+npd_config_apt_conf() {
+    local platform source source_release codename dir
+    platform="$(npd_platform)" || return 1
+    [ "${platform%% *}" = ubuntu ] || return 0
+    source="$(npd_ubuntu_config_source "${platform#* }")"
+    [ -n "${source}" ] || return 0
+    read -r source_release codename <<< "${source}"
+    dir="${NPD_UPDATE_DIR}/apt"
+    mkdir -p "${dir}/lists/partial" "${dir}/cache/archives/partial" || return 1
+    printf 'deb [arch=amd64,arm64] https://packages.microsoft.com/ubuntu/%s/prod %s main\n' \
+        "${source_release}" "${codename}" > "${dir}/sources.list" || return 1
+    printf 'Dir::Etc::SourceList "%s/sources.list";\nDir::Etc::SourceParts "-";\nDir::State::Lists "%s/lists";\nDir::Cache "%s/cache";\n' \
+        "${dir}" "${dir}" "${dir}" > "${dir}/apt.conf" || return 1
+    printf '%s' "${dir}/apt.conf"
+}
+
+# apt-get for config package metadata and downloads.
+npd_config_apt_get() {
+    local conf
+    conf="$(npd_config_apt_conf)" || return 1
+    if [ -n "${conf}" ]; then
+        APT_CONFIG="${conf}" apt-get "$@"
+    else
+        apt-get "$@"
+    fi
+}
+
 npd_refresh_metadata() {
     case "$(npd_package_format)" in
         deb)
-            apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
+            npd_config_apt_get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
                 -o APT::Update::Error-Mode=any update
             ;;
         rpm) npd_tdnf makecache --refresh ;;
@@ -184,7 +236,7 @@ npd_download_package() {
     local version="$1"
     case "$(npd_package_format)" in
         deb)
-            (cd "${NPD_PACKAGE_CACHE}" && apt-get -o Acquire::Retries=3 \
+            (cd "${NPD_PACKAGE_CACHE}" && npd_config_apt_get -o Acquire::Retries=3 \
                 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
                 download "node-problem-detector-aks-config=${version}")
             ;;
@@ -375,6 +427,8 @@ updateNPDConfigs() (
     fi
     mkdir -p "${NPD_UPDATE_DIR}" "${NPD_PACKAGE_CACHE}" || { npd_fail WorkDirectory; return 1; }
     npd_recover_pending || { npd_fail RecoveryFailed; return 1; }
+    # Releases without their own config build follow their config source's entry.
+    release="$(npd_config_release "${distro}" "${release}")"
     desired="$(npd_desired_version "${payload}" "${distro}" "${release}")" || { npd_fail InvalidConfig; return 1; }
     if [ -z "${desired}" ]; then
         echo "npdConfig: no package selected for ${distro} ${release}; no action"

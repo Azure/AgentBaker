@@ -2604,8 +2604,7 @@ checkLocaldnsScriptsAndConfigs() {
 testNodeProblemDetector() {
   local test="testNodeProblemDetector" os_sku="$1" os_version="$2" version package executable
   case "${os_sku}" in
-    # Ubuntu 26.04 remains extension-managed until its config package is published.
-    Ubuntu) [ "$(. /etc/os-release; echo "$VERSION_ID")" != 26.04 ] || return 0 ;;
+    Ubuntu) ;;
     AzureLinux) [ "${os_version}" = 3.0 ] || return 0 ;;
     *) return 0 ;;
   esac

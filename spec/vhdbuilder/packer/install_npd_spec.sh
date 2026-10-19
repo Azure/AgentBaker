@@ -18,11 +18,11 @@ Describe 'NPD package selection'
         The output should include 'node-problem-detector-aks-config: 1.0.0'
     End
 
-    It 'leaves unpublished Ubuntu 26.04 packages empty'
+    It 'selects the 26.04 binary and the shared config for Ubuntu 26.04'
         When call select_npd_packages UBUNTU 26.04
         The status should be success
-        The output should not include '0.8.25'
-        The output should not include '1.0.0'
+        The output should include 'node-problem-detector-kubernetes: 0.8.25'
+        The output should include 'node-problem-detector-aks-config: 1.0.0'
     End
 
     It 'selects revisionless versions for Azure Linux 3'
@@ -121,6 +121,7 @@ Describe 'NPD VHD installation helper on Ubuntu'
 
     isUbuntu() { return 0; }
     isAzureLinux() { return 1; }
+    npdConfigAptConf() { :; }
     apt_get_install() { echo "apt_get_install $*" >> "${TEST_CALLS}"; [ "${APT_FAILS}" = false ]; }
     getLatestDebPackageVersion() { printf '%s-ubuntu24.04u1' "$2"; }
     logResolvedPackageVersion() { echo "resolved $*" >> "${TEST_CALLS}"; }
@@ -147,5 +148,47 @@ Describe 'NPD VHD installation helper on Ubuntu'
         The status should be failure
         The output should include 'Missing executable'
         The contents of file "${TEST_CALLS}" should not include 'systemctl'
+    End
+End
+
+Describe 'NPD VHD installation helper for releases sharing a config package'
+    Include ./vhdbuilder/packer/install-npd.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        VHD_LOGS_FILEPATH="${TEST_DIR}/vhd.log"
+        TEST_CALLS="${TEST_DIR}/calls"
+        touch "${TEST_CALLS}"
+        export TEST_CALLS
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    isUbuntu() { return 0; }
+    isAzureLinux() { return 1; }
+    npdConfigAptConf() { printf '/tmp/npd-build/apt/apt.conf'; }
+    apt-get() { echo "APT_CONFIG=${APT_CONFIG:-} apt-get $*" >> "${TEST_CALLS}"; }
+    getLatestDebPackageVersion() { echo "resolve APT_CONFIG=${APT_CONFIG:-} $*" >> "${TEST_CALLS}"; printf '%s-ubuntu24.04u2' "$2"; }
+    logResolvedPackageVersion() { :; }
+    apt_get_install() { echo "apt_get_install $*" >> "${TEST_CALLS}"; }
+    dpkg() { [ "$1" = --print-architecture ] && echo amd64 || echo "dpkg $* $(cat)" >> "${TEST_CALLS}"; }
+    ln() { :; }
+
+    It 'resolves, downloads and installs the config from the source release repository'
+        When call installNPDPackage node-problem-detector-aks-config 1.0.0
+        The output should include 'Missing executable'
+        The status should be failure
+        The contents of file "${TEST_CALLS}" should include 'resolve APT_CONFIG=/tmp/npd-build/apt/apt.conf node-problem-detector-aks-config 1.0.0'
+        The contents of file "${TEST_CALLS}" should include 'APT_CONFIG=/tmp/npd-build/apt/apt.conf apt-get download node-problem-detector-aks-config=1.0.0-ubuntu24.04u2'
+        The contents of file "${TEST_CALLS}" should include 'apt_get_install 30 1 600 /opt/node-problem-detector/downloads/node-problem-detector-aks-config_1.0.0-ubuntu24.04u2_amd64.deb'
+        The contents of file "${TEST_CALLS}" should include 'dpkg --set-selections node-problem-detector-aks-config hold'
+    End
+
+    It 'uses the release repository for the binary'
+        When call installNPDPackage node-problem-detector-kubernetes 0.8.25
+        The status should be success
+        The contents of file "${TEST_CALLS}" should include 'resolve APT_CONFIG= node-problem-detector-kubernetes 0.8.25'
+        The contents of file "${TEST_CALLS}" should include 'apt_get_install 30 1 600 node-problem-detector-kubernetes=0.8.25-ubuntu24.04u2'
     End
 End

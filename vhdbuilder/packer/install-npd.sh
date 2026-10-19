@@ -20,6 +20,15 @@ holdNPDPackage() {
     fi
 }
 
+# Prints a private apt configuration for releases that use another release's
+# config package (see npd_ubuntu_config_source), or nothing. Shares the mapping
+# with the LPC handler so baked and live-updated configs come from one place.
+npdConfigAptConf() {
+    # shellcheck disable=SC1090,SC1091
+    source "${NPD_UPDATE_SCRIPT:-/home/packer/npd-update.sh}" || return 1
+    NPD_UPDATE_DIR="${NPD_BUILD_DIR:-/tmp/npd-build}" npd_config_apt_conf
+}
+
 installNPDPackage() {
     local package="$1"
     local version="$2"
@@ -29,7 +38,16 @@ installNPDPackage() {
     # components.json pins revisionless upstream versions; bake the newest
     # matching package revision, as for other package-backed components.
     mkdir -p "${cache_dir}" /opt/bin || return 1
-    if isUbuntu; then
+    local apt_conf=""
+    if isUbuntu && [ "${package}" = "node-problem-detector-aks-config" ]; then
+        apt_conf="$(npdConfigAptConf)" || return 1
+    fi
+    if [ -n "${apt_conf}" ]; then
+        # This release has no config build of its own; resolve and bake the
+        # identical package from its config source release.
+        APT_CONFIG="${apt_conf}" apt-get -o Acquire::Retries=3 update >/dev/null || return 1
+        full_version="$(APT_CONFIG="${apt_conf}" getLatestDebPackageVersion "${package}" "${version}")" || full_version=""
+    elif isUbuntu; then
         full_version="$(getLatestDebPackageVersion "${package}" "${version}")" || full_version=""
     elif isAzureLinux; then
         full_version="$(getLatestRPMPackageVersion "${package}" "${version}")" || full_version=""
@@ -41,7 +59,11 @@ installNPDPackage() {
         return 1
     fi
     logResolvedPackageVersion "${package}" "${version}" "${full_version}"
-    if isUbuntu; then
+    if [ -n "${apt_conf}" ]; then
+        (cd "${cache_dir}" && APT_CONFIG="${apt_conf}" apt-get download "${package}=${full_version}") || return 1
+        apt_get_install 30 1 600 "${cache_dir}/${package}_${full_version}_$(dpkg --print-architecture).deb" || return 1
+        rm -rf "${NPD_BUILD_DIR:-/tmp/npd-build}"
+    elif isUbuntu; then
         apt_get_install 30 1 600 "${package}=${full_version}" || return 1
         if [ "${package}" = "node-problem-detector-aks-config" ]; then
             (cd "${cache_dir}" && apt-get download "${package}=${full_version}") || return 1

@@ -235,6 +235,73 @@ restart"
     End
 End
 
+Describe 'NPD config handler on Ubuntu 26.04 (shared 24.04 config)'
+    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_OS_RELEASE_FILE="${TEST_DIR}/os-release"
+        NPD_SKIP_FILE="${TEST_DIR}/skip_vhd_npd"
+        NPD_UPDATE_DIR="${TEST_DIR}/work"
+        NPD_PACKAGE_CACHE="${TEST_DIR}/cache"
+        printf 'ID=ubuntu\nVERSION_ID="26.04"\n' > "${NPD_OS_RELEASE_FILE}"
+        touch "${NPD_SKIP_FILE}"
+        mkdir -p "${NPD_UPDATE_DIR}" "${NPD_PACKAGE_CACHE}"
+        TEST_CALLS="${TEST_DIR}/calls"; touch "${TEST_CALLS}"
+        INSTALLED_VERSION="1.0.0-ubuntu24.04u1"
+        export TEST_CALLS INSTALLED_VERSION NPD_PACKAGE_CACHE
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    npd_installed_version() { printf '%s' "${INSTALLED_VERSION}"; }
+    npd_find_cached_package() {
+        [ "$1" = "${INSTALLED_VERSION}" ] || [ -f "${NPD_PACKAGE_CACHE}/$1.deb" ] || return 1
+        printf '%s' "${NPD_PACKAGE_CACHE}/$1.deb"
+    }
+    Mock apt-get
+        echo "APT_CONFIG=${APT_CONFIG:-} apt-get $*" >> "${TEST_CALLS}"
+        case "$*" in *download*) v="${*: -1}"; touch "${NPD_PACKAGE_CACHE}/${v#*=}.deb" ;; esac
+    End
+    npd_validate_package() { :; }
+    npd_install_package() { echo "install $1" >> "${TEST_CALLS}"; }
+    npd_restart_and_check() { :; }
+
+    It 'maps 26.04 to the 24.04 config source'
+        When call npd_config_release ubuntu 26.04
+        The output should equal '24.04'
+    End
+
+    It 'keeps releases with their own config build'
+        When call npd_config_release ubuntu 24.04
+        The output should equal '24.04'
+    End
+
+    It 'follows the 24.04 entry and downloads through a private 24.04 apt configuration'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu24.04u2","26.04":"9.0.0-ubuntu26.04u1"}}' '{}'
+        The status should be success
+        The output should include 'updated successfully: 1.0.0-ubuntu24.04u2'
+        The contents of file "${TEST_CALLS}" should include "APT_CONFIG=${NPD_UPDATE_DIR}/apt/apt.conf apt-get"
+        The contents of file "${TEST_CALLS}" should include 'download node-problem-detector-aks-config=1.0.0-ubuntu24.04u2'
+        The contents of file "${NPD_UPDATE_DIR}/apt/sources.list" should equal 'deb [arch=amd64,arm64] https://packages.microsoft.com/ubuntu/24.04/prod noble main'
+    End
+
+    It 'treats a payload without a 24.04 entry as no action'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"26.04":"1.0.0-ubuntu26.04u1"}}' '{}'
+        The status should be success
+        The output should include 'no package selected for ubuntu 24.04'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'does not use a private apt configuration on releases with their own build'
+        printf 'ID=ubuntu\nVERSION_ID="24.04"\n' > "${NPD_OS_RELEASE_FILE}"
+        When call npd_config_apt_conf
+        The status should be success
+        The output should equal ''
+    End
+End
+
 Describe 'NPD config handler on Azure Linux 3'
     Include ./parts/linux/cloud-init/artifacts/npd-update.sh
 

@@ -25,8 +25,9 @@ rpm/tdnf on Azure Linux.
 - CSE starts the baked service in `nodePrep`, after kubelet configuration and GPU
   setup. This also runs on PIS-cached images. No public-settings file is generated;
   monitor defaults and hardware selection come from the config package.
-- Pins exist for Ubuntu 20.04, 22.04 and 24.04 and Azure Linux 3.0, amd64 and
-  arm64. Ubuntu 26.04 has empty pins until its config package is published.
+- Pins exist for Ubuntu 20.04, 22.04, 24.04 and 26.04 and Azure Linux 3.0, amd64
+  and arm64. The config package content is the same on every release, so Ubuntu
+  26.04, which has no config build of its own, uses the 24.04 package (see below).
   Azure Linux OSGuard, Kata, Azure Container Linux, Mariner 2 and other OSes remain
   extension-managed.
 
@@ -51,6 +52,22 @@ upstream versions, for example `0.8.25` and `1.0.0`.
 
 This governs only what a new VHD bakes. It goes through the normal VHD build,
 validation, and release process.
+
+## Releases that share a config package
+
+The config package is generic: its content is identical across releases. The binary
+package is built per release. A release without its own config build uses another
+release's config package; today Ubuntu 26.04 uses the 24.04 package. One mapping in
+`npd-update.sh` (`npd_ubuntu_config_source`) covers both paths:
+
+- The VHD build resolves the `1.0.0` pin against the 24.04 Microsoft repository and
+  bakes, holds and caches that package.
+- The LPC handler on a 26.04 node reads the `24.04` payload entry and downloads from
+  the 24.04 repository. 26.04 nodes therefore follow the 24.04 config selection; no RP
+  change or 26.04 key is needed.
+- Both read that repository through a private apt configuration (own sources list,
+  lists and cache). System apt never sees the 24.04 repository, and packages are still
+  verified against the Microsoft keys the VHD already trusts.
 
 ## Live configuration (LPC version selection)
 
@@ -140,5 +157,4 @@ Config package content comes from the AKS VM extension's NPD configuration. The
 extension content, including the node-exporter, intrusive-probe, CPU-throttle IG and
 GPU ECC monitors. Because the pins are revisionless, VHD builds bake the newest
 published revision, so new VHDs start on current config and running nodes only need
-LPC for changes published after their image was built. Publishing Ubuntu 26.04
-packages is separate follow-up work.
+LPC for changes published after their image was built.

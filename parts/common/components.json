@@ -2278,7 +2278,10 @@
             }]
           },
           "r2604": {
-            "versionsV2": []
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-kubernetes, repository=production, os=ubuntu, release=26.04",
+              "latestVersion": "0.8.25"
+            }]
           }
         },
         "azurelinux": {
@@ -2323,7 +2326,10 @@
             }]
           },
           "r2604": {
-            "versionsV2": []
+            "versionsV2": [{
+              "renovateTag": "name=node-problem-detector-aks-config, repository=production, os=ubuntu, release=24.04",
+              "latestVersion": "1.0.0"
+            }]
           }
         },
         "azurelinux": {

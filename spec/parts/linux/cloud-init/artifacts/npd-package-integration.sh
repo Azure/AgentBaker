@@ -10,6 +10,8 @@ source ./parts/linux/cloud-init/artifacts/npd-update.sh
 package="$(realpath "$1")"
 format="$(npd_package_format)"
 read -r distro release <<< "$(npd_platform)"
+# Releases without their own config build use another release's package.
+release="$(npd_config_release "${distro}" "${release}")"
 IFS=$'\t' read -r _name old_version _arch <<< "$(npd_package_fields "${package}")"
 case "${format}" in
     deb) new_version="1.0.1-ubuntu${release}u1"; map=ubuntuPackageVersions ;;
