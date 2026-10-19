@@ -239,7 +239,7 @@ func TestConfigurationMCRRepositoryBase(t *testing.T) {
 			data, err := MarshalConfigurationV1(cfg)
 			require.NoError(t, err)
 			if tt.expected != "" {
-				assert.Contains(t, string(data), `"mcr_repository_base": "`+tt.expected+`"`)
+				assert.JSONEq(t, `{"version":"v1","custom_cloud_config":{"mcr_repository_base":"`+tt.expected+`"}}`, string(data))
 			}
 			roundTrip, err := UnmarshalConfigurationV1(data)
 			require.NoError(t, err)
