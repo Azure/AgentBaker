@@ -16,6 +16,17 @@ From a high-level, for each scenario,
 3. Liveness and health checks and then run to make sure the new VM's kubelet is posting NodeReady, and that workload
    pods can successfully be scheduled and run on the new node.
 
+### VHD image metadata
+
+The Linux VHD release pipeline publishes E2E image metadata after the image-publication
+steps. Ubuntu and Azure Linux CVM builds retain their original captured-image entry
+and add a generalized entry keyed by `SKU_NAME`. The generalized resource ID and
+completed replica regions are read from Azure; missing or unready generalized versions
+fail metadata creation instead of silently skipping their scenarios. ACL and non-CVM
+builds retain their existing captured-image metadata.
+The generalized publisher currently runs in the prefetch path; a non-prefetch CVM
+build must already have a ready generalized version to pass metadata creation.
+
 ## Writing and extending scenarios
 
 Extend an existing scenario's `Validator` when its node has the required settings.
