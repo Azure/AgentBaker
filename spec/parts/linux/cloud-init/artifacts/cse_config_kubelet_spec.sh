@@ -1076,14 +1076,85 @@ providers:
         End
     End
     Describe 'ensurePodInfraContainerImage'
+        isACL() { return 1; }
         waitForContainerdReady() { return 0; }
-        ctr() { echo ""; return 0; }
+        ctr() {
+            case "$*" in
+                *"images list"*) echo "${cached_image:-}" ;;
+                *) echo "ctr $*" ;;
+            esac
+        }
+        get_sandbox_image() { echo "mcr.microsoft.com/pause:3.10"; }
+        mktemp() { echo "/tmp/pause-test"; }
         mkdir() { echo "mkdir $@"; }
         tar() { echo "tar $@"; return 0; }
         rm() { echo "rm $@"; }
         labelContainerImage() { echo "labelContainerImage $@"; }
         retrycmd_cp_oci_layout_with_oras() { echo "retrycmd_cp_oci_layout_with_oras $@"; return 0; }
         ERR_PULL_POD_INFRA_CONTAINER_IMAGE=1
+
+        It 'prepares cached ACL pause locally'
+            isACL() { return 0; }
+            cached_image="mcr.microsoft.com/pause:3.10"
+
+            When call ensurePodInfraContainerImage
+            The status should be success
+            The output should include "images export /tmp/pause-test/image.tar mcr.microsoft.com/pause:3.10"
+            The output should include "images import --local --snapshotter erofs /tmp/pause-test/image.tar"
+            The output should include "rm -rf /tmp/pause-test"
+            The output should not include "retrycmd_cp_oci_layout_with_oras"
+        End
+
+        Describe 'preparation failures'
+            Parameters
+                allocation
+                export
+                import
+            End
+            It 'fails bootstrap when preparation fails'
+                isACL() { return 0; }
+                failing_operation="$1"
+                mktemp() {
+                    [ "$failing_operation" != allocation ] || return 23
+                    echo "/tmp/pause-test"
+                }
+                ctr() {
+                    echo "ctr $*"
+                    case "$*" in
+                        *"images ${failing_operation} "*) return 23 ;;
+                    esac
+                    return 0
+                }
+
+                When run ensurePodInfraContainerImageForSnapshotter pause
+                The status should equal "$ERR_PULL_POD_INFRA_CONTAINER_IMAGE"
+                The output should include "Failed to prepare pod infra image: pause for snapshotter: erofs"
+                if [ "$failing_operation" = allocation ]; then
+                    The output should not include "ctr "
+                else
+                    The output should include "rm -rf /tmp/pause-test"
+                fi
+            End
+        End
+
+        It 'reuses the downloaded archive for ACL EROFS'
+            isACL() { return 0; }
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io"
+
+            When call ensurePodInfraContainerImage
+            The status should be success
+            The output should include "images import --local --snapshotter erofs --base-name mcr.microsoft.com/pause /opt/pod-infra-container-image/pod-infra-container-image.tar"
+            The output should not include "images export"
+        End
+
+        It 'leaves non-ACL cached pause unchanged'
+            cached_image="mcr.microsoft.com/pause:3.10"
+
+            When call ensurePodInfraContainerImage
+            The status should be success
+            The output should not include "ctr "
+            The output should not include "retrycmd_cp_oci_layout_with_oras"
+        End
 
         It 'should use MCR_REPOSITORY_BASE for image replacement when set'
             get_sandbox_image() { echo "mcr.microsoft.us/oss/v2/kubernetes/pause:3.10.2"; }
