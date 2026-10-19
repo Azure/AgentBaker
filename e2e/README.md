@@ -379,9 +379,8 @@ Renewal is best-effort and preserves unrelated tags. This sets when a group beco
 deletion; the external garbage collector can still delete an expired group later, including
 during office hours.
 
-Outside Azure DevOps, setup renews only the selected clusters' node resource group deadlines
-for the suite-and-cleanup window. Shared resource groups keep their existing GC tags and
-deadlines so obsolete clusters can expire.
+Outside Azure DevOps, setup does not renew GC deadlines on shared or node resource groups.
+Local runs leave existing deadlines unchanged and do not add missing deadline tags.
 
 ## Package Structure
 

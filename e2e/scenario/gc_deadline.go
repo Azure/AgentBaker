@@ -52,6 +52,9 @@ func renewResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, 
 }
 
 func renewNodeResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, cluster *armcontainerservice.ManagedCluster) bool {
+	if !cfg.InADO {
+		return true
+	}
 	if cluster == nil || cluster.Properties == nil || cluster.Properties.NodeResourceGroup == nil || *cluster.Properties.NodeResourceGroup == "" {
 		logging.Log(ctx, "warning: cannot renew GC deadline: AKS response has no node resource group")
 		return false
@@ -66,6 +69,9 @@ func renewNodeResourceGroupDeadline(ctx context.Context, azure *config.AzureClie
 }
 
 func extendResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, rg armresources.ResourceGroup) error {
+	if !cfg.InADO {
+		return nil
+	}
 	resourceGroup := ""
 	if rg.Name != nil {
 		resourceGroup = *rg.Name
@@ -88,9 +94,7 @@ func extendResourceGroupDeadline(ctx context.Context, azure *config.AzureClient,
 			due = existing
 		}
 	}
-	if cfg.InADO {
-		due = saturdayDeadline(due)
-	}
+	due = saturdayDeadline(due)
 	if !existing.Before(due) {
 		return nil
 	}

@@ -38,6 +38,38 @@ func gcResponse(req *http.Request, status int, body string) *http.Response {
 		Body: io.NopCloser(strings.NewReader(body)), Request: req}
 }
 
+func TestLocalResourceGroupDeadlineIsUntouched(t *testing.T) {
+	for _, buildID := range []string{"local", "12345"} {
+		for _, node := range []bool{false, true} {
+			name := "resource group"
+			if node {
+				name = "node resource group"
+			}
+			t.Run(buildID+"/"+name, func(t *testing.T) {
+				t.Parallel()
+				cfg := &config.Configuration{BuildID: buildID, SuiteTimeout: time.Hour}
+				azure := gcTestAzure(t, func(req *http.Request) *http.Response {
+					t.Fatalf("local run must not access GC deadlines: %s %s", req.Method, req.URL.Path)
+					return nil
+				})
+				logger := &executionLogger{}
+				ctx := logging.WithLogger(t.Context(), logger)
+				if node {
+					require.True(t, renewNodeResourceGroupDeadline(ctx, azure, cfg, &armcontainerservice.ManagedCluster{
+						Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr("rg")},
+					}))
+				} else {
+					require.True(t, renewResourceGroupDeadline(ctx, azure, cfg, armresources.ResourceGroup{
+						Name: to.Ptr("rg"), ID: to.Ptr("/subscriptions/test/resourceGroups/rg"),
+						Tags: map[string]*string{deletionDueTimeTag: to.Ptr("2000-01-01T00:00:00Z")},
+					}))
+				}
+				require.Empty(t, logger.logs)
+			})
+		}
+	}
+}
+
 func TestResourceGroupDeadline(t *testing.T) {
 	for _, tt := range []struct {
 		name, value, failure string
@@ -58,10 +90,10 @@ func TestResourceGroupDeadline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
-				cfg := &config.Configuration{SuiteTimeout: 47 * time.Minute}
+				cfg := &config.Configuration{InADO: true, SuiteTimeout: 47 * time.Minute}
 				writes := 0
 				azure := gcTestAzure(t, func(req *http.Request) *http.Response {
-					due := time.Now().Add(cfg.SuiteTimeout + CleanupTimeout)
+					due := saturdayDeadline(time.Now().Add(cfg.SuiteTimeout + CleanupTimeout))
 					if req.URL.Path == "/operations/renew" {
 						return gcResponse(req, 200, `{"status":"Failed","error":{"code":"Denied","message":"failed"}}`)
 					}
@@ -75,7 +107,7 @@ func TestResourceGroupDeadline(t *testing.T) {
 						value := tt.value
 						if tt.name == "equal" || tt.name == "later" {
 							if tt.name == "later" {
-								due = due.Add(time.Hour)
+								due = due.AddDate(0, 0, 7)
 							}
 							value = `"` + due.UTC().Format(time.RFC3339Nano) + `"`
 						}
@@ -130,10 +162,10 @@ func TestResourceGroupDeadline(t *testing.T) {
 	}
 }
 
-func TestCachedResourceGroupSetupRenewsOnlyNodeDeadline(t *testing.T) {
+func TestCachedADOResourceGroupSetupRenewsBothDeadlines(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		cfg := &config.Configuration{SuiteTimeout: 47 * time.Minute}
+		cfg := &config.Configuration{InADO: true, SuiteTimeout: 47 * time.Minute}
 		expired := "2000-01-01T00:00:00Z"
 		tags := map[string]string{"abe2e-westus3": expired, "unused-node-rg": expired}
 		reads := map[string]int{}
@@ -165,15 +197,15 @@ func TestCachedResourceGroupSetupRenewsOnlyNodeDeadline(t *testing.T) {
 			})
 			return true, nil
 		})
-		due := time.Now().Add(cfg.SuiteTimeout + CleanupTimeout).UTC().Format(time.RFC3339Nano)
+		due := saturdayDeadline(time.Now().Add(cfg.SuiteTimeout + CleanupTimeout)).Format(time.RFC3339Nano)
 		for range 2 {
 			_, err := ensure(ctx, "westus3")
 			require.NoError(t, err)
 			_, err = prepareCluster(ctx, "actual-node-rg")
 			require.NoError(t, err)
 			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, reads)
-			require.Equal(t, map[string]int{"actual-node-rg": 1}, writes)
-			require.Equal(t, map[string]string{"abe2e-westus3": expired, "actual-node-rg": due, "unused-node-rg": expired}, tags)
+			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, writes)
+			require.Equal(t, map[string]string{"abe2e-westus3": due, "actual-node-rg": due, "unused-node-rg": expired}, tags)
 			time.Sleep(time.Hour)
 		}
 	})
