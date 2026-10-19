@@ -2,6 +2,7 @@
 set -uo pipefail
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
 BOOTSTRAP_KUBECONFIG_PATH="${BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/bootstrap-kubeconfig}"
 KUBELET_CLIENT_CURRENT_PEM_PATH="${KUBELET_CLIENT_CURRENT_PEM_PATH:-/var/lib/kubelet/pki/kubelet-client-current.pem}"
 
@@ -38,6 +39,12 @@ removeBootstrapKubeconfig() {
         return 0
     fi
 
+    # first we wait for a kubeconfig to be present
+    while [ ! -f "$KUBECONFIG_PATH" ]; do
+        echo "$KUBECONFIG_PATH does not yet exist, waiting another 1s before considering removal of $BOOTSTRAP_KUBECONFIG_PATH..."
+        sleep 1s
+    done
+
     # wait until kubelet-client-current.pem is a symlink to an existing file, indicating kubelet has safely finished TLS bootstrapping
     # and no longer needs the bootstrap credentials present within bootstrap-kubeconfig
     while [ ! -L "$KUBELET_CLIENT_CURRENT_PEM_PATH" ] || [ ! -f "$KUBELET_CLIENT_CURRENT_PEM_PATH" ]; do
@@ -45,7 +52,7 @@ removeBootstrapKubeconfig() {
         sleep 1
     done
 
-    echo "$KUBELET_CLIENT_CURRENT_PEM_PATH exists, removing $BOOTSTRAP_KUBECONFIG_PATH..."
+    echo "$KUBECONFIG_PATH and $KUBELET_CLIENT_CURRENT_PEM_PATH both exist, removing $BOOTSTRAP_KUBECONFIG_PATH..."
     rm -f "$BOOTSTRAP_KUBECONFIG_PATH"
 }
 

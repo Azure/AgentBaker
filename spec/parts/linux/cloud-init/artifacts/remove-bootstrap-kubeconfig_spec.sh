@@ -14,6 +14,9 @@ Describe 'remove-bootstrap-kubeconfig.sh'
     }
 
     cleanup() {
+        if [ -d "$KUBECONFIG_PATH" ]; then
+            rmdir "$KUBECONFIG_PATH"
+        fi
         if [ ! -L "$KUBELET_CLIENT_CURRENT_PEM_PATH" ] && [ -d "$KUBELET_CLIENT_CURRENT_PEM_PATH" ]; then
             rmdir "$KUBELET_CLIENT_CURRENT_PEM_PATH"
         fi
@@ -36,11 +39,15 @@ Describe 'remove-bootstrap-kubeconfig.sh'
     }
 
     waiting_message() {
-        echo "$KUBELET_CLIENT_CURRENT_PEM_PATH does not yet exist a file or valid symlink, waiting 1s..."
+        echo "$KUBELET_CLIENT_CURRENT_PEM_PATH does not yet exist as a file or valid symlink, waiting another 1s before considering removal of $BOOTSTRAP_KUBECONFIG_PATH..."
+    }
+
+    waiting_kubeconfig_message() {
+        echo "$KUBECONFIG_PATH does not yet exist, waiting another 1s before considering removal of $BOOTSTRAP_KUBECONFIG_PATH..."
     }
 
     removing_message() {
-        echo "$KUBELET_CLIENT_CURRENT_PEM_PATH exists, removing $BOOTSTRAP_KUBECONFIG_PATH..."
+        echo "$KUBECONFIG_PATH and $KUBELET_CLIENT_CURRENT_PEM_PATH both exist, removing $BOOTSTRAP_KUBECONFIG_PATH..."
     }
 
     BeforeEach 'setup'
@@ -51,6 +58,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
             When run removeBootstrapKubeconfig
             The status should be success
             The output should equal "$(missing_bootstrap_message)"
+            The path "$KUBECONFIG_PATH" should not be exist
             The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should not be exist
             The path "$BOOTSTRAP_KUBECONFIG_PATH" should not be exist
         End
@@ -66,7 +74,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
             The contents of file "$CLIENT_CERT_PATH" should equal 'client credentials'
         End
 
-        It 'removes only the bootstrap kubeconfig without sleeping when the certificate symlink resolves to a file'
+        It 'removes only the bootstrap kubeconfig without sleeping when kubeconfig and a valid certificate symlink exist'
             create_client_certificate
             printf '%s\n' 'kubelet configuration' > "$KUBECONFIG_PATH"
             printf '%s\n' 'bootstrap credentials' > "$BOOTSTRAP_KUBECONFIG_PATH"
@@ -104,6 +112,71 @@ Describe 'remove-bootstrap-kubeconfig.sh'
             The contents of file "$KUBECONFIG_PATH" should equal 'kubelet configuration'
         End
 
+        Context 'when kubeconfig is not a file'
+            Parameters
+                'absent'
+                'a directory'
+            End
+
+            It "waits for kubeconfig when it is $1 even if the certificate symlink is ready"
+                create_client_certificate
+                printf '%s\n' 'bootstrap credentials' > "$BOOTSTRAP_KUBECONFIG_PATH"
+                if [ "$1" = 'a directory' ]; then
+                    mkdir "$KUBECONFIG_PATH"
+                fi
+                sleep() {
+                    [ "$#" -eq 1 ] && [ "$1" = 1s ] || exit 98
+                    [ "$(cat "$BOOTSTRAP_KUBECONFIG_PATH")" = 'bootstrap credentials' ] || exit 97
+                    SLEEP_CALLS=$((SLEEP_CALLS + 1))
+                    [ "$SLEEP_CALLS" -le 2 ] || exit 96
+                    if [ "$SLEEP_CALLS" -eq 2 ]; then
+                        if [ -d "$KUBECONFIG_PATH" ]; then
+                            rmdir "$KUBECONFIG_PATH"
+                        fi
+                        printf '%s\n' 'kubelet configuration' > "$KUBECONFIG_PATH"
+                    fi
+                }
+
+                When call removeBootstrapKubeconfig
+                The status should be success
+                The output should equal "$(printf '%s\n%s\n%s' "$(waiting_kubeconfig_message)" "$(waiting_kubeconfig_message)" "$(removing_message)")"
+                The variable SLEEP_CALLS should equal 2
+                The path "$BOOTSTRAP_KUBECONFIG_PATH" should not be exist
+                The contents of file "$KUBECONFIG_PATH" should equal 'kubelet configuration'
+                The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should be symlink
+                The contents of file "$KUBELET_CLIENT_CURRENT_PEM_PATH" should equal 'client credentials'
+            End
+        End
+
+        It 'waits for kubeconfig first and then for the certificate symlink before removing bootstrap credentials'
+            printf '%s\n' 'bootstrap credentials' > "$BOOTSTRAP_KUBECONFIG_PATH"
+            sleep() {
+                [ "$#" -eq 1 ] || exit 98
+                [ "$(cat "$BOOTSTRAP_KUBECONFIG_PATH")" = 'bootstrap credentials' ] || exit 97
+                SLEEP_CALLS=$((SLEEP_CALLS + 1))
+                case "$SLEEP_CALLS" in
+                    1)
+                        [ "$1" = 1s ] || exit 98
+                        printf '%s\n' 'kubelet configuration' > "$KUBECONFIG_PATH"
+                        ;;
+                    2)
+                        [ "$1" = 1 ] || exit 98
+                        create_client_certificate
+                        ;;
+                    *) exit 96 ;;
+                esac
+            }
+
+            When call removeBootstrapKubeconfig
+            The status should be success
+            The output should equal "$(printf '%s\n%s\n%s' "$(waiting_kubeconfig_message)" "$(waiting_message)" "$(removing_message)")"
+            The variable SLEEP_CALLS should equal 2
+            The path "$BOOTSTRAP_KUBECONFIG_PATH" should not be exist
+            The contents of file "$KUBECONFIG_PATH" should equal 'kubelet configuration'
+            The path "$KUBELET_CLIENT_CURRENT_PEM_PATH" should be symlink
+            The contents of file "$KUBELET_CLIENT_CURRENT_PEM_PATH" should equal 'client credentials'
+        End
+
         Context 'when the certificate path is not a symlink to an existing file'
             Parameters
                 'regular file'
@@ -113,6 +186,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
             End
 
             It "keeps bootstrap credentials while the certificate path is a $1"
+                printf '%s\n' 'kubelet configuration' > "$KUBECONFIG_PATH"
                 printf '%s\n' 'bootstrap credentials' > "$BOOTSTRAP_KUBECONFIG_PATH"
                 case "$1" in
                     'regular file')
@@ -162,6 +236,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
 
         It 'propagates deletion errors and leaves credentials intact'
             create_client_certificate
+            printf '%s\n' 'kubelet configuration' > "$KUBECONFIG_PATH"
             touch "$BOOTSTRAP_KUBECONFIG_PATH"
             rm() {
                 [ "$#" -eq 2 ] && [ "$1" = -f ] && [ "$2" = "$BOOTSTRAP_KUBECONFIG_PATH" ] || return 98
@@ -181,6 +256,7 @@ Describe 'remove-bootstrap-kubeconfig.sh'
 
         It 'succeeds when called again after cleanup'
             create_client_certificate
+            printf '%s\n' 'kubelet configuration' > "$KUBECONFIG_PATH"
             touch "$BOOTSTRAP_KUBECONFIG_PATH"
             remove_twice() {
                 removeBootstrapKubeconfig && removeBootstrapKubeconfig
