@@ -10,6 +10,9 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
+    "kata_uvm_version": "{{env `KATA_UVM_VERSION`}}",
+    "system_collection_uri": "{{env `SYSTEM_COLLECTIONURI`}}",
+    "system_team_project_id": "{{env `SYSTEM_TEAMPROJECTID`}}",
     "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "sku_name": "{{env `SKU_NAME`}}",
@@ -757,6 +760,11 @@
     },
     {
       "type": "file",
+      "content": "{{user `kata_uvm_version`}}\n",
+      "destination": "/home/packer/kata-containers-version.txt"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },
@@ -842,6 +850,16 @@
       "type": "shell",
       "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} /bin/bash -eux /home/packer/install-dependencies.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "script": "vhdbuilder/packer/validate-kata-uvm-version.sh",
+      "environment_vars": [
+        "FEATURE_FLAGS={{user `feature_flags`}}",
+        "IMG_OFFER={{user `img_offer`}}",
+        "SYSTEM_COLLECTIONURI={{user `system_collection_uri`}}",
+        "SYSTEM_TEAMPROJECTID={{user `system_team_project_id`}}"
       ]
     },
     {

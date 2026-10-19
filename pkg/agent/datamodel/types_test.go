@@ -1367,6 +1367,13 @@ func TestAgentPoolProfileIsACL(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "ACL Kata distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLKataGen2TL,
+			},
+			expected: true,
+		},
+		{
 			name: "Flatcar distro is not ACL",
 			ap: AgentPoolProfile{
 				Distro: AKSFlatcarGen2,
@@ -1395,6 +1402,54 @@ func TestAgentPoolProfileIsACL(t *testing.T) {
 			isACL := c.ap.IsACL()
 			if c.expected != isACL {
 				t.Fatalf("Got unexpected AgentPoolProfile.IsACL() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expected, isACL)
+			}
+		})
+	}
+}
+
+func TestAgentPoolProfileKataDistro(t *testing.T) {
+	cases := []struct {
+		name                 string
+		ap                   AgentPoolProfile
+		expectedKata         bool
+		expectedContainerdV2 bool
+	}{
+		{
+			name: "AzureLinux V3 Kata distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2Kata,
+			},
+			expectedKata:         true,
+			expectedContainerdV2: false,
+		},
+		{
+			name: "ACL Kata distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLKataGen2TL,
+			},
+			expectedKata:         true,
+			expectedContainerdV2: false,
+		},
+		{
+			name: "ACL distro is not Kata",
+			ap: AgentPoolProfile{
+				Distro: AKSACLGen2TL,
+			},
+			expectedKata:         false,
+			expectedContainerdV2: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			isKata := c.ap.Distro.IsKataDistro()
+			if c.expectedKata != isKata {
+				t.Fatalf("Got unexpected Distro.IsKataDistro() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expectedKata, isKata)
+			}
+			isContainerdV2 := c.ap.IsContainerdV2Distro()
+			if c.expectedContainerdV2 != isContainerdV2 {
+				t.Fatalf("Got unexpected AgentPoolProfile.IsContainerdV2Distro() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expectedContainerdV2, isContainerdV2)
 			}
 		})
 	}

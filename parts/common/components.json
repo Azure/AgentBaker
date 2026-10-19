@@ -1100,7 +1100,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "2.3.6"
+                "latestVersion": "2.3.3"
               }
             ]
           },
@@ -1108,7 +1108,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "2.3.6"
+                "latestVersion": "2.3.3"
               }
             ]
           },
@@ -1116,7 +1116,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.36"
+                "latestVersion": "1.7.33"
               }
             ]
           },
@@ -1124,7 +1124,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.36"
+                "latestVersion": "1.7.33"
               }
             ]
           }
@@ -1190,10 +1190,6 @@
         "windows": {
           "ws2022": {
             "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.6.35-azure.1"
-              },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "v1.7.20-azure.1",

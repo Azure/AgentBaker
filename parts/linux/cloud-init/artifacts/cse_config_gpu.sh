@@ -320,6 +320,34 @@ setupAmdAma() {
     fi
 }
 
+# Records the caller-selected gpuProfile.nvidia.driverMode as "DRA" or
+# "DevicePlugin" in a root-owned, readable file. Missing or unrecognized modes
+# succeed without changing the file. This is configuration, not evidence of service
+# enablement or health. The destination is replaced on success, never removed on failure.
+# The optional second argument overrides the destination for another filesystem root.
+configureNvidiaGPUDriverMode() {
+    local driver_mode="${1:-}"
+    local driver_mode_file="${2:-/opt/azure/containers/nvidia-gpu-driver-mode}"
+    local temp_file
+
+    case "${driver_mode}" in
+        DRA|DevicePlugin) ;;
+        *) return 0 ;;
+    esac
+
+    [ ! -d "${driver_mode_file}" ] || return 1
+    mkdir -p "$(dirname "${driver_mode_file}")" || return 1
+    temp_file=$(mktemp "${driver_mode_file}.XXXXXX") || return 1
+    # Publish only the complete value, with its final ownership and permissions.
+    if ! { printf '%s\n' "${driver_mode}" > "${temp_file}" &&
+        chown root:root "${temp_file}" &&
+        chmod 0644 "${temp_file}" &&
+        mv -f "${temp_file}" "${driver_mode_file}"; }; then
+        rm -f "${temp_file}"
+        return 1
+    fi
+}
+
 configureManagedGPUExperience() {
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return
@@ -328,14 +356,17 @@ configureManagedGPUExperience() {
         echo "Error: ENABLE_MANAGED_GPU_EXPERIENCE and ENABLE_MANAGED_GPU_EXPERIENCE_DRA cannot both be true"
         exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
     fi
+
     local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureNvidiaGPUDriverMode" configureNvidiaGPUDriverMode "DevicePlugin" || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
     elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureNvidiaGPUDriverMode" configureNvidiaGPUDriverMode "DRA" || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         # defer startNvidiaManagedExpServices() after kubelet starts
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -155,10 +156,10 @@ func TestCachedResourceGroupSetupRenewsOnlyNodeDeadline(t *testing.T) {
 			return gcResponse(req, 200, `{"properties":{"tags":{}}}`)
 		})
 		ctx := logging.WithLogger(t.Context(), t)
-		ensure := cachedFunc(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
+		ensure := toolkit.Memoize(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
 			return ensureResourceGroup(ctx, azure, location)
 		})
-		prepareCluster := cachedFunc(func(ctx context.Context, name string) (bool, error) {
+		prepareCluster := toolkit.Memoize(func(ctx context.Context, name string) (bool, error) {
 			renewNodeResourceGroupDeadline(ctx, azure, cfg, &armcontainerservice.ManagedCluster{
 				Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr(name)},
 			})
