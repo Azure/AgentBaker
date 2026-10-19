@@ -62,6 +62,7 @@ if [ "${TEST_ANC_OUTCOME}" = "applied" ]; then
     cp "${TEST_PATCH_SOURCE}" "${output}"
     echo "v2" > "${output}.version"
 fi
+[ -z "${TEST_ANC_ERROR:-}" ] || echo "error: ${TEST_ANC_ERROR}"
 echo "${TEST_ANC_OUTCOME}"
 exit "${TEST_ANC_EXIT:-0}"
 EOF
@@ -69,11 +70,12 @@ EOF
 
         TEST_ANC_OUTCOME="applied"
         TEST_ANC_EXIT=0
+        TEST_ANC_ERROR=""
         TEST_ANC_ARGS_FILE="${TEST_DIR}/anc-args"
         TEST_LOCALDNS_ACTIVE="true"
         TEST_RESTART_STATUS=0
         TEST_RELOAD_MODE="reload"
-        export TEST_ANC_OUTCOME TEST_ANC_EXIT TEST_ANC_ARGS_FILE TEST_PATCH_SOURCE
+        export TEST_ANC_OUTCOME TEST_ANC_EXIT TEST_ANC_ERROR TEST_ANC_ARGS_FILE TEST_PATCH_SOURCE
     }
 
     cleanup() {
@@ -355,6 +357,67 @@ EOF
             updateLocalDNS '{}' > /dev/null || true
             When call localDNSCurrent
             The output should equal 'v1'
+        End
+    End
+
+    Describe 'failure message'
+        It 'reports nothing when the patch succeeds'
+            updateLocalDNS '{}' > /dev/null
+            When call localDNSFailureMessage
+            The output should equal ''
+        End
+
+        It "passes on aks-node-controller's reason when the apply fails"
+            TEST_ANC_EXIT=1
+            TEST_ANC_ERROR="no bootstrap source on this node carries the CoreDNS service IP"
+            updateLocalDNS '{}' > /dev/null || true
+            When call localDNSFailureMessage
+            The output should equal 'aks-node-controller apply-localdns-config failed: no bootstrap source on this node carries the CoreDNS service IP'
+        End
+
+        It 'reports the apply failure when aks-node-controller gives no reason'
+            TEST_ANC_EXIT=1
+            updateLocalDNS '{}' > /dev/null || true
+            When call localDNSFailureMessage
+            The output should equal 'aks-node-controller apply-localdns-config failed'
+        End
+
+        It 'reports that CoreDNS rejected the corefile'
+            TEST_RELOAD_MODE="reject"
+            updateLocalDNS '{}' > /dev/null || true
+            When call localDNSFailureMessage
+            The output should equal 'CoreDNS rejected the new corefile and kept serving the previous one'
+        End
+
+        It 'reports a failed fallback restart'
+            TEST_RELOAD_MODE="down"
+            TEST_RESTART_STATUS=1
+            updateLocalDNS '{}' > /dev/null || true
+            When call localDNSFailureMessage
+            The output should equal 'localdns.service restart failed; restored the previous corefile'
+        End
+
+        It 'reports a missing aks-node-controller'
+            rm -f "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            updateLocalDNS '{}' > /dev/null || true
+            When call localDNSFailureMessage
+            The output should equal 'aks-node-controller binary not found'
+        End
+
+        It 'reports an unexpected outcome'
+            TEST_ANC_OUTCOME="bogus"
+            updateLocalDNS '{}' > /dev/null || true
+            When call localDNSFailureMessage
+            The output should equal 'unexpected apply outcome: bogus'
+        End
+
+        It 'clears the message when a later run succeeds'
+            TEST_RELOAD_MODE="reject"
+            updateLocalDNS '{}' > /dev/null || true
+            TEST_RELOAD_MODE="reload"
+            updateLocalDNS '{}' > /dev/null
+            When call localDNSFailureMessage
+            The output should equal ''
         End
     End
 
