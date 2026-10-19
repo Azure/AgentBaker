@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -397,6 +398,43 @@ func TestLocalDNSApplyAgentPoolFlag(t *testing.T) {
 		got, err := os.ReadFile(out)
 		require.NoError(t, err)
 		assert.Equal(t, pool1Corefile, string(got))
+	})
+}
+
+// TestLocalDNSApplyPrintsErrorBeforeOutcome pins the output contract the localDNS handler parses:
+// the outcome is always the last line, and on failure the reason precedes it as "error: <reason>".
+func TestLocalDNSApplyPrintsErrorBeforeOutcome(t *testing.T) {
+	const corefile = ".:53 {\n    forward . 168.63.129.16\n}\n"
+	payload := `{"agentPools":{"pool1":{"corefileVersion":"v1","corefileBase64":"` +
+		base64.StdEncoding.EncodeToString([]byte(corefile)) + `"}}}`
+	run := func(t *testing.T, app *App, agentPool string) ([]string, error) {
+		t.Helper()
+		configFile := filepath.Join(t.TempDir(), "localdns-config.json")
+		require.NoError(t, os.WriteFile(configFile, []byte(payload), 0o600))
+		var out bytes.Buffer
+		err := app.runApplyLocalDNSConfigCommand(context.Background(), configFile,
+			filepath.Join(t.TempDir(), "livepatched.localdns.corefile"), agentPool, &out)
+		return strings.Split(strings.TrimRight(out.String(), "\n"), "\n"), err
+	}
+
+	t.Run("failure prints the reason before the outcome", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "missing-aks-node-controller-config.json")
+		tt.App.nbcCmdPath = filepath.Join(t.TempDir(), "missing-nbc-cmd.sh")
+
+		lines, err := run(t, tt.App, "")
+		require.Error(t, err)
+		require.Len(t, lines, 2)
+		assert.Equal(t, "error: "+err.Error(), lines[0])
+		assert.Equal(t, string(outcomeLocalDNSConfigFailed), lines[1])
+	})
+
+	t.Run("success prints only the outcome", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+
+		lines, err := run(t, tt.App, "pool1")
+		require.NoError(t, err)
+		assert.Equal(t, []string{string(outcomeLocalDNSConfigApplied)}, lines)
 	})
 }
 

@@ -285,7 +285,7 @@ EOF
         The output should include 'applying component: localDNS'
         The output should include 'failed to restart localdns.service'
         The output should include 'component failed: localDNS'
-        The output should include '"components":{"localDNS":{"code":"Failed"}}}'
+        The output should include '"components":{"localDNS":{"code":"Failed","message":"localdns.service restart failed; restored the previous corefile"}}}'
     End
 
     It 'converges localDNS when no config applies to this node'
@@ -398,11 +398,12 @@ EOF
         The output should include '"components":{"localDNS":{"code":"Succeeded","current":"v1"}}}'
     End
 
-    It 'reports the previous localDNS current when the patch fails'
+    It 'reports the failure reason and the previous localDNS current when the patch fails'
         use_test_localdns_paths
         echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
         cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
 #!/bin/bash
+echo "error: no bootstrap source on this node carries the CoreDNS service IP"
 echo failed
 exit 1
 EOF
@@ -412,7 +413,7 @@ EOF
         When call knead_main
         The status should be failure
         The output should include 'component failed: localDNS'
-        The output should include '"components":{"localDNS":{"code":"Failed","current":"v1"}}}'
+        The output should include '"components":{"localDNS":{"code":"Failed","message":"aks-node-controller apply-localdns-config failed: no bootstrap source on this node carries the CoreDNS service IP","current":"v1"}}}'
     End
 
     It 'hashes trailing newline bytes before dispatching a valid payload'

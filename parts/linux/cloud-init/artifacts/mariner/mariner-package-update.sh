@@ -143,22 +143,23 @@ set_component_result() {
     LIVE_PATCHING_COMPONENT_RESULTS="${results}"
 }
 
-# Adds the value a component's reporter prints as "current" to the component's status entry, for
-# components that register a reporter. Reporting is best-effort: it never changes the component's
-# code or fails the run, and a reporter that prints nothing leaves "current" out.
-set_component_current() {
+# Adds a field a component reports about itself ("message", "current") to the component's status
+# entry, for components that register a reporter for it. Reporting is best-effort: it never changes
+# the component's code or fails the run, and a reporter that prints nothing leaves the field out.
+set_component_field() {
     local component="$1"
-    local component_reporter="$2"
-    local node_json="$3"
-    local current
+    local field="$2"
+    local reporter="$3"
+    local node_json="$4"
+    local value
     local results
 
-    [ -n "${component_reporter}" ] || return 0
-    if ! current=$("${component_reporter}" "${node_json}") || [ -z "${current}" ]; then
+    [ -n "${reporter}" ] || return 0
+    if ! value=$("${reporter}" "${node_json}") || [ -z "${value}" ]; then
         return 0
     fi
-    if ! results=$(printf '%s' "${LIVE_PATCHING_COMPONENT_RESULTS}" | jq -ce --arg component "${component}" --arg current "${current}" 'if has($component) then .[$component].current=$current else . end') || [ -z "${results}" ]; then
-        echo "failed to record component current value: ${component}"
+    if ! results=$(printf '%s' "${LIVE_PATCHING_COMPONENT_RESULTS}" | jq -ce --arg component "${component}" --arg field "${field}" --arg value "${value}" 'if has($component) then .[$component][$field]=$value else . end') || [ -z "${results}" ]; then
+        echo "failed to record component ${field}: ${component}"
         return 0
     fi
     LIVE_PATCHING_COMPONENT_RESULTS="${results}"
@@ -183,7 +184,7 @@ apply_components() {
     local payload="$1"
     local node_json="$2"
     local component_count component_name component_payload
-    local component_handler component_comparator component_reporter
+    local component_handler component_comparator component_message_reporter component_current_reporter
     local component_index=0
     local failed=false
     LIVE_PATCHING_COMPONENT_RESULTS='{}'
@@ -214,12 +215,14 @@ apply_components() {
             securityPatch)
                 component_handler=updateSecurityPatch
                 component_comparator=securityPatchIsCurrent
-                component_reporter=""
+                component_message_reporter=""
+                component_current_reporter=""
                 ;;
             localDNS)
                 component_handler=updateLocalDNS
                 component_comparator=localDNSIsCurrent
-                component_reporter=localDNSCurrent
+                component_message_reporter=localDNSFailureMessage
+                component_current_reporter=localDNSCurrent
                 ;;
             *)
                 echo "unsupported component: ${component_name}"
@@ -247,8 +250,10 @@ apply_components() {
             LIVE_PATCHING_COMPONENT_RESULTS_VALID=false
             failed=true
         fi
-        # Report what is applied whether the handler ran, failed, or was skipped as current.
-        set_component_current "${component_name}" "${component_reporter}" "${node_json}"
+        # Report why a patch failed, and what is applied whether the handler ran, failed, or was
+        # skipped as current.
+        set_component_field "${component_name}" message "${component_message_reporter}" "${node_json}"
+        set_component_field "${component_name}" current "${component_current_reporter}" "${node_json}"
         component_index=$((component_index + 1))
     done
 

@@ -83,19 +83,23 @@ type localDNSCorefileUpdate struct {
 // the node's kubernetes.azure.com/agentpool label as the reconciler read it off the Node object; it
 // selects this node's entry on every provisioning mode, including classic CSE, where neither file
 // nodeAgentPoolName reads exists. Empty falls back to nodeAgentPoolName.
+//
+// The outcome is always the last line of output. On failure the reason is printed on the line before
+// it as "error: <reason>": Run discards returned errors, and the localDNS handler reports this reason
+// as the component's message in live-patching-status.
 func (a *App) runApplyLocalDNSConfigCommand(ctx context.Context, configPath, outputPath, agentPool string, writer io.Writer) error {
+	outcome := outcomeLocalDNSConfigFailed
 	config, err := readLocalDNSConfigInput(configPath)
-	if err != nil {
-		return err
+	if err == nil {
+		outcome, err = a.applyLocalDNSConfig(ctx, config, outputPath, agentPool)
 	}
-	outcome, err := a.applyLocalDNSConfig(ctx, config, outputPath, agentPool)
 	if writer != nil {
+		if err != nil {
+			_, _ = fmt.Fprintf(writer, "error: %s\n", err)
+		}
 		_, _ = fmt.Fprintf(writer, "%s\n", outcome)
 	}
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func readLocalDNSConfigInput(configPath string) (string, error) {
