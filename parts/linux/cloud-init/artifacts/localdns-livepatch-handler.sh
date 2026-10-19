@@ -57,30 +57,25 @@ localDNSNodeAgentPool() {
     printf '%s' "${node_json}" | jq -er '.metadata.labels["kubernetes.azure.com/agentpool"] // empty' 2> /dev/null
 }
 
-# Prints this node's localDNS version from a payload: the corefileVersion (else configChecksum) of
-# this pool's entry, selected the way aks-node-controller selects it (selectLocalDNSAgentPoolConfig):
-# agentPools, else profiles. That is the value aks-node-controller records in the .version file. The
-# RP computes corefileVersion as a hash of the pool's LocalDNS profile, so it changes exactly when
-# this pool's config does. Prints {"absent":true} when the payload has no entry for this pool. Fails
-# when there is no version to compare -- an entry without one, a payload not keyed by pool, or a
-# payload aks-node-controller would reject -- so the caller runs the handler instead of skipping it.
+# Prints this node's localDNS version from a payload: the corefileVersion of this pool's entry in
+# agentPools, the value aks-node-controller records in the .version file. The RP computes it as a hash
+# of the pool's LocalDNS profile, so it changes exactly when this pool's config does. Prints
+# {"absent":true} when the payload has no entry for this pool, including a payload with no agentPools
+# at all. Fails on an entry without a corefileVersion or a payload aks-node-controller would reject,
+# so the caller runs the handler instead of skipping it.
 localDNSAgentPoolVersion() {
     local payload="$1"
     local agent_pool="$2"
 
     printf '%s' "${payload}" | jq -ce --arg agentPool "${agent_pool}" '
-        if type != "object" then error("localDNS payload is not an object")
-        elif ((.agentPools // {}) | type) != "object" or ((.profiles // {}) | type) != "object" then
-            error("localDNS agentPools/profiles must be objects")
-        elif ((.agentPools // {}) | length) == 0 and ((.profiles // {}) | length) == 0 then
-            error("localDNS payload is not keyed by agent pool")
+        if type != "object" or ((.agentPools // {}) | type) != "object" then
+            error("localDNS payload must be an object with an agentPools object")
         else
-            (.agentPools[$agentPool] // .profiles[$agentPool]) as $entry
+            (.agentPools // {})[$agentPool] as $entry
             | if $entry == null then {absent: true}
-              elif ($entry | type) != "object" then error("localDNS agent pool entry is not an object")
-              else
-                  [$entry.corefileVersion, $entry.configChecksum] | map(select(type == "string" and . != "")) | first
-                  | if . == null then error("localDNS agent pool entry has no version") else {version: .} end
+              elif ($entry | type) == "object" and ($entry.corefileVersion | type) == "string" and $entry.corefileVersion != "" then
+                  {version: $entry.corefileVersion}
+              else error("localDNS agent pool entry has no corefileVersion")
               end
         end' 2> /dev/null
 }
