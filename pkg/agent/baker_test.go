@@ -131,6 +131,40 @@ func TestRenderCloudInitFileContentRoundTrips(t *testing.T) {
 	}
 }
 
+func TestRenderLinuxNodeCustomDataTemplateLegacyGzip(t *testing.T) {
+	for _, testCase := range []struct {
+		name     string
+		distro   datamodel.Distro
+		key      string
+		filename string
+	}{
+		{"Ubuntu", datamodel.AKSUbuntuContainerd2204Gen2, "provisionSourceUbuntu", kubernetesCSEHelpersScriptUbuntu},
+		{"Azure Linux", datamodel.AKSAzureLinuxV3Gen2, "provisionSourceMariner", kubernetesCSEHelpersScriptMariner},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			config := newNodeCustomDataRenderConfig(testCase.distro)
+			template := fmt.Appendf(nil, `#cloud-config
+write_files:
+- path: /opt/script.sh
+  owner: root
+  encoding: gzip
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" %q}}
+`, testCase.key)
+			rendered, err := RenderLinuxNodeCustomDataTemplate(template, config)
+			require.NoError(t, err)
+
+			var parsed cloudInit
+			require.NoError(t, yaml.Unmarshal([]byte(rendered), &parsed))
+			require.Len(t, parsed.WriteFiles, 1)
+			require.Equal(t, "gzip", parsed.WriteFiles[0].Encoding)
+			decoded, err := getGzipDecodedValue([]byte(parsed.WriteFiles[0].Content))
+			require.NoError(t, err)
+			require.Equal(t, getCustomScriptContent(testCase.filename, config), string(decoded))
+		})
+	}
+}
+
 func TestGetCloudInitFilePropertiesKeepsGzipFallback(t *testing.T) {
 	testCases := []struct {
 		name                   string

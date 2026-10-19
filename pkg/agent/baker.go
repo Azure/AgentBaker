@@ -713,17 +713,27 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	}
 
 	funcMap["GetVariableProperty"] = func(v, p string) interface{} {
-		if v, ok := variables[v].(paramsMap); ok && v != nil {
-			if v[p] == nil {
-				// return empty string so we don't get <no value> from go template
-				return ""
-			}
-			return v[p]
-		}
-		return ""
+		return getVariableProperty(variables, v, p)
 	}
 
 	return funcMap
+}
+
+func getVariableProperty(variables paramsMap, variable, name string) interface{} {
+	if variable == "cloudInitData" {
+		if files, ok := variables["cloudInitFileData"].(paramsMap); ok {
+			if content, ok := files[name].(string); ok {
+				return getBase64EncodedGzippedCustomScriptFromStr(content)
+			}
+		}
+	}
+	if values, ok := variables[variable].(paramsMap); ok && values != nil {
+		if values[name] == nil {
+			return ""
+		}
+		return values[name]
+	}
+	return ""
 }
 
 func getCloudInitFileProperties(variables paramsMap, name string) (string, error) {
