@@ -43,6 +43,9 @@ LOCALDNS_METRICS_URL="${LOCALDNS_METRICS_URL:-http://127.0.0.1:9253/metrics}"
 # The reload plugin checks every 30s +/- 7.5s of jitter, so a change lands within ~38s.
 LOCALDNS_RELOAD_TIMEOUT_SECONDS="${LOCALDNS_RELOAD_TIMEOUT_SECONDS:-90}"
 LOCALDNS_RELOAD_POLL_SECONDS="${LOCALDNS_RELOAD_POLL_SECONDS:-2}"
+# Why this run's localDNS patch failed, reported as the component's "message" in the live-patching
+# status. updateLocalDNS clears it on entry and sets it on every path that fails the patch.
+LOCALDNS_FAILURE_MESSAGE=""
 
 # Prints this node's agent pool from its Node object (the reconciler's node_json). The is-current
 # check and the apply both take the pool from here, so they always select the same entry, and it
@@ -237,11 +240,13 @@ localDNSServe() {
     # read a half-written file.
     if ! desired="$(mktemp "${LOCALDNS_SERVED_COREFILE}.XXXXXX")"; then
         echo "failed to create a temp file next to ${LOCALDNS_SERVED_COREFILE}"
+        LOCALDNS_FAILURE_MESSAGE="could not create a temp file for the served corefile"
         return 1
     fi
     if ! localDNSRenderServedCorefile "${source_corefile}" "${desired}" "${forward_servers}"; then
         rm -f "${desired}"
         echo "failed to render the served localDNS corefile"
+        LOCALDNS_FAILURE_MESSAGE="could not render the served corefile"
         return 1
     fi
     if cmp -s "${desired}" "${LOCALDNS_SERVED_COREFILE}"; then
@@ -269,6 +274,7 @@ localDNSServe() {
     if ! chmod 0644 "${desired}" || ! mv -f "${desired}" "${LOCALDNS_SERVED_COREFILE}"; then
         rm -f "${desired}"
         echo "failed to write ${LOCALDNS_SERVED_COREFILE}"
+        LOCALDNS_FAILURE_MESSAGE="could not write the served corefile"
         return 1
     fi
     echo "wrote ${LOCALDNS_SERVED_COREFILE}; waiting for CoreDNS to reload it"
@@ -282,6 +288,7 @@ localDNSServe() {
             ;;
         1)
             echo "CoreDNS rejected the localDNS corefile and kept serving the previous one"
+            LOCALDNS_FAILURE_MESSAGE="CoreDNS rejected the new corefile and kept serving the previous one"
             return 1
             ;;
         *)
@@ -303,6 +310,12 @@ localDNSCurrent() {
         return 0
     fi
     tr -d '[:space:]' < "${version_file}"
+}
+
+# Reports why this run's localDNS patch failed, for the "message" field of the live-patching status.
+# Prints nothing when the patch succeeded or did not run, which leaves "message" out.
+localDNSFailureMessage() {
+    printf '%.512s' "${LOCALDNS_FAILURE_MESSAGE:-}"
 }
 
 # The files a patch touches, in a fixed order so backups map back to them by index.
@@ -352,21 +365,28 @@ updateLocalDNS() {
     local agent_pool
     local apply_args
     local outcome
+    local apply_outcome
+    local apply_error
     local source_corefile
     local backup_dir
     local serve_result
 
+    LOCALDNS_FAILURE_MESSAGE=""
+
     if [ ! -x "${LOCALDNS_AKS_NODE_CONTROLLER}" ]; then
         echo "aks-node-controller binary is required for localDNS live patching"
+        LOCALDNS_FAILURE_MESSAGE="aks-node-controller binary not found"
         return 1
     fi
     if ! backup_dir="$(mktemp -d)"; then
         echo "failed to create a backup directory for localDNS live patching"
+        LOCALDNS_FAILURE_MESSAGE="could not create a backup directory"
         return 1
     fi
     if ! localDNSBackup "${backup_dir}"; then
         rm -rf "${backup_dir}"
         echo "failed to back up the current localDNS corefiles"
+        LOCALDNS_FAILURE_MESSAGE="could not back up the current localDNS corefiles"
         return 1
     fi
 
@@ -377,13 +397,18 @@ updateLocalDNS() {
     fi
     if ! outcome="$(printf '%s' "${component_payload}" | "${LOCALDNS_AKS_NODE_CONTROLLER}" "${apply_args[@]}")"; then
         echo "localDNS config apply failed"
+        [ -z "${outcome}" ] || printf '%s\n' "${outcome}"
+        # aks-node-controller prints the reason as "error: <reason>" before its outcome line.
+        apply_error="$(printf '%s\n' "${outcome}" | sed -n 's/^error: //p' | tail -n 1)"
+        LOCALDNS_FAILURE_MESSAGE="aks-node-controller apply-localdns-config failed${apply_error:+: ${apply_error}}"
         localDNSRestore "${backup_dir}"
         rm -rf "${backup_dir}"
         return 1
     fi
     printf '%s\n' "${outcome}"
+    apply_outcome="$(printf '%s\n' "${outcome}" | tail -n 1)"
 
-    case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
+    case "${apply_outcome}" in
         applied|alreadyCurrent)
             source_corefile="${LOCALDNS_LIVEPATCHED_COREFILE}"
             ;;
@@ -402,12 +427,14 @@ updateLocalDNS() {
             # In the runtime apply path the payload is supplied inline, so notFound is not expected;
             # treat it as a failure so the reconciler does not checkpoint an unapplied config as succeeded.
             echo "localDNS LPS config is not available"
+            LOCALDNS_FAILURE_MESSAGE="unexpected apply outcome notFound for an inline payload"
             localDNSRestore "${backup_dir}"
             rm -rf "${backup_dir}"
             return 1
             ;;
         *)
             echo "unexpected localDNS apply outcome: ${outcome}"
+            LOCALDNS_FAILURE_MESSAGE="unexpected apply outcome: ${apply_outcome}"
             localDNSRestore "${backup_dir}"
             rm -rf "${backup_dir}"
             return 1
@@ -425,6 +452,7 @@ updateLocalDNS() {
         1)
             # CoreDNS is still serving the previous Corefile. Put the files back so they describe it
             # again; the reload plugin sees the served file change and settles on it.
+            : "${LOCALDNS_FAILURE_MESSAGE:=could not serve the new corefile}"
             localDNSRestore "${backup_dir}"
             rm -rf "${backup_dir}"
             return 1
@@ -433,6 +461,7 @@ updateLocalDNS() {
             # A fallback restart failed, so localdns may be down on the new Corefile. Put the previous
             # files back and start it on those; anything further is left to the unit's own
             # Restart=/OnFailure= handling.
+            LOCALDNS_FAILURE_MESSAGE="localdns.service restart failed; restored the previous corefile"
             localDNSRestore "${backup_dir}"
             rm -rf "${backup_dir}"
             if ! systemctl restart localdns.service; then
