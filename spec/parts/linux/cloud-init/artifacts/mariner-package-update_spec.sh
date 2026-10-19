@@ -164,13 +164,13 @@ EOF
                 # localdns.service is not running, so the patch is left for its next start.
                 [ "$1" != "is-active" ]
             End
-            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"localdns-v1\"}}}"}]}'
 
             When call main
             The status should be success
             The output should include 'applying component: localDNS'
             The output should include "aks-node-controller called with args: apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE} --agent-pool ap1"
-            The contents of file "${TEST_DIR}/localdns-livepatch-payload" should include '"configChecksum":"localdns-v1"'
+            The contents of file "${TEST_DIR}/localdns-livepatch-payload" should include '"corefileVersion":"localdns-v1"'
             The output should not include 'systemctl called with args: restart localdns.service'
             The output should include 'localDNS update completed successfully'
             The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded"}'
@@ -190,7 +190,7 @@ EOF
                 # restart -- which fails.
                 [ "$1" = "is-active" ]
             End
-            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"ap1\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"localdns-v1\"}}}"}]}'
 
             When call main
             The status should be failure
@@ -210,7 +210,7 @@ EOF
                 echo "systemctl called with args: $*"
                 [ "$1" != "is-active" ]
             End
-            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"profiles\":{\"other-pool\":{\"configChecksum\":\"localdns-v1\"}}}"}]}'
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"other-pool\":{\"corefileVersion\":\"localdns-v1\"}}}"}]}'
 
             When call main
             The status should be success
