@@ -472,23 +472,23 @@ message KubeletConfigFileConfig {
   // singleProcessOOMKill controls whether a single process in a memory cgroup will be killed
   // if the cgroup reaches its memory limit.
   // +optional
-  optional bool single_process_o_o_m_kill = 55;
+  optional bool single_process_oom_kill = 55 [json_name = "singleProcessOOMKill"];
 
   // kubeAPIQPS is the QPS to use while talking with the Kubernetes API server.
   // Default: 50
   // +optional
-  optional int32 kube_a_p_i_q_p_s = 56;
+  optional int32 kube_api_qps = 56 [json_name = "kubeAPIQPS"];
 
   // kubeAPIBurst is the burst to allow while talking with the Kubernetes API server.
   // Default: 100
   // +optional
-  optional int32 kube_a_p_i_burst = 57;
+  optional int32 kube_api_burst = 57 [json_name = "kubeAPIBurst"];
 
   // registryPullQPS is the limit of registry pulls per second.
   // Setting it to 0 means no limit.
   // Default: 5
   // +optional
-  optional int32 registry_pull_q_p_s = 58;
+  optional int32 registry_pull_qps = 58 [json_name = "registryPullQPS"];
 
   // registryBurst is the maximum size of a burst of image pulls.
   // If registryPullQPS is 0, this field is ignored.
