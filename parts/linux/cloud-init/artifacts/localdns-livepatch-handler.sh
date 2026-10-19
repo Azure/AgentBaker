@@ -7,10 +7,9 @@
 # rather than copied into each, so the outcome semantics below -- in particular that noCorefileData is
 # a success and notFound is not -- cannot drift between the two.
 #
-# Both reconcilers run under `set -e`, so they source this file only after confirming it
-# exists. A VHD baked before this file shipped simply has no localDNS handler registered,
-# and the reconciler's "ignore unknown components" rule skips the component and keeps
-# converging everything else.
+# The VHD build bakes this file next to both reconcilers, which source it unconditionally like
+# security-update.sh. A VHD baked before this file shipped also predates the reconciler's localDNS
+# case, so its "ignore unknown components" rule skips the component there.
 #
 # How a patch reaches CoreDNS
 # ---------------------------
