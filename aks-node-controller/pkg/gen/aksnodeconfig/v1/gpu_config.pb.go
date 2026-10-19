@@ -47,7 +47,7 @@ type GpuConfig struct {
 	// mig_profile_layout is the ordered list of GPU instance profiles used for MIG partitioning.
 	// It will become the unified MIG profile field after gpu_instance_profile is deprecated.
 	MigProfileLayout []string `protobuf:"bytes,9,rep,name=mig_profile_layout,json=migProfileLayout,proto3" json:"mig_profile_layout,omitempty"`
-	// enable_managed_gpu_dra is the option to enable DRA
+	// enable_managed_gpu_dra is the flag to enable fully managed GPU with DRA driver.
 	EnableManagedGpuDra bool `protobuf:"varint,10,opt,name=enable_managed_gpu_dra,json=enableManagedGpuDra,proto3" json:"enable_managed_gpu_dra,omitempty"`
 }
 

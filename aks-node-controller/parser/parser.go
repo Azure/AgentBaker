@@ -150,6 +150,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"NO_PROXY_URLS":                                        getStringifiedStringArray(config.GetHttpProxyConfig().GetNoProxyEntries(), ","),
 		"PROXY_VARS":                                           getProxyVariables(config.GetHttpProxyConfig()),
 		"TLS_BOOTSTRAP_TOKEN":                                  config.GetBootstrappingConfig().GetTlsBootstrappingToken(),
+		"REMOVE_BOOTSTRAP_KUBECONFIG":                          fmt.Sprintf("%v", config.GetBootstrappingConfig().GetRemoveBootstrapKubeconfig()),
 		"ENABLE_SECURE_TLS_BOOTSTRAPPING":                      fmt.Sprintf("%v", getEnableSecureTLSBootstrapping(config.GetBootstrappingConfig())),
 		"SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE":                config.GetBootstrappingConfig().GetSecureTlsBootstrappingAadResource(),
 		"SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID":   config.GetBootstrappingConfig().GetSecureTlsBootstrappingUserAssignedIdentityId(),

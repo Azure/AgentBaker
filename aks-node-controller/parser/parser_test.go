@@ -572,6 +572,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "TARGET_ENVIRONMENT", helpers.DefaultCloudName)
 				assertHasKeyWithValue(t, vars, "ARM_RESOURCE_ENDPOINT", "https://management.azure.com/")
 				assertHasKeyWithValue(t, vars, "TLS_BOOTSTRAP_TOKEN", "")
+				assertHasKeyWithValue(t, vars, "REMOVE_BOOTSTRAP_KUBECONFIG", "false")
 				assertHasKeyWithValue(t, vars, "ENABLE_SECURE_TLS_BOOTSTRAPPING", "false")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE", "")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID", "")
