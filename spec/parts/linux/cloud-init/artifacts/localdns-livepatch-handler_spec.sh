@@ -322,6 +322,42 @@ EOF
         End
     End
 
+    Describe 'reported current'
+        It 'reports the corefileVersion of the applied patch'
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            When call localDNSCurrent
+            The output should equal 'v1'
+        End
+
+        It 'reports nothing when no live patch is applied'
+            When call localDNSCurrent
+            The output should equal ''
+            The status should be success
+        End
+
+        It 'reports the new version once a patch is applied'
+            updateLocalDNS '{}' > /dev/null
+            When call localDNSCurrent
+            The output should equal 'v2'
+        End
+
+        It 'reports nothing once a patch is revoked'
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            TEST_ANC_OUTCOME="noCorefileData"
+            updateLocalDNS '{}' > /dev/null
+            When call localDNSCurrent
+            The output should equal ''
+        End
+
+        It 'keeps reporting the previous version when a patch fails'
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            TEST_ANC_EXIT=1
+            updateLocalDNS '{}' > /dev/null || true
+            When call localDNSCurrent
+            The output should equal 'v1'
+        End
+    End
+
     Describe 'agent pool selection'
         It "passes the Node object's agent pool to aks-node-controller"
             When call updateLocalDNS '{}' '{"metadata":{"labels":{"kubernetes.azure.com/agentpool":"ap1"}}}'

@@ -121,6 +121,10 @@ EOF
 
         It 'dispatches a generic securityPatch profile on Azure Linux 3'
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+            # A localDNS patch is applied on this node; securityPatch must not report its version.
+            LOCALDNS_LIVEPATCHED_COREFILE="${TEST_DIR}/localdns/livepatched.localdns.corefile"
+            mkdir -p "${TEST_DIR}/localdns"
+            echo "v9" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
 
             When call main
             The status should be success
@@ -129,6 +133,8 @@ EOF
             The output should include 'tdnf mock called with args: --snapshottime 1786752000 update'
             The contents of file "${TEST_CALLS_FILE}" should include 'live-patching-current-timestamp=20260815T000000Z'
             The contents of file "${TEST_CALLS_FILE}" should include 'live-patching-status={"currentHash"'
+            # securityPatch registers no reporter, so its status entry stays {code}.
+            The contents of file "${TEST_CALLS_FILE}" should include '"components":{"securityPatch":{"code":"Succeeded"}}}'
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '20260815T000000Z'
         End
 
@@ -258,6 +264,67 @@ EOF
             The output should include 'aks-node-controller called with args: apply-localdns-config'
             The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded"}'
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include 'v2'
+        End
+
+        # localDNS reports "current" from the .version file aks-node-controller writes with a patch.
+        It 'reports the applied corefileVersion as localDNS current'
+            use_test_localdns_paths
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+cat > /dev/null
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output) output="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+echo "patched-corefile" > "${output}"
+echo "v2" > "${output}.version"
+echo applied
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            Mock systemctl
+                echo "systemctl called with args: $*"
+                [ "$1" != "is-active" ]
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'localDNS update completed successfully'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"v2"}'
+        End
+
+        It 'reports localDNS current when the handler is skipped as already current'
+            use_test_localdns_paths
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"}}}"}]}'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            jq -n --arg nodeConfig '{"agentPools":{"ap1":{"corefileVersion":"v1"}}}' \
+                '{components:[{name:"localDNS",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call main
+            The status should be success
+            The output should include 'component is already current: localDNS'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"v1"}'
+        End
+
+        It 'reports the previous localDNS current when the patch fails'
+            use_test_localdns_paths
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo failed
+exit 1
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"}}}"}]}'
+
+            When call main
+            The status should be failure
+            The output should include 'component failed: localDNS'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Failed","current":"v1"}'
         End
 
         It 'reads kubeletVersion from the generic securityPatch profile'
