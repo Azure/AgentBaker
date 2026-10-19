@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -15,6 +16,8 @@ import (
 )
 
 const deletionDueTimeTag = "deletion_due_time"
+
+var errResourceGroupDeleting = errors.New("resource group is deleting")
 
 func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, name, location string) (armresources.ResourceGroup, error) {
 	response, err := azure.ResourceGroup.Get(ctx, name, nil)
@@ -30,11 +33,15 @@ func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, cfg *co
 	} else if err != nil {
 		return armresources.ResourceGroup{}, fmt.Errorf("getting RG %q: %w", name, err)
 	}
-	if rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting") {
-		return armresources.ResourceGroup{}, fmt.Errorf("RG %q is deleting", name)
+	if resourceGroupDeleting(rg) {
+		return armresources.ResourceGroup{}, fmt.Errorf("RG %q: %w", name, errResourceGroupDeleting)
 	}
 	renewResourceGroupDeadline(ctx, azure, cfg, rg)
 	return rg, nil
+}
+
+func resourceGroupDeleting(rg armresources.ResourceGroup) bool {
+	return rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting")
 }
 
 // Renew resource groups for a suite plus cleanup, without a permanent exemption.
@@ -69,7 +76,7 @@ func extendResourceGroupDeadline(ctx context.Context, azure *config.AzureClient,
 		resourceGroup = *rg.Name
 	}
 	due := time.Now().Add(cfg.SuiteTimeout + CleanupTimeout)
-	if rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting") {
+	if resourceGroupDeleting(rg) {
 		return fmt.Errorf("cannot renew GC deadline for deleting RG %q", resourceGroup)
 	}
 	if value, exists := rg.Tags[deletionDueTimeTag]; exists {

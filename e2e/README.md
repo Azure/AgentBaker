@@ -392,6 +392,12 @@ renewed, so they can expire independently. Shared infrastructure in `abe2e-{loca
 has its own deadline renewal. Renewal preserves unrelated tags and later deadlines,
 logs failures as warnings, and cannot stop deletion already selected by GC.
 
+If GC has already started deleting a cluster's parent group, setup detaches
+route-table and NSG references to its node group from that cluster's shared subnet.
+It waits for pending deletions within the cluster provisioning timeout before
+resuming normal creation or reuse. Other clusters' subnet associations are left
+unchanged. Cleanup and polling failures stop setup.
+
 ## Package Structure
 
 The executable entry point is [main.go](main.go). It handles signals and starts the CLI.

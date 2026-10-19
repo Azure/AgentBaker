@@ -386,7 +386,14 @@ func hash(cluster *armcontainerservice.ManagedCluster) string {
 func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
 	defer logging.LogStepf(ctx, "get or create cluster %s", *cluster.Name)()
 	resourceGroupName := config.ClusterResourceGroupName(*cluster.Location, *cluster.Name)
-	if _, err := ensureResourceGroup(ctx, config.Azure, config.Config, resourceGroupName, *cluster.Location); err != nil {
+	_, err := ensureResourceGroup(ctx, config.Azure, config.Config, resourceGroupName, *cluster.Location)
+	if errors.Is(err, errResourceGroupDeleting) {
+		if err := recoverDeletingClusterResourceGroups(ctx, cluster); err != nil {
+			return nil, fmt.Errorf("recover deleting cluster resource groups: %w", err)
+		}
+		_, err = ensureResourceGroup(ctx, config.Azure, config.Config, resourceGroupName, *cluster.Location)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("ensure cluster resource group: %w", err)
 	}
 	existingCluster, err := getExistingCluster(ctx, *cluster.Location, *cluster.Name)
@@ -404,6 +411,45 @@ func getOrCreateCluster(ctx context.Context, cluster *armcontainerservice.Manage
 	}
 	renewNodeResourceGroupDeadline(ctx, config.Azure, config.Config, createdCluster)
 	return createdCluster, nil
+}
+
+func recoverDeletingClusterResourceGroups(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+	location, clusterName := *cluster.Location, *cluster.Name
+	parentName := config.ClusterResourceGroupName(location, clusterName)
+	nodeName := expectedNodeResourceGroupName(location, clusterName)
+	defer logging.LogStepf(ctx, "recover deleting resource groups for cluster %s", clusterName)()
+
+	existing, err := config.Azure.AKS.Get(ctx, parentName, clusterName, nil)
+	if err != nil && !isNotFoundErr(err) {
+		return fmt.Errorf("getting cluster %s before resource group recovery: %w", clusterName, err)
+	}
+	if err == nil && existing.Properties != nil && existing.Properties.NodeResourceGroup != nil && *existing.Properties.NodeResourceGroup != "" {
+		nodeName = *existing.Properties.NodeResourceGroup
+	}
+	if err := detachNodeResourceGroupReferencesFromClusterSubnet(ctx, location, clusterName, nodeName); err != nil {
+		return fmt.Errorf("detaching subnet references to node resource group %q: %w", nodeName, err)
+	}
+
+	// The provisioning context bounds this wait. GC cannot finish while the
+	// shared subnet still references resources in the deleting node group.
+	return wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+		parent, err := config.Azure.ResourceGroup.Get(ctx, parentName, nil)
+		if err != nil && !isNotFoundErr(err) {
+			return false, fmt.Errorf("waiting for parent resource group %q: %w", parentName, err)
+		}
+		parentGone := isNotFoundErr(err)
+		node, err := config.Azure.ResourceGroup.Get(ctx, nodeName, nil)
+		if err != nil && !isNotFoundErr(err) {
+			return false, fmt.Errorf("waiting for node resource group %q: %w", nodeName, err)
+		}
+		nodeGone := isNotFoundErr(err)
+		if parentGone {
+			return nodeGone, nil
+		}
+		// Another runner may have recreated the groups, or ARM may have rolled
+		// back deletion. Resume normal cluster health checks in either case.
+		return !resourceGroupDeleting(parent.ResourceGroup) && !resourceGroupDeleting(node.ResourceGroup), nil
+	})
 }
 
 // isExistingCluster checks if an AKS cluster exists. return the cluster only if its provisioning state is Succeeded and can be used. non-nil error if not retriable
