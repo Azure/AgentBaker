@@ -356,6 +356,20 @@ configureNvidiaGPUDriverMode() {
     fi
 }
 
+addNvidiaMIGStrategyNodeLabel() {
+    if [ "${MIG_NODE}" != "true" ]; then
+        return
+    fi
+
+    local mig_strategy
+    case "${NVIDIA_MIG_STRATEGY}" in
+        Mixed) mig_strategy="mixed" ;;
+        Single|None|"") mig_strategy="single" ;;
+        *) return ;;
+    esac
+    addKubeletNodeLabel "nvidia.com/mig.strategy=${mig_strategy}"
+}
+
 configureManagedGPUExperience() {
     if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
         return
@@ -371,6 +385,7 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
+        addNvidiaMIGStrategyNodeLabel
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
     elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then

@@ -341,6 +341,8 @@ Describe 'cse_config_gpu.sh'
             MODE_WRITE_STATUS=0
             INSTALL_STATUS=0
             KUBELET_NODE_LABELS=""
+            MIG_NODE=false
+            NVIDIA_MIG_STRATEGY=""
         }
 
         BeforeEach 'setup_managed_gpu'
@@ -469,7 +471,30 @@ Describe 'cse_config_gpu.sh'
             The output should include "installNvidiaManagedExpPkgFromCache called"
             # DRA defers service start (incl the compute-domain override) to startNvidiaManagedExpServices
             The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "nvidia.com/mig.strategy"
             The output should not include "compute-domain"
+        End
+
+        Describe 'MIG strategy node label'
+            Parameters
+                Single single
+                Mixed mixed
+                None single
+                '' single
+            End
+
+            It "adds the GFD-compatible $2 label for strategy=$1"
+                ENABLE_MANAGED_GPU_EXPERIENCE=true
+                ENABLE_MANAGED_GPU_EXPERIENCE_DRA=false
+                MIG_NODE=true
+                NVIDIA_MIG_STRATEGY=$1
+
+                When call configureManagedGPUExperience
+
+                The status should be success
+                The output should include "addKubeletNodeLabel nvidia.com/mig.strategy=$2"
+                The variable KUBELET_NODE_LABELS should include "nvidia.com/mig.strategy=$2"
+            End
         End
 
         It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
