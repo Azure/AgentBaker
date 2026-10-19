@@ -284,6 +284,19 @@ localDNSServe() {
     esac
 }
 
+# Reports this node's localDNS "current" for the live-patching status: the corefileVersion of the
+# last patch applied here, from the .version file aks-node-controller writes with it. A failed patch
+# restores the previous file and a revoke deletes it, so this is always what the node serves from.
+# Prints nothing when no live patch is applied, which leaves "current" out of the status.
+localDNSCurrent() {
+    local version_file="${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+
+    if [ ! -s "${version_file}" ]; then
+        return 0
+    fi
+    tr -d '[:space:]' < "${version_file}"
+}
+
 # The files a patch touches, in a fixed order so backups map back to them by index.
 localDNSPatchedFiles() {
     printf '%s\n' "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version" "${LOCALDNS_SERVED_COREFILE}"
