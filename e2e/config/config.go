@@ -33,6 +33,10 @@ func ResourceGroupName(location string) string {
 	return "abe2e-" + location
 }
 
+func ClusterResourceGroupName(location, clusterName string) string {
+	return location + "-" + clusterName
+}
+
 func PrivateACRNameNotAnon(location string) string {
 	return "abe2eprivatenonanon" + location // will have anonymous pull enabled
 }

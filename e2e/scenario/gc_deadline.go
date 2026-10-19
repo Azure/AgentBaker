@@ -16,8 +16,7 @@ import (
 
 const deletionDueTimeTag = "deletion_due_time"
 
-func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, location string) (armresources.ResourceGroup, error) {
-	name := config.ResourceGroupName(location)
+func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, name, location string) (armresources.ResourceGroup, error) {
 	response, err := azure.ResourceGroup.Get(ctx, name, nil)
 	rg := response.ResourceGroup
 	if isNotFoundErr(err) {
@@ -38,7 +37,7 @@ func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, cfg *co
 	return rg, nil
 }
 
-// Renew shared parent and node RGs for a suite plus cleanup, without a permanent exemption.
+// Renew resource groups for a suite plus cleanup, without a permanent exemption.
 // Renewal is best-effort so tag failures do not block usable infrastructure.
 // This cannot stop a DELETE already selected by GC or protect the node RG
 // before the initial AKS lookup.

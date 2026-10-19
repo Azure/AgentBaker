@@ -133,6 +133,12 @@ All E2E clusters share a single VNet and Azure Bastion in the `abe2e-{location}`
 avoids creating a per-cluster Bastion (~10 min each) and ensures all clusters are reachable from a
 single SSH entry point.
 
+Each cluster lives in its own `{location}-{clusterName}` resource group, with its
+managed node resources in `{location}-{clusterName}-nodes`. Cluster names include
+a configuration hash scoped to this resource-group layout, so new clusters use
+different subnets from legacy clusters in the shared resource group. Existing
+clusters are not moved or deleted by this naming change.
+
 ```mermaid
 graph TB
     subgraph RG["abe2e-{location} Resource Group"]
@@ -153,13 +159,21 @@ graph TB
         ACR_NONANON["abe2eprivatenonanon{location}<br/>(Non-anonymous Private ACR)"]
     end
 
-    subgraph MC_KUBENET["MC_*_abe2e-kubenet-* Resource Group"]
+    subgraph CLUSTER_KUBENET["{location}-abe2e-kubenet-* Resource Group"]
+        AKS_K["AKS kubenet cluster"]
+    end
+
+    subgraph CLUSTER_NI["{location}-abe2e-azure-networkisolated-* Resource Group"]
+        AKS_NI["AKS network-isolated cluster"]
+    end
+
+    subgraph MC_KUBENET["{location}-abe2e-kubenet-*-nodes Resource Group"]
         VMSS_K["VMSS (system pool)"]
         VMSS_K_TEST["VMSS (test VMs)"]
         RT_K["Route Table<br/>(pod routes + firewall)"]
     end
 
-    subgraph MC_NI["MC_*_abe2e-azure-networkisolated-* Resource Group"]
+    subgraph MC_NI["{location}-abe2e-azure-networkisolated-*-nodes Resource Group"]
         VMSS_NI["VMSS (system pool)"]
         NSG_NI["NSG<br/>(blocks internet)"]
     end
@@ -168,6 +182,8 @@ graph TB
     FIREWALL --> FW_SUBNET
     PE_ACR --> PE_SUBNET
     DNS_ZONE -.->|VNet link| VNET
+    AKS_K -->|managed nodes| VMSS_K
+    AKS_NI -->|managed nodes| VMSS_NI
     VMSS_K --> KUBENET_SUBNET
     RT_K -.->|associated| KUBENET_SUBNET
     VMSS_NI --> AZNET_SUBNET
@@ -370,10 +386,11 @@ For cleanup that must continue after cancellation, derive its context with
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
 shutdown to clean up resources. Old VMs are deleted on startup unless created with `KEEP_VMSS=true`.
 
-Cluster setup renews `deletion_due_time` only on the selected clusters' node resource groups.
-The shared `abe2e-{location}` resource groups keep their existing GC tags and deadlines so obsolete
-clusters can expire. Node resource group renewal does not prevent GC from deleting the shared
-resource group and its clusters.
+Cluster setup renews `deletion_due_time` on each selected cluster's parent and node
+resource groups for the suite timeout plus cleanup. Other clusters' groups are not
+renewed, so they can expire independently. Shared infrastructure in `abe2e-{location}`
+has its own deadline renewal. Renewal preserves unrelated tags and later deadlines,
+logs failures as warnings, and cannot stop deletion already selected by GC.
 
 ## Package Structure
 

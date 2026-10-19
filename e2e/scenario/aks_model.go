@@ -677,7 +677,7 @@ func createPrivateAzureContainerRegistryPullSecret(ctx context.Context, cluster 
 	if isNonAnonymousPull {
 		logging.Logf(ctx, "Creating the secret for non-anonymous pull ACR for the e2e debug pods")
 		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
-		if err := fetchAndSaveKubeconfig(ctx, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
+		if err := fetchAndSaveKubeconfig(ctx, config.ClusterResourceGroupName(*cluster.Location, *cluster.Name), *cluster.Name, kubeconfigPath); err != nil {
 			logging.Logf(ctx, "failed to fetch kubeconfig: %v", err)
 			return err
 		}
@@ -929,7 +929,7 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 
 // createPrivateZoneWithRetry retries zone creation on 409 conflicts, which happen
 // when ARM serializes concurrent operations in the same resource group (e.g. AKS
-// provisioning resources in MC_ alongside our DNS zone creation).
+// provisioning resources in the node RG alongside our DNS zone creation).
 func createPrivateZoneWithRetry(ctx context.Context, nodeResourceGroup, privateZoneName string) (*armprivatedns.PrivateZone, error) {
 	dnsZoneParams := armprivatedns.PrivateZone{
 		Location: to.Ptr("global"),

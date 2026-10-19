@@ -471,7 +471,7 @@ func firewallAppRulesUpToDate(fw armnetwork.AzureFirewall) bool {
 
 // ensureClusterIdentity creates a user-assigned managed identity for AKS clusters
 // and grants it Network Contributor on the subscription so it can manage route tables
-// in both the shared VNet and the MC_ resource groups.
+// in both the shared VNet and the node resource groups.
 func ensureClusterIdentity(ctx context.Context, rg, location string) (string, string, error) {
 	existing, err := config.Azure.UserAssignedIdentities.Get(ctx, rg, SharedClusterIdentity, nil)
 	if err == nil {
@@ -491,7 +491,7 @@ func ensureClusterIdentity(ctx context.Context, rg, location string) (string, st
 
 	// Grant Network Contributor on the shared VNet so the identity can manage
 	// subnets and route table associations. AKS automatically grants the identity
-	// Contributor on the MC_ resource group during cluster creation.
+	// Contributor on the node resource group during cluster creation.
 	vnetScope := fmt.Sprintf(
 		"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s",
 		config.Config.SubscriptionID, rg, SharedVNetName,

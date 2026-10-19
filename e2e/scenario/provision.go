@@ -249,7 +249,7 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	// Log cluster identity for debugging
 	clusterName := *cluster.Model.Name
 	clusterLocation := *cluster.Model.Location
-	resourceGroup := config.ResourceGroupName(clusterLocation)
+	resourceGroup := config.ClusterResourceGroupName(clusterLocation, clusterName)
 	subscriptionID := config.Config.SubscriptionID
 	logging.Logf(ctx, "using cluster %s in rg=%s sub=%s", clusterName, resourceGroup, subscriptionID)
 	logging.Logf(ctx, "portal: https://portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/overview",

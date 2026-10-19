@@ -253,7 +253,7 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 }
 
 var CachedEnsureResourceGroup = toolkit.Memoize(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
-	return ensureResourceGroup(ctx, config.Azure, config.Config, location)
+	return ensureResourceGroup(ctx, config.Azure, config.Config, config.ResourceGroupName(location), location)
 })
 var CachedCreateVMManagedIdentity = toolkit.Memoize(func(ctx context.Context, location string) (string, error) {
 	// Shared storage uses DefaultLocation even when the scenario runs elsewhere.

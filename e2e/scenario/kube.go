@@ -80,7 +80,7 @@ const (
 )
 
 func getClusterKubeClient(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Kubeclient, error) {
-	resourceGroupName := config.ResourceGroupName(*cluster.Location)
+	resourceGroupName := config.ClusterResourceGroupName(*cluster.Location, *cluster.Name)
 	clusterName := *cluster.Name
 	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
 	if err != nil {

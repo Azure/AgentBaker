@@ -122,7 +122,7 @@ func TestResourceGroupDeadline(t *testing.T) {
 					require.NotContains(t, strings.Join(logger.logs, "\n"), "warning:")
 				}
 				if tt.name == "deleting" {
-					_, err := ensureResourceGroup(t.Context(), azure, cfg, "westus3")
+					_, err := ensureResourceGroup(t.Context(), azure, cfg, "rg", "westus3")
 					require.ErrorContains(t, err, "is deleting")
 				}
 			})
@@ -135,7 +135,9 @@ func TestCachedResourceGroupSetupRenewsParentAndNodeDeadlines(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		cfg := &config.Configuration{SuiteTimeout: 47 * time.Minute}
 		expired := "2000-01-01T00:00:00Z"
-		tags := map[string]string{"abe2e-westus3": expired, "unused-node-rg": expired}
+		parentRG := config.ClusterResourceGroupName("westus3", "abe2e-selected")
+		unusedParentRG := config.ClusterResourceGroupName("westus3", "abe2e-unused")
+		tags := map[string]string{parentRG: expired, unusedParentRG: expired, "unused-node-rg": expired}
 		reads := map[string]int{}
 		writes := map[string]int{}
 		azure := gcTestAzure(t, func(req *http.Request) *http.Response {
@@ -157,7 +159,7 @@ func TestCachedResourceGroupSetupRenewsParentAndNodeDeadlines(t *testing.T) {
 		})
 		ctx := logging.WithLogger(t.Context(), t)
 		ensure := toolkit.Memoize(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
-			return ensureResourceGroup(ctx, azure, cfg, location)
+			return ensureResourceGroup(ctx, azure, cfg, parentRG, location)
 		})
 		prepareCluster := toolkit.Memoize(func(ctx context.Context, name string) (bool, error) {
 			renewNodeResourceGroupDeadline(ctx, azure, cfg, &armcontainerservice.ManagedCluster{
@@ -171,9 +173,9 @@ func TestCachedResourceGroupSetupRenewsParentAndNodeDeadlines(t *testing.T) {
 			require.NoError(t, err)
 			_, err = prepareCluster(ctx, "actual-node-rg")
 			require.NoError(t, err)
-			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, reads)
-			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, writes)
-			require.Equal(t, map[string]string{"abe2e-westus3": due, "actual-node-rg": due, "unused-node-rg": expired}, tags)
+			require.Equal(t, map[string]int{parentRG: 1, "actual-node-rg": 1}, reads)
+			require.Equal(t, map[string]int{parentRG: 1, "actual-node-rg": 1}, writes)
+			require.Equal(t, map[string]string{parentRG: due, unusedParentRG: expired, "actual-node-rg": due, "unused-node-rg": expired}, tags)
 			time.Sleep(time.Hour)
 		}
 	})
@@ -239,7 +241,7 @@ func TestEnsureResourceGroup(t *testing.T) {
 				return gcResponse(req, status, string(body))
 			})
 			logger := &executionLogger{}
-			rg, err := ensureResourceGroup(logging.WithLogger(t.Context(), logger), azure, cfg, "westus3")
+			rg, err := ensureResourceGroup(logging.WithLogger(t.Context(), logger), azure, cfg, "abe2e-westus3", "westus3")
 			if tt.failure != "" {
 				require.ErrorContains(t, err, tt.failure)
 			} else {
