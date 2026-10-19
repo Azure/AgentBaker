@@ -902,6 +902,53 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 	assert.True(t, found, "expected CompareEnvs guest agent event")
 }
 
+func TestDiffEnvMaps_MCRRepositoryBase(t *testing.T) {
+	tests := []struct {
+		name     string
+		pc       map[string]string
+		nbc      map[string]string
+		expected []string
+	}{
+		{
+			name: "matching public default",
+			pc:   map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com/"},
+			nbc:  map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com/"},
+		},
+		{
+			name: "matching non-public base with slash",
+			pc:   map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			nbc:  map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+		},
+		{
+			name:     "different endpoints",
+			pc:       map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com"},
+			nbc:      map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			expected: []string{"differs: MCR_REPOSITORY_BASE"},
+		},
+		{
+			name:     "different trailing slash",
+			pc:       map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn"},
+			nbc:      map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			expected: []string{"differs: MCR_REPOSITORY_BASE"},
+		},
+		{
+			name:     "missing from parser",
+			nbc:      map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			expected: []string{"only-in-nbc: MCR_REPOSITORY_BASE"},
+		},
+		{
+			name:     "missing from NBC",
+			pc:       map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com"},
+			expected: []string{"only-in-pc: MCR_REPOSITORY_BASE"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, diffEnvMaps(tt.pc, tt.nbc))
+		})
+	}
+}
+
 func TestDiffEnvMaps_IgnoresProxyVarsCompatibilityDifference(t *testing.T) {
 	pcEnv := map[string]string{
 		"PROXY_VARS": `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}"; fi`,
