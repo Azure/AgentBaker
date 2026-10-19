@@ -4,63 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
+	"strings"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 )
 
-// cachedFunc creates a thread-safe memoized version of a function.
-// Results, including errors, are cached per unique Request key so concurrent
-// scenarios cannot repeatedly start the same shared-infrastructure operation.
-// Waiters may stop waiting when their own context is canceled without canceling
-// the shared operation started by the first caller.
-// Request type must be comparable (no slices/maps/pointers).
-// Cache persists for program lifetime with no TTL or invalidation.
-// WARNING: Incorrect keys can cause hard-to-debug cache collisions.
-func cachedFunc[Request comparable, Response any](fn func(context.Context, Request) (Response, error)) func(context.Context, Request) (Response, error) {
-	type entry struct {
-		start sync.Once
-		done  chan struct{}
-		value Response
-		err   error
-	}
-
-	var cache sync.Map
-
-	return func(ctx context.Context, key Request) (Response, error) {
-		actual, _ := cache.LoadOrStore(key, &entry{done: make(chan struct{})})
-		e := actual.(*entry)
-		owner := false
-		e.start.Do(func() {
-			owner = true
-		})
-		if owner {
-			defer close(e.done)
-			defer func() {
-				if recovered := recover(); recovered != nil {
-					e.err = fmt.Errorf("cached operation panicked: %v", recovered)
-					panic(recovered)
-				}
-			}()
-			e.value, e.err = fn(ctx, key)
-			return e.value, e.err
-		}
-
-		select {
-		case <-e.done:
-			return e.value, e.err
-		case <-ctx.Done():
-			var zero Response
-			return zero, ctx.Err()
-		}
-	}
-}
-
-var CachedCreateGallery = cachedFunc(createGallery)
+var CachedCreateGallery = toolkit.Memoize(createGallery)
 
 type CreateGalleryRequest struct {
 	Location      string
@@ -97,7 +51,7 @@ func createGallery(ctx context.Context, request CreateGalleryRequest) (armcomput
 	return resp.Gallery, nil
 }
 
-var CachedCreateGalleryImage = cachedFunc(createGalleryImage)
+var CachedCreateGalleryImage = toolkit.Memoize(createGalleryImage)
 
 type CreateGalleryImageRequest struct {
 	ResourceGroup    string
@@ -164,7 +118,7 @@ type ClusterRequest struct {
 	K8sSystemPoolSKU string
 }
 
-var ClusterLatestKubernetesVersion = cachedFunc(clusterLatestKubernetesVersion)
+var ClusterLatestKubernetesVersion = toolkit.Memoize(clusterLatestKubernetesVersion)
 
 // clusterLatestKubernetesVersion creates a cluster with the latest available Kubernetes version
 func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest) (*Cluster, error) {
@@ -175,7 +129,7 @@ func clusterLatestKubernetesVersion(ctx context.Context, request ClusterRequest)
 	return prepareCluster(ctx, model, false, false)
 }
 
-var ClusterLatestKubernetesVersionKubenet = cachedFunc(clusterLatestKubernetesVersionKubenet)
+var ClusterLatestKubernetesVersionKubenet = toolkit.Memoize(clusterLatestKubernetesVersionKubenet)
 
 func clusterLatestKubernetesVersionKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-kubenet-v1", request.Location, request.K8sSystemPoolSKU)
@@ -186,7 +140,7 @@ func clusterLatestKubernetesVersionKubenet(ctx context.Context, request ClusterR
 	return prepareCluster(ctx, model, false, false)
 }
 
-var ClusterLatestKubernetesVersionAzureNetwork = cachedFunc(clusterLatestKubernetesVersionAzureNetwork)
+var ClusterLatestKubernetesVersionAzureNetwork = toolkit.Memoize(clusterLatestKubernetesVersionAzureNetwork)
 
 func clusterLatestKubernetesVersionAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-azure-network-v1", request.Location, request.K8sSystemPoolSKU)
@@ -197,7 +151,7 @@ func clusterLatestKubernetesVersionAzureNetwork(ctx context.Context, request Clu
 	return prepareCluster(ctx, model, false, false)
 }
 
-var ClusterLatestKubernetesVersionAzureOverlayNetworkDualStack = cachedFunc(clusterLatestKubernetesVersionAzureOverlayNetworkDualStack)
+var ClusterLatestKubernetesVersionAzureOverlayNetworkDualStack = toolkit.Memoize(clusterLatestKubernetesVersionAzureOverlayNetworkDualStack)
 
 func clusterLatestKubernetesVersionAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-latest-k8s-azure-overlay-dualstack-v1", request.Location, request.K8sSystemPoolSKU)
@@ -208,7 +162,7 @@ func clusterLatestKubernetesVersionAzureOverlayNetworkDualStack(ctx context.Cont
 	return prepareCluster(ctx, model, false, false)
 }
 
-var ClusterLatestKubernetesVersionAzureBootstrapProfileCache = cachedFunc(clusterLatestKubernetesVersionAzureBootstrapProfileCache)
+var ClusterLatestKubernetesVersionAzureBootstrapProfileCache = toolkit.Memoize(clusterLatestKubernetesVersionAzureBootstrapProfileCache)
 
 // clusterAzureBootstrapProfileCache creates a cluster with bootstrap profile cache but without network isolation
 func clusterLatestKubernetesVersionAzureBootstrapProfileCache(ctx context.Context, request ClusterRequest) (*Cluster, error) {
@@ -220,7 +174,7 @@ func clusterLatestKubernetesVersionAzureBootstrapProfileCache(ctx context.Contex
 	return prepareCluster(ctx, model, false, true)
 }
 
-var ClusterKubenet = cachedFunc(clusterKubenet)
+var ClusterKubenet = toolkit.Memoize(clusterKubenet)
 
 // clusterKubenet creates a basic cluster using kubenet networking with shared VNet
 func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, error) {
@@ -229,7 +183,7 @@ func clusterKubenet(ctx context.Context, request ClusterRequest) (*Cluster, erro
 	return prepareCluster(ctx, model, false, false)
 }
 
-var ClusterAzureNetwork = cachedFunc(clusterAzureNetwork)
+var ClusterAzureNetwork = toolkit.Memoize(clusterAzureNetwork)
 
 // clusterAzureNetwork creates a cluster with Azure CNI networking
 func clusterAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
@@ -237,7 +191,7 @@ func clusterAzureNetwork(ctx context.Context, request ClusterRequest) (*Cluster,
 	return prepareCluster(ctx, model, false, false)
 }
 
-var ClusterAzureBootstrapProfileCache = cachedFunc(clusterAzureBootstrapProfileCache)
+var ClusterAzureBootstrapProfileCache = toolkit.Memoize(clusterAzureBootstrapProfileCache)
 
 // clusterAzureBootstrapProfileCache creates a cluster with bootstrap profile cache but without network isolation
 func clusterAzureBootstrapProfileCache(ctx context.Context, request ClusterRequest) (*Cluster, error) {
@@ -245,7 +199,7 @@ func clusterAzureBootstrapProfileCache(ctx context.Context, request ClusterReque
 	return prepareCluster(ctx, model, false, true)
 }
 
-var ClusterAzureNetworkIsolated = cachedFunc(clusterAzureNetworkIsolated)
+var ClusterAzureNetworkIsolated = toolkit.Memoize(clusterAzureNetworkIsolated)
 
 // clusterAzureNetworkIsolated creates a networkisolated Azure network cluster (no internet access)
 func clusterAzureNetworkIsolated(ctx context.Context, request ClusterRequest) (*Cluster, error) {
@@ -253,7 +207,7 @@ func clusterAzureNetworkIsolated(ctx context.Context, request ClusterRequest) (*
 	return prepareCluster(ctx, model, true, false)
 }
 
-var ClusterAzureOverlayNetwork = cachedFunc(clusterAzureOverlayNetwork)
+var ClusterAzureOverlayNetwork = toolkit.Memoize(clusterAzureOverlayNetwork)
 
 // clusterAzureOverlayNetwork creates a cluster with Azure CNI Overlay networking
 func clusterAzureOverlayNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
@@ -261,14 +215,14 @@ func clusterAzureOverlayNetwork(ctx context.Context, request ClusterRequest) (*C
 	return prepareCluster(ctx, model, false, false)
 }
 
-var ClusterAzureOverlayNetworkDualStack = cachedFunc(clusterAzureOverlayNetworkDualStack)
+var ClusterAzureOverlayNetworkDualStack = toolkit.Memoize(clusterAzureOverlayNetworkDualStack)
 
 func clusterAzureOverlayNetworkDualStack(ctx context.Context, request ClusterRequest) (*Cluster, error) {
 	model := getAzureOverlayNetworkDualStackClusterModel("abe2e-azure-overlay-dualstack-v6", request.Location, request.K8sSystemPoolSKU)
 	return prepareCluster(ctx, model, false, false)
 }
 
-var ClusterCiliumNetwork = cachedFunc(clusterCiliumNetwork)
+var ClusterCiliumNetwork = toolkit.Memoize(clusterCiliumNetwork)
 
 // clusterCiliumNetwork creates a cluster with Cilium CNI networking
 func clusterCiliumNetwork(ctx context.Context, request ClusterRequest) (*Cluster, error) {
@@ -285,7 +239,7 @@ func isNotFoundErr(err error) bool {
 	return false
 }
 
-var CachedPrepareVHD = cachedFunc(prepareVHD)
+var CachedPrepareVHD = toolkit.Memoize(prepareVHD)
 
 type GetVHDRequest struct {
 	Location string
@@ -298,35 +252,35 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 	return config.GetVHDResourceID(ctx, request.Image, request.Location)
 }
 
-var CachedEnsureResourceGroup = cachedFunc(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
+var CachedEnsureResourceGroup = toolkit.Memoize(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
 	return ensureResourceGroup(ctx, config.Azure, location)
 })
-var CachedCreateVMManagedIdentity = cachedFunc(func(ctx context.Context, location string) (string, error) {
+var CachedCreateVMManagedIdentity = toolkit.Memoize(func(ctx context.Context, location string) (string, error) {
 	// Shared storage uses DefaultLocation even when the scenario runs elsewhere.
 	if _, err := CachedEnsureResourceGroup(ctx, config.Config.DefaultLocation); err != nil {
 		return "", fmt.Errorf("ensure storage resource group: %w", err)
 	}
 	return config.Azure.CreateVMManagedIdentity(ctx, location)
 })
-var CachedCompileAndUploadAKSNodeController = cachedFunc(compileAndUploadAKSNodeController)
+var CachedCompileAndUploadAKSNodeController = toolkit.Memoize(compileAndUploadAKSNodeController)
 
-// VMSizeSKURequest is the cache key for Resource SKU lookups by VM size and location.
-type VMSizeSKURequest struct {
-	Location string
-	VMSize   string
+var cachedVMResourceSKUs = toolkit.Memoize(func(ctx context.Context, location string) (map[string]*armcompute.ResourceSKU, error) {
+	return config.Azure.ListVMResourceSKUs(ctx, location)
+})
+
+func getVMSizeSKU(ctx context.Context, location, vmSize string) (*armcompute.ResourceSKU, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	catalogue, err := cachedVMResourceSKUs(ctx, strings.ToLower(location))
+	if err != nil {
+		return nil, err
+	}
+	if sku := catalogue[strings.ToUpper(vmSize)]; sku != nil {
+		return sku, nil
+	}
+	return nil, fmt.Errorf("VM size %q not found in location %q", vmSize, location)
 }
-
-// CachedVMSizeSupportsNVMe caches the result of querying the Azure Resource SKUs API
-// to determine if a VM size supports the NVMe disk controller type.
-var CachedVMSizeSupportsNVMe = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
-	return config.Azure.VMSizeSupportsNVMe(ctx, req.Location, req.VMSize)
-})
-
-// CachedIsVMSizeGen2Only caches the result of querying the Azure Resource SKUs API
-// to determine if a VM size only supports the Gen2 hypervisor.
-var CachedIsVMSizeGen2Only = cachedFunc(func(ctx context.Context, req VMSizeSKURequest) (bool, error) {
-	return config.Azure.IsVMSizeGen2Only(ctx, req.Location, req.VMSize)
-})
 
 // GetLatestExtensionVersionRequest is the cache key for VM extension version lookups.
 type GetLatestExtensionVersionRequest struct {
@@ -337,7 +291,7 @@ type GetLatestExtensionVersionRequest struct {
 
 // CachedGetLatestVMExtensionImageVersion caches the result of querying the Azure API
 // for the latest VM extension image version.
-var CachedGetLatestVMExtensionImageVersion = cachedFunc(
+var CachedGetLatestVMExtensionImageVersion = toolkit.Memoize(
 	func(ctx context.Context, req GetLatestExtensionVersionRequest) (string, error) {
 		return config.Azure.GetLatestVMExtensionImageVersion(ctx, req.Location, req.ExtType, req.Publisher)
 	},
