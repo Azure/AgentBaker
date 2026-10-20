@@ -26,12 +26,14 @@ Describe 'Windows exporter CSE functions' {
         }
 
         It 'returns Invalid when <Missing> is absent' -TestCases @(
+            @{ Missing = 'skip marker' }
             @{ Missing = 'binary' }
             @{ Missing = 'config' }
             @{ Missing = 'nssm' }
         ) {
             param($Missing)
             $script:missingPath = switch ($Missing) {
+                'skip marker' { $global:WindowsExporterSkipFile }
                 'binary' { $global:WindowsExporterBinary }
                 'config' { $global:WindowsExporterConfig }
                 'nssm' { $global:WindowsExporterNssm }
