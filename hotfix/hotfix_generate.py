@@ -13,8 +13,9 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    (the release tag the VHD was built from, derived from linux_sig_version.json),
    selects their write_files entries from parts/linux/cloud-init/nodecustomdata.yml,
    injects those entries into the scriptless section of nodecustomdata.yml, and
-   renders self-contained ANC payloads for Ubuntu and Mariner with AgentBaker's
-   canonical Go-template renderer. Diffing against the frozen baseline keeps both
+   renders self-contained ANC payloads for Ubuntu and Mariner, each with default
+   and AKS custom-cloud variants, with AgentBaker's canonical Go-template renderer.
+   Diffing against the frozen baseline keeps both
    delivery paths cumulative.
 
 3. Writes `scripts_version` for script hotfixes. With --use-anc-for-scripts, also
@@ -467,7 +468,7 @@ def update_nodecustomdata(target_varkeys):
         return
 
     lines = clean_content.splitlines(keepends=True)
-    _, else_line, end_line = find_block_boundaries(lines)
+    scriptless_start, else_line, end_line = find_block_boundaries(lines)
     if else_line is None or end_line is None:
         raise GenerationError(
             f"could not find traditional write_files section in {TEMPLATE}"
@@ -480,10 +481,22 @@ def update_nodecustomdata(target_varkeys):
     if not selected_blocks:
         raise GenerationError("no matching write_files blocks found for nodecustomdata")
 
-    injected_lines = ["\n", f"{SCRIPTS_BEGIN}\n"]
-    for block_lines in selected_blocks:
-        injected_lines.extend(block_lines)
-    injected_lines.append(f"{SCRIPTS_END}\n")
+    existing_blocks = {
+        "".join(block_lines).strip()
+        for _, block_lines in parse_write_files_blocks(
+            lines[scriptless_start + 1:else_line]
+        )
+    }
+    selected_blocks = [
+        block_lines for block_lines in selected_blocks
+        if "".join(block_lines).strip() not in existing_blocks
+    ]
+    injected_lines = []
+    if selected_blocks:
+        injected_lines = ["\n", f"{SCRIPTS_BEGIN}\n"]
+        for block_lines in selected_blocks:
+            injected_lines.extend(block_lines)
+        injected_lines.append(f"{SCRIPTS_END}\n")
 
     with open(TEMPLATE, "w") as template_file:
         template_file.writelines(lines[:else_line] + injected_lines + lines[else_line:])
@@ -494,7 +507,7 @@ def update_nodecustomdata(target_varkeys):
 
 
 def write_rendered_payload(target_varkeys, traditional_lines):
-    """Render platform-specific YAML through AgentBaker's production template path."""
+    """Render distro/cloud YAML through AgentBaker's production template path."""
     if not target_varkeys:
         print(
             f"No new script hotfixes; preserving {GENERATED_DIR}",

@@ -271,7 +271,7 @@ func (a *App) runApplyHotfixCommand(context.Context) error {
 	applyHotfix := a.applyEmbeddedHotfix
 	if applyHotfix == nil {
 		applyHotfix = func(osReleasePath string) error {
-			return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath)
+			return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath, a.isEmbeddedHotfixCustomCloud)
 		}
 	}
 	if err := applyHotfix(a.osReleasePath); err != nil {

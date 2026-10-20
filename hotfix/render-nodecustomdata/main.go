@@ -42,38 +42,48 @@ func main() {
 	}
 
 	for _, target := range platforms {
-		rendered, err := agent.RenderLinuxNodeCustomDataTemplate(
-			templateContent,
-			newRenderConfig(target.distro),
-		)
-		if err != nil {
-			fatalf("render %s nodecustomdata: %v", target.name, err)
-		}
-		outputPath := filepath.Join(
-			*outputDir,
-			"rendered_nodecustomdata_"+target.name+".yml",
-		)
-		//nolint:gosec // The caller intentionally selects the output directory; filenames are fixed by this tool.
-		if err := os.WriteFile(outputPath, []byte(rendered), 0o600); err != nil {
-			fatalf("write %s nodecustomdata: %v", target.name, err)
+		var defaultRendered string
+		for _, customCloud := range []bool{false, true} {
+			rendered, err := agent.RenderLinuxNodeCustomDataTemplate(
+				templateContent,
+				newRenderConfig(target.distro, customCloud),
+			)
+			if err != nil {
+				fatalf("render %s nodecustomdata (custom cloud %t): %v", target.name, customCloud, err)
+			}
+			if customCloud && rendered == defaultRendered {
+				continue
+			}
+			if !customCloud {
+				defaultRendered = rendered
+			}
+			name := "rendered_nodecustomdata_" + target.name
+			if customCloud {
+				name += "_akscustom"
+			}
+			outputPath := filepath.Join(*outputDir, name+".yml")
+			//nolint:gosec // The caller intentionally selects the output directory; filenames are fixed by this tool.
+			if err := os.WriteFile(outputPath, []byte(rendered), 0o600); err != nil {
+				fatalf("write %s nodecustomdata: %v", target.name, err)
+			}
 		}
 	}
 }
 
 // newRenderConfig builds the minimal NodeBootstrappingConfiguration required to
-// run agent.RenderLinuxNodeCustomDataTemplate. Only the Distro selector affects
-// the hotfix write_files blocks we render; the remaining fields (orchestrator
+// run agent.RenderLinuxNodeCustomDataTemplate. Distro and custom-cloud eligibility
+// select the hotfix write_files blocks; the remaining fields (orchestrator
 // version, location, FQDN, KubernetesConfig, etc.) are placeholders whose sole
 // purpose is to satisfy the renderer's unconditional dereferences of
 // OrchestratorProfile/KubernetesConfig so rendering doesn't nil-panic. Their
 // values are not meaningful and are not consumed by the embedded output.
-func newRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {
+func newRenderConfig(distro datamodel.Distro, customCloud bool) *datamodel.NodeBootstrappingConfiguration {
 	profile := &datamodel.AgentPoolProfile{
 		Name:   "hotfix-render",
 		OSType: datamodel.Linux,
 		Distro: distro,
 	}
-	return &datamodel.NodeBootstrappingConfiguration{
+	config := &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			Location: "eastus",
 			Properties: &datamodel.Properties{
@@ -95,6 +105,10 @@ func newRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfig
 		K8sComponents:    &datamodel.K8sComponents{},
 		KubeletConfig:    map[string]string{},
 	}
+	if customCloud {
+		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
+	}
+	return config
 }
 
 func fatalf(format string, args ...interface{}) {

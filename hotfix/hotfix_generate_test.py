@@ -1,6 +1,9 @@
+import base64
+import gzip
 import io
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -302,6 +305,71 @@ write_files:
                 {path.name for path in generated.iterdir()},
             )
 
+    def test_custom_cloud_and_distro_scripts_survive_production_rendering(self):
+        repository = Path(__file__).resolve().parents[1]
+        lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
+            keepends=True
+        )
+        _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
+        traditional = lines[outer_else + 1:end]
+        selections = (
+            {"initAKSCloud"},
+            {"initAKSCloud", "provisionSourceUbuntu", "provisionSourceMariner"},
+            {"provisionSourceUbuntu", "provisionSourceMariner"},
+        )
+        for selected in selections:
+            with self.subTest(selected=selected), tempfile.TemporaryDirectory() as directory:
+                generated = Path(directory) / "generated"
+                with mock.patch.object(
+                    hotfix_generate, "GENERATED_DIR", str(generated)
+                ):
+                    hotfix_generate.write_rendered_payload(selected, traditional)
+                for platform in ("ubuntu", "mariner"):
+                    for custom in (False, True):
+                        suffix = "_akscustom" if custom else ""
+                        path = (
+                            generated / f"rendered_nodecustomdata_{platform}{suffix}.yml"
+                        )
+                        if custom and "initAKSCloud" not in selected:
+                            self.assertFalse(path.exists())
+                            continue
+                        content = path.read_text()
+                        self.assertNotIn("{{", content)
+                        entries = re.findall(
+                            r"- path: ([^\n]+)\n"
+                            r'  permissions: "([0-7]+)"\n'
+                            r"  encoding: gzip\n  owner: root\n"
+                            r"  content: !!binary \|\n    ([A-Za-z0-9+/=]+)",
+                            content,
+                        )
+                        self.assertEqual(
+                            int(custom) + int("provisionSourceUbuntu" in selected),
+                            len(entries),
+                        )
+                        for path, permissions, encoded in entries:
+                            if path.endswith("/init-aks-cloud.sh"):
+                                self.assertTrue(custom)
+                                source = "init-aks-cloud.sh"
+                            else:
+                                self.assertTrue(
+                                    path.endswith("/provision_source_distro.sh")
+                                )
+                                source = f"{platform}/cse_helpers_{platform}.sh"
+                            self.assertEqual("0744", permissions)
+                            decoded = gzip.decompress(base64.b64decode(encoded))
+                            expected = (
+                                repository / hotfix_generate.ARTIFACTS_DIR / source
+                            ).read_bytes()
+                            self.assertTrue(decoded.startswith(b"#!/bin/bash\n"))
+                            self.assertGreater(len(decoded), 1000)
+                            # The production renderer strips comments from scripts.
+                            functions = re.findall(
+                                rb"^\w+\(\) \{", expected, re.MULTILINE
+                            )
+                            self.assertTrue(functions)
+                            for function in functions:
+                                self.assertIn(function, decoded)
+
     def test_write_rendered_payload_preserves_placeholder_without_hotfix(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             generated = Path(temp_dir) / "generated"
@@ -326,7 +394,7 @@ write_files:
         with tempfile.TemporaryDirectory() as temp_dir:
             generated = Path(temp_dir) / "generated"
             generated.mkdir()
-            platforms = ("ubuntu", "mariner")
+            platforms = ("ubuntu", "mariner", "ubuntu_akscustom", "mariner_akscustom")
             for platform in platforms:
                 (generated / f"rendered_nodecustomdata_{platform}.yml").write_text(
                     f"write_files:\n- path: /{platform}-existing\n"
@@ -376,6 +444,47 @@ write_files:
                 cleaned = template.read_text()
                 self.assertNotIn(hotfix_generate.SCRIPTS_BEGIN, cleaned)
                 self.assertEqual(1, cleaned.count("provisionSourceUbuntu"))
+
+    def test_update_nodecustomdata_does_not_duplicate_custom_cloud_entry(self):
+        repository = Path(__file__).resolve().parents[1]
+        original = (repository / hotfix_generate.TEMPLATE).read_text()
+        lines = original.splitlines(keepends=True)
+        _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
+        duplicate = hotfix_generate.build_hotfix_template(
+            {"initAKSCloud"}, lines[outer_else + 1:end]
+        ).removeprefix("#cloud-config\nwrite_files:\n")
+        # Start with an asset produced by the old generator, including its duplicate.
+        original = "".join(
+            lines[:outer_else]
+            + [f"\n{hotfix_generate.SCRIPTS_BEGIN}\n", duplicate,
+               f"{hotfix_generate.SCRIPTS_END}\n"]
+            + lines[outer_else:]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            template = Path(directory) / "nodecustomdata.yml"
+            template.write_text(original)
+            with mock.patch.object(hotfix_generate, "TEMPLATE", str(template)):
+                for selected in (
+                    {"initAKSCloud"},
+                    {"initAKSCloud", "provisionSource"},
+                    {"initAKSCloud", "provisionSource"},
+                    {"initAKSCloud"},
+                ):
+                    hotfix_generate.update_nodecustomdata(selected)
+                    lines = template.read_text().splitlines(keepends=True)
+                    start, outer_else, end = hotfix_generate.find_block_boundaries(
+                        lines
+                    )
+                    for section in (
+                        lines[start + 1:outer_else], lines[outer_else + 1:end]
+                    ):
+                        content = "".join(section)
+                        self.assertEqual(1, content.count("{{if IsAKSCustomCloud}}"))
+                        self.assertEqual(1, content.count('"initAKSCloud"'))
+                    self.assertEqual(
+                        "provisionSource" in selected,
+                        hotfix_generate.SCRIPTS_BEGIN in "".join(lines),
+                    )
 
     def test_write_hotfix_file_uses_hotfixes_and_preserves_scripts_version(self):
         with tempfile.TemporaryDirectory() as temp_dir:
