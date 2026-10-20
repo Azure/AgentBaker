@@ -56,78 +56,38 @@ DESTINATION_STORAGE_ACCOUNT_NAME="${STORAGE_ACCOUNT_BLOB_URL#*://}"
 DESTINATION_STORAGE_ACCOUNT_NAME="${DESTINATION_STORAGE_ACCOUNT_NAME%%.*}"
 DESTINATION_CONTAINER_NAME="${STORAGE_ACCOUNT_BLOB_URL##*/}"
 STAGING_VHD_URI="${STORAGE_ACCOUNT_BLOB_URL_STAGING}/${VHD_NAME}"
-VHD_ALREADY_PUBLISHED=false
 
 main() {
-    echo "##vso[task.setvariable variable=PREFETCH_READY_FOR_CLEANUP]false"
-    check_for_existing_vhd || return $?
+    # for idempotency, check whether the target VHD already exists. If a previous run already produced it
+    # successfully, exit early; if a server-side copy is still in progress, wait for it to finish. Because
+    # the destination container may be immutable, a VHD left in a bad state cannot be deleted and recreated
+    # and is treated as fatal.
+    check_for_existing_vhd
 
-    if [ "${VHD_ALREADY_PUBLISHED}" = "true" ]; then
-        if ! requires_generalized_cvm_publication || generalized_cvm_gallery_is_ready; then
-            echo "##vso[task.setvariable variable=PREFETCH_READY_FOR_CLEANUP]true"
-            return 0
-        fi
-        echo "Retrying generalized CVM publication using the retained Image Builder output"
-    else
-        ensure_image_builder_rg || return $?
-        run_image_builder_template || return $?
+    # attempt to perform prefetch optimization, distributing the optimized image as a VHD into the
+    # image builder staging storage account, then copy that VHD into the target storage account
+    ensure_image_builder_rg || exit $?
+    run_image_builder_template || exit $?
+
+    local artifact_uri storage_pid gallery_pid storage_status=0
+    artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv)" || return $?
+    if [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
+        echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue"
+        return 1
     fi
 
-    local artifact_uri artifact_status=0 storage_pid="" gallery_pid storage_status=0 gallery_status=0
-    artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv)" || artifact_status=$?
-    if [ "${artifact_status}" -ne 0 ] || [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
-        if [ "${VHD_ALREADY_PUBLISHED}" = "true" ]; then
-            echo "##vso[task.logissue type=warning]Unable to read retained Image Builder output for generalized CVM publication; preserving prefetch resources"
-            return 0
-        fi
-        echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue" >&2
-        [ "${artifact_status}" -ne 0 ] || artifact_status=1
-        return "${artifact_status}"
-    fi
-
-    if [ "${VHD_ALREADY_PUBLISHED}" != "true" ]; then
-        copy_optimized_vhd "${artifact_uri}" &
-        storage_pid=$!
-    fi
+    copy_optimized_vhd "${artifact_uri}" &
+    storage_pid=$!
     copy_optimized_vhd_to_packer_gallery "${artifact_uri}" &
     gallery_pid=$!
 
-    if [ -n "${storage_pid}" ]; then
-        wait "${storage_pid}" || storage_status=$?
-    fi
-    wait "${gallery_pid}" || gallery_status=$?
-    if [ "${gallery_status}" -ne 0 ]; then
-        echo "##vso[task.logissue type=warning]Generalized CVM gallery publication failed (exit ${gallery_status}); preserving prefetch resources for retry"
-    elif [ "${storage_status}" -eq 0 ]; then
-        echo "##vso[task.setvariable variable=PREFETCH_READY_FOR_CLEANUP]true"
-    fi
+    wait "${storage_pid}" || storage_status=$?
+    wait "${gallery_pid}" || echo "##vso[task.logissue type=warning]Generalized CVM gallery publication failed (exit $?)"
     return "${storage_status}"
 }
 
-requires_generalized_cvm_publication() {
-    [[ "${FEATURE_FLAGS,,}" == *cvm* && "${OS_SKU,,}" =~ ^(ubuntu|azurelinux)$ ]]
-}
-
-generalized_cvm_gallery_is_ready() {
-    local image_status
-    if ! image_status="$(az sig image-version show \
-        --resource-group "${SIG_GALLERY_RESOURCE_GROUP_NAME}" --gallery-name "${SIG_GALLERY_NAME}" \
-        --gallery-image-definition "${SKU_NAME}" --gallery-image-version "${CAPTURED_SIG_VERSION}" \
-        --expand ReplicationStatus --output json --only-show-errors)"; then
-        echo "Unable to confirm generalized CVM gallery readiness; will retry publication" >&2
-        return 1
-    fi
-    jq -e --arg region "${LOCATION}" '
-        .provisioningState == "Succeeded" and
-        any(.replicationStatus.summary[]?; .region == $region and .state == "Completed")
-    ' <<<"${image_status}" >/dev/null
-}
-
 check_for_existing_vhd() {
-    local exists copy_status
-    exists="$(az storage blob exists --blob-url "${VHD_URI}" --auth-mode login | jq -r '.exists')" || return $?
-    VHD_ALREADY_PUBLISHED=false
-    if [ "${exists}" = "false" ]; then
+    if [ "$(az storage blob exists --blob-url "${VHD_URI}" --auth-mode login | jq -r '.exists')" = "false" ]; then
         echo "no existing VHD was found at: ${VHD_URI}, will proceed with optimization and VHD creation"
         return 0
     fi
@@ -136,23 +96,21 @@ check_for_existing_vhd() {
     # the VHD in a potentially immutable container is produced by a server-side blob copy, so its copy status
     # tells us whether a previous run already completed. Because the container may have an immutability policy,
     # a VHD in a bad state cannot be deleted and recreated, so any non-success terminal state is fatal.
-    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')" || return $?
+    copy_status="$(az storage blob show --blob-url "${VHD_URI}" --auth-mode login | jq -r '.properties.copy.status')"
     if [ "${copy_status,,}" = "success" ]; then
-        echo "VHD ${VHD_URI} was already produced by a previous prefetch optimization run"
-        VHD_ALREADY_PUBLISHED=true
-        return 0
+        echo "VHD ${VHD_URI} was already produced by a previous prefetch optimization run, nothing to do"
+        exit 0
     fi
     if [ "${copy_status,,}" = "pending" ]; then
         echo "VHD ${VHD_URI} is currently being copied by a previous prefetch optimization run, will wait for completion"
         if wait_for_vhd_copy; then
-            VHD_ALREADY_PUBLISHED=true
-            return 0
+            exit 0
         fi
     fi
     # the VHD exists in a non-success state within the immutable container. It cannot be deleted due to
     # the immutability policy, so there is nothing we can do to recover - fail the script.
     echo "VHD ${VHD_URI} exists in an unrecoverable copy state: '${copy_status}'"
-    return 1
+    exit 1
 }
 
 ensure_image_builder_rg() {
