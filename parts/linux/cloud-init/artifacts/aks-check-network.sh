@@ -63,7 +63,7 @@ function logs_to_events {
     )
     echo ${json_string} > ${EVENTS_LOGGING_PATH}${eventsFileName}.json
 
-    # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
+    # this allows an error from the command at ${@} to be returned and correct code assigned in provision_main.sh
     if [ "$ret" -ne 0 ]; then
       return $ret
     fi

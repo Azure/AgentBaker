@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'Azure Linux 3 Kata payload copies'
-    Include './parts/linux/cloud-init/artifacts/cse_helpers.sh'
+    Include './parts/linux/cloud-init/artifacts/provision_helpers.sh'
     Include './vhdbuilder/packer/packer_source.sh'
 
     setup() {

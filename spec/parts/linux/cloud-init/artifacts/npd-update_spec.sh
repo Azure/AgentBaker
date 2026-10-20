@@ -463,8 +463,8 @@ Describe 'NPD config handler on Azure Linux 3'
 End
 
 Describe 'CSE baked NPD activation'
-    Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
-    Include ./parts/linux/cloud-init/artifacts/cse_config.sh
+    Include ./parts/linux/cloud-init/artifacts/provision_helpers.sh
+    Include ./parts/linux/cloud-init/artifacts/provision_config.sh
     setup_activation() {
         NPD_SKIP_FILE="$(mktemp)"
         OS=UBUNTU
@@ -527,7 +527,7 @@ Describe 'CSE baked NPD activation'
 End
 
 Describe 'GPU driver NPD restart'
-    Include ./parts/linux/cloud-init/artifacts/cse_config_gpu.sh
+    Include ./parts/linux/cloud-init/artifacts/provision_config_gpu.sh
     setup_gpu() { NPD_SKIP_FILE="$(mktemp)"; }
     cleanup_gpu() { rm -f "${NPD_SKIP_FILE}"; }
     BeforeEach setup_gpu

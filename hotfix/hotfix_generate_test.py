@@ -69,19 +69,19 @@ class HotfixGenerateTests(unittest.TestCase):
             *(keys for keys, _ in hotfix_generate.parse_write_files_blocks(traditional))
         )
         modules = (
-            ("cse_config_gpu.sh", "provisionConfigsGPU", "GetCSEConfigGPUScriptFilepath"),
+            ("provision_config_gpu.sh", "provisionConfigsGPU", "GetCSEConfigGPUScriptFilepath"),
             (
-                "cse_config_localdns.sh",
+                "provision_config_localdns.sh",
                 "provisionConfigsLocalDNS",
                 "GetCSEConfigLocalDNSScriptFilepath",
             ),
             (
-                "cse_config_kubelet.sh",
+                "provision_config_kubelet.sh",
                 "provisionConfigsKubelet",
                 "GetCSEConfigKubeletScriptFilepath",
             ),
             (
-                "cse_config_chrony.sh",
+                "provision_config_chrony.sh",
                 "provisionConfigsChrony",
                 "GetCSEConfigChronyScriptFilepath",
             ),
@@ -131,11 +131,11 @@ class HotfixGenerateTests(unittest.TestCase):
         repository = Path(__file__).resolve().parents[1]
         artifacts = str(repository / hotfix_generate.ARTIFACTS_DIR)
         sources = (
-            "cse_config.sh",
-            "cse_config_gpu.sh",
-            "cse_config_localdns.sh",
-            "cse_config_kubelet.sh",
-            "cse_config_chrony.sh",
+            "provision_config.sh",
+            "provision_config_gpu.sh",
+            "provision_config_localdns.sh",
+            "provision_config_kubelet.sh",
+            "provision_config_chrony.sh",
         )
         expected = {hotfix_generate.SOURCE_TO_VARKEY[source] for source in sources}
         result = subprocess.CompletedProcess(
@@ -201,17 +201,17 @@ write_files:
         with tempfile.TemporaryDirectory() as temp_dir:
             artifacts = Path(temp_dir)
             for source in (
-                "ubuntu/cse_helpers_ubuntu.sh",
-                "mariner/cse_helpers_mariner.sh",
+                "ubuntu/provision_helpers_ubuntu.sh",
+                "mariner/provision_helpers_mariner.sh",
             ):
                 path = artifacts / source
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("hotfix")
-            changed = artifacts / "ubuntu/cse_helpers_ubuntu.sh"
+            changed = artifacts / "ubuntu/provision_helpers_ubuntu.sh"
             result = subprocess.CompletedProcess(
                 args=[],
                 returncode=0,
-                stdout=f"{temp_dir}/ubuntu/cse_helpers_ubuntu.sh\n",
+                stdout=f"{temp_dir}/ubuntu/provision_helpers_ubuntu.sh\n",
             )
             available = {
                 "provisionSourceUbuntu",
@@ -241,7 +241,7 @@ write_files:
                 result = subprocess.CompletedProcess(
                     args=[],
                     returncode=0,
-                    stdout=f"{hotfix_generate.ARTIFACTS_DIR}/{distro}/cse_helpers_{distro}.sh\n",
+                    stdout=f"{hotfix_generate.ARTIFACTS_DIR}/{distro}/provision_helpers_{distro}.sh\n",
                 )
                 with mock.patch.object(
                     hotfix_generate.subprocess, "run", return_value=result
@@ -460,9 +460,9 @@ write_files:
                 ),
             )
 
-    def test_cse_start_hotfix_fails_even_with_supported_changes(self):
-        self.assertNotIn("cse_start.sh", hotfix_generate.SOURCE_TO_VARKEY)
-        for sources in (["cse_start.sh"], ["cse_config.sh", "cse_start.sh"]):
+    def test_provision_start_hotfix_fails_even_with_supported_changes(self):
+        self.assertNotIn("provision_start.sh", hotfix_generate.SOURCE_TO_VARKEY)
+        for sources in (["provision_start.sh"], ["provision_config.sh", "provision_start.sh"]):
             with self.subTest(sources=sources):
                 result = subprocess.CompletedProcess(
                     args=[],
@@ -477,7 +477,7 @@ write_files:
                 ):
                     with self.assertRaisesRegex(
                         hotfix_generate.GenerationError,
-                        "cse_start.sh cannot be delivered.*custom-image wrapper eligibility",
+                        "provision_start.sh cannot be delivered.*custom-image wrapper eligibility",
                     ):
                         hotfix_generate.detect_changed_varkeys(
                             "base",
@@ -583,14 +583,14 @@ write_files:
         # baseline, not just the newest one, so the payload stays cumulative.
         with tempfile.TemporaryDirectory() as temp_dir:
             artifacts = Path(temp_dir)
-            for source in ("cse_config.sh", "cse_main.sh"):
+            for source in ("provision_config.sh", "provision_main.sh"):
                 (artifacts / source).write_text("hotfix")
             result = subprocess.CompletedProcess(
                 args=[],
                 returncode=0,
                 stdout=(
-                    f"{temp_dir}/cse_config.sh\n"
-                    f"{temp_dir}/cse_main.sh\n"
+                    f"{temp_dir}/provision_config.sh\n"
+                    f"{temp_dir}/provision_main.sh\n"
                 ),
             )
             available = {"provisionConfigs", "provisionScript"}

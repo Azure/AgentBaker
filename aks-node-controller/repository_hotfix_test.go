@@ -1362,7 +1362,7 @@ enabled=1
 		plan.packageURL)
 }
 
-// Proxy-only clusters route all outbound traffic through HTTP(S)_PROXY, which cse_main.sh
+// Proxy-only clusters route all outbound traffic through HTTP(S)_PROXY, which provision_main.sh
 // exports into ANC's environment. NewBaseTransport defaults to Proxy: nil (correct for its
 // IMDS/LPS callers), so repository downloads must opt back in or every fast-path attempt
 // burns the request timeout on a direct dial before falling back to apt/dnf.

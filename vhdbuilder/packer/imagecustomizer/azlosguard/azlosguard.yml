@@ -22,7 +22,7 @@ os:
     - source: /AgentBaker/vhdbuilder/packer/install-node-exporter.sh
       destination: /opt/azure/containers/install-node-exporter.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_benchmark_functions.sh
       destination: /opt/azure/containers/provision_source_benchmarks.sh
       permissions: 744
     - source: /AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
@@ -85,49 +85,49 @@ os:
       destination: /etc/extensions/lg-redirect-sysext/usr/lib/extension-release.d/extension-release.lg-redirect-sysext
       permissions: 644
     # Provisioning scripts
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_main.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_main.sh
       destination: /opt/azure/containers/provision.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_preload.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_preload.sh
       destination: /opt/azure/containers/provision_preload.sh
       permissions: 744
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/fetch_provision_config.py
       destination: /opt/azure/containers/fetch_provision_config.py
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_start.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_start.sh
       destination: /opt/azure/containers/provision_start.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_config.sh
       destination: /opt/azure/containers/provision_configs.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_gpu.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_config_gpu.sh
       destination: /opt/azure/containers/provision_configs_gpu.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_localdns.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_config_localdns.sh
       destination: /opt/azure/containers/provision_configs_localdns.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_kubelet.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_config_kubelet.sh
       destination: /opt/azure/containers/provision_configs_kubelet.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_network.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_config_network.sh
       destination: /opt/azure/containers/provision_configs_network.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_addons.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_config_addons.sh
       destination: /opt/azure/containers/provision_configs_addons.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_chrony.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_config_chrony.sh
       destination: /opt/azure/containers/provision_configs_chrony.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_helpers.sh
       destination: /opt/azure/containers/provision_source.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_install.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_install.sh
       destination: /opt/azure/containers/provision_installs.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/cse_install_osguard.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/provision_install_osguard.sh
       destination: /opt/azure/containers/provision_installs_distro.sh
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/cse_helpers_osguard.sh
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azlosguard/provision_helpers_osguard.sh
       destination: /opt/azure/containers/provision_source_distro.sh
       permissions: 744
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd_exec_start.conf
@@ -151,10 +151,10 @@ os:
       destination: /opt/azure/containers/ensure_imds_restriction.sh
       permissions: 755
     # cse support
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_redact_cloud_config.py
       destination: /opt/azure/containers/provision_redact_cloud_config.py
       permissions: 744
-    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_send_logs.py
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/provision_send_logs.py
       destination: /opt/azure/containers/provision_send_logs.py
       permissions: 744
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/init-aks-cloud.sh

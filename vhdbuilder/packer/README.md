@@ -60,24 +60,24 @@ disabled state after boot (without applying the rule in the test). Roll out new
 images through the normal canary stages and validate memory-sensitive workloads,
 reclaim CPU, latency, memory pressure, and evictions before broad deployment.
 
-# Linux CSE configuration modules
+# Linux provisioning configuration modules
 
-`parts/linux/cloud-init/artifacts/cse_config.sh` is installed as
+`parts/linux/cloud-init/artifacts/provision_config.sh` is installed as
 `/opt/azure/containers/provision_configs.sh`. Its modules use the same runtime naming:
 
-- `cse_config_gpu.sh` -> `provision_configs_gpu.sh` (NVIDIA and AMD)
-- `cse_config_localdns.sh` -> `provision_configs_localdns.sh`
-- `cse_config_kubelet.sh` -> `provision_configs_kubelet.sh`
-- `cse_config_network.sh` -> `provision_configs_network.sh`
-- `cse_config_addons.sh` -> `provision_configs_addons.sh` (autoscaler, ACI connector, Azure Policy)
-- `cse_config_chrony.sh` -> `provision_configs_chrony.sh`
+- `provision_config_gpu.sh` -> `provision_configs_gpu.sh` (NVIDIA and AMD)
+- `provision_config_localdns.sh` -> `provision_configs_localdns.sh`
+- `provision_config_kubelet.sh` -> `provision_configs_kubelet.sh`
+- `provision_config_network.sh` -> `provision_configs_network.sh`
+- `provision_config_addons.sh` -> `provision_configs_addons.sh` (autoscaler, ACI connector, Azure Policy)
+- `provision_config_chrony.sh` -> `provision_configs_chrony.sh`
 
-`cse_cmd.sh` and the ANC parser provide their paths through
+`provision_cmd.sh` and the ANC parser provide their paths through
 `CSE_CONFIG_GPU_FILEPATH`, `CSE_CONFIG_LOCALDNS_FILEPATH`,
 `CSE_CONFIG_KUBELET_FILEPATH`, `CSE_CONFIG_NETWORK_FILEPATH`, and
 `CSE_CONFIG_ADDONS_FILEPATH`, and `CSE_CONFIG_CHRONY_FILEPATH`; the parent sources each explicitly.
 If a variable is unset or empty, its path defaults to the corresponding sibling
-of the sourced parent (`provision_configs_*.sh` on-node, `cse_config_*.sh` in the
+of the sourced parent (`provision_configs_*.sh` on-node, `provision_config_*.sh` in the
 source tree). Explicit paths take precedence.
 
 Always package all modules, including images without GPU or LocalDNS enabled, with

@@ -32,7 +32,7 @@ prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.6.18" "/usr/local/b
 prefetch "mcr.microsoft.com/containernetworking/azure-ipam:v0.0.7" "/dropgz"
 prefetch "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0" "/dropgz"
 
-# cse_preload.sh warms binaries and containerd caches needed by CSE early in
+# provision_preload.sh warms binaries and containerd caches needed by CSE early in
 # boot so that node provisioning runs against an already-warm page cache.
 # This is best-effort: every command is backgrounded and its output and exit
 # status are intentionally ignored. It must never block or fail provisioning.

@@ -9,7 +9,7 @@ set +x
 # by vhdbuilder/packer/install-dependencies.sh and shipped in the Azure Linux
 # base image), so functions in this script use it without an explicit install
 # step. Do not flag jq usage here as "used before install" — matches the
-# established pattern in cse_main.sh.
+# established pattern in provision_main.sh.
 
 log_certificates() {
     [ "${AKS_CLOUD_LOG_CERTIFICATES:-false}" = "true" ] || return 0

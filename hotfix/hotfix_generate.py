@@ -60,25 +60,25 @@ SCRIPTS_END = "# ---- end hotfix-scripts ----"
 # in the traditional section are included.
 SOURCE_TO_VARKEY = {
     # CSE helpers — base (non-distro)
-    "cse_helpers.sh": "provisionSource",
+    "provision_helpers.sh": "provisionSource",
     # CSE helpers — distro variants (all map to the same conditional block)
-    "ubuntu/cse_helpers_ubuntu.sh": "provisionSourceUbuntu",
-    "mariner/cse_helpers_mariner.sh": "provisionSourceMariner",
+    "ubuntu/provision_helpers_ubuntu.sh": "provisionSourceUbuntu",
+    "mariner/provision_helpers_mariner.sh": "provisionSourceMariner",
     # CSE install — base
-    "cse_install.sh": "provisionInstalls",
+    "provision_install.sh": "provisionInstalls",
     # CSE install — distro variants
-    "ubuntu/cse_install_ubuntu.sh": "provisionInstallsUbuntu",
-    "mariner/cse_install_mariner.sh": "provisionInstallsMariner",
+    "ubuntu/provision_install_ubuntu.sh": "provisionInstallsUbuntu",
+    "mariner/provision_install_mariner.sh": "provisionInstallsMariner",
     # CSE config
-    "cse_config.sh": "provisionConfigs",
-    "cse_config_gpu.sh": "provisionConfigsGPU",
-    "cse_config_localdns.sh": "provisionConfigsLocalDNS",
-    "cse_config_kubelet.sh": "provisionConfigsKubelet",
-    "cse_config_network.sh": "provisionConfigsNetwork",
-    "cse_config_addons.sh": "provisionConfigsAddons",
-    "cse_config_chrony.sh": "provisionConfigsChrony",
+    "provision_config.sh": "provisionConfigs",
+    "provision_config_gpu.sh": "provisionConfigsGPU",
+    "provision_config_localdns.sh": "provisionConfigsLocalDNS",
+    "provision_config_kubelet.sh": "provisionConfigsKubelet",
+    "provision_config_network.sh": "provisionConfigsNetwork",
+    "provision_config_addons.sh": "provisionConfigsAddons",
+    "provision_config_chrony.sh": "provisionConfigsChrony",
     # CSE main
-    "cse_main.sh": "provisionScript",
+    "provision_main.sh": "provisionScript",
     # Other scripts present in traditional nodecustomdata
     "configure-azure-network.sh": "configureAzureNetworkScript",
     "init-aks-cloud.sh": "initAKSCloud",
@@ -283,7 +283,7 @@ def detect_changed_varkeys(base_ref, available_varkeys=None):
         if local_path.startswith(UNSUPPORTED_DISTRO_DIRS):
             print(f"  Skipping unsupported embedded hotfix distro: {local_path}")
             continue
-        if local_path == "cse_start.sh":
+        if local_path == "provision_start.sh":
             # Custom images may supply their own provision_start.sh; distro-only
             # rendering loses the template's not IsCustomImage condition.
             # Future option: aks-rp can send explicit wrapper-hotfix eligibility
@@ -291,7 +291,7 @@ def detect_changed_varkeys(base_ref, available_varkeys=None):
             # ANC would omit this entry unless explicitly allowed, including when
             # the flag is absent, before calling the existing applyNodeCustomData.
             raise GenerationError(
-                "cse_start.sh cannot be delivered as an embedded hotfix because "
+                "provision_start.sh cannot be delivered as an embedded hotfix because "
                 "custom-image wrapper eligibility is unavailable; publish a new "
                 "node image or implement explicit runtime eligibility"
             )

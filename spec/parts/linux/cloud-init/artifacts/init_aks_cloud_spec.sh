@@ -68,8 +68,8 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 End
 
-Describe 'cse_config_chrony.sh distro routing'
-    script_path='./parts/linux/cloud-init/artifacts/cse_config_chrony.sh'
+Describe 'provision_config_chrony.sh distro routing'
+    script_path='./parts/linux/cloud-init/artifacts/provision_config_chrony.sh'
 
     chrony_routing_block() {
         sed -n '/^configure_node_time_sync() {$/,/^}$/p' "$script_path"
@@ -122,7 +122,7 @@ Describe 'init-aks-cloud.sh functional tests'
         ERR_CHRONY_NTP_SYNC_FAIL=245
         ERR_CHRONY_CONFIG_FAIL=246
         # shellcheck disable=SC1091
-        . "./parts/linux/cloud-init/artifacts/cse_config_chrony.sh"
+        . "./parts/linux/cloud-init/artifacts/provision_config_chrony.sh"
         logs_to_events() {
             shift
             # Match the production helper's argument expansion.

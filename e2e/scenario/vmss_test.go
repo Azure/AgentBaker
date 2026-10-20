@@ -432,7 +432,7 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 }
 
 // TestCSEExitCodeOutboundConnFail pins the exit code constant to the value emitted by
-// ERR_OUTBOUND_CONN_FAIL in parts/linux/cloud-init/artifacts/cse_helpers.sh. If the
+// ERR_OUTBOUND_CONN_FAIL in parts/linux/cloud-init/artifacts/provision_helpers.sh. If the
 // product error code changes, this test forces the harness mitigation to be updated.
 func TestGetBaseVMSSModelUsesScenarioVMSize(t *testing.T) {
 	s := &Scenario{

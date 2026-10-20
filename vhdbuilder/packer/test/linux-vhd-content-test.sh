@@ -133,8 +133,8 @@ else
   fi
 fi
 
-source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/provision_install_ubuntu.sh 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/provision_helpers.sh 2>/dev/null
 source ./AgentBaker/vhdbuilder/packer/packer_source.sh
 
 validateDownloadPackage() {
@@ -660,7 +660,7 @@ testChrony() {
 testFips() {
   local test="testFips"
   echo "$test:Start"
-  # Sourcing cse_helpers.sh overwrites the global OS_VERSION from /etc/os-release
+  # Sourcing provision_helpers.sh overwrites the global OS_VERSION from /etc/os-release
   # VERSION_ID (e.g. "2.0", "3.0", "3.0.20260506" on ACL, "20.04"), so the value
   # passed in as $1 is the /etc/os-release one, not the pipeline-style OS_VERSION.
   os_version=$1

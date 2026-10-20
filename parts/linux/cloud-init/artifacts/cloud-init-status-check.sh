@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Error indicating that cloud-init returned exit code 1, also reserved in cse_helpers.sh
+# Error indicating that cloud-init returned exit code 1, also reserved in provision_helpers.sh
 ERR_CLOUD_INIT_FAILED=223
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 

@@ -51,7 +51,7 @@ This table is describing the all the `AKSNodeConfig` Fields converted to .go fil
 | `IMDSRestrictionConfig` | `IMDSRestrictionConfig` | IMDS restriction configuration                                                                                                                                                                                                                                           | `ENABLE_IMDS_RESTRICTION`, `INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE`|
 
 
-Removed old environment variables from cse_cmd.sh:
+Removed old environment variables from provision_cmd.sh:
 `CSE_HELPERS_FILEPATH`, `CSE_DISTRO_HELPERS_FILEPATH`, `CSE_INSTALL_FILEPATH`, `CSE_DISTRO_INSTALL_FILEPATH`, `CSE_CONFIG_FILEPATH`, `DHCPV6_SERVICE_FILEPATH`, `DHCPV6_CONFIG_FILEPATH`, `CLI_TOOL`, `MOBY_VERSION`, `HYPERKUBE_URL`, `SGX_NODE`, `GPU_DRIVER_TYPE` and more.
 
 Many variables are changed to optional and we have a builder function as a helper to provide default values. For example, the builder function defaults `LinuxAdminUsername` to value `azureuser`, `OutboundCommand` to a default outbound command `curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/`.
@@ -166,7 +166,7 @@ Nevertheless, it’s not a big harm to use `optional` even though it’s not nee
 ## High level Steps
 1. Update corresponding .proto files to the data contract. Usually we start with `config.proto`.
 2. From the `AgentBaker/aks-node-controller` directory run `make proto-generate` to compile the .proto definitions into `Go`; this regenerates the public API (the `AKSNodeConfig` Go types).
-3. Tell how VHD should react to this new variable by updating the bootscripts as you do before. Basically you will be modifying shell scripts like `install-dependencies.sh`, `cse_install.sh`, `cse_helpers.sh`, etc. You may also want to add some unit tests to spec files like `cse_install_spec.sh`, `cse_helpers.sh` to find bugs earlier.
+3. Tell how VHD should react to this new variable by updating the bootscripts as you do before. Basically you will be modifying shell scripts like `install-dependencies.sh`, `provision_install.sh`, `provision_helpers.sh`, etc. You may also want to add some unit tests to spec files like `provision_install_spec.sh`, `provision_helpers.sh` to find bugs earlier.
 4. On the VHD side, we are still invoking the bootstrap scripts under the hood. To set the environment variables of the CSE trigger command, add the desired variable to `getCSEEnv()` in [parser.go](https://github.com/Azure/AgentBaker/blob/dev/aks-node-controller/parser/parser.go). If you need to add a corresponding file to the VHD, please generate the file in the bootstrap scripts rather than adding to [`nodecustomdata.yml`](https://github.com/Azure/AgentBaker/blob/dev/parts/linux/cloud-init/nodecustomdata.yml) as this file will eventually be deprecated. Here is an [example](https://github.com/Azure/AgentBaker/commit/81ce18fb7f53acab3c7fe8f3a70b635baf1f2f52) for generating the kube CA cert.
 
     Note: Node SIG is working on migrating all scripts to managable Go binary. Before it's done, the bootstrap scripts will still be used.

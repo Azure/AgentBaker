@@ -301,10 +301,10 @@ func (a *App) fetchHotfix(ctx context.Context) ([]byte, error) {
 // where AKSNodeConfigJSON is empty), it falls back to the existing nbc-cmd.sh file, which
 // contains the same values as command-scoped environment variables.
 //
-// check-hotfix runs before the provisioning scripts (cse_config.sh), so the on-node decoded
+// check-hotfix runs before the provisioning scripts (provision_config.sh), so the on-node decoded
 // CA file (/etc/kubernetes/certs/ca.crt) does not exist yet -- it is written later during
 // provisioning. Depending on the Scriptless phase, either the node config or nbc-cmd carries
-// the CA as base64-encoded PEM (the same value cse_config.sh later decodes into that file).
+// the CA as base64-encoded PEM (the same value provision_config.sh later decodes into that file).
 func (a *App) lpsTargetFromNodeConfig() (string, []byte, error) {
 	path := a.getNodeConfigPath()
 	raw, err := os.ReadFile(path)

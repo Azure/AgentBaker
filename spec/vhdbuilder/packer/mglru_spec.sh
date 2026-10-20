@@ -3,7 +3,7 @@
 
 Describe 'MGLRU image default'
   load_helpers() {
-    . ./parts/linux/cloud-init/artifacts/cse_helpers.sh >/dev/null
+    . ./parts/linux/cloud-init/artifacts/provision_helpers.sh >/dev/null
     . ./vhdbuilder/packer/packer_source.sh
   }
   BeforeAll 'load_helpers'

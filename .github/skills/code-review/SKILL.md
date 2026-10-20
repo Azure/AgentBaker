@@ -60,10 +60,10 @@ Analyze PRs for these compatibility scenarios:
 
 **4. PIS / VHD Caching — basePrep vs nodePrep split (Windows + Linux)**
 
-- **Context**: PIS bakes a VHD from a temporary VM, then boots many real nodes from it. Same model in Windows `parts/windows/kuberneteswindowssetup.ps1.template` (`BasePrep`/`NodePrep`) and Linux `parts/linux/cloud-init/artifacts/cse_main.sh` (`basePrep`/`nodePrep`):
+- **Context**: PIS bakes a VHD from a temporary VM, then boots many real nodes from it. Same model in Windows `parts/windows/kuberneteswindowssetup.ps1.template` (`BasePrep`/`NodePrep`) and Linux `parts/linux/cloud-init/artifacts/provision_main.sh` (`basePrep`/`nodePrep`):
   - `basePrep` — gated only by the `base_prep.complete` marker (`C:\AzureData\` Windows, `/opt/azure/containers/` Linux). **Skipped on PIS real nodes** because the marker is baked into the VHD.
   - `nodePrep` — runs whenever `PreProvisionOnly` is false (every real node); skipped only on the bake VM.
-  - The bake run sets `PreProvisionOnly=true` (`{{GetPreProvisionOnly}}`) and writes the marker after `basePrep` succeeds (Windows `finally`; Linux `cse_start.sh`).
+  - The bake run sets `PreProvisionOnly=true` (`{{GetPreProvisionOnly}}`) and writes the marker after `basePrep` succeeds (Windows `finally`; Linux `provision_start.sh`).
   - On PIS, basePrep and nodePrep are separate VM runs: variables re-initialize from the real node's live CustomData, so `basePrep` in-memory state is gone. (Non-PIS: both run in one execution, no reboot between phases, so state carries — but don't rely on it.)
 - **Breaking signals**:
   - Perishable data written in `basePrep`: TLS bootstrap tokens, any kubeconfig embedding a token (e.g. Windows `Write-BootstrapKubeConfig` → `c:\k\bootstrap-config`), secrets, expiring SAS URLs/creds, per-node identity/name/certs. Baked into the VHD and never refreshed (real nodes skip `basePrep`) → stale. Write it in `nodePrep`.

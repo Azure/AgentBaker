@@ -75,5 +75,5 @@ func resolvePostfixPath(t *testing.T) string {
 	repoBasePath, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
 	assert.NoError(t, err, "unable to determine repo root with git rev-parse")
 	basePath := strings.TrimSpace(string(repoBasePath))
-	return filepath.Join(basePath, artifactsRelPath, "cse_preload.sh")
+	return filepath.Join(basePath, artifactsRelPath, "provision_preload.sh")
 }

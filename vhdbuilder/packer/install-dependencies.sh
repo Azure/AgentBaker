@@ -196,7 +196,7 @@ downloadAndInstallCriTools() {
     return 0
   fi
 
-  # this will call installCriCtlPackage function defined in cse_install_<OS>.sh based on the OS
+  # this will call installCriCtlPackage function defined in provision_install_<OS>.sh based on the OS
   installCriCtlPackage "${version}"
 }
 

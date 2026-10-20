@@ -21,7 +21,7 @@ const (
 	ancLauncherOutput    = "/var/log/azure/aks-node-controller.output"
 
 	// provisionCompletePath and ancNBCCmdMarker cover the provision status the no-op NBC
-	// command has to publish on its own: it bypasses cse_start.sh, which is what normally
+	// command has to publish on its own: it bypasses provision_start.sh, which is what normally
 	// writes both artifacts, and the CSE's provision-wait blocks until provision.complete
 	// appears. The marker goes in provision.json's Output field so the validator can tell
 	// our status apart from one written by any other path. (provisionJSONPath already
@@ -114,7 +114,7 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "aks-node-controller completed successfully"),
 					ValidateANCHotfixBinaryVersion(ctx, s, ancHotfixFlowTargetVersion),
 					// The no-op NBC command publishes the provision status itself, since it
-					// bypasses cse_start.sh which normally writes both artifacts. Without them
+					// bypasses provision_start.sh which normally writes both artifacts. Without them
 					// the CSE's provision-wait never unblocks. Assert the marker rather than
 					// mere existence so a status written by some other path cannot satisfy this.
 					ValidateFileHasContent(ctx, s, provisionJSONPath, ancNBCCmdMarker),

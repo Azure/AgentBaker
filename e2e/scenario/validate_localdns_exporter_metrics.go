@@ -14,7 +14,7 @@ import (
 // and exports the expected VnetDNS and KubeDNS forward IP metrics.
 func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 	// Check if the node has the localdns-exporter label. This label is only set by CSE
-	// when the VHD has localdns-exporter.socket installed (see cse_main.sh). If the label
+	// when the VHD has localdns-exporter.socket installed (see provision_main.sh). If the label
 	// is absent, the VHD predates the exporter feature — skip validation with a warning
 	// so it's visible in test output rather than silently passing.
 	// If the label IS present, the exporter must be fully working — any failure is a real bug.

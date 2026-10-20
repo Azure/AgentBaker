@@ -989,9 +989,9 @@
     },
     {
       "customType": "regex",
-      "description": "update version line in any cse_*.sh",
+      "description": "update version line in any provision_*.sh",
       "managerFilePatterns": [
-        "/^.*cse_.*\\.sh/"
+        "/^.*provision_.*\\.sh/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [

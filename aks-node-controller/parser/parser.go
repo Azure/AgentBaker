@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	//go:embed templates/cse_cmd.sh.gtpl
+	//go:embed templates/provision_cmd.sh.gtpl
 	bootstrapTrigger         string
 	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Funcs(getFuncMap()).Parse(bootstrapTrigger)) //nolint:gochecknoglobals
 

@@ -525,7 +525,7 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 }
 
 // Node Hardening cgroup slice names. AgentBaker is the single
-// source of truth for these values: cse_helpers.sh::ensureKubeletCgroupHierarchy
+// source of truth for these values: provision_helpers.sh::ensureKubeletCgroupHierarchy
 // is what actually creates (or validates) the systemd slice unit on the node, so
 // the name must be decided here rather than accepted verbatim from the RP.
 const (

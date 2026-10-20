@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
 
-source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+source ./parts/linux/cloud-init/artifacts/provision_benchmark_functions.sh
 
 EXPIRATION_IN_HOURS=168 # 7 days
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata

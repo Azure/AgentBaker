@@ -149,77 +149,77 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_install.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_install.sh",
       "destination": "/home/packer/provision_installs.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/provision_install_ubuntu.sh",
       "destination": "/home/packer/provision_installs_distro.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_helpers.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_helpers.sh",
       "destination": "/home/packer/provision_source.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_benchmark_functions.sh",
       "destination": "/home/packer/provision_source_benchmarks.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/provision_helpers_ubuntu.sh",
       "destination": "/home/packer/provision_source_distro.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_config.sh",
       "destination": "/home/packer/provision_configs.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_gpu.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_config_gpu.sh",
       "destination": "/home/packer/provision_configs_gpu.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_localdns.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_config_localdns.sh",
       "destination": "/home/packer/provision_configs_localdns.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_kubelet.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_config_kubelet.sh",
       "destination": "/home/packer/provision_configs_kubelet.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_network.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_config_network.sh",
       "destination": "/home/packer/provision_configs_network.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_config_addons.sh",
       "destination": "/home/packer/provision_configs_addons.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_chrony.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_config_chrony.sh",
       "destination": "/home/packer/provision_configs_chrony.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_main.sh",
       "destination": "/home/packer/provision.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_preload.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_preload.sh",
       "destination": "/home/packer/provision_preload.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_start.sh",
       "destination": "/home/packer/provision_start.sh"
     },
     {
@@ -279,13 +279,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
-      "destination": "/home/packer/cse_redact_cloud_config.py"
+      "source": "parts/linux/cloud-init/artifacts/provision_redact_cloud_config.py",
+      "destination": "/home/packer/provision_redact_cloud_config.py"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_send_logs.py",
-      "destination": "/home/packer/cse_send_logs.py"
+      "source": "parts/linux/cloud-init/artifacts/provision_send_logs.py",
+      "destination": "/home/packer/provision_send_logs.py"
     },
     {
       "type": "file",

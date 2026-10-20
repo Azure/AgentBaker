@@ -24,7 +24,7 @@ Describe 'detachAndCleanUpUA'
     # Strip the build-time template comments, then define the functions and ERR_* constants.
     eval "$(sed 's/{{\/\*[^*]*\*\/}}//g' "${UBUNTU_TOOL_INSTALLS}")"
 
-    # ERR_APT_UPDATE_TIMEOUT is defined in cse_helpers.sh, not in this file. Give it a value so
+    # ERR_APT_UPDATE_TIMEOUT is defined in provision_helpers.sh, not in this file. Give it a value so
     # the final 'apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT' has something to reference.
     ERR_APT_UPDATE_TIMEOUT=25
 

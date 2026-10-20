@@ -181,7 +181,7 @@ func reservedCgroups(enforced []string) (string, string) {
 		}
 	}
 	if kube && system {
-		// Keep aligned with cse_helpers.sh::ensureKubeletCgroupHierarchy.
+		// Keep aligned with provision_helpers.sh::ensureKubeletCgroupHierarchy.
 		return "/kubereserved.slice", "/system.slice"
 	}
 	return "", ""

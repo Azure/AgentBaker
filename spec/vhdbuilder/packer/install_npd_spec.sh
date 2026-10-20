@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'NPD package selection'
-    Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
+    Include ./parts/linux/cloud-init/artifacts/provision_helpers.sh
 
     select_npd_packages() {
         local os="$1" release="$2" package

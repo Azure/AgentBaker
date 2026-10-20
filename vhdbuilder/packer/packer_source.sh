@@ -41,7 +41,7 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   # copyPackerFiles runs in environments where OS_VERSION is not always exported, so
   # relying on it alone made out-of-scope releases (e.g. Ubuntu 26.04) fall through to the
   # default bake path and ship the deny rules. Reading /etc/os-release keeps this gate
-  # consistent with cleanup-vhd.sh and cse_helpers.sh, which detect the release the same way.
+  # consistent with cleanup-vhd.sh and provision_helpers.sh, which detect the release the same way.
   os_version="${OS_VERSION}"
   if [ -z "$os_version" ]; then
     os_version="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || true)"
@@ -357,11 +357,11 @@ copyPackerFiles() {
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
 
-  CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
+  CSE_REDACT_SRC=/home/packer/provision_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 0744
 
-  CSE_SEND_SRC=/home/packer/cse_send_logs.py
+  CSE_SEND_SRC=/home/packer/provision_send_logs.py
   CSE_SEND_DEST=/opt/azure/containers/provision_send_logs.py
   cpAndMode $CSE_SEND_SRC $CSE_SEND_DEST 0744
 

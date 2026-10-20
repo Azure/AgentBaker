@@ -1,0 +1,200 @@
+#!/bin/bash
+
+# PIS nodes skip basePrep. Per-cluster files must be written from provisioning CustomData in
+# nodePrep and must not be captured in the image.
+
+Describe 'provision_main.sh PIS-safe configuration'
+    CSE_MAIN="./parts/linux/cloud-init/artifacts/provision_main.sh"
+
+    phase_body() {
+        awk -v name="${1}" '
+            $0 ~ "^function " name "[[:space:]]*[{]" { inside = 1 }
+            inside { print }
+            inside && /^}/ { exit }
+        ' "${CSE_MAIN}"
+    }
+
+    code_lines() {
+        grep -v '^[[:space:]]*#'
+    }
+
+    phase_count() {
+        phase_body "${1}" | code_lines | grep -c -- "${2}" || true
+    }
+
+    script_count() {
+        code_lines < "${CSE_MAIN}" | grep -c -- "${1}" || true
+    }
+
+    node_prep_event_calls() {
+        phase_body "nodePrep" | code_lines |
+            sed -n 's/^[[:space:]]*logs_to_events "[^"]*" \([A-Za-z_][A-Za-z0-9_]*\).*/\1/p'
+    }
+
+    dispatch_calls() {
+        awk '
+            $0 == "if [ ! -f /opt/azure/containers/base_prep.complete ]; then" { inside = 1 }
+            inside { print }
+        ' "${CSE_MAIN}" |
+            code_lines |
+            grep -E '^if .*base_prep.complete|^[[:space:]]*(basePrep|nodePrep)$|^if .*PRE_PROVISION_ONLY'
+    }
+
+    chrony_dispatch_calls() {
+        awk '
+            /AKS.CSE.configureNodeTimeSync/ { inside = 1 }
+            inside { print }
+        ' "${CSE_MAIN}" |
+            code_lines |
+            grep -E 'AKS.CSE.configureNodeTimeSync|^if .*base_prep.complete|^[[:space:]]*(basePrep|nodePrep)$|^if .*PRE_PROVISION_ONLY'
+    }
+
+    Describe 'cloud provider config and cluster CA'
+        It 'does not write per-cluster files in basePrep'
+            base_prep_counts() {
+                phase_count "basePrep" "configureAzureJson"
+                phase_count "basePrep" "ensureKubeCACert"
+            }
+            When call base_prep_counts
+            The line 1 of output should equal "0"
+            The line 2 of output should equal "0"
+        End
+
+        It 'writes each per-cluster file exactly once in nodePrep'
+            node_prep_counts() {
+                phase_count "nodePrep" "configureAzureJson"
+                phase_count "nodePrep" "ensureKubeCACert"
+            }
+            When call node_prep_counts
+            The line 1 of output should equal "1"
+            The line 2 of output should equal "1"
+        End
+
+        It 'has no duplicate writer elsewhere in the script'
+            writer_totals() {
+                script_count "configureAzureJson"
+                script_count "ensureKubeCACert"
+            }
+            When call writer_totals
+            The line 1 of output should equal "1"
+            The line 2 of output should equal "1"
+        End
+
+        It 'writes azure.json and ca.crt before other nodePrep event calls'
+            When call node_prep_event_calls
+            The line 1 of output should equal "configureAzureJson"
+            The line 2 of output should equal "ensureKubeCACert"
+        End
+
+        It 'writes azure.json before secure TLS bootstrap consumes it'
+            node_prep_order() {
+                phase_body "nodePrep" | code_lines | grep -n -E 'configureAzureJson|configureAndEnableSecureTLSBootstrapping'
+            }
+            When call node_prep_order
+            The line 1 of output should include "configureAzureJson"
+            The line 2 of output should include "configureAndEnableSecureTLSBootstrapping"
+        End
+
+        It 'writes ca.crt before the API server check consumes it'
+            node_prep_order() {
+                phase_body "nodePrep" | code_lines | grep -n -E 'ensureKubeCACert|cacert /etc/kubernetes/certs/ca.crt'
+            }
+            When call node_prep_order
+            The line 1 of output should include "ensureKubeCACert"
+            The line 2 of output should include "cacert /etc/kubernetes/certs/ca.crt"
+        End
+
+        It 'writes azure.json before kubelet starts'
+            node_prep_order() {
+                phase_body "nodePrep" | code_lines | grep -n -E 'configureAzureJson|ensureKubelet$'
+            }
+            When call node_prep_order
+            The line 1 of output should include "configureAzureJson"
+            The line 2 of output should include "ensureKubelet"
+        End
+    End
+
+    Describe 'NVIDIA GPU driver mode'
+        It 'configures managed GPU mode once in nodePrep and never in basePrep'
+            mode_writer_counts() {
+                phase_count "basePrep" "configureManagedGPUExperience"
+                phase_count "nodePrep" "configureManagedGPUExperience"
+                script_count "configureManagedGPUExperience"
+                script_count "configureNvidiaGPUDriverMode"
+            }
+            When call mode_writer_counts
+            The line 1 of output should equal "0"
+            The line 2 of output should equal "1"
+            The line 3 of output should equal "1"
+            The line 4 of output should equal "0"
+        End
+
+        It 'configures the mode after eligibility is resolved and before kubelet startup'
+            mode_writer_order() {
+                phase_body "nodePrep" | code_lines |
+                    grep -E 'skip_nvidia_driver_install=|ENABLE_MANAGED_GPU_EXPERIENCE_DRA=|AKS.CSE.configureManagedGPUExperience|AKS.CSE.ensureKubelet'
+            }
+            When call mode_writer_order
+            The line 1 of output should include 'skip_nvidia_driver_install='
+            The line 2 of output should include 'ENABLE_MANAGED_GPU_EXPERIENCE_DRA='
+            The line 3 of output should include 'AKS.CSE.configureManagedGPUExperience'
+            The line 4 of output should include 'AKS.CSE.ensureKubelet'
+        End
+
+        It 'fails provisioning when the mode cannot be reconciled'
+            mode_writer_call() {
+                phase_body "nodePrep" | code_lines | grep 'AKS.CSE.configureManagedGPUExperience'
+            }
+            When call mode_writer_call
+            The output should include 'configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE'
+        End
+
+        Describe 'ineligible nodes'
+            Parameters
+                false false
+                true true
+            End
+
+            It "skips managed GPU configuration for GPU_NODE=$1 and skip_nvidia_driver_install=$2"
+                GPU_NODE=$1
+                skip_nvidia_driver_install=$2
+                logs_to_events() { echo "$1"; }
+                run_gpu_configuration() {
+                    # The existing GPU guard must skip both hardware setup and
+                    # managed-mode reconciliation on ineligible nodes.
+                    eval "$(phase_body nodePrep | awk '
+                        /# Install and configure GPU drivers if this is a GPU node/ { inside = 1 }
+                        /# Install and configure AMD AMA/ { exit }
+                        inside { print }
+                    ')"
+                }
+
+                When call run_gpu_configuration
+
+                The status should be success
+                The output should equal ''
+            End
+        End
+    End
+
+    Describe 'stage gate'
+        It 'configures Chrony before either provisioning stage'
+            When call chrony_dispatch_calls
+            The line 1 of output should include 'AKS.CSE.configureNodeTimeSync'
+            The line 2 of output should equal 'if [ ! -f /opt/azure/containers/base_prep.complete ]; then'
+            The line 3 of output should equal '    basePrep'
+            The line 4 of output should equal 'if [ "${PRE_PROVISION_ONLY}" != "true" ]; then'
+            The line 5 of output should equal '    nodePrep'
+            The lines of output should equal 5
+        End
+
+        It 'skips basePrep for cached images and nodePrep for image creation'
+            When call dispatch_calls
+            The line 1 of output should equal 'if [ ! -f /opt/azure/containers/base_prep.complete ]; then'
+            The line 2 of output should equal '    basePrep'
+            The line 3 of output should equal 'if [ "${PRE_PROVISION_ONLY}" != "true" ]; then'
+            The line 4 of output should equal '    nodePrep'
+            The lines of output should equal 4
+        End
+    End
+End

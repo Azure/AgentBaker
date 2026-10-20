@@ -669,7 +669,7 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 		executionMarker   = "/opt/azure/containers/e2e-script-hotfix-executed"
 	)
 	marker := fmt.Sprintf("EMBEDDED_SCRIPT_HOTFIX_%d", time.Now().UnixNano())
-	payload, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/cse_config.sh"))
+	payload, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/provision_config.sh"))
 	if err != nil {
 		panic(fmt.Sprintf("read hotfix payload: %v", err))
 	}
@@ -687,7 +687,7 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 	}}
 	// Older VHDs do not have the modules sourced by the current provision config.
 	for _, suffix := range []string{"gpu", "localdns", "kubelet", "network", "addons", "chrony"} {
-		name := "cse_config_" + suffix + ".sh"
+		name := "provision_config_" + suffix + ".sh"
 		module, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/" + name))
 		if err != nil {
 			panic(fmt.Sprintf("read hotfix module %s: %v", name, err))

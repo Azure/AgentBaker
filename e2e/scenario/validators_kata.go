@@ -185,7 +185,7 @@ func ValidateKataHostReadiness(ctx context.Context, s *Scenario) error {
 
 	// Kata VHDs deliberately opt out of automatic package updates even when unattended upgrades
 	// are enabled, because kata packages must be updated as a unit (including the kernel, which
-	// requires a reboot). See the IS_KATA branch in parts/linux/cloud-init/artifacts/cse_main.sh.
+	// requires a reboot). See the IS_KATA branch in parts/linux/cloud-init/artifacts/provision_main.sh.
 	// The scenario leaves unattended upgrades enabled so this branch is genuinely exercised.
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 		"systemctl is-enabled dnf-automatic-install.timer", 1,

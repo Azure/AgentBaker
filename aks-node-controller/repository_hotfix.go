@@ -492,7 +492,7 @@ func (a *App) downloadRepositoryFileOnce(
 	// NewBaseTransport defaults to Proxy: nil, which is right for the IMDS/LPS callers that
 	// must not be proxied. Repository traffic goes to PMC over the internet, so on
 	// proxy-only clusters a direct dial just burns the request timeout before falling back
-	// to apt/dnf. cse_main.sh exports HTTP(S)_PROXY/NO_PROXY into ANC's environment, and the
+	// to apt/dnf. provision_main.sh exports HTTP(S)_PROXY/NO_PROXY into ANC's environment, and the
 	// redirect and origin checks below still apply to whatever the proxy returns.
 	//
 	// httpproxy rather than http.ProxyFromEnvironment: the latter snapshots the environment

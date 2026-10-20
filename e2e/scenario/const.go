@@ -33,7 +33,7 @@ const (
 const cseExtensionName = "vmssCSE"
 
 // cseExitCodeOutboundConnFail is the CSE exit code for ERR_OUTBOUND_CONN_FAIL
-// (see parts/linux/cloud-init/artifacts/cse_helpers.sh). It indicates the node's
+// (see parts/linux/cloud-init/artifacts/provision_helpers.sh). It indicates the node's
 // outbound connectivity preflight check (curl to mcr.microsoft.com, optionally routed
 // through the e2e HTTP proxy) failed all retries and the script exited before kubelet
 // started. In the e2e environment this is a known low-rate transient infrastructure

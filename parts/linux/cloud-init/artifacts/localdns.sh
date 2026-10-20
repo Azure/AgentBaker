@@ -5,8 +5,8 @@ set -euo pipefail
 # This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries.
 # It also upgrades to TCP for better reliability of upstream connections.
 
-# Also defined in cse_helper file. Not sourcing the entire cse_helper file here.
-# These exit codes will be handled in cse_config file.
+# Also defined in provision_helpers.sh. Not sourcing the entire file here.
+# These exit codes will be handled in provision_config.sh.
 ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
 ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
@@ -1232,7 +1232,7 @@ trap 'echo "Error occurred. Cleaning up..."; cleanup_localdns_configs; exit $ERR
 # runs IN-PROCESS on every stop, where previously bash died first and only ExecStopPost ran.
 # A stop takes 5-6s instead of being immediate -- essentially all of it LOCALDNS_SHUTDOWN_DELAY
 # draining connections before CoreDNS is SIGINTed -- against the 'timeout 30' bound that
-# _systemctl_retry_svc_operation (cse_helpers.sh) puts on a restart, leaving ~22-24s of headroom.
+# _systemctl_retry_svc_operation (provision_helpers.sh) puts on a restart, leaving ~22-24s of headroom.
 # It does not affect the restart-budget cycle math: the worst cycle is a hung start, where this
 # trap cannot run at all because bash defers a trapped signal until the foreground command
 # returns, so systemd spends the full TimeoutStopSec regardless.

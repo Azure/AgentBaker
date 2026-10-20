@@ -2,7 +2,7 @@
 set -e
 # avoid using set -x in this pipeline as you'll end up logging a sensitive access token down below.
 
-source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+source ./parts/linux/cloud-init/artifacts/provision_benchmark_functions.sh
 
 required_env_vars=(
     "AZURE_MSI_RESOURCE_STRING"
