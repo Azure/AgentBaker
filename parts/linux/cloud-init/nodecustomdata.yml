@@ -34,18 +34,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
 {{end}}
 
-
-# ---- hotfix-scripts: auto-generated ----
-{{if IsAKSCustomCloud}}
-- path: {{GetInitAKSCloudFilepath}}
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
-{{end}}
-
-# ---- end hotfix-scripts ----
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
