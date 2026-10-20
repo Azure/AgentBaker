@@ -109,6 +109,13 @@ function Test-WindowsExporterAssets {
         return 'NotBaked'
     }
 
+    # Without the skip marker aks-vm-extension may still manage the service, so
+    # CSE must not take ownership.
+    if (-not (Test-Path $global:WindowsExporterSkipFile)) {
+        Write-Log "windows-exporter assets marker is present but the extension skip marker is missing at $($global:WindowsExporterSkipFile)"
+        return 'Invalid'
+    }
+
     if (-not (Test-Path $global:WindowsExporterBinary)) {
         Write-Log "windows-exporter assets marker is present but binary is missing at $($global:WindowsExporterBinary)"
         return 'Invalid'
