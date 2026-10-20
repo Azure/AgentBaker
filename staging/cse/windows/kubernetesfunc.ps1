@@ -409,8 +409,9 @@ function Get-CACertificates {
             foreach ($certificate in $caCerts.Certificates) {
                 $resourceFileName = [string]$certificate.Name
                 $sanitizedFileName = [IO.Path]::GetFileName($resourceFileName)
-                if ($sanitizedFileName -ne $resourceFileName) {
-                    Write-Log "Warning: rejecting certificate filename with path separators: $resourceFileName"
+                if ($sanitizedFileName -ne $resourceFileName -or [string]::IsNullOrEmpty($sanitizedFileName) -or
+                    $sanitizedFileName -in @('.', '..')) {
+                    Write-Log "Warning: rejecting certificate filename (empty, path separators, or traversal): '$resourceFileName'"
                     continue
                 }
                 $certFilePath = Join-Path $caFolder $sanitizedFileName
@@ -459,16 +460,13 @@ function Get-CACertificates {
             }
 
             foreach ($operation in $operationJson.OperationsInfo) {
-                $resourceFileName = $operation.ResouceFileName
-                if ([string]::IsNullOrEmpty($resourceFileName)) {
-                    continue
-                }
+                $resourceFileName = [string]$operation.ResouceFileName
 
-                # Defense-in-depth: sanitize filename to a basename to prevent path
-                # traversal if wireserver ever returns a value containing path separators.
+                # Reject path components and special directory names before downloading.
                 $sanitizedFileName = [IO.Path]::GetFileName($resourceFileName)
-                if ($sanitizedFileName -ne $resourceFileName) {
-                    Write-Log "Warning: rejecting certificate filename with path separators: $resourceFileName"
+                if ($sanitizedFileName -ne $resourceFileName -or [string]::IsNullOrEmpty($sanitizedFileName) -or
+                    $sanitizedFileName -in @('.', '..')) {
+                    Write-Log "Warning: rejecting certificate filename (empty, path separators, or traversal): '$resourceFileName'"
                     continue
                 }
                 $resourceFileName = $sanitizedFileName

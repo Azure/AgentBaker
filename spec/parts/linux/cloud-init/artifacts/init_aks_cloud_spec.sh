@@ -8,6 +8,7 @@
 #    - repo-depot helpers (init_ubuntu_main_repo_depot, init_ubuntu_pmc_repo_depot,
 #      init_mariner_repo_depot, init_azurelinux_repo_depot, check_url)
 #    - cloud mode selection helper (determine_cert_endpoint_mode)
+#    - legacy certificate filename validation (retrieve_legacy_certs)
 
 Describe 'init-aks-cloud.sh refresh mode wiring'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
@@ -96,6 +97,79 @@ Describe 'cse_config_chrony.sh distro routing'
         The line 2 of output should include 'AKS.CSE.configureChronyTDX'
         The line 3 of output should include 'AKS.CSE.verifyChronyNTPSync'
         The lines of output should equal 3
+    End
+End
+
+Describe 'init-aks-cloud.sh legacy certificate filenames'
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        CERT_DIR="${TEST_DIR}/staging/certs"
+        mkdir -p "$CERT_DIR"
+        # Relocate writes without changing the filename validation under test.
+        # shellcheck disable=SC1090
+        __SOURCED__=1 . <(sed "s|/root/AzureCACertificates|${CERT_DIR}|g" \
+            ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh)
+        make_request_with_retry() {
+            printf '%s\n' "$RESPONSE_BODY"
+        }
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach 'setup'
+    AfterEach 'cleanup'
+
+    retrieve_and_list_files() {
+        retrieve_legacy_certs
+        find "$TEST_DIR" -type f
+    }
+
+    Describe 'invalid filenames'
+        Parameters:value '../escape.cer' '../../escape.cer' './escape.cer' \
+            'nested/escape.cer' 'nested/' '.' '..' '' 'absolute'
+
+        It "rejects '$1' with a warning and writes no files"
+            cert_name="$1"
+            if [ "$cert_name" = absolute ]; then
+                cert_name="${TEST_DIR}/escape.cer"
+            fi
+            RESPONSE_BODY=$(printf '{"Certificates": [{"Name": "%s", "CertBody": "rejected-body"}]}' "$cert_name")
+            expected_name=$(printf '%s\n' "$cert_name" | sed 's/.cer/.crt/g')
+
+            When call retrieve_and_list_files
+            The status should be success
+            The stdout should eq "Warning: rejecting certificate filename with path separators or traversal: '$expected_name'"
+            The stderr should be blank
+        End
+    End
+
+    Describe 'valid filenames'
+        Parameters
+            'legacy.cer' 'legacy.crt'
+            'legacy.crt' 'legacy.crt'
+            'legacy root.cer' 'legacy root.crt'
+            '-legacy.cer' '-legacy.crt'
+        End
+
+        It "writes '$1' as '$2' and decodes the certificate body"
+            RESPONSE_BODY=$(printf '{"Certificates": [{"Name": "%s", "CertBody": "-----BEGIN CERTIFICATE-----\\r\\nsynthetic-body\\r\\n-----END CERTIFICATE-----"}]}' "$1")
+
+            When call retrieve_legacy_certs
+            The status should be success
+            The stdout should be blank
+            The stderr should be blank
+            The contents of file "${CERT_DIR}/$2" should eq $'-----BEGIN CERTIFICATE-----\nsynthetic-body\n-----END CERTIFICATE-----'
+        End
+    End
+
+    It 'continues after a rejected filename without mixing up certificate bodies'
+        RESPONSE_BODY='{"Certificates": [{"Name": "../escape.cer", "CertBody": "rejected-body"}, {"Name": "valid.cer", "CertBody": "valid-body"}]}'
+
+        When call retrieve_and_list_files
+        The status should be success
+        The line 1 of stdout should eq "Warning: rejecting certificate filename with path separators or traversal: '../escape.crt'"
+        The line 2 of stdout should eq "${CERT_DIR}/valid.crt"
+        The lines of stdout should eq 2
+        The stderr should be blank
+        The contents of file "${CERT_DIR}/valid.crt" should eq 'valid-body'
     End
 End
 

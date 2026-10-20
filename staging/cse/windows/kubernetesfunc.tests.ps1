@@ -319,6 +319,90 @@ Describe 'Get-CACertificates' {
         }
     }
 
+    It 'rejects legacy filename <Name> before writing or importing it' -TestCases @(
+        @{ Name = '' }
+        @{ Name = '.' }
+        @{ Name = '..' }
+        @{ Name = $null }
+        @{ Name = '../escape.crt' }
+        @{ Name = './escape.crt' }
+        @{ Name = 'nested/escape.crt' }
+        @{ Name = '/escape.crt' }
+        @{ Name = 'nested/' }
+        @{ Name = '..\escape.crt'; WindowsOnly = $true }
+        @{ Name = '.\escape.crt'; WindowsOnly = $true }
+        @{ Name = 'nested\escape.crt'; WindowsOnly = $true }
+        @{ Name = 'C:\escape.crt'; WindowsOnly = $true }
+        @{ Name = '\\server\share\escape.crt'; WindowsOnly = $true }
+        @{ Name = 'nested\'; WindowsOnly = $true }
+    ) {
+        param($Name, $WindowsOnly = $false)
+        if ($WindowsOnly -and [IO.Path]::DirectorySeparatorChar -ne '\') {
+            Set-ItResult -Skipped -Because 'Backslash is a path separator only on Windows'
+            return
+        }
+        $script:legacyResponse = @{
+            Certificates = @(@{ Name = $Name; CertBody = 'rejected-body' })
+        } | ConvertTo-Json -Depth 4
+        Mock Invoke-CACertificatesRequest -MockWith {
+            return [PSCustomObject]@{ Content = $script:legacyResponse }
+        }
+        Mock Out-File
+
+        Get-CACertificates -Location 'ussecwest' -FailOnError -InformationVariable logs 6>$null | Should -Be $true
+
+        ($logs -join "`n") | Should -Match ([regex]::Escape("Warning: rejecting certificate filename (empty, path separators, or traversal): '$Name'"))
+        Assert-MockCalled Join-Path -Exactly -Times 0 -ParameterFilter { $Path -eq 'C:\ca' }
+        Assert-MockCalled Out-File -Exactly -Times 0
+        Assert-MockCalled Import-Certificate -Exactly -Times 0
+    }
+
+    It 'preserves valid legacy filename <Name> and its certificate body' -TestCases @(
+        @{ Name = 'legacy.cer' }
+        @{ Name = 'legacy root.crt' }
+        @{ Name = '-legacy.crt' }
+    ) {
+        param($Name)
+        $script:legacyResponse = @{
+            Certificates = @(@{ Name = $Name; CertBody = 'valid-body' })
+        } | ConvertTo-Json -Depth 4
+        Mock Invoke-CACertificatesRequest -MockWith {
+            return [PSCustomObject]@{ Content = $script:legacyResponse }
+        }
+
+        Get-CACertificates -Location 'ussecwest' | Should -Be $true
+
+        $expectedPath = Join-Path $TestDrive $Name
+        Get-Content -LiteralPath $expectedPath -Raw | Should -Be "valid-body$([Environment]::NewLine)"
+        Assert-MockCalled Import-Certificate -Exactly -Times 1
+        Assert-MockCalled Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq $expectedPath -and $CertStoreLocation -eq 'Cert:\LocalMachine\Root'
+        }
+    }
+
+    It 'continues importing valid legacy certificates after rejecting a filename' {
+        Mock Invoke-CACertificatesRequest -MockWith {
+            return [PSCustomObject]@{
+                Content = '{"Certificates":[{"Name":"../escape.crt","CertBody":"rejected-body"},{"Name":"","CertBody":"empty-name"},{"Name":".","CertBody":"dot-name"},{"Name":"..","CertBody":"parent-name"},{"Name":"valid.crt","CertBody":"valid-body"}]}'
+            }
+        }
+        Mock Join-Path -ParameterFilter { $Path -eq 'C:\ca' -and $ChildPath -ne 'valid.crt' } -MockWith {
+            throw 'Rejected certificates must not be written'
+        }
+
+        Get-CACertificates -Location 'ussecwest' -FailOnError -InformationVariable logs 6>$null | Should -Be $true
+
+        ($logs -join "`n") | Should -Match 'rejecting certificate filename'
+        ($logs -join "`n") | Should -Match 'refresh completed: imported 1 certificates'
+        Get-Content -LiteralPath (Join-Path $TestDrive 'valid.crt') | Should -Be 'valid-body'
+        Assert-MockCalled Join-Path -Exactly -Times 1 -ParameterFilter { $Path -eq 'C:\ca' }
+        Assert-MockCalled Join-Path -Exactly -Times 1 -ParameterFilter { $Path -eq 'C:\ca' -and $ChildPath -eq 'valid.crt' }
+        Assert-MockCalled Import-Certificate -Exactly -Times 1
+        Assert-MockCalled Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq (Join-Path $TestDrive 'valid.crt') -and $CertStoreLocation -eq 'Cert:\LocalMachine\Root'
+        }
+    }
+
     It 'imports rcv1p root and intermediate certificates into their LocalMachine stores' {
         Mock Invoke-CACertificatesRequest -MockWith {
             param($Command, $Args, $Retries, $RetryDelaySeconds)
@@ -556,10 +640,39 @@ Describe 'CA refresh logging' {
         $output = @(Get-CACertificates -Location 'southcentralus' 6>&1)
 
         $output[-1] | Should -Be $true
-        ($output -join "`n") | Should -Match 'Warning: rejecting certificate filename with path separators: ../rejected.crt'
+        ($output -join "`n") | Should -Match ([regex]::Escape("Warning: rejecting certificate filename (empty, path separators, or traversal): '../rejected.crt'"))
         ($output -join "`n") | Should -Match 'imported 1 certificates[.]'
         Assert-MockCalled Invoke-WebRequest -Exactly -Times 4
         Assert-MockCalled Import-Certificate -Exactly -Times 1
+    }
+
+    It 'rejects rcv1p filename <Name> in both stores and continues with valid certificates' -TestCases @(
+        @{ Name = '' }
+        @{ Name = '.' }
+        @{ Name = '..' }
+        @{ Name = $null }
+    ) {
+        param($Name)
+        $script:rootResources = @($Name, 'root.crt')
+        $script:intermediateResources = @($Name, 'intermediate.crt')
+
+        Get-CACertificates -Location 'southcentralus' -FailOnError -InformationVariable logs 6>$null | Should -Be $true
+
+        $warning = "Warning: rejecting certificate filename (empty, path separators, or traversal): '$Name'"
+        @($logs | Where-Object { "$_".Contains($warning) }).Count | Should -Be 2
+        ($logs -join "`n") | Should -Match 'refresh completed: imported 2 certificates'
+        Assert-MockCalled Invoke-WebRequest -Exactly -Times 5
+        Assert-MockCalled Join-Path -Exactly -Times 2 -ParameterFilter { $Path -eq 'C:\ca' }
+        Assert-MockCalled Join-Path -Exactly -Times 0 -ParameterFilter {
+            $Path -eq 'C:\ca' -and $ChildPath -notin @('root.crt', 'intermediate.crt')
+        }
+        Assert-MockCalled Import-Certificate -Exactly -Times 2
+        Assert-MockCalled Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq (Join-Path $TestDrive 'root.crt') -and $CertStoreLocation -eq 'Cert:\LocalMachine\Root'
+        }
+        Assert-MockCalled Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq (Join-Path $TestDrive 'intermediate.crt') -and $CertStoreLocation -eq 'Cert:\LocalMachine\CA'
+        }
     }
 
     It 'does not emit a completion message if an import fails after an earlier successful import' {
