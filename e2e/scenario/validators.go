@@ -96,6 +96,8 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 	}
 	if s.RemoveBoostrapKubeconfig() {
 		errs = append(errs, ValidateFileDoesNotExist(ctx, s, "/var/lib/kubelet/bootstrap-kubeconfig"))
+	} else {
+		errs = append(errs, ValidateFileExists(ctx, s, "/var/lib/kubelet/bootstrap-kubeconfig"))
 	}
 	errs = append(errs,
 		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"}),
