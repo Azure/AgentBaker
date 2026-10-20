@@ -2,6 +2,7 @@ BeforeAll {
     . "$PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1"
     . "$PSScriptRoot\sshfunc.ps1"
 
+    function Write-Log {}
     function Get-Service { [CmdletBinding()] param() }
     function Set-Service { [CmdletBinding()] param($Name, $StartupType) }
     function Stop-Service { [CmdletBinding()] param($Name) }
@@ -17,7 +18,6 @@ Describe 'Install-OpenSSH' {
     BeforeEach {
         $script:sshActions = @()
         $script:icaclsCallCount = 0
-        Mock Write-Log
         Mock Logs-To-Event
         Mock Get-Service { [PSCustomObject]@{ Name = 'sshd'; Status = 'Running'; StartType = 'Automatic' } }
         Mock Set-Service { $script:sshActions += "Set:$StartupType" }
