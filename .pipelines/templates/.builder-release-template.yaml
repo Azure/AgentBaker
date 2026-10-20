@@ -8,6 +8,9 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: kataCC
+    type: boolean
+    default: false
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -62,6 +65,27 @@ steps:
         **/kata-containers.img**
         **/kata-containers-version.txt
       downloadPath: $(Build.SourcesDirectory)
+
+  - ${{ if eq(parameters.kataCC, true) }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download signed Kata-CC payload for AZL3
+      inputs:
+        source: specific
+        project: CloudNativeCompute
+        pipeline: 318279
+        buildVersionToDownload: latestFromBranch
+        branchName: refs/heads/master
+        allowPartiallySucceededBuilds: false
+        allowFailedBuilds: false
+        artifactName: drop_container_job_sign_uvm_azl3
+        itemPattern: |
+          **/kata-containers.img
+          **/kata-containers-cc.img
+          **/kata-containers-igvm.img
+          **/kata-containers-igvm-debug.img
+          **/igvm-measurement.cose
+          **/reference-info-base64
+        downloadPath: $(Build.SourcesDirectory)/kata-cc
 
   - bash: |
       set -euo pipefail
