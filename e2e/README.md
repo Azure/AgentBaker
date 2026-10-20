@@ -16,23 +16,6 @@ From a high-level, for each scenario,
 3. Liveness and health checks and then run to make sure the new VM's kubelet is posting NodeReady, and that workload
    pods can successfully be scheduled and run on the new node.
 
-### VHD image metadata
-
-The Linux VHD release pipeline publishes E2E image metadata after the image-publication
-steps. All builds retain their original captured-image entry. Ubuntu and Azure Linux
-CVM builds also attempt generalized gallery publication for AgentBaker E2Es when
-prefetch runs (`GENERATE_PUBLISHING_INFO`, `RUN_PREFETCH_OPTIMIZATION`, and
-`PREFETCH_COMPATIBLE` are all true). Metadata then adds a generalized entry keyed by
-`SKU_NAME`, using the actual resource ID and completed replica regions read from Azure.
-Publication is best-effort: missing or unready generalized versions produce warnings
-and are omitted without failing the VHD build. Prefetch resources are cleaned up only
-after the immutable VHD copy and any required gallery publication succeed. On gallery failure,
-the Image Builder source is retained; rerunning prefetch retries gallery publication
-without recopying an already-published VHD. Non-prefetch builds do not query or
-advertise generalized versions, even if an older version exists. Metadata-backed E2Es
-skip missing CVM images when `IgnoreScenariosWithMissingVhd` is enabled; otherwise
-image selection fails. Production VHD output and ACL/non-CVM metadata are unchanged.
-
 ## Writing and extending scenarios
 
 Extend an existing scenario's `Validator` when its node has the required settings.
