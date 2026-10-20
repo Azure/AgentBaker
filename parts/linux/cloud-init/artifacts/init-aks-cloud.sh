@@ -648,60 +648,35 @@ fi
 # - init (default): full provisioning path
 # - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
 action=${1:-init}
-if [ "$action" = "init" ]; then
-    rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-    if [ -z "$rootRepoDepotEndpoint" ]; then
-        echo "repo depot endpoint empty, skipping repodepot initialization"
-    else
-        if [ "$IS_UBUNTU" -eq 1 ]; then
-            ubuntuRel=$(lsb_release --release | awk '{print $2}')
-            ubuntuDist=$(lsb_release -c | awk '{print $2}')
-            init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
-            init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
-            echo "Running apt-get update"
-            aptget_update
-        elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-            if [ "$IS_MARINER" -eq 1 ]; then
-                echo "Initializing Mariner repo depot settings..."
-                init_mariner_repo_depot ${rootRepoDepotEndpoint}
-            else
-                echo "Initializing Azure Linux repo depot settings..."
-                init_azurelinux_repo_depot ${rootRepoDepotEndpoint}
-            fi
-            echo "Running dnf_makecache"
-            dnf_makecache
-        fi
-    fi
-fi
-
-if [ "$action" = "ca-refresh" ] || [ "$install_ca_refresh_schedule" -eq 0 ]; then
+if [ "$action" = "ca-refresh" ]; then
     exit 0
 fi
 
-if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-    scriptPath=$0
-    # Determine an absolute, canonical path to this script for use in cron.
-    if command -v readlink >/dev/null 2>&1; then
-        # Use readlink -f when available to resolve the canonical path; fall back to $0 on error.
-        scriptPath="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
-    fi
+if [ "$install_ca_refresh_schedule" -eq 1 ]; then
+    if [ "$IS_UBUNTU" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
+        scriptPath=$0
+        # Determine an absolute, canonical path to this script for use in cron.
+        if command -v readlink >/dev/null 2>&1; then
+            # Use readlink -f when available to resolve the canonical path; fall back to $0 on error.
+            scriptPath="$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")"
+        fi
 
-    # Remove any existing ca-refresh entry for this script (may lack the location argument
-    # from older VHDs on custom clouds like AGC/Delos) and re-add with the explicit location.
-    # Without the location argument, ca-refresh defaults endpoint mode to rcv1p which is
-    # wrong for ussec/usnat legacy environments.
-    new_entry="0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\""
-    existing=$(crontab -l 2>/dev/null || true)
-    filtered=$(printf '%s\n' "$existing" | grep -F -v "\"$scriptPath\" ca-refresh" || true)
-    if ! (printf '%s\n' "$filtered"; printf '%s\n' "$new_entry") | sed '/^$/d' | crontab -; then
-        echo "Failed to install ca-refresh cron job via crontab" >&2
-    fi
-elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
-    script_path="$(readlink -f "$0")"
-    svc="/etc/systemd/system/azure-ca-refresh.service"
-    tmr="/etc/systemd/system/azure-ca-refresh.timer"
+        # Remove any existing ca-refresh entry for this script (may lack the location argument
+        # from older VHDs on custom clouds like AGC/Delos) and re-add with the explicit location.
+        # Without the location argument, ca-refresh defaults endpoint mode to rcv1p which is
+        # wrong for ussec/usnat legacy environments.
+        new_entry="0 19 * * * \"$scriptPath\" ca-refresh \"$LOCATION\""
+        existing=$(crontab -l 2>/dev/null || true)
+        filtered=$(printf '%s\n' "$existing" | grep -F -v "\"$scriptPath\" ca-refresh" || true)
+        if ! (printf '%s\n' "$filtered"; printf '%s\n' "$new_entry") | sed '/^$/d' | crontab -; then
+            echo "Failed to install ca-refresh cron job via crontab" >&2
+        fi
+    elif [ "$IS_FLATCAR" -eq 1 ] || [ "$IS_ACL" -eq 1 ]; then
+        script_path="$(readlink -f "$0")"
+        svc="/etc/systemd/system/azure-ca-refresh.service"
+        tmr="/etc/systemd/system/azure-ca-refresh.timer"
 
-    cat >"$svc" <<EOF
+        cat >"$svc" <<EOF
 [Unit]
 Description=Refresh Azure Custom Cloud CA certificates
 After=network-online.target
@@ -725,8 +700,36 @@ RandomizedDelaySec=300
 WantedBy=timers.target
 EOF
 
-    systemctl daemon-reload
-    systemctl enable --now azure-ca-refresh.timer
+        systemctl daemon-reload
+        systemctl enable --now azure-ca-refresh.timer || exit $?
+    fi
+fi
+
+if [ "$action" = "init" ]; then
+    rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
+    if [ -z "$rootRepoDepotEndpoint" ]; then
+        echo "repo depot endpoint empty, skipping repodepot initialization"
+    else
+        # Cache helpers report failures; keep them non-fatal as before.
+        if [ "$IS_UBUNTU" -eq 1 ]; then
+            ubuntuRel=$(lsb_release --release | awk '{print $2}')
+            ubuntuDist=$(lsb_release -c | awk '{print $2}')
+            init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
+            init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
+            echo "Running apt-get update"
+            aptget_update || true
+        elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
+            if [ "$IS_MARINER" -eq 1 ]; then
+                echo "Initializing Mariner repo depot settings..."
+                init_mariner_repo_depot ${rootRepoDepotEndpoint}
+            else
+                echo "Initializing Azure Linux repo depot settings..."
+                init_azurelinux_repo_depot ${rootRepoDepotEndpoint}
+            fi
+            echo "Running dnf_makecache"
+            dnf_makecache || true
+        fi
+    fi
 fi
 
 #EOF

@@ -4,7 +4,7 @@
 #
 # Covers three areas:
 # 1. Structural wiring tests (grep-based) for the ca-refresh mode added by #8096.
-# 2. Repo initialization dispatch, independent of certificate refresh scheduling.
+# 2. Independent repo initialization and certificate refresh scheduling.
 # 3. Functional tests that source the script and exercise:
 #    - repo-depot helpers (init_ubuntu_main_repo_depot, init_ubuntu_pmc_repo_depot,
 #      init_mariner_repo_depot, init_azurelinux_repo_depot, check_url)
@@ -44,12 +44,12 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 
     It 'gates refresh schedule installation on install_ca_refresh_schedule'
-        When run grep -Eq '\[ "\$install_ca_refresh_schedule" -eq 0 \]' "$script_path"
+        When run grep -Eq '^if \[ "\$install_ca_refresh_schedule" -eq 1 \]; then$' "$script_path"
         The status should eq 0
     End
 
     It 'checks for ca-refresh mode after certificate refresh logic'
-        When run grep -Eq '^if \[ "\$action" = "ca-refresh" \] \|\| \[ "\$install_ca_refresh_schedule" -eq 0 \]; then$' "$script_path"
+        When run grep -Eq '^if \[ "\$action" = "ca-refresh" \]; then$' "$script_path"
         The status should eq 0
     End
 
@@ -81,16 +81,29 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
         IS_UBUNTU=0
         IS_MARINER=0
         IS_AZURELINUX=0
+        IS_FLATCAR=0
+        IS_ACL=0
         install_ca_refresh_schedule=0
         REPO_DEPOT_ENDPOINT='https://repodepot.example.com/ubuntu'
+        LOCATION='example-region'
     }
     BeforeEach 'setup_repo_dispatch'
 
     run_repo_dispatch() {
-        # Run the actual action dispatch and early-exit guard, but not host scheduling.
-        . <(sed -n '/^action=/,/^if \[ "\$IS_UBUNTU"/p' "$script_path" | sed '$d') "$@"
-        echo 'refresh scheduling reached'
+        . <(sed -n '/^action=/,$p' "$script_path") "$@"
     }
+
+    Mock readlink
+        echo '/opt/azure/containers/init-aks-cloud.sh'
+    End
+
+    Mock crontab
+        if [ "$1" = "-l" ]; then
+            exit 0
+        fi
+        cat > /dev/null
+        echo 'refresh schedule installed'
+    End
 
     Mock lsb_release
         case "$1" in
@@ -136,7 +149,7 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
         The output should include 'ubuntu-pmc https://repodepot.example.com'
         The output should include 'apt update'
         The output should not include 'dnf cache'
-        The output should not include 'refresh scheduling reached'
+        The output should not include 'refresh schedule installed'
         The status should be success
     End
 
@@ -160,9 +173,9 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
             The output should include "$4 https://repodepot.example.com"
             The output should include "$5"
             if [ "$6" -eq 1 ]; then
-                The output should include 'refresh scheduling reached'
+                The line 1 of output should equal 'refresh schedule installed'
             else
-                The output should not include 'refresh scheduling reached'
+                The output should not include 'refresh schedule installed'
             fi
             The status should be success
         End
@@ -186,19 +199,30 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
 
     Describe 'empty endpoint'
         Parameters
-            1 0 0
-            0 1 0
-            0 0 1
+            1 0 0 0
+            1 0 0 1
+            0 1 0 0
+            0 1 0 1
+            0 0 1 0
+            0 0 1 1
         End
 
         It 'skips repo initialization and package cache updates'
             IS_UBUNTU=$1
             IS_MARINER=$2
             IS_AZURELINUX=$3
+            install_ca_refresh_schedule=$4
             REPO_DEPOT_ENDPOINT=''
 
             When run run_repo_dispatch init
-            The output should equal 'repo depot endpoint empty, skipping repodepot initialization'
+            if [ "$4" -eq 1 ]; then
+                The line 1 of output should equal 'refresh schedule installed'
+            else
+                The output should not include 'refresh schedule installed'
+            fi
+            The output should include 'repo depot endpoint empty, skipping repodepot initialization'
+            The output should not include 'apt update'
+            The output should not include 'dnf cache'
             The status should be success
         End
     End
@@ -219,7 +243,7 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
             run_repo_dispatch init
         }
 
-        It 'continues to refresh scheduling only for eligible nodes after cache failure'
+        It 'preserves eligible nodes refresh scheduling despite cache failure'
             IS_UBUNTU=$1
             IS_MARINER=$2
             IS_AZURELINUX=$3
@@ -228,11 +252,42 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
             When run run_failed_repo_dispatch
             The output should be present
             if [ "$4" -eq 1 ]; then
-                The output should include 'refresh scheduling reached'
+                The line 1 of output should equal 'refresh schedule installed'
             else
-                The output should not include 'refresh scheduling reached'
+                The output should not include 'refresh schedule installed'
             fi
             The status should be success
+        End
+    End
+
+    Describe 'fatal repository URL failure'
+        Parameters
+            0
+            1
+        End
+
+        Mock curl
+            exit 7
+        End
+
+        run_repo_url_failure() {
+            . <(sed -n '/^function check_url {$/,/^}$/p; /^function init_ubuntu_pmc_repo_depot {$/,/^}$/p' "$script_path")
+            run_repo_dispatch init
+        }
+
+        It 'registers refresh for eligible nodes before a repository helper exits'
+            IS_UBUNTU=1
+            install_ca_refresh_schedule=$1
+
+            When run run_repo_url_failure
+            if [ "$1" -eq 1 ]; then
+                The line 1 of output should equal 'refresh schedule installed'
+            else
+                The output should not include 'refresh schedule installed'
+            fi
+            The output should include 'event AKS.CSE.customCloudRepoInit.checkUrlFailed'
+            The output should not include 'apt update'
+            The status should eq 1
         End
     End
 End
