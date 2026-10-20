@@ -1,22 +1,26 @@
 <#
 .SYNOPSIS
-    Installs and starts the aks-windows-exporter service using assets baked into the VHD.
+    Registers and starts the aks-windows-exporter service using assets baked into the VHD.
 
 .DESCRIPTION
     Migrated from aks-vm-extension (see aks-windows-node-vm-extension/entrypoint.ps1).
-    Registers windows-exporter.exe as the Windows service "aks-windows-exporter" via NSSM,
+    Runs windows-exporter.exe as the Windows service "aks-windows-exporter" via NSSM,
     matching the service name, log paths, and NSSM settings the extension
     used so existing customer dashboards/alerts continue to work.
 
-    The function is guarded so it is a no-op when running on a VHD that does not carry
-    the exporter assets. In that case the aks-vm-extension install path continues to
-    handle the service (dual-mode coexistence).
+    Lifecycle:
+    - VHD build stages the binary, config, health script, the assets marker, and
+      C:\k\skip_vhd_windows_exporter (which disables the aks-vm-extension path).
+    - BasePrep (Register-WindowsExporter) registers the service disabled once
+      nssm.exe is available, so PIS-cached images carry a registered service that
+      cannot start before the node is provisioned.
+    - NodePrep (Enable-WindowsExporter) sets the service to auto start, starts it,
+      and checks its health. It registers the service first if BasePrep did not.
 
-    Coordination with aks-vm-extension:
-    - The VHD build creates windows-exporter-assets.complete and
-      C:\k\skip_vhd_windows_exporter after staging assets.
-    - The extension never manages the service on these VHDs. CSE logs startup
-      failures and continues provisioning without removing the baked skip marker.
+    Both functions no-op when the VHD does not carry exporter assets; in that case
+    aks-vm-extension continues to manage the exporter. Failures are returned to the
+    caller, which logs them and continues provisioning without removing the baked
+    skip marker.
 #>
 
 $global:WindowsExporterInstallDir     = "C:\k\windows-exporter"
@@ -91,37 +95,28 @@ function Test-WindowsExporterHealth {
     return $false
 }
 
-function Install-WindowsExporter {
+function Test-WindowsExporterAssets {
     <#
     .SYNOPSIS
-        Registers and starts the aks-windows-exporter NSSM service.
-
-    .NOTES
-        No-ops when:
-        - The VHD assets marker is absent (older VHD without baked assets;
-          aks-vm-extension still covers it).
-
-        Returns false on startup failure so the caller can log and continue node
-        provisioning. The extension remains disabled by the baked skip marker.
+        Returns 'NotBaked', 'Ready', or 'Invalid' for the VHD-baked exporter assets.
     #>
-
     if (-not (Test-Path $global:WindowsExporterAssetsFile)) {
         if (Test-Path $global:WindowsExporterSkipFile) {
             Write-Log "windows-exporter assets marker is missing but the baked skip marker disables the extension"
-            return $false
+            return 'Invalid'
         }
         Write-Log "windows-exporter assets marker not present; aks-vm-extension will manage windows-exporter on this node"
-        return $true
+        return 'NotBaked'
     }
 
     if (-not (Test-Path $global:WindowsExporterBinary)) {
         Write-Log "windows-exporter assets marker is present but binary is missing at $($global:WindowsExporterBinary)"
-        return $false
+        return 'Invalid'
     }
 
     if (-not (Test-Path $global:WindowsExporterConfig)) {
         Write-Log "windows-exporter assets marker is present but config is missing at $($global:WindowsExporterConfig)"
-        return $false
+        return 'Invalid'
     }
 
     if (-not (Test-Path $global:WindowsExporterHealthScript)) {
@@ -129,29 +124,48 @@ function Install-WindowsExporter {
     }
 
     if (-not (Test-Path $global:WindowsExporterNssm)) {
-        Write-Log "nssm.exe not found at $($global:WindowsExporterNssm); cannot install $($global:WindowsExporterServiceName)"
+        Write-Log "nssm.exe not found at $($global:WindowsExporterNssm); cannot manage $($global:WindowsExporterServiceName)"
+        return 'Invalid'
+    }
+
+    return 'Ready'
+}
+
+function Register-WindowsExporter {
+    <#
+    .SYNOPSIS
+        Registers and configures the aks-windows-exporter NSSM service as disabled.
+
+    .NOTES
+        Called from BasePrep after Get-KubePackage provides nssm.exe. The service
+        stays disabled until Enable-WindowsExporter runs in NodePrep. Returns true
+        when the VHD has no exporter assets (extension-managed node).
+    #>
+    $assetState = Test-WindowsExporterAssets
+    if ($assetState -eq 'NotBaked') {
+        return $true
+    }
+    if ($assetState -ne 'Ready') {
         return $false
     }
 
-    Write-Log "Ensuring $($global:WindowsExporterServiceName) is installed and running"
-
+    Write-Log "Registering $($global:WindowsExporterServiceName) as a disabled service"
     $appParameters = "--config.file=`"$($global:WindowsExporterConfig)`""
 
     # NSSM settings mirror aks-vm-extension/aks-windows-node-vm-extension/entrypoint.ps1 Install-SystemService
     # to preserve service behavior (logs, rotation, restart policy) that customers rely on.
     try {
-        $existingService = Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue
-        if (-not $existingService) {
+        if (-not (Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue)) {
             Invoke-WindowsExporterNssm -Arguments @("install", $global:WindowsExporterServiceName, $global:WindowsExporterBinary)
         } else {
-            Write-Log "$($global:WindowsExporterServiceName) is already registered; ensuring its settings and running state"
+            Write-Log "$($global:WindowsExporterServiceName) is already registered; updating its settings"
         }
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Application", $global:WindowsExporterBinary)
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppDirectory", $global:WindowsExporterInstallDir)
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppParameters", $appParameters)
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "DisplayName", $global:WindowsExporterServiceName)
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Description", $global:WindowsExporterServiceName)
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Start", "SERVICE_AUTO_START")
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Start", "SERVICE_DISABLED")
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "ObjectName", "LocalSystem")
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Type", "SERVICE_WIN32_OWN_PROCESS")
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRestartDelay", "5000")
@@ -164,17 +178,53 @@ function Install-WindowsExporter {
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateOnline", "1")
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateSeconds", "86400")
         Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateBytes", "10485760")
-        # Keep the existing process running if configuration fails. Restart only
-        # after all settings succeed so the new application and arguments take effect.
-        if ($existingService) {
-            $serviceToRestart = Get-Service $global:WindowsExporterServiceName -ErrorAction Stop
-            if ($serviceToRestart.Status -ne 'Stopped') {
-                Invoke-WindowsExporterNssm -Arguments @("stop", $global:WindowsExporterServiceName)
-            }
+    }
+    catch {
+        Write-Log "failed to register aks-windows-exporter: $_"
+        return $false
+    }
+
+    Write-Log "Registered $($global:WindowsExporterServiceName) as a disabled service"
+    return $true
+}
+
+function Enable-WindowsExporter {
+    <#
+    .SYNOPSIS
+        Enables, starts, and health-checks the aks-windows-exporter service.
+
+    .NOTES
+        Called from NodePrep on every provisioned node. Registers the service first
+        when BasePrep did not (for example, a PIS image baked by an older CSE).
+        Returns true when the VHD has no exporter assets (extension-managed node).
+    #>
+    $assetState = Test-WindowsExporterAssets
+    if ($assetState -eq 'NotBaked') {
+        return $true
+    }
+    if ($assetState -ne 'Ready') {
+        return $false
+    }
+
+    if (-not (Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue)) {
+        Write-Log "$($global:WindowsExporterServiceName) is not registered; registering before enabling it"
+        if (-not (Register-WindowsExporter)) {
+            return $false
+        }
+    }
+
+    Write-Log "Enabling and starting $($global:WindowsExporterServiceName)"
+    try {
+        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Start", "SERVICE_AUTO_START")
+        # Restart a service that is already running (for example, a CSE re-run) so
+        # settings applied by Register-WindowsExporter take effect.
+        $service = Get-Service $global:WindowsExporterServiceName -ErrorAction Stop
+        if ($service.Status -ne 'Stopped') {
+            Invoke-WindowsExporterNssm -Arguments @("stop", $global:WindowsExporterServiceName)
         }
     }
     catch {
-        Write-Log "failed to configure aks-windows-exporter: $_"
+        Write-Log "failed to enable aks-windows-exporter: $_"
         return $false
     }
 
@@ -192,6 +242,6 @@ function Install-WindowsExporter {
         return $false
     }
 
-    Write-Log "Ensured $($global:WindowsExporterServiceName) is installed and running"
+    Write-Log "Enabled $($global:WindowsExporterServiceName) and verified it is healthy"
     return $true
 }

@@ -9,71 +9,84 @@ Describe 'Windows exporter CSE functions' {
         }
     }
 
-    Context 'Install-WindowsExporter' {
-        BeforeEach {
-            Mock New-Item
-            Mock Remove-Item
-        }
-
-        AfterEach {
-            Assert-MockCalled New-Item -Exactly -Times 0
-            Assert-MockCalled Remove-Item -Exactly -Times 0
-        }
-
-        It 'no-ops when the VHD assets marker is absent' {
+    Context 'Test-WindowsExporterAssets' {
+        It 'returns NotBaked when neither marker is present' {
             Mock Test-Path -MockWith { return $false }
 
-            Install-WindowsExporter | Should -Be $true
-            Assert-MockCalled New-Item -Exactly -Times 0
+            Test-WindowsExporterAssets | Should -Be 'NotBaked'
         }
 
-        It 'fails when the assets marker is present but the binary is absent' {
-            Mock Test-Path -MockWith {
-                param($Path)
-                return $Path -eq $global:WindowsExporterAssetsFile
-            }
-
-            Install-WindowsExporter | Should -Be $false
-            Assert-MockCalled New-Item -Exactly -Times 0
-        }
-
-        It 'does not assume extension fallback if only the baked skip marker exists' {
+        It 'returns Invalid when only the baked skip marker exists' {
             Mock Test-Path -MockWith {
                 param($Path)
                 return $Path -eq $global:WindowsExporterSkipFile
             }
 
-            Install-WindowsExporter | Should -Be $false
+            Test-WindowsExporterAssets | Should -Be 'Invalid'
         }
 
-        It 'fails when the assets marker and binary are present but the config is absent' {
+        It 'returns Invalid when <Missing> is absent' -TestCases @(
+            @{ Missing = 'binary' }
+            @{ Missing = 'config' }
+            @{ Missing = 'nssm' }
+        ) {
+            param($Missing)
+            $script:missingPath = switch ($Missing) {
+                'binary' { $global:WindowsExporterBinary }
+                'config' { $global:WindowsExporterConfig }
+                'nssm' { $global:WindowsExporterNssm }
+            }
             Mock Test-Path -MockWith {
                 param($Path)
-                return $Path -in @($global:WindowsExporterAssetsFile, $global:WindowsExporterBinary)
+                return $Path -ne $script:missingPath
             }
 
-            Install-WindowsExporter | Should -Be $false
-            Assert-MockCalled New-Item -Exactly -Times 0
+            Test-WindowsExporterAssets | Should -Be 'Invalid'
         }
 
-        It 'returns failure without changing the baked marker when nssm is absent' {
+        It 'returns Ready without the optional health script' {
             Mock Test-Path -MockWith {
                 param($Path)
-                return $Path -ne $global:WindowsExporterNssm
+                return $Path -ne $global:WindowsExporterHealthScript
             }
 
-            Install-WindowsExporter | Should -Be $false
-            Assert-MockCalled New-Item -Exactly -Times 0
+            Test-WindowsExporterAssets | Should -Be 'Ready'
         }
+    }
 
-        It 'installs, configures, and starts a healthy exporter' {
-            Mock Test-Path -MockWith { return $true }
-            Mock Get-Service -MockWith { return $null }
-            Mock Invoke-WindowsExporterNssm
-            Mock Test-WindowsExporterHealth -MockWith { return $true }
+    Context 'Register-WindowsExporter' {
+        BeforeEach {
             Mock New-Item
+            Mock Remove-Item
+            Mock Invoke-WindowsExporterNssm
+            Mock Test-WindowsExporterHealth
+        }
 
-            Install-WindowsExporter | Should -Be $true
+        AfterEach {
+            Assert-MockCalled New-Item -Exactly -Times 0
+            Assert-MockCalled Remove-Item -Exactly -Times 0
+            Assert-MockCalled Test-WindowsExporterHealth -Exactly -Times 0
+        }
+
+        It 'no-ops successfully when the VHD has no exporter assets' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'NotBaked' }
+
+            Register-WindowsExporter | Should -Be $true
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0
+        }
+
+        It 'fails without touching the service when assets are invalid' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Invalid' }
+
+            Register-WindowsExporter | Should -Be $false
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0
+        }
+
+        It 'installs a new service disabled without starting it' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
+            Mock Get-Service -MockWith { return $null }
+
+            Register-WindowsExporter | Should -Be $true
 
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
                 $Arguments[0] -eq 'install' -and
@@ -81,128 +94,172 @@ Describe 'Windows exporter CSE functions' {
                 $Arguments[2] -eq $global:WindowsExporterBinary
             }
             Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
-                $Arguments[0] -eq 'start' -and $Arguments[1] -eq $global:WindowsExporterServiceName
+                $Arguments[0] -eq 'set' -and $Arguments[2] -eq 'Start' -and $Arguments[3] -eq 'SERVICE_DISABLED'
+            }
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
+                $Arguments[0] -eq 'set' -and $Arguments[2] -eq 'AppStdout' -and $Arguments[3] -eq $global:WindowsExporterStdoutLog
+            }
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter {
+                $Arguments[0] -in @('start', 'stop') -or $Arguments -contains 'SERVICE_AUTO_START'
             }
         }
 
-        It 'configures before restarting an existing <Status> service' -TestCases @(
+        It 'updates an existing service without reinstalling, stopping, or starting it' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
+            Mock Get-Service -MockWith { return @{ Status = 'Running' } }
+
+            Register-WindowsExporter | Should -Be $true
+
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter {
+                $Arguments[0] -in @('install', 'start', 'stop')
+            }
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
+                $Arguments[0] -eq 'set' -and $Arguments[2] -eq 'Application' -and $Arguments[3] -eq $global:WindowsExporterBinary
+            }
+        }
+
+        It 'returns failure when configuration fails' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
+            Mock Get-Service -MockWith { return $null }
+            Mock Invoke-WindowsExporterNssm -MockWith { throw 'nssm failed' }
+
+            Register-WindowsExporter | Should -Be $false
+        }
+    }
+
+    Context 'Enable-WindowsExporter' {
+        BeforeEach {
+            Mock New-Item
+            Mock Remove-Item
+            Mock Register-WindowsExporter -MockWith { return $true }
+        }
+
+        AfterEach {
+            Assert-MockCalled New-Item -Exactly -Times 0
+            Assert-MockCalled Remove-Item -Exactly -Times 0
+        }
+
+        It 'no-ops successfully when the VHD has no exporter assets' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'NotBaked' }
+            Mock Invoke-WindowsExporterNssm
+
+            Enable-WindowsExporter | Should -Be $true
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0
+            Assert-MockCalled Register-WindowsExporter -Exactly -Times 0
+        }
+
+        It 'fails without touching the service when assets are invalid' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Invalid' }
+            Mock Invoke-WindowsExporterNssm
+
+            Enable-WindowsExporter | Should -Be $false
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0
+        }
+
+        It 'enables and starts a service registered by BasePrep' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
+            Mock Get-Service -MockWith { return @{ Status = 'Stopped' } }
+            $script:exporterOperations = @()
+            Mock Invoke-WindowsExporterNssm -MockWith {
+                param($Arguments)
+                $script:exporterOperations += ($Arguments -join ' ')
+            }
+            Mock Test-WindowsExporterHealth -MockWith { return $true }
+
+            Enable-WindowsExporter | Should -Be $true
+
+            Assert-MockCalled Register-WindowsExporter -Exactly -Times 0
+            $script:exporterOperations | Should -Be @(
+                "set $($global:WindowsExporterServiceName) Start SERVICE_AUTO_START",
+                "start $($global:WindowsExporterServiceName)"
+            )
+            Assert-MockCalled Test-WindowsExporterHealth -Exactly -Times 1
+        }
+
+        It 'registers the service first when BasePrep did not' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
+            $script:serviceChecks = 0
+            Mock Get-Service -MockWith {
+                $script:serviceChecks++
+                if ($script:serviceChecks -eq 1) { return $null }
+                return @{ Status = 'Stopped' }
+            }
+            Mock Invoke-WindowsExporterNssm
+            Mock Test-WindowsExporterHealth -MockWith { return $true }
+
+            Enable-WindowsExporter | Should -Be $true
+
+            Assert-MockCalled Register-WindowsExporter -Exactly -Times 1
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[0] -eq 'start' }
+        }
+
+        It 'does not start the service when fallback registration fails' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
+            Mock Get-Service -MockWith { return $null }
+            Mock Register-WindowsExporter -MockWith { return $false }
+            Mock Invoke-WindowsExporterNssm
+
+            Enable-WindowsExporter | Should -Be $false
+
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0
+        }
+
+        It 'restarts an existing <Status> service after enabling it' -TestCases @(
             @{ Status = 'Running' }
             @{ Status = 'Paused' }
         ) {
             param($Status)
-            Mock Test-Path -MockWith { return $true }
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
             $script:exporterStatus = $Status
-            $script:exporterOperations = @()
             Mock Get-Service -MockWith { return @{ Status = $script:exporterStatus } }
+            $script:exporterOperations = @()
             Mock Invoke-WindowsExporterNssm -MockWith {
                 param($Arguments)
                 $script:exporterOperations += $Arguments[0]
             }
             Mock Test-WindowsExporterHealth -MockWith { return $true }
-            Mock New-Item
 
-            Install-WindowsExporter | Should -Be $true
+            Enable-WindowsExporter | Should -Be $true
 
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter {
-                $Arguments[0] -eq 'install'
-            }
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
-                $Arguments[0] -eq 'stop' -and $Arguments[1] -eq $global:WindowsExporterServiceName
-            }
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
-                $Arguments[0] -eq 'set' -and
-                $Arguments[1] -eq $global:WindowsExporterServiceName -and
-                $Arguments[2] -eq 'Application' -and
-                $Arguments[3] -eq $global:WindowsExporterBinary
-            }
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter {
-                $Arguments[0] -eq 'start'
-            }
-            $script:exporterOperations[-2] | Should -Be 'stop'
-            $script:exporterOperations[-1] | Should -Be 'start'
-            @($script:exporterOperations[0..($script:exporterOperations.Count - 3)] | Where-Object { $_ -ne 'set' }).Count | Should -Be 0
+            $script:exporterOperations | Should -Be @('set', 'stop', 'start')
         }
 
-        It 'starts an existing stopped service without stopping it again' {
-            Mock Test-Path -MockWith { return $true }
-            Mock Get-Service -MockWith { return @{ Status = 'Stopped' } }
-            Mock Invoke-WindowsExporterNssm
-            Mock Test-WindowsExporterHealth -MockWith { return $true }
-
-            Install-WindowsExporter | Should -Be $true
-
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter { $Arguments[0] -eq 'stop' }
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[0] -eq 'start' }
-        }
-
-        It 'does not stop a running exporter when a later configuration setting fails' {
-            Mock Test-Path -MockWith { return $true }
+        It 'does not stop a running exporter when enabling fails' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
             Mock Get-Service -MockWith { return @{ Status = 'Running' } }
             Mock Invoke-WindowsExporterNssm -MockWith {
                 param($Arguments)
-                if ($Arguments[0] -eq 'set' -and $Arguments[2] -eq 'AppRotateBytes') {
-                    throw 'configuration failed'
-                }
+                if ($Arguments[0] -eq 'set') { throw 'configuration failed' }
             }
+            Mock Test-WindowsExporterHealth
 
-            Install-WindowsExporter | Should -Be $false
+            Enable-WindowsExporter | Should -Be $false
 
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[2] -eq 'Application' }
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter { $Arguments[0] -eq 'stop' }
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter { $Arguments[0] -eq 'start' }
-            Assert-MockCalled New-Item -Exactly -Times 0
-        }
-
-        It 'returns failure without changing the baked marker when service startup fails' {
-            Mock Test-Path -MockWith { return $true }
-            Mock Get-Service -MockWith { return @{ Status = 'Running' } }
-            Mock Invoke-WindowsExporterNssm -MockWith {
-                param($Arguments)
-                if ($Arguments[0] -eq 'start') { throw 'start failed' }
-            }
-            Mock Test-WindowsExporterHealth -MockWith { return $false }
-
-            Install-WindowsExporter | Should -Be $false
-
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[0] -eq 'stop' }
-            Assert-MockCalled New-Item -Exactly -Times 0
+            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 0 -ParameterFilter { $Arguments[0] -in @('stop', 'start') }
+            Assert-MockCalled Test-WindowsExporterHealth -Exactly -Times 0
         }
 
         It 'succeeds when a nonzero start result is followed by service health' {
-            Mock Test-Path -MockWith { return $true }
-            Mock Get-Service -MockWith { return $null }
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
+            Mock Get-Service -MockWith { return @{ Status = 'Stopped' } }
             Mock Invoke-WindowsExporterNssm -MockWith {
                 param($Arguments)
                 if ($Arguments[0] -eq 'start') { throw 'nssm.exe start failed with exit code 1: SERVICE_START_PENDING' }
             }
             Mock Test-WindowsExporterHealth -MockWith { return $true }
 
-            Install-WindowsExporter | Should -Be $true
+            Enable-WindowsExporter | Should -Be $true
 
-            Assert-MockCalled Invoke-WindowsExporterNssm -Exactly -Times 1 -ParameterFilter { $Arguments[0] -eq 'start' }
             Assert-MockCalled Test-WindowsExporterHealth -Exactly -Times 1
         }
 
-        It 'returns failure without changing the baked marker when configuration fails' {
-            Mock Test-Path -MockWith { return $true }
-            Mock Get-Service -MockWith { return $null }
-            Mock Invoke-WindowsExporterNssm -MockWith { throw 'nssm failed' }
-
-            Install-WindowsExporter | Should -Be $false
-            Assert-MockCalled New-Item -Exactly -Times 0
-        }
-
-        It 'returns failure without changing the baked marker when health checks fail' {
-            Mock Test-Path -MockWith { return $true }
-            Mock Get-Service -MockWith { return $null }
+        It 'returns failure when health checks fail' {
+            Mock Test-WindowsExporterAssets -MockWith { return 'Ready' }
+            Mock Get-Service -MockWith { return @{ Status = 'Stopped' } }
             Mock Invoke-WindowsExporterNssm
             Mock Test-WindowsExporterHealth -MockWith { return $false }
-            Mock New-Item
 
-            Install-WindowsExporter | Should -Be $false
-            Assert-MockCalled New-Item -Exactly -Times 0 -ParameterFilter {
-                $Path -eq $global:WindowsExporterSkipFile
-            }
+            Enable-WindowsExporter | Should -Be $false
         }
     }
 
@@ -316,24 +373,39 @@ function Get-Version {
                 Should -BeGreaterThan $stage.IndexOf('Copy-Item -Path $exporterHealthSrc')
         }
 
+        It 'continues BasePrep after exporter registration failure or exception' {
+            $templatePath = Join-Path $PSScriptRoot '..\..\..\parts\windows\kuberneteswindowssetup.ps1.template'
+            $template = Get-Content -Path $templatePath -Raw
+            $registerBlock = [regex]::Match($template, '(?s)    if \(Get-Command -Name Register-WindowsExporter.*?(?=    Set-Explorer)').Value
+            $registerBlock | Should -Not -BeNullOrEmpty
+            Mock Logs-To-Event
+            Mock Register-WindowsExporter -MockWith { return $false }
+
+            $result = & { & ([scriptblock]::Create($registerBlock)); 'continued' }
+            $result | Should -Be 'continued'
+            Mock Register-WindowsExporter -MockWith { throw 'unexpected registration failure' }
+            $result = & { & ([scriptblock]::Create($registerBlock)); 'continued' }
+            $result | Should -Be 'continued'
+        }
+
         It 'continues NodePrep after exporter failure or exception' {
             $templatePath = Join-Path $PSScriptRoot '..\..\..\parts\windows\kuberneteswindowssetup.ps1.template'
             $template = Get-Content -Path $templatePath -Raw
-            $installBlock = [regex]::Match($template, '(?s)    if \(Get-Command -Name Install-WindowsExporter.*?(?=    Write-Log "Starting NodePrep)').Value
-            $installBlock | Should -Not -BeNullOrEmpty
+            $enableBlock = [regex]::Match($template, '(?s)    if \(Get-Command -Name Enable-WindowsExporter.*?(?=    Write-Log "Starting NodePrep)').Value
+            $enableBlock | Should -Not -BeNullOrEmpty
             Mock Logs-To-Event
-            Mock Install-WindowsExporter -MockWith { return $false }
+            Mock Enable-WindowsExporter -MockWith { return $false }
 
-            $result = & { & ([scriptblock]::Create($installBlock)); 'continued' }
+            $result = & { & ([scriptblock]::Create($enableBlock)); 'continued' }
             $result | Should -Be 'continued'
-            Mock Install-WindowsExporter -MockWith { throw 'unexpected startup failure' }
-            $result = & { & ([scriptblock]::Create($installBlock)); 'continued' }
+            Mock Enable-WindowsExporter -MockWith { throw 'unexpected startup failure' }
+            $result = & { & ([scriptblock]::Create($enableBlock)); 'continued' }
             $result | Should -Be 'continued'
         }
 
         It 'uses the Linux exporter port for all Windows exporter endpoints' {
-            $configPath = Join-Path $PSScriptRoot '..\..\..\parts\windows\windowsexporter\windows-exporter-config.yml'
-            $healthScriptPath = Join-Path $PSScriptRoot '..\..\..\parts\windows\windowsexporter\windows-exporter-health.ps1'
+            $configPath = Join-Path $PSScriptRoot '..\..\..\vhdbuilder\packer\windows\windows-exporter\windows-exporter-config.yml'
+            $healthScriptPath = Join-Path $PSScriptRoot '..\..\..\vhdbuilder\packer\windows\windows-exporter\windows-exporter-health.ps1'
 
             $global:WindowsExporterPort | Should -Be 19100
             Get-Content -Path $configPath -Raw | Should -Match 'listen-address: ":19100"'
@@ -348,14 +420,19 @@ function Get-Version {
             $allScript | Should -Match '(?m)^\. "\$WINDOWS_SCRIPTS_DIRECTORY\\windowsexporterfunc\.ps1"\r?$'
         }
 
-        It 'registers the exporter during NodePrep rather than BasePrep' {
+        It 'registers the exporter disabled in BasePrep and enables it in NodePrep' {
             $templatePath = Join-Path $PSScriptRoot '..\..\..\parts\windows\kuberneteswindowssetup.ps1.template'
             $template = Get-Content -Path $templatePath -Raw
             $basePrep = (($template -split 'function BasePrep \{', 2)[1] -split 'function NodePrep \{', 2)[0]
             $nodePrep = (($template -split 'function NodePrep \{', 2)[1] -split '(?m)^try \{', 2)[0]
 
-            $basePrep | Should -Not -Match 'Install-WindowsExporter'
-            $nodePrep | Should -Match 'Install-WindowsExporter'
+            $basePrep | Should -Match 'Register-WindowsExporter'
+            $basePrep | Should -Not -Match 'Enable-WindowsExporter'
+            $nodePrep | Should -Match 'Enable-WindowsExporter'
+            $nodePrep | Should -Not -Match 'Register-WindowsExporter'
+            # nssm.exe is delivered by the kube package.
+            $basePrep.IndexOf('Register-WindowsExporter') |
+                Should -BeGreaterThan $basePrep.IndexOf('Get-KubePackage')
         }
     }
 }
