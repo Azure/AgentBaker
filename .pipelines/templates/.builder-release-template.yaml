@@ -346,6 +346,7 @@ steps:
     condition: |
       and(
         succeeded(),
+        eq(variables.PREFETCH_READY_FOR_CLEANUP, 'true'),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
         eq(variables.RUN_PREFETCH_OPTIMIZATION, 'True'),
         eq(variables.PREFETCH_COMPATIBLE, 'True')
