@@ -63,6 +63,15 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
 
   - bash: |
+      # The mariner packer template uploads the kata-cc UVM files; this pipeline doesn't build them.
+      for f in kata-containers-cc.img kata-openvmm-snp.bin kata-openvmm-snp-debug.bin reference-info-base64; do
+        [ -e "$f" ] || touch "$f"
+      done
+    condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))
+    displayName: Create kata-cc UVM placeholders
+    workingDirectory: $(Build.SourcesDirectory)
+
+  - bash: |
       set -x
       GOPATH="$(go env GOPATH)"
       echo "GOPATH is currently set to $GOPATH"

@@ -1030,8 +1030,7 @@ testKataCC() {
     return 0
   fi
 
-  # ASSUMPTION: stub file names until the 4.1.0.kata1 recipes land (see packer_source.sh).
-  for f in kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose igvm-debug-measurement.cose reference-info-base64; do
+  for f in kata-openvmm-snp.bin kata-openvmm-snp-debug.bin reference-info-base64; do
     [ -s "$katacc_dir/$f" ] || err $test "$katacc_dir/$f is missing or empty"
   done
   [ -x /usr/local/bin/containerd-shim-kata-cc-v2 ] || err $test "containerd-shim-kata-cc-v2 is missing"

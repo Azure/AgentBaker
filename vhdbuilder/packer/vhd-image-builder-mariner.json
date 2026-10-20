@@ -717,23 +717,13 @@
     },
     {
       "type": "file",
-      "source": "kata-containers-igvm.img",
-      "destination": "/home/packer/kata-containers-igvm.img"
+      "source": "kata-openvmm-snp.bin",
+      "destination": "/home/packer/kata-openvmm-snp.bin"
     },
     {
       "type": "file",
-      "source": "kata-containers-igvm-debug.img",
-      "destination": "/home/packer/kata-containers-igvm-debug.img"
-    },
-    {
-      "type": "file",
-      "source": "igvm-measurement.cose",
-      "destination": "/home/packer/igvm-measurement.cose"
-    },
-    {
-      "type": "file",
-      "source": "igvm-debug-measurement.cose",
-      "destination": "/home/packer/igvm-debug-measurement.cose"
+      "source": "kata-openvmm-snp-debug.bin",
+      "destination": "/home/packer/kata-openvmm-snp-debug.bin"
     },
     {
       "type": "file",
