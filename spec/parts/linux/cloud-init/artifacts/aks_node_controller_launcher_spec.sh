@@ -46,13 +46,16 @@ EOF
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN USE_AKS_NODE_CONFIG
     }
 
     create_fake_aks_node_controller() {
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$@" >"${TEST_DIR}/args"
+# Record the toggle as the child process sees it. The binary reads this variable directly
+# rather than taking a CLI flag, so inheritance is the contract the wrapper has to uphold.
+printf '%s' "${USE_AKS_NODE_CONFIG:-<unset>}" >"${TEST_DIR}/child_use_aks_node_config"
 exit 0
 EOF
         chmod +x "$BIN_PATH"
@@ -197,6 +200,85 @@ EOF
         The variable firstArg should eq "provision"
         The variable secondArg should eq "--nbc-cmd=${NBC_CMD_PATH}"
         The variable thirdArg should eq ""
+    End
+
+    # The toggle reaches the binary as an inherited environment variable, not a CLI flag, so
+    # the argv must be unchanged and the child must observe USE_AKS_NODE_CONFIG=true.
+    It 'exports USE_AKS_NODE_CONFIG to the binary while still passing both sources'
+        touch "$CONFIG_PATH" "$NBC_CMD_PATH"
+        export USE_AKS_NODE_CONFIG=true
+        create_fake_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Launching aks-node-controller with config ${CONFIG_PATH}"
+        The output should include "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
+        The output should include "USE_AKS_NODE_CONFIG is enabled: provisioning from ${CONFIG_PATH}"
+        firstArg=$(sed -n '1p' "${TEST_DIR}/args")
+        secondArg=$(sed -n '2p' "${TEST_DIR}/args")
+        thirdArg=$(sed -n '3p' "${TEST_DIR}/args")
+        fourthArg=$(sed -n '4p' "${TEST_DIR}/args")
+        childToggle=$(cat "${TEST_DIR}/child_use_aks_node_config")
+        The variable firstArg should eq "provision"
+        The variable secondArg should eq "--provision-config=${CONFIG_PATH}"
+        # nbc-cmd is still passed so the binary keeps comparing both sources while the config
+        # one is what actually executes.
+        The variable thirdArg should eq "--nbc-cmd=${NBC_CMD_PATH}"
+        # No extra CLI flag: the selection is carried by the environment.
+        The variable fourthArg should eq ""
+        The variable childToggle should eq "true"
+    End
+
+    # The wrapper logs the switch only when there is actually a config to switch to, so the
+    # log stays truthful about what the binary will do.
+    It 'does not announce the switch when USE_AKS_NODE_CONFIG is enabled but no config was delivered'
+        touch "$NBC_CMD_PATH"
+        export USE_AKS_NODE_CONFIG=true
+        create_fake_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
+        The output should not include "USE_AKS_NODE_CONFIG is enabled"
+        firstArg=$(sed -n '1p' "${TEST_DIR}/args")
+        secondArg=$(sed -n '2p' "${TEST_DIR}/args")
+        thirdArg=$(sed -n '3p' "${TEST_DIR}/args")
+        The variable firstArg should eq "provision"
+        The variable secondArg should eq "--nbc-cmd=${NBC_CMD_PATH}"
+        The variable thirdArg should eq ""
+    End
+
+    # An unparseable/other value must not be treated as enabled - only the exact string "true"
+    # flips the source, so a typo on the RP side degrades to today's behavior.
+    It 'does not announce the switch when USE_AKS_NODE_CONFIG is set to a non-true value'
+        touch "$CONFIG_PATH" "$NBC_CMD_PATH"
+        export USE_AKS_NODE_CONFIG=1
+        create_fake_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should not include "USE_AKS_NODE_CONFIG is enabled"
+        thirdArg=$(sed -n '3p' "${TEST_DIR}/args")
+        fourthArg=$(sed -n '4p' "${TEST_DIR}/args")
+        The variable thirdArg should eq "--nbc-cmd=${NBC_CMD_PATH}"
+        The variable fourthArg should eq ""
+    End
+
+    # The real delivery path: RP writes the toggle into enabled_features.sh, the wrapper parses
+    # and exports it, and the binary inherits it. No flag is threaded through in between.
+    It 'reads USE_AKS_NODE_CONFIG from the feature-flag file and exports it to the binary'
+        touch "$CONFIG_PATH" "$NBC_CMD_PATH"
+        printf 'USE_AKS_NODE_CONFIG=true\n' >"$FEATURES_PATH"
+        create_fake_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Reading feature flags from ${FEATURES_PATH}"
+        The output should include "USE_AKS_NODE_CONFIG is enabled: provisioning from ${CONFIG_PATH}"
+        fourthArg=$(sed -n '4p' "${TEST_DIR}/args")
+        childToggle=$(cat "${TEST_DIR}/child_use_aks_node_config")
+        The variable fourthArg should eq ""
+        The variable childToggle should eq "true"
     End
 
     It 'does not call check-hotfix when ENABLE_PROVISIONING_HOTFIX is unset'
