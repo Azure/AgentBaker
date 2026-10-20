@@ -22,10 +22,9 @@ if [[ ! "${SOURCE_VHD_URI}" =~ ^https://([a-z0-9]{3,24})\.blob\.[^/]+/.+ ]]; the
     exit 1
 fi
 source_storage_account="${BASH_REMATCH[1]}"
-publication_stage="resolving source storage account (az storage account list)"
 report_publication_failure() {
     local exit_code="${1:-$?}"
-    echo "ERROR: Generalized CVM publication failed during ${publication_stage} (exit ${exit_code})" >&2
+    echo "ERROR: Generalized CVM publication failed (exit ${exit_code})" >&2
     exit "${exit_code}"
 }
 trap report_publication_failure ERR
@@ -46,11 +45,9 @@ if [[ -z "${source_storage_id}" || -z "${source_location}" ]]; then
 fi
 echo "Resolved source storage account ${source_storage_account} in ${source_location}"
 
-publication_stage="looking up image definition ${SIG_GALLERY_NAME}/${SKU_NAME} (az sig image-definition list)"
 echo "Looking up image definition ${SIG_GALLERY_NAME}/${SKU_NAME}"
 definition_id="$(az sig image-definition list "${gallery_args[@]}" --query "[?name=='${SKU_NAME}'].id | [0]" --output tsv)"
 if [[ -z "${definition_id}" || "${definition_id}" = "None" ]]; then
-    publication_stage="creating image definition ${SIG_GALLERY_NAME}/${SKU_NAME} (az sig image-definition create)"
     echo "Image definition not found; creating generalized image definition ${SIG_GALLERY_NAME}/${SKU_NAME}"
     definition_id="$(
         az sig image-definition create "${definition_args[@]}" \
@@ -61,7 +58,6 @@ if [[ -z "${definition_id}" || "${definition_id}" = "None" ]]; then
             --query id --output tsv
     )"
     echo "Created image definition ${definition_id}"
-    publication_stage="enabling image definition updates (az resource update)"
     echo "Enabling allowUpdateImage on ${definition_id}"
     az resource update --ids "${definition_id}" --set properties.allowUpdateImage=true --only-show-errors >/dev/null
     echo "Enabled allowUpdateImage on ${definition_id}"
@@ -69,7 +65,6 @@ else
     echo "Using existing image definition ${definition_id}"
 fi
 
-publication_stage="creating image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} (az sig image-version create)"
 CREATE_TIME="$(date +%s)"
 version_tags=(
     "buildDefinitionName=${BUILD_DEFINITION_NAME:?}"
@@ -93,7 +88,6 @@ az sig image-version create "${version_args[@]}" \
 echo "Image version creation completed for ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION}; checking replication"
 
 echo "Waiting for image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} replication to ${PACKER_BUILD_LOCATION} to complete"
-publication_stage="verifying image version readiness (az sig image-version show)"
 echo "Verifying image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} is ready in ${PACKER_BUILD_LOCATION}"
 replication_deadline=$((SECONDS + 900))
 while true; do
