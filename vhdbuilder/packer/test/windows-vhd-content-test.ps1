@@ -714,8 +714,8 @@ function Test-WindowsExporterOnVHD {
     #   2. Placed windows-exporter-config.yml alongside it
     #   3. Placed windows-exporter-health.ps1 alongside it
     #   4. Created the VHD assets marker and extension skip marker
-    # The service is registered at CSE time (staging/cse/windows/windowsexporterfunc.ps1),
-    # so we intentionally do NOT expect the service to exist on the VHD itself.
+    # The service is registered by CSE BasePrep (staging/cse/windows/windowsexporterfunc.ps1),
+    # which does not run during the VHD build, so the service must not exist on the VHD itself.
     $exporterDir = "C:\k\windows-exporter"
     $expected = @(
         (Join-Path $exporterDir "windows-exporter.exe"),

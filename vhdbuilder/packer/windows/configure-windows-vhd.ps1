@@ -819,9 +819,9 @@ function Set-WinRmServiceAutoStart
 
 function Install-WindowsExporterOnVHD
 {
-    # Stage windows-exporter assets into C:\k\windows-exporter so the CSE-time
-    # Install-WindowsExporter function (staging/cse/windows/windowsexporterfunc.ps1)
-    # can register the aks-windows-exporter service at node provisioning.
+    # Stage windows-exporter assets into C:\k\windows-exporter. The CSE
+    # (staging/cse/windows/windowsexporterfunc.ps1) registers the aks-windows-exporter
+    # service disabled in BasePrep and enables/starts it in NodePrep.
     #
     # The baked skip marker disables aks-vm-extension before node provisioning.
     $exporterCacheDir   = "c:\akse-cache\windows-exporter"

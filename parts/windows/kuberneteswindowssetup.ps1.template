@@ -452,6 +452,21 @@ function BasePrep {
         New-HostsConfigService
     }
 
+    # Register the VHD-baked exporter disabled here, after Get-KubePackage provides
+    # nssm.exe. NodePrep enables and starts it, so PIS-cached images never start it early.
+    if (Get-Command -Name Register-WindowsExporter -ErrorAction SilentlyContinue) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.RegisterWindowsExporter" -TaskMessage "Register aks-windows-exporter if VHD-baked"
+        try {
+            if (-not (Register-WindowsExporter)) {
+                Write-Log "aks-windows-exporter registration failed; NodePrep will retry registration"
+            }
+        } catch {
+            Write-Log "aks-windows-exporter registration failed: $_; NodePrep will retry registration"
+        }
+    } else {
+        Write-Log "Register-WindowsExporter not available; skipping exporter registration"
+    }
+
     Set-Explorer
     Adjust-PageFileSize
     Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
@@ -578,19 +593,19 @@ function NodePrep {
     Install-KubernetesServices -KubeDir $global:KubeDir
     Update-ServiceFailureActions
 
-    # Assets are static and baked into the VHD, but service registration belongs
-    # in NodePrep so PIS nodes install and validate it on their real first boot.
-    if (Get-Command -Name Install-WindowsExporter -ErrorAction SilentlyContinue) {
-        Logs-To-Event -TaskName "AKS.WindowsCSE.InstallWindowsExporter" -TaskMessage "Install aks-windows-exporter if VHD-baked"
+    # BasePrep registers the VHD-baked exporter disabled; enable, start, and
+    # validate it here so PIS nodes only run it on their real first boot.
+    if (Get-Command -Name Enable-WindowsExporter -ErrorAction SilentlyContinue) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableWindowsExporter" -TaskMessage "Enable aks-windows-exporter if VHD-baked"
         try {
-            if (-not (Install-WindowsExporter)) {
+            if (-not (Enable-WindowsExporter)) {
                 Write-Log "aks-windows-exporter startup failed; continuing node provisioning without enabling extension fallback"
             }
         } catch {
             Write-Log "aks-windows-exporter startup failed: $_; continuing node provisioning without enabling extension fallback"
         }
     } else {
-        Write-Log "Install-WindowsExporter not available; skipping exporter startup (extension skip-marker state was not modified)"
+        Write-Log "Enable-WindowsExporter not available; skipping exporter startup (extension skip-marker state was not modified)"
     }
 
     Write-Log "Starting NodePrep - Cluster integration"
