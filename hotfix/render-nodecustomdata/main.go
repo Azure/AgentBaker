@@ -75,7 +75,7 @@ func main() {
 		written++
 	}
 	if written == 0 {
-		// go:embed requires at least one file even when every platform is empty.
+		// Keep at least one file for embedding when every platform is empty.
 		if err := os.WriteFile(filepath.Join(*outputDir, "README"), []byte("No applicable script hotfix payloads.\n"), 0o600); err != nil {
 			fatalf("write empty payload placeholder: %v", err)
 		}
