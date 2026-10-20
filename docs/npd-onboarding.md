@@ -2,7 +2,7 @@
 
 This work builds on the generic Ubuntu snapshot updater (#8952) and the generic
 Azure Linux updater (#9567). The AKS resource provider publishes the `npdConfig`
-component through the Live Patching Controller.
+and `npdBinary` components through the Live Patching Controller.
 
 Ubuntu and Azure Linux 3 share one handler (`parts/linux/cloud-init/artifacts/npd-update.sh`)
 and one lifecycle. Only the package primitives differ: dpkg/apt on Ubuntu and
@@ -134,9 +134,39 @@ the shared event transport with task prefix `AKS.LivePatching.npdConfig`.
 Direct PMC servicing requires egress; RP currently excludes network-isolated
 clusters from NPD publication. Their baked baseline still starts without a pull.
 
+## Live binary updates (`npdBinary`)
+
+`npdBinary` updates the binary package `node-problem-detector-kubernetes` and is a
+separate component from `npdConfig`, with its own RP toggle
+(`npd-binary-package-versions`, not expedited), payload, status and events
+(`AKS.LivePatching.npdBinary.*`). The payload has the same shape, for example
+`{"ubuntuPackageVersions":{"24.04":"0.8.25-ubuntu24.04u24"},"azureLinuxPackageVersions":{"3.0":"0.8.25-24.azl3"}}`.
+
+Both components run the same transaction in `npd-update.sh` (forward-only version
+selection, download, validation, durable marker, held install, restart, health
+check, rollback to the cached prior package, interrupted-transaction recovery), but
+each uses only its own package, marker (`pending` for config, `pending-binary` for
+the binary) and cached rollback package. A config update never moves the binary,
+and the reverse. Every release has its own binary build, so the 26.04 config
+mapping does not apply to the binary.
+
+Binary-specific checks:
+
+- Before installing, the staged package must contain the NPD executables, and the
+  new `node-problem-detector --version` must run on the node.
+- After restarting NPD, `/healthz` is not enough: a binary can stay active and
+  healthy while every apiserver call fails. The handler also requires NPD to
+  refresh its node condition heartbeat (`KernelDeadlock` or `ReadonlyFilesystem`)
+  after the restart, and otherwise rolls back to the cached binary. Rollback itself
+  only requires local health, so an apiserver outage cannot block recovery.
+
+The VHD caches both packages in `/opt/node-problem-detector/downloads` for offline
+rollback (about 20 MB for the binary).
+
 ## Validation
 
-ShellSpec covers package selection, ownership, CSE activation, version/no-action
+ShellSpec covers package selection, ownership, CSE activation, binary/config
+component isolation, the binary reporting check, version/no-action
 logic, dispatch isolation on both updaters, failed downloads, activation failure,
 transaction recovery and Azure Linux lock/config handling. VHD content checks
 require the marker, executables, monitors, cached package, holds, disabled service
@@ -147,6 +177,10 @@ disposable Ubuntu or Azure Linux 3 container. It uses the published package and
 the real package manager, creates a local test revision, and tests held upgrade,
 local-edit replacement, removed-config cleanup, marker preservation and downgrade
 recovery. Only service restart is stubbed.
+`spec/parts/linux/cloud-init/artifacts/npd-binary-integration.sh` does the same for
+the binary with two published revisions: real held upgrade, interrupted recovery
+and rollback when NPD stops reporting. Only the restart and reporting check are
+stubbed.
 
 Like the generic updaters and securityPatch handlers, `npd-update.sh` is delivered
 only by the VHD. It is not written by provisioning CustomData or hotfix delivery,

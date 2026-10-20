@@ -182,6 +182,18 @@ Describe 'Azure Linux reconciliation failure isolation and events'
         The contents of file "${LIVE_PATCHING_STATE_FILE}" should include 'npdConfig'
     End
 
+    It 'records npdBinary and npdConfig results independently'
+        updateNPDBinary() { return 1; }
+        npdBinaryIsCurrent() { return 1; }
+        updateNPDConfigs() { echo 'config handler ran'; }
+        npdConfigsIsCurrent() { return 1; }
+
+        When call apply_components '{"components":[{"name":"npdBinary","nodeConfig":"{}"},{"name":"npdConfig","nodeConfig":"{}"}]}' "${TEST_NODE}"
+        The status should be failure
+        The output should include 'config handler ran'
+        The variable LIVE_PATCHING_COMPONENT_RESULTS should equal '{"npdBinary":{"code":"Failed"},"npdConfig":{"code":"Succeeded"}}'
+    End
+
     It 'continues securityPatch when NPD fails'
         updateSecurityPatch() { echo 'security handler ran'; }
         securityPatchIsCurrent() { return 1; }

@@ -198,6 +198,10 @@ apply_components() {
                 component_handler=updateNPDConfigs
                 component_comparator=npdConfigsIsCurrent
                 ;;
+            npdBinary)
+                component_handler=updateNPDBinary
+                component_comparator=npdBinaryIsCurrent
+                ;;
             *)
                 echo "unsupported component: ${component_name}"
                 component_index=$((component_index + 1))

@@ -84,6 +84,17 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include 'npdConfig'
     End
 
+    It 'dispatches npdBinary and npdConfig as separate components'
+        updateNPDBinary() { echo "updateNPDBinary called with args: $*"; }
+        npdBinaryIsCurrent() { return 1; }
+        When call knead_apply_components '{"components":[{"name":"npdBinary","nodeConfig":"{\"ubuntuPackageVersions\":{\"24.04\":\"0.8.25-ubuntu24.04u24\"}}"},{"name":"npdConfig","nodeConfig":"{}"}]}' '{}'
+        The status should be success
+        The output should include 'updateNPDBinary called with args: {"ubuntuPackageVersions":{"24.04":"0.8.25-ubuntu24.04u24"}}'
+        The output should include 'updateNPDConfigs called with args: {}'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include 'npdBinary'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include 'npdConfig'
+    End
+
     It 'continues securityPatch when NPD fails'
         TEST_NPD_STATUS=1
         When call knead_apply_components '{"components":[{"name":"npdConfig","nodeConfig":"{}"},{"name":"securityPatch","nodeConfig":"{}"}]}' '{}'
