@@ -121,7 +121,7 @@ Describe 'Windows CSE PIS phase placement' {
     Context 'SSH access policy' {
         It 'applies the live SSH policy and keys in NodePrep' {
             $script:NodePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)'
-            $script:NodePrepBody | Should -Match 'Set-SSHAccess -Enabled \$sshEnabled -SSHKeys \$global:SSHKeys'
+            $script:NodePrepBody | Should -Match 'Install-OpenSSH -Enabled \$sshEnabled -SSHKeys \$global:SSHKeys'
         }
 
         It 'prepares the OpenSSH capability in BasePrep only when enabled and missing' {
@@ -135,11 +135,15 @@ Describe 'Windows CSE PIS phase placement' {
         }
 
         It 'applies SSH policy before starting Kubernetes services' {
-            $sshIndex = $script:NodePrepBody.IndexOf('Set-SSHAccess')
+            $sshIndex = $script:NodePrepBody.IndexOf('Install-OpenSSH')
             $kubeletIndex = $script:NodePrepBody.IndexOf('Install-KubernetesServices')
             $sshIndex | Should -BeGreaterThan -1
             $kubeletIndex | Should -BeGreaterThan -1
             $sshIndex | Should -BeLessThan $kubeletIndex
+        }
+
+        It 'loads the inline SSH implementation after the cached CSE package' {
+            $script:TemplateText | Should -Match '(?s)\. Get-HelperScripts\s*#[^\r\n]*\s*\. c:\\AzureData\\windows\\windowsssh\.ps1'
         }
     }
 

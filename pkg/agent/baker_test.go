@@ -19,6 +19,7 @@ import (
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbaker/staging"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
 	base0_5 "github.com/coreos/butane/base/v0_5"
@@ -188,6 +189,41 @@ func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
 	require.Contains(t, bakeCustomData, "Write-BootstrapKubeConfig")
 	require.Contains(t, bakeCustomData, "if (-not $PreProvisionOnly)")
 	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken="%s"`, bootstrapToken))
+}
+
+func TestWindowsCustomDataIncludesCurrentSSHFunctions(t *testing.T) {
+	for _, preProvisionOnly := range []bool{false, true} {
+		t.Run(fmt.Sprintf("PreProvisionOnly=%t", preProvisionOnly), func(t *testing.T) {
+			config := newNodeCustomDataRenderConfig(datamodel.AKSWindows2022Containerd)
+			config.AgentPoolProfile.OSType = datamodel.Windows
+			config.ContainerService.Properties.WindowsProfile = &datamodel.WindowsProfile{}
+			config.PreProvisionOnly = preProvisionOnly
+			payload := InitializeTemplateGenerator().getWindowsNodeBootstrappingPayload(config)
+			require.LessOrEqual(t, len(payload), MaxCustomDataLength)
+			decoded, err := base64.StdEncoding.DecodeString(payload)
+			require.NoError(t, err)
+			customData := string(decoded)
+			require.Contains(t, customData, `Install-OpenSSH -Enabled $sshEnabled -SSHKeys $global:SSHKeys`)
+			require.NotContains(t, customData, "Set-SSHAccess")
+			loadHelpers := strings.Index(customData, ". Get-HelperScripts")
+			loadSSH := strings.Index(customData, `. c:\AzureData\windows\windowsssh.ps1`)
+			require.GreaterOrEqual(t, loadHelpers, 0)
+			require.Greater(t, loadSSH, loadHelpers)
+
+			matches := regexp.MustCompile(`\$zippedFiles="([^"]+)"`).FindStringSubmatch(customData)
+			require.Len(t, matches, 2)
+			archive, err := base64.StdEncoding.DecodeString(matches[1])
+			require.NoError(t, err)
+			reader, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+			require.NoError(t, err)
+			script, err := reader.Open(kubernetesWindowsSSHFunctionsPS1)
+			require.NoError(t, err)
+			defer script.Close()
+			contents, err := io.ReadAll(script)
+			require.NoError(t, err)
+			require.Equal(t, staging.WindowsSSHFunctions, contents)
+		})
+	}
 }
 
 func TestWindowsCustomDataOmitsPostResetHealthGate(t *testing.T) {

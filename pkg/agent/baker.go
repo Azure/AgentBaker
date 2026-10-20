@@ -20,6 +20,7 @@ import (
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbaker/staging"
 	"github.com/Azure/go-autorest/autorest/to"
 	base0_5 "github.com/coreos/butane/base/v0_5"
 	butanecommon "github.com/coreos/butane/config/common"
@@ -1163,6 +1164,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			neededParts := []string{
 				kubernetesWindowsCSEHelperPS1,
 				kubernetesWindowsSendLogsPS1,
+				kubernetesWindowsSSHFunctionsPS1,
 			}
 
 			// Create a buffer, new zip
@@ -1174,9 +1176,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				if err != nil {
 					panic(err)
 				}
-				partContents, err := parts.Templates.ReadFile(part)
-				if err != nil {
-					panic(err)
+				partContents := staging.WindowsSSHFunctions
+				if part != kubernetesWindowsSSHFunctionsPS1 {
+					partContents, err = parts.Templates.ReadFile(part)
+					if err != nil {
+						panic(err)
+					}
 				}
 				_, err = f.Write(partContents)
 				if err != nil {
