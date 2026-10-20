@@ -889,6 +889,25 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(vars).To(HaveKeyWithValue("ARTIFACT_STREAMING_ENABLED", "true"))
 	})
 
+	It("should default ENABLE_KMPP to false", func() {
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("ENABLE_KMPP", "false"))
+	})
+
+	It("should handle KMPP configuration", func() {
+		baseConfig.EnableKMPP = true
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
+		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
+
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("ENABLE_KMPP", "true"))
+	})
+
 	It("should handle custom CA trust certificates", func() {
 		baseConfig.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 			CustomCATrustCerts: []string{"cert1", "cert2"},

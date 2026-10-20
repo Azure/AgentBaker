@@ -198,6 +198,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"ENABLE_IMDS_RESTRICTION":                              fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
 		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":         fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
 		"PRE_PROVISION_ONLY":                                   fmt.Sprintf("%v", config.GetPreProvisionOnly()),
+		"ENABLE_KMPP":                                          fmt.Sprintf("%v", config.GetEnableKmpp()),
 		"SHOULD_ENABLE_LOCALDNS":                               shouldEnableLocalDns(config),
 		"SHOULD_ENABLE_HOSTS_PLUGIN":                           shouldEnableHostsPlugin(config),
 		"LOCALDNS_CPU_LIMIT":                                   getLocalDnsCpuLimitInPercentage(config),

@@ -1794,6 +1794,9 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+	// EnableKMPP enables the KMPP key isolation service and its filtered D-Bus proxy on the node.
+	// Set by RP when the Azure Key Vault Secrets Store addon runs in KMPP mode. Azure Linux 3.0 only.
+	EnableKMPP bool
 	// EnabledFeatures is a generic set of feature toggles delivered to the node as KEY=VALUE
 	// lines in enabled_features.sh, which the aks-node-controller wrapper reads and exports as
 	// environment variables (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true") to gate provisioning

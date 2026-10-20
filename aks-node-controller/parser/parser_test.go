@@ -515,6 +515,35 @@ func TestBuildCSECmd_SetsEnableManagedGpuDra(t *testing.T) {
 	}
 }
 
+func TestBuildCSECmd_SetsEnableKmpp(t *testing.T) {
+	tests := []struct {
+		name     string
+		enabled  bool
+		expected string
+	}{
+		{
+			name:     "disabled by default",
+			expected: "false",
+		},
+		{
+			name:     "enabled",
+			enabled:  true,
+			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &aksnodeconfigv1.Configuration{EnableKmpp: tt.enabled}
+			cmd, err := BuildCSECmd(context.TODO(), cfg, nil)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			assert.Equal(t, tt.expected, vars["ENABLE_KMPP"])
+		})
+	}
+}
+
 func TestBuildCSECmd_StreamingConnectionIdleTimeout_VersionGated(t *testing.T) {
 	testCases := []struct {
 		name           string
