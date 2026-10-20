@@ -124,8 +124,14 @@ Describe 'Windows CSE PIS phase placement' {
             $script:NodePrepBody | Should -Match 'Set-SSHAccess -Enabled \$sshEnabled -SSHKeys \$global:SSHKeys'
         }
 
-        It 'does not bake SSH access policy or authorized keys into the image' {
-            $script:BasePrepBody | Should -Not -Match 'WindowsSSHEnabled|Set-SSHAccess|Install-OpenSSH'
+        It 'prepares the OpenSSH capability in BasePrep only when enabled and missing' {
+            $script:BasePrepBody | Should -Match 'if\s*\(\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)\)\s*\{\s*\$sshdService = Get-Service -ErrorAction Stop'
+            $script:BasePrepBody | Should -Match '(?s)if \(-not \$sshdService\) \{\s*Write-Log "[^"]+"\s*Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0\.0\.1\.0 -ErrorAction Stop'
+        }
+
+        It 'leaves SSH service configuration and authorized keys to NodePrep' {
+            $script:BasePrepBody | Should -Not -Match 'Set-SSHAccess|Install-OpenSSH|SSHKeys|administrators_authorized_keys'
+            $script:BasePrepBody | Should -Not -Match '(Start|Stop|Set|Restart)-Service[^\r\n]*\bsshd\b'
         }
 
         It 'applies SSH policy before starting Kubernetes services' {
