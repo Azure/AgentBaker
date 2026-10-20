@@ -194,6 +194,10 @@ apply_components() {
                 component_handler=updateSecurityPatch
                 component_comparator=securityPatchIsCurrent
                 ;;
+            npdConfig)
+                component_handler=updateNPDConfigs
+                component_comparator=npdConfigsIsCurrent
+                ;;
             *)
                 echo "unsupported component: ${component_name}"
                 component_index=$((component_index + 1))
@@ -307,4 +311,6 @@ main() {
 ${__SOURCED__:+return}
 # shellcheck disable=SC1091
 source /opt/azure/containers/security-update.sh
+# shellcheck disable=SC1091
+source /opt/azure/containers/npd-update.sh
 main "$@"

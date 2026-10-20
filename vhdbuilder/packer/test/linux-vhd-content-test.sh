@@ -135,6 +135,7 @@ fi
 
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
+source ./AgentBaker/vhdbuilder/packer/packer_source.sh
 
 validateDownloadPackage() {
   local downloadURL=$1
@@ -1395,6 +1396,40 @@ testUserAdd() {
   echo "$test:Finish"
 }
 
+testMGLRUDisabled() {
+  local test="testMGLRUDisabled"
+  local config_file="/etc/tmpfiles.d/aks-mglru.conf"
+  local enabled_file="/sys/kernel/mm/lru_gen/enabled"
+  local resolvedOSAndVariant
+  resolvedOSAndVariant=$(getCurrentPackageTestOS)
+  local targetOS="${resolvedOSAndVariant%%|*}"
+  local targetOSVariant="${resolvedOSAndVariant#*|}"
+
+  if ! isMGLRUDefaultDisabled "$targetOS" "$targetOSVariant"; then
+    if [ -e "$config_file" ]; then
+      err "$test" "MGLRU override must not be installed on $targetOS $OS_VERSION ($targetOSVariant)"
+      return 1
+    fi
+    echo "$test: Skipping $targetOS $OS_VERSION ($targetOSVariant)"
+    return 0
+  fi
+
+  if ! grep -qx 'w! /sys/kernel/mm/lru_gen/enabled - - - - 0' "$config_file"; then
+    err "$test" "Missing or incorrect boot-time MGLRU override in $config_file"
+    return 1
+  fi
+  if [ ! -e "$enabled_file" ]; then
+    echo "$test: Kernel does not expose MGLRU; boot-time override is installed"
+    return 0
+  fi
+  # Read the state after boot without applying the rule here, to test persistence.
+  if ! grep -Eq '^(0x)?0+$' "$enabled_file"; then
+    err "$test" "MGLRU is not disabled after boot: $enabled_file"
+    return 1
+  fi
+  echo "$test: MGLRU is disabled after boot"
+}
+
 testNetworkSettings() {
   local test="testNetworkSettings"
   local settings_file=/etc/sysctl.d/60-CIS.conf
@@ -2571,7 +2606,23 @@ checkLocaldnsScriptsAndConfigs() {
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
+    ["/opt/azure/containers/localdns/localdns-fallback.sh"]=755
+    ["/etc/systemd/system/localdns-fallback.service"]=644
   )
+
+  # OSGuard images are built by imagecustomizer from azlosguard.yml, which installs
+  # units 0600 where packer_source.sh uses 0644. That has been azlosguard's
+  # convention since the file was authored (#6784) and covers 26 of its 36 unit
+  # entries, so it is recorded here rather than reconciled: systemd reads unit files
+  # as root either way, which makes this a read-access difference only, and the
+  # convention belongs to the OSGuard image owners, not to this test.
+  #
+  # Without this branch the assertion is wrong for every OSGuard build -- as it has
+  # been for localdns.service since that entry was added.
+  if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
+    localdnsfiles["/etc/systemd/system/localdns.service"]=600
+    localdnsfiles["/etc/systemd/system/localdns-fallback.service"]=600
+  fi
 
   # Flatcar is EOL (June 2026) — exporter files are not installed on Flatcar VHDs
   if [ "$os_sku" != "Flatcar" ]; then
@@ -2601,6 +2652,33 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+testNodeProblemDetector() {
+  local test="testNodeProblemDetector" os_sku="$1" os_version="$2" version package executable
+  case "${os_sku}" in
+    Ubuntu) ;;
+    AzureLinux) [ "${os_version}" = 3.0 ] || return 0 ;;
+    *) return 0 ;;
+  esac
+  case "${FEATURE_FLAGS}" in *kata*) return 0 ;; esac
+  for executable in /usr/bin/node-problem-detector /usr/bin/npd-log-counter /usr/bin/npd-health-checker /opt/bin/node-problem-detector-startup.sh; do
+    [ -x "${executable}" ] || err "$test" "Missing executable ${executable}"
+  done
+  [ -f /etc/node-problem-detector.d/skip_vhd_npd ] || err "$test" "Missing NPD skip marker"
+  [ -s /etc/node-problem-detector.d/custom-plugin-monitor/custom-kubelet-monitor.json ] || err "$test" "Missing NPD monitors"
+  if [ "${os_sku}" = Ubuntu ]; then
+    version="$(dpkg-query -W -f='${Version}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
+    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config_${version}_$(dpkg --print-architecture).deb"
+  else
+    version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
+    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config-${version}.$(uname -m).rpm"
+    for executable in node-problem-detector-kubernetes node-problem-detector-aks-config; do
+      grep -qsx "${executable}" /etc/tdnf/locks.d/node-problem-detector.conf || err "$test" "Missing tdnf lock for ${executable}"
+    done
+  fi
+  [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
+  [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
+}
+
 testKneadSecurityPatchingAssets() {
   local test="testKneadSecurityPatchingAssets"
   local os_sku="$1"
@@ -2610,6 +2688,7 @@ testKneadSecurityPatchingAssets() {
     ["/etc/systemd/system/snapshot-update.service"]=644
     ["/etc/systemd/system/snapshot-update.timer"]=644
     ["/opt/azure/containers/security-update.sh"]=544
+    ["/opt/azure/containers/npd-update.sh"]=544
     ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=544
   )
 
@@ -2824,6 +2903,7 @@ testMarinerLivePatchingArtifacts() {
   local test="testMarinerLivePatchingArtifacts"
   local update_script="/opt/azure/containers/mariner-package-update.sh"
   local security_script="/opt/azure/containers/security-update.sh"
+  local npd_script="/opt/azure/containers/npd-update.sh"
   local service="/etc/systemd/system/snapshot-update.service"
   local timer="/etc/systemd/system/snapshot-update.timer"
 
@@ -2838,6 +2918,9 @@ testMarinerLivePatchingArtifacts() {
   fi
   if [ "$(stat -c '%a' "$security_script" 2>/dev/null)" != "544" ]; then
     err $test "$security_script must exist with mode 0544"
+  fi
+  if [ "$(stat -c '%a' "$npd_script" 2>/dev/null)" != "544" ]; then
+    err $test "$npd_script must exist with mode 0544"
   fi
   if [ "$(stat -c '%a' "$service" 2>/dev/null)" != "644" ]; then
     err $test "$service must exist with mode 0644"
@@ -2900,6 +2983,7 @@ testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings
+testMGLRUDisabled
 testCronPermissions "$IMG_SKU" "$OS_SKU"
 testCoreDumpSettings
 testNfsServerService
@@ -2909,6 +2993,7 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testMarinerLivePatchingArtifacts
 testNodeExporter $OS_SKU
+testNodeProblemDetector $OS_SKU $OS_VERSION
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService

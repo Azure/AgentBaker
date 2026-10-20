@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -208,17 +210,34 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	if _, err := CachedEnsureResourceGroup(ctx, s.Location); err != nil {
 		return fmt.Errorf("ensure resource group: %w", err)
 	}
-	if _, err := CachedCreateVMManagedIdentity(ctx, s.Location); err != nil {
-		return fmt.Errorf("create VM managed identity: %w", err)
-	}
 	defer logging.LogStep(ctx, "running scenario")()
 
-	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
-		Location:         s.Location,
-		K8sSystemPoolSKU: s.K8sSystemPoolSKU,
-	})
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var cluster *Cluster
+	err := runConcurrent(ctx,
+		func(ctx context.Context) error {
+			_, err := CachedCreateVMManagedIdentity(ctx, s.Location)
+			if err != nil {
+				return fmt.Errorf("create VM managed identity: %w", err)
+			}
+			return nil
+		},
+		func(ctx context.Context) error {
+			var err error
+			cluster, err = s.Config.Cluster(ctx, ClusterRequest{
+				Location:         s.Location,
+				K8sSystemPoolSKU: s.K8sSystemPoolSKU,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to get cluster: %w", err)
+			}
+			return nil
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to get cluster: %w", err)
+		return err
 	}
 
 	// in some edge cases cluster cache is broken and nil cluster is returned
@@ -340,26 +359,20 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys, publicKeyData)
 	}
 
-	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
-		Location: s.Location,
-		VMSize:   s.Runtime.VMSize,
-	})
+	sku, err := getVMSizeSKU(ctx, s.Location, s.Runtime.VMSize)
 	if err != nil {
 		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", s.Runtime.VMSize, err)
 	}
-	if gen2Only && s.Config.VHD.UnsupportedGen2 {
+	if config.SkuSupportsOnlyGen2(sku) && s.Config.VHD.UnsupportedGen2 {
 		logging.Logf(ctx, "VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supports Gen1 %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
 		s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
 		nbc.AgentPoolProfile.VMSize = config.Config.Gen1SCSIVMSKU
 	}
-	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
-		Location: s.Location,
-		VMSize:   s.Runtime.VMSize,
-	})
+	sku, err = getVMSizeSKU(ctx, s.Location, s.Runtime.VMSize)
 	if err != nil {
 		return nil, fmt.Errorf("checking if VM size %q supports only NVMe: %w", s.Runtime.VMSize, err)
 	}
-	if supportsNVMe {
+	if config.SkuSupportsNVMe(sku) {
 		if s.Config.VHD.UnsupportedNVMe {
 			logging.Logf(ctx, "VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
 			s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
@@ -454,13 +467,19 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) error {
 				return err
 			}
 		}
+		var checks []func(context.Context) error
 		for i, pod := range serverCorePods {
-			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("servercore%d", i), pod), numberRetries))
+			checks = append(checks, func(ctx context.Context) error {
+				return ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("servercore%d", i), pod), numberRetries)
+			})
 		}
 
 		for i, pod := range nanoServerPods {
-			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("nanoserver%d", i), pod), numberRetries))
+			checks = append(checks, func(ctx context.Context) error {
+				return ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("nanoserver%d", i), pod), numberRetries)
+			})
 		}
+		errs = append(errs, runConcurrent(ctx, checks...))
 	} else {
 		errs = append(errs, ValidatePodRunningWithRetry(ctx, s, podHTTPServerLinux(s), numberRetries))
 	}
@@ -1085,10 +1104,42 @@ func isRebootRelatedSSHError(err error, stderr string) bool {
 	return false
 }
 
+func dialScenarioSSHOverBastion(ctx context.Context, s *Scenario) (*SSHClient, error) {
+	return DialSSHOverBastion(ctx, s.Runtime.Cluster.Bastion, s.Runtime.VM.PrivateIP, config.VMSSHPrivateKey)
+}
+
+// isStaleSSHConnectionError reports errors from a connection that may have died
+// with a reboot: a stalled operation or a closed transport.
+func isStaleSSHConnectionError(err error) bool {
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed)
+}
+
+func ensureScenarioSSHClient(ctx context.Context, s *Scenario, dial func(context.Context, *Scenario) (*SSHClient, error)) error {
+	if s.Runtime.VM.SSHClient != nil {
+		return nil
+	}
+	client, err := dial(ctx, s)
+	if err != nil {
+		return err
+	}
+	s.Runtime.VM.SSHClient = client
+	return nil
+}
+
 func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
+	return waitForSSHConnectivity(ctx, s, attemptSSHConnection, dialScenarioSSHOverBastion, 5*time.Second)
+}
+
+func waitForSSHConnectivity(
+	ctx context.Context,
+	s *Scenario,
+	check func(context.Context, *Scenario) error,
+	dial func(context.Context, *Scenario) (*SSHClient, error),
+	pollInterval time.Duration,
+) error {
 	// If WaitForSSHAfterReboot is not set, use the original single-attempt behavior
-	if s.Config.WaitForSSHAfterReboot == 0 {
-		return attemptSSHConnection(ctx, s)
+	if s.WaitForSSHAfterReboot == 0 {
+		return check(ctx, s)
 	}
 
 	// Retry logic with exponential backoff for scenarios that may reboot
@@ -1096,8 +1147,13 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 	startTime := time.Now()
 	var lastSSHError error
 
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, s.Config.WaitForSSHAfterReboot, true, func(ctx context.Context) (bool, error) {
-		err := attemptSSHConnection(ctx, s)
+	err := wait.PollUntilContextTimeout(ctx, pollInterval, s.WaitForSSHAfterReboot, true, func(ctx context.Context) (bool, error) {
+		if err := ensureScenarioSSHClient(ctx, s, dial); err != nil {
+			lastSSHError = err
+			logging.Logf(ctx, "SSH reconnect failed, will retry: %v", err)
+			return false, nil
+		}
+		err := check(ctx, s)
 		if err == nil {
 			elapsed := time.Since(startTime)
 			logging.Logf(ctx, "SSH connectivity established after %s", elapsed)
@@ -1116,10 +1172,15 @@ func validateSSHConnectivity(ctx context.Context, s *Scenario) error {
 			}
 		}
 
-		// Check if this is a reboot-related error
-		if isRebootRelatedSSHError(err, stderr) {
-			logging.Logf(ctx, "Detected reboot-related SSH error, will retry: %v", err)
-			return false, nil // Continue polling
+		// The connection may predate a reboot, so reconnect before the next attempt.
+		if isRebootRelatedSSHError(err, stderr) || isStaleSSHConnectionError(err) {
+			logging.Logf(ctx, "Detected reboot-related SSH error, will reconnect and retry: %v", err)
+			// Keep the client if the wait itself expired; cleanup may still collect logs with it.
+			if ctx.Err() == nil {
+				cleanupBastionTunnel(s.Runtime.VM.SSHClient)
+				s.Runtime.VM.SSHClient = nil
+			}
+			return false, nil
 		}
 
 		// Not a reboot error, fail immediately
@@ -1151,7 +1212,7 @@ func attemptSSHConnection(ctx context.Context, s *Scenario) error {
 	connectionResult, err = runSSHCommand(ctx, s.Runtime.VM.SSHClient, "echo 'SSH_CONNECTION_OK'", s.IsWindows())
 
 	if err != nil {
-		return fmt.Errorf("SSH connection to %s failed: %s", s.Runtime.VM.PrivateIP, err)
+		return fmt.Errorf("SSH connection to %s failed: %w", s.Runtime.VM.PrivateIP, err)
 	}
 
 	if !strings.Contains(connectionResult.stdout, "SSH_CONNECTION_OK") {

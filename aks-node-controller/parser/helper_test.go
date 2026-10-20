@@ -20,6 +20,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -170,14 +171,17 @@ net.ipv4.tcp_retries2=8
 		{
 			name: "SysctlConfig with custom values",
 			args: args{
+				// The kernel caps fs.file-max at LONG_MAX, which is MaxInt64 on 64-bit nodes.
 				s: &aksnodeconfigv1.SysctlConfig{
 					NetIpv4TcpMaxSynBacklog: to.Ptr(int32(9999)),
 					NetCoreRmemDefault:      to.Ptr(int32(9999)),
 					NetIpv4IpLocalPortRange: to.Ptr("32768 62535"),
+					FsFileMax:               to.Ptr(int64(math.MaxInt64)),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString(
-				[]byte(`net.core.message_burst=80
+				[]byte(`fs.file-max=9223372036854775807
+net.core.message_burst=80
 net.core.message_cost=40
 net.core.rmem_default=9999
 net.core.somaxconn=16384
@@ -499,6 +503,35 @@ oom_score = -999
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestContainerdV1KataConfigMatchesNodeBootstrappingConfig(t *testing.T) {
+	config := &aksnodeconfigv1.Configuration{
+		IsKata: true,
+	}
+
+	for _, noGPU := range []bool{false, true} {
+		t.Run(map[bool]string{false: "GPU", true: "no GPU"}[noGPU], func(t *testing.T) {
+			got, err := containerdConfigFromAKSNodeConfig(config, noGPU, "1.7.22")
+			if err != nil {
+				t.Fatalf("containerdConfigFromAKSNodeConfig() error = %v", err)
+			}
+
+			for _, want := range []string{
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`,
+				`privileged_without_host_devices = true`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]`,
+				`ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"`,
+			} {
+				if !strings.Contains(got, want) {
+					t.Errorf("containerd config does not contain %q", want)
+				}
+			}
+			if strings.Contains(got, `.containerd.runtimes.katacli`) {
+				t.Error("containerd config contains the obsolete katacli runtime")
 			}
 		})
 	}

@@ -622,6 +622,25 @@ func getIsAksCustomCloud(customCloudConfig *aksnodeconfigv1.CustomCloudConfig) b
 	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), helpers.AksCustomCloudName)
 }
 
+func getMCRRepositoryBase(config *aksnodeconfigv1.Configuration) string {
+	// Match RP's GetCloudName/GetMCRBaseUrl and the trailing slash in its cloud specs.
+	location := getCloudLocation(config)
+	switch {
+	case strings.HasPrefix(location, "china"):
+		return "mcr.azure.cn/"
+	case strings.HasPrefix(location, "usnat"):
+		return "mcr.microsoft.eaglex.ic.gov/"
+	case strings.HasPrefix(location, "ussec"):
+		return "mcr.microsoft.scloud/"
+	case strings.HasPrefix(location, "bleu"):
+		return "mcr.sovcloud-azure.fr/"
+	case strings.HasPrefix(location, "deloscloud"):
+		return "mcr.sovcloud-azure.de/"
+	default:
+		return "mcr.microsoft.com/"
+	}
+}
+
 func getCloudLocation(v *aksnodeconfigv1.Configuration) string {
 	return strings.ToLower(strings.Join(strings.Fields(v.GetClusterConfig().GetLocation()), ""))
 }

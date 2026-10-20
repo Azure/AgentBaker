@@ -304,6 +304,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 		EnableUnattendedUpgrade: enableUnattendedUpgrade,
 		EnableArtifactStreaming: nbc.EnableArtifactStreaming,
 		EnabledFeatures:         maps.Clone(nbc.EnabledFeatures),
+		EnableKmpp:              nbc.EnableKMPP,
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,

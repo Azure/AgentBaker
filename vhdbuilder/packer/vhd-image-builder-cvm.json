@@ -367,6 +367,16 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-npd.sh",
+      "destination": "/home/packer/install-npd.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/npd-update.sh",
+      "destination": "/home/packer/npd-update.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ubuntu/security-update.sh",
       "destination": "/home/packer/security-update.sh"
     },
@@ -509,6 +519,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf",
       "destination": "/home/packer/sysctl-d-60-CIS.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-mglru.conf",
+      "destination": "/home/packer/aks-mglru.conf"
     },
     {
       "type": "file",
@@ -824,6 +839,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns.service",
       "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.sh",
+      "destination": "/home/packer/localdns-fallback.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.service",
+      "destination": "/home/packer/localdns-fallback.service"
     },
     {
       "type": "file",

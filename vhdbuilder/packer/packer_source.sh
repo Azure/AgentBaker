@@ -13,6 +13,20 @@ kernelVersionGe() {
   [ "$version_a" = "$highest_version" ]
 }
 
+isMGLRUDefaultDisabled() {
+  local os="$1"
+  local os_variant="$2"
+
+  isUbuntu "$os" || isMarinerOrAzureLinux "$os" "$os_variant" || isACL "$os" "$os_variant"
+}
+
+copyMGLRUConfig() {
+  if isMGLRUDefaultDisabled "$OS" "$OS_VARIANT"; then
+    # Keep the rule even if the build VM's kernel does not expose MGLRU.
+    cpAndMode /home/packer/aks-mglru.conf /etc/tmpfiles.d/aks-mglru.conf 644
+  fi
+}
+
 ubuntuKernelIncludesVulnerableModuleFixes() {
   local kernel_release
   local fixed_kernel
@@ -324,6 +338,8 @@ copyPackerFiles() {
   SECURE_TLS_BOOTSTRAP_SERVICE_DEST=/etc/systemd/system/secure-tls-bootstrap.service
   SECURITY_UPDATE_SH_SRC=/home/packer/security-update.sh
   SECURITY_UPDATE_SH_DEST=/opt/azure/containers/security-update.sh
+  NPD_UPDATE_SH_SRC=/home/packer/npd-update.sh
+  NPD_UPDATE_SH_DEST=/opt/azure/containers/npd-update.sh
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
@@ -391,6 +407,13 @@ copyPackerFiles() {
       KATA_IMAGE_SRC=/home/packer/kata-containers.img
       KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
+      if [[ ",${FEATURE_FLAGS}," == *",kata-cc,"* ]]; then
+        # Current signed confidential guest/package layout; separate from the
+        # ordinary AZL3 guest installed above.
+        for file in kata-containers.img kata-containers-cc.img kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose reference-info-base64; do
+          cpAndMode "/home/packer/kata-cc/$file" "$KATACC_CONFIG_DIR/$file" 0644
+        done
+      fi
     fi
   fi
 
@@ -513,6 +536,14 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
 
+  LOCALDNS_FALLBACK_SCRIPT_SRC=/home/packer/localdns-fallback.sh
+  LOCALDNS_FALLBACK_SCRIPT_DEST=/opt/azure/containers/localdns/localdns-fallback.sh
+  cpAndMode $LOCALDNS_FALLBACK_SCRIPT_SRC $LOCALDNS_FALLBACK_SCRIPT_DEST 0755
+
+  LOCALDNS_FALLBACK_SERVICE_SRC=/home/packer/localdns-fallback.service
+  LOCALDNS_FALLBACK_SERVICE_DEST=/etc/systemd/system/localdns-fallback.service
+  cpAndMode $LOCALDNS_FALLBACK_SERVICE_SRC $LOCALDNS_FALLBACK_SERVICE_DEST 0644
+
   # Skip localdns exporter for Flatcar (EOL June 2026, no new features)
   if ! isFlatcar "$OS"; then
     LOCALDNS_EXPORTER_SCRIPT_SRC=/home/packer/localdns_exporter.sh
@@ -631,6 +662,7 @@ copyPackerFiles() {
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
+  copyMGLRUConfig
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $LOGROTATE_CIS_CONFIG_SRC $LOGROTATE_CIS_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
@@ -705,6 +737,7 @@ copyPackerFiles() {
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
     cpAndMode /home/packer/security-update.sh /opt/azure/containers/security-update.sh 544
+    cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
 
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
@@ -735,6 +768,7 @@ copyPackerFiles() {
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $SECURITY_UPDATE_SH_SRC $SECURITY_UPDATE_SH_DEST 544
+    cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
 
     if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then
