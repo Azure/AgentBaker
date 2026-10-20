@@ -192,7 +192,7 @@ function retrieve_legacy_certs {
         local out_name
         out_name=$(basename -- "$(echo "${cert_names[$i]}" | sed 's/.cer/.crt/g')")
         case "$out_name" in ""|"."|"..") echo "Warning: rejecting legacy cert filename '${cert_names[$i]}'"; continue;; esac
-        echo "${cert_bodies[$i]}" | sed 's/\\\\r\\\\n/\\n/g' | sed 's/\\\\//g' &gt; "/root/AzureCACertificates/$out_name"
+        echo "${cert_bodies[$i]}" | sed 's/\\\\r\\\\n/\\n/g' | sed 's/\\\\//g' > "/root/AzureCACertificates/$out_name"
     done
     IFS=$IFS_backup
 }
