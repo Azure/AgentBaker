@@ -407,16 +407,20 @@ function Get-CACertificates {
             }
 
             foreach ($certificate in $caCerts.Certificates) {
-                $name = [IO.Path]::GetFileName([string]$certificate.Name)
-                if ([string]::IsNullOrEmpty($name)) { Write-Log "Warning: rejecting legacy cert filename '$($certificate.Name)'"; continue }
-                $certFilePath = Join-Path $caFolder $name
+                $resourceFileName = [string]$certificate.Name
+                $sanitizedFileName = [IO.Path]::GetFileName($resourceFileName)
+                if ($sanitizedFileName -ne $resourceFileName) {
+                    Write-Log "Warning: rejecting certificate filename with path separators: $resourceFileName"
+                    continue
+                }
+                $certFilePath = Join-Path $caFolder $sanitizedFileName
                 $certificate.CertBody | Out-File -Encoding ascii -FilePath $certFilePath
                 # The legacy endpoint returns trusted root certificates only.
                 try {
                     Import-Certificate -FilePath $certFilePath -CertStoreLocation 'Cert:\LocalMachine\Root' -ErrorAction Stop | Out-Null
                     $importedCount++
                 } catch {
-                    throw "Failed to import CA certificate '$name' into Cert:\LocalMachine\Root. Error: $_"
+                    throw "Failed to import CA certificate '$sanitizedFileName' into Cert:\LocalMachine\Root. Error: $_"
                 }
             }
 

@@ -189,10 +189,15 @@ function retrieve_legacy_certs {
     cert_names=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
     cert_bodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
     for i in ${!cert_bodies[@]}; do
-        local out_name
-        out_name=$(basename -- "$(echo "${cert_names[$i]}" | sed 's/.cer/.crt/g')")
-        case "$out_name" in ""|"."|"..") echo "Warning: rejecting legacy cert filename '${cert_names[$i]}'"; continue;; esac
-        echo ${cert_bodies[$i]} | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$out_name"
+        local cert_filename sanitized_filename
+        cert_filename="$(echo "${cert_names[$i]}" | sed 's/.cer/.crt/g')"
+        sanitized_filename=$(basename -- "$cert_filename")
+        if [ "$sanitized_filename" != "$cert_filename" ] || [ -z "$sanitized_filename" ] || \
+           [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
+            echo "Warning: rejecting certificate filename with path separators or traversal: '$cert_filename'"
+            continue
+        fi
+        echo ${cert_bodies[$i]} | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$sanitized_filename"
     done
     IFS=$IFS_backup
 }
