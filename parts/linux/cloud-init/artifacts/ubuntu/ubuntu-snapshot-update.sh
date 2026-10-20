@@ -285,6 +285,10 @@ knead_apply_components() {
                 component_comparator=npdConfigsIsCurrent
                 component_handler=updateNPDConfigs
                 ;;
+            npdBinary)
+                component_comparator=npdBinaryIsCurrent
+                component_handler=updateNPDBinary
+                ;;
             *)
                 echo "unsupported component: ${component}"
                 component_index=$((component_index + 1))

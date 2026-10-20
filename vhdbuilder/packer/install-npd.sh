@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Ubuntu and Azure Linux NPD packages own the binary, monitors, plugins, startup
-# script and unit. Keep the config package in the VHD so the live updater can
-# recover without fetching the old version from a repository that may no longer
-# carry it.
+# script and unit. Keep both packages in the VHD so the live updaters (npdConfig
+# and npdBinary) can roll back without fetching the old version from a repository
+# that may no longer carry it.
 NPD_TDNF_LOCK_FILE="/etc/tdnf/locks.d/node-problem-detector.conf"
 
 # Hold a package against unattended updates and security patching. tdnf reads
@@ -65,14 +65,10 @@ installNPDPackage() {
         rm -rf "${NPD_BUILD_DIR:-/tmp/npd-build}"
     elif isUbuntu; then
         apt_get_install 30 1 600 "${package}=${full_version}" || return 1
-        if [ "${package}" = "node-problem-detector-aks-config" ]; then
-            (cd "${cache_dir}" && apt-get download "${package}=${full_version}") || return 1
-        fi
+        (cd "${cache_dir}" && apt-get download "${package}=${full_version}") || return 1
     else
         # tdnf skips downloading an installed package, so cache before installing.
-        if [ "${package}" = "node-problem-detector-aks-config" ]; then
-            tdnf install -y --downloadonly --downloaddir "${cache_dir}" "${package}-${full_version}" || return 1
-        fi
+        tdnf install -y --downloadonly --downloaddir "${cache_dir}" "${package}-${full_version}" || return 1
         dnf_install 30 1 600 "${package}-${full_version}" || return 1
     fi
     holdNPDPackage "${package}" || return 1
