@@ -1,10 +1,20 @@
 #!/usr/bin/env shellspec
 # shellcheck shell=bash disable=SC2329
 
-Describe 'create-e2e-vhd-metadata.sh'
+Describe 'Create E2E VHD metadata pipeline step'
   setup() {
     TEST_ROOT="$(mktemp -d "${SHELLSPEC_WORKDIR}/vhd-metadata.XXXXXX")"
-    METADATA_FILE="${TEST_ROOT}/output/image.json"
+    export BUILD_ARTIFACTSTAGINGDIRECTORY="${TEST_ROOT}/output" VHD_ARTIFACT_NAME=image
+    METADATA_FILE="${BUILD_ARTIFACTSTAGINGDIRECTORY}/e2e-vhd-metadata/${VHD_ARTIFACT_NAME}.json"
+    INLINE_METADATA_SCRIPT="${TEST_ROOT}/metadata.sh"
+    awk '
+      /^      inlineScript: \|$/ {script = ""; collecting = 1; next}
+      collecting && /^        / {script = script substr($0, 9) "\n"; next}
+      collecting && /^$/ {script = script "\n"; next}
+      {collecting = 0}
+      /^    displayName: Create E2E VHD metadata$/ {printf "%s", script; found = 1; exit}
+      END {if (!found) exit 1}
+    ' .pipelines/templates/.builder-release-template.yaml >"${INLINE_METADATA_SCRIPT}" || return $?
     export QUERY_LOG="${TEST_ROOT}/query.log"
     : >"${QUERY_LOG}"
     export OS_SKU=Ubuntu FEATURE_FLAGS=cvm PACKER_BUILD_LOCATION=eastus
@@ -47,7 +57,7 @@ Describe 'create-e2e-vhd-metadata.sh'
   }
 
   create_and_check_metadata() {
-    bash .pipelines/scripts/create-e2e-vhd-metadata.sh "${METADATA_FILE}" &&
+    bash "${INLINE_METADATA_SCRIPT}" &&
       jq -e --arg generalizedId "${GALLERY_ID}/images/${SKU_NAME}/versions/${CAPTURED_SIG_VERSION}" '
         length == 2 and
         .[env.SIG_IMAGE_NAME] == {
@@ -103,7 +113,7 @@ Describe 'create-e2e-vhd-metadata.sh'
 
     It "omits generalized metadata for $1 with publishing=$2, prefetch=$3, compatible=$4 without querying Azure"
       OS_SKU="$1" GENERATE_PUBLISHING_INFO="$2" RUN_PREFETCH_OPTIMIZATION="$3" PREFETCH_COMPATIBLE="$4"
-      When run bash .pipelines/scripts/create-e2e-vhd-metadata.sh "${METADATA_FILE}"
+      When run bash "${INLINE_METADATA_SCRIPT}"
       The status should be success
       The output should include 'Created E2E VHD metadata:'
       The contents of file "${QUERY_LOG}" should equal ''
@@ -122,7 +132,7 @@ Describe 'create-e2e-vhd-metadata.sh'
       OS_SKU="$1" FEATURE_FLAGS="$2"
       SIG_IMAGE_NAME="$3" SKU_NAME="$3"
       MANAGED_SIG_ID="${GALLERY_ID}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
-      When run bash .pipelines/scripts/create-e2e-vhd-metadata.sh "${METADATA_FILE}"
+      When run bash "${INLINE_METADATA_SCRIPT}"
       The status should be success
       The output should include 'Created E2E VHD metadata:'
       The contents of file "${QUERY_LOG}" should equal ''
@@ -162,7 +172,7 @@ Describe 'create-e2e-vhd-metadata.sh'
 
     It "omits $1 with a warning and preserves captured metadata"
       MOCK_VERSION="$(jq -c "$2" <<<"${MOCK_VERSION}")"
-      When run bash .pipelines/scripts/create-e2e-vhd-metadata.sh "${METADATA_FILE}"
+      When run bash "${INLINE_METADATA_SCRIPT}"
       The status should be success
       The output should include 'Reading generalized CVM image'
       The output should include 'Created E2E VHD metadata:'
@@ -174,7 +184,7 @@ Describe 'create-e2e-vhd-metadata.sh'
 
   It 'warns and preserves captured metadata when the generalized image lookup fails'
     MOCK_AZ_STATUS=37
-    When run bash .pipelines/scripts/create-e2e-vhd-metadata.sh "${METADATA_FILE}"
+    When run bash "${INLINE_METADATA_SCRIPT}"
     The status should be success
     The output should include 'Reading generalized CVM image'
     The output should include 'Created E2E VHD metadata:'
@@ -185,7 +195,7 @@ Describe 'create-e2e-vhd-metadata.sh'
 
   It 'rejects a missing captured image ID'
     MANAGED_SIG_ID=''
-    When run bash .pipelines/scripts/create-e2e-vhd-metadata.sh "${METADATA_FILE}"
+    When run bash "${INLINE_METADATA_SCRIPT}"
     The status should be failure
     The stderr should include 'Packer did not return a managed SIG image version ID'
     The path "${METADATA_FILE}" should not be exist
