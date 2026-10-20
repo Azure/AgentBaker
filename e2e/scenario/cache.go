@@ -203,7 +203,7 @@ var ClusterAzureNetworkIsolated = toolkit.Memoize(clusterAzureNetworkIsolated)
 
 // clusterAzureNetworkIsolated creates a networkisolated Azure network cluster (no internet access)
 func clusterAzureNetworkIsolated(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	model := getAzureNetworkClusterModel("abe2e-azure-networkisolated-v3", request.Location, request.K8sSystemPoolSKU)
+	model := getAzureNetworkClusterModel("abe2e-azure-networkisolated-v4", request.Location, request.K8sSystemPoolSKU)
 	return prepareCluster(ctx, model, true, false)
 }
 

@@ -237,6 +237,133 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
     End
 End
 
+Describe 'legacy CA certificate filenames'
+    setup_certificates() {
+        TEST_DIR="$(mktemp -d)"
+        mkdir -p "${TEST_DIR}/certs/nested"
+        # Relocate staging so all writes stay inside the test directory.
+        # shellcheck disable=SC1090
+        __SOURCED__=1 . <(sed "s|/root/AzureCACertificates|${TEST_DIR}/certs|g" \
+            ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh)
+        make_request_with_retry() { printf '%s\n' "$CERT_RESPONSE"; }
+    }
+    cleanup_certificates() { rm -rf "${TEST_DIR}"; }
+    BeforeEach 'setup_certificates'
+    AfterEach 'cleanup_certificates'
+
+    It 'preserves certificate names, extension conversion, contents and IFS'
+        CERT_RESPONSE='{"Certificates":[{"Name": "Root CA.cer","CertBody": "first\r\nsecond"},{"Name": "other.crt","CertBody": "other-body"}]}'
+        original_ifs=$IFS
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The contents of file "${TEST_DIR}/certs/Root CA.crt" should eq $'first\nsecond'
+        The contents of file "${TEST_DIR}/certs/other.crt" should eq 'other-body'
+        The variable IFS should eq "$original_ifs"
+    End
+
+    Describe 'invalid names'
+        Parameters
+            '../outside.crt'
+            'nested/other.crt'
+            './other.crt'
+            '.'
+            '..'
+            ''
+        End
+
+        It "rejects '$1' before writing"
+            CERT_RESPONSE="{\"Certificates\":[{\"Name\": \"$1\",\"CertBody\": \"unused-body\"}]}"
+            original_ifs=$IFS
+            When call retrieve_legacy_certs
+            The status should be success
+            The stdout should include 'Warning: rejecting invalid certificate filename:'
+            The stderr should be blank
+            The path "${TEST_DIR}/outside.crt" should not be exist
+            The path "${TEST_DIR}/certs/nested/other.crt" should not be exist
+            The path "${TEST_DIR}/certs/other.crt" should not be exist
+            The variable IFS should eq "$original_ifs"
+        End
+    End
+
+    It 'rejects an absolute name and continues with a valid certificate'
+        CERT_RESPONSE="{\"Certificates\":[{\"Name\": \"${TEST_DIR}/outside.crt\",\"CertBody\": \"unused-body\"},{\"Name\": \"valid.cer\",\"CertBody\": \"valid-body\"}]}"
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should include 'Warning: rejecting invalid certificate filename:'
+        The stderr should be blank
+        The path "${TEST_DIR}/outside.crt" should not be exist
+        The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid-body'
+    End
+
+    Describe 'name and body pairing'
+        Parameters
+            '"Name": "",'
+            '"Name": null,'
+            ''
+        End
+
+        It "keeps the valid body paired after a nameless entry with '$1'"
+            CERT_RESPONSE="{\"Certificates\":[{$1\"CertBody\": \"rejected-body\"},{\"Name\": \"valid.cer\",\"CertBody\": \"valid-body\"}]}"
+            When call retrieve_legacy_certs
+            The status should be success
+            The stdout should include 'Warning: rejecting invalid certificate filename:'
+            The stderr should be blank
+            The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid-body'
+        End
+    End
+
+    It 'preserves JSON-escaped contents in compact responses'
+        CERT_RESPONSE='{"Certificates":[{"Name":"first.cer","CertBody":""},{"Name":"second.cer","CertBody":"line one\r\nline \"two\"\\end"}]}'
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The contents of file "${TEST_DIR}/certs/first.crt" should eq ''
+        The contents of file "${TEST_DIR}/certs/second.crt" should eq $'line one\nline "two"\\end'
+    End
+
+    It 'rejects a NUL-containing name without overwriting a valid certificate'
+        CERT_RESPONSE='{"Certificates":[{"Name":"valid.cer","CertBody":"valid-body"},{"Name":"valid\u0000.cer","CertBody":"rejected-body"}]}'
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should include 'Warning: rejecting invalid certificate filename:'
+        The stderr should be blank
+        The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid-body'
+    End
+
+    It 'accepts an empty certificate array without writing certificates'
+        CERT_RESPONSE='{"Certificates":[]}'
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The path "${TEST_DIR}/certs/valid.crt" should not be exist
+    End
+
+    Describe 'invalid certificate responses'
+        Parameters
+            '{"Certificates":['
+            '{"Certificates":[{"Name":"valid.cer","CertBody":"unused-body"}]'
+            '{"Certificates":[]}{"Certificates":[]}'
+            '{"Certificates":null}'
+            '{"Certificates":{}}'
+            '{}'
+            ' '
+        End
+
+        It "reports invalid response '$1' without writing certificates"
+            CERT_RESPONSE=$1
+            When call retrieve_legacy_certs
+            The status should eq 1
+            The stdout should eq 'Warning: failed to parse legacy custom cloud certificates'
+            The stderr should be blank
+            The path "${TEST_DIR}/certs/valid.crt" should not be exist
+        End
+    End
+End
+
 Describe 'cse_config_chrony.sh distro routing'
     script_path='./parts/linux/cloud-init/artifacts/cse_config_chrony.sh'
 

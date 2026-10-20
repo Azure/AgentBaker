@@ -133,6 +133,10 @@ All E2E clusters share a single VNet and Azure Bastion in the `abe2e-{location}`
 avoids creating a per-cluster Bastion (~10 min each) and ensures all clusters are reachable from a
 single SSH entry point.
 
+Shared-infrastructure setup does not garbage-collect cluster subnets. A subnet
+without an AKS cluster may belong to another run that is still creating it.
+Remove genuinely orphaned subnets separately, after confirming no run uses them.
+
 ```mermaid
 graph TB
     subgraph RG["abe2e-{location} Resource Group"]
