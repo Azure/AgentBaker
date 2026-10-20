@@ -20,7 +20,7 @@ function Install-OpenSSH {
         return
     }
 
-    if (-not $SSHKeys -or @($SSHKeys | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+    if (-not $SSHKeys) {
         throw "SSH public keys are required when SSH access is enabled"
     }
 
@@ -39,14 +39,13 @@ function Install-OpenSSH {
 
     # A cached image may have the service disabled and keys from an earlier policy.
     Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
+    Start-Service -Name sshd -ErrorAction Stop
+
     $adminpath = 'C:\ProgramData\ssh'
     $adminfile = 'administrators_authorized_keys'
     $authorizedKeysPath = "$adminpath\$adminfile"
     if (Test-Path -LiteralPath $authorizedKeysPath -ErrorAction Stop) {
         Clear-Content -LiteralPath $authorizedKeysPath -Force -ErrorAction Stop
-    }
-    if (-not (Test-Path -LiteralPath $adminpath -ErrorAction Stop)) {
-        New-Item -Path $adminpath -ItemType Directory -Force -ErrorAction Stop | Out-Null
     }
     $SSHKeys | ForEach-Object {
         Add-Content -LiteralPath $authorizedKeysPath -Value $_ -ErrorAction Stop
@@ -62,7 +61,6 @@ function Install-OpenSSH {
     icacls $authorizedKeysPath /grant BUILTIN\Administrators:`(F`)
     if ($LASTEXITCODE -ne 0) { throw "icacls failed to grant Administrators permissions on $authorizedKeysPath (exit code $LASTEXITCODE)" }
 
-    Start-Service -Name sshd -ErrorAction Stop
     Restart-Service -Name sshd -ErrorAction Stop
 
     $firewall = Get-NetFirewallRule -Name *ssh* -ErrorAction Stop

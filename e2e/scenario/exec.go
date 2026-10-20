@@ -164,8 +164,8 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vm *ScenarioVM, script str
 	if vm == nil {
 		return nil, fmt.Errorf("cannot execute script on a nil VM")
 	}
-	// Windows installs live SSH keys in NodePrep, which does not run during the PIS bake.
-	if s.isWindowsPreProvision() {
+	// SSH-disabled Windows scenarios still need guest validation in both PIS stages.
+	if s.IsWindows() && s.Config.SkipSSHConnectivityValidation {
 		view, err := runCommand(ctx, s, script)
 		if err != nil {
 			return nil, err

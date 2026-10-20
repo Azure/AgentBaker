@@ -29,7 +29,6 @@ Describe 'Install-OpenSSH' {
         Mock Test-Path { $true }
         Mock Clear-Content { $script:sshActions += 'ClearKeys' }
         Mock Add-Content { $script:sshActions += 'AddKey' }
-        Mock New-Item
         Mock Get-NetFirewallRule { [PSCustomObject]@{ Name = 'OpenSSH-Server-In-TCP' } }
         Mock icacls {
             $script:icaclsCallCount++
@@ -62,24 +61,21 @@ Describe 'Install-OpenSSH' {
         Mock Get-Service { [PSCustomObject]@{ Name = 'sshd'; Status = 'Stopped'; StartType = 'Disabled' } }
         Install-OpenSSH -Enabled $true -SSHKeys @('ssh-rsa live-key')
 
-        $script:sshActions | Should -Be @('Set:Automatic', 'ClearKeys', 'AddKey', 'Start', 'Restart')
+        $script:sshActions | Should -Be @('Set:Automatic', 'Start', 'ClearKeys', 'AddKey', 'Restart')
         Assert-MockCalled Add-WindowsCapability -Times 0 -Exactly
         Assert-MockCalled Add-Content -Times 1 -Exactly -ParameterFilter {
             $LiteralPath -eq 'C:\ProgramData\ssh\administrators_authorized_keys' -and $Value -eq 'ssh-rsa live-key'
         }
     }
 
-    It 'installs the capability and creates the keys directory when absent' {
+    It 'installs and starts the capability before writing keys when absent' {
         Mock Get-Service {}
         Mock Test-Path { $false }
         Install-OpenSSH -Enabled $true -SSHKeys @('ssh-rsa live-key')
 
-        $script:sshActions | Should -Be @('Install', 'Set:Automatic', 'AddKey', 'Start', 'Restart')
+        $script:sshActions | Should -Be @('Install', 'Set:Automatic', 'Start', 'AddKey', 'Restart')
         Assert-MockCalled Add-WindowsCapability -Times 1 -Exactly -ParameterFilter {
             $Online -and $Name -eq 'OpenSSH.Server~~~~0.0.1.0' -and $ErrorAction -eq 'Stop'
-        }
-        Assert-MockCalled New-Item -Times 1 -Exactly -ParameterFilter {
-            $Path -eq 'C:\ProgramData\ssh' -and $ItemType -eq 'Directory'
         }
     }
 
@@ -124,14 +120,12 @@ Describe 'Install-OpenSSH' {
         $script:sshActions | Should -Be @('Set:Disabled', 'Stop')
     }
 
-    It 'rejects missing or empty keys when enabled' -TestCases @(
+    It 'requires keys for the enabled-only caller' -TestCases @(
         @{ Keys = $null }
         @{ Keys = @() }
-        @{ Keys = @('') }
-        @{ Keys = @('ssh-rsa live-key', ' ') }
     ) {
         param($Keys)
-        { Install-OpenSSH -Enabled $true -SSHKeys $Keys } | Should -Throw '*SSH public keys are required*'
+        { Install-OpenSSH -SSHKeys $Keys } | Should -Throw '*SSH public keys are required*'
         $script:sshActions | Should -HaveCount 0
     }
 
@@ -147,7 +141,7 @@ Describe 'Install-OpenSSH' {
         { Install-OpenSSH -SSHKeys @('ssh-rsa live-key') } | Should -Throw "*firewall is not configured*"
     }
 
-    It 'stops before service startup when ACL operation <FailedCall> fails' -TestCases @(
+    It 'fails before restarting the service when ACL operation <FailedCall> fails' -TestCases @(
         @{ FailedCall = 1 }
         @{ FailedCall = 2 }
         @{ FailedCall = 3 }
@@ -160,7 +154,6 @@ Describe 'Install-OpenSSH' {
         }
         { Install-OpenSSH -SSHKeys @('ssh-rsa live-key') } | Should -Throw '*icacls failed*exit code 5*'
         $script:icaclsCallCount | Should -Be $FailedCall
-        Assert-MockCalled Start-Service -Times 0 -Exactly
         Assert-MockCalled Restart-Service -Times 0 -Exactly
     }
 

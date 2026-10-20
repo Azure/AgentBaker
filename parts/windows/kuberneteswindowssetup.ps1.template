@@ -368,6 +368,12 @@ function BasePrep {
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
+    # Install OpenSSH if SSH enabled
+    $sshEnabled=[System.Convert]::ToBoolean("{{WindowsSSHEnabled}}")
+    if ( $sshEnabled ) {
+        Install-OpenSSH -SSHKeys $SSHKeys
+    }
+
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
     Resize-OSDrive
@@ -391,15 +397,6 @@ function BasePrep {
     icacls.exe "c:\k"
     Get-ProvisioningScripts
     Get-LogCollectionScripts
-
-    # Prepare the component for PIS capture; NodePrep applies the live policy and keys.
-    if ([System.Convert]::ToBoolean("{{WindowsSSHEnabled}}")) {
-        $sshdService = Get-Service -ErrorAction Stop | Where-Object { $_.Name -eq 'sshd' }
-        if (-not $sshdService) {
-            Write-Log "Installing OpenSSH Server during BasePrep"
-            Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 -ErrorAction Stop
-        }
-    }
 
     # kubeclusterconfig.json must exist before Install-Containerd-Based-On-Kubernetes-Version
     # runs below: the CSE scripts package cached on the VHD (e.g. v0.0.52) reads the pause image

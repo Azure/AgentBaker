@@ -521,7 +521,7 @@ func keepCachedImages(ctx context.Context, images []string, cached map[string]bo
 
 func validateVM(ctx context.Context, s *Scenario) error {
 	defer logging.LogStep(ctx, "validating VM")()
-	if !s.Config.SkipSSHConnectivityValidation && !s.isWindowsPreProvision() {
+	if !s.Config.SkipSSHConnectivityValidation {
 		if err := validateSSHConnectivity(ctx, s); err != nil {
 			return err
 		}

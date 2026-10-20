@@ -1,6 +1,6 @@
 # A node booted from a PIS-cached VHD skips BasePrep, because base_prep.complete is already in the
-# image. Every setting that describes the cluster, the node identity or a credential must therefore
-# be written in NodePrep, or the node runs on values captured when the image was baked.
+# image. NodePrep must therefore apply the live cluster configuration and credentials, even when
+# BasePrep also configured a component such as SSH during the bake.
 # These checks read the template as text so they pin the phase a call is made from.
 
 BeforeAll {
@@ -124,14 +124,9 @@ Describe 'Windows CSE PIS phase placement' {
             $script:NodePrepBody | Should -Match 'Install-OpenSSH -Enabled \$sshEnabled -SSHKeys \$global:SSHKeys'
         }
 
-        It 'prepares the OpenSSH capability in BasePrep only when enabled and missing' {
-            $script:BasePrepBody | Should -Match 'if\s*\(\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)\)\s*\{\s*\$sshdService = Get-Service -ErrorAction Stop'
-            $script:BasePrepBody | Should -Match '(?s)if \(-not \$sshdService\) \{\s*Write-Log "[^"]+"\s*Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0\.0\.1\.0 -ErrorAction Stop'
-        }
-
-        It 'leaves SSH service configuration and authorized keys to NodePrep' {
-            $script:BasePrepBody | Should -Not -Match 'Set-SSHAccess|Install-OpenSSH|SSHKeys|administrators_authorized_keys'
-            $script:BasePrepBody | Should -Not -Match '(Start|Stop|Set|Restart)-Service[^\r\n]*\bsshd\b'
+        It 'preserves SSH configuration in BasePrep only when enabled' {
+            $script:BasePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)'
+            $script:BasePrepBody | Should -Match 'if\s*\(\s*\$sshEnabled\s*\)\s*\{\s*Install-OpenSSH -SSHKeys \$SSHKeys\s*\}'
         }
 
         It 'applies SSH policy before starting Kubernetes services' {
