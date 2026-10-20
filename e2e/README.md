@@ -20,6 +20,9 @@ For Windows VHD-caching scenarios, the `PreProvisionOnly` bake stage uses VMSS
 RunCommand for guest validations and diagnostics, because SSH keys are installed
 only during `NodePrep`. The real-node stage still validates SSH unless the scenario
 explicitly disables that check. Linux bake-stage SSH behavior is unchanged.
+When SSH is enabled, `BasePrep` installs the OpenSSH Server capability if missing;
+`NodePrep` applies the current access policy and keys, retaining the installation
+fallback for cached images without OpenSSH.
 
 ## Writing and extending scenarios
 
