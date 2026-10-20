@@ -830,7 +830,7 @@ func TestCompareEnvs_DifferingValues(t *testing.T) {
 	logCap := installLogCapturer(t)
 	configEnv := compareEnvsConfigEnv(t)
 
-	nbcContent := compareEnvsBuildNBCContent(configEnv, nil, map[string]string{"VM_TYPE": "standard"}, nil)
+	nbcContent := compareEnvsBuildNBCContent(configEnv, nil, map[string]string{"LOCATION": "changed"}, nil)
 	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
 
 	compareEnvs(context.Background(), ProvisionFlags{
@@ -841,17 +841,17 @@ func TestCompareEnvs_DifferingValues(t *testing.T) {
 	records := logCap.getRecords()
 	var foundDiff bool
 	for _, r := range records {
-		if strings.Contains(r.Message, "differs: VM_TYPE") {
+		if strings.Contains(r.Message, "differs: LOCATION") {
 			foundDiff = true
 		}
 	}
-	assert.True(t, foundDiff, "expected summary log containing 'differs: VM_TYPE'")
+	assert.True(t, foundDiff, "expected summary log containing 'differs: LOCATION'")
 
 	events := tt.eventLogger.Events()
 	var found bool
 	for _, e := range events {
 		if strings.Contains(e.TaskName, "CompareEnvs") {
-			assert.Contains(t, e.Message, "differs: VM_TYPE")
+			assert.Contains(t, e.Message, "differs: LOCATION")
 			found = true
 		}
 	}
@@ -866,7 +866,7 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 	nbcContent := compareEnvsBuildNBCContent(
 		configEnv,
 		map[string]bool{"ADMINUSER": true},
-		map[string]string{"VM_TYPE": "changed"},
+		map[string]string{"LOCATION": "changed"},
 		[]string{`EXTRA_VAR="new"`},
 	)
 	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
@@ -883,7 +883,7 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 			foundSummary = true
 			assert.Contains(t, r.Message, "only-in-pc: ADMINUSER")
 			assert.Contains(t, r.Message, "only-in-nbc: EXTRA_VAR")
-			assert.Contains(t, r.Message, "differs: VM_TYPE")
+			assert.Contains(t, r.Message, "differs: LOCATION")
 		}
 	}
 	assert.True(t, foundSummary, "expected summary log with all 3 differences")
@@ -895,22 +895,69 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 			assert.Contains(t, e.Message, "env var differences (3)")
 			assert.Contains(t, e.Message, "only-in-pc: ADMINUSER")
 			assert.Contains(t, e.Message, "only-in-nbc: EXTRA_VAR")
-			assert.Contains(t, e.Message, "differs: VM_TYPE")
+			assert.Contains(t, e.Message, "differs: LOCATION")
 			found = true
 		}
 	}
 	assert.True(t, found, "expected CompareEnvs guest agent event")
 }
 
+func TestDiffEnvMaps_MCRRepositoryBase(t *testing.T) {
+	tests := []struct {
+		name     string
+		pc       map[string]string
+		nbc      map[string]string
+		expected []string
+	}{
+		{
+			name: "matching public default",
+			pc:   map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com/"},
+			nbc:  map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com/"},
+		},
+		{
+			name: "matching non-public base with slash",
+			pc:   map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			nbc:  map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+		},
+		{
+			name:     "different endpoints",
+			pc:       map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com"},
+			nbc:      map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			expected: []string{"differs: MCR_REPOSITORY_BASE"},
+		},
+		{
+			name:     "different trailing slash",
+			pc:       map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn"},
+			nbc:      map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			expected: []string{"differs: MCR_REPOSITORY_BASE"},
+		},
+		{
+			name:     "missing from parser",
+			nbc:      map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			expected: []string{"only-in-nbc: MCR_REPOSITORY_BASE"},
+		},
+		{
+			name:     "missing from NBC",
+			pc:       map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com"},
+			expected: []string{"only-in-pc: MCR_REPOSITORY_BASE"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, diffEnvMaps(tt.pc, tt.nbc))
+		})
+	}
+}
+
 func TestDiffEnvMaps_IgnoresProxyVarsCompatibilityDifference(t *testing.T) {
 	pcEnv := map[string]string{
 		"PROXY_VARS": `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}"; fi`,
-		"VM_TYPE":    "vmss",
+		"LOCATION":   "westus",
 	}
 	nbcEnv := map[string]string{
 		"PROXY_VARS": `export http_proxy="http://proxy.example:8080";`,
-		"VM_TYPE":    "standard",
+		"LOCATION":   "eastus",
 	}
 
-	assert.Equal(t, []string{"differs: VM_TYPE"}, diffEnvMaps(pcEnv, nbcEnv))
+	assert.Equal(t, []string{"differs: LOCATION"}, diffEnvMaps(pcEnv, nbcEnv))
 }

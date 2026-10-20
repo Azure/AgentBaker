@@ -56,6 +56,21 @@ Removed old environment variables from cse_cmd.sh:
 
 Many variables are changed to optional and we have a builder function as a helper to provide default values. For example, the builder function defaults `LinuxAdminUsername` to value `azureuser`, `OutboundCommand` to a default outbound command `curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/`.
 
+## MCR repository base
+
+The parser derives `MCR_REPOSITORY_BASE` from `ClusterConfig.Location`, matching
+RP's location-to-cloud MCR selection for the legacy NBC path. Location matching
+ignores case and whitespace. China, USNat, USSec, Bleu, and Delos use their
+respective MCR endpoints; all other locations, including USGov/DoD, legacy
+Germany, GovSG, empty, and unknown locations, use public MCR.
+
+The emitted registry base has no URL scheme and includes a trailing slash,
+matching RP's cloud specifications. This derivation also applies when
+`CustomCloudConfig.CustomCloudEnvName` is the generic custom-cloud marker.
+It does not change other cloud/ARM settings or
+`BootstrapProfileContainerRegistryServer`. No new contract field or RP producer
+change is required.
+
 ## Additional kubelet configuration fields
 
 `KubeletConfigFileConfig` can carry the following fields through the node configuration

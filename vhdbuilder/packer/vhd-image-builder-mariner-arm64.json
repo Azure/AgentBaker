@@ -755,6 +755,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/npd-update.sh",
+      "destination": "/home/packer/npd-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-npd.sh",
+      "destination": "/home/packer/install-npd.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/package-update.service",
       "destination": "/home/packer/snapshot-update.service"
     },

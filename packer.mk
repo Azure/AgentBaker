@@ -102,6 +102,7 @@ az-login:
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
+	@mkdir -p kata-cc # Empty on ordinary builds; populated by the CC signing-artifact download.
 	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-packer: az-login
