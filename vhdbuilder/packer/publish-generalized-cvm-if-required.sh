@@ -24,7 +24,7 @@ fi
 source_storage_account="${BASH_REMATCH[1]}"
 publication_stage="resolving source storage account (az storage account list)"
 report_publication_failure() {
-    local exit_code=$?
+    local exit_code="${1:-$?}"
     echo "ERROR: Generalized CVM publication failed during ${publication_stage} (exit ${exit_code})" >&2
     exit "${exit_code}"
 }
@@ -82,38 +82,39 @@ version_tags=(
     "image_sku=${IMG_SKU:?}"
     "branch=${BRANCH:?}"
 )
-echo "Creating image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} with buildId=${BUILD_BUILDID:?}, now=${CREATE_TIME}, source location ${source_location}, target region westus"
+echo "Creating image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} with buildId=${BUILD_BUILDID:?}, now=${CREATE_TIME}, source location ${source_location}, target region ${PACKER_BUILD_LOCATION:?}"
 echo "Image version tags: ${version_tags[*]}"
 az sig image-version create "${version_args[@]}" \
     --location "${source_location}" \
     --os-vhd-uri "${SOURCE_VHD_URI}" \
     --os-vhd-storage-account "${source_storage_id}" \
-    --target-regions westus \
+    --target-regions "${PACKER_BUILD_LOCATION}" \
     --tags "${version_tags[@]}" >/dev/null
 echo "Image version creation completed for ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION}; checking replication"
 
-publication_stage="waiting for image version replication (az sig image-version wait)"
-echo "Waiting for image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} replication to westus to complete"
-az sig image-version wait "${version_args[@]}" --expand ReplicationStatus \
-    --custom "provisioningState=='Succeeded' && replicationStatus.aggregatedState=='Completed'" \
-    --interval 60 --timeout 3600 >/dev/null
-
+echo "Waiting for image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} replication to ${PACKER_BUILD_LOCATION} to complete"
 publication_stage="verifying image version readiness (az sig image-version show)"
-echo "Verifying image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} is ready in westus"
-image_status="$(
-    az sig image-version show "${version_args[@]}" --expand ReplicationStatus \
-        --query '{state:provisioningState,replication:replicationStatus}' --output json
-)"
-echo "Image version status: ${image_status}"
-# The CLI wait command can exit zero on timeout; verify the actual resource state.
-if ! jq -e '
-    .state == "Succeeded" and
-    .replication.aggregatedState == "Completed" and
-    any(.replication.summary[]?; .region == "westus" and .state == "Completed")
-' <<<"${image_status}" >/dev/null; then
-    echo "ERROR: Generalized CVM image ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} is not ready in westus after waiting for replication" >&2
-    exit 1
-fi
+echo "Verifying image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} is ready in ${PACKER_BUILD_LOCATION}"
+replication_deadline=$((SECONDS + 900))
+while true; do
+    image_status="$(
+        az sig image-version show "${version_args[@]}" --expand ReplicationStatus \
+            --query '{state:provisioningState,replication:replicationStatus}' --output json
+    )" || { show_status=$?; [[ "${show_status}" -eq 3 ]] || report_publication_failure "${show_status}"; }
+    echo "Image version status: ${image_status:-not found}"
+    readiness="$(jq -r --arg region "${PACKER_BUILD_LOCATION}" '
+        if .state == "Succeeded" and
+            any(.replication.summary[]?; .region == $region and .state == "Completed") then "ready"
+        elif .state == "Failed" or .state == "Canceled" or
+            any(.replication.summary[]?; .region == $region and .state == "Failed") then "failed"
+        else "pending" end
+    ' <<<"${image_status:-null}")"
+    [[ "${readiness}" != "ready" ]] || break
+    [[ "${readiness}" != "failed" ]] || { echo "ERROR: Image provisioning or replication failed" >&2; exit 1; }
+    ((SECONDS < replication_deadline)) || { echo "ERROR: Image is not ready in ${PACKER_BUILD_LOCATION} after waiting 900 seconds for replication" >&2; exit 1; }
+    echo "Image version is not ready in ${PACKER_BUILD_LOCATION}; retrying in 60 seconds"
+    sleep 60
+done
 
-echo "Image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} replicated successfully to westus"
-echo "Generalized CVM image ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION}: image ready in westus"
+echo "Image version ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION} replicated successfully to ${PACKER_BUILD_LOCATION}"
+echo "Generalized CVM image ${SIG_GALLERY_NAME}/${SKU_NAME}/${CAPTURED_SIG_VERSION}: image ready in ${PACKER_BUILD_LOCATION}"

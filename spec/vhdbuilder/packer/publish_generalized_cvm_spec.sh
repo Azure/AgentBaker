@@ -12,8 +12,11 @@ Describe 'publish-generalized-cvm-if-required.sh'
     export TAGS_FILE="${SHELLSPEC_WORKDIR}/cvm-version-tags"
     export MOCK_DEFINITION_ID=/test/image-definition
     export MOCK_FAIL_COMMAND='' MOCK_STATE=Succeeded
-    export MOCK_REPLICATION=Completed MOCK_REGION=westus MOCK_REGION_STATE=Completed
-    export -f az
+    export MOCK_REPLICATION=Completed MOCK_REGION=eastus MOCK_REGION_STATE=Completed
+    export MOCK_PENDING_POLLS=0 MOCK_INITIAL_RESPONSE=pending
+    export POLL_TRACE_FILE="${SHELLSPEC_WORKDIR}/cvm-replication-polls"
+    : >"${POLL_TRACE_FILE}"
+    export -f az sleep
   }
   BeforeEach 'setup'
 
@@ -37,6 +40,9 @@ Describe 'publish-generalized-cvm-if-required.sh'
         ;;
       'sig image-version create')
         while [[ "$#" -gt 0 ]]; do
+          if [[ "$1" = --target-regions ]]; then
+            echo "target-region $2" >>"${POLL_TRACE_FILE}"
+          fi
           if [[ "$1" = --tags ]]; then
             shift
             printf '%s\n' "$@" >"${TAGS_FILE}"
@@ -45,10 +51,18 @@ Describe 'publish-generalized-cvm-if-required.sh'
           shift
         done
         ;;
-      'sig image-version wait')
-        echo '{}'
-        ;;
       'sig image-version show')
+        echo show >>"${POLL_TRACE_FILE}"
+        local show_count
+        show_count="$(grep -c '^show$' "${POLL_TRACE_FILE}")"
+        if ((show_count <= MOCK_PENDING_POLLS)); then
+          case "${MOCK_INITIAL_RESPONSE}" in
+            empty) return 0 ;;
+            null) echo null; return 0 ;;
+            missing) return 3 ;;
+            pending) echo '{"state":"Updating","replication":{"aggregatedState":"InProgress"}}'; return 0 ;;
+          esac
+        fi
         jq -nc --arg state "${MOCK_STATE}" --arg replication "${MOCK_REPLICATION}" \
           --arg region "${MOCK_REGION}" --arg regionState "${MOCK_REGION_STATE}" \
           '{state:$state,replication:{aggregatedState:$replication,summary:[{region:$region,state:$regionState}]}}'
@@ -58,6 +72,18 @@ Describe 'publish-generalized-cvm-if-required.sh'
         return 99
         ;;
     esac
+  }
+
+  sleep() {
+    echo "sleep $*" >>"${POLL_TRACE_FILE}"
+    SECONDS=$((SECONDS + $1))
+  }
+
+  publish_and_check_polling() {
+    bash ./vhdbuilder/packer/publish-generalized-cvm-if-required.sh \
+      https://teststorage.blob.core.windows.net/vhds/test.vhd &&
+      [[ "$(grep -c '^show$' "${POLL_TRACE_FILE}")" -eq 3 ]] &&
+      [[ "$(grep -c '^sleep 60$' "${POLL_TRACE_FILE}")" -eq 2 ]]
   }
 
   publish_and_check_tags() {
@@ -92,19 +118,37 @@ Describe 'publish-generalized-cvm-if-required.sh'
       When call publish_and_check_tags
       The status should be success
       The output should include 'Image version creation completed'
-      The output should include 'replicated successfully to westus'
-      The output should include 'image ready in westus'
+      The output should include "replicated successfully to ${PACKER_BUILD_LOCATION}"
+      The output should include "image ready in ${PACKER_BUILD_LOCATION}"
       The output should not include 'provisioned'
+      The contents of file "${POLL_TRACE_FILE}" should not include 'sleep'
+      The contents of file "${POLL_TRACE_FILE}" should include "target-region ${PACKER_BUILD_LOCATION}"
     End
   End
 
-  Describe 'unready images after a zero-exit wait'
+  Describe 'replication polling'
     Parameters
-      Updating Completed westus Completed
-      Succeeded InProgress westus InProgress
-      Succeeded Completed eastus Completed
-      Succeeded Completed westus InProgress
-      Failed Failed westus Failed
+      pending
+      empty
+      null
+      missing
+    End
+
+    It "polls every 60 seconds until a $1 image response becomes ready"
+      MOCK_PENDING_POLLS=2 MOCK_INITIAL_RESPONSE="$1"
+      When call publish_and_check_polling
+      The status should be success
+      The output should include 'retrying in 60 seconds'
+      The output should include "image ready in ${PACKER_BUILD_LOCATION}"
+    End
+  End
+
+  Describe 'unready images'
+    Parameters
+      Updating Completed eastus Completed
+      Succeeded InProgress eastus InProgress
+      Succeeded Completed westus Completed
+      Succeeded Completed eastus InProgress
     End
 
     It "rejects state=$1, replication=$2, region=$3, regional state=$4"
@@ -113,10 +157,38 @@ Describe 'publish-generalized-cvm-if-required.sh'
         https://teststorage.blob.core.windows.net/vhds/test.vhd
       The status should be failure
       The output should include 'Verifying image version'
-      The output should not include 'image ready in westus'
+      The output should not include 'image ready in'
       The output should not include 'replicated successfully'
-      The stderr should include 'is not ready in westus after waiting for replication'
+      The stderr should include "is not ready in ${PACKER_BUILD_LOCATION} after waiting 900 seconds for replication"
     End
+  End
+
+  Describe 'terminal provisioning or replication failures'
+    Parameters
+      Failed Completed Completed
+      Canceled Completed Completed
+      Succeeded Failed Failed
+      Succeeded InProgress Failed
+    End
+
+    It "stops immediately for state=$1, replication=$2, regional state=$3"
+      MOCK_STATE="$1" MOCK_REPLICATION="$2" MOCK_REGION_STATE="$3"
+      When run bash ./vhdbuilder/packer/publish-generalized-cvm-if-required.sh \
+        https://teststorage.blob.core.windows.net/vhds/test.vhd
+      The status should be failure
+      The output should not include 'image ready in'
+      The stderr should include 'provisioning or replication failed'
+      The contents of file "${POLL_TRACE_FILE}" should not include 'sleep'
+    End
+  End
+
+  It 'does not wait for aggregate replication when the build region is ready'
+    PACKER_BUILD_LOCATION=northeurope MOCK_REGION=northeurope MOCK_REPLICATION=InProgress
+    When call publish_and_check_tags
+    The status should be success
+    The output should include 'image ready in northeurope'
+    The contents of file "${POLL_TRACE_FILE}" should include 'target-region northeurope'
+    The contents of file "${POLL_TRACE_FILE}" should not include 'sleep'
   End
 
   Describe 'Azure operation failures'
@@ -126,7 +198,6 @@ Describe 'publish-generalized-cvm-if-required.sh'
       'sig image-definition create' 'creating image definition'
       'resource update --ids' 'enabling image definition updates'
       'sig image-version create' 'creating image version'
-      'sig image-version wait' 'waiting for image version replication'
       'sig image-version show' 'verifying image version readiness'
     End
 
@@ -136,7 +207,7 @@ Describe 'publish-generalized-cvm-if-required.sh'
         https://teststorage.blob.core.windows.net/vhds/test.vhd
       The status should equal 37
       The output should include 'Publishing generalized CVM image'
-      The output should not include 'image ready in westus'
+      The output should not include 'image ready in'
       The output should not include 'replicated successfully'
       The stderr should include "failed during $2"
     End

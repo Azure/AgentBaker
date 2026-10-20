@@ -131,7 +131,7 @@ Describe 'create-e2e-vhd-metadata.sh'
   End
 
   It 'advertises only confirmed replica regions'
-    MOCK_VERSION="$(jq -c '.replicationStatus.summary += [{region:"westus2",state:"InProgress"}]' <<<"${MOCK_VERSION}")"
+    MOCK_VERSION="$(jq -c '.replicationStatus.aggregatedState = "InProgress" | .replicationStatus.summary += [{region:"westus2",state:"InProgress"}]' <<<"${MOCK_VERSION}")"
     When call create_and_check_metadata
     The status should be success
     The output should include 'replicated regions: eastus, westus'
@@ -153,7 +153,8 @@ Describe 'create-e2e-vhd-metadata.sh'
       captured-id '.id = env.MANAGED_SIG_ID'
       wrong-version '.id |= sub("1.2.3$"; "1.2.4")'
       updating '.provisioningState = "Updating"'
-      replicating '.replicationStatus.aggregatedState = "InProgress"'
+      replicating '.replicationStatus.summary |= map(if .region == "eastus" then .state = "InProgress" else . end)'
+      wrong-region '.replicationStatus.summary = [{region:"westus",state:"Completed"}]'
       no-regions '.replicationStatus.summary = []'
       incomplete-region '.replicationStatus.summary = [{region:"westus",state:"InProgress"}]'
       invalid-region '.replicationStatus.summary = [{region:null,state:"Completed"}]'

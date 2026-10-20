@@ -11,7 +11,7 @@ Describe 'prefetch publication and cleanup'
     export CAPTURED_SIG_VERSION=1.2.3 HYPERV_GENERATION=V2 FEATURE_FLAGS=cvm OS_SKU=Ubuntu
     export ENABLE_TRUSTED_LAUNCH=false WORKLOAD_OPTIMIZATION_SCRIPT_URL=https://example.test/optimize.sh
     export MOCK_EXISTS=false MOCK_COPY_STATUS=success MOCK_GALLERY_READY=false
-    export MOCK_GALLERY_REGION=westus MOCK_GALLERY_REGION_STATE=Completed
+    export MOCK_GALLERY_REGION=eastus MOCK_GALLERY_REGION_STATE=Completed
     export MOCK_STORAGE_STATUS=0 MOCK_GALLERY_STATUS=0 MOCK_ARTIFACT_STATUS=0
     export MOCK_ARTIFACT_URI=https://source.blob.core.windows.net/vhds/test.vhd
     export MOCK_WAIT_STATUS=0
@@ -118,6 +118,7 @@ Describe 'prefetch publication and cleanup'
   End
 
   It 'allows an already-complete CVM rerun without needing the deleted source'
+    LOCATION=northeurope MOCK_GALLERY_REGION=northeurope
     MOCK_EXISTS=true MOCK_GALLERY_READY=true MOCK_ARTIFACT_STATUS=99
     When run run_optimizer
     The status should be success
@@ -140,10 +141,10 @@ Describe 'prefetch publication and cleanup'
     End
   End
 
-  Describe 'gallery replication must be complete in westus'
+  Describe 'gallery replication must be complete in the build location'
     Parameters
-      westus InProgress
-      eastus Completed
+      eastus InProgress
+      westus Completed
     End
 
     It "retries publication when region $1 has state $2"

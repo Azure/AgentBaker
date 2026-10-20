@@ -33,10 +33,11 @@ case "${prefetch_settings,,}:${OS_SKU,,}:${FEATURE_FLAGS,,}" in
                 --output json --only-show-errors
         )"; then
             echo "##vso[task.logissue type=warning]Unable to read generalized CVM image ${generalized_id}; omitting it from E2E metadata" >&2
-        elif ! generalized_entry="$(jq -ce --arg expectedId "${generalized_id}" --arg version "${CAPTURED_SIG_VERSION}" '
+        elif ! generalized_entry="$(jq -ce --arg expectedId "${generalized_id}" --arg version "${CAPTURED_SIG_VERSION}" --arg buildLocation "${PACKER_BUILD_LOCATION}" '
             select((.id | type) == "string") |
             select((.id | ascii_downcase) == ($expectedId | ascii_downcase)) |
-            select(.provisioningState == "Succeeded" and .replicationStatus.aggregatedState == "Completed") |
+            select(.provisioningState == "Succeeded" and
+                any(.replicationStatus.summary[]?; .region == $buildLocation and .state == "Completed")) |
             {
                 resourceId: .id,
                 version: $version,

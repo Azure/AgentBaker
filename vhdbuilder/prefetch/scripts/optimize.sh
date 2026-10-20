@@ -117,10 +117,9 @@ generalized_cvm_gallery_is_ready() {
         echo "Unable to confirm generalized CVM gallery readiness; will retry publication" >&2
         return 1
     fi
-    jq -e '
+    jq -e --arg region "${LOCATION}" '
         .provisioningState == "Succeeded" and
-        .replicationStatus.aggregatedState == "Completed" and
-        any(.replicationStatus.summary[]?; .region == "westus" and .state == "Completed")
+        any(.replicationStatus.summary[]?; .region == $region and .state == "Completed")
     ' <<<"${image_status}" >/dev/null
 }
 
