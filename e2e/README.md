@@ -23,6 +23,9 @@ explicitly disables that check. Linux bake-stage SSH behavior is unchanged.
 When SSH is enabled, `BasePrep` installs the OpenSSH Server capability if missing;
 `NodePrep` applies the current access policy and keys, retaining the installation
 fallback for cached images without OpenSSH.
+The shared `Install-OpenSSH` implementation ships in both the CSE package and
+CustomData. Provisioning loads the inline copy after the cached CSE scripts so
+older packages cannot override the current SSH policy handling.
 
 ## Writing and extending scenarios
 
