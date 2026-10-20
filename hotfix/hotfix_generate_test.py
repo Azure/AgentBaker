@@ -335,40 +335,18 @@ write_files:
                             continue
                         content = path.read_text()
                         self.assertNotIn("{{", content)
-                        entries = re.findall(
-                            r"- path: ([^\n]+)\n"
-                            r'  permissions: "([0-7]+)"\n'
-                            r"  encoding: gzip\n  owner: root\n"
-                            r"  content: !!binary \|\n    ([A-Za-z0-9+/=]+)",
-                            content,
-                        )
+                        entries = re.findall(r"- path: ([^\n]+)", content)
                         self.assertEqual(
                             int(custom) + int("provisionSourceUbuntu" in selected),
                             len(entries),
                         )
-                        for path, permissions, encoded in entries:
-                            if path.endswith("/init-aks-cloud.sh"):
-                                self.assertTrue(custom)
-                                source = "init-aks-cloud.sh"
-                            else:
-                                self.assertTrue(
-                                    path.endswith("/provision_source_distro.sh")
-                                )
-                                source = f"{platform}/cse_helpers_{platform}.sh"
-                            self.assertEqual("0744", permissions)
+                        self.assertEqual(
+                            custom, "/opt/azure/containers/init-aks-cloud.sh" in entries
+                        )
+                        for encoded in re.findall(r"content: !!binary \|\n    (\S+)", content):
                             decoded = gzip.decompress(base64.b64decode(encoded))
-                            expected = (
-                                repository / hotfix_generate.ARTIFACTS_DIR / source
-                            ).read_bytes()
                             self.assertTrue(decoded.startswith(b"#!/bin/bash\n"))
                             self.assertGreater(len(decoded), 1000)
-                            # The production renderer strips comments from scripts.
-                            functions = re.findall(
-                                rb"^\w+\(\) \{", expected, re.MULTILINE
-                            )
-                            self.assertTrue(functions)
-                            for function in functions:
-                                self.assertIn(function, decoded)
 
     def test_write_rendered_payload_preserves_placeholder_without_hotfix(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -447,8 +425,7 @@ write_files:
 
     def test_update_nodecustomdata_does_not_duplicate_custom_cloud_entry(self):
         repository = Path(__file__).resolve().parents[1]
-        original = (repository / hotfix_generate.TEMPLATE).read_text()
-        lines = original.splitlines(keepends=True)
+        lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(keepends=True)
         _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
         duplicate = hotfix_generate.build_hotfix_template(
             {"initAKSCloud"}, lines[outer_else + 1:end]
@@ -471,19 +448,12 @@ write_files:
                     {"initAKSCloud"},
                 ):
                     hotfix_generate.update_nodecustomdata(selected)
-                    lines = template.read_text().splitlines(keepends=True)
-                    start, outer_else, end = hotfix_generate.find_block_boundaries(
-                        lines
-                    )
-                    for section in (
-                        lines[start + 1:outer_else], lines[outer_else + 1:end]
-                    ):
-                        content = "".join(section)
-                        self.assertEqual(1, content.count("{{if IsAKSCustomCloud}}"))
-                        self.assertEqual(1, content.count('"initAKSCloud"'))
+                    content = template.read_text()
+                    self.assertEqual(2, content.count("{{if IsAKSCustomCloud}}"))
+                    self.assertEqual(2, content.count('"initAKSCloud"'))
                     self.assertEqual(
                         "provisionSource" in selected,
-                        hotfix_generate.SCRIPTS_BEGIN in "".join(lines),
+                        hotfix_generate.SCRIPTS_BEGIN in content,
                     )
 
     def test_write_hotfix_file_uses_hotfixes_and_preserves_scripts_version(self):

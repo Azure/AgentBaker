@@ -14,14 +14,17 @@ import (
 )
 
 type platform struct {
-	name   string
-	distro datamodel.Distro
+	name        string
+	distro      datamodel.Distro
+	customCloud bool
 }
 
 func main() {
 	platforms := []platform{
 		{name: "ubuntu", distro: datamodel.AKSUbuntuContainerd2204Gen2},
 		{name: "mariner", distro: datamodel.AKSAzureLinuxV3Gen2},
+		{name: "ubuntu_akscustom", distro: datamodel.AKSUbuntuContainerd2204Gen2, customCloud: true},
+		{name: "mariner_akscustom", distro: datamodel.AKSAzureLinuxV3Gen2, customCloud: true},
 	}
 
 	templatePath := flag.String("template", "", "path to the hotfix nodecustomdata template")
@@ -41,31 +44,27 @@ func main() {
 		fatalf("create output directory: %v", err)
 	}
 
+	defaults := make(map[datamodel.Distro]string)
 	for _, target := range platforms {
-		var defaultRendered string
-		for _, customCloud := range []bool{false, true} {
-			rendered, err := agent.RenderLinuxNodeCustomDataTemplate(
-				templateContent,
-				newRenderConfig(target.distro, customCloud),
-			)
-			if err != nil {
-				fatalf("render %s nodecustomdata (custom cloud %t): %v", target.name, customCloud, err)
-			}
-			if customCloud && rendered == defaultRendered {
-				continue
-			}
-			if !customCloud {
-				defaultRendered = rendered
-			}
-			name := "rendered_nodecustomdata_" + target.name
-			if customCloud {
-				name += "_akscustom"
-			}
-			outputPath := filepath.Join(*outputDir, name+".yml")
-			//nolint:gosec // The caller intentionally selects the output directory; filenames are fixed by this tool.
-			if err := os.WriteFile(outputPath, []byte(rendered), 0o600); err != nil {
-				fatalf("write %s nodecustomdata: %v", target.name, err)
-			}
+		config := newRenderConfig(target.distro)
+		if target.customCloud {
+			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
+		}
+		rendered, err := agent.RenderLinuxNodeCustomDataTemplate(templateContent, config)
+		if err != nil {
+			fatalf("render %s nodecustomdata: %v", target.name, err)
+		}
+		if target.customCloud && rendered == defaults[target.distro] {
+			continue
+		}
+		defaults[target.distro] = rendered
+		outputPath := filepath.Join(
+			*outputDir,
+			"rendered_nodecustomdata_"+target.name+".yml",
+		)
+		//nolint:gosec // The caller intentionally selects the output directory; filenames are fixed by this tool.
+		if err := os.WriteFile(outputPath, []byte(rendered), 0o600); err != nil {
+			fatalf("write %s nodecustomdata: %v", target.name, err)
 		}
 	}
 }
@@ -77,13 +76,13 @@ func main() {
 // purpose is to satisfy the renderer's unconditional dereferences of
 // OrchestratorProfile/KubernetesConfig so rendering doesn't nil-panic. Their
 // values are not meaningful and are not consumed by the embedded output.
-func newRenderConfig(distro datamodel.Distro, customCloud bool) *datamodel.NodeBootstrappingConfiguration {
+func newRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {
 	profile := &datamodel.AgentPoolProfile{
 		Name:   "hotfix-render",
 		OSType: datamodel.Linux,
 		Distro: distro,
 	}
-	config := &datamodel.NodeBootstrappingConfiguration{
+	return &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			Location: "eastus",
 			Properties: &datamodel.Properties{
@@ -105,10 +104,6 @@ func newRenderConfig(distro datamodel.Distro, customCloud bool) *datamodel.NodeB
 		K8sComponents:    &datamodel.K8sComponents{},
 		KubeletConfig:    map[string]string{},
 	}
-	if customCloud {
-		config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
-	}
-	return config
 }
 
 func fatalf(format string, args ...interface{}) {

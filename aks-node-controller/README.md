@@ -250,21 +250,15 @@ updates to the ANC binary itself. The generated files live under
 `rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
 hotfixable entries from `nodecustomdata.yml`, then renders only Ubuntu and
 standard Azure Linux variants through AgentBaker's production Go-template
-functions. When custom-cloud rendering differs, each platform also has a
-`rendered_nodecustomdata_<platform>_akscustom.yml` variant that preserves
-`IsAKSCustomCloud` eligibility. ANC follows provisioning's input precedence:
-when an NBC command exists, it reads `IS_CUSTOM_CLOUD` without executing the
-command; otherwise it reads the live node config's
-`custom_cloud_config.custom_cloud_env_name` and compares it to `akscustom`
-(case-insensitive, matching the production renderer). Malformed or unavailable eligibility
-inputs return an error before any payload is written; the caller logs the error.
-Existing packages without cloud variants retain distro-only application.
-Azure Linux retains the `mariner` payload filename; the legacy
+functions. Distinct custom-cloud output uses an `_akscustom.yml` variant, selected
+using the NBC command's `IS_CUSTOM_CLOUD` or, when that command file is absent, the node config's
+`custom_cloud_config.custom_cloud_env_name` (case-insensitive `akscustom`).
+Unresolvable eligibility returns an error before writes. Packages without cloud
+variants retain distro-only application. Azure Linux retains the `mariner` payload filename; the legacy
 `ID=mariner` OS is no longer supported. OS Guard, ACL, and Flatcar are explicitly skipped during embedded
 application, including variants that share the `azurelinux` OS ID. Their
 distro-specific source changes do not trigger payload generation.
-For cloud-init delivery, generation does not inject a second copy of a canonical
-block already present in the scriptless branch (such as `init-aks-cloud.sh`).
+Generation does not duplicate blocks already present in the scriptless branch.
 
 The repository keeps a README placeholder so `go:embed` builds without any
 script hotfix payloads. Generation replaces it with Ubuntu and Azure Linux YAMLs.

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/base64"
-	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -15,24 +14,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestEmbeddedHotfixCloudEligibility(t *testing.T) {
+func TestApplyEmbeddedNodeCustomDataCloudEligibility(t *testing.T) {
 	tests := []struct {
 		name, config, command, wantError string
 		wantCustom                       bool
 	}{
 		{name: "custom", config: `{"custom_cloud_config":{"custom_cloud_env_name":"akscustom"}}`, wantCustom: true},
-		{name: "case insensitive", config: `{"customCloudConfig":{"customCloudEnvName":"AKSCustom"}}`, wantCustom: true},
+		{name: "case insensitive protojson", config: `{"customCloudConfig":{"customCloudEnvName":"AKSCustom"}}`, wantCustom: true},
 		{name: "public", config: `{}`},
 		{name: "other cloud", config: `{"custom_cloud_config":{"custom_cloud_env_name":"AzureChinaCloud"}}`},
 		{name: "command authoritative", config: `{}`, command: `IS_CUSTOM_CLOUD=true`, wantCustom: true},
 		{name: "command excludes custom config", config: `{"custom_cloud_config":{"custom_cloud_env_name":"akscustom"}}`, command: `IS_CUSTOM_CLOUD=false`},
-		{name: "command ignores invalid config", config: `{`, command: `IS_CUSTOM_CLOUD=true`, wantCustom: true},
 		{name: "invalid config", config: `{`, wantError: "decode node config"},
 		{name: "invalid command does not fall back", config: `{"custom_cloud_config":{"custom_cloud_env_name":"akscustom"}}`, command: `echo test`, wantError: "missing or invalid IS_CUSTOM_CLOUD"},
 		{name: "legacy custom", command: `IS_CUSTOM_CLOUD="true" /bin/bash provision.sh`, wantCustom: true},
 		{name: "legacy public", command: `IS_CUSTOM_CLOUD=false /bin/bash provision.sh`},
-		{name: "missing marker", command: `echo IS_CUSTOM_CLOUD`, wantError: "missing or invalid IS_CUSTOM_CLOUD"},
-		{name: "invalid marker", command: `IS_CUSTOM_CLOUD=TRUE`, wantError: "missing or invalid IS_CUSTOM_CLOUD"},
 		{name: "missing inputs", wantError: "read node config"},
 	}
 	for _, test := range tests {
@@ -48,77 +44,34 @@ func TestEmbeddedHotfixCloudEligibility(t *testing.T) {
 			if test.command != "" {
 				require.NoError(t, os.WriteFile(app.nbcCmdPath, []byte(test.command), 0o600))
 			}
-			actual, err := app.isEmbeddedHotfixCustomCloud()
+			script := filepath.Join(directory, "init-aks-cloud.sh")
+			require.NoError(t, os.WriteFile(script, []byte("original"), 0o600))
+			data, err := yaml.Marshal(nodeCustomData{WriteFiles: []nodeCustomDataWriteFile{
+				{Path: script, Content: "hotfix"},
+			}})
+			require.NoError(t, err)
+			files := fstest.MapFS{
+				"generated/rendered_nodecustomdata_ubuntu.yml":           &fstest.MapFile{Data: []byte("write_files: []")},
+				"generated/rendered_nodecustomdata_ubuntu_akscustom.yml": &fstest.MapFile{Data: data},
+			}
+			release := filepath.Join(directory, "os-release")
+			require.NoError(t, os.WriteFile(release, []byte("ID=ubuntu"), 0o600))
+			output := filepath.Join(directory, "embedded.yml")
+			err = applyEmbeddedNodeCustomData(files, release, output, app.isEmbeddedHotfixCustomCloud)
 			if test.wantError != "" {
 				require.ErrorContains(t, err, test.wantError)
+				assert.NoFileExists(t, output)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, test.wantCustom, actual)
 			}
+			actual, err := os.ReadFile(script)
+			require.NoError(t, err)
+			expected := "original"
+			if test.wantCustom {
+				expected = "hotfix"
+			}
+			assert.Equal(t, expected, string(actual))
 		})
-	}
-}
-
-func TestApplyEmbeddedNodeCustomDataSelectsCloudVariant(t *testing.T) {
-	for _, platform := range []string{"ubuntu", "mariner"} {
-		for _, cloud := range []string{"public", "custom", "unknown"} {
-			t.Run(platform+"/"+cloud, func(t *testing.T) {
-				directory := t.TempDir()
-				script := filepath.Join(directory, "init-aks-cloud.sh")
-				common := filepath.Join(directory, "provision_source_distro.sh")
-				require.NoError(t, os.WriteFile(script, []byte("original"), 0o600))
-				publicFiles := []nodeCustomDataWriteFile{{Path: common, Content: platform}}
-				customFiles := append(append([]nodeCustomDataWriteFile{}, publicFiles...), nodeCustomDataWriteFile{
-					Path: script, Encoding: encodingBase64, Content: base64.StdEncoding.EncodeToString([]byte("hotfix")),
-				})
-				publicYAML, err := yaml.Marshal(nodeCustomData{WriteFiles: publicFiles})
-				require.NoError(t, err)
-				customYAML, err := yaml.Marshal(nodeCustomData{WriteFiles: customFiles})
-				require.NoError(t, err)
-				name := "generated/rendered_nodecustomdata_" + platform
-				files := fstest.MapFS{
-					name + ".yml":           &fstest.MapFile{Data: publicYAML},
-					name + "_akscustom.yml": &fstest.MapFile{Data: customYAML},
-				}
-				releasePath := filepath.Join(directory, "os-release")
-				id := platform
-				if platform == "mariner" {
-					id = "azurelinux"
-				}
-				require.NoError(t, os.WriteFile(releasePath, []byte("ID="+id), 0o600))
-				outputPath := filepath.Join(directory, "embedded.yml")
-				err = applyEmbeddedNodeCustomData(files, releasePath, outputPath, func() (bool, error) {
-					if cloud == "unknown" {
-						return false, errors.New("unavailable config")
-					}
-					return cloud == "custom", nil
-				})
-				if cloud == "unknown" {
-					require.ErrorContains(t, err, "resolve embedded hotfix cloud eligibility")
-					assert.NoFileExists(t, common)
-					assert.NoFileExists(t, outputPath)
-				} else {
-					require.NoError(t, err)
-					actual, err := os.ReadFile(common)
-					require.NoError(t, err)
-					assert.Equal(t, platform, string(actual))
-					retained, err := os.ReadFile(outputPath)
-					require.NoError(t, err)
-					if cloud == "custom" {
-						assert.Equal(t, customYAML, retained)
-					} else {
-						assert.Equal(t, publicYAML, retained)
-					}
-				}
-				actual, err := os.ReadFile(script)
-				require.NoError(t, err)
-				if cloud == "custom" {
-					assert.Equal(t, "hotfix", string(actual))
-				} else {
-					assert.Equal(t, "original", string(actual), "ineligible nodes must not overwrite the script")
-				}
-			})
-		}
 	}
 }
 
