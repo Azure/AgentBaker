@@ -1,9 +1,6 @@
-import base64
-import gzip
 import io
 import json
 import os
-import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -59,6 +56,53 @@ TRADITIONAL_TEMPLATE = """- path: {{GetCSEHelpersScriptFilepath}}
 
 
 class HotfixGenerateTests(unittest.TestCase):
+    def test_production_renderer_omits_empty_platform_payloads(self):
+        repository = Path(__file__).resolve().parents[1]
+        lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
+            keepends=True
+        )
+        _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
+        cases = [
+            ("custom cloud only", hotfix_generate.build_hotfix_template(
+                {"initAKSCloud"}, lines[outer_else + 1:end]
+            ), set()),
+            ("missing", "#cloud-config\n", set()),
+            ("null", "write_files:\n", set()),
+            ("empty list", "write_files: []\n", set()),
+            ("ubuntu only", 'write_files:\n{{if not IsMariner}}\n'
+             '- path: /test\n  content: hotfix\n{{end}}\n', {"ubuntu"}),
+            ("both", "write_files:\n- path: /test\n  content: hotfix\n",
+             {"ubuntu", "mariner"}),
+        ]
+        for name, template, platforms in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                template_path = Path(directory) / "template.yml"
+                template_path.write_text(template)
+                output = Path(directory) / "generated"
+                output.mkdir()
+                for platform in ("ubuntu", "mariner"):
+                    (output / f"rendered_nodecustomdata_{platform}.yml").write_text(
+                        "write_files:\n"  # Stale empty files must also be removed.
+                    )
+                subprocess.run(
+                    ["go", "run", "./hotfix/render-nodecustomdata", "--template",
+                     str(template_path), "--output-dir", str(output)],
+                    cwd=repository, check=True, capture_output=True,
+                )
+                expected = {
+                    f"rendered_nodecustomdata_{platform}.yml" for platform in platforms
+                } or {"README"}
+                self.assertEqual(expected, {path.name for path in output.iterdir()})
+                if name == "custom cloud only":
+                    probe = Path(directory) / "main.go"
+                    probe.write_text('package main\nimport "embed"\n'
+                                     '//go:embed generated\nvar files embed.FS\n'
+                                     'func main() {}\n')
+                    subprocess.run(
+                        ["go", "build", "-o", str(Path(directory) / "probe"), str(probe)],
+                        cwd=repository, check=True, capture_output=True,
+                    )
+
     def test_config_modules_are_independently_hotfixable(self):
         repository = Path(__file__).resolve().parents[1]
         lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
@@ -305,49 +349,6 @@ write_files:
                 {path.name for path in generated.iterdir()},
             )
 
-    def test_custom_cloud_and_distro_scripts_survive_production_rendering(self):
-        repository = Path(__file__).resolve().parents[1]
-        lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
-            keepends=True
-        )
-        _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
-        traditional = lines[outer_else + 1:end]
-        selections = (
-            {"initAKSCloud"},
-            {"initAKSCloud", "provisionSourceUbuntu", "provisionSourceMariner"},
-            {"provisionSourceUbuntu", "provisionSourceMariner"},
-        )
-        for selected in selections:
-            with self.subTest(selected=selected), tempfile.TemporaryDirectory() as directory:
-                generated = Path(directory) / "generated"
-                with mock.patch.object(
-                    hotfix_generate, "GENERATED_DIR", str(generated)
-                ):
-                    hotfix_generate.write_rendered_payload(selected, traditional)
-                for platform in ("ubuntu", "mariner"):
-                    for custom in (False, True):
-                        suffix = "_akscustom" if custom else ""
-                        path = (
-                            generated / f"rendered_nodecustomdata_{platform}{suffix}.yml"
-                        )
-                        if custom and "initAKSCloud" not in selected:
-                            self.assertFalse(path.exists())
-                            continue
-                        content = path.read_text()
-                        self.assertNotIn("{{", content)
-                        entries = re.findall(r"- path: ([^\n]+)", content)
-                        self.assertEqual(
-                            int(custom) + int("provisionSourceUbuntu" in selected),
-                            len(entries),
-                        )
-                        self.assertEqual(
-                            custom, "/opt/azure/containers/init-aks-cloud.sh" in entries
-                        )
-                        for encoded in re.findall(r"content: !!binary \|\n    (\S+)", content):
-                            decoded = gzip.decompress(base64.b64decode(encoded))
-                            self.assertTrue(decoded.startswith(b"#!/bin/bash\n"))
-                            self.assertGreater(len(decoded), 1000)
-
     def test_write_rendered_payload_preserves_placeholder_without_hotfix(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             generated = Path(temp_dir) / "generated"
@@ -372,7 +373,7 @@ write_files:
         with tempfile.TemporaryDirectory() as temp_dir:
             generated = Path(temp_dir) / "generated"
             generated.mkdir()
-            platforms = ("ubuntu", "mariner", "ubuntu_akscustom", "mariner_akscustom")
+            platforms = ("ubuntu", "mariner")
             for platform in platforms:
                 (generated / f"rendered_nodecustomdata_{platform}.yml").write_text(
                     f"write_files:\n- path: /{platform}-existing\n"
@@ -422,39 +423,6 @@ write_files:
                 cleaned = template.read_text()
                 self.assertNotIn(hotfix_generate.SCRIPTS_BEGIN, cleaned)
                 self.assertEqual(1, cleaned.count("provisionSourceUbuntu"))
-
-    def test_update_nodecustomdata_does_not_duplicate_custom_cloud_entry(self):
-        repository = Path(__file__).resolve().parents[1]
-        lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(keepends=True)
-        _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
-        duplicate = hotfix_generate.build_hotfix_template(
-            {"initAKSCloud"}, lines[outer_else + 1:end]
-        ).removeprefix("#cloud-config\nwrite_files:\n")
-        # Start with an asset produced by the old generator, including its duplicate.
-        original = "".join(
-            lines[:outer_else]
-            + [f"\n{hotfix_generate.SCRIPTS_BEGIN}\n", duplicate,
-               f"{hotfix_generate.SCRIPTS_END}\n"]
-            + lines[outer_else:]
-        )
-        with tempfile.TemporaryDirectory() as directory:
-            template = Path(directory) / "nodecustomdata.yml"
-            template.write_text(original)
-            with mock.patch.object(hotfix_generate, "TEMPLATE", str(template)):
-                for selected in (
-                    {"initAKSCloud"},
-                    {"initAKSCloud", "provisionSource"},
-                    {"initAKSCloud", "provisionSource"},
-                    {"initAKSCloud"},
-                ):
-                    hotfix_generate.update_nodecustomdata(selected)
-                    content = template.read_text()
-                    self.assertEqual(2, content.count("{{if IsAKSCustomCloud}}"))
-                    self.assertEqual(2, content.count('"initAKSCloud"'))
-                    self.assertEqual(
-                        "provisionSource" in selected,
-                        hotfix_generate.SCRIPTS_BEGIN in content,
-                    )
 
     def test_write_hotfix_file_uses_hotfixes_and_preserves_scripts_version(self):
         with tempfile.TemporaryDirectory() as temp_dir:

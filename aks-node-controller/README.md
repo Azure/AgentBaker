@@ -250,18 +250,16 @@ updates to the ANC binary itself. The generated files live under
 `rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
 hotfixable entries from `nodecustomdata.yml`, then renders only Ubuntu and
 standard Azure Linux variants through AgentBaker's production Go-template
-functions. Distinct custom-cloud output uses an `_akscustom.yml` variant, selected
-using the NBC command's `IS_CUSTOM_CLOUD` or, when that command file is absent, the node config's
-`custom_cloud_config.custom_cloud_env_name` (case-insensitive `akscustom`).
-Unresolvable eligibility returns an error before writes. Packages without cloud
-variants retain distro-only application. Azure Linux retains the `mariner` payload filename; the legacy
+functions. Azure Linux retains the `mariner` payload filename; the legacy
 `ID=mariner` OS is no longer supported. OS Guard, ACL, and Flatcar are explicitly skipped during embedded
 application, including variants that share the `azurelinux` OS ID. Their
 distro-specific source changes do not trigger payload generation.
-Generation does not duplicate blocks already present in the scriptless branch.
 
 The repository keeps a README placeholder so `go:embed` builds without any
-script hotfix payloads. Generation replaces it with Ubuntu and Azure Linux YAMLs.
+script hotfix payloads. Generation omits any rendered YAML with no `write_files`
+entries (including missing, null, or empty lists) and logs the skipped platform.
+If all platforms are empty, it writes a README placeholder to keep `go:embed` valid.
+This does not add support for non-distro template conditions.
 ANC skips application when the local platform's YAML is absent; no separate
 activation flag is needed. Other payload read errors are logged.
 
@@ -271,9 +269,9 @@ is retired explicitly.
 
 The existing applier writes entries sequentially and creates missing destination
 files and parent directories. There is no transactional rollback: if an entry
-fails, earlier writes remain. Generation selects by distro and AKS custom-cloud
-eligibility; hotfix authors must separately account for other template conditions
-such as custom-image exclusions.
+fails, earlier writes remain. Generation selects by distro only; hotfix authors
+must separately account for non-distro template conditions such as custom-image
+exclusions.
 
 `cse_start.sh` (`provision_start.sh` on the node) is excluded from embedded
 hotfixes to preserve custom-image wrappers. Generation fails explicitly if this

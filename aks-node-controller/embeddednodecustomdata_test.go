@@ -14,67 +14,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestApplyEmbeddedNodeCustomDataCloudEligibility(t *testing.T) {
-	tests := []struct {
-		name, config, command, wantError string
-		wantCustom                       bool
-	}{
-		{name: "custom", config: `{"custom_cloud_config":{"custom_cloud_env_name":"akscustom"}}`, wantCustom: true},
-		{name: "case insensitive protojson", config: `{"customCloudConfig":{"customCloudEnvName":"AKSCustom"}}`, wantCustom: true},
-		{name: "public", config: `{}`},
-		{name: "other cloud", config: `{"custom_cloud_config":{"custom_cloud_env_name":"AzureChinaCloud"}}`},
-		{name: "command authoritative", config: `{}`, command: `IS_CUSTOM_CLOUD=true`, wantCustom: true},
-		{name: "command excludes custom config", config: `{"custom_cloud_config":{"custom_cloud_env_name":"akscustom"}}`, command: `IS_CUSTOM_CLOUD=false`},
-		{name: "invalid config", config: `{`, wantError: "decode node config"},
-		{name: "invalid command does not fall back", config: `{"custom_cloud_config":{"custom_cloud_env_name":"akscustom"}}`, command: `echo test`, wantError: "missing or invalid IS_CUSTOM_CLOUD"},
-		{name: "legacy custom", command: `IS_CUSTOM_CLOUD="true" /bin/bash provision.sh`, wantCustom: true},
-		{name: "legacy public", command: `IS_CUSTOM_CLOUD=false /bin/bash provision.sh`},
-		{name: "missing inputs", wantError: "read node config"},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			directory := t.TempDir()
-			app := &App{
-				nodeConfigPath: filepath.Join(directory, "config.json"),
-				nbcCmdPath:     filepath.Join(directory, "nbc-cmd.sh"),
-			}
-			if test.config != "" {
-				require.NoError(t, os.WriteFile(app.nodeConfigPath, []byte(test.config), 0o600))
-			}
-			if test.command != "" {
-				require.NoError(t, os.WriteFile(app.nbcCmdPath, []byte(test.command), 0o600))
-			}
-			script := filepath.Join(directory, "init-aks-cloud.sh")
-			require.NoError(t, os.WriteFile(script, []byte("original"), 0o600))
-			data, err := yaml.Marshal(nodeCustomData{WriteFiles: []nodeCustomDataWriteFile{
-				{Path: script, Content: "hotfix"},
-			}})
-			require.NoError(t, err)
-			files := fstest.MapFS{
-				"generated/rendered_nodecustomdata_ubuntu.yml":           &fstest.MapFile{Data: []byte("write_files: []")},
-				"generated/rendered_nodecustomdata_ubuntu_akscustom.yml": &fstest.MapFile{Data: data},
-			}
-			release := filepath.Join(directory, "os-release")
-			require.NoError(t, os.WriteFile(release, []byte("ID=ubuntu"), 0o600))
-			output := filepath.Join(directory, "embedded.yml")
-			err = applyEmbeddedNodeCustomData(files, release, output, app.isEmbeddedHotfixCustomCloud)
-			if test.wantError != "" {
-				require.ErrorContains(t, err, test.wantError)
-				assert.NoFileExists(t, output)
-			} else {
-				require.NoError(t, err)
-			}
-			actual, err := os.ReadFile(script)
-			require.NoError(t, err)
-			expected := "original"
-			if test.wantCustom {
-				expected = "hotfix"
-			}
-			assert.Equal(t, expected, string(actual))
-		})
-	}
-}
-
 func TestClassifyNodeCustomDataPlatform(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -98,7 +37,7 @@ func TestClassifyNodeCustomDataPlatform(t *testing.T) {
 			assert.Equal(t, test.expected, actual)
 			if actual == nodeCustomDataPlatformUnsupported {
 				outputPath := filepath.Join(t.TempDir(), "embedded-nodecustomdata.yml")
-				require.NoError(t, applyEmbeddedNodeCustomData(fstest.MapFS{}, releasePath, outputPath, nil),
+				require.NoError(t, applyEmbeddedNodeCustomData(fstest.MapFS{}, releasePath, outputPath),
 					"unsupported platforms must skip without reading any payload")
 				assert.NoFileExists(t, outputPath)
 			}
@@ -133,7 +72,7 @@ func TestApplyEmbeddedNodeCustomData(t *testing.T) {
 			files := fstest.MapFS{
 				"generated/rendered_nodecustomdata_" + platform + ".yml": &fstest.MapFile{Data: data},
 			}
-			require.NoError(t, applyEmbeddedNodeCustomData(files, releasePath, outputPath, nil))
+			require.NoError(t, applyEmbeddedNodeCustomData(files, releasePath, outputPath))
 			for _, destination := range []string{existing, missing} {
 				actual, readErr := os.ReadFile(destination)
 				require.NoError(t, readErr)
@@ -145,7 +84,7 @@ func TestApplyEmbeddedNodeCustomData(t *testing.T) {
 			legacy, err := os.ReadFile(legacyPath)
 			require.NoError(t, err)
 			assert.Equal(t, "legacy payload", string(legacy))
-			require.NoError(t, applyEmbeddedNodeCustomData(fstest.MapFS{}, releasePath, outputPath, nil))
+			require.NoError(t, applyEmbeddedNodeCustomData(fstest.MapFS{}, releasePath, outputPath))
 			retained, err = os.ReadFile(outputPath)
 			require.NoError(t, err)
 			assert.Equal(t, data, retained, "a skipped application must preserve the last payload")
@@ -203,7 +142,7 @@ func TestApplyEmbeddedNodeCustomDataErrorsAndRetention(t *testing.T) {
 			if test.missing == "payload-file" {
 				files["generated/rendered_nodecustomdata_ubuntu.yml"].Mode = fs.ModeDir
 			}
-			err := applyEmbeddedNodeCustomData(files, releasePath, outputPath, nil)
+			err := applyEmbeddedNodeCustomData(files, releasePath, outputPath)
 			if test.wantError == "" {
 				require.NoError(t, err)
 			} else {

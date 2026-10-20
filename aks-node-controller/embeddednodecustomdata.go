@@ -9,9 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/Azure/agentbaker/aks-node-controller/helpers"
-	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 )
 
 const defaultOSReleasePath = "/etc/os-release"
@@ -37,7 +34,7 @@ const (
 //go:embed generated
 var embeddedGeneratedNodeCustomData embed.FS
 
-func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath, outputPath string, isCustomCloud func() (bool, error)) error {
+func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath, outputPath string) error {
 	if osReleasePath == "" {
 		osReleasePath = defaultOSReleasePath
 	}
@@ -50,18 +47,6 @@ func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath, outputPath stri
 		return nil
 	}
 	renderedPath := fmt.Sprintf("generated/rendered_nodecustomdata_%s.yml", platform)
-	customCloudPath := strings.TrimSuffix(renderedPath, ".yml") + "_akscustom.yml"
-	if _, err := fs.Stat(payloadFS, customCloudPath); err == nil {
-		customCloud, err := isCustomCloud()
-		if err != nil {
-			return fmt.Errorf("resolve embedded hotfix cloud eligibility: %w", err)
-		}
-		if customCloud {
-			renderedPath = customCloudPath
-		}
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("stat embedded nodecustomdata %s: %w", customCloudPath, err)
-	}
 	data, err := fs.ReadFile(payloadFS, renderedPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -80,37 +65,6 @@ func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath, outputPath stri
 	}
 	slog.Info("applied embedded hotfix payload", "source", renderedPath, "path", outputPath)
 	return nil
-}
-
-func (a *App) isEmbeddedHotfixCustomCloud() (bool, error) {
-	// Match Provision's precedence when both live configuration forms are present.
-	commandPath := a.getNBCCmdPath()
-	data, err := os.ReadFile(commandPath)
-	if err == nil {
-		value := parseEnvVarsFromNBCCmdContent(string(data))["IS_CUSTOM_CLOUD"]
-		switch value {
-		case "true":
-			return true, nil
-		case "false":
-			return false, nil
-		default:
-			return false, fmt.Errorf("NBC command %s has missing or invalid IS_CUSTOM_CLOUD", commandPath)
-		}
-	}
-	if !errors.Is(err, fs.ErrNotExist) {
-		return false, fmt.Errorf("read NBC command %s: %w", commandPath, err)
-	}
-
-	configPath := a.getNodeConfigPath()
-	data, err = os.ReadFile(configPath)
-	if err != nil {
-		return false, fmt.Errorf("read node config %s: %w", configPath, err)
-	}
-	config, err := nodeconfigutils.UnmarshalConfigurationV1(data)
-	if err != nil {
-		return false, fmt.Errorf("decode node config %s: %w", configPath, err)
-	}
-	return strings.EqualFold(config.GetCustomCloudConfig().GetCustomCloudEnvName(), helpers.AksCustomCloudName), nil
 }
 
 func classifyNodeCustomDataPlatform(osReleasePath string) (nodeCustomDataPlatform, error) {

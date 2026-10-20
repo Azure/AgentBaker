@@ -11,20 +11,18 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"gopkg.in/yaml.v3"
 )
 
 type platform struct {
-	name        string
-	distro      datamodel.Distro
-	customCloud bool
+	name   string
+	distro datamodel.Distro
 }
 
 func main() {
 	platforms := []platform{
 		{name: "ubuntu", distro: datamodel.AKSUbuntuContainerd2204Gen2},
 		{name: "mariner", distro: datamodel.AKSAzureLinuxV3Gen2},
-		{name: "ubuntu_akscustom", distro: datamodel.AKSUbuntuContainerd2204Gen2, customCloud: true},
-		{name: "mariner_akscustom", distro: datamodel.AKSAzureLinuxV3Gen2, customCloud: true},
 	}
 
 	templatePath := flag.String("template", "", "path to the hotfix nodecustomdata template")
@@ -44,34 +42,49 @@ func main() {
 		fatalf("create output directory: %v", err)
 	}
 
-	defaults := make(map[datamodel.Distro]string)
+	written := 0
 	for _, target := range platforms {
-		config := newRenderConfig(target.distro)
-		if target.customCloud {
-			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
-		}
-		rendered, err := agent.RenderLinuxNodeCustomDataTemplate(templateContent, config)
+		rendered, err := agent.RenderLinuxNodeCustomDataTemplate(
+			templateContent,
+			newRenderConfig(target.distro),
+		)
 		if err != nil {
 			fatalf("render %s nodecustomdata: %v", target.name, err)
 		}
-		if target.customCloud && rendered == defaults[target.distro] {
-			continue
-		}
-		defaults[target.distro] = rendered
 		outputPath := filepath.Join(
 			*outputDir,
 			"rendered_nodecustomdata_"+target.name+".yml",
 		)
+		var payload struct {
+			WriteFiles []yaml.Node `yaml:"write_files"`
+		}
+		if err := yaml.Unmarshal([]byte(rendered), &payload); err != nil {
+			fatalf("parse %s nodecustomdata: %v", target.name, err)
+		}
+		if len(payload.WriteFiles) == 0 {
+			fmt.Fprintf(os.Stderr, "Skipping %s nodecustomdata: no write_files entries\n", target.name)
+			if err := os.Remove(outputPath); err != nil && !os.IsNotExist(err) {
+				fatalf("remove empty %s nodecustomdata: %v", target.name, err)
+			}
+			continue
+		}
 		//nolint:gosec // The caller intentionally selects the output directory; filenames are fixed by this tool.
 		if err := os.WriteFile(outputPath, []byte(rendered), 0o600); err != nil {
 			fatalf("write %s nodecustomdata: %v", target.name, err)
+		}
+		written++
+	}
+	if written == 0 {
+		// go:embed requires at least one file even when every platform is empty.
+		if err := os.WriteFile(filepath.Join(*outputDir, "README"), []byte("No applicable script hotfix payloads.\n"), 0o600); err != nil {
+			fatalf("write empty payload placeholder: %v", err)
 		}
 	}
 }
 
 // newRenderConfig builds the minimal NodeBootstrappingConfiguration required to
-// run agent.RenderLinuxNodeCustomDataTemplate. Distro and custom-cloud eligibility
-// select the hotfix write_files blocks; the remaining fields (orchestrator
+// run agent.RenderLinuxNodeCustomDataTemplate. Only the Distro selector affects
+// the hotfix write_files blocks we render; the remaining fields (orchestrator
 // version, location, FQDN, KubernetesConfig, etc.) are placeholders whose sole
 // purpose is to satisfy the renderer's unconditional dereferences of
 // OrchestratorProfile/KubernetesConfig so rendering doesn't nil-panic. Their
