@@ -407,7 +407,8 @@ function Get-CACertificates {
             }
 
             foreach ($certificate in $caCerts.Certificates) {
-                $name = $certificate.Name
+                $name = [IO.Path]::GetFileName([string]$certificate.Name)
+                if ([string]::IsNullOrEmpty($name)) { Write-Log "Warning: rejecting legacy cert filename '$($certificate.Name)'"; continue }
                 $certFilePath = Join-Path $caFolder $name
                 $certificate.CertBody | Out-File -Encoding ascii -FilePath $certFilePath
                 # The legacy endpoint returns trusted root certificates only.
