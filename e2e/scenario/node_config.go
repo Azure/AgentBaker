@@ -155,8 +155,8 @@ func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*data
 	// 2. secure TLS bootstrapping failure, which falls back to bootstrap token
 	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
-	// always remove bootstrap-kubeconfig within e2e by default
-	nbc.RemoveBootstrapKubeconfig = true
+	// remove bootstrap-kubeconfig within e2e by default when not on the frozen AzureLinux V2 image
+	nbc.RemoveBootstrapKubeconfig = vhd.Distro != datamodel.AKSAzureLinuxV2Gen2
 	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 		Enabled: config.Config.EnableSecureTLSBootstrapping,
 	}
