@@ -173,7 +173,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterAzureNetwork,
 		VHD:     config.VHDWindows2025,
 		BootstrapConfigMutatorWithError: func(_ context.Context, _ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
-			nbc.SSHStatus = datamodel.SSHOff
+			nbc.ContainerService.Properties.WindowsProfile.SSHEnabled = to.Ptr(false)
 			return Windows2025BootstrapConfigMutator(nbc)
 		},
 		SkipSSHConnectivityValidation: true,
