@@ -174,9 +174,8 @@ function is_opted_in_for_root_certs {
 
 function retrieve_legacy_certs {
     local certs
-    local cert_names
-    local cert_bodies
-    local i
+    local certificates certificate
+    local cert_filename sanitized_filename
 
     certs=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=cacertificates&ext=json")
     if [ -z "$certs" ]; then
@@ -184,22 +183,28 @@ function retrieve_legacy_certs {
         return 1
     fi
 
-    IFS_backup=$IFS
-    IFS=$'\r\n'
-    cert_names=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
-    cert_bodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
-    for i in ${!cert_bodies[@]}; do
-        local cert_filename sanitized_filename
-        cert_filename="$(echo "${cert_names[$i]}" | sed 's/.cer/.crt/g')"
+    # Keep each name paired with its body, including entries with empty fields.
+    if ! certificates=$(printf '%s' "$certs" | jq -c '.Certificates[]'); then
+        echo "Warning: failed to parse legacy custom cloud certificates"
+        return 1
+    fi
+    if [ -z "$certificates" ]; then
+        return 0
+    fi
+
+    while IFS= read -r certificate; do
+        cert_filename="$(jq -r '.Name // ""' <<< "$certificate" | sed 's/.cer/.crt/g')"
         sanitized_filename=$(basename -- "$cert_filename")
         if [ "$sanitized_filename" != "$cert_filename" ] || [ -z "$sanitized_filename" ] || \
            [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
             echo "Warning: rejecting certificate filename with path separators or traversal: '$cert_filename'"
             continue
         fi
-        echo ${cert_bodies[$i]} | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$sanitized_filename"
-    done
-    IFS=$IFS_backup
+        if ! jq -r '.CertBody | gsub("\r\n"; "\n")' <<< "$certificate" > "/root/AzureCACertificates/$sanitized_filename"; then
+            echo "Warning: failed to write legacy custom cloud certificate: '$sanitized_filename'"
+            return 1
+        fi
+    done <<< "$certificates"
 }
 
 function process_cert_operations {

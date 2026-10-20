@@ -8,7 +8,7 @@
 #    - repo-depot helpers (init_ubuntu_main_repo_depot, init_ubuntu_pmc_repo_depot,
 #      init_mariner_repo_depot, init_azurelinux_repo_depot, check_url)
 #    - cloud mode selection helper (determine_cert_endpoint_mode)
-#    - legacy certificate filename validation (retrieve_legacy_certs)
+#    - paired legacy certificate parsing and filename validation (retrieve_legacy_certs)
 
 Describe 'init-aks-cloud.sh refresh mode wiring'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
@@ -161,15 +161,66 @@ Describe 'init-aks-cloud.sh legacy certificate filenames'
     End
 
     It 'continues after a rejected filename without mixing up certificate bodies'
-        RESPONSE_BODY='{"Certificates": [{"Name": "../escape.cer", "CertBody": "rejected-body"}, {"Name": "valid.cer", "CertBody": "valid-body"}]}'
+        RESPONSE_BODY='{"Certificates": [{"Name": "", "CertBody": "empty-name-body"}, {"Name": "../escape.cer", "CertBody": "rejected-body"}, {"Name": "valid.cer", "CertBody": "valid-body"}]}'
 
         When call retrieve_and_list_files
         The status should be success
-        The line 1 of stdout should eq "Warning: rejecting certificate filename with path separators or traversal: '../escape.crt'"
-        The line 2 of stdout should eq "${CERT_DIR}/valid.crt"
-        The lines of stdout should eq 2
+        The line 1 of stdout should eq "Warning: rejecting certificate filename with path separators or traversal: ''"
+        The line 2 of stdout should eq "Warning: rejecting certificate filename with path separators or traversal: '../escape.crt'"
+        The line 3 of stdout should eq "${CERT_DIR}/valid.crt"
+        The lines of stdout should eq 3
         The stderr should be blank
         The contents of file "${CERT_DIR}/valid.crt" should eq 'valid-body'
+    End
+
+    It 'keeps empty bodies paired with their names in compact JSON'
+        RESPONSE_BODY='{"Certificates":[{"Name":"empty.cer","CertBody":""},{"Name":"valid.cer","CertBody":"valid-body"}]}'
+
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The contents of file "${CERT_DIR}/empty.crt" should eq ''
+        The contents of file "${CERT_DIR}/valid.crt" should eq 'valid-body'
+    End
+
+    It 'decodes JSON escapes without losing name/body pairing'
+        RESPONSE_BODY='{"Certificates":[{"Name":"legacy\"root.cer","CertBody":"first-line\nsecond-line\r\nlast-line"}]}'
+
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The contents of file "${CERT_DIR}/legacy\"root.crt" should eq $'first-line\nsecond-line\nlast-line'
+    End
+
+    It 'handles an empty certificate list without attempting to write a file'
+        RESPONSE_BODY='{"Certificates":[]}'
+
+        When call retrieve_and_list_files
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+    End
+
+    It 'rejects malformed JSON before writing any certificates'
+        RESPONSE_BODY='{"Certificates":[{"Name":"valid.cer","CertBody":"valid-body"}]} invalid'
+
+        When call retrieve_legacy_certs
+        The status should eq 1
+        The stdout should eq 'Warning: failed to parse legacy custom cloud certificates'
+        The stderr should be present
+        The path "${CERT_DIR}/valid.crt" should not be exist
+    End
+
+    It 'reports certificate write failures'
+        RESPONSE_BODY='{"Certificates":[{"Name":"directory.cer","CertBody":"valid-body"}]}'
+        mkdir "${CERT_DIR}/directory.crt"
+
+        When call retrieve_legacy_certs
+        The status should eq 1
+        The stdout should eq "Warning: failed to write legacy custom cloud certificate: 'directory.crt'"
+        The stderr should be present
     End
 End
 
