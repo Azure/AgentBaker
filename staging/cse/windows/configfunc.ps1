@@ -744,7 +744,7 @@ function Install-CredentialProvider {
         Write-Log "Create credential provider configuration file"
         Config-CredentialProvider -KubeDir $KubeDir -CredentialProviderConfPath $global:credentialProviderConfigPath -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
 
-        Write-Log "Download credential provider binary from $global:CredentialProviderURL to $global:credentialProviderBinDir"
+        Write-Log "Preparing credential provider installation in $global:credentialProviderBinDir"
         $tempDir = New-TemporaryDirectory
         if ([string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
             # Only select Dalec when the RP URL is empty or matches a stock legacy URL.
