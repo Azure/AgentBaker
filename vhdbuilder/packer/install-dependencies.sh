@@ -1166,7 +1166,10 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       # kata-packages-host (1.0.0-14+) pulls kata-containers-cc, openvmm and erofs-utils for kata-cc (OpenVMM SNP).
       installKataDeps
-      enableKataCCKernelModules
+      # shellcheck disable=SC3010
+      if [[ ",${FEATURE_FLAGS}," == *",kata-cc,"* ]]; then
+        enableKataCCKernelModules
+      fi
       if [ "${OS}" != "3.0" ]; then
         enableMarinerKata
       fi

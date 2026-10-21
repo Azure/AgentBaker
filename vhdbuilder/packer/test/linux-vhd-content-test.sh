@@ -1016,21 +1016,14 @@ testKataCC() {
   test="testKataCC"
   echo "$test:Start"
 
-  if ! echo "$FEATURE_FLAGS" | grep -q "kata"; then
-    echo "$test: not a Kata SKU, skipping"
+  if ! echo "$FEATURE_FLAGS" | grep -q "kata-cc"; then
+    echo "$test: not a Kata-CC SKU, skipping"
     echo "$test:Finish"
     return 0
   fi
 
-  # The UVM is only built when the image builder enables kata-cc; vanilla kata images skip it.
   local katacc_dir=/opt/confidential-containers/share/kata-containers
-  if [ ! -s "$katacc_dir/kata-containers.img" ]; then
-    echo "$test: no kata-cc UVM in the image, skipping"
-    echo "$test:Finish"
-    return 0
-  fi
-
-  for f in kata-openvmm-snp.bin kata-openvmm-snp-debug.bin reference-info-base64; do
+  for f in kata-containers.img kata-openvmm-snp.bin kata-openvmm-snp-debug.bin reference-info-base64; do
     [ -s "$katacc_dir/$f" ] || err $test "$katacc_dir/$f is missing or empty"
   done
   [ -x /usr/local/bin/containerd-shim-kata-cc-v2 ] || err $test "containerd-shim-kata-cc-v2 is missing"
