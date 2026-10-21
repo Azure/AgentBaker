@@ -993,14 +993,10 @@ var _ = Register(&Scenario{
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 
-			migResourceName := "nvidia.com/mig-1g.10gb"
 			if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
 				return err
 			}
 			if err := ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb", 7); err != nil {
-				return err
-			}
-			if err := ValidateNodeAdvertisesGPUResources(ctx, s, 7, migResourceName); err != nil {
 				return err
 			}
 			if err := ValidateDraDriverNvidiaGpuServiceRunning(ctx, s); err != nil {
@@ -1015,7 +1011,7 @@ var _ = Register(&Scenario{
 			); err != nil {
 				return err
 			}
-			return nil
+			return ValidateDRAWorkloadSchedulable(ctx, s)
 		},
 	},
 })
