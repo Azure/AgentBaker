@@ -353,6 +353,39 @@ func TestApp_ProvisionSuccessWhenReportingFails(t *testing.T) {
 	})
 }
 
+func TestApp_ProvisionReportsPanic(t *testing.T) {
+	for _, markerExists := range []bool{false, true} {
+		t.Run(strconv.FormatBool(markerExists), func(t *testing.T) {
+			var reports []string
+			tt := NewTestApp(t, TestAppConfig{RunFunc: func(*exec.Cmd) error {
+				panic("provisioning panic")
+			}})
+			tt.App.goalStateReporter = func(_ context.Context, failed bool, description string) error {
+				require.True(t, failed)
+				reports = append(reports, description)
+				return nil
+			}
+			if markerExists {
+				require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+			}
+			path := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+			require.NoError(t, os.WriteFile(path, []byte("#!/bin/bash\n"), 0o600))
+
+			result, err := tt.App.runProvision(t.Context(), ProvisionFlags{NBCCmd: path}, false)
+
+			require.ErrorContains(t, err, "panic during provisioning: provisioning panic")
+			require.NotNil(t, result)
+			require.Equal(t, "240", result.ExitCode)
+			require.Equal(t, err.Error(), result.Error)
+			if markerExists {
+				require.Equal(t, []string{"ExitCode: 240, " + err.Error()}, reports)
+			} else {
+				require.Empty(t, reports)
+			}
+		})
+	}
+}
+
 func TestApp_Run(t *testing.T) {
 	t.Run("missing command argument", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
