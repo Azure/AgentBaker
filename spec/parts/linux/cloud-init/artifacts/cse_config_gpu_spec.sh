@@ -281,13 +281,20 @@ Describe 'cse_config_gpu.sh'
     Describe 'configureManagedGPUExperience'
         # Mock the helper functions
         logs_to_events() {
-            echo "logs_to_events $1 $2"
-            eval "$2"
+            echo "logs_to_events $*"
+            shift
+            # Match the real wrapper: split arguments, but do not eval shell quotes.
+            ${@}
+        }
+
+        configureNvidiaGPUDriverMode() {
+            echo "configureNvidiaGPUDriverMode mode=${1:-}"
+            return "${MODE_WRITE_STATUS}"
         }
 
         installNvidiaManagedExpPkgFromCache() {
             echo "installNvidiaManagedExpPkgFromCache called"
-            return 0
+            return "${INSTALL_STATUS}"
         }
 
         startNvidiaManagedExpServices() {
@@ -325,13 +332,27 @@ Describe 'cse_config_gpu.sh'
             echo "rm $@"
         }
 
-        BeforeEach 'KUBELET_NODE_LABELS=""'
+        setup_managed_gpu() {
+            GPU_NODE=true
+            skip_nvidia_driver_install=false
+            ENABLE_MANAGED_GPU_EXPERIENCE=false
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=false
+            ENABLE_MANAGED_GPU_DRA=false
+            MODE_WRITE_STATUS=0
+            INSTALL_STATUS=0
+            KUBELET_NODE_LABELS=""
+        }
+
+        BeforeEach 'setup_managed_gpu'
 
         It 'should not enable managed GPU experience if not GPU node'
             GPU_NODE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
@@ -346,11 +367,26 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
             The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'does not write a driver mode when GPU driver installation is skipped'
+            skip_nvidia_driver_install="true"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "systemctlDisableAndStop"
         End
 
         It 'should not enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is unspecified'
@@ -360,10 +396,43 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        Describe 'neither managed mode selected'
+            Parameters
+                false false
+                '' ''
+                false ''
+                '' false
+                unset unset
+            End
+
+            It "succeeds without calling the mode writer for DevicePlugin='$1', DRA='$2'"
+                if [ "$1" = unset ]; then
+                    unset ENABLE_MANAGED_GPU_EXPERIENCE
+                else
+                    ENABLE_MANAGED_GPU_EXPERIENCE=$1
+                fi
+                if [ "$2" = unset ]; then
+                    unset ENABLE_MANAGED_GPU_EXPERIENCE_DRA
+                else
+                    ENABLE_MANAGED_GPU_EXPERIENCE_DRA=$2
+                fi
+                MODE_WRITE_STATUS=1
+
+                When call configureManagedGPUExperience
+
+                The status should be success
+                The output should not include "configureNvidiaGPUDriverMode"
+                The output should not include "installNvidiaManagedExpPkgFromCache called"
+                The output should not include "startNvidiaManagedExpServices called"
+            End
         End
 
         It 'should enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is true'
@@ -373,6 +442,8 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DevicePlugin"
             The output should include "installNvidiaManagedExpPkgFromCache called"
             The output should include "startNvidiaManagedExpServices called"
             The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
@@ -392,6 +463,9 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DRA"
+            The line 3 of output should include "AKS.CSE.installNvidiaManagedExpPkgFromCache"
             The output should include "installNvidiaManagedExpPkgFromCache called"
             # DRA defers service start (incl the compute-domain override) to startNvidiaManagedExpServices
             The output should not include "startNvidiaManagedExpServices called"
@@ -405,6 +479,8 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should include "systemctlDisableAndStop nvidia-device-plugin"
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
@@ -412,6 +488,63 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'does not publish DRA from the raw flag when managed DRA is not selected'
+            ENABLE_MANAGED_GPU_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'fails without writing a mode when both managed modes are selected'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When run configureManagedGPUExperience
+
+            The status should equal "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should include "cannot both be true"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+        End
+
+        Describe 'mode write failures'
+            Parameters
+                true false DRA
+                false true DevicePlugin
+            End
+
+            It "fails before package or service changes when writing $3"
+                ENABLE_MANAGED_GPU_EXPERIENCE_DRA=$1
+                ENABLE_MANAGED_GPU_EXPERIENCE=$2
+                MODE_WRITE_STATUS=1
+
+                When run configureManagedGPUExperience
+
+                The status should equal "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
+                The line 2 of output should equal "configureNvidiaGPUDriverMode mode=$3"
+                The output should not include "installNvidiaManagedExpPkgFromCache called"
+                The output should not include "startNvidiaManagedExpServices called"
+                The output should not include "systemctlDisableAndStop"
+            End
+        End
+
+        It 'publishes the selected DRA mode before a managed package installation failure'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            INSTALL_STATUS=1
+
+            When run configureManagedGPUExperience
+
+            The status should equal "${ERR_NVIDIA_DCGM_INSTALL}"
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DRA"
+            The line 3 of output should include "AKS.CSE.installNvidiaManagedExpPkgFromCache"
+            The output should not include "startNvidiaManagedExpServices called"
         End
     End
     Describe 'startNvidiaManagedExpServices'

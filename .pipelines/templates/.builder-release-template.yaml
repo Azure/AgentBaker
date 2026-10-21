@@ -11,6 +11,9 @@ parameters:
   - name: ENABLE_COSI_PUBLISHING
     type: boolean
     default: false
+  - name: kataCC
+    type: boolean
+    default: false
 
 steps:
   # Keep the baked version and publishing metadata identical across UTC midnight.
@@ -88,7 +91,46 @@ steps:
       artifactName: 'mariner-kata-3-0-uvm'
       itemPattern: |
         **/kata-containers.img**
+        **/kata-containers-version.txt
       downloadPath: $(Build.SourcesDirectory)
+
+  - ${{ if eq(parameters.kataCC, true) }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download signed Kata-CC payload for AZL3
+      inputs:
+        source: specific
+        project: CloudNativeCompute
+        pipeline: 318279
+        buildVersionToDownload: latestFromBranch
+        branchName: refs/heads/master
+        allowPartiallySucceededBuilds: false
+        allowFailedBuilds: false
+        artifactName: drop_container_job_sign_uvm_azl3
+        itemPattern: |
+          **/kata-containers.img
+          **/kata-containers-cc.img
+          **/kata-containers-igvm.img
+          **/kata-containers-igvm-debug.img
+          **/igvm-measurement.cose
+          **/reference-info-base64
+        downloadPath: $(Build.SourcesDirectory)/kata-cc
+
+  - bash: |
+      set -euo pipefail
+      version_file="$(Build.SourcesDirectory)/kata-containers-version.txt"
+      if [[ ! -s "$version_file" ]]; then
+        echo "Missing Kata UVM version file. Rebuild pipeline 417429 with version metadata." >&2
+        exit 1
+      fi
+      version=$(cat "$version_file")
+      if [[ ! "$version" =~ ^[a-zA-Z0-9._+~^-]+$ ]]; then
+        echo "Invalid Kata UVM version value. Rebuild pipeline 417429 with version metadata." >&2
+        exit 1
+      fi
+      echo "Kata UVM tools RPM version-release: $version"
+      echo "##vso[task.setvariable variable=KATA_UVM_VERSION]$version"
+    condition: and(succeeded(), eq(variables.OS_SKU, 'AzureLinux'), eq(variables.IMG_OFFER, 'azure-linux-3'), contains(variables.FEATURE_FLAGS, 'kata'))
+    displayName: Read Kata UVM version
 
   - bash: |
       set -ex

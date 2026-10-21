@@ -583,6 +583,49 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 }
 
 var _ = Register(&Scenario{
+	Name:        "Ubuntu2204_CustomDataOnlyProvisioning",
+	Description: "Tests that an Ubuntu 22.04 node can be bootstrapped entirely through CustomData without CSE",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.CustomDataOnlyProvisioning = true
+		},
+		// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateReportReadyRan(ctx, s)
+		},
+	},
+})
+
+// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
+// var _ = Register(&Scenario{
+// 	Name:        "Ubuntu2204_CustomDataOnlyProvisioning_Failure",
+// 	Description: "Tests that an Ubuntu 22.04 node returns an error without CSE",
+// 	Config: Config{
+// 		Cluster: ClusterKubenet,
+// 		VHD:     config.VHDUbuntu2204Gen2Containerd,
+// 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+// 			nbc.CustomDataOnlyProvisioning = true
+// 			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
+// 				HTTPSProxy: to.Ptr(cluster.ProxyURL),
+// 				NoProxy: &[]string{
+// 					"localhost",
+// 					"127.0.0.1",
+// 					"168.63.129.16",
+// 					"169.254.169.254",
+// 					"10.0.0.0/8",
+// 					"172.16.0.0/12",
+// 					cluster.ClusterParams.FQDN,
+// 				},
+// 				TrustedCA: to.Ptr("foo bar!"),
+// 			}
+// 		},
+// 		// ExpectedError: "ExitCode: 161",
+// 	},
+// })
+
+var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_CustomCA",
 	Description: "tests that a new ubuntu 2204 node can be properly bootstrapped with custom CA trust",
 	Config: Config{
@@ -2547,6 +2590,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableKubeletConfigFile = false
 			// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
 			// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
 			nbc.KubeletConfig["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
@@ -3737,7 +3781,7 @@ var _ = Register(&Scenario{
 
 // Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags validates the legacy CLI-flags
 // kubelet path (kubelet reads flags from /etc/default/kubelet's KUBELET_FLAGS), which is
-// used whenever AgentPoolProfile.CustomKubeletConfig/CustomLinuxOSConfig are both nil.
+// explicitly selected by disabling config-file mode without custom kubelet or Linux OS config.
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags",
 	Description: "validates kubelet and containerd run in kubereserved.slice when node hardening cgroup hierarchy is enabled (kubelet CLI-flags mode)",
@@ -3745,6 +3789,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableKubeletConfigFile = false
 			// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
 			// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
 			nbc.KubeletConfig["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"

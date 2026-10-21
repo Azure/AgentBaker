@@ -31,6 +31,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV3FIPS:                     SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2FIPS:                 SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2Kata:                 SIGAzureLinuxV3KataImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2KataCC:               SIGAzureLinuxV3KataCCImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Arm64Gen2:                SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Arm64Gen2FIPS:            SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2TL:                   SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
@@ -41,6 +42,8 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSACLArm64Gen2FIPSTL:                   SIGACLArm64Gen2FIPSTLImageConfigTemplate.WithOptions(),
 			// TODO: add back once "aclcvmgen2" has at least one valid image version.
 			// AKSACLCVMGen2: SIGACLCVMGen2ImageConfigTemplate.WithOptions(),
+			// TODO: add back once "aclkatagen2TL" has at least one valid image version.
+			// AKSACLKataGen2TL: SIGACLKataGen2TLImageConfigTemplate.WithOptions(),
 		}
 		actual := GetMaintainedLinuxSIGImageConfigMap()
 		for distro, config := range expected {
@@ -108,7 +111,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(22))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(24))
 
 		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
@@ -445,5 +448,11 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aclCVMGen2.Gallery).To(Equal("aksazurelinux"))
 		Expect(aclCVMGen2.Definition).To(Equal("aclgen2CVM"))
 		Expect(aclCVMGen2.Version).To(Equal(LinuxSIGImageVersion))
+
+		aclKataGen2TL := sigConfig.SigAzureLinuxImageConfig[AKSACLKataGen2TL]
+		Expect(aclKataGen2TL.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aclKataGen2TL.Gallery).To(Equal("aksazurelinux"))
+		Expect(aclKataGen2TL.Definition).To(Equal("aclkatagen2TL"))
+		Expect(aclKataGen2TL.Version).To(Equal(LinuxSIGImageVersion))
 	})
 })

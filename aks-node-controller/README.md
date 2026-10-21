@@ -82,6 +82,11 @@ allowed for forward compatibility. NBC execution is unchanged. Phase 2.5 still
 executes NBC and compares against the normalized AKSNodeConfig path.
 The root AgentBaker module does not depend on ANC.
 
+Phase 2.5 accepts comparison differences for `GPU_IMAGE_SHA`, `SUBNET`
+(`SubnetName`), `ROUTE_TABLE` (`RouteTableName`), and `VM_TYPE`, including variables present
+only in NBC. This suppresses comparison diffs; it does not correct source values
+or change rendering. Variables present only in provision-config are still reported.
+
 ### Direct config delivery
 
 Here is an example of how to retrieve node bootstrapping parameters and use the returned `CSE` and `CustomData` for creating a Virtual Machine Scale Set (VMSS) instance via the CRP API.
@@ -217,6 +222,7 @@ Key components:
 2. `aks-node-controller` go binary with two modes:
 
 - **provision**: Parses the node configuration and starts the bootstrap sequence.
+    - When `/var/lib/waagent/experimental_skip_ready_report` marks an active readiness handoff, ANC invokes `report_ready.py` after the provisioning command exits. Reporting errors are logged without replacing the original provisioning result, and dry runs do not send reports.
     - The controller performs a tolerant (forward‑compatible) parse of `aksnodeconfigv1.Configuration`: unknown fields, additional enum values, or future‑version knobs are ignored (and may be logged) so that a newer control‑plane can talk to an older VHD image.
     - If the config cannot be safely interpreted (e.g. unsupported `Version`, malformed required field, or incompatible schema change), the controller fails fast. It writes the sentinel file `provision.complete` early so the `provision-wait` process stops polling and can surface an error instead of hanging indefinitely.
     - In a fail‑fast path the normal bootstrap scripts never run, therefore `provision.json` (which would contain the serialized `CSEStatus`) is never created. A typical error looks like:
