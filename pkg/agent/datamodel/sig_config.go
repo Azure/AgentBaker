@@ -974,7 +974,7 @@ func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	// to ensure that missing image versions under a new image definition does not block AgentBaker rollout.
 	// Definitions only need to be added to this list that have not yet been built and released at least once by
 	// the time it's corresponding SIGImageConfigTemplate is added to AgentBaker.
-	definitionsToSkip := []string{"aclgen2CVM", "aclkatagen2TL"}
+	definitionsToSkip := []string{"aclkatagen2TL"}
 
 	maintained := map[Distro]SigImageConfig{}
 	for _, m := range imageConfigMaps {
