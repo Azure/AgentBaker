@@ -78,7 +78,7 @@ func newRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfig
 			Location: "eastus",
 			Properties: &datamodel.Properties{
 				// Include changed custom-cloud scripts selected by the generator.
-				// This rendering flag does not make the VHD custom-cloud-only.
+				// This rendering flag does not make the scripts for custom-cloud only.
 				CustomCloudEnv: &datamodel.CustomCloudEnv{Name: "akscustom"},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorVersion: "1.29.0",
