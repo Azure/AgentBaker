@@ -14,12 +14,13 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // this is a base kubelet config for Scriptless e2e test
 func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	return &aksnodeconfigv1.KubeletConfig{
-		EnableKubeletConfigFile: false,
+		EnableKubeletConfigFile: true,
 		KubeletFlags: map[string]string{
 			"--cloud-provider": "external",
 			"--kubeconfig":     "/var/lib/kubelet/kubeconfig",
@@ -400,12 +401,20 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 
 	// Populate KubeletConfig fields from NBC that aren't in the static baseKubeletConfig.
 	cfg.KubeletConfig.KubeletClientKey = kubeletClientKey
+	kubeletConfigFileEnabled := agent.IsKubeletConfigFileEnabled(cs, nbc.AgentPoolProfile, nbc.EnableKubeletConfigFile)
+	cfg.KubeletConfig.EnableKubeletConfigFile = kubeletConfigFileEnabled
+	if kubeletConfigFileEnabled {
+		// Preserve scenario overrides instead of using the static scriptless defaults.
+		content := agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig)
+		if err := protojson.Unmarshal([]byte(content), cfg.KubeletConfig.KubeletConfigFileConfig); err != nil {
+			return nil, fmt.Errorf("convert kubelet configuration file: %w", err)
+		}
+	}
 
 	// Build kubelet flags from the NBC's KubeletConfig map, filtering the same way baker.go does.
 	// When kubelet config file is enabled, flags in TranslatedKubeletConfigFlags are written to the
 	// config file instead of being passed as CLI flags, so filter them out here.
 	if nbc.KubeletConfig != nil {
-		kubeletConfigFileEnabled := agent.IsKubeletConfigFileEnabled(cs, nbc.AgentPoolProfile, nbc.EnableKubeletConfigFile)
 		omittedFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
 		kubeletFlags := make(map[string]string)
 		for key, val := range nbc.KubeletConfig {
@@ -906,6 +915,7 @@ func baseTemplateLinux(location string, k8sVersion string, arch string) (*datamo
 		DisableUnattendedUpgrades: true,
 		SSHStatus:                 0,
 		DisableCustomData:         false,
+		EnableKubeletConfigFile:   true,
 	}
 	config, err := pruneKubeletConfig(k8sVersion, config)
 	if err != nil {

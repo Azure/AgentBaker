@@ -41,6 +41,48 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+func ValidateKubeletConfigFile(ctx context.Context, s *Scenario) error {
+	if !s.KubeletConfigFileEnabled() {
+		return nil
+	}
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `set -euo pipefail
+systemctl is-active --quiet kubelet
+pid=$(systemctl show kubelet --property MainPID --value)
+test "$pid" -gt 0
+sudo cat /proc/"$pid"/cmdline | tr '\000' '\n'
+`, 0, "could not inspect running kubelet")
+	if err != nil {
+		return err
+	}
+	const configPath = "/etc/default/kubeletconfig.json"
+	args := strings.Fields(result.stdout)
+	hasConfig := false
+	for i, arg := range args {
+		if arg == "--config="+configPath || (arg == "--config" && i+1 < len(args) && args[i+1] == configPath) {
+			hasConfig = true
+			break
+		}
+	}
+	if !hasConfig {
+		return fmt.Errorf("running kubelet does not use --config %s", configPath)
+	}
+	content, err := getFileContent(ctx, s, configPath)
+	if err != nil {
+		return err
+	}
+	var config struct {
+		Kind       string `json:"kind"`
+		APIVersion string `json:"apiVersion"`
+	}
+	if err := json.Unmarshal([]byte(content), &config); err != nil {
+		return fmt.Errorf("decode kubelet configuration file: %w", err)
+	}
+	if config.Kind != "KubeletConfiguration" || config.APIVersion != "kubelet.config.k8s.io/v1beta1" {
+		return fmt.Errorf("unexpected kubelet configuration file type: %+v", config)
+	}
+	return nil
+}
+
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) error {
 	switch s.VHD.OS {
 	case config.OSWindows:

@@ -58,6 +58,18 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
 
 ### Scriptless provisioning
 
+Linux scenarios use kubelet configuration-file mode by default, for both NBC/CSE
+and AKSNodeConfig/scriptless provisioning. NBC conversion preserves the effective
+kubelet settings, including scenario overrides and custom kubelet configuration.
+Common Linux validation checks that the running kubelet uses
+`--config /etc/default/kubeletconfig.json` and that the file contains a valid
+`KubeletConfiguration`.
+
+Scenarios specifically covering legacy CLI flags must set
+`nbc.EnableKubeletConfigFile = false` and leave both `CustomKubeletConfig` and
+`CustomLinuxOSConfig` nil. ANC conversion preserves that opt-out. Windows defaults
+are unchanged.
+
 Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
 bootstrap config mutator of five scenarios: `Ubuntu2204_ArtifactStreaming`,
 `AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
