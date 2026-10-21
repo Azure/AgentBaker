@@ -2659,7 +2659,6 @@ testNodeProblemDetector() {
     AzureLinux) [ "${os_version}" = 3.0 ] || return 0 ;;
     *) return 0 ;;
   esac
-  case "${FEATURE_FLAGS}" in *kata*) return 0 ;; esac
   for executable in /usr/bin/node-problem-detector /usr/bin/npd-log-counter /usr/bin/npd-health-checker /opt/bin/node-problem-detector-startup.sh; do
     [ -x "${executable}" ] || err "$test" "Missing executable ${executable}"
   done

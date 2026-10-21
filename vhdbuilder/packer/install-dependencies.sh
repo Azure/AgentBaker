@@ -722,9 +722,9 @@ cachePackageAndBinaryComponents() {
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
         ;;
       "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
-        # Ubuntu and Azure Linux 3 builders carry this helper. Empty manifest entries
-        # leave other OSes (and unpublished targets) extension-managed.
-        if (isUbuntu || isAzureLinux) && [ "${IS_KATA}" != "true" ]; then
+        # Ubuntu and Azure Linux 3 (including Kata) builders carry this helper. Empty
+        # manifest entries leave other OSes (and unpublished targets) extension-managed.
+        if isUbuntu || isAzureLinux; then
           source /home/packer/install-npd.sh
           installNPDPackage "${name}" "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
         fi
