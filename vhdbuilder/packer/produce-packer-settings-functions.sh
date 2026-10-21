@@ -534,9 +534,6 @@ function ensure_sig_trusted_launch_supported() {
 function ensure_sig_vhd_exists() {
 	echo "SIG existence checking for $MODE"
 	local supported_features="DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
-	if [ "${MODE}" = "windowsVhdMode" ]; then
-		supported_features="DiskControllerTypes=SCSI,NVMe SecurityType=Standard"
-	fi
 
 	is_need_create=true
 	state=$(az sig show --resource-group "${AZURE_RESOURCE_GROUP_NAME}" --gallery-name "${SIG_GALLERY_NAME}" | jq -r '.provisioningState') || state=""
@@ -737,20 +734,6 @@ function ensure_sig_vhd_exists() {
 		local create_status=$?
 		if [ "${create_status}" -ne 0 ]; then
 			return "${create_status}"
-		fi
-		if [ "${MODE}" = "windowsVhdMode" ] &&
-			[ "${ENABLE_TRUSTED_LAUNCH,,}" != "true" ] &&
-			[ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
-			if ! id=$(az sig image-definition show \
-				--resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
-				--gallery-name "${SIG_GALLERY_NAME}" \
-				--gallery-image-definition "${SIG_IMAGE_NAME}"); then
-				echo "Failed to read newly created image definition ${SIG_IMAGE_NAME}" >&2
-				return 1
-			fi
-			local new_definition_id
-			new_definition_id=$(jq -er '.id' <<<"${id}") || return 1
-			ensure_sig_trusted_launch_supported "${new_definition_id}" || return 1
 		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"

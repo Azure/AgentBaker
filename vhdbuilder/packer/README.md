@@ -17,6 +17,20 @@ external-vhd-src->(func/init: ensure dest existing/static gallery/definition, in
 # Roadmap
 Goal1: remove mariner workflow so things will be simplified.
 
+# Shared Windows 2025 Gen2 staging definitions
+
+The ordinary `windows-2025-gen2` image advertises `TrustedLaunchSupported`, so the
+same image can serve Standard and Trusted Launch virtual machines. New staging
+definitions are created with that capability directly, without a follow-up
+capability update or `startsAtVersion` boundary because they have no old versions.
+Dedicated Trusted Launch builds and their metadata precedence are unchanged.
+
+An existing Standard definition is updated in place, preserving unrelated features
+and setting `startsAtVersion` to the current build version. The builder waits for
+completion and reads back the capability and boundary. Already-capable definitions
+with an absent or null boundary are reused without a write or boundary backfill.
+An explicit boundary must be valid and at or below the current build version.
+
 # Linux build steps
 
 The pipeline's `Build Go binaries` step runs `make -f packer.mk -j4 build-tools`
