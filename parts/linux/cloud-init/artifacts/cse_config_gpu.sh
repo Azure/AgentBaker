@@ -447,8 +447,8 @@ EOF
         local NODE_NAME_DRA
         NODE_NAME_DRA=$(echo "${NODE_NAME}" | tr '[:upper:]' '[:lower:]')
 
-        # If either GPU_INSTANCE_PROFILE or GPU_INSTANCE_PROFILE_LAYOUT is set, start the DRA drive after MIG is ready.
-        if [ -n "${GPU_INSTANCE_PROFILE}" ] || [ -n "${GPU_INSTANCE_PROFILE_LAYOUT}" ]; then
+        # If either GPU_INSTANCE_PROFILE or NVIDIA_MIG_PROFILE_LAYOUT is set, start the DRA driver after MIG is ready.
+        if [ -n "${GPU_INSTANCE_PROFILE}" ] || [ -n "${NVIDIA_MIG_PROFILE_LAYOUT}" ]; then
             tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
 [Unit]
 Requires=kubelet.service
