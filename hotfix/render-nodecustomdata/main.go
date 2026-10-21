@@ -61,7 +61,7 @@ func main() {
 }
 
 // newRenderConfig builds the minimal NodeBootstrappingConfiguration required to
-// run agent.RenderLinuxNodeCustomDataTemplate. Only the Distro selector affects
+// run agent.RenderLinuxNodeCustomDataTemplate. Distro and CustomCloudEnv affect
 // the hotfix write_files blocks we render; the remaining fields (orchestrator
 // version, location, FQDN, KubernetesConfig, etc.) are placeholders whose sole
 // purpose is to satisfy the renderer's unconditional dereferences of
@@ -77,6 +77,9 @@ func newRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfig
 		ContainerService: &datamodel.ContainerService{
 			Location: "eastus",
 			Properties: &datamodel.Properties{
+				// Include changed custom-cloud scripts selected by the generator.
+				// This rendering flag does not make the VHD custom-cloud-only.
+				CustomCloudEnv: &datamodel.CustomCloudEnv{Name: "akscustom"},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorVersion: "1.29.0",
 					OrchestratorType:    datamodel.Kubernetes,
