@@ -3048,8 +3048,8 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	serviceName := "node-exporter.service"
 
 	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
-	// The skip file is only present on supported Ubuntu and Azure Linux 3 VHDs with node-exporter installed.
-	// Mariner, Flatcar, ACL, OSGuard, Kata, and older VHDs do not have the skip file.
+	// The skip file is only present on supported Ubuntu and Azure Linux 3 (including Kata) VHDs with node-exporter installed.
+	// Mariner, Flatcar, ACL, OSGuard, and older VHDs do not have the skip file.
 	exists, err := fileExist(ctx, s, skipFile)
 	if err != nil {
 		return fmt.Errorf("check existence of file %s: %w", skipFile, err)
@@ -3092,7 +3092,11 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		errs = append(errs, err)
 	}
-	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL, hasInfiniBand))
+	requirePressure, err := nodeExporterRequiresPressure(ctx, s)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL, hasInfiniBand, requirePressure))
 
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
 		"node-exporter should remain active after scraping"); err != nil {
@@ -3141,7 +3145,28 @@ exit 1`
 	return result.exitCode == "0", nil
 }
 
-func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand bool) error {
+// nodeExporterRequiresPressure reports whether the scrape must include PSI metrics.
+// The Azure Linux 3 Kata host kernel (kernel-mshv) is built without CONFIG_PSI, so
+// /proc/pressure is absent and node-exporter's pressure collector returns no data:
+// https://github.com/microsoft/azurelinux/issues/19417. Only Kata may omit PSI;
+// missing PSI on any other image is a kernel regression and must fail.
+func nodeExporterRequiresPressure(ctx context.Context, s *Scenario) (bool, error) {
+	if s.VHD == nil || !s.VHD.Distro.IsKataDistro() {
+		return true, nil
+	}
+	result, err := execScriptOnVMForScenario(ctx, s, "test -r /proc/pressure/cpu")
+	if err != nil {
+		return true, fmt.Errorf("detect pressure stall information: %w", err)
+	}
+	if result.exitCode != "0" && result.exitCode != "1" {
+		return true, fmt.Errorf("detect pressure stall information: exit %s: %s", result.exitCode, result.stderr)
+	}
+	available := result.exitCode == "0"
+	logging.Logf(ctx, "node-exporter pressure expectations on Kata: PSI available=%t", available)
+	return available, nil
+}
+
+func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand, requirePressure bool) error {
 	// The boot-local marker only exists on VHDs with lifecycle-aware suppression;
 	// main/older VHDs used by standalone PR E2Es retain their existing checks.
 	manaObserved, err := fileExist(ctx, s, "/run/node-exporter-mana-observed")
@@ -3164,7 +3189,7 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
 	}
 	return errors.Join(
-		assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview),
+		assert.NoError(nodeexporter.ValidateMetrics(result.stdout, requirePressure), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview),
 		assert.NoError(nodeexporter.ValidateCollectors(result.stdout, requireInfiniBand, manaObserved), "node-exporter collectors did not satisfy the AgentBaker contract\nresponse preview:\n%s", responsePreview),
 	)
 }

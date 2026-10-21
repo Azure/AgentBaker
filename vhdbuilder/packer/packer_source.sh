@@ -609,8 +609,8 @@ copyPackerFiles() {
   NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
   NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
 
-  # Skip for OSGuard, Flatcar, ACL, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
-  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
+  # Skip for OSGuard, Flatcar, ACL, and Mariner (only AzureLinux 3.0, including Kata, gets node-exporter)
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isMariner "$OS"; }; then
     cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
     cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
     cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
