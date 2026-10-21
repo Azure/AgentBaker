@@ -462,6 +462,119 @@ Describe 'NPD config handler on Azure Linux 3'
     End
 End
 
+Describe 'NPD binary handler'
+    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_OS_RELEASE_FILE="${TEST_DIR}/os-release"
+        NPD_SKIP_FILE="${TEST_DIR}/skip_vhd_npd"
+        NPD_UPDATE_DIR="${TEST_DIR}/work"
+        NPD_PACKAGE_CACHE="${TEST_DIR}/cache"
+        NPD_REPORT_ATTEMPTS=2
+        printf 'ID=ubuntu\nVERSION_ID="26.04"\n' > "${NPD_OS_RELEASE_FILE}"
+        touch "${NPD_SKIP_FILE}"
+        mkdir -p "${NPD_UPDATE_DIR}" "${NPD_PACKAGE_CACHE}"
+        TEST_CALLS="${TEST_DIR}/calls"; touch "${TEST_CALLS}"
+        BINARY_INSTALLED="0.8.25-ubuntu26.04u24"
+        CONFIG_INSTALLED="1.0.0-ubuntu24.04u2"
+        TEST_NODE='{"metadata":{"name":"node-1"}}'
+        TEST_DESIRED='{"ubuntuPackageVersions":{"24.04":"9.9.9-ubuntu24.04u1","26.04":"0.8.25-ubuntu26.04u25"}}'
+        HEARTBEAT=fresh
+        export TEST_CALLS BINARY_INSTALLED CONFIG_INSTALLED HEARTBEAT NPD_PACKAGE_CACHE
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    # Package-specific installed versions prove each component reads only its own package.
+    npd_installed_version() {
+        case "$(npd_package_name)" in
+            node-problem-detector-kubernetes) printf '%s' "${BINARY_INSTALLED}" ;;
+            *) printf '%s' "${CONFIG_INSTALLED}" ;;
+        esac
+    }
+    npd_find_cached_package() {
+        [ "$1" = "$(npd_installed_version)" ] || [ -f "${NPD_PACKAGE_CACHE}/$1.deb" ] || return 1
+        printf '%s' "${NPD_PACKAGE_CACHE}/$(npd_package_name)_$1.deb"
+    }
+    npd_refresh_metadata() { echo "refresh $(npd_package_name)" >> "${TEST_CALLS}"; }
+    npd_download_package() {
+        echo "download $(npd_package_name)=$1" >> "${TEST_CALLS}"
+        touch "${NPD_PACKAGE_CACHE}/$1.deb"
+    }
+    npd_validate_package() { echo "validate $1" >> "${TEST_CALLS}"; }
+    npd_install_package() { echo "install $1" >> "${TEST_CALLS}"; }
+    npd_restart_and_check() { echo restart >> "${TEST_CALLS}"; }
+    Mock kubectl
+        if [ "${HEARTBEAT}" = fresh ]; then t="$(date -u -d '+5 sec' +%Y-%m-%dT%H:%M:%SZ)"; else t="2020-01-01T00:00:00Z"; fi
+        printf '{"status":{"conditions":[{"type":"KernelDeadlock","lastHeartbeatTime":"%s"}]}}' "$t"
+    End
+    sleep() { :; }
+    KUBECTL=kubectl
+
+    It 'updates only the binary package from its own release entry'
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be success
+        The output should include 'npdBinary updated successfully: 0.8.25-ubuntu26.04u25'
+        The contents of file "${TEST_CALLS}" should include 'download node-problem-detector-kubernetes=0.8.25-ubuntu26.04u25'
+        The contents of file "${TEST_CALLS}" should not include 'node-problem-detector-aks-config'
+        The contents of file "${TEST_CALLS}" should not include '9.9.9'
+        The path "${NPD_UPDATE_DIR}/pending-binary" should not be exist
+    End
+
+    It 'rolls back when NPD stops reporting node conditions after the update'
+        export HEARTBEAT=stale
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be failure
+        The output should include 'npdBinary failed: PackageActivation'
+        The stderr should include 'did not report node conditions'
+        The contents of file "${TEST_CALLS}" should include "install ${NPD_PACKAGE_CACHE}/node-problem-detector-kubernetes_0.8.25-ubuntu26.04u24.deb"
+        The path "${NPD_UPDATE_DIR}/pending-binary" should not be exist
+    End
+
+    It 'keeps binary and config transactions separate'
+        printf '%s' "${CONFIG_INSTALLED}" > "${NPD_UPDATE_DIR}/pending"
+        When call npdBinaryIsCurrent '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{}'
+        The status should be success
+    End
+
+    It 'does not skip a pending binary transaction'
+        touch "${NPD_UPDATE_DIR}/pending-binary"
+        When call npdBinaryIsCurrent '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{}'
+        The status should be failure
+    End
+
+    It 'keeps a newer installed binary (forward-only)'
+        When call updateNPDBinary '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u20"}}' "${TEST_NODE}"
+        The status should be success
+        The output should include 'npdBinary: installed 0.8.25-ubuntu26.04u24 satisfies 0.8.25-ubuntu26.04u20'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'does not let the config handler touch the binary'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu24.04u3"}}' "${TEST_NODE}"
+        The status should be success
+        The output should include 'npdConfig updated successfully: 1.0.0-ubuntu24.04u3'
+        The contents of file "${TEST_CALLS}" should not include 'node-problem-detector-kubernetes'
+        The contents of file "${TEST_CALLS}" should not include 'kubectl'
+    End
+
+    It 'validates the binary package by running the staged binary'
+        stage="${TEST_DIR}/stage"; mkdir -p "${stage}/usr/bin"
+        for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\necho v0.8.25\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
+        When call npd_validate_binary_stage "${stage}"
+        The status should be success
+    End
+
+    It 'rejects a binary package whose executable does not run'
+        stage="${TEST_DIR}/stage"; mkdir -p "${stage}/usr/bin"
+        for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\nexit 1\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
+        When call npd_validate_binary_stage "${stage}"
+        The status should be failure
+    End
+End
+
 Describe 'CSE baked NPD activation'
     Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
     Include ./parts/linux/cloud-init/artifacts/cse_config.sh

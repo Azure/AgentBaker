@@ -2665,17 +2665,19 @@ testNodeProblemDetector() {
   done
   [ -f /etc/node-problem-detector.d/skip_vhd_npd ] || err "$test" "Missing NPD skip marker"
   [ -s /etc/node-problem-detector.d/custom-plugin-monitor/custom-kubelet-monitor.json ] || err "$test" "Missing NPD monitors"
-  if [ "${os_sku}" = Ubuntu ]; then
-    version="$(dpkg-query -W -f='${Version}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
-    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config_${version}_$(dpkg --print-architecture).deb"
-  else
-    version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
-    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config-${version}.$(uname -m).rpm"
-    for executable in node-problem-detector-kubernetes node-problem-detector-aks-config; do
-      grep -qsx "${executable}" /etc/tdnf/locks.d/node-problem-detector.conf || err "$test" "Missing tdnf lock for ${executable}"
-    done
-  fi
-  [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
+  local npd_package
+  for npd_package in node-problem-detector-kubernetes node-problem-detector-aks-config; do
+    # Both packages are cached so npdBinary and npdConfig can roll back offline.
+    if [ "${os_sku}" = Ubuntu ]; then
+      version="$(dpkg-query -W -f='${Version}' "${npd_package}")" || err "$test" "Missing ${npd_package} package"
+      package="/opt/node-problem-detector/downloads/${npd_package}_${version}_$(dpkg --print-architecture).deb"
+    else
+      version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' "${npd_package}")" || err "$test" "Missing ${npd_package} package"
+      package="/opt/node-problem-detector/downloads/${npd_package}-${version}.$(uname -m).rpm"
+      grep -qsx "${npd_package}" /etc/tdnf/locks.d/node-problem-detector.conf || err "$test" "Missing tdnf lock for ${npd_package}"
+    fi
+    [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
+  done
   [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
 }
 
