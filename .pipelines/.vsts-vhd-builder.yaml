@@ -39,13 +39,13 @@ pool:
   name: $(POOL_NAME)
 
 parameters:
-  - name: aclBaseImageSource
+  - name: ACL_BASE_IMAGE_SOURCE
     type: string
     default: acg
     values:
       - acg
       - acldevel
-  - name: aclBaseImageVersion
+  - name: ACL_BASE_IMAGE_VERSION
     type: string
     default: ""
 
@@ -261,14 +261,12 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
           displayName: Setup Build Variables
         - template: ./templates/.acl-base-image-vars.yaml
           parameters:
-            aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
-            variant: amd64
-            sigSourceImageVersionOverride: ${{ parameters.aclBaseImageVersion }}
+            ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+            VARIANT: amd64
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-tl-gen2
@@ -287,14 +285,12 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
           displayName: Setup Build Variables
         - template: ./templates/.acl-base-image-vars.yaml
           parameters:
-            aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
-            variant: arm64
-            sigSourceImageVersionOverride: ${{ parameters.aclBaseImageVersion }}
+            ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+            VARIANT: arm64
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-tl-gen2
@@ -313,14 +309,12 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
           displayName: Setup Build Variables
         - template: ./templates/.acl-base-image-vars.yaml
           parameters:
-            aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
-            variant: amd64
-            sigSourceImageVersionOverride: ${{ parameters.aclBaseImageVersion }}
+            ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+            VARIANT: amd64
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-fips-tl-gen2
@@ -339,14 +333,12 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
-            echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
           displayName: Setup Build Variables
         - template: ./templates/.acl-base-image-vars.yaml
           parameters:
-            aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
-            variant: arm64
-            sigSourceImageVersionOverride: ${{ parameters.aclBaseImageVersion }}
+            ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+            VARIANT: arm64
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-fips-tl-gen2
@@ -363,4 +355,4 @@ stages:
         parameters:
           IgnoreScenariosWithMissingVhd: true
           useVhdMetadataArtifacts: true
-          aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+          ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}

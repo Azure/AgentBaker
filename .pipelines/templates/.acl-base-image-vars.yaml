@@ -1,92 +1,86 @@
 # Sets the ACL build variables shared by all ACL build jobs: the
-# image-customizer container/fallback pins, and the base-image source
-# variables selected by aclBaseImageSource. ACL_BASE_IMAGE_SIGNED is set by
+# image-customizer container pin, and the base-image source variables
+# selected by ACL_BASE_IMAGE_SOURCE. ACL_BASE_IMAGE_SIGNED is set by
 # .acl-base-image-signed-vars.yaml (included below), which callers who only
 # need the signed flag (e.g. the e2e stage) can invoke directly instead.
 #
-# aclBaseImageSource selects where the ACL base image comes from:
+# ACL_BASE_IMAGE_SOURCE selects where the ACL base image comes from:
 #   acg         - the ACL prod pipeline's Azure Compute Gallery image. Default
 #                 when not specified.
 #   acldevel    - the acldevel dev pipeline's unsigned image (see PR #9458).
 #                 See .acl-base-image-signed-vars.yaml for how this affects
 #                 ACL_BASE_IMAGE_SIGNED.
 #
-# sigSourceImageVersionOverride optionally overrides the pinned
+# SIG_SOURCE_IMAGE_VERSION_OVERRIDE optionally overrides the pinned
 # SIG_SOURCE_IMAGE_VERSION for the acg/acldevel sources (e.g. to pick up a
 # newer acldevel build without editing this file). Leave empty to use the
 # pinned default below.
 #
-# imgCustomizerContainer/imgCustomizerContainerFallback default to the pin
-# every ACL job currently uses, but are exposed as parameters so a caller
-# can override them (e.g. to test a newer image-customizer version) without
-# editing this file.
+# IMG_CUSTOMIZER_CONTAINER defaults to the pin every ACL job currently uses,
+# but is exposed as a parameter so a caller can override it (e.g. to test a
+# newer image-customizer version) without editing this file.
 parameters:
-  - name: aclBaseImageSource
+  - name: ACL_BASE_IMAGE_SOURCE
     type: string
     default: acg
     values:
       - acg
       - acldevel
-  - name: variant
+  - name: VARIANT
     type: string
     values:
       - amd64
       - arm64
-  - name: sigSourceImageVersionOverride
+  - name: SIG_SOURCE_IMAGE_VERSION_OVERRIDE
     type: string
     default: ""
-  - name: imgCustomizerContainer
+  - name: IMG_CUSTOMIZER_CONTAINER
     type: string
     default: mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729
-  - name: imgCustomizerContainerFallback
-    type: string
-    default: ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a
 
 steps:
   - template: ./.acl-base-image-signed-vars.yaml
     parameters:
-      aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+      ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
 
-  - bash: |
-      echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]${{ parameters.imgCustomizerContainer }}'
-      echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]${{ parameters.imgCustomizerContainerFallback }}'
-    displayName: Set ACL image-customizer vars
+  - bash: echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]${{ parameters.IMG_CUSTOMIZER_CONTAINER }}'
+    displayName: Set ACL image-customizer container
 
-  - ${{ if eq(parameters.aclBaseImageSource, 'acg') }}:
-      - ${{ if eq(parameters.variant, 'amd64') }}:
+  - ${{ if eq(parameters.ACL_BASE_IMAGE_SOURCE, 'acg') }}:
+      - ${{ if eq(parameters.VARIANT, 'amd64') }}:
           - bash: |
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]ae6ab47f-1fc9-4b67-8f82-4636119119c9-ACL'
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-3.0-amd64'
             displayName: Set ACL base image vars (acg, amd64)
-      - ${{ if eq(parameters.variant, 'arm64') }}:
+      - ${{ if eq(parameters.VARIANT, 'arm64') }}:
           - bash: |
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]ae6ab47f-1fc9-4b67-8f82-4636119119c9-ACL'
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-3.0-arm64'
             displayName: Set ACL base image vars (acg, arm64)
-      - ${{ if and(eq(parameters.variant, 'amd64'), eq(parameters.sigSourceImageVersionOverride, '')) }}:
+      - ${{ if and(eq(parameters.VARIANT, 'amd64'), eq(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '')) }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]20261013.1223148.0'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acg, amd64, default)
-      - ${{ if and(eq(parameters.variant, 'arm64'), eq(parameters.sigSourceImageVersionOverride, '')) }}:
+      - ${{ if and(eq(parameters.VARIANT, 'arm64'), eq(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '')) }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]20261013.1223150.0'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acg, arm64, default)
-      - ${{ if ne(parameters.sigSourceImageVersionOverride, '') }}:
-          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.sigSourceImageVersionOverride }}'
+      - ${{ if ne(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '') }}:
+          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE }}'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acg, override)
 
-  - ${{ if eq(parameters.aclBaseImageSource, 'acldevel') }}:
-      - ${{ if eq(parameters.variant, 'amd64') }}:
+  - ${{ if eq(parameters.ACL_BASE_IMAGE_SOURCE, 'acldevel') }}:
+      - ${{ if eq(parameters.VARIANT, 'amd64') }}:
           - bash: |
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel'
             displayName: Set ACL base image vars (acldevel, amd64)
-      - ${{ if eq(parameters.variant, 'arm64') }}:
+      - ${{ if eq(parameters.VARIANT, 'arm64') }}:
           - bash: |
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel-arm64-test'
             displayName: Set ACL base image vars (acldevel, arm64)
-      - ${{ if eq(parameters.sigSourceImageVersionOverride, '') }}:
+      - ${{ if eq(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '') }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260912.1202056'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, default)
-      - ${{ if ne(parameters.sigSourceImageVersionOverride, '') }}:
-          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.sigSourceImageVersionOverride }}'
+      - ${{ if ne(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '') }}:
+          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE }}'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, override)

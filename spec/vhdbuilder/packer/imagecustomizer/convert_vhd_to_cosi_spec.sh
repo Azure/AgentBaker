@@ -268,7 +268,6 @@ Describe 'COSI artifact names'
     export IMAGE_VERSION=202609.21.0
     export DESTINATION_STORAGE_CONTAINER=https://storage.invalid/vhds
     export IMG_CUSTOMIZER_CONTAINER=registry.invalid/imagecustomizer@sha256:0000000000000000000000000000000000000000000000000000000000000000
-    export IMG_CUSTOMIZER_CONTAINER_FALLBACK=registry.invalid/fallback@sha256:1111111111111111111111111111111111111111111111111111111111111111
     export EXPECTED_IMG_CUSTOMIZER_REF="$IMG_CUSTOMIZER_CONTAINER"
     export MOCK_PRIMARY_PULL_FAIL=0
     export MOCK_COSI_METADATA=true
@@ -298,7 +297,7 @@ Describe 'COSI artifact names'
 
   check_artifact_name() {
     cd "$test_dir" || return 1
-    bash "$convert_script" "${1:-false}" >/dev/null || return $?
+    bash "$convert_script" >/dev/null || return $?
     jq -r .cosi_url cosi-publishing-info.json
     bash "$upload_script"
   }
@@ -357,37 +356,10 @@ Describe 'COSI artifact names'
     The error should include 'ImageCustomizer reference must be pinned with a sha256 digest'
   End
 
-  It 'rejects an enabled mutable fallback before downloading or converting'
-    export SKU_NAME=aclgen2arm64TL IMG_CUSTOMIZER_CONTAINER_FALLBACK=ghcr.io/microsoft/imagecustomizer:1.5.0
-    When run bash "$convert_script" true
-    The status should be failure
-    The output should be blank
-    The error should include 'ImageCustomizer reference must be pinned with a sha256 digest'
-  End
-
-  It 'rejects an enabled fallback without an approved digest'
-    export SKU_NAME=aclgen2arm64TL
-    unset IMG_CUSTOMIZER_CONTAINER_FALLBACK
-    When run bash "$convert_script" true
-    The status should be failure
-    The output should be blank
-    The error should include 'ImageCustomizer reference must be pinned with a sha256 digest'
-  End
-
-  It 'runs the pinned fallback when the primary pull fails'
-    export SKU_NAME=aclgen2arm64TL ARCHITECTURE=ARM64 ENABLE_FIPS=false
-    MOCK_PRIMARY_PULL_FAIL=1
-    EXPECTED_IMG_CUSTOMIZER_REF="$IMG_CUSTOMIZER_CONTAINER_FALLBACK"
-    When call check_artifact_name true
-    The status should be success
-    The line 1 of output should equal "https://download.invalid/cosi/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
-    The line 2 of output should include "--blob ${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
-  End
-
-  It 'stops when the primary pull fails and fallback is disabled'
+  It 'stops when the ImageCustomizer pull fails'
     export SKU_NAME=aclgen2arm64TL
     MOCK_PRIMARY_PULL_FAIL=1
-    When call check_artifact_name false
+    When call check_artifact_name
     The status should be failure
     The output should be blank
   End

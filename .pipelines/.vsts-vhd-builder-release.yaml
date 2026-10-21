@@ -5,13 +5,13 @@ pool:
   name: $(POOL_NAME)
 
 parameters:
-  - name: aclBaseImageSource
+  - name: ACL_BASE_IMAGE_SOURCE
     type: string
     default: acg
     values:
       - acg
       - acldevel
-  - name: aclBaseImageVersion
+  - name: ACL_BASE_IMAGE_VERSION
     type: string
     default: ""
   - name: useOverrides
@@ -165,7 +165,6 @@ variables:
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
   - group: aks-vuln-to-kusto-tme
-  - group: "AKS Node SIG - PMC COSI TME"
 
 stages:
   - stage: build
@@ -889,20 +888,18 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
-              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
             displayName: Setup Build Variables
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
-              variant: amd64
-              sigSourceImageVersionOverride: ${{ parameters.aclBaseImageVersion }}
+              ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+              VARIANT: amd64
+              SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-tl-gen2
-              enableCosiPublishing: true
+              ENABLE_COSI_PUBLISHING: true
       - job: buildaclcvmgen2
         condition: eq('${{ parameters.buildaclcvmgen2 }}', true)
         dependsOn: [ ]
@@ -922,8 +919,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              aclBaseImageSource: acg
-              variant: amd64
+              ACL_BASE_IMAGE_SOURCE: acg
+              VARIANT: amd64
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -945,20 +942,18 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
-              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
             displayName: Setup Build Variables
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
-              variant: arm64
-              sigSourceImageVersionOverride: ${{ parameters.aclBaseImageVersion }}
+              ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+              VARIANT: arm64
+              SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-arm64-tl-gen2
-              enableCosiPublishing: true
+              ENABLE_COSI_PUBLISHING: true
       - job: buildaclfipstlgen2
         condition: eq('${{ parameters.buildaclfipstlgen2 }}', true)
         dependsOn: [ ]
@@ -975,20 +970,18 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
-              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
             displayName: Setup Build Variables
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
-              variant: amd64
-              sigSourceImageVersionOverride: ${{ parameters.aclBaseImageVersion }}
+              ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+              VARIANT: amd64
+              SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-fips-tl-gen2
-              enableCosiPublishing: true
+              ENABLE_COSI_PUBLISHING: true
       - job: buildaclarm64fipstlgen2
         condition: eq('${{ parameters.buildaclarm64fipstlgen2 }}', true)
         dependsOn: [ ]
@@ -1005,52 +998,50 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
-              echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER_FALLBACK]ghcr.io/microsoft/imagecustomizer:1.5.0@sha256:c74e16c636e08486f517cd3b446e3577e52b24feea06aa245a8742a9f1c4a70a'
             displayName: Setup Build Variables
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
-              variant: arm64
-              sigSourceImageVersionOverride: ${{ parameters.aclBaseImageVersion }}
+              ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+              VARIANT: arm64
+              SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-arm64-fips-tl-gen2
-              enableCosiPublishing: true
+              ENABLE_COSI_PUBLISHING: true
       - template: ./templates/.builder-cosi-convert-job-template.yaml
         parameters:
-          jobName: convertacltlgen2
-          dependsOnJob: buildacltlgen2
-          architecture: X86_64
-          imgSku: azure-linux-3-acl
-          enableFips: false
-          artifactName: acl-tl-gen2
+          JOB_NAME: convertacltlgen2
+          DEPENDS_ON_JOB: buildacltlgen2
+          ARCHITECTURE: X86_64
+          IMG_SKU: azure-linux-3-acl
+          ENABLE_FIPS: false
+          ARTIFACT_NAME: acl-tl-gen2
       - template: ./templates/.builder-cosi-convert-job-template.yaml
         parameters:
-          jobName: convertaclarm64tlgen2
-          dependsOnJob: buildaclarm64tlgen2
-          architecture: ARM64
-          imgSku: azure-linux-3-arm64-gen2-acl
-          enableFips: false
-          artifactName: acl-arm64-tl-gen2
+          JOB_NAME: convertaclarm64tlgen2
+          DEPENDS_ON_JOB: buildaclarm64tlgen2
+          ARCHITECTURE: ARM64
+          IMG_SKU: azure-linux-3-arm64-gen2-acl
+          ENABLE_FIPS: false
+          ARTIFACT_NAME: acl-arm64-tl-gen2
       - template: ./templates/.builder-cosi-convert-job-template.yaml
         parameters:
-          jobName: convertaclfipstlgen2
-          dependsOnJob: buildaclfipstlgen2
-          architecture: X86_64
-          imgSku: azure-linux-3-acl
-          enableFips: true
-          artifactName: acl-fips-tl-gen2
+          JOB_NAME: convertaclfipstlgen2
+          DEPENDS_ON_JOB: buildaclfipstlgen2
+          ARCHITECTURE: X86_64
+          IMG_SKU: azure-linux-3-acl
+          ENABLE_FIPS: true
+          ARTIFACT_NAME: acl-fips-tl-gen2
       - template: ./templates/.builder-cosi-convert-job-template.yaml
         parameters:
-          jobName: convertaclarm64fipstlgen2
-          dependsOnJob: buildaclarm64fipstlgen2
-          architecture: ARM64
-          imgSku: azure-linux-3-arm64-gen2-acl
-          enableFips: true
-          artifactName: acl-arm64-fips-tl-gen2
+          JOB_NAME: convertaclarm64fipstlgen2
+          DEPENDS_ON_JOB: buildaclarm64fipstlgen2
+          ARCHITECTURE: ARM64
+          IMG_SKU: azure-linux-3-arm64-gen2-acl
+          ENABLE_FIPS: true
+          ARTIFACT_NAME: acl-arm64-fips-tl-gen2
       - job: build2404arm64gbgen2containerd
         condition: eq('${{ parameters.build2404arm64gbgen2containerd }}', true)
         dependsOn: [ ]
@@ -1089,8 +1080,8 @@ stages:
           name: All Linux
           IgnoreScenariosWithMissingVhd: true
           useVhdMetadataArtifacts: true
-          aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
-          cosiArtifactNames:
+          ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+          COSI_ARTIFACT_NAMES:
             - ${{ if eq(parameters.buildacltlgen2, true) }}:
               - "cosi-publishing-info-acl-tl-gen2"
             - ${{ if eq(parameters.buildaclarm64tlgen2, true) }}:

@@ -69,12 +69,8 @@ do
     fi
 done
 
-# Both primary and opt-in fallback images must be pinned before privileged execution.
-ALLOW_GHCR_FALLBACK="${1:-false}"
+# The image must be pinned before privileged execution.
 validate_imagecustomizer_reference "$IMG_CUSTOMIZER_CONTAINER"
-if [ "${ALLOW_GHCR_FALLBACK,,}" = "true" ]; then
-    validate_imagecustomizer_reference "${IMG_CUSTOMIZER_CONTAINER_FALLBACK:-}"
-fi
 
 WORK_DIR="$(pwd)/cosi-convert"
 mkdir -p "$WORK_DIR/build" "$WORK_DIR/out"
@@ -142,22 +138,8 @@ IMG_CUSTOMIZER_REF="${IMG_CUSTOMIZER_CONTAINER}"
 
 echo "Pulling ImageCustomizer image ${IMG_CUSTOMIZER_REF} for platform ${IMG_CUSTOMIZER_PLATFORM}"
 if ! docker pull --platform "${IMG_CUSTOMIZER_PLATFORM}" "${IMG_CUSTOMIZER_REF}"; then
-    if [ "${ALLOW_GHCR_FALLBACK,,}" != "true" ]; then
-        echo "##vso[task.logissue type=error]Failed to pull ImageCustomizer image ${IMG_CUSTOMIZER_REF} and GHCR fallback is disabled"
-        exit 1
-    fi
-
-    if [ -z "${IMG_CUSTOMIZER_CONTAINER_FALLBACK:-}" ]; then
-        echo "##vso[task.logissue type=error]GHCR fallback is enabled but IMG_CUSTOMIZER_CONTAINER_FALLBACK is not set"
-        exit 1
-    fi
-
-    IMG_CUSTOMIZER_REF="${IMG_CUSTOMIZER_CONTAINER_FALLBACK}"
-    echo "MCR image unavailable; falling back to ${IMG_CUSTOMIZER_REF}"
-    if ! docker pull --platform "${IMG_CUSTOMIZER_PLATFORM}" "${IMG_CUSTOMIZER_REF}"; then
-        echo "##vso[task.logissue type=error]Failed to pull ImageCustomizer fallback image ${IMG_CUSTOMIZER_REF}"
-        exit 1
-    fi
+    echo "##vso[task.logissue type=error]Failed to pull ImageCustomizer image ${IMG_CUSTOMIZER_REF}"
+    exit 1
 fi
 
 # No -v /dev:/dev: IC 1.5's entrypoint mounts its own devtmpfs on /dev, so bind-

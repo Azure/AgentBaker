@@ -35,11 +35,11 @@ parameters:
       because they cannot verify the not-opted-in behavior on such subscriptions.
       Msft tenant E2E subs auto-inject; the RCV1P subscription does not.
     default: true
-  - name: cosiArtifactNames
+  - name: COSI_ARTIFACT_NAMES
     type: object
     displayName: List of COSI publishing info pipeline artifact names to download. Leave empty to skip COSI validation.
     default: []
-  - name: aclBaseImageSource
+  - name: ACL_BASE_IMAGE_SOURCE
     type: string
     default: acg
     values:
@@ -65,19 +65,19 @@ jobs:
         fetchTags: false
         fetchDepth: 1
 
-      - ${{ if gt(length(parameters.cosiArtifactNames), 0) }}:
+      - ${{ if gt(length(parameters.COSI_ARTIFACT_NAMES), 0) }}:
         - bash: |
             echo "##vso[task.setvariable variable=COSI_ARTIFACTS_DIR]$(Pipeline.Workspace)/cosi-info/$(Build.BuildId)-$(System.JobAttempt)"
           displayName: Set COSI artifact directory
           condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
 
-      - ${{ each artifactName in parameters.cosiArtifactNames }}:
+      - ${{ each ARTIFACT_NAME in parameters.COSI_ARTIFACT_NAMES }}:
         - task: DownloadPipelineArtifact@2
-          displayName: "Download COSI info: ${{ artifactName }}"
+          displayName: "Download COSI info: ${{ ARTIFACT_NAME }}"
           condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
           inputs:
-            artifact: "${{ artifactName }}"
-            path: "$(COSI_ARTIFACTS_DIR)/${{ artifactName }}"
+            artifact: "${{ ARTIFACT_NAME }}"
+            path: "$(COSI_ARTIFACTS_DIR)/${{ ARTIFACT_NAME }}"
 
       - ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
         - task: DownloadPipelineArtifact@2
@@ -106,7 +106,7 @@ jobs:
 
       - template: ./.acl-base-image-signed-vars.yaml
         parameters:
-          aclBaseImageSource: ${{ parameters.aclBaseImageSource }}
+          ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
 
       - task: AzureCLI@2
         inputs:

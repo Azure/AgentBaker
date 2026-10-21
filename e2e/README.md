@@ -91,8 +91,8 @@ configuration and the VMSS SKU. Command-line arguments take precedence over envi
 
 ## ACL COSI Validation
 
-The four ACL Trusted Launch variants accept `aclBaseImageSource` (`acg` or
-`acldevel`) and an optional `aclBaseImageVersion` gallery-version
+The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg` or
+`acldevel`) and an optional `ACL_BASE_IMAGE_VERSION` gallery-version
 override. The production ACG source is the default. Secure Boot stays enabled for signed sources;
 selecting `acldevel` disables Secure Boot only for ACL test VMs. Older base images
 without `trident-acl-agent` still build; images containing the agent enable its

@@ -8,7 +8,7 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
-  - name: enableCosiPublishing
+  - name: ENABLE_COSI_PUBLISHING
     type: boolean
     default: false
 
@@ -26,7 +26,7 @@ steps:
       useOverrides: ${{ parameters.useOverrides }}
 
   # Bundle before downloading scanner binaries into the source tree.
-  - ${{ if parameters.enableCosiPublishing }}:
+  - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
     - bash: |
         set -euo pipefail
         cd "$(Build.SourcesDirectory)"
@@ -203,7 +203,7 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
-  - ${{ if parameters.enableCosiPublishing }}:
+  - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
     - bash: |
         echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
       name: exportCapturedSigVersion
@@ -503,7 +503,7 @@ steps:
         succeeded(),
         eq(variables.ENVIRONMENT, 'tme'),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-          not(and(eq('${{ parameters.enableCosiPublishing }}', true), eq(variables['OS_SKU'], 'AzureContainerLinux'))),
+          not(and(eq('${{ parameters.ENABLE_COSI_PUBLISHING }}', true), eq(variables['OS_SKU'], 'AzureContainerLinux'))),
         or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.PREFETCH_COMPATIBLE, 'False')
@@ -512,7 +512,7 @@ steps:
     displayName: Copy to Immutable Storage Container
 
   # Keep storage-token acquisition on the x64 build agents.
-  - ${{ if parameters.enableCosiPublishing }}:
+  - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
     - task: AzureCLI@2
       inputs:
         azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
