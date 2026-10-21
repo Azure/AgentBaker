@@ -1773,22 +1773,25 @@ type NodeBootstrappingConfiguration struct {
 	kubeconfig. */
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping.
 	KubeletClientTLSBootstrapToken *string
-	SecureTLSBootstrappingConfig   *SecureTLSBootstrappingConfig
-	FIPSEnabled                    bool
-	HTTPProxyConfig                *HTTPProxyConfig
-	KubeletConfig                  map[string]string
-	KubeproxyConfig                map[string]string
-	EnableRuncShimV2               bool
-	GPUInstanceProfile             string
-	PrimaryScaleSetName            string
-	SIGConfig                      SIGConfig
-	IsARM64                        bool
-	CustomCATrustConfig            *CustomCATrustConfig
-	DisableUnattendedUpgrades      bool
-	SSHStatus                      SSHStatus
-	DisableCustomData              bool
-	OutboundType                   string
-	EnableIMDSRestriction          bool
+	// RemoveBootstrapKubeconfig determines whether we will remove/cleanup kubelet's bootstrap-kubeconfig
+	// after kubelet successfuly bootstraps its initial client certificate via either form of TLS bootstrapping.
+	RemoveBootstrapKubeconfig    bool
+	SecureTLSBootstrappingConfig *SecureTLSBootstrappingConfig
+	FIPSEnabled                  bool
+	HTTPProxyConfig              *HTTPProxyConfig
+	KubeletConfig                map[string]string
+	KubeproxyConfig              map[string]string
+	EnableRuncShimV2             bool
+	GPUInstanceProfile           string
+	PrimaryScaleSetName          string
+	SIGConfig                    SIGConfig
+	IsARM64                      bool
+	CustomCATrustConfig          *CustomCATrustConfig
+	DisableUnattendedUpgrades    bool
+	SSHStatus                    SSHStatus
+	DisableCustomData            bool
+	OutboundType                 string
+	EnableIMDSRestriction        bool
 	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
 	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
