@@ -4,7 +4,8 @@
 Describe 'generate-vhd-publishing-info.sh'
   setup() {
     SCRIPT_PATH="${PWD}/vhdbuilder/packer/generate-vhd-publishing-info.sh"
-    TEST_DIR=$(mktemp -d "${SHELLSPEC_WORKDIR}/publishing-info.XXXXXX")
+    TEST_DIR="${SHELLSPEC_WORKDIR}/publishing-info.${SHELLSPEC_EXAMPLE_NO}"
+    mkdir -p "${TEST_DIR}"
     OUTPUT="${TEST_DIR}/vhd-publishing-info.json"
     export AZ_CALLS="${TEST_DIR}/az-calls"
     : > "$AZ_CALLS"

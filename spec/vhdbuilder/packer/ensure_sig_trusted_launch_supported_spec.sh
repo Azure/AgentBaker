@@ -5,7 +5,8 @@ Describe 'ensure_sig_trusted_launch_supported'
   Include './vhdbuilder/packer/produce-packer-settings-functions.sh'
 
   setup() {
-    TEST_DIR=$(mktemp -d "${SHELLSPEC_WORKDIR}/trusted-launch.XXXXXX")
+    TEST_DIR="${SHELLSPEC_WORKDIR}/trusted-launch.${SHELLSPEC_EXAMPLE_NO}"
+    mkdir -p "${TEST_DIR}"
     AZ_CALLS="${TEST_DIR}/az-calls"
     PUT_BODY="${TEST_DIR}/put-body"
     : > "${AZ_CALLS}"
@@ -55,6 +56,7 @@ Describe 'ensure_sig_trusted_launch_supported'
         printf '{"id":"%s"}\n' "${DEFINITION_ID}"
         ;;
       'sig image-definition create')
+        if [ "${FAIL_OPERATION}" = "create" ]; then return 23; fi
         local security_type="Standard"
         case "$*" in *SecurityType=TrustedLaunchSupported*) security_type="TrustedLaunchSupported" ;; esac
         jq --arg security_type "${security_type}" '
@@ -75,7 +77,7 @@ Describe 'ensure_sig_trusted_launch_supported'
     The value "$(jq -cr '.properties.features' "${PUT_BODY}")" should equal '[{"name":"DiskControllerTypes","value":"SCSI,NVMe"},{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.261006"}]'
   End
 
-  It 'creates a new shared Windows definition with a verified capability boundary'
+  It 'creates a new shared Windows definition capable directly without a migration'
     MODE="windowsVhdMode"
     ARCHITECTURE="x64"
     FEATURE_FLAGS=""
@@ -87,11 +89,52 @@ Describe 'ensure_sig_trusted_launch_supported'
 
     When call ensure_sig_vhd_exists
     The status should be success
+    The output should include 'Creating image definition windows-2025-gen2'
+    The output should not include 'Updating image definition'
+    The stderr should equal ''
+    The contents of file "${AZ_CALLS}" should include 'DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported'
+    The contents of file "${AZ_CALLS}" should not include 'rest --method'
+    The contents of file "${AZ_CALLS}" should not include 'image-definition wait'
+    The value "$(grep -c '^sig image-definition create ' "${AZ_CALLS}")" should equal 1
+    The value "$(grep -c '^sig image-definition show ' "${AZ_CALLS}")" should equal 1
+    The file "${PUT_BODY}" should not be exist
+    The value "$(jq -c '.properties.features' "${TEST_DIR}/created-definition")" should equal '[{"name":"DiskControllerTypes","value":"SCSI,NVMe"},{"name":"SecurityType","value":"TrustedLaunchSupported"}]'
+  End
+
+  It 'propagates a new shared Windows definition creation failure without migration'
+    MODE="windowsVhdMode"
+    ARCHITECTURE="x64"
+    FEATURE_FLAGS=""
+    HYPERV_GENERATION="V2"
+    OS_TYPE="Windows"
+    AZURE_LOCATION="eastus"
+    ENABLE_TRUSTED_LAUNCH="False"
+    TRUSTED_LAUNCH_SUPPORTED="True"
+    FAIL_OPERATION="create"
+
+    When call ensure_sig_vhd_exists
+    The status should equal 23
+    The output should include 'Creating image definition windows-2025-gen2'
+    The contents of file "${AZ_CALLS}" should not include 'rest --method'
+    The contents of file "${AZ_CALLS}" should not include 'image-definition wait'
+    The file "${PUT_BODY}" should not be exist
+  End
+
+  It 'migrates an existing Standard staging definition during build setup'
+    MODE="windowsVhdMode"
+    ENABLE_TRUSTED_LAUNCH="False"
+    TRUSTED_LAUNCH_SUPPORTED="True"
+    jq '.properties.features += [{name:"SecurityType",value:"Standard"}]' \
+      <<<"${INITIAL_DEFINITION}" > "${TEST_DIR}/created-definition"
+
+    When call ensure_sig_vhd_exists
+    The status should be success
     The output should include 'Updating image definition'
     The stderr should equal ''
-    The contents of file "${AZ_CALLS}" should include 'SecurityType=Standard'
-    The file "${PUT_BODY}" should be exist
-    The value "$(jq -r '.properties.features[] | select(.name == "SecurityType").startsAtVersion' "${PUT_BODY}")" should equal '26100.1.261006'
+    The contents of file "${AZ_CALLS}" should not include 'image-definition create'
+    The contents of file "${AZ_CALLS}" should include '--updated --interval 5 --timeout 120'
+    The value "$(grep -c '^rest --method get ' "${AZ_CALLS}")" should equal 2
+    The value "$(jq -c '.properties.features' "${PUT_BODY}")" should equal '[{"name":"DiskControllerTypes","value":"SCSI,NVMe"},{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.261006"}]'
   End
 
   It 'does not move the boundary of an already-supported definition'
@@ -137,6 +180,7 @@ Describe 'ensure_sig_trusted_launch_supported'
     The output should include 'Image definition windows-2025-gen2 existing'
     The stderr should equal ''
     The contents of file "${AZ_CALLS}" should not include '--method put'
+    The contents of file "${AZ_CALLS}" should not include 'image-definition wait'
     The contents of file "${AZ_CALLS}" should not include 'image-definition create'
     The file "${PUT_BODY}" should not be exist
   End

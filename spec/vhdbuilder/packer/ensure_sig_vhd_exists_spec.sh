@@ -129,7 +129,7 @@ Describe 'ensure_sig_vhd_exists function'
 
   Describe 'shared Windows Gen2 image creation'
     Parameters
-      False True Standard
+      False True TrustedLaunchSupported
       True True TrustedLaunch
       False False ''
     End
@@ -163,11 +163,7 @@ Describe 'ensure_sig_vhd_exists function'
       else
         The output should not include 'SecurityType='
       fi
-      if [ "$1" = "False" ] && [ "$2" = "True" ]; then
-        The output should include 'Reconciled mock-value'
-      else
-        The output should not include 'Reconciled'
-      fi
+      The output should not include 'Reconciled'
     End
   End
 
