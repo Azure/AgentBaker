@@ -449,16 +449,17 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 
 	if s.GetNetIpv4IpLocalPortRange() != "" {
 		m["net.ipv4.ip_local_port_range"] = s.GetNetIpv4IpLocalPortRange()
-		if getPortRangeEndValue(s.GetNetIpv4IpLocalPortRange()) > ipLocalReservedPorts {
-			ports := s.GetNetIpv4IpLocalReservedPorts()
-			if !reservedPortsContain(ports, ipLocalReservedPorts) {
-				if ports != "" {
-					ports += ","
-				}
-				ports += strconv.Itoa(ipLocalReservedPorts)
+	}
+
+	if s.GetNetIpv4IpLocalPortRange() != "" && getPortRangeEndValue(s.GetNetIpv4IpLocalPortRange()) > ipLocalReservedPorts {
+		ports := s.GetNetIpv4IpLocalReservedPorts()
+		if !reservedPortsContain(ports, ipLocalReservedPorts) {
+			if ports != "" {
+				ports += ","
 			}
-			m["net.ipv4.ip_local_reserved_ports"] = ports
+			ports += strconv.Itoa(ipLocalReservedPorts)
 		}
+		m["net.ipv4.ip_local_reserved_ports"] = ports
 	}
 
 	if s.NetNetfilterNfConntrackMax != nil {
