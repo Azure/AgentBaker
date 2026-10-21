@@ -361,7 +361,74 @@ knead_apply_components() {
     if [ "${infrastructure_failed}" = true ]; then
         echo "component dispatch encountered internal failures"
     fi
+    if ! knead_revoke_removed_components "${payload}" "${node_json}"; then
+        failed_components="${failed_components} revoked"
+    fi
     [ -z "${failed_components}" ] && [ "${infrastructure_failed}" = false ]
+}
+
+# Removes one component from the local state file, so a component that was revoked is not
+# revoked again on every tick.
+knead_remove_component_state() {
+    local component="$1"
+    local state
+    local state_tmp="${KNEAD_COMPONENT_STATE_FILE}.tmp"
+
+    if [ ! -f "${KNEAD_COMPONENT_STATE_FILE}" ]; then
+        return 0
+    fi
+    if ! state="$(jq -c --arg component "${component}" \
+        '.components = [.components[]? | select(.name != $component)]' \
+        "${KNEAD_COMPONENT_STATE_FILE}" 2> /dev/null)" || [ -z "${state}" ]; then
+        echo "failed to render knead-component state"
+        return 1
+    fi
+    if ! printf '%s' "${state}" > "${state_tmp}" || ! mv "${state_tmp}" "${KNEAD_COMPONENT_STATE_FILE}"; then
+        echo "failed to write knead-component state"
+        return 1
+    fi
+}
+
+# Revokes components this node applied earlier that the config no longer carries. The control
+# plane drops a component when it switches it off, and without this the node would keep serving
+# what it last applied. Only components with a registered revoke run; each is called with an empty
+# payload, which its handler treats as "nothing applies to this node". A failed revoke is recorded
+# as Failed so the next tick retries it.
+knead_revoke_removed_components() {
+    local payload="$1"
+    local node_json="$2"
+    local component
+    local component_handler
+    local result=0
+
+    if [ ! -f "${KNEAD_COMPONENT_STATE_FILE}" ]; then
+        return 0
+    fi
+    for component in localDNS; do
+        case "${component}" in
+            localDNS) component_handler=updateLocalDNS ;;
+        esac
+        if printf '%s' "${payload}" | jq -e --arg component "${component}" \
+            'any(.components[]?; .name == $component)' > /dev/null 2>&1; then
+            continue
+        fi
+        if ! jq -e --arg component "${component}" \
+            'any(.components[]?; .name == $component)' "${KNEAD_COMPONENT_STATE_FILE}" > /dev/null 2>&1; then
+            continue
+        fi
+        echo "revoking component removed from the config: ${component}"
+        if ! "${component_handler}" '{}' "${node_json}"; then
+            echo "failed to revoke component: ${component}"
+            knead_set_component_result "${component}" "Failed" || true
+            result=1
+            continue
+        fi
+        if ! knead_remove_component_state "${component}"; then
+            knead_set_component_result "${component}" "Failed" || true
+            result=1
+        fi
+    done
+    return "${result}"
 }
 
 # Records the processed hash and per-component results in the node status annotation.

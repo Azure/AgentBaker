@@ -309,6 +309,56 @@ EOF
         The output should include '"components":{"localDNS":{"code":"Succeeded"}}}'
     End
 
+    # The control plane drops the localDNS component when live patching is switched off. A node
+    # that applied it earlier must revoke the patch instead of keeping it forever.
+    It 'revokes localDNS when the component is removed from the config'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<EOF
+#!/bin/bash
+cat > "${TEST_DIR}/localdns-revoke-payload"
+echo noCorefileData
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            [ "$1" != "is-active" ]
+        End
+        printf '%s\n' 'patched' > "${LOCALDNS_LIVEPATCHED_COREFILE}"
+        printf '%s\n' 'v1' > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+        mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+        printf '%s' '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"}}}"},{"name":"securityPatch","nodeConfig":"{}"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+        set_payload_goal '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should include 'revoking component removed from the config: localDNS'
+        The output should include 'localDNS has no config applicable to this node'
+        The contents of file "${TEST_DIR}/localdns-revoke-payload" should equal '{}'
+        The path "${LOCALDNS_LIVEPATCHED_COREFILE}" should not be exist
+        The path "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should not be exist
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should not include '"localDNS"'
+        The contents of file "${KNEAD_COMPONENT_STATE_FILE}" should include '"securityPatch"'
+        The output should not include '"localDNS":'
+    End
+
+    It 'does not revoke localDNS that this node never applied'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo "aks-node-controller should not run"
+exit 1
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+        printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+        set_payload_goal '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should not include 'revoking component removed from the config'
+        The output should not include 'aks-node-controller should not run'
+    End
+
     # The localDNS payload carries every agent pool, so a change to another pool must be
     # filtered out by the comparator before the handler runs on this node.
     It 'does not rerun localDNS when only another agent pool changes'
