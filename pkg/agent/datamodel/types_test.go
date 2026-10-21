@@ -1374,6 +1374,13 @@ func TestAgentPoolProfileIsACL(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "ACL CVM FIPS distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLCVMGen2FIPS,
+			},
+			expected: true,
+		},
+		{
 			name: "Flatcar distro is not ACL",
 			ap: AgentPoolProfile{
 				Distro: AKSFlatcarGen2,
