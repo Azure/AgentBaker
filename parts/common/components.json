@@ -1866,6 +1866,16 @@
               }
             ]
           }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
+                "latestVersion": "0.57.0"
+              }
+            ]
+          }
         }
       }
     },

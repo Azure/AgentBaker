@@ -624,8 +624,10 @@ cachePackageAndBinaryComponents() {
         done
         ;;
       "inspektor-gadget")
-        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
-          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+        # Azure Linux 3 Kata installs IG on the host. Host gadgets observe host
+        # processes and runc pods; workloads inside Kata guest VMs are not visible.
+        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default}"
         else
           ig_version="${PACKAGE_VERSIONS[0]}"
           if isUbuntu "$OS"; then

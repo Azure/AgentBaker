@@ -589,8 +589,8 @@ copyPackerFiles() {
   IG_SERVICE_SRC=/home/packer/ig-import-gadgets.service
   IG_SERVICE_DEST=/usr/lib/systemd/system/ig-import-gadgets.service
 
-  # Skip for Mariner, OSGuard, Flatcar, ACL, and Kata
-  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+  # Skip for Mariner, OSGuard, Flatcar, and ACL (Azure Linux 3 Kata includes IG)
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; }; then
     cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
     cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
     cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
