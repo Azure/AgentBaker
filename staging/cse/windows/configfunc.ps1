@@ -415,69 +415,7 @@ function Install-GmsaPlugin {
     Write-Log "Successfully installed the GMSA plugin"
 }
 
-function Install-OpenSSH {
-    Param(
-        [Parameter(Mandatory = $true)][string[]]
-        $SSHKeys
-    )
-    Logs-To-Event -TaskName "AKS.WindowsCSE.InstallOpenSSH" -TaskMessage "Start to install OpenSSH"
-
-    $adminpath = "c:\ProgramData\ssh"
-    $adminfile = "administrators_authorized_keys"
-
-    $sshdService = Get-Service | ? Name -like 'sshd'
-    if ($sshdService.Count -eq 0)
-    {
-        Write-Log "Installing OpenSSH"
-        $isAvailable = Get-WindowsCapability -Online | ? Name -like 'OpenSSH*'
-
-        if (!$isAvailable) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED -ErrorMessage "OpenSSH is not available on this machine"
-        }
-
-        Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
-    }
-    else
-    {
-        Write-Log "OpenSSH Server service detected - skipping online install..."
-    }
-
-    Start-Service sshd
-
-    if (!(Test-Path "$adminpath")) {
-        Write-Log "Created new file and text content added"
-        New-Item -path $adminpath -name $adminfile -type "file" -value ""
-    }
-
-    Write-Log "$adminpath found."
-    Write-Log "Adding keys to: $adminpath\$adminfile ..."
-    $SSHKeys | foreach-object {
-        Add-Content $adminpath\$adminfile $_
-    }
-
-    Write-Log "Setting required permissions..."
-    icacls $adminpath\$adminfile /remove "NT AUTHORITY\Authenticated Users"
-    if ($LASTEXITCODE -ne 0) { throw "icacls failed to remove Authenticated Users permissions from $adminpath\$adminfile (exit code $LASTEXITCODE)" }
-    icacls $adminpath\$adminfile /inheritance:r
-    if ($LASTEXITCODE -ne 0) { throw "icacls failed to set inheritance on $adminpath\$adminfile (exit code $LASTEXITCODE)" }
-    icacls $adminpath\$adminfile /grant SYSTEM:`(F`)
-    if ($LASTEXITCODE -ne 0) { throw "icacls failed to grant SYSTEM permissions on $adminpath\$adminfile (exit code $LASTEXITCODE)" }
-    icacls $adminpath\$adminfile /grant BUILTIN\Administrators:`(F`)
-    if ($LASTEXITCODE -ne 0) { throw "icacls failed to grant Administrators permissions on $adminpath\$adminfile (exit code $LASTEXITCODE)" }
-
-    Write-Log "Restarting sshd service..."
-    Restart-Service sshd
-    # OPTIONAL but recommended:
-    Set-Service -Name sshd -StartupType 'Automatic'
-
-    # Confirm the Firewall rule is configured. It should be created automatically by setup.
-    $firewall = Get-NetFirewallRule -Name *ssh*
-
-    if (!$firewall) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED -ErrorMessage "OpenSSH's firewall is not configured properly"
-    }
-    Write-Log "OpenSSH installed and configured successfully"
-}
+. "$PSScriptRoot\sshfunc.ps1"
 
 function Config-CredentialProvider {
     Param(

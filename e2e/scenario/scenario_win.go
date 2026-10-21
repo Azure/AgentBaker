@@ -167,6 +167,22 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:        "Windows2025_DisableSSH",
+	Description: "Tests that a Windows Server 2025 node with SSH disabled can be bootstrapped and sshd is stopped and disabled",
+	Config: Config{
+		Cluster: ClusterAzureNetwork,
+		VHD:     config.VHDWindows2025,
+		BootstrapConfigMutatorWithError: func(_ context.Context, _ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
+			nbc.ContainerService.Properties.WindowsProfile.SSHEnabled = to.Ptr(false)
+			return Windows2025BootstrapConfigMutator(nbc)
+		},
+		SkipSSHConnectivityValidation: true,
+		SkipDefaultValidation:         true,
+		Validator:                     ValidateSSHServiceDisabled,
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "Windows2025",
 	Description: "Windows Server 2025 with Containerd",
 	Config: Config{

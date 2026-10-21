@@ -1,6 +1,6 @@
 # A node booted from a PIS-cached VHD skips BasePrep, because base_prep.complete is already in the
-# image. Every setting that describes the cluster, the node identity or a credential must therefore
-# be written in NodePrep, or the node runs on values captured when the image was baked.
+# image. NodePrep must therefore apply the live cluster configuration and credentials, even when
+# BasePrep also configured a component such as SSH during the bake.
 # These checks read the template as text so they pin the phase a call is made from.
 
 BeforeAll {
@@ -115,6 +115,30 @@ Describe 'Windows CSE PIS phase placement' {
         It 'writes the cluster CA certificate in NodePrep only' {
             $script:NodePrepBody | Should -Match 'Write-CACert'
             $script:BasePrepBody | Should -Not -Match 'Write-CACert'
+        }
+    }
+
+    Context 'SSH access policy' {
+        It 'applies the live SSH policy and keys in NodePrep' {
+            $script:NodePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)'
+            $script:NodePrepBody | Should -Match 'Install-OpenSSH -Enabled \$sshEnabled -SSHKeys \$global:SSHKeys'
+        }
+
+        It 'preserves SSH configuration in BasePrep only when enabled' {
+            $script:BasePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)'
+            $script:BasePrepBody | Should -Match 'if\s*\(\s*\$sshEnabled\s*\)\s*\{\s*Install-OpenSSH -SSHKeys \$SSHKeys\s*\}'
+        }
+
+        It 'applies SSH policy before starting Kubernetes services' {
+            $sshIndex = $script:NodePrepBody.IndexOf('Install-OpenSSH')
+            $kubeletIndex = $script:NodePrepBody.IndexOf('Install-KubernetesServices')
+            $sshIndex | Should -BeGreaterThan -1
+            $kubeletIndex | Should -BeGreaterThan -1
+            $sshIndex | Should -BeLessThan $kubeletIndex
+        }
+
+        It 'loads the inline SSH implementation after the cached CSE package' {
+            $script:TemplateText | Should -Match '(?s)\. Get-HelperScripts\s*#[^\r\n]*\s*\. c:\\AzureData\\windows\\windowsssh\.ps1'
         }
     }
 

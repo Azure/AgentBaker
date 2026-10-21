@@ -16,6 +16,17 @@ From a high-level, for each scenario,
 3. Liveness and health checks and then run to make sure the new VM's kubelet is posting NodeReady, and that workload
    pods can successfully be scheduled and run on the new node.
 
+Windows VHD-caching scenarios retain SSH access during the bake when enabled:
+`BasePrep` installs and configures OpenSSH, and `NodePrep` reapplies the current
+policy and keys, including on cached images. Only Windows scenarios that explicitly
+skip SSH connectivity validation use VMSS RunCommand for guest checks in both
+the bake and real-node stages. Linux behavior is unchanged.
+OpenSSH remains stopped and disabled while the live authorized keys and ACLs are
+prepared; provisioning only re-enables it after those steps succeed.
+The shared `Install-OpenSSH` implementation ships in both the CSE package and
+CustomData. Provisioning loads the inline copy after the cached CSE scripts so
+older packages cannot override the current SSH policy handling.
+
 ## Writing and extending scenarios
 
 Extend an existing scenario's `Validator` when its node has the required settings.
