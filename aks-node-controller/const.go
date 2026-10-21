@@ -7,5 +7,4 @@ const (
 	provisionJSONFilePath     = "/var/log/azure/aks/provision.json"
 	provisionCompleteFilePath = "/opt/azure/containers/provision.complete"
 	readyReportMarkerPath     = "/var/lib/waagent/experimental_skip_ready_report"
-	readyReportScriptPath     = "/opt/azure/containers/report_ready.py"
 )

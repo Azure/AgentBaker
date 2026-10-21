@@ -210,6 +210,12 @@ func runPreScriptFailureReportingCase(t *testing.T, tc preScriptFailureCase, mar
 		commands = append(commands, cmd.Args)
 		return nil
 	}})
+	var reports []string
+	tt.App.goalStateReporter = func(_ context.Context, failed bool, description string) error {
+		require.True(t, failed)
+		reports = append(reports, description)
+		return nil
+	}
 	if markerExists {
 		require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
 	}
@@ -234,13 +240,11 @@ func runPreScriptFailureReportingCase(t *testing.T, tc preScriptFailureCase, mar
 	require.ErrorContains(t, err, tc.wantError)
 	require.Equal(t, "240", result.ExitCode)
 	require.Equal(t, err.Error(), result.Error)
+	require.Empty(t, commands)
 	if markerExists && !dryRun {
-		require.Equal(t, [][]string{{
-			"python3", readyReportScriptPath, "-v", "--failure", "--description",
-			"ExitCode: 240, " + err.Error(),
-		}}, commands)
+		require.Equal(t, []string{"ExitCode: 240, " + err.Error()}, reports)
 	} else {
-		require.Empty(t, commands)
+		require.Empty(t, reports)
 	}
 }
 
@@ -279,7 +283,8 @@ func TestApp_ProvisionReportsPreScriptFailure(t *testing.T) {
 func TestApp_ProvisionPreservesErrorWhenFailureReportingFails(t *testing.T) {
 	logs := installLogCapturer(t)
 	reportErr := errors.New("reporter unavailable")
-	tt := NewTestApp(t, TestAppConfig{RunFunc: func(*exec.Cmd) error { return reportErr }})
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.goalStateReporter = func(context.Context, bool, string) error { return reportErr }
 	require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
 
 	result, err := tt.App.runProvision(t.Context(), ProvisionFlags{}, false)
@@ -304,6 +309,18 @@ func TestApp_ProvisionReportsAfterScriptExecution(t *testing.T) {
 				}
 				return nil
 			}})
+			reported := false
+			tt.App.goalStateReporter = func(_ context.Context, failed bool, description string) error {
+				require.Len(t, commands, 1, "report must follow provisioning")
+				require.Equal(t, scriptErr != nil, failed)
+				if failed {
+					require.Equal(t, "ExitCode: -1, "+scriptErr.Error(), description)
+				} else {
+					require.Empty(t, description)
+				}
+				reported = true
+				return nil
+			}
 			require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
 			path := filepath.Join(t.TempDir(), "nbc-cmd.sh")
 			require.NoError(t, os.WriteFile(path, []byte("#!/bin/bash\n"), 0o600))
@@ -311,19 +328,29 @@ func TestApp_ProvisionReportsAfterScriptExecution(t *testing.T) {
 			_, err := tt.App.runProvision(t.Context(), ProvisionFlags{NBCCmd: path}, false)
 
 			require.ErrorIs(t, err, scriptErr)
-			expected := [][]string{
-				{"/bin/bash", "--", path},
-				{"python3", readyReportScriptPath, "-v"},
-			}
-			if scriptErr != nil {
-				expected[1] = []string{
-					"python3", readyReportScriptPath, "-v", "--failure", "--description",
-					"ExitCode: -1, " + scriptErr.Error(),
-				}
-			}
-			require.Equal(t, expected, commands)
+			require.True(t, reported)
+			require.Equal(t, [][]string{{"/bin/bash", "--", path}}, commands)
 		})
 	}
+}
+
+func TestApp_ProvisionSuccessWhenReportingFails(t *testing.T) {
+	logs := installLogCapturer(t)
+	tt := NewTestApp(t, TestAppConfig{})
+	reportErr := errors.New("reporter unavailable")
+	tt.App.goalStateReporter = func(context.Context, bool, string) error { return reportErr }
+	require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+	path := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/bash\n"), 0o600))
+
+	_, err := tt.App.runProvision(t.Context(), ProvisionFlags{NBCCmd: path}, false)
+
+	require.NoError(t, err)
+	require.Contains(t, logs.getRecords(), logRecord{
+		Level:   slog.LevelError,
+		Message: "failed to report provisioning status to Azure fabric",
+		Attrs:   map[string]string{"error": reportErr.Error()},
+	})
 }
 
 func TestApp_Run(t *testing.T) {

@@ -57,8 +57,8 @@ chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
 # The VHD-baked cloud-init setting stands down cloud-init. WALinuxAgent reports Ready
 # independently once ovf-env.xml and the SSH host key exist. A sentinel matching this
-# instance's id makes it skip that report, leaving report_ready.py as the only reporter.
-if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+# instance's id makes it skip that report, leaving aks-node-controller as the only reporter.
+if [ -s /sys/class/dmi/id/product_uuid ]; then
     cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
     chmod 0644 /var/lib/waagent/provisioned
 fi`

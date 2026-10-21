@@ -88,6 +88,8 @@ type App struct {
 	gpuComponentsFilePath string
 	// readyReportMarkerPath overrides the readiness handoff marker location for testing.
 	readyReportMarkerPath string
+	// goalStateReporter overrides native provisioning status reporting for testing.
+	goalStateReporter func(context.Context, bool, string) error
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
 	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
@@ -726,15 +728,15 @@ func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult
 		return
 	}
 
-	args := []string{readyReportScriptPath, "-v"}
+	description := ""
 	if provisionErr != nil {
-		description := fmt.Sprintf("ExitCode: %s, %s", result.ExitCode, result.Error)
-		args = append(args, "--failure", "--description", description)
+		description = fmt.Sprintf("ExitCode: %s, %s", result.ExitCode, result.Error)
 	}
-	cmd := exec.CommandContext(ctx, "python3", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := a.cmdRun(cmd); err != nil {
+	reporter := a.goalStateReporter
+	if reporter == nil {
+		reporter = reportGoalState
+	}
+	if err := reporter(ctx, provisionErr != nil, description); err != nil {
 		slog.Error("failed to report provisioning status to Azure fabric", "error", err)
 	}
 }
