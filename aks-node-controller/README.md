@@ -257,7 +257,10 @@ application, including variants that share the `azurelinux` OS ID. Their
 distro-specific source changes do not trigger payload generation.
 
 The repository keeps a README placeholder so `go:embed` builds without any
-script hotfix payloads. Generation replaces it with Ubuntu and Azure Linux YAMLs.
+script hotfix payloads. Generation omits any rendered YAML with no `write_files`
+entries (including missing, null, or empty lists) and logs the skipped platform.
+If all platforms are empty, it writes a README placeholder to keep `go:embed` valid.
+This does not add support for non-distro template conditions.
 ANC skips application when the local platform's YAML is absent; no separate
 activation flag is needed. Other payload read errors are logged.
 
