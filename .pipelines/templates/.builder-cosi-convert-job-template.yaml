@@ -1,0 +1,122 @@
+# Converts a build job's ACL VHD to COSI, uploads it to PMC, and publishes the
+# COSI publishing info. Conversion runs natively; the source build job owns
+# immutable VHD promotion and supplies the VHD location, version, and source bundle.
+parameters:
+  - name: JOB_NAME
+    type: string
+  - name: DEPENDS_ON_JOB
+    type: string
+  - name: ARCHITECTURE
+    type: string
+    values:
+      - X86_64
+      - ARM64
+  - name: ARTIFACT_NAME
+    type: string
+  - name: IMG_SKU
+    type: string
+  - name: ENABLE_FIPS
+    type: boolean
+    default: false
+
+jobs:
+  - job: ${{ parameters.JOB_NAME }}
+    condition: and(succeeded(), in(dependencies.${{ parameters.DEPENDS_ON_JOB }}.result, 'Succeeded', 'SucceededWithIssues'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    dependsOn: ${{ parameters.DEPENDS_ON_JOB }}
+    timeoutInMinutes: 120
+    pool:
+      ${{ if eq(parameters.ARCHITECTURE, 'ARM64') }}:
+        name: $(NODE_SIG_TME_POOL_ARM64_NAME)
+      ${{ else }}:
+        name: $(POOL_NAME)
+    variables:
+      CAPTURED_SIG_VERSION: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportCapturedSigVersion.CAPTURED_SIG_VERSION'] ]
+      IMAGE_VERSION: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportImageVersion.IMAGE_VERSION'] ]
+      VHD_SAS_URL: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportVhdSas.VHD_SAS_URL'] ]
+      DESTINATION_STORAGE_CONTAINER: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportDestinationStorageContainer.DESTINATION_STORAGE_CONTAINER'] ]
+    steps:
+      - checkout: none
+
+      - bash: |
+          echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
+          echo '##vso[task.setvariable variable=OS_VERSION]acl'
+          echo '##vso[task.setvariable variable=IMG_SKU]${{ parameters.IMG_SKU }}'
+          echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+          echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+          echo '##vso[task.setvariable variable=ARCHITECTURE]${{ parameters.ARCHITECTURE }}'
+          echo '##vso[task.setvariable variable=ENABLE_FIPS]${{ parameters.ENABLE_FIPS }}'
+          echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
+          echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5@sha256:b1a46447f67d73dce1a76163d3f8dbcbe12988b65c51393621529c52af160729'
+        displayName: Setup Build Variables
+
+      - task: DownloadPipelineArtifact@2
+        displayName: Download AgentBaker source bundle
+        inputs:
+          artifact: agentbaker-sources-${{ parameters.ARTIFACT_NAME }}
+          path: $(Pipeline.Workspace)/agentbaker-sources
+
+      # tar is present on both convert pool images, so the source bundle can be
+      # extracted before the remaining tools are bootstrapped from it.
+      - bash: |
+          set -euo pipefail
+          mkdir -p "$(Build.SourcesDirectory)"
+          tar -xzf "$(Pipeline.Workspace)/agentbaker-sources/agentbaker-sources.tar.gz" -C "$(Build.SourcesDirectory)"
+          ls "$(Build.SourcesDirectory)"
+        displayName: Extract AgentBaker source bundle
+
+      - bash: ./vhdbuilder/packer/imagecustomizer/scripts/bootstrap-cosi-convert-tools.sh
+        displayName: Bootstrap COSI convert tooling
+
+      - bash: make -f packer.mk build-cosi-upload
+        displayName: Build COSI uploader with Microsoft system crypto
+        condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+
+      - bash: |
+          SKU_NAME=${OS_VERSION} && \
+          if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
+          if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
+          if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}gb"; fi && \
+          if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
+          if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+          if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
+          if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
+          SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
+          echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
+          echo "Set SKU_NAME to $SKU_NAME"
+        displayName: Set SKU Name
+
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            make -f packer.mk convert-vhd-to-cosi
+        condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+        displayName: Convert ACL VHD to COSI
+        env:
+          RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+          OFFER_NAME: $(OS_SKU)
+          AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
+          COSI_CONTAINER: $(COSI_CONTAINER)
+          VHD_SAS_URL: $(VHD_SAS_URL)
+
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            bash ./vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh
+        condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+        displayName: Upload COSI to PMC
+        env:
+          AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
+          COSI_CONTAINER: $(COSI_CONTAINER)
+
+      - task: PublishPipelineArtifact@1
+        condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+        displayName: Publish COSI Publishing Info
+        inputs:
+          artifactName: 'cosi-publishing-info-${{ parameters.ARTIFACT_NAME }}'
+          targetPath: 'cosi-publishing-info.json'

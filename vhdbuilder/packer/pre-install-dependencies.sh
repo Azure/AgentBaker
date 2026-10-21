@@ -66,6 +66,11 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
+if isACL "$OS" "$OS_VARIANT"; then
+  enableTridentACLAgent || exit 1
+    capture_benchmark "${SCRIPT_NAME}_enable_trident_acl_agent"
+fi
+
 if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}

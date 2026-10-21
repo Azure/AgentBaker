@@ -36,6 +36,7 @@ jobs:
         go test $(go list ./... | grep -v e2e) -coverprofile=coverage/agentbaker.out -covermode=atomic
         (cd aks-node-controller && go build -mod=readonly ./... && go test ./... -coverprofile=../coverage/aks-node-controller.out -covermode=atomic)
         (cd aks-live-patching && go build -mod=readonly ./... && go test ./... -coverprofile=../coverage/aks-live-patching.out -covermode=atomic)
+        (cd cmd/cosi-upload && go build -mod=readonly ./... && go test ./... -coverprofile=../../coverage/cosi-upload.out -covermode=atomic)
     - name: Strip generated/mock code from coverage profiles
       run: |
         set -ex

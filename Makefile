@@ -204,7 +204,7 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: test-aks-node-controller test-aks-live-patching
+test: test-aks-node-controller test-aks-live-patching test-cosi-upload
 	go build -mod=readonly ./... && go test ./...
 
 test-aks-node-controller:
@@ -213,10 +213,14 @@ test-aks-node-controller:
 test-aks-live-patching:
 	pushd aks-live-patching && go build -mod=readonly ./... && go test ./... && popd
 
+test-cosi-upload:
+	pushd cmd/cosi-upload && go build -mod=readonly ./... && go test ./... && popd
+
 lint:
 	$(TOOLSBIN)/golangci-lint run ./...
 	pushd aks-node-controller && $(TOOLSBIN)/golangci-lint run ./... && popd
 	pushd aks-live-patching && $(TOOLSBIN)/golangci-lint run ./... && popd
+	pushd cmd/cosi-upload && $(TOOLSBIN)/golangci-lint run ./... && popd
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
