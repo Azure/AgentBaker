@@ -383,7 +383,7 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 // It deliberately does not write enabled_features.sh: the launcher runs download-hotfix purely
 // on the presence of the pointer file, so leaving ENABLE_PROVISIONING_HOTFIX unset keeps
 // check-hotfix (and its live-patching-service round trip) out of the scenario entirely.
-func CustomDataWithANCHotfixFlowFixture(customData, binaryURL string) (string, error) {
+func CustomDataWithANCHotfixFlowFixture(customData, binaryURL string, versions config.ANCHotfixVersions) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(customData)
 	if err != nil {
 		return "", fmt.Errorf("decode custom data: %w", err)
@@ -407,12 +407,12 @@ echo "%[9]s"
 EOF
 chmod 0600 %[6]s`,
 		ancHotfixPointerPath,
-		hotfixBaseVersion(ancHotfixFlowBaseVersion),
-		ancHotfixFlowTargetVersion,
+		hotfixBaseVersion(versions.Base),
+		versions.Target,
 		binaryURL,
 		ancBakedBinaryPath,
 		ancNBCCmdPath,
-		filepath.Dir(provisionJSONPath),
+		path.Dir(provisionJSONPath),
 		provisionCompletePath,
 		ancNBCCmdMarker,
 	)
@@ -478,11 +478,12 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 				"ANC hotfix flow fixture requires scriptless ANC compilation",
 			)
 		}
-		binaryURL, err := compileAndUploadAKSNodeControllerWithVersion(ctx, s.VHD.Arch, ancHotfixFlowBaseVersion)
+		versions := config.Config.ANCHotfixVersions
+		binaryURL, err := compileAndUploadAKSNodeControllerWithVersion(ctx, s.VHD.Arch, versions.Base)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload version-stamped aks-node-controller binary: %w", err)
 		}
-		customData, err = CustomDataWithANCHotfixFlowFixture(customData, binaryURL)
+		customData, err = CustomDataWithANCHotfixFlowFixture(customData, binaryURL, versions)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with ANC hotfix flow fixture: %w", err)
 		}

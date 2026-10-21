@@ -119,6 +119,25 @@ func restoreRunnerConfig(t *testing.T) {
 	t.Helper()
 	saved := *config.Config
 	t.Cleanup(func() { *config.Config = saved })
+	t.Setenv("ANC_HOTFIX_TARGET_VERSION", "")
+	t.Setenv("REQUIRE_ANC_HOTFIX_VALIDATION", "false")
+}
+
+func TestRequiredANCHotfixTargetFailsBeforeAzureInitialization(t *testing.T) {
+	for _, target := range []string{"", "202608.26.0"} {
+		t.Run(target, func(t *testing.T) {
+			restoreRunnerConfig(t)
+			t.Setenv("ANC_HOTFIX_TARGET_VERSION", target)
+			before := azureInitProbe()
+			var stderr bytes.Buffer
+			code := NewApp(&bytes.Buffer{}, &stderr).Run(context.Background(), []string{
+				"e2e", "run", "--require-anc-hotfix-validation",
+			})
+			require.Equal(t, exitUsage, code)
+			require.Contains(t, stderr.String(), "ANC_HOTFIX_TARGET_VERSION")
+			require.Equal(t, before, azureInitProbe())
+		})
+	}
 }
 
 func TestMatchFiltersPreservesTagPolicy(t *testing.T) {

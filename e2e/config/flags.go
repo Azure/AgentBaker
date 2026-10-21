@@ -5,6 +5,8 @@ import "github.com/urfave/cli/v3"
 func Flags() []cli.Flag {
 	defaults := DefaultConfiguration()
 	return []cli.Flag{
+		&cli.StringFlag{Name: "anc-hotfix-target-version", Destination: &Config.ANCHotfixTargetVersion, Sources: cli.EnvVars("ANC_HOTFIX_TARGET_VERSION"), Usage: "Exact published ANC hotfix package version (YYYYMM.DD.PATCH, positive patch)"},
+		&cli.BoolFlag{Name: "require-anc-hotfix-validation", Destination: &Config.RequireANCHotfixValidation, Sources: cli.EnvVars("REQUIRE_ANC_HOTFIX_VALIDATION"), Usage: "Require an explicit ANC hotfix target version"},
 		&cli.StringFlag{Name: "acr-secret-name", Value: defaults.ACRSecretName, Destination: &Config.ACRSecretName, Sources: cli.EnvVars("ACR_SECRET_NAME")},
 		&cli.StringFlag{Name: "acr-target-repository", Value: defaults.AzureContainerRegistrytargetRepository, Destination: &Config.AzureContainerRegistrytargetRepository, Sources: cli.EnvVars("ACR_TARGET_REPOSITORY")},
 		&cli.StringFlag{Name: "blob-container", Value: defaults.BlobContainer, Destination: &Config.BlobContainer, Sources: cli.EnvVars("BLOB_CONTAINER")},

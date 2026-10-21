@@ -8,9 +8,25 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Azure/agentbaker/e2e/config"
 )
 
 func TestCustomDataWithANCHotfixFlowFixture(t *testing.T) {
+	for _, target := range []string{"", "202608.26.2", "202610.20.15"} {
+		t.Run("target="+target, func(t *testing.T) {
+			cfg := config.DefaultConfiguration()
+			cfg.ANCHotfixTargetVersion = target
+			if err := cfg.ResolveANCHotfixVersions(); err != nil {
+				t.Fatal(err)
+			}
+			testANCHotfixFlowFixture(t, cfg.ANCHotfixVersions)
+		})
+	}
+}
+
+func testANCHotfixFlowFixture(t *testing.T, versions config.ANCHotfixVersions) {
+	t.Helper()
 	// Mirror the real custom data layout. Baker expands its own file writes at the boothook
 	// template's %s before #hotfix-marker, then concatenates serviceStartTemplate. On
 	// official/** branches one of those writes is a hotfix pointer committed by
@@ -20,7 +36,7 @@ func TestCustomDataWithANCHotfixFlowFixture(t *testing.T) {
 	in := base64.StdEncoding.EncodeToString([]byte(
 		"prefix\n" + bakerPointerWrite + "\n" + bakerNBCCmdWrite + "\n#hotfix-marker\n" +
 			`logger -t aks-boothook "launching aks-node-controller $(date -Ins)"` + "\nsuffix\n"))
-	out, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc")
+	out, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc", versions)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,8 +85,8 @@ func TestCustomDataWithANCHotfixFlowFixture(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &cfg); err != nil {
 		t.Fatalf("pointer JSON invalid (%q): %v", body, err)
 	}
-	if got := cfg.Hotfixes["202608.21"]; got != "202608.21.1" {
-		t.Errorf("hotfixes[202608.21] = %q, want 202608.21.1", got)
+	if got := cfg.Hotfixes[hotfixBaseVersion(versions.Base)]; len(cfg.Hotfixes) != 1 || got != versions.Target {
+		t.Errorf("hotfixes = %v, want only %s: %s", cfg.Hotfixes, hotfixBaseVersion(versions.Base), versions.Target)
 	}
 
 	bakerNBCCmd := strings.Index(rendered, "gzip -d >"+ancNBCCmdPath)
@@ -100,8 +116,8 @@ func TestCustomDataWithANCHotfixFlowFixture(t *testing.T) {
 	dir := t.TempDir()
 	statusDir := filepath.Join(dir, "status")
 	completePath := filepath.Join(dir, "provision.complete")
-	script = strings.ReplaceAll(script, "/var/log/azure/aks", statusDir)
-	script = strings.ReplaceAll(script, "/opt/azure/containers/provision.complete", completePath)
+	script = strings.ReplaceAll(script, "/var/log/azure/aks", `"`+filepath.ToSlash(statusDir)+`"`)
+	script = strings.ReplaceAll(script, "/opt/azure/containers/provision.complete", `"`+filepath.ToSlash(completePath)+`"`)
 	output, err := exec.Command("bash", "-c", script).CombinedOutput()
 	if err != nil {
 		t.Fatalf("fixture NBC script failed: %v\n%s", err, output)
@@ -132,7 +148,7 @@ func TestCustomDataWithANCHotfixFlowFixture(t *testing.T) {
 func TestCustomDataWithANCHotfixFlowFixtureWithoutMarker(t *testing.T) {
 	in := base64.StdEncoding.EncodeToString([]byte(
 		"prefix\n" + `logger -t aks-boothook "launching aks-node-controller $(date -Ins)"` + "\nsuffix\n"))
-	if _, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc"); err == nil {
+	if _, err := CustomDataWithANCHotfixFlowFixture(in, "https://example.test/anc", config.DefaultConfiguration().ANCHotfixVersions); err == nil {
 		t.Fatal("expected an error when the hotfix marker is absent")
 	} else if !strings.Contains(err.Error(), "hotfix marker") {
 		t.Errorf("error should name the missing hotfix marker, got %v", err)

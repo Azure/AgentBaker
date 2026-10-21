@@ -28,19 +28,6 @@ const (
 	// exists in cse_timing.go.)
 	provisionCompletePath = "/opt/azure/containers/provision.complete"
 	ancNBCCmdMarker       = "anc-hotfix-flow-nbc-executed"
-
-	// ancHotfixFlowTargetVersion is a real published ANC hotfix (git tag
-	// aks-node-controller/hotfix/v202608.21.1), so download-hotfix performs a real PMC
-	// download rather than hitting a synthetic artifact. The validators pin the run to the
-	// authenticated repository fast path, which extracts and stages the package itself, so
-	// no apt/dnf/tdnf installation is exercised here.
-	//
-	// The PR-built ANC is stamped to ancHotfixFlowBaseVersion so it shares the "202608.21"
-	// base and sits at a strictly lower patch, which is what makes the pointer applicable:
-	// download-hotfix derives the base from the running binary's version and only upgrades
-	// when the base matches and the target patch is higher.
-	ancHotfixFlowBaseVersion   = "202608.21.0"
-	ancHotfixFlowTargetVersion = "202608.21.1"
 )
 
 // The fixture writes the hotfix pointer directly instead of letting check-hotfix fetch it
@@ -85,6 +72,7 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 			// The no-op NBC command validates hotfix execution, not node readiness.
 			SkipDefaultValidation: true,
 			Validator: func(ctx context.Context, s *Scenario) error {
+				versions := config.Config.ANCHotfixVersions
 				// The boothook starts the launcher under nohup and SkipDefaultValidation
 				// removes the node-readiness wait, so SSH can come up while download-hotfix
 				// is still running. Every assertion below is a one-shot read, and the
@@ -94,8 +82,8 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 					return err
 				}
 				return errors.Join(
-					ValidateANCBakedBinaryVersion(ctx, s, ancHotfixFlowBaseVersion),
-					ValidateFileHasContent(ctx, s, ancHotfixPointerPath, fmt.Sprintf(`"%s":"%s"`, hotfixBaseVersion(ancHotfixFlowBaseVersion), ancHotfixFlowTargetVersion)),
+					ValidateANCBakedBinaryVersion(ctx, s, versions.Base),
+					ValidateFileHasContent(ctx, s, ancHotfixPointerPath, fmt.Sprintf(`"%s":"%s"`, hotfixBaseVersion(versions.Base), versions.Target)),
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "Found ANC hotfix config"),
 					ValidateFileHasContent(ctx, s, ancLogPath, "downloading ANC hotfix"),
 					// Assert the fast path's full message rather than the "downloaded ANC hotfix"
@@ -112,7 +100,7 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 					ValidateFileExists(ctx, s, ancHotfixBinaryPath),
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "Using hotfix binary"),
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "aks-node-controller completed successfully"),
-					ValidateANCHotfixBinaryVersion(ctx, s, ancHotfixFlowTargetVersion),
+					ValidateANCHotfixBinaryVersion(ctx, s, versions.Target),
 					// The no-op NBC command publishes the provision status itself, since it
 					// bypasses cse_start.sh which normally writes both artifacts. Without them
 					// the CSE's provision-wait never unblocks. Assert the marker rather than

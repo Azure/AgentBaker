@@ -14,6 +14,8 @@ set -euo pipefail
 # * IGNORE_SCENARIOS_WITH_MISSING_VHD: a true/false flag that indicates if the build should fail if the VHD is missing.
 # * BUILD_SRC_DIR: the src directory for the repository. Probably the same as DefaultWorkingDirectory.
 # * E2E_FAILED_TESTS_RETRY_COUNT: the number of times the runner retries failed scenarios. Defaults to 0.
+# * ANC_HOTFIX_TARGET_VERSION: exact published ANC package version; empty keeps the fixed regression target.
+# * REQUIRE_ANC_HOTFIX_VALIDATION: require an explicit ANC hotfix target version.
 
 # In addition, the e2e test framework reads a whole lot of environment variables.
 # These are defined in: e2e/config/config.go
@@ -58,6 +60,8 @@ E2E_GO_TEST_TIMEOUT="${E2E_GO_TEST_TIMEOUT:-80m}"
 E2E_FAILED_TESTS_RETRY_COUNT="${E2E_FAILED_TESTS_RETRY_COUNT:-0}"
 GALLERY_NAME="${GALLERY_NAME:-}"
 SIG_GALLERY_NAME="${SIG_GALLERY_NAME:-}"
+export ANC_HOTFIX_TARGET_VERSION="${ANC_HOTFIX_TARGET_VERSION:-}"
+export REQUIRE_ANC_HOTFIX_VALIDATION="${REQUIRE_ANC_HOTFIX_VALIDATION:-false}"
 
 case "${E2E_FAILED_TESTS_RETRY_COUNT}" in
   '' | *[!0-9]*)

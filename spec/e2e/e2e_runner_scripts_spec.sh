@@ -10,6 +10,7 @@ Describe 'E2E runner scripts'
     COMMAND_LOG="${TEST_ROOT}/commands.log"
     mkdir -p "${TEST_REPO}/e2e" "${MOCK_BIN}"
     : > "${COMMAND_LOG}"
+    unset ANC_HOTFIX_TARGET_VERSION REQUIRE_ANC_HOTFIX_VALIDATION
 
     cat > "${MOCK_BIN}/go" <<'EOF'
 #!/bin/sh
@@ -25,6 +26,7 @@ case "${1:-}" in
     ;;
   run)
     printf 'runner-env <%s> <%s>\n' "${TIMEOUT:-}" "${PARALLEL:-}" >> "${COMMAND_LOG}"
+    printf 'anc-hotfix-env <%s> <%s>\n' "${ANC_HOTFIX_TARGET_VERSION:-}" "${REQUIRE_ANC_HOTFIX_VALIDATION:-}" >> "${COMMAND_LOG}"
     ;;
   test)
     if [ "${FAIL_GO_TEST:-0}" = "1" ]; then
@@ -112,6 +114,20 @@ EOF
     The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <./...>'
     The contents of file "${COMMAND_LOG}" should include 'go <run> <.> <run> <--parallel> <60> <--suite-timeout> <75m> <--retries> <2> <--log-dir> <scenario-logs-12345> <--junit-file>'
     The contents of file "${COMMAND_LOG}" should include '<--output> <grouped>'
+    The contents of file "${COMMAND_LOG}" should include 'anc-hotfix-env <> <false>'
+  End
+
+  It 'forwards exact ANC hotfix release validation inputs to the CLI'
+    When run env \
+      SUBSCRIPTION_ID='test-subscription' \
+      DefaultWorkingDirectory="${TEST_REPO}" \
+      BUILD_SRC_DIR="${TEST_REPO}" \
+      ANC_HOTFIX_TARGET_VERSION='202608.26.2' \
+      REQUIRE_ANC_HOTFIX_VALIDATION='true' \
+      bash "${ROOT_DIR}/.pipelines/scripts/e2e_run.sh"
+    The status should be success
+    The output should be present
+    The contents of file "${COMMAND_LOG}" should include 'anc-hotfix-env <202608.26.2> <true>'
   End
 
   It 'stops the pipeline before CLI execution when unit tests fail'

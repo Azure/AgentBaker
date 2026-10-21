@@ -92,6 +92,9 @@ func (a *App) Run(ctx context.Context, args []string) int {
 }
 
 func (a *App) run(ctx context.Context, opts runOptions) error {
+	if err := config.Config.ResolveANCHotfixVersions(); err != nil {
+		return &usageError{message: err.Error()}
+	}
 	if opts.parallel < 1 {
 		return &usageError{message: "--parallel must be at least 1"}
 	}

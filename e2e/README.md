@@ -85,6 +85,32 @@ coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
 VHD-caching behavior remain in effect.
 
+### ANC hotfix package validation
+
+`Ubuntu2204_ANCHotfixFlow` and `AzureLinuxV3_ANCHotfixFlow` seed a hotfix pointer
+and run the production authenticated repository download, verification/extraction,
+binary selection, and execution on E2E VMs. They do not validate LPS rollout or
+require embedded-script application.
+
+Ordinary runs keep target `202608.21.1` and stamp the test ANC binary `202608.21.0`.
+Set `--anc-hotfix-target-version` / `ANC_HOTFIX_TARGET_VERSION` to an exact
+published package version (`YYYYMM.DD.PATCH`, valid date and positive patch) to
+test that package instead. The test ANC stamp uses the same base and patch `0`;
+compilation, pointer injection, and version assertions share the resolved pair.
+
+Release validation must also set `--require-anc-hotfix-validation` /
+`REQUIRE_ANC_HOTFIX_VALIDATION=true`. Missing/invalid targets fail before Azure
+initialization. The calling pipeline selects the scenarios and supplies their
+VHDs; the runner retains its normal filtering, skip, failure, and retry behavior.
+Do not enable two-stage VHD caching or disable scriptless compilation for these
+scenarios.
+
+Queue-time variables `ANC_HOTFIX_TARGET_VERSION` and
+`REQUIRE_ANC_HOTFIX_VALIDATION` are automatically available to the pipeline task
+environment and are consumed by `e2e_run.sh` and the runner. With those
+variables absent, the script defaults them to empty and `false`, preserving
+ordinary runs.
+
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node
