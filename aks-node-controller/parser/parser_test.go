@@ -460,6 +460,16 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
 }
 
+func TestBuildCSECmd_SetsCustomDataOnlyProvisioning(t *testing.T) {
+	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+		CustomDataOnlyProvisioning: true,
+	}, nil)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+	assert.Equal(t, "true", vars["CUSTOM_DATA_ONLY_PROVISIONING"])
+}
+
 func TestBuildCSECmd_CiliumNetworkPolicy(t *testing.T) {
 	for _, policy := range []string{"4", `"NETWORK_POLICY_CILIUM"`} {
 		t.Run(policy, func(t *testing.T) {

@@ -1836,6 +1836,11 @@ type NodeBootstrappingConfiguration struct {
 	// Otherwise, it is optional and accompanies the NBC command for Phase 2.5 comparison.
 	AKSNodeConfigJSON string
 
+	// CustomDataOnlyProvisioning indicates whether the node should be provisioned using only custom data.
+	// When true, the node will not rely on CSE for reporting provisioning status.
+	// Linux validation disables this for Flatcar, ACL, and Azure Linux, including in scriptless Phase 3.
+	CustomDataOnlyProvisioning bool
+
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
 	// interfaces configured on the agent pool. The node bootstrapping scripts use
 	// this to detect and configure the additional NICs at the OS level.
@@ -1847,6 +1852,10 @@ type NodeBootstrappingConfiguration struct {
 	RouteTableName *string
 	// SubnetName overrides the derived CSE subnet name when non-nil, including an empty value.
 	SubnetName *string
+}
+
+func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
+	return c != nil && c.CustomDataOnlyProvisioning
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {

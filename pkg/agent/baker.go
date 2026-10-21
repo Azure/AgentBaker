@@ -63,8 +63,9 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/bin /opt/azure/containers /var/log/azure
-
+mkdir -p /opt/bin /opt/azure/containers /var/lib/waagent /var/log/azure
+`
+	boothookProvisionTemplate = `
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
 %s
@@ -72,6 +73,19 @@ nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 	hotfixMarkerTemplate = `
 #hotfix-marker
 `
+	readyReportHandoffTemplate = `# azure-experimental-node-ready
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+
+# Patched cloud-init consumes the CustomData marker above before this boothook runs.
+# WALinuxAgent reports Ready independently once ovf-env.xml and the SSH host key exist.
+# A sentinel matching this instance's id makes it skip that report, leaving
+# report_ready.py as the only reporter.
+if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi`
 	cseDownloaderTemplate = `
 if [ -f /opt/azure/containers/fetch_provision_config.py ]; then
 	python3 /opt/azure/containers/fetch_provision_config.py --output /opt/bin/boothook.sh --timeout 60 >>/var/log/azure/aks-early-boothook.log 2>&1 || exit 0
@@ -205,8 +219,13 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
 		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
-		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
-		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + hotfixMarkerTemplate + cseDownloaderTemplate))
+		provisionCustomData := buildScriptlessCustomData(boothookProvisionTemplate, boothookFileEntry, "\n", encodedFiles)
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(boothookTemplate + provisionCustomData + hotfixMarkerTemplate + cseDownloaderTemplate))
+		customData = boothookTemplate
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			customData += readyReportHandoffTemplate
+		}
+		customData += provisionCustomData
 	}
 
 	if config.ScriptlessCSEProvisionMode {
@@ -225,6 +244,7 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	if len(encodedFinalCustomData) < MaxCustomDataLength {
 		return encodedFinalCustomData
 	}
+	config.CustomDataOnlyProvisioning = false
 	config.ScriptlessCSEProvisionMode = true
 	return encodedCustomData
 }
@@ -264,7 +284,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return (config.EnableScriptlessAKSNodeConfig || config.EnableScriptlessNBCCSECmd) && !config.PreProvisionOnly
+	return (config.EnableScriptlessAKSNodeConfig || (config.EnableScriptlessNBCCSECmd) || config.IsCustomDataOnlyProvisioningEnabled()) && !config.PreProvisionOnly
 }
 
 func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
@@ -553,6 +573,9 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 		return t.getWindowsNodeCSECommand(config)
 	}
 	if supportsScriptlessProvisioning(config) {
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			return ""
+		}
 		if config.ScriptlessCSEProvisionMode {
 			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
 			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
@@ -768,6 +791,10 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 
 // ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
+	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
+		config.CustomDataOnlyProvisioning = false
+	}
+
 	if config.EnableScriptlessAKSNodeConfig {
 		if err := validateScriptlessAKSNodeConfig(config); err != nil {
 			return err
@@ -1005,6 +1032,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsCgroupV2": func() bool {
 			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() || profile.Is2604VHDDistro() ||
 				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
+		},
+		"IsCustomDataOnlyProvisioningEnabled": func() bool {
+			return config.IsCustomDataOnlyProvisioningEnabled()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()

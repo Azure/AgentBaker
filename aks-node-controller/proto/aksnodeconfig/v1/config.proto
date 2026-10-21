@@ -179,4 +179,8 @@ message Configuration {
   // Specifies whether the KMPP key isolation service and its filtered D-Bus proxy are enabled on the node.
   // Set when the Azure Key Vault Secrets Store addon runs in KMPP mode. Azure Linux 3.0 only.
   bool enable_kmpp = 46;
+
+  // Indicates whether the node should be provisioned using only custom data.
+  // When true, the node will not rely on CSE for reporting provisioning status.
+  bool custom_data_only_provisioning = 47;
 }

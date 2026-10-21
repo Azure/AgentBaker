@@ -49,6 +49,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 	isMIGNode := getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
+		"CUSTOM_DATA_ONLY_PROVISIONING":                        fmt.Sprintf("%t", config.GetCustomDataOnlyProvisioning()),
 		"MOBY_VERSION":                                         "",
 		"CLOUDPROVIDER_BACKOFF":                                fmt.Sprintf("%v", cloudProviderSettings.backoff),
 		"CLOUDPROVIDER_BACKOFF_MODE":                           cloudProviderSettings.backoffMode,

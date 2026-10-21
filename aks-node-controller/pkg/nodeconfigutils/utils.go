@@ -28,15 +28,15 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/azure/containers /var/log/azure
-
+mkdir -p /opt/azure/containers /var/lib/waagent /var/log/azure
+%[1]s
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
-cat <<'EOF' | base64 -d >%[1]s
-%[2]s
-EOF
-chmod 0600 %[1]s
+cat <<'EOF' | base64 -d >%[2]s
 %[3]s
+EOF
+chmod 0600 %[2]s
+%[4]s
 logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
 if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
 	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
@@ -50,6 +50,19 @@ runcmd:
 - echo "AKS Node Controller cloud-init completed at $(date)"
 `
 
+	readyReportHandoffTemplate = `# azure-experimental-node-ready
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+
+# The VHD-baked cloud-init setting stands down cloud-init. WALinuxAgent reports Ready
+# independently once ovf-env.xml and the SSH host key exist. A sentinel matching this
+# instance's id makes it skip that report, leaving report_ready.py as the only reporter.
+if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi`
+
 	flatcarTemplate = `{
      "ignition": { "version": "3.4.0" },
      "storage": {
@@ -62,10 +75,10 @@ runcmd:
     }`
 )
 
-// CustomData builds a base64-encoded MIME multipart document to be used as VM custom data for cloud-init.
-// It encodes the node configuration as JSON, embeds it in a cloud-boothook script that writes the config
-// to disk and starts the aks-node-controller service, then pairs it with a cloud-config part. Cloud-init
-// processes each MIME part according to its Content-Type during the VM's first boot.
+// CustomData builds base64-encoded VM custom data for cloud-init. The boothook writes the node
+// configuration and starts aks-node-controller. CustomData-only provisioning uses a plain boothook
+// so patched cloud-init recognizes the top-level Ready reporting marker. Other modes pair the
+// boothook with a cloud-config part in a MIME multipart document.
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
@@ -73,7 +86,17 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	boothook := fmt.Sprintf(boothookTemplate, AKSNodeConfigFilePath, encodedAksNodeConfigJSON, enabledFeaturesBlock(cfg))
+	boothook := fmt.Sprintf(
+		boothookTemplate,
+		readyReportHandoffBlock(cfg),
+		AKSNodeConfigFilePath,
+		encodedAksNodeConfigJSON,
+		enabledFeaturesBlock(cfg),
+	)
+
+	if cfg.GetCustomDataOnlyProvisioning() {
+		return base64.StdEncoding.EncodeToString([]byte(boothook)), nil
+	}
 
 	var customData bytes.Buffer
 	writer := multipart.NewWriter(&customData)
@@ -94,8 +117,15 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	return base64.StdEncoding.EncodeToString(customData.Bytes()), nil
 }
 
+func readyReportHandoffBlock(cfg *aksnodeconfigv1.Configuration) string {
+	if !cfg.GetCustomDataOnlyProvisioning() {
+		return ""
+	}
+	return readyReportHandoffTemplate
+}
+
 // CustomDataFlatcar builds base64-encoded custom data for Flatcar Container Linux nodes.
-// Unlike Ubuntu/Azure Linux which use cloud-init and expect MIME multipart custom data,
+// Unlike Ubuntu/Azure Linux which use cloud-init,
 // Flatcar uses Ignition (configured via Butane) to process machine configuration. Ignition
 // consumes a JSON document that declaratively specifies files to write to disk, so we embed
 // the node config directly as a base64 data URI in an Ignition storage entry instead of
