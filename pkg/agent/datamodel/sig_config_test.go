@@ -44,7 +44,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			// AKSACLCVMGen2: SIGACLCVMGen2ImageConfigTemplate.WithOptions(),
 			// TODO: add back once "aclkatagen2TL" has at least one valid image version.
 			// AKSACLKataGen2TL: SIGACLKataGen2TLImageConfigTemplate.WithOptions(),
-			// TODO: add once "aclgen2CVMFips" has at least one valid image version.
+			// TODO: add once "aclgen2fipsCVM" has at least one valid image version.
 			// AKSACLCVMGen2FIPS: SIGACLCVMGen2FIPSImageConfigTemplate.WithOptions(),
 		}
 		actual := GetMaintainedLinuxSIGImageConfigMap()
@@ -460,7 +460,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		aclCVMGen2FIPS := sigConfig.SigAzureLinuxImageConfig[AKSACLCVMGen2FIPS]
 		Expect(aclCVMGen2FIPS.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aclCVMGen2FIPS.Gallery).To(Equal("aksazurelinux"))
-		Expect(aclCVMGen2FIPS.Definition).To(Equal("aclgen2CVMFips"))
+		Expect(aclCVMGen2FIPS.Definition).To(Equal("aclgen2fipsCVM"))
 		Expect(aclCVMGen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
 	})
 })
