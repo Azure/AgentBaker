@@ -38,10 +38,12 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 	expected := map[string]struct {
 		vhd                    *config.Image
 		useNVMe                bool
+		disableLocalDNS        bool
 		securityEncryptionType armcompute.SecurityEncryptionTypes
 	}{
 		"Ubuntu2004_CVM_SNP": {
 			vhd:                    config.VHDUbuntu2004CVMGen2Containerd,
+			disableLocalDNS:        true,
 			securityEncryptionType: armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 		},
 		"Ubuntu2404_CVM_SNP": {
@@ -79,6 +81,25 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 		assert.Equal(t, want.useNVMe, s.UseNVMe)
 		assert.False(t, s.SkipDefaultValidation)
 		assert.Nil(t, s.Validator)
+
+		nbc, err := baseTemplateLinux("westus", "1.36.5", "amd64")
+		require.NoError(t, err)
+		s.BootstrapConfigMutator(nil, nbc)
+		nodeConfig, err := nbcToAKSNodeConfigV1(nbc)
+		require.NoError(t, err)
+		if s.AKSNodeConfigMutator != nil {
+			s.AKSNodeConfigMutator(nil, nodeConfig)
+		}
+		if want.disableLocalDNS {
+			assert.Nil(t, nbc.AgentPoolProfile.LocalDNSProfile)
+			assert.Nil(t, nodeConfig.LocalDnsProfile)
+			assert.True(t, s.VHD.UnsupportedLocalDns)
+		} else {
+			require.NotNil(t, nbc.AgentPoolProfile.LocalDNSProfile)
+			assert.True(t, nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS)
+			require.NotNil(t, nodeConfig.LocalDnsProfile)
+			assert.True(t, nodeConfig.LocalDnsProfile.EnableLocalDns)
+		}
 
 		vmss := &armcompute.VirtualMachineScaleSet{}
 		s.VMConfigMutator(vmss)

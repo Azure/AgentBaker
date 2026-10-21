@@ -3,6 +3,7 @@ package scenario
 import (
 	"context"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -81,7 +82,7 @@ func newCVMScenario(
 	useNVMe bool,
 	securityEncryptionType armcompute.SecurityEncryptionTypes,
 ) *Scenario {
-	return &Scenario{
+	s := &Scenario{
 		Name:        name,
 		Description: description,
 		Location:    cvmLocation,
@@ -94,12 +95,21 @@ func newCVMScenario(
 			UseNVMe: useNVMe,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = vmSize
+				if vhd.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
+					nbc.AgentPoolProfile.LocalDNSProfile = nil
+				}
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				configureConfidentialVM(vmss, vmSize, securityEncryptionType)
 			},
 		},
 	}
+	if vhd.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
+		s.AKSNodeConfigMutator = func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.LocalDnsProfile = nil
+		}
+	}
+	return s
 }
 
 func configureConfidentialVM(

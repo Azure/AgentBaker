@@ -36,11 +36,12 @@ var (
 
 var (
 	VHDUbuntu2004CVMGen2Containerd = &Image{
-		Name:    "2004gen2CVMcontainerd",
-		OS:      OSUbuntu,
-		Arch:    "amd64",
-		Distro:  datamodel.AKSUbuntuContainerd2004CVMGen2,
-		Gallery: &Config.GalleryLinux,
+		Name:                "2004gen2CVMcontainerd",
+		OS:                  OSUbuntu,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSUbuntuContainerd2004CVMGen2,
+		Gallery:             &Config.GalleryLinux,
+		UnsupportedLocalDns: true,
 	}
 
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
