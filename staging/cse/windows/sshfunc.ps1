@@ -37,13 +37,16 @@ function Install-OpenSSH {
         Write-Log "OpenSSH Server service detected - skipping online install..."
     }
 
-    # A cached image may have the service disabled and keys from an earlier policy.
-    Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
-    Start-Service -Name sshd -ErrorAction Stop
+    # Do not expose inherited keys while applying the live policy.
+    Set-Service -Name sshd -StartupType Disabled -ErrorAction Stop
+    Stop-Service -Name sshd -ErrorAction Stop
 
     $adminpath = 'C:\ProgramData\ssh'
     $adminfile = 'administrators_authorized_keys'
     $authorizedKeysPath = "$adminpath\$adminfile"
+    if (-not (Test-Path -LiteralPath $adminpath -ErrorAction Stop)) {
+        New-Item -Path $adminpath -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    }
     if (Test-Path -LiteralPath $authorizedKeysPath -ErrorAction Stop) {
         Clear-Content -LiteralPath $authorizedKeysPath -Force -ErrorAction Stop
     }
@@ -61,6 +64,8 @@ function Install-OpenSSH {
     icacls $authorizedKeysPath /grant BUILTIN\Administrators:`(F`)
     if ($LASTEXITCODE -ne 0) { throw "icacls failed to grant Administrators permissions on $authorizedKeysPath (exit code $LASTEXITCODE)" }
 
+    Set-Service -Name sshd -StartupType Automatic -ErrorAction Stop
+    Start-Service -Name sshd -ErrorAction Stop
     Restart-Service -Name sshd -ErrorAction Stop
 
     $firewall = Get-NetFirewallRule -Name *ssh* -ErrorAction Stop
