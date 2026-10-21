@@ -2574,6 +2574,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableKubeletConfigFile = false
 			// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
 			// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
 			nbc.KubeletConfig["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
@@ -3764,7 +3765,7 @@ var _ = Register(&Scenario{
 
 // Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags validates the legacy CLI-flags
 // kubelet path (kubelet reads flags from /etc/default/kubelet's KUBELET_FLAGS), which is
-// used whenever AgentPoolProfile.CustomKubeletConfig/CustomLinuxOSConfig are both nil.
+// explicitly selected by disabling config-file mode without custom kubelet or Linux OS config.
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags",
 	Description: "validates kubelet and containerd run in kubereserved.slice when node hardening cgroup hierarchy is enabled (kubelet CLI-flags mode)",
@@ -3772,6 +3773,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableKubeletConfigFile = false
 			// AgentBaker (not the RP) now owns --kube-reserved-cgroup/--system-reserved-cgroup;
 			// it derives them from --enforce-node-allocatable (see setNodeHardeningCgroupFlags).
 			nbc.KubeletConfig["--enforce-node-allocatable"] = "pods,kube-reserved,system-reserved"
