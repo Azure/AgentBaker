@@ -1119,6 +1119,29 @@ if ! isMarinerOrAzureLinux "$OS"; then
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  # Temporary test packages with experimental Ready-report handoff support.
+  case "$OS_VERSION" in
+    22.04|24.04)
+      CLOUD_INIT_DEB="/home/packer/cloud-init_26.1-0ubuntu1~${OS_VERSION}.1_all.deb"
+      if [ ! -f "$CLOUD_INIT_DEB" ]; then
+        echo "Patched cloud-init package is missing: ${CLOUD_INIT_DEB}" >&2
+        exit 1
+      fi
+      dpkg -i "$CLOUD_INIT_DEB" || apt-get install -f -y || exit 1
+      grep -q 'BOOTHOOK_SKIP_READY_MARKER = "# azure-experimental-node-ready"' \
+        /usr/lib/python3/dist-packages/cloudinit/sources/DataSourceAzure.py || {
+          echo "Patched cloud-init boothook marker support is missing after installation" >&2
+          exit 1
+        }
+      rm -f "$CLOUD_INIT_DEB"
+      ;;
+    *)
+      echo "No patched cloud-init deb for Ubuntu ${OS_VERSION}, skipping"
+      ;;
+  esac
+fi
+
 # ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,
 # so these must be called separately (mirrored in the Mariner/AzureLinux block below).
 # Other Mariner functions are safe to skip for ACL:
