@@ -347,6 +347,9 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 
 	m := make(map[string]interface{})
 	m["net.ipv4.tcp_retries2"] = defaultNetIpv4TcpRetries2
+	if s.NetIpv4TcpRetries2 != nil {
+		m["net.ipv4.tcp_retries2"] = s.GetNetIpv4TcpRetries2()
+	}
 	m["net.core.message_burst"] = defaultNetCoreMessageBurst
 	m["net.core.message_cost"] = defaultNetCoreMessageCost
 
@@ -416,6 +419,10 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		m["net.ipv4.tcp_fin_timeout"] = s.GetNetIpv4TcpFinTimeout()
 	}
 
+	if s.NetIpv4TcpRmem != nil {
+		m["net.ipv4.tcp_rmem"] = s.GetNetIpv4TcpRmem()
+	}
+
 	if s.NetIpv4TcpKeepaliveTime != nil {
 		m["net.ipv4.tcp_keepalive_time"] = s.GetNetIpv4TcpKeepaliveTime()
 	}
@@ -436,10 +443,21 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		}
 	}
 
+	if s.NetIpv4IpLocalReservedPorts != nil {
+		m["net.ipv4.ip_local_reserved_ports"] = s.GetNetIpv4IpLocalReservedPorts()
+	}
+
 	if s.GetNetIpv4IpLocalPortRange() != "" {
 		m["net.ipv4.ip_local_port_range"] = s.GetNetIpv4IpLocalPortRange()
 		if getPortRangeEndValue(s.GetNetIpv4IpLocalPortRange()) > ipLocalReservedPorts {
-			m["net.ipv4.ip_local_reserved_ports"] = ipLocalReservedPorts
+			ports := s.GetNetIpv4IpLocalReservedPorts()
+			if !reservedPortsContain(ports, ipLocalReservedPorts) {
+				if ports != "" {
+					ports += ","
+				}
+				ports += strconv.Itoa(ipLocalReservedPorts)
+			}
+			m["net.ipv4.ip_local_reserved_ports"] = ports
 		}
 	}
 
@@ -453,6 +471,10 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 
 	if s.FsInotifyMaxUserWatches != nil {
 		m["fs.inotify.max_user_watches"] = s.GetFsInotifyMaxUserWatches()
+	}
+
+	if s.FsInotifyMaxUserInstances != nil {
+		m["fs.inotify.max_user_instances"] = s.GetFsInotifyMaxUserInstances()
 	}
 
 	if s.FsFileMax != nil {
@@ -484,6 +506,32 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n") + "\n"))
+}
+
+func reservedPortsContain(ports string, port int) bool {
+	if ports == "" {
+		return false
+	}
+	for _, entry := range strings.Split(ports, ",") {
+		startText, endText, isRange := strings.Cut(strings.TrimSpace(entry), "-")
+		start, err := strconv.Atoi(startText)
+		if err != nil {
+			log.Printf("invalid reserved port %q: %v", entry, err)
+			continue
+		}
+		end := start
+		if isRange {
+			end, err = strconv.Atoi(endText)
+			if err != nil {
+				log.Printf("invalid reserved port range %q: %v", entry, err)
+				continue
+			}
+		}
+		if start <= port && port <= end {
+			return true
+		}
+	}
+	return false
 }
 
 func getShouldConfigContainerdUlimits(u *aksnodeconfigv1.UlimitConfig) bool {
