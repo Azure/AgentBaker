@@ -380,6 +380,12 @@ write_files:
     def test_update_nodecustomdata_deduplicates_existing_scriptless_block(self):
         repository = Path(__file__).resolve().parents[1]
         original = (repository / hotfix_generate.TEMPLATE).read_text()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            template = Path(temp_dir) / "nodecustomdata.yml"
+            template.write_text(original)
+            with mock.patch.object(hotfix_generate, "TEMPLATE", str(template)):
+                hotfix_generate.update_nodecustomdata(set())
+            original = template.read_text()
         lines = original.splitlines(keepends=True)
         start, outer_else, end = hotfix_generate.find_block_boundaries(lines)
         init_block = next(
