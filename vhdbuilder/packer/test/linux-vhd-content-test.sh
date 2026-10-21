@@ -2077,8 +2077,8 @@ testNodeExporter () {
   echo "$test: checking if node-exporter was successfully installed"
 
   # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
-  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
-  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 (including Kata) gets node-exporter
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ]; then
     if [ -f "$skip_file" ]; then
       err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
       return 1
@@ -2723,16 +2723,12 @@ testInspektorGadgetAssets() {
   local unit_file="/usr/lib/systemd/system/${service_name}"
   local tracking_file="/var/lib/ig/imported-gadgets.txt"
 
-  # Flatcar, OSGuard, Kata, and CBLMariner (Mariner 2.0) do not include IG files in VHD
-  local is_kata=false
-  if echo "$FEATURE_FLAGS" | grep -q "kata"; then
-    is_kata=true
-  fi
+  # Flatcar, OSGuard, and CBLMariner (Mariner 2.0) do not include IG files in VHD.
+  # Azure Linux 3 Kata does.
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ]; then
+    echo "$test: Verifying $OS_SKU has no IG files in VHD"
 
-  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
-    echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
-
-    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
+    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner
     if [ -f "$skip_file" ]; then
       err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
     fi

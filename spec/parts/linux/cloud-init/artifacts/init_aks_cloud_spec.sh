@@ -2,9 +2,10 @@
 
 # Tests for parts/linux/cloud-init/artifacts/init-aks-cloud.sh
 #
-# Covers two areas:
+# Covers three areas:
 # 1. Structural wiring tests (grep-based) for the ca-refresh mode added by #8096.
-# 2. Functional tests that source the script and exercise:
+# 2. Repo initialization dispatch, independent of certificate refresh scheduling.
+# 3. Functional tests that source the script and exercise:
 #    - repo-depot helpers (init_ubuntu_main_repo_depot, init_ubuntu_pmc_repo_depot,
 #      init_mariner_repo_depot, init_azurelinux_repo_depot, check_url)
 #    - cloud mode selection helper (determine_cert_endpoint_mode)
@@ -65,6 +66,301 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     It 'passes LOCATION directly into systemd refresh command'
         When run grep -Eq '^ExecStart=\$script_path ca-refresh \$LOCATION$' "$script_path"
         The status should eq 0
+    End
+
+    It 'does not wait for cloud-init completion'
+        When run grep -Eq '^[[:space:]]*cloud-init status --wait' "$script_path"
+        The status should eq 1
+    End
+End
+
+Describe 'init-aks-cloud.sh repo initialization dispatch'
+    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+
+    setup_repo_dispatch() {
+        IS_UBUNTU=0
+        IS_MARINER=0
+        IS_AZURELINUX=0
+        install_ca_refresh_schedule=0
+        REPO_DEPOT_ENDPOINT='https://repodepot.example.com/ubuntu'
+    }
+    BeforeEach 'setup_repo_dispatch'
+
+    run_repo_dispatch() {
+        # Run the actual action dispatch and early-exit guard, but not host scheduling.
+        . <(sed -n '/^action=/,/^if \[ "\$IS_UBUNTU"/p' "$script_path" | sed '$d') "$@"
+        echo 'refresh scheduling reached'
+    }
+
+    Mock lsb_release
+        case "$1" in
+            --release) printf 'Release:\t22.04\n' ;;
+            -c) printf 'Codename:\tjammy\n' ;;
+            *) exit 1 ;;
+        esac
+    End
+
+    Mock init_ubuntu_main_repo_depot
+        echo "ubuntu-main $1"
+    End
+
+    Mock init_ubuntu_pmc_repo_depot
+        echo "ubuntu-pmc $1"
+    End
+
+    Mock init_mariner_repo_depot
+        echo "mariner $1"
+    End
+
+    Mock init_azurelinux_repo_depot
+        echo "azurelinux $1"
+    End
+
+    Mock aptget_update
+        echo 'apt update'
+    End
+
+    Mock dnf_makecache
+        echo 'dnf cache'
+    End
+
+    Mock emit_event
+        echo "event $1"
+    End
+
+    It 'initializes Ubuntu repos without certificate opt-in when action is omitted'
+        IS_UBUNTU=1
+
+        When run run_repo_dispatch
+        The output should include 'ubuntu-main https://repodepot.example.com'
+        The output should include 'ubuntu-pmc https://repodepot.example.com'
+        The output should include 'apt update'
+        The output should not include 'dnf cache'
+        The output should not include 'refresh scheduling reached'
+        The status should be success
+    End
+
+    Describe 'explicit init'
+        Parameters
+            1 0 0 'ubuntu-main' 'apt update' 0
+            1 0 0 'ubuntu-main' 'apt update' 1
+            0 1 0 'mariner' 'dnf cache' 0
+            0 1 0 'mariner' 'dnf cache' 1
+            0 0 1 'azurelinux' 'dnf cache' 0
+            0 0 1 'azurelinux' 'dnf cache' 1
+        End
+
+        It 'routes repo setup independently of certificate refresh eligibility'
+            IS_UBUNTU=$1
+            IS_MARINER=$2
+            IS_AZURELINUX=$3
+            install_ca_refresh_schedule=$6
+
+            When run run_repo_dispatch init
+            The output should include "$4 https://repodepot.example.com"
+            The output should include "$5"
+            if [ "$6" -eq 1 ]; then
+                The output should include 'refresh scheduling reached'
+            else
+                The output should not include 'refresh scheduling reached'
+            fi
+            The status should be success
+        End
+    End
+
+    Describe 'ca-refresh'
+        Parameters
+            0
+            1
+        End
+
+        It 'skips repo initialization and scheduling regardless of certificate opt-in'
+            IS_UBUNTU=1
+            install_ca_refresh_schedule=$1
+
+            When run run_repo_dispatch ca-refresh
+            The output should be blank
+            The status should be success
+        End
+    End
+
+    Describe 'empty endpoint'
+        Parameters
+            1 0 0
+            0 1 0
+            0 0 1
+        End
+
+        It 'skips repo initialization and package cache updates'
+            IS_UBUNTU=$1
+            IS_MARINER=$2
+            IS_AZURELINUX=$3
+            REPO_DEPOT_ENDPOINT=''
+
+            When run run_repo_dispatch init
+            The output should equal 'repo depot endpoint empty, skipping repodepot initialization'
+            The status should be success
+        End
+    End
+
+    Describe 'non-fatal package cache failure'
+        Parameters
+            1 0 0 0
+            1 0 0 1
+            0 1 0 0
+            0 1 0 1
+            0 0 1 0
+            0 0 1 1
+        End
+
+        run_failed_repo_dispatch() {
+            aptget_update() { return 1; }
+            dnf_makecache() { return 1; }
+            run_repo_dispatch init
+        }
+
+        It 'continues to refresh scheduling only for eligible nodes after cache failure'
+            IS_UBUNTU=$1
+            IS_MARINER=$2
+            IS_AZURELINUX=$3
+            install_ca_refresh_schedule=$4
+
+            When run run_failed_repo_dispatch
+            The output should be present
+            if [ "$4" -eq 1 ]; then
+                The output should include 'refresh scheduling reached'
+            else
+                The output should not include 'refresh scheduling reached'
+            fi
+            The status should be success
+        End
+    End
+End
+
+Describe 'legacy CA certificate filenames'
+    setup_certificates() {
+        TEST_DIR="$(mktemp -d)"
+        mkdir -p "${TEST_DIR}/certs/nested"
+        # Relocate staging so all writes stay inside the test directory.
+        # shellcheck disable=SC1090
+        __SOURCED__=1 . <(sed "s|/root/AzureCACertificates|${TEST_DIR}/certs|g" \
+            ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh)
+        make_request_with_retry() { printf '%s\n' "$CERT_RESPONSE"; }
+    }
+    cleanup_certificates() { rm -rf "${TEST_DIR}"; }
+    BeforeEach 'setup_certificates'
+    AfterEach 'cleanup_certificates'
+
+    It 'preserves certificate names, extension conversion, contents and IFS'
+        CERT_RESPONSE='{"Certificates":[{"Name": "Root CA.cer","CertBody": "first\r\nsecond"},{"Name": "other.crt","CertBody": "other-body"}]}'
+        original_ifs=$IFS
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The contents of file "${TEST_DIR}/certs/Root CA.crt" should eq $'first\nsecond'
+        The contents of file "${TEST_DIR}/certs/other.crt" should eq 'other-body'
+        The variable IFS should eq "$original_ifs"
+    End
+
+    Describe 'invalid names'
+        Parameters
+            '../outside.crt'
+            'nested/other.crt'
+            './other.crt'
+            '.'
+            '..'
+            ''
+        End
+
+        It "rejects '$1' before writing"
+            CERT_RESPONSE="{\"Certificates\":[{\"Name\": \"$1\",\"CertBody\": \"unused-body\"}]}"
+            original_ifs=$IFS
+            When call retrieve_legacy_certs
+            The status should be success
+            The stdout should include 'Warning: rejecting invalid certificate filename:'
+            The stderr should be blank
+            The path "${TEST_DIR}/outside.crt" should not be exist
+            The path "${TEST_DIR}/certs/nested/other.crt" should not be exist
+            The path "${TEST_DIR}/certs/other.crt" should not be exist
+            The variable IFS should eq "$original_ifs"
+        End
+    End
+
+    It 'rejects an absolute name and continues with a valid certificate'
+        CERT_RESPONSE="{\"Certificates\":[{\"Name\": \"${TEST_DIR}/outside.crt\",\"CertBody\": \"unused-body\"},{\"Name\": \"valid.cer\",\"CertBody\": \"valid-body\"}]}"
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should include 'Warning: rejecting invalid certificate filename:'
+        The stderr should be blank
+        The path "${TEST_DIR}/outside.crt" should not be exist
+        The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid-body'
+    End
+
+    Describe 'name and body pairing'
+        Parameters
+            '"Name": "",'
+            '"Name": null,'
+            ''
+        End
+
+        It "keeps the valid body paired after a nameless entry with '$1'"
+            CERT_RESPONSE="{\"Certificates\":[{$1\"CertBody\": \"rejected-body\"},{\"Name\": \"valid.cer\",\"CertBody\": \"valid-body\"}]}"
+            When call retrieve_legacy_certs
+            The status should be success
+            The stdout should include 'Warning: rejecting invalid certificate filename:'
+            The stderr should be blank
+            The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid-body'
+        End
+    End
+
+    It 'preserves JSON-escaped contents in compact responses'
+        CERT_RESPONSE='{"Certificates":[{"Name":"first.cer","CertBody":""},{"Name":"second.cer","CertBody":"line one\r\nline \"two\"\\end"}]}'
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The contents of file "${TEST_DIR}/certs/first.crt" should eq ''
+        The contents of file "${TEST_DIR}/certs/second.crt" should eq $'line one\nline "two"\\end'
+    End
+
+    It 'rejects a NUL-containing name without overwriting a valid certificate'
+        CERT_RESPONSE='{"Certificates":[{"Name":"valid.cer","CertBody":"valid-body"},{"Name":"valid\u0000.cer","CertBody":"rejected-body"}]}'
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should include 'Warning: rejecting invalid certificate filename:'
+        The stderr should be blank
+        The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid-body'
+    End
+
+    It 'accepts an empty certificate array without writing certificates'
+        CERT_RESPONSE='{"Certificates":[]}'
+        When call retrieve_legacy_certs
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The path "${TEST_DIR}/certs/valid.crt" should not be exist
+    End
+
+    Describe 'invalid certificate responses'
+        Parameters
+            '{"Certificates":['
+            '{"Certificates":[{"Name":"valid.cer","CertBody":"unused-body"}]'
+            '{"Certificates":[]}{"Certificates":[]}'
+            '{"Certificates":null}'
+            '{"Certificates":{}}'
+            '{}'
+            ' '
+        End
+
+        It "reports invalid response '$1' without writing certificates"
+            CERT_RESPONSE=$1
+            When call retrieve_legacy_certs
+            The status should eq 1
+            The stdout should eq 'Warning: failed to parse legacy custom cloud certificates'
+            The stderr should be blank
+            The path "${TEST_DIR}/certs/valid.crt" should not be exist
+        End
     End
 End
 
@@ -137,6 +433,126 @@ Describe 'init-aks-cloud.sh functional tests'
 
     BeforeEach 'setup'
     AfterEach 'cleanup'
+
+    Describe 'package cache retries'
+        setup_cache_retries() {
+            RETRY_ATTEMPTS_FILE="${TEST_DIR}/attempts"
+            RETRY_SLEEPS_FILE="${TEST_DIR}/sleeps"
+            RETRY_EVENTS_FILE="${TEST_DIR}/events"
+            printf '0' > "$RETRY_ATTEMPTS_FILE"
+            printf '0' > "$RETRY_SLEEPS_FILE"
+            : > "$RETRY_EVENTS_FILE"
+            RETRY_FAILURES=0
+            RETRY_FAILURE_STATUS=1
+            RETRY_FAILURE_TEXT='Error: 404 Not Found'
+            # Keep DNF's output file inside the fixture rather than shared /tmp.
+            __SOURCED__=1 . <(sed "s|/tmp/dnf-makecache.out|${TEST_DIR}/dnf-makecache.out|g" \
+                ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh)
+        }
+        BeforeEach 'setup_cache_retries'
+
+        cache_attempt() {
+            local attempt
+            attempt=$(cat "$RETRY_ATTEMPTS_FILE")
+            attempt=$((attempt + 1))
+            printf '%s' "$attempt" > "$RETRY_ATTEMPTS_FILE"
+            if [ "$attempt" -le "$RETRY_FAILURES" ]; then
+                echo "$RETRY_FAILURE_TEXT"
+                return "$RETRY_FAILURE_STATUS"
+            fi
+            return 0
+        }
+
+        run_cache_update() {
+            apt-get() { cache_attempt; }
+            dnf() { cache_attempt; }
+            sleep() {
+                local sleeps
+                sleeps=$(cat "$RETRY_SLEEPS_FILE")
+                printf '%s' "$((sleeps + 1))" > "$RETRY_SLEEPS_FILE"
+            }
+            emit_event() { echo "$1" >> "$RETRY_EVENTS_FILE"; }
+            "$1"
+        }
+
+        Describe 'successful updates'
+            Parameters
+                aptget_update 0 1 0
+                aptget_update 2 3 2
+                aptget_update 9 10 9
+                dnf_makecache 0 1 0
+                dnf_makecache 2 3 2
+                dnf_makecache 9 10 9
+            End
+
+            It 'stops at the first success and sleeps only between attempts'
+                RETRY_FAILURES=$2
+
+                When run run_cache_update "$1"
+                The output should be present
+                The status should be success
+                The contents of file "$RETRY_ATTEMPTS_FILE" should equal "$3"
+                The contents of file "$RETRY_SLEEPS_FILE" should equal "$4"
+                The contents of file "$RETRY_EVENTS_FILE" should be blank
+            End
+        End
+
+        Describe 'exhausted retries'
+            Parameters
+                aptget_update aptgetUpdateFailed
+                dnf_makecache dnfMakecacheFailed
+            End
+
+            It 'returns failure and emits an event after ten attempts and nine sleeps'
+                RETRY_FAILURES=10
+
+                When run run_cache_update "$1"
+                The output should be present
+                The error should include 'ERROR:'
+                The status should eq 1
+                The contents of file "$RETRY_ATTEMPTS_FILE" should equal 10
+                The contents of file "$RETRY_SLEEPS_FILE" should equal 9
+                The contents of file "$RETRY_EVENTS_FILE" should equal "AKS.CSE.customCloudRepoInit.$2"
+            End
+        End
+
+        It 'accepts a successful APT exit status regardless of diagnostic text'
+            RETRY_FAILURES=10
+            RETRY_FAILURE_STATUS=0
+
+            When run run_cache_update aptget_update
+            The output should be present
+            The status should be success
+            The contents of file "$RETRY_ATTEMPTS_FILE" should equal 1
+            The contents of file "$RETRY_SLEEPS_FILE" should equal 0
+            The contents of file "$RETRY_EVENTS_FILE" should be blank
+        End
+
+        It 'retries non-404 APT failures until attempts are exhausted'
+            RETRY_FAILURES=10
+            RETRY_FAILURE_STATUS=100
+            RETRY_FAILURE_TEXT='Temporary failure resolving repository'
+
+            When run run_cache_update aptget_update
+            The output should be present
+            The error should include 'ERROR: apt-get update failed after 10 attempts'
+            The status should eq 1
+            The contents of file "$RETRY_ATTEMPTS_FILE" should equal 10
+            The contents of file "$RETRY_SLEEPS_FILE" should equal 9
+            The contents of file "$RETRY_EVENTS_FILE" should equal 'AKS.CSE.customCloudRepoInit.aptgetUpdateFailed'
+        End
+
+        It 'retains DNF text-based detection rather than failing on exit status alone'
+            RETRY_FAILURES=10
+            RETRY_FAILURE_TEXT='unmatched diagnostic'
+
+            When run run_cache_update dnf_makecache
+            The output should include 'unmatched diagnostic'
+            The status should be success
+            The contents of file "$RETRY_ATTEMPTS_FILE" should equal 1
+            The contents of file "$RETRY_SLEEPS_FILE" should equal 0
+        End
+    End
 
     write_ubuntu_os_release() {
         cat > "${OS_RELEASE_FILE}" <<EOF

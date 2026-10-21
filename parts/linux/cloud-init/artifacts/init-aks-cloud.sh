@@ -174,9 +174,10 @@ function is_opted_in_for_root_certs {
 
 function retrieve_legacy_certs {
     local certs
-    local cert_names
-    local cert_bodies
-    local i
+    local certificate
+    local cert_name
+    local cert_body
+    local sanitized_filename
 
     certs=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=cacertificates&ext=json")
     if [ -z "$certs" ]; then
@@ -184,14 +185,33 @@ function retrieve_legacy_certs {
         return 1
     fi
 
-    IFS_backup=$IFS
-    IFS=$'\r\n'
-    cert_names=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
-    cert_bodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
-    for i in ${!cert_bodies[@]}; do
-        echo ${cert_bodies[$i]} | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${cert_names[$i]} | sed 's/.cer/.crt/g')"
-    done
-    IFS=$IFS_backup
+    if ! certs=$(jq -cs '
+        if length == 1 and (.[0].Certificates | type == "array")
+        then .[0].Certificates[]
+        else error("invalid certificate response")
+        end' <<< "$certs" 2>/dev/null); then
+        echo "Warning: failed to parse legacy custom cloud certificates"
+        return 1
+    fi
+
+    while IFS= read -r certificate; do
+        [ -n "$certificate" ] || continue
+        if ! cert_name=$(jq -r '.Name // "" | strings | select(index("\u0000") == null)' <<< "$certificate" 2>/dev/null); then
+            echo "Warning: failed to parse legacy certificate name"
+            return 1
+        fi
+        sanitized_filename=$(basename -- "$cert_name")
+        if [ "$sanitized_filename" != "$cert_name" ] || [ -z "$sanitized_filename" ] || \
+           [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
+            echo "Warning: rejecting invalid certificate filename: '$cert_name'"
+            continue
+        fi
+        if ! cert_body=$(jq -er '.CertBody | strings' <<< "$certificate" 2>/dev/null); then
+            echo "Warning: failed to parse legacy certificate body: '$cert_name'"
+            return 1
+        fi
+        printf '%s\n' "${cert_body//$'\r\n'/$'\n'}" > "/root/AzureCACertificates/$(echo "$sanitized_filename" | sed 's/.cer/.crt/g')"
+    done <<< "$certs"
 }
 
 function process_cert_operations {
@@ -422,13 +442,23 @@ function add_ms_keys {
 function aptget_update {
     echo "apt-get updating..."
     echo "note: depending on how many sources have been added this may take a couple minutes..."
-    if apt-get update | grep -q "404 Not Found"; then
-        echo "ERROR: apt-get update failed to find all sources. Please validate the sources or remove bad sources from your sources and try again."
-        emit_event "AKS.CSE.customCloudRepoInit.aptgetUpdateFailed" "apt-get update returned 404 for one or more sources" "Error"
-        exit 1
-    else
-        echo "apt-get update complete!"
-    fi
+    local retries=10
+    local i
+    for i in $(seq 1 "$retries"); do
+        echo "Running apt-get update (attempt $i/$retries)"
+        if apt-get update; then
+            echo "apt-get update complete!"
+            return 0
+        fi
+
+        if [ "$i" -lt "$retries" ]; then
+            sleep 5
+        fi
+    done
+
+    echo "ERROR: apt-get update failed after $retries attempts" >&2
+    emit_event "AKS.CSE.customCloudRepoInit.aptgetUpdateFailed" "apt-get update failed after $retries attempts" "Error"
+    return 1
 }
 
 function init_ubuntu_pmc_repo_depot {
@@ -511,16 +541,22 @@ function dnf_makecache {
     local dnf_makecache_output=/tmp/dnf-makecache.out
     local i
     for i in $(seq 1 $retries); do
-        ! (dnf makecache -y 2>&1 | tee $dnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
-        cat $dnf_makecache_output && break || \
-        cat $dnf_makecache_output
-        if [ $i -eq $retries ]; then
-            return 1
-        else
+        dnf makecache -y > "$dnf_makecache_output" 2>&1
+        cat "$dnf_makecache_output"
+
+        if ! grep -Eq "^([WE]:.*)|([eE]rr.*)$" "$dnf_makecache_output"; then
+            echo "Executed dnf makecache -y $i times"
+            return 0
+        fi
+
+        if [ "$i" -lt "$retries" ]; then
             sleep 5
         fi
     done
-    echo "Executed dnf makecache -y $i times"
+
+    echo "ERROR: dnf_makecache failed after retries; Please validate the sources or remove bad sources from your sources and try again" >&2
+    emit_event "AKS.CSE.customCloudRepoInit.dnfMakecacheFailed" "dnf_makecache failed after retries" "Error"
+    return 1
 }
 
 # Determines the certificate endpoint mode based on location.
@@ -632,6 +668,32 @@ fi
 # - init (default): full provisioning path
 # - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
 action=${1:-init}
+if [ "$action" = "init" ]; then
+    rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
+    if [ -z "$rootRepoDepotEndpoint" ]; then
+        echo "repo depot endpoint empty, skipping repodepot initialization"
+    else
+        if [ "$IS_UBUNTU" -eq 1 ]; then
+            ubuntuRel=$(lsb_release --release | awk '{print $2}')
+            ubuntuDist=$(lsb_release -c | awk '{print $2}')
+            init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
+            init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
+            echo "Running apt-get update"
+            aptget_update
+        elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
+            if [ "$IS_MARINER" -eq 1 ]; then
+                echo "Initializing Mariner repo depot settings..."
+                init_mariner_repo_depot ${rootRepoDepotEndpoint}
+            else
+                echo "Initializing Azure Linux repo depot settings..."
+                init_azurelinux_repo_depot ${rootRepoDepotEndpoint}
+            fi
+            echo "Running dnf_makecache"
+            dnf_makecache
+        fi
+    fi
+fi
+
 if [ "$action" = "ca-refresh" ] || [ "$install_ca_refresh_schedule" -eq 0 ]; then
     exit 0
 fi
@@ -685,38 +747,6 @@ EOF
 
     systemctl daemon-reload
     systemctl enable --now azure-ca-refresh.timer
-fi
-
-if [ "$IS_UBUNTU" -eq 1 ]; then
-    rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-    if [ -n "$rootRepoDepotEndpoint" ]; then
-        cloud-init status --wait
-        ubuntuRel=$(lsb_release --release | awk '{print $2}')
-        ubuntuDist=$(lsb_release -c | awk '{print $2}')
-        init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
-        init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
-        echo "Running apt-get update"
-        aptget_update
-    else
-        echo "REPO_DEPOT_ENDPOINT empty, skipping Ubuntu RepoDepot initialization"
-    fi
-elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-    cloud-init status --wait
-
-    marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-    if [ -z "$marinerRepoDepotEndpoint" ]; then
-        >&2 echo "repo depot endpoint empty while running custom-cloud init script"
-    else
-        if [ "$IS_MARINER" -eq 1 ]; then
-            echo "Initializing Mariner repo depot settings..."
-            init_mariner_repo_depot ${marinerRepoDepotEndpoint}
-            dnf_makecache || { echo "ERROR: dnf_makecache failed after retries; aborting custom cloud repo init (Mariner)"; emit_event "AKS.CSE.customCloudRepoInit.dnfMakecacheFailed" "dnf_makecache failed after retries (Mariner)" "Error"; exit 1; }
-        else
-            echo "Initializing Azure Linux repo depot settings..."
-            init_azurelinux_repo_depot ${marinerRepoDepotEndpoint}
-            dnf_makecache || { echo "ERROR: dnf_makecache failed after retries; aborting custom cloud repo init (Azure Linux)"; emit_event "AKS.CSE.customCloudRepoInit.dnfMakecacheFailed" "dnf_makecache failed after retries (Azure Linux)" "Error"; exit 1; }
-        fi
-    fi
 fi
 
 #EOF

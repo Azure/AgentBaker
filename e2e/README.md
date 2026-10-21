@@ -58,6 +58,18 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
 
 ### Scriptless provisioning
 
+Linux scenarios use kubelet configuration-file mode by default, for both NBC/CSE
+and AKSNodeConfig/scriptless provisioning. NBC conversion preserves the effective
+kubelet settings, including scenario overrides and custom kubelet configuration.
+Common Linux validation checks that the running kubelet uses
+`--config /etc/default/kubeletconfig.json` and that the file contains a valid
+`KubeletConfiguration`.
+
+Scenarios specifically covering legacy CLI flags must set
+`nbc.EnableKubeletConfigFile = false` and leave both `CustomKubeletConfig` and
+`CustomLinuxOSConfig` nil. ANC conversion preserves that opt-out. Windows defaults
+are unchanged.
+
 Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
 bootstrap config mutator of five scenarios: `Ubuntu2204_ArtifactStreaming`,
 `AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
@@ -132,6 +144,10 @@ and authorization failures (HTTP 401/403) return immediately.
 All E2E clusters share a single VNet and Azure Bastion in the `abe2e-{location}` resource group. This
 avoids creating a per-cluster Bastion (~10 min each) and ensures all clusters are reachable from a
 single SSH entry point.
+
+Shared-infrastructure setup does not garbage-collect cluster subnets. A subnet
+without an AKS cluster may belong to another run that is still creating it.
+Remove genuinely orphaned subnets separately, after confirming no run uses them.
 
 ```mermaid
 graph TB
@@ -370,10 +386,19 @@ For cleanup that must continue after cancellation, derive its context with
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
 shutdown to clean up resources. Old VMs are deleted on startup unless created with `KEEP_VMSS=true`.
 
-Cluster setup renews `deletion_due_time` only on the selected clusters' node resource groups.
-The shared `abe2e-{location}` resource groups keep their existing GC tags and deadlines so obsolete
-clusters can expire. Node resource group renewal does not prevent GC from deleting the shared
-resource group and its clusters.
+In Azure DevOps runs (`TF_BUILD=True`), setup checks `deletion_due_time` on both shared
+`abe2e-{location}` resource groups and the selected clusters' node resource groups. An existing
+UTC Saturday deadline stays unchanged, even if it has expired, falls within the suite, or has a
+time other than 08:00. Repeated runs do not postpone Saturday expiry.
+
+For missing or non-Saturday deadlines, setup selects the first Saturday at **08:00 UTC** at or
+after the suite-and-cleanup window and any existing deadline. This is outside normal weekday
+office hours in the US, New Zealand, and Australia. Updates are best-effort and preserve unrelated
+tags. The external garbage collector can delete expired groups later, including during office
+hours or an active test run.
+
+Outside Azure DevOps, setup does not renew GC deadlines on shared or node resource groups.
+Local runs leave existing deadlines unchanged and do not add missing deadline tags.
 
 ## Package Structure
 

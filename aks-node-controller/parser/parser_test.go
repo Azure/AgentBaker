@@ -460,6 +460,16 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
 }
 
+func TestBuildCSECmd_SetsCustomDataOnlyProvisioning(t *testing.T) {
+	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+		CustomDataOnlyProvisioning: true,
+	}, nil)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+	assert.Equal(t, "true", vars["CUSTOM_DATA_ONLY_PROVISIONING"])
+}
+
 func TestBuildCSECmd_CiliumNetworkPolicy(t *testing.T) {
 	for _, policy := range []string{"4", `"NETWORK_POLICY_CILIUM"`} {
 		t.Run(policy, func(t *testing.T) {
@@ -511,6 +521,35 @@ func TestBuildCSECmd_SetsEnableManagedGpuDra(t *testing.T) {
 
 			vars := environToMap(cmd.Env)
 			assert.Equal(t, tt.expected, vars["ENABLE_MANAGED_GPU_DRA"])
+		})
+	}
+}
+
+func TestBuildCSECmd_SetsEnableKmpp(t *testing.T) {
+	tests := []struct {
+		name     string
+		enabled  bool
+		expected string
+	}{
+		{
+			name:     "disabled by default",
+			expected: "false",
+		},
+		{
+			name:     "enabled",
+			enabled:  true,
+			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &aksnodeconfigv1.Configuration{EnableKmpp: tt.enabled}
+			cmd, err := BuildCSECmd(context.TODO(), cfg, nil)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			assert.Equal(t, tt.expected, vars["ENABLE_KMPP"])
 		})
 	}
 }
@@ -626,6 +665,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "MCR_REPOSITORY_BASE", "mcr.microsoft.com/")
 				assertHasKeyWithValue(t, vars, "ARM_RESOURCE_ENDPOINT", "https://management.azure.com/")
 				assertHasKeyWithValue(t, vars, "TLS_BOOTSTRAP_TOKEN", "")
+				assertHasKeyWithValue(t, vars, "REMOVE_BOOTSTRAP_KUBECONFIG", "false")
 				assertHasKeyWithValue(t, vars, "ENABLE_SECURE_TLS_BOOTSTRAPPING", "false")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE", "")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID", "")

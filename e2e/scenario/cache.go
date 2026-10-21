@@ -203,7 +203,7 @@ var ClusterAzureNetworkIsolated = toolkit.Memoize(clusterAzureNetworkIsolated)
 
 // clusterAzureNetworkIsolated creates a networkisolated Azure network cluster (no internet access)
 func clusterAzureNetworkIsolated(ctx context.Context, request ClusterRequest) (*Cluster, error) {
-	model := getAzureNetworkClusterModel("abe2e-azure-networkisolated-v3", request.Location, request.K8sSystemPoolSKU)
+	model := getAzureNetworkClusterModel("abe2e-azure-networkisolated-v4", request.Location, request.K8sSystemPoolSKU)
 	return prepareCluster(ctx, model, true, false)
 }
 
@@ -253,7 +253,7 @@ func prepareVHD(ctx context.Context, request GetVHDRequest) (config.VHDResourceI
 }
 
 var CachedEnsureResourceGroup = toolkit.Memoize(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
-	return ensureResourceGroup(ctx, config.Azure, location)
+	return ensureResourceGroup(ctx, config.Azure, config.Config, location)
 })
 var CachedCreateVMManagedIdentity = toolkit.Memoize(func(ctx context.Context, location string) (string, error) {
 	// Shared storage uses DefaultLocation even when the scenario runs elsewhere.

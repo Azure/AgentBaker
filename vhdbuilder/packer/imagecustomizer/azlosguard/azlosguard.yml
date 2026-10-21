@@ -143,6 +143,9 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh
       destination: /opt/azure/containers/validate-kubelet-credentials.sh
       permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh
+      destination: /opt/azure/containers/remove-bootstrap-kubeconfig.sh
+      permissions: 755
     # network lockdown
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/block_wireserver.sh
       destination: /opt/azure/containers/kubelet.sh

@@ -189,8 +189,168 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 			cmdRun:                runFunc,
 			eventLogger:           eventLogger,
 			gpuComponentsFilePath: writeTestGPUComponentsFile(t),
+			readyReportMarkerPath: filepath.Join(t.TempDir(), "experimental_skip_ready_report"),
 		},
 	}
+}
+
+type preScriptFailureCase struct {
+	name       string
+	config     string
+	gpuConfig  string
+	missingNBC bool
+	noFlags    bool
+	wantError  string
+}
+
+func runPreScriptFailureReportingCase(t *testing.T, tc preScriptFailureCase, markerExists, dryRun bool) {
+	t.Helper()
+	var commands [][]string
+	tt := NewTestApp(t, TestAppConfig{RunFunc: func(cmd *exec.Cmd) error {
+		commands = append(commands, cmd.Args)
+		return nil
+	}})
+	var reports []string
+	tt.App.goalStateReporter = func(_ context.Context, failed bool, description string) error {
+		require.True(t, failed)
+		reports = append(reports, description)
+		return nil
+	}
+	if markerExists {
+		require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+	}
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.json")
+	if tc.config != "" {
+		require.NoError(t, os.WriteFile(configPath, []byte(tc.config), 0o600))
+	}
+	tt.App.gpuComponentsFilePath = filepath.Join(dir, "components.json")
+	if tc.gpuConfig != "" {
+		require.NoError(t, os.WriteFile(tt.App.gpuComponentsFilePath, []byte(tc.gpuConfig), 0o600))
+	}
+	flags := ProvisionFlags{ProvisionConfig: configPath}
+	if tc.missingNBC {
+		flags = ProvisionFlags{NBCCmd: filepath.Join(dir, "nbc-cmd.sh")}
+	} else if tc.noFlags {
+		flags = ProvisionFlags{}
+	}
+
+	result, err := tt.App.runProvision(t.Context(), flags, dryRun)
+
+	require.ErrorContains(t, err, tc.wantError)
+	require.Equal(t, "240", result.ExitCode)
+	require.Equal(t, err.Error(), result.Error)
+	require.Empty(t, commands)
+	if markerExists && !dryRun {
+		require.Equal(t, []string{"ExitCode: 240, " + err.Error()}, reports)
+	} else {
+		require.Empty(t, reports)
+	}
+}
+
+func TestApp_ProvisionReportsPreScriptFailure(t *testing.T) {
+	testCases := []preScriptFailureCase{
+		{name: "malformed config", config: `{"version":`, wantError: "decode provision config"},
+		{name: "invalid config", config: `{"version":"v1"}`, wantError: "validate provision config"},
+		{name: "missing config", wantError: "open provision file"},
+		{name: "missing GPU config", config: `{` + requiredProvisionFields + `"version":"v1"}`, wantError: "failed to load GPU config"},
+		{name: "malformed GPU config", config: `{` + requiredProvisionFields + `"version":"v1"}`, gpuConfig: `{`, wantError: "failed to load GPU config"},
+		{name: "missing NBC command", missingNBC: true, wantError: "read NBC command file"},
+		{name: "missing flags", noFlags: true, wantError: "--provision-config or --nbc-cmd is required"},
+	}
+	reportingModes := []struct {
+		name         string
+		markerExists bool
+		dryRun       bool
+	}{
+		{name: "marker", markerExists: true},
+		{name: "no-marker"},
+		{name: "marker-dry-run", markerExists: true, dryRun: true},
+		{name: "no-marker-dry-run", dryRun: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, mode := range reportingModes {
+				t.Run(mode.name, func(t *testing.T) {
+					runPreScriptFailureReportingCase(t, tc, mode.markerExists, mode.dryRun)
+				})
+			}
+		})
+	}
+}
+
+func TestApp_ProvisionPreservesErrorWhenFailureReportingFails(t *testing.T) {
+	logs := installLogCapturer(t)
+	reportErr := errors.New("reporter unavailable")
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.goalStateReporter = func(context.Context, bool, string) error { return reportErr }
+	require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+
+	result, err := tt.App.runProvision(t.Context(), ProvisionFlags{}, false)
+
+	require.ErrorContains(t, err, "--provision-config or --nbc-cmd is required")
+	require.Equal(t, "240", result.ExitCode)
+	require.Contains(t, logs.getRecords(), logRecord{
+		Level:   slog.LevelError,
+		Message: "failed to report provisioning status to Azure fabric",
+		Attrs:   map[string]string{"error": reportErr.Error()},
+	})
+}
+
+func TestApp_ProvisionReportsAfterScriptExecution(t *testing.T) {
+	for _, scriptErr := range []error{nil, errors.New("provisioning script failed")} {
+		t.Run(strconv.FormatBool(scriptErr != nil), func(t *testing.T) {
+			var commands [][]string
+			tt := NewTestApp(t, TestAppConfig{RunFunc: func(cmd *exec.Cmd) error {
+				commands = append(commands, cmd.Args)
+				if cmd.Args[0] == "/bin/bash" {
+					return scriptErr
+				}
+				return nil
+			}})
+			reported := false
+			tt.App.goalStateReporter = func(_ context.Context, failed bool, description string) error {
+				require.Len(t, commands, 1, "report must follow provisioning")
+				require.Equal(t, scriptErr != nil, failed)
+				if failed {
+					require.Equal(t, "ExitCode: -1, "+scriptErr.Error(), description)
+				} else {
+					require.Empty(t, description)
+				}
+				reported = true
+				return nil
+			}
+			require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+			path := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+			require.NoError(t, os.WriteFile(path, []byte("#!/bin/bash\n"), 0o600))
+
+			_, err := tt.App.runProvision(t.Context(), ProvisionFlags{NBCCmd: path}, false)
+
+			require.ErrorIs(t, err, scriptErr)
+			require.True(t, reported)
+			require.Equal(t, [][]string{{"/bin/bash", "--", path}}, commands)
+		})
+	}
+}
+
+func TestApp_ProvisionSuccessWhenReportingFails(t *testing.T) {
+	logs := installLogCapturer(t)
+	tt := NewTestApp(t, TestAppConfig{})
+	reportErr := errors.New("reporter unavailable")
+	tt.App.goalStateReporter = func(context.Context, bool, string) error { return reportErr }
+	require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+	path := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/bash\n"), 0o600))
+
+	_, err := tt.App.runProvision(t.Context(), ProvisionFlags{NBCCmd: path}, false)
+
+	require.NoError(t, err)
+	require.Contains(t, logs.getRecords(), logRecord{
+		Level:   slog.LevelError,
+		Message: "failed to report provisioning status to Azure fabric",
+		Attrs:   map[string]string{"error": reportErr.Error()},
+	})
 }
 
 func TestApp_Run(t *testing.T) {

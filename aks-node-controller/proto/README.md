@@ -49,6 +49,7 @@ This table is describing the all the `AKSNodeConfig` Fields converted to .go fil
 | `NeedsCgroupv2` | `*bool` | Specifies whether the node needs cgroupv2. Labeled as `optional` (explicit presence) so that we know whether it's set or not. If it's not set, the default value will be nil and it's defaulted to false. Future plan is to get the value from VHD during bootstrapping. | `NEEDS_CGROUPV2` |
 | `BootstrapProfileContainerRegistryServer` | `string` | Bootstrap profile container registry server URI                                                                                                                                                                                                                          | `BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER` |
 | `IMDSRestrictionConfig` | `IMDSRestrictionConfig` | IMDS restriction configuration                                                                                                                                                                                                                                           | `ENABLE_IMDS_RESTRICTION`, `INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE`|
+| `EnableKmpp` | `bool` | Specifies whether the KMPP key isolation service and its filtered D-Bus proxy are enabled on the node. Azure Linux 3.0 only. | `ENABLE_KMPP` |
 
 
 Removed old environment variables from cse_cmd.sh:

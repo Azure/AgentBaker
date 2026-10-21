@@ -624,8 +624,10 @@ cachePackageAndBinaryComponents() {
         done
         ;;
       "inspektor-gadget")
-        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
-          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+        # Azure Linux 3 Kata installs IG on the host. Host gadgets observe host
+        # processes and runc pods; workloads inside Kata guest VMs are not visible.
+        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default}"
         else
           ig_version="${PACKAGE_VERSIONS[0]}"
           if isUbuntu "$OS"; then
@@ -711,14 +713,13 @@ cachePackageAndBinaryComponents() {
         ;;
       "node-exporter")
         # Skipping is handled by empty versionsV2 arrays in components.json
-        # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
-        if [ "${IS_KATA}" = "true" ]; then
-          echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
-        else
-          # Download and install node-exporter-kubernetes at VHD build time.
-          # node-exporter is installed on the VHD so CSE only needs to enable+start it.
-          installNodeExporter "${PACKAGE_VERSIONS[0]}"
-        fi
+        # for mariner, flatcar, acl, and osguard. Azure Linux 3 Kata resolves
+        # through its azurelinuxkata entry. Its host kernel (kernel-mshv) is built
+        # without CONFIG_PSI, so node-exporter exposes no node_pressure_* metrics
+        # there: https://github.com/microsoft/azurelinux/issues/19417
+        # Download and install node-exporter-kubernetes at VHD build time.
+        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+        installNodeExporter "${PACKAGE_VERSIONS[0]}"
         ;;
       "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
         # Ubuntu and Azure Linux 3 builders carry this helper. Empty manifest entries
