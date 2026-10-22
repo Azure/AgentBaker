@@ -56,6 +56,28 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### CVM validation
+
+The existing CVM scenarios run standard node validation plus CVM-specific VMSS,
+guest platform, measured-boot PCR, and Microsoft Azure Attestation checks.
+Disk security is checked against each scenario's configured encryption mode.
+Attestation verifies the signature, issuer, token validity, scenario nonce, compliance,
+Secure Boot, vTPM, and SEV-SNP or TDX policy claims. The collector retrieves a pinned
+revision of `Azure/cvm-attestation-tools` and its Python dependencies on the test VM.
+On-node Python collection, including MAA and IMDS requests, is limited to three
+minutes, with forced termination after a further ten seconds if needed.
+Evidence is written under the scenario's `cvm/` artifact directory, with verdicts in
+`cvm/cvm-checks.json` and `cvm-attestation-summary.json`; raw attestation tokens are
+not published.
+Attestation results distinguish `passed`, `failed` (invalid tokens or rejected
+assertions), and `unable_to_verify` (collection, timeout, or verification-service
+errors). Both failure statuses fail the scenario. The summary records an overall
+`attestation` result; properties not established by accepted evidence use
+`status: unable_to_verify` with `passed: null`, rather than claiming they are
+disabled. A verified property mismatch records the actual observed value and
+`status: failed`. Previously verified results are retained if later artifact
+publication or cleanup fails.
+
 ### DRA MIG workload validation
 
 The existing `Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed` scenario uses

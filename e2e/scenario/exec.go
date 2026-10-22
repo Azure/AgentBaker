@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -202,6 +203,73 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 		return execResult, fmt.Errorf("expected exit code %s, got %s for command %q: %s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
 	}
 	return execResult, nil
+}
+
+func copyFileFromVM(ctx context.Context, s *Scenario, remotePath string, maxBytes int64) (data []byte, err error) {
+	if s == nil || s.Runtime == nil || s.Runtime.VM == nil || s.Runtime.VM.SSHClient == nil {
+		return nil, fmt.Errorf("cannot copy remote file without an SSH client")
+	}
+	if maxBytes <= 0 {
+		return nil, fmt.Errorf("maximum remote file size must be positive")
+	}
+
+	client := s.Runtime.VM.SSHClient
+	select {
+	case client.operations <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-client.operations }()
+	stop := context.AfterFunc(ctx, func() { _ = client.Close() })
+	defer func() {
+		stop()
+		if ctx.Err() != nil {
+			data = nil
+			err = fmt.Errorf("SSH download canceled or timed out: %w", ctx.Err())
+		}
+	}()
+
+	var session *ssh.Session
+	err = retrySSHSessionOpen(ctx, func() error {
+		var openErr error
+		session, openErr = client.NewSession()
+		return openErr
+	})
+	if err != nil {
+		return nil, fmt.Errorf("open file download session: %w", err)
+	}
+	defer session.Close()
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("open remote file stream: %w", err)
+	}
+	if err := session.Start("cat -- " + shellSingleQuote(remotePath)); err != nil {
+		return nil, fmt.Errorf("start remote file download: %w", err)
+	}
+
+	var buffer bytes.Buffer
+	writer := &boundedWriter{writer: &buffer, remaining: maxBytes}
+	if _, err := io.Copy(writer, stdout); err != nil {
+		return nil, fmt.Errorf("copy remote file %q: %w", remotePath, err)
+	}
+	if err := session.Wait(); err != nil {
+		return nil, fmt.Errorf("download remote file %q: %w", remotePath, err)
+	}
+	return buffer.Bytes(), nil
+}
+
+type boundedWriter struct {
+	writer    io.Writer
+	remaining int64
+}
+
+func (w *boundedWriter) Write(p []byte) (int, error) {
+	if int64(len(p)) > w.remaining {
+		return 0, fmt.Errorf("remote file exceeds maximum size")
+	}
+	n, err := w.writer.Write(p)
+	w.remaining -= int64(n)
+	return n, err
 }
 
 // isRetryableConnectionError checks if the error is a transient connection issue that should be retried
