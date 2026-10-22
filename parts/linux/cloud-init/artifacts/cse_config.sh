@@ -671,6 +671,27 @@ configureNodeExporter() {
     echo "Node Exporter started successfully"
 }
 
+configureNodeProblemDetector() {
+    local skip_file="${NPD_SKIP_FILE:-/etc/node-problem-detector.d/skip_vhd_npd}"
+    if ! { isUbuntu || isAzureLinux; } || [ ! -f "${skip_file}" ]; then
+        echo "Skipping baked NPD configuration: this node remains extension-managed"
+        return 0
+    fi
+    # The MAI image path also uses the skip marker; only manage the PMC package
+    # installed by AgentBaker here.
+    local installed
+    if isUbuntu; then
+        installed="$(dpkg-query -W -f='${db:Status-Status}' node-problem-detector-aks-config 2>/dev/null)"
+    else
+        rpm -q node-problem-detector-aks-config >/dev/null 2>&1 && installed=installed
+    fi
+    if [ "${installed:-}" != installed ]; then
+        echo "Skipping NPD activation: AgentBaker config package is not installed"
+        return 0
+    fi
+    systemctlEnableAndStart node-problem-detector 30 || return $ERR_SYSTEMCTL_START_FAIL
+}
+
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
@@ -726,13 +747,22 @@ users:
     set -x
 }
 
-# Wrapped as functions so logs_to_events can time each step; the install's
-# bash -c command can't be passed to logs_to_events inline (it word-splits args).
 disableSSH() {
-    # On ubuntu, the ssh service is named "ssh.service"
-    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
-    # On AzureLinux, the ssh service is named "sshd.service"
-    systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
+    local start_time attempt_id unit result=0
+    start_time=$(date -u +"%F %T.%3N")
+    attempt_id="$(date +%s%N)-$RANDOM"
+    emitSSHDisableEvent "$attempt_id" Started "" "$start_time" null '{}' ||
+        echo "WARNING: SSH disable telemetry failed" >&2
+    # Ubuntu uses ssh, Azure Linux uses sshd, and ACL also uses sshd.socket.
+    # Close the listening socket first so no new connection is accepted mid-teardown.
+    # Keep going after a failure so a later unit still gets disabled, on ACL the
+    # socket owns port 22 and skipping it would leave SSH reachable.
+    for unit in sshd.socket ssh sshd; do
+        systemctlDisableAndStop "$unit" "$attempt_id" || result=$ERR_DISABLE_SSH
+    done
+    emitSSHDisableEvent "$attempt_id" Completed "" "$start_time" "$result" '{}' ||
+        echo "WARNING: SSH disable telemetry failed" >&2
+    [ "$result" -eq 0 ] || exit "$result"
 }
 
 disableSSHPubkeyAuth() {

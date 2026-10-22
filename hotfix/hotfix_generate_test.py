@@ -66,6 +66,53 @@ MIXED_ENCODING_TEMPLATE = """- path: /literal.sh
 
 
 class HotfixGenerateTests(unittest.TestCase):
+    def test_production_renderer_omits_empty_platform_payloads(self):
+        repository = Path(__file__).resolve().parents[1]
+        lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
+            keepends=True
+        )
+        _, outer_else, end = hotfix_generate.find_block_boundaries(lines)
+        cases = [
+            ("custom cloud only", hotfix_generate.build_hotfix_template(
+                {"initAKSCloud"}, lines[outer_else + 1:end]
+            ), set()),
+            ("missing", "#cloud-config\n", set()),
+            ("null", "write_files:\n", set()),
+            ("empty list", "write_files: []\n", set()),
+            ("ubuntu only", 'write_files:\n{{if not IsMariner}}\n'
+             '- path: /test\n  content: hotfix\n{{end}}\n', {"ubuntu"}),
+            ("both", "write_files:\n- path: /test\n  content: hotfix\n",
+             {"ubuntu", "mariner"}),
+        ]
+        for name, template, platforms in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                template_path = Path(directory) / "template.yml"
+                template_path.write_text(template)
+                output = Path(directory) / "generated"
+                output.mkdir()
+                for platform in ("ubuntu", "mariner"):
+                    (output / f"rendered_nodecustomdata_{platform}.yml").write_text(
+                        "write_files:\n"  # Stale empty files must also be removed.
+                    )
+                subprocess.run(
+                    ["go", "run", "./hotfix/render-nodecustomdata", "--template",
+                     str(template_path), "--output-dir", str(output)],
+                    cwd=repository, check=True, capture_output=True,
+                )
+                expected = {
+                    f"rendered_nodecustomdata_{platform}.yml" for platform in platforms
+                } or {"README"}
+                self.assertEqual(expected, {path.name for path in output.iterdir()})
+                if name == "custom cloud only":
+                    probe = Path(directory) / "main.go"
+                    probe.write_text('package main\nimport "embed"\n'
+                                     '//go:embed generated\nvar files embed.FS\n'
+                                     'func main() {}\n')
+                    subprocess.run(
+                        ["go", "build", "-o", str(Path(directory) / "probe"), str(probe)],
+                        cwd=repository, check=True, capture_output=True,
+                    )
+
     def test_config_modules_are_independently_hotfixable(self):
         repository = Path(__file__).resolve().parents[1]
         lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(

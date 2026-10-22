@@ -114,6 +114,69 @@ Describe 'cse_main.sh PIS-safe configuration'
         End
     End
 
+    Describe 'NVIDIA GPU driver mode'
+        It 'configures managed GPU mode once in nodePrep and never in basePrep'
+            mode_writer_counts() {
+                phase_count "basePrep" "configureManagedGPUExperience"
+                phase_count "nodePrep" "configureManagedGPUExperience"
+                script_count "configureManagedGPUExperience"
+                script_count "configureNvidiaGPUDriverMode"
+            }
+            When call mode_writer_counts
+            The line 1 of output should equal "0"
+            The line 2 of output should equal "1"
+            The line 3 of output should equal "1"
+            The line 4 of output should equal "0"
+        End
+
+        It 'configures the mode after eligibility is resolved and before kubelet startup'
+            mode_writer_order() {
+                phase_body "nodePrep" | code_lines |
+                    grep -E 'skip_nvidia_driver_install=|ENABLE_MANAGED_GPU_EXPERIENCE_DRA=|AKS.CSE.configureManagedGPUExperience|AKS.CSE.ensureKubelet'
+            }
+            When call mode_writer_order
+            The line 1 of output should include 'skip_nvidia_driver_install='
+            The line 2 of output should include 'ENABLE_MANAGED_GPU_EXPERIENCE_DRA='
+            The line 3 of output should include 'AKS.CSE.configureManagedGPUExperience'
+            The line 4 of output should include 'AKS.CSE.ensureKubelet'
+        End
+
+        It 'fails provisioning when the mode cannot be reconciled'
+            mode_writer_call() {
+                phase_body "nodePrep" | code_lines | grep 'AKS.CSE.configureManagedGPUExperience'
+            }
+            When call mode_writer_call
+            The output should include 'configureManagedGPUExperience || exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE'
+        End
+
+        Describe 'ineligible nodes'
+            Parameters
+                false false
+                true true
+            End
+
+            It "skips managed GPU configuration for GPU_NODE=$1 and skip_nvidia_driver_install=$2"
+                GPU_NODE=$1
+                skip_nvidia_driver_install=$2
+                logs_to_events() { echo "$1"; }
+                run_gpu_configuration() {
+                    # The existing GPU guard must skip both hardware setup and
+                    # managed-mode reconciliation on ineligible nodes.
+                    eval "$(phase_body nodePrep | awk '
+                        /# Install and configure GPU drivers if this is a GPU node/ { inside = 1 }
+                        /# Install and configure AMD AMA/ { exit }
+                        inside { print }
+                    ')"
+                }
+
+                When call run_gpu_configuration
+
+                The status should be success
+                The output should equal ''
+            End
+        End
+    End
+
     Describe 'stage gate'
         It 'configures Chrony before either provisioning stage'
             When call chrony_dispatch_calls

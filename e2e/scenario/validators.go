@@ -41,6 +41,48 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+func ValidateKubeletConfigFile(ctx context.Context, s *Scenario) error {
+	if !s.KubeletConfigFileEnabled() {
+		return nil
+	}
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `set -euo pipefail
+systemctl is-active --quiet kubelet
+pid=$(systemctl show kubelet --property MainPID --value)
+test "$pid" -gt 0
+sudo cat /proc/"$pid"/cmdline | tr '\000' '\n'
+`, 0, "could not inspect running kubelet")
+	if err != nil {
+		return err
+	}
+	const configPath = "/etc/default/kubeletconfig.json"
+	args := strings.Fields(result.stdout)
+	hasConfig := false
+	for i, arg := range args {
+		if arg == "--config="+configPath || (arg == "--config" && i+1 < len(args) && args[i+1] == configPath) {
+			hasConfig = true
+			break
+		}
+	}
+	if !hasConfig {
+		return fmt.Errorf("running kubelet does not use --config %s", configPath)
+	}
+	content, err := getFileContent(ctx, s, configPath)
+	if err != nil {
+		return err
+	}
+	var config struct {
+		Kind       string `json:"kind"`
+		APIVersion string `json:"apiVersion"`
+	}
+	if err := json.Unmarshal([]byte(content), &config); err != nil {
+		return fmt.Errorf("decode kubelet configuration file: %w", err)
+	}
+	if config.Kind != "KubeletConfiguration" || config.APIVersion != "kubelet.config.k8s.io/v1beta1" {
+		return fmt.Errorf("unexpected kubelet configuration file type: %+v", config)
+	}
+	return nil
+}
+
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) error {
 	switch s.VHD.OS {
 	case config.OSWindows:
@@ -93,6 +135,11 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 		errs = append(errs, ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true"))
 	} else {
 		errs = append(errs, ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true"))
+	}
+	if s.RemoveBoostrapKubeconfig() {
+		errs = append(errs, ValidateFileDoesNotExist(ctx, s, "/var/lib/kubelet/bootstrap-kubeconfig"))
+	} else {
+		errs = append(errs, ValidateFileExists(ctx, s, "/var/lib/kubelet/bootstrap-kubeconfig"))
 	}
 	errs = append(errs,
 		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"}),
@@ -677,7 +724,7 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) error {
 	servicePath := "/usr/lib/systemd/system/" + serviceName
 
 	// Check if IG is installed on this VHD by looking for the skip sentinel file.
-	// The skip file is only present on VHDs that have IG installed (Ubuntu and Azure Linux non-OSGuard).
+	// The skip file is only present on VHDs that have IG installed (Ubuntu and Azure Linux 3 non-OSGuard, including Kata).
 	// Flatcar, OSGuard, and older VHDs do not have IG installed and will not have the skip file.
 	skipFileExists, err := fileExist(ctx, s, skipFile)
 	if err != nil {
@@ -915,6 +962,15 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 		return fmt.Errorf("expected file %s to have contents %q. Could not determine actual contents due to %w", fileName, contents, err)
 	}
 	return fmt.Errorf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
+}
+
+func ValidateReportReadyRan(ctx context.Context, s *Scenario) error {
+	return ValidateFileHasContent(
+		ctx,
+		s,
+		"/var/log/azure/aks-node-controller.log",
+		"Successfully reported Ready to Azure fabric.",
+	)
 }
 
 // ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
@@ -3048,8 +3104,8 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	serviceName := "node-exporter.service"
 
 	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
-	// The skip file is only present on supported Ubuntu and Azure Linux 3 VHDs with node-exporter installed.
-	// Mariner, Flatcar, ACL, OSGuard, Kata, and older VHDs do not have the skip file.
+	// The skip file is only present on supported Ubuntu and Azure Linux 3 (including Kata) VHDs with node-exporter installed.
+	// Mariner, Flatcar, ACL, OSGuard, and older VHDs do not have the skip file.
 	exists, err := fileExist(ctx, s, skipFile)
 	if err != nil {
 		return fmt.Errorf("check existence of file %s: %w", skipFile, err)
@@ -3092,7 +3148,11 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		errs = append(errs, err)
 	}
-	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL, hasInfiniBand))
+	requirePressure, err := nodeExporterRequiresPressure(ctx, s)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL, hasInfiniBand, requirePressure))
 
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
 		"node-exporter should remain active after scraping"); err != nil {
@@ -3141,7 +3201,28 @@ exit 1`
 	return result.exitCode == "0", nil
 }
 
-func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand bool) error {
+// nodeExporterRequiresPressure reports whether the scrape must include PSI metrics.
+// The Azure Linux 3 Kata host kernel (kernel-mshv) is built without CONFIG_PSI, so
+// /proc/pressure is absent and node-exporter's pressure collector returns no data:
+// https://github.com/microsoft/azurelinux/issues/19417. Only Kata may omit PSI;
+// missing PSI on any other image is a kernel regression and must fail.
+func nodeExporterRequiresPressure(ctx context.Context, s *Scenario) (bool, error) {
+	if s.VHD == nil || !s.VHD.Distro.IsKataDistro() {
+		return true, nil
+	}
+	result, err := execScriptOnVMForScenario(ctx, s, "test -r /proc/pressure/cpu")
+	if err != nil {
+		return true, fmt.Errorf("detect pressure stall information: %w", err)
+	}
+	if result.exitCode != "0" && result.exitCode != "1" {
+		return true, fmt.Errorf("detect pressure stall information: exit %s: %s", result.exitCode, result.stderr)
+	}
+	available := result.exitCode == "0"
+	logging.Logf(ctx, "node-exporter pressure expectations on Kata: PSI available=%t", available)
+	return available, nil
+}
+
+func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand, requirePressure bool) error {
 	// The boot-local marker only exists on VHDs with lifecycle-aware suppression;
 	// main/older VHDs used by standalone PR E2Es retain their existing checks.
 	manaObserved, err := fileExist(ctx, s, "/run/node-exporter-mana-observed")
@@ -3164,7 +3245,7 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
 	}
 	return errors.Join(
-		assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview),
+		assert.NoError(nodeexporter.ValidateMetrics(result.stdout, requirePressure), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview),
 		assert.NoError(nodeexporter.ValidateCollectors(result.stdout, requireInfiniBand, manaObserved), "node-exporter collectors did not satisfy the AgentBaker contract\nresponse preview:\n%s", responsePreview),
 	)
 }
@@ -3441,53 +3522,16 @@ fi`)
 	return nil
 }
 
-// ValidateSSHServiceDisabled validates that the SSH daemon service is disabled and stopped on the node
+// ValidateSSHServiceDisabled validates that SSH services and sockets are disabled and stopped on the node
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
-	// Use VMSS RunCommand to check SSH service status directly on the node
-	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	resp, err := RunCommand(ctx, s, `#!/bin/bash
-# Determine the correct SSH service name based on the distro
-# Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    if [[ "$ID" == "ubuntu" ]]; then
-        SSH_SERVICE="ssh"
-    else
-        SSH_SERVICE="sshd"
-    fi
-else
-    # Default to sshd if we can't determine the OS
-    SSH_SERVICE="sshd"
-fi
-
-echo "Detected SSH service name: $SSH_SERVICE"
-
-# Check SSH service status
-status_output=$(systemctl status "$SSH_SERVICE" 2>&1)
-echo "SSH service status output:"
-echo "$status_output"
-
-# Check if the service is inactive (dead) and disabled
-if echo "$status_output" | grep -q "Active: inactive (dead)"; then
-    if echo "$status_output" | grep -q "Loaded:.*disabled"; then
-        echo "SUCCESS: SSH service is disabled and stopped"
-        exit 0
-    else
-        echo "FAILED: SSH service is inactive but not disabled"
-        exit 1
-    fi
-else
-    echo "FAILED: SSH service is not inactive"
-    exit 1
-fi`)
+	resp, err := RunCommand(ctx, s, validateSSHServiceDisabledScript)
 	if err != nil {
 		return fmt.Errorf("run command to check SSH service status: %w", err)
 	}
 	stdout := lo.FromPtr(resp.Output)
 	logging.Logf(ctx, "Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
-	// Check if the command execution was successful by looking for our success message in the output
-	if err := assert.Contains(stdout, "SUCCESS: SSH service is disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
+	if err := assert.Contains(stdout, "SUCCESS: SSH units are disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
 		return err
 	}
 
@@ -4216,21 +4260,32 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	expectedVersion := versions[0]
 
 	const waagentLogFile = "/var/log/waagent.log"
+	autoUpdateMarker := "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation"
+	versionMarker := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
 
-	logResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo cat "+waagentLogFile, 0,
-		"could not read waagent log")
+	var logContents string
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		logResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo cat "+waagentLogFile, 0,
+			"could not read waagent log")
+		if err != nil {
+			logging.Logf(ctx, "waiting for waagent log initialization: %v", err)
+			return false, nil
+		}
+		logContents = logResult.stdout
+		return strings.Contains(logContents, autoUpdateMarker) &&
+			strings.Contains(logContents, versionMarker), nil
+	})
 	if err != nil {
-		return fmt.Errorf("read waagent log: %w", err)
+		return fmt.Errorf("wait for waagent log initialization: %w", err)
 	}
-	logContents := logResult.stdout
 
 	errs := []error{
 		// 1. Verify AutoUpdate is disabled
-		assert.Contains(logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		assert.Contains(logContents, autoUpdateMarker,
 			"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False"),
 		// 2. Verify the correct version is running as ExtHandler (PID varies)
-		assert.Contains(logContents, fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion),
+		assert.Contains(logContents, versionMarker,
 			"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion),
 	}
 
@@ -4531,8 +4586,31 @@ func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) 
 	return nil
 }
 
-func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error) {
+func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) error {
+	return validateDRAWorkloadSchedulable(ctx, s, "")
+}
+
+func ValidateDRAWithMIGWorkloadSchedulable(ctx context.Context, s *Scenario, expectedProfile string) error {
+	if expectedProfile == "" {
+		return fmt.Errorf("expected MIG profile must not be empty")
+	}
+	return validateDRAWorkloadSchedulable(ctx, s, expectedProfile)
+}
+
+func validateDRAWorkloadSchedulable(ctx context.Context, s *Scenario, expectedMIGProfile string) (err error) {
 	logging.Logf(ctx, "validating that DRA workloads can be scheduled")
+
+	var selectors []resourcev1.DeviceSelector
+	if expectedMIGProfile != "" {
+		selectors = []resourcev1.DeviceSelector{{
+			CEL: &resourcev1.CELDeviceSelector{
+				Expression: fmt.Sprintf(
+					`device.driver == "gpu.nvidia.com" && device.attributes["gpu.nvidia.com"].type == "mig" && device.attributes["gpu.nvidia.com"].profile == %q`,
+					expectedMIGProfile,
+				),
+			},
+		}}
+	}
 
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
@@ -4549,7 +4627,7 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error
 			Name:            deviceClassName,
 			OwnerReferences: []metav1.OwnerReference{ownerReference},
 		},
-		Spec: resourcev1.DeviceClassSpec{},
+		Spec: resourcev1.DeviceClassSpec{Selectors: selectors},
 	}, metav1.CreateOptions{})
 	if createErr != nil {
 		return fmt.Errorf("create DeviceClass %q: %w", deviceClassName, createErr)
@@ -4628,12 +4706,71 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error
 			},
 		},
 	}
-	if err := ValidatePodRunning(ctx, s, pod); err != nil {
+	var validateAllocation func() error
+	if expectedMIGProfile != "" {
+		validateAllocation = func() error {
+			allocatedClaim, err := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims(claim.Namespace).Get(ctx, claim.Name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("get allocated ResourceClaim %q: %w", claim.Name, err)
+			}
+			resourceSlices, err := s.Runtime.Kube.Typed.ResourceV1().ResourceSlices().List(ctx, metav1.ListOptions{
+				FieldSelector: resourcev1.ResourceSliceSelectorNodeName + "=" + s.Runtime.VM.KubeName,
+			})
+			if err != nil {
+				return fmt.Errorf("list ResourceSlices for node %q: %w", s.Runtime.VM.KubeName, err)
+			}
+			if err := validateDRAMIGAllocation(allocatedClaim, resourceSlices, s.Runtime.VM.KubeName, expectedMIGProfile); err != nil {
+				return fmt.Errorf("validate MIG allocation for ResourceClaim %q: %w", claim.Name, err)
+			}
+			logging.Logf(ctx, "DRA workload allocated a MIG device with profile %s", expectedMIGProfile)
+			return nil
+		}
+	}
+	if err := startPodAndCheckItRunsWithValidation(ctx, s, pod, validateAllocation); err != nil {
 		return fmt.Errorf("run DRA workload pod: %w", err)
 	}
 
 	logging.Logf(ctx, "GPU workload is schedulable and runs successfully")
 	return nil
+}
+
+func validateDRAMIGAllocation(claim *resourcev1.ResourceClaim, resourceSlices *resourcev1.ResourceSliceList, nodeName, expectedProfile string) error {
+	if claim.Status.Allocation == nil {
+		return fmt.Errorf("claim has no allocation")
+	}
+	results := claim.Status.Allocation.Devices.Results
+	if len(results) != 1 {
+		return fmt.Errorf("expected exactly one allocated device, got %d", len(results))
+	}
+	allocated := results[0]
+	if allocated.Request != "gpu" || allocated.Driver != "gpu.nvidia.com" {
+		return fmt.Errorf("expected request gpu from driver gpu.nvidia.com, got request %q from driver %q", allocated.Request, allocated.Driver)
+	}
+	for _, resourceSlice := range resourceSlices.Items {
+		if resourceSlice.Spec.Driver != allocated.Driver || resourceSlice.Spec.Pool.Name != allocated.Pool ||
+			resourceSlice.Spec.NodeName == nil || *resourceSlice.Spec.NodeName != nodeName {
+			continue
+		}
+		for _, device := range resourceSlice.Spec.Devices {
+			if device.Name != allocated.Device {
+				continue
+			}
+			for attribute, expected := range map[resourcev1.QualifiedName]string{"type": "mig", "profile": expectedProfile} {
+				value, ok := device.Attributes[attribute]
+				if !ok {
+					value = device.Attributes[resourcev1.QualifiedName(allocated.Driver+"/"+string(attribute))]
+				}
+				if value.StringValue == nil {
+					return fmt.Errorf("allocated device %q has no string attribute %q", allocated.Device, attribute)
+				}
+				if *value.StringValue != expected {
+					return fmt.Errorf("allocated device %q has %s %q, expected %q", allocated.Device, attribute, *value.StringValue, expected)
+				}
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("allocated device %q from driver %q and pool %q not found on node %q", allocated.Device, allocated.Driver, allocated.Pool, nodeName)
 }
 
 // ValidateRCV1PCertMode validates that the rcv1p certificate endpoint mode was used during

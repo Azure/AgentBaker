@@ -63,8 +63,9 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/bin /opt/azure/containers /var/log/azure
-
+mkdir -p /opt/bin /opt/azure/containers /var/lib/waagent /var/log/azure
+`
+	boothookProvisionTemplate = `
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
 %s
@@ -72,6 +73,19 @@ nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 	hotfixMarkerTemplate = `
 #hotfix-marker
 `
+	readyReportHandoffTemplate = `# azure-experimental-node-ready
+
+touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+
+# Patched cloud-init consumes the CustomData marker above before this boothook runs.
+# WALinuxAgent reports Ready independently once ovf-env.xml and the SSH host key exist.
+# A sentinel matching this instance's id makes it skip that report, leaving
+# aks-node-controller as the only reporter.
+if [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi`
 	cseDownloaderTemplate = `
 if [ -f /opt/azure/containers/fetch_provision_config.py ]; then
 	python3 /opt/azure/containers/fetch_provision_config.py --output /opt/bin/boothook.sh --timeout 60 >>/var/log/azure/aks-early-boothook.log 2>&1 || exit 0
@@ -205,8 +219,13 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
 		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
-		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
-		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + hotfixMarkerTemplate + cseDownloaderTemplate))
+		provisionCustomData := buildScriptlessCustomData(boothookProvisionTemplate, boothookFileEntry, "\n", encodedFiles)
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(boothookTemplate + provisionCustomData + hotfixMarkerTemplate + cseDownloaderTemplate))
+		customData = boothookTemplate
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			customData += readyReportHandoffTemplate
+		}
+		customData += provisionCustomData
 	}
 
 	if config.ScriptlessCSEProvisionMode {
@@ -225,6 +244,7 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	if len(encodedFinalCustomData) < MaxCustomDataLength {
 		return encodedFinalCustomData
 	}
+	config.CustomDataOnlyProvisioning = false
 	config.ScriptlessCSEProvisionMode = true
 	return encodedCustomData
 }
@@ -264,7 +284,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return (config.EnableScriptlessAKSNodeConfig || config.EnableScriptlessNBCCSECmd) && !config.PreProvisionOnly
+	return (config.EnableScriptlessAKSNodeConfig || (config.EnableScriptlessNBCCSECmd) || config.IsCustomDataOnlyProvisioningEnabled()) && !config.PreProvisionOnly
 }
 
 func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
@@ -553,6 +573,9 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 		return t.getWindowsNodeCSECommand(config)
 	}
 	if supportsScriptlessProvisioning(config) {
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			return ""
+		}
 		if config.ScriptlessCSEProvisionMode {
 			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
 			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
@@ -828,6 +851,10 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 
 // ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
+	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
+		config.CustomDataOnlyProvisioning = false
+	}
+
 	if config.EnableScriptlessAKSNodeConfig {
 		if err := validateScriptlessAKSNodeConfig(config); err != nil {
 			return err
@@ -1050,6 +1077,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
+		"RemoveBootstrapKubeconfig": func() bool {
+			return config.RemoveBootstrapKubeconfig
+		},
 		"EnableKubeletServingCertificateRotation": func() bool {
 			return IsKubeletServingCertificateRotationEnabled(config)
 		},
@@ -1065,6 +1095,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsCgroupV2": func() bool {
 			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() || profile.Is2604VHDDistro() ||
 				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
+		},
+		"IsCustomDataOnlyProvisioningEnabled": func() bool {
+			return config.IsCustomDataOnlyProvisioningEnabled()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -1152,6 +1185,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
+		},
+		"IsAzureLinuxV3KataCC": func() bool {
+			return profile.Distro == datamodel.AKSAzureLinuxV3Gen2KataCC
 		},
 		"IsAzlOSGuard": func() bool {
 			return profile.Distro.IsAzureLinuxOSGuardDistro() ||
@@ -1703,6 +1739,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
 			return config.InsertIMDSRestrictionRuleToMangleTable
 		},
+		"EnableKMPP": func() bool {
+			return config.EnableKMPP
+		},
 		"ShouldEnableLocalDNS": func() bool {
 			return profile.ShouldEnableLocalDNS()
 		},
@@ -2143,10 +2182,10 @@ root = "{{GetDataDir}}"{{- end}}
   runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2238,10 +2277,10 @@ root = "{{GetDataDir}}"{{- end}}
   runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2253,6 +2292,15 @@ root = "{{GetDataDir}}"{{- end}}
   pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+{{- if IsAzureLinuxV3KataCC }}
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+{{- end}}
 {{- end}}
 `
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
@@ -2317,17 +2365,26 @@ root = "{{GetDataDir}}"{{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
-	runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
+{{- if IsAzureLinuxV3KataCC }}
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+{{- end}}
 {{- end}}
 `
 	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
@@ -2397,13 +2454,13 @@ root = "{{GetDataDir}}"{{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
-	runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
