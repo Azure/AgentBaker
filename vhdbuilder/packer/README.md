@@ -1,27 +1,20 @@
 The workflow becomes complicated as we add more VHDs. Here is a quick description of the current VHD build workflow:
 
 # gen1
-
 MarketplaceImage->(func/packer) -> VHD in classic SA
-
 ## gen1 mariner:
-
 external-vhd->(func/init:internal-vhd)->(func/packer) -> VHD in classic SA
 
 # sig:
-
 MarketplaceImage->(func/init: ensure dest gallery/definition)->(func/packer: managed image)->dest SIG
 
 # gen2:
-
 MarketplaceImage->(func/init: ensure dest existing/static gallery/definition)->(func/packer: managed image)->dest SIG->(func/convert: sig->disk) -> VHD in classic SA
 
 ## gen2 mariner:
-
 external-vhd-src->(func/init: ensure dest existing/static gallery/definition, internal-vhd->image; )->source SIG->(func/packer: managed image)->dest SIG->(func/convert: sig->disk) -> VHD in classic SA
 
 # Roadmap
-
 Goal1: remove mariner workflow so things will be simplified.
 
 # Linux build steps
@@ -39,6 +32,7 @@ ACL VHD builds stage `ca-certificates` and `ca-certificates-shared`
 `packages.microsoft.com`. Both AMD64 and ARM64 RPMs are pinned by SHA-256;
 their Microsoft trust and distrust payloads are architecture-independent.
 The build host needs `rpm2cpio` and `cpio` (installed by the ACL pipeline).
+Download and SHA-256 verification retry together, discarding invalid cached RPMs.
 `make -f packer.mk init-packer` prepares the payload; direct Packer invocations
 must first run `ARCHITECTURE=X86_64` (or `ARM64`)
 `bash vhdbuilder/packer/prepare-acl-ca-certificates.sh`.
@@ -82,7 +76,9 @@ root mount privileges, run
 to exercise the real trust tools, read-only `/usr`, sysext remerge, persistent
 `/etc` upper layer, and the production proxy-CA and Custom CA Trust regeneration paths in an isolated mount
 namespace. This does not replace an Azure VHD build and actual reboot validation.
-
+The effective TLS bundle must include the new Visa TLS Root CA and exclude the
+five older roots removed by the pinned package, including after proxy-CA and
+Custom CA Trust regeneration.
 # Ubuntu BCC build
 
 Ubuntu BCC remains pinned to v0.29.0, fetched with a shallow tag clone, and built

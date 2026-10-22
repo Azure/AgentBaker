@@ -1429,6 +1429,36 @@ testACLCAStore() {
     err "$test" "Refreshed ACL TLS trust bundle is empty after boot"
     return 1
   fi
+  # Check effective output, not just mounted inputs or pre-existing bundles.
+  local fingerprints
+  fingerprints=$(
+    local certificate='' line fingerprint
+    while IFS= read -r line; do
+      case "$line" in
+        '-----BEGIN CERTIFICATE-----') certificate="$line"$'\n' ;;
+        '-----END CERTIFICATE-----')
+          certificate+="$line"
+          fingerprint=$(printf '%s\n' "$certificate" | openssl x509 -noout -sha256 -fingerprint) || exit 1
+          printf '%s\n' "${fingerprint#*=}"
+          certificate=
+          ;;
+        *) if [ -n "$certificate" ]; then certificate+="$line"$'\n'; fi ;;
+      esac
+    done < /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+  ) || {
+    err "$test" "Failed to inspect effective ACL TLS certificates"
+    return 1
+  }
+  # Release 19 adds Visa TLS Root CA and removes these five older roots.
+  if ! grep -Fxiq 'E6:43:2F:CE:6B:48:F4:E8:89:B2:FE:18:3F:8B:48:0F:72:EC:F8:0F:57:38:9B:0E:9C:6E:89:CF:04:AD:69:D1' <<< "$fingerprints" ||
+      grep -Fxiq -e 'C5:7A:3A:CB:E8:C0:6B:A1:98:8A:83:48:5B:F3:26:F2:44:87:75:37:98:49:DE:01:CA:43:57:1A:F3:57:E7:4B' \
+        -e '86:A1:EC:BA:08:9C:4A:8D:3B:BE:27:34:C6:12:BA:34:1D:81:3E:04:3C:F9:E8:A8:62:CD:5C:57:A3:6B:BE:6B' \
+        -e '7D:D7:8D:5F:4F:13:45:9A:83:DF:F9:AB:BB:A6:2E:DB:AF:6F:2D:10:2B:F2:57:FD:71:2F:4D:9F:27:46:ED:8D' \
+        -e '16:AF:57:A9:F6:76:B0:AB:12:60:95:AA:5E:BA:DE:F2:2A:B3:11:19:D6:44:AC:95:CD:4B:93:DB:F3:F2:6A:EB' \
+        -e 'D7:A7:A0:FB:5D:7E:27:31:D7:71:E9:48:4E:BC:DE:F7:1D:5F:0C:3E:0A:29:48:78:2B:C8:3E:E0:EA:69:9E:F4' <<< "$fingerprints"; then
+    err "$test" "Effective ACL TLS bundle does not contain the refreshed certificate set"
+    return 1
+  fi
 }
 
 testMGLRUDisabled() {

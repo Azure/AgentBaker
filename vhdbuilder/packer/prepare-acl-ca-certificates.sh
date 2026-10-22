@@ -21,16 +21,27 @@ prepareACLTrustSources() {
             ;;
     esac
 
-    local package checksum rpm_file
+    local package checksum rpm_file attempt
     local version=3.0.0-19.azl3
     mkdir -p "$destination"
     for package in ca-certificates ca-certificates-shared; do
         checksum=$certificates_sha
         [ "$package" != ca-certificates-shared ] || checksum=$shared_sha
         rpm_file="$destination/$package.rpm"
-        retrycmd_curl_file 5 5 120 "$rpm_file" \
-            "https://packages.microsoft.com/azurelinux/3.0/prod/base/$arch/Packages/c/$package-$version.noarch.rpm" || return 1
-        printf '%s  %s\n' "$checksum" "$rpm_file" | sha256sum -c - || return 1
+        for attempt in 1 2 3 4 5; do
+            if retrycmd_curl_file 1 5 120 "$rpm_file" \
+                "https://packages.microsoft.com/azurelinux/3.0/prod/base/$arch/Packages/c/$package-$version.noarch.rpm" &&
+                printf '%s  %s\n' "$checksum" "$rpm_file" | sha256sum -c -; then
+                break
+            fi
+            # The download helper accepts existing files, including partial RPMs.
+            rm -f "$rpm_file" || return 1
+            if [ "$attempt" -eq 5 ]; then
+                echo "Failed to download and verify ACL package: $package" >&2
+                return 1
+            fi
+            sleep 5
+        done
         # Only extract trust inputs; never install RPMs or run their scriptlets.
         rpm2cpio "$rpm_file" | (cd "$destination" && cpio -idm --quiet --no-absolute-filenames \
             './usr/share/pki/ca-trust-source/*.p11-kit') || return 1

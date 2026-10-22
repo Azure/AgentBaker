@@ -124,15 +124,70 @@ SYSEXT_LEVEL=1.0"
     End
 
     retrycmd_curl_file() {
-      printf 'corrupt RPM\n' > "$4"
+      printf 'download\n' >> "$TEST_ROOT/downloads"
+      [ -f "$4" ] || printf 'corrupt RPM\n' > "$4"
     }
+    sleep() { :; }
 
     It 'rejects a corrupt RPM before extracting or writing a version marker'
       When call prepareACLTrustSources X86_64 "$TEST_ROOT/prepared"
       The status should be failure
       The output should include 'FAILED'
       The stderr should include 'checksum did NOT match'
+      The stderr should include 'Failed to download and verify ACL package'
+      The contents of file "$TEST_ROOT/downloads" should equal "download
+download
+download
+download
+download"
+      The path "$TEST_ROOT/prepared/ca-certificates.rpm" should not be exist
       The path "$TEST_ROOT/prepared/version" should not be exist
+    End
+
+    rpm2cpio() { cat "$1"; }
+    cpio() {
+      cat >/dev/null
+      mkdir -p usr/share/pki/ca-trust-source
+      printf 'new roots\n' > usr/share/pki/ca-trust-source/ca-bundle.trust.microsoft.p11-kit
+      printf 'new blocklist\n' > usr/share/pki/ca-trust-source/ca-bundle.trust.distrusted.p11-kit
+    }
+    sha256sum() {
+      local checksum file
+      read -r checksum file
+      if grep -qx 'complete RPM' "$file"; then
+        return 0
+      fi
+      printf 'checksum did NOT match\n' >&2
+      return 1
+    }
+
+    It 'discards a poisoned cache and retries download plus verification'
+      mkdir -p "$TEST_ROOT/prepared"
+      printf 'truncated RPM\n' > "$TEST_ROOT/prepared/ca-certificates.rpm"
+      retrycmd_curl_file() {
+        [ -f "$4" ] || printf 'complete RPM\n' > "$4"
+      }
+      When call prepareACLTrustSources X86_64 "$TEST_ROOT/prepared"
+      The status should be success
+      The stderr should include 'checksum did NOT match'
+      The contents of file "$TEST_ROOT/prepared/version" should equal '3.0.0-19.azl3'
+      The contents of file "$TEST_ROOT/prepared/ca-bundle.trust.microsoft.p11-kit" should equal 'new roots'
+      The path "$TEST_ROOT/prepared/ca-certificates.rpm" should not be exist
+    End
+
+    It 'removes a partial file after transport failure and downloads it again'
+      retrycmd_curl_file() {
+        if [ ! -f "$TEST_ROOT/transport-failed" ]; then
+          printf 'truncated RPM\n' > "$4"
+          touch "$TEST_ROOT/transport-failed"
+          return 1
+        fi
+        [ ! -f "$4" ] || return 1
+        printf 'complete RPM\n' > "$4"
+      }
+      When call prepareACLTrustSources X86_64 "$TEST_ROOT/prepared"
+      The status should be success
+      The contents of file "$TEST_ROOT/prepared/version" should equal '3.0.0-19.azl3'
     End
   End
 

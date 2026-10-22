@@ -89,6 +89,20 @@ isACL() { [ "${2:-${OS_VARIANT:-}}" = AZURECONTAINERLINUX ]; }
 eval "$(sed -n '/^testACLCAStore()/,/^}/p' "$repo_root/vhdbuilder/packer/test/linux-vhd-content-test.sh" |
     sed "s|local extension_dir=/opt/|local extension_dir=$root/opt/|; s|readlink /etc/extensions/|readlink $root/etc/extensions/|; s|/etc/pki/ca-trust/extracted|$root/etc/pki/ca-trust/extracted|g; s|cd /usr/share/|cd $root/usr/share/|")"
 testACLCAStore
+cp "$work/old-tls.pem" "$root/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+if testACLCAStore > "$work/stale-bundle-check.log" 2>&1; then
+    echo 'Post-boot validator accepted the stale factory TLS bundle' >&2
+    exit 1
+fi
+grep -q 'Effective ACL TLS bundle does not contain the refreshed certificate set' "$work/stale-bundle-check.log"
+cp "$work/refreshed-tls.pem" "$root/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+cat "$work/old-tls.pem" >> "$root/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+if testACLCAStore > "$work/stale-bundle-check.log" 2>&1; then
+    echo 'Post-boot validator accepted removed roots alongside the refreshed set' >&2
+    exit 1
+fi
+grep -q 'Effective ACL TLS bundle does not contain the refreshed certificate set' "$work/stale-bundle-check.log"
+cp "$work/refreshed-tls.pem" "$root/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
 
 # A later custom-CA extraction must use the refreshed vendor set, not revive
 # roots from the immutable store.
@@ -104,6 +118,7 @@ eval "$(sed -n '/^configureHTTPProxyCA()/,/^}/p' "$repo_root/parts/linux/cloud-i
     sed "s|/etc/pki/ca-trust/source/anchors|$root/etc/pki/ca-trust/source/anchors|g")"
 HTTP_PROXY_TRUSTED_CA=$(base64 < "$work/custom.crt" | tr -d '\n')
 configureHTTPProxyCA
+testACLCAStore
 openssl verify -CAfile "$root/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem" "$work/custom.crt"
 rm "$root/etc/pki/ca-trust/source/anchors/proxyCA.crt"
 sh -e /usr/bin/update-ca-trust
@@ -123,9 +138,11 @@ eval "$(sed -n '/^configureCustomCaCertificate()/,/^}/p' "$repo_root/parts/linux
 CUSTOM_CA_TRUST_COUNT=1
 CUSTOM_CA_CERT_0=$HTTP_PROXY_TRUSTED_CA
 configureCustomCaCertificate
+testACLCAStore
 openssl verify -CAfile "$root/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem" "$work/custom.crt"
 rm "$root/opt/certs/00000000000000cert0.crt"
 chroot "$root" "${service_command[@]}"
+testACLCAStore
 cmp "$work/refreshed-tls.pem" "$root/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
 sha256sum -c "$work/factory.sha256"
 echo 'ACL certificate refresh, upper-layer persistence and custom-CA regeneration passed'
