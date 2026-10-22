@@ -103,3 +103,38 @@ Describe 'Linux content-test Run Command parameters'
     The output should equal "$expected_output"
   End
 End
+
+Describe 'Test VM credential log hygiene'
+  openssl() { printf 'deadbeefcafebabe1234567890abcdef\n'; }
+  az() { printf '%s\n' "$@" > "$AZ_ARGS"; }
+
+  run_vm_create() (
+    set -eux
+    VM_NAME=test-vm TEST_VM_RESOURCE_GROUP_NAME=test-rg MANAGED_SIG_ID=sig-id
+    TEST_VM_ADMIN_USERNAME=azureuser TESTING_NIC_ID=nic-id
+    TARGET_COMMAND_STRING='--size Standard_D2ds_v5'
+    TEST_VM_USER_DATA_ARGS=()
+    eval "$(sed -n '/^set +x$/,/^set -x$/p' vhdbuilder/packer/test/run-test.sh)"
+    eval "$(sed -n "/^$1set +x$/,/^$1set -x$/p" vhdbuilder/packer/test/run-test.sh)"
+    eval "$(grep '^echo "VHD test VM username:' vhdbuilder/packer/test/run-test.sh)"
+  )
+
+  Parameters
+    linux '    '
+    windows '  '
+  End
+
+  It "passes the generated password to az vm create on $1 without logging it"
+    AZ_ARGS="${SHELLSPEC_WORKDIR}/az-args-$1"
+    When run run_vm_create "$2"
+    The status should be success
+    The contents of file "$AZ_ARGS" should include 'vm'
+    The contents of file "$AZ_ARGS" should include '--admin-password'
+    The contents of file "$AZ_ARGS" should include 'TestVM@deadbeefcafebabe1234567890abcdef'
+    The contents of file "$AZ_ARGS" should not include '--debug'
+    The output should include 'VHD test VM username: azureuser'
+    The output should not include 'deadbeefcafebabe'
+    The error should include "+ echo 'VHD test VM username: azureuser'"
+    The error should not include 'deadbeefcafebabe'
+  End
+End
