@@ -3118,6 +3118,9 @@ var _ = Register(&Scenario{
 		VHD:                    config.VHDUbuntu2404Gen2Containerd,
 		VHDCaching:             true,
 		VHDCachingPostBasePrep: installCustomerNvidiaDriver,
+		PreProvisionBootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessCSECmd = !config.Config.DisableScriptless
+		},
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.EnableScriptlessCSECmd = false
 			nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
