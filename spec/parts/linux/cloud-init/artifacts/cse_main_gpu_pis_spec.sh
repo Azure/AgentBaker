@@ -12,7 +12,6 @@ Describe 'GPU cleanup across PIS phases'
         PRE_PROVISION_ONLY=false
         skip_nvidia_driver_install=false
         BASE_PREP_RAN=false
-        printf '%s\n' 'cleanUpGPUDriversForBasePrep() { echo "basePrep driver cleanup"; return "${CLEANUP_STATUS:-0}"; }' > "${fixture}/provision_installs_ubuntu_gpu.sh"
     }
 
     run_phases() {
@@ -34,19 +33,6 @@ Describe 'GPU cleanup across PIS phases'
         eval "$dispatch"
     }
 
-    run_base_prep_cleanup() {
-        local cleanup
-        cleanup=$(sed -n '/    if \[ "${PRE_PROVISION_ONLY}" = "true" \] && \[ "${GPU_NODE}" != "true" \] &&/,/^    fi$/p' "$CSE_MAIN")
-        cleanup=${cleanup//\/opt\/azure\/containers\/provision_installs_ubuntu_gpu.sh/$fixture/provision_installs_ubuntu_gpu.sh}
-        logs_to_events() { shift; "$@"; }
-        cleanUpGPUDriversForBasePrep() { echo "basePrep driver cleanup"; return "${CLEANUP_STATUS:-0}"; }
-        isMarinerOrAzureLinux() { [ "$OS" = azurelinux ]; }
-        isAzureLinuxOSGuard() { [ "$OS_VARIANT" = osguard ]; }
-        UBUNTU_OS_NAME=ubuntu
-        ERR_NVIDIA_DRIVER_INSTALL=224
-        ( eval "$cleanup" )
-    }
-
     run_cse_marker() {
         local marker_script
         PRE_PROVISION_ONLY=true
@@ -63,7 +49,7 @@ Describe 'GPU cleanup across PIS phases'
     BeforeEach 'setup_driver'
     AfterEach 'rm -rf "$fixture"'
 
-    It 'preserves customer drivers on a PIS-derived opt-out node when basePrep is skipped'
+    It 'preserves customer drivers on a PIS-derived opt-out node'
         touch "$marker"
         When call run_phases
         The status should be success
@@ -72,7 +58,7 @@ Describe 'GPU cleanup across PIS phases'
         The path "$fixture/cleanup-called" should not be exist
     End
 
-    It 'cleans an opt-out node when non-PIS basePrep ran in this execution'
+    It 'cleans CUDA drivers only after basePrep ran in this execution'
         When call run_phases
         The status should be success
         The output should include "basePrep"
@@ -80,73 +66,17 @@ Describe 'GPU cleanup across PIS phases'
         The path "$fixture/cleanup-called" should be exist
     End
 
-    It 'runs strict driver cleanup on an opt-out bake'
-        PRE_PROVISION_ONLY=true
-        OS=ubuntu
-        When call run_base_prep_cleanup
+    It 'does not write the bake marker after failed basePrep'
+        EXIT_CODE=224
+        When call run_cse_marker
         The status should be success
-        The output should include "basePrep driver cleanup"
+        The path "$fixture/base_prep.complete" should not be exist
     End
 
-    It 'fails basePrep when bake-time cleanup cannot be verified'
-        PRE_PROVISION_ONLY=true
-        OS=ubuntu
-        CLEANUP_STATUS=1
-        When call run_base_prep_cleanup
-        The status should equal 224
-        The output should include "basePrep driver cleanup"
-    End
-
-    It 'fails an Ubuntu bake without the required helper before customization'
-        PRE_PROVISION_ONLY=true
-        OS=ubuntu
-        rm "${fixture}/provision_installs_ubuntu_gpu.sh"
-        When call run_base_prep_cleanup
-        The status should equal 224
-        The output should include "image containing PIS GPU cleanup helper required"
-        The output should not include "basePrep driver cleanup"
-    End
-
-    It 'does not require the helper on an ordinary Ubuntu node'
-        OS=ubuntu
-        rm "${fixture}/provision_installs_ubuntu_gpu.sh"
-        When call run_base_prep_cleanup
+    It 'writes the bake marker after successful basePrep'
+        EXIT_CODE=0
+        When call run_cse_marker
         The status should be success
-        The output should be blank
-    End
-
-    It 'does not require the helper for managed GPU image preparation'
-        PRE_PROVISION_ONLY=true
-        GPU_NODE=true
-        OS=ubuntu
-        rm "${fixture}/provision_installs_ubuntu_gpu.sh"
-        When call run_base_prep_cleanup
-        The status should be success
-        The output should be blank
-    End
-
-    It 'keeps Azure Linux bake cleanup independent of the Ubuntu helper'
-        PRE_PROVISION_ONLY=true
-        OS=azurelinux
-        rm "${fixture}/provision_installs_ubuntu_gpu.sh"
-        When call run_base_prep_cleanup
-        The status should be success
-        The output should include "basePrep driver cleanup"
-    End
-
-    Describe 'PIS basePrep completion marker'
-        It 'does not write the marker after failed basePrep'
-            EXIT_CODE=224
-            When call run_cse_marker
-            The status should be success
-            The path "$fixture/base_prep.complete" should not be exist
-        End
-
-        It 'writes the marker after successful basePrep'
-            EXIT_CODE=0
-            When call run_cse_marker
-            The status should be success
-            The path "$fixture/base_prep.complete" should be exist
-        End
+        The path "$fixture/base_prep.complete" should be exist
     End
 End

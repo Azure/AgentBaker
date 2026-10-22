@@ -32,7 +32,7 @@ Describe 'cse_install_mariner.sh'
         GPU_DEST="${PWD}/.shellspec-nonexistent-gpu-dest"
         managedGPUPackageList() { echo "driver-cache"; }
         getPackageCacheDir() { echo "$gpu_test_root/driver-cache"; }
-        setup_gpu_cache() { gpu_test_root=$(mktemp -d); }
+        setup_gpu_cache() { gpu_test_root="${PWD}/.shellspec-gpu-cache-$$"; mkdir -p "$gpu_test_root"; }
         teardown_gpu_cache() { rm -rf "$gpu_test_root"; }
         BeforeEach 'setup_gpu_cache'
         AfterEach 'teardown_gpu_cache'

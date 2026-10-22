@@ -17,7 +17,7 @@ import (
 func TestCustomerNvidiaDriverValidationRequiresStagedInstaller(t *testing.T) {
 	const expectedVersion = "580.159.04"
 	binDir := t.TempDir()
-	installerPath := filepath.Join(t.TempDir(), "nvidia-installer")
+	installerPath := filepath.Join(binDir, "nvidia-installer")
 	require.NoError(t, os.WriteFile(filepath.Join(binDir, "lsmod"), []byte("#!/bin/sh\nprintf 'nvidia 123 0\\n'\n"), 0o755))
 	sudo := fmt.Sprintf(`#!/bin/sh
 case "$1" in
