@@ -61,6 +61,18 @@ if [ -n "${NO_PROXY_URLS}" ]; then
     export no_proxy="${NO_PROXY_URLS}"
 fi
 
+updateCACertificates() {
+    # Package installation hooks rebuild the system CA trust store.
+    if isUbuntu "$OS"; then
+        apt_get_update || return "$ERR_APT_UPDATE_TIMEOUT"
+        apt_get_install 30 1 600 ca-certificates || return "$ERR_APT_INSTALL_TIMEOUT"
+    elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+        dnf_install 30 1 600 --refresh ca-certificates || return "$ERR_APT_INSTALL_TIMEOUT"
+    else
+        echo "Skipping CA package update for ${OS} ${OS_VARIANT}"
+    fi
+}
+
 # Disable a single kernel module with a known LPE vulnerability.
 # Writes a modprobe blacklist rule and unloads the module if loaded.
 # Safe to run repeatedly during VHD build or provisioning; idempotent (overwrites with same content if already present).
@@ -201,6 +213,7 @@ function basePrep {
     resolve_packages_source_url
     logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
+    logs_to_events "AKS.CSE.updateCACertificates" updateCACertificates
 
     logs_to_events "AKS.CSE.fetch_and_cache_imds_instance_metadata" fetch_and_cache_imds_instance_metadata
 
