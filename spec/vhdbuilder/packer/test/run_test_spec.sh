@@ -105,7 +105,7 @@ Describe 'Linux content-test Run Command parameters'
 End
 
 Describe 'Test VM credential log hygiene'
-  openssl() { printf 'KnownSecret+/=123\n'; }
+  openssl() { printf 'deadbeefcafebabe1234567890abcdef\n'; }
   az() { printf '%s\n' "$@" > "$AZ_ARGS"; }
 
   run_vm_create() (
@@ -130,11 +130,11 @@ Describe 'Test VM credential log hygiene'
     The status should be success
     The contents of file "$AZ_ARGS" should include 'vm'
     The contents of file "$AZ_ARGS" should include '--admin-password'
-    The contents of file "$AZ_ARGS" should include 'TestVM@KnownSecret123'
+    The contents of file "$AZ_ARGS" should include 'TestVM@deadbeefcafebabe1234567890abcdef'
     The contents of file "$AZ_ARGS" should not include '--debug'
     The output should include 'VHD test VM username: azureuser'
-    The output should not include 'KnownSecret'
+    The output should not include 'deadbeefcafebabe'
     The error should include "+ echo 'VHD test VM username: azureuser'"
-    The error should not include 'KnownSecret'
+    The error should not include 'deadbeefcafebabe'
   End
 End

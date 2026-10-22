@@ -24,8 +24,10 @@ fi
 echo "SIG image version ID from packer output: ${MANAGED_SIG_ID}"
 
 set +x
-# use a random, non-guessable admin password (prefix guarantees upper/lower/special to satisfy Azure VM complexity rules)
-TEST_VM_ADMIN_PASSWORD="TestVM@$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9')"
+# use a random, non-guessable admin password (prefix guarantees upper/lower/special to satisfy Azure VM complexity rules).
+# openssl rand -hex avoids piping through tr: under `set -e` without `pipefail`, a pipeline's exit status is
+# that of its last command, so a silent openssl failure would otherwise go undetected (tr succeeds on empty input).
+TEST_VM_ADMIN_PASSWORD="TestVM@$(openssl rand -hex 24)"
 set -x
 
 # For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure

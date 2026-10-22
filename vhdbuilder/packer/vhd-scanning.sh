@@ -61,8 +61,10 @@ else
 fi
 
 set +x
-# use a random, non-guessable admin password (prefix guarantees upper/lower/special to satisfy Azure VM complexity rules)
-SCAN_VM_ADMIN_PASSWORD="ScanVM@$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9')"
+# use a random, non-guessable admin password (prefix guarantees upper/lower/special to satisfy Azure VM complexity rules).
+# openssl rand -hex avoids piping through tr: under `set -e` without `pipefail`, a pipeline's exit status is
+# that of its last command, so a silent openssl failure would otherwise go undetected (tr succeeds on empty input).
+SCAN_VM_ADMIN_PASSWORD="ScanVM@$(openssl rand -hex 24)"
 set -x
 
 RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$CURRENT_TIME-$RANDOM"
