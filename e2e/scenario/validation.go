@@ -224,6 +224,10 @@ func ValidateServicePrincipalData(ctx context.Context, s *Scenario) error {
 }
 
 func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
+	return startPodAndCheckItRunsWithValidation(ctx, s, pod, nil)
+}
+
+func startPodAndCheckItRunsWithValidation(ctx context.Context, s *Scenario, pod *corev1.Pod, validate func() error) error {
 	kube := s.Runtime.Kube
 	pod = pod.DeepCopy()
 	pod.Name = uniqueKubernetesResourceName(pod.Name)
@@ -263,6 +267,9 @@ func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) e
 			pod.Name, pod.Namespace, s.Runtime.VM.KubeName, timeForReady.Round(time.Millisecond), readinessWarningThreshold))
 	logging.Logf(ctx, "node health validation: test pod %q in namespace %q is running on node %q",
 		pod.Name, pod.Namespace, s.Runtime.VM.KubeName)
+	if validate != nil {
+		return validate()
+	}
 	return nil
 }
 
