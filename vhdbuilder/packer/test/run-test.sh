@@ -154,7 +154,6 @@ else
   # disable tracing so the admin password isn't emitted to the build log
   set +x
   az vm create \
-      --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
