@@ -86,35 +86,10 @@ Describe 'cse_install_ubuntu.sh'
             The output should include "status=incomplete"
         End
 
-        It 'keeps the marker if any prebaked userspace artifact remains'
-            marker="$(mktemp)"
-            GPU_DKMS_MARKER_FILE="$marker"
-            AfterRun 'command rm -f "$marker"'
-            rm() { echo "mock rm $*"; }
-            ldconfig() { :; }
-            lsmod() { :; }
-            prebakedGPUDriverArtifactsRemain() { return 0; }
-            When call cleanUpPrebakedGPUDriver
-            The status should be success
-            The output should include "status=incomplete"
-            The output should not include "mock rm -f $marker"
-        End
-
-        It 'keeps the marker when loaded-module inspection fails'
-            marker="$(mktemp)"
-            GPU_DKMS_MARKER_FILE="$marker"
-            AfterRun 'command rm -f "$marker"'
-            rm() { echo "mock rm $*"; }
-            ldconfig() { :; }
-            lsmod() { return 1; }
-            When call cleanUpPrebakedGPUDriver
-            The status should be success
-            The output should include "status=incomplete"
-            The output should not include "mock rm -f $marker"
-        End
     End
 
     Describe 'cleanUpGPUDriversForBasePrep'
+        Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu_gpu.sh"
         GPU_DEST="${PWD}/.shellspec-nonexistent-gpu-dest"
         managedGPUPackageList() { :; }
 

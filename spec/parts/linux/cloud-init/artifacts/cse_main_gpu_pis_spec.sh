@@ -12,6 +12,7 @@ Describe 'GPU cleanup across PIS phases'
         PRE_PROVISION_ONLY=false
         skip_nvidia_driver_install=false
         BASE_PREP_RAN=false
+        printf '%s\n' 'cleanUpGPUDriversForBasePrep() { echo "basePrep driver cleanup"; return "${CLEANUP_STATUS:-0}"; }' > "${fixture}/provision_installs_ubuntu_gpu.sh"
     }
 
     run_phases() {
@@ -35,7 +36,8 @@ Describe 'GPU cleanup across PIS phases'
 
     run_base_prep_cleanup() {
         local cleanup
-        cleanup=$(sed -n '/    if \[ "${PRE_PROVISION_ONLY}" = "true" \] && \[ "${GPU_NODE}" != "true" \] &&/,/    fi/p' "$CSE_MAIN")
+        cleanup=$(sed -n '/    if \[ "${PRE_PROVISION_ONLY}" = "true" \] && \[ "${GPU_NODE}" != "true" \] &&/,/^    fi$/p' "$CSE_MAIN")
+        cleanup=${cleanup//\/opt\/azure\/containers\/provision_installs_ubuntu_gpu.sh/$fixture/provision_installs_ubuntu_gpu.sh}
         logs_to_events() { shift; "$@"; }
         cleanUpGPUDriversForBasePrep() { echo "basePrep driver cleanup"; return "${CLEANUP_STATUS:-0}"; }
         isMarinerOrAzureLinux() { [ "$OS" = azurelinux ]; }
@@ -92,6 +94,43 @@ Describe 'GPU cleanup across PIS phases'
         CLEANUP_STATUS=1
         When call run_base_prep_cleanup
         The status should equal 224
+        The output should include "basePrep driver cleanup"
+    End
+
+    It 'fails an Ubuntu bake without the required helper before customization'
+        PRE_PROVISION_ONLY=true
+        OS=ubuntu
+        rm "${fixture}/provision_installs_ubuntu_gpu.sh"
+        When call run_base_prep_cleanup
+        The status should equal 224
+        The output should include "image containing PIS GPU cleanup helper required"
+        The output should not include "basePrep driver cleanup"
+    End
+
+    It 'does not require the helper on an ordinary Ubuntu node'
+        OS=ubuntu
+        rm "${fixture}/provision_installs_ubuntu_gpu.sh"
+        When call run_base_prep_cleanup
+        The status should be success
+        The output should be blank
+    End
+
+    It 'does not require the helper for managed GPU image preparation'
+        PRE_PROVISION_ONLY=true
+        GPU_NODE=true
+        OS=ubuntu
+        rm "${fixture}/provision_installs_ubuntu_gpu.sh"
+        When call run_base_prep_cleanup
+        The status should be success
+        The output should be blank
+    End
+
+    It 'keeps Azure Linux bake cleanup independent of the Ubuntu helper'
+        PRE_PROVISION_ONLY=true
+        OS=azurelinux
+        rm "${fixture}/provision_installs_ubuntu_gpu.sh"
+        When call run_base_prep_cleanup
+        The status should be success
         The output should include "basePrep driver cleanup"
     End
 
