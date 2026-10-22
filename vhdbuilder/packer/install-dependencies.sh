@@ -721,6 +721,17 @@ cachePackageAndBinaryComponents() {
         # node-exporter is installed on the VHD so CSE only needs to enable+start it.
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
         ;;
+      "kmpp-containers"|"xdg-dbus-proxy")
+        # Azure Linux 3.0 only. Empty manifest entries skip every other OS,
+        # including OSGuard and Kata (azurelinuxkata falls back to default).
+        # Both stay dormant on the VHD; CSE enables them when ENABLE_KMPP=true.
+        source /home/packer/install-kmpp.sh
+        if [ "${name}" = "kmpp-containers" ]; then
+          installKMPP "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
+        else
+          installKMPPDbusProxy "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+        ;;
       "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
         # Ubuntu and Azure Linux 3 builders carry this helper. Empty manifest entries
         # leave other OSes (and unpublished targets) extension-managed.

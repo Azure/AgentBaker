@@ -390,6 +390,16 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-kmpp.sh",
+      "destination": "/home/packer/install-kmpp.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/kmpp/kmpp-dbus-proxy.service",
+      "destination": "/home/packer/kmpp-dbus-proxy.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/package-update.service",
       "destination": "/home/packer/snapshot-update.service"
     },
