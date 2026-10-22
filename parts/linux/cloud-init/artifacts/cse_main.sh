@@ -409,6 +409,13 @@ EOF
 
     if [ "${PRE_PROVISION_ONLY}" = "true" ] && [ "${GPU_NODE}" != "true" ] &&
        { [ "${OS}" = "${UBUNTU_OS_NAME}" ] || { isMarinerOrAzureLinux "$OS" "$OS_VARIANT" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; }; }; then
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+            if [ ! -r /opt/azure/containers/provision_installs_ubuntu_gpu.sh ]; then
+                echo "image containing PIS GPU cleanup helper required"
+                exit $ERR_NVIDIA_DRIVER_INSTALL
+            fi
+            source /opt/azure/containers/provision_installs_ubuntu_gpu.sh || exit $ERR_NVIDIA_DRIVER_INSTALL
+        fi
         logs_to_events "AKS.CSE.cleanUpGPUDriversForBasePrep" cleanUpGPUDriversForBasePrep || exit $ERR_NVIDIA_DRIVER_INSTALL
     fi
 

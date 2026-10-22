@@ -189,6 +189,12 @@ configureServiceExecutionTelemetryForSystemdVersion() {
   done
 }
 
+copyUbuntuGPUCleanupHelper() {
+  if isUbuntu "$OS"; then
+    cpAndMode /home/packer/provision_installs_ubuntu_gpu.sh /opt/azure/containers/provision_installs_ubuntu_gpu.sh 0744
+  fi
+}
+
 copyPackerFiles() {
   SYSCTL_CONFIG_SRC=/home/packer/sysctl-d-60-CIS.conf
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
@@ -487,6 +493,7 @@ copyPackerFiles() {
   CSE_INSTALL_DISTRO_SRC=/home/packer/provision_installs_distro.sh
   CSE_INSTALL_DISTRO_DEST=/opt/azure/containers/provision_installs_distro.sh
   cpAndMode $CSE_INSTALL_DISTRO_SRC $CSE_INSTALL_DISTRO_DEST 0744
+  copyUbuntuGPUCleanupHelper
 
   CSE_HELPERS_SRC=/home/packer/provision_source.sh
   CSE_HELPERS_DEST=/opt/azure/containers/provision_source.sh
