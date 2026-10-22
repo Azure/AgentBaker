@@ -514,8 +514,8 @@ configureK8s() {
             # Guard both operations: if either fails, stop before writing the private key
             # rather than silently falling through and writing it with whatever (possibly
             # world-readable) permissions the file ended up with.
-            (umask 077 && touch "${client_key_path}") || return 1
-            chmod 0600 "${client_key_path}" || return 1
+            (umask 077 && touch "${client_key_path}") || return "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
+            chmod 0600 "${client_key_path}" || return "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
             echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > "${client_key_path}"
         fi
         if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then

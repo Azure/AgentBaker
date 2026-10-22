@@ -449,7 +449,7 @@ function nodePrep {
 
     # This function first creates the systemd drop-in directory for kubelet.service.
     # Pay attention to ordering relative to other functions that create kubelet drop-ins.
-    logs_to_events "AKS.CSE.configureK8s" configureK8s
+    logs_to_events "AKS.CSE.configureK8s" configureK8s || exit "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient

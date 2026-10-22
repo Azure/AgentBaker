@@ -911,7 +911,7 @@ PubkeyAuthentication no"
 
             When call invoke_configureK8s
 
-            The status should be failure
+            The status should equal "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
             # touch still ran before the guarded chmod, so an empty file may exist;
             # what matters is the secret content was never written into it.
             The contents of file "${CLIENT_KEY_PATH}" should not equal 'client-key'
@@ -922,7 +922,7 @@ PubkeyAuthentication no"
 
             When call invoke_configureK8s
 
-            The status should be failure
+            The status should equal "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
             The path "${CLIENT_KEY_PATH}" should not be exist
         End
     End
