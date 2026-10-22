@@ -3,6 +3,66 @@
 
 # ShellSpec tests for content-test helpers and call sites
 
+Describe 'Azure Linux CA certificate mitigation'
+  BeforeAll "eval \"\$(sed -n '/^testCACertificatesEMudhraMitigation()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  OS_SKU=AzureLinux
+  OS_VERSION=3.0
+
+  err() {
+    echo "$1:Error: $2" >&2
+  }
+
+  rpm() {
+    if [ "$*" = "-q --queryformat %{EPOCHNUM}:%{VERSION}-%{RELEASE} ca-certificates" ]; then
+      [ "$installed" != missing ] || return 1
+      printf '%s' "$installed"
+    elif [ "$1" = --eval ] && [ "$2" = "%{lua:print(rpm.vercmp('$installed', '1:3.0.0-19.azl3'))}" ]; then
+      [ "$mockComparison" != error ] || return 1
+      printf '%s' "$mockComparison"
+    else
+      echo "Unexpected rpm arguments: $*" >&2
+      return 1
+    fi
+  }
+
+  Context 'fixed packages'
+    Parameters
+      '1:3.0.0-19.azl3' 0
+      '1:3.0.0-20.azl3' 1
+      '2:3.0.0-1.azl3' 1
+    End
+
+    It 'accepts the fixed version or newer including epoch changes'
+      installed="$1"
+      mockComparison="$2"
+      When call testCACertificatesEMudhraMitigation
+      The status should be success
+      The output should include 'testCACertificatesEMudhraMitigation:Finish'
+      The stderr should be blank
+    End
+  End
+
+  Context 'unfixed or unreadable packages'
+    Parameters
+      '1:3.0.0-18.azl3' -1
+      '0:3.0.0-20.azl3' -1
+      missing error
+      '1:3.0.0-19.azl3' error
+      '1:3.0.0-19.azl3' invalid
+    End
+
+    It 'reports a content-test failure'
+      installed="$1"
+      mockComparison="$2"
+      When call testCACertificatesEMudhraMitigation
+      The status should be failure
+      The output should include 'testCACertificatesEMudhraMitigation:Start'
+      The stderr should include 'testCACertificatesEMudhraMitigation:Error:'
+    End
+  End
+End
+
 Describe 'Linux content-test legacy parameters'
   read_legacy_parameters() {
     eval "$(sed -n '/^OS_VERSION=/,/^AGENTBAKER_REPOSITORY_URL=/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)"
