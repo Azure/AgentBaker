@@ -41,6 +41,48 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+func ValidateKubeletConfigFile(ctx context.Context, s *Scenario) error {
+	if !s.KubeletConfigFileEnabled() {
+		return nil
+	}
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `set -euo pipefail
+systemctl is-active --quiet kubelet
+pid=$(systemctl show kubelet --property MainPID --value)
+test "$pid" -gt 0
+sudo cat /proc/"$pid"/cmdline | tr '\000' '\n'
+`, 0, "could not inspect running kubelet")
+	if err != nil {
+		return err
+	}
+	const configPath = "/etc/default/kubeletconfig.json"
+	args := strings.Fields(result.stdout)
+	hasConfig := false
+	for i, arg := range args {
+		if arg == "--config="+configPath || (arg == "--config" && i+1 < len(args) && args[i+1] == configPath) {
+			hasConfig = true
+			break
+		}
+	}
+	if !hasConfig {
+		return fmt.Errorf("running kubelet does not use --config %s", configPath)
+	}
+	content, err := getFileContent(ctx, s, configPath)
+	if err != nil {
+		return err
+	}
+	var config struct {
+		Kind       string `json:"kind"`
+		APIVersion string `json:"apiVersion"`
+	}
+	if err := json.Unmarshal([]byte(content), &config); err != nil {
+		return fmt.Errorf("decode kubelet configuration file: %w", err)
+	}
+	if config.Kind != "KubeletConfiguration" || config.APIVersion != "kubelet.config.k8s.io/v1beta1" {
+		return fmt.Errorf("unexpected kubelet configuration file type: %+v", config)
+	}
+	return nil
+}
+
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) error {
 	switch s.VHD.OS {
 	case config.OSWindows:
@@ -93,6 +135,11 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 		errs = append(errs, ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true"))
 	} else {
 		errs = append(errs, ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true"))
+	}
+	if s.RemoveBoostrapKubeconfig() {
+		errs = append(errs, ValidateFileDoesNotExist(ctx, s, "/var/lib/kubelet/bootstrap-kubeconfig"))
+	} else {
+		errs = append(errs, ValidateFileExists(ctx, s, "/var/lib/kubelet/bootstrap-kubeconfig"))
 	}
 	errs = append(errs,
 		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"}),
@@ -918,20 +965,10 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 }
 
 func ValidateReportReadyRan(ctx context.Context, s *Scenario) error {
-	const reportReadyPath = "/opt/azure/containers/report_ready.py"
-	if _, err := execScriptOnVMForScenarioValidateExitCode(
-		ctx,
-		s,
-		"sudo test -x "+reportReadyPath,
-		0,
-		reportReadyPath+" is missing or not executable on the VHD",
-	); err != nil {
-		return err
-	}
 	return ValidateFileHasContent(
 		ctx,
 		s,
-		"/var/log/azure/aks-node-controller.output",
+		"/var/log/azure/aks-node-controller.log",
 		"Successfully reported Ready to Azure fabric.",
 	)
 }

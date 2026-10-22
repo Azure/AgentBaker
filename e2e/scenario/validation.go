@@ -50,6 +50,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 	defer logging.LogStep(ctx, "running common Linux validation")()
 
 	parallelErr := runValidators(ctx, s,
+		ValidateKubeletConfigFile,
 		ValidateTLSBootstrapping,
 		ValidateKubeletServingCertificateRotation,
 		ValidateSystemdWatchdogForKubernetes132Plus,

@@ -279,6 +279,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh",
+      "destination": "/home/packer/remove-bootstrap-kubeconfig.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
@@ -286,11 +291,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_send_logs.py",
       "destination": "/home/packer/cse_send_logs.py"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/report_ready.py",
-      "destination": "/home/packer/report_ready.py"
     },
     {
       "type": "file",

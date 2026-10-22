@@ -81,8 +81,8 @@ chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 # Patched cloud-init consumes the CustomData marker above before this boothook runs.
 # WALinuxAgent reports Ready independently once ovf-env.xml and the SSH host key exist.
 # A sentinel matching this instance's id makes it skip that report, leaving
-# report_ready.py as the only reporter.
-if [ -x /opt/azure/containers/report_ready.py ] && [ -s /sys/class/dmi/id/product_uuid ]; then
+# aks-node-controller as the only reporter.
+if [ -s /sys/class/dmi/id/product_uuid ]; then
     cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
     chmod 0644 /var/lib/waagent/provisioned
 fi`
@@ -1016,6 +1016,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return ""
 			}
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
+		},
+		"RemoveBootstrapKubeconfig": func() bool {
+			return config.RemoveBootstrapKubeconfig
 		},
 		"EnableKubeletServingCertificateRotation": func() bool {
 			return IsKubeletServingCertificateRotationEnabled(config)

@@ -330,6 +330,8 @@ copyPackerFiles() {
   EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST=/etc/systemd/system/emit-kubelet-active-flags.service
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
+  REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_SRC=/home/packer/remove-bootstrap-kubeconfig.sh
+  REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_DEST=/opt/azure/containers/remove-bootstrap-kubeconfig.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
@@ -364,10 +366,6 @@ copyPackerFiles() {
   CSE_SEND_SRC=/home/packer/cse_send_logs.py
   CSE_SEND_DEST=/opt/azure/containers/provision_send_logs.py
   cpAndMode $CSE_SEND_SRC $CSE_SEND_DEST 0744
-
-  REPORT_READY_SRC=/home/packer/report_ready.py
-  REPORT_READY_DEST=/opt/azure/containers/report_ready.py
-  cpAndMode $REPORT_READY_SRC $REPORT_READY_DEST 0744
 
   FETCH_PROVISION_CONFIG_SRC=/home/packer/fetch_provision_config.py
   FETCH_PROVISION_CONFIG_DEST=/opt/azure/containers/fetch_provision_config.py
@@ -660,6 +658,7 @@ copyPackerFiles() {
   cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_DEST 755
   cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST 644
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
+  cpAndMode $REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_SRC $REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   copyMGLRUConfig

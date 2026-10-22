@@ -52,15 +52,11 @@ func init() {
 				AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 					config.LocalDnsProfile.EnableHostsPlugin = true
 					config.LocalDnsProfile.EnableLocalDns = true
-					config.KubeletConfig.KubeletFlags["--cluster-dns"] = localDNSClusterListenerIP
-					// The flag alone is not parity with the CSE path. '--cluster-dns' is in
-					// pkg/agent.TranslatedKubeletConfigFlags, so on the CSE path setting the
-					// flag also rewrites KubeletConfiguration.clusterDNS in the kubelet config
-					// file. On the ANC path the flag and the config-file field are independent
-					// proto fields, so the flag alone leaves clusterDNS at the cluster default
-					// and the two paths emit different KUBELET_CONFIG_FILE_CONTENT -- which the
-					// provision-config/nbc-cmd env parity validator fails on.
-					config.KubeletConfig.KubeletConfigFileConfig.ClusterDns = []string{localDNSClusterListenerIP}
+					if config.KubeletConfig.EnableKubeletConfigFile {
+						config.KubeletConfig.KubeletConfigFileConfig.ClusterDns = []string{localDNSClusterListenerIP}
+					} else {
+						config.KubeletConfig.KubeletFlags["--cluster-dns"] = localDNSClusterListenerIP
+					}
 				},
 				VMConfigMutator: tt.vmConfigMutator,
 				Validator: func(ctx context.Context, s *Scenario) error {

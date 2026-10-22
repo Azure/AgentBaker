@@ -17,6 +17,7 @@ limitations under the License.
 package parser
 
 import (
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
@@ -28,8 +29,11 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 var expectedKubeletConfigFlags = "--address=0.0.0.0" +
@@ -199,6 +203,180 @@ net.ipv4.tcp_retries2=8
 			if got := getSysctlContent(tt.args.s); got != tt.want {
 				t.Errorf("getSysctlContent() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestSysctlSettingsRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		json string
+		want map[string]string
+	}{
+		{
+			name: "omitted sysctl config",
+			json: `{}`,
+		},
+		{
+			name: "empty sysctl config",
+			json: `{"sysctlConfig": {}}`,
+		},
+		{
+			name: "custom settings",
+			json: `{"sysctlConfig": {
+				"fsInotifyMaxUserInstances": 2048,
+				"netIpv4TcpFinTimeout": 30,
+				"netIpv4TcpRmem": "4096 131072 6291456",
+				"netIpv4IpLocalReservedPorts": "30000-31000,32000",
+				"netIpv4TcpRetries2": 12
+			}}`,
+			want: map[string]string{
+				"fs.inotify.max_user_instances":    "2048",
+				"net.ipv4.tcp_fin_timeout":         "30",
+				"net.ipv4.tcp_rmem":                "4096 131072 6291456",
+				"net.ipv4.ip_local_reserved_ports": "30000-31000,32000",
+				"net.ipv4.tcp_retries2":            "12",
+			},
+		},
+		{
+			name: "explicit zero values preserve presence",
+			json: `{"sysctlConfig": {
+				"fsInotifyMaxUserInstances": 0,
+				"netIpv4TcpFinTimeout": 0,
+				"netIpv4TcpRetries2": 0
+			}}`,
+			want: map[string]string{
+				"fs.inotify.max_user_instances": "0",
+				"net.ipv4.tcp_fin_timeout":      "0",
+				"net.ipv4.tcp_retries2":         "0",
+			},
+		},
+		{
+			name: "explicit empty reservations",
+			json: `{"sysctlConfig": {"netIpv4IpLocalReservedPorts": ""}}`,
+			want: map[string]string{"net.ipv4.ip_local_reserved_ports": ""},
+		},
+		{
+			name: "automatic reservation unchanged",
+			json: `{"sysctlConfig": {"netIpv4IpLocalPortRange": "32768 65400"}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "65330",
+			},
+		},
+		{
+			name: "customer reservations retain automatic port",
+			json: `{"sysctlConfig": {
+				"netIpv4IpLocalPortRange": "32768 65400",
+				"netIpv4IpLocalReservedPorts": "30000-31000,32000"
+			}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "30000-31000,32000,65330",
+			},
+		},
+		{
+			name: "empty reservations retain automatic port",
+			json: `{"sysctlConfig": {
+				"netIpv4IpLocalPortRange": "32768 65400",
+				"netIpv4IpLocalReservedPorts": ""
+			}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "65330",
+			},
+		},
+		{
+			name: "existing automatic port not duplicated",
+			json: `{"sysctlConfig": {
+				"netIpv4IpLocalPortRange": "32768 65400",
+				"netIpv4IpLocalReservedPorts": "32000,65330"
+			}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "32000,65330",
+			},
+		},
+		{
+			name: "range covering automatic port not duplicated",
+			json: `{"sysctlConfig": {
+				"netIpv4IpLocalPortRange": "32768 65400",
+				"netIpv4IpLocalReservedPorts": "65300-65400"
+			}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "65300-65400",
+			},
+		},
+		{
+			name: "automatic reservation threshold unchanged",
+			json: `{"sysctlConfig": {"netIpv4IpLocalPortRange": "32768 65330"}}`,
+			want: map[string]string{"net.ipv4.ip_local_port_range": "32768 65330"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := []byte(`{"kubernetesVersion":"1.34.0","customLinuxOsConfig":` + test.json + `}`)
+			config, err := nodeconfigutils.UnmarshalConfigurationV1(payload)
+			require.NoError(t, err)
+			encoded, err := nodeconfigutils.MarshalConfigurationV1(config)
+			require.NoError(t, err)
+			restored, err := nodeconfigutils.UnmarshalConfigurationV1(encoded)
+			require.NoError(t, err)
+			require.True(t, proto.Equal(config, restored))
+			wire, err := proto.Marshal(restored)
+			require.NoError(t, err)
+			decoded := &aksnodeconfigv1.Configuration{}
+			require.NoError(t, proto.Unmarshal(wire, decoded))
+			require.True(t, proto.Equal(config, decoded))
+
+			command, err := BuildCSECmd(context.Background(), decoded, nil)
+			require.NoError(t, err)
+			content, err := base64.StdEncoding.DecodeString(environToMap(command.Env)["SYSCTL_CONTENT"])
+			require.NoError(t, err)
+			require.True(t, strings.HasSuffix(string(content), "\n"))
+			want := map[string]string{
+				"net.core.message_burst":            "80",
+				"net.core.message_cost":             "40",
+				"net.core.somaxconn":                "16384",
+				"net.ipv4.neigh.default.gc_thresh1": "4096",
+				"net.ipv4.neigh.default.gc_thresh2": "8192",
+				"net.ipv4.neigh.default.gc_thresh3": "16384",
+				"net.ipv4.tcp_max_syn_backlog":      "16384",
+				"net.ipv4.tcp_retries2":             "8",
+			}
+			for key, value := range test.want {
+				want[key] = value
+			}
+			got := make(map[string]string)
+			for _, line := range strings.Split(strings.TrimSuffix(string(content), "\n"), "\n") {
+				key, value, ok := strings.Cut(line, "=")
+				require.True(t, ok, "expected key=value: %q", line)
+				require.NotContains(t, got, key, "duplicate sysctl key")
+				got[key] = value
+			}
+			require.Equal(t, want, got)
+		})
+	}
+}
+
+func TestReservedPortsContain(t *testing.T) {
+	for _, test := range []struct {
+		ports string
+		want  bool
+	}{
+		{"", false},
+		{"6533", false},
+		{"16533", false},
+		{"65330", true},
+		{"32000,65330", true},
+		{"65330-65400", true},
+		{"65000-65330", true},
+		{"65000-65329", false},
+		{"65331-65400", false},
+	} {
+		t.Run(test.ports, func(t *testing.T) {
+			require.Equal(t, test.want, reservedPortsContain(test.ports, ipLocalReservedPorts))
 		})
 	}
 }
