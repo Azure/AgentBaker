@@ -275,6 +275,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh",
+      "destination": "/home/packer/remove-bootstrap-kubeconfig.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
@@ -747,6 +752,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/security-update.sh",
       "destination": "/home/packer/security-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/npd-update.sh",
+      "destination": "/home/packer/npd-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-npd.sh",
+      "destination": "/home/packer/install-npd.sh"
     },
     {
       "type": "file",

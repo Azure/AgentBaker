@@ -11,6 +11,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"gopkg.in/yaml.v3"
 )
 
 type platform struct {
@@ -41,6 +42,7 @@ func main() {
 		fatalf("create output directory: %v", err)
 	}
 
+	written := 0
 	for _, target := range platforms {
 		rendered, err := agent.RenderLinuxNodeCustomDataTemplate(
 			templateContent,
@@ -53,9 +55,29 @@ func main() {
 			*outputDir,
 			"rendered_nodecustomdata_"+target.name+".yml",
 		)
+		var payload struct {
+			WriteFiles []yaml.Node `yaml:"write_files"`
+		}
+		if err := yaml.Unmarshal([]byte(rendered), &payload); err != nil {
+			fatalf("parse %s nodecustomdata: %v", target.name, err)
+		}
+		if len(payload.WriteFiles) == 0 {
+			fmt.Fprintf(os.Stderr, "Skipping %s nodecustomdata: no write_files entries\n", target.name)
+			if err := os.Remove(outputPath); err != nil && !os.IsNotExist(err) {
+				fatalf("remove empty %s nodecustomdata: %v", target.name, err)
+			}
+			continue
+		}
 		//nolint:gosec // The caller intentionally selects the output directory; filenames are fixed by this tool.
 		if err := os.WriteFile(outputPath, []byte(rendered), 0o600); err != nil {
 			fatalf("write %s nodecustomdata: %v", target.name, err)
+		}
+		written++
+	}
+	if written == 0 {
+		// Keep at least one file for embedding when every platform is empty.
+		if err := os.WriteFile(filepath.Join(*outputDir, "README"), []byte("No applicable script hotfix payloads.\n"), 0o600); err != nil {
+			fatalf("write empty payload placeholder: %v", err)
 		}
 	}
 }

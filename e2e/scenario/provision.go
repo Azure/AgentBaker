@@ -210,17 +210,34 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	if _, err := CachedEnsureResourceGroup(ctx, s.Location); err != nil {
 		return fmt.Errorf("ensure resource group: %w", err)
 	}
-	if _, err := CachedCreateVMManagedIdentity(ctx, s.Location); err != nil {
-		return fmt.Errorf("create VM managed identity: %w", err)
-	}
 	defer logging.LogStep(ctx, "running scenario")()
 
-	cluster, err := s.Config.Cluster(ctx, ClusterRequest{
-		Location:         s.Location,
-		K8sSystemPoolSKU: s.K8sSystemPoolSKU,
-	})
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var cluster *Cluster
+	err := runConcurrent(ctx,
+		func(ctx context.Context) error {
+			_, err := CachedCreateVMManagedIdentity(ctx, s.Location)
+			if err != nil {
+				return fmt.Errorf("create VM managed identity: %w", err)
+			}
+			return nil
+		},
+		func(ctx context.Context) error {
+			var err error
+			cluster, err = s.Config.Cluster(ctx, ClusterRequest{
+				Location:         s.Location,
+				K8sSystemPoolSKU: s.K8sSystemPoolSKU,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to get cluster: %w", err)
+			}
+			return nil
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to get cluster: %w", err)
+		return err
 	}
 
 	// in some edge cases cluster cache is broken and nil cluster is returned
@@ -342,26 +359,20 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys, publicKeyData)
 	}
 
-	gen2Only, err := CachedIsVMSizeGen2Only(ctx, VMSizeSKURequest{
-		Location: s.Location,
-		VMSize:   s.Runtime.VMSize,
-	})
+	sku, err := getVMSizeSKU(ctx, s.Location, s.Runtime.VMSize)
 	if err != nil {
 		return nil, fmt.Errorf("checking if VM size %q supports only Gen2: %w", s.Runtime.VMSize, err)
 	}
-	if gen2Only && s.Config.VHD.UnsupportedGen2 {
+	if config.SkuSupportsOnlyGen2(sku) && s.Config.VHD.UnsupportedGen2 {
 		logging.Logf(ctx, "VM size %q only supports Gen2 hypervisor but image does not, falling back to vm size that supports Gen1 %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
 		s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
 		nbc.AgentPoolProfile.VMSize = config.Config.Gen1SCSIVMSKU
 	}
-	supportsNVMe, err := CachedVMSizeSupportsNVMe(ctx, VMSizeSKURequest{
-		Location: s.Location,
-		VMSize:   s.Runtime.VMSize,
-	})
+	sku, err = getVMSizeSKU(ctx, s.Location, s.Runtime.VMSize)
 	if err != nil {
 		return nil, fmt.Errorf("checking if VM size %q supports only NVMe: %w", s.Runtime.VMSize, err)
 	}
-	if supportsNVMe {
+	if config.SkuSupportsNVMe(sku) {
 		if s.Config.VHD.UnsupportedNVMe {
 			logging.Logf(ctx, "VM size %q supports NVMe disk controller but image does not support NVMe, falling back to vm size that supports SCSI %q", s.Runtime.VMSize, config.Config.Gen1SCSIVMSKU)
 			s.Runtime.VMSize = config.Config.Gen1SCSIVMSKU
@@ -384,8 +395,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		return nil, fmt.Errorf("create vmss %q returned an incomplete VM", s.Runtime.VMSSName)
 	}
 
-	if err := getCustomScriptExtensionStatus(ctx, s, scenarioVM.VM); err != nil {
-		return scenarioVM, err
+	if !s.Runtime.NBC.IsCustomDataOnlyProvisioningEnabled() {
+		if err := getCustomScriptExtensionStatus(ctx, s, scenarioVM.VM); err != nil {
+			return scenarioVM, err
+		}
 	}
 
 	if !s.Config.SkipDefaultValidation {
@@ -454,13 +467,19 @@ func ValidateNodeCanRunAPod(ctx context.Context, s *Scenario) error {
 				return err
 			}
 		}
+		var checks []func(context.Context) error
 		for i, pod := range serverCorePods {
-			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("servercore%d", i), pod), numberRetries))
+			checks = append(checks, func(ctx context.Context) error {
+				return ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("servercore%d", i), pod), numberRetries)
+			})
 		}
 
 		for i, pod := range nanoServerPods {
-			errs = append(errs, ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("nanoserver%d", i), pod), numberRetries))
+			checks = append(checks, func(ctx context.Context) error {
+				return ValidatePodRunningWithRetry(ctx, s, debugPodWindows(s, fmt.Sprintf("nanoserver%d", i), pod), numberRetries)
+			})
 		}
+		errs = append(errs, runConcurrent(ctx, checks...))
 	} else {
 		errs = append(errs, ValidatePodRunningWithRetry(ctx, s, podHTTPServerLinux(s), numberRetries))
 	}
@@ -811,6 +830,25 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	}
 	view := *getResp.Properties.InstanceView
 	return view, runCommandScriptError(view)
+}
+
+func RestartVMSSVM(ctx context.Context, s *Scenario) error {
+	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
+		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
+		s.Runtime.VM == nil || s.Runtime.VM.VM == nil || s.Runtime.VM.VM.InstanceID == nil {
+		return fmt.Errorf("scenario runtime is incomplete for VMSS VM restart")
+	}
+
+	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+	instanceID := *s.Runtime.VM.VM.InstanceID
+	poller, err := config.Azure.VMSSVM.BeginRestart(ctx, rg, s.Runtime.VMSSName, instanceID, nil)
+	if err != nil {
+		return fmt.Errorf("begin VMSS VM restart: %w", err)
+	}
+	if _, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
+		return fmt.Errorf("restart VMSS VM: %w", err)
+	}
+	return nil
 }
 
 // runCommandScriptError converts a RunCommand instance view into an error if the

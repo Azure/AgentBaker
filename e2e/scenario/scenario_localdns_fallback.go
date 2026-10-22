@@ -37,10 +37,11 @@ func init() {
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 				config.LocalDnsProfile.EnableLocalDns = true
-				config.KubeletConfig.KubeletFlags["--cluster-dns"] = localDNSClusterListenerIP
-				// See the note in scenario_localdns_hosts.go: the flag alone is not
-				// parity with the CSE path, and the env parity validator fails on it.
-				config.KubeletConfig.KubeletConfigFileConfig.ClusterDns = []string{localDNSClusterListenerIP}
+				if config.KubeletConfig.EnableKubeletConfigFile {
+					config.KubeletConfig.KubeletConfigFileConfig.ClusterDns = []string{localDNSClusterListenerIP}
+				} else {
+					config.KubeletConfig.KubeletFlags["--cluster-dns"] = localDNSClusterListenerIP
+				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return validateLocalDNSCorefileStartupFailure(ctx, s)

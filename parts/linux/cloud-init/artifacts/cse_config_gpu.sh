@@ -101,9 +101,17 @@ configGPUDrivers() {
 
     systemctlEnableAndStart containerd 30 || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 
-    # NPD is installed as a VM extension, which might happen before/after/during CSE, so this
-    # line may fail. This will need to be updated when NPD is shipped in the VHD - we can control
-    # the startup ordering in that case.
+    restartExtensionManagedNPD
+}
+
+# Extension-managed NPD may be installed before/after/during CSE, so this restart
+# may fail. VHD-baked NPD (skip_vhd_npd) is started later by
+# configureNodeProblemDetector, after kubelet and GPU setup; starting it here
+# would also pull in kubelet (Wants=kubelet.service) before it is configured.
+restartExtensionManagedNPD() {
+    if [ -f "${NPD_SKIP_FILE:-/etc/node-problem-detector.d/skip_vhd_npd}" ]; then
+        return 0
+    fi
     systemctl restart node-problem-detector || true
 }
 
@@ -439,7 +447,18 @@ EOF
         local NODE_NAME_DRA
         NODE_NAME_DRA=$(echo "${NODE_NAME}" | tr '[:upper:]' '[:lower:]')
 
-        tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
+        # If either GPU_INSTANCE_PROFILE or NVIDIA_MIG_PROFILE_LAYOUT is set, start the DRA driver after MIG is ready.
+        if [ -n "${GPU_INSTANCE_PROFILE}" ] || [ -n "${NVIDIA_MIG_PROFILE_LAYOUT}" ]; then
+            tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
+[Unit]
+Requires=kubelet.service
+After=mig-partition.service kubelet.service
+[Service]
+ExecStart=
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME_DRA}
+EOF
+        else
+            tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
 [Unit]
 Requires=kubelet.service
 After=kubelet.service
@@ -447,7 +466,7 @@ After=kubelet.service
 ExecStart=
 ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME_DRA}
 EOF
-
+        fi
         # Reload systemd to pick up the override
         systemctl daemon-reload
 

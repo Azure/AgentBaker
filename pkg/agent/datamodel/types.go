@@ -162,6 +162,7 @@ const (
 	AKSCBLMarinerV2Gen2Kata                 Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSAzureLinuxV2Gen2Kata                 Distro = "aks-azurelinux-v2-gen2-kata"
 	AKSAzureLinuxV3Gen2Kata                 Distro = "aks-azurelinux-v3-gen2-kata"
+	AKSAzureLinuxV3Gen2KataCC               Distro = "aks-azurelinux-v3-gen2-kata-cc"
 	AKSCBLMarinerV2Gen2TL                   Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL                   Distro = "aks-azurelinux-v2-gen2-tl"
 	AKSAzureLinuxV3Gen2TL                   Distro = "aks-azurelinux-v3-gen2-tl"
@@ -255,6 +256,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV3Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSAzureLinuxV2Gen2Kata,
+	AKSAzureLinuxV3Gen2KataCC,
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
@@ -329,8 +331,8 @@ func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV2Gen2Kata ||
-		d == AKSCBLMarinerV2KataGen2TL || d == AKSACLKataGen2TL || d == CustomizedImageKata
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV3Gen2KataCC ||
+		d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == AKSACLKataGen2TL || d == CustomizedImageKata
 }
 
 func (d Distro) IsFlatcarDistro() bool {
@@ -1771,27 +1773,33 @@ type NodeBootstrappingConfiguration struct {
 	kubeconfig. */
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping.
 	KubeletClientTLSBootstrapToken *string
-	SecureTLSBootstrappingConfig   *SecureTLSBootstrappingConfig
-	FIPSEnabled                    bool
-	HTTPProxyConfig                *HTTPProxyConfig
-	KubeletConfig                  map[string]string
-	KubeproxyConfig                map[string]string
-	EnableRuncShimV2               bool
-	GPUInstanceProfile             string
-	PrimaryScaleSetName            string
-	SIGConfig                      SIGConfig
-	IsARM64                        bool
-	CustomCATrustConfig            *CustomCATrustConfig
-	DisableUnattendedUpgrades      bool
-	SSHStatus                      SSHStatus
-	DisableCustomData              bool
-	OutboundType                   string
-	EnableIMDSRestriction          bool
+	// RemoveBootstrapKubeconfig determines whether we will remove/cleanup kubelet's bootstrap-kubeconfig
+	// after kubelet successfuly bootstraps its initial client certificate via either form of TLS bootstrapping.
+	RemoveBootstrapKubeconfig    bool
+	SecureTLSBootstrappingConfig *SecureTLSBootstrappingConfig
+	FIPSEnabled                  bool
+	HTTPProxyConfig              *HTTPProxyConfig
+	KubeletConfig                map[string]string
+	KubeproxyConfig              map[string]string
+	EnableRuncShimV2             bool
+	GPUInstanceProfile           string
+	PrimaryScaleSetName          string
+	SIGConfig                    SIGConfig
+	IsARM64                      bool
+	CustomCATrustConfig          *CustomCATrustConfig
+	DisableUnattendedUpgrades    bool
+	SSHStatus                    SSHStatus
+	DisableCustomData            bool
+	OutboundType                 string
+	EnableIMDSRestriction        bool
 	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
 	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+	// EnableKMPP enables the KMPP key isolation service and its filtered D-Bus proxy on the node.
+	// Set by RP when the Azure Key Vault Secrets Store addon runs in KMPP mode. Azure Linux 3.0 only.
+	EnableKMPP bool
 	// EnabledFeatures is a generic set of feature toggles delivered to the node as KEY=VALUE
 	// lines in enabled_features.sh, which the aks-node-controller wrapper reads and exports as
 	// environment variables (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true") to gate provisioning
@@ -1831,12 +1839,26 @@ type NodeBootstrappingConfiguration struct {
 	// Otherwise, it is optional and accompanies the NBC command for Phase 2.5 comparison.
 	AKSNodeConfigJSON string
 
+	// CustomDataOnlyProvisioning indicates whether the node should be provisioned using only custom data.
+	// When true, the node will not rely on CSE for reporting provisioning status.
+	// Linux validation disables this for Flatcar, ACL, and Azure Linux, including in scriptless Phase 3.
+	CustomDataOnlyProvisioning bool
+
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
 	// interfaces configured on the agent pool. The node bootstrapping scripts use
 	// this to detect and configure the additional NICs at the OS level.
 	// Dynamic-type secondary NICs are not included in this count as they are
 	// configured by CNS rather than the node bootstrapping scripts.
 	StandardSecondaryNICCount int
+
+	// RouteTableName overrides the derived CSE route table name when non-nil, including an empty value.
+	RouteTableName *string
+	// SubnetName overrides the derived CSE subnet name when non-nil, including an empty value.
+	SubnetName *string
+}
+
+func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
+	return c != nil && c.CustomDataOnlyProvisioning
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {

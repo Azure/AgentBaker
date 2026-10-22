@@ -82,6 +82,11 @@ allowed for forward compatibility. NBC execution is unchanged. Phase 2.5 still
 executes NBC and compares against the normalized AKSNodeConfig path.
 The root AgentBaker module does not depend on ANC.
 
+Phase 2.5 accepts comparison differences for `GPU_IMAGE_SHA`, `SUBNET`
+(`SubnetName`), `ROUTE_TABLE` (`RouteTableName`), and `VM_TYPE`, including variables present
+only in NBC. This suppresses comparison diffs; it does not correct source values
+or change rendering. Variables present only in provision-config are still reported.
+
 ### Direct config delivery
 
 Here is an example of how to retrieve node bootstrapping parameters and use the returned `CSE` and `CustomData` for creating a Virtual Machine Scale Set (VMSS) instance via the CRP API.
@@ -217,6 +222,7 @@ Key components:
 2. `aks-node-controller` go binary with two modes:
 
 - **provision**: Parses the node configuration and starts the bootstrap sequence.
+    - When `/var/lib/waagent/experimental_skip_ready_report` marks an active readiness handoff, ANC reports provisioning status directly in Go (`goal_state.go`), without a Python script. It writes Hyper-V KVP diagnostics and sends a GoalState health report to Azure wireserver: `Ready` on success, or `NotReady` with `ProvisioningFailed` on failure, including failures before the provisioning command starts. HTTP reporting uses three attempts with five-second retry delays and 30-second request timeouts, without a proxy. KVP and HTTP reporting errors are logged without replacing the original provisioning result, and dry runs do not send reports.
     - The controller performs a tolerant (forward‑compatible) parse of `aksnodeconfigv1.Configuration`: unknown fields, additional enum values, or future‑version knobs are ignored (and may be logged) so that a newer control‑plane can talk to an older VHD image.
     - If the config cannot be safely interpreted (e.g. unsupported `Version`, malformed required field, or incompatible schema change), the controller fails fast. It writes the sentinel file `provision.complete` early so the `provision-wait` process stops polling and can surface an error instead of hanging indefinitely.
     - In a fail‑fast path the normal bootstrap scripts never run, therefore `provision.json` (which would contain the serialized `CSEStatus`) is never created. A typical error looks like:
@@ -251,7 +257,10 @@ application, including variants that share the `azurelinux` OS ID. Their
 distro-specific source changes do not trigger payload generation.
 
 The repository keeps a README placeholder so `go:embed` builds without any
-script hotfix payloads. Generation replaces it with Ubuntu and Azure Linux YAMLs.
+script hotfix payloads. Generation omits any rendered YAML with no `write_files`
+entries (including missing, null, or empty lists) and logs the skipped platform.
+If all platforms are empty, it writes a README placeholder to keep `go:embed` valid.
+This does not add support for non-distro template conditions.
 ANC skips application when the local platform's YAML is absent; no separate
 activation flag is needed. Other payload read errors are logged.
 

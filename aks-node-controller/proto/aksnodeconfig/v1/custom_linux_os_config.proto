@@ -56,6 +56,12 @@ message SysctlConfig {
   optional int32 vm_max_map_count = 26;
   optional int32 vm_swappiness = 27;
   optional int32 vm_vfs_cache_pressure = 28;
+  optional int32 net_ipv4_tcp_retries2 = 29;
+  optional int32 fs_inotify_max_user_instances = 30;
+  // Comma-separated ports or inclusive ranges.
+  optional string net_ipv4_ip_local_reserved_ports = 31;
+  // TCP receive buffer minimum, default, and maximum, as three whitespace-separated integers.
+  optional string net_ipv4_tcp_rmem = 32;
 }
 
 message UlimitConfig {

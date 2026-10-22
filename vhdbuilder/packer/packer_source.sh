@@ -330,6 +330,8 @@ copyPackerFiles() {
   EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST=/etc/systemd/system/emit-kubelet-active-flags.service
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
+  REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_SRC=/home/packer/remove-bootstrap-kubeconfig.sh
+  REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_DEST=/opt/azure/containers/remove-bootstrap-kubeconfig.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
@@ -338,6 +340,8 @@ copyPackerFiles() {
   SECURE_TLS_BOOTSTRAP_SERVICE_DEST=/etc/systemd/system/secure-tls-bootstrap.service
   SECURITY_UPDATE_SH_SRC=/home/packer/security-update.sh
   SECURITY_UPDATE_SH_DEST=/opt/azure/containers/security-update.sh
+  NPD_UPDATE_SH_SRC=/home/packer/npd-update.sh
+  NPD_UPDATE_SH_DEST=/opt/azure/containers/npd-update.sh
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
@@ -401,6 +405,13 @@ copyPackerFiles() {
       KATA_IMAGE_SRC=/home/packer/kata-containers.img
       KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
+      if [[ ",${FEATURE_FLAGS}," == *",kata-cc,"* ]]; then
+        # Current signed confidential guest/package layout; separate from the
+        # ordinary AZL3 guest installed above.
+        for file in kata-containers.img kata-containers-cc.img kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose reference-info-base64; do
+          cpAndMode "/home/packer/kata-cc/$file" "$KATACC_CONFIG_DIR/$file" 0644
+        done
+      fi
     fi
   fi
 
@@ -580,8 +591,8 @@ copyPackerFiles() {
   IG_SERVICE_SRC=/home/packer/ig-import-gadgets.service
   IG_SERVICE_DEST=/usr/lib/systemd/system/ig-import-gadgets.service
 
-  # Skip for Mariner, OSGuard, Flatcar, ACL, and Kata
-  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+  # Skip for Mariner, OSGuard, Flatcar, and ACL (Azure Linux 3 Kata includes IG)
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; }; then
     cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
     cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
     cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
@@ -600,8 +611,8 @@ copyPackerFiles() {
   NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
   NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
 
-  # Skip for OSGuard, Flatcar, ACL, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
-  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
+  # Skip for OSGuard, Flatcar, ACL, and Mariner (only AzureLinux 3.0, including Kata, gets node-exporter)
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isMariner "$OS"; }; then
     cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
     cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
     cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
@@ -647,6 +658,7 @@ copyPackerFiles() {
   cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_DEST 755
   cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST 644
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
+  cpAndMode $REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_SRC $REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   copyMGLRUConfig
@@ -724,6 +736,7 @@ copyPackerFiles() {
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
     cpAndMode /home/packer/security-update.sh /opt/azure/containers/security-update.sh 544
+    cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
 
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
@@ -754,6 +767,7 @@ copyPackerFiles() {
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $SECURITY_UPDATE_SH_SRC $SECURITY_UPDATE_SH_DEST 544
+    cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
 
     if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then

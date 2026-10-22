@@ -52,15 +52,11 @@ func init() {
 				AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 					config.LocalDnsProfile.EnableHostsPlugin = true
 					config.LocalDnsProfile.EnableLocalDns = true
-					config.KubeletConfig.KubeletFlags["--cluster-dns"] = localDNSClusterListenerIP
-					// The flag alone is not parity with the CSE path. '--cluster-dns' is in
-					// pkg/agent.TranslatedKubeletConfigFlags, so on the CSE path setting the
-					// flag also rewrites KubeletConfiguration.clusterDNS in the kubelet config
-					// file. On the ANC path the flag and the config-file field are independent
-					// proto fields, so the flag alone leaves clusterDNS at the cluster default
-					// and the two paths emit different KUBELET_CONFIG_FILE_CONTENT -- which the
-					// provision-config/nbc-cmd env parity validator fails on.
-					config.KubeletConfig.KubeletConfigFileConfig.ClusterDns = []string{localDNSClusterListenerIP}
+					if config.KubeletConfig.EnableKubeletConfigFile {
+						config.KubeletConfig.KubeletConfigFileConfig.ClusterDns = []string{localDNSClusterListenerIP}
+					} else {
+						config.KubeletConfig.KubeletFlags["--cluster-dns"] = localDNSClusterListenerIP
+					}
 				},
 				VMConfigMutator: tt.vmConfigMutator,
 				Validator: func(ctx context.Context, s *Scenario) error {
@@ -87,18 +83,8 @@ func init() {
 // stop/start, three supervisor kills recovered by Restart=on-failure, and the terminal
 // dead-service case that #9360's ExecStopPost hook exists to handle.
 //
-// # Why the shell below is sparsely commented
-//
-// The script is SCP'd to the node, and the e2e's Bastion tunnel (bastionssh.go) forwards
-// each SSH packet as a single websocket message with no chunking, against an 8,192-byte
-// service cap. go-scp emits the body as a 4,096-byte chunk then the remainder, so
-// max_write = script_size - 4096 + 45, and any script over 12,242 bytes kills the tunnel
-// mid-run with StatusMessageTooBig. Build 181818040 lost three lanes to exactly that, after
-// this script grew 512 bytes past a margin of 380. The size guard for every script this
-// package sends lands separately, with the tunnelSession.Write chunking fix.
-//
-// Comments cost the same as code on that wire and buy nothing at runtime, so the reasoning
-// lives here instead. Keep the shell terse; put the "why" in this comment.
+// The Bastion transport splits outgoing writes, so this script needs no
+// transport-specific size guard or restrictions on comments.
 //
 // # The EXIT trap
 //

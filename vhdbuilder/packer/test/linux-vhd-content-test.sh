@@ -2077,8 +2077,8 @@ testNodeExporter () {
   echo "$test: checking if node-exporter was successfully installed"
 
   # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
-  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
-  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 (including Kata) gets node-exporter
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ]; then
     if [ -f "$skip_file" ]; then
       err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
       return 1
@@ -2652,6 +2652,33 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+testNodeProblemDetector() {
+  local test="testNodeProblemDetector" os_sku="$1" os_version="$2" version package executable
+  case "${os_sku}" in
+    Ubuntu) ;;
+    AzureLinux) [ "${os_version}" = 3.0 ] || return 0 ;;
+    *) return 0 ;;
+  esac
+  case "${FEATURE_FLAGS}" in *kata*) return 0 ;; esac
+  for executable in /usr/bin/node-problem-detector /usr/bin/npd-log-counter /usr/bin/npd-health-checker /opt/bin/node-problem-detector-startup.sh; do
+    [ -x "${executable}" ] || err "$test" "Missing executable ${executable}"
+  done
+  [ -f /etc/node-problem-detector.d/skip_vhd_npd ] || err "$test" "Missing NPD skip marker"
+  [ -s /etc/node-problem-detector.d/custom-plugin-monitor/custom-kubelet-monitor.json ] || err "$test" "Missing NPD monitors"
+  if [ "${os_sku}" = Ubuntu ]; then
+    version="$(dpkg-query -W -f='${Version}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
+    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config_${version}_$(dpkg --print-architecture).deb"
+  else
+    version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
+    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config-${version}.$(uname -m).rpm"
+    for executable in node-problem-detector-kubernetes node-problem-detector-aks-config; do
+      grep -qsx "${executable}" /etc/tdnf/locks.d/node-problem-detector.conf || err "$test" "Missing tdnf lock for ${executable}"
+    done
+  fi
+  [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
+  [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
+}
+
 testKneadSecurityPatchingAssets() {
   local test="testKneadSecurityPatchingAssets"
   local os_sku="$1"
@@ -2661,6 +2688,7 @@ testKneadSecurityPatchingAssets() {
     ["/etc/systemd/system/snapshot-update.service"]=644
     ["/etc/systemd/system/snapshot-update.timer"]=644
     ["/opt/azure/containers/security-update.sh"]=544
+    ["/opt/azure/containers/npd-update.sh"]=544
     ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=544
   )
 
@@ -2695,16 +2723,12 @@ testInspektorGadgetAssets() {
   local unit_file="/usr/lib/systemd/system/${service_name}"
   local tracking_file="/var/lib/ig/imported-gadgets.txt"
 
-  # Flatcar, OSGuard, Kata, and CBLMariner (Mariner 2.0) do not include IG files in VHD
-  local is_kata=false
-  if echo "$FEATURE_FLAGS" | grep -q "kata"; then
-    is_kata=true
-  fi
+  # Flatcar, OSGuard, and CBLMariner (Mariner 2.0) do not include IG files in VHD.
+  # Azure Linux 3 Kata does.
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ]; then
+    echo "$test: Verifying $OS_SKU has no IG files in VHD"
 
-  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
-    echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
-
-    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
+    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner
     if [ -f "$skip_file" ]; then
       err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
     fi
@@ -2875,6 +2899,7 @@ testMarinerLivePatchingArtifacts() {
   local test="testMarinerLivePatchingArtifacts"
   local update_script="/opt/azure/containers/mariner-package-update.sh"
   local security_script="/opt/azure/containers/security-update.sh"
+  local npd_script="/opt/azure/containers/npd-update.sh"
   local service="/etc/systemd/system/snapshot-update.service"
   local timer="/etc/systemd/system/snapshot-update.timer"
 
@@ -2889,6 +2914,9 @@ testMarinerLivePatchingArtifacts() {
   fi
   if [ "$(stat -c '%a' "$security_script" 2>/dev/null)" != "544" ]; then
     err $test "$security_script must exist with mode 0544"
+  fi
+  if [ "$(stat -c '%a' "$npd_script" 2>/dev/null)" != "544" ]; then
+    err $test "$npd_script must exist with mode 0544"
   fi
   if [ "$(stat -c '%a' "$service" 2>/dev/null)" != "644" ]; then
     err $test "$service must exist with mode 0644"
@@ -2961,6 +2989,7 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testMarinerLivePatchingArtifacts
 testNodeExporter $OS_SKU
+testNodeProblemDetector $OS_SKU $OS_VERSION
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService
