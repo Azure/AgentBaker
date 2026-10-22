@@ -231,6 +231,7 @@ ensureGPUDrivers() {
 }
 
 # Install AMD AMA core SW package for MA35D (Supernova GPU SKU)
+#{{if or IsMariner IsCustomImage}}
 dnf_install_amd_ama_core_package() {
     ver=$1; retries=$2; wait_sleep=$3; timeout=$4; shift && shift && shift && shift
     # Currently version 1.5.0 is supported.  Add more versions as they become available.
@@ -251,6 +252,7 @@ dnf_install_amd_ama_core_package() {
     done
     echo Executed dnf install AMD AMA core package $i times;
 }
+#{{end}}
 
 # Install AMD AMA drivers/SW for MA35D (Supernova GPU SKU)
 # Note that this depends on access to download.microsoft.com, so network-isolated clusters are not supported
@@ -260,6 +262,9 @@ setupAmdAma() {
     fi
 
     if isAzureLinux "$OS"; then
+        :
+        # Template guards leave raw VHD scripts intact; unknown custom images retain the implementation.
+        #{{if or IsMariner IsCustomImage}}
         # Install MA35D packages - currently version 1.5 and above are supported
         # This install script will extract the driver version/build number to find
         # the corresponding core/FW packages
@@ -325,6 +330,7 @@ setupAmdAma() {
         if [ "$(systemctl is-active kubelet)" = "active" ]; then
             systemctl restart kubelet
         fi
+        #{{end}}
     fi
 }
 
