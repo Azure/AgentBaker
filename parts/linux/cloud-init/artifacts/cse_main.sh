@@ -62,6 +62,11 @@ if [ -n "${NO_PROXY_URLS}" ]; then
 fi
 
 updateCACertificates() {
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ] || [ "${BLOCK_OUTBOUND_NETWORK:-}" = "true" ]; then
+        echo "Skipping CA package update because external repository access is disabled"
+        return 0
+    fi
+
     # Package installation hooks rebuild the system CA trust store.
     if isUbuntu "$OS"; then
         apt_get_update || return "$ERR_APT_UPDATE_TIMEOUT"
