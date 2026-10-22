@@ -181,10 +181,6 @@ func escapeSingleLine(escapedStr string) string {
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE.
 func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
-	return getBase64EncodedGzippedCustomScriptFromStr(getCustomScriptContent(csFilename, config))
-}
-
-func getCustomScriptContent(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := parts.Templates.ReadFile(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug.
@@ -206,7 +202,7 @@ func getCustomScriptContent(csFilename string, config *datamodel.NodeBootstrappi
 	}
 	csStr := buffer.String()
 	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
-	return csStr
+	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
 // This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.
@@ -394,14 +390,6 @@ func getCustomDataFromJSON(jsonStr string) string {
 		panic(err)
 	}
 	return customDataObj["customData"]
-}
-
-func getCustomDataJSONObject(customData string) string {
-	customDataJSON, err := json.Marshal(map[string]string{"customData": customData})
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal customData: %w", err))
-	}
-	return string(customDataJSON)
 }
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
