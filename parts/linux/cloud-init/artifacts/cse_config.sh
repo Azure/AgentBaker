@@ -674,6 +674,27 @@ configureNodeExporter() {
     echo "Node Exporter started successfully"
 }
 
+configureNodeProblemDetector() {
+    local skip_file="${NPD_SKIP_FILE:-/etc/node-problem-detector.d/skip_vhd_npd}"
+    if ! { isUbuntu || isAzureLinux; } || [ ! -f "${skip_file}" ]; then
+        echo "Skipping baked NPD configuration: this node remains extension-managed"
+        return 0
+    fi
+    # The MAI image path also uses the skip marker; only manage the PMC package
+    # installed by AgentBaker here.
+    local installed
+    if isUbuntu; then
+        installed="$(dpkg-query -W -f='${db:Status-Status}' node-problem-detector-aks-config 2>/dev/null)"
+    else
+        rpm -q node-problem-detector-aks-config >/dev/null 2>&1 && installed=installed
+    fi
+    if [ "${installed:-}" != installed ]; then
+        echo "Skipping NPD activation: AgentBaker config package is not installed"
+        return 0
+    fi
+    systemctlEnableAndStart node-problem-detector 30 || return $ERR_SYSTEMCTL_START_FAIL
+}
+
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"

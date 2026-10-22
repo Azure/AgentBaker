@@ -58,6 +58,18 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
 
 ### Scriptless provisioning
 
+Linux scenarios use kubelet configuration-file mode by default, for both NBC/CSE
+and AKSNodeConfig/scriptless provisioning. NBC conversion preserves the effective
+kubelet settings, including scenario overrides and custom kubelet configuration.
+Common Linux validation checks that the running kubelet uses
+`--config /etc/default/kubeletconfig.json` and that the file contains a valid
+`KubeletConfiguration`.
+
+Scenarios specifically covering legacy CLI flags must set
+`nbc.EnableKubeletConfigFile = false` and leave both `CustomKubeletConfig` and
+`CustomLinuxOSConfig` nil. ANC conversion preserves that opt-out. Windows defaults
+are unchanged.
+
 Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
 bootstrap config mutator of five scenarios: `Ubuntu2204_ArtifactStreaming`,
 `AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
@@ -73,7 +85,33 @@ coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
 VHD-caching behavior remain in effect.
 
+### LocalDNS fallback checks
+
+The existing LocalDNS scenarios use short-lived DNS pods on the scenario node
+before failure, after the fallback becomes active, and after LocalDNS recovers.
+Each pod has `restartPolicy: Never`. The validator waits for `Succeeded`, not
+`Running` or `Ready`; failures include pod diagnostics.
+
+Commands query `169.254.10.10` for an external name and `169.254.10.11` for both
+cluster and external names. Explicit server addresses prevent a new pod from
+bypassing the failed listener through its inherited VNet resolver. These probes
+do not check that an existing pod retains its original `resolv.conf`.
+
+Go controls polling and cleanup. Short SSH commands inspect systemd, resolver,
+and NAT state; ShellSpec covers static rule construction. The fallback validator
+requires the baked artifacts, including when the image selector points at main.
+
+### Setup scheduling
+
+After image and resource-group checks, VM identity/storage preparation runs
+alongside cluster preparation. Setup, validators, and cleanup batches share
+`scenario/concurrent.go`, which waits for every task without canceling peers on failure.
+Each caller decides whether an already-canceled context prevents its tasks from starting.
+
 ## VM size configuration
+
+Resource SKU catalogues are loaded once per location using the runner's single
+Azure client. Gen2, NVMe, and fallback-size checks share all pages of that catalogue.
 
 The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or
 `DEFAULT_VM_SKU`.
@@ -106,6 +144,10 @@ and authorization failures (HTTP 401/403) return immediately.
 All E2E clusters share a single VNet and Azure Bastion in the `abe2e-{location}` resource group. This
 avoids creating a per-cluster Bastion (~10 min each) and ensures all clusters are reachable from a
 single SSH entry point.
+
+Shared-infrastructure setup does not garbage-collect cluster subnets. A subnet
+without an AKS cluster may belong to another run that is still creating it.
+Remove genuinely orphaned subnets separately, after confirming no run uses them.
 
 ```mermaid
 graph TB
@@ -156,6 +198,13 @@ graph TB
 
 The shared infrastructure is created **automatically** on first test run via cached idempotent
 functions — no separate setup script is needed.
+
+Shared setup does not delete cluster subnets: an empty subnet with no AKS cluster may belong
+to another runner that is still creating its cluster. The external resource-group garbage
+collector owns cleanup of abandoned subnets.
+
+Bastion and Firewall provisioning run concurrently after sequential subnet setup.
+Windows Server Core and Nano Server pod checks run concurrently on the scenario node.
 
 Cluster setup keeps three Konnectivity agents to avoid scale-down interruptions during pod exec.
 See [Azure's autoscaler configuration](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/connectivity/tunnel-connectivity-issues#solution-6-cluster-proportional-autoscaler-for-konnectivity-agent).
@@ -337,10 +386,19 @@ For cleanup that must continue after cancellation, derive its context with
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
 shutdown to clean up resources. Old VMs are deleted on startup unless created with `KEEP_VMSS=true`.
 
-Cluster setup renews `deletion_due_time` only on the selected clusters' node resource groups.
-The shared `abe2e-{location}` resource groups keep their existing GC tags and deadlines so obsolete
-clusters can expire. Node resource group renewal does not prevent GC from deleting the shared
-resource group and its clusters.
+In Azure DevOps runs (`TF_BUILD=True`), setup checks `deletion_due_time` on both shared
+`abe2e-{location}` resource groups and the selected clusters' node resource groups. An existing
+UTC Saturday deadline stays unchanged, even if it has expired, falls within the suite, or has a
+time other than 08:00. Repeated runs do not postpone Saturday expiry.
+
+For missing or non-Saturday deadlines, setup selects the first Saturday at **08:00 UTC** at or
+after the suite-and-cleanup window and any existing deadline. This is outside normal weekday
+office hours in the US, New Zealand, and Australia. Updates are best-effort and preserve unrelated
+tags. The external garbage collector can delete expired groups later, including during office
+hours or an active test run.
+
+Outside Azure DevOps, setup does not renew GC deadlines on shared or node resource groups.
+Local runs leave existing deadlines unchanged and do not add missing deadline tags.
 
 ## Package Structure
 
@@ -366,8 +424,14 @@ Collection errors are saved in the affected log files; the console reports faile
 SSH uses `websocket.NetConn` for Bastion tunneling. Dial and handshake contexts bound
 connection setup; an established connection remains available for cleanup. Canceling
 an active SSH operation closes its shared connection, including other active commands,
-to interrupt blocked channel opens and SCP setup. Canceling a queued operation does
+to interrupt blocked channel opens and script uploads. Canceling a queued operation does
 not close the connection.
+
+Commands are uploaded through SSH stdin to unique script files, then executed in a
+separate session on the same connection. Linux uses Bash; Windows uses PowerShell.
+The Bastion transport bounds outgoing WebSocket messages independently of script size.
+Uploads have a 10-second timeout. Files remain until VM deletion, including when
+`KEEP_VMSS=true` preserves the VM.
 
 Bastion token deletion runs asynchronously after a failed dial or tunnel closure.
 It has a separate 30-second timeout and logs failures without delaying cancellation.

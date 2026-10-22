@@ -624,8 +624,10 @@ cachePackageAndBinaryComponents() {
         done
         ;;
       "inspektor-gadget")
-        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
-          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+        # Azure Linux 3 Kata installs IG on the host. Host gadgets observe host
+        # processes and runc pods; workloads inside Kata guest VMs are not visible.
+        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default}"
         else
           ig_version="${PACKAGE_VERSIONS[0]}"
           if isUbuntu "$OS"; then
@@ -711,13 +713,20 @@ cachePackageAndBinaryComponents() {
         ;;
       "node-exporter")
         # Skipping is handled by empty versionsV2 arrays in components.json
-        # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
-        if [ "${IS_KATA}" = "true" ]; then
-          echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
-        else
-          # Download and install node-exporter-kubernetes at VHD build time.
-          # node-exporter is installed on the VHD so CSE only needs to enable+start it.
-          installNodeExporter "${PACKAGE_VERSIONS[0]}"
+        # for mariner, flatcar, acl, and osguard. Azure Linux 3 Kata resolves
+        # through its azurelinuxkata entry. Its host kernel (kernel-mshv) is built
+        # without CONFIG_PSI, so node-exporter exposes no node_pressure_* metrics
+        # there: https://github.com/microsoft/azurelinux/issues/19417
+        # Download and install node-exporter-kubernetes at VHD build time.
+        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+        installNodeExporter "${PACKAGE_VERSIONS[0]}"
+        ;;
+      "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
+        # Ubuntu and Azure Linux 3 builders carry this helper. Empty manifest entries
+        # leave other OSes (and unpublished targets) extension-managed.
+        if (isUbuntu || isAzureLinux) && [ "${IS_KATA}" != "true" ]; then
+          source /home/packer/install-npd.sh
+          installNPDPackage "${name}" "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
         fi
         ;;
       "acr-mirror")
@@ -1183,6 +1192,12 @@ echo "VHD will be built with containerd as the container runtime"
 
 # Cache packages and binaries declared within components.json
 cachePackageAndBinaryComponents
+
+# Delegate ACL AMD64 image fetching to the host containerd Transfer service.
+export IMAGE_FETCHER_USE_TRANSFER="false"
+if isACL "$OS" "$OS_VARIANT" && [ "$CPU_ARCH" = "amd64" ]; then
+  export IMAGE_FETCHER_USE_TRANSFER="true"
+fi
 
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io

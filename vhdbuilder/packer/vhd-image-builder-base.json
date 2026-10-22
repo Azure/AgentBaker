@@ -279,6 +279,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh",
+      "destination": "/home/packer/remove-bootstrap-kubeconfig.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
@@ -356,6 +361,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh",
       "destination": "/home/packer/setup-custom-search-domains.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-npd.sh",
+      "destination": "/home/packer/install-npd.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/npd-update.sh",
+      "destination": "/home/packer/npd-update.sh"
     },
     {
       "type": "file",
@@ -479,6 +494,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-mglru.conf",
+      "destination": "/home/packer/aks-mglru.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config",
       "destination": "/home/packer/sshd_config"
     },
@@ -586,6 +606,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh",
       "destination": "/home/packer/cgroup-cpu-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/service-execution-telemetry.sh",
+      "destination": "/home/packer/service-execution-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/service-execution-telemetry@.service",
+      "destination": "/home/packer/service-execution-telemetry@.service"
     },
     {
       "type": "file",
@@ -781,6 +811,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns.service",
       "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.sh",
+      "destination": "/home/packer/localdns-fallback.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.service",
+      "destination": "/home/packer/localdns-fallback.service"
     },
     {
       "type": "file",
