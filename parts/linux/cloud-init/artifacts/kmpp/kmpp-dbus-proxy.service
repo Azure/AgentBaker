@@ -1,0 +1,16 @@
+[Unit]
+Description=Filtered D-Bus proxy exposing only com.microsoft.kmpp to containers
+After=dbus.service dbus-com.microsoft.kmpp.service
+Wants=dbus-com.microsoft.kmpp.service
+
+[Service]
+# Pods mount /var/run/kmpp/dbus and connect as non-root users.
+UMask=0000
+ExecStartPre=/usr/bin/mkdir -p /var/run/kmpp/dbus
+ExecStartPre=/usr/bin/rm -f /var/run/kmpp/dbus/system_bus_socket
+ExecStart=/usr/bin/xdg-dbus-proxy unix:path=/run/dbus/system_bus_socket /var/run/kmpp/dbus/system_bus_socket --filter --talk=com.microsoft.kmpp
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

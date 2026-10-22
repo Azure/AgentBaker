@@ -2352,6 +2352,52 @@
       }
     },
     {
+      "name": "kmpp-containers",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": []
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=kmpp-containers, os=azurelinux, release=3.0",
+                "latestVersion": "3.1.0_212"
+              }
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": []
+          }
+        }
+      }
+    },
+    {
+      "name": "xdg-dbus-proxy",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": []
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/extended/x86_64/repodata, name=xdg-dbus-proxy, os=azurelinux, release=3.0",
+                "latestVersion": "0.1.6"
+              }
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": []
+          }
+        }
+      }
+    },
+    {
       "name": "node-exporter",
       "downloadLocation": "/opt/node-exporter",
       "downloadURIs": {
