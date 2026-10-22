@@ -29,7 +29,11 @@ func TestPISGPUBakedHelperDelivery(t *testing.T) {
 					Distro:       distro,
 				}
 				properties := &datamodel.Properties{
-					OrchestratorProfile:     &datamodel.OrchestratorProfile{OrchestratorType: datamodel.Kubernetes, OrchestratorVersion: "1.32.1", KubernetesConfig: &datamodel.KubernetesConfig{}},
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorType:    datamodel.Kubernetes,
+						OrchestratorVersion: "1.32.1",
+						KubernetesConfig:    &datamodel.KubernetesConfig{},
+					},
 					HostedMasterProfile:     &datamodel.HostedMasterProfile{DNSPrefix: "fixture"},
 					LinuxProfile:            &datamodel.LinuxProfile{AdminUsername: "azureuser"},
 					ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{ClientID: "fixture", Secret: "fixture"},
