@@ -46,6 +46,7 @@ ln -s usr/lib64 "$root/lib64"
 mkdir -p "$root/opt/aks-sysext/usr/lib/extension-release.d" "$root/etc/extensions"
 printf 'ID=_any\nSYSEXT_SCOPE=system\n' > "$root/opt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext"
 ln -s /opt/aks-sysext "$root/etc/extensions/aks-sysext"
+cp --remove-destination /etc/resolv.conf "$root/etc/resolv.conf"
 # Sysext works in a child namespace. Share only this isolated root with that
 # child, never with the real host. Chroot confines sysext operations here;
 # --root intentionally ignores symlinks and cannot test ACL's discovery path.
@@ -58,6 +59,9 @@ systemctl() {
 }
 sh() {
     chroot "$root" /usr/bin/sh -e /usr/bin/update-ca-trust
+}
+curl() {
+    chroot "$root" /usr/bin/curl "$@"
 }
 
 sha256sum /usr/share/pki/ca-trust-source/*.p11-kit > "$work/factory.sha256"
@@ -88,6 +92,7 @@ getCurrentPackageTestOS() { echo 'AZURELINUX|AZURECONTAINERLINUX'; }
 isACL() { [ "${2:-${OS_VARIANT:-}}" = AZURECONTAINERLINUX ]; }
 eval "$(sed -n '/^testACLCAStore()/,/^}/p' "$repo_root/vhdbuilder/packer/test/linux-vhd-content-test.sh" |
     sed "s|local extension_dir=/opt/|local extension_dir=$root/opt/|; s|readlink /etc/extensions/|readlink $root/etc/extensions/|; s|/etc/pki/ca-trust/extracted|$root/etc/pki/ca-trust/extracted|g; s|cd /usr/share/|cd $root/usr/share/|")"
+eval "$(sed -n '/^testACLRejectedCertificates()/,/^}/p' "$repo_root/vhdbuilder/packer/test/linux-vhd-content-test.sh")"
 testACLCAStore
 cp "$work/old-tls.pem" "$root/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
 if testACLCAStore > "$work/stale-bundle-check.log" 2>&1; then

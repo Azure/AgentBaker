@@ -79,6 +79,10 @@ namespace. This does not replace an Azure VHD build and actual reboot validation
 The effective TLS bundle must include the new Visa TLS Root CA and exclude the
 five older roots removed by the pinned package, including after proxy-CA and
 Custom CA Trust regeneration.
+The ACL content check also probes `dv-g3b-emudhra.we-have-a-problem.com` and
+`dv-g3b-aaa-emudhra.we-have-a-problem.com`: both must fail with curl exit code 60
+and `SSL certificate problem: certificate rejected`. These probes require
+outbound HTTPS and DNS; connection failures do not count as successful rejection.
 # Ubuntu BCC build
 
 Ubuntu BCC remains pinned to v0.29.0, fetched with a shallow tag clone, and built

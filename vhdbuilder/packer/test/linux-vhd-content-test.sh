@@ -1459,6 +1459,21 @@ testACLCAStore() {
     err "$test" "Effective ACL TLS bundle does not contain the refreshed certificate set"
     return 1
   fi
+  testACLRejectedCertificates
+}
+
+testACLRejectedCertificates() {
+  local test="testACLRejectedCertificates"
+  local host output status
+  for host in dv-g3b-emudhra.we-have-a-problem.com dv-g3b-aaa-emudhra.we-have-a-problem.com; do
+    status=0
+    output=$(LC_ALL=C curl -q --silent --show-error --connect-timeout 10 --max-time 30 \
+      --output /dev/null "https://$host/" 2>&1) || status=$?
+    if [ "$status" -ne 60 ] || ! grep -Fq 'SSL certificate problem: certificate rejected' <<< "$output"; then
+      err "$test" "Expected certificate rejection for $host; curl exited $status: $output"
+      return 1
+    fi
+  done
 }
 
 testMGLRUDisabled() {

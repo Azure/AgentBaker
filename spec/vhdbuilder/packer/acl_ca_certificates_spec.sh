@@ -203,6 +203,64 @@ download"
     End
   End
 
+  Describe 'incident certificate rejection'
+    load_rejection_test() {
+      eval "$(sed -n '/^testACLRejectedCertificates()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)"
+      CURL_STATUS=60
+      CURL_ERROR='curl: (60) SSL certificate problem: certificate rejected'
+    }
+    BeforeEach 'load_rejection_test'
+    err() { printf '%s\n' "$*" >&2; }
+    curl() {
+      printf '%s\n' "${@: -1}" >> "$TEST_ROOT/probes"
+      printf '%s\n' "$CURL_ERROR" >&2
+      return "$CURL_STATUS"
+    }
+
+    It 'requires explicit rejection at both incident endpoints'
+      When call testACLRejectedCertificates
+      The status should be success
+      The output should be blank
+      The contents of file "$TEST_ROOT/probes" should equal "https://dv-g3b-emudhra.we-have-a-problem.com/
+https://dv-g3b-aaa-emudhra.we-have-a-problem.com/"
+    End
+
+    It 'rejects a successful TLS connection'
+      CURL_STATUS=0 CURL_ERROR=
+      When call testACLRejectedCertificates
+      The status should be failure
+      The stderr should include 'Expected certificate rejection'
+    End
+
+    It 'does not count a network timeout as certificate rejection'
+      CURL_STATUS=28 CURL_ERROR='curl: (28) Connection timed out'
+      When call testACLRejectedCertificates
+      The status should be failure
+      The stderr should include 'curl exited 28'
+    End
+
+    It 'does not count an unrelated certificate validation error as rejection'
+      CURL_ERROR='curl: (60) SSL certificate problem: unable to get local issuer certificate'
+      When call testACLRejectedCertificates
+      The status should be failure
+      The stderr should include 'Expected certificate rejection'
+    End
+
+    It 'fails if only the first incident endpoint is rejected'
+      curl() {
+        local url="${*: -1}"
+        if [ "$url" = 'https://dv-g3b-emudhra.we-have-a-problem.com/' ]; then
+          printf '%s\n' "$CURL_ERROR" >&2
+          return 60
+        fi
+        return 0
+      }
+      When call testACLRejectedCertificates
+      The status should be failure
+      The stderr should include 'dv-g3b-aaa-emudhra.we-have-a-problem.com'
+    End
+  End
+
   Describe 'non-ACL VHD validation'
     Parameters
       'UBUNTU|'
