@@ -962,7 +962,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed",
-	Description: "Tests DRA driver and workload scheduling with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
+	Description: "Tests DRA driver and workload allocation of MIG 1g.10gb devices with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
 	Location:    "westus2",
 	Tags: Tags{
 		GPU: true,
@@ -1011,7 +1011,7 @@ var _ = Register(&Scenario{
 			); err != nil {
 				return err
 			}
-			return ValidateDRAWorkloadSchedulable(ctx, s)
+			return ValidateDRAWithMIGWorkloadSchedulable(ctx, s, "1g.10gb")
 		},
 	},
 })
