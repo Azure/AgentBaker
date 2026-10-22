@@ -258,27 +258,11 @@ Describe 'cse_config.sh'
                     echo "$*"
                     [ "$*" != "${FAIL_COMMAND:-}" ]
                     ;;
-                show)
-                    if [ "${FAIL_STATE_QUERY:-false}" = true ]; then
-                        return 124
-                    fi
-                    case " ${MISSING_UNITS:-} " in
-                        *" $2 "*)
-                            printf 'LoadState=not-found\nActiveState=inactive\nUnitFileState=\n'
-                            return 4
-                            ;;
-                    esac
-                    printf 'LoadState=loaded\nActiveState=%s\nUnitFileState=%s\n' \
-                        "${ACTIVE_STATE:-inactive}" "${UNIT_FILE_STATE:-disabled}"
-                    ;;
                 *) return 1 ;;
             esac
         }
 
         timeout() {
-            if [ "${3:-}" = show ] && [ "$1" != 2 ]; then
-                return 99
-            fi
             shift
             "$@"
         }
@@ -302,14 +286,13 @@ disable sshd"
                 all(.[]; (.Message | type) == "string" and .EventLevel == "Informational") and
                 ([.[] | select(.TaskName == "AKS.CSE.disableSSH") | .Message | fromjson |
                   select(.Phase == "Completed")] |
-                    length == 1 and .[0].ExitCode == 0 and .[0].DurationSeconds >= 0) and
+                                        length == 1 and .[0].ExitCode == 0) and
                 ([.[] | select(.TaskName == "AKS.CSE.disableSSH.unit") | .Message | fromjson |
                   select(.Phase == "Completed")] |
                     length == 3 and all(.[];
                         .CatExitCode == 0 and .StopExitCode == 0 and .DisableExitCode == 0 and
-                        .Skipped == false and .StateQueryExitCode == 0 and
-                        .LoadState == "loaded" and .ActiveState == "inactive" and
-                        .UnitFileState == "disabled" and .SchemaVersion == 1)) and
+                        .Skipped == false and .SchemaVersion == 1)) and
+                    all(.[]; (.Timestamp | length) > 0 and (.OperationId | length) > 0) and
                 ([.[].Message | fromjson | select(.Phase == "Started")] |
                     length == 4 and all(.[]; .ExitCode == null))
             '
@@ -325,7 +308,7 @@ disable sshd.socket"
             SSH_EVENT_FILTER='
                 [.[].Message | fromjson | select(.Phase == "Completed" and .Skipped == true)] |
                 length == 2 and all(.[]; .CatExitCode == 1 and .StopExitCode == null and
-                    .DisableExitCode == null and .LoadState == "not-found" and .ExitCode == 0)
+                    .DisableExitCode == null and .ExitCode == 0)
             '
             The result of function ssh_events_match should equal true
         End
@@ -368,33 +351,15 @@ disable sshd"
             The result of function ssh_events_match should equal true
         End
 
-        It 'records observed states without changing successful command results'
-            ACTIVE_STATE=active
-            UNIT_FILE_STATE=enabled
-            PRE_PROVISION_ONLY=true
-            OS=AZURELINUX
-            OS_VERSION=3.0
-            OS_VARIANT=AZURECONTAINERLINUX
+        It 'emits only the compact outcome schema'
             When call disableSSH
             The status should be success
             The output should include "disable sshd.socket"
             SSH_EVENT_FILTER='
-                [.[].Message | fromjson | select(.Phase == "Completed" and .Unit == "sshd.socket")] |
-                length == 1 and .[0].ActiveState == "active" and .[0].UnitFileState == "enabled" and
-                .[0].ExitCode == 0 and .[0].PreProvisionOnly == true and
-                .[0].OS == "AZURELINUX" and .[0].OSVersion == "3.0" and .[0].OSVariant == "AZURECONTAINERLINUX"
-            '
-            The result of function ssh_events_match should equal true
-        End
-
-        It 'records a bounded state-query failure without failing provisioning'
-            FAIL_STATE_QUERY=true
-            When call disableSSH
-            The status should be success
-            The output should include "disable sshd.socket"
-            SSH_EVENT_FILTER='
-                [.[].Message | fromjson | select(.Phase == "Completed" and .Unit != "")] |
-                length == 3 and all(.[]; .StateQueryExitCode == 124 and .ActiveState == "" and .ExitCode == 0)
+                [.[].Message | fromjson | select(.Phase == "Completed" and .Unit != "") | keys] |
+                length == 3 and all(.[]; . ==
+                    ["AttemptId", "CatExitCode", "DisableExitCode", "ExitCode", "Phase",
+                     "SchemaVersion", "Skipped", "StopExitCode", "Unit"])
             '
             The result of function ssh_events_match should equal true
         End

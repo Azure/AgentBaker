@@ -748,26 +748,21 @@ users:
 }
 
 disableSSH() {
-    local start_time attempt_id unit result=0 start_seconds=$SECONDS
+    local start_time attempt_id unit result=0
     start_time=$(date -u +"%F %T.%3N")
-    attempt_id="$(date +%s%N)-${BASHPID:-$$}-${RANDOM}"
-    emitSSHDisableEvent "$attempt_id" Started "" "$start_time" 0 null '{}' ||
-        echo "WARNING: could not emit SSH disable start event" >&2
+    attempt_id="$(date +%s%N)-$RANDOM"
+    emitSSHDisableEvent "$attempt_id" Started "" "$start_time" null '{}' ||
+        echo "WARNING: SSH disable telemetry failed" >&2
     # Ubuntu uses ssh, Azure Linux uses sshd, and ACL also uses sshd.socket.
     # Close the listening socket first so no new connection is accepted mid-teardown.
     # Keep going after a failure so a later unit still gets disabled, on ACL the
     # socket owns port 22 and skipping it would leave SSH reachable.
     for unit in sshd.socket ssh sshd; do
-        if ! systemctlDisableAndStop "$unit" "$attempt_id"; then
-            result=$ERR_DISABLE_SSH
-        fi
+        systemctlDisableAndStop "$unit" "$attempt_id" || result=$ERR_DISABLE_SSH
     done
-    emitSSHDisableEvent "$attempt_id" Completed "" "$start_time" "$((SECONDS - start_seconds))" "$result" '{}' ||
-        echo "WARNING: could not emit SSH disable result event" >&2
-    if [ "$result" -ne 0 ]; then
-        exit "$result"
-    fi
-    return 0
+    emitSSHDisableEvent "$attempt_id" Completed "" "$start_time" "$result" '{}' ||
+        echo "WARNING: SSH disable telemetry failed" >&2
+    [ "$result" -eq 0 ] || exit "$result"
 }
 
 disableSSHPubkeyAuth() {
