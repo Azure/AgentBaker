@@ -729,7 +729,12 @@ func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult
 
 	description := ""
 	if provisionErr != nil {
-		description = fmt.Sprintf("ExitCode: %s, %s", result.ExitCode, result.Error)
+		var err error
+		description, err = provisionFailureDescription(result)
+		if err != nil {
+			slog.Error("failed to format CSE failure description", "error", err)
+			description = fmt.Sprintf("ExitCode: %s, %s", result.ExitCode, result.Error)
+		}
 	}
 	reporter := a.goalStateReporter
 	if reporter == nil {

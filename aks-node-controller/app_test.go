@@ -242,7 +242,10 @@ func runPreScriptFailureReportingCase(t *testing.T, tc preScriptFailureCase, mar
 	require.Equal(t, err.Error(), result.Error)
 	require.Empty(t, commands)
 	if markerExists && !dryRun {
-		require.Equal(t, []string{"ExitCode: 240, " + err.Error()}, reports)
+		require.Len(t, reports, 1)
+		var reported ProvisionResult
+		require.NoError(t, json.Unmarshal([]byte(reports[0]), &reported))
+		require.Equal(t, *result, reported)
 	} else {
 		require.Empty(t, reports)
 	}
@@ -314,7 +317,10 @@ func TestApp_ProvisionReportsAfterScriptExecution(t *testing.T) {
 				require.Len(t, commands, 1, "report must follow provisioning")
 				require.Equal(t, scriptErr != nil, failed)
 				if failed {
-					require.Equal(t, "ExitCode: -1, "+scriptErr.Error(), description)
+					var reported ProvisionResult
+					require.NoError(t, json.Unmarshal([]byte(description), &reported))
+					require.Equal(t, "-1", reported.ExitCode)
+					require.Equal(t, scriptErr.Error(), reported.Error)
 				} else {
 					require.Empty(t, description)
 				}
@@ -378,7 +384,10 @@ func TestApp_ProvisionReportsPanic(t *testing.T) {
 			require.Equal(t, "240", result.ExitCode)
 			require.Equal(t, err.Error(), result.Error)
 			if markerExists {
-				require.Equal(t, []string{"ExitCode: 240, " + err.Error()}, reports)
+				require.Len(t, reports, 1)
+				var reported ProvisionResult
+				require.NoError(t, json.Unmarshal([]byte(reports[0]), &reported))
+				require.Equal(t, *result, reported)
 			} else {
 				require.Empty(t, reports)
 			}

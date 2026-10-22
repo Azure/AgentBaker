@@ -38,6 +38,8 @@ func TestSendHealthReport(t *testing.T) {
 		{name: "failure", failed: true, description: `CSE failed: <bad> & "quoted"`, statusCode: http.StatusOK},
 		{name: "empty failure", failed: true, statusCode: http.StatusOK},
 		{name: "long failure", failed: true, description: strings.Repeat("\u00e9", 600), statusCode: http.StatusOK},
+		{name: "oversized failure", failed: true, description: strings.Repeat("x", 5000), statusCode: http.StatusOK},
+		{name: "XML-escaped failure", failed: true, description: strings.Repeat("<&'\"\u00e9", 1000), statusCode: http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var posted atomic.Int32
@@ -65,8 +67,11 @@ func TestSendHealthReport(t *testing.T) {
 					assert.Equal(t, "NotReady", report.State)
 					if assert.NotNil(t, report.Details) {
 						assert.Equal(t, "ProvisioningFailed", report.Details.SubStatus)
-						expected := []rune(tc.description)
-						assert.Equal(t, string(expected[:min(len(expected), 512)]), report.Details.Description)
+						assert.True(t, strings.HasPrefix(tc.description, report.Details.Description))
+						var escaped bytes.Buffer
+						assert.NoError(t, xml.EscapeText(&escaped, []byte(report.Details.Description)))
+						assert.LessOrEqual(t, escaped.Len(), 4096)
+						assert.Equal(t, trimHealthReportDescription(tc.description), report.Details.Description)
 					}
 				} else {
 					assert.Equal(t, "Ready", report.State)
@@ -199,6 +204,28 @@ func TestReportValueLimits(t *testing.T) {
 		require.Equal(t, tc.want, got)
 		require.True(t, utf8.ValidString(got))
 		require.LessOrEqual(t, len(got), tc.limit)
+	}
+}
+
+func TestTrimHealthReportDescription(t *testing.T) {
+	require.Equal(t, strings.Repeat("\u00e9", 600), trimHealthReportDescription(strings.Repeat("\u00e9", 600)))
+	require.Equal(t, strings.Repeat("x", 4096), trimHealthReportDescription(strings.Repeat("x", 4096)))
+	for _, input := range []string{
+		strings.Repeat("x", 4097),
+		strings.Repeat("\u00e9", 2049),
+		strings.Repeat("<&'\"\n", 1000),
+	} {
+		got := trimHealthReportDescription(input)
+		require.True(t, utf8.ValidString(got))
+		require.True(t, strings.HasPrefix(input, got))
+		var escaped bytes.Buffer
+		require.NoError(t, xml.EscapeText(&escaped, []byte(got)))
+		require.LessOrEqual(t, escaped.Len(), 4096)
+		remaining := []rune(strings.TrimPrefix(input, got))
+		require.NotEmpty(t, remaining)
+		escaped.Reset()
+		require.NoError(t, xml.EscapeText(&escaped, []byte(got+string(remaining[0]))))
+		require.Greater(t, escaped.Len(), 4096, "must retain the largest safe prefix")
 	}
 }
 
