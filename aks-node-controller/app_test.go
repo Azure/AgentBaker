@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
@@ -18,6 +20,66 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// requiredProvisionFields satisfies nodeconfigutils.Validate's required-field checks.
+const requiredProvisionFields = `"auth_config":{"subscription_id":"sub"},"api_server_config":{"api_server_name":"api"},` +
+	`"cluster_config":{"resource_group":"rg","location":"westus2","cluster_network_config":{"vnet_name":"vnet","route_table":"rt"}},`
+
+func TestBuildCmdFromProvisionConfigValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name, input, want string
+	}{
+		{"malformed", `{"version":"v1",`, "decode provision config"},
+		{"wrong type", `{"version":"v1","kubelet_config":{"enable_kubelet_config_file":"true"}}`, "decode provision config"},
+		{"required", `{"version":"v1"}`, "required field"},
+		{"version", `{` + requiredProvisionFields + `"version":"bad"}`, "unsupported version"},
+		{"hugepages", `{` + requiredProvisionFields + `"version":"v1","custom_linux_os_config":{"transparent_defrag":"bad"}}`, "transparent_defrag"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.json")
+			require.NoError(t, os.WriteFile(path, []byte(tc.input), 0o600))
+			cmd, err := buildCmdFromProvisionConfig(t.Context(), path, "unused-gpu-path")
+			require.ErrorContains(t, err, tc.want)
+			require.Nil(t, cmd)
+		})
+	}
+
+	t.Run("normalizes before rendering", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "config.json")
+		input := `{` + requiredProvisionFields + `
+			"version":"v1", "kubernetes_version":"1.34.0", "future_field":true,
+			"kubelet_config":{
+				"enable_kubelet_config_file":true,
+				"kubelet_flags":{
+					"--docker-endpoint":"obsolete",
+					"--enforce-node-allocatable":"pods,kube-reserved,system-reserved",
+					"--kube-reserved-cgroup":"untrusted",
+					"--feature-gates":"DynamicKubeletConfig=true",
+					"--streaming-connection-idle-timeout":"4h"
+				},
+				"kubelet_config_file_config":{
+					"server_tls_bootstrap":true,
+					"streaming_connection_idle_timeout":"4h"
+				}
+			}
+		}`
+		require.NoError(t, os.WriteFile(path, []byte(input), 0o600))
+		cmd, err := buildCmdFromProvisionConfig(t.Context(), path, writeTestGPUComponentsFile(t))
+		require.NoError(t, err)
+		env := envSliceToMap(cmd.Env)
+		require.NotContains(t, env["KUBELET_FLAGS"], "docker-endpoint")
+		require.NotContains(t, env["KUBELET_FLAGS"], "DynamicKubeletConfig")
+		require.NotContains(t, env["KUBELET_FLAGS"], "streaming-connection-idle-timeout")
+		require.Contains(t, env["KUBELET_FLAGS"], "--kube-reserved-cgroup=/kubereserved.slice")
+		require.Contains(t, env["KUBELET_FLAGS"], "RotateKubeletServerCertificate=true")
+		data, err := base64.StdEncoding.DecodeString(env["KUBELET_CONFIG_FILE_CONTENT"])
+		require.NoError(t, err)
+		var file map[string]any
+		require.NoError(t, json.Unmarshal(data, &file))
+		require.NotContains(t, file, "streamingConnectionIdleTimeout")
+		require.Equal(t, "/kubereserved.slice", file["kubeReservedCgroup"])
+	})
+}
 
 // logRecord holds a captured slog record for test assertions.
 type logRecord struct {
@@ -127,7 +189,200 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 			cmdRun:                runFunc,
 			eventLogger:           eventLogger,
 			gpuComponentsFilePath: writeTestGPUComponentsFile(t),
+			readyReportMarkerPath: filepath.Join(t.TempDir(), "experimental_skip_ready_report"),
 		},
+	}
+}
+
+type preScriptFailureCase struct {
+	name       string
+	config     string
+	gpuConfig  string
+	missingNBC bool
+	noFlags    bool
+	wantError  string
+}
+
+func runPreScriptFailureReportingCase(t *testing.T, tc preScriptFailureCase, markerExists, dryRun bool) {
+	t.Helper()
+	var commands [][]string
+	tt := NewTestApp(t, TestAppConfig{RunFunc: func(cmd *exec.Cmd) error {
+		commands = append(commands, cmd.Args)
+		return nil
+	}})
+	var reports []string
+	tt.App.goalStateReporter = func(_ context.Context, failed bool, description string) error {
+		require.True(t, failed)
+		reports = append(reports, description)
+		return nil
+	}
+	if markerExists {
+		require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+	}
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.json")
+	if tc.config != "" {
+		require.NoError(t, os.WriteFile(configPath, []byte(tc.config), 0o600))
+	}
+	tt.App.gpuComponentsFilePath = filepath.Join(dir, "components.json")
+	if tc.gpuConfig != "" {
+		require.NoError(t, os.WriteFile(tt.App.gpuComponentsFilePath, []byte(tc.gpuConfig), 0o600))
+	}
+	flags := ProvisionFlags{ProvisionConfig: configPath}
+	if tc.missingNBC {
+		flags = ProvisionFlags{NBCCmd: filepath.Join(dir, "nbc-cmd.sh")}
+	} else if tc.noFlags {
+		flags = ProvisionFlags{}
+	}
+
+	result, err := tt.App.runProvision(t.Context(), flags, dryRun)
+
+	require.ErrorContains(t, err, tc.wantError)
+	require.Equal(t, "240", result.ExitCode)
+	require.Equal(t, err.Error(), result.Error)
+	require.Empty(t, commands)
+	if markerExists && !dryRun {
+		require.Equal(t, []string{"ExitCode: 240, " + err.Error()}, reports)
+	} else {
+		require.Empty(t, reports)
+	}
+}
+
+func TestApp_ProvisionReportsPreScriptFailure(t *testing.T) {
+	testCases := []preScriptFailureCase{
+		{name: "malformed config", config: `{"version":`, wantError: "decode provision config"},
+		{name: "invalid config", config: `{"version":"v1"}`, wantError: "validate provision config"},
+		{name: "missing config", wantError: "open provision file"},
+		{name: "missing GPU config", config: `{` + requiredProvisionFields + `"version":"v1"}`, wantError: "failed to load GPU config"},
+		{name: "malformed GPU config", config: `{` + requiredProvisionFields + `"version":"v1"}`, gpuConfig: `{`, wantError: "failed to load GPU config"},
+		{name: "missing NBC command", missingNBC: true, wantError: "read NBC command file"},
+		{name: "missing flags", noFlags: true, wantError: "--provision-config or --nbc-cmd is required"},
+	}
+	reportingModes := []struct {
+		name         string
+		markerExists bool
+		dryRun       bool
+	}{
+		{name: "marker", markerExists: true},
+		{name: "no-marker"},
+		{name: "marker-dry-run", markerExists: true, dryRun: true},
+		{name: "no-marker-dry-run", dryRun: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, mode := range reportingModes {
+				t.Run(mode.name, func(t *testing.T) {
+					runPreScriptFailureReportingCase(t, tc, mode.markerExists, mode.dryRun)
+				})
+			}
+		})
+	}
+}
+
+func TestApp_ProvisionPreservesErrorWhenFailureReportingFails(t *testing.T) {
+	logs := installLogCapturer(t)
+	reportErr := errors.New("reporter unavailable")
+	tt := NewTestApp(t, TestAppConfig{})
+	tt.App.goalStateReporter = func(context.Context, bool, string) error { return reportErr }
+	require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+
+	result, err := tt.App.runProvision(t.Context(), ProvisionFlags{}, false)
+
+	require.ErrorContains(t, err, "--provision-config or --nbc-cmd is required")
+	require.Equal(t, "240", result.ExitCode)
+	require.Contains(t, logs.getRecords(), logRecord{
+		Level:   slog.LevelError,
+		Message: "failed to report provisioning status to Azure fabric",
+		Attrs:   map[string]string{"error": reportErr.Error()},
+	})
+}
+
+func TestApp_ProvisionReportsAfterScriptExecution(t *testing.T) {
+	for _, scriptErr := range []error{nil, errors.New("provisioning script failed")} {
+		t.Run(strconv.FormatBool(scriptErr != nil), func(t *testing.T) {
+			var commands [][]string
+			tt := NewTestApp(t, TestAppConfig{RunFunc: func(cmd *exec.Cmd) error {
+				commands = append(commands, cmd.Args)
+				if cmd.Args[0] == "/bin/bash" {
+					return scriptErr
+				}
+				return nil
+			}})
+			reported := false
+			tt.App.goalStateReporter = func(_ context.Context, failed bool, description string) error {
+				require.Len(t, commands, 1, "report must follow provisioning")
+				require.Equal(t, scriptErr != nil, failed)
+				if failed {
+					require.Equal(t, "ExitCode: -1, "+scriptErr.Error(), description)
+				} else {
+					require.Empty(t, description)
+				}
+				reported = true
+				return nil
+			}
+			require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+			path := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+			require.NoError(t, os.WriteFile(path, []byte("#!/bin/bash\n"), 0o600))
+
+			_, err := tt.App.runProvision(t.Context(), ProvisionFlags{NBCCmd: path}, false)
+
+			require.ErrorIs(t, err, scriptErr)
+			require.True(t, reported)
+			require.Equal(t, [][]string{{"/bin/bash", "--", path}}, commands)
+		})
+	}
+}
+
+func TestApp_ProvisionSuccessWhenReportingFails(t *testing.T) {
+	logs := installLogCapturer(t)
+	tt := NewTestApp(t, TestAppConfig{})
+	reportErr := errors.New("reporter unavailable")
+	tt.App.goalStateReporter = func(context.Context, bool, string) error { return reportErr }
+	require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+	path := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/bash\n"), 0o600))
+
+	_, err := tt.App.runProvision(t.Context(), ProvisionFlags{NBCCmd: path}, false)
+
+	require.NoError(t, err)
+	require.Contains(t, logs.getRecords(), logRecord{
+		Level:   slog.LevelError,
+		Message: "failed to report provisioning status to Azure fabric",
+		Attrs:   map[string]string{"error": reportErr.Error()},
+	})
+}
+
+func TestApp_ProvisionReportsPanic(t *testing.T) {
+	for _, markerExists := range []bool{false, true} {
+		t.Run(strconv.FormatBool(markerExists), func(t *testing.T) {
+			var reports []string
+			tt := NewTestApp(t, TestAppConfig{RunFunc: func(*exec.Cmd) error {
+				panic("provisioning panic")
+			}})
+			tt.App.goalStateReporter = func(_ context.Context, failed bool, description string) error {
+				require.True(t, failed)
+				reports = append(reports, description)
+				return nil
+			}
+			if markerExists {
+				require.NoError(t, os.WriteFile(tt.App.readyReportMarkerPath, nil, 0o600))
+			}
+			path := filepath.Join(t.TempDir(), "nbc-cmd.sh")
+			require.NoError(t, os.WriteFile(path, []byte("#!/bin/bash\n"), 0o600))
+
+			result, err := tt.App.runProvision(t.Context(), ProvisionFlags{NBCCmd: path}, false)
+
+			require.ErrorContains(t, err, "panic during provisioning: provisioning panic")
+			require.NotNil(t, result)
+			require.Equal(t, "240", result.ExitCode)
+			require.Equal(t, err.Error(), result.Error)
+			if markerExists {
+				require.Equal(t, []string{"ExitCode: 240, " + err.Error()}, reports)
+			} else {
+				require.Empty(t, reports)
+			}
+		})
 	}
 }
 
@@ -768,7 +1023,7 @@ func TestCompareEnvs_DifferingValues(t *testing.T) {
 	logCap := installLogCapturer(t)
 	configEnv := compareEnvsConfigEnv(t)
 
-	nbcContent := compareEnvsBuildNBCContent(configEnv, nil, map[string]string{"VM_TYPE": "standard"}, nil)
+	nbcContent := compareEnvsBuildNBCContent(configEnv, nil, map[string]string{"LOCATION": "changed"}, nil)
 	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
 
 	compareEnvs(context.Background(), ProvisionFlags{
@@ -779,17 +1034,17 @@ func TestCompareEnvs_DifferingValues(t *testing.T) {
 	records := logCap.getRecords()
 	var foundDiff bool
 	for _, r := range records {
-		if strings.Contains(r.Message, "differs: VM_TYPE") {
+		if strings.Contains(r.Message, "differs: LOCATION") {
 			foundDiff = true
 		}
 	}
-	assert.True(t, foundDiff, "expected summary log containing 'differs: VM_TYPE'")
+	assert.True(t, foundDiff, "expected summary log containing 'differs: LOCATION'")
 
 	events := tt.eventLogger.Events()
 	var found bool
 	for _, e := range events {
 		if strings.Contains(e.TaskName, "CompareEnvs") {
-			assert.Contains(t, e.Message, "differs: VM_TYPE")
+			assert.Contains(t, e.Message, "differs: LOCATION")
 			found = true
 		}
 	}
@@ -804,7 +1059,7 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 	nbcContent := compareEnvsBuildNBCContent(
 		configEnv,
 		map[string]bool{"ADMINUSER": true},
-		map[string]string{"VM_TYPE": "changed"},
+		map[string]string{"LOCATION": "changed"},
 		[]string{`EXTRA_VAR="new"`},
 	)
 	nbcPath := compareEnvsWriteNBCCmd(t, nbcContent)
@@ -821,7 +1076,7 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 			foundSummary = true
 			assert.Contains(t, r.Message, "only-in-pc: ADMINUSER")
 			assert.Contains(t, r.Message, "only-in-nbc: EXTRA_VAR")
-			assert.Contains(t, r.Message, "differs: VM_TYPE")
+			assert.Contains(t, r.Message, "differs: LOCATION")
 		}
 	}
 	assert.True(t, foundSummary, "expected summary log with all 3 differences")
@@ -833,22 +1088,69 @@ func TestCompareEnvs_MultipleDifferences(t *testing.T) {
 			assert.Contains(t, e.Message, "env var differences (3)")
 			assert.Contains(t, e.Message, "only-in-pc: ADMINUSER")
 			assert.Contains(t, e.Message, "only-in-nbc: EXTRA_VAR")
-			assert.Contains(t, e.Message, "differs: VM_TYPE")
+			assert.Contains(t, e.Message, "differs: LOCATION")
 			found = true
 		}
 	}
 	assert.True(t, found, "expected CompareEnvs guest agent event")
 }
 
+func TestDiffEnvMaps_MCRRepositoryBase(t *testing.T) {
+	tests := []struct {
+		name     string
+		pc       map[string]string
+		nbc      map[string]string
+		expected []string
+	}{
+		{
+			name: "matching public default",
+			pc:   map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com/"},
+			nbc:  map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com/"},
+		},
+		{
+			name: "matching non-public base with slash",
+			pc:   map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			nbc:  map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+		},
+		{
+			name:     "different endpoints",
+			pc:       map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com"},
+			nbc:      map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			expected: []string{"differs: MCR_REPOSITORY_BASE"},
+		},
+		{
+			name:     "different trailing slash",
+			pc:       map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn"},
+			nbc:      map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			expected: []string{"differs: MCR_REPOSITORY_BASE"},
+		},
+		{
+			name:     "missing from parser",
+			nbc:      map[string]string{"MCR_REPOSITORY_BASE": "mcr.azure.cn/"},
+			expected: []string{"only-in-nbc: MCR_REPOSITORY_BASE"},
+		},
+		{
+			name:     "missing from NBC",
+			pc:       map[string]string{"MCR_REPOSITORY_BASE": "mcr.microsoft.com"},
+			expected: []string{"only-in-pc: MCR_REPOSITORY_BASE"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, diffEnvMaps(tt.pc, tt.nbc))
+		})
+	}
+}
+
 func TestDiffEnvMaps_IgnoresProxyVarsCompatibilityDifference(t *testing.T) {
 	pcEnv := map[string]string{
 		"PROXY_VARS": `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}"; fi`,
-		"VM_TYPE":    "vmss",
+		"LOCATION":   "westus",
 	}
 	nbcEnv := map[string]string{
 		"PROXY_VARS": `export http_proxy="http://proxy.example:8080";`,
-		"VM_TYPE":    "standard",
+		"LOCATION":   "eastus",
 	}
 
-	assert.Equal(t, []string{"differs: VM_TYPE"}, diffEnvMaps(pcEnv, nbcEnv))
+	assert.Equal(t, []string{"differs: LOCATION"}, diffEnvMaps(pcEnv, nbcEnv))
 }

@@ -13,6 +13,20 @@ kernelVersionGe() {
   [ "$version_a" = "$highest_version" ]
 }
 
+isMGLRUDefaultDisabled() {
+  local os="$1"
+  local os_variant="$2"
+
+  isUbuntu "$os" || isMarinerOrAzureLinux "$os" "$os_variant" || isACL "$os" "$os_variant"
+}
+
+copyMGLRUConfig() {
+  if isMGLRUDefaultDisabled "$OS" "$OS_VARIANT"; then
+    # Keep the rule even if the build VM's kernel does not expose MGLRU.
+    cpAndMode /home/packer/aks-mglru.conf /etc/tmpfiles.d/aks-mglru.conf 644
+  fi
+}
+
 ubuntuKernelIncludesVulnerableModuleFixes() {
   local kernel_release
   local fixed_kernel
@@ -113,6 +127,68 @@ removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
   done
 }
 
+configureServiceExecutionTelemetryForSystemdVersion() {
+  local systemd_version="$1"
+  local collector_unit
+  local service
+  local service_path
+
+  case "$systemd_version" in
+    ''|*[!0-9]*)
+      echo "invalid systemd version for service execution telemetry: ${systemd_version}" >&2
+      return 1
+      ;;
+  esac
+
+  for service in \
+    cgroup-memory-telemetry.service \
+    cgroup-pressure-telemetry.service \
+    aks-log-collector.service; do
+    case "$service" in
+      cgroup-memory-telemetry.service)
+        service_path="$CGROUP_MEMORY_TELEMETRY_SERVICE_DEST"
+        collector_unit='service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service'
+        ;;
+      cgroup-pressure-telemetry.service)
+        service_path="$CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST"
+        collector_unit='service-execution-telemetry@cgroup\x2dpressure\x2dtelemetry.service.service'
+        ;;
+      aks-log-collector.service)
+        service_path="$AKS_LOG_COLLECTOR_SERVICE_DEST"
+        collector_unit='service-execution-telemetry@aks\x2dlog\x2dcollector.service.service'
+        ;;
+    esac
+
+    # Systemd retains the memory accounting of an exited unit from version 256, so the
+    # ExecStopPost snapshot is only needed below that. Dropping it elsewhere also keeps
+    # the snapshot process out of the very cgroup whose peak it would otherwise inflate.
+    if [ "$systemd_version" -ge 256 ]; then
+      sed -i \
+        -e '/^ExecStopPost=-\/opt\/scripts\/service-execution-telemetry\.sh --snapshot-memory-peak %n$/d' \
+        "$service_path" || return 1
+    fi
+
+    if [ "$systemd_version" -ge 258 ]; then
+      sed -i \
+        -e '/^CPUAccounting=true$/d' \
+        -e '/^MemoryAccounting=true$/d' \
+        "$service_path" || return 1
+      continue
+    fi
+
+    if [ "$systemd_version" -ge 249 ]; then
+      continue
+    fi
+
+    sed -i \
+      -e '/^OnSuccess=service-execution-telemetry@/d' \
+      -e '/^OnFailure=service-execution-telemetry@/d' \
+      "$service_path" || return 1
+    printf 'ExecStopPost=-/bin/systemctl --no-block start %s\n' \
+      "$collector_unit" >> "$service_path" || return 1
+  done
+}
+
 copyPackerFiles() {
   SYSCTL_CONFIG_SRC=/home/packer/sysctl-d-60-CIS.conf
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
@@ -182,6 +258,16 @@ copyPackerFiles() {
   CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST=/opt/scripts/cgroup-memory-telemetry.sh
   CGROUP_MEMORY_TELEMETRY_TIMER_SRC=/home/packer/cgroup-memory-telemetry.timer
   CGROUP_MEMORY_TELEMETRY_TIMER_DEST=/etc/systemd/system/cgroup-memory-telemetry.timer
+  CGROUP_CPU_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-cpu-telemetry.service
+  CGROUP_CPU_TELEMETRY_SERVICE_DEST=/etc/systemd/system/cgroup-cpu-telemetry.service
+  CGROUP_CPU_TELEMETRY_SCRIPT_SRC=/home/packer/cgroup-cpu-telemetry.sh
+  CGROUP_CPU_TELEMETRY_SCRIPT_DEST=/opt/scripts/cgroup-cpu-telemetry.sh
+  CGROUP_CPU_TELEMETRY_TIMER_SRC=/home/packer/cgroup-cpu-telemetry.timer
+  CGROUP_CPU_TELEMETRY_TIMER_DEST=/etc/systemd/system/cgroup-cpu-telemetry.timer
+  SERVICE_EXECUTION_TELEMETRY_SCRIPT_SRC=/home/packer/service-execution-telemetry.sh
+  SERVICE_EXECUTION_TELEMETRY_SCRIPT_DEST=/opt/scripts/service-execution-telemetry.sh
+  SERVICE_EXECUTION_TELEMETRY_SERVICE_SRC=/home/packer/service-execution-telemetry@.service
+  SERVICE_EXECUTION_TELEMETRY_SERVICE_DEST=/etc/systemd/system/service-execution-telemetry@.service
   CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-pressure-telemetry.service
   CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST=/etc/systemd/system/cgroup-pressure-telemetry.service
   CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC=/home/packer/cgroup-pressure-telemetry.sh
@@ -244,12 +330,18 @@ copyPackerFiles() {
   EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST=/etc/systemd/system/emit-kubelet-active-flags.service
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
+  REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_SRC=/home/packer/remove-bootstrap-kubeconfig.sh
+  REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_DEST=/opt/azure/containers/remove-bootstrap-kubeconfig.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   SECURE_TLS_BOOTSTRAP_SERVICE_SRC=/home/packer/secure-tls-bootstrap.service
   SECURE_TLS_BOOTSTRAP_SERVICE_DEST=/etc/systemd/system/secure-tls-bootstrap.service
+  SECURITY_UPDATE_SH_SRC=/home/packer/security-update.sh
+  SECURITY_UPDATE_SH_DEST=/opt/azure/containers/security-update.sh
+  NPD_UPDATE_SH_SRC=/home/packer/npd-update.sh
+  NPD_UPDATE_SH_DEST=/opt/azure/containers/npd-update.sh
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
   MPU_SH_SRC=/home/packer/mariner-package-update.sh
@@ -313,6 +405,13 @@ copyPackerFiles() {
       KATA_IMAGE_SRC=/home/packer/kata-containers.img
       KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
+      if [[ ",${FEATURE_FLAGS}," == *",kata-cc,"* ]]; then
+        # Current signed confidential guest/package layout; separate from the
+        # ordinary AZL3 guest installed above.
+        for file in kata-containers.img kata-containers-cc.img kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose reference-info-base64; do
+          cpAndMode "/home/packer/kata-cc/$file" "$KATACC_CONFIG_DIR/$file" 0644
+        done
+      fi
     fi
   fi
 
@@ -435,6 +534,14 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
 
+  LOCALDNS_FALLBACK_SCRIPT_SRC=/home/packer/localdns-fallback.sh
+  LOCALDNS_FALLBACK_SCRIPT_DEST=/opt/azure/containers/localdns/localdns-fallback.sh
+  cpAndMode $LOCALDNS_FALLBACK_SCRIPT_SRC $LOCALDNS_FALLBACK_SCRIPT_DEST 0755
+
+  LOCALDNS_FALLBACK_SERVICE_SRC=/home/packer/localdns-fallback.service
+  LOCALDNS_FALLBACK_SERVICE_DEST=/etc/systemd/system/localdns-fallback.service
+  cpAndMode $LOCALDNS_FALLBACK_SERVICE_SRC $LOCALDNS_FALLBACK_SERVICE_DEST 0644
+
   # Skip localdns exporter for Flatcar (EOL June 2026, no new features)
   if ! isFlatcar "$OS"; then
     LOCALDNS_EXPORTER_SCRIPT_SRC=/home/packer/localdns_exporter.sh
@@ -484,8 +591,8 @@ copyPackerFiles() {
   IG_SERVICE_SRC=/home/packer/ig-import-gadgets.service
   IG_SERVICE_DEST=/usr/lib/systemd/system/ig-import-gadgets.service
 
-  # Skip for Mariner, OSGuard, Flatcar, ACL, and Kata
-  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS"; }; then
+  # Skip for Mariner, OSGuard, Flatcar, and ACL (Azure Linux 3 Kata includes IG)
+  if ! { isMariner "$OS" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; }; then
     cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
     cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
     cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
@@ -504,8 +611,8 @@ copyPackerFiles() {
   NODE_EXPORTER_WEB_CONFIG_SRC=/home/packer/node-exporter-web-config.yml
   NODE_EXPORTER_WEB_CONFIG_DEST=/etc/node-exporter.d/web-config.yml
 
-  # Skip for OSGuard, Flatcar, ACL, Kata, and Mariner (only AzureLinux 3.0 gets node-exporter)
-  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || grep -q "kata" <<< "$FEATURE_FLAGS" || isMariner "$OS"; }; then
+  # Skip for OSGuard, Flatcar, ACL, and Mariner (only AzureLinux 3.0, including Kata, gets node-exporter)
+  if ! { isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isMariner "$OS"; }; then
     cpAndMode $NODE_EXPORTER_STARTUP_SRC $NODE_EXPORTER_STARTUP_DEST 755
     cpAndMode $NODE_EXPORTER_SERVICE_SRC $NODE_EXPORTER_SERVICE_DEST 644
     cpAndMode $NODE_EXPORTER_RESTART_SERVICE_SRC $NODE_EXPORTER_RESTART_SERVICE_DEST 644
@@ -551,8 +658,10 @@ copyPackerFiles() {
   cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SCRIPT_DEST 755
   cpAndMode $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_SRC $EMIT_KUBELET_ACTIVE_FLAGS_SERVICE_DEST 644
   cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
+  cpAndMode $REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_SRC $REMOVE_BOOTSTRAP_KUBECONFIG_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
+  copyMGLRUConfig
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $LOGROTATE_CIS_CONFIG_SRC $LOGROTATE_CIS_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
@@ -600,9 +709,17 @@ copyPackerFiles() {
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SERVICE_SRC $CGROUP_MEMORY_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SCRIPT_SRC $CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST 755
   cpAndMode $CGROUP_MEMORY_TELEMETRY_TIMER_SRC $CGROUP_MEMORY_TELEMETRY_TIMER_DEST 644
+  cpAndMode $CGROUP_CPU_TELEMETRY_SERVICE_SRC $CGROUP_CPU_TELEMETRY_SERVICE_DEST 644
+  cpAndMode $CGROUP_CPU_TELEMETRY_SCRIPT_SRC $CGROUP_CPU_TELEMETRY_SCRIPT_DEST 755
+  cpAndMode $CGROUP_CPU_TELEMETRY_TIMER_SRC $CGROUP_CPU_TELEMETRY_TIMER_DEST 644
+  cpAndMode $SERVICE_EXECUTION_TELEMETRY_SCRIPT_SRC $SERVICE_EXECUTION_TELEMETRY_SCRIPT_DEST 755
+  cpAndMode $SERVICE_EXECUTION_TELEMETRY_SERVICE_SRC $SERVICE_EXECUTION_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC $CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC $CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST 755
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_TIMER_SRC $CGROUP_PRESSURE_TELEMETRY_TIMER_DEST 644
+  local systemd_version
+  systemd_version=$(systemctl --version | awk 'NR == 1 { print $2 }')
+  configureServiceExecutionTelemetryForSystemdVersion "$systemd_version" || exit "$ERR_PACKER_COPY_FILE"
   cpAndMode $UPDATE_CERTS_SERVICE_SRC $UPDATE_CERTS_SERVICE_DEST 644
   cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
   cpAndMode $UPDATE_CERTS_SCRIPT_SRC $UPDATE_CERTS_SCRIPT_DEST 755
@@ -618,6 +735,8 @@ copyPackerFiles() {
   if isMarinerOrAzureLinux "$OS"; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
+    cpAndMode /home/packer/security-update.sh /opt/azure/containers/security-update.sh 544
+    cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
 
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
@@ -647,6 +766,8 @@ copyPackerFiles() {
     cpAndMode $PAM_D_COMMON_ACCOUNT_SRC $PAM_D_COMMON_ACCOUNT_DEST 644
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
+    cpAndMode $SECURITY_UPDATE_SH_SRC $SECURITY_UPDATE_SH_DEST 544
+    cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
 
     if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then

@@ -143,6 +143,9 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh
       destination: /opt/azure/containers/validate-kubelet-credentials.sh
       permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh
+      destination: /opt/azure/containers/remove-bootstrap-kubeconfig.sh
+      permissions: 755
     # network lockdown
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/block_wireserver.sh
       destination: /opt/azure/containers/kubelet.sh
@@ -203,6 +206,9 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
       destination: /etc/sysctl.d/60-CIS.conf
       permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-mglru.conf
+      destination: /etc/tmpfiles.d/aks-mglru.conf
+      permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/sshd_config
       destination: /etc/ssh/sshd_config
       permissions: 600
@@ -246,6 +252,22 @@ os:
       permissions: 600
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer
       destination: /etc/systemd/system/cgroup-memory-telemetry.timer
+      permissions: 600
+    # cgroup-cpu
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh
+      destination: /opt/scripts/cgroup-cpu-telemetry.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/service-execution-telemetry.sh
+      destination: /opt/scripts/service-execution-telemetry.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/service-execution-telemetry@.service
+      destination: /etc/systemd/system/service-execution-telemetry@.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.service
+      destination: /etc/systemd/system/cgroup-cpu-telemetry.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.timer
+      destination: /etc/systemd/system/cgroup-cpu-telemetry.timer
       permissions: 600
     # cgroup-pressure
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh
@@ -344,6 +366,15 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
       destination: /etc/systemd/system/localdns.service.d/delegate.conf
       permissions: 644
+    # localdns pod-DNS fallback. localdns.service carries OnFailure= and an
+    # ExecStartPre= stop for this unit, so omitting it ships a dangling reference
+    # and silently leaves OSGuard nodes with no fallback.
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-fallback.service
+      destination: /etc/systemd/system/localdns-fallback.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-fallback.sh
+      destination: /opt/azure/containers/localdns/localdns-fallback.sh
+      permissions: 755
     # localdns exporter
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns_exporter.sh
       destination: /opt/azure/containers/localdns/localdns_exporter.sh

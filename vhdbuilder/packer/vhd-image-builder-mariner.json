@@ -10,6 +10,9 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
+    "kata_uvm_version": "{{env `KATA_UVM_VERSION`}}",
+    "system_collection_uri": "{{env `SYSTEM_COLLECTIONURI`}}",
+    "system_team_project_id": "{{env `SYSTEM_TEAMPROJECTID`}}",
     "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "sku_name": "{{env `SKU_NAME`}}",
@@ -277,6 +280,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh",
+      "destination": "/home/packer/remove-bootstrap-kubeconfig.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
@@ -364,6 +372,21 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh",
       "destination": "/home/packer/mariner-package-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/security-update.sh",
+      "destination": "/home/packer/security-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/npd-update.sh",
+      "destination": "/home/packer/npd-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-npd.sh",
+      "destination": "/home/packer/install-npd.sh"
     },
     {
       "type": "file",
@@ -472,6 +495,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-mglru.conf",
+      "destination": "/home/packer/aks-mglru.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config",
       "destination": "/home/packer/sshd_config"
     },
@@ -564,6 +592,31 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer",
       "destination": "/home/packer/cgroup-memory-telemetry.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh",
+      "destination": "/home/packer/cgroup-cpu-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/service-execution-telemetry.sh",
+      "destination": "/home/packer/service-execution-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/service-execution-telemetry@.service",
+      "destination": "/home/packer/service-execution-telemetry@.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.service",
+      "destination": "/home/packer/cgroup-cpu-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.timer",
+      "destination": "/home/packer/cgroup-cpu-telemetry.timer"
     },
     {
       "type": "file",
@@ -717,6 +770,16 @@
     },
     {
       "type": "file",
+      "content": "{{user `kata_uvm_version`}}\n",
+      "destination": "/home/packer/kata-containers-version.txt"
+    },
+    {
+      "type": "file",
+      "source": "kata-cc",
+      "destination": "/home/packer"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },
@@ -729,6 +792,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns.service",
       "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.sh",
+      "destination": "/home/packer/localdns-fallback.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.service",
+      "destination": "/home/packer/localdns-fallback.service"
     },
     {
       "type": "file",
@@ -792,6 +865,16 @@
       "type": "shell",
       "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} /bin/bash -eux /home/packer/install-dependencies.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "script": "vhdbuilder/packer/validate-kata-uvm-version.sh",
+      "environment_vars": [
+        "FEATURE_FLAGS={{user `feature_flags`}}",
+        "IMG_OFFER={{user `img_offer`}}",
+        "SYSTEM_COLLECTIONURI={{user `system_collection_uri`}}",
+        "SYSTEM_TEAMPROJECTID={{user `system_team_project_id`}}"
       ]
     },
     {

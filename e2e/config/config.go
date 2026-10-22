@@ -61,6 +61,7 @@ type Configuration struct {
 	GalleryLinux                           Gallery
 	GalleryWindows                         Gallery
 	IgnoreScenariosWithMissingVHD          bool
+	InADO                                  bool
 	KeepVMSS                               bool
 	NetworkIsolatedNSGName                 string
 	Parallel                               int
@@ -103,6 +104,7 @@ func DefaultConfiguration() *Configuration {
 		MANAVMSKU:                              "Standard_D2ds_v6",
 		E2ELoggingDir:                          "scenario-logs",
 		EnableSecureTLSBootstrapping:           false,
+		InADO:                                  strings.EqualFold(os.Getenv("TF_BUILD"), "true"),
 		GalleryLinux: Gallery{
 			Name:              "PackerSigGalleryEastUS",
 			ResourceGroupName: "aksvhdtestbuildrg",

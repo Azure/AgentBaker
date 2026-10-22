@@ -24,6 +24,7 @@ type Tags struct {
 	NetworkIsolated        bool
 	NonAnonymousACR        bool
 	GPU                    bool
+	CVM                    bool
 	WASM                   bool
 	Kata                   bool
 	BootstrapTokenFallback bool
@@ -154,7 +155,7 @@ type Config struct {
 	// so that staleness regressions in the BasePrep->NodePrep split are caught positively.
 	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
-	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
+	// AKSNodeConfigMutator customizes the converted config before it is delivered to ANC.
 	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
@@ -273,6 +274,19 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 
 	s.updateTags(ctx, vmss)
 	return nil
+}
+
+func (s *Scenario) RemoveBoostrapKubeconfig() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.RemoveBootstrapKubeconfig {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.GetBootstrappingConfig().GetRemoveBootstrapKubeconfig() {
+		return true
+	}
+	return false
 }
 
 func (s *Scenario) SecureTLSBootstrappingEnabled() bool {

@@ -75,6 +75,8 @@ Describe "Containerd Functions Tests" {
 
   Describe "ProcessAndWriteContainerdConfig" {
     BeforeAll {
+      Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
+
       Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
         return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
       }
@@ -85,7 +87,7 @@ Describe "Containerd Functions Tests" {
 
     Context 'containerd template v1 ' {
       BeforeAll {
-        $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
+        $containerdDir = Join-Path $TestDrive "containerd-v1"
         $cniBinDir = 'C:/cni/bin'
         $cniConfDir = 'C:/cni/conf'
         $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2'
@@ -118,13 +120,21 @@ Describe "Containerd Functions Tests" {
         $content | Should -Match 'SandboxIsolation = 0'
       }
 
-      It "Should include hyperv runtimes when hyperv is enabled" {
-        $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
+      It "Should include hyperv handlers with <Isolation> default isolation" -ForEach @(
+        @{ Isolation = "process" }
+        @{ Isolation = "hyperv" }
+      ) {
+        $global:DefaultContainerdWindowsSandboxIsolation = $Isolation
         $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
         { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
 
         $content = Get-Content -Path $configPath -Raw
-        $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
+        foreach ($buildNumber in @("1234", "5678")) {
+          $runtimePath = "plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-$buildNumber"
+          $content | Should -Match ([regex]::Escape("[$runtimePath]"))
+          $content | Should -Match ([regex]::Escape("[$runtimePath.options]"))
+        }
+        $content | Should -Not -Match ([regex]::Escape("plugins.'io.containerd.cri.v1.runtime'"))
         $content | Should -Match 'SandboxIsolation = 1'
         $content | Should -Not -Match 'version = 3'
       }
@@ -146,7 +156,7 @@ Describe "Containerd Functions Tests" {
     Context 'containerd template v2' {
 
       BeforeAll {
-        $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
+        $containerdDir = Join-Path $TestDrive "containerd-v2"
         $cniBinDir = 'C:/cni/bin'
         $cniConfDir = 'C:/cni/conf'
         $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2'
@@ -179,13 +189,22 @@ Describe "Containerd Functions Tests" {
         $content | Should -Match 'SandboxIsolation = 0'
       }
 
-      It "Should include hyperv runtimes when hyperv is enabled" {
-        $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
+      It "Should include hyperv handlers with <Isolation> default isolation" -ForEach @(
+        @{ Isolation = "process" }
+        @{ Isolation = "hyperv" }
+      ) {
+        $global:DefaultContainerdWindowsSandboxIsolation = $Isolation
         $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
         { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
 
         $content = Get-Content -Path $configPath -Raw
-        $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
+        foreach ($buildNumber in @("1234", "5678")) {
+          $runtimePath = "plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runhcs-wcow-hypervisor-$buildNumber"
+          $content | Should -Match ([regex]::Escape("[$runtimePath]"))
+          $content | Should -Match ([regex]::Escape("[$runtimePath.options]"))
+        }
+        $content | Should -Not -Match ([regex]::Escape("[plugins.cri."))
+        $content | Should -Not -Match ([regex]::Escape("{{"))
         $content | Should -Match 'SandboxIsolation = 1'
         $content | Should -Match 'version = 3'
       }
