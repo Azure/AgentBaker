@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -347,20 +348,17 @@ const (
 )
 
 // ensureSharedFirewall creates or retrieves the shared Azure Firewall and returns its private IP.
-// The firewall is shared across all clusters in the RG, so its application rules persist beyond
-// the lifetime of any single cluster. We reconcile rules on every call so that changes to allowed
-// FQDNs (notably the per-sub blob storage account FQDN, which now embeds a sub-suffix) are picked
-// up. Without this, a firewall created against an older BlobStorageAccount() name silently blocks
-// CSE zip downloads from the new per-sub storage account, causing Windows CSE to fail with
-// NO_CSE_RESULT_LOG and Linux CSE to hang on artifact downloads.
+// The firewall is shared across all clusters in the RG, so its rules persist beyond the lifetime
+// of any single cluster. Reconcile the per-sub blob storage FQDN and NTP network rule so existing
+// firewalls allow CSE artifact downloads and public NTP synchronization.
 func ensureSharedFirewall(ctx context.Context, rg, location string) (string, error) {
 	existing, err := config.Azure.AzureFirewall.Get(ctx, rg, SharedFirewallName, nil)
 	if err == nil {
 		// Fast path: rules already match current config.
-		if firewallAppRulesUpToDate(existing.AzureFirewall) {
+		if firewallAppRulesUpToDate(existing.AzureFirewall) && firewallNetworkRulesUpToDate(existing.AzureFirewall) {
 			return getFirewallPrivateIP(existing.AzureFirewall)
 		}
-		logging.Logf(ctx, "shared firewall %s exists but app rules are stale; updating", SharedFirewallName)
+		logging.Logf(ctx, "shared firewall %s exists but rules are stale; updating", SharedFirewallName)
 		firewallSubnetID := fmt.Sprintf(
 			"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/AzureFirewallSubnet",
 			config.Config.SubscriptionID, rg, SharedVNetName,
@@ -379,7 +377,7 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 		updated := getFirewall(ctx, location, firewallSubnetID, publicIPID)
 		fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, *updated, nil)
 		if err != nil {
-			return "", fmt.Errorf("updating shared firewall app rules: %w", err)
+			return "", fmt.Errorf("updating shared firewall rules: %w", err)
 		}
 		fwResp, err := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
@@ -466,6 +464,33 @@ func firewallAppRulesUpToDate(fw armnetwork.AzureFirewall) bool {
 		}
 	}
 	// Rule not found at all → firewall predates this rule, treat as stale.
+	return false
+}
+
+func firewallNetworkRulesUpToDate(fw armnetwork.AzureFirewall) bool {
+	if fw.Properties == nil {
+		return false
+	}
+	for _, coll := range fw.Properties.NetworkRuleCollections {
+		if coll == nil || coll.Properties == nil || coll.Properties.Action == nil || coll.Properties.Action.Type == nil ||
+			*coll.Properties.Action.Type != armnetwork.AzureFirewallRCActionTypeAllow {
+			continue
+		}
+		for _, rule := range coll.Properties.Rules {
+			if rule == nil || rule.Name == nil || *rule.Name != "ntp" {
+				continue
+			}
+			hasSource := slices.ContainsFunc(rule.SourceAddresses, func(s *string) bool { return s != nil && *s == SharedVNetCIDR })
+			hasDestination := slices.ContainsFunc(rule.DestinationAddresses, func(s *string) bool { return s != nil && *s == "*" })
+			hasPort := slices.ContainsFunc(rule.DestinationPorts, func(s *string) bool { return s != nil && *s == "123" })
+			hasUDP := slices.ContainsFunc(rule.Protocols, func(p *armnetwork.AzureFirewallNetworkRuleProtocol) bool {
+				return p != nil && *p == armnetwork.AzureFirewallNetworkRuleProtocolUDP
+			})
+			if hasSource && hasDestination && hasPort && hasUDP {
+				return true
+			}
+		}
+	}
 	return false
 }
 
