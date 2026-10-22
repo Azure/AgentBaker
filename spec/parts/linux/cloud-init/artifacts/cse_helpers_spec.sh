@@ -120,6 +120,71 @@ Describe 'cse_helpers.sh'
         End
     End
 
+    Describe 'logAzureDNSDirectLookup'
+        fqdn="mycluster-abc.0b3c1a2d.privatelink.eastus.azmk8s.io"
+
+        It 'reports the resolved addresses when Azure DNS resolves the name'
+            nslookup() {
+                echo "Server:		168.63.129.16"
+                echo "Address:	168.63.129.16#53"
+                echo ""
+                echo "Non-authoritative answer:"
+                echo "Name:	$3"
+                echo "Address: 10.1.2.3"
+                return 0
+            }
+            When call logAzureDNSDirectLookup "${fqdn}"
+            The output should equal "AzureDNSDirectLookup: result=resolved server=168.63.129.16 name=${fqdn} addresses=10.1.2.3"
+            The status should be success
+        End
+
+        It 'queries the record against Azure DNS'
+            nslookup() {
+                if [ "$3" = "${fqdn}" ] && [ "$4" = "168.63.129.16" ]; then
+                    echo "Address: 10.1.2.3"
+                    return 0
+                fi
+                return 1
+            }
+            When call logAzureDNSDirectLookup "${fqdn}"
+            The output should include "result=resolved"
+            The status should be success
+        End
+
+        It 'reports noanswer when the lookup succeeds without addresses'
+            nslookup() {
+                echo "Server:		168.63.129.16"
+                echo "Address:	168.63.129.16#53"
+                echo ""
+                echo "*** Can't find $3: No answer"
+                return 0
+            }
+            When call logAzureDNSDirectLookup "${fqdn}"
+            The output should equal "AzureDNSDirectLookup: result=noanswer server=168.63.129.16 name=${fqdn}"
+            The status should be success
+        End
+
+        Parameters
+            "** server can't find NAME: NXDOMAIN" NXDOMAIN
+            "** server can't find NAME: SERVFAIL" SERVFAIL
+            "** server can't find NAME: REFUSED" REFUSED
+            ";; communications error to 168.63.129.16#53: timed out" timeout
+            ";; no servers could be reached" timeout
+            "unexpected error" failed
+        End
+
+        It "reports $2 when Azure DNS fails with '$1'"
+            nslookup_output="$1"
+            nslookup() {
+                echo "${nslookup_output}"
+                return 1
+            }
+            When call logAzureDNSDirectLookup "${fqdn}"
+            The output should equal "AzureDNSDirectLookup: result=$2 server=168.63.129.16 name=${fqdn}"
+            The status should be success
+        End
+    End
+
     Describe 'resolve_packages_source_url'
         It 'sets PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com when run locally'
             # Mock the curl command to simulate a successful response instead of making an actual network call
