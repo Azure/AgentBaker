@@ -78,10 +78,16 @@
     {
       "type": "shell",
       "inline": [
+        "mkdir -p /home/packer/acl-ca-certificates",
         "sudo mkdir -p /opt/azure/containers",
         "sudo mkdir -p /opt/scripts",
         "sudo mkdir -p /opt/certs"
       ]
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/acl-ca-certificates/",
+      "destination": "/home/packer/acl-ca-certificates/"
     },
     {
       "type": "file",

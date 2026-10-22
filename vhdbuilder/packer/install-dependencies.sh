@@ -42,6 +42,10 @@ LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 GRID_COMPATIBILITY_DATA_FILE=/opt/azure/vhd-grid-compatibility-data.json
 
+if isACL "$OS" "$OS_VARIANT"; then
+  refreshACLCAStore || exit 1
+fi
+
 string_replace() {
   echo ${1//\*/$2}
 }

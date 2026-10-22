@@ -1,0 +1,171 @@
+#!/bin/bash
+# shellcheck disable=SC2329
+
+Describe 'ACL certificate refresh'
+  setup() {
+    TEST_ROOT=$(mktemp -d)
+    PAYLOAD="$TEST_ROOT/home/packer/acl-ca-certificates"
+    mkdir -p "$PAYLOAD" "$TEST_ROOT/usr/share/p11-kit/modules"
+    printf 'new roots\n' > "$PAYLOAD/ca-bundle.trust.microsoft.p11-kit"
+    printf 'new blocklist\n' > "$PAYLOAD/ca-bundle.trust.distrusted.p11-kit"
+    printf '3.0.0-19.azl3\n' > "$PAYLOAD/version"
+    printf 'module: p11-kit-trust.so\nx-init-reserved:\n' > "$TEST_ROOT/usr/share/p11-kit/modules/p11-kit-trust.module"
+    mkdir -p "$TEST_ROOT/opt/aks-sysext/usr/lib/extension-release.d" "$TEST_ROOT/etc/extensions"
+    printf 'ID=azurelinux\nSYSEXT_LEVEL=1.0\n' > "$TEST_ROOT/opt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext"
+    ln -s /opt/aks-sysext "$TEST_ROOT/etc/extensions/aks-sysext"
+    printf 'existing content\n' > "$TEST_ROOT/opt/aks-sysext/existing"
+    eval "$(sed -n '/^refreshACLCAStore()/,/^}/p' vhdbuilder/scripts/linux/acl/tool_installs_acl.sh |
+      sed "s|local payload=/home/packer|local payload=$TEST_ROOT/home/packer|; s|local extension_dir=/opt/|local extension_dir=$TEST_ROOT/opt/|; s|local active_source=/usr/|local active_source=$TEST_ROOT/usr/|; s|readlink /etc/extensions|readlink $TEST_ROOT/etc/extensions|; s|/etc/pki/ca-trust/extracted|$TEST_ROOT/etc/pki/ca-trust/extracted|g")"
+  }
+  cleanup() {
+    rm -rf "$TEST_ROOT"
+  }
+  BeforeEach 'setup'
+  AfterEach 'cleanup'
+
+  sh() {
+    [ "$1" = -e ] || return 1
+    local bundle
+    for bundle in pem/tls-ca-bundle.pem pem/email-ca-bundle.pem pem/objsign-ca-bundle.pem \
+        openssl/ca-bundle.trust.crt java/cacerts edk2/cacerts.bin; do
+      mkdir -p "$(dirname "$TEST_ROOT/etc/pki/ca-trust/extracted/$bundle")"
+      : > "$TEST_ROOT/etc/pki/ca-trust/extracted/$bundle"
+      if [ "$bundle" != pem/objsign-ca-bundle.pem ]; then
+        printf 'regenerated\n' > "$TEST_ROOT/etc/pki/ca-trust/extracted/$bundle"
+      fi
+    done
+  }
+
+  systemd-sysext() {
+    [ "$*" = '--no-reload refresh' ] || return 1
+    mkdir -p "$TEST_ROOT/usr/share/pki/ca-trust-source"
+    cp "$TEST_ROOT/opt/aks-sysext/usr/share/pki/ca-trust-source/"*.p11-kit "$TEST_ROOT/usr/share/pki/ca-trust-source/"
+  }
+  systemctl() {
+    [ "$*" = 'enable systemd-sysext.service' ]
+  }
+
+  It 'reuses /opt/aks-sysext and preserves its metadata, other content and local anchors'
+    mkdir -p "$TEST_ROOT/etc/pki/ca-trust/source/anchors"
+    printf 'custom CA\n' > "$TEST_ROOT/etc/pki/ca-trust/source/anchors/custom.crt"
+    When call refreshACLCAStore
+    The status should be success
+    The contents of file "$TEST_ROOT/opt/aks-sysext/ca-certificates.version" should equal '3.0.0-19.azl3'
+    The contents of file "$TEST_ROOT/opt/aks-sysext/usr/share/pki/ca-trust-source/ca-bundle.trust.microsoft.p11-kit" should equal 'new roots'
+    The contents of file "$TEST_ROOT/opt/aks-sysext/usr/share/pki/ca-trust-source/ca-bundle.trust.distrusted.p11-kit" should equal 'new blocklist'
+    The contents of file "$TEST_ROOT/opt/aks-sysext/existing" should equal 'existing content'
+    The contents of file "$TEST_ROOT/etc/pki/ca-trust/source/anchors/custom.crt" should equal 'custom CA'
+    The contents of file "$TEST_ROOT/usr/share/p11-kit/modules/p11-kit-trust.module" should equal "module: p11-kit-trust.so
+x-init-reserved:"
+    The contents of file "$TEST_ROOT/opt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext" should equal "ID=azurelinux
+SYSEXT_LEVEL=1.0"
+  End
+
+  It 'fails rather than accepting missing trust data'
+    rm "$PAYLOAD/ca-bundle.trust.microsoft.p11-kit"
+    When call refreshACLCAStore
+    The status should be failure
+    The stderr should include 'Missing refreshed ACL trust source'
+    The path "$TEST_ROOT/opt/aks-sysext/ca-certificates.version" should not be exist
+  End
+
+  It 'fails if a trust extraction command fails'
+    sh() { return 1; }
+    When call refreshACLCAStore
+    The status should be failure
+    The path "$TEST_ROOT/opt/aks-sysext/ca-certificates.version" should not be exist
+  End
+
+  It 'fails when the sysext cannot be merged'
+    systemd-sysext() { return 1; }
+    When call refreshACLCAStore
+    The status should be failure
+    The stderr should include 'Failed to merge refreshed ACL trust sources'
+  End
+
+  It 'fails when the sysext boot service cannot be enabled'
+    systemctl() { return 1; }
+    When call refreshACLCAStore
+    The status should be failure
+    The path "$TEST_ROOT/opt/aks-sysext/ca-certificates.version" should not be exist
+  End
+
+  It 'fails rather than replacing missing shared sysext metadata'
+    rm "$TEST_ROOT/opt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext"
+    When call refreshACLCAStore
+    The status should be failure
+    The stderr should include 'Missing existing ACL aks-sysext configuration'
+  End
+
+  It 'fails if sysext reports success without activating the refreshed data'
+    systemd-sysext() { return 0; }
+    When call refreshACLCAStore
+    The status should be failure
+    The stderr should include 'Refreshed ACL trust source is not active'
+  End
+
+  It 'rejects missing generated formats'
+    sh() { return 0; }
+    When call refreshACLCAStore
+    The status should be failure
+    The stderr should include 'Missing refreshed ACL trust bundle'
+  End
+
+  Describe 'host preparation'
+    load_preparer() {
+      eval "$(sed -n '/^prepareACLTrustSources()/,/^}/p' vhdbuilder/packer/prepare-acl-ca-certificates.sh)"
+    }
+    BeforeEach 'load_preparer'
+
+    It 'rejects an unsupported architecture before downloading'
+      When call prepareACLTrustSources RISCV64 "$TEST_ROOT/prepared"
+      The status should be failure
+      The stderr should include 'Unsupported ACL certificate architecture'
+    End
+
+    retrycmd_curl_file() {
+      printf 'corrupt RPM\n' > "$4"
+    }
+
+    It 'rejects a corrupt RPM before extracting or writing a version marker'
+      When call prepareACLTrustSources X86_64 "$TEST_ROOT/prepared"
+      The status should be failure
+      The output should include 'FAILED'
+      The stderr should include 'checksum did NOT match'
+      The path "$TEST_ROOT/prepared/version" should not be exist
+    End
+  End
+
+  Describe 'Packer wiring'
+    Parameters
+      acl
+      acl-arm64
+    End
+    It "uploads trust sources for $1"
+      When call jq -e '(.provisioners[0].inline | index("mkdir -p /home/packer/acl-ca-certificates") != null) and ([.provisioners[] | select(.source == "vhdbuilder/packer/acl-ca-certificates/" and .destination == "/home/packer/acl-ca-certificates/")] | length == 1)' "vhdbuilder/packer/vhd-image-builder-$1.json"
+      The status should be success
+      The output should equal true
+    End
+  End
+
+  Describe 'non-ACL VHD validation'
+    Parameters
+      'UBUNTU|'
+      'AZURELINUX|'
+      'FLATCAR|'
+      'AZURELINUX|OSGUARD'
+    End
+    It "leaves $1 unchanged"
+      test_os=$1
+      ACL_OS_NAME=AZURECONTAINERLINUX
+      AZURELINUX_OS_NAME=AZURELINUX
+      ACL_OS_VARIANT=AZURECONTAINERLINUX
+      getCurrentPackageTestOS() { printf '%s\n' "$test_os"; }
+      eval "$(sed -n '/^isACL()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
+      eval "$(sed -n '/^testACLCAStore()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)"
+      When call testACLCAStore
+      The status should be success
+      The output should be blank
+    End
+  End
+End

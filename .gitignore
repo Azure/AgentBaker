@@ -56,6 +56,7 @@ e2e/scenario-logs/
 
 # vhdbuilder generated prefetch scripts
 vhdbuilder/packer/prefetch.sh
+vhdbuilder/packer/acl-ca-certificates/
 
 # ignore mise configs (https://mise.jdx.dev/)
 .mise

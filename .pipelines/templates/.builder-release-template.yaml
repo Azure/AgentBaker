@@ -138,6 +138,14 @@ steps:
     displayName: Build Go binaries
     retryCountOnTaskFailure: 3
 
+  - bash: |
+      set -euo pipefail
+      sudo apt-get update
+      sudo apt-get install -y --no-install-recommends rpm2cpio cpio
+    condition: and(succeeded(), eq(variables.OS_SKU, 'AzureContainerLinux'))
+    displayName: Install ACL certificate extraction tools
+    retryCountOnTaskFailure: 3
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)

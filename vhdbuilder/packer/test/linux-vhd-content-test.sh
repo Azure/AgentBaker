@@ -1396,6 +1396,41 @@ testUserAdd() {
   echo "$test:Finish"
 }
 
+testACLCAStore() {
+  local test="testACLCAStore"
+  local resolvedOSAndVariant
+  resolvedOSAndVariant=$(getCurrentPackageTestOS)
+  if ! isACL "${resolvedOSAndVariant%%|*}" "${resolvedOSAndVariant#*|}"; then
+    return 0
+  fi
+  local extension_dir=/opt/aks-sysext
+  if ! systemctl is-enabled --quiet systemd-sysext.service ||
+      [ "$(readlink /etc/extensions/aks-sysext)" != /opt/aks-sysext ] ||
+      ! grep -qx '3.0.0-19.azl3' "$extension_dir/ca-certificates.version" ||
+      [ ! -s "$extension_dir/usr/lib/extension-release.d/extension-release.aks-sysext" ]; then
+    err "$test" "Refreshed ACL certificate sources are not configured after boot"
+    return 1
+  fi
+  if ! (cd /usr/share/pki/ca-trust-source && printf '%s\n' \
+      '1144d6e698c9ce824b79653b227cb76069ffa992a5c8fef123d7c8bf86f7efd4  ca-bundle.trust.microsoft.p11-kit' \
+      'f06774e3453cf5d6f2162df4cc4fea52ab21df8583716e60b39d6f7f9eb4a08f  ca-bundle.trust.distrusted.p11-kit' | sha256sum -c -); then
+    err "$test" "Refreshed ACL trust source integrity check failed"
+    return 1
+  fi
+  local bundle
+  for bundle in pem/tls-ca-bundle.pem pem/email-ca-bundle.pem pem/objsign-ca-bundle.pem \
+      openssl/ca-bundle.trust.crt java/cacerts edk2/cacerts.bin; do
+    if [ ! -f "/etc/pki/ca-trust/extracted/$bundle" ]; then
+      err "$test" "Missing refreshed trust bundle after boot: $bundle"
+      return 1
+    fi
+  done
+  if [ ! -s /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem ]; then
+    err "$test" "Refreshed ACL TLS trust bundle is empty after boot"
+    return 1
+  fi
+}
+
 testMGLRUDisabled() {
   local test="testMGLRUDisabled"
   local config_file="/etc/tmpfiles.d/aks-mglru.conf"
@@ -2980,6 +3015,7 @@ testLoginDefs
 testUserAdd
 testNetworkSettings
 testMGLRUDisabled
+testACLCAStore
 testCronPermissions "$IMG_SKU" "$OS_SKU"
 testCoreDumpSettings
 testNfsServerService

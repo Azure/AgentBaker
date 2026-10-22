@@ -103,6 +103,9 @@ az-login:
 
 init-packer:
 	@mkdir -p kata-cc # Empty on ordinary builds; populated by the CC signing-artifact download.
+ifeq (${OS_SKU},AzureContainerLinux)
+	@bash ./vhdbuilder/packer/prepare-acl-ca-certificates.sh
+endif
 	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-packer: az-login

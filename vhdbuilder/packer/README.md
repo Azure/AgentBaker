@@ -1,20 +1,27 @@
 The workflow becomes complicated as we add more VHDs. Here is a quick description of the current VHD build workflow:
 
 # gen1
+
 MarketplaceImage->(func/packer) -> VHD in classic SA
+
 ## gen1 mariner:
+
 external-vhd->(func/init:internal-vhd)->(func/packer) -> VHD in classic SA
 
 # sig:
+
 MarketplaceImage->(func/init: ensure dest gallery/definition)->(func/packer: managed image)->dest SIG
 
 # gen2:
+
 MarketplaceImage->(func/init: ensure dest existing/static gallery/definition)->(func/packer: managed image)->dest SIG->(func/convert: sig->disk) -> VHD in classic SA
 
 ## gen2 mariner:
+
 external-vhd-src->(func/init: ensure dest existing/static gallery/definition, internal-vhd->image; )->source SIG->(func/packer: managed image)->dest SIG->(func/convert: sig->disk) -> VHD in classic SA
 
 # Roadmap
+
 Goal1: remove mariner workflow so things will be simplified.
 
 # Linux build steps
@@ -24,6 +31,57 @@ to install the latest supported Microsoft Go toolchain, generate the prefetch
 script, and build the target-architecture binaries. The following VHD step runs
 in the same job and reuses those files. For local builds, run `build-tools` before
 `run-packer` or `run-imagecustomizer`.
+
+# ACL certificate refresh
+
+ACL VHD builds stage `ca-certificates` and `ca-certificates-shared`
+`1:3.0.0-19.azl3` from the Azure Linux 3.0 production base repository on
+`packages.microsoft.com`. Both AMD64 and ARM64 RPMs are pinned by SHA-256;
+their Microsoft trust and distrust payloads are architecture-independent.
+The build host needs `rpm2cpio` and `cpio` (installed by the ACL pipeline).
+`make -f packer.mk init-packer` prepares the payload; direct Packer invocations
+must first run `ARCHITECTURE=X86_64` (or `ARM64`)
+`bash vhdbuilder/packer/prepare-acl-ca-certificates.sh`.
+
+Packer applies the refresh on the booted ACL VM, not in an offline Image
+Customizer chroot. The existing `/opt/aks-sysext` directory extension, already
+linked from `/etc/extensions/aks-sysext`, receives the refreshed vendor inputs
+under `usr/share/pki/ca-trust-source` and masks the immutable files at
+`/usr/share/pki/ca-trust-source`. Its metadata and other content are preserved;
+the installer fails if the expected shared extension is missing.
+This also updates direct NSS trust-module
+consumers without modifying their configuration. Local anchors and blocklists
+remain in `/etc/pki/ca-trust/source`. `update-ca-trust` regenerates the TLS, email,
+code-signing, OpenSSL, Java and EDK2 bundles in `/etc/pki/ca-trust/extracted`.
+These writes use the persistent upper layer of the runtime `/etc` overlay.
+The protected `/usr` filesystem is not written and dm-verity remains enabled.
+The installer enables the ACL sysext boot service to merge the source overlay
+on each boot. Standard
+Azure Linux compatibility links continue to resolve to the refreshed bundles;
+later custom-CA updates use the same refreshed inputs.
+
+The ACL `configureHTTPProxyCA` path continues to install proxy anchors in
+`/etc/pki/ca-trust/source/anchors` and invoke `update-ca-trust`. The ACL
+`update_certs.service` uses that same writable directory for Custom CA Trust.
+Both regenerate bundles from the refreshed sysext sources, preserving vendor
+roots as local certificates are added or removed.
+
+The post-boot VHD content test checks source integrity, configuration and all
+six bundles without reinstalling them. ACL CVM inherits the AMD64 Packer
+mapping. Other operating systems are unchanged. Existing nodes need a
+node-image upgrade. Consumers that explicitly read factory files under
+`/usr/share/distro/etc` bypass the refreshed runtime bundles. Remove this
+temporary source override when the base ACL image carries the refreshed package,
+so a later base-image trust update is not masked by this pin.
+
+Focused coverage is in
+`spec/vhdbuilder/packer/acl_ca_certificates_spec.sh` and
+`spec/parts/linux/cloud-init/artifacts/cse_config_acl_ca_spec.sh`. On an ACL userspace with
+root mount privileges, run
+`sudo bash spec/vhdbuilder/packer/acl_ca_certificates_integration.sh <prepared-directory>`
+to exercise the real trust tools, read-only `/usr`, sysext remerge, persistent
+`/etc` upper layer, and the production proxy-CA and Custom CA Trust regeneration paths in an isolated mount
+namespace. This does not replace an Azure VHD build and actual reboot validation.
 
 # Ubuntu BCC build
 
