@@ -12,4 +12,6 @@ wait_for_apt_locks
 # disable command tracing so the realm password isn't written to provisioning logs
 set +x
 echo "${CUSTOM_SEARCH_REALM_PASSWORD}" | realm join -U ${CUSTOM_SEARCH_REALM_USER}@$(echo "${CUSTOM_SEARCH_DOMAIN_NAME}" | tr /a-z/ /A-Z/) $(echo "${CUSTOM_SEARCH_DOMAIN_NAME}" | tr /a-z/ /A-Z/)
+realm_join_status=$?
 set -x
+exit "${realm_join_status}"

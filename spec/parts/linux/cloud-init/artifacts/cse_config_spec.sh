@@ -854,4 +854,43 @@ PubkeyAuthentication no"
             The output should include "ensureSwapFileFstabEntry /swapfile"
         End
     End
+    Describe 'configureK8s client key permissions'
+        CLIENT_KEY_PATH=/etc/kubernetes/certs/client.key
+
+        setup_client_key() {
+            command mkdir -p "$(dirname "${CLIENT_KEY_PATH}")"
+            command rm -f "${CLIENT_KEY_PATH}"
+            APISERVER_PUBLIC_KEY=""
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
+            unset TLS_BOOTSTRAP_TOKEN
+            KUBELET_CLIENT_CONTENT="Y2xpZW50LWtleQ=="
+            KUBELET_CLIENT_CERT_CONTENT=""
+            KUBELET_CONFIG_FILE_ENABLED="false"
+        }
+
+        cleanup_client_key() {
+            set +x
+            command rm -f "${CLIENT_KEY_PATH}"
+        }
+
+        invoke_configureK8s() {
+            {
+                configureK8s
+                local status=$?
+                set +x
+                return "${status}"
+            } 2>/dev/null
+        }
+
+        BeforeEach 'setup_client_key'
+        AfterEach 'cleanup_client_key'
+
+        It 'writes the kubelet client private key with mode 0600'
+            When call invoke_configureK8s
+
+            The status should be success
+            The contents of file "${CLIENT_KEY_PATH}" should equal 'client-key'
+            The value "$(stat -c '%a' "${CLIENT_KEY_PATH}")" should equal '600'
+        End
+    End
 End
