@@ -506,10 +506,17 @@ configureK8s() {
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
         if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-            # client.key is the kubelet client private key; restrict to root before writing
-            touch /etc/kubernetes/certs/client.key
-            chmod 0600 /etc/kubernetes/certs/client.key
-            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+            # client.key is the kubelet client private key; path is overridable for testing.
+            # Create under a restrictive umask so the file is never briefly world-readable
+            # between creation and chmod (avoids a TOCTOU window), then chmod again to cover
+            # the case where the file already existed with looser permissions.
+            local client_key_path="${CLIENT_KEY_PATH:-/etc/kubernetes/certs/client.key}"
+            # Guard both operations: if either fails, stop before writing the private key
+            # rather than silently falling through and writing it with whatever (possibly
+            # world-readable) permissions the file ended up with.
+            (umask 077 && touch "${client_key_path}") || return 1
+            chmod 0600 "${client_key_path}" || return 1
+            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > "${client_key_path}"
         fi
         if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
             echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt

@@ -855,11 +855,13 @@ PubkeyAuthentication no"
         End
     End
     Describe 'configureK8s client key permissions'
-        CLIENT_KEY_PATH=/etc/kubernetes/certs/client.key
-
+        # Use a throwaway temp dir rather than the real /etc/kubernetes/certs path: when
+        # ShellSpec is installed natively (spec/README.md's "Option 2") instead of via the
+        # recommended container, tests run directly against the host filesystem, and this
+        # test would otherwise delete/overwrite a real node's kubelet credential.
         setup_client_key() {
-            command mkdir -p "$(dirname "${CLIENT_KEY_PATH}")"
-            command rm -f "${CLIENT_KEY_PATH}"
+            CLIENT_KEY_TEST_DIR="$(mktemp -d "${SHELLSPEC_TMPBASE:-${TMPDIR:-/tmp}}/client-key.XXXXXX")"
+            CLIENT_KEY_PATH="${CLIENT_KEY_TEST_DIR}/client.key"
             APISERVER_PUBLIC_KEY=""
             ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
             unset TLS_BOOTSTRAP_TOKEN
@@ -870,7 +872,7 @@ PubkeyAuthentication no"
 
         cleanup_client_key() {
             set +x
-            command rm -f "${CLIENT_KEY_PATH}"
+            command rm -rf "${CLIENT_KEY_TEST_DIR}"
         }
 
         invoke_configureK8s() {
@@ -891,6 +893,37 @@ PubkeyAuthentication no"
             The status should be success
             The contents of file "${CLIENT_KEY_PATH}" should equal 'client-key'
             The value "$(stat -c '%a' "${CLIENT_KEY_PATH}")" should equal '600'
+        End
+
+        It 'creates the client key as 0600 at creation time, not only after a later chmod'
+            # Stub chmod as a no-op so the only thing that can have set a restrictive mode
+            # is the umask-scoped touch itself; this proves there is no world-readable window.
+            chmod() { :; }
+
+            When call invoke_configureK8s
+
+            The status should be success
+            The value "$(stat -c '%a' "${CLIENT_KEY_PATH}")" should equal '600'
+        End
+
+        It 'does not write the private key if chmod fails'
+            chmod() { return 1; }
+
+            When call invoke_configureK8s
+
+            The status should be failure
+            # touch still ran before the guarded chmod, so an empty file may exist;
+            # what matters is the secret content was never written into it.
+            The contents of file "${CLIENT_KEY_PATH}" should not equal 'client-key'
+        End
+
+        It 'does not write the private key if touch fails'
+            touch() { return 1; }
+
+            When call invoke_configureK8s
+
+            The status should be failure
+            The path "${CLIENT_KEY_PATH}" should not be exist
         End
     End
 End
