@@ -20,6 +20,17 @@ set -uxo pipefail
 [ -z "${FEATURE_FLAGS:-}" ] && echo "FEATURE_FLAGS is not set" && exit 1
 [ -z "${ENABLE_TRUSTED_LAUNCH:-}" ] && echo "ENABLE_TRUSTED_LAUNCH is not set" && exit 1
 [ -z "${WORKLOAD_OPTIMIZATION_SCRIPT_URL:-}" ] && echo "WORKLOAD_OPTIMIZATION_SCRIPT_URL is not set" && exit 1
+[ -z "${GIT_VERSION:-}" ] && echo "GIT_VERSION is not set" && exit 1
+if ! printf '%s' "${GIT_VERSION}" | grep -Eq '^[[:xdigit:]]{40}$'; then
+    echo "GIT_VERSION must be the full AgentBaker commit SHA" >&2
+    exit 1
+fi
+
+AGENTBAKER_SCRIPT_BASE_URL="https://raw.githubusercontent.com/Azure/AgentBaker/${GIT_VERSION}/vhdbuilder/packer"
+CVM_BUILD=false
+if grep -q "cvm" <<< "${FEATURE_FLAGS}"; then
+    CVM_BUILD=true
+fi
 
 IMAGE_BUILDER_API_VERSION="2025-10-01"
 MANAGED_DISK_API_VERSION="2024-03-02"
@@ -128,6 +139,8 @@ run_image_builder_template() {
         sed -e "s#<LOCATION>#${LOCATION}#g" \
             -e "s#<IMAGE_BUILDER_IDENTITY_ID>#${IMAGE_BUILDER_IDENTITY_ID}#g" \
             -e "s#<WORKLOAD_OPTIMIZATION_SCRIPT_URL>#${WORKLOAD_OPTIMIZATION_SCRIPT_URL}#g" \
+            -e "s#<AGENTBAKER_SCRIPT_BASE_URL>#${AGENTBAKER_SCRIPT_BASE_URL}#g" \
+            -e "s#<CVM_BUILD>#${CVM_BUILD}#g" \
             -e "s#<SOURCE_TYPE>#${SOURCE_TYPE}#g" \
             -e "s#<SOURCE_ID_KEY>#${SOURCE_ID_KEY}#g" \
             -e "s#<SOURCE_ID>#${SOURCE_ID}#g" \
