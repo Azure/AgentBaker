@@ -228,13 +228,14 @@ Describe 'cse_config.sh'
     End
     Describe 'disableSSH'
         setup_ssh_telemetry() {
-            TEST_EVENTS_DIR=$(mktemp -d)
+            TEST_EVENTS_ROOT=$(mktemp -d)
+            TEST_EVENTS_DIR="$TEST_EVENTS_ROOT/events"
+            mkdir "$TEST_EVENTS_DIR"
             EVENTS_LOGGING_DIR=$TEST_EVENTS_DIR
         }
 
         cleanup_ssh_telemetry() {
-            rm -f "$TEST_EVENTS_DIR"/*
-            rmdir "$TEST_EVENTS_DIR"
+            rm -rf "$TEST_EVENTS_ROOT"
         }
 
         ssh_events_match() {
@@ -376,6 +377,29 @@ disable sshd"
                 length == 16 and ([.[].Message | fromjson | .AttemptId] | unique | length == 2)
             '
             The result of function ssh_events_match should equal true
+        End
+
+        It 'publishes complete events despite guest-agent queue cleanup'
+            mv() {
+                if [ ! -f "$TEST_EVENTS_ROOT/cleaned" ]; then
+                    find "$TEST_EVENTS_DIR" -maxdepth 1 -type f -delete
+                    touch "$TEST_EVENTS_ROOT/cleaned"
+                fi
+                command mv "$@"
+            }
+
+            remaining_staging_files() {
+                find "$TEST_EVENTS_ROOT" -name '.ssh-disable.*' -print
+            }
+
+            When call disableSSH
+            The status should be success
+            The output should include "disable sshd.socket"
+            The stderr should equal ""
+            The file "$TEST_EVENTS_ROOT/cleaned" should be exist
+            SSH_EVENT_FILTER='length == 8 and all(.[]; (.Message | fromjson | .SchemaVersion) == 1)'
+            The result of function ssh_events_match should equal true
+            The result of function remaining_staging_files should equal ""
         End
 
         It 'leaves started events when an attempt is interrupted'

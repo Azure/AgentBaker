@@ -727,7 +727,7 @@ emitSSHDisableEvent() {
         local task="AKS.CSE.disableSSH" event_file
         [ -z "$3" ] || task="${task}.unit"
     mkdir -p "$EVENTS_LOGGING_DIR" || return 1
-    event_file=$(mktemp "${EVENTS_LOGGING_DIR%/}/ssh-disable.XXXXXX") || return 1
+    event_file=$(mktemp "${EVENTS_LOGGING_DIR%/}/../.ssh-disable.XXXXXX") || return 1
     if ! jq -cn \
                 --arg Timestamp "$4" --arg OperationId "$(date -u +"%F %T.%3N")" --arg TaskName "$task" \
                 --arg AttemptId "$1" --arg Phase "$2" --arg Unit "$3" \
