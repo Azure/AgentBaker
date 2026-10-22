@@ -92,6 +92,29 @@ func TestKubeletConfigFileExplicitOptOut(t *testing.T) {
 	}
 }
 
+func TestLocalDNSKubeletSettingsPreserveConfigFileParity(t *testing.T) {
+	for _, registered := range List() {
+		if !strings.HasPrefix(registered.Name, "LocalDNS/") &&
+			!strings.HasPrefix(registered.Name, "LocalDNSNoHostsPlugin/") {
+			continue
+		}
+		t.Run(registered.Name, func(t *testing.T) {
+			nbc, err := baseTemplateLinux("eastus", "1.34.0", "amd64")
+			require.NoError(t, err)
+			registered.BootstrapConfigMutator(nil, nbc)
+			cfg, err := nbcToAKSNodeConfigV1(nbc)
+			require.NoError(t, err)
+			require.True(t, cfg.KubeletConfig.EnableKubeletConfigFile)
+			require.NotContains(t, cfg.KubeletConfig.KubeletFlags, "--cluster-dns")
+			registered.AKSNodeConfigMutator(nil, cfg)
+			require.NotContains(t, cfg.KubeletConfig.KubeletFlags, "--cluster-dns",
+				"LocalDNS must not reintroduce a flag translated into the config file")
+			require.Equal(t, []string{localDNSClusterListenerIP},
+				cfg.KubeletConfig.KubeletConfigFileConfig.ClusterDns)
+		})
+	}
+}
+
 func TestLocalDNSForwardsToClusterDNSServiceIP(t *testing.T) {
 	assertCoreDNSForwarding := func(t *testing.T, corefile string) {
 		t.Helper()
