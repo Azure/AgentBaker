@@ -1284,8 +1284,9 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 // syntax error after stripping.
 //
 // The script list is dynamically derived by parsing variables.go and const.go source
-// to find all .sh files passed to getBase64EncodedGzippedCustomScript(). If a new script
-// is added to the CSE pipeline, it is automatically covered by this test.
+// to find all .sh files passed to getBase64EncodedGzippedCustomScript() or
+// getCloudInitFile(). If a new script is added to the CSE pipeline, it is
+// automatically covered by this test.
 func TestCSEScriptRoundTrip(t *testing.T) {
 	cseScripts := discoverCSEScripts(t)
 	if len(cseScripts) == 0 {
@@ -1303,14 +1304,28 @@ func TestCSEScriptRoundTrip(t *testing.T) {
 	}
 }
 
+func TestDiscoverCSEScriptsIncludesLiteralAndGzipFiles(t *testing.T) {
+	scripts := discoverCSEScripts(t)
+	for _, path := range []string{
+		kubernetesCSEMainScript,
+		kubernetesCSEHelpersScript,
+		kubernetesCSEInstall,
+		kubernetesCSEConfigGPU,
+		kubernetesCSEConfigChrony,
+		kubernetesCustomSearchDomainsScript,
+	} {
+		assert.Contains(t, scripts, path)
+	}
+}
+
 // discoverCSEScripts parses variables.go to find all constant names passed to
-// getBase64EncodedGzippedCustomScript(), then resolves those constants to file
-// paths from const.go, filtering to .sh files only.
+// getBase64EncodedGzippedCustomScript() or getCloudInitFile(), then resolves
+// those constants to file paths from const.go, filtering to .sh files only.
 func discoverCSEScripts(t *testing.T) []string {
 	t.Helper()
 	root := repoRoot()
 
-	// Step 1: Read variables.go and extract constant names from getBase64EncodedGzippedCustomScript() calls
+	// Step 1: Read variables.go and extract constant names from both file helpers
 	variablesPath := filepath.Join(root, "pkg", "agent", "variables.go")
 	variablesBytes, err := os.ReadFile(variablesPath)
 	if err != nil {
@@ -1318,7 +1333,8 @@ func discoverCSEScripts(t *testing.T) []string {
 	}
 
 	// Match: getBase64EncodedGzippedCustomScript(constantName, config)
-	callRe := regexp.MustCompile(`getBase64EncodedGzippedCustomScript\((\w+),`)
+	// or getCloudInitFile("key", constantName)
+	callRe := regexp.MustCompile(`(?:getBase64EncodedGzippedCustomScript\(\s*|getCloudInitFile\(\s*"[^"]+"\s*,\s*)(\w+)\s*[,)]`)
 	matches := callRe.FindAllStringSubmatch(string(variablesBytes), -1)
 	constNames := make(map[string]bool)
 	for _, m := range matches {
