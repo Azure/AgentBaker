@@ -824,6 +824,48 @@ testLtsKernel() {
 
 }
 
+testCACertificatesEMudhraMitigation() {
+  local test="testCACertificatesEMudhraMitigation"
+  local minimumVersion
+  local installedVersion
+
+  echo "$test:Start"
+  if [ "$OS_SKU" = "Ubuntu" ]; then
+    minimumVersion="20260816ubuntu0.${OS_VERSION}.1"
+    if [ "$OS_VERSION" = "20.04" ]; then
+      minimumVersion="20240203~20.04.1ubuntu0.1~esm2"
+    fi
+    if ! dpkg-query -W -f='${Status}' ca-certificates 2>/dev/null | grep -q '^install ok installed$'; then
+      err "$test" "ca-certificates is not installed"
+      return 1
+    fi
+    installedVersion=$(dpkg-query -W -f='${Version}' ca-certificates)
+    if ! dpkg --compare-versions "$installedVersion" ge "$minimumVersion"; then
+      err "$test" "ca-certificates $installedVersion is older than $minimumVersion required for the eMudhra mitigation"
+      return 1
+    fi
+  elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
+    minimumVersion="1:3.0.0-19.azl3"
+    if ! installedVersion=$(rpm -q --queryformat '%{EPOCHNUM}:%{VERSION}-%{RELEASE}' ca-certificates); then
+      err "$test" "ca-certificates is not installed"
+      return 1
+    fi
+    local comparison
+    if ! comparison=$(rpm --eval "%{lua:print(rpm.vercmp('$installedVersion', '$minimumVersion'))}"); then
+      err "$test" "Failed to compare ca-certificates version $installedVersion with $minimumVersion"
+      return 1
+    fi
+    if [ "$comparison" != "0" ] && [ "$comparison" != "1" ]; then
+      err "$test" "ca-certificates $installedVersion does not meet the minimum $minimumVersion required for the eMudhra mitigation"
+      return 1
+    fi
+  else
+    echo "$test: Skipping $OS_SKU $OS_VERSION"
+    return 0
+  fi
+  echo "$test:Finish"
+}
+
 testAzureLinuxArm64DualKernel() {
   local test="testAzureLinuxArm64DualKernel"
   local os_version=$1
@@ -2974,6 +3016,7 @@ testAppArmorInstalled $OS_SKU $OS_VERSION
 # Tracked internally (Node Lifecycle backlog item #24246232)
 # testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
+testCACertificatesEMudhraMitigation
 testCustomCATimerNotStarted
 testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
