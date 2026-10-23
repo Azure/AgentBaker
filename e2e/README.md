@@ -56,6 +56,15 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### DRA MIG workload validation
+
+The existing `Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed` scenario uses
+`ValidateDRAWithMIGWorkloadSchedulable` with the advertised profile `1g.10gb`.
+It selects NVIDIA MIG devices of that profile, runs a consuming pod on the scenario
+node, and checks the ResourceClaim's allocated driver, pool, and device against that
+node's ResourceSlices before deleting the pod. Missing or mismatched type/profile
+attributes fail validation. Non-MIG DRA scenarios retain their existing scheduling checks.
+
 ### Scriptless provisioning
 
 Linux scenarios use kubelet configuration-file mode by default, for both NBC/CSE

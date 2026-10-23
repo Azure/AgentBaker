@@ -3522,53 +3522,16 @@ fi`)
 	return nil
 }
 
-// ValidateSSHServiceDisabled validates that the SSH daemon service is disabled and stopped on the node
+// ValidateSSHServiceDisabled validates that SSH services and sockets are disabled and stopped on the node
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
-	// Use VMSS RunCommand to check SSH service status directly on the node
-	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	resp, err := RunCommand(ctx, s, `#!/bin/bash
-# Determine the correct SSH service name based on the distro
-# Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    if [[ "$ID" == "ubuntu" ]]; then
-        SSH_SERVICE="ssh"
-    else
-        SSH_SERVICE="sshd"
-    fi
-else
-    # Default to sshd if we can't determine the OS
-    SSH_SERVICE="sshd"
-fi
-
-echo "Detected SSH service name: $SSH_SERVICE"
-
-# Check SSH service status
-status_output=$(systemctl status "$SSH_SERVICE" 2>&1)
-echo "SSH service status output:"
-echo "$status_output"
-
-# Check if the service is inactive (dead) and disabled
-if echo "$status_output" | grep -q "Active: inactive (dead)"; then
-    if echo "$status_output" | grep -q "Loaded:.*disabled"; then
-        echo "SUCCESS: SSH service is disabled and stopped"
-        exit 0
-    else
-        echo "FAILED: SSH service is inactive but not disabled"
-        exit 1
-    fi
-else
-    echo "FAILED: SSH service is not inactive"
-    exit 1
-fi`)
+	resp, err := RunCommand(ctx, s, validateSSHServiceDisabledScript)
 	if err != nil {
 		return fmt.Errorf("run command to check SSH service status: %w", err)
 	}
 	stdout := lo.FromPtr(resp.Output)
 	logging.Logf(ctx, "Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
-	// Check if the command execution was successful by looking for our success message in the output
-	if err := assert.Contains(stdout, "SUCCESS: SSH service is disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
+	if err := assert.Contains(stdout, "SUCCESS: SSH units are disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
 		return err
 	}
 
@@ -4623,8 +4586,31 @@ func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) 
 	return nil
 }
 
-func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error) {
+func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) error {
+	return validateDRAWorkloadSchedulable(ctx, s, "")
+}
+
+func ValidateDRAWithMIGWorkloadSchedulable(ctx context.Context, s *Scenario, expectedProfile string) error {
+	if expectedProfile == "" {
+		return fmt.Errorf("expected MIG profile must not be empty")
+	}
+	return validateDRAWorkloadSchedulable(ctx, s, expectedProfile)
+}
+
+func validateDRAWorkloadSchedulable(ctx context.Context, s *Scenario, expectedMIGProfile string) (err error) {
 	logging.Logf(ctx, "validating that DRA workloads can be scheduled")
+
+	var selectors []resourcev1.DeviceSelector
+	if expectedMIGProfile != "" {
+		selectors = []resourcev1.DeviceSelector{{
+			CEL: &resourcev1.CELDeviceSelector{
+				Expression: fmt.Sprintf(
+					`device.driver == "gpu.nvidia.com" && device.attributes["gpu.nvidia.com"].type == "mig" && device.attributes["gpu.nvidia.com"].profile == %q`,
+					expectedMIGProfile,
+				),
+			},
+		}}
+	}
 
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
@@ -4641,7 +4627,7 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error
 			Name:            deviceClassName,
 			OwnerReferences: []metav1.OwnerReference{ownerReference},
 		},
-		Spec: resourcev1.DeviceClassSpec{},
+		Spec: resourcev1.DeviceClassSpec{Selectors: selectors},
 	}, metav1.CreateOptions{})
 	if createErr != nil {
 		return fmt.Errorf("create DeviceClass %q: %w", deviceClassName, createErr)
@@ -4720,12 +4706,71 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error
 			},
 		},
 	}
-	if err := ValidatePodRunning(ctx, s, pod); err != nil {
+	var validateAllocation func() error
+	if expectedMIGProfile != "" {
+		validateAllocation = func() error {
+			allocatedClaim, err := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims(claim.Namespace).Get(ctx, claim.Name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("get allocated ResourceClaim %q: %w", claim.Name, err)
+			}
+			resourceSlices, err := s.Runtime.Kube.Typed.ResourceV1().ResourceSlices().List(ctx, metav1.ListOptions{
+				FieldSelector: resourcev1.ResourceSliceSelectorNodeName + "=" + s.Runtime.VM.KubeName,
+			})
+			if err != nil {
+				return fmt.Errorf("list ResourceSlices for node %q: %w", s.Runtime.VM.KubeName, err)
+			}
+			if err := validateDRAMIGAllocation(allocatedClaim, resourceSlices, s.Runtime.VM.KubeName, expectedMIGProfile); err != nil {
+				return fmt.Errorf("validate MIG allocation for ResourceClaim %q: %w", claim.Name, err)
+			}
+			logging.Logf(ctx, "DRA workload allocated a MIG device with profile %s", expectedMIGProfile)
+			return nil
+		}
+	}
+	if err := startPodAndCheckItRunsWithValidation(ctx, s, pod, validateAllocation); err != nil {
 		return fmt.Errorf("run DRA workload pod: %w", err)
 	}
 
 	logging.Logf(ctx, "GPU workload is schedulable and runs successfully")
 	return nil
+}
+
+func validateDRAMIGAllocation(claim *resourcev1.ResourceClaim, resourceSlices *resourcev1.ResourceSliceList, nodeName, expectedProfile string) error {
+	if claim.Status.Allocation == nil {
+		return fmt.Errorf("claim has no allocation")
+	}
+	results := claim.Status.Allocation.Devices.Results
+	if len(results) != 1 {
+		return fmt.Errorf("expected exactly one allocated device, got %d", len(results))
+	}
+	allocated := results[0]
+	if allocated.Request != "gpu" || allocated.Driver != "gpu.nvidia.com" {
+		return fmt.Errorf("expected request gpu from driver gpu.nvidia.com, got request %q from driver %q", allocated.Request, allocated.Driver)
+	}
+	for _, resourceSlice := range resourceSlices.Items {
+		if resourceSlice.Spec.Driver != allocated.Driver || resourceSlice.Spec.Pool.Name != allocated.Pool ||
+			resourceSlice.Spec.NodeName == nil || *resourceSlice.Spec.NodeName != nodeName {
+			continue
+		}
+		for _, device := range resourceSlice.Spec.Devices {
+			if device.Name != allocated.Device {
+				continue
+			}
+			for attribute, expected := range map[resourcev1.QualifiedName]string{"type": "mig", "profile": expectedProfile} {
+				value, ok := device.Attributes[attribute]
+				if !ok {
+					value = device.Attributes[resourcev1.QualifiedName(allocated.Driver+"/"+string(attribute))]
+				}
+				if value.StringValue == nil {
+					return fmt.Errorf("allocated device %q has no string attribute %q", allocated.Device, attribute)
+				}
+				if *value.StringValue != expected {
+					return fmt.Errorf("allocated device %q has %s %q, expected %q", allocated.Device, attribute, *value.StringValue, expected)
+				}
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("allocated device %q from driver %q and pool %q not found on node %q", allocated.Device, allocated.Driver, allocated.Pool, nodeName)
 }
 
 // ValidateRCV1PCertMode validates that the rcv1p certificate endpoint mode was used during
