@@ -207,10 +207,25 @@ func getLatestGAKubernetesVersion(ctx context.Context, location string) (string,
 }
 
 func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID string) *armnetwork.AzureFirewall {
-	var (
-		natRuleCollections []*armnetwork.AzureFirewallNatRuleCollection
-		netRuleCollections []*armnetwork.AzureFirewallNetworkRuleCollection
-	)
+	var natRuleCollections []*armnetwork.AzureFirewallNatRuleCollection
+
+	// Public NTP pools use rotating addresses; restrict egress by source, protocol and port.
+	netRuleCollections := []*armnetwork.AzureFirewallNetworkRuleCollection{{
+		Name: to.Ptr("ntp"),
+		Properties: &armnetwork.AzureFirewallNetworkRuleCollectionPropertiesFormat{
+			Priority: to.Ptr[int32](200),
+			Action: &armnetwork.AzureFirewallRCAction{
+				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
+			},
+			Rules: []*armnetwork.AzureFirewallNetworkRule{{
+				Name:                 to.Ptr("ntp"),
+				SourceAddresses:      []*string{to.Ptr(SharedVNetCIDR)},
+				DestinationAddresses: []*string{to.Ptr("*")},
+				DestinationPorts:     []*string{to.Ptr("123")},
+				Protocols:            []*armnetwork.AzureFirewallNetworkRuleProtocol{to.Ptr(armnetwork.AzureFirewallNetworkRuleProtocolUDP)},
+			}},
+		},
+	}}
 
 	// Application rule for AKS FQDN tags
 	aksAppRule := armnetwork.AzureFirewallApplicationRule{
