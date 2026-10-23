@@ -17,13 +17,15 @@ external-vhd-src->(func/init: ensure dest existing/static gallery/definition, in
 # Roadmap
 Goal1: remove mariner workflow so things will be simplified.
 
-# Shared Windows 2025 Gen2 staging definitions
+# Shared Windows Gen2 staging definitions
 
-The ordinary `windows-2025-gen2` image advertises `TrustedLaunchSupported`, so the
-same image can serve Standard and Trusted Launch virtual machines. New staging
-definitions are created with that capability directly, without a follow-up
+The Windows build template sets `trustedLaunchSupported` for every Gen2 image.
+Ordinary WS2022 and WS2025 Gen2 images advertise `TrustedLaunchSupported`, so the
+same image can serve Standard and Trusted Launch virtual machines. Gen1 is unchanged.
+New staging definitions are created with that capability directly, without a follow-up
 capability update or `startsAtVersion` boundary because they have no old versions.
 Dedicated Trusted Launch builds and their metadata precedence are unchanged.
+This image capability does not change AKS RP's OS eligibility checks.
 
 An existing Standard definition is updated in place, preserving unrelated features
 and setting `startsAtVersion` to the current build version. Azure CLI performs the

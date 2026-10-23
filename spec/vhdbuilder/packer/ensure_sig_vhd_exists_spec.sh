@@ -129,22 +129,23 @@ Describe 'ensure_sig_vhd_exists function'
 
   Describe 'shared Windows Gen2 image creation'
     Parameters
-      False True TrustedLaunchSupported
-      True True TrustedLaunch
-      False False ''
+      windows-2022-containerd-gen2 False True TrustedLaunchSupported
+      windows-2025-gen2 False True TrustedLaunchSupported
+      windows-2025-gen2-tl True True TrustedLaunch
+      windows-2025-gen2 False False ''
     End
 
-    It "creates the expected initial security capability with TL enabled=$1 supported=$2"
+    It "creates $1 with TL enabled=$2 supported=$3"
       MODE="windowsVhdMode"
       AZURE_RESOURCE_GROUP_NAME="test-rg"
       SIG_GALLERY_NAME="test-gallery"
-      SIG_IMAGE_NAME="windows-2025-gen2"
+      SIG_IMAGE_NAME="$1"
       AZURE_LOCATION="eastus"
       OS_TYPE="Windows"
       HYPERV_GENERATION="V2"
       ARCHITECTURE="x64"
-      ENABLE_TRUSTED_LAUNCH="$1"
-      TRUSTED_LAUNCH_SUPPORTED="$2"
+      ENABLE_TRUSTED_LAUNCH="$2"
+      TRUSTED_LAUNCH_SUPPORTED="$3"
       MOCK_AZ_SIG_SHOW_EXISTS="true"
       MOCK_AZ_SIG_SHOW_STATE="Succeeded"
       MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="false"
@@ -156,10 +157,10 @@ Describe 'ensure_sig_vhd_exists function'
 
       When call ensure_sig_vhd_exists
       The status should be success
-      The output should include '--gallery-image-definition windows-2025-gen2'
+      The output should include "--gallery-image-definition $1"
       The output should include 'DiskControllerTypes=SCSI,NVMe'
-      if [ -n "$3" ]; then
-        The output should include "SecurityType=$3"
+      if [ -n "$4" ]; then
+        The output should include "SecurityType=$4"
       else
         The output should not include 'SecurityType='
       fi

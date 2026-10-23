@@ -222,14 +222,19 @@ Describe 'generate-vhd-publishing-info.sh'
   End
 
   Describe 'Windows output'
-    It 'publishes shared Windows Gen2 capability without relying on a TL image name'
-      OS_NAME=windows OFFER_NAME=Windows SKU_NAME=windows-2025-gen2 SECURITY_TYPE_FEATURE=TrustedLaunchSupported
+    Parameters
+      windows-2022-containerd-gen2
+      windows-2025-gen2
+    End
+
+    It "publishes $1 capability without relying on a TL image name"
+      OS_NAME=windows OFFER_NAME=Windows SKU_NAME="$1" SECURITY_TYPE_FEATURE=TrustedLaunchSupported
       AZ_VERSIONS=''
 
       When call generate_publishing_info
       The status should be success
       The output should include 'COPY ME ---> https://example.invalid/images/test.vhd'
-      The value "$(read_metadata '[.os_name, .sku_name, .hyperv_generation, .security_type_feature]')" should equal '["windows","windows-2025-gen2","V2","TrustedLaunchSupported"]'
+      The value "$(read_metadata '[.os_name, .sku_name, .hyperv_generation, .security_type_feature]')" should equal "[\"windows\",\"$1\",\"V2\",\"TrustedLaunchSupported\"]"
     End
 
     Parameters
