@@ -26,9 +26,10 @@ capability update or `startsAtVersion` boundary because they have no old version
 Dedicated Trusted Launch builds and their metadata precedence are unchanged.
 
 An existing Standard definition is updated in place, preserving unrelated features
-and setting `startsAtVersion` to the current build version. The builder waits for
-completion and reads back the capability and boundary. Already-capable definitions
-with an absent or null boundary are reused without a write or boundary backfill.
+and setting `startsAtVersion` to the current build version. Azure CLI performs the
+update and waits for completion; the builder checks the returned capability and
+boundary. Already-capable definitions with an absent or null boundary are reused
+without a write or boundary backfill.
 An explicit boundary must be valid and at or below the current build version.
 
 # Linux build steps
