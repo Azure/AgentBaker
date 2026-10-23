@@ -14,6 +14,38 @@ BeforeAll {
     Invoke-Expression $content
 }
 
+Describe 'Test-EmudhraRootRemoval' {
+    BeforeAll {
+        $script:thumbprints = @{
+            control = 'DF3C24F9BFD666761B268073FE06D1CC8D4F82A4'
+            emSign = '3043FA4FF257DCA0C380EE2E58EA78B23FE6BBC1'
+            aaa = 'D1EB23A46D17D68FD92564C2F1F1601764D8E349'
+        }
+    }
+    BeforeEach {
+        Mock Write-ErrorWithTimestamp {}
+        Mock Get-ChildItem { [pscustomobject]@{ Thumbprint = $script:thumbprints[$Root] } }
+        Mock Get-ItemProperty {
+            $hex = if ($Cached -eq 'empty') { '' } else { $script:thumbprints.control + $script:thumbprints[$Cached] }
+            @{ EncodedCtl = [byte[]]@([regex]::Matches($hex, '..') | ForEach-Object { [Convert]::ToByte($_.Value, 16) }) }
+        }
+    }
+    It 'checks installed <Root> and cached <Cached> roots' -ForEach @(
+        @{ Root = ''; Cached = ''; Expected = $true }
+        @{ Root = 'emSign'; Cached = ''; Expected = $false }
+        @{ Root = 'aaa'; Cached = ''; Expected = $false }
+        @{ Root = ''; Cached = 'emSign'; Expected = $false }
+        @{ Root = ''; Cached = 'aaa'; Expected = $false }
+        @{ Root = ''; Cached = 'empty'; Expected = $false }
+    ) {
+        Test-EmudhraRootRemoval | Should -Be $Expected
+    }
+    It 'fails when <_> cannot read the store' -ForEach @('Get-ChildItem', 'Get-ItemProperty') {
+        Mock $_ { throw 'store unreadable' }
+        { Test-EmudhraRootRemoval } | Should -Throw
+    }
+}
+
 Describe 'Test-PrivatePackageSignature' {
     BeforeEach {
         Mock Write-ErrorWithTimestamp {}
