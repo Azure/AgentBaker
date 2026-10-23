@@ -68,24 +68,41 @@ def parse_arguments():
         'storage_account_url',
         help='Full URL of the Azure storage account (e.g., https://<account>.blob.core.windows.net/)'
     )
+    # sas_token and file_path are both trailing optional positionals in the original CLI
+    # (sas_token was required, file_path was not), which argparse cannot express directly
+    # once sas_token also becomes optional (two consecutive nargs='?' positionals are
+    # ambiguous). Instead, capture them together via nargs='*' and resolve by count below,
+    # so every pre-existing invocation shape - (), (token,), (token, file_path) - keeps
+    # behaving exactly as before.
     parser.add_argument(
-        'sas_token',
-        nargs='?',
-        default=None,
+        'positional',
+        nargs='*',
+        metavar='[sas_token] [file_path]',
         help=(
-            'Shared Access Signature token for authentication. Deprecated: visible to other '
-            f'local processes via /proc/<pid>/cmdline. Prefer the {SAS_TOKEN_ENV_VAR} '
-            'environment variable instead, which takes precedence if both are set.'
+            'Deprecated positional form: [sas_token] [file_path]. sas_token is visible to '
+            f'other local processes via /proc/<pid>/cmdline - prefer the {SAS_TOKEN_ENV_VAR} '
+            'environment variable instead (takes precedence if both are set). file_path '
+            f'defaults to {DEFAULT_LOG_PATH} if omitted.'
         )
     )
     parser.add_argument(
         '--file-path',
-        dest='file_path',
-        default=DEFAULT_LOG_PATH,
-        help=f'Path to the log file to upload (default: {DEFAULT_LOG_PATH})'
+        dest='file_path_flag',
+        default=None,
+        help=(
+            'Path to the log file to upload (default: '
+            f'{DEFAULT_LOG_PATH}). Preferred over the positional file_path form.'
+        )
     )
-    
-    return parser.parse_args()
+
+    parsed = parser.parse_args()
+    if len(parsed.positional) > 2:
+        parser.error(f"unrecognized arguments: {' '.join(parsed.positional[2:])}")
+
+    parsed.sas_token = parsed.positional[0] if len(parsed.positional) >= 1 else None
+    positional_file_path = parsed.positional[1] if len(parsed.positional) >= 2 else None
+    parsed.file_path = parsed.file_path_flag or positional_file_path or DEFAULT_LOG_PATH
+    return parsed
 
 
 def validate_arguments(args):
