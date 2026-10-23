@@ -18,18 +18,16 @@ func TestRenderSelectedHotfixScripts(t *testing.T) {
 	const initCloudBlock = `{{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"
-  encoding: gzip
+  encoding: {{GetCloudInitFileEncoding}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
+  content: {{GetVariableProperty "cloudInitData" "initAKSCloud" | GetCloudInitFileContent}}
 {{end}}
 `
 	const helperBlock = `- path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  encoding: {{GetCloudInitFileEncoding}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSource"}}
+  content: {{GetVariableProperty "cloudInitData" "provisionSource" | GetCloudInitFileContent}}
 `
 	for _, distro := range []datamodel.Distro{
 		datamodel.AKSUbuntuContainerd2204Gen2,
@@ -47,8 +45,9 @@ func TestRenderSelectedHotfixScripts(t *testing.T) {
 				require.NoError(t, err)
 				var payload struct {
 					WriteFiles []struct {
-						Path    string `yaml:"path"`
-						Content string `yaml:"content"`
+						Path     string `yaml:"path"`
+						Encoding string `yaml:"encoding"`
+						Content  string `yaml:"content"`
 					} `yaml:"write_files"`
 				}
 				require.NoError(t, yaml.Unmarshal([]byte(rendered), &payload))
@@ -62,6 +61,7 @@ func TestRenderSelectedHotfixScripts(t *testing.T) {
 				require.Len(t, payload.WriteFiles, 1+wantInitCount)
 				for _, file := range payload.WriteFiles {
 					require.NotEmpty(t, file.Content)
+					require.Empty(t, file.Encoding)
 				}
 			})
 		}
