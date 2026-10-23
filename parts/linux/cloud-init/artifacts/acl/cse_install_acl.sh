@@ -169,16 +169,12 @@ installACLGPUSysext() {
 installGPUDriverSysext() {
     # ACL NVIDIA GPU driver sysext registry paths:
     # Registry path uses major.minor (e.g. 3.0), tag uses full VERSION_ID (e.g. 3.0.20260304).
-    #
     # 1. NVIDIA proprietary driver:
     # mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda:${VERSION_ID}...
-    #
     # 2. NVIDIA OpenRM driver:
     # mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda-open:${VERSION_ID}...
-    #
     # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
     # mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-vgpu:${VERSION_ID}...
-    #
     # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on the GPU SKU maps in
     # gpu_components.go. Converged sizes get "grid"; RTX PRO 6000 BSE v6 gets
     # "grid-v20" (Ubuntu-only, rejected below); modern CUDA SKUs get "cuda-lts" and legacy
@@ -251,5 +247,3 @@ installToolFromLocalRepo() {
     stub
     return 1
 }
-
-#EOF

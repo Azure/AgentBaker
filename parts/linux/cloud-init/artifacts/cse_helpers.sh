@@ -900,7 +900,8 @@ isARM64() {
 
 isRegistryUrl() {
     local binary_url=$1
-    registry_regex='^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(\/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*:[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$' # regex copied from https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pull
+    # regex copied from https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pull
+    registry_regex='^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(\/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*:[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$'
     # shellcheck disable=SC3010
     if [[ ${binary_url} =~ $registry_regex ]]; then # check if the binary_url is in the format of mcr.microsoft.com/componant/binary:1.0"
         return 0 # true
@@ -1680,14 +1681,12 @@ function get_sandbox_image_from_containerd_config() {
 # kube-reserved and system-reserved enforcement tiers (Node Memory Hardening F2/F5).
 # It MUST be called before kubelet starts so that /kubereserved.slice and /system.slice
 # exist and are managed by systemd before the first kubelet enforcement pass.
-#
 # The function:
 #   - Asserts cgroupv2 unified hierarchy (cgroupv1 is not supported by this feature
 #     because mixed/legacy hierarchies cannot reliably enforce per-slice MemoryMax).
 #   - Drops a /etc/systemd/system/kubereserved.slice unit (system.slice ships with systemd).
 #   - Triggers `systemctl daemon-reload` and `systemctl start kubereserved.slice` so the
 #     cgroup is materialised at /sys/fs/cgroup/kubereserved.slice prior to kubelet boot.
-#
 # Inputs (env, all optional — the function is a no-op if the RP did not opt in):
 #   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kubereserved.slice"
 #   SYSTEM_RESERVED_CGROUP  — absolute cgroup name, e.g. "/system.slice"
@@ -1697,7 +1696,6 @@ function get_sandbox_image_from_containerd_config() {
 # from KUBELET_FLAGS as a fallback. Both vars are unset (empty string) when the RP did
 # not opt the pool into Node Memory Hardening, which keeps ensureKubeletCgroupHierarchy
 # a no-op for non-hardened pools.
-#
 # When kubelet config-file mode is enabled, --kube-reserved-cgroup /
 # --system-reserved-cgroup are filtered out of KUBELET_FLAGS by the RP
 # (TranslatedKubeletConfigFlags) and rendered into kubeletconfig.json instead, so

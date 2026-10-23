@@ -406,7 +406,6 @@ startNvidiaManagedExpServices() {
             # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
             #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
             #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
-            #
             # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
             # Otherwise, we default to "single" which is the safer/simpler option.
             # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
@@ -548,5 +547,3 @@ EOF
     # path and treat a slow/failed start as non-fatal.
     logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30" || echo "warning: nvidia-dcgm-exporter could not be enqueued; GPU metrics will start asynchronously"
 }
-
-#EOF
