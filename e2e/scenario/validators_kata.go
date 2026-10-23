@@ -41,6 +41,35 @@ const (
 // cannot actually run it.
 var kataRuntimeHandlers = []string{kataRuntimeHandler, kataV2RuntimeHandler}
 
+// ValidateKataWorkloads covers the same image metadata and workloads on nested and
+// direct-virtualization nodes. It never repairs the definition under test.
+func ValidateKataWorkloads(ctx context.Context, s *Scenario) error {
+	if s.Runtime == nil || s.Runtime.VM == nil || s.Runtime.VM.VMSS == nil || s.Runtime.VM.VMSS.Properties == nil {
+		return fmt.Errorf("Kata scenario is missing the provisioned VMSS")
+	}
+	profile := s.Runtime.VM.VMSS.Properties.VirtualMachineProfile
+	if profile == nil || profile.StorageProfile == nil || profile.StorageProfile.ImageReference == nil || profile.StorageProfile.ImageReference.ID == nil {
+		return fmt.Errorf("Kata VMSS is missing its actual gallery image reference")
+	}
+	if err := validateKataGalleryFeatures(ctx, *profile.StorageProfile.ImageReference.ID); err != nil {
+		return err
+	}
+	if err := errors.Join(
+		ValidateKataContainerdConfig(ctx, s),
+		ValidateKataErofsContainerdConfig(ctx, s),
+		ValidateKataContainerdConfigDump(ctx, s),
+		ValidateKataHostReadiness(ctx, s),
+	); err != nil {
+		return err
+	}
+	for _, handler := range kataRuntimeHandlers {
+		if err := ValidateKataPodIsIsolated(ctx, s, handler); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ValidateKataContainerdConfig asserts that AgentBaker rendered a containerd configuration
 // containing the Kata runtime handlers on a Kata-enabled VHD.
 //
