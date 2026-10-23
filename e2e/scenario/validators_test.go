@@ -3,12 +3,44 @@ package scenario
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	resourcev1 "k8s.io/api/resource/v1"
 )
+
+func TestIPTablesDHCPRulePattern(t *testing.T) {
+	tablePatterns, _ := getIPTablesRulesCompatibleWithEBPFHostRouting()
+	var dhcpPattern string
+	for _, pattern := range tablePatterns["filter"] {
+		if strings.Contains(pattern, "-A INPUT -p udp") {
+			dhcpPattern = pattern
+			break
+		}
+	}
+	require.NotEmpty(t, dhcpPattern)
+
+	for _, tc := range []struct {
+		name string
+		rule string
+		want bool
+	}{
+		{name: "protocol matcher omitted", rule: "-A INPUT -p udp --dport 68 -j ACCEPT", want: true},
+		{name: "protocol matcher explicit", rule: "-A INPUT -p udp -m udp --dport 68 -j ACCEPT", want: true},
+		{name: "wrong port", rule: "-A INPUT -p udp --dport 67 -j ACCEPT"},
+		{name: "wrong target", rule: "-A INPUT -p udp --dport 68 -j DROP"},
+		{name: "wrong protocol", rule: "-A INPUT -p tcp --dport 68 -j ACCEPT"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			matched, err := regexp.MatchString(dhcpPattern, tc.rule)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, matched)
+		})
+	}
+}
 
 func TestValidateDRAMIGAllocation(t *testing.T) {
 	tests := []struct {
