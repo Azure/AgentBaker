@@ -704,22 +704,30 @@ func usePlainCloudInit(config *datamodel.NodeBootstrappingConfiguration) bool {
 	return !config.EnableScriptlessCSECmd && !config.IsFlatcar() && !config.IsACL()
 }
 
+func getCloudInitFileEncoding(config *datamodel.NodeBootstrappingConfiguration) string {
+	if usePlainCloudInit(config) {
+		return `""`
+	}
+	return encodingGZIP
+}
+
+func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, content string) (string, error) {
+	if usePlainCloudInit(config) {
+		encoded, err := json.Marshal(content)
+		return string(encoded), err
+	}
+	return "!!binary |\n    " + content, nil
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetCloudInitFileEncoding"] = func() string {
-		if usePlainCloudInit(config) {
-			return `""`
-		}
-		return encodingGZIP
+		return getCloudInitFileEncoding(config)
 	}
 	funcMap["GetCloudInitFileContent"] = func(content string) (string, error) {
-		if usePlainCloudInit(config) {
-			encoded, err := json.Marshal(content)
-			return string(encoded), err
-		}
-		return "!!binary |\n    " + content, nil
+		return getCloudInitFileContent(config, content)
 	}
 
 	funcMap["GetParameter"] = func(s string) interface{} {

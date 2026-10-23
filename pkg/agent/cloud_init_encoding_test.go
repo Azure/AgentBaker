@@ -16,7 +16,6 @@ import (
 func TestTraditionalCloudInitUsesSingleCompression(t *testing.T) {
 	template, err := parts.Templates.ReadFile(kubernetesNodeCustomDataYaml)
 	require.NoError(t, err)
-	generator := InitializeTemplateGenerator()
 	for _, distro := range []datamodel.Distro{datamodel.AKSUbuntuContainerd2204Gen2, datamodel.AKSAzureLinuxV2Gen2, datamodel.AKSAzureLinuxV3Gen2} {
 		for _, custom := range []bool{false, true} {
 			for _, dns := range []bool{false, true} {
@@ -28,38 +27,44 @@ func TestTraditionalCloudInitUsesSingleCompression(t *testing.T) {
 						if custom {
 							config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
 						}
-						original, err := generator.getSingleLine(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, legacyCloudInitFuncMap(config), true)
-						require.NoError(t, err)
-						payload := generator.getLinuxNodeBootstrappingPayload(config)
-						compressed, err := base64.StdEncoding.Strict().DecodeString(payload)
-						require.NoError(t, err)
-						decoded, err := getGzipDecodedValue(compressed)
-						require.NoError(t, err)
-						require.True(t, strings.HasPrefix(string(decoded), "#cloud-config\n"))
-						rendered, err := RenderLinuxNodeCustomDataTemplate(template, config)
-						require.NoError(t, err)
-						require.Equal(t, rendered, string(decoded))
-						var before, after cloudInit
-						require.NoError(t, yaml.Unmarshal([]byte(original), &before))
-						require.NoError(t, yaml.Unmarshal(decoded, &after))
-						beforeFiles, err := buildIgnitionTarEntries(before)
-						require.NoError(t, err)
-						afterFiles, err := buildIgnitionTarEntries(after)
-						require.NoError(t, err)
-						require.Equal(t, beforeFiles, afterFiles)
-						for _, file := range after.WriteFiles {
-							require.Empty(t, file.Encoding)
-						}
-						require.Less(t, len(payload), len(getBase64EncodedGzippedCustomScriptFromStr(original)))
-						t.Logf("customData: %d encoded characters", len(payload))
-						// Ubuntu custom-cloud overflow is tracked separately in #9790.
-						if !custom || distro != datamodel.AKSUbuntuContainerd2204Gen2 {
-							require.Less(t, len(payload), MaxCustomDataLength)
-						}
+						assertTraditionalCloudInitPayload(t, template, config)
 					})
 				}
 			}
 		}
+	}
+}
+
+func assertTraditionalCloudInitPayload(t *testing.T, template []byte, config *datamodel.NodeBootstrappingConfiguration) {
+	t.Helper()
+	generator := InitializeTemplateGenerator()
+	original, err := generator.getSingleLine(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, legacyCloudInitFuncMap(config), true)
+	require.NoError(t, err)
+	payload := generator.getLinuxNodeBootstrappingPayload(config)
+	compressed, err := base64.StdEncoding.Strict().DecodeString(payload)
+	require.NoError(t, err)
+	decoded, err := getGzipDecodedValue(compressed)
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(string(decoded), "#cloud-config\n"))
+	rendered, err := RenderLinuxNodeCustomDataTemplate(template, config)
+	require.NoError(t, err)
+	require.Equal(t, rendered, string(decoded))
+	var before, after cloudInit
+	require.NoError(t, yaml.Unmarshal([]byte(original), &before))
+	require.NoError(t, yaml.Unmarshal(decoded, &after))
+	beforeFiles, err := buildIgnitionTarEntries(before)
+	require.NoError(t, err)
+	afterFiles, err := buildIgnitionTarEntries(after)
+	require.NoError(t, err)
+	require.Equal(t, beforeFiles, afterFiles)
+	for _, file := range after.WriteFiles {
+		require.Empty(t, file.Encoding)
+	}
+	require.Less(t, len(payload), len(getBase64EncodedGzippedCustomScriptFromStr(original)))
+	t.Logf("customData: %d encoded characters", len(payload))
+	// Ubuntu custom-cloud overflow is tracked separately in #9790.
+	if config.ContainerService.Properties.CustomCloudEnv == nil || config.AgentPoolProfile.Distro != datamodel.AKSUbuntuContainerd2204Gen2 {
+		require.Less(t, len(payload), MaxCustomDataLength)
 	}
 }
 
