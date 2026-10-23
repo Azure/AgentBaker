@@ -141,6 +141,33 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:        "Windows2022Gen2_TrustedLaunch_SharedImage",
+	Description: "Windows Server 2022 Gen2 Trusted Launch (Secure Boot + vTPM)",
+	Config: Config{
+		Cluster: ClusterAzureNetwork,
+		VHD:     config.VHDWindows2022ContainerdGen2,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+		},
+		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2"),
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter"),
+				ValidateWindowsDisplayVersion(ctx, s, "21H2"),
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote"),
+				ValidateKubeletArgs(ctx, s),
+				ValidateContainerdWindowsPriorityClass(ctx, s),
+				ValidateCiliumIsNotRunningWindows(ctx, s),
+				ValidateDotnetNotInstalledWindows(ctx, s),
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateCollectWindowsLogsScript(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "Windows2022Gen2AzureOverlayNetworkDualStack",
 	SkipReason:  "Dual stack tests are not working yet",
 	Description: "Windows Server 2022 with Azure Overlay Network Dual Stack - hyperv gen 2",

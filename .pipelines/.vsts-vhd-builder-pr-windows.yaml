@@ -72,9 +72,9 @@ stages:
       useOverrides: False
       enableBackfillCleanup: True
       buildVmSize: Standard_D16ds_v5
-      # 2022 gen1 is the default, so build that for PRs
+      # Keep the default Gen1 image and cover both security modes on Gen2.
       build2022containerd: True
-      build2022containerdgen2: False
+      build2022containerdgen2: True
       # 2025 gen2 is the default, so build that for PRs
       build2025: False
       build2025gen2: True
