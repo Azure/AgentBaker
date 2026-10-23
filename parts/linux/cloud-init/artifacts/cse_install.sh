@@ -4,7 +4,7 @@ CC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in
 CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
-#TODO pull this out of componetns.json too?
+# TODO pull this out of componetns.json too?
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/opt/bin"
@@ -65,8 +65,8 @@ installContainerdWithComponentsJson() {
     fi
     updatePackageVersions "${containerdPackage}" "${os}" "${os_version}" "${OS_VARIANT}"
 
-    #Containerd's versions array is expected to have only one element.
-    #If it has more than one element, we will install the last element in the array.
+    # Containerd's versions array is expected to have only one element.
+    # If it has more than one element, we will install the last element in the array.
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
@@ -337,10 +337,10 @@ installCNILegacy() {
         return
     fi
 
-    #always just use what is listed in components.json so we don't have to sync.
+    # always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
 
-    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
+    # CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
     os=${UBUNTU_OS_NAME}
     if [ -z "$UBUNTU_RELEASE" ]; then
         os=${OS}
@@ -352,7 +352,7 @@ installCNILegacy() {
     fi
     updatePackageVersions "${cniPackage}" "${os}" "${os_version}" "${OS_VARIANT}"
 
-    #should change to ne
+    # should change to ne
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
@@ -368,7 +368,7 @@ installCNILegacy() {
     fi
 
     if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz.
+        # not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz.
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         echo "CNI tarball should already be unzipped by components.json"
@@ -379,7 +379,7 @@ installCNILegacy() {
 }
 
 downloadCrictl() {
-    #if $1 is empty, take ${CRICTL_DOWNLOAD_DIR} as default value. Otherwise take $1 as the value
+    # if $1 is empty, take ${CRICTL_DOWNLOAD_DIR} as default value. Otherwise take $1 as the value
     downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
     mkdir -p $downloadDir
     url=${2}
@@ -621,7 +621,7 @@ installKubeletKubectlFromURL() {
                 # no egress traffic, default install will fail
                 # will exit if the download fails
 
-            #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
+            # TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
                 logs_to_events "AKS.CSE.installKubeletKubectlFromURL.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
             fi
