@@ -483,6 +483,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSACLArm64Gen2FIPSTL,
 				datamodel.AKSACLCVMGen2,
 				datamodel.AKSACLKataGen2TL,
+				datamodel.AKSACLCVMGen2FIPS,
 			}
 
 			ubuntuEdgeZoneDistros = []datamodel.Distro{
