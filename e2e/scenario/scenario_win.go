@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
+	"runtime"
+	"strings"
 
 	"time"
 
@@ -11,6 +17,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Masterminds/semver/v3"
+	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -615,3 +622,176 @@ var _ = Register(&Scenario{
 		},
 	},
 })
+
+// The Kubernetes minors on either side of the gate require separate nodes for each generation.
+// Only this pipeline run's VHDs establish that branch CSE and components were baked in.
+var _ = Register(newWindowsCredentialProviderScenario("Windows2022_Dalec_CredentialProvider", config.VHDWindows2022ContainerdGen2, 33))
+var _ = Register(newWindowsCredentialProviderScenario("Windows2022Gen1_Dalec_CredentialProvider", config.VHDWindows2022Containerd, 33))
+var _ = Register(newWindowsCredentialProviderScenario("Windows2022_Legacy_CredentialProvider_Kubernetes132", config.VHDWindows2022ContainerdGen2, 32))
+var _ = Register(newWindowsCredentialProviderScenario("Windows2022Gen1_Legacy_CredentialProvider_Kubernetes132", config.VHDWindows2022Containerd, 32))
+
+func newWindowsCredentialProviderScenario(name string, vhd *config.Image, minor uint64) *Scenario {
+	description := "Tests Windows 2022 VHD-embedded CSE selects the Dalec credential provider at Kubernetes 1.33 with a stock RP legacy URL, without falling back"
+	if minor == 32 {
+		description = "Tests Windows 2022 VHD-embedded CSE installs the legacy credential provider at Kubernetes 1.32 below the Dalec gate"
+	}
+	return &Scenario{
+		Name:        name,
+		Description: description,
+		SkipIf: func(context.Context) string {
+			return skipWindowsCredentialProvider(vhd)
+		},
+		Config: Config{
+			Cluster:         ClusterAzureNetwork,
+			VHD:             vhd,
+			VMConfigMutator: EmptyVMConfigMutator,
+			BootstrapConfigMutatorWithError: func(ctx context.Context, cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
+				return windowsCredentialProviderMutator(ctx, cluster, nbc, minor)
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				if minor == 32 {
+					return errors.Join(
+						ValidateFileExists(ctx, s, `C:\var\lib\kubelet\credential-provider\acr-credential-provider.exe`),
+						ValidateFileExists(ctx, s, `C:\k\credential-provider-config.yaml`),
+						ValidateFileExcludesContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Using dalec credential provider"),
+						ValidateFileExcludesContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Failed to install dalec credential provider, falling back to RP URL."),
+						validateWindowsLegacyCredentialProvider(ctx, s),
+					)
+				}
+				return errors.Join(
+					ValidateFileExists(ctx, s, `C:\var\lib\kubelet\credential-provider\acr-credential-provider.exe`),
+					ValidateFileExists(ctx, s, `C:\k\credential-provider-config.yaml`),
+					ValidateFileHasContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Using dalec credential provider"),
+					ValidateFileExcludesContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`, "Failed to install dalec credential provider, falling back to RP URL."),
+				)
+			},
+		},
+	}
+}
+
+func skipWindowsCredentialProvider(vhd *config.Image) string {
+	const reason = "Windows credential-provider scenarios require a VHD built with branch CSE in the current pipeline run"
+	// Explicit versions and metadata take precedence over the gallery tag selector.
+	if vhd.Version != "" || config.Config.VHDMetadataFile != "" {
+		return reason + "; pinned versions and VHD metadata overrides do not establish that provenance"
+	}
+	// e2e_run.sh maps VHD_BUILD_ID to the selector, but it may name an older build.
+	// BUILD_BUILDID is Azure DevOps' current run ID, shared by CSE packaging and VHD build.
+	buildID := os.Getenv("BUILD_BUILDID")
+	if buildID == "" || config.Config.SIGVersionTagName != "buildId" || config.Config.SIGVersionTagValue != buildID {
+		return fmt.Sprintf("%s; require buildId=BUILD_BUILDID (current run %q), got %s=%q",
+			reason, buildID, config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue)
+	}
+	return ""
+}
+
+func windowsCredentialProviderMutator(ctx context.Context, _ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration, minor uint64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return configureWindowsCredentialProvider(nbc,
+		components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"),
+		components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), minor)
+}
+
+func configureWindowsCredentialProvider(nbc *datamodel.NodeBootstrappingConfiguration, kubeletVersions, legacyProviderVersions []string, minor uint64) error {
+	version, err := credentialProviderVersion(kubeletVersions, "kubernetes-binaries/windows/default", minor)
+	if err != nil {
+		return err
+	}
+	// Legacy provider releases differ from Kubernetes patches; use their own
+	// cached metadata to keep the populated RP fallback URL valid.
+	legacyVersion, err := credentialProviderVersion(legacyProviderVersions, "azure-acr-credential-provider/windows/default", minor)
+	if err != nil {
+		return err
+	}
+	legacyURL, err := windowsLegacyCredentialProviderURL(legacyVersion)
+	if err != nil {
+		return err
+	}
+	nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = version
+	nbc.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", version, version)
+	nbc.K8sComponents.WindowsCredentialProviderURL = legacyURL
+	nbc.KubeletConfig["--image-credential-provider-config"] = `C:\k\credential-provider-config.yaml`
+	nbc.KubeletConfig["--image-credential-provider-bin-dir"] = `C:\var\lib\kubelet\credential-provider`
+	return nil
+}
+
+func credentialProviderVersion(versions []string, metadataPath string, minor uint64) (string, error) {
+	var latest *semver.Version
+	for _, raw := range versions {
+		version, err := semver.StrictNewVersion(components.RemoveLeadingV(raw))
+		if err != nil || version.Major() != 1 || version.Minor() != minor || version.Prerelease() != "" {
+			continue
+		}
+		if latest == nil || version.GreaterThan(latest) {
+			latest = version
+		}
+	}
+	if latest == nil {
+		return "", fmt.Errorf("credential-provider scenario requires a cached 1.%d patch in components.json %s", minor, metadataPath)
+	}
+	return latest.String(), nil
+}
+
+func windowsLegacyCredentialProviderURL(version string) (string, error) {
+	// Match the version helper's source-relative lookup, independent of the runner's CWD.
+	_, filename, _, _ := runtime.Caller(0)
+	metadataPath := filepath.Join(filepath.Dir(filename), "..", "..", "parts", "common", "components.json")
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return "", fmt.Errorf("read credential-provider metadata: %w", err)
+	}
+	return resolveWindowsLegacyCredentialProviderURL(data, version)
+}
+
+func resolveWindowsLegacyCredentialProviderURL(data []byte, version string) (string, error) {
+	const metadataPath = "components.json azure-acr-credential-provider/windows/default/downloadURL"
+	if !gjson.ValidBytes(data) {
+		return "", fmt.Errorf("%s: invalid JSON", metadataPath)
+	}
+	template := gjson.GetBytes(data, `Packages.#(name="azure-acr-credential-provider").downloadURIs.windows.default.downloadURL`)
+	if template.Type != gjson.String || !strings.Contains(template.String(), "${version}") {
+		return "", fmt.Errorf("%s: requires a downloadURL template containing ${version}", metadataPath)
+	}
+	resolved := strings.ReplaceAll(template.String(), "${version}", version)
+	parsed, err := url.Parse(resolved)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || strings.ContainsAny(resolved, "$ \t\r\n") {
+		return "", fmt.Errorf("%s: invalid resolved URL %q", metadataPath, resolved)
+	}
+	return resolved, nil
+}
+
+func validateWindowsLegacyCredentialProvider(ctx context.Context, s *Scenario) error {
+	version, err := credentialProviderVersion(components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), "azure-acr-credential-provider/windows/default", 32)
+	if err != nil {
+		return err
+	}
+	legacyURL, err := windowsLegacyCredentialProviderURL(version)
+	if err != nil {
+		return err
+	}
+	log, err := getFileContent(ctx, s, `C:\AzureData\CustomDataSetupScript.log`)
+	if err != nil {
+		return err
+	}
+	return validateWindowsLegacyCredentialProviderLog(log, legacyURL)
+}
+
+func validateWindowsLegacyCredentialProviderLog(log, legacyURL string) error {
+	parsed, err := url.Parse(legacyURL)
+	if err != nil {
+		return fmt.Errorf("parse legacy credential-provider URL: %w", err)
+	}
+	filename := path.Base(parsed.Path)
+	for _, line := range strings.Split(log, "\n") {
+		// DownloadFileOverHttp emits these only after selecting the legacy path.
+		// Match the archive name because Update-BaseUrl may remap the download host.
+		cached := strings.Contains(line, "Using cached version of "+filename+" - Copying file from ")
+		downloaded := strings.Contains(line, "Downloaded file ") && strings.Contains(line, "/"+filename+" to ")
+		if (cached || downloaded) && strings.Contains(line, `\credentialprovider.tar.gz`) {
+			return nil
+		}
+	}
+	return fmt.Errorf("expected legacy credential-provider cache-copy or completed-download log for %s to credentialprovider.tar.gz", filename)
+}

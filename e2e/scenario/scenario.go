@@ -3806,3 +3806,36 @@ var _ = Register(&Scenario{
 		},
 	},
 })
+
+// The 1.33 inputs need a separate node to exercise the natural Dalec gate rather
+// than the enforced-install path or the suite's default Kubernetes version.
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2204_Dalec_CredentialProvider_Kubernetes133",
+	Description: "Tests Ubuntu 22.04 installs the Dalec credential provider at the natural Kubernetes 1.33 gate",
+	Config: Config{
+		Cluster:         ClusterKubenet,
+		VHD:             config.VHDUbuntu2204Gen2Containerd,
+		VMConfigMutator: EmptyVMConfigMutator,
+		BootstrapConfigMutatorWithError: func(_ context.Context, _ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
+			return configureUbuntuDalecCredentialProvider(nbc,
+				components.GetExpectedPackageVersions("kubernetes-binaries", "default", "current"))
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateFileExists(ctx, s, "/var/lib/kubelet/credential-provider/acr-credential-provider"),
+				ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "installCredentialProviderFromPkg"),
+			)
+		},
+	},
+})
+
+func configureUbuntuDalecCredentialProvider(nbc *datamodel.NodeBootstrappingConfiguration, kubeletVersions []string) error {
+	version, err := credentialProviderVersion(kubeletVersions, "kubernetes-binaries/default/current", 33)
+	if err != nil {
+		return err
+	}
+	nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = version
+	nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+	nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+	return nil
+}
