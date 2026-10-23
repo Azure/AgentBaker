@@ -73,6 +73,26 @@ assertPackageVersion() {
   return 0
 }
 
+testEmudhraRootRemoval() {
+  local bundle subjects checked=0
+  for bundle in "$@"; do
+    [ -e "$bundle" ] || [ -L "$bundle" ] || continue
+    subjects=$(set -o pipefail; openssl crl2pkcs7 -nocrl -certfile "$bundle" | openssl pkcs7 -print_certs -noout) ||
+      { err testEmudhraRootRemoval "Cannot read $bundle"; return 1; }
+    if ! grep -Eq '^subject=.*CN ?= ?DigiCert Global Root G2(,|$)' <<< "$subjects" ||
+      grep -Eq '^subject=.*CN ?= ?(emSign ECC Root CA - G3|AAA Certificate Services)(,|$)' <<< "$subjects"; then
+      err testEmudhraRootRemoval "$bundle: control root missing, or emSign/AAA root still trusted"
+      return 1
+    fi
+    checked=1
+  done
+  [ "$checked" -eq 1 ] || { err testEmudhraRootRemoval "No CA bundle found"; return 1; }
+}
+
+# Check the captured image before test setup can upgrade its CA packages.
+testEmudhraRootRemoval /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
+  /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem || exit 1
+
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then

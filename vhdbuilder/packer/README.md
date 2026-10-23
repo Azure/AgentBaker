@@ -25,6 +25,14 @@ script, and build the target-architecture binaries. The following VHD step runs
 in the same job and reuses those files. For local builds, run `build-tools` before
 `run-packer` or `run-imagecustomizer`.
 
+# eMudhra host OS checks
+
+The offline gate requires removal of emSign ECC Root CA - G3 and AAA Certificate
+Services from Linux CA bundles and Windows installed/cached root lists. DigiCert
+Global Root G2 is the read-control. This is a conservative root-removal policy,
+not full chain verification: images protected by intermediate blocklists or
+revocation can still fail. No component, container, or custom CA-store checks.
+
 # Ubuntu BCC build
 
 Ubuntu BCC remains pinned to v0.29.0, fetched with a shallow tag clone, and built

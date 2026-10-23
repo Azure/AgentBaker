@@ -33,6 +33,20 @@ function Write-OutputWithTimestamp($Message) {
     Write-Output $msg
 }
 
+function Test-EmudhraRootRemoval {
+    $control = 'DF3C24F9BFD666761B268073FE06D1CC8D4F82A4' # DigiCert Global Root G2
+    $badRoots = '3043FA4FF257DCA0C380EE2E58EA78B23FE6BBC1|D1EB23A46D17D68FD92564C2F1F1601764D8E349' # emSign ECC G3 / AAA
+    $roots = @(Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\AuthRoot -ErrorAction Stop).Thumbprint
+    # Windows can install roots from the cached AuthRoot list on demand.
+    [byte[]]$cache = @((Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\SystemCertificates\AuthRoot\AutoUpdate' -Name EncodedCtl -ErrorAction Stop).EncodedCtl)
+    $cachedRoots = [BitConverter]::ToString($cache).Replace('-', '')
+    if ($cachedRoots -notmatch $control -or (($roots -join ',') + $cachedRoots) -match $badRoots) {
+        Write-ErrorWithTimestamp 'Cached control root missing, or emSign/AAA root still trusted or installable'
+        return $false
+    }
+    return $true
+}
+
 # $SkipSignatureCheckForBinaries is defined in windows-vhd-configuration.ps1 (dot-sourced above)
 # so it is shared with windows-files-check.ps1's Test-ValidateSinglePackageSignature.
 
@@ -839,6 +853,8 @@ function Test-ValidateImageBinarySignature {
 
 
 Write-OutputWithTimestamp "Starting Tests"
+
+if (-not (Test-EmudhraRootRemoval)) { exit 1 }
 
 Write-OutputWithTimestamp "Test: FilesToCacheOnVHD"
 Test-FilesToCacheOnVHD
