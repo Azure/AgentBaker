@@ -467,9 +467,9 @@ function prepare_windows_vhd() {
 
 function ensure_sig_trusted_launch_supported() {
 	local definition_id="$1"
-	local definition_uri="${definition_id}?api-version=2024-03-03"
+	local api_version="2024-03-03"
 	local definition
-	if ! definition=$(az rest --method get --uri "${definition_uri}" -o json); then
+	if ! definition=$(az resource show --ids "${definition_id}" --api-version "${api_version}" -o json); then
 		echo "Failed to read image definition ${definition_id} for Trusted Launch support" >&2
 		return 1
 	fi
@@ -498,29 +498,16 @@ function ensure_sig_trusted_launch_supported() {
 		return 1
 	fi
 
-	local body
-	body=$(jq --arg version "${SIG_IMAGE_VERSION:?SIG_IMAGE_VERSION is required to update Trusted Launch support}" '
-		del(.id, .name, .type, .systemData, .properties.provisioningState)
-		| .properties.allowUpdateImage = true
-		| .properties.features = (
-			((.properties.features // []) | map(select(.name != "SecurityType")))
-			+ [{name: "SecurityType", value: "TrustedLaunchSupported", startsAtVersion: $version}]
-		)' <<<"${definition}") || return 1
+	local features
+	features=$(jq -c --arg version "${SIG_IMAGE_VERSION:?SIG_IMAGE_VERSION is required to update Trusted Launch support}" '
+		((.properties.features // []) | map(select(.name != "SecurityType")))
+		+ [{name: "SecurityType", value: "TrustedLaunchSupported", startsAtVersion: $version}]
+	' <<<"${definition}") || return 1
 	echo "Updating image definition ${definition_id} to TrustedLaunchSupported from version ${SIG_IMAGE_VERSION}"
-	if ! az rest --method put --uri "${definition_uri}" --body "${body}" -o none; then
+	if ! definition=$(az resource update --ids "${definition_id}" --api-version "${api_version}" \
+		--set properties.allowUpdateImage=true "properties.features=${features}" \
+		--remove properties.provisioningState -o json); then
 		echo "Failed to update Trusted Launch support for ${definition_id}" >&2
-		return 1
-	fi
-	if ! az sig image-definition wait \
-		--resource-group "${AZURE_RESOURCE_GROUP_NAME}" \
-		--gallery-name "${SIG_GALLERY_NAME}" \
-		--gallery-image-definition "${SIG_IMAGE_NAME}" \
-		--updated --interval 5 --timeout 120; then
-		echo "Timed out waiting for Trusted Launch support on ${definition_id}" >&2
-		return 1
-	fi
-	if ! definition=$(az rest --method get --uri "${definition_uri}" -o json); then
-		echo "Failed to verify Trusted Launch support for ${definition_id}" >&2
 		return 1
 	fi
 	if ! jq -e --arg version "${SIG_IMAGE_VERSION}" '.properties.provisioningState == "Succeeded" and

@@ -8,7 +8,7 @@ Describe 'ensure_sig_trusted_launch_supported'
     TEST_DIR="${SHELLSPEC_WORKDIR}/trusted-launch.${SHELLSPEC_EXAMPLE_NO}"
     mkdir -p "${TEST_DIR}"
     AZ_CALLS="${TEST_DIR}/az-calls"
-    PUT_BODY="${TEST_DIR}/put-body"
+    UPDATE_FEATURES="${TEST_DIR}/update-features"
     : > "${AZ_CALLS}"
     AZURE_RESOURCE_GROUP_NAME="test-rg"
     SIG_GALLERY_NAME="test-gallery"
@@ -24,29 +24,26 @@ Describe 'ensure_sig_trusted_launch_supported'
   az() {
     printf '%s\n' "$*" >> "${AZ_CALLS}"
     case "$1 $2 $3" in
-      'rest --method get')
-        if [ "${FAIL_OPERATION}" = "get" ]; then return 1; fi
-        if [ -f "${PUT_BODY}" ]; then
-          printf '%s\n' "${UPDATED_DEFINITION}"
-        elif [ -f "${TEST_DIR}/created-definition" ]; then
+      'resource show --ids')
+        if [ "${FAIL_OPERATION}" = "show" ]; then return 1; fi
+        if [ -f "${TEST_DIR}/created-definition" ]; then
           cat "${TEST_DIR}/created-definition"
         else
           printf '%s\n' "${INITIAL_DEFINITION}"
         fi
         ;;
-      'rest --method put')
-        if [ "${FAIL_OPERATION}" = "put" ]; then return 1; fi
-        shift 3
+      'resource update --ids')
+        if [ "${FAIL_OPERATION}" = "update" ]; then return 1; fi
         while [ "$#" -gt 0 ]; do
-          if [ "$1" = "--body" ]; then
-            printf '%s\n' "$2" > "${PUT_BODY}"
-            break
-          fi
+          case "$1" in
+            properties.features=*)
+              printf '%s\n' "${1#properties.features=}" > "${UPDATE_FEATURES}"
+              break
+              ;;
+          esac
           shift
         done
-        ;;
-      'sig image-definition wait')
-        if [ "${FAIL_OPERATION}" = "wait" ]; then return 1; fi
+        printf '%s\n' "${UPDATED_DEFINITION}"
         ;;
       'sig show --resource-group')
         printf '%s\n' '{"provisioningState":"Succeeded"}'
@@ -71,10 +68,13 @@ Describe 'ensure_sig_trusted_launch_supported'
     When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
     The status should be success
     The output should include 'from version 26100.1.261006'
-    The contents of file "${AZ_CALLS}" should include '--updated --interval 5 --timeout 120'
-    The value "$(jq -cr '[.id, .name, .type, .properties.provisioningState]' "${PUT_BODY}")" should equal '[null,null,null,null]'
-    The value "$(jq -cr '[.location, .tags, .properties.hyperVGeneration, .properties.allowUpdateImage]' "${PUT_BODY}")" should equal '["eastus",{"preserve":"true"},"V2",true]'
-    The value "$(jq -cr '.properties.features' "${PUT_BODY}")" should equal '[{"name":"DiskControllerTypes","value":"SCSI,NVMe"},{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.261006"}]'
+    The contents of file "${AZ_CALLS}" should include "resource show --ids ${DEFINITION_ID} --api-version 2024-03-03"
+    The contents of file "${AZ_CALLS}" should include "resource update --ids ${DEFINITION_ID} --api-version 2024-03-03 --set properties.allowUpdateImage=true properties.features="
+    The contents of file "${AZ_CALLS}" should include '--remove properties.provisioningState'
+    The contents of file "${AZ_CALLS}" should not include '--no-wait'
+    The contents of file "${AZ_CALLS}" should not include 'image-definition wait'
+    The value "$(grep -c '^resource show ' "${AZ_CALLS}")" should equal 1
+    The value "$(jq -c '.' "${UPDATE_FEATURES}")" should equal '[{"name":"DiskControllerTypes","value":"SCSI,NVMe"},{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.261006"}]'
   End
 
   It 'creates a new shared Windows definition capable directly without a migration'
@@ -93,11 +93,11 @@ Describe 'ensure_sig_trusted_launch_supported'
     The output should not include 'Updating image definition'
     The stderr should equal ''
     The contents of file "${AZ_CALLS}" should include 'DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported'
-    The contents of file "${AZ_CALLS}" should not include 'rest --method'
+    The contents of file "${AZ_CALLS}" should not include 'resource update'
     The contents of file "${AZ_CALLS}" should not include 'image-definition wait'
     The value "$(grep -c '^sig image-definition create ' "${AZ_CALLS}")" should equal 1
     The value "$(grep -c '^sig image-definition show ' "${AZ_CALLS}")" should equal 1
-    The file "${PUT_BODY}" should not be exist
+    The file "${UPDATE_FEATURES}" should not be exist
     The value "$(jq -c '.properties.features' "${TEST_DIR}/created-definition")" should equal '[{"name":"DiskControllerTypes","value":"SCSI,NVMe"},{"name":"SecurityType","value":"TrustedLaunchSupported"}]'
   End
 
@@ -115,9 +115,9 @@ Describe 'ensure_sig_trusted_launch_supported'
     When call ensure_sig_vhd_exists
     The status should equal 23
     The output should include 'Creating image definition windows-2025-gen2'
-    The contents of file "${AZ_CALLS}" should not include 'rest --method'
+    The contents of file "${AZ_CALLS}" should not include 'resource update'
     The contents of file "${AZ_CALLS}" should not include 'image-definition wait'
-    The file "${PUT_BODY}" should not be exist
+    The file "${UPDATE_FEATURES}" should not be exist
   End
 
   It 'migrates an existing Standard staging definition during build setup'
@@ -132,9 +132,9 @@ Describe 'ensure_sig_trusted_launch_supported'
     The output should include 'Updating image definition'
     The stderr should equal ''
     The contents of file "${AZ_CALLS}" should not include 'image-definition create'
-    The contents of file "${AZ_CALLS}" should include '--updated --interval 5 --timeout 120'
-    The value "$(grep -c '^rest --method get ' "${AZ_CALLS}")" should equal 2
-    The value "$(jq -c '.properties.features' "${PUT_BODY}")" should equal '[{"name":"DiskControllerTypes","value":"SCSI,NVMe"},{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.261006"}]'
+    The contents of file "${AZ_CALLS}" should include '--set properties.allowUpdateImage=true properties.features='
+    The value "$(grep -c '^resource show ' "${AZ_CALLS}")" should equal 1
+    The value "$(jq -c '.' "${UPDATE_FEATURES}")" should equal '[{"name":"DiskControllerTypes","value":"SCSI,NVMe"},{"name":"SecurityType","value":"TrustedLaunchSupported","startsAtVersion":"26100.1.261006"}]'
   End
 
   It 'does not move the boundary of an already-supported definition'
@@ -143,8 +143,8 @@ Describe 'ensure_sig_trusted_launch_supported'
     When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
     The status should be success
     The output should equal ''
-    The contents of file "${AZ_CALLS}" should not include '--method put'
-    The file "${PUT_BODY}" should not be exist
+    The contents of file "${AZ_CALLS}" should not include 'resource update'
+    The file "${UPDATE_FEATURES}" should not be exist
   End
 
   Describe 'existing capability without a boundary'
@@ -162,9 +162,9 @@ Describe 'ensure_sig_trusted_launch_supported'
       The status should be success
       The output should equal ''
       The stderr should equal ''
-      The contents of file "${AZ_CALLS}" should not include '--method put'
+      The contents of file "${AZ_CALLS}" should not include 'resource update'
       The contents of file "${AZ_CALLS}" should not include 'image-definition wait'
-      The file "${PUT_BODY}" should not be exist
+      The file "${UPDATE_FEATURES}" should not be exist
     End
   End
 
@@ -179,10 +179,10 @@ Describe 'ensure_sig_trusted_launch_supported'
     The status should be success
     The output should include 'Image definition windows-2025-gen2 existing'
     The stderr should equal ''
-    The contents of file "${AZ_CALLS}" should not include '--method put'
+    The contents of file "${AZ_CALLS}" should not include 'resource update'
     The contents of file "${AZ_CALLS}" should not include 'image-definition wait'
     The contents of file "${AZ_CALLS}" should not include 'image-definition create'
-    The file "${PUT_BODY}" should not be exist
+    The file "${UPDATE_FEATURES}" should not be exist
   End
 
   Describe 'valid existing capability boundaries'
@@ -198,8 +198,8 @@ Describe 'ensure_sig_trusted_launch_supported'
       When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
       The status should be success
       The output should equal ''
-      The contents of file "${AZ_CALLS}" should not include '--method put'
-      The file "${PUT_BODY}" should not be exist
+      The contents of file "${AZ_CALLS}" should not include 'resource update'
+      The file "${UPDATE_FEATURES}" should not be exist
     End
   End
 
@@ -224,8 +224,8 @@ Describe 'ensure_sig_trusted_launch_supported'
       The status should be failure
       The stderr should include 'cannot support build version'
       The output should equal ''
-      The contents of file "${AZ_CALLS}" should not include '--method put'
-      The file "${PUT_BODY}" should not be exist
+      The contents of file "${AZ_CALLS}" should not include 'resource update'
+      The file "${UPDATE_FEATURES}" should not be exist
     End
   End
 
@@ -235,14 +235,13 @@ Describe 'ensure_sig_trusted_launch_supported'
     When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
     The status should be failure
     The stderr should include 'must be Gen2'
-    The contents of file "${AZ_CALLS}" should not include '--method put'
+    The contents of file "${AZ_CALLS}" should not include 'resource update'
   End
 
   Describe 'Azure failures'
     Parameters
-      get 'Failed to read image definition'
-      put 'Failed to update Trusted Launch support'
-      wait 'Timed out waiting for Trusted Launch support'
+      show 'Failed to read image definition'
+      update 'Failed to update Trusted Launch support'
     End
 
     It "stops when $1 fails"
@@ -257,6 +256,15 @@ Describe 'ensure_sig_trusted_launch_supported'
 
   It 'rejects a completed update with incorrect capability'
     UPDATED_DEFINITION='{"properties":{"provisioningState":"Succeeded","features":[{"name":"SecurityType","value":"TrustedLaunch"}]}}'
+
+    When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
+    The status should be failure
+    The output should include 'Updating image definition'
+    The stderr should include 'did not converge to TrustedLaunchSupported'
+  End
+
+  It 'rejects an update that has not succeeded'
+    UPDATED_DEFINITION=$(jq '.properties.provisioningState = "Updating"' <<<"${UPDATED_DEFINITION}")
 
     When call ensure_sig_trusted_launch_supported "${DEFINITION_ID}"
     The status should be failure
