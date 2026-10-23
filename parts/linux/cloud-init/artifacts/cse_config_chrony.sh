@@ -113,10 +113,10 @@ apply_chrony_configuration() {
 # About using servers from the NTP Pool Project in general see (LP: #104525).
 # Approved by Ubuntu Technical Board on 2011-02-08.
 # See https://www.pool.ntp.org/join.html for more information.
-#pool ntp.ubuntu.com        iburst maxsources 4
-#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+# pool ntp.ubuntu.com        iburst maxsources 4
+# pool 0.ubuntu.pool.ntp.org iburst maxsources 1
+# pool 1.ubuntu.pool.ntp.org iburst maxsources 1
+# pool 2.ubuntu.pool.ntp.org iburst maxsources 2
 
 # This directive specifies the location of the file containing ID/key pairs for
 # NTP authentication.
@@ -127,7 +127,7 @@ keyfile /etc/chrony/chrony.keys
 driftfile /var/lib/chrony/chrony.drift
 
 # Uncomment the following line to turn logging on.
-#log tracking measurements statistics
+# log tracking measurements statistics
 
 # Log files location.
 logdir /var/log/chrony
@@ -177,7 +177,7 @@ keyfile /etc/chrony.keys
 driftfile /var/lib/chrony/drift
 
 # Uncomment the following line to turn logging on.
-#log tracking measurements statistics
+# log tracking measurements statistics
 
 # Log files location.
 logdir /var/log/chrony
