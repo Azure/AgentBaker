@@ -87,6 +87,7 @@ if (-not ($validSKU -contains $windowsSKU))
 # versions synced.
 $global:defaultContainerdPackageUrl = GetDefaultContainerDFromComponentsJson $componentsJson
 $global:orasVersion = GetWindowsPackageVersionFromComponentsJson $componentsJson "oras"
+$global:windowsExporterPackageUrl = GetWindowsExporterPackageUrlFromComponentsJson $componentsJson
 
 # defenderUpdateUrl refers to the latest windows defender platform update
 $global:defenderUpdateUrl = GetDefenderUpdateUrl $windowsSettingsJson

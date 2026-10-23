@@ -14,3 +14,4 @@ if (-not $WINDOWS_SCRIPTS_DIRECTORY) {
 . "$WINDOWS_SCRIPTS_DIRECTORY\securetlsbootstrapfunc.ps1"
 . "$WINDOWS_SCRIPTS_DIRECTORY\windowsciliumnetworkingfunc.ps1"
 . "$WINDOWS_SCRIPTS_DIRECTORY\networkisolatedclusterfunc.ps1"
+. "$WINDOWS_SCRIPTS_DIRECTORY\windowsexporterfunc.ps1"

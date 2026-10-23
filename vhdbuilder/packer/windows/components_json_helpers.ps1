@@ -304,6 +304,42 @@ function GetWindowsPackageVersionFromComponentsJson {
     throw "Could not find package '$packageName' in components.json"
 }
 
+function GetWindowsExporterPackageUrlFromComponentsJson {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent
+    )
+
+    # The VHD bakes exactly one windows-exporter version; the CSE has no version
+    # selection. Validate the active version, then resolve its URL with the same
+    # logic used to download packages into the VHD cache.
+    $packageName = "windows-exporter"
+    $null = GetWindowsPackageVersionFromComponentsJson $componentsJsonContent $packageName
+
+    $exporterPackages = @($componentsJsonContent.Packages | Where-Object { $_.name -eq $packageName })
+    if ($exporterPackages.Count -ne 1) {
+        throw "Expected exactly one '$packageName' package in components.json, found $($exporterPackages.Count)"
+    }
+
+    $downloadLocation = $exporterPackages[0].windowsDownloadLocation
+    if ([string]::IsNullOrEmpty($downloadLocation)) {
+        throw "Package '$packageName' in components.json has no windowsDownloadLocation"
+    }
+
+    $part = GetWindowsDownloadPartForPackage $exporterPackages[0]
+    if ([string]::IsNullOrEmpty($part.windowsDownloadUrl) -and [string]::IsNullOrEmpty($part.downloadUrl)) {
+        throw "Package '$packageName' in components.json has no Windows download URL"
+    }
+
+    $packageMap = GetPackagesFromComponentsJson ([PSCustomObject]@{ Packages = $exporterPackages })
+    $urls = @($packageMap[$downloadLocation] | Where-Object { -not [string]::IsNullOrEmpty($_) })
+    if ($urls.Count -ne 1) {
+        throw "Expected exactly one '$packageName' package URL for VHD baking, found $($urls.Count)"
+    }
+
+    return $urls[0]
+}
+
 function GetOCIArtifactsFromComponentsJson {
 
     Param(
