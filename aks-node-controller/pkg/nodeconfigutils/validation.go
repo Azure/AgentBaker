@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Masterminds/semver/v3"
@@ -20,6 +21,9 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 		return fmt.Errorf("unsupported version: %s", cfg.Version)
 	}
 	if err := validateCustomLinuxOSConfig(cfg.GetCustomLinuxOsConfig()); err != nil {
+		return err
+	}
+	if err := validateContainerdConfig(cfg.GetContainerdConfig()); err != nil {
 		return err
 	}
 
@@ -54,6 +58,19 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 		delete(flags, "--streaming-connection-idle-timeout")
 	}
 	normalizeKubeletConfigFile(kubelet.GetKubeletConfigFileConfig(), version, kubeReserved, systemReserved)
+	return nil
+}
+
+func validateContainerdConfig(cfg *aksnodeconfigv1.ContainerdConfig) error {
+	if cfg != nil && cfg.ImagePullProgressTimeout != nil {
+		duration, err := time.ParseDuration(cfg.GetImagePullProgressTimeout())
+		if err != nil {
+			return fmt.Errorf("containerd_config.image_pull_progress_timeout: %w", err)
+		}
+		if duration < 0 {
+			return fmt.Errorf("containerd_config.image_pull_progress_timeout must not be negative")
+		}
+	}
 	return nil
 }
 

@@ -15,6 +15,14 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   enable_tar_index = false
 {{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
+{{- with .GetContainerdConfig }}
+  {{- if ne .ImagePullWithSyncFs nil }}
+  image_pull_with_sync_fs = {{ .GetImagePullWithSyncFs }}
+  {{- end }}
+  {{- if ne .ImagePullProgressTimeout nil }}
+  image_pull_progress_timeout = {{ printf "%q" .GetImagePullProgressTimeout }}
+  {{- end }}
+{{- end }}
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
   enable_cdi = true
   [plugins."io.containerd.grpc.v1.cri".containerd]
