@@ -394,6 +394,16 @@ oom_score = -999
 	}
 }
 
+func TestBuildCSECmdDoesNotExecuteCloudInitializationScript(t *testing.T) {
+	cmd, err := BuildCSECmd(t.Context(), &aksnodeconfigv1.Configuration{}, nil)
+	require.NoError(t, err)
+	require.NotContains(t, cmd.String(), "INIT_AKS_CLOUD_FILEPATH")
+	require.NotContains(t, cmd.String(), "init-aks-cloud.sh")
+	require.NotContains(t, environToMap(cmd.Env), "INIT_AKS_CLOUD_FILEPATH")
+	require.Contains(t, cmd.String(), "/opt/azure/containers/provision_start.sh")
+	require.Equal(t, strings.TrimSpace(cmd.Args[2]), cmd.Args[2])
+}
+
 func TestBuildCSECmd_MCRRepositoryBase(t *testing.T) {
 	tests := []struct {
 		name     string

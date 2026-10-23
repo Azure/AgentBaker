@@ -54,6 +54,48 @@ the provisioning config in CustomData; the automatic size fallback uses the same
 config-only payload. Leaving the new flag false preserves legacy, Phase 2, and
 Phase 2.5 behavior.
 
+### Native Azure cloud initialization
+
+When provisioning with `--provision-config` alone, ANC initializes Azure cloud
+certificates and RepoDepot in Go before starting the provisioning scripts. This path
+does not execute `init-aks-cloud.sh`. NBC takes precedence when `--nbc-cmd` is
+supplied, so Phase 2, Phase 2.5, and traditional CSE retain their existing shell
+initialization. The shell artifact is still delivered for those paths and older
+VHD binaries; this change does not remove it from AgentBaker CustomData.
+
+Regions starting with `ussec` or `usnat` use the legacy certificate endpoint.
+Other regions check WireServer's root-certificate opt-in before downloading root
+and intermediate certificates. WireServer failures, malformed responses, invalid
+certificates, trust-store errors, and refresh scheduling failures stop native
+provisioning rather than falling back to the distribution's default trust.
+Raw certificate responses are never logged; `AKS_CLOUD_LOG_CERTIFICATES=true`
+enables diagnostics containing re-encoded public certificates only.
+
+Eligible nodes require a nonempty region and register a daily 19:00 certificate
+refresh using the running ANC binary, including when provisioning uses an ANC
+hotfix. Ubuntu, Mariner, and Azure Linux use cron; Flatcar and Azure Container
+Linux use the existing `azure-ca-refresh.service` and timer. Existing shell
+refresh entries are replaced.
+The refresh command takes the location explicitly and does not configure
+repositories or reinstall its schedule:
+
+```sh
+/opt/azure/containers/aks-node-controller refresh-cloud-certificates --location westus2
+```
+
+RepoDepot initialization is independent of certificate opt-in and runs only when
+a repository endpoint is configured. Ubuntu sources and Microsoft keyrings,
+Mariner mirrors, and Azure Linux repositories retain their existing roles;
+immutable Flatcar/ACL images do not configure package repositories. Cache refreshes
+retry up to ten times and report exhausted failures. Native initialization honors
+the configured CSE timeout, with 30-second HTTP requests and two-minute command
+timeouts. Periodic certificate refresh has a 15-minute budget. `provision --dry-run`
+does not fetch certificates, change files, or install refresh schedules.
+
+Native initialization and periodic refresh emit guest-agent events through
+`EventLogger` using `CloudInitialization`, `CloudRepositoryInitialization`, and
+`CloudCertificateRefresh` task suffixes, alongside the existing ANC logs.
+
 ### Validating and normalizing AKSNodeConfig
 
 Before serializing a typed config, producers such as RP should call:
