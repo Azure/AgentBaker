@@ -25,7 +25,9 @@ const (
 	kvpValueSize       = 2048
 	kvpReportLimit     = 1024
 	descriptionLimit   = 512
-	healthReportTries  = 3
+	// WireServer accepts at most 4096 bytes of XML-escaped description text.
+	healthDescriptionLimit = 4096
+	healthReportTries      = 3
 )
 
 type goalState struct {
@@ -66,7 +68,7 @@ func reportGoalState(ctx context.Context, failed bool, description string) error
 }
 
 func sendHealthReport(ctx context.Context, client *http.Client, endpoint string, failed bool, description string, retryDelay time.Duration) error {
-	description = trimReportDescription(description)
+	description = trimHealthReportDescription(description)
 	state := "Ready"
 	if failed {
 		state = "NotReady"
@@ -202,6 +204,29 @@ func reportProvisioningKVP(ctx context.Context, failed bool, description string)
 func trimReportDescription(description string) string {
 	runes := []rune(description)
 	return string(runes[:min(len(runes), descriptionLimit)])
+}
+
+func healthDescriptionFits(description string) bool {
+	var escaped bytes.Buffer
+	_ = xml.EscapeText(&escaped, []byte(description))
+	return escaped.Len() <= healthDescriptionLimit
+}
+
+func trimHealthReportDescription(description string) string {
+	if healthDescriptionFits(description) {
+		return description
+	}
+	runes := []rune(description)
+	low, high := 0, min(len(runes), healthDescriptionLimit)
+	for low < high {
+		mid := low + (high-low+1)/2
+		if healthDescriptionFits(string(runes[:mid])) {
+			low = mid
+		} else {
+			high = mid - 1
+		}
+	}
+	return string(runes[:low])
 }
 
 // cloud-init uses pipe-delimited CSV with single quotes, unlike encoding/csv.
