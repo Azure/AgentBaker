@@ -5,13 +5,20 @@ aks-diagnostic.py
 
 This script uploads a diagnostic log file to an Azure Blob Storage container using a REST API call.
 Usage:
-    python aks-diagnostic.py <container> <storage_account_url> <sas_token> [file_path]
+    AKS_DIAGNOSTIC_SAS_TOKEN=<sas_token> python aks-diagnostic.py <container> <storage_account_url> [--file-path <path>]
+
+    # Positional sas_token is still accepted for backward compatibility, but is deprecated:
+    # any local process able to read this process's command line (e.g. via /proc/<pid>/cmdline)
+    # can see the token. Prefer the AKS_DIAGNOSTIC_SAS_TOKEN environment variable instead.
+    python aks-diagnostic.py <container> <storage_account_url> [sas_token] [--file-path <path>]
 
 Arguments:
     container              : Name of the blob container.
     storage_account_url    : Full URL of the Azure storage account (e.g., https://<account>.blob.core.windows.net/).
-    sas_token              : Shared Access Signature token for authentication.
-    file_path (optional)   : Path to the log file to upload (default: /var/lib/waagent/logcollector/logs.zip).
+    sas_token (deprecated) : Shared Access Signature token for authentication, as a positional argument.
+                              Prefer the AKS_DIAGNOSTIC_SAS_TOKEN environment variable, which does not
+                              appear in the process's command line.
+    --file-path (optional) : Path to the log file to upload (default: /var/lib/waagent/logcollector/logs.zip).
 """
 import requests
 import os
@@ -26,6 +33,10 @@ MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
 MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1000MB
 DEFAULT_LOG_PATH = "/var/lib/waagent/logcollector/logs.zip"
+# Preferred way to pass the SAS token: environment variables are not visible in
+# /proc/<pid>/cmdline the way CLI arguments are, so this avoids exposing the secret
+# to any other local process that can list or read process command lines.
+SAS_TOKEN_ENV_VAR = "AKS_DIAGNOSTIC_SAS_TOKEN"
 
 def parse_arguments():
     """
@@ -38,9 +49,14 @@ def parse_arguments():
         description='Upload diagnostic log files to Azure Blob Storage',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-        Examples:
+        Examples (preferred - SAS token via environment variable):
+        AKS_DIAGNOSTIC_SAS_TOKEN="sv=2020-08-04&ss=b&srt=co&sp=rwdlac&se=2023-01-01T00:00:00Z&st=2022-01-01T00:00:00Z&spr=https&sig=..." \\
+            python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net
+        AKS_DIAGNOSTIC_SAS_TOKEN="sv=2020-08-04&ss=b&srt=co&sp=rwdlac&se=2023-01-01T00:00:00Z&st=2022-01-01T00:00:00Z&spr=https&sig=..." \\
+            python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net --file-path /custom/path/logs.zip
+
+        Examples (deprecated - SAS token as CLI argument, visible via /proc/<pid>/cmdline):
         python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net "sv=2020-08-04&ss=b&srt=co&sp=rwdlac&se=2023-01-01T00:00:00Z&st=2022-01-01T00:00:00Z&spr=https&sig=..."
-        python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net "sv=2020-08-04&ss=b&srt=co&sp=rwdlac&se=2023-01-01T00:00:00Z&st=2022-01-01T00:00:00Z&spr=https&sig=..." /custom/path/logs.zip
         """
     )
     
@@ -54,11 +70,17 @@ def parse_arguments():
     )
     parser.add_argument(
         'sas_token',
-        help='Shared Access Signature token for authentication'
+        nargs='?',
+        default=None,
+        help=(
+            'Shared Access Signature token for authentication. Deprecated: visible to other '
+            f'local processes via /proc/<pid>/cmdline. Prefer the {SAS_TOKEN_ENV_VAR} '
+            'environment variable instead, which takes precedence if both are set.'
+        )
     )
     parser.add_argument(
-        'file_path',
-        nargs='?',
+        '--file-path',
+        dest='file_path',
         default=DEFAULT_LOG_PATH,
         help=f'Path to the log file to upload (default: {DEFAULT_LOG_PATH})'
     )
@@ -114,26 +136,32 @@ def validate_arguments(args):
     if not args.container or not args.container.replace('-', '').replace('.', '').isalnum():
         print(f"Error: Invalid container name: {args.container}")
         sys.exit(1)
-        
+
+    # Resolve the SAS token. The environment variable is preferred since it does not appear
+    # in /proc/<pid>/cmdline the way a CLI argument does; it takes precedence if both are set.
+    # The positional CLI argument is kept only for backward compatibility with existing callers.
+    sas_token = os.environ.get(SAS_TOKEN_ENV_VAR) or args.sas_token
+    if not sas_token:
+        print(
+            f"Error: No SAS token provided. Set the {SAS_TOKEN_ENV_VAR} environment variable "
+            "(preferred), or pass it as a positional argument (deprecated, visible to other "
+            "local processes via /proc/<pid>/cmdline)."
+        )
+        sys.exit(1)
+    if args.sas_token and not os.environ.get(SAS_TOKEN_ENV_VAR):
+        print(
+            f"Warning: SAS token was passed as a CLI argument; it is visible to other local "
+            f"processes via /proc/<pid>/cmdline. Prefer the {SAS_TOKEN_ENV_VAR} environment "
+            "variable instead.",
+            file=sys.stderr
+        )
+
     # Validate SAS token (basic check)
-    if not args.sas_token or 'sig=' not in args.sas_token:
+    if 'sig=' not in sas_token:
         print("Error: Invalid SAS token format")
         sys.exit(1)
-    
-    return args.container, args.storage_account_url, args.sas_token, args.file_path
 
-
-def handleArgs(args):
-    if len(args) < 3:
-        print("Usage: python aks-diagnostic.py <container> <storage_account_url> <sas_token> [file_path]")
-        return None, None, None, None
-
-    container = args[0]
-    storage_account_url = args[1]
-    sas_token = args[2]
-    file_path = args[3] if len(args) > 3 else DEFAULT_LOG_PATH
-
-    return container, storage_account_url, sas_token, file_path
+    return args.container, args.storage_account_url, sas_token, args.file_path
 
 
 def redact_sas_token(url):
