@@ -346,17 +346,20 @@ func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator st
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
 // { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// get parameters
-	parameters := getParameters(config)
-	// get variable cloudInit
-	variables := getCustomDataVariables(config)
-	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
-
-	if e != nil {
-		panic(e)
+	b, err := parts.Templates.ReadFile(kubernetesNodeCustomDataYaml)
+	if err != nil {
+		panic(err)
+	}
+	str, err := RenderLinuxNodeCustomDataTemplate(b, config)
+	if err != nil {
+		panic(err)
 	}
 
-	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+	customData, err := json.Marshal(map[string]string{"customData": str})
+	if err != nil {
+		panic(err)
+	}
+	return string(customData)
 }
 
 const (
@@ -677,6 +680,8 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 // same variables and functions used by the production AgentBaker path.
 // Callers must supply a complete configuration, as required by the production
 // rendering helpers.
+// File entries must use GetCloudInitFileEncoding and GetCloudInitFileContent
+// to select the encoding for the delivery mode.
 func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	parameters := getParameters(config)
 	variables := getCustomDataVariables(config)
@@ -694,9 +699,28 @@ func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel
 	return buffer.String(), nil
 }
 
+// Traditional custom data is gzipped as a whole, so its files need no inner encoding.
+func usePlainCloudInit(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return !config.EnableScriptlessCSECmd && !config.IsFlatcar() && !config.IsACL()
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
+
+	funcMap["GetCloudInitFileEncoding"] = func() string {
+		if usePlainCloudInit(config) {
+			return `""`
+		}
+		return encodingGZIP
+	}
+	funcMap["GetCloudInitFileContent"] = func(content string) (string, error) {
+		if usePlainCloudInit(config) {
+			encoded, err := json.Marshal(content)
+			return string(encoded), err
+		}
+		return "!!binary |\n    " + content, nil
+	}
 
 	funcMap["GetParameter"] = func(s string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {

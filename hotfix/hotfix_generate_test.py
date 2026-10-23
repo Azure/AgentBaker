@@ -161,7 +161,8 @@ class HotfixGenerateTests(unittest.TestCase):
                 self.assertEqual({variable}, blocks[0][0])
                 self.assertIn(f"- path: {{{{{path_function}}}}}", template)
                 self.assertIn('permissions: "0744"', template)
-                self.assertIn("encoding: gzip", template)
+                self.assertIn("encoding: {{GetCloudInitFileEncoding}}", template)
+                self.assertIn("| GetCloudInitFileContent}}", template)
                 self.assertNotIn("{{if", template)
 
     def test_mariner_package_update_is_not_embedded_in_custom_data(self):
