@@ -620,12 +620,15 @@ Describe 'Install-CredentialProvider' {
             $script:lastDownloadReference = $Reference
         }
         Mock AKS-Expand-Archive
-        Mock Invoke-RestMethod -MockWith { throw 'Unexpected Dalec download' }
+        Mock Save-DalecCredentialProviderHttpResponse -MockWith { throw 'Unexpected Dalec download' }
         Mock Test-Path -MockWith { $false } -ParameterFilter { $LiteralPath -eq 'c:\k\components.json' }
         Mock Get-Content -MockWith { throw 'Unexpected metadata read' }
         Mock Expand-DalecCredentialProviderPackage
+        Mock Test-Path -MockWith { $true } -ParameterFilter {
+            $LiteralPath -eq 'C:\temp\credprovider\azure-acr-credential-provider.exe' -and $PathType -eq 'Leaf'
+        }
         Mock Create-Directory
-        Mock cp
+        Mock Copy-Item
         Mock del
         Mock tar -MockWith { $global:LASTEXITCODE = 0 }
         Mock Get-Command -MockWith {
@@ -638,10 +641,10 @@ Describe 'Install-CredentialProvider' {
         }
     }
     AfterEach {
-        Assert-MockCalled Invoke-RestMethod -Times $script:expectedDalecDownloads -Exactly
+        Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times $script:expectedDalecDownloads -Exactly
         Assert-MockCalled Get-Content -Times $script:expectedMetadataReads -Exactly
         Assert-MockCalled del -Times 0 -ParameterFilter { $Path -like "$global:CacheDir*" }
-        Assert-MockCalled cp -Times 0 -ParameterFilter { $Destination -like "$global:CacheDir*" }
+        Assert-MockCalled Copy-Item -Times 0 -ParameterFilter { $Destination -like "$global:CacheDir*" }
         $global:BootstrapProfileContainerRegistryServer = $null
     }
 
@@ -662,7 +665,7 @@ Describe 'Install-CredentialProvider' {
 }}}}]}
 '@
             }
-            Mock Invoke-RestMethod
+            Mock Save-DalecCredentialProviderHttpResponse
             Mock Resolve-PackagesDownloadFqdn -MockWith { throw 'Unexpected public endpoint probe' }
         }
 
@@ -680,9 +683,9 @@ Describe 'Install-CredentialProvider' {
 
         It 'downloads the pinned Dalec ZIP into temporary storage after a cache miss' {
             Install-CredentialProvider -KubeDir 'c:\k'
-            Assert-MockCalled Invoke-RestMethod -Times 1 -Exactly -ParameterFilter {
-                $Uri -eq 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.34.19/windows/amd64/azure-acr-credential-provider_1.34.19-1_amd64.zip' -and
-                $OutFile -eq 'C:\temp\credprovider\credentialprovider.zip'
+            Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 1 -Exactly -ParameterFilter {
+                $Url -eq 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.34.19/windows/amd64/azure-acr-credential-provider_1.34.19-1_amd64.zip' -and
+                $DestinationPath -eq 'C:\temp\credprovider\credentialprovider.zip'
             }
             Assert-MockCalled Expand-DalecCredentialProviderPackage -Times 1 -ParameterFilter {
                 $Path -eq 'C:\temp\credprovider\credentialprovider.zip' -and $DestinationPath -eq 'C:\temp\credprovider'
@@ -702,8 +705,44 @@ Describe 'Install-CredentialProvider' {
         It 'downloads from metadata when the RP URL is empty' {
             $global:CredentialProviderURL = ''
             Install-CredentialProvider -KubeDir 'c:\k'
+            Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 1 -Exactly -ParameterFilter { $TimeoutSec -eq 0 }
             Assert-MockCalled Expand-DalecCredentialProviderPackage -Times 1
             Assert-MockCalled DownloadFileOverHttp -Times 0
+        }
+
+        It 'keeps the full retry budget for transient failures when no RP URL is available' {
+            $global:CredentialProviderURL = ''
+            $script:expectedDalecDownloads = 5
+            $script:dalecAttempts = 0
+            Mock Save-DalecCredentialProviderHttpResponse -MockWith {
+                $script:dalecAttempts++
+                if ($script:dalecAttempts -lt 5) {
+                    throw 'Transient Dalec download failure'
+                }
+            }
+            Mock Start-Sleep
+
+            Install-CredentialProvider -KubeDir 'c:\k'
+            Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 5 -Exactly -ParameterFilter { $TimeoutSec -eq 0 }
+            Assert-MockCalled Start-Sleep -Times 4 -Exactly -ParameterFilter { $Seconds -eq 10 }
+            Assert-MockCalled Expand-DalecCredentialProviderPackage -Times 1 -Exactly
+            Assert-MockCalled DownloadFileOverHttp -Times 0
+            Assert-MockCalled Set-ExitCode -Times 0
+        }
+
+        It 'fails provisioning only after the full retry budget when no RP URL is available' {
+            $global:CredentialProviderURL = ''
+            $script:expectedDalecDownloads = 5
+            Mock Save-DalecCredentialProviderHttpResponse -MockWith { throw 'Dalec download failed' }
+            Mock Start-Sleep
+
+            { Install-CredentialProvider -KubeDir 'c:\k' } | Should -Throw '*Dalec download failed*'
+            Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 5 -Exactly
+            Assert-MockCalled Start-Sleep -Times 4 -Exactly -ParameterFilter { $Seconds -eq 10 }
+            Assert-MockCalled DownloadFileOverHttp -Times 0
+            Assert-MockCalled Set-ExitCode -Times 1 -Exactly -ParameterFilter {
+                $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER
+            }
         }
 
         It 'preserves sovereign and public mirror mapping for <downloadHost>' -TestCases @(
@@ -714,42 +753,69 @@ Describe 'Install-CredentialProvider' {
             $global:CredentialProviderURL = $global:CredentialProviderURL.Replace('packages.aks.azure.com', $rpHost)
             $global:PackageDownloadFqdn = $preferredHost
             Install-CredentialProvider -KubeDir 'c:\k'
-            Assert-MockCalled Invoke-RestMethod -Times 1 -Exactly -ParameterFilter {
-                $Uri -eq "https://$downloadHost/dalec-packages/azure-acr-credential-provider/1.34.19/windows/amd64/azure-acr-credential-provider_1.34.19-1_amd64.zip"
+            Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 1 -Exactly -ParameterFilter {
+                $Url -eq "https://$downloadHost/dalec-packages/azure-acr-credential-provider/1.34.19/windows/amd64/azure-acr-credential-provider_1.34.19-1_amd64.zip"
             }
             Assert-MockCalled Resolve-PackagesDownloadFqdn -Times 0
             Assert-MockCalled DownloadFileOverHttp -Times 0
         }
 
-        It 'retries failed Dalec downloads before falling back to the RP path' {
-            $script:expectedDalecDownloads = 5
-            Mock Invoke-RestMethod -MockWith { throw 'Dalec download failed' }
+        It 'bounds failed Dalec downloads before falling back to the RP path' {
+            $script:expectedDalecDownloads = 2
+            Mock Save-DalecCredentialProviderHttpResponse -MockWith { throw 'Dalec download failed' }
             Mock Start-Sleep
 
             Install-CredentialProvider -KubeDir 'c:\k'
+            Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 2 -Exactly -ParameterFilter { $TimeoutSec -eq 15 }
+            Assert-MockCalled Start-Sleep -Times 1 -Exactly
+            Assert-MockCalled Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 1 }
             Assert-MockCalled DownloadFileOverHttp -Times 1 -Exactly -ParameterFilter { $Url -eq $global:CredentialProviderURL }
             Assert-MockCalled Expand-DalecCredentialProviderPackage -Times 0
             Assert-MockCalled tar -Times 1
             ($script:credentialProviderLogs -join "`n") | Should -Match 'Failed to install dalec credential provider, falling back to RP URL.'
         }
 
-        It 'attempts the metadata download before reusing an available RP archive' {
-            $script:expectedDalecDownloads = 0
-            $script:dalecAttempted = $false
-            $legacyFile = New-Item -ItemType File -Path (Join-Path $global:CacheDir 'azure-acr-credential-provider-windows-amd64-v1.34.0.tar.gz')
-            Mock Get-DalecCredentialProviderPackage -MockWith {
-                $script:dalecAttempted = $true
-                throw 'Dalec download failed'
+        It 'succeeds on the second bounded Dalec attempt without falling back' {
+            $script:expectedDalecDownloads = 2
+            $script:dalecAttempts = 0
+            Mock Save-DalecCredentialProviderHttpResponse -MockWith {
+                $script:dalecAttempts++
+                if ($script:dalecAttempts -eq 1) {
+                    throw 'Transient Dalec download failure'
+                }
             }
+            Mock Start-Sleep
+
+            Install-CredentialProvider -KubeDir 'c:\k'
+            Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 2 -Exactly -ParameterFilter { $TimeoutSec -eq 15 }
+            Assert-MockCalled Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 1 }
+            Assert-MockCalled Expand-DalecCredentialProviderPackage -Times 1 -Exactly
+            Assert-MockCalled DownloadFileOverHttp -Times 0
+        }
+
+        It 'reuses an available RP archive after exhausting the bounded Dalec download budget' {
+            $script:expectedDalecDownloads = 2
+            $script:dalecAttempts = 0
+            $legacyFile = New-Item -ItemType File -Path (Join-Path $global:CacheDir 'azure-acr-credential-provider-windows-amd64-v1.34.0.tar.gz')
+            Mock Save-DalecCredentialProviderHttpResponse -MockWith {
+                $script:dalecAttempts++
+                throw 'Dalec request timed out'
+            }
+            Mock Start-Sleep
             Mock DownloadFileOverHttp -MockWith {
                 param($Url, $DestinationPath, $ExitCode)
-                $script:dalecAttempted | Should -Be $true
+                $script:dalecAttempts | Should -Be 2
                 & $script:downloadCredentialProvider -Url $Url -DestinationPath $DestinationPath -ExitCode $ExitCode
             }
             Mock Copy-Item
 
             Install-CredentialProvider -KubeDir 'c:\k'
-            Assert-MockCalled Get-DalecCredentialProviderPackage -Times 1 -Exactly
+            Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 2 -Exactly -ParameterFilter { $TimeoutSec -eq 15 }
+            Assert-MockCalled Start-Sleep -Times 1 -Exactly
+            Assert-MockCalled Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 1 }
+            Assert-MockCalled DownloadFileOverHttp -Times 1 -Exactly
+            Assert-MockCalled Expand-DalecCredentialProviderPackage -Times 0
+            Assert-MockCalled tar -Times 1 -Exactly
             Assert-MockCalled Copy-Item -Times 1 -Exactly -ParameterFilter {
                 $Path -eq $legacyFile.FullName -and $Destination -eq 'C:\temp\credprovider\credentialprovider.tar.gz'
             }
@@ -1186,6 +1252,43 @@ Describe 'New-HostsConfigService' {
     }
 }
 
+Describe 'ConvertTo-DalecCredentialProviderVersion' {
+    It 'converts compatible package <packageVersion> into a four-part numeric version' -TestCases @(
+        @{ packageVersion = '1.33.19-10'; expected = '1.33.19.10' },
+        @{ packageVersion = '1.33.0-0'; expected = '1.33.0.0' },
+        @{ packageVersion = '1.33.2147483647-2147483647'; expected = '1.33.2147483647.2147483647' }
+    ) {
+        param($packageVersion, $expected)
+
+        $result = ConvertTo-DalecCredentialProviderVersion -PackageVersion $packageVersion -KubeVersion '1.33.3'
+
+        $result | Should -BeOfType ([version])
+        $result | Should -Be ([version]$expected)
+    }
+
+    It 'rejects malformed or incompatible package <packageVersion>' -TestCases @(
+        @{ packageVersion = $null },
+        @{ packageVersion = '' },
+        @{ packageVersion = '1.34.19-1' },
+        @{ packageVersion = '2.33.19-1' },
+        @{ packageVersion = 'v1.33.19-1' },
+        @{ packageVersion = '1.33.19-rc.1-1' },
+        @{ packageVersion = '1.33.19' },
+        @{ packageVersion = '1.33.19.0-1' },
+        @{ packageVersion = '01.33.19-1' },
+        @{ packageVersion = '1.033.19-1' },
+        @{ packageVersion = '1.33.019-1' },
+        @{ packageVersion = '1.33.19-01' },
+        @{ packageVersion = '1.33.2147483648-1' },
+        @{ packageVersion = '1.33.19-2147483648' },
+        @{ packageVersion = "1.33.19-1`n" }
+    ) {
+        param($packageVersion)
+
+        ConvertTo-DalecCredentialProviderVersion -PackageVersion $packageVersion -KubeVersion '1.33.3' | Should -Be $null
+    }
+}
+
 Describe 'Resolve-DalecCredentialProviderPackageFromMetadata' {
     BeforeEach {
         $script:metadata = @{
@@ -1298,6 +1401,279 @@ Describe 'Resolve-DalecCredentialProviderPackageFromMetadata' {
     It 'does not hide unexpected metadata access errors' {
         Mock Get-Content -MockWith { Write-Error 'Metadata access denied' }
         { Resolve-DalecCredentialProviderPackageFromMetadata -KubeVersion '1.33.3' } | Should -Throw '*Metadata access denied*'
+    }
+}
+
+Describe 'Get-DalecCredentialProviderPackage' {
+    BeforeAll {
+        $script:savedDownloadAppInsightsClient = $global:AppInsightsClient
+        $script:savedDownloadSecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol
+        function Write-Log {
+            param([string]$Message)
+            $script:dalecDownloadLogs.Add($Message)
+        }
+    }
+    AfterAll {
+        $global:AppInsightsClient = $script:savedDownloadAppInsightsClient
+        [System.Net.ServicePointManager]::SecurityProtocol = $script:savedDownloadSecurityProtocol
+    }
+    BeforeEach {
+        $script:dalecDownloadLogs = [System.Collections.Generic.List[string]]::new()
+        $script:dalecDownloadEvents = [System.Collections.Generic.List[object]]::new()
+        $script:dalecDownloadEvent = [pscustomobject]@{ Name = ''; Properties = @{}; Metrics = @{} }
+        $script:dalecDownloadUrl = 'https://packages.aks.azure.com/provider.zip'
+        $global:AppInsightsClient = [pscustomobject]@{}
+        $global:AppInsightsClient | Add-Member -MemberType ScriptMethod -Name TrackEvent -Value {
+            param($event)
+            $script:dalecDownloadEvents.Add($event)
+        }
+        Mock New-Object -MockWith { $script:dalecDownloadEvent } -ParameterFilter {
+            $TypeName -eq 'Microsoft.ApplicationInsights.DataContracts.EventTelemetry'
+        }
+        Mock Update-BaseUrl -MockWith { 'https://acs-mirror.azureedge.net/provider.zip' }
+        Mock Start-Sleep
+        Mock Save-DalecCredentialProviderHttpResponse -MockWith {
+            $expectedProtocols = [System.Net.SecurityProtocolType]0
+            foreach ($protocol in [Enum]::GetValues([System.Net.SecurityProtocolType])) {
+                if ($protocol -notin @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)) {
+                    $expectedProtocols = $expectedProtocols -bor $protocol
+                }
+            }
+            [System.Net.ServicePointManager]::SecurityProtocol | Should -Be $expectedProtocols
+        }
+    }
+
+    It 'sets TLS protocols, passes the per-attempt timeout and records successful download duration' {
+        Get-DalecCredentialProviderPackage -Url $script:dalecDownloadUrl -DestinationPath 'provider.zip' -Retries 2 -RetryDelaySeconds 1 -TimeoutSec 15
+
+        Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 1 -Exactly -ParameterFilter {
+            $Url -eq 'https://acs-mirror.azureedge.net/provider.zip' -and
+            $DestinationPath -eq 'provider.zip' -and $TimeoutSec -eq 15
+        }
+        $script:dalecDownloadEvents.Count | Should -Be 1
+        $script:dalecDownloadEvent.Name | Should -Be 'FileDownload'
+        $script:dalecDownloadEvent.Properties['FileName'] | Should -Be 'provider.zip'
+        $script:dalecDownloadEvent.Metrics['DurationMs'] | Should -BeOfType ([long])
+        $script:dalecDownloadEvent.Metrics['DurationMs'] | Should -BeGreaterOrEqual 0
+        ($script:dalecDownloadLogs -join "`n") | Should -Match 'download elapsed time: \d+ ms'
+    }
+
+    It 'downloads and logs timing without a telemetry client' {
+        $global:AppInsightsClient = $null
+
+        Get-DalecCredentialProviderPackage -Url $script:dalecDownloadUrl -DestinationPath 'provider.zip'
+
+        Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 1 -Exactly
+        Assert-MockCalled New-Object -Times 0 -ParameterFilter {
+            $TypeName -eq 'Microsoft.ApplicationInsights.DataContracts.EventTelemetry'
+        }
+        ($script:dalecDownloadLogs -join "`n") | Should -Match 'download elapsed time: \d+ ms'
+    }
+
+    It 'uses the shared downloader retry budget by default' {
+        Mock Save-DalecCredentialProviderHttpResponse -MockWith { throw 'Dalec request failed' }
+
+        { Get-DalecCredentialProviderPackage -Url $script:dalecDownloadUrl -DestinationPath 'provider.zip' } | Should -Throw '*Dalec request failed*'
+
+        Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 5 -Exactly -ParameterFilter { $TimeoutSec -eq 0 }
+        Assert-MockCalled Start-Sleep -Times 4 -Exactly -ParameterFilter { $Seconds -eq 10 }
+    }
+
+    It 'logs timing while preserving the download failure after the requested attempts' {
+        Mock Save-DalecCredentialProviderHttpResponse -MockWith { throw 'Dalec request timed out' }
+
+        { Get-DalecCredentialProviderPackage -Url $script:dalecDownloadUrl -DestinationPath 'provider.zip' -Retries 2 -RetryDelaySeconds 1 -TimeoutSec 15 } | Should -Throw '*Dalec request timed out*'
+
+        Assert-MockCalled Save-DalecCredentialProviderHttpResponse -Times 2 -Exactly
+        Assert-MockCalled Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 1 }
+        $script:dalecDownloadEvents.Count | Should -Be 0
+        ($script:dalecDownloadLogs -join "`n") | Should -Match 'download elapsed time: \d+ ms'
+    }
+}
+
+Describe 'Save-DalecCredentialProviderHttpResponse' {
+    BeforeAll {
+        # Serves one raw HTTP response from a loopback socket, optionally holding the connection open.
+        function Start-TestHttpServer {
+            param([string]$Response, [int]$HoldMilliseconds = 0)
+            $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+            $listener.Start()
+            $server = [powershell]::Create()
+            [void]$server.AddScript({
+                param($Listener, $Response, $HoldMilliseconds)
+                $client = $Listener.AcceptTcpClient()
+                try {
+                    $stream = $client.GetStream()
+                    $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::ASCII, $false, 1024, $true)
+                    while (-not [string]::IsNullOrEmpty($reader.ReadLine())) {}
+                    $bytes = [System.Text.Encoding]::ASCII.GetBytes($Response)
+                    $stream.Write($bytes, 0, $bytes.Length)
+                    $stream.Flush()
+                    if ($HoldMilliseconds -gt 0) {
+                        Start-Sleep -Milliseconds $HoldMilliseconds
+                    }
+                } finally {
+                    $client.Close()
+                }
+            }).AddArgument($listener).AddArgument($Response).AddArgument($HoldMilliseconds)
+            $handle = $server.BeginInvoke()
+            [pscustomobject]@{
+                Listener = $listener
+                PowerShell = $server
+                Handle = $handle
+                Url = "http://127.0.0.1:$($listener.LocalEndpoint.Port)/provider.zip"
+            }
+        }
+        function Stop-TestHttpServer {
+            param($Server)
+            $Server.Listener.Stop()
+            $Server.PowerShell.Stop()
+            $Server.PowerShell.Dispose()
+        }
+    }
+    BeforeEach {
+        $script:downloadPath = Join-Path $TestDrive ([guid]::NewGuid().ToString())
+        $script:testServer = $null
+    }
+    AfterEach {
+        if ($null -ne $script:testServer) {
+            Stop-TestHttpServer -Server $script:testServer
+        }
+    }
+
+    It 'writes the complete response body with timeout <timeoutSec>' -TestCases @(
+        @{ timeoutSec = 0 },
+        @{ timeoutSec = 15 }
+    ) {
+        param($timeoutSec)
+        $script:testServer = Start-TestHttpServer -Response "HTTP/1.1 200 OK`r`nContent-Length: 5`r`nConnection: close`r`n`r`nhello"
+
+        Save-DalecCredentialProviderHttpResponse -Url $script:testServer.Url -DestinationPath $script:downloadPath -TimeoutSec $timeoutSec
+
+        [IO.File]::ReadAllText($script:downloadPath) | Should -Be 'hello'
+    }
+
+    It 'fails and removes the partial file when the body is truncated' {
+        $script:testServer = Start-TestHttpServer -Response "HTTP/1.1 200 OK`r`nContent-Length: 10`r`nConnection: close`r`n`r`nhello"
+
+        { Save-DalecCredentialProviderHttpResponse -Url $script:testServer.Url -DestinationPath $script:downloadPath -TimeoutSec 15 } | Should -Throw
+
+        Assert-MockCalled Remove-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq $script:downloadPath }
+    }
+
+    It 'bounds the whole attempt when the server stalls before sending headers' {
+        $script:testServer = Start-TestHttpServer -Response '' -HoldMilliseconds 30000
+        $timer = [System.Diagnostics.Stopwatch]::StartNew()
+
+        { Save-DalecCredentialProviderHttpResponse -Url $script:testServer.Url -DestinationPath $script:downloadPath -TimeoutSec 1 } | Should -Throw '*exceeded 1 seconds*'
+
+        $timer.Elapsed.TotalSeconds | Should -BeLessThan 10
+        Assert-MockCalled Remove-Item -Times 0 -ParameterFilter { $LiteralPath -eq $script:downloadPath }
+    }
+
+    It 'bounds the whole attempt and removes the partial file when the body stalls' {
+        $script:testServer = Start-TestHttpServer -Response "HTTP/1.1 200 OK`r`nContent-Length: 10`r`nConnection: close`r`n`r`nhello" -HoldMilliseconds 30000
+        $timer = [System.Diagnostics.Stopwatch]::StartNew()
+
+        { Save-DalecCredentialProviderHttpResponse -Url $script:testServer.Url -DestinationPath $script:downloadPath -TimeoutSec 1 } | Should -Throw '*exceeded 1 seconds*'
+
+        $timer.Elapsed.TotalSeconds | Should -BeLessThan 10
+        Assert-MockCalled Remove-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq $script:downloadPath }
+    }
+}
+
+Describe 'Install-CredentialProvider with real archives and installation copies' {
+    BeforeEach {
+        $script:installRoot = (New-Item -ItemType Directory -Path (Join-Path $TestDrive ([guid]::NewGuid().ToString()))).FullName
+        $script:installTemp = Join-Path $script:installRoot 'temp'
+        $script:installBin = Join-Path $script:installRoot 'bin'
+        $script:installArchive = Join-Path $script:installRoot 'provider.zip'
+        $readme = Join-Path $script:installRoot 'README'
+        [IO.File]::WriteAllText($readme, 'A valid ZIP without the expected executable')
+        Compress-Archive -Path $readme -DestinationPath $script:installArchive
+        $global:KubeletConfigArgs = @(
+            "--image-credential-provider-config=$script:installRoot/config.yaml",
+            "--image-credential-provider-bin-dir=$script:installBin"
+        )
+        $global:BootstrapProfileContainerRegistryServer = ''
+        $global:CredentialProviderURL = 'https://packages.aks.azure.com/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz'
+        $global:KubeBinariesVersion = '1.33.3'
+
+        Mock Config-CredentialProvider
+        Mock Logs-To-Event
+        Mock New-TemporaryDirectory -MockWith { $script:installTemp }
+        Mock Resolve-DalecCredentialProviderPackage -MockWith {
+            @{ Version = '1.33.6-1'; CachedFile = $script:installArchive }
+        }
+        Mock DownloadFileOverHttp
+        Mock tar -MockWith {
+            [IO.File]::WriteAllText((Join-Path $script:installTemp 'azure-acr-credential-provider.exe'), 'legacy provider')
+            $global:LASTEXITCODE = 0
+        }
+        Mock Set-ExitCode -MockWith {
+            param($ExitCode, $ErrorMessage)
+            throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+        }
+    }
+
+    It 'falls back and installs both executable names for a README-only ZIP with preference <preference>' -TestCases @(
+        @{ preference = 'Continue' },
+        @{ preference = 'Stop' }
+    ) {
+        param($preference)
+        $ErrorActionPreference = $preference
+
+        Install-CredentialProvider -KubeDir $script:installRoot
+
+        Assert-MockCalled DownloadFileOverHttp -Times 1 -Exactly -ParameterFilter { $Url -eq $global:CredentialProviderURL }
+        Assert-MockCalled tar -Times 1 -Exactly
+        Assert-MockCalled Set-ExitCode -Times 0
+        [IO.File]::ReadAllText((Join-Path $script:installBin 'acr-credential-provider.exe')) | Should -Be 'legacy provider'
+        [IO.File]::ReadAllText((Join-Path $script:installBin 'acr-credential-provider')) | Should -Be 'legacy provider'
+        Test-Path -LiteralPath $script:installArchive | Should -Be $true
+    }
+
+    It 'reports the missing executable when a README-only ZIP has no fallback with preference <preference>' -TestCases @(
+        @{ preference = 'Continue' },
+        @{ preference = 'Stop' }
+    ) {
+        param($preference)
+        $ErrorActionPreference = $preference
+        $global:CredentialProviderURL = ''
+
+        { Install-CredentialProvider -KubeDir $script:installRoot } | Should -Throw '*does not contain azure-acr-credential-provider.exe*'
+
+        Assert-MockCalled DownloadFileOverHttp -Times 0
+        Assert-MockCalled tar -Times 0
+        Assert-MockCalled Set-ExitCode -Times 1 -Exactly -ParameterFilter {
+            $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER
+        }
+        Test-Path -LiteralPath $script:installBin | Should -Be $false
+    }
+
+    It 'reports a failure in copy <copy> with preference <preference>' -TestCases @(
+        @{ copy = 1; preference = 'Continue' },
+        @{ copy = 1; preference = 'Stop' },
+        @{ copy = 2; preference = 'Continue' },
+        @{ copy = 2; preference = 'Stop' }
+    ) {
+        param($copy, $preference)
+        $ErrorActionPreference = $preference
+        if ($copy -eq 1) {
+            Mock Create-Directory
+        } else {
+            # Copying into this directory would overwrite a directory with a file.
+            New-Item -ItemType Directory -Path (Join-Path $script:installBin 'acr-credential-provider/acr-credential-provider.exe') -Force | Out-Null
+        }
+
+        { Install-CredentialProvider -KubeDir $script:installRoot } | Should -Throw '*Error installing credential provider*'
+
+        Assert-MockCalled Set-ExitCode -Times 1 -Exactly -ParameterFilter {
+            $ExitCode -eq $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER
+        }
+        if ($copy -eq 2) {
+            [IO.File]::ReadAllText((Join-Path $script:installBin 'acr-credential-provider.exe')) | Should -Be 'legacy provider'
+        }
     }
 }
 
