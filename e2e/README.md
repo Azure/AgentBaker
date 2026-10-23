@@ -94,6 +94,14 @@ coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
 VHD-caching behavior remain in effect.
 
+### Ubuntu PIS GPU cleanup
+
+`Ubuntu2404_GPUDriverOptOut_VHDCaching` needs a new Ubuntu 24.04 Gen2 image
+containing the baked cleanup helper; use same-run E2E VHD metadata or
+`--vhd-metadata-file` with `2404gen2containerd`. The helper is baked, not
+transferred in CustomData. An opt-out PIS bake without it fails explicitly;
+ordinary nodes and derived PIS nodes do not require it.
+
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node

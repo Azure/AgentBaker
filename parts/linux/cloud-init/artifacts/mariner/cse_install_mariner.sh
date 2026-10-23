@@ -833,6 +833,22 @@ cleanUpGPUDrivers() {
   done
 }
 
+cleanUpGPUDriversForBasePrep() {
+  local packageName cache_dir
+  cleanUpGPUDrivers
+  if [ -e "${GPU_DEST}" ] || [ -e /opt/gpu ]; then
+    echo "GPU basePrep cleanup incomplete: AKS driver artifacts remain" >&2
+    return 1
+  fi
+  for packageName in $(managedGPUPackageList); do
+    cache_dir=$(getPackageCacheDir "${packageName}")
+    if [ -e "${cache_dir}" ]; then
+      echo "GPU basePrep cleanup incomplete: ${packageName} cache remains" >&2
+      return 1
+    fi
+  done
+}
+
 installMinimalBuildDeps() {
     echo "installMinimalBuildDeps not implemented for mariner"
 }

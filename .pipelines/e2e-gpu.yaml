@@ -1,6 +1,10 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
+parameters:
+  - name: scenarioFilter
+    type: string
+    default: "gpu=true"
 variables:
-  TAGS_TO_RUN: "gpu=true"
+  TAGS_TO_RUN: ${{ parameters.scenarioFilter }}
   TAGS_TO_SKIP: "os=windows,os=azurelinux,os=azurecontainerlinux"
   SKIP_E2E_TESTS: false
   # PRs skip quota/capacity-constrained scenarios; main and scheduled runs fail them.
