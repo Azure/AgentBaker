@@ -1,0 +1,11 @@
+[Unit]
+Description=Recover failed Azure Linux eth0 networkd configuration
+After=systemd-networkd.service
+ConditionPathExists=/opt/azure/containers/provision.complete
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/containers/aks-networkd-recovery.sh
+TimeoutStartSec=45s
+StandardOutput=journal
+StandardError=journal
