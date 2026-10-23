@@ -72,7 +72,7 @@ updateCACertificates() {
         apt_get_update || return "$ERR_APT_UPDATE_TIMEOUT"
         apt_get_install 30 1 600 ca-certificates || return "$ERR_APT_INSTALL_TIMEOUT"
     elif isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-        dnf_install 30 1 600 --refresh ca-certificates || return "$ERR_APT_INSTALL_TIMEOUT"
+        retrycmd_if_failure 30 1 600 dnf upgrade -y --refresh ca-certificates || return "$ERR_APT_INSTALL_TIMEOUT"
     else
         echo "Skipping CA package update for ${OS} ${OS_VARIANT}"
     fi
