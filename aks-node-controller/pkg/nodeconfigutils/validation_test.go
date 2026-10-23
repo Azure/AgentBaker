@@ -8,6 +8,29 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func TestContainerdImagePullValidationWithoutKubelet(t *testing.T) {
+	for _, timeout := range []string{"0", "0s", "30s", "5m", "1m30s"} {
+		cfg := &aksnodeconfigv1.Configuration{
+			Version: "v1",
+			ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+				ImagePullWithSyncFs:      proto.Bool(false),
+				ImagePullProgressTimeout: proto.String(timeout),
+			},
+		}
+		require.NoError(t, validateAndNormalize(cfg))
+		require.NoError(t, validateAndNormalize(cfg))
+		require.Equal(t, timeout, cfg.ContainerdConfig.GetImagePullProgressTimeout())
+	}
+	for _, timeout := range []string{"", "-1s", "invalid", "5", "999999999999999999999h", "5m\n"} {
+		cfg := &aksnodeconfigv1.Configuration{
+			Version:          "v1",
+			ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{ImagePullProgressTimeout: proto.String(timeout)},
+		}
+		require.ErrorContains(t, validateAndNormalize(cfg), "containerd_config.image_pull_progress_timeout")
+	}
+	require.NoError(t, validateAndNormalize(&aksnodeconfigv1.Configuration{Version: "v1"}))
+}
+
 func TestValidateAndNormalize(t *testing.T) {
 	for _, version := range []string{"1.10.0", "1.11.0", "1.20.0", "1.24.0", "1.25.0", "1.34.0", "1.34.0-rc.1"} {
 		t.Run(version, func(t *testing.T) {
