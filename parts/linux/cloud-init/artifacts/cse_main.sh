@@ -65,7 +65,6 @@ fi
 # Writes a modprobe blacklist rule and unloads the module if loaded.
 # Safe to run repeatedly during VHD build or provisioning; idempotent (overwrites with same content if already present).
 # Defined in cse_main.sh (not sourced) to support scriptless provisioning.
-#
 # Usage: disableVulnerableKernelModule <module_name> <description>
 disableVulnerableKernelModule() {
     local mod="$1"
@@ -122,7 +121,6 @@ reconcileVulnerableKernelModuleMitigation() {
     # future VHDs, while nodePrep covers PIS-cached or already-released VHDs that may skip
     # basePrep or carry stale modprobe files.
     # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
-    #
     # Ubuntu 20.04 remains in scope except 5.4.0-1164-azure-fips and newer ABIs in the
     # 5.4 Azure FIPS stream: linux-azure-fips 5.4.0-1164.170+fips1 fixes Copy Fail and
     # DirtyFrag; Focal 5.4 is not affected by Fragnesia. Other 20.04 streams stay blocked.
@@ -133,7 +131,6 @@ reconcileVulnerableKernelModuleMitigation() {
     # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the apply for older
     # or unknown 22.04 / 24.04 kernel flavors. Fixed 22.04 / 24.04 kernels remove stale
     # deny rules so in-support VHDs no longer block legitimate module use after the fix.
-    #
     # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
     # Fail / DirtyFrag / Fragnesia upstream, so the modprobe blacklist is no longer
     # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf;
@@ -144,12 +141,10 @@ reconcileVulnerableKernelModuleMitigation() {
     # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
     # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
     # the affected kernel modules.
-    #
     # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
     # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
     # Keep the runtime apply enabled for AzL2/Mariner while those images remain supported.
     # See https://github.com/Azure/AKS/issues/5753.
-    #
     if isUbuntu "$OS"; then
         if ubuntuKernelNeedsVulnerableModuleMitigation; then
             disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
@@ -731,21 +726,18 @@ function nodePrep {
 }
 
 # The provisioning is split into two stages to support VHD image creation workflows:
-#
 # basePrep: Base image preparation
 #   - Installs and configures all required components (kubelet, containerd, etc.)
 #   - Sets up system configurations that are common across all nodes
 #   - DOES NOT join the node to any cluster
 #   - After this stage, users can add customizations (e.g., pre-pull additional container images)
 #   - The VM can then be captured as a VHD image for use as a node pool base image
-#
 # nodePrep: Cluster integration and hardware setup
 #   - Performs cluster-specific configurations
 #   - Configures hardware-specific components (GPU drivers, MIG partitions, etc.)
 #   - Establishes connection to the API server
 #   - Joins the node to the cluster
 #   - Only runs when actually provisioning a node, not when creating VHD images
-#
 # In typical deployments, both stages run sequentially during node provisioning.
 # For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
 # when nodes are created from that VHD image.
