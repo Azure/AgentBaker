@@ -1004,7 +1004,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=aks-secure-tls-bootstrap-client, os=azurelinux, release=3.0",
-                "latestVersion": "1.1.4"
+                "latestVersion": "1.1.6"
               }
             ]
           }
@@ -1014,7 +1014,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=aks-secure-tls-bootstrap-client, os=azurelinux, release=3.0",
-                "latestVersion": "1.1.4"
+                "latestVersion": "1.1.6"
               }
             ]
           }
