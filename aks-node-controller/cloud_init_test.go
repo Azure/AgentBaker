@@ -291,29 +291,20 @@ func TestCloudCertificateOptInEmptyResponsesFail(t *testing.T) {
 	}
 }
 
-func TestCloudCertificateRefreshClearsOnlyVisibleCachedFiles(t *testing.T) {
+func TestCloudCertificateRefreshClearsCachedFiles(t *testing.T) {
 	c := newTestCloudInitializer(t, cloudTestUbuntu)
 	serveCloudTestResponses(t, c, nil, `{"IsOptedInForRootCerts":false}`)
-	require.NoError(t, c.writeFile("/root/AzureCACertificates/stale.crt", []byte("stale")))
-	for _, path := range []string{
-		"/root/AzureCACertificates/.keep",
-		"/root/AzureCACertificates/nested/keep.crt",
-		"/usr/local/share/ca-certificates/existing.crt",
-	} {
-		require.NoError(t, c.writeFile(path, []byte("keep")))
+	for _, name := range []string{"stale.crt", ".stale.crt", "certificate-without-extension"} {
+		require.NoError(t, c.writeFile("/root/AzureCACertificates/"+name, []byte("stale")))
 	}
+	require.NoError(t, c.writeFile("/usr/local/share/ca-certificates/existing.crt", []byte("keep")))
 	require.NoError(t, c.refreshCertificates(t.Context(), "westus2"))
-	_, err := os.Stat(c.path("/root/AzureCACertificates/stale.crt"))
-	require.ErrorIs(t, err, os.ErrNotExist)
-	for _, path := range []string{
-		"/root/AzureCACertificates/.keep",
-		"/root/AzureCACertificates/nested/keep.crt",
-		"/usr/local/share/ca-certificates/existing.crt",
-	} {
-		data, err := os.ReadFile(c.path(path))
-		require.NoError(t, err)
-		require.Equal(t, "keep", string(data))
-	}
+	entries, err := os.ReadDir(c.path("/root/AzureCACertificates"))
+	require.NoError(t, err)
+	require.Empty(t, entries)
+	data, err := os.ReadFile(c.path("/usr/local/share/ca-certificates/existing.crt"))
+	require.NoError(t, err)
+	require.Equal(t, "keep", string(data))
 }
 
 func TestCloudCertificatePayloadsArePassedToTrustStoreTools(t *testing.T) {

@@ -75,8 +75,8 @@ errors still fail, but legacy trust-store installation errors are logged without
 blocking repository initialization or refresh scheduling.
 
 Downloaded payloads are passed to the system trust-store tools without additional
-PEM/X.509 validation. Refresh clears visible files in the certificate staging
-directory, not existing certificates in the system trust store. Raw certificate
+PEM/X.509 validation. Refresh clears all files, including hidden files, in the flat
+certificate staging directory, not existing certificates in the system trust store. Raw certificate
 responses are never logged; `AKS_CLOUD_LOG_CERTIFICATES=true` enables diagnostics
 containing re-encoded public certificates only. Diagnostic parsing errors do not
 block installation.

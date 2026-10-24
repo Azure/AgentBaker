@@ -74,15 +74,8 @@ func (c *cloudInitializer) clearCertificateCache() {
 		slog.Warn("could not read Azure cloud certificate cache", "error", err)
 		return
 	}
+	// Certificate downloads are written directly here as files, without subdirectories.
 	for _, entry := range entries {
-		// Match the shell's non-recursive cleanup, which excludes hidden files.
-		if strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-		if entry.IsDir() {
-			slog.Warn("leaving directory in Azure cloud certificate cache", "name", entry.Name())
-			continue
-		}
 		if err := os.Remove(filepath.Join(directory, entry.Name())); err != nil {
 			slog.Warn("could not remove cached Azure cloud certificate", "name", entry.Name(), "error", err)
 		}
