@@ -101,6 +101,34 @@ func serveCloudTestResponses(t *testing.T, c *cloudInitializer, cert []byte, opt
 	return requests
 }
 
+func serveCloudOperationTestResponses(t *testing.T, c *cloudInitializer, roots, intermediates []string) {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch kind := r.URL.Query().Get("type"); {
+		case r.URL.Path == "/acms/isOptedInForRootCerts":
+			_, _ = io.WriteString(w, `{"IsOptedInForRootCerts":true}`)
+		case kind == "operationrequestsroot", kind == "operationrequestsintermediate":
+			names := roots
+			if kind == "operationrequestsintermediate" {
+				names = intermediates
+			}
+			operations := make([]map[string]string, 0, len(names))
+			for _, name := range names {
+				operations = append(operations, map[string]string{"ResouceFileName": name})
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"OperationsInfo": operations})
+		case kind == "missing":
+			w.WriteHeader(http.StatusServiceUnavailable)
+		case kind == "empty":
+			_, _ = io.WriteString(w, "\n\n")
+		default:
+			_, _ = io.WriteString(w, "certificate payload\n\n")
+		}
+	}))
+	t.Cleanup(server.Close)
+	c.wireEndpoint = server.URL
+}
+
 func TestCloudFileWrites(t *testing.T) {
 	t.Run("create and replace", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "certificates", "root.crt")
@@ -334,30 +362,7 @@ func TestCloudCertificateOperationDownloadFailures(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := newTestCloudInitializer(t, "ID=azurelinux\n")
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				switch kind := r.URL.Query().Get("type"); {
-				case r.URL.Path == "/acms/isOptedInForRootCerts":
-					_, _ = io.WriteString(w, `{"IsOptedInForRootCerts":true}`)
-				case kind == "operationrequestsroot", kind == "operationrequestsintermediate":
-					names := tc.roots
-					if kind == "operationrequestsintermediate" {
-						names = tc.intermediates
-					}
-					operations := make([]map[string]string, 0, len(names))
-					for _, name := range names {
-						operations = append(operations, map[string]string{"ResouceFileName": name})
-					}
-					_ = json.NewEncoder(w).Encode(map[string]any{"OperationsInfo": operations})
-				case kind == "missing":
-					w.WriteHeader(http.StatusServiceUnavailable)
-				case kind == "empty":
-					_, _ = io.WriteString(w, "\n\n")
-				default:
-					_, _ = io.WriteString(w, "certificate payload\n\n")
-				}
-			}))
-			defer server.Close()
-			c.wireEndpoint = server.URL
+			serveCloudOperationTestResponses(t, c, tc.roots, tc.intermediates)
 			var commands []string
 			c.run = func(cmd *exec.Cmd) error {
 				commands = append(commands, cmd.Args[0])
@@ -372,8 +377,8 @@ func TestCloudCertificateOperationDownloadFailures(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, []string{"update-ca-trust"}, commands)
 			for _, name := range tc.wantInstalled {
-				data, err := os.ReadFile(c.path("/etc/pki/ca-trust/source/anchors/" + name))
-				require.NoError(t, err)
+				data, readErr := os.ReadFile(c.path("/etc/pki/ca-trust/source/anchors/" + name))
+				require.NoError(t, readErr)
 				require.Equal(t, "certificate payload\n", string(data))
 			}
 			for _, name := range []string{"missing.crt", "empty.crt", "root.cer"} {
@@ -604,8 +609,8 @@ func TestCloudCertificateLoggingIsOptInAndPublicOnly(t *testing.T) {
 			logs := installLogCapturer(t)
 			c := newTestCloudInitializer(t, "ID=azurelinux\n")
 			cert := cloudTestCertificate(t)
-			secret := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("not-a-real-private-key")})
-			payload := append(secret, cert...)
+			payload := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("not-a-real-private-key")})
+			payload = append(payload, cert...)
 			serveCloudTestResponses(t, c, payload, `{"IsOptedInForRootCerts":true}`)
 			require.NoError(t, c.refreshCertificates(t.Context(), "westus2"))
 			found := false

@@ -27,7 +27,7 @@ func (c *cloudInitializer) refresh(ctx context.Context, platform cloudPlatform, 
 			return false, fmt.Errorf("check Azure cloud root certificate opt-in: %w", err)
 		}
 		if len(bytes.TrimRight(body, "\n")) == 0 {
-			return false, errors.New("Azure cloud root certificate opt-in response is empty")
+			return false, errors.New("cloud root certificate opt-in response is empty")
 		}
 		var response map[string]json.RawMessage
 		if err := json.Unmarshal(body, &response); err != nil {
@@ -214,7 +214,7 @@ func (c *cloudInitializer) operationCertificate(ctx context.Context, filename st
 	}
 	body = bytes.TrimRight(body, "\n")
 	if len(body) == 0 {
-		return nil, fmt.Errorf("Azure cloud certificate %s response is empty", filename)
+		return nil, fmt.Errorf("cloud certificate %s response is empty", filename)
 	}
 	return append(body, '\n'), nil
 }
