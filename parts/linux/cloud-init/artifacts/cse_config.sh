@@ -822,5 +822,3 @@ get_compute_sku() {
     fi
     echo "$vm_sku"
 }
-
-#EOF
