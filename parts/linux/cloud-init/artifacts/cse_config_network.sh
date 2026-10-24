@@ -274,5 +274,3 @@ NETWORKD_EOF
         fi
     fi
 }
-
-#EOF

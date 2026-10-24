@@ -109,7 +109,6 @@ apply_chrony_configuration() {
 # At the same time it retains some protection against one of the entries being
 # down (compare to just using one of the lines). See (LP: #1754358) for the
 # discussion.
-#
 # About using servers from the NTP Pool Project in general see (LP: #104525).
 # Approved by Ubuntu Technical Board on 2011-02-08.
 # See https://www.pool.ntp.org/join.html for more information.

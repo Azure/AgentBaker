@@ -146,7 +146,6 @@ function make_request_with_retry {
 #   0 - opted in (wireserver confirmed IsOptedInForRootCerts=true)
 #   1 - not opted in (wireserver responded with false; valid, skip certs)
 #   2 - wireserver unreachable after retries (caller must treat as fatal)
-#
 # Wireserver unreachable must be fatal (return 2) rather than silently skipping certs.
 # If the subscription is opted in for hardened root certs but we silently fall back to
 # the distro's default trust store, we leave a security hole — the node would trust CAs
@@ -748,5 +747,3 @@ EOF
     systemctl daemon-reload
     systemctl enable --now azure-ca-refresh.timer
 fi
-
-#EOF

@@ -313,7 +313,6 @@ removeNvidiaRepos() {
 # skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
 # skip toggle/tag. There the driver is dead weight (wasted disk; nvidia.ko rebuilt on every kernel
 # patch) and, on an opted-out GPU node, unused attack surface.
-#
 # The prebaked module MAY already be loaded when we run: cuda(-lts) prebakes auto-load nvidia.ko at
 # boot (~5s, well before CSE), so on a cuda/cuda-lts SKU opted out via --gpu-driver None the module
 # is resident even though ensureGPUDrivers never ran. (grid prebakes do not auto-load, so grid nodes
@@ -842,7 +841,8 @@ ensureRunc() {
         fi
     fi
 
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    # amd64 or arm64
+    CPU_ARCH=$(getCPUArch)
     CURRENT_VERSION=""
     if command -v runc &> /dev/null; then
         CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
@@ -907,5 +907,3 @@ ensureRunc() {
     logResolvedPackageVersion "moby-runc" "${TARGET_VERSION}" "${fullPackageVersion}"
     apt_get_install 20 30 120 "moby-runc=${fullPackageVersion}" --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
-
-#EOF

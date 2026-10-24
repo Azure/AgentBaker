@@ -21,5 +21,3 @@ apt_get_update() {
 apt_get_dist_upgrade() {
     stub
 }
-
-#EOF
