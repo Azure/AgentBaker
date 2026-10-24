@@ -65,11 +65,21 @@ VHD binaries; this change does not remove it from AgentBaker CustomData.
 
 Regions starting with `ussec` or `usnat` use the legacy certificate endpoint.
 Other regions check WireServer's root-certificate opt-in before downloading root
-and intermediate certificates. WireServer failures, malformed responses, invalid
-certificates, trust-store errors, and refresh scheduling failures stop native
-provisioning rather than falling back to the distribution's default trust.
-Raw certificate responses are never logged; `AKS_CLOUD_LOG_CERTIFICATES=true`
-enables diagnostics containing re-encoded public certificates only.
+and intermediate certificates. Certificate handling retains the shell behavior:
+only a JSON boolean `true` enables opt-in; malformed or non-true opt-in responses
+skip installation, while failed or empty opt-in requests stop initialization.
+Individual operation-certificate download failures are logged and skipped; the
+remaining `.crt` files are installed. Missing operation lists and an absence of
+installable certificates fail the opted-in path. Legacy certificate retrieval
+errors still fail, but legacy trust-store installation errors are logged without
+blocking repository initialization or refresh scheduling.
+
+Downloaded payloads are passed to the system trust-store tools without additional
+PEM/X.509 validation. Refresh clears visible files in the certificate staging
+directory, not existing certificates in the system trust store. Raw certificate
+responses are never logged; `AKS_CLOUD_LOG_CERTIFICATES=true` enables diagnostics
+containing re-encoded public certificates only. Diagnostic parsing errors do not
+block installation.
 
 Eligible nodes require a nonempty region and register a daily 19:00 certificate
 refresh using the running ANC binary, including when provisioning uses an ANC

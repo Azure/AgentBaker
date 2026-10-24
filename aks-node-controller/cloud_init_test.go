@@ -200,7 +200,11 @@ func TestCloudInitializationCertificateModes(t *testing.T) {
 				}
 				got, err := os.ReadFile(c.path(filepath.Join(osCase.trustDir, filename)))
 				require.NoError(t, err)
-				require.Equal(t, cert, got)
+				want := cert
+				if mode.name == "legacy" {
+					want = []byte(strings.TrimSuffix(string(cert), "\n") + "\r\n")
+				}
+				require.Equal(t, want, got)
 				assertCloudSchedule(t, c, osCase.name, commands)
 				if mode.name == "legacy" {
 					require.Len(t, requests, 1)
@@ -226,21 +230,225 @@ func assertCloudSchedule(t *testing.T, c *cloudInitializer, osName string, comma
 	require.NotContains(t, string(service), "init-aks-cloud.sh")
 }
 
-func TestCloudCertificateOptInFailsClosed(t *testing.T) {
-	for _, response := range []string{"not json", `{}`, `null`, `{"IsOptedInForRootCerts":null}`, `{"IsOptedInForRootCerts":"false"}`} {
+func TestCloudCertificateOptInNonTrueResponsesSkip(t *testing.T) {
+	for _, response := range []string{
+		"not json", " ", `{}`, `null`, `[]`, `{"IsOptedInForRootCerts":false}`,
+		`{"IsOptedInForRootCerts":null}`, `{"IsOptedInForRootCerts":"false"}`,
+		`{"IsOptedInForRootCerts":"true"}`, `{"IsOptedInForRootCerts":1}`,
+		`{"isOptedInForRootCerts":true}`,
+	} {
 		t.Run(response, func(t *testing.T) {
 			c := newTestCloudInitializer(t, cloudTestUbuntu)
-			serveCloudTestResponses(t, c, nil, response)
+			requests := serveCloudTestResponses(t, c, nil, response)
 			c.run = func(*exec.Cmd) error {
-				t.Fatal("must not update trust or schedules after an invalid opt-in response")
+				t.Fatal("must not update trust or schedules without explicit opt-in")
 				return nil
 			}
-			require.Error(t, c.initialize(t.Context(), cloudInitConfig{Location: "westus2", Timeout: time.Minute}))
+			require.NoError(t, c.initialize(t.Context(), cloudInitConfig{Location: "westus2", Timeout: time.Minute}))
+			require.Len(t, requests, 1)
 			events := c.eventLogger.Events()
 			require.NotEmpty(t, events)
-			require.Equal(t, string(helpers.EventLevelError), events[len(events)-1].EventLevel)
+			require.Equal(t, string(helpers.EventLevelInformational), events[len(events)-1].EventLevel)
 		})
 	}
+}
+
+func TestCloudCertificateOptInEmptyResponsesFail(t *testing.T) {
+	for _, response := range []string{"", "\n", "\n\n"} {
+		t.Run(fmt.Sprintf("%q", response), func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			serveCloudTestResponses(t, c, nil, response)
+			require.ErrorContains(t, c.refreshCertificates(t.Context(), "westus2"), "response is empty")
+		})
+	}
+}
+
+func TestCloudCertificateRefreshClearsOnlyVisibleCachedFiles(t *testing.T) {
+	c := newTestCloudInitializer(t, cloudTestUbuntu)
+	serveCloudTestResponses(t, c, nil, `{"IsOptedInForRootCerts":false}`)
+	require.NoError(t, c.writeFile("/root/AzureCACertificates/stale.crt", []byte("stale")))
+	for _, path := range []string{
+		"/root/AzureCACertificates/.keep",
+		"/root/AzureCACertificates/nested/keep.crt",
+		"/usr/local/share/ca-certificates/existing.crt",
+	} {
+		require.NoError(t, c.writeFile(path, []byte("keep")))
+	}
+	require.NoError(t, c.refreshCertificates(t.Context(), "westus2"))
+	_, err := os.Stat(c.path("/root/AzureCACertificates/stale.crt"))
+	require.ErrorIs(t, err, os.ErrNotExist)
+	for _, path := range []string{
+		"/root/AzureCACertificates/.keep",
+		"/root/AzureCACertificates/nested/keep.crt",
+		"/usr/local/share/ca-certificates/existing.crt",
+	} {
+		data, err := os.ReadFile(c.path(path))
+		require.NoError(t, err)
+		require.Equal(t, "keep", string(data))
+	}
+}
+
+func TestCloudCertificatePayloadsArePassedToTrustStoreTools(t *testing.T) {
+	for _, tc := range []struct{ name, location, want string }{
+		{"legacy", "usnateast", "not a PEM certificate\r\n"},
+		{"rcv1p", "westus2", "not a PEM certificate\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AKS_CLOUD_LOG_CERTIFICATES", "true")
+			logs := installLogCapturer(t)
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			serveCloudTestResponses(t, c, []byte("not a PEM certificate\n"), `{"IsOptedInForRootCerts":true}`)
+			var commands []string
+			c.run = func(cmd *exec.Cmd) error {
+				commands = append(commands, cmd.Args[0])
+				return nil
+			}
+			require.NoError(t, c.refreshCertificates(t.Context(), tc.location))
+			got, err := os.ReadFile(c.path("/usr/local/share/ca-certificates/root.crt"))
+			require.NoError(t, err)
+			require.Equal(t, tc.want, string(got))
+			require.Equal(t, []string{"update-ca-certificates"}, commands)
+			for _, record := range logs.getRecords() {
+				for _, value := range record.Attrs {
+					require.NotContains(t, value, "not a PEM certificate")
+				}
+			}
+		})
+	}
+}
+
+func TestCloudCertificateOperationDownloadFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		roots         []string
+		intermediates []string
+		wantInstalled []string
+		wantError     bool
+	}{
+		{"partial group", []string{"missing.crt", "root.crt"}, []string{"intermediate.crt"}, []string{"root.crt", "intermediate.crt"}, false},
+		{"empty root group after failures", []string{"missing.crt"}, []string{"intermediate.crt"}, []string{"intermediate.crt"}, false},
+		{"empty certificate response", []string{"empty.crt"}, []string{"intermediate.crt"}, []string{"intermediate.crt"}, false},
+		{"non-crt root", []string{"root.cer"}, []string{"intermediate.crt"}, []string{"intermediate.crt"}, false},
+		{"all downloads fail", []string{"missing.crt"}, []string{"missing.crt"}, nil, true},
+		{"no crt files", []string{"root.cer"}, []string{"intermediate.cer"}, nil, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCloudInitializer(t, "ID=azurelinux\n")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch kind := r.URL.Query().Get("type"); {
+				case r.URL.Path == "/acms/isOptedInForRootCerts":
+					_, _ = io.WriteString(w, `{"IsOptedInForRootCerts":true}`)
+				case kind == "operationrequestsroot", kind == "operationrequestsintermediate":
+					names := tc.roots
+					if kind == "operationrequestsintermediate" {
+						names = tc.intermediates
+					}
+					operations := make([]map[string]string, 0, len(names))
+					for _, name := range names {
+						operations = append(operations, map[string]string{"ResouceFileName": name})
+					}
+					_ = json.NewEncoder(w).Encode(map[string]any{"OperationsInfo": operations})
+				case kind == "missing":
+					w.WriteHeader(http.StatusServiceUnavailable)
+				case kind == "empty":
+					_, _ = io.WriteString(w, "\n\n")
+				default:
+					_, _ = io.WriteString(w, "certificate payload\n\n")
+				}
+			}))
+			defer server.Close()
+			c.wireEndpoint = server.URL
+			var commands []string
+			c.run = func(cmd *exec.Cmd) error {
+				commands = append(commands, cmd.Args[0])
+				return nil
+			}
+			err := c.refreshCertificates(t.Context(), "westus2")
+			if tc.wantError {
+				require.ErrorContains(t, err, "no *.crt files")
+				require.Empty(t, commands)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, []string{"update-ca-trust"}, commands)
+			for _, name := range tc.wantInstalled {
+				data, err := os.ReadFile(c.path("/etc/pki/ca-trust/source/anchors/" + name))
+				require.NoError(t, err)
+				require.Equal(t, "certificate payload\n", string(data))
+			}
+			for _, name := range []string{"missing.crt", "empty.crt", "root.cer"} {
+				_, err = os.Stat(c.path("/etc/pki/ca-trust/source/anchors/" + name))
+				require.ErrorIs(t, err, os.ErrNotExist)
+			}
+		})
+	}
+}
+
+func TestCloudLegacyCertificateResponseBehavior(t *testing.T) {
+	for _, tc := range []struct {
+		name, response string
+		wantError      bool
+	}{
+		{"empty array", `{"Certificates":[]}`, false},
+		{"non-crt file", `{"Certificates":[{"Name":"root.txt","CertBody":"payload"}]}`, false},
+		{"empty body", `{"Certificates":[{"Name":"root.cer","CertBody":""}]}`, false},
+		{"trust update failure", `{"Certificates":[{"Name":"root.cer","CertBody":"certificate payload"}]}`, false},
+		{"invalid name", `{"Certificates":[{"Name":"../root.crt"}]}`, false},
+		{"non-string name", `{"Certificates":[{"Name":123}]}`, false},
+		{"missing array", `{}`, true},
+		{"null array", `{"Certificates":null}`, true},
+		{"missing body", `{"Certificates":[{"Name":"root.cer"}]}`, true},
+		{"null body", `{"Certificates":[{"Name":"root.cer","CertBody":null}]}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCloudInitializer(t, "ID=azurelinux\n")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, tc.response)
+			}))
+			defer server.Close()
+			c.wireEndpoint = server.URL
+			var commands []string
+			c.run = func(cmd *exec.Cmd) error {
+				commands = append(commands, cmd.Args[0])
+				if cmd.Args[0] == "update-ca-trust" {
+					return errors.New("trust store update failed")
+				}
+				return nil
+			}
+			err := c.initialize(t.Context(), cloudInitConfig{Location: "usnateast", Timeout: time.Minute})
+			if tc.wantError {
+				require.Error(t, err)
+				require.Empty(t, commands)
+			} else {
+				require.NoError(t, err)
+				require.Contains(t, commands, "crontab")
+			}
+		})
+	}
+}
+
+func TestCloudLegacyCertificateInstallationDoesNotIgnoreCancellation(t *testing.T) {
+	c := newTestCloudInitializer(t, "ID=azurelinux\n")
+	serveCloudTestResponses(t, c, cloudTestCertificate(t), "not used")
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	c.run = func(*exec.Cmd) error {
+		cancel()
+		return ctx.Err()
+	}
+	require.ErrorIs(t, c.refreshCertificates(ctx, "usnateast"), context.Canceled)
+}
+
+func TestCloudLegacyCertificateCacheWriteFailureStopsInitialization(t *testing.T) {
+	c := newTestCloudInitializer(t, "ID=azurelinux\n")
+	serveCloudTestResponses(t, c, cloudTestCertificate(t), "not used")
+	require.NoError(t, c.writeFile("/root/AzureCACertificates/root.crt/keep", []byte("keep")))
+	c.run = func(*exec.Cmd) error {
+		t.Fatal("must not install certificates or schedules after a cache write failure")
+		return nil
+	}
+	err := c.initialize(t.Context(), cloudInitConfig{Location: "usnateast", Timeout: time.Minute})
+	require.ErrorContains(t, err, "cache legacy Azure cloud certificate")
 }
 
 func TestCloudCertificateRequestRetryAndCancellation(t *testing.T) {
@@ -372,10 +580,12 @@ func TestCloudCertificateResponseLimits(t *testing.T) {
 }
 
 func TestCloudCertificateNamesAndPublicContent(t *testing.T) {
-	for _, name := range []string{"", ".", "..", "../root.crt", "/root.crt", `..\root.crt`, "root\x00.crt", "root\n.crt"} {
+	for _, name := range []string{"", ".", "..", "../root.crt", "/root.crt", "root\x00.crt"} {
 		require.False(t, validCloudCertificateName(name), name)
 	}
-	require.True(t, validCloudCertificateName("root+ca.crt"))
+	for _, name := range []string{"root+ca.crt", `..\root.crt`, "root\n.crt"} {
+		require.True(t, validCloudCertificateName(name), name)
+	}
 	cert := cloudTestCertificate(t)
 	private := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("not-a-real-private-key")})
 	got, err := publicCloudCertificates(append(private, cert...))
@@ -395,7 +605,8 @@ func TestCloudCertificateLoggingIsOptInAndPublicOnly(t *testing.T) {
 			c := newTestCloudInitializer(t, "ID=azurelinux\n")
 			cert := cloudTestCertificate(t)
 			secret := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("not-a-real-private-key")})
-			serveCloudTestResponses(t, c, append(secret, cert...), `{"IsOptedInForRootCerts":true}`)
+			payload := append(secret, cert...)
+			serveCloudTestResponses(t, c, payload, `{"IsOptedInForRootCerts":true}`)
 			require.NoError(t, c.refreshCertificates(t.Context(), "westus2"))
 			found := false
 			for _, record := range logs.getRecords() {
@@ -409,7 +620,7 @@ func TestCloudCertificateLoggingIsOptInAndPublicOnly(t *testing.T) {
 			require.Equal(t, enabled == "true", found)
 			got, err := os.ReadFile(c.path("/etc/pki/ca-trust/source/anchors/root.crt"))
 			require.NoError(t, err)
-			require.Equal(t, cert, got)
+			require.Equal(t, payload, got)
 		})
 	}
 }
