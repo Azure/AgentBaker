@@ -1,0 +1,3 @@
+variables:
+  aclAmd64ImageVersion: '20261024.1235162.0'
+  aclArm64ImageVersion: '20261024.1235163.0'
