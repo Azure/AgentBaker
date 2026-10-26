@@ -906,6 +906,124 @@ Describe 'Gets the Binaries' {
     }
 }
 
+Describe 'GetWindowsExporterPackageUrlFromComponentsJson' {
+    BeforeEach {
+        $testString = '{
+  "Packages": [
+    {
+      "name": "windows-exporter",
+      "windowsDownloadLocation": "c:\\akse-cache\\windows-exporter\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [ { "renovateTag": "<DO_NOT_UPDATE>", "latestVersion": "0.31.2" } ],
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/windows-exporter/${version}/windows/amd64/windows-exporter_${version}-1_amd64.zip"
+          },
+          "ws2019": {
+            "versionsV2": [ { "renovateTag": "<DO_NOT_UPDATE>", "latestVersion": "0.30.0" } ],
+            "downloadURL": "https://example.com/ws2019/windows-exporter_${version}-1_amd64.zip"
+          },
+          "ws2022": {
+            "versionsV2": [ { "renovateTag": "<DO_NOT_UPDATE>", "latestVersion": "0.30.1" } ],
+            "downloadURL": "https://example.com/ws2022/windows-exporter_${version}-1_amd64.zip"
+          },
+          "ws2025": {
+            "versionsV2": [ { "renovateTag": "<DO_NOT_UPDATE>", "latestVersion": "0.30.2" } ],
+            "downloadURL": "https://example.com/ws2025/windows-exporter_${version}-1_amd64.zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "other-package",
+      "windowsDownloadLocation": "c:\\akse-cache\\windows-exporter\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [ { "renovateTag": "<DO_NOT_UPDATE>", "latestVersion": "9.9.9" } ],
+            "downloadURL": "https://example.com/other_${version}.zip"
+          }
+        }
+      }
+    }
+  ]
+}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+    }
+
+    It 'returns the default URL for SKUs without an override' {
+        $windowsSku = "23H2"
+
+        GetWindowsExporterPackageUrlFromComponentsJson $componentsJson |
+            Should -Be "https://packages.aks.azure.com/dalec-packages/windows-exporter/0.31.2/windows/amd64/windows-exporter_0.31.2-1_amd64.zip"
+    }
+
+    It 'returns the <Part> URL when building <Sku>' -TestCases @(
+        @{ Sku = "2019-containerd"; Part = "ws2019"; Version = "0.30.0" }
+        @{ Sku = "2022-containerd-gen2"; Part = "ws2022"; Version = "0.30.1" }
+        @{ Sku = "2025-gen2"; Part = "ws2025"; Version = "0.30.2" }
+    ) {
+        param($Sku, $Part, $Version)
+        $windowsSku = $Sku
+
+        GetWindowsExporterPackageUrlFromComponentsJson $componentsJson |
+            Should -Be "https://example.com/$Part/windows-exporter_$Version-1_amd64.zip"
+    }
+
+    It 'ignores other packages that share the download location' {
+        $windowsSku = "23H2"
+
+        GetWindowsExporterPackageUrlFromComponentsJson $componentsJson | Should -Not -Match 'other_'
+    }
+
+    It 'throws when the package is missing' {
+        $componentsJson.Packages = @($componentsJson.Packages[1])
+
+        { GetWindowsExporterPackageUrlFromComponentsJson $componentsJson } |
+            Should -Throw "*Could not find package 'windows-exporter'*"
+    }
+
+    It 'throws when the package has no Windows download URL' {
+        $windowsSku = "23H2"
+        $componentsJson.Packages[0].downloadURIs.windows.default.downloadURL = $null
+
+        { GetWindowsExporterPackageUrlFromComponentsJson $componentsJson } |
+            Should -Throw "*has no Windows download URL*"
+    }
+
+    It 'throws when the package has no windowsDownloadLocation' {
+        $componentsJson.Packages[0].windowsDownloadLocation = $null
+
+        { GetWindowsExporterPackageUrlFromComponentsJson $componentsJson } |
+            Should -Throw "*has no windowsDownloadLocation*"
+    }
+
+    It 'throws when more than one version would be cached' {
+        $windowsSku = "23H2"
+        $componentsJson.Packages[0].downloadURIs.windows.default.versionsV2 = @(
+            [PSCustomObject]@{ latestVersion = "0.31.2"; previousLatestVersion = "0.31.1" }
+        )
+
+        { GetWindowsExporterPackageUrlFromComponentsJson $componentsJson } |
+            Should -Throw "*Expected exactly one 'windows-exporter' package URL for VHD baking, found 2*"
+    }
+
+    It 'throws when the package is defined more than once' {
+        $componentsJson.Packages[1].name = "windows-exporter"
+
+        { GetWindowsExporterPackageUrlFromComponentsJson $componentsJson } |
+            Should -Throw "*Expected exactly one 'windows-exporter' package in components.json, found 2*"
+    }
+
+    It 'resolves the URL from the repository components.json' {
+        $windowsSku = "2022-containerd-gen2"
+        $repoComponentsJson = Get-Content "$PSScriptRoot/../../../parts/common/components.json" -Raw | ConvertFrom-Json
+
+        GetWindowsExporterPackageUrlFromComponentsJson $repoComponentsJson |
+            Should -Match '^https://packages\.aks\.azure\.com/dalec-packages/windows-exporter/[^/]+/windows/amd64/windows-exporter_[^/]+_amd64\.zip$'
+    }
+}
+
 Describe 'GetAzCopyDownloadUrlsFromComponentsJson' {
     BeforeEach {
         $testString = '{
