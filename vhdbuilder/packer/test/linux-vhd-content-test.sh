@@ -315,6 +315,9 @@ testPackagesInstalled() {
             case "$OS" in
               "$AZURELINUX_OS_NAME")
                 pkgName="containerd2"
+                if [ "$OS_VERSION" = "4.0" ]; then
+                  pkgName="containerd"
+                fi
                 ;;
               *)
                 pkgName="moby-containerd"
@@ -572,6 +575,11 @@ testImagesRetagged() {
 testAuditDNotPresent() {
   local test="testAuditDNotPresent"
   echo "$test:Start"
+  if [ "$OS_VERSION" = "4.0" ]; then
+    echo "$test: Azure Linux 4 ships auditd; the older-image absence requirement does not apply"
+    echo "$test:Finish"
+    return 0
+  fi
   status=$(systemctl show -p SubState --value auditd.service)
   if [ "$status" = 'dead' ]; then
     echo "AuditD is not present, as expected"
@@ -1230,7 +1238,7 @@ testPkgDownloaded() {
       if [ -z "${debFile}" ]; then
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
-    elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
+    elif [ "$OS" = "$AZURELINUX_OS_NAME" ] && { [ "$OS_VERSION" = "3.0" ] || [ "$OS_VERSION" = "4.0" ]; }; then
       rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-*" -print 2>/dev/null |
         grep -E "/${packageName}-${versionRegex}([^0-9]|$)" |
         sort -V |

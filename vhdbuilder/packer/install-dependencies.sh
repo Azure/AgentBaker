@@ -601,7 +601,10 @@ cachePackageAndBinaryComponents() {
       "aks-secure-tls-bootstrap-client")
         for version in ${PACKAGE_VERSIONS[@]}; do
           # removed at provisioning time if secure TLS bootstrapping is disabled
-          if isUbuntu; then
+          if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+            evaluatedURL=$(evalPackageDownloadURL "${PACKAGE_DOWNLOAD_URL}")
+            downloadSecureTLSBootstrapClientFromURL "/opt/bin" "${evaluatedURL}" || exit $?
+          elif isUbuntu; then
             downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
             installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
           elif isMarinerOrAzureLinux; then

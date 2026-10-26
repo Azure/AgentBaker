@@ -22,6 +22,30 @@ installDeps() {
       echo "Installing azurelinux-repos-cloud-native"
       dnf_install 30 1 600 azurelinux-repos-cloud-native
       dnf_install 30 1 600 azurelinux-repos-cloud-native-preview
+    elif [ "$OS_VERSION" = "4.0" ]; then
+      echo "Using Azure Linux 4 production repositories with scoped AKS package exceptions"
+      dnf_install 30 1 600 azurelinux-repos azurelinux-release-identity-cloud || exit "$ERR_APT_INSTALL_TIMEOUT"
+      rpm --import https://packages.microsoft.com/keys/microsoft.asc \
+        https://packages.microsoft.com/keys/microsoft-2025.asc || exit "$ERR_APT_INSTALL_TIMEOUT"
+      cat > /etc/yum.repos.d/aks-azl4-compat.repo <<'EOF'
+[aks-azl3-compat]
+name=AKS package exceptions from Azure Linux 3
+baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc https://packages.microsoft.com/keys/microsoft-2025.asc
+includepkgs=azure-acr-credential-provider,ig,ig-gadgets,node-exporter-kubernetes
+skip_if_unavailable=False
+
+[aks-blobfuse2-preview]
+name=AKS BlobFuse2 validation exception
+baseurl=https://packages.microsoft.com/azurelinux/4.0/beta/microsoft/$basearch
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-4.0-$basearch
+includepkgs=blobfuse2-preview
+skip_if_unavailable=False
+EOF
     else
       echo "Installing mariner-repos-cloud-native"
       dnf_install 30 1 600 mariner-repos-cloud-native
@@ -29,7 +53,13 @@ installDeps() {
 
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse inotify-tools iotop iproute ipset iptables jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat tcpdump traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
+    local packages="ca-certificates cifs-utils conntrack-tools cracklib ethtool fuse inotify-tools iproute ipset jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat tcpdump traceroute util-linux xz zip nftables iscsi-initiator-utils device-mapper-multipath"
+    if [ "$OS_VERSION" = "4.0" ]; then
+      packages+=" iptables-nft iotop-c dnf5-plugins blobfuse2-preview-2.5.5~preview.1-1"
+    else
+      packages+=" check-restart cloud-init-azure-kvp dnf-automatic ebtables iotop iptables blobfuse2"
+    fi
+    for dnf_package in $packages; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -807,6 +837,9 @@ installStandaloneContainerd() {
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
     fi
 
+    if [ "$OS_VERSION" = "4.0" ]; then
+        systemctlEnableAndStart containerd 30 || exit "$ERR_SYSTEMCTL_START_FAIL"
+    fi
 }
 
 ensureRunc() {

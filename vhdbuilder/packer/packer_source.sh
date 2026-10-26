@@ -738,9 +738,13 @@ copyPackerFiles() {
     cpAndMode /home/packer/security-update.sh /opt/azure/containers/security-update.sh 544
     cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
 
-    # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
-    cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
-    cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+    if [ "$OS_VERSION" = "4.0" ]; then
+      # Preserve the authselect-managed PAM stack on Azure Linux 4.
+      cpAndMode $FAILLOCK_CONF_SRC $FAILLOCK_CONF_DEST 600
+    else
+      cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
+      cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+    fi
 
     if [ "$OS_VERSION" = "3.0" ] && [ "${ENABLE_FIPS,,}" != "true" ] && isAzureLinuxArm64BaseImage "$OS" "$CPU_ARCH" "$OS_VARIANT"; then
       GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
