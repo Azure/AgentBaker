@@ -67,8 +67,12 @@ dnf_update() {
 dnf_download() {
     retries=$1; wait_sleep=$2; timeout=$3; downloadDir=$4; shift && shift && shift && shift
     mkdir -p "${downloadDir}"
+    local directoryOption="--downloaddir"
+    if [ "$OS_VERSION" = "4.0" ]; then
+        directoryOption="--destdir"
+    fi
     for i in $(seq 1 $retries); do
-        dnf download --resolve --downloaddir="${downloadDir}" "$@" && break || \
+        dnf download --resolve "${directoryOption}=${downloadDir}" "$@" && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -76,5 +80,5 @@ dnf_download() {
             dnf_makecache
         fi
     done
-    echo Executed dnf download --resolve --downloaddir="\"${downloadDir}\"" "$@" $i times;
+    echo Executed dnf download --resolve "${directoryOption}=${downloadDir}" "$@" $i times;
 }
