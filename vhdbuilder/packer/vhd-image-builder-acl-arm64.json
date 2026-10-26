@@ -74,6 +74,17 @@
   ],
   "provisioners": [
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/acl-extensions.sh",
+      "destination": "/home/packer/acl-extensions.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -eux /home/packer/acl-extensions.sh start"
+      ]
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
@@ -835,7 +846,7 @@
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
         "sudo touch /boot/flatcar/first_boot",
-        "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo /bin/bash -eux /home/packer/acl-extensions.sh finish || exit 125"
       ]
     }
   ],
