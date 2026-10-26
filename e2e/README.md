@@ -151,6 +151,13 @@ architecture-specific version pins in the
 The pipeline resolves `IMAGE_VERSION` once; the ACL image-stamping step fails
 if it does not receive that value.
 
+The stamp records the original provisioning image and survives A/B updates of
+`/usr`. Until Trident has an updatable current-version source, the agent reads
+`/dev/null` with a `0.0.0` fallback rather than treating the stamp as the active
+version. This deliberately disables current-version-based `AlreadyAtTarget`
+shortcuts. Nebraska affinity cookie handling is enabled for annotation-driven
+updates, including cookie persistence across reboot.
+
 ACL CVM builds keep the production ACG source and are not part of the
 four-variant COSI validation.
 

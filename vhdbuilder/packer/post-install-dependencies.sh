@@ -107,17 +107,9 @@ echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
 echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
 
-# Record the node image version where the Trident ACL Agent can read it.
-#
-# The agent compares the node's running version against the target version in
-# an A/B update request, and reads an os-release-formatted KEY=VALUE file to do
-# so. /etc/os-release cannot serve: its VERSION_ID is the ACL OS release
-# (3.0.YYYYMMDD), while the update request carries the node image version
-# (YYYYMM.DD.PATCH). The same value is already recorded in image-bom.json, but
-# the agent does not parse JSON.
-#
-# This file lives on the root partition, so it describes the node image the
-# node was provisioned from and is not replaced by an A/B update of /usr.
+# Record the original node image version for diagnostics.
+# This root-partition stamp is not replaced by an A/B update of /usr.
+# The ACL agent uses a sentinel current version until it has an updatable source.
 if isACL "$OS" "$OS_VARIANT"; then
   if [ -z "${IMAGE_VERSION:-}" ]; then
     echo "ERROR: IMAGE_VERSION must be set for ACL image builds" >&2
