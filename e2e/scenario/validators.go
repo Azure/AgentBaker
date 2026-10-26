@@ -1430,6 +1430,33 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 	return err
 }
 
+func isKnownCVMInitrdFailure(s *Scenario, unitName, errorMessages string) bool {
+	if !s.Tags.CVM || s.VHD == nil || unitName != "initrd-core-tmpfiles-setup.service" {
+		return false
+	}
+	switch s.VHD.Distro {
+	case datamodel.AKSUbuntuContainerd2404CVMGen2, datamodel.AKSUbuntuMinimalContainerd2604CVMGen2:
+	default:
+		return false
+	}
+
+	// Ubuntu bug 2170424: the signed Azure-FDE initrd runs an Ubuntu Core unit on
+	// a classic rootfs. Require its exact error, and reject any additional error.
+	foundMissingConfig := false
+	for _, message := range strings.Split(strings.TrimSpace(errorMessages), "\n") {
+		switch message {
+		case "Failed to open 'core-writable.conf': No such file or directory":
+			foundMissingConfig = true
+		case "initrd-core-tmpfiles-setup.service: Main process exited, code=exited, status=1/FAILURE",
+			"initrd-core-tmpfiles-setup.service: Failed with result 'exit-code'.",
+			"Failed to start initrd-core-tmpfiles-setup.service - Create initial writable directories.":
+		default:
+			return false
+		}
+	}
+	return foundMissingConfig
+}
+
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return nil
@@ -1500,24 +1527,40 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 	// extract failed unit logs
 	var errs []error
 	failedUnitLogs := make(map[string]string, len(failedUnits))
+	unexpectedUnits := make([]systemdUnit, 0, len(failedUnits))
 	for _, unit := range failedUnits {
 		unitLogs, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unit.Name))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("retrieve logs of failed unit %s: %w", unit.Name, err))
+			unexpectedUnits = append(unexpectedUnits, unit)
 			continue
 		}
 		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
+		if unit.Name == "initrd-core-tmpfiles-setup.service" && s.Tags.CVM {
+			errorLogs, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+				fmt.Sprintf("journalctl -b -u %s -p err --no-pager --quiet -o cat", unit.Name),
+				0, "unable to inspect initrd unit errors")
+			if err != nil {
+				errs = append(errs, fmt.Errorf("retrieve errors of failed unit %s: %w", unit.Name, err))
+			} else if isKnownCVMInitrdFailure(s, unit.Name, errorLogs.stdout) {
+				logging.Logf(ctx, "Allowing %s with the exact missing core-writable.conf error (Ubuntu bug 2170424)", unit.Name)
+				continue
+			}
+		}
+		unexpectedUnits = append(unexpectedUnits, unit)
 	}
 	if err := dumpFileMapToDir(s.artifactName, failedUnitLogs); err != nil {
 		errs = append(errs, fmt.Errorf("dump failed systemd unit logs: %w", err))
 	}
 
-	errs = append(errs, fmt.Errorf(
-		"the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
-		lo.Map(failedUnits, func(unit systemdUnit, _ int) string {
-			return unit.Name
-		}),
-	))
+	if len(unexpectedUnits) > 0 {
+		errs = append(errs, fmt.Errorf(
+			"the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
+			lo.Map(unexpectedUnits, func(unit systemdUnit, _ int) string {
+				return unit.Name
+			}),
+		))
+	}
 	return errors.Join(errs...)
 }
 

@@ -5,10 +5,47 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	resourcev1 "k8s.io/api/resource/v1"
 )
+
+func TestIsKnownCVMInitrdFailure(t *testing.T) {
+	const unit = "initrd-core-tmpfiles-setup.service"
+	const missingConfig = "Failed to open 'core-writable.conf': No such file or directory"
+	const summaries = "\ninitrd-core-tmpfiles-setup.service: Main process exited, code=exited, status=1/FAILURE" +
+		"\ninitrd-core-tmpfiles-setup.service: Failed with result 'exit-code'." +
+		"\nFailed to start initrd-core-tmpfiles-setup.service - Create initial writable directories."
+	tests := []struct {
+		name     string
+		vhd      *config.Image
+		cvm      bool
+		unit     string
+		messages string
+		want     bool
+	}{
+		{"2404 known error", config.VHDUbuntu2404CVMGen2Containerd, true, unit, missingConfig + summaries, true},
+		{"2604 repeated known error", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, unit, missingConfig + summaries + "\n" + missingConfig + summaries + "\n", true},
+		{"different error", config.VHDUbuntu2404CVMGen2Containerd, true, unit, "Failed to open 'core-writable.conf': Permission denied" + summaries, false},
+		{"different config", config.VHDUbuntu2404CVMGen2Containerd, true, unit, "Failed to open 'other.conf': No such file or directory" + summaries, false},
+		{"additional error", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, unit, missingConfig + summaries + "\nFailed to create directory: Read-only file system", false},
+		{"different exit status", config.VHDUbuntu2404CVMGen2Containerd, true, unit, missingConfig + "\ninitrd-core-tmpfiles-setup.service: Main process exited, code=exited, status=2/INVALIDARGUMENT", false},
+		{"missing diagnostic", config.VHDUbuntu2404CVMGen2Containerd, true, unit, summaries, false},
+		{"empty journal", config.VHDUbuntu2404CVMGen2Containerd, true, unit, "", false},
+		{"TPM unit", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, "systemd-tpm2-setup.service", missingConfig, false},
+		{"non-CVM scenario", config.VHDUbuntu2404CVMGen2Containerd, false, unit, missingConfig, false},
+		{"non-CVM image", config.VHDUbuntu2404Gen2Containerd, true, unit, missingConfig, false},
+		{"2004 image", config.VHDUbuntu2004CVMGen2Containerd, true, unit, missingConfig, false},
+		{"missing image", nil, true, unit, missingConfig, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Scenario{Tags: Tags{CVM: tt.cvm}, Config: Config{VHD: tt.vhd}}
+			require.Equal(t, tt.want, isKnownCVMInitrdFailure(s, tt.unit, tt.messages))
+		})
+	}
+}
 
 func TestValidateDRAMIGAllocation(t *testing.T) {
 	tests := []struct {
