@@ -20,7 +20,7 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   image_pull_with_sync_fs = {{ .GetImagePullWithSyncFs }}
   {{- end }}
   {{- if ne .ImagePullProgressTimeout nil }}
-  image_pull_progress_timeout = {{ printf "%q" .GetImagePullProgressTimeout }}
+  image_pull_progress_timeout = "{{ .GetImagePullProgressTimeout }}"
   {{- end }}
 {{- end }}
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
