@@ -4,6 +4,10 @@ The AKS VM extension owns the I/O recorder, its NPD trigger, capture
 schema, redaction, and retention. AgentBaker does not install a second recorder
 or sampling timer. Activation policy and production rollout require separate
 approval; this integration does not enable the producer. The existing
+extension candidate gates all sampling on `enableIORecorder`: false or absent
+disables it; enabled runs periodically scan bounded task detail. A minimal
+always-on baseline versus triggered detail remains undecided and is not
+implemented by these candidates. The existing
 `aks-log-collector.timer` starts collection
 10 minutes after activation and every 60 minutes thereafter; `nodePrep` starts
 the timer on real nodes, including PIS-cached nodes.
@@ -50,9 +54,11 @@ The manifest distinguishes `not_present`, `empty`, `invalid_directory`,
 nonregular files/symlinks, vanished files, read errors/timeouts, oversize,
 invalid JSON, hash failures, and ZIP failures. Rejected files are never
 tail-truncated. Both the recorder directory and its producer staging directory
-are excluded from subsequent generic file collection, including explicitly
-requested files, so rejected or unpublished captures cannot reappear through
-that path. Export errors also produce warnings in the
+are excluded from subsequent generic file collection, even if a path is added
+directly to its file list, so rejected or unpublished captures cannot reappear
+through that path. The collector no longer accepts custom file lists through
+IMDS configuration; this change does not restore them. Export errors also
+produce warnings in the
 collector's existing logs; inability to archive the manifest is itself logged.
 
 The recorder adds at most eight MiB of capture data plus a small manifest and

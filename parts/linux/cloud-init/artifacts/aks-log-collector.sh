@@ -245,6 +245,7 @@ function collectIORecorderCaptures {
     name="${file##*/}"
     staged="${staging_dir}/${name}"
     size=0 checksum="" status="included"
+    # shellcheck disable=SC3010 # Capture IDs require Bash regular-expression matching.
     if [[ ! "$name" =~ ^capture-[a-zA-Z0-9-]+\.json$ ]]; then
       status="invalid_name"
     elif [ -L "$file" ] || { [ -e "$file" ] && [ ! -f "$file" ]; }; then
