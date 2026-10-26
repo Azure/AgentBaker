@@ -57,7 +57,7 @@ main() {
     esac
 
     # Keep AIB's default generalization, then reapply the same agent pin as Packer.
-    sudo /usr/sbin/waagent -force -deprovision+user || return $?
+    sudo waagent -force -deprovision+user || return $?
     export HISTSIZE=0
     installPinnedWALinuxAgent / || return $?
     cleanupNvPCRCredentials "${is_cvm}" / || return $?

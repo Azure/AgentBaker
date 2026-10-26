@@ -43,7 +43,7 @@
                 "type": "Shell",
                 "name": "InstallDeprovisionHook",
                 "inline": [
-                    "sudo install -m 0755 /tmp/post-deprovision-walinuxagent.sh /opt/azure/containers/post-deprovision-walinuxagent.sh && sudo install -m 0755 /tmp/install_walinuxagent.py /opt/azure/containers/install_walinuxagent.py && sudo rm -f /tmp/post-deprovision-walinuxagent.sh /tmp/install_walinuxagent.py && printf '%s\\n' '#!/bin/bash -eu' 'exec sudo /bin/bash -eu /tmp/agentbaker-deprovision.sh <CVM_BUILD>' | sudo tee /tmp/DeprovisioningScript.sh > /dev/null && sudo chmod 0755 /tmp/DeprovisioningScript.sh"
+                    "sudo install -m 0755 /tmp/post-deprovision-walinuxagent.sh /opt/azure/containers/post-deprovision-walinuxagent.sh && sudo install -m 0755 /tmp/install_walinuxagent.py /opt/azure/containers/install_walinuxagent.py && sudo rm -f /tmp/post-deprovision-walinuxagent.sh /tmp/install_walinuxagent.py && hook=$(sudo mktemp /tmp/DeprovisioningScript.XXXXXX) && trap 'sudo rm -f -- \"${hook}\"' EXIT && printf '%s\\n' '#!/bin/bash -eu' 'exec sudo /bin/bash -eu /tmp/agentbaker-deprovision.sh <CVM_BUILD>' | sudo tee \"${hook}\" > /dev/null && sudo chmod 0755 \"${hook}\" && sudo mv -fT -- \"${hook}\" /tmp/DeprovisioningScript.sh"
                 ]
             }
         ],
