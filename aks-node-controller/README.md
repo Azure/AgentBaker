@@ -81,6 +81,22 @@ This command does not configure repositories or install refresh schedules.
 Existing provisioning still uses `init-aks-cloud.sh`; native cloud initialization
 is not yet connected to the provisioning entry point.
 
+### Native RepoDepot capabilities
+
+The Go cloud runtime includes RepoDepot configuration for Ubuntu, Mariner, and
+Azure Linux. Ubuntu sources and Microsoft keyrings, Mariner mirrors, and Azure
+Linux repositories retain their existing roles. Empty endpoints and immutable
+Flatcar/ACL images skip package-repository configuration.
+
+Cache operations retry up to ten times and return a classified failure when
+retries are exhausted. Cancellation remains a context error, distinct from an
+ordinary cache-refresh failure. Repository configuration failures also remain
+errors; the eventual provisioning caller is responsible for the shell-compatible
+best-effort cache policy.
+
+These capabilities are not yet invoked by provisioning. The existing shell
+initialization path and refresh schedules remain unchanged.
+
 ### Validating and normalizing AKSNodeConfig
 
 Before serializing a typed config, producers such as RP should call:
