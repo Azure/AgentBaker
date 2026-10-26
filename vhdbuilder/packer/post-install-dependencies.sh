@@ -120,8 +120,8 @@ echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
 # node was provisioned from and is not replaced by an A/B update of /usr.
 if isACL "$OS" "$OS_VARIANT"; then
   if [ -z "${IMAGE_VERSION:-}" ]; then
-    IMAGE_VERSION=$(date +%Y%m.%d.0)
-    echo "IMAGE_VERSION was not set, defaulting to ${IMAGE_VERSION}"
+    echo "ERROR: IMAGE_VERSION must be set for ACL image builds" >&2
+    exit 1
   fi
   IMAGE_VERSION_FILEPATH=/opt/azure/containers/image-version
   mkdir -p "$(dirname ${IMAGE_VERSION_FILEPATH})"

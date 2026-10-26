@@ -76,11 +76,14 @@ steps:
       - ${{ if eq(parameters.VARIANT, 'arm64') }}:
           - bash: |
               echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel-arm64-test'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acldevel-arm64'
             displayName: Set ACL base image vars (acldevel, arm64)
-      - ${{ if eq(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '') }}:
-          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20260912.1202056'
-            displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, default)
+      - ${{ if and(eq(parameters.VARIANT, 'amd64'), eq(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '')) }}:
+          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20261023.1234357'
+            displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, amd64, default)
+      - ${{ if and(eq(parameters.VARIANT, 'arm64'), eq(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '')) }}:
+          - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]0.20261023.1234357'
+            displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, arm64, default)
       - ${{ if ne(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '') }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE }}'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, override)

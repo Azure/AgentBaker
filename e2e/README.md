@@ -145,6 +145,12 @@ selecting `acldevel` disables Secure Boot only for ACL test VMs. Older base imag
 without `trident-acl-agent` still build; images containing the agent enable its
 kubeconfig-triggered startup.
 
+The dev source uses `acldevel` for AMD64 and `acldevel-arm64` for ARM64, with
+architecture-specific version pins in the
+[base-image template](../.pipelines/templates/.acl-base-image-vars.yaml).
+The pipeline resolves `IMAGE_VERSION` once; the ACL image-stamping step fails
+if it does not receive that value.
+
 ACL CVM builds keep the production ACG source and are not part of the
 four-variant COSI validation.
 
