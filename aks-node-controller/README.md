@@ -54,6 +54,33 @@ the provisioning config in CustomData; the automatic size fallback uses the same
 config-only payload. Leaving the new flag false preserves legacy, Phase 2, and
 Phase 2.5 behavior.
 
+### Azure cloud certificate refresh
+
+ANC provides a standalone command for refreshing Azure cloud CA certificates:
+
+```sh
+/opt/azure/containers/aks-node-controller refresh-cloud-certificates --location westus2
+```
+
+Regions starting with `ussec` or `usnat` use the legacy certificate endpoint.
+Other regions check WireServer's root-certificate opt-in before retrieving root
+and intermediate certificates. Only the JSON boolean `true` enables opt-in;
+nonempty malformed or non-true responses skip installation. Failed or empty
+opt-in requests remain errors. Individual operation-certificate download failures
+are logged and skipped, and legacy trust-store installation failures remain
+best-effort unless the context is canceled.
+
+Downloaded contents are passed to the system trust-store tools without additional
+PEM/X.509 validation. Refresh clears the flat staging cache, including hidden
+files, without removing existing system trust-store certificates. Raw responses
+are never logged; `AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only
+diagnostics. The refresh command has a 15-minute budget and emits
+`CloudCertificateRefresh` guest-agent events.
+
+This command does not configure repositories or install refresh schedules.
+Existing provisioning still uses `init-aks-cloud.sh`; native cloud initialization
+is not yet connected to the provisioning entry point.
+
 ### Validating and normalizing AKSNodeConfig
 
 Before serializing a typed config, producers such as RP should call:

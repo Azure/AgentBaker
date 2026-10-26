@@ -102,6 +102,8 @@ type App struct {
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
+	// refreshCloudCertificates overrides standalone cloud certificate refresh for testing.
+	refreshCloudCertificates func(context.Context, string) error
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -179,6 +181,19 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				Action: func(_ context.Context, cmd *cli.Command) error {
 					_, _ = fmt.Fprintln(cmd.Root().Writer, Version)
 					return nil
+				},
+			},
+			{
+				Name:  "refresh-cloud-certificates",
+				Usage: "Refresh Azure cloud CA certificates without configuring repositories",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "location", Required: true, Usage: "Azure region used to select the certificate endpoint"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if cmd.Args().Len() != 0 {
+						return fmt.Errorf("unexpected refresh-cloud-certificates arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return a.runCloudCertificateRefresh(ctx, cmd.String("location"))
 				},
 			},
 			{
