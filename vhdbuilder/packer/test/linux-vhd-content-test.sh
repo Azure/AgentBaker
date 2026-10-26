@@ -2686,11 +2686,17 @@ testKMPP() {
 
   kmppVersion=$(getPackageExpectedVersion "kmpp-containers" "" "" "")
   proxyVersion=$(getPackageExpectedVersion "xdg-dbus-proxy" "" "" "")
-  if [ "$kmppVersion" = "<SKIP>" ]; then
-    if command -v rpm >/dev/null 2>&1 && rpm -q kmpp-containers >/dev/null 2>&1; then
-      err "$test" "kmpp-containers is installed but components.json skips it for this OS"
+  # CVM resolves the Azure Linux 3.0 entries but install-dependencies.sh skips it.
+  if [ "$kmppVersion" = "<SKIP>" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    for unit in kmpp-containers xdg-dbus-proxy; do
+      if command -v rpm >/dev/null 2>&1 && rpm -q "$unit" >/dev/null 2>&1; then
+        err "$test" "$unit is installed but KMPP is not baked for this image (OS_SKU=$OS_SKU FEATURE_FLAGS=$FEATURE_FLAGS)"
+      fi
+    done
+    if [ -e /etc/systemd/system/kmpp-dbus-proxy.service ]; then
+      err "$test" "kmpp-dbus-proxy.service exists but KMPP is not baked for this image"
     fi
-    echo "$test: Skipping, KMPP is not baked for this OS"
+    echo "$test: Skipping, KMPP is not baked for this image"
     return 0
   fi
 
