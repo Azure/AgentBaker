@@ -47,6 +47,8 @@ sslverify=1
 `
 )
 
+var errCloudRepositoryCacheRefresh = errors.New("refresh RepoDepot package cache")
+
 func (c *cloudInitializer) initializeRepositories(ctx context.Context, platform cloudPlatform, endpoint string) error {
 	if endpoint == "" {
 		slog.Info("RepoDepot endpoint is empty, skipping repository initialization")
@@ -255,7 +257,10 @@ func (c *cloudInitializer) updateRepositoryCache(ctx context.Context, name strin
 		return struct{}{}, err
 	})
 	if err != nil {
-		return fmt.Errorf("refresh RepoDepot package cache: %w", err)
+		if contextErr := ctx.Err(); contextErr != nil {
+			return fmt.Errorf("refresh RepoDepot package cache: %w", contextErr)
+		}
+		return fmt.Errorf("%w: %w", errCloudRepositoryCacheRefresh, err)
 	}
 	return nil
 }

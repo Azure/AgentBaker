@@ -19,6 +19,113 @@ func writeCloudProvisionConfig(t *testing.T) string {
 	return path
 }
 
+func requireCloudInitializationAllowsProvisioning(t *testing.T, c *cloudInitializer) {
+	t.Helper()
+	called := false
+	tt := NewTestApp(t, TestAppConfig{RunFunc: func(cmd *exec.Cmd) error {
+		called = true
+		require.Contains(t, cmd.String(), "/opt/azure/containers/provision_start.sh")
+		path, lookupErr := exec.LookPath("true")
+		require.NoError(t, lookupErr)
+		// Execute a harmless stub so Provision observes a real zero exit status.
+		cmd.Path, cmd.Args = path, []string{path}
+		return cmd.Run()
+	}})
+	tt.App.initializeCloud = func(ctx context.Context, config cloudInitConfig) error {
+		config.RepoDepotEndpoint = c.wireEndpoint
+		return c.initialize(ctx, config)
+	}
+	result, err := tt.App.Provision(t.Context(), ProvisionFlags{ProvisionConfig: writeCloudProvisionConfig(t)})
+	require.NoError(t, err)
+	require.True(t, called)
+	require.Equal(t, "0", result.ExitCode)
+}
+
+func TestNativeCloudCronFailuresDoNotBlockProvisioning(t *testing.T) {
+	for _, failedArg := range []string{"-l", "-"} {
+		t.Run(failedArg, func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			serveCloudTestResponses(t, c, cloudTestCertificate(t), `{"IsOptedInForRootCerts":true}`)
+			run := c.run
+			writes, cacheUpdates := 0, 0
+			c.run = func(cmd *exec.Cmd) error {
+				if cmd.Args[0] == "crontab" {
+					if cmd.Args[1] == "-" {
+						writes++
+					}
+					if cmd.Args[1] == failedArg {
+						return errors.New("crontab operation failed")
+					}
+				}
+				if cmd.Args[0] == "apt-get" {
+					cacheUpdates++
+				}
+				return run(cmd)
+			}
+			requireCloudInitializationAllowsProvisioning(t, c)
+			require.Equal(t, 1, writes)
+			require.Equal(t, 1, cacheUpdates)
+		})
+	}
+}
+
+func TestNativeCloudCacheFailuresDoNotBlockProvisioning(t *testing.T) {
+	for _, tc := range []struct{ id, release, command string }{
+		{osReleaseIDUbuntu, cloudTestUbuntu, "apt-get"},
+		{osReleaseIDMariner, "ID=mariner\n", "dnf"},
+		{osReleaseIDAzureLinux, "ID=azurelinux\n", "dnf"},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			c := newTestCloudInitializer(t, tc.release)
+			serveCloudTestResponses(t, c, cloudTestCertificate(t), `{"IsOptedInForRootCerts":true}`)
+			if tc.id == osReleaseIDMariner {
+				require.NoError(t, c.writeFile(defaultYumReposDir+"/mariner-extras.repo",
+					[]byte("[mariner-extras]\nbaseurl=https://packages.microsoft.com/extras\n")))
+			}
+			run := c.run
+			attempts := 0
+			c.run = func(cmd *exec.Cmd) error {
+				if cmd.Args[0] == tc.command {
+					attempts++
+					return errors.New("cache refresh failed")
+				}
+				return run(cmd)
+			}
+			requireCloudInitializationAllowsProvisioning(t, c)
+			require.Equal(t, cloudRequestAttempts, attempts)
+			levels := make(map[string]string)
+			for _, event := range c.eventLogger.Events() {
+				levels[event.TaskName] = event.EventLevel
+			}
+			require.Equal(t, "Error", levels["AKS.AKSNodeController.CloudRepositoryInitialization"])
+			require.Equal(t, "Informational", levels["AKS.AKSNodeController.CloudInitialization"])
+		})
+	}
+}
+
+func TestNativeCloudCacheCancellationStillBlocksProvisioning(t *testing.T) {
+	c := newTestCloudInitializer(t, "ID=azurelinux\n")
+	serveCloudTestResponses(t, c, nil, `{"IsOptedInForRootCerts":false}`)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	c.run = func(cmd *exec.Cmd) error {
+		require.Equal(t, "dnf", cmd.Args[0])
+		cancel()
+		return ctx.Err()
+	}
+	tt := NewTestApp(t, TestAppConfig{RunFunc: func(*exec.Cmd) error {
+		t.Fatal("provisioning must not run after initialization is canceled")
+		return nil
+	}})
+	tt.App.initializeCloud = func(ctx context.Context, config cloudInitConfig) error {
+		config.RepoDepotEndpoint = c.wireEndpoint
+		return c.initialize(ctx, config)
+	}
+	result, err := tt.App.Provision(ctx, ProvisionFlags{ProvisionConfig: writeCloudProvisionConfig(t)})
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, "240", result.ExitCode)
+}
+
 func TestNativeCloudInitializationPrecedesProvisioning(t *testing.T) {
 	var order []string
 	tt := NewTestApp(t, TestAppConfig{RunFunc: func(*exec.Cmd) error {

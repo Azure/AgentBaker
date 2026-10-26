@@ -122,6 +122,19 @@ func TestCloudRepositoryEndpointValidation(t *testing.T) {
 	}
 }
 
+func TestCloudRepositorySetupFailureStillStopsInitialization(t *testing.T) {
+	c := newTestCloudInitializer(t, cloudTestUbuntu)
+	serveCloudTestResponses(t, c, nil, `{"IsOptedInForRootCerts":false}`)
+	c.run = func(*exec.Cmd) error {
+		t.Fatal("an invalid endpoint must not reach package cache refresh")
+		return nil
+	}
+	err := c.initialize(t.Context(), cloudInitConfig{
+		Location: "westus2", RepoDepotEndpoint: "not-a-url", Timeout: time.Minute,
+	})
+	require.ErrorContains(t, err, "invalid RepoDepot endpoint")
+}
+
 func TestCloudRepositoryCacheRetriesAndFailsExplicitly(t *testing.T) {
 	for _, name := range []string{"apt-get", "dnf"} {
 		for _, recoverAfter := range []int{2, cloudRequestAttempts + 1} {
@@ -142,6 +155,7 @@ func TestCloudRepositoryCacheRetriesAndFailsExplicitly(t *testing.T) {
 				err := c.updateRepositoryCache(t.Context(), name, "update")
 				if recoverAfter > cloudRequestAttempts {
 					require.ErrorContains(t, err, "refresh RepoDepot package cache")
+					require.ErrorIs(t, err, errCloudRepositoryCacheRefresh)
 					require.Equal(t, cloudRequestAttempts, attempts)
 				} else {
 					require.NoError(t, err)
@@ -158,6 +172,8 @@ func TestCloudRepositoryCacheRetriesAndFailsExplicitly(t *testing.T) {
 		}
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
-		require.ErrorIs(t, c.updateRepositoryCache(ctx, "apt-get", "update"), context.Canceled)
+		err := c.updateRepositoryCache(ctx, "apt-get", "update")
+		require.ErrorIs(t, err, context.Canceled)
+		require.NotErrorIs(t, err, errCloudRepositoryCacheRefresh)
 	})
 }

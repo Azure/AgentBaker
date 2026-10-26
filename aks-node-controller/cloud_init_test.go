@@ -687,10 +687,9 @@ func TestCloudRefreshScheduleReplacesLegacyCron(t *testing.T) {
 func TestCloudRefreshScheduleCrontabErrors(t *testing.T) {
 	for _, tc := range []struct {
 		name, stderr string
-		wantError    bool
 	}{
-		{"no existing crontab", "no crontab for root", false},
-		{"permission denied", "permission denied", true},
+		{"no existing crontab", "no crontab for root"},
+		{"permission denied", "permission denied"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := newTestCloudInitializer(t, cloudTestUbuntu)
@@ -704,13 +703,66 @@ func TestCloudRefreshScheduleCrontabErrors(t *testing.T) {
 				return nil
 			}
 			err := c.installRefreshSchedule(t.Context(), cloudPlatform{ID: osReleaseIDUbuntu}, "westus2")
-			if tc.wantError {
-				require.Error(t, err)
-				require.Zero(t, writes)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, 1, writes)
+			require.NoError(t, err)
+			require.Equal(t, 1, writes)
+		})
+	}
+}
+
+func TestCloudCronInstallationFailureIsLogged(t *testing.T) {
+	c := newTestCloudInitializer(t, cloudTestUbuntu)
+	logs := installLogCapturer(t)
+	c.run = func(cmd *exec.Cmd) error {
+		if cmd.Args[1] == "-" {
+			return errors.New("cron installation failed")
+		}
+		return nil
+	}
+	require.NoError(t, c.installRefreshSchedule(t.Context(), cloudPlatform{ID: osReleaseIDUbuntu}, "westus2"))
+	require.Contains(t, fmt.Sprint(logs.getRecords()), "cron installation failed")
+}
+
+func TestCloudCronCancellationIsNotIgnored(t *testing.T) {
+	for _, canceledArg := range []string{"-l", "-"} {
+		t.Run(canceledArg, func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			c.run = func(cmd *exec.Cmd) error {
+				if cmd.Args[1] == canceledArg {
+					cancel()
+					return ctx.Err()
+				}
+				return nil
 			}
+			require.ErrorIs(t, c.installRefreshSchedule(ctx, cloudPlatform{ID: osReleaseIDUbuntu}, "westus2"), context.Canceled)
+		})
+	}
+}
+
+func TestCloudCronDeadlineIsNotIgnored(t *testing.T) {
+	c := newTestCloudInitializer(t, cloudTestUbuntu)
+	ctx, cancel := context.WithDeadline(t.Context(), time.Now().Add(-time.Second))
+	defer cancel()
+	c.run = func(*exec.Cmd) error {
+		t.Fatal("an expired context must not execute crontab")
+		return nil
+	}
+	require.ErrorIs(t, c.installRefreshSchedule(ctx, cloudPlatform{ID: osReleaseIDUbuntu}, "westus2"), context.DeadlineExceeded)
+}
+
+func TestCloudSystemdRefreshFailuresRemainFatal(t *testing.T) {
+	for _, failedArgs := range []string{"daemon-reload", "enable --now azure-ca-refresh.timer"} {
+		t.Run(failedArgs, func(t *testing.T) {
+			c := newTestCloudInitializer(t, "ID=flatcar\n")
+			c.run = func(cmd *exec.Cmd) error {
+				if strings.Join(cmd.Args[1:], " ") == failedArgs {
+					return errors.New("systemd operation failed")
+				}
+				return nil
+			}
+			require.ErrorContains(t, c.installRefreshSchedule(t.Context(), cloudPlatform{ID: osReleaseIDFlatcar}, "westus2"),
+				"systemd operation failed")
 		})
 	}
 }
@@ -720,7 +772,6 @@ func TestCloudInitializationStopsOnTrustAndScheduleFailures(t *testing.T) {
 		name, location, failedCommand, wantError string
 	}{
 		{"trust store", "westus2", "update-ca-trust", "host operation failed"},
-		{"crontab", "westus2", "crontab", "host operation failed"},
 		{"missing location", " \t", "", "requires a location"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

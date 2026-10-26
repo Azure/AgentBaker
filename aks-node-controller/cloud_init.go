@@ -155,9 +155,18 @@ func (c *cloudInitializer) initialize(ctx context.Context, config cloudInitConfi
 				return fmt.Errorf("schedule Azure cloud certificate refresh: %w", err)
 			}
 		}
-		return c.withEvent("CloudRepositoryInitialization", func() error {
+		repositoryErr := c.withEvent("CloudRepositoryInitialization", func() error {
 			return c.initializeRepositories(initCtx, platform, config.RepoDepotEndpoint)
 		})
+		if errors.Is(repositoryErr, errCloudRepositoryCacheRefresh) {
+			if contextErr := initCtx.Err(); contextErr != nil {
+				return contextErr
+			}
+			// The shell reports cache-refresh failures without propagating them to CSE.
+			slog.Warn("RepoDepot package cache refresh failed, continuing cloud initialization", "error", repositoryErr)
+			return nil
+		}
+		return repositoryErr
 	})
 }
 
@@ -385,9 +394,12 @@ func (c *cloudInitializer) installSystemdRefresh(ctx context.Context, command st
 func (c *cloudInitializer) installCronRefresh(ctx context.Context, command string) error {
 	existing, err := c.command(ctx, nil, "crontab", "-l")
 	if err != nil {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return contextErr
+		}
 		var exitErr interface{ ExitCode() int }
 		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 || !strings.Contains(err.Error(), "no crontab for") {
-			return err
+			slog.Warn("could not read existing crontab, continuing with an empty crontab", "error", err)
 		}
 		existing = nil
 	}
@@ -402,5 +414,11 @@ func (c *cloudInitializer) installCronRefresh(ctx context.Context, command strin
 	}
 	lines = append(lines, "0 19 * * * "+command)
 	_, err = c.command(ctx, []byte(strings.Join(lines, "\n")+"\n"), "crontab", "-")
-	return err
+	if err != nil {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return contextErr
+		}
+		slog.Warn("could not install Azure cloud certificate refresh cron job, continuing cloud initialization", "error", err)
+	}
+	return nil
 }
