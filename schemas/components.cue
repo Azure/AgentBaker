@@ -84,6 +84,7 @@ package components
 }
 
 #AzureLinuxOSDistro: {
+	"v4.0"?:          #ReleaseDownloadURI
 	"v3.0"?:          #ReleaseDownloadURI
 	"DEFAULT/v3.0"?:  #ReleaseDownloadURI
 	"OSGUARD/v3.0"?:  #ReleaseDownloadURI

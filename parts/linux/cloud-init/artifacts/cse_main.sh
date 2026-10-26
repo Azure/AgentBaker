@@ -707,6 +707,8 @@ function nodePrep {
                     echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
                 elif isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
                     echo 'EnableUnattendedUpgrade is not supported by Azure Linux OS Guard, will not be enabled'
+                elif [ "$OS_VERSION" = "4.0" ]; then
+                    echo 'EnableUnattendedUpgrade is outside the Azure Linux 4 validation scope; will not be enabled'
                 else
                     # By default the dnf-automatic is service is notify only in Mariner.
                     # Enable the automatic install timer and the check-restart timer.

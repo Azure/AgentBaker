@@ -7,7 +7,11 @@ installBcc() {
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_install 120 5 25 bcc-tools || exit $ERR_BCC_INSTALL_TIMEOUT
     echo "Installing BCC examples..."
-    dnf_install 120 5 25 bcc-examples || exit $ERR_BCC_INSTALL_TIMEOUT
+    local examplesPackage="bcc-examples"
+    if [ "$OS_VERSION" = "4.0" ]; then
+        examplesPackage="bcc-doc"
+    fi
+    dnf_install 120 5 25 "$examplesPackage" || exit $ERR_BCC_INSTALL_TIMEOUT
 }
 
 installBpftrace() {
@@ -93,6 +97,14 @@ listInstalledPackages() {
 
 # disable and mask all UU timers/services
 disableDNFAutomatic() {
+    if [ "$OS_VERSION" = "4.0" ]; then
+        if rpm -q dnf5-plugin-automatic >/dev/null 2>&1; then
+            systemctl disable --now dnf5-automatic.timer || exit "$ERR_SYSTEMCTL_START_FAIL"
+            systemctl mask dnf5-automatic.service dnf5-automatic.timer || exit "$ERR_SYSTEMCTL_MASK_FAIL"
+        fi
+        echo "Automatic OS updates are disabled for Azure Linux 4 validation"
+        return 0
+    fi
     # Ensure the automatic notifyonly timer is disabled.
     systemctl stop dnf-automatic-notifyonly.timer || exit 1
     systemctl disable dnf-automatic-notifyonly.timer || exit 1
@@ -120,6 +132,10 @@ disableTimesyncd() {
 
 # Regardless of UU mode, ensure check-restart is running
 enableCheckRestart() {
+  if [ "$OS_VERSION" = "4.0" ]; then
+    echo "Reboot-required signaling is outside the Azure Linux 4 validation scope"
+    return 0
+  fi
   # Even if UU is disabled, we should still run check-restart so that kured
   # will work as expected if it is installed.
   # At 8:000:00 UTC check if a reboot-required package was installed

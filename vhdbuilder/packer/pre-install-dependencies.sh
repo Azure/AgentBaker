@@ -34,7 +34,29 @@ fi
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
+if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+  dnf_install 30 1 600 authselect libselinux-utils rsyslog || exit "$ERR_APT_INSTALL_TIMEOUT"
+  # AKS owns forwarding rules and retains the POC's permissive SELinux policy.
+  if [ "$(getenforce)" != "Disabled" ]; then
+    setenforce 0 || exit 1
+    sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config || exit 1
+  fi
+  if rpm -q firewalld >/dev/null 2>&1; then
+    systemctl disable --now firewalld.service || exit "$ERR_SYSTEMCTL_START_FAIL"
+    systemctl mask firewalld.service || exit "$ERR_SYSTEMCTL_MASK_FAIL"
+  fi
+fi
+
 copyPackerFiles
+
+if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+  authselect enable-feature with-faillock || exit 1
+  authselect enable-feature with-pwhistory || exit 1
+  install -d -m 755 /etc/security/pwquality.conf.d
+  printf 'retry=3\n' > /etc/security/pwquality.conf.d/99-aks.conf
+  printf 'remember=5\n' > /etc/security/pwhistory.conf
+  chmod 600 /etc/security/pwhistory.conf
+fi
 
 # Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
 if isMinimalImage && isUbuntu "$OS"; then
