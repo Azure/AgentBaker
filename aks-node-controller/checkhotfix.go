@@ -54,6 +54,11 @@ const (
 	// the LPS Authorization token. IMDS is reachable pre-kubelet (the same primitive Secure
 	// TLS Bootstrap uses), so this works before any kube credential exists.
 	imdsAttestedDocURL = "http://169.254.169.254/metadata/attested/document?api-version=2025-04-07"
+
+	// imdsInstanceComputeURL returns the IMDS compute metadata, whose resourceId is sent to the
+	// LPS as a lookup hint. It is unsigned: the LPS trusts it only after confirming the VM it
+	// names carries the vmId from the signed attested document.
+	imdsInstanceComputeURL = "http://169.254.169.254/metadata/instance/compute?api-version=2025-04-07&format=json"
 )
 
 // Timeout tuning for the IMDS and LPS fetches. The generic transport/retry mechanics live in
@@ -369,12 +374,58 @@ func fetchIMDSAttestedToken(ctx context.Context) (string, error) {
 // fetchIMDSAttestedTokenOnce performs a single IMDS attested-document GET and returns the
 // document signature.
 func fetchIMDSAttestedTokenOnce(ctx context.Context) (string, error) {
+	var doc struct {
+		Signature string `json:"signature"`
+	}
+	if err := getIMDSJSON(ctx, imdsAttestedDocURL, &doc); err != nil {
+		return "", err
+	}
+	if doc.Signature == "" {
+		return "", fmt.Errorf("imds attested document had empty signature")
+	}
+	return doc.Signature, nil
+}
+
+// vmResourceID returns this VM's ARM resource ID, sent to the LPS so it can look the VM up
+// directly instead of enumerating the node resource group. The fetch is overridable for
+// testing via App.fetchVMResourceID.
+func (a *App) vmResourceID(ctx context.Context) (string, error) {
+	if a.fetchVMResourceID != nil {
+		return a.fetchVMResourceID(ctx)
+	}
+	return fetchIMDSVMResourceID(ctx)
+}
+
+// fetchIMDSVMResourceID queries IMDS compute metadata for the VM's resource ID, with the same
+// retry budget as the attested-token fetch.
+func fetchIMDSVMResourceID(ctx context.Context) (string, error) {
+	return common.RetryStringFetch(ctx, imdsMaxAttempts, fetchIMDSVMResourceIDOnce)
+}
+
+// fetchIMDSVMResourceIDOnce performs a single IMDS compute-metadata GET and returns the
+// resourceId.
+func fetchIMDSVMResourceIDOnce(ctx context.Context) (string, error) {
+	var compute struct {
+		ResourceID string `json:"resourceId"`
+	}
+	if err := getIMDSJSON(ctx, imdsInstanceComputeURL, &compute); err != nil {
+		return "", err
+	}
+	if compute.ResourceID == "" {
+		return "", fmt.Errorf("imds compute metadata had empty resourceId")
+	}
+	return compute.ResourceID, nil
+}
+
+// getIMDSJSON performs a single IMDS GET, bounded by imdsFetchTimeout, and decodes the JSON
+// response into out.
+func getIMDSJSON(ctx context.Context, url string, out any) error {
 	ctx, cancel := context.WithTimeout(ctx, imdsFetchTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imdsAttestedDocURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return err
 	}
 	req.Header.Set("Metadata", "true")
 
@@ -391,26 +442,17 @@ func fetchIMDSAttestedTokenOnce(ctx context.Context) (string, error) {
 	}
 	resp, err := imdsClient.Do(req)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return "", err
+		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("imds returned status %d", resp.StatusCode)
+		return fmt.Errorf("imds returned status %d", resp.StatusCode)
 	}
-	var doc struct {
-		Signature string `json:"signature"`
-	}
-	if err := json.Unmarshal(body, &doc); err != nil {
-		return "", err
-	}
-	if doc.Signature == "" {
-		return "", fmt.Errorf("imds attested document had empty signature")
-	}
-	return doc.Signature, nil
+	return json.Unmarshal(body, out)
 }
 
 // parseHotfixConfig extracts the hotfix pointer from an LPS response body. The body is the
