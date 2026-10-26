@@ -34,6 +34,7 @@ BASH_ONLY_LIST=$(cat <<'EOF'
 ./vhdbuilder/packer/publish-generalized-cvm-if-required.sh
 ./vhdbuilder/packer/ubuntu-2604-cvm/trim-2604-cvm-packages.sh
 ./parts/linux/cloud-init/artifacts/npd-update.sh
+./vhdbuilder/packer/acl-extensions.sh
 ./parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh
 EOF
 )
