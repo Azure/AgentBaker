@@ -40,13 +40,36 @@ installGPUDriverImage() {
 # three known codes: 1 (MIG mode on with no MIG instances, which never succeeds), 2 (panic before the
 # driver userspace is ready), 127 (nvidia-smi missing on pre-reorder aks-gpu images). Anything else
 # still fails the unit. GPU pods reach the device via containerd's nvidia-container-runtime, not CDI.
+#
+# Grace-Blackwell also needs a wider START timeout. nvidia-container-toolkit 1.19.1 left this
+# Type=oneshot unit at systemd's oneshot default of TimeoutStartSec=infinity; 1.20.1 (aks-gpu #177)
+# ships /usr/lib/systemd/system/nvidia-cdi-refresh.service.d/10-container-engines.conf which orders
+# the container engines after the unit AND pins TimeoutStartSec=90s. On GB200/GB300 the unit's
+# `nvidia-ctk cdi generate` is slow -- ~80s to enumerate the GPUs + driver libs/firmware over the
+# arm64 Grace NVLink/nvml path, plus a cold ~30s `nvidia-smi -L` precheck (>90s total) -- so systemd
+# SIGTERMs it. A timeout is result=timeout (SIGTERM), NOT one of the tolerated SuccessExitStatus
+# codes, so the unit still fails and install.sh's `systemctl restart` returns non-zero (CSE 84).
+# x86 generates in <1s (measured: 8x H200 cdi generate <1s), so it keeps the 90s default.
+#
+# The timeout override lives in a SEPARATE, higher-sorted drop-in. systemd merges drop-ins in lexical
+# filename order (last wins) across all dirs, so to beat the toolkit's 10-container-engines.conf our
+# file must sort AFTER it -- hence the 90- prefix. (A 10-aks-* name sorts before 10-container-engines
+# and loses -- verified: it leaves TimeoutStartUSec at 90s.) Verified live on GB300 that the 90- file
+# raises TimeoutStartUSec 90s -> 5min.
 NVIDIA_CDI_REFRESH_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/90-aks-cdi-refresh-timeout.conf"
+NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC="${NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC:-300}"
 
 configureNvidiaCDIRefresh() {
     mkdir -p "$(dirname "$NVIDIA_CDI_REFRESH_DROP_IN")" || return 1
     printf '[Service]\nSuccessExitStatus=1 2 127\n' > "$NVIDIA_CDI_REFRESH_DROP_IN" || return 1
-    # Drop-ins are read when systemd loads a unit, so writing this before the toolkit is installed
-    # means the unit picks it up on its very first start.
+    # arm64 Grace-Blackwell (GB200/GB300) only: widen the start timeout so the slow cdi generate can
+    # finish. x86 generates in <1s, so leave it at the systemd default (no file written there).
+    if [ "$(getCPUArch)" = "arm64" ]; then
+        printf '[Service]\nTimeoutStartSec=%s\n' "$NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC" > "$NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN" || return 1
+    fi
+    # Drop-ins are read when systemd loads a unit, so writing these before the toolkit is installed
+    # means the unit picks them up on its very first start.
     systemctl daemon-reload || true
 }
 
