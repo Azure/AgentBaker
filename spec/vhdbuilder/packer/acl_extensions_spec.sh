@@ -62,8 +62,14 @@ Describe 'ACL extension capture'
         .provisioners[0].source == "vhdbuilder/packer/acl-extensions.sh" and
         (.provisioners[1].inline[0] | endswith(" start")) and
         .provisioners[2].inline[0] == "sudo mkdir -p /opt/azure/containers" and
-        (.provisioners[-1].inline[-1] | contains("acl-extensions.sh finish")) and
-        (.provisioners[-1].inline[-2] | contains("/boot/flatcar/first_boot"))
+        (.provisioners[-5].inline[-1] | contains("acl-extensions.sh finish")) and
+        (.provisioners[-5].inline[-2] | contains("/boot/flatcar/first_boot")) and
+        (.provisioners[-4:] | map({type, direction, source, destination})) == [
+          {type: "file", direction: "download", source: "/var/lib/extensions/aks-opt.raw", destination: "aks-opt.raw"},
+          {type: "file", direction: "download", source: "/var/lib/confexts/aks-etc.raw", destination: "aks-etc.raw"},
+          {type: "file", direction: "download", source: "/var/log/aks-opt.files.txt", destination: "aks-opt.files.txt"},
+          {type: "file", direction: "download", source: "/var/log/aks-etc.files.txt", destination: "aks-etc.files.txt"}
+        ]
       ' "$template" >/dev/null || return 1
     done
   }
@@ -71,6 +77,51 @@ Describe 'ACL extension capture'
   It 'captures both architectures before provisioning through final cleanup'
     When call validate_templates
     The status should be success
+    The output should be blank
+  End
+
+  validate_listings() {
+    unshare --mount --propagation private bash -s -- "$TEST_ROOT" "$PWD" <<'SCRIPT'
+set -euo pipefail
+source "$2/vhdbuilder/packer/acl-extensions.sh"
+root="$1/listings"
+for hierarchy in opt etc; do
+    name=aks-opt
+    [[ "$hierarchy" != etc ]] || name=aks-etc
+    mkdir -p "$root/$name/$hierarchy/directory"
+    printf 'payload\n' > "$root/$name/$hierarchy/file with spaces"
+    chmod 751 "$root/$name/$hierarchy/file with spaces"
+    chown 12345:12346 "$root/$name/$hierarchy/file with spaces"
+    ln -s 'file with spaces' "$root/$name/$hierarchy/link"
+    mknod "$root/$name/$hierarchy/deleted" c 0 0
+    writeExtensionRelease "$root/$name" "$hierarchy" "$name"
+    buildExtensionImage "$root/$name" "$root/$name.raw"
+    before=$(sha256sum "$root/$name.raw")
+    writeExtensionListing "$root/$name.raw" "$root/$name.files.txt"
+    test "$before" = "$(sha256sum "$root/$name.raw")"
+    grep -F "# Image: $name.raw" "$root/$name.files.txt" >/dev/null
+    grep -F "./$hierarchy/directory" "$root/$name.files.txt" >/dev/null
+    grep -F "./$hierarchy/file\\ with\\ spaces" "$root/$name.files.txt" | grep -E '\-rwxr-x--x.*12345.*12346' >/dev/null
+    grep -F "./$hierarchy/link -> file\\ with\\ spaces" "$root/$name.files.txt" >/dev/null
+    grep -F "./$hierarchy/deleted" "$root/$name.files.txt" | grep -E 'c.*0,[[:space:]]+0' >/dev/null
+    grep -F "extension-release.$name" "$root/$name.files.txt" >/dev/null
+    grep -F './lost+found' "$root/$name.files.txt" >/dev/null
+    test "$(stat -c %a "$root/$name.files.txt")" = 644
+done
+SCRIPT
+  }
+
+  It 'lists actual sysext and confext image entries without modifying the images'
+    Skip if 'root is required for isolated mount namespace testing' [ "$(id -u)" != 0 ]
+    When call validate_listings
+    The status should be success
+    The output should be blank
+  End
+
+  It 'fails if an extension image cannot be mounted for listing'
+    mount() { return 1; }
+    When call writeExtensionListing "$TEST_ROOT/missing.raw" "$TEST_ROOT/missing.files.txt"
+    The status should be failure
     The output should be blank
   End
 
