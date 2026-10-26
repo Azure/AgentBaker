@@ -9,7 +9,8 @@ stub() {
 downloadSysextFromVersion() {
     local seName=$1
     local seURL=$2
-    local downloadDir=${3:-"/opt/${seName}/downloads"}
+    # The cache must be available before /opt is merged from aks-opt.raw.
+    local downloadDir=${3:-"/var/lib/aks-sysext-cache/${seName}/downloads"}
 
     if ! retrycmd_if_failure 120 5 60 oras pull --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" --output "${downloadDir}" "${seURL}"; then
         echo "Failed to download ${seName} system extension from ${seURL}"
@@ -21,7 +22,7 @@ downloadSysextFromVersion() {
 
 matchLocalSysext() {
     local seName=$1 desiredVer=$2 seArch=$3
-    local downloadDir="/opt/${seName}/downloads"
+    local downloadDir="/var/lib/aks-sysext-cache/${seName}/downloads"
     # Try arch-specific versioned filename first (kubelet-style: name-vVER.X-arch.raw)
     local match
     match=$(find "${downloadDir}" -maxdepth 2 -name "${seName}-v${desiredVer}*-${seArch}.raw" -type f 2>/dev/null | sort -V | tail -n1)
@@ -81,7 +82,7 @@ mergeSysexts() {
         shift 3
     done
 
-    systemd-sysext --no-reload refresh
+    systemd-sysext --mutable=auto --no-reload refresh
 }
 
 installDeps() {
