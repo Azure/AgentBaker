@@ -222,6 +222,15 @@ steps:
 
   - bash: |
       set -euo pipefail
+      for name in SIG_IMAGE_NAME SIG_GALLERY_NAME PACKER_BUILD_LOCATION REPLICATIONS IMG_CUSTOMIZER_CONTAINER IMG_CUSTOMIZER_CONTAINER_FALLBACK; do
+        echo "##vso[task.setvariable variable=${name};isOutput=true]${!name:-}"
+      done
+    name: exportAclPublishSettings
+    displayName: Export ACL customization and SIG settings
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+
+  - bash: |
+      set -euo pipefail
       if [ "${BUILDER:-}" = "imagecustomizer" ]; then
         echo "builder is imagecustomizer - VHD is not compatible with prefetch optimization"
         echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
@@ -269,11 +278,16 @@ steps:
     condition: |
       and(
         succeeded(),
-        eq(variables.ENVIRONMENT, 'tme'),
-        eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
         or(
-          eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
-          eq(variables.PREFETCH_COMPATIBLE, 'False')
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          and(
+            eq(variables.ENVIRONMENT, 'tme'),
+            eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+            or(
+              eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
+              eq(variables.PREFETCH_COMPATIBLE, 'False')
+            )
+          )
         )
       )
     displayName: Set Destination Storage Container to Staging
@@ -358,7 +372,7 @@ steps:
         --arg version "${CAPTURED_SIG_VERSION}" \
         --argjson regions "$regions" \
         '{($imageName): {resourceId: $resourceId, version: $version, regions: $regions}}' > "$metadata_file"
-    condition: succeeded()
+    condition: and(succeeded(), ne(variables['OS_SKU'], 'AzureContainerLinux'))
     displayName: Create E2E VHD metadata
     env:
       VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
@@ -369,7 +383,7 @@ steps:
       REPLICATIONS: $(REPLICATIONS)
 
   - task: PublishPipelineArtifact@0
-    condition: succeeded()
+    condition: and(succeeded(), ne(variables['OS_SKU'], 'AzureContainerLinux'))
     displayName: Publish E2E VHD metadata
     inputs:
       artifactName: 'e2e-vhd-metadata-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)'
@@ -597,7 +611,14 @@ steps:
       IMAGE_VERSION: $(IMAGE_VERSION)
 
   - task: PublishPipelineArtifact@1
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+    displayName: Stage ACL publishing info for customization
+    inputs:
+      artifactName: 'acl-vhd-publishing-input-${{ parameters.artifactName }}'
+      targetPath: 'vhd-publishing-info.json'
+
+  - task: PublishPipelineArtifact@1
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), ne(variables['OS_SKU'], 'AzureContainerLinux'))
     displayName: Publish Publishing Info
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'

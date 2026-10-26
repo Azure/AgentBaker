@@ -32,6 +32,9 @@ parameters:
   - name: enableFips
     type: boolean
     default: false
+  - name: publishCosi
+    type: boolean
+    default: true
 
 jobs:
   - job: ${{ parameters.jobName }}
@@ -52,6 +55,12 @@ jobs:
       # variable instead of re-deriving it here, so this job can't diverge
       # from wherever the build job actually put the VHD.
       DESTINATION_STORAGE_CONTAINER: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportDestinationStorageContainer.DESTINATION_STORAGE_CONTAINER'] ]
+      SIG_IMAGE_NAME: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclPublishSettings.SIG_IMAGE_NAME'] ]
+      SIG_GALLERY_NAME: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclPublishSettings.SIG_GALLERY_NAME'] ]
+      PACKER_BUILD_LOCATION: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclPublishSettings.PACKER_BUILD_LOCATION'] ]
+      REPLICATIONS: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclPublishSettings.REPLICATIONS'] ]
+      IMG_CUSTOMIZER_CONTAINER: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclPublishSettings.IMG_CUSTOMIZER_CONTAINER'] ]
+      IMG_CUSTOMIZER_CONTAINER_FALLBACK: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclPublishSettings.IMG_CUSTOMIZER_CONTAINER_FALLBACK'] ]
     steps:
       - checkout: none
 
@@ -64,7 +73,6 @@ jobs:
           echo '##vso[task.setvariable variable=ARCHITECTURE]${{ parameters.architecture }}'
           echo '##vso[task.setvariable variable=ENABLE_FIPS]${{ parameters.enableFips }}'
           echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
-          echo '##vso[task.setvariable variable=IMG_CUSTOMIZER_CONTAINER]mcr.microsoft.com/azurelinux/imagecustomizer:1.5'
         displayName: Setup Build Variables
 
       # This pool's image is minimal, so bootstrap every tool the convert flow
@@ -246,27 +254,15 @@ jobs:
           IMG_CUSTOMIZER_ALLOW_FALLBACK: "true"
           AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
           COSI_CONTAINER: $(COSI_CONTAINER)
+          GENERATE_COSI: ${{ parameters.publishCosi }}
           IMAGE_VERSION: $(IMAGE_VERSION)
 
-      - task: AzureCLI@2
+      - task: DownloadPipelineArtifact@2
+        condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+        displayName: Download ACL publishing input
         inputs:
-          azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
-          scriptType: bash
-          scriptLocation: inlineScript
-          inlineScript: |
-            make -f packer.mk upload-cosi-to-pmc
-        condition: succeeded()
-        displayName: Upload COSI to PMC
-        env:
-          AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
-          COSI_CONTAINER: $(COSI_CONTAINER)
-
-      - task: PublishPipelineArtifact@1
-        condition: succeeded()
-        displayName: Publish COSI Publishing Info
-        inputs:
-          artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
-          targetPath: 'cosi-publishing-info.json'
+          artifact: 'acl-vhd-publishing-input-${{ parameters.artifactName }}'
+          path: '$(Build.SourcesDirectory)/acl-publishing-input'
 
       - task: AzureCLI@2
         inputs:
@@ -274,12 +270,63 @@ jobs:
           scriptType: bash
           scriptLocation: inlineScript
           inlineScript: |
-            echo "Copying ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd to immutable storage container"
+            ./vhdbuilder/packer/imagecustomizer/scripts/publish-acl-image.sh
+        displayName: Publish customized ACL SIG and E2E metadata
+        env:
+          RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+          VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
+          E2E_METADATA_DIR: $(Build.ArtifactStagingDirectory)/e2e-vhd-metadata
+          ACL_PUBLISHING_INPUT: $(Build.SourcesDirectory)/acl-publishing-input/vhd-publishing-info.json
+          GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish customized ACL E2E VHD metadata
+        inputs:
+          artifactName: 'e2e-vhd-metadata-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)'
+          targetPath: '$(Build.ArtifactStagingDirectory)/e2e-vhd-metadata/${{ parameters.artifactName }}.json'
+
+      - task: PublishPipelineArtifact@1
+        condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+        displayName: Publish customized ACL VHD publishing info
+        inputs:
+          artifactName: 'publishing-info-${{ parameters.artifactName }}'
+          targetPath: 'vhd-publishing-info.json'
+
+      - ${{ if eq(parameters.publishCosi, true) }}:
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: $(COSI_PMC_SERVICE_CONNECTION)
+            scriptType: bash
+            scriptLocation: inlineScript
+            inlineScript: |
+              make -f packer.mk upload-cosi-to-pmc
+          condition: succeeded()
+          displayName: Upload COSI to PMC
+          env:
+            AFD_UPLOAD_ENDPOINT: $(AFD_UPLOAD_ENDPOINT)
+            COSI_CONTAINER: $(COSI_CONTAINER)
+
+        - task: PublishPipelineArtifact@1
+          condition: succeeded()
+          displayName: Publish COSI Publishing Info
+          inputs:
+            artifactName: 'cosi-publishing-info-${{ parameters.artifactName }}'
+            targetPath: 'cosi-publishing-info.json'
+
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            set -euo pipefail
+            if [[ "${DESTINATION_STORAGE_CONTAINER%/}" == "${CLASSIC_BLOB%/}" ]]; then
+              echo "Customized VHD is already in its final container"
+              exit 0
+            fi
             export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
             export AZCOPY_CONCURRENCY_VALUE="AUTO"
-            az storage blob copy start --account-name "$STORAGE_ACCOUNT_NAME" --destination-blob "${CAPTURED_SIG_VERSION}.vhd" --destination-container "$VHD_CONTAINER_NAME" --source-uri "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --auth-mode login || exit 1
-            echo "Successfully copied to immutable container"
-            # Remove old VHD from staging container after copy to immutable container is complete
+            azcopy copy "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --blob-type=PageBlob --overwrite=false
             azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
-        condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'))
+        condition: succeeded()
         displayName: Copy to Immutable Storage Container

@@ -1,0 +1,17 @@
+storage:
+  reinitializeVerity: all
+os:
+  uki:
+    mode: modify
+  additionalFiles:
+    - source: opt.mount
+      destination: /usr/lib/systemd/system/opt.mount
+      permissions: 644
+scripts:
+  finalizeCustomization:
+    - path: scripts/fold-aks-content.sh
+      interpreter: /bin/bash
+previewFeatures:
+  - preview-distro-version
+  - uki
+  - reinitialize-verity

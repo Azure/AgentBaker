@@ -48,9 +48,15 @@ required_env_vars=(
     "DESTINATION_STORAGE_CONTAINER"
     "CAPTURED_SIG_VERSION"
     "IMG_CUSTOMIZER_CONTAINER"
-    "AFD_DOWNLOAD_HOSTNAME"
-    "COSI_CONTAINER"
 )
+GENERATE_COSI="${GENERATE_COSI:-true}"
+if [[ "${GENERATE_COSI,,}" == "true" ]]; then
+    required_env_vars+=("AFD_DOWNLOAD_HOSTNAME" "COSI_CONTAINER")
+fi
+if [[ "${OS_SKU:-}" != "AzureContainerLinux" ]]; then
+    echo "ACL overlay customization must not run for other OS SKUs" >&2
+    exit 1
+fi
 
 for v in "${required_env_vars[@]}"
 do
@@ -81,7 +87,7 @@ LOCAL_VHD="$WORK_DIR/${CAPTURED_SIG_VERSION}.vhd"
 LOCAL_COSI="$WORK_DIR/out/${CAPTURED_SIG_VERSION}.cosi"
 
 COSI_NAME="${CAPTURED_SIG_VERSION}.cosi"
-COSI_DOWNLOAD_URL="https://${AFD_DOWNLOAD_HOSTNAME}/${COSI_CONTAINER}/${COSI_NAME}"
+COSI_DOWNLOAD_URL="https://${AFD_DOWNLOAD_HOSTNAME:-}/${COSI_CONTAINER:-}/${COSI_NAME}"
 
 echo "Setting azcopy environment variables"
 export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
@@ -144,6 +150,32 @@ if ! docker pull --platform "${IMG_CUSTOMIZER_PLATFORM}" "${IMG_CUSTOMIZER_REF}"
     fi
 fi
 
+CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../acl" && pwd)"
+echo "Folding AKS content into the ACL /usr baseline"
+docker run \
+    --platform "${IMG_CUSTOMIZER_PLATFORM}" \
+    --rm \
+    --privileged=true \
+    -v "$WORK_DIR:/convert" \
+    -v "$WORK_DIR/build:/build" \
+    -v "$CONFIG_DIR:/config:ro" \
+    "${IMG_CUSTOMIZER_REF}" \
+    customize \
+        --log-level debug \
+        --build-dir /build \
+        --config-file /config/acl.yml \
+        --image-file "/convert/${CAPTURED_SIG_VERSION}.vhd" \
+        --output-image-file "/convert/out/${CAPTURED_SIG_VERSION}.vhd" \
+        --output-image-format vhd-fixed
+mv "$WORK_DIR/out/${CAPTURED_SIG_VERSION}.vhd" "$LOCAL_VHD"
+
+# PR builds need the customized SIG for E2E, not a production PMC upload.
+if [[ "${GENERATE_COSI,,}" != "true" ]]; then
+    azcopy copy "$LOCAL_VHD" "$VHD_BLOB_URL" \
+        --blob-type=PageBlob --overwrite=true
+    exit 0
+fi
+
 # No -v /dev:/dev: IC 1.5's entrypoint mounts its own devtmpfs on /dev, so bind-
 # mounting the host's fails "devtmpfs already mounted on /dev" (exit 32) under
 # QEMU. -v /dev:/dev is only for IC v1.4 and below; v1.5+ uses --privileged alone.
@@ -166,6 +198,11 @@ if [ ! -f "$LOCAL_COSI" ]; then
     echo "##vso[task.logissue type=error]COSI file was not created at ${LOCAL_COSI}"
     exit 1
 fi
+
+# Only replace the staged VHD once customization AND COSI conversion succeed.
+# Both published formats and the replacement SIG then use the same baseline.
+azcopy copy "$LOCAL_VHD" "$VHD_BLOB_URL" \
+    --blob-type=PageBlob --overwrite=true
 
 # Move out of WORK_DIR (removed by the cleanup trap) so the upload task can find it.
 STAGED_COSI="$(pwd)/${COSI_NAME}"
