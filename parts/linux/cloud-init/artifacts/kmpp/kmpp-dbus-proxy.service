@@ -4,9 +4,11 @@ After=dbus.service dbus-com.microsoft.kmpp.service
 Wants=dbus-com.microsoft.kmpp.service
 
 [Service]
-# Pods mount /var/run/kmpp/dbus and connect as non-root users.
+# UMask=0000 makes the proxy socket connectable by non-root pod users. Create
+# the directories explicitly as root-owned 0755 (install also resets an
+# existing directory) so other users cannot replace the socket or its parents.
 UMask=0000
-ExecStartPre=/usr/bin/mkdir -p /var/run/kmpp/dbus
+ExecStartPre=/usr/bin/install -d -o root -g root -m 0755 /var/run/kmpp /var/run/kmpp/dbus
 ExecStartPre=/usr/bin/rm -f /var/run/kmpp/dbus/system_bus_socket
 ExecStart=/usr/bin/xdg-dbus-proxy unix:path=/run/dbus/system_bus_socket /var/run/kmpp/dbus/system_bus_socket --filter --talk=com.microsoft.kmpp
 Restart=always
