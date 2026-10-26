@@ -37,9 +37,25 @@ buildExtensionImage() {
     mkfs.ext4 -q -F -m 0 -d "$root" "$destination"
 }
 
+writeExtensionListing() (
+    set -euo pipefail
+    local image=$1 destination=$2 listing_root
+    listing_root=$(mktemp -d) || return
+    trap 'if mountpoint -q "$listing_root"; then umount "$listing_root"; fi; rmdir "$listing_root"' EXIT
+    mount -o loop,ro,noload "$image" "$listing_root" || return
+    {
+        printf '# Image: %s\n' "${image##*/}"
+        printf '# inode blocks mode links owner group size/device mtime path [-> symlink target]\n'
+        # Inspect the actual image, including filesystem-created entries and
+        # whiteout devices, rather than describing only the staging tree.
+        (cd "$listing_root" && LC_ALL=C find . -ls | LC_ALL=C sort -k11)
+    } > "$destination" || return
+    chmod 644 "$destination"
+)
+
 checkExtensionSupport() {
     local command version
-    for command in systemd-sysext systemd-confext mkfs.ext4 truncate du; do
+    for command in systemd-sysext systemd-confext mkfs.ext4 truncate du mount umount mountpoint find sort mktemp; do
         command -v "$command" >/dev/null || {
             echo "ACL extension build requires $command" >&2
             return 1
@@ -132,6 +148,9 @@ finishExtensionCapture() {
     # overlay whiteout devices. Do not translate whiteouts into .wh.* files.
     buildExtensionImage "$state/opt-image" /var/lib/extensions/aks-opt.raw
     buildExtensionImage "$state/etc-image" /var/lib/confexts/aks-etc.raw
+    writeExtensionListing /var/lib/extensions/aks-opt.raw /var/log/aks-opt.files.txt
+    writeExtensionListing /var/lib/confexts/aks-etc.raw /var/log/aks-etc.files.txt
+    chmod 644 /var/lib/extensions/aks-opt.raw /var/lib/confexts/aks-etc.raw
     rm -rf /var/lib/extensions/aks-opt /var/lib/confexts/aks-etc
     systemd-confext --mutable=auto --noexec=false --no-reload merge
     systemd-sysext --mutable=auto --no-reload merge

@@ -189,6 +189,24 @@ steps:
       CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
       IMAGE_VERSION: $(IMAGE_VERSION)
 
+  - bash: |
+      set -euo pipefail
+      artifact_dir="$(Build.ArtifactStagingDirectory)/acl-extensions"
+      mkdir -p "$artifact_dir"
+      for file in aks-opt.raw aks-etc.raw aks-opt.files.txt aks-etc.files.txt; do
+        test -s "$file"
+        cp --sparse=always "$file" "$artifact_dir/"
+      done
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), ne(variables['BUILDER'], 'imagecustomizer'))
+    displayName: Stage ACL extensions
+
+  - task: PublishPipelineArtifact@1
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), ne(variables['BUILDER'], 'imagecustomizer'))
+    displayName: Publish ACL extensions
+    inputs:
+      artifactName: acl-extensions-${{ parameters.artifactName }}
+      targetPath: $(Build.ArtifactStagingDirectory)/acl-extensions
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)

@@ -930,6 +930,30 @@
         "sudo touch /boot/flatcar/first_boot",
         "sudo /bin/bash -eux /home/packer/acl-extensions.sh finish || exit 125"
       ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/var/lib/extensions/aks-opt.raw",
+      "destination": "aks-opt.raw"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/var/lib/confexts/aks-etc.raw",
+      "destination": "aks-etc.raw"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/var/log/aks-opt.files.txt",
+      "destination": "aks-opt.files.txt"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/var/log/aks-etc.files.txt",
+      "destination": "aks-etc.files.txt"
     }
   ],
   "error-cleanup-provisioner": {
