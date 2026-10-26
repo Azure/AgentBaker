@@ -1095,6 +1095,15 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.1.6"
+              }
+            ],
+            "downloadURL": "https://github.com/Azure/aks-secure-tls-bootstrap/releases/download/client/v${version}/linux-${CPU_ARCH}.tar.gz"
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -1243,6 +1252,14 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "2.2.8"
+              }
+            ]
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -1393,6 +1410,14 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.9.1"
+              }
+            ]
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -1524,6 +1549,14 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.36.0"
+              }
+            ]
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -1625,6 +1658,15 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.36.4"
+              }
+            ]
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -1747,6 +1789,15 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.36.4"
+              }
+            ]
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -1966,6 +2017,14 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.57.0"
+              }
+            ]
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -2080,6 +2139,15 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "k8sVersion": "1.36",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.36.8"
+              }
+            ]
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -2536,6 +2604,14 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.12.1"
+              }
+            ]
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -2648,6 +2724,15 @@
           }
         },
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.0.0"
+              }
+            ],
+            "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-azurelinux3.rpm"
+          },
           "v3.0": {
             "versionsV2": [
               {
@@ -2704,6 +2789,15 @@
       "downloadLocation": "/opt/aznfs/downloads",
       "downloadURIs": {
         "azurelinux": {
+          "v4.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "3.0.15-1"
+              }
+            ],
+            "downloadURL": "https://packages.microsoft.com/rhel/9/prod/Packages/a/aznfs-${version}.$(uname -m).rpm"
+          },
           "v3.0": {
             "versionsV2": [
               {
