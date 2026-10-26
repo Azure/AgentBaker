@@ -1694,6 +1694,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(string(payload)).NotTo(ContainSubstring("/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg"))
 		Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
 		Expect(string(payload)).To(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
+		Expect(string(payload)).To(ContainSubstring("if [ -s /sys/class/dmi/id/product_uuid ]; then"))
 		Expect(string(payload)).To(ContainSubstring("cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned"))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(BeEmpty())
 	})

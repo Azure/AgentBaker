@@ -406,7 +406,6 @@ startNvidiaManagedExpServices() {
             # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
             #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
             #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
-            #
             # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
             # Otherwise, we default to "single" which is the safer/simpler option.
             # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
@@ -447,7 +446,18 @@ EOF
         local NODE_NAME_DRA
         NODE_NAME_DRA=$(echo "${NODE_NAME}" | tr '[:upper:]' '[:lower:]')
 
-        tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
+        # If either GPU_INSTANCE_PROFILE or NVIDIA_MIG_PROFILE_LAYOUT is set, start the DRA driver after MIG is ready.
+        if [ -n "${GPU_INSTANCE_PROFILE}" ] || [ -n "${NVIDIA_MIG_PROFILE_LAYOUT}" ]; then
+            tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
+[Unit]
+Requires=kubelet.service
+After=mig-partition.service kubelet.service
+[Service]
+ExecStart=
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME_DRA}
+EOF
+        else
+            tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
 [Unit]
 Requires=kubelet.service
 After=kubelet.service
@@ -455,7 +465,7 @@ After=kubelet.service
 ExecStart=
 ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME_DRA}
 EOF
-
+        fi
         # Reload systemd to pick up the override
         systemctl daemon-reload
 
@@ -537,5 +547,3 @@ EOF
     # path and treat a slow/failed start as non-fatal.
     logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30" || echo "warning: nvidia-dcgm-exporter could not be enqueued; GPU metrics will start asynchronously"
 }
-
-#EOF

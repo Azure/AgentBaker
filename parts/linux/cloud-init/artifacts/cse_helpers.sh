@@ -690,10 +690,55 @@ waitForContainerdReady() {
     fi
 }
 
+# A unit that isn't installed is not an error, a unit that resists stop/disable is.
+# The optional second argument enables SSH telemetry without changing other callers.
 systemctlDisableAndStop() {
-    if systemctl cat "$1" &>/dev/null; then
-        systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
-        systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
+    local unit=$1 attempt_id=${2:-} result=0
+    local cat_result=0 stop_result=null disable_result=null
+    local start_time
+    if [ -n "$attempt_id" ]; then
+        start_time=$(date -u +"%F %T.%3N")
+        emitSSHDisableEvent "$attempt_id" Started "$unit" "$start_time" null '{}' ||
+            echo "WARNING: could not emit SSH disable start event for $unit" >&2
+    fi
+    if systemctl cat "$unit" &>/dev/null; then
+        stop_result=0
+        systemctl_stop 20 5 25 "$unit" || { stop_result=$?; echo "$unit could not be stopped"; result=1; }
+        disable_result=0
+        systemctl_disable 20 5 25 "$unit" || { disable_result=$?; echo "$unit could not be disabled"; result=1; }
+    else
+        cat_result=$?
+    fi
+    if [ -n "$attempt_id" ]; then
+        local details
+        if details=$(jq -cn \
+                        --argjson results "[$cat_result,$stop_result,$disable_result]" \
+                        '$results | {CatExitCode: .[0], StopExitCode: .[1], DisableExitCode: .[2], Skipped: (.[0] != 0)}'); then
+            emitSSHDisableEvent "$attempt_id" Completed "$unit" "$start_time" "$result" "$details" ||
+                echo "WARNING: could not emit SSH disable result event for $unit" >&2
+        else
+            echo "WARNING: could not serialize SSH disable result for $unit" >&2
+        fi
+    fi
+    return "$result"
+}
+
+emitSSHDisableEvent() {
+        local task="AKS.CSE.disableSSH" event_file
+        [ -z "$3" ] || task="${task}.unit"
+    mkdir -p "$EVENTS_LOGGING_DIR" || return 1
+    event_file=$(mktemp "${EVENTS_LOGGING_DIR%/}/../.ssh-disable.XXXXXX") || return 1
+    if ! jq -cn \
+                --arg Timestamp "$4" --arg OperationId "$(date -u +"%F %T.%3N")" --arg TaskName "$task" \
+                --arg AttemptId "$1" --arg Phase "$2" --arg Unit "$3" \
+                --argjson ExitCode "$5" --argjson Details "$6" \
+                '{Timestamp: $Timestamp, OperationId: $OperationId, TaskName: $TaskName, Version: "1.23", EventPid: 0, EventTid: 0,
+          EventLevel: (if ($ExitCode // 0) != 0 then "Error" else "Informational" end),
+                    Message: ({AttemptId: $AttemptId, Phase: $Phase, Unit: $Unit,
+                        ExitCode: $ExitCode, SchemaVersion: 1} + $Details | tojson)}' > "$event_file" ||
+        ! mv "$event_file" "${EVENTS_LOGGING_DIR%/}/$(date +%s%N)${BASHPID:-$$}${RANDOM}.json"; then
+        rm -f "$event_file"
+        return 1
     fi
 }
 
@@ -855,7 +900,8 @@ isARM64() {
 
 isRegistryUrl() {
     local binary_url=$1
-    registry_regex='^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(\/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*:[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$' # regex copied from https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pull
+    # regex copied from https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pull
+    registry_regex='^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(\/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*:[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$'
     # shellcheck disable=SC3010
     if [[ ${binary_url} =~ $registry_regex ]]; then # check if the binary_url is in the format of mcr.microsoft.com/componant/binary:1.0"
         return 0 # true
@@ -1635,14 +1681,12 @@ function get_sandbox_image_from_containerd_config() {
 # kube-reserved and system-reserved enforcement tiers (Node Memory Hardening F2/F5).
 # It MUST be called before kubelet starts so that /kubereserved.slice and /system.slice
 # exist and are managed by systemd before the first kubelet enforcement pass.
-#
 # The function:
 #   - Asserts cgroupv2 unified hierarchy (cgroupv1 is not supported by this feature
 #     because mixed/legacy hierarchies cannot reliably enforce per-slice MemoryMax).
 #   - Drops a /etc/systemd/system/kubereserved.slice unit (system.slice ships with systemd).
 #   - Triggers `systemctl daemon-reload` and `systemctl start kubereserved.slice` so the
 #     cgroup is materialised at /sys/fs/cgroup/kubereserved.slice prior to kubelet boot.
-#
 # Inputs (env, all optional — the function is a no-op if the RP did not opt in):
 #   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kubereserved.slice"
 #   SYSTEM_RESERVED_CGROUP  — absolute cgroup name, e.g. "/system.slice"
@@ -1652,7 +1696,6 @@ function get_sandbox_image_from_containerd_config() {
 # from KUBELET_FLAGS as a fallback. Both vars are unset (empty string) when the RP did
 # not opt the pool into Node Memory Hardening, which keeps ensureKubeletCgroupHierarchy
 # a no-op for non-hardened pools.
-#
 # When kubelet config-file mode is enabled, --kube-reserved-cgroup /
 # --system-reserved-cgroup are filtered out of KUBELET_FLAGS by the RP
 # (TranslatedKubeletConfigFlags) and rendered into kubeletconfig.json instead, so

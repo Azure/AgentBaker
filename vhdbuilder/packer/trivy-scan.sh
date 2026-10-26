@@ -6,7 +6,7 @@ TRIVY_REPORT_ROOTFS_JSON_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-rootfs.json
 TRIVY_REPORT_IMAGE_TABLE_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-images-table.txt
 CVE_DIFF_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-diff.txt
 CVE_LIST_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-list.txt
-TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
+TRIVY_DB_REPOSITORIES="mcr.microsoft.com/oss/v2/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
 # renovate: datasource=rpm depName=trivy registryUrl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata
 TRIVY_PMC_VERSION="0.74.0"

@@ -164,16 +164,12 @@ downloadGPUDrivers() {
   fi
 
     # Mariner CUDA rpm name comes in the following format:
-    #
     # 1. NVIDIA proprietary driver:
     # cuda-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
-    #
     # 2. NVIDIA OpenRM driver:
     # cuda-open[-hwe]-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
-    #
     # 3. NVIDIA GRID (vGPU guest) driver for converged GPU sizes:
     # nvidia-vgpu-guest-driver-%{version}_%{kernel version}.{mariner rpm postfix}
-    #
     # NVIDIA_GPU_DRIVER_TYPE is set by AgentBaker based on the GPU SKU maps in
     # gpu_components.go. Converged sizes get "grid"; RTX PRO 6000 BSE v6 gets
     # "grid-v20" (Ubuntu-only, rejected below); modern CUDA SKUs get "cuda-lts" and legacy
@@ -294,7 +290,8 @@ installNvidiaContainerToolkit() {
 
     # Check if the version is empty and set the default if needed
     if [ -z "$MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION" ]; then
-      echo "nvidia-container-toolkit not found in components.json" # Expected for older VHD with new CSE
+      # Expected for older VHD with new CSE
+      echo "nvidia-container-toolkit not found in components.json"
       MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.16.2"
     fi
 
@@ -844,5 +841,3 @@ downloadContainerdFromVersion() {
 downloadContainerdFromURL() {
     echo "downloadContainerdFromURL not implemented for mariner"
 }
-
-#EOF

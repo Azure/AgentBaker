@@ -319,5 +319,3 @@ disableAKSLocalDNSHostsSetup() {
 
     echo "disableAKSLocalDNSHostsSetup complete"
 }
-
-#EOF

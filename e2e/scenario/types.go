@@ -25,6 +25,7 @@ type Tags struct {
 	NetworkIsolated        bool
 	NonAnonymousACR        bool
 	GPU                    bool
+	CVM                    bool
 	WASM                   bool
 	Kata                   bool
 	BootstrapTokenFallback bool

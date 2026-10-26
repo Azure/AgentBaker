@@ -354,6 +354,7 @@ func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t
 	require.NotContains(t, on, "multipart/mixed")
 	require.Contains(t, on, "# azure-experimental-node-ready")
 	require.Contains(t, on, "touch /var/lib/waagent/experimental_skip_ready_report")
+	require.Contains(t, on, "if [ -s /sys/class/dmi/id/product_uuid ]; then")
 	require.Contains(t, on, "cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned")
 	require.Contains(t, on, AKSNodeConfigFilePath)
 	require.Contains(t, on, "systemctl start --no-block aks-node-controller.service")

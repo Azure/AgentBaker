@@ -88,6 +88,8 @@ type App struct {
 	gpuComponentsFilePath string
 	// readyReportMarkerPath overrides the readiness handoff marker location for testing.
 	readyReportMarkerPath string
+	// goalStateReporter overrides native provisioning status reporting for testing.
+	goalStateReporter func(context.Context, bool, string) error
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
 	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
@@ -677,12 +679,11 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 
 	var cmd *exec.Cmd
 	var err error
-	if flags.NBCCmd != "" {
-		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
-	}
 
 	// If NBC command is provided, we prioritize it over the aks node config for provisioning.
-	if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
+	if flags.NBCCmd != "" {
+		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
+	} else if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
 		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig, a.getGPUComponentsFilePath())
 	}
 	if err != nil {
@@ -726,15 +727,20 @@ func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult
 		return
 	}
 
-	args := []string{readyReportScriptPath, "-v"}
+	description := ""
 	if provisionErr != nil {
-		description := fmt.Sprintf("ExitCode: %s, %s", result.ExitCode, result.Error)
-		args = append(args, "--failure", "--description", description)
+		var err error
+		description, err = provisionFailureDescription(result)
+		if err != nil {
+			slog.Error("failed to format CSE failure description", "error", err)
+			description = fmt.Sprintf("ExitCode: %s, %s", result.ExitCode, result.Error)
+		}
 	}
-	cmd := exec.CommandContext(ctx, "python3", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := a.cmdRun(cmd); err != nil {
+	reporter := a.goalStateReporter
+	if reporter == nil {
+		reporter = reportGoalState
+	}
+	if err := reporter(ctx, provisionErr != nil, description); err != nil {
 		slog.Error("failed to report provisioning status to Azure fabric", "error", err)
 	}
 }
@@ -742,36 +748,36 @@ func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult
 // runProvision encapsulates execution for the "provision" subcommand after CLI parsing.
 // It returns an error describing any failure; callers should pass that error to
 // writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
-func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (*ProvisionResult, error) {
-	provisionResult := &ProvisionResult{}
-	var provisionErr error
+//
+//nolint:nonamedreturns // Deferred panic recovery must update the returned result and error.
+func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (provisionResult *ProvisionResult, provisionErr error) {
+	provisionResult = &ProvisionResult{}
 
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				slog.Error("panic recovered in runProvision", "panic", r)
-				provisionResult.ExitCode = strconv.Itoa(240)
-				provisionResult.Error = fmt.Sprintf("panic during provisioning: %v", r)
-				provisionErr = fmt.Errorf("panic during provisioning: %v", r)
-				a.writeCompleteFileOnError(provisionResult, provisionErr)
-			}
-		}()
-
-		if flags.ProvisionConfig == "" && flags.NBCCmd == "" {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic recovered in runProvision", "panic", r)
 			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = "--provision-config or --nbc-cmd is required"
-			provisionErr = errors.New(provisionResult.Error)
-			return
+			provisionResult.Error = fmt.Sprintf("panic during provisioning: %v", r)
+			provisionErr = fmt.Errorf("panic during provisioning: %v", r)
+			a.writeCompleteFileOnError(provisionResult, provisionErr)
 		}
-		if dryRun {
-			a.cmdRun = cmdRunnerDryRun
+		if !dryRun {
+			a.reportProvisionStatus(ctx, provisionResult, provisionErr)
 		}
-		provisionResult, provisionErr = a.Provision(ctx, flags)
 	}()
 
-	if !dryRun {
-		a.reportProvisionStatus(ctx, provisionResult, provisionErr)
+	if flags.ProvisionConfig == "" && flags.NBCCmd == "" {
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = "--provision-config or --nbc-cmd is required"
+		provisionErr = errors.New(provisionResult.Error)
+		return provisionResult, provisionErr
 	}
+
+	if dryRun {
+		a.cmdRun = cmdRunnerDryRun
+	}
+	provisionResult, provisionErr = a.Provision(ctx, flags)
+
 	return provisionResult, provisionErr
 }
 

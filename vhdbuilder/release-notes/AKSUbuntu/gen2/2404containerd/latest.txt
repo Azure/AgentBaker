@@ -1,52 +1,52 @@
-Starting build on  Fri Oct 16 21:09:47 UTC 2026
+Starting build on  Fri Oct 23 00:27:31 UTC 2026
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.3.4
   - aks-secure-tls-bootstrap-client package version 1.1.4-ubuntu24.04u2 (requested 1.1.4)
   - aks-secure-tls-bootstrap-client version 1.1.4
-  - moby-runc package version 1.4.3-ubuntu24.04u36 (requested 1.4.3)
+  - moby-runc package version 1.4.3-ubuntu24.04u37 (requested 1.4.3)
   - runc version 1.4.3
-  - moby-containerd package version 2.3.3-ubuntu24.04u3 (requested 2.3.3)
-  - containerd version 2.3.3
+  - moby-containerd package version 2.3.7-ubuntu24.04u3 (requested 2.3.7)
+  - containerd version 2.3.7
   - CNI plugin version 1.6.2
-  - containernetworking-plugins package version 1.9.1-ubuntu24.04u51 (requested 1.9.1)
+  - containernetworking-plugins package version 1.9.1-ubuntu24.04u55 (requested 1.9.1)
   - containernetworking-plugins version 1.9.1
   - Azure CNI version 1.5.38
   - Azure CNI version 1.6.21
-  - kubernetes-cri-tools package version 1.34.0-ubuntu24.04u38 (requested 1.34.0)
-  - kubelet package version 1.34.11-ubuntu24.04u12 (requested 1.34.11)
+  - kubernetes-cri-tools package version 1.34.0-ubuntu24.04u42 (requested 1.34.0)
+  - kubelet package version 1.34.11-ubuntu24.04u15 (requested 1.34.11)
   - cached kubelet binary at /opt/bin/kubelet-1.34.11
   - kubelet version 1.34.11
-  - kubelet package version 1.34.10-ubuntu24.04u17 (requested 1.34.10)
+  - kubelet package version 1.34.10-ubuntu24.04u20 (requested 1.34.10)
   - cached kubelet binary at /opt/bin/kubelet-1.34.10
   - kubelet version 1.34.10
-  - kubelet package version 1.35.8-ubuntu24.04u9 (requested 1.35.8)
+  - kubelet package version 1.35.8-ubuntu24.04u11 (requested 1.35.8)
   - cached kubelet binary at /opt/bin/kubelet-1.35.8
   - kubelet version 1.35.8
-  - kubelet package version 1.35.7-ubuntu24.04u15 (requested 1.35.7)
+  - kubelet package version 1.35.7-ubuntu24.04u18 (requested 1.35.7)
   - cached kubelet binary at /opt/bin/kubelet-1.35.7
   - kubelet version 1.35.7
-  - kubelet package version 1.36.4-ubuntu24.04u8 (requested 1.36.4)
+  - kubelet package version 1.36.4-ubuntu24.04u9 (requested 1.36.4)
   - cached kubelet binary at /opt/bin/kubelet-1.36.4
   - kubelet version 1.36.4
-  - kubelet package version 1.36.3-ubuntu24.04u9 (requested 1.36.3)
+  - kubelet package version 1.36.3-ubuntu24.04u10 (requested 1.36.3)
   - cached kubelet binary at /opt/bin/kubelet-1.36.3
   - kubelet version 1.36.3
-  - kubectl package version 1.34.11-ubuntu24.04u4 (requested 1.34.11)
+  - kubectl package version 1.34.11-ubuntu24.04u5 (requested 1.34.11)
   - cached kubectl binary at /opt/bin/kubectl-1.34.11
   - kubectl version 1.34.11
-  - kubectl package version 1.34.10-ubuntu24.04u10 (requested 1.34.10)
+  - kubectl package version 1.34.10-ubuntu24.04u11 (requested 1.34.10)
   - cached kubectl binary at /opt/bin/kubectl-1.34.10
   - kubectl version 1.34.10
-  - kubectl package version 1.35.8-ubuntu24.04u4 (requested 1.35.8)
+  - kubectl package version 1.35.8-ubuntu24.04u5 (requested 1.35.8)
   - cached kubectl binary at /opt/bin/kubectl-1.35.8
   - kubectl version 1.35.8
-  - kubectl package version 1.35.7-ubuntu24.04u8 (requested 1.35.7)
+  - kubectl package version 1.35.7-ubuntu24.04u9 (requested 1.35.7)
   - cached kubectl binary at /opt/bin/kubectl-1.35.7
   - kubectl version 1.35.7
-  - kubectl package version 1.36.4-ubuntu24.04u3 (requested 1.36.4)
+  - kubectl package version 1.36.4-ubuntu24.04u4 (requested 1.36.4)
   - cached kubectl binary at /opt/bin/kubectl-1.36.4
   - kubectl version 1.36.4
-  - kubectl package version 1.36.3-ubuntu24.04u7 (requested 1.36.3)
+  - kubectl package version 1.36.3-ubuntu24.04u8 (requested 1.36.3)
   - cached kubectl binary at /opt/bin/kubectl-1.36.3
   - kubectl version 1.36.3
   - kubernetes-binaries version v1.33.13
@@ -55,105 +55,107 @@ Components downloaded in this VHD build (some of the below components might get 
   - azure-acr-credential-provider version v1.31.12
   - azure-acr-credential-provider version v1.32.11
   - azure-acr-credential-provider version v1.33.7
-  - ig package version 0.57.0-ubuntu24.04u2 (requested 0.57.0)
+  - ig package version 0.57.0-ubuntu24.04u3 (requested 0.57.0)
   - ig-gadgets package version 0.57.0-ubuntu20.04u1 (requested 0.57.0)
   - ig version 0.57.0
-  - azure-acr-credential-provider package version 1.33.19-ubuntu24.04u2 (requested 1.33.19)
-  - azure-acr-credential-provider version 1.33.19
-  - azure-acr-credential-provider package version 1.34.15-ubuntu24.04u2 (requested 1.34.15)
-  - azure-acr-credential-provider version 1.34.15
-  - azure-acr-credential-provider package version 1.35.10-ubuntu24.04u2 (requested 1.35.10)
-  - azure-acr-credential-provider version 1.35.10
-  - azure-acr-credential-provider package version 1.36.7-ubuntu24.04u1 (requested 1.36.7)
-  - azure-acr-credential-provider version 1.36.7
-  - azure-acr-credential-provider package version 1.37.0-ubuntu24.04u2 (requested 1.37.0)
-  - azure-acr-credential-provider version 1.37.0
-  - nvidia-device-plugin package version 0.19.3-ubuntu24.04u18 (requested 0.19.3)
+  - azure-acr-credential-provider package version 1.33.20-ubuntu24.04u3 (requested 1.33.20)
+  - azure-acr-credential-provider version 1.33.20
+  - azure-acr-credential-provider package version 1.34.16-ubuntu24.04u3 (requested 1.34.16)
+  - azure-acr-credential-provider version 1.34.16
+  - azure-acr-credential-provider package version 1.35.11-ubuntu24.04u3 (requested 1.35.11)
+  - azure-acr-credential-provider version 1.35.11
+  - azure-acr-credential-provider package version 1.36.8-ubuntu24.04u3 (requested 1.36.8)
+  - azure-acr-credential-provider version 1.36.8
+  - azure-acr-credential-provider package version 1.37.1-ubuntu24.04u2 (requested 1.37.1)
+  - azure-acr-credential-provider version 1.37.1
+  - nvidia-device-plugin package version 0.19.3-ubuntu24.04u20 (requested 0.19.3)
   - nvidia-device-plugin version 0.19.3
-  - dra-driver-nvidia-gpu package version 0.5.0-ubuntu24.04u6 (requested 0.5.0)
+  - dra-driver-nvidia-gpu package version 0.5.0-ubuntu24.04u8 (requested 0.5.0)
   - dra-driver-nvidia-gpu version 0.5.0
   - datacenter-gpu-manager-4-core package version 1:4.5.3-1 (requested 4.5.3)
   - datacenter-gpu-manager-4-core version 4.5.3
   - datacenter-gpu-manager-4-proprietary package version 1:4.5.3-1 (requested 4.5.3)
   - datacenter-gpu-manager-4-proprietary version 4.5.3
-  - dcgm-exporter package version 4.8.2-ubuntu24.04u18 (requested 4.8.2)
+  - dcgm-exporter package version 4.8.2-ubuntu24.04u19 (requested 4.8.2)
   - dcgm-exporter version 4.8.2
-  - node-exporter-kubernetes package version 1.12.1-ubuntu24.04u10 (requested 1.12.1)
+  - node-problem-detector-kubernetes package version 0.8.25-ubuntu24.04u25 (requested 0.8.25)
+  - node-problem-detector-aks-config package version 1.0.0-ubuntu24.04u2 (requested 1.0.0)
+  - node-exporter-kubernetes package version 1.12.1-ubuntu24.04u11 (requested 1.12.1)
   - node-exporter version 1.12.1
   - acr-mirror version 1.0.0
   - blobfuse2 version 2.5.5
-  - nvidia-cuda-driver=580.159.04-20260918140533
+  - nvidia-cuda-driver=580.159.04-20261020182457
 Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
   - nvidia-grid-driver=580.178.04-20261006181431
   - bpftrace v0.9.4
 images pre-pulled:
-  - mcr.microsoft.com/containernetworking/azure-ipam:v0.4.0-0
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-32
-  - mcr.microsoft.com/containernetworking/azure-ipam:v0.3.0
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.44-0
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.3-18
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-20
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.7.17-0
+  - mcr.microsoft.com/containernetworking/azure-ipam:v0.3.0
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.7-2
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.7.17-0
+  - mcr.microsoft.com/containernetworking/azure-ipam:v0.4.0-0
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-20
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.44-0
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-25
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-41
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.3-18
   - mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2
-  - mcr.microsoft.com/containernetworking/v2/azure-cni:v1.8.13
-  - mcr.microsoft.com/containernetworking/azure-npm:v1.6.42
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-29
-  - mcr.microsoft.com/containernetworking/v2/azure-cns:v1.8.13
   - mcr.microsoft.com/oss/v2/kubernetes/pause:3.6
-  - mcr.microsoft.com/containernetworking/cilium-log-collector:v0.0.2-0
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.7.17-0
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-29
+  - mcr.microsoft.com/containernetworking/v2/azure-cni:v1.8.13
+  - mcr.microsoft.com/containernetworking/v2/azure-cns:v1.8.13
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.14-260923
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.8-260923
+  - mcr.microsoft.com/containernetworking/azure-npm:v1.6.42
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.12-260811
+  - mcr.microsoft.com/containernetworking/cilium-log-collector:v0.0.2-0
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.8-260923
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.7.17-0
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.6-260811
   - mcr.microsoft.com/containernetworking/azure-cns:v1.6.44-0
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.8.0-ci-prod-09-03-2026-fd42f68c
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b
   - mcr.microsoft.com/containernetworking/azure-iptables-monitor:v0.0.5-0
-  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.32.1-11
   - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.6.1-1
   - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.8.2-11
+  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.32.1-11
   - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.34.15-1
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.33.19-1
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.36.7-1
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.35.10-1
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.35.11-2
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-targetallocator
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-27
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.36.8-2
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.33.20-2
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.34.16-2
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-17
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-22
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-27
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-16
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.37.0-1
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-22
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.37.1-1
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.34.5
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.11
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.7
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.6
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.17.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.18.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.19.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.17.0
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.14-260923
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.8-260923
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.6-260811
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.12-260811
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.10
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.6
   - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.16.0
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.12-260811
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.14-260923
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.7
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.6-260811
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.9
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.8
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.7
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.8-260923
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.15
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.9
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.16
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.8
-  - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.9
   - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.14.1
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-cfg
   - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.33.13-11
+  - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.11-5
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.4-4
   - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.35.8-4
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.4-4
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-cfg
   - bcc-tools
   - libbcc-examples
 Successfully copied coredns binary of v1.14.7-2
@@ -162,18 +164,18 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  60395704 May 27 21:30 /opt/bin/kubectl-1.33.12
 -rwxr-xr-x 1 root root  82022692 Jun 26 00:26 /opt/bin/kubelet-1.33.13
 -rwxr-xr-x 1 root root  60444856 Jun 26 00:26 /opt/bin/kubectl-1.33.13
--rwxr-xr-x 1 root root  61593856 Oct 16 21:19 /opt/bin/kubelet-1.34.11
--rwxr-xr-x 1 root root 102464128 Oct 16 21:19 /opt/bin/kubelet-1.34.10
--rwxr-xr-x 1 root root  60287584 Oct 16 21:19 /opt/bin/kubelet-1.35.8
--rwxr-xr-x 1 root root  60275328 Oct 16 21:19 /opt/bin/kubelet-1.35.7
--rwxr-xr-x 1 root root  61255488 Oct 16 21:19 /opt/bin/kubelet-1.36.4
--rwxr-xr-x 1 root root 102570112 Oct 16 21:19 /opt/bin/kubelet-1.36.3
--rwxr-xr-x 1 root root  93472336 Oct 16 21:19 /opt/bin/kubectl-1.34.11
--rwxr-xr-x 1 root root  93476464 Oct 16 21:19 /opt/bin/kubectl-1.34.10
--rwxr-xr-x 1 root root  89814416 Oct 16 21:19 /opt/bin/kubectl-1.35.8
--rwxr-xr-x 1 root root  89814448 Oct 16 21:19 /opt/bin/kubectl-1.35.7
--rwxr-xr-x 1 root root  90310896 Oct 16 21:20 /opt/bin/kubectl-1.36.4
--rwxr-xr-x 1 root root  90310928 Oct 16 21:20 /opt/bin/kubectl-1.36.3
+-rwxr-xr-x 1 root root  61593856 Oct 23 02:01 /opt/bin/kubelet-1.34.11
+-rwxr-xr-x 1 root root 102464128 Oct 23 02:01 /opt/bin/kubelet-1.34.10
+-rwxr-xr-x 1 root root  60287584 Oct 23 02:01 /opt/bin/kubelet-1.35.8
+-rwxr-xr-x 1 root root  60275328 Oct 23 02:01 /opt/bin/kubelet-1.35.7
+-rwxr-xr-x 1 root root  61255488 Oct 23 02:01 /opt/bin/kubelet-1.36.4
+-rwxr-xr-x 1 root root 102574208 Oct 23 02:01 /opt/bin/kubelet-1.36.3
+-rwxr-xr-x 1 root root  93472336 Oct 23 02:01 /opt/bin/kubectl-1.34.11
+-rwxr-xr-x 1 root root  93476464 Oct 23 02:01 /opt/bin/kubectl-1.34.10
+-rwxr-xr-x 1 root root  89814416 Oct 23 02:01 /opt/bin/kubectl-1.35.8
+-rwxr-xr-x 1 root root  89814448 Oct 23 02:01 /opt/bin/kubectl-1.35.7
+-rwxr-xr-x 1 root root  90310896 Oct 23 02:01 /opt/bin/kubectl-1.36.4
+-rwxr-xr-x 1 root root  90310928 Oct 23 02:01 /opt/bin/kubectl-1.36.3
 === Installed Packages Begin
 Listing...
 acr-mirror/now 1.0.0-1 amd64 [installed,local]
@@ -191,9 +193,9 @@ bash-completion/noble,now 1:2.11-8 all [installed]
 bash/noble,now 5.2.21-2ubuntu4 amd64 [installed]
 bc/noble,now 1.07.1-3ubuntu4 amd64 [installed,automatic]
 bcache-tools/noble,now 1.0.8-5build1 amd64 [installed]
-bind9-dnsutils/noble-security,now 1:9.18.39-0ubuntu0.24.04.8 amd64 [installed]
-bind9-host/noble-security,now 1:9.18.39-0ubuntu0.24.04.8 amd64 [installed,automatic]
-bind9-libs/noble-security,now 1:9.18.39-0ubuntu0.24.04.8 amd64 [installed,automatic]
+bind9-dnsutils/noble-updates,noble-security,now 1:9.18.39-0ubuntu0.24.04.8 amd64 [installed]
+bind9-host/noble-updates,noble-security,now 1:9.18.39-0ubuntu0.24.04.8 amd64 [installed,automatic]
+bind9-libs/noble-updates,noble-security,now 1:9.18.39-0ubuntu0.24.04.8 amd64 [installed,automatic]
 binutils-common/noble-updates,now 2.42-4ubuntu2.10 amd64 [installed,automatic]
 binutils-x86-64-linux-gnu/noble-updates,now 2.42-4ubuntu2.10 amd64 [installed,automatic]
 binutils/noble-updates,now 2.42-4ubuntu2.10 amd64 [installed,automatic]
@@ -207,22 +209,22 @@ busybox-initramfs/noble-updates,noble-security,now 1:1.36.1-6ubuntu3.1 amd64 [in
 busybox-static/noble-updates,noble-security,now 1:1.36.1-6ubuntu3.1 amd64 [installed]
 byobu/noble-updates,now 6.11-0ubuntu1.1 all [installed]
 bzip2/noble-updates,noble-security,now 1.0.8-5.1ubuntu0.1 amd64 [installed,automatic]
-ca-certificates/noble-updates,noble-security,now 20260601~24.04.1 all [installed]
+ca-certificates/noble-updates,noble-security,now 20260816ubuntu0.24.04.1 all [installed]
 ceph-common/noble-updates,noble-security,now 19.2.3-0ubuntu0.24.04.3 amd64 [installed]
 cgroup-lite/noble,now 1.15 all [installed]
 chrony/noble-updates,now 4.5-1ubuntu4.2 amd64 [installed]
-cifs-utils/noble-updates,noble-security,now 2:7.0-2ubuntu0.5 amd64 [installed]
+cifs-utils/noble-updates,noble-security,now 2:7.0-2ubuntu0.6 amd64 [installed]
 cloud-guest-utils/noble,now 0.33-1 all [installed]
-cloud-init/noble-updates,now 26.1-0ubuntu1~24.04.1 all [installed]
+cloud-init/now 26.2-0ubuntu1~24.04.1 all [installed,local]
 cloud-initramfs-copymods/noble-updates,now 0.49~24.04.1 all [installed]
 cloud-initramfs-dyn-netconf/noble-updates,now 0.49~24.04.1 all [installed]
 command-not-found/noble,now 23.04.0 all [installed]
 conntrack/noble,now 1:1.4.8-1ubuntu1 amd64 [installed]
 console-setup-linux/noble-updates,now 1.226ubuntu1.1 all [installed,automatic]
 console-setup/noble-updates,now 1.226ubuntu1.1 all [installed,automatic]
-containerd-accelerated-container-image/noble,now 1.4.5-ubuntu24.04u4 amd64 [installed,automatic]
+containerd-accelerated-container-image/noble,now 1.4.5-ubuntu24.04u7 amd64 [installed,automatic]
 containerd-overlaybd/noble,now 1.0.18-ubuntu24.04u2 amd64 [installed,automatic]
-containernetworking-plugins/noble,now 1.9.1-ubuntu24.04u51 amd64 [installed]
+containernetworking-plugins/noble,now 1.9.1-ubuntu24.04u55 amd64 [installed]
 coreutils/noble-updates,noble-security,now 9.4-3ubuntu6.3 amd64 [installed,automatic]
 cpio/noble-updates,noble-security,now 2.15+dfsg-1ubuntu2.1 amd64 [installed]
 cpp-13-x86-64-linux-gnu/noble-updates,noble-security,now 13.3.0-6ubuntu2~24.04.1 amd64 [installed,automatic]
@@ -235,7 +237,7 @@ cron/noble,now 3.0pl1-184ubuntu2 amd64 [installed]
 cryptsetup-bin/noble-updates,now 2:2.7.0-1ubuntu4.2 amd64 [installed,automatic]
 cryptsetup-initramfs/noble-updates,now 2:2.7.0-1ubuntu4.2 all [installed,automatic]
 cryptsetup/noble-updates,now 2:2.7.0-1ubuntu4.2 amd64 [installed,automatic]
-curl/noble-security,now 8.5.0-2ubuntu10.16 amd64 [installed]
+curl/noble-updates,noble-security,now 8.5.0-2ubuntu10.16 amd64 [installed]
 dash/noble,now 0.5.12-6ubuntu5 amd64 [installed]
 dbus-bin/noble-updates,now 1.14.10-4ubuntu4.1 amd64 [installed,automatic]
 dbus-daemon/noble-updates,now 1.14.10-4ubuntu4.1 amd64 [installed,automatic]
@@ -249,7 +251,7 @@ debianutils/noble,now 5.17build1 amd64 [installed,automatic]
 dhcpcd-base/noble-updates,now 1:10.0.6-1ubuntu3.2 amd64 [installed,automatic]
 diffutils/noble-updates,noble-security,now 1:3.10-1ubuntu0.1 amd64 [installed]
 dirmngr/noble-updates,noble-security,now 2.4.4-2ubuntu17.6 amd64 [installed]
-distro-info-data/noble-updates,noble-security,now 0.72-0ubuntu0.24.04.1 all [installed,automatic]
+distro-info-data/noble-updates,noble-security,now 2026.10.12-0ubuntu0.24.04.1 all [installed,automatic]
 distro-info/noble,now 1.7build1 amd64 [installed,automatic]
 dkms/noble,now 3.0.11-1ubuntu13 all [installed]
 dmeventd/noble-updates,now 2:1.02.185-3ubuntu3.2 amd64 [installed,automatic]
@@ -291,9 +293,9 @@ gcc/noble,now 4:13.2.0-7ubuntu1 amd64 [installed]
 gdisk/noble,now 1.0.10-1build1 amd64 [installed,automatic]
 gettext-base/noble,now 0.21-14ubuntu2 amd64 [installed,automatic]
 gir1.2-girepository-2.0/noble,now 1.80.1-1 amd64 [installed,automatic]
-gir1.2-glib-2.0/noble-updates,noble-security,now 2.80.0-6ubuntu3.9 amd64 [installed,automatic]
-git-man/noble-updates,noble-security,now 1:2.43.0-1ubuntu7.3 all [installed,automatic]
-git/noble-updates,noble-security,now 1:2.43.0-1ubuntu7.3 amd64 [installed]
+gir1.2-glib-2.0/noble-updates,now 2.80.0-6ubuntu3.10 amd64 [installed,automatic]
+git-man/noble-updates,noble-security,now 1:2.43.0-1ubuntu7.4 all [installed,automatic]
+git/noble-updates,noble-security,now 1:2.43.0-1ubuntu7.4 amd64 [installed]
 glusterfs-client/noble-updates,now 11.1-4ubuntu0.1 amd64 [installed]
 glusterfs-common/noble-updates,now 11.1-4ubuntu0.1 amd64 [installed,automatic]
 gnupg-l10n/noble-updates,noble-security,now 2.4.4-2ubuntu17.6 all [installed,automatic]
@@ -321,7 +323,7 @@ htop/noble,now 3.3.0-4build1 amd64 [installed]
 hwdata/noble,now 0.379-1 all [installed,automatic]
 ibverbs-providers/noble-updates,now 50.0-2ubuntu0.2 amd64 [installed,automatic]
 ig-gadgets/now 0.57.0-ubuntu20.04u1 amd64 [installed,local]
-ig/noble,now 0.57.0-ubuntu24.04u2 amd64 [installed]
+ig/noble,now 0.57.0-ubuntu24.04u3 amd64 [installed]
 info/noble,now 7.1-3build2 amd64 [installed]
 init-system-helpers/noble,now 1.66ubuntu1 all [installed]
 init/noble,now 1.66ubuntu1 amd64 [installed]
@@ -347,7 +349,7 @@ klibc-utils/noble-updates,noble-security,now 2.0.13-4ubuntu0.2 amd64 [installed,
 kmod/noble-updates,noble-security,now 31+20240202-2ubuntu7.2 amd64 [installed]
 kpartx/noble-updates,now 0.9.4-5ubuntu8.2 amd64 [installed,automatic]
 krb5-locales/noble-updates,now 1.20.1-6ubuntu2.10 all [installed,automatic]
-kubernetes-cri-tools/noble,now 1.34.0-ubuntu24.04u38 amd64 [installed,upgradable to: 1.37.0-ubuntu24.04u2]
+kubernetes-cri-tools/noble,now 1.34.0-ubuntu24.04u42 amd64 [installed,upgradable to: 1.37.0-ubuntu24.04u5]
 landscape-common/noble-updates,now 24.02-0ubuntu5.7 amd64 [installed]
 less/noble-updates,noble-security,now 590-2ubuntu2.1 amd64 [installed,automatic]
 libacl1/noble-updates,now 2.3.2-1build1.1 amd64 [installed,automatic]
@@ -407,8 +409,8 @@ libcrypt1/noble,now 1:4.4.36-4build1 amd64 [installed,automatic]
 libcryptsetup12/noble-updates,now 2:2.7.0-1ubuntu4.2 amd64 [installed,automatic]
 libctf-nobfd0/noble-updates,now 2.42-4ubuntu2.10 amd64 [installed,automatic]
 libctf0/noble-updates,now 2.42-4ubuntu2.10 amd64 [installed,automatic]
-libcurl3t64-gnutls/noble-security,now 8.5.0-2ubuntu10.16 amd64 [installed,automatic]
-libcurl4t64/noble-security,now 8.5.0-2ubuntu10.16 amd64 [installed,automatic]
+libcurl3t64-gnutls/noble-updates,noble-security,now 8.5.0-2ubuntu10.16 amd64 [installed,automatic]
+libcurl4t64/noble-updates,noble-security,now 8.5.0-2ubuntu10.16 amd64 [installed,automatic]
 libdaxctl1/noble,now 77-2ubuntu2 amd64 [installed,automatic]
 libdb5.3t64/noble,now 5.3.28+dfsg2-7 amd64 [installed,automatic]
 libdbus-1-3/noble-updates,now 1.14.10-4ubuntu4.1 amd64 [installed,automatic]
@@ -452,8 +454,8 @@ libgfchangelog0/noble-updates,now 11.1-4ubuntu0.1 amd64 [installed,automatic]
 libgfrpc0/noble-updates,now 11.1-4ubuntu0.1 amd64 [installed,automatic]
 libgfxdr0/noble-updates,now 11.1-4ubuntu0.1 amd64 [installed,automatic]
 libgirepository-1.0-1/noble,now 1.80.1-1 amd64 [installed,automatic]
-libglib2.0-0t64/noble-updates,noble-security,now 2.80.0-6ubuntu3.9 amd64 [installed,automatic]
-libglib2.0-data/noble-updates,noble-security,now 2.80.0-6ubuntu3.9 all [installed,automatic]
+libglib2.0-0t64/noble-updates,now 2.80.0-6ubuntu3.10 amd64 [installed,automatic]
+libglib2.0-data/noble-updates,now 2.80.0-6ubuntu3.10 all [installed,automatic]
 libglusterfs0/noble-updates,now 11.1-4ubuntu0.1 amd64 [installed,automatic]
 libgmp10/noble-updates,now 2:6.3.0+dfsg-2ubuntu6.1 amd64 [installed,automatic]
 libgnutls30t64/noble-updates,noble-security,now 3.8.3-1.1ubuntu3.6 amd64 [installed,automatic]
@@ -503,7 +505,7 @@ liblsan0/noble-updates,noble-security,now 14.2.0-4ubuntu2~24.04.1 amd64 [install
 liblua5.4-0/noble,now 5.4.6-3build2 amd64 [installed,automatic]
 liblvm2cmd2.03/noble-updates,now 2.03.16-3ubuntu3.2 amd64 [installed,automatic]
 liblz4-1/noble-updates,now 1.9.4-1build1.1 amd64 [installed,automatic]
-liblzma5/noble-updates,noble-security,now 5.6.1+really5.4.5-1ubuntu0.3 amd64 [installed,automatic]
+liblzma5/noble-updates,noble-security,now 5.6.1+really5.4.5-1ubuntu0.4 amd64 [installed,automatic]
 liblzo2-2/noble,now 2.10-2build4 amd64 [installed,automatic]
 libmagic-mgc/noble,now 1:5.45-3build1 amd64 [installed,automatic]
 libmagic1t64/noble,now 1:5.45-3build1 amd64 [installed,automatic]
@@ -536,8 +538,8 @@ libnl-genl-3-200/noble-updates,now 3.7.0-0.3build1.1 amd64 [installed,automatic]
 libnl-route-3-200/noble-updates,now 3.7.0-0.3build1.1 amd64 [installed,automatic]
 libnpth0t64/noble,now 1.6-3.1build1 amd64 [installed,automatic]
 libnspr4/noble,now 2:4.35-1.1build1 amd64 [installed,automatic]
-libnss-systemd/noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
-libnss3/noble-updates,noble-security,now 2:3.98-1ubuntu0.2 amd64 [installed,automatic]
+libnss-systemd/noble-updates,noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
+libnss3/noble-updates,noble-security,now 2:3.98-1ubuntu0.3 amd64 [installed,automatic]
 libntfs-3g89t64/noble-updates,noble-security,now 1:2022.10.3-1.2ubuntu3.2 amd64 [installed,automatic]
 libnuma1/noble-updates,now 2.0.18-1ubuntu0.24.04.1 amd64 [installed,automatic]
 libnvme1t64/noble-updates,now 1.8-3ubuntu1 amd64 [installed,automatic]
@@ -550,7 +552,7 @@ libpam-modules-bin/noble-updates,noble-security,now 1.5.3-5ubuntu5.7 amd64 [inst
 libpam-modules/noble-updates,noble-security,now 1.5.3-5ubuntu5.7 amd64 [installed,automatic]
 libpam-pwquality/noble,now 1.4.5-3build1 amd64 [installed]
 libpam-runtime/noble-updates,noble-security,now 1.5.3-5ubuntu5.7 all [installed,automatic]
-libpam-systemd/noble-security,now 255.4-1ubuntu8.18 amd64 [installed]
+libpam-systemd/noble-updates,noble-security,now 255.4-1ubuntu8.18 amd64 [installed]
 libpam0g/noble-updates,noble-security,now 1.5.3-5ubuntu5.7 amd64 [installed,automatic]
 libparted2t64/noble,now 3.6-4build1 amd64 [installed,automatic]
 libpcap0.8t64/noble-updates,noble-security,now 1.10.4-4.1ubuntu3.1 amd64 [installed,automatic]
@@ -613,8 +615,8 @@ libssl3t64/noble-updates,noble-security,now 3.0.13-0ubuntu3.16 amd64 [installed,
 libstdc++-13-dev/noble-updates,noble-security,now 13.3.0-6ubuntu2~24.04.1 amd64 [installed,automatic]
 libstdc++6/noble-updates,noble-security,now 14.2.0-4ubuntu2~24.04.1 amd64 [installed,automatic]
 libsysfs2/noble,now 2.1.1-6build1 amd64 [installed,automatic]
-libsystemd-shared/noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
-libsystemd0/noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
+libsystemd-shared/noble-updates,noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
+libsystemd0/noble-updates,noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
 libtalloc2/noble,now 2.4.2-1build2 amd64 [installed,automatic]
 libtasn1-6/noble-updates,noble-security,now 4.19.0-3ubuntu0.24.04.2 amd64 [installed,automatic]
 libtcl8.6/noble,now 8.6.14+dfsg-1build1 amd64 [installed,automatic]
@@ -640,7 +642,7 @@ libtss2-tcti-mssim0t64/noble-updates,noble-security,now 4.0.1-7.1ubuntu5.1 amd64
 libtss2-tcti-swtpm0t64/noble-updates,noble-security,now 4.0.1-7.1ubuntu5.1 amd64 [installed,automatic]
 libubsan1/noble-updates,noble-security,now 14.2.0-4ubuntu2~24.04.1 amd64 [installed,automatic]
 libuchardet0/noble,now 0.0.8-1build1 amd64 [installed,automatic]
-libudev1/noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
+libudev1/noble-updates,noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
 libudisks2-0/noble-updates,noble-security,now 2.10.1-6ubuntu1.5 amd64 [installed,automatic]
 libunistring5/noble-updates,now 1.1-2build1.1 amd64 [installed,automatic]
 libunwind8/noble-updates,now 1.6.2-3build1.1 amd64 [installed,automatic]
@@ -652,8 +654,8 @@ libuv1t64/noble,now 1.48.0-1.1build1 amd64 [installed,automatic]
 libvolume-key1/noble,now 0.3.12-7build2 amd64 [installed,automatic]
 libwbclient0/noble-updates,now 2:4.19.5+dfsg-4ubuntu9.8 amd64 [installed,automatic]
 libwrap0/noble,now 7.6.q-33 amd64 [installed]
-libx11-6/noble-security,now 2:1.8.7-1ubuntu0.1 amd64 [installed,automatic]
-libx11-data/noble-security,now 2:1.8.7-1ubuntu0.1 all [installed,automatic]
+libx11-6/noble-updates,noble-security,now 2:1.8.7-1ubuntu0.1 amd64 [installed,automatic]
+libx11-data/noble-updates,noble-security,now 2:1.8.7-1ubuntu0.1 all [installed,automatic]
 libxau6/noble,now 1:1.0.9-1build6 amd64 [installed,automatic]
 libxcb1/noble,now 1.15-1ubuntu2 amd64 [installed,automatic]
 libxdmcp6/noble,now 1:1.1.3-0ubuntu6 amd64 [installed,automatic]
@@ -702,8 +704,8 @@ manpages/noble,now 6.7-2 all [installed]
 mawk/noble,now 1.3.4.20240123-1build1 amd64 [installed,automatic]
 mdadm/noble-updates,now 4.3-1ubuntu2.1 amd64 [installed]
 media-types/noble,now 10.1.0 all [installed]
-moby-containerd/noble,now 2.3.3-ubuntu24.04u3 amd64 [installed,upgradable to: 2.4.1-ubuntu24.04u1]
-moby-runc/noble,now 1.4.3-ubuntu24.04u36 amd64 [installed,upgradable to: 1.6.0~rc.1-ubuntu24.04u5]
+moby-containerd/noble,now 2.3.7-ubuntu24.04u3 amd64 [installed,upgradable to: 2.4.2-ubuntu24.04u3]
+moby-runc/noble,now 1.4.3-ubuntu24.04u37 amd64 [installed,upgradable to: 1.6.0~rc.1-ubuntu24.04u8]
 modemmanager/noble,now 1.23.4-0ubuntu2 amd64 [installed,automatic]
 mokutil/noble,now 0.6.0-2build3 amd64 [installed,automatic]
 motd-news-config/noble-updates,now 13ubuntu10.5 all [installed]
@@ -723,14 +725,16 @@ netplan.io/noble-updates,now 1.1.2-8ubuntu1~24.04.3 amd64 [installed,automatic]
 networkd-dispatcher/noble,now 2.2.4-1 all [installed,automatic]
 nfs-common/noble-updates,now 1:2.6.4-3ubuntu5.1 amd64 [installed]
 nftables/noble-updates,now 1.0.9-1ubuntu0.1 amd64 [installed]
-node-exporter-kubernetes/noble,now 1.12.1-ubuntu24.04u10 amd64 [installed]
+node-exporter-kubernetes/noble,now 1.12.1-ubuntu24.04u11 amd64 [installed]
+node-problem-detector-aks-config/noble,now 1.0.0-ubuntu24.04u2 amd64 [installed]
+node-problem-detector-kubernetes/noble,now 0.8.25-ubuntu24.04u25 amd64 [installed]
 ntfs-3g/noble-updates,noble-security,now 1:2022.10.3-1.2ubuntu3.2 amd64 [installed]
 numactl/noble-updates,now 2.0.18-1ubuntu0.24.04.1 amd64 [installed]
 nvme-cli/noble-updates,now 2.8-1ubuntu0.1 amd64 [installed]
 open-iscsi/noble-updates,now 2.1.9-3ubuntu5.5 amd64 [installed]
-openssh-client/noble-security,now 1:9.6p1-3ubuntu13.20 amd64 [installed]
-openssh-server/noble-security,now 1:9.6p1-3ubuntu13.20 amd64 [installed]
-openssh-sftp-server/noble-security,now 1:9.6p1-3ubuntu13.20 amd64 [installed]
+openssh-client/noble-updates,noble-security,now 1:9.6p1-3ubuntu13.20 amd64 [installed]
+openssh-server/noble-updates,noble-security,now 1:9.6p1-3ubuntu13.20 amd64 [installed]
+openssh-sftp-server/noble-updates,noble-security,now 1:9.6p1-3ubuntu13.20 amd64 [installed]
 openssl/noble-updates,noble-security,now 3.0.13-0ubuntu3.16 amd64 [installed,automatic]
 os-prober/noble,now 1.81ubuntu4 amd64 [installed,automatic]
 overlayroot/noble-updates,now 0.49~24.04.1 all [installed]
@@ -796,7 +800,7 @@ python3-jmespath/noble,now 1.0.1-1 all [installed,automatic]
 python3-json-pointer/noble,now 2.0-0ubuntu1 all [installed]
 python3-jsonpatch/noble,now 1.32-3 all [installed]
 python3-jsonschema/noble,now 4.10.3-2ubuntu1 all [installed]
-python3-jwt/noble-security,now 2.7.0-1ubuntu0.3 all [installed,automatic]
+python3-jwt/noble-updates,noble-security,now 2.7.0-1ubuntu0.4 all [installed,automatic]
 python3-launchpadlib/noble,now 1.11.0-6 all [installed,automatic]
 python3-lazr.restfulclient/noble,now 0.14.6-1 all [installed,automatic]
 python3-lazr.uri/noble,now 1.0.6-3 all [installed,automatic]
@@ -836,7 +840,7 @@ python3-twisted/noble-updates,noble-security,now 24.3.0-1ubuntu0.2 all [installe
 python3-typing-extensions/noble,now 4.10.0-1 all [installed,automatic]
 python3-tz/noble,now 2024.1-2 all [installed]
 python3-update-manager/noble-updates,now 1:24.04.12 all [installed,automatic]
-python3-urllib3/noble-security,now 2.0.7-1ubuntu0.8 all [installed,automatic]
+python3-urllib3/noble-updates,noble-security,now 2.0.7-1ubuntu0.8 all [installed,automatic]
 python3-wadllib/noble,now 1.3.6-5 all [installed,automatic]
 python3-wcwidth/noble,now 0.2.5+dfsg1-1.1ubuntu1 all [installed,automatic]
 python3-yaml/noble,now 6.0.1-2build2 amd64 [installed,automatic]
@@ -870,11 +874,11 @@ sudo/noble-updates,noble-security,now 1.9.15p5-3ubuntu5.24.04.4 amd64 [installed
 symcrypt/noble,now 103.11.0-1 amd64 [installed,automatic]
 sysfsutils/noble,now 2.1.1-6build1 amd64 [installed]
 sysstat/noble,now 12.6.1-2 amd64 [installed]
-systemd-dev/noble-security,now 255.4-1ubuntu8.18 all [installed,automatic]
+systemd-dev/noble-updates,noble-security,now 255.4-1ubuntu8.18 all [installed,automatic]
 systemd-hwe-hwdb/noble-updates,now 255.1.7 all [installed,automatic]
-systemd-resolved/noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
-systemd-sysv/noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
-systemd/noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
+systemd-resolved/noble-updates,noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
+systemd-sysv/noble-updates,noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
+systemd/noble-updates,noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
 sysvinit-utils/noble,now 3.08-6ubuntu3 amd64 [installed,automatic]
 tar/noble-updates,noble-security,now 1.35+dfsg-3ubuntu0.4 amd64 [installed,automatic]
 tcl8.6/noble,now 8.6.14+dfsg-1build1 amd64 [installed,automatic]
@@ -882,18 +886,18 @@ tcl/noble,now 8.6.14build1 amd64 [installed,automatic]
 tcpdump/noble-updates,now 4.99.4-3ubuntu4.24.04.1 amd64 [installed]
 thin-provisioning-tools/noble-updates,now 0.9.0-2ubuntu5.1 amd64 [installed,automatic]
 time/noble,now 1.9-0.2build1 amd64 [installed]
-tmux/noble-updates,now 3.4-1ubuntu0.1 amd64 [installed]
+tmux/noble-updates,now 3.4-1ubuntu0.2 amd64 [installed]
 tpm-udev/noble,now 0.6ubuntu1 all [installed,automatic]
 trace-cmd/noble,now 3.2-1ubuntu2 amd64 [installed]
-tzdata-legacy/noble-updates,now 2026e-0ubuntu0.24.04.1 all [installed,automatic]
-tzdata/noble-updates,now 2026e-0ubuntu0.24.04.1 all [installed,automatic]
+tzdata-legacy/noble-updates,noble-security,now 2026e-0ubuntu0.24.04.1 all [installed,automatic]
+tzdata/noble-updates,noble-security,now 2026e-0ubuntu0.24.04.1 all [installed,automatic]
 ubuntu-keyring/noble,now 2023.11.28.1 all [installed,automatic]
 ubuntu-minimal/noble-updates,now 1.539.2 amd64 [installed]
-ubuntu-pro-client-l10n/noble-updates,noble-security,now 37.2ubuntu~24.04.1 amd64 [installed,automatic]
-ubuntu-pro-client/noble-updates,noble-security,now 37.2ubuntu~24.04.1 amd64 [installed,automatic]
+ubuntu-pro-client-l10n/noble-updates,now 38ubuntu0~24.04 amd64 [installed,automatic]
+ubuntu-pro-client/noble-updates,now 38ubuntu0~24.04 amd64 [installed,automatic]
 ubuntu-release-upgrader-core/noble-updates,now 1:24.04.29 all [installed,automatic]
 ucf/noble,now 3.0043+nmu1 all [installed,automatic]
-udev/noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
+udev/noble-updates,noble-security,now 255.4-1ubuntu8.18 amd64 [installed,automatic]
 udisks2/noble-updates,noble-security,now 2.10.1-6ubuntu1.5 amd64 [installed,automatic]
 unattended-upgrades/noble,now 2.9.1+nmu4ubuntu1 all [installed]
 update-manager-core/noble-updates,now 1:24.04.12 all [installed]
@@ -918,18 +922,17 @@ xfsprogs/noble-updates,now 6.6.0-1ubuntu2.1 amd64 [installed]
 xkb-data/noble-updates,now 2.41-2ubuntu1.1 all [installed,automatic]
 xml-core/noble,now 0.19 all [installed,automatic]
 xxd/noble-updates,noble-security,now 2:9.1.0016-1ubuntu7.20 amd64 [installed,automatic]
-xz-utils/noble-updates,noble-security,now 5.6.1+really5.4.5-1ubuntu0.3 amd64 [installed]
+xz-utils/noble-updates,noble-security,now 5.6.1+really5.4.5-1ubuntu0.4 amd64 [installed]
 zip/noble-updates,now 3.0-13ubuntu0.2 amd64 [installed]
-zlib1g/noble-updates,noble-security,now 1:1.3.dfsg-3.1ubuntu2.2 amd64 [installed,automatic]
+zlib1g/noble-updates,noble-security,now 1:1.3.dfsg-3.1ubuntu2.3 amd64 [installed,automatic]
 zstd/noble-updates,now 1.5.5+dfsg2-2build1.1 amd64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   22G  6.5G  78% /
+/dev/root        29G   22G  6.4G  78% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  1.1M   13G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
-efivarfs        128M   26K  128M   1% /sys/firmware/efi/efivars
 /dev/sda16      881M   79M  740M  10% /boot
 /dev/sda15      105M  6.2M   99M   6% /boot/efi
 /dev/sdb1       590G   32K  560G   1% /mnt
@@ -949,25 +952,19 @@ PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-poli
 UBUNTU_CODENAME=noble
 LOGO=ubuntu-logo
 === os-release End
-PUUID: BootCurrent: 0004
+PUUID: BootCurrent: 0001
 Timeout: 0 seconds
-BootOrder: 0004,0001,0000
-Boot0000* EFI Network	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,635161f83edfc546913ff2d2f965ed0e01bd456037484560bd0148376045bd01)/MAC(000000000000,0)/IPv4(0.0.0.00.0.0.0,0,0)
-      dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba 63 51 61 f8 3e df c5 46 91 3f f2 d2 f9 65 ed 0e 01 bd 45 60 37 48 45 60 bd 01 48 37 60 45 bd 01 / 03 0b 25 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 / 03 0c 1b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 / 7f ff 04 00
-Boot0001* EFI SCSI Device	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,0)
-      dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba d9 63 61 ba a1 04 29 4d b6 05 72 e2 ff b1 dc 7f 1a 78 b3 f8 82 1e 18 48 a1 c3 63 d8 06 ec 15 bb / 03 02 08 00 00 00 00 00 / 7f ff 04 00
-Boot0002* EFI SCSI Device	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,1)
-      dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba d9 63 61 ba a1 04 29 4d b6 05 72 e2 ff b1 dc 7f 1a 78 b3 f8 82 1e 18 48 a1 c3 63 d8 06 ec 15 bb / 03 02 08 00 00 00 01 00 / 7f ff 04 00
-Boot0003* EFI SCSI Device	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,2)
-      dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba d9 63 61 ba a1 04 29 4d b6 05 72 e2 ff b1 dc 7f 1a 78 b3 f8 82 1e 18 48 a1 c3 63 d8 06 ec 15 bb / 03 02 08 00 00 00 02 00 / 7f ff 04 00
-Boot0004* Ubuntu	HD(15,GPT,d403963f-6b02-4be2-96ef-428181705f25,0x2800,0x35000)/File(FIuntu\shimx64.efi)
+BootOrder: 0001
+Boot0000* MsTemp	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,0)/HD(15,GPT,d403963f-6b02-4be2-96ef-428181705f25,0x2800,0x35000)
+      dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba d9 63 61 ba a1 04 29 4d b6 05 72 e2 ff b1 dc 7f 1a 78 b3 f8 82 1e 18 48 a1 c3 63 d8 06 ec 15 bb / 03 02 08 00 00 00 00 00 / 04 01 2a 00 0f 00 00 00 00 28 00 00 00 00 00 00 00 50 03 00 00 00 00 00 3f 96 03 d4 02 6b e2 4b 96 ef 42 81 81 70 5f 25 02 02 / 7f ff 04 00
+Boot0001* Ubuntu	HD(15,GPT,d403963f-6b02-4be2-96ef-428181705f25,0x2800,0x35000)/File(FIuntu\shimx64.efi)
       dp: 04 01 2a 00 0f 00 00 00 00 28 00 00 00 00 00 00 00 50 03 00 00 00 00 00 3f 96 03 d4 02 6b e2 4b 96 ef 42 81 81 70 5f 25 02 02 / 04 04 34 00 5c 00 45 00 46 00 49 00 5c 00 75 00 62 00 75 00 6e 00 74 00 75 00 5c 00 73 00 68 00 69 00 6d 00 78 00 36 00 34 00 2e 00 65 00 66 00 69 00 00 00 / 7f ff 04 00
 Using kernel:
 Linux version 6.8.0-1071-azure (buildd@lcy02-amd64-110) (x86_64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #79-Ubuntu SMP Tue Sep 29 14:31:16 UTC 2026
-Install completed successfully on  Fri Oct 16 21:32:30 UTC 2026
-VSTS Build NUMBER: 20261016.9_main_186203461
-VSTS Build ID: 186203461
-Commit: b82d9e42d09ce0aa8939e54d3ba5f5a7dc2fda5b
+Install completed successfully on  Fri Oct 23 02:23:20 UTC 2026
+VSTS Build NUMBER: 20261023.1_main_187253500
+VSTS Build ID: 187253500
+Commit: 69ab263bfcc17003df16b7d8e81863c8c8bde7b5
 Ubuntu version: 24.04
 Hyperv generation: V2
 Feature flags: None

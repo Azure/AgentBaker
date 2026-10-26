@@ -4,7 +4,7 @@ CC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in
 CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
-#TODO pull this out of componetns.json too?
+# TODO pull this out of componetns.json too?
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/opt/bin"
@@ -65,8 +65,8 @@ installContainerdWithComponentsJson() {
     fi
     updatePackageVersions "${containerdPackage}" "${os}" "${os_version}" "${OS_VARIANT}"
 
-    #Containerd's versions array is expected to have only one element.
-    #If it has more than one element, we will install the last element in the array.
+    # Containerd's versions array is expected to have only one element.
+    # If it has more than one element, we will install the last element in the array.
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
@@ -178,7 +178,8 @@ downloadCredentialProvider() {
     # if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set to non-empty string
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${cred_version_for_oras}-linux-${CPU_ARCH}"
-        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
+        # Use bash builtin ## to remove all chars ("*") up to the final "/"
+        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
         return
     elif isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
@@ -190,7 +191,8 @@ downloadCredentialProvider() {
         return
     fi
 
-    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
     echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
     # Only apply per-operation budget during real CSE runs (CSE_STARTTIME_SECONDS set).
     # During VHD build, use 0 (unlimited) to avoid flakiness from transient network issues.
@@ -222,7 +224,8 @@ installOras() {
     mkdir -p $ORAS_DOWNLOAD_DIR
 
     echo "Installing Oras version $ORAS_VERSION..."
-    ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    ORAS_TMP=${ORAS_DOWNLOAD_URL##*/}
     retrycmd_get_tarball 120 5 60 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} 300 || exit $ERR_ORAS_DOWNLOAD_ERROR
 
     if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
@@ -314,7 +317,8 @@ downloadAzureCNI() {
     logs_to_events "AKS.CSE.logDownloadURL" "echo $VNET_CNI_PLUGINS_URL"
     VNET_CNI_PLUGINS_URL=$(update_base_url $VNET_CNI_PLUGINS_URL)
 
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/}
     retrycmd_get_tarball 120 5 60 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} 300 || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
@@ -337,10 +341,10 @@ installCNILegacy() {
         return
     fi
 
-    #always just use what is listed in components.json so we don't have to sync.
+    # always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
 
-    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
+    # CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
     os=${UBUNTU_OS_NAME}
     if [ -z "$UBUNTU_RELEASE" ]; then
         os=${OS}
@@ -352,7 +356,7 @@ installCNILegacy() {
     fi
     updatePackageVersions "${cniPackage}" "${os}" "${os_version}" "${OS_VARIANT}"
 
-    #should change to ne
+    # should change to ne
     # shellcheck disable=SC3010
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
@@ -368,7 +372,7 @@ installCNILegacy() {
     fi
 
     if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz.
+        # not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz.
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         echo "CNI tarball should already be unzipped by components.json"
@@ -379,7 +383,7 @@ installCNILegacy() {
 }
 
 downloadCrictl() {
-    #if $1 is empty, take ${CRICTL_DOWNLOAD_DIR} as default value. Otherwise take $1 as the value
+    # if $1 is empty, take ${CRICTL_DOWNLOAD_DIR} as default value. Otherwise take $1 as the value
     downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
     mkdir -p $downloadDir
     url=${2}
@@ -421,7 +425,8 @@ setupCNIDirs() {
 }
 
 installAzureCNI() {
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/}
     CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
@@ -621,7 +626,7 @@ installKubeletKubectlFromURL() {
                 # no egress traffic, default install will fail
                 # will exit if the download fails
 
-            #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
+            # TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
                 logs_to_events "AKS.CSE.installKubeletKubectlFromURL.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
             fi
@@ -883,5 +888,3 @@ EOF
     systemctl enable nvidia-persistenced.service || exit 1
     systemctl restart nvidia-persistenced.service || exit 1
 }
-
-#EOF
