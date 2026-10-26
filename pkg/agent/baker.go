@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"unicode/utf8"
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -346,17 +347,20 @@ func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator st
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
 // { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// get parameters
-	parameters := getParameters(config)
-	// get variable cloudInit
-	variables := getCustomDataVariables(config)
-	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
-
-	if e != nil {
-		panic(e)
+	b, err := parts.Templates.ReadFile(kubernetesNodeCustomDataYaml)
+	if err != nil {
+		panic(err)
+	}
+	str, err := RenderLinuxNodeCustomDataTemplate(b, config)
+	if err != nil {
+		panic(err)
 	}
 
-	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+	customData, err := json.Marshal(map[string]string{"customData": str})
+	if err != nil {
+		panic(err)
+	}
+	return string(customData)
 }
 
 const (
@@ -674,6 +678,8 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 // same variables and functions used by the production AgentBaker path.
 // Callers must supply a complete configuration, as required by the production
 // rendering helpers.
+// File entries must use GetCloudInitFileEncodingLine and GetCloudInitFileContent
+// to select the encoding for the delivery mode.
 func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	parameters := getParameters(config)
 	variables := getCustomDataVariables(config)
@@ -691,9 +697,45 @@ func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel
 	return buffer.String(), nil
 }
 
+// Traditional custom data is gzipped as a whole, so its files need no inner encoding.
+func usePlainCloudInit(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return !config.EnableScriptlessCSECmd && !config.IsFlatcar() && !config.IsACL()
+}
+
+func getCloudInitFileEncodingLine(config *datamodel.NodeBootstrappingConfiguration) string {
+	if usePlainCloudInit(config) {
+		return ""
+	}
+	return "encoding: " + encodingGZIP
+}
+
+func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, content string) (string, error) {
+	if usePlainCloudInit(config) {
+		if !utf8.ValidString(content) {
+			return "", fmt.Errorf("cloud-init file content contains invalid UTF-8")
+		}
+		// YAML quoting preserves Unicode line breaks that JSON leaves unescaped.
+		encoded, err := yaml.Marshal(&yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   "!!str",
+			Style: yaml.DoubleQuotedStyle,
+			Value: content,
+		})
+		return strings.TrimSuffix(string(encoded), "\n"), err
+	}
+	return "!!binary |\n    " + content, nil
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
+
+	funcMap["GetCloudInitFileEncodingLine"] = func() string {
+		return getCloudInitFileEncodingLine(config)
+	}
+	funcMap["GetCloudInitFileContent"] = func(content string) (string, error) {
+		return getCloudInitFileContent(config, content)
+	}
 
 	funcMap["GetParameter"] = func(s string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
