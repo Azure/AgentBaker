@@ -37,7 +37,8 @@ func isExpectedDiffCSEVar(key string) bool {
 		"SUBNET",
 		"ROUTE_TABLE",
 		"VM_TYPE",
-		"PROXY_VARS":
+		"PROXY_VARS",
+		"INIT_AKS_CLOUD_FILEPATH":
 		return true
 	}
 	return false
@@ -102,7 +103,8 @@ type App struct {
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
-	// refreshCloudCertificates overrides standalone cloud certificate refresh for testing.
+	// Cloud initialization overrides keep provisioning tests independent of the host.
+	initializeCloud          func(context.Context, cloudInitConfig) error
 	refreshCloudCertificates func(context.Context, string) error
 }
 
@@ -700,6 +702,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
 	} else if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
 		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig, a.getGPUComponentsFilePath())
+		if err == nil {
+			err = a.initializeAKSCloud(ctx, envSliceToMap(cmd.Env))
+		}
 	}
 	if err != nil {
 		provisionResult.ExitCode = strconv.Itoa(240)
@@ -790,6 +795,10 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 
 	if dryRun {
 		a.cmdRun = cmdRunnerDryRun
+		a.initializeCloud = func(_ context.Context, config cloudInitConfig) error {
+			slog.Info("dry-run: initialize Azure cloud before provisioning", "location", config.Location)
+			return nil
+		}
 	}
 	provisionResult, provisionErr = a.Provision(ctx, flags)
 
