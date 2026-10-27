@@ -62,9 +62,11 @@ Describe 'ACL extension capture'
         .provisioners[0].source == "vhdbuilder/packer/acl-extensions.sh" and
         (.provisioners[1].inline[0] | endswith(" start")) and
         .provisioners[2].inline[0] == "sudo mkdir -p /opt/azure/containers" and
-        (.provisioners[-5].inline[-1] | contains("acl-extensions.sh finish")) and
-        (.provisioners[-5].inline[-2] | contains("/boot/flatcar/first_boot")) and
-        (.provisioners[-4:] | map({type, direction, source, destination})) == [
+        (.provisioners[-6].inline[-1] | contains("acl-extensions.sh finish-export")) and
+        (.provisioners[-6].inline[-2] | contains("/boot/flatcar/first_boot")) and
+        .provisioners[-1].inline == ["sudo /var/lib/aks-extensions/acl-extensions.sh complete"] and
+        (.["error-cleanup-provisioner"].inline[0] | contains("acl-extensions.sh complete")) and
+        (.provisioners[-5:-1] | map({type, direction, source, destination})) == [
           {type: "file", direction: "download", source: "/var/lib/aks-extensions/aks-opt.raw", destination: "aks-opt.raw"},
           {type: "file", direction: "download", source: "/var/lib/aks-extensions/aks-etc.raw", destination: "aks-etc.raw"},
           {type: "file", direction: "download", source: "/var/log/aks-opt.files.txt", destination: "aks-opt.files.txt"},
