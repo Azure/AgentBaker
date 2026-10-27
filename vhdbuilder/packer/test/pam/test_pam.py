@@ -8,6 +8,10 @@ import pexpect
 import pytest
 
 
+# Run Command already runs as root; avoid nested login terminals on AzL4.
+LOGIN_COMMAND = "login" if os.environ.get("OS_VERSION") == "4.0" else "sudo login"
+
+
 class BashSpawn(pexpect.spawn):
     """
     Extension of pexpect.spawn to handle bash, login and password prompts
@@ -243,7 +247,7 @@ def login(user, pw=None):
     if pw is None:
         pw = user.pw
     print("\n=== Logging in as " + user.name)
-    child = BashSpawn("sudo login", encoding='utf-8')
+    child = BashSpawn(LOGIN_COMMAND, encoding='utf-8')
     try:
         child.expect_login_prompt(user.name)
         child.expect_password_prompt(pw)
@@ -279,7 +283,7 @@ def change_password(user, new_pw):
     """
     print(f"\n=== Changing password for {user.name} to {new_pw}")
     result = False
-    child = BashSpawn(f"sudo login {user.name}", encoding='utf-8',
+    child = BashSpawn(f"{LOGIN_COMMAND} {user.name}", encoding='utf-8',
                       logfile=sys.stdout, timeout=1)
     try:
         child.expect_password_prompt(user.pw)
@@ -344,7 +348,7 @@ def change_password_w_retries(user, bad_pw):
 
     print(f"\n===Attempting to change password for {user.name} to invalid " +
           f"pw '{bad_pw}'")
-    child = BashSpawn(f"sudo login {user.name}", encoding='utf-8')
+    child = BashSpawn(f"{LOGIN_COMMAND} {user.name}", encoding='utf-8')
     count = 0
     try:
         child.expect_password_prompt(user.pw)
