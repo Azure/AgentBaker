@@ -2,6 +2,9 @@
 
 echo "Sourcing cse_install_distro.sh for ACL"
 
+# ACL owns a writable /opt overlay; native sysexts extend only /usr.
+export SYSTEMD_SYSEXT_HIERARCHIES=/usr
+
 stub() {
     echo "${FUNCNAME[1]} stub"
 }
@@ -82,7 +85,7 @@ mergeSysexts() {
         shift 3
     done
 
-    systemd-sysext --mutable=auto --no-reload refresh
+    systemd-sysext --no-reload refresh
 }
 
 installDeps() {
