@@ -90,6 +90,25 @@ rm /opt/captured /etc/captured
 opt_mount_id=$(findmnt -rn -M /opt -o ID)
 source "$repo/parts/linux/cloud-init/artifacts/acl/cse_install_acl.sh" >/dev/null
 getSystemdArch() { echo x86-64; }
+retrycmd_if_failure() {
+    shift 3
+    "$@"
+}
+oras() {
+    local destination
+    while [[ $# -gt 0 ]]; do
+        if [[ "$1" == --output ]]; then destination=$2; break; fi
+        shift
+    done
+    mkdir -p "$destination"
+    touch "$destination/aks-secure-tls-bootstrap-client-v1.1.6-1-azlinux3-x86-64.raw"
+}
+ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
+downloadSysextFromVersion aks-secure-tls-bootstrap-client registry/client:version /opt/aks-secure-tls-bootstrap-client/downloads >/dev/null
+downloaded=$(matchLocalSysext aks-secure-tls-bootstrap-client 1.1.6-1-azlinux3 x86-64)
+test "$downloaded" = /var/lib/aks-sysext-cache/aks-secure-tls-bootstrap-client/downloads/aks-secure-tls-bootstrap-client-v1.1.6-1-azlinux3-x86-64.raw
+test -f "$downloaded"
+test ! -e /opt/aks-secure-tls-bootstrap-client/downloads
 if ((native_version >= 255)); then
     native_root=/var/lib/native-extension
     writeExtensionRelease "$native_root" opt aks-native
