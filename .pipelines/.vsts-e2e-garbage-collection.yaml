@@ -9,7 +9,7 @@ parameters:
   - name: NO_WAIT
     displayName: Wait for resource deletion
     type: boolean
-    default: false
+    default: true
 
 pool:
   name: $(POOL_NAME)
@@ -18,7 +18,6 @@ stages:
   - stage: e2e_gc_msft
     displayName: MSFT Tenant
     dependsOn: []
-    timeoutInMinutes: 720
     jobs:
       - template: ./templates/e2e-gc-template.yaml
         parameters:
@@ -30,7 +29,6 @@ stages:
   - stage: e2e_gc_tme
     displayName: TME Tenant
     dependsOn: []
-    timeoutInMinutes: 360
     jobs:
       - template: ./templates/e2e-gc-template.yaml
         parameters:
