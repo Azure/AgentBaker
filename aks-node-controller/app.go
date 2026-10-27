@@ -97,6 +97,9 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// fetchVMResourceID overrides retrieval of the VM's ARM resource ID from IMDS compute
+	// metadata, sent to the LPS as a lookup hint. When nil, the real IMDS endpoint is queried.
+	fetchVMResourceID func(ctx context.Context) (string, error)
 	// applyEmbeddedHotfix overrides embedded script application for tests.
 	applyEmbeddedHotfix func(string) error
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
