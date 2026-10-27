@@ -22,11 +22,13 @@ garbage_collect() {
 
     for group in $groups; do
         echo "will garbage collect clusters in resource group: $group"
-        cleanup_clusters_in_group "$group" || return $?
+        if ! garbage_collect_clusters_in_group "$group"; then
+            echo "failed to garbage collect clusters in resource group: $group, continuing..."
+        fi
     done
 }
 
-cleanup_clusters_in_group() {
+garbage_collect_clusters_in_group() {
     local group="$1"
 
     clusters=$(az aks list -g $group 2>/dev/null | jq -r '.[] | select(.name | startswith("abe2e")) | .name' | tr -d '\"' || "")
