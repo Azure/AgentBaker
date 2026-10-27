@@ -34,7 +34,7 @@ baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/$basearc
 enabled=1
 gpgcheck=1
 gpgkey=https://packages.microsoft.com/keys/microsoft.asc https://packages.microsoft.com/keys/microsoft-2025.asc
-includepkgs=azure-acr-credential-provider,ig,ig-gadgets,node-exporter-kubernetes
+includepkgs=azure-acr-credential-provider,ig,ig-gadgets,node-exporter-kubernetes,containerd-overlaybd
 skip_if_unavailable=False
 
 [aks-blobfuse2-preview]
