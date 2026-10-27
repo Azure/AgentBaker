@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"maps"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Masterminds/semver/v3"
@@ -13,12 +14,13 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // this is a base kubelet config for Scriptless e2e test
 func baseKubeletConfig() *aksnodeconfigv1.KubeletConfig {
 	return &aksnodeconfigv1.KubeletConfig{
-		EnableKubeletConfigFile: false,
+		EnableKubeletConfigFile: true,
 		KubeletFlags: map[string]string{
 			"--cloud-provider": "external",
 			"--kubeconfig":     "/var/lib/kubelet/kubeconfig",
@@ -131,7 +133,15 @@ func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*data
 		if cluster.Model.Properties.CurrentKubernetesVersion == nil {
 			return nil, fmt.Errorf("cluster has no current Kubernetes version")
 		}
+		if cluster.Model.Properties.NodeResourceGroup == nil {
+			return nil, fmt.Errorf("cluster is missing its node resource group")
+		}
 		nbc, err = baseTemplateLinux(*cluster.Model.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+		if err == nil {
+			// RP always sets these; AKSNodeConfig validation requires them.
+			nbc.SubscriptionID = config.Config.SubscriptionID
+			nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -147,6 +157,8 @@ func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*data
 	// 2. secure TLS bootstrapping failure, which falls back to bootstrap token
 	// 3. bootstrap token
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
+	// remove bootstrap-kubeconfig within e2e by default when not on the frozen AzureLinux V2 image
+	nbc.RemoveBootstrapKubeconfig = vhd.Distro != datamodel.AKSAzureLinuxV2Gen2
 	nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
 		Enabled: config.Config.EnableSecureTLSBootstrapping,
 	}
@@ -162,12 +174,16 @@ func getBaseNBC(ctx context.Context, cluster *Cluster, vhd *config.Image) (*data
 // eventually we want to phase out usage of nbc
 func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksnodeconfigv1.Configuration, error) {
 	cs := nbc.ContainerService
-	if err := agent.ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(nbc); err != nil {
-		return nil, err
+	// Phase 3 validates the typed config after conversion and scenario mutations.
+	if !nbc.EnableScriptlessAKSNodeConfig {
+		if err := agent.ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(nbc); err != nil {
+			return nil, err
+		}
 	}
 
 	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
 		TlsBootstrappingToken:                           nbc.KubeletClientTLSBootstrapToken,
+		RemoveBootstrapKubeconfig:                       to.Ptr(nbc.RemoveBootstrapKubeconfig),
 		SecureTlsBootstrappingValidateKubeconfigTimeout: to.Ptr(nbc.SecureTLSBootstrappingConfig.GetValidateKubeconfigTimeout()),
 		SecureTlsBootstrappingGetAccessTokenTimeout:     to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetAccessTokenTimeout()),
 		SecureTlsBootstrappingGetInstanceDataTimeout:    to.Ptr(nbc.SecureTLSBootstrappingConfig.GetGetInstanceDataTimeout()),
@@ -291,6 +307,8 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 		},
 		EnableUnattendedUpgrade: enableUnattendedUpgrade,
 		EnableArtifactStreaming: nbc.EnableArtifactStreaming,
+		EnabledFeatures:         maps.Clone(nbc.EnabledFeatures),
+		EnableKmpp:              nbc.EnableKMPP,
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
@@ -386,12 +404,20 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 
 	// Populate KubeletConfig fields from NBC that aren't in the static baseKubeletConfig.
 	cfg.KubeletConfig.KubeletClientKey = kubeletClientKey
+	kubeletConfigFileEnabled := agent.IsKubeletConfigFileEnabled(cs, nbc.AgentPoolProfile, nbc.EnableKubeletConfigFile)
+	cfg.KubeletConfig.EnableKubeletConfigFile = kubeletConfigFileEnabled
+	if kubeletConfigFileEnabled {
+		// Preserve scenario overrides instead of using the static scriptless defaults.
+		content := agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig)
+		if err := protojson.Unmarshal([]byte(content), cfg.KubeletConfig.KubeletConfigFileConfig); err != nil {
+			return nil, fmt.Errorf("convert kubelet configuration file: %w", err)
+		}
+	}
 
 	// Build kubelet flags from the NBC's KubeletConfig map, filtering the same way baker.go does.
 	// When kubelet config file is enabled, flags in TranslatedKubeletConfigFlags are written to the
 	// config file instead of being passed as CLI flags, so filter them out here.
 	if nbc.KubeletConfig != nil {
-		kubeletConfigFileEnabled := agent.IsKubeletConfigFileEnabled(cs, nbc.AgentPoolProfile, nbc.EnableKubeletConfigFile)
 		omittedFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
 		kubeletFlags := make(map[string]string)
 		for key, val := range nbc.KubeletConfig {
@@ -892,6 +918,7 @@ func baseTemplateLinux(location string, k8sVersion string, arch string) (*datamo
 		DisableUnattendedUpgrades: true,
 		SSHStatus:                 0,
 		DisableCustomData:         false,
+		EnableKubeletConfigFile:   true,
 	}
 	config, err := pruneKubeletConfig(k8sVersion, config)
 	if err != nil {

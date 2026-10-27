@@ -735,7 +735,7 @@ providers:
         cleanup_ensure_kubelet() {
             rm -f /etc/default/kubelet /var/lib/kubelet/kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
                 /opt/azure/containers/kubelet.sh /opt/azure/containers/tls-bootstrap-start-time \
-                /etc/systemd/system/kubelet.service.d/10-{watchdog,credential-validation,tlsbootstrap,ensure-imds-restriction,containerd-base-flag}.conf
+                /etc/systemd/system/kubelet.service.d/10-{watchdog,credential-validation,tlsbootstrap,remove-bootstrap-kubeconfig,ensure-imds-restriction,containerd-base-flag}.conf
         }
 
         setKubeletNodeIPFlag() { :; }
@@ -802,6 +802,118 @@ providers:
                 The output should not include "installCredentialProviderFromUrl"
                 The status should be success
             End
+        End
+    End
+    Describe 'ensureKubelet bootstrap kubeconfig removal drop-in'
+        REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN="/etc/systemd/system/kubelet.service.d/10-remove-bootstrap-kubeconfig.conf"
+
+        logs_to_events() {
+            eval "$2"
+        }
+
+        BeforeEach 'setup_ensure_kubelet'
+        AfterEach 'cleanup_ensure_kubelet'
+        setup_ensure_kubelet() {
+            mkdir -p /opt/azure/containers
+            CAPTURE_DIR=$(mktemp -d)
+            KUBELET_FLAGS=""
+            NETWORK_POLICY=""
+            KUBELET_IMAGE=""
+            KUBELET_NODE_LABELS=""
+            AZURE_ENVIRONMENT_FILEPATH=""
+            API_SERVER_NAME="example.invalid"
+            ENABLE_IMDS_RESTRICTION="false"
+            INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE="false"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            KUBE_RESERVED_CGROUP=""
+            SYSTEM_RESERVED_CGROUP=""
+            KUBERNETES_VERSION="1.33.0"
+            TLS_BOOTSTRAP_TOKEN="bootstrap-token"
+            unset REMOVE_BOOTSTRAP_KUBECONFIG
+        }
+
+        cleanup_ensure_kubelet() {
+            rm -rf "$CAPTURE_DIR"
+            rm -f /etc/default/kubelet /var/lib/kubelet/kubeconfig /var/lib/kubelet/bootstrap-kubeconfig \
+                /opt/azure/containers/kubelet.sh /opt/azure/containers/tls-bootstrap-start-time \
+                /etc/systemd/system/kubelet.service.d/10-{watchdog,credential-validation,tlsbootstrap,remove-bootstrap-kubeconfig,ensure-imds-restriction,containerd-base-flag}.conf
+        }
+
+        setKubeletNodeIPFlag() { :; }
+        getPrimaryNicIP() { echo "10.0.0.4"; }
+        resolveKubeletReservedCgroups() { :; }
+        systemctl() { :; }
+        systemctlEnableAndStartNoBlock() { :; }
+        chmod() {
+            echo "$*" >> "$CAPTURE_DIR/chmod.log"
+            command chmod "$@"
+        }
+        tee() {
+            echo "$1" >> "$CAPTURE_DIR/tee.log"
+            cat > "$CAPTURE_DIR/$(basename "$1")"
+        }
+
+        invoke_ensure_kubelet() {
+            ensureKubelet 2>/dev/null
+            { local rc=$?; set +x; } 2>/dev/null
+            return "$rc"
+        }
+
+        expected_drop_in() {
+            printf '%s\n' '[Service]' 'ExecStartPost=-/bin/bash /opt/azure/containers/remove-bootstrap-kubeconfig.sh'
+        }
+
+        It 'creates a 0600 ExecStartPost drop-in when bootstrap token is used and REMOVE_BOOTSTRAP_KUBECONFIG is true'
+            REMOVE_BOOTSTRAP_KUBECONFIG="true"
+
+            When call invoke_ensure_kubelet
+
+            The status should be success
+            The output should include "using bootstrap token to generate a bootstrap-kubeconfig"
+            The path "$REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN" should be file
+            The contents of file "$CAPTURE_DIR/10-remove-bootstrap-kubeconfig.conf" should equal "$(expected_drop_in)"
+            The contents of file "$CAPTURE_DIR/chmod.log" should include "0600 $REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN"
+            The contents of file "$CAPTURE_DIR/tee.log" should include "$REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN"
+            The contents of file "$CAPTURE_DIR/tee.log" should include "/var/lib/kubelet/bootstrap-kubeconfig"
+            The contents of file "$CAPTURE_DIR/bootstrap-kubeconfig" should include 'token: "bootstrap-token"'
+        End
+
+        Context 'when REMOVE_BOOTSTRAP_KUBECONFIG is not exactly true'
+            Parameters
+                "false" "false"
+                "TRUE" "TRUE"
+                "empty" ""
+                "unset" "__UNSET__"
+            End
+
+            It "does not create the drop-in when REMOVE_BOOTSTRAP_KUBECONFIG is $1"
+                if [ "$2" != "__UNSET__" ]; then
+                    REMOVE_BOOTSTRAP_KUBECONFIG="$2"
+                fi
+
+                When call invoke_ensure_kubelet
+
+                The status should be success
+                The output should include "using bootstrap token to generate a bootstrap-kubeconfig"
+                The path "$REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN" should not be exist
+                The path "$CAPTURE_DIR/10-remove-bootstrap-kubeconfig.conf" should not be exist
+                The contents of file "$CAPTURE_DIR/tee.log" should not include "$REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN"
+                The contents of file "$CAPTURE_DIR/tee.log" should include "/var/lib/kubelet/bootstrap-kubeconfig"
+            End
+        End
+
+        It 'does not create the drop-in without a bootstrap token, even when REMOVE_BOOTSTRAP_KUBECONFIG is true'
+            REMOVE_BOOTSTRAP_KUBECONFIG="true"
+            TLS_BOOTSTRAP_TOKEN=""
+
+            When call invoke_ensure_kubelet
+
+            The status should be success
+            The output should include "generating kubeconfig referencing the provided kubelet client certificate"
+            The path "$REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN" should not be exist
+            The path "$CAPTURE_DIR/10-remove-bootstrap-kubeconfig.conf" should not be exist
+            The contents of file "$CAPTURE_DIR/tee.log" should not include "$REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN"
+            The contents of file "$CAPTURE_DIR/tee.log" should not include "/var/lib/kubelet/bootstrap-kubeconfig"
         End
     End
     Describe 'configureKubeletAndKubectl'

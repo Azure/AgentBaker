@@ -319,6 +319,85 @@ Describe 'Get-CACertificates' {
         }
     }
 
+    It 'rejects invalid legacy filenames without writing or importing' -TestCases @(
+        @{ Name = '..\outside.crt' }
+        @{ Name = '../outside.crt' }
+        @{ Name = 'nested\other.crt' }
+        @{ Name = 'nested/other.crt' }
+        @{ Name = 'C:\outside.crt' }
+        @{ Name = 'C:outside.crt' }
+        @{ Name = '\\server\share\other.crt' }
+        @{ Name = 'other.crt:stream' }
+        @{ Name = '.' }
+        @{ Name = '..' }
+        @{ Name = '' }
+        @{ Name = $null }
+    ) {
+        param($Name)
+        $script:legacyResponse = @{
+            Certificates = @(@{ Name = $Name; CertBody = 'unused-body' })
+        } | ConvertTo-Json -Depth 3
+        Mock Invoke-CACertificatesRequest -MockWith {
+            return [PSCustomObject]@{ Content = $script:legacyResponse }
+        }
+        Mock Out-File
+
+        Get-CACertificates -Location 'ussecwest' -InformationVariable logs 6>$null | Should -Be $false
+
+        Assert-MockCalled Out-File -Exactly -Times 0
+        Assert-MockCalled Import-Certificate -Exactly -Times 0
+        ($logs -join "`n") | Should -Match 'Warning: rejecting invalid certificate filename:'
+        ($logs -join "`n") | Should -Not -Match 'refresh completed'
+    }
+
+    It 'continues importing valid legacy certificates after rejecting an invalid name' -TestCases @(
+        @{ Name = '../outside.crt' }
+        @{ Name = 'invalid|name.crt' }
+        @{ Name = 'invalid"name.crt' }
+        @{ Name = 'invalid<name.crt' }
+        @{ Name = 'invalid>name.crt' }
+        @{ Name = 'invalid?name.crt' }
+        @{ Name = 'invalid*name.crt' }
+        @{ Name = "invalid$([char]0)name.crt" }
+        @{ Name = "invalid$([char]31)name.crt" }
+    ) {
+        param($Name)
+        $script:legacyResponse = @{
+            Certificates = @(
+                @{ Name = $Name; CertBody = 'unused-body' }
+                @{ Name = 'Root CA.crt'; CertBody = 'valid-body' }
+            )
+        } | ConvertTo-Json -Depth 3
+        Mock Invoke-CACertificatesRequest -MockWith {
+            return [PSCustomObject]@{ Content = $script:legacyResponse }
+        }
+
+        Get-CACertificates -Location 'usnatwest' -FailOnError -InformationVariable logs 6>$null | Should -Be $true
+
+        Get-Content (Join-Path $TestDrive 'Root CA.crt') | Should -Be 'valid-body'
+        Assert-MockCalled Join-Path -Exactly -Times 1 -ParameterFilter { $Path -eq 'C:\ca' }
+        ($logs -join "`n") | Should -Match 'Warning: rejecting invalid certificate filename:'
+        Assert-MockCalled Import-Certificate -Exactly -Times 1
+        Assert-MockCalled Import-Certificate -Exactly -Times 1 -ParameterFilter {
+            $FilePath -eq (Join-Path $TestDrive 'Root CA.crt') -and
+            $CertStoreLocation -eq 'Cert:\LocalMachine\Root'
+        }
+    }
+
+    It 'honors FailOnError when no valid legacy filenames remain' {
+        Mock Invoke-CACertificatesRequest -MockWith {
+            return [PSCustomObject]@{
+                Content = '{"Certificates":[{"Name":"../outside.crt","CertBody":"unused-body"}]}'
+            }
+        }
+        Mock Out-File
+
+        { Get-CACertificates -FailOnError } | Should -Throw '*No CA certificates were imported from legacy endpoint*'
+
+        Assert-MockCalled Out-File -Exactly -Times 0
+        Assert-MockCalled Import-Certificate -Exactly -Times 0
+    }
+
     It 'imports rcv1p root and intermediate certificates into their LocalMachine stores' {
         Mock Invoke-CACertificatesRequest -MockWith {
             param($Command, $Args, $Retries, $RetryDelaySeconds)

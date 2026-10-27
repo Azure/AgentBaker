@@ -1,0 +1,9 @@
+[Unit]
+Description=Check Azure Linux eth0 networkd state every five minutes
+
+[Timer]
+OnCalendar=*:0/5
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

@@ -95,6 +95,7 @@ EVENT_JSON=$( jq -n \
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
+
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove
 # the VM before it finishes.

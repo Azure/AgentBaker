@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/logging"
 )
 
 // LocalDNS restart-budget validation.
@@ -48,25 +47,34 @@ func laneResolvedMainBuiltImage() bool {
 		config.Config.SIGVersionTagValue == "refs/heads/main"
 }
 
-// validateLocalDNSRestartBudget asserts that the unit carries the budget and that the budget
-// terminates a failing start in 'failed', then leaves LocalDNS healthy again.
-func validateLocalDNSRestartBudget(ctx context.Context, s *Scenario) error {
-	if laneResolvedMainBuiltImage() {
-		logging.Logf(ctx, "SKIP: this lane resolved a main-built image (%s=%s), which predates the "+
-			"LocalDNS restart budget baked into the VHD; run against the PR's VHD build to exercise it",
-			config.Config.SIGVersionTagName, config.Config.SIGVersionTagValue)
-		return nil
-	}
+// validateLocalDNSRestartBudgetDirectives asserts that the unit carries the budget and
+// that it resolves as shipped. Static; does not touch the running unit.
+func validateLocalDNSRestartBudgetDirectives(ctx context.Context, s *Scenario) error {
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, localdnsBudgetDirectiveScript, 0,
+		"LocalDNS restart budget directives are not as shipped")
+	return err
+}
 
-	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, localdnsBudgetDirectiveScript, 0,
-		"LocalDNS restart budget directives are not as shipped"); err != nil {
-		return err
-	}
-
+// driveLocalDNSToTerminalFailed spends the burst against a start that always fails and
+// asserts the limiter is what stopped it.
+//
+// It deliberately leaves localdns in 'failed'. That terminal state is the precondition
+// for everything the fallback does, so restoring here would mean inducing the same
+// fault twice on the same node. The deferred restore in validateLocalDNSFailureAndFallback
+// is the other half, and it MUST run on every path including failures -- callers own that.
+func driveLocalDNSToTerminalFailed(ctx context.Context, s *Scenario) error {
 	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, localdnsTerminalFailedScript, 0,
 		"LocalDNS did not reach terminal 'failed' after exhausting its restart budget")
 	return err
 }
+
+// localdnsFaultDropIn is where the fault's ExecStart override is written. Shared with
+// the fallback validator, whose restore path removes this same file, so the two cannot
+// drift apart.
+//
+// /run so a reboot cannot leave it behind, and named to sort after anything shipped in
+// the unit directory.
+const localdnsFaultDropIn = "/run/systemd/system/localdns.service.d/zz-e2e-fault.conf"
 
 // localdnsBudgetDirectiveScript asserts both where the budget comes from and what it
 // resolves to on the node.
@@ -112,27 +120,18 @@ echo "OK: restart budget ships in localdns.service and resolves as expected"
 // sixth complete in ~12s -- well inside the 720s window, and cheap enough to run on every
 // distro rather than only where a shortened clock was installed.
 //
-// The drop-in lives in /run so a reboot cannot leave it behind, and is named to sort after
-// anything shipped in the unit directory. Teardown runs unconditionally, including on the
-// failure paths, because leaving a /bin/false ExecStart on the node would break every
-// later validator in the scenario.
+// NO teardown trap. This deliberately exits with localdns in 'failed', because that is the
+// precondition the fallback assertions run against; tearing down here would mean inducing
+// the same fault a second time on the same node. The Go caller owns the restore, and
+// must run it on every path.
 const localdnsTerminalFailedScript = `
 set -uo pipefail
 
-DROPIN_DIR=/run/systemd/system/localdns.service.d
-DROPIN="$DROPIN_DIR/zz-e2e-fault.conf"
-
-teardown() {
-    sudo rm -f "$DROPIN"
-    sudo systemctl daemon-reload
-    sudo systemctl reset-failed localdns.service 2>/dev/null || true
-    sudo systemctl restart localdns.service || true
-}
-trap teardown EXIT
+DROPIN="` + localdnsFaultDropIn + `"
 
 fail() { echo "FAIL: $*"; exit 1; }
 
-sudo mkdir -p "$DROPIN_DIR"
+sudo mkdir -p "$(dirname "$DROPIN")"
 printf '[Service]\nExecStart=\nExecStart=/bin/false\n' | sudo tee "$DROPIN" >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl reset-failed localdns.service 2>/dev/null || true

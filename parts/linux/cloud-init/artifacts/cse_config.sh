@@ -8,6 +8,7 @@ source "${CSE_CONFIG_LOCALDNS_FILEPATH:-${BASH_SOURCE[0]%.sh}_localdns.sh}"
 source "${CSE_CONFIG_KUBELET_FILEPATH:-${BASH_SOURCE[0]%.sh}_kubelet.sh}"
 source "${CSE_CONFIG_NETWORK_FILEPATH:-${BASH_SOURCE[0]%.sh}_network.sh}"
 source "${CSE_CONFIG_ADDONS_FILEPATH:-${BASH_SOURCE[0]%.sh}_addons.sh}"
+source "${CSE_CONFIG_CHRONY_FILEPATH:-${BASH_SOURCE[0]%.sh}_chrony.sh}"
 
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
@@ -635,16 +636,17 @@ EOF
 
 ensureArtifactStreaming() {
   waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
-  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter || exit $ERR_ARTIFACT_STREAMING_INSTALL
 
   local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
   if [ -x "$acr_mirror_setup" ]; then
-    "$acr_mirror_setup" aks
+    "$acr_mirror_setup" aks || exit $ERR_ARTIFACT_STREAMING_INSTALL
   else
     echo "Older acr-mirror package is detected, using old acr-config enablement"
     # setup.sh is only available in acr-mirror 1.0.0 and above
-    "${ACR_CONFIG_BIN:-/opt/acr/bin/acr-config}" --enable-containerd 'azurecr.io'
+    "${ACR_CONFIG_BIN:-/opt/acr/bin/acr-config}" --enable-containerd 'azurecr.io' || exit $ERR_ARTIFACT_STREAMING_INSTALL
   fi
+
+  retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter || exit $ERR_ARTIFACT_STREAMING_INSTALL
 }
 
 ensureSnapshotUpdate() {
@@ -668,6 +670,27 @@ configureNodeExporter() {
         return $ERR_NODE_EXPORTER_START_FAIL
     fi
     echo "Node Exporter started successfully"
+}
+
+configureNodeProblemDetector() {
+    local skip_file="${NPD_SKIP_FILE:-/etc/node-problem-detector.d/skip_vhd_npd}"
+    if ! { isUbuntu || isAzureLinux; } || [ ! -f "${skip_file}" ]; then
+        echo "Skipping baked NPD configuration: this node remains extension-managed"
+        return 0
+    fi
+    # The MAI image path also uses the skip marker; only manage the PMC package
+    # installed by AgentBaker here.
+    local installed
+    if isUbuntu; then
+        installed="$(dpkg-query -W -f='${db:Status-Status}' node-problem-detector-aks-config 2>/dev/null)"
+    else
+        rpm -q node-problem-detector-aks-config >/dev/null 2>&1 && installed=installed
+    fi
+    if [ "${installed:-}" != installed ]; then
+        echo "Skipping NPD activation: AgentBaker config package is not installed"
+        return 0
+    fi
+    systemctlEnableAndStart node-problem-detector 30 || return $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {
@@ -725,13 +748,22 @@ users:
     set -x
 }
 
-# Wrapped as functions so logs_to_events can time each step; the install's
-# bash -c command can't be passed to logs_to_events inline (it word-splits args).
 disableSSH() {
-    # On ubuntu, the ssh service is named "ssh.service"
-    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
-    # On AzureLinux, the ssh service is named "sshd.service"
-    systemctlDisableAndStop sshd || exit $ERR_DISABLE_SSH
+    local start_time attempt_id unit result=0
+    start_time=$(date -u +"%F %T.%3N")
+    attempt_id="$(date +%s%N)-$RANDOM"
+    emitSSHDisableEvent "$attempt_id" Started "" "$start_time" null '{}' ||
+        echo "WARNING: SSH disable telemetry failed" >&2
+    # Ubuntu uses ssh, Azure Linux uses sshd, and ACL also uses sshd.socket.
+    # Close the listening socket first so no new connection is accepted mid-teardown.
+    # Keep going after a failure so a later unit still gets disabled, on ACL the
+    # socket owns port 22 and skipping it would leave SSH reachable.
+    for unit in sshd.socket ssh sshd; do
+        systemctlDisableAndStop "$unit" "$attempt_id" || result=$ERR_DISABLE_SSH
+    done
+    emitSSHDisableEvent "$attempt_id" Completed "" "$start_time" "$result" '{}' ||
+        echo "WARNING: SSH disable telemetry failed" >&2
+    [ "$result" -eq 0 ] || exit "$result"
 }
 
 disableSSHPubkeyAuth() {
@@ -791,5 +823,3 @@ get_compute_sku() {
     fi
     echo "$vm_sku"
 }
-
-#EOF

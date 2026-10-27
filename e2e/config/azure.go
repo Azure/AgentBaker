@@ -47,7 +47,7 @@ type AzureClient struct {
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
-	Credential                *azidentity.AzureCLICredential
+	Credential                azcore.TokenCredential
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
 	NetworkInterfaces         *armnetwork.InterfacesClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
@@ -489,6 +489,25 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 	return nil
 }
 
+// EnsureResourceGroupRoles restores CI runner access lost when a shared RG is garbage-collected.
+func (a *AzureClient) EnsureResourceGroupRoles(ctx context.Context, scope string) error {
+	principalID, err := getCurrentPrincipalID(ctx, a.Credential)
+	if err != nil {
+		return fmt.Errorf("resolve current principal: %w", err)
+	}
+	for _, roleDefID := range []string{
+		// Compute Gallery Artifacts Publisher.
+		"/providers/Microsoft.Authorization/roleDefinitions/85a2d0d9-2eba-4c9c-b355-11c2cc0788ab",
+		// Container Registry Data Importer and Data Reader.
+		"/providers/Microsoft.Authorization/roleDefinitions/577a9874-89fd-4f24-9dbd-b5034d0ad23a",
+	} {
+		if err := a.assignRole(ctx, scope, principalID, roleDefID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // assignBlobContributorToCurrentPrincipal grants "Storage Blob Data Contributor" on the
 // e2e blob container to the principal currently authenticated against ARM (the test
 // runner: ADO service-connection SP in pipelines, or the developer's user identity
@@ -504,7 +523,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 // Idempotent: uses a deterministic role-assignment name derived from
 // (scope, principalID, roleDefinitionID) so re-runs recreate the same assignment ID
 // instead of accumulating duplicate assignments (Azure caps at ~2000/sub); a pre-existing
-// role assignment returns 409 Conflict which is swallowed.
+// role assignment is accepted.
 func (a *AzureClient) assignBlobContributorToCurrentPrincipal(ctx context.Context) error {
 	principalID, err := getCurrentPrincipalID(ctx, a.Credential)
 	if err != nil {
@@ -519,10 +538,12 @@ func (a *AzureClient) assignBlobContributorToCurrentPrincipal(ctx context.Contex
 	)
 	// Storage Blob Data Contributor built-in role.
 	roleDefID := "/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"
-	// Deterministic assignment name so re-runs produce the same GUID and hit the 409
-	// swallow-path below instead of creating a new assignment each run.
+	return a.assignRole(ctx, scope, principalID, roleDefID)
+}
+
+func (a *AzureClient) assignRole(ctx context.Context, scope, principalID, roleDefID string) error {
 	uid := uuid.NewSHA1(uuid.NameSpaceOID, []byte(scope+"|"+principalID+"|"+roleDefID)).String()
-	_, err = a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
+	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
 		Properties: &armauthorization.RoleAssignmentProperties{
 			PrincipalID:      to.Ptr(principalID),
 			RoleDefinitionID: to.Ptr(roleDefID),
@@ -534,10 +555,10 @@ func (a *AzureClient) assignBlobContributorToCurrentPrincipal(ctx context.Contex
 	}, nil)
 	var respError *azcore.ResponseError
 	if err != nil {
-		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
+		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict && respError.ErrorCode == "RoleAssignmentExists" {
 			return nil
 		}
-		return fmt.Errorf("assign Storage Blob Data Contributor role to current principal %s: %w", principalID, err)
+		return fmt.Errorf("assign role %s to principal %s at %s: %w", roleDefID, principalID, scope, err)
 	}
 	return nil
 }
@@ -964,51 +985,31 @@ func (v vmExtensionVersion) cmp(other vmExtensionVersion) int {
 	return cmp.Compare(v.patch, other.patch)
 }
 
-// getResourceSKU queries the Azure Resource SKUs API to find the SKU for the given VM size and location.
-func (a *AzureClient) getResourceSKU(ctx context.Context, location, vmSize string) (*armcompute.ResourceSKU, error) {
+// ListVMResourceSKUs loads the complete regional VM SKU catalogue, keyed by uppercase size.
+func (a *AzureClient) ListVMResourceSKUs(ctx context.Context, location string) (map[string]*armcompute.ResourceSKU, error) {
 	filter := fmt.Sprintf("location eq '%s'", location)
 	pager := a.ResourceSKUs.NewListPager(&armcompute.ResourceSKUsClientListOptions{
 		Filter: &filter,
 	})
 
-	upperVMSize := strings.ToUpper(vmSize)
+	catalogue := make(map[string]*armcompute.ResourceSKU)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("listing resource SKUs: %w", err)
 		}
 		for _, sku := range page.Value {
-			if sku.ResourceType == nil || !strings.EqualFold(*sku.ResourceType, "virtualMachines") {
+			if sku == nil || sku.ResourceType == nil || sku.Name == nil ||
+				!strings.EqualFold(*sku.ResourceType, "virtualMachines") {
 				continue
 			}
-			if sku.Name == nil || strings.ToUpper(*sku.Name) != upperVMSize {
-				continue
+			key := strings.ToUpper(*sku.Name)
+			if catalogue[key] == nil {
+				catalogue[key] = sku
 			}
-			return sku, nil
 		}
 	}
-
-	return nil, fmt.Errorf("VM size %q not found in location %q", vmSize, location)
-}
-
-// VMSizeSupportsNVMe queries the Azure Resource SKUs API to determine if the given VM size
-// supports the NVMe disk controller type.
-func (a *AzureClient) VMSizeSupportsNVMe(ctx context.Context, location, vmSize string) (bool, error) {
-	sku, err := a.getResourceSKU(ctx, location, vmSize)
-	if err != nil {
-		return false, err
-	}
-	return SkuSupportsNVMe(sku), nil
-}
-
-// IsVMSizeGen2Only queries the Azure Resource SKUs API to determine if the given VM size
-// only supports the Gen2 hypervisor (i.e., does not support Gen1).
-func (a *AzureClient) IsVMSizeGen2Only(ctx context.Context, location, vmSize string) (bool, error) {
-	sku, err := a.getResourceSKU(ctx, location, vmSize)
-	if err != nil {
-		return false, err
-	}
-	return SkuSupportsOnlyGen2(sku), nil
+	return catalogue, nil
 }
 
 // SkuSupportsNVMe checks the DiskControllerTypes capability of a resource SKU.
