@@ -12,6 +12,7 @@ pr:
     - vhdbuilder/packer
     - vhdbuilder/scripts/linux
     - .pipelines/.vsts-vhd-builder.yaml
+    - .pipelines/templates/acl-image-versions.yaml
     - .pipelines/templates/.builder-release-template.yaml
     - .pipelines/templates/.template-override-components-json.yaml
     - .pipelines/templates/.template-copy-file.yaml
@@ -59,6 +60,7 @@ parameters:
     default: ""
 
 variables:
+  - template: ./templates/acl-image-versions.yaml
   - name: MODE
     value: "linuxVhdMode"
   - name: USE_SHALLOW_REPLICATION

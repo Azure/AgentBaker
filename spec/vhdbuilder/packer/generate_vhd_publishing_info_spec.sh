@@ -4,7 +4,8 @@
 Describe 'generate-vhd-publishing-info.sh'
   setup() {
     SCRIPT_PATH="${PWD}/vhdbuilder/packer/generate-vhd-publishing-info.sh"
-    TEST_DIR=$(mktemp -d "${SHELLSPEC_WORKDIR}/publishing-info.XXXXXX")
+    TEST_DIR="${SHELLSPEC_WORKDIR}/publishing-info.${SHELLSPEC_EXAMPLE_NO}"
+    mkdir -p "${TEST_DIR}"
     OUTPUT="${TEST_DIR}/vhd-publishing-info.json"
     export AZ_CALLS="${TEST_DIR}/az-calls"
     : > "$AZ_CALLS"
@@ -221,6 +222,21 @@ Describe 'generate-vhd-publishing-info.sh'
   End
 
   Describe 'Windows output'
+    Parameters
+      windows-2022-containerd-gen2
+      windows-2025-gen2
+    End
+
+    It "publishes $1 capability without relying on a TL image name"
+      OS_NAME=windows OFFER_NAME=Windows SKU_NAME="$1" SECURITY_TYPE_FEATURE=TrustedLaunchSupported
+      AZ_VERSIONS=''
+
+      When call generate_publishing_info
+      The status should be success
+      The output should include 'COPY ME ---> https://example.invalid/images/test.vhd'
+      The value "$(read_metadata '[.os_name, .sku_name, .hyperv_generation, .security_type_feature]')" should equal "[\"windows\",\"$1\",\"V2\",\"TrustedLaunchSupported\"]"
+    End
+
     Parameters
       ''
       stale-gallery

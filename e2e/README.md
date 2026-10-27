@@ -117,6 +117,30 @@ alongside cluster preparation. Setup, validators, and cleanup batches share
 `scenario/concurrent.go`, which waits for every task without canceling peers on failure.
 Each caller decides whether an already-canceled context prevents its tasks from starting.
 
+## Shared Windows Gen2 images
+
+The ordinary WS2022 and WS2025 Gen2 images are published as `TrustedLaunchSupported`.
+Each has a separate scenario that enables Secure Boot and vTPM on the VMSS:
+
+| Image | Standard scenario | Trusted Launch scenario |
+| --- | --- | --- |
+| `windows-2022-containerd-gen2` | `Windows2022Gen2AzureNetwork` | `Windows2022Gen2_TrustedLaunch_SharedImage` |
+| `windows-2025-gen2` | `Windows2025Gen2` | `Windows2025Gen2_TrustedLaunch_SharedImage` |
+
+Separate nodes are needed because their VM security profiles differ. These direct
+image tests do not change AKS RP's OS eligibility checks.
+
+The builder reuses already-capable staging definitions without `startsAtVersion`
+without modifying them. Explicit boundaries must be valid and at or below the
+build version; new capability migrations still establish and verify a boundary.
+The VHD-build gate validates the actual build's image, not historical versions.
+Production publication and RP image-version admission remain separate checks.
+
+`Windows2025Gen2TrustedLaunch` continues to validate the dedicated
+`windows-2025-gen2-tl` image during the shared-image rollout.
+The shared-image scenarios run in both the Windows VHD-build gate, using that
+build's image, and the general Windows E2E job, using the main-tagged test image.
+
 ## VM size configuration
 
 Resource SKU catalogues are loaded once per location using the runner's single

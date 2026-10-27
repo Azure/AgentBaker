@@ -1,0 +1,34 @@
+parameters:
+  - name: ARM_SERVICE_CONNECTION
+    type: string
+  - name: SUBSCRIPTION_ID
+    type: string
+  - name: DRY_RUN
+    type: boolean
+    default: false
+  - name: NO_WAIT
+    type: boolean
+    default: false
+
+jobs:
+  - job: e2e_gc
+    displayName: Garbage Collection
+    timeoutInMinutes: 0
+    steps:
+      - checkout: self
+        fetchTags: false
+        fetchDepth: 1
+
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: ${{ parameters.ARM_SERVICE_CONNECTION }}
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            chmod +x .pipelines/scripts/e2e_gc.sh
+            .pipelines/scripts/e2e_gc.sh
+        env:
+          SUBSCRIPTION_ID: ${{ parameters.SUBSCRIPTION_ID }}
+          DRY_RUN: ${{ parameters.DRY_RUN }}
+          NO_WAIT: ${{ parameters.NO_WAIT }}
+        displayName: Garbage collect E2E resource groups

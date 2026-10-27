@@ -36,6 +36,13 @@ const (
 	// the "authorization" metadata header (per the live-patching client example / contract),
 	// mirroring the embargoed HTTP service's header-based auth.
 	lpsAttestedMetadataKey = "authorization"
+
+	// lpsVMResourceIDMetadataKey is the gRPC request-metadata key carrying the VM's ARM resource ID
+	// from IMDS compute metadata. It is an unsigned lookup hint: it lets the service fetch this one
+	// VM instead of enumerating the node resource group, and the service accepts it only if that
+	// VM's vmId matches the one in the signed attested document. It is optional; when absent the
+	// service falls back to the resource group enumeration.
+	lpsVMResourceIDMetadataKey = "x-aks-vm-resource-id"
 )
 
 // lpsGRPCStatusError is a non-benign gRPC failure from the live-patching service. fallbackAllowed
@@ -53,8 +60,8 @@ func (e *lpsGRPCStatusError) Error() string {
 
 // fetchHotfixOverGRPC performs the GetComponentConfig call against the live-patching service: it
 // resolves the apiserver FQDN + cluster CA from the available node bootstrap input, carries the
-// IMDS attested-data document in gRPC metadata, and returns the opaque response bytes for the
-// shared parse/stage path.
+// IMDS attested-data document (and, when available, the VM resource ID) in gRPC metadata, and
+// returns the opaque response bytes for the shared parse/stage path.
 // The gRPC status is mapped onto the benign-vs-fatal taxonomy so handleFetchError is unchanged.
 func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 	fqdn, caPEM, err := a.lpsTargetFromNodeConfig()
@@ -65,6 +72,14 @@ func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 	token, err := a.attestedToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("imds attested token: %w", err)
+	}
+
+	// The resource ID only speeds up the service's VM lookup, so a failure here is not fatal:
+	// send the request without it and let the service fall back to its slower path.
+	resourceID, err := a.vmResourceID(ctx)
+	if err != nil {
+		slog.Info("check-hotfix could not read VM resource ID from IMDS; sending request without it", "error", err)
+		resourceID = ""
 	}
 
 	conn, err := a.dialLPSGRPC(fqdn, caPEM)
@@ -79,8 +94,12 @@ func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, lpsFetchTimeout)
 	defer cancel()
 
-	// Carry the attested-data document that authenticates the node in request metadata.
+	// Carry the attested-data document that authenticates the node in request metadata, plus
+	// the VM resource ID when known.
 	ctx = metadata.AppendToOutgoingContext(ctx, lpsAttestedMetadataKey, token)
+	if resourceID != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, lpsVMResourceIDMetadataKey, resourceID)
+	}
 
 	client := lpsv1.NewLivePatchingServiceClient(conn)
 	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: ancComponentName})
