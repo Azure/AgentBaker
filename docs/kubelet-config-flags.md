@@ -38,7 +38,7 @@ The base `EnvironmentFile=/etc/default/kubelet` is inspected on disk, independen
 
 ## Supported delivery paths and prerequisites
 
-- **Legacy CSE:** the NBC map's one reserved omission key is explicitly injected into the generated CSE child environment. No generic feature-map forwarding is introduced. The legacy config generator does not currently accept a producer-owned complete configuration; missing replacement values therefore retain the local flags. The omission instruction is not an authoritative-config transport.
+- **Legacy CSE:** the NBC feature map's one reserved omission key is explicitly injected into the generated CSE child environment. Replacement values require producer-owned entries in the existing `KubeletConfig` map and a compatible config-file translator. This renderer does not add an NBC field or translate that map; missing or nonmatching loaded values retain the local flags. Custom argv remains intact.
 - **Scriptless NBC and compare mode:** the generated NBC command carries the same explicit assignment; the existing boothook or Ignition feature-file transport is retained. Compare mode executes NBC and compares environment strings afterward. Equivalent config values do not hide differences in `KUBELET_FLAGS`; this change does not suppress those diagnostics.
 - **ANC-only through the NBC-based builder:** NBC's feature map still supplies the feature file, even when the embedded ANC JSON has no `enabled_features`. This applies to both CustomData and CSE delivery of the ANC configuration.
 - **Direct typed ANC with cloud-init:** the existing `enabled_features` boothook writes the key, including CustomData-only provisioning. The launcher exports it and `BuildCSECmd` inherits it.

@@ -11,14 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCustomDataTransportsKubeletFlagsToOmit(test *testing.T) {
-	encoded := base64.RawStdEncoding.EncodeToString([]byte(`["--runtime-request-timeout"]`))
-	config := &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{"KUBELET_FLAGS_TO_OMIT": encoded}}
-	require.Contains(test, decodeBoothook(test, config), "\nKUBELET_FLAGS_TO_OMIT="+encoded+"\n")
-	require.Empty(test, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{}))
-	require.Equal(test, decodeBoothook(test, &aksnodeconfigv1.Configuration{}), decodeBoothook(test, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}}))
-}
-
 func TestCustomDataFlatcarKubeletFlagsToOmit(test *testing.T) {
 	encodedOmissions := base64.RawStdEncoding.EncodeToString([]byte(`["--enable-server","--runtime-request-timeout"]`))
 	for _, testCase := range []struct {

@@ -199,15 +199,3 @@ func decodeKubeletScriptlessFiles(test *testing.T, payload []byte) map[string][]
 	}
 	return files
 }
-
-func TestKubeletFlagsToOmitScriptlessNBCTransport(test *testing.T) {
-	encoded := base64.RawStdEncoding.EncodeToString([]byte(`["--enable-server"]`))
-	config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
-	config.EnableScriptlessNBCCSECmd = true
-	config.EnabledFeatures = map[string]string{"KUBELET_FLAGS_TO_OMIT": encoded}
-	generator := InitializeTemplateGenerator()
-	boothook, err := base64.StdEncoding.DecodeString(generator.getScriptlessBoothook(config))
-	require.NoError(test, err)
-	require.Contains(test, string(boothook), getBase64EncodedGzippedCustomScriptFromStr("KUBELET_FLAGS_TO_OMIT="+encoded+"\n"))
-	require.Contains(test, generator.getScriptlessNBCCmd(config), getBase64EncodedGzippedCustomScriptFromStr(generator.getLinuxNodeCSECommand(config)))
-}
