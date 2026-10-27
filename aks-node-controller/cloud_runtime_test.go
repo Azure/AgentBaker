@@ -1,8 +1,11 @@
 package main
 
 import (
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -55,4 +58,11 @@ func TestCloudPlatform(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCloudCertificateResponseLimits(t *testing.T) {
+	_, err := readCloudResponse(&http.Response{
+		Body: io.NopCloser(strings.NewReader(strings.Repeat("x", cloudResponseLimit+1))),
+	})
+	require.ErrorContains(t, err, "size limit")
 }

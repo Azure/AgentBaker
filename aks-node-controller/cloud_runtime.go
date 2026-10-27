@@ -18,8 +18,6 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 )
 
-const cloudRequestAttempts = 10
-
 const cloudResponseLimit = 8 << 20
 
 const cloudCommandTimeout = 2 * time.Minute
