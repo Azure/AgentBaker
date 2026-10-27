@@ -13,6 +13,7 @@ parameters:
 jobs:
   - job: e2e_gc
     displayName: Garbage Collection
+    timeoutInMinutes: 0
     steps:
       - checkout: self
         fetchTags: false
