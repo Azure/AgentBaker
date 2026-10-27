@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'service execution telemetry'
-    Include './vhdbuilder/packer/packer_source.sh'
+    eval "$(sed -n '/^configureServiceExecutionTelemetryForSystemdVersion()/,/^}/p' ./vhdbuilder/packer/install-dependencies.sh)"
 
     setup_service_execution_telemetry_test() {
         TEST_ROOT=$(mktemp -d)
@@ -277,7 +277,7 @@ EOF
         cp ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
         cp ./parts/linux/cloud-init/artifacts/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
 
-        When call configureServiceExecutionTelemetryForSystemdVersion 245
+        When call configureServiceExecutionTelemetryForSystemdVersion 245 "${TEST_ROOT}"
         The status should be success
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "OnSuccess="
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "OnFailure="
@@ -294,7 +294,7 @@ EOF
         cp ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
         cp ./parts/linux/cloud-init/artifacts/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
 
-        When call configureServiceExecutionTelemetryForSystemdVersion 249
+        When call configureServiceExecutionTelemetryForSystemdVersion 249 "${TEST_ROOT}"
         The status should be success
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should include 'OnSuccess=service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service'
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "ExecStopPost=-/bin/systemctl"
@@ -309,7 +309,7 @@ EOF
         cp ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
         cp ./parts/linux/cloud-init/artifacts/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
 
-        When call configureServiceExecutionTelemetryForSystemdVersion 258
+        When call configureServiceExecutionTelemetryForSystemdVersion 258 "${TEST_ROOT}"
         The status should be success
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "CPUAccounting="
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "MemoryAccounting="
@@ -325,7 +325,7 @@ EOF
         cp ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
         cp ./parts/linux/cloud-init/artifacts/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
 
-        When call configureServiceExecutionTelemetryForSystemdVersion 256
+        When call configureServiceExecutionTelemetryForSystemdVersion 256 "${TEST_ROOT}"
         The status should be success
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "--snapshot-memory-peak"
         The contents of file "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}" should not include "--snapshot-memory-peak"
