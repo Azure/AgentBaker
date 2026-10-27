@@ -247,6 +247,7 @@ var _ = Register(&Scenario{
 	},
 })
 
+//nolint:gochecknoinits // Register both image variants before the runner selects scenarios.
 func init() {
 	for _, tc := range []struct {
 		name       string
