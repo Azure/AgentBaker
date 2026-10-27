@@ -1,0 +1,15 @@
+[Unit]
+Description=Writable AKS content over the immutable ACL baseline
+DefaultDependencies=no
+RequiresMountsFor=/usr
+After=systemd-remount-fs.service
+Before=local-fs.target systemd-sysext.service
+
+[Mount]
+What=overlay
+Where=/opt
+Type=overlay
+Options=lowerdir=/usr/share/distro/opt,upperdir=/opt,workdir=/.opt-work,redirect_dir=on,metacopy=off
+
+[Install]
+WantedBy=local-fs.target

@@ -1,0 +1,218 @@
+# ImageCustomizer needs a native worker: btrfs ioctls cannot use qemu-user.
+parameters:
+  - name: jobName
+    type: string
+  - name: dependsOnJob
+    type: string
+  - name: architecture
+    type: string
+    values:
+      - X86_64
+      - ARM64
+  - name: artifactName
+    type: string
+
+jobs:
+  - job: ${{ parameters.jobName }}
+    condition: succeeded()
+    dependsOn: ${{ parameters.dependsOnJob }}
+    timeoutInMinutes: 120
+    pool:
+      ${{ if eq(parameters.architecture, 'ARM64') }}:
+        name: $(NODE_SIG_TME_POOL_ARM64_NAME)
+      ${{ else }}:
+        name: $(POOL_NAME)
+    variables:
+      OS_SKU: AzureContainerLinux
+      ARCHITECTURE: ${{ parameters.architecture }}
+      CAPTURED_SIG_VERSION: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclOverlaySettings.CAPTURED_SIG_VERSION'] ]
+      SIG_IMAGE_NAME: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclOverlaySettings.SIG_IMAGE_NAME'] ]
+      SIG_GALLERY_NAME: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclOverlaySettings.SIG_GALLERY_NAME'] ]
+      PACKER_BUILD_LOCATION: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclOverlaySettings.PACKER_BUILD_LOCATION'] ]
+      REPLICATIONS: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclOverlaySettings.REPLICATIONS'] ]
+      DESTINATION_STORAGE_CONTAINER: $[ dependencies.${{ parameters.dependsOnJob }}.outputs['exportAclOverlaySources.DESTINATION_STORAGE_CONTAINER'] ]
+    steps:
+      - checkout: none
+
+      - bash: |
+          set -euo pipefail
+          echo "==== Bootstrapping tooling on $(uname -a) ===="
+
+          if command -v apt-get >/dev/null 2>&1; then
+              PKG=apt
+          elif command -v tdnf >/dev/null 2>&1; then
+              PKG=tdnf
+          elif command -v dnf >/dev/null 2>&1; then
+              PKG=dnf
+          else
+              echo "##vso[task.logissue type=error]No supported package manager (apt/tdnf/dnf) on this agent"
+              exit 1
+          fi
+          echo "Package manager: $PKG"
+
+          sudo -n true >/dev/null 2>&1 || {
+              echo "##vso[task.logissue type=error]This agent user does not have passwordless sudo; cannot install tools"
+              exit 1
+          }
+
+          pkg_install() {
+              case "$PKG" in
+                  apt)  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@" ;;
+                  tdnf) sudo tdnf install -y "$@" ;;
+                  dnf)  sudo dnf install -y "$@" ;;
+              esac
+          }
+
+          if [ "$PKG" = apt ]; then
+              sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+          fi
+
+          # Baseline utilities used by scripts and downloads below.
+          pkg_install ca-certificates curl tar gnupg jq
+
+          # git isn't used by the overlay scripts, but install it so any implicit
+          # agent-side cleanup checkouts don't tank the job.
+          if ! command -v git >/dev/null 2>&1; then
+              pkg_install git
+          fi
+
+          # Docker (must support --privileged for ImageCustomizer's loopback mounts).
+          if ! command -v docker >/dev/null 2>&1; then
+              case "$PKG" in
+                  apt)       pkg_install docker.io ;;
+                  tdnf|dnf)  pkg_install moby-engine moby-cli || pkg_install docker ;;
+              esac
+          fi
+          sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
+          # Give the agent user access to the docker socket for the duration of the job.
+          sudo chown "$(id -u):$(id -g)" /var/run/docker.sock 2>/dev/null || true
+          docker version
+
+          # Azure CLI.
+          if ! command -v az >/dev/null 2>&1; then
+              case "$PKG" in
+                  apt)
+                      # Install azure-cli from the pinned Microsoft apt repository so the
+                      # install path is auditable and versionable (avoids piping a remote
+                      # script into `sudo bash`).
+                      pkg_install ca-certificates curl gnupg apt-transport-https lsb-release
+                      sudo install -d -m 0755 /etc/apt/keyrings
+                      tmp="$(mktemp -d)"
+                      curl -fsSL https://packages.microsoft.com/keys/microsoft.asc -o "$tmp/microsoft.asc"
+                      gpg --dearmor < "$tmp/microsoft.asc" > "$tmp/microsoft.gpg"
+                      sudo install -m 0644 "$tmp/microsoft.gpg" /etc/apt/keyrings/microsoft.gpg
+                      rm -rf "$tmp"
+                      AZ_DIST="$(lsb_release -cs)"
+                      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ ${AZ_DIST} main" \
+                          | sudo tee /etc/apt/sources.list.d/azure-cli.list >/dev/null
+                      sudo apt-get update
+                      pkg_install azure-cli
+                      ;;
+                  tdnf|dnf)  pkg_install azure-cli ;;
+              esac
+          fi
+          az version
+
+          # azcopy static binary.
+          if ! command -v azcopy >/dev/null 2>&1; then
+              # azureedge.net CDN was retired; azcopy releases are served from GitHub.
+              case "$(uname -m)" in
+                  aarch64|arm64)
+                      AZCOPY_URL=https://github.com/Azure/azure-storage-azcopy/releases/download/v10.22.1/azcopy_linux_arm64_10.22.1.tar.gz
+                      AZCOPY_SHA256=4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc
+                      ;;
+                  *)
+                      AZCOPY_URL=https://github.com/Azure/azure-storage-azcopy/releases/download/v10.22.1/azcopy_linux_amd64_10.22.1.tar.gz
+                      AZCOPY_SHA256=7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267
+                      ;;
+              esac
+              tmp="$(mktemp -d)"
+              curl -fsSL "$AZCOPY_URL" -o "$tmp/azcopy.tgz"
+              echo "$AZCOPY_SHA256  $tmp/azcopy.tgz" | sha256sum --check --status
+              tar -xzf "$tmp/azcopy.tgz" -C "$tmp"
+              # extracted dir is like azcopy_linux_arm64_10.x.x/
+              azcopy_bin="$(find "$tmp" -maxdepth 2 -type f -name azcopy | head -n1)"
+              if [ -z "$azcopy_bin" ] || [ ! -x "$azcopy_bin" ]; then
+                  echo "##vso[task.logissue type=error]azcopy archive did not contain an executable binary"
+                  exit 1
+              fi
+              sudo install -m 0755 "$azcopy_bin" /usr/local/bin/azcopy
+              rm -rf "$tmp"
+          fi
+          azcopy --version
+
+          echo "==== Tooling bootstrap complete ===="
+        displayName: Bootstrap ACL overlay tooling
+
+      - task: DownloadPipelineArtifact@2
+        displayName: Download ACL overlay sources
+        inputs:
+          artifact: acl-overlay-sources-${{ parameters.artifactName }}
+          path: $(Pipeline.Workspace)/acl-overlay-sources
+
+      - bash: |
+          set -euo pipefail
+          mkdir -p "$(Build.SourcesDirectory)"
+          tar -xzf "$(Pipeline.Workspace)/acl-overlay-sources/sources.tar.gz" -C "$(Build.SourcesDirectory)"
+        displayName: Hydrate ACL overlay sources
+
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            ./vhdbuilder/packer/imagecustomizer/scripts/customize-acl-overlays.sh
+        displayName: Move ACL opt and etc into usr overlays
+        env:
+          IMG_CUSTOMIZER_CONTAINER: $(ACL_IMG_CUSTOMIZER_CONTAINER)
+          IMG_CUSTOMIZER_CONTAINER_FALLBACK: $(ACL_IMG_CUSTOMIZER_CONTAINER_FALLBACK)
+
+      - task: DownloadPipelineArtifact@2
+        condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+        displayName: Download ACL publishing input
+        inputs:
+          artifact: acl-vhd-publishing-input-${{ parameters.artifactName }}
+          path: $(Build.SourcesDirectory)/acl-publishing-input
+
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            ./vhdbuilder/packer/imagecustomizer/scripts/publish-acl-image.sh
+        displayName: Publish customized ACL SIG and E2E metadata
+        env:
+          RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+          VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
+          E2E_METADATA_DIR: $(Build.ArtifactStagingDirectory)/e2e-vhd-metadata
+          ACL_PUBLISHING_INPUT: $(Build.SourcesDirectory)/acl-publishing-input/vhd-publishing-info.json
+          GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
+
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            set -euo pipefail
+            export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+            export AZCOPY_CONCURRENCY_VALUE="AUTO"
+            azcopy copy "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --blob-type=PageBlob --overwrite=false
+            azcopy remove "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true
+        displayName: Copy customized ACL VHD to final storage
+        condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish customized ACL E2E VHD metadata
+        inputs:
+          artifactName: 'e2e-vhd-metadata-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)'
+          targetPath: '$(Build.ArtifactStagingDirectory)/e2e-vhd-metadata/${{ parameters.artifactName }}.json'
+
+      - task: PublishPipelineArtifact@1
+        condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+        displayName: Publish customized ACL VHD publishing info
+        inputs:
+          artifactName: 'publishing-info-${{ parameters.artifactName }}'
+          targetPath: vhd-publishing-info.json

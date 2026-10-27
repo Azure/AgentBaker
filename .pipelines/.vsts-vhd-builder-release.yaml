@@ -171,6 +171,10 @@ parameters:
     default: '20261016.1226753.0'
 
 variables:
+  - name: ACL_IMG_CUSTOMIZER_CONTAINER
+    value: mcr.microsoft.com/azurelinux/imagecustomizer:1.5
+  - name: ACL_IMG_CUSTOMIZER_CONTAINER_FALLBACK
+    value: ghcr.io/microsoft/imagecustomizer:1.5.0
   - name: MODE
     value: "linuxVhdMode"
   - group: aks-vuln-to-kusto
@@ -936,6 +940,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-tl-gen2
+              aclUsrOverlays: true
       - job: buildaclcvmgen2
         condition: eq('${{ parameters.buildaclcvmgen2 }}', true)
         dependsOn: [ ]
@@ -1011,6 +1016,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-arm64-tl-gen2
+              aclUsrOverlays: true
       - job: buildaclfipstlgen2
         condition: eq('${{ parameters.buildaclfipstlgen2 }}', true)
         dependsOn: [ ]
@@ -1036,6 +1042,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-fips-tl-gen2
+              aclUsrOverlays: true
       - job: buildaclarm64fipstlgen2
         condition: eq('${{ parameters.buildaclarm64fipstlgen2 }}', true)
         dependsOn: [ ]
@@ -1061,6 +1068,7 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-arm64-fips-tl-gen2
+              aclUsrOverlays: true
       - job: build2404arm64gbgen2containerd
         condition: eq('${{ parameters.build2404arm64gbgen2containerd }}', true)
         dependsOn: [ ]
@@ -1086,6 +1094,31 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gb-gen2-containerd
+      - template: ./templates/.builder-acl-overlays-job-template.yaml
+        parameters:
+          jobName: customizeacltlgen2
+          dependsOnJob: buildacltlgen2
+          architecture: X86_64
+          artifactName: acl-tl-gen2
+      - template: ./templates/.builder-acl-overlays-job-template.yaml
+        parameters:
+          jobName: customizeaclarm64tlgen2
+          dependsOnJob: buildaclarm64tlgen2
+          architecture: ARM64
+          artifactName: acl-arm64-tl-gen2
+      - template: ./templates/.builder-acl-overlays-job-template.yaml
+        parameters:
+          jobName: customizeaclfipstlgen2
+          dependsOnJob: buildaclfipstlgen2
+          architecture: X86_64
+          artifactName: acl-fips-tl-gen2
+      - template: ./templates/.builder-acl-overlays-job-template.yaml
+        parameters:
+          jobName: customizeaclarm64fipstlgen2
+          dependsOnJob: buildaclarm64fipstlgen2
+          architecture: ARM64
+          artifactName: acl-arm64-fips-tl-gen2
+
   - stage: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
