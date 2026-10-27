@@ -283,34 +283,44 @@ STUB
         The result of function validate_service_values should equal true
     End
 
-    It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
-        check_pressure_size_boundaries() {
-            local fits_filter
-            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh)
-            [ -n "${fits_filter}" ] || return 1
-            jq -ne "${fits_filter}"'
-                def repeat_text($text; $count): [range(0; $count) | $text] | join("");
-                [
-                    ([3071, 3072, 3073][] as $bytes |
-                        {Message: repeat_text("a"; $bytes)} |
-                        fits == ($bytes <= 3072)),
-                    (["\u00e9", "\u20ac", "\ud83d\ude00"][] as $text |
-                        (if $text == "\u00e9" then 1536 elif $text == "\u20ac" then 1024 else 768 end) as $count |
-                        repeat_text($text; $count) as $message |
-                        ({Message: $message} | fits) and
-                        ({Message: ($message + "a")} | fits | not)),
-                    ([6143, 6144, 6145][] as $bytes |
-                        {Message: "", Padding: ""} |
-                        .Padding = repeat_text("a"; $bytes - (tojson | length)) |
-                        fits == ($bytes <= 6144)),
-                    ({Message: repeat_text("\""; 3072)} | fits | not)
-                ] | all
-            '
-        }
+    Describe 'event size boundaries'
+        Parameters
+            pressure
+            cpu
+        End
 
-        When call check_pressure_size_boundaries
-        The status should be success
-        The output should equal true
+        It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
+            check_telemetry_size_boundaries() {
+                local fits_filter source_file="./parts/linux/cloud-init/artifacts/cgroup-$1-telemetry.sh"
+                if [ "$1" = pressure ]; then
+                    source_file=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                fi
+                fits_filter=$(sed -n '/^    def fits:/p' "${source_file}")
+                [ -n "${fits_filter}" ] || return 1
+                jq -ne "${fits_filter}"'
+                    def repeat_text($text; $count): [range(0; $count) | $text] | join("");
+                    [
+                        ([3071, 3072, 3073][] as $bytes |
+                            {Message: repeat_text("a"; $bytes)} |
+                            fits == ($bytes <= 3072)),
+                        (["\u00e9", "\u20ac", "\ud83d\ude00"][] as $text |
+                            (if $text == "\u00e9" then 1536 elif $text == "\u20ac" then 1024 else 768 end) as $count |
+                            repeat_text($text; $count) as $message |
+                            ({Message: $message} | fits) and
+                            ({Message: ($message + "a")} | fits | not)),
+                        ([6143, 6144, 6145][] as $bytes |
+                            {Message: "", Padding: ""} |
+                            .Padding = repeat_text("a"; $bytes - (tojson | length)) |
+                            fits == ($bytes <= 6144)),
+                        ({Message: repeat_text("\""; 3072)} | fits | not)
+                    ] | all
+                '
+            }
+
+            When call check_telemetry_size_boundaries "$1"
+            The status should be success
+            The output should equal true
+        End
     End
 
     Describe 'shared cgroup event publication'
@@ -379,6 +389,11 @@ STUB
     End
 
     Context 'when jq succeeds without emitting events'
+        Parameters
+            pressure
+            cpu
+        End
+
         Mock jq
             exit 0
         End
@@ -388,13 +403,14 @@ STUB
                 create_pressure_files "${cgroup_path}"
             done
             prepare_pressure_script
+            prepare_cpu_script
             remaining_event_files() {
                 find "${EVENTS_ROOT}" -mindepth 1 -print
             }
 
-            When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+            When run bash "${TEST_ROOT}/cgroup-$1-telemetry.sh"
             The status should equal 1
-            The stderr should equal 'pressure telemetry: no events generated'
+            The stderr should equal "$1 telemetry: no events generated"
             The result of function remaining_event_files should equal ""
         End
     End
@@ -467,6 +483,101 @@ STUB
         # WALinuxAgent only collects event files matching ^(\d+)\.json$; any other name is dropped
         # silently and the observation never reaches telemetry.
         The result of function emitted_event_file_name_class should equal collectable
+    End
+
+    Describe 'large CPU observations'
+        Parameters
+            123456789
+            18446744073709551615
+        End
+
+        It 'bounds CPU events without losing counters or slice limits'
+            for cgroup_path in \
+                system.slice/containerd.service system.slice/kubelet.service \
+                system.slice/walinuxagent.service system.slice/node-problem-detector.service \
+                system.slice/node-exporter.service system.slice/sync-container-logs.service \
+                localdns.slice/localdns.service system.slice/nvidia-persistenced.service \
+                system.slice/nvidia-gridd.service system.slice/nvidia-fabricmanager.service \
+                system.slice/nvidia-device-plugin.service system.slice/dra-driver-nvidia-gpu.service \
+                system.slice/nvidia-dcgm.service system.slice/nvidia-dcgm-exporter.service \
+                system.slice/openibd.service; do
+                create_cpu_stat_v2 "${cgroup_path}"
+                sed -i -E "s/ [0-9]+$/ $1/" "${CGROUP_ROOT}/${cgroup_path}/cpu.stat"
+            done
+            mkdir -p "${CGROUP_ROOT}/azure.slice" "${CGROUP_ROOT}/kubepods.slice" "${CGROUP_ROOT}/user.slice"
+            for slice in "${CGROUP_ROOT}"/*.slice; do
+                printf '200000 100000\n' > "${slice}/cpu.max"
+            done
+            prepare_cpu_script
+            TEST_CPU_COUNTER="$1"
+            validate_cpu_events() {
+                jq -se --arg counter "${TEST_CPU_COUNTER}" '
+                    def utf8bytelength:
+                        reduce explode[] as $codepoint (0;
+                            . + (if $codepoint < 128 then 1 elif $codepoint < 2048 then 2
+                                 elif $codepoint < 65536 then 3 else 4 end));
+                    length > 1 and
+                    all(.[]; (.Message | utf8bytelength) <= 3072 and (tojson | utf8bytelength) <= 6144) and
+                    ([.[].Message | fromjson | .CPUUsage | keys[]] | length == 22) and
+                    ([.[].Message | fromjson | .CPUUsage | keys[]] | unique | length == 22) and
+                    ([.[].Message | fromjson | .CPUUsage] | add |
+                        .counter_units.usage_usec == "microseconds" and
+                        (.counter_reset_behavior | contains("discard negative deltas")) and
+                        ([to_entries[] | select(.key | endswith("_service_cpu_usage")) | .value] |
+                            length == 15 and all(.[]; all(.[]; . == $counter))) and
+                        ([to_entries[] | select(.key | endswith("_max_cpu")) | .value] |
+                            length == 5 and all(.[]; . == "200000 100000"))) and
+                    ([.[].Message | fromjson] | sort_by(.TelemetryChunk.index) |
+                        length as $count |
+                        (map(.TelemetryChunk.id) | unique | length == 1) and
+                        (map(.TelemetryChunk.index) == [range(0; $count)]) and
+                        all(.[]; .CgroupVersion == "cgroupv2" and
+                            .TelemetryChunk.encoding == "json" and .TelemetryChunk.count == $count))
+                ' "${EVENTS_ROOT}"/*.json
+            }
+            collectable_cpu_event_names() {
+                local file
+                for file in "${EVENTS_ROOT}"/*; do
+                    basename "${file}" | grep -Eq '^[0-9]+\.json$' || return 1
+                done
+                echo true
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+            The status should be success
+            The result of function validate_cpu_events should equal true
+            The result of function collectable_cpu_event_names should equal true
+        End
+    End
+
+    Describe 'escaped slice names'
+        Parameters
+            memory Memory
+            cpu CPUUsage
+        End
+
+        It 'preserves distinct escaped and unescaped slice identities'
+            mkdir -p "${CGROUP_ROOT}/tenant\x2dblue.slice" "${CGROUP_ROOT}/tenantx2dblue.slice"
+            printf '1048576\n' > "${CGROUP_ROOT}/tenant\x2dblue.slice/memory.max"
+            printf '2097152\n' > "${CGROUP_ROOT}/tenantx2dblue.slice/memory.max"
+            printf '100000 100000\n' > "${CGROUP_ROOT}/tenant\x2dblue.slice/cpu.max"
+            printf '200000 100000\n' > "${CGROUP_ROOT}/tenantx2dblue.slice/cpu.max"
+            prepare_memory_script
+            prepare_cpu_script
+            TEST_SLICE_RESOURCE="$1"
+            TEST_SLICE_FIELD="$2"
+            validate_slice_names() {
+                jq -se --arg field "${TEST_SLICE_FIELD}" --arg resource "${TEST_SLICE_RESOURCE}" '
+                    [.[].Message | fromjson | .[$field]] | add |
+                    .["tenant\\x2dblue_max_" + $resource] == (if $resource == "memory" then "1048576" else "100000 100000" end) and
+                    .["tenantx2dblue_max_" + $resource] == (if $resource == "memory" then "2097152" else "200000 100000" end)
+                ' "${EVENTS_ROOT}"/*.json
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-$1-telemetry.sh"
+            The status should be success
+            The result of function validate_slice_names should equal true
+        End
     End
 
     It 'rejects cgroup v1'
