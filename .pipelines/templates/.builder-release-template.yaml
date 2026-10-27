@@ -154,8 +154,12 @@ steps:
         test -s "$file"
         cp --sparse=always "$file" "$artifact_dir/"
       done
+      base_etc_dir="$(Build.ArtifactStagingDirectory)/acl-etc-base"
+      mkdir -p "$base_etc_dir"
+      test -s aks-etc-base.files.txt
+      cp aks-etc-base.files.txt "$base_etc_dir/"
     condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), ne(variables['BUILDER'], 'imagecustomizer'))
-    displayName: Stage ACL extensions
+    displayName: Stage ACL extensions and base /etc inventory
 
   - task: PublishPipelineArtifact@1
     condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), ne(variables['BUILDER'], 'imagecustomizer'))
@@ -163,6 +167,13 @@ steps:
     inputs:
       artifactName: acl-extensions-${{ parameters.artifactName }}
       targetPath: $(Build.ArtifactStagingDirectory)/acl-extensions
+
+  - task: PublishPipelineArtifact@1
+    condition: and(succeeded(), eq(variables['OS_SKU'], 'AzureContainerLinux'), ne(variables['BUILDER'], 'imagecustomizer'))
+    displayName: Publish ACL base /etc inventory
+    inputs:
+      artifactName: acl-etc-base-${{ parameters.artifactName }}
+      targetPath: $(Build.ArtifactStagingDirectory)/acl-etc-base
 
   - task: AzureCLI@2
     inputs:
