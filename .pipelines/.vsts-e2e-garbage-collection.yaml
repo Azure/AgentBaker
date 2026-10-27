@@ -1,11 +1,3 @@
-schedules:
-- cron: '0 12 * * 6'
-  displayName: Scheduled Garbage Collection
-  always: true
-  branches:
-    include:
-      - main
-
 parameters:
   - name: DRY_RUN
     type: boolean
