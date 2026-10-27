@@ -831,7 +831,6 @@
     },
     {
       "name": "windows credential provider dalec",
-      "windowsDownloadLocation": "c:\\akse-cache\\azure-acr-credential-provider\\",
       "downloadURIs": {
         "windows": {
           "default": {
