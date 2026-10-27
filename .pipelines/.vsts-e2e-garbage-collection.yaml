@@ -20,20 +20,18 @@ pool:
 stages:
   - stage: e2e_gc_msft
     displayName: MSFT Tenant
-    variables:
-      - group: ab-e2e
     jobs:
       - template: ./templates/e2e-gc-template.yaml
         parameters:
+          ARM_SERVICE_CONNECTION: $(MSFT_ARM_SERVICE_CONNECTION)
           DRY_RUN: ${{ parameters.DRY_RUN }}
           NO_WAIT: ${{ parameters.NO_WAIT }}
 
   - stage: e2e_gc_tme
     displayName: TME Tenant
-    variables:
-      - group: ab-e2e-tme
     jobs:
-      - template: ./templates/e2e-gc-template.yaml
+      - template: $(TME_ARM_SERVICE_CONNECTION)
         parameters:
+          ARM_SERVICE_CONNECTION: ab-e2e-tme
           DRY_RUN: ${{ parameters.DRY_RUN }}
           NO_WAIT: ${{ parameters.NO_WAIT }}

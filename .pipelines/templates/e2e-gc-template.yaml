@@ -1,4 +1,6 @@
 parameters:
+  - name: ARM_SERVICE_CONNECTION
+    type: string
   - name: DRY_RUN
     type: boolean
     default: false
@@ -16,7 +18,7 @@ jobs:
 
       - task: AzureCLI@2
         inputs:
-          azureSubscription: $(ARM_SERVICE_CONNECTION)
+          azureSubscription: ${{ parameters.ARM_SERVICE_CONNECTION }}
           scriptType: bash
           scriptLocation: inlineScript
           inlineScript: |
