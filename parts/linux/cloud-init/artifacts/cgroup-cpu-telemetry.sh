@@ -122,6 +122,14 @@ nvidia_dcgm_exporter_service_cpu_usage system.slice/nvidia-dcgm-exporter.service
 openibd_service_cpu_usage system.slice/openibd.service
 EOF
 
+for slice in "${CPU_CGROUP}"/*.slice; do
+    [ -d "${slice}" ] || continue
+    cpu_usage=$(jq -c \
+        --arg SLICE "${slice##*/}" \
+        --arg MAX "$(if [ -f "${slice}/cpu.max" ]; then cat "${slice}/cpu.max"; else echo "Not Found"; fi)" \
+        '. + {($SLICE | sub("\\.slice$"; "") + "_max_cpu"): $MAX}' <<< "${cpu_usage}")
+done
+
 message_string=$(jq -c -n \
     --arg CGROUPV "${VERSION}" \
     --argjson CPU_USAGE "${cpu_usage}" \

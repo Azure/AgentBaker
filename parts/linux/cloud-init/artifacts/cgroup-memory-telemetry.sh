@@ -116,6 +116,16 @@ fi
 
 memory_string=$(echo $memory_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
+if [ "${VERSION}" = "cgroupv2" ]; then
+    for slice in "${CGROUP}"/*.slice; do
+        [ -d "${slice}" ] || continue
+        memory_string=$(jq -c \
+            --arg SLICE "${slice##*/}" \
+            --arg MAX "$(if [ -f "${slice}/memory.max" ]; then cat "${slice}/memory.max"; else echo "Not Found"; fi)" \
+            '. + {($SLICE | sub("\\.slice$"; "") + "_max_memory"): $MAX}' <<< "${memory_string}")
+    done
+fi
+
 message_string=$( jq -n \
     --arg CGROUPV "${VERSION}" \
     --argjson MEMORY "$(echo $memory_string)" \
