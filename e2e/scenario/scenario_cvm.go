@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -124,6 +125,7 @@ func newCVMScenario(
 	// ACL retains standard validation until the collector supports its immutable OS.
 	if vhd.Distro != datamodel.AKSACLCVMGen2 {
 		s.Validator = validateCVM(platform, securityEncryptionType)
+		s.ValidationTimeout = 12 * time.Minute
 	}
 	if vhd.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
 		s.AKSNodeConfigMutator = func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {

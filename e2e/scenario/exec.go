@@ -116,7 +116,6 @@ func runSSHCommand(
 	defer func() {
 		stop()
 		if ctx.Err() != nil {
-			result = nil
 			err = fmt.Errorf("SSH command canceled or timed out: %w", ctx.Err())
 		}
 	}()
@@ -142,21 +141,19 @@ func runSSHCommand(
 	session.Stderr = &stderr
 
 	err = session.Run(command)
+	result = &podExecResult{exitCode: "unknown", stdout: stdout.String(), stderr: stderr.String()}
 	exitCode := 0
 	if err != nil {
 		var exitErr *ssh.ExitError
 		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitStatus()
 		} else {
-			return nil, err
+			return result, err
 		}
 	}
 
-	return &podExecResult{
-		exitCode: strconv.Itoa(exitCode),
-		stdout:   stdout.String(),
-		stderr:   stderr.String(),
-	}, nil
+	result.exitCode = strconv.Itoa(exitCode)
+	return result, nil
 }
 
 func execScriptOnVm(ctx context.Context, s *Scenario, vm *ScenarioVM, script string) (*podExecResult, error) {
@@ -186,7 +183,7 @@ func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd 
 func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) (*podExecResult, error) {
 	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, cmd)
 	if err != nil {
-		return nil, fmt.Errorf("execute command %q on VM: %w", cmd, err)
+		return result, fmt.Errorf("execute command %q on VM: %w", cmd, err)
 	}
 	return result, nil
 }

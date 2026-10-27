@@ -14,9 +14,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -24,6 +26,12 @@ const (
 	cvmAttestationToolsCommit = "26755c86f5034605d41053bfe0e1a7f8ae68b23b"
 	cvmAttestationIssuer      = "https://sharedwus.wus.attest.azure.net"
 	cvmAttestationTokenMax    = 128 * 1024
+	cvmCollectorSSHTimeout    = 9 * time.Minute
+)
+
+var (
+	cvmDiagnosticJWT  = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b`)
+	cvmDiagnosticBlob = regexp.MustCompile(`[A-Za-z0-9_+/=-]{80,}`)
 )
 
 type cvmAttestationSummary struct {
@@ -64,8 +72,12 @@ func cvmAttestationStatus(err error) string {
 
 //nolint:nonamedreturns // Cleanup errors must augment the result without discarding verified evidence.
 func validateCVMAttestation(ctx context.Context, s *Scenario, platform cvmPlatform) (summary *cvmAttestationSummary, retErr error) {
+	defer logging.LogStep(ctx, "validating CVM attestation")()
 	if platform != cvmPlatformSEVSNP && platform != cvmPlatformTDX {
 		return nil, fmt.Errorf("unsupported CVM platform %q", platform)
+	}
+	if s == nil || s.Runtime == nil || s.Runtime.VM == nil {
+		return nil, errors.New("CVM attestation requires a scenario VM")
 	}
 
 	nonce, err := randomHex(32)
@@ -81,25 +93,26 @@ func validateCVMAttestation(ctx context.Context, s *Scenario, platform cvmPlatfo
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 		defer cancel()
-		result, cleanupErr := execScriptOnVMForScenario(cleanupCtx, s, "sudo rm -rf -- "+remoteDir)
-		if cleanupErr == nil && result == nil {
-			cleanupErr = errors.New("remote cleanup returned no result")
-		} else if cleanupErr == nil && result.exitCode != "0" {
-			cleanupErr = fmt.Errorf("remote cleanup exited with code %s: %s", result.exitCode, result.stderr)
+		if cleanupErr := cleanupCVMWorkspace(cleanupCtx, s, remoteDir, dialScenarioSSHOverBastion); cleanupErr != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("clean up CVM attestation workspace: %w", cleanupErr))
 		}
-		retErr = errors.Join(retErr, cleanupErr)
 	}()
 
-	result, err := execScriptOnVMForScenario(ctx, s, cvmAttestationCollectorScript(platform, nonce, remoteDir))
+	collectorCtx, cancel := context.WithTimeout(ctx, cvmCollectorSSHTimeout)
+	defer cancel()
+	result, err := execScriptOnVm(collectorCtx, s, s.Runtime.VM, cvmAttestationCollectorScript(platform, nonce, remoteDir))
 	if result != nil {
-		artifactErr := writeToFile(s.artifactName, "cvm/attestation-output-redacted.log", result.String())
-		retErr = errors.Join(retErr, artifactErr)
+		retErr = errors.Join(retErr, writeCVMDiagnosticArtifact(s, "cvm/attestation-output-redacted.log", result.String()))
 	}
 	if err != nil {
-		return nil, errors.Join(retErr, fmt.Errorf("run CVM attestation collector: %w", err))
+		return nil, errors.Join(retErr, fmt.Errorf("run CVM attestation collector: %w; %s", err, cvmCollectorDiagnostics(result)))
+	}
+	if result == nil {
+		return nil, errors.Join(retErr, errors.New("CVM attestation collector returned no result"))
 	}
 	if result.exitCode != "0" {
-		return nil, errors.Join(retErr, fmt.Errorf("CVM attestation collector exited with code %s; see redacted artifact", result.exitCode))
+		return nil, errors.Join(retErr, fmt.Errorf("CVM attestation collector exited with code %s: %s; see cvm/attestation-output-redacted.log",
+			result.exitCode, cvmCollectorDiagnostics(result)))
 	}
 
 	tokenBytes, err := copyFileFromVM(ctx, s, tokenPath, cvmAttestationTokenMax)
@@ -133,6 +146,64 @@ func validateCVMAttestation(ctx context.Context, s *Scenario, platform cvmPlatfo
 	return summary, retErr
 }
 
+func cleanupCVMWorkspace(ctx context.Context, s *Scenario, remoteDir string, dial func(context.Context, *Scenario) (*SSHClient, error)) error {
+	script := "sudo rm -rf -- " + shellSingleQuote(remoteDir)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, script)
+	if err != nil && ctx.Err() == nil {
+		logging.Logf(ctx, "CVM workspace cleanup SSH failed; reconnecting: %v", err)
+		cleanupBastionTunnel(s.Runtime.VM.SSHClient)
+		s.Runtime.VM.SSHClient = nil
+		if reconnectErr := ensureScenarioSSHClient(ctx, s, dial); reconnectErr != nil {
+			return errors.Join(err, fmt.Errorf("reconnect for CVM workspace cleanup: %w", reconnectErr))
+		}
+		result, err = execScriptOnVm(ctx, s, s.Runtime.VM, script)
+	}
+	if err != nil {
+		return err
+	}
+	if result == nil {
+		return errors.New("remote cleanup returned no result")
+	}
+	if result.exitCode != "0" {
+		return fmt.Errorf("remote cleanup exited with code %s: %s", result.exitCode, redactCVMDiagnostics(result.stderr))
+	}
+	return nil
+}
+
+func redactCVMDiagnostics(output string) string {
+	output = cvmDiagnosticJWT.ReplaceAllString(output, "[redacted JWT]")
+	output = cvmDiagnosticBlob.ReplaceAllString(output, "[redacted encoded data]")
+	return strings.Map(func(r rune) rune {
+		if r < 32 && r != '\n' && r != '\t' || r == 127 {
+			return -1
+		}
+		return r
+	}, output)
+}
+
+func cvmCollectorDiagnostics(result *podExecResult) string {
+	if result == nil {
+		return "no remote output was available"
+	}
+	output := strings.TrimSpace(redactCVMDiagnostics(result.stderr + "\n" + result.stdout))
+	var diagnostics []string
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "[cvm-collector]") || strings.Contains(line, "attestation collector failed:") {
+			diagnostics = append(diagnostics, strings.TrimSpace(line))
+		}
+	}
+	if len(diagnostics) > 0 {
+		output = strings.Join(diagnostics[max(0, len(diagnostics)-3):], "; ")
+	}
+	if output == "" {
+		return "no remote diagnostics were available"
+	}
+	if len(output) > 1200 {
+		output = output[:1200] + " [truncated]"
+	}
+	return output
+}
+
 func randomHex(size int) (string, error) {
 	value := make([]byte, size)
 	if _, err := rand.Read(value); err != nil {
@@ -158,34 +229,53 @@ func cvmAttestationCollectorScript(platform cvmPlatform, nonce, remoteDir string
 
 const cvmAttestationCollectorScriptTemplate = `#!/usr/bin/env bash
 set -euo pipefail
+if ! command -v timeout >/dev/null; then
+  echo '[cvm-collector] phase=prerequisites status=failed: GNU timeout is required' >&2
+  exit 1
+fi
+
+sudo timeout --verbose --signal=TERM --kill-after=10s 480s \
+  bash -s -- "$(id -u):$(id -g)" <<'CVM_COLLECTOR'
+set -euo pipefail
 umask 077
+phase=prerequisites
+trap 'printf "[cvm-collector] phase=%s status=failed exit_code=%s elapsed_seconds=%s\n" "$phase" "$?" "$SECONDS" >&2' ERR
+trap 'printf "[cvm-collector] phase=%s status=timed_out elapsed_seconds=%s\n" "$phase" "$SECONDS" >&2; exit 124' TERM
+mark_phase() {
+  phase="$1"
+  printf '[cvm-collector] phase=%s status=started elapsed_seconds=%s\n' "$phase" "$SECONDS" >&2
+}
 
 work_dir="@@REMOTE_DIR@@"
 repo_dir="${work_dir}/repo"
 deps_dir="${work_dir}/deps"
 token_path="${work_dir}/token.jwt"
+token_owner="$1"
 mkdir -p "${work_dir}"
+chown -- "${token_owner}" "${work_dir}"
 
+mark_phase prerequisites
 if ! command -v git >/dev/null || ! command -v python3 >/dev/null ||
-   ! python3 -m pip --version >/dev/null 2>&1 || ! command -v tpm2_pcrread >/dev/null ||
-   ! command -v timeout >/dev/null; then
+   ! python3 -m pip --version >/dev/null 2>&1 || ! command -v tpm2_pcrread >/dev/null; then
   if command -v apt-get >/dev/null; then
-    sudo env DEBIAN_FRONTEND=noninteractive apt-get update -qq
-    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git python3 python3-pip tpm2-tools ca-certificates coreutils
+    env DEBIAN_FRONTEND=noninteractive apt-get update -qq
+    env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git python3 python3-pip tpm2-tools ca-certificates coreutils
   elif command -v dnf >/dev/null; then
-    sudo dnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
+    dnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
   elif command -v tdnf >/dev/null; then
-    sudo tdnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
+    tdnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
   else
     echo "no supported package manager found" >&2
     exit 1
   fi
 fi
 
+mark_phase tools-download
 git init --quiet "${repo_dir}"
 git -C "${repo_dir}" remote add origin https://github.com/Azure/cvm-attestation-tools.git
 git -C "${repo_dir}" fetch --quiet --depth 1 origin "@@COMMIT@@"
 git -C "${repo_dir}" checkout --quiet --detach FETCH_HEAD
+mark_phase python-dependencies
 python3 -m pip install --quiet --disable-pip-version-check --target "${deps_dir}" \
   'requests==2.31.0; python_version < "3.10"' \
   'requests==2.34.2; python_version >= "3.10"' \
@@ -195,11 +285,14 @@ python3 -m pip install --quiet --disable-pip-version-check --target "${deps_dir}
   'cryptography==50.0.2; python_version >= "3.9"' \
   construct==2.10.70
 
-sudo timeout --verbose --signal=TERM --kill-after=10s 180s env \
+mark_phase attestation
+# Keep Python in the outer timeout's process group so its deadline kills the entire collector.
+timeout --foreground --verbose --signal=TERM --kill-after=10s 180s env \
   PYTHONPATH="${deps_dir}:${repo_dir}/cvm-attestation" \
   python3 - "@@PLATFORM@@" "@@NONCE@@" "${token_path}" "@@ENDPOINT@@" <<'PY'
 import json
 import os
+import re
 import sys
 
 from src.attestation_provider import MAAProvider
@@ -210,18 +303,38 @@ from src.report_parser import ReportParser
 from src.tpm_wrapper import TssWrapper
 
 
-class QuietLogger:
+def safe_text(value):
+    text = re.sub(r"\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b",
+                  "[redacted JWT]", str(value))
+    text = re.sub(r"[A-Za-z0-9_+/=-]{80,}", "[redacted encoded data]", text)
+    text = re.sub(r"[\x00-\x1f\x7f]", " ", text)
+    return " ".join(text.split())[:1024]
+
+
+def report_phase(name):
+    print(f"[cvm-collector] phase={name}", file=sys.stderr, flush=True)
+
+
+class DiagnosticLogger:
     def debug(self, *_args, **_kwargs):
         pass
 
-    def info(self, *_args, **_kwargs):
-        pass
+    def info(self, message, *_args, **_kwargs):
+        if message == "Sending attestation request to provider..." or message.startswith("Retrying in "):
+            print(f"[cvm-collector] phase=maa-request {safe_text(message)}",
+                  file=sys.stderr, flush=True)
 
-    def warning(self, *_args, **_kwargs):
-        pass
+    def warning(self, message, *_args, **_kwargs):
+        print(f"[cvm-collector] warning: {safe_text(message)}",
+              file=sys.stderr, flush=True)
 
-    def error(self, *_args, **_kwargs):
-        pass
+    def error(self, message, *_args, **_kwargs):
+        if message.startswith("Request payload:"):
+            return
+        if message.startswith("Failed to verify evidence due to invalid collateral, error:"):
+            message = "phase=maa-request HTTP 400: " + message
+        print(f"[cvm-collector] error: {safe_text(message)}",
+              file=sys.stderr, flush=True)
 
 
 def main():
@@ -231,7 +344,8 @@ def main():
         "tdx": IsolationType.TDX,
     }[platform]
     claims = {"user-claims": {"nonce": nonce}}
-    logger = QuietLogger()
+    logger = DiagnosticLogger()
+    report_phase("tpm-report")
     tss = TssWrapper(logger)
     hcl_report = tss.get_hcl_report(claims)
     report_type = ReportParser.extract_report_type(hcl_report)
@@ -242,6 +356,7 @@ def main():
     hardware_report = ReportParser.extract_hw_report(hcl_report)
     encoded_report = Encoder.base64url_encode(hardware_report)
     imds = ImdsClient(logger)
+    report_phase("imds-evidence")
     if isolation_type == IsolationType.TDX:
         encoded_evidence = imds.get_td_quote(encoded_report)
     else:
@@ -252,11 +367,13 @@ def main():
         }).encode("utf-8")
         encoded_evidence = Encoder.base64url_encode(snp_report)
 
+    report_phase("maa-request")
     provider = MAAProvider(logger, isolation_type, endpoint)
     token = provider.attest_platform(encoded_evidence, Encoder.base64url_encode(runtime_data))
     if not token:
         raise RuntimeError("attestation provider returned no token")
 
+    report_phase("token-write")
     fd = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as token_file:
         token_file.write(token)
@@ -266,12 +383,15 @@ def main():
 try:
     main()
 except Exception as exc:
-    print(f"attestation collector failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+    print(f"attestation collector failed: {type(exc).__name__}: {safe_text(exc)}", file=sys.stderr)
     sys.exit(1)
 PY
 
-sudo chown -- "$(id -u):$(id -g)" "${token_path}"
+mark_phase token-ownership
+chown -- "${token_owner}" "${token_path}"
 printf 'attestation collector completed for %s\n' "@@PLATFORM@@"
+printf '[cvm-collector] phase=complete status=passed elapsed_seconds=%s\n' "$SECONDS" >&2
+CVM_COLLECTOR
 `
 
 func verifyCVMAttestationToken(

@@ -68,6 +68,19 @@ Secure Boot, vTPM, and SEV-SNP or TDX policy claims. The collector retrieves a p
 revision of `Azure/cvm-attestation-tools` and its Python dependencies on the test VM.
 On-node Python collection, including MAA and IMDS requests, is limited to three
 minutes, with forced termination after a further ten seconds if needed.
+The entire collector, including package installation, Git fetch, and Python dependency
+setup, has an eight-minute remote deadline and a nine-minute SSH backstop.
+The five dedicated CVM validators have a separate twelve-minute validation budget
+after provisioning, still bounded by the overall scenario deadline. Other scenarios,
+including ACL, retain their existing timeout behavior. Collector phase timings and
+sanitized service failures are retained in the redacted log; transport failures retain
+partial output, and workspace cleanup reconnects if its SSH transport is unusable.
+Image selection uses the existing selector (including "latest" and build metadata);
+the exact resolved resource ID is recorded and compared with fresh Azure reads of
+both the VMSS and VM instance. This confirms reported image selection, not disk-content
+integrity. PCR evidence requires SHA-256 PCRs 0-23 with valid 32-byte digests and is also
+published as `cvm/measured-boot-pcrs.json`. It establishes readability and format only:
+there is no nonce-bound PCR quote, event-log replay, or approved measurement baseline.
 Evidence is written under the scenario's `cvm/` artifact directory, with verdicts in
 `cvm/cvm-checks.json` and `cvm-attestation-summary.json`; raw attestation tokens are
 not published.

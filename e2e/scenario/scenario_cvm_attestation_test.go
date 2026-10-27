@@ -8,15 +8,20 @@ import (
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +43,8 @@ func TestCVMAttestationCollectorIsPinnedAndDoesNotUseUpstreamRunner(t *testing.T
 	assert.NotContains(t, script, "run_attestation.sh")
 	assert.NotContains(t, script, "logger.info(token)")
 	assert.Contains(t, script, `os.O_WRONLY | os.O_CREAT | os.O_EXCL`)
-	assert.Contains(t, script, `sudo chown -- "$(id -u):$(id -g)" "${token_path}"`)
+	assert.Contains(t, script, `chown -- "${token_owner}" "${token_path}"`)
+	assert.Contains(t, script, `chown -- "${token_owner}" "${work_dir}"`)
 	assert.Contains(t, script, "cryptography==42.0.8")
 	assert.Contains(t, script, "cryptography==50.0.2")
 
@@ -235,12 +241,12 @@ func TestCVMAttestationCollectorTimeout(t *testing.T) {
 	script := cvmAttestationCollectorScript(cvmPlatformSEVSNP, "nonce", "/tmp/test")
 	var timeoutArgs []string
 	for _, line := range strings.Split(script, "\n") {
-		if strings.HasPrefix(line, "sudo timeout ") {
-			timeoutArgs = strings.Fields(strings.SplitN(line, " env ", 2)[0])[2:]
+		if strings.HasPrefix(line, "timeout ") {
+			timeoutArgs = strings.Fields(strings.SplitN(line, " env ", 2)[0])[1:]
 			break
 		}
 	}
-	require.Equal(t, []string{"--verbose", "--signal=TERM", "--kill-after=10s", "180s"}, timeoutArgs)
+	require.Equal(t, []string{"--foreground", "--verbose", "--signal=TERM", "--kill-after=10s", "180s"}, timeoutArgs)
 	if _, err := exec.LookPath("timeout"); err != nil {
 		t.Skip("GNU timeout is not installed")
 	}
@@ -248,13 +254,99 @@ func TestCVMAttestationCollectorTimeout(t *testing.T) {
 	timeoutArgs[len(timeoutArgs)-1] = "0.1s"
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, "timeout", append(timeoutArgs, "sh", "-c", "sleep 30")...)
+	command := exec.CommandContext(ctx, "timeout", append(timeoutArgs, "sleep", "30")...)
 	output, err := command.CombinedOutput()
 	require.NoError(t, ctx.Err(), "collector timeout did not terminate the stalled command")
 	var exitErr *exec.ExitError
 	require.ErrorAs(t, err, &exitErr)
 	assert.Equal(t, 124, exitErr.ExitCode())
 	assert.Contains(t, string(output), "sending signal TERM")
+}
+
+func TestCVMCollectorDeadlineIncludesSetup(t *testing.T) {
+	for _, phase := range []string{"tools-download", "attestation"} {
+		t.Run(phase, func(t *testing.T) {
+			binDir := t.TempDir()
+			git := "#!/bin/sh\nexit 0\n"
+			if phase == "tools-download" {
+				git = "#!/bin/sh\nexec sleep 30\n"
+			}
+			for name, content := range map[string]string{
+				"sudo":         "#!/bin/sh\nexec \"$@\"\n",
+				"git":          git,
+				"python3":      "#!/bin/sh\nif [ \"$1\" = - ]; then exec sleep 30; fi\nexit 0\n",
+				"tpm2_pcrread": "#!/bin/sh\nexit 0\n",
+			} {
+				require.NoError(t, os.WriteFile(filepath.Join(binDir, name), []byte(content), 0o700))
+			}
+			t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			script := cvmAttestationCollectorScript(cvmPlatformSEVSNP, "nonce", filepath.Join(t.TempDir(), "collector"))
+			script = strings.Replace(script, "480s", "0.2s", 1)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			command := exec.CommandContext(ctx, "bash")
+			command.Stdin = strings.NewReader(script)
+			output, err := command.CombinedOutput()
+			require.NoError(t, ctx.Err(), "outer Go deadline must not be needed to interrupt the collector")
+			var exitErr *exec.ExitError
+			require.ErrorAs(t, err, &exitErr)
+			assert.Equal(t, 124, exitErr.ExitCode(), string(output))
+			assert.Contains(t, string(output), "phase="+phase)
+			assert.Contains(t, string(output), "status=timed_out")
+		})
+	}
+}
+
+func TestCVMCollectorPythonDiagnostics(t *testing.T) {
+	script := cvmAttestationCollectorScript(cvmPlatformSEVSNP, "nonce", "/tmp/test")
+	_, embedded, ok := strings.Cut(script, "<<'PY'\n")
+	require.True(t, ok)
+	python, _, ok := strings.Cut(embedded, "\nPY\n")
+	require.True(t, ok)
+	command := exec.Command("python3", "-c", `
+import ast
+import contextlib
+import io
+import re
+import sys
+
+tree = ast.parse(sys.stdin.read())
+selected = [node for node in tree.body if isinstance(node, (ast.ClassDef, ast.FunctionDef))
+            and node.name in ("safe_text", "DiagnosticLogger", "report_phase")]
+namespace = {"re": re, "sys": sys}
+exec(compile(ast.Module(body=selected, type_ignores=[]), "<collector>", "exec"), namespace)
+logger = namespace["DiagnosticLogger"]()
+jwt = "eyJhbGciOiJSUzI1NiJ9.eyJzZWNyZXQiOiJ0ZXN0In0.signature"
+blob = "A" * 256
+captured = io.StringIO()
+with contextlib.redirect_stderr(captured):
+    logger.error('Failed to verify evidence due to invalid collateral, error: '
+                 '{"error":{"code":"InvalidParameter","message":"collateral expired"}}')
+    logger.error("Request payload: secret-sentinel " + blob)
+    logger.warning("token=" + jwt + " evidence=" + blob)
+    logger.info(jwt)
+output = captured.getvalue()
+assert "InvalidParameter" in output and "collateral expired" in output, output
+assert "secret-sentinel" not in output and jwt not in output and blob not in output, output
+print(output)
+`)
+	command.Stdin = strings.NewReader(python)
+	output, err := command.CombinedOutput()
+	require.NoError(t, err, string(output))
+	assert.Contains(t, string(output), "InvalidParameter")
+}
+
+func TestCVMCollectorFailureSummaryRetainsSafeDiagnostics(t *testing.T) {
+	const token = "eyJhbGciOiJSUzI1NiJ9.eyJzZWNyZXQiOiJ0ZXN0In0.signature"
+	result := &podExecResult{exitCode: "1",
+		stderr: "[cvm-collector] phase=maa-request\n[cvm-collector] error: HTTP 400 InvalidParameter collateral expired\nattestation collector failed: RuntimeError: no token",
+		stdout: token,
+	}
+	summary := cvmCollectorDiagnostics(result)
+	assert.Contains(t, summary, "phase=maa-request")
+	assert.Contains(t, summary, "HTTP 400 InvalidParameter collateral expired")
+	assert.NotContains(t, redactCVMDiagnostics(result.String()), token)
+	assert.LessOrEqual(t, len(cvmCollectorDiagnostics(&podExecResult{stderr: strings.Repeat("x ", 4000)})), 1220)
 }
 
 func TestBoundedWriterRejectsOversizedRemoteFile(t *testing.T) {
@@ -315,10 +407,19 @@ func TestCopyCVMTokenFromVM(t *testing.T) {
 
 func startCVMTokenSSHServer(t *testing.T, signer ssh.Signer, content string) (string, <-chan string, <-chan struct{}) {
 	t.Helper()
+	return startCVMCommandSSHServer(t, signer, func(_ *ssh.ServerConn, channel ssh.Channel, _ string) {
+		_, _ = channel.Write([]byte(content))
+		_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
+		_ = channel.Close()
+	})
+}
+
+func startCVMCommandSSHServer(t *testing.T, signer ssh.Signer, run func(*ssh.ServerConn, ssh.Channel, string)) (string, <-chan string, <-chan struct{}) {
+	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = listener.Close() })
-	commands := make(chan string, 1)
+	commands := make(chan string, 16)
 	serverDone := make(chan struct{})
 	go func() {
 		defer close(serverDone)
@@ -348,14 +449,108 @@ func startCVMTokenSSHServer(t *testing.T, signer ssh.Signer, content string) (st
 				}
 				commands <- command.Command
 				_ = request.Reply(true, nil)
-				_, _ = channel.Write([]byte(content))
-				_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
-				_ = channel.Close()
+				run(server, channel, command.Command)
 				break
 			}
 		}
 	}()
 	return listener.Addr().String(), commands, serverDone
+}
+
+func TestCVMPartialEvidenceSurvivesSSHFailures(t *testing.T) {
+	previousLogDir := config.Config.E2ELoggingDir
+	config.Config.E2ELoggingDir = t.TempDir()
+	t.Cleanup(func() { config.Config.E2ELoggingDir = previousLogDir })
+	key, _ := newTestSigningCertificate(t)
+	signer, err := ssh.NewSignerFromKey(key)
+	require.NoError(t, err)
+	for _, timeout := range []bool{false, true} {
+		t.Run(fmt.Sprint("timeout=", timeout), func(t *testing.T) {
+			address, _, done := startCVMCommandSSHServer(t, signer, func(server *ssh.ServerConn, channel ssh.Channel, command string) {
+				if strings.HasPrefix(command, "umask") {
+					_, _ = io.Copy(io.Discard, channel)
+					_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
+					_ = channel.Close()
+					return
+				}
+				_, _ = channel.Write([]byte("package download started\n"))
+				_, _ = channel.Stderr().Write([]byte("last progress before failure\n"))
+				if timeout {
+					_ = server.Wait()
+				} else {
+					_ = server.Close()
+				}
+			})
+			client, err := ssh.Dial("tcp", address, &ssh.ClientConfig{
+				User: "azureuser", HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second,
+			})
+			require.NoError(t, err)
+			sshClient := newSSHClient(client)
+			t.Cleanup(func() { _ = sshClient.Close(); <-done })
+			s := &Scenario{
+				artifactName: "partial-evidence",
+				Config:       Config{VHD: &config.Image{OS: config.OSUbuntu}},
+				Runtime:      &ScenarioRuntime{VM: &ScenarioVM{SSHClient: sshClient}},
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+			defer cancel()
+			output, err := collectCVMEvidence(ctx, s, "cvm/progress.log", "test script")
+			require.Error(t, err)
+			if timeout {
+				require.ErrorIs(t, err, context.DeadlineExceeded)
+			}
+			assert.Contains(t, output, "package download started")
+			content, err := os.ReadFile(filepath.Join(config.Config.E2ELoggingDir, s.artifactName, "cvm/progress.log"))
+			require.NoError(t, err)
+			assert.Contains(t, string(content), "package download started")
+			assert.Contains(t, string(content), "last progress before failure")
+			assert.Contains(t, string(content), "exit code: unknown")
+		})
+	}
+}
+
+func TestCVMWorkspaceCleanupReconnectsClosedTransport(t *testing.T) {
+	key, _ := newTestSigningCertificate(t)
+	signer, err := ssh.NewSignerFromKey(key)
+	require.NoError(t, err)
+	scripts := make(chan string, 2)
+	address, _, done := startCVMCommandSSHServer(t, signer, func(_ *ssh.ServerConn, channel ssh.Channel, command string) {
+		if strings.HasPrefix(command, "umask") {
+			script, _ := io.ReadAll(channel)
+			scripts <- string(script)
+		}
+		_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
+		_ = channel.Close()
+	})
+	client, err := ssh.Dial("tcp", address, &ssh.ClientConfig{
+		User: "azureuser", HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second,
+	})
+	require.NoError(t, err)
+	fresh := newSSHClient(client)
+	t.Cleanup(func() { _ = fresh.Close(); <-done })
+	oldAddress, _, oldDone := startCVMTokenSSHServer(t, signer, "")
+	oldClient, err := ssh.Dial("tcp", oldAddress, &ssh.ClientConfig{
+		User: "azureuser", HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second,
+	})
+	require.NoError(t, err)
+	closed := newSSHClient(oldClient)
+	require.NoError(t, closed.Close())
+	<-oldDone
+	s := &Scenario{
+		Config:  Config{VHD: &config.Image{OS: config.OSUbuntu}},
+		Runtime: &ScenarioRuntime{VM: &ScenarioVM{SSHClient: closed}},
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	dials := 0
+	err = cleanupCVMWorkspace(ctx, s, "/tmp/test-cvm-workspace", func(context.Context, *Scenario) (*SSHClient, error) {
+		dials++
+		return fresh, nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, dials)
+	assert.Same(t, fresh, s.Runtime.VM.SSHClient)
+	assert.Equal(t, "sudo rm -rf -- '/tmp/test-cvm-workspace'", <-scripts)
 }
 
 func TestValidateCVMAttestationClaimsRejectsWrongNonceAndPlatform(t *testing.T) {

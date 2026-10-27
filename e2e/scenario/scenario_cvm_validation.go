@@ -2,12 +2,17 @@ package scenario
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
+	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
+	"gopkg.in/yaml.v3"
 )
 
 const cvmEvidenceLimit = 128 * 1024
@@ -48,6 +53,8 @@ type observedCVMModel struct {
 	Location               string                             `json:"location"`
 	SKU                    string                             `json:"sku"`
 	ImageReference         *armcompute.ImageReference         `json:"imageReference,omitempty"`
+	ExpectedImageID        string                             `json:"expectedImageId"`
+	InstanceImageReference *armcompute.ImageReference         `json:"instanceImageReference,omitempty"`
 	SecurityType           armcompute.SecurityTypes           `json:"securityType"`
 	SecureBootEnabled      bool                               `json:"secureBootEnabled"`
 	VTPMEnabled            bool                               `json:"vTPMEnabled"`
@@ -61,8 +68,16 @@ func validateCVM(platform cvmPlatform, securityEncryptionType armcompute.Securit
 		var checks []cvmCheck
 		var validationErrors []error
 
-		modelChecks, err := validateObservedCVMModel(s, platform, securityEncryptionType)
-		checks = append(checks, modelChecks...)
+		err := refreshCVMModel(ctx, s)
+		if err == nil {
+			var modelChecks []cvmCheck
+			modelChecks, err = validateObservedCVMModel(s, platform, securityEncryptionType)
+			checks = append(checks, modelChecks...)
+		} else {
+			check := newCVMCheck("vmss.observedModel", "fresh VMSS and VM-instance reads", err.Error(), false, "cvm/cvm-checks.json", "")
+			check.Status = cvmStatusUnableToVerify
+			checks = append(checks, check)
+		}
 		if err != nil {
 			validationErrors = append(validationErrors, err)
 		}
@@ -103,6 +118,31 @@ func validateCVM(platform cvmPlatform, securityEncryptionType armcompute.Securit
 
 		return errors.Join(validationErrors...)
 	}
+}
+
+func refreshCVMModel(ctx context.Context, s *Scenario) error {
+	if s == nil || s.Runtime == nil || s.Runtime.VM == nil || s.Runtime.VM.VM == nil ||
+		s.Runtime.VM.VM.InstanceID == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
+		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil {
+		return errors.New("refresh CVM model requires a VM instance and node resource group")
+	}
+	if config.Azure == nil || config.Azure.VMSS == nil || config.Azure.VMSSVM == nil {
+		return errors.New("refresh CVM model requires Azure compute clients")
+	}
+	readCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	resourceGroup := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
+	vmss, err := config.Azure.VMSS.Get(readCtx, resourceGroup, s.Runtime.VMSSName, nil)
+	if err != nil {
+		return fmt.Errorf("read fresh CVM VMSS model: %w", err)
+	}
+	vm, err := config.Azure.VMSSVM.Get(readCtx, resourceGroup, s.Runtime.VMSSName, *s.Runtime.VM.VM.InstanceID, nil)
+	if err != nil {
+		return fmt.Errorf("read fresh CVM VM instance: %w", err)
+	}
+	s.Runtime.VM.VMSS = &vmss.VirtualMachineScaleSet
+	s.Runtime.VM.VM = &vm.VirtualMachineScaleSetVM
+	return nil
 }
 
 func cvmAttestationObserved(err error) string {
@@ -154,6 +194,10 @@ func validateObservedCVMModel(s *Scenario, platform cvmPlatform, securityEncrypt
 		return nil, errors.New("CVM validation requires the observed VMSS model")
 	}
 	model := readObservedCVMModel(s.Runtime.VM.VMSS)
+	model.ExpectedImageID = string(s.Runtime.ResolvedVHD)
+	if vm := s.Runtime.VM.VM; vm != nil && vm.Properties != nil && vm.Properties.StorageProfile != nil {
+		model.InstanceImageReference = vm.Properties.StorageProfile.ImageReference
+	}
 
 	modelJSON, err := json.MarshalIndent(model, "", "  ")
 	if err != nil {
@@ -187,7 +231,10 @@ func validateObservedCVMModel(s *Scenario, platform cvmPlatform, securityEncrypt
 	checks := []cvmCheck{
 		newCVMCheck("vmss.location", cvmLocation, model.Location, strings.EqualFold(model.Location, cvmLocation), evidencePath, "/location"),
 		newCVMCheck("vmss.sku", expectedSKU, model.SKU, model.SKU == expectedSKU, evidencePath, "/sku"),
-		newCVMCheck("vmss.imageReference", "non-empty", model.ImageReference, model.ImageReference != nil, evidencePath, "/imageReference"),
+		newCVMCheck("vmss.imageReference", model.ExpectedImageID, model.ImageReference,
+			cvmImageMatches(model.ExpectedImageID, model.ImageReference), evidencePath, "/imageReference"),
+		newCVMCheck("vm.imageReference", model.ExpectedImageID, model.InstanceImageReference,
+			cvmImageMatches(model.ExpectedImageID, model.InstanceImageReference), evidencePath, "/instanceImageReference"),
 		newCVMCheck(
 			"vmss.securityType", armcompute.SecurityTypesConfidentialVM, model.SecurityType,
 			model.SecurityType == armcompute.SecurityTypesConfidentialVM, evidencePath, "/securityType",
@@ -201,6 +248,11 @@ func validateObservedCVMModel(s *Scenario, platform cvmPlatform, securityEncrypt
 		),
 	}
 	return checks, failedCVMChecks(checks)
+}
+
+func cvmImageMatches(expected string, observed *armcompute.ImageReference) bool {
+	return expected != "" && !strings.HasSuffix(strings.ToLower(expected), "/versions/latest") &&
+		observed != nil && strings.EqualFold(expected, stringValue(observed.ID))
 }
 
 func readObservedCVMModel(vmss *armcompute.VirtualMachineScaleSet) observedCVMModel {
@@ -259,12 +311,33 @@ sudo dmesg 2>/dev/null | grep -Ei -m 80 'sev|snp|tdx|confidential' || true
 	}
 
 	pcrOutput, pcrErr := collectCVMEvidence(ctx, s, "cvm/measured-boot-pcrs.log", `
-set -u
-command -v tpm2_pcrread
+set -euo pipefail
+command -v tpm2_pcrread >/dev/null
 sudo tpm2_pcrread sha256
 `)
-	pcrPassed := pcrErr == nil && strings.Contains(pcrOutput, "sha256")
-	checks = append(checks, newCVMCheck("guest.measuredBootPCRs", "readable SHA-256 PCR bank", strings.TrimSpace(pcrOutput), pcrPassed, "cvm/measured-boot-pcrs.log", ""))
+	pcrs, parseErr := parseCVMPCRs(pcrOutput)
+	pcrEvidence := struct {
+		Bank  string         `json:"bank"`
+		PCRs  map[int]string `json:"pcrs"`
+		Scope string         `json:"scope"`
+	}{
+		Bank: "sha256", PCRs: pcrs,
+		Scope: "readability and format only; not a TPM quote or approved measured-boot baseline",
+	}
+	if parseErr != nil {
+		validationErrors = append(validationErrors, fmt.Errorf("parse SHA-256 PCR evidence: %w", parseErr))
+	} else {
+		pcrJSON, err := json.MarshalIndent(pcrEvidence, "", "  ")
+		if err == nil {
+			err = writeToFile(s.artifactName, "cvm/measured-boot-pcrs.json", string(pcrJSON)+"\n")
+		}
+		if err != nil {
+			pcrErr = errors.Join(pcrErr, fmt.Errorf("write structured PCR evidence: %w", err))
+		}
+	}
+	checks = append(checks, newCVMCheck("guest.measuredBootPCRs",
+		"24 readable SHA-256 PCRs (0-23), each 32 bytes; no integrity baseline comparison",
+		pcrEvidence, pcrErr == nil && parseErr == nil, "cvm/measured-boot-pcrs.log", ""))
 	if pcrErr != nil {
 		validationErrors = append(validationErrors, pcrErr)
 	}
@@ -275,22 +348,71 @@ sudo tpm2_pcrread sha256
 	return checks, errors.Join(validationErrors...)
 }
 
+func parseCVMPCRs(output string) (map[int]string, error) {
+	var bank struct {
+		SHA256 map[int]string `yaml:"sha256"`
+	}
+	decoder := yaml.NewDecoder(strings.NewReader(output))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&bank); err != nil {
+		return nil, fmt.Errorf("decode PCR bank: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return nil, errors.New("PCR output must contain exactly one SHA-256 bank document")
+	}
+	if len(bank.SHA256) != 24 {
+		return nil, fmt.Errorf("expected PCRs 0-23, got %d registers", len(bank.SHA256))
+	}
+	for index := range 24 {
+		value, ok := bank.SHA256[index]
+		if !ok {
+			return nil, fmt.Errorf("missing PCR %d", index)
+		}
+		digest := strings.TrimPrefix(value, "0x")
+		if len(digest) != 64 {
+			return nil, fmt.Errorf("PCR %d must contain a 32-byte SHA-256 digest", index)
+		}
+		if _, err := hex.DecodeString(digest); err != nil {
+			return nil, fmt.Errorf("PCR %d contains a non-hexadecimal digest: %w", index, err)
+		}
+		bank.SHA256[index] = strings.ToLower(digest)
+	}
+	return bank.SHA256, nil
+}
+
 func collectCVMEvidence(ctx context.Context, s *Scenario, artifactPath, script string) (string, error) {
 	result, err := execScriptOnVMForScenario(ctx, s, script)
+	var stdout, output string
+	if result != nil {
+		stdout = result.stdout
+		output = result.String()
+		if err == nil && result.exitCode != "0" {
+			err = fmt.Errorf("command exited with code %s", result.exitCode)
+		}
+	} else if err == nil {
+		err = errors.New("remote command returned no result")
+	}
 	if err != nil {
-		return "", fmt.Errorf("collect %s: %w", artifactPath, err)
+		output += "\ncollection error: " + err.Error() + "\n"
 	}
-	output := "stdout:\n" + result.stdout + "\nstderr:\n" + result.stderr
+	err = errors.Join(err, writeCVMDiagnosticArtifact(s, artifactPath, output))
+	if err != nil {
+		return stdout, fmt.Errorf("collect %s: %w", artifactPath, err)
+	}
+	return stdout, nil
+}
+
+func writeCVMDiagnosticArtifact(s *Scenario, artifactPath, output string) error {
+	output = redactCVMDiagnostics(output)
 	if len(output) > cvmEvidenceLimit {
-		output = output[:cvmEvidenceLimit] + "\n[truncated]\n"
+		half := cvmEvidenceLimit / 2
+		output = output[:half] + "\n[truncated]\n" + output[len(output)-half:]
 	}
-	if writeErr := writeToFile(s.artifactName, artifactPath, output); writeErr != nil {
-		return output, fmt.Errorf("write %s: %w", artifactPath, writeErr)
+	if err := writeToFile(s.artifactName, artifactPath, output); err != nil {
+		return fmt.Errorf("write %s: %w", artifactPath, err)
 	}
-	if result.exitCode != "0" {
-		return output, fmt.Errorf("collect %s: command exited with code %s", artifactPath, result.exitCode)
-	}
-	return output, nil
+	return nil
 }
 
 func newCVMCheck(name string, expected, observed any, passed bool, path, claim string) cvmCheck {
