@@ -119,6 +119,12 @@ jobs:
           scriptType: bash
           scriptLocation: inlineScript
           inlineScript: |
+            # TEST ONLY: azcopy 10.22.1 (the bootstrap pin on ARM64) passes tenant "common"
+            # to its CLI auto-login unless AZCOPY_TENANT_ID is set, which fails with
+            # AADSTS53003. Pass the tenant the AzureCLI task actually logged in to.
+            AZCOPY_TENANT_ID="$(az account show --query tenantId --output tsv)"
+            export AZCOPY_TENANT_ID
+            echo "AZCOPY_TENANT_ID=${AZCOPY_TENANT_ID}"
             make -f packer.mk convert-vhd-to-cosi
         condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
         displayName: Convert ACL VHD to COSI
