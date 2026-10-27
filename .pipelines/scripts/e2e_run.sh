@@ -31,6 +31,25 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:?SUBSCRIPTION_ID or SUBSCRIPTION_ID_OVERRIDE 
 az account set -s "${SUBSCRIPTION_ID}"
 echo "Using subscription ${SUBSCRIPTION_ID} for e2e tests"
 
+if [ "${REQUIRE_NATIVE_CLOUD_INTEGRATION:-false}" = "true" ]; then
+  if [ "${RCV1P_TAGS_AUTO_INJECTED:-false}" = "true" ]; then
+    echo "Native cloud integration requires a subscription without auto-injected RCV1P tags" >&2
+    exit 1
+  fi
+  feature_state="$(az feature show --namespace Microsoft.Compute --name PlatformSettingsOverride --query properties.state --output tsv)"
+  if [ "$feature_state" != "Registered" ]; then
+    echo "Native cloud integration requires Microsoft.Compute/PlatformSettingsOverride registration" >&2
+    exit 1
+  fi
+  export DISABLE_SCRIPTLESS=false
+  export DISABLE_SCRIPT_LESS_COMPILATION=false
+  export TEST_PRE_PROVISION=false
+  export SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE=false
+  export IGNORE_SCENARIOS_WITH_MISSING_VHD=false
+  export TAGS_TO_RUN="nativecloudinit=true"
+  export TAGS_TO_SKIP=""
+fi
+
 # Setup go
 GOPATH="$(go env GOPATH | tr -d "'\"")"
 export GOPATH

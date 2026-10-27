@@ -16,6 +16,9 @@ import (
 
 var CachedCreateGallery = toolkit.Memoize(createGallery)
 
+//nolint:gochecknoglobals // Share immutable PR artifacts across concurrent scenarios of the same architecture.
+var CachedCloudInitializationArtifacts = toolkit.Memoize(buildCloudInitializationArtifacts)
+
 type CreateGalleryRequest struct {
 	Location      string
 	ResourceGroup string

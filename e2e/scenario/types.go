@@ -33,6 +33,7 @@ type Tags struct {
 	VHDCaching             bool
 	MockAzureChinaCloud    bool
 	RCV1PCertMode          bool
+	NativeCloudInit        bool
 	VMSeriesCoverageTest   bool
 }
 
@@ -177,6 +178,10 @@ type Config struct {
 	// hotfix pointer and replacing the baked ANC with a PR-built binary stamped to the hotfix
 	// base version. check-hotfix is intentionally not exercised; see scenario_anc_hotfix.go.
 	ANCHotfixFlowFixture bool
+
+	// CloudInitializationFixture delivers the current ANC, a loopback repository
+	// proxy and guarded real-system tests without disabling native provisioning.
+	CloudInitializationFixture bool
 
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario) error

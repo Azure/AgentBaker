@@ -80,9 +80,10 @@ Scenarios specifically covering legacy CLI flags must set
 are unchanged.
 
 Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
-bootstrap config mutator of five scenarios: `Ubuntu2204_ArtifactStreaming`,
+bootstrap config mutator of these scenarios: `Ubuntu2204_ArtifactStreaming`,
 `AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
 and `Ubuntu2204_Early_Failure_Scriptless` (the existing `_Scriptless`-suffix scenario).
+The four native cloud-initialization scenarios below also select Phase 3 explicitly.
 The runner converts the NBC, applies the AKSNodeConfig mutator, validates and
 normalizes Phase 3 settings with `nodeconfigutils.Validate`,
 and serializes the result for AgentBaker. The early-failure scenario checks that an
@@ -93,6 +94,72 @@ All other scenarios retain their existing provisioning mode, including Phase 2/2
 coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
 VHD-caching behavior remain in effect.
+
+### Native cloud-initialization integration gate
+
+Run the final stacked PR, not the preparatory branches: its checkout supplies the
+ANC binary, the real provisioning scripts and the integration test binary.
+The `nativecloudinit=true` tag selects six scenarios, all retaining the normal
+Node Ready and pod validations:
+
+| Image | Native opt-in | Native opt-out | Both flags / NBC precedence |
+| --- | --- | --- | --- |
+| Ubuntu 22.04 | `Ubuntu2204_NativeCloudInit_OptedIn` | `Ubuntu2204_NativeCloudInit_NotOptedIn` | `Ubuntu2204_CloudInit_NBCPrecedence` |
+| Azure Linux 3 | `AzureLinuxV3_NativeCloudInit_OptedIn` | `AzureLinuxV3_NativeCloudInit_NotOptedIn` | `AzureLinuxV3_CloudInit_NBCPrecedence` |
+
+These reuse the RCV1P subscription prerequisite and real VM opt-in tag. No
+WireServer endpoint is changed in ANC or redirected on the VM. The public Azure
+test environment uses the supported `akscustom` input contract to enable a
+nonempty RepoDepot endpoint while retaining public ARM, identity and registry
+endpoints. A loopback proxy forwards Ubuntu and Microsoft repositories without
+changing vendor metadata, signatures or packages; apt/dnf, gpg and system CA
+tools execute normally. Repository response counters, successful cache telemetry,
+the exact PR binary hash, an instrumented **real** legacy script, and Phase 3
+launch checks prevent opt-out, empty-repository, old-binary or NBC-only false greens.
+
+The opted-in native VMs additionally run `TestCloudSystemIntegration`, guarded by
+the `cloudintegration` build tag, an explicit flag and a disposable-VM marker.
+It installs a fresh CA, proves HTTPS fails before and succeeds after trust
+installation, fetches actual vendor-signed package metadata, checks the real
+cron entry, injects a real ten-attempt metadata outage, and verifies Error
+repository telemetry alongside successful outer initialization. Cron and legacy
+CA-update permission faults execute the actual OS tools with reduced credentials;
+no command returns a synthetic success. Empty opt-in, missing operation lists,
+invalid/non-boolean opt-in, individual download failures and cancellation retain
+their established boundaries. On these VMs the suite also enables and starts a
+real systemd refresh timer/service and checks a real daemon authorization failure.
+This tests the systemd backend, **not** immutable-image provisioning.
+
+Finally the registered refresh command is executed directly, without waiting
+until 19:00. Repository files/keyrings and the root crontab's contents and inode/
+timestamp must remain unchanged.
+
+The manual CI entrypoint is [`.pipelines/e2e-anc-cloud-init.yaml`](../.pipelines/e2e-anc-cloud-init.yaml).
+Select a subscription with `Microsoft.Compute/PlatformSettingsOverride`
+registered and **without** platform-injected opt-in tags. Missing prerequisites
+are failures in this strict gate, not skipped tests; missing VHDs/capacity must
+not make the suite green. The YAML does not create an ADO pipeline definition
+or configure GitHub required checks; the pipeline owner must register it and
+require its successful result before merging the series.
+
+With the normal E2E configuration prepared, its equivalent local invocation is:
+
+```bash
+cd e2e
+REQUIRE_NATIVE_CLOUD_INTEGRATION=true RCV1P_TAGS_AUTO_INJECTED=false \
+  SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE=false IGNORE_SCENARIOS_WITH_MISSING_VHD=false \
+  TAGS_TO_RUN=nativecloudinit=true TAGS_TO_SKIP= \
+  go run . run --retries 0 --suite-timeout 85m
+```
+
+Do not set `DISABLE_SCRIPTLESS` or `DISABLE_SCRIPT_LESS_COMPILATION`, use
+`CustomDataWriteFiles`, or enable pre-provision/VHD caching for these scenarios.
+The fixtures are delivered through the existing boothook hook instead.
+Component tests in throwaway containers are useful for CA/TLS, gpg, apt/dnf,
+cron and failure-policy checks, but are **not** a substitute for these VM,
+systemd and Node Ready results. Azure Linux's complete public-vendor repository
+fixture targets AMD64; the vendor AMD repository does not publish ARM64 metadata.
+Mariner and Flatcar/ACL full-native VM acceptance remain separate coverage.
 
 ### LocalDNS fallback checks
 

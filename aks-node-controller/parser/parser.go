@@ -223,7 +223,6 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"NETWORK_ISOLATED_CLUSTER_TEST_MODE":           "false", // temp: needs to be added to config
 		"STANDARD_SECONDARY_NIC_COUNT":                 fmt.Sprintf("%d", config.GetNetworkConfig().GetStandardSecondaryNicCount()),
 		"ENABLE_MANAGED_GPU_DRA":                       fmt.Sprintf("%v", config.GetGpuConfig().GetEnableManagedGpuDra()),
-		"INIT_AKS_CLOUD_FILEPATH":                      getInitAKSCloudFilepath(),
 		"REPO_DEPOT_ENDPOINT":                          getRepoDepotEndpoint(config),
 	}
 
@@ -323,7 +322,7 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration, gpu
 		return nil, fmt.Errorf("failed to execute the template: %w", err)
 	}
 	// Convert to one-liner
-	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
+	triggerBootstrapScript = strings.TrimSpace(strings.ReplaceAll(triggerBootstrapScript, "\n", " "))
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
 	env := mapToEnviron(getCSEEnv(ctx, config, gpuConfig))
 	cmd.Env = append(os.Environ(), env...) // append existing environment variables

@@ -76,9 +76,8 @@ var (
 
 func getFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"getInitAKSCloudFilepath": getInitAKSCloudFilepath,
-		"getIsAksCustomCloud":     getIsAksCustomCloud,
-		"getCloudLocation":        getCloudLocation,
+		"getIsAksCustomCloud": getIsAksCustomCloud,
+		"getCloudLocation":    getCloudLocation,
 	}
 }
 
@@ -866,10 +865,6 @@ func getHasDataDir(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
 
 func getHasKubeletDiskType(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
 	return kubeletConfig.GetKubeletDiskType() == aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
-}
-
-func getInitAKSCloudFilepath() string {
-	return initAKSCloudFilepath
 }
 
 func getGPUNeedsFabricManager(vmSize string) bool {

@@ -35,6 +35,7 @@ import (
 const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 	hotfixMarker                             = "#hotfix-marker"
+	goBuildCommand                           = "build"
 )
 
 type scriptHotfixFixtureNodeCustomData struct {
@@ -126,6 +127,14 @@ func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (
 }
 
 func compileAKSNodeControllerInDirWithVersion(ctx context.Context, arch, buildDir, version string) (*os.File, error) {
+	args := []string{goBuildCommand, "-v"}
+	if version != "" {
+		args = append(args, "-ldflags", "-X main.Version="+version)
+	}
+	return compileLinuxGoBinary(ctx, arch, buildDir, args)
+}
+
+func compileLinuxGoBinary(ctx context.Context, arch, buildDir string, args []string) (*os.File, error) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
@@ -140,10 +149,7 @@ func compileAKSNodeControllerInDirWithVersion(ctx context.Context, arch, buildDi
 		return nil, fmt.Errorf("create aks-node-controller output directory: %w", err)
 	}
 	outPath := filepath.Join(outDir, "aks-node-controller-"+arch)
-	args := []string{"build", "-o", outPath, "-v"}
-	if version != "" {
-		args = append(args, "-ldflags", "-X main.Version="+version)
-	}
+	args = append(append([]string(nil), args...), "-o", outPath)
 	cmd := exec.CommandContext(ctx, goBin, args...)
 	cmd.Dir = buildDir
 	cmd.Env = append(os.Environ(),
@@ -472,7 +478,20 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
-	if s.Config.ANCHotfixFlowFixture {
+	switch {
+	case s.CloudInitializationFixture:
+		if !enableScriptlessCompilation(s) {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("cloud initialization fixture requires PR-built scriptless ANC")
+		}
+		artifacts, artifactsErr := CachedCloudInitializationArtifacts(ctx, s.VHD.Arch)
+		if artifactsErr != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("build cloud initialization fixtures: %w", artifactsErr)
+		}
+		customData, err = customDataWithCloudInitializationFixture(customData, artifacts)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject cloud initialization fixtures: %w", err)
+		}
+	case s.ANCHotfixFlowFixture:
 		if !enableScriptlessCompilation(s) {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
 				"ANC hotfix flow fixture requires scriptless ANC compilation",
@@ -486,7 +505,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with ANC hotfix flow fixture: %w", err)
 		}
-	} else if s.Config.ScriptHotfixFixture != nil {
+	case s.ScriptHotfixFixture != nil:
 		if !enableScriptlessCompilation(s) {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
 				"script-hotfix fixture requires scriptless ANC compilation",
@@ -495,7 +514,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		binaryURL, err := compileAndUploadAKSNodeControllerWithScriptHotfix(
 			ctx,
 			s.VHD.Arch,
-			*s.Config.ScriptHotfixFixture,
+			*s.ScriptHotfixFixture,
 		)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
@@ -510,7 +529,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 				err,
 			)
 		}
-	} else if enableScriptlessCompilation(s) {
+	case enableScriptlessCompilation(s):
 		binaryURL, err := CachedCompileAndUploadAKSNodeController(ctx, s.VHD.Arch)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload aks-node-controller binary: %w", err)

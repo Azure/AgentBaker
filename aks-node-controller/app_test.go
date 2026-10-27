@@ -190,6 +190,7 @@ func NewTestApp(t *testing.T, cfg TestAppConfig) *TestApp {
 			eventLogger:           eventLogger,
 			gpuComponentsFilePath: writeTestGPUComponentsFile(t),
 			readyReportMarkerPath: filepath.Join(t.TempDir(), "experimental_skip_ready_report"),
+			initializeCloud:       func(context.Context, cloudInitConfig) error { return nil },
 		},
 	}
 }
