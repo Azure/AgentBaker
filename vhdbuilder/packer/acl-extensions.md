@@ -65,9 +65,21 @@ run `find -ls`. They include every image entry, metadata, directories, symlink
 targets, whiteouts, permissions, ownership, size/device number, and timestamps.
 They describe the image, not its merged filesystem view.
 
-Both Packer templates download all four files immediately after finalization,
-using the existing authenticated SSH connection after deprovisioning. No reboot
-is inserted. Missing/empty exports fail publication.
+Both Packer templates use `finish-export`, download all four files, then run
+`complete` before image capture. Finalization still deprovisions the build
+account before packaging: the images never contain the temporary export access.
+After packaging, a passwd-only runtime entry allows SCP to resolve the existing
+SSH session's UID. No shadow entry, password, home directory or SSH key is
+restored. A temporary sudo rule allows only the installed, root-owned script's
+`complete` command, with PAM account/session/credential operations disabled
+for this credentialless identity. It cannot authorize other root commands.
+
+`complete` restores the saved deprovisioned passwd contents, removes the rule
+and the RAM-only handoff state, then syncs. Error cleanup also runs it if an
+export handoff is pending. A cleanup failure fails the build rather than
+capturing temporary access. Downloads require the existing authenticated SSH
+connection; reconnecting after deprovisioning is not supported. No reboot is
+inserted. Missing/empty exports fail publication.
 
 ## Validation
 
@@ -78,6 +90,10 @@ whiteouts, opaque directories, captured versus base files, machine-id
 exclusion, writable persistent uppers, reactivation, and failure cleanup.
 On systemd >= 255, the lifecycle test also merges a native `/usr` extension
 and verifies that a refresh from inside `/opt` leaves its mount writable.
+The export regression reproduces SCP exit 255 with a removed account, transfers
+files using real SCP in both directions after the handoff, rejects unrelated
+sudo commands, and executes the real restricted cleanup command. It verifies
+that image hashes stay unchanged and temporary access is removed.
 
 Before release, run the complete ACL Packer pipeline on both architectures,
 including FIPS, boot VHD/COSI deployments, verify activation and native

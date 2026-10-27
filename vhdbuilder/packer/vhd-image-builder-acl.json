@@ -928,7 +928,7 @@
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
         "sudo touch /boot/flatcar/first_boot",
-        "sudo /bin/bash -eux /home/packer/acl-extensions.sh finish || exit 125"
+        "sudo /bin/bash -eux /home/packer/acl-extensions.sh finish-export || exit 125"
       ]
     },
     {
@@ -954,12 +954,18 @@
       "direction": "download",
       "source": "/var/log/aks-etc.files.txt",
       "destination": "aks-etc.files.txt"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /var/lib/aks-extensions/acl-extensions.sh complete"
+      ]
     }
   ],
   "error-cleanup-provisioner": {
     "type": "shell",
     "inline": [
-      "sudo /bin/bash /home/packer/generate-disk-usage.sh"
+      "if [ -d /run/aks-extensions/export ]; then sudo /var/lib/aks-extensions/acl-extensions.sh complete; else sudo /bin/bash /home/packer/generate-disk-usage.sh; fi"
     ]
   }
 }
