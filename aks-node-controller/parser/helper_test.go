@@ -21,6 +21,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"math"
 	"reflect"
 	"regexp"
@@ -543,6 +544,68 @@ func Test_createSortedKeyValueInt32Pairs(t *testing.T) {
 				t.Errorf("createSortedKeyValuePairs() with map[string]int32 = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestContainerdImagePullTemplates(t *testing.T) {
+	for _, version := range []string{"1.7.22", "2.2.4"} {
+		for _, noGPU := range []bool{false, true} {
+			for _, tc := range []struct {
+				name     string
+				settings *aksnodeconfigv1.ContainerdConfig
+			}{
+				{"absent", nil},
+				{"empty", &aksnodeconfigv1.ContainerdConfig{}},
+				{"false", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: proto.Bool(false)}},
+				{"true", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: proto.Bool(true)}},
+				{"zero timeout", &aksnodeconfigv1.ContainerdConfig{ImagePullProgressTimeout: proto.String("0s")}},
+				{"both", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: proto.Bool(true), ImagePullProgressTimeout: proto.String("1m30s")}},
+			} {
+				t.Run(fmt.Sprintf("%s/noGPU=%t/%s", version, noGPU, tc.name), func(t *testing.T) {
+					assertContainerdImagePullTemplate(t, tc.settings, noGPU, version)
+				})
+			}
+		}
+	}
+}
+
+func assertContainerdImagePullTemplate(t *testing.T, settings *aksnodeconfigv1.ContainerdConfig, noGPU bool, version string) {
+	t.Helper()
+	cfg := &aksnodeconfigv1.Configuration{
+		KubernetesVersion: "1.34.0",
+		GpuConfig:         &aksnodeconfigv1.GpuConfig{EnableNvidia: proto.Bool(true)},
+		ContainerdConfig:  settings,
+	}
+	rendered, err := containerdConfigFromAKSNodeConfig(cfg, noGPU, version)
+	require.NoError(t, err)
+	plugin := "io.containerd.grpc.v1.cri"
+	if isContainerdV2(version) {
+		plugin = "io.containerd.cri.v1.images"
+	}
+	header := `[plugins."` + plugin + `"]` + "\n"
+	start := strings.Index(rendered, header)
+	require.NotEqual(t, -1, start)
+	section := rendered[start+len(header):]
+	if next := regexp.MustCompile(`(?m)^[ \t]*\[`).FindStringIndex(section); next != nil {
+		section = section[:next[0]]
+	}
+	if settings != nil && settings.ImagePullWithSyncFs != nil {
+		require.Contains(t, section, fmt.Sprintf("  image_pull_with_sync_fs = %t\n", settings.GetImagePullWithSyncFs()))
+		require.Equal(t, 1, strings.Count(rendered, "image_pull_with_sync_fs"))
+	} else {
+		require.NotContains(t, rendered, "image_pull_with_sync_fs")
+	}
+	if settings != nil && settings.ImagePullProgressTimeout != nil {
+		require.Contains(t, section, fmt.Sprintf("  image_pull_progress_timeout = %q\n", settings.GetImagePullProgressTimeout()))
+		require.Equal(t, 1, strings.Count(rendered, "image_pull_progress_timeout"))
+	} else {
+		require.NotContains(t, rendered, "image_pull_progress_timeout")
+	}
+	if settings == nil || (settings.ImagePullWithSyncFs == nil && settings.ImagePullProgressTimeout == nil) {
+		cfg.ContainerdConfig = nil
+		baseline, err := containerdConfigFromAKSNodeConfig(cfg, noGPU, version)
+		require.NoError(t, err)
+		require.Equal(t, baseline, rendered)
 	}
 }
 
