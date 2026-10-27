@@ -190,6 +190,36 @@ SCRIPT
       The status should be success
       The output should include '/var/lib/aks-sysext-cache/kubelet/downloads'
     End
+
+    It 'keeps explicit legacy Packer destinations in the same independent cache'
+      retrycmd_if_failure() { printf '%s\n' "$*"; }
+      export ORAS_REGISTRY_CONFIG_FILE=/tmp/registry-config
+      When call downloadSysextFromVersion aks-secure-tls-bootstrap-client registry/client:version /opt/aks-secure-tls-bootstrap-client/downloads
+      The status should be success
+      The output should include '--output /var/lib/aks-sysext-cache/aks-secure-tls-bootstrap-client/downloads'
+      The output should not include '--output /opt/'
+    End
+
+    remote_match_without_registry() (
+      set -u
+      unset BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER
+      ORAS_REGISTRY_CONFIG_FILE=/tmp/registry-config
+      retrycmd_silent() { printf '%s\n' 'v1.33.1-1-azlinux3-x86-64'; }
+      matchRemoteSysext registry/kubelet 1.33.1 x86-64
+    )
+
+    It 'uses public registry tag discovery under nounset without a bootstrap registry'
+      When call remote_match_without_registry
+      The status should be success
+      The output should equal 'v1.33.1-1-azlinux3-x86-64'
+    End
+
+    It 'preserves network-isolated registry tag selection'
+      BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=private.registry
+      When call matchRemoteSysext registry/kubelet 1.33.1 x86-64
+      The status should be success
+      The output should equal 'v1.33.1-1-azlinux3-x86-64'
+    End
   End
 
   It 'accepts systemd 255 without a mutable-extension API'
