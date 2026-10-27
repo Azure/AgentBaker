@@ -1943,7 +1943,7 @@ testPam() {
     # run the script
     # the pam tests are flaky as they require scraping the console
     # if there are test failures, --reruns 5 will rerun the failed tests up to 5 times
-    output=$(pytest -v -s --reruns 5 test_pam.py)
+    output=$(OS_VERSION="$os_version" pytest -v -s --reruns 5 test_pam.py)
     retval=$?
     # deactivate the virtual environment
     deactivate
