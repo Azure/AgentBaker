@@ -4,7 +4,7 @@ set -euo pipefail
 [ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID must be set" && exit 1
 
 DRY_RUN="${DRY_RUN:-false}"
-NO_WAIT="${NO_WAIT:-true}"
+NO_WAIT="${NO_WAIT:-false}"
 
 main() {
     az account set -s "$SUBSCRIPTION_ID"
