@@ -714,6 +714,9 @@ Describe 'cse_config_gpu.sh'
         setup_cdi_dropin() {
             CDI_TEST_DIR=$(mktemp -d)
             NVIDIA_CDI_REFRESH_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+            # The timeout override is a separate, higher-sorted drop-in so it beats the toolkit's own
+            # 10-container-engines.conf (TimeoutStartSec=90s) in systemd's lexical drop-in merge.
+            NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/90-aks-cdi-refresh-timeout.conf"
         }
         cleanup_cdi_dropin() {
             rm -rf "${CDI_TEST_DIR}"
@@ -722,6 +725,10 @@ Describe 'cse_config_gpu.sh'
         AfterEach 'cleanup_cdi_dropin'
 
         Describe 'configureNvidiaCDIRefresh'
+            # The TimeoutStartSec widening is arm64 (Grace-Blackwell) only; default the mock to arm64
+            # so the shared drop-in assertions below exercise the GB path, and override per-test.
+            getCPUArch() { echo "${MOCK_CPU_ARCH:-arm64}"; }
+
             It 'treats the known nvidia-ctk failures as success and reloads systemd'
                 systemctl() { echo "systemctl $*"; return 0; }
 
@@ -733,6 +740,33 @@ Describe 'cse_config_gpu.sh'
                 # driver userspace is ready, 127 = nvidia-smi missing on pre-reorder aks-gpu images.
                 The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "[Service]"
                 The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+            End
+
+            It 'writes the timeout override to a 90- drop-in on arm64 (must out-sort toolkit 10-container-engines.conf)'
+                MOCK_CPU_ARCH="arm64"
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                # The 90- prefix is load-bearing: systemd merges drop-ins in lexical order (last wins),
+                # and the toolkit's own 10-container-engines.conf pins TimeoutStartSec=90s. A 10-aks-*
+                # name sorts before it and loses, so the override must sort after it.
+                The path "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should be file
+                The contents of file "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should include "TimeoutStartSec=300"
+                # the tolerate-failure drop-in stays free of the timeout (separation keeps ordering clear)
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "TimeoutStartSec"
+            End
+
+            It 'does not write the timeout drop-in on x86 (generates in <1s, default timeout is fine)'
+                MOCK_CPU_ARCH="amd64"
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+                The path "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should not be exist
             End
 
             It 'keeps the units restartable so the .path trigger can still refresh the spec'
