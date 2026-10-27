@@ -60,12 +60,22 @@ with `aks-opt.raw`, `aks-etc.raw`, `aks-opt.files.txt`, and `aks-etc.files.txt`.
 The suffix distinguishes architecture and FIPS/Trusted Launch variants.
 ImageCustomizer and non-ACL jobs do not publish this artifact.
 
+A separate `acl-etc-base-${{ parameters.artifactName }}` artifact contains
+`aks-etc-base.files.txt`: the underlying `/etc` inventory after deprovisioning
+and the machine-id reset, with the capture overlay detached and before the
+confext is activated or temporary export access is added. It includes
+Ignition-created files, activation units, and original base entries hidden or
+overridden by the confext, but no confext-only or runtime-upper entries.
+This is a base-layer listing, not a path-set subtraction or the merged view.
+It uses `find -ls` with `./etc` paths, including dotfiles, directories, symlink
+targets, ownership, permissions, sizes and timestamps, but no file contents.
+
 Listings mount each finalized image read-only with journal replay disabled and
 run `find -ls`. They include every image entry, metadata, directories, symlink
 targets, whiteouts, permissions, ownership, size/device number, and timestamps.
 They describe the image, not its merged filesystem view.
 
-Both Packer templates use `finish-export`, download all four files, then run
+Both Packer templates use `finish-export`, download all five files, then run
 `complete` before image capture. Finalization still deprovisions the build
 account before packaging: the images never contain the temporary export access.
 After packaging, a passwd-only runtime entry allows SCP to resolve the existing

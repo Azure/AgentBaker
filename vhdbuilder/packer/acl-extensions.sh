@@ -45,6 +45,22 @@ writeExtensionListing() (
     chmod 644 "$destination"
 )
 
+writeBaseEtcListing() (
+    set -euo pipefail
+    local destination=$1
+    if isExtensionMounted etc; then
+        echo "Cannot list base /etc while the ACL extension overlay is mounted" >&2
+        return 1
+    fi
+    {
+        printf '# Base directory: /etc (without ACL confext or runtime upper)\n'
+        printf '# Includes base entries hidden or overridden by the confext; no file contents.\n'
+        printf '# inode blocks mode links owner group size/device mtime path [-> symlink target]\n'
+        (cd / && LC_ALL=C find ./etc -ls | LC_ALL=C sort -k11)
+    } > "$destination" || return
+    chmod 644 "$destination"
+)
+
 checkExtensionSupport() {
     local command version
     for command in systemd-sysext mkfs.ext4 truncate du mount umount mountpoint find sort mktemp findmnt flock; do
@@ -250,6 +266,7 @@ finishExtensionCapture() {
         writeExtensionListing "/var/lib/aks-extensions/aks-$hierarchy.raw" "/var/log/aks-$hierarchy.files.txt"
         chmod 644 "/var/lib/aks-extensions/aks-$hierarchy.raw"
     done
+    writeBaseEtcListing /var/log/aks-etc-base.files.txt
     activateExtensions
     rm -rf "$state/opt-image" "$state/etc-image" "$state/opt-work" "$state/etc-work"
     rm "$state/capturing"
