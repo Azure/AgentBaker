@@ -1,0 +1,59 @@
+package main
+
+import (
+	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"io"
+	"math/big"
+	"os/exec"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
+	"github.com/stretchr/testify/require"
+)
+
+const cloudTestUbuntu = "ID=ubuntu\nNAME=Ubuntu\nVERSION_ID=22.04\nVERSION_CODENAME=jammy\n"
+
+func newTestCloudInitializer(t *testing.T, release string) *cloudInitializer {
+	t.Helper()
+	c := newCloudInitializer(&App{
+		cmdRun: func(cmd *exec.Cmd) error {
+			if filepath.Base(cmd.Path) == "gpg" {
+				_, _ = io.WriteString(cmd.Stdout, "dearmored-key")
+			}
+			return nil
+		},
+		eventLogger: helpers.NewEventLogger(t.TempDir()),
+	})
+	c.rootDir = t.TempDir()
+	c.executable = hotfixBinaryPath
+	c.wait = func(ctx context.Context, _ time.Duration) error { return ctx.Err() }
+	require.NoError(t, c.writeFile(defaultOSReleasePath, []byte(release)))
+	require.NoError(t, c.writeFile("/etc/ssl/certs/ca-certificates.crt", []byte("system-ca-bundle")))
+	t.Cleanup(c.close)
+	return c
+}
+
+func cloudTestCertificate(t *testing.T) []byte {
+	t.Helper()
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "ANC cloud initialization test CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, public, private)
+	require.NoError(t, err)
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
