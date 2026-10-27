@@ -54,30 +54,32 @@ the provisioning config in CustomData; the automatic size fallback uses the same
 config-only payload. Leaving the new flag false preserves legacy, Phase 2, and
 Phase 2.5 behavior.
 
-### Azure cloud trust-store capabilities
+### Azure cloud certificate refresh
 
-The shared cloud runtime provides platform detection, bounded HTTP and command
-execution, public-file writes, and guest-agent events. The trust-store helpers
-write downloaded contents without PEM/X.509 filtering, update the platform's
-existing CA tools, and preserve Ubuntu's OpenSSL bundle/symlink behavior.
+ANC provides a standalone command for refreshing Azure cloud CA certificates:
 
-Cache cleanup removes flat staging files, including hidden files, without
-recursively deleting directories or removing installed system-trust certificates.
-`AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only diagnostics;
-parsing for logging does not gate installation.
+```sh
+/opt/azure/containers/aks-node-controller refresh-cloud-certificates --location westus2
+```
 
-These are internal capabilities only. Existing provisioning still uses
-`init-aks-cloud.sh`.
+Regions starting with `ussec` or `usnat` use the legacy certificate endpoint.
+Other regions check WireServer's root-certificate opt-in before retrieving root
+and intermediate certificates. Only the JSON boolean `true` enables opt-in;
+nonempty malformed or non-true responses skip installation. Failed or empty
+opt-in requests remain errors. Individual operation-certificate download failures
+are logged and skipped, and legacy trust-store installation failures remain
+best-effort unless the context is canceled.
 
-### Azure cloud certificate retrieval capabilities
+Downloaded contents are passed to the system trust-store tools without additional
+PEM/X.509 validation. Refresh clears the flat staging cache, including hidden
+files, without removing existing system trust-store certificates. Raw responses
+are never logged; `AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only
+diagnostics. The refresh command has a 15-minute budget and emits
+`CloudCertificateRefresh` guest-agent events.
 
-WireServer helpers retrieve legacy certificate packages and RCV1P root/intermediate
-operation groups. They preserve resource-name encoding, bounded requests/retries,
-flat download caching, and per-certificate download skipping.
-
-Retrieval does not install certificates or make opt-in decisions. Refresh
-orchestration, the standalone refresh command, scheduling, and native provisioning
-activation are supplied by later layers; they are not enabled here.
+This command does not configure repositories or install refresh schedules.
+Existing provisioning still uses `init-aks-cloud.sh`; native cloud initialization
+is not yet connected to the provisioning entry point.
 
 ### Validating and normalizing AKSNodeConfig
 

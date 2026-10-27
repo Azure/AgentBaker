@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,6 +60,41 @@ func cloudTestCertificate(t *testing.T) []byte {
 	der, err := x509.CreateCertificate(rand.Reader, template, template, public, private)
 	require.NoError(t, err)
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
+
+func serveCloudTestResponses(t *testing.T, c *cloudInitializer, cert []byte, optIn string) <-chan string {
+	t.Helper()
+	requests := make(chan string, 100)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- r.URL.Path + "?" + r.URL.RawQuery
+		switch kind := r.URL.Query().Get("type"); {
+		case r.URL.Path == "/acms/isOptedInForRootCerts":
+			_, _ = io.WriteString(w, optIn)
+		case kind == "cacertificates":
+			_ = json.NewEncoder(w).Encode(map[string]any{"Certificates": []map[string]string{
+				{"Name": "root.cer", "CertBody": strings.ReplaceAll(string(cert), "\n", "\r\n")},
+			}})
+		case kind == "operationrequestsroot", kind == "operationrequestsintermediate":
+			name := "root.crt"
+			if kind == "operationrequestsintermediate" {
+				name = "intermediate.crt"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"OperationsInfo": []map[string]string{{"ResouceFileName": name}}})
+		case kind == "root", kind == "intermediate":
+			_, _ = w.Write(cert)
+		case strings.HasPrefix(r.URL.Path, "/keys/"):
+			_, _ = io.WriteString(w, "armored-public-package-key")
+		case strings.HasPrefix(r.URL.Path, "/microsoft/ubuntu/"):
+			_, _ = io.WriteString(w, "repository available")
+		default:
+			t.Errorf("unexpected cloud request: %s", r.URL)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	c.wireEndpoint = server.URL
+	c.wireClient, c.repoClient = server.Client(), server.Client()
+	return requests
 }
 
 func serveCloudOperationTestResponses(t *testing.T, c *cloudInitializer, roots, intermediates []string) {
