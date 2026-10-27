@@ -287,6 +287,7 @@ STUB
         Parameters
             pressure
             cpu
+            memory
         End
 
         It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
@@ -392,6 +393,7 @@ STUB
         Parameters
             pressure
             cpu
+            memory
         End
 
         Mock jq
@@ -404,6 +406,7 @@ STUB
             done
             prepare_pressure_script
             prepare_cpu_script
+            prepare_memory_script
             remaining_event_files() {
                 find "${EVENTS_ROOT}" -mindepth 1 -print
             }
@@ -547,6 +550,56 @@ STUB
             The status should be success
             The result of function validate_cpu_events should equal true
             The result of function collectable_cpu_event_names should equal true
+        End
+    End
+
+    Describe 'large memory observations'
+        Parameters
+            80 1
+            12 55
+        End
+
+        It 'bounds memory events without losing usage or long escaped slice names'
+            create_memory_stat system.slice/walinuxagent.service 20 30
+            TEST_SLICE_COUNT="$1"
+            TEST_SLICE_PREFIX=""
+            for ((i = 0; i < $2; i++)); do
+                TEST_SLICE_PREFIX="${TEST_SLICE_PREFIX}\x2d"
+            done
+            for ((i = 0; i < TEST_SLICE_COUNT; i++)); do
+                mkdir -p "${CGROUP_ROOT}/${TEST_SLICE_PREFIX}${i}.slice"
+                printf '%s\n' "$((1048576 + i))" > "${CGROUP_ROOT}/${TEST_SLICE_PREFIX}${i}.slice/memory.max"
+            done
+            prepare_memory_script
+            validate_memory_events() {
+                jq -se --arg prefix "${TEST_SLICE_PREFIX}" --argjson count "${TEST_SLICE_COUNT}" '
+                    def utf8bytelength:
+                        reduce explode[] as $codepoint (0;
+                            . + (if $codepoint < 128 then 1 elif $codepoint < 2048 then 2
+                                 elif $codepoint < 65536 then 3 else 4 end));
+                    length > 1 and
+                    all(.[]; (.Message | utf8bytelength) <= 3072 and (tojson | utf8bytelength) <= 6144) and
+                    ([.[].Message | fromjson | .Memory | keys[]] | length == 23 + $count) and
+                    ([.[].Message | fromjson | .Memory | keys[]] | unique | length == 23 + $count) and
+                    ([.[].Message | fromjson | .Memory] | add | . as $memory |
+                        .walinuxagent_service_memory == "50" and
+                        .containerd_service_memory == "Not Found" and
+                        .cgroup_capacity_memory == "1000000" and
+                        all(range(0; $count);
+                            . as $index |
+                            $memory[$prefix + ($index | tostring) + "_max_memory"] == (1048576 + $index | tostring))) and
+                    ([.[].Message | fromjson] | sort_by(.TelemetryChunk.index) |
+                        length as $chunks |
+                        (map(.TelemetryChunk.id) | unique | length == 1) and
+                        (map(.TelemetryChunk.index) == [range(0; $chunks)]) and
+                        all(.[]; .CgroupVersion == "cgroupv2" and
+                            .TelemetryChunk.encoding == "json" and .TelemetryChunk.count == $chunks))
+                ' "${EVENTS_ROOT}"/*.json
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+            The status should be success
+            The result of function validate_memory_events should equal true
         End
     End
 
