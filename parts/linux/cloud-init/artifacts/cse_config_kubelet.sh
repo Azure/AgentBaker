@@ -286,6 +286,17 @@ EOF
     if [ -n "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         echo "using bootstrap token to generate a bootstrap-kubeconfig"
 
+        if [ "${REMOVE_BOOTSTRAP_KUBECONFIG:-false}" = "true" ]; then
+            REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN="/etc/systemd/system/kubelet.service.d/10-remove-bootstrap-kubeconfig.conf"
+            mkdir -p "$(dirname "${REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN}")"
+            touch "${REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN}"
+            chmod 0600 "${REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN}"
+            tee "${REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN}" > /dev/null <<EOF
+[Service]
+ExecStartPost=-/bin/bash /opt/azure/containers/remove-bootstrap-kubeconfig.sh
+EOF
+        fi
+
         CREDENTIAL_VALIDATION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-credential-validation.conf"
         mkdir -p "$(dirname "${CREDENTIAL_VALIDATION_DROP_IN}")"
         touch "${CREDENTIAL_VALIDATION_DROP_IN}"
@@ -306,7 +317,7 @@ Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfi
 EOF
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0600 "${BOOTSTRAP_KUBECONFIG_FILE}"
         tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
@@ -362,13 +373,10 @@ EOF
 #!/bin/bash
 # Disallow container from reaching out to the special IP address 168.63.129.16
 # for TCP protocol (which http uses)
-#
 # 168.63.129.16 contains protected settings that have priviledged info.
 # HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.
 # IT listens on both port 80 and 32526 hence access is only needed for agent but not the containers.
-#
 # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
-#
 # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
 # for DNS.
 
@@ -585,5 +593,3 @@ setKubeletNodeIPFlag() {
         KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
     fi
 }
-
-#EOF

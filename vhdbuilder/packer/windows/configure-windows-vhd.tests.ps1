@@ -139,3 +139,54 @@ Describe 'Invoke-PackageDownload' {
         Should -Invoke Download-FileWithAzCopy -Times 0
     }
 }
+
+Describe 'Get-ContainerImages with base image overrides' {
+    BeforeEach {
+        $script:originalCoreUrl = $env:WindowsServerCoreImageURL
+        $script:originalNanoUrl = $env:WindowsNanoServerImageURL
+        $env:WindowsServerCoreImageURL = "https://example.com/core2022.tar,https://example.com/core2025.tar"
+        $env:WindowsNanoServerImageURL = ""
+        $script:originalImagesToPull = $global:imagesToPull
+        $global:imagesToPull = @(
+            "mcr.microsoft.com/windows/servercore:10.0.26100.33438",
+            "mcr.microsoft.com/windows/servercore:ltsc2022",
+            "mcr.microsoft.com/windows/servercore:ltsc2025"
+        )
+        $script:pulled = [System.Collections.Generic.List[string]]::new()
+        $script:downloaded = [System.Collections.Generic.List[string]]::new()
+
+        Mock Write-Log {}
+        Mock Write-Host {}
+        Mock Get-Command { [pscustomobject]@{ Path = (Join-Path ([System.IO.Path]::GetTempPath()) "crictl.exe") } } -ParameterFilter { $Name -eq "crictl.exe" }
+        Mock Download-FileWithAzCopy { $script:downloaded.Add($URL) }
+        Mock Remove-Item {}
+        Mock Stop-Job {}
+        Mock Remove-Job {}
+        Mock Retry-Command {
+            $text = $ScriptBlock.ToString()
+            if ($text -match "pull") { $script:pulled.Add($image) }
+        }
+        function global:crictl { }
+    }
+
+    AfterEach {
+        $env:WindowsServerCoreImageURL = $script:originalCoreUrl
+        $env:WindowsNanoServerImageURL = $script:originalNanoUrl
+        $global:imagesToPull = $script:originalImagesToPull
+        # Pester intercepts every Remove-Item call here, so remove the stub through the provider.
+        $ExecutionContext.SessionState.InvokeProvider.Item.Remove("Function:\crictl", $false)
+    }
+
+    It 'imports each tarball once instead of pulling base images' {
+        Get-ContainerImages
+
+        $script:downloaded | Should -Be @("https://example.com/core2022.tar", "https://example.com/core2025.tar")
+        $script:pulled.Count | Should -Be 0
+    }
+}
+
+Describe 'Get-ContainerImages test isolation' {
+    It 'does not leak the crictl stub' {
+        Test-Path Function:\crictl | Should -BeFalse
+    }
+}

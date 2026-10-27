@@ -1,6 +1,11 @@
 [Unit]
 Description=Emit system cgroup memory telemetry
+OnSuccess=service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service
+OnFailure=service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service
 
 [Service]
 Type=oneshot
+CPUAccounting=true
+MemoryAccounting=true
 ExecStart=/bin/bash /opt/scripts/cgroup-memory-telemetry.sh
+ExecStopPost=-/opt/scripts/service-execution-telemetry.sh --snapshot-memory-peak %n

@@ -50,6 +50,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 	defer logging.LogStep(ctx, "running common Linux validation")()
 
 	parallelErr := runValidators(ctx, s,
+		ValidateKubeletConfigFile,
 		ValidateTLSBootstrapping,
 		ValidateKubeletServingCertificateRotation,
 		ValidateSystemdWatchdogForKubernetes132Plus,
@@ -64,8 +65,10 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 		ValidateScriptlessCSECmd,
 		ValidateScriptlessNBCCSECmd,
 		ValidateScriptlessPhase3,
+		ValidateScriptlessComparison,
 		ValidateANCHotfix,
 		ValidateNodeExporter,
+		ValidateBakedNPD,
 		ValidateCommonSysctlConfig,
 		ValidateAKSLogDirectory,
 		ValidateKubeletNodeIPIfSupported,
@@ -171,6 +174,7 @@ func ValidateCommonLocalDNS(ctx context.Context, s *Scenario) error {
 	errs := []error{
 		ValidateLocalDNSService(ctx, s, "enabled"),
 		ValidateLocalDNSResolution(ctx, s, "169.254.10.10"),
+		ValidateLocalDNSConntrackRules(ctx, s),
 		ValidateLocalDNSExporterMetrics(ctx, s),
 	}
 	if !s.IsHostsPluginEnabled() {
@@ -220,6 +224,10 @@ func ValidateServicePrincipalData(ctx context.Context, s *Scenario) error {
 }
 
 func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) error {
+	return startPodAndCheckItRunsWithValidation(ctx, s, pod, nil)
+}
+
+func startPodAndCheckItRunsWithValidation(ctx context.Context, s *Scenario, pod *corev1.Pod, validate func() error) error {
 	kube := s.Runtime.Kube
 	pod = pod.DeepCopy()
 	pod.Name = uniqueKubernetesResourceName(pod.Name)
@@ -259,6 +267,9 @@ func startPodAndCheckItRuns(ctx context.Context, s *Scenario, pod *corev1.Pod) e
 			pod.Name, pod.Namespace, s.Runtime.VM.KubeName, timeForReady.Round(time.Millisecond), readinessWarningThreshold))
 	logging.Logf(ctx, "node health validation: test pod %q in namespace %q is running on node %q",
 		pod.Name, pod.Namespace, s.Runtime.VM.KubeName)
+	if validate != nil {
+		return validate()
+	}
 	return nil
 }
 
@@ -337,6 +348,7 @@ func getIPTablesRulesCompatibleWithEBPFHostRouting() (map[string][]string, []str
 		},
 		"raw": {
 			`^-A (PREROUTING|OUTPUT) -d 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --dport 53 -j NOTRACK$`,
+			`^-A OUTPUT -s 169\.254\.10\.(10|11)\/32 -p (tcp|udp) -m comment --comment "localdns: skip conntrack" -m (tcp|udp) --sport 53 -j NOTRACK$`,
 		},
 		"security": {
 			`-A OUTPUT -d 168\.63\.129\.16/32 -p tcp -m tcp --dport 53 -j ACCEPT`,

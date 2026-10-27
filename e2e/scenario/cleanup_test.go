@@ -71,7 +71,7 @@ func TestScenarioCleanupJoinsErrorsAndContinuesAfterPanic(t *testing.T) {
 	if err == nil {
 		t.Fatal("runCleanups() error = nil")
 	}
-	for _, message := range []string{"delete first resource", "scenario cleanup panicked: delete second resource"} {
+	for _, message := range []string{"delete first resource", "panic: delete second resource"} {
 		if !strings.Contains(err.Error(), message) {
 			t.Errorf("runCleanups() error = %q, want it to contain %q", err, message)
 		}
@@ -147,5 +147,27 @@ func TestScenarioCleanupSupportsConcurrentRegistration(t *testing.T) {
 	}
 	if got := ran.Load(); got != cleanupCount {
 		t.Fatalf("ran %d cleanups, want %d", got, cleanupCount)
+	}
+}
+
+func TestScenarioCleanupRunsWithCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	cleanup := &scenarioCleanup{}
+	wantErr := errors.New("cleanup still ran")
+	var called atomic.Int32
+	cleanup.add(func(actual context.Context) error {
+		called.Add(1)
+		if actual != ctx {
+			t.Error("cleanup did not receive the original context")
+		}
+		return wantErr
+	})
+	err := cleanup.runCleanups(ctx)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("runCleanups() error = %v, want %v", err, wantErr)
+	}
+	if got := called.Load(); got != 1 {
+		t.Fatalf("ran %d cleanups, want 1", got)
 	}
 }

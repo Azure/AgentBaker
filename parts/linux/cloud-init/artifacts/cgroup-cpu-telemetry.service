@@ -1,0 +1,6 @@
+[Unit]
+Description=Emit per-service cgroup CPU usage and throttling telemetry
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/scripts/cgroup-cpu-telemetry.sh

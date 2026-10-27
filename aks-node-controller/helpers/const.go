@@ -8,6 +8,7 @@ const (
 	NetworkPluginNone      = "none"
 	NetworkPolicyAzure     = "azure"
 	NetworkPolicyCalico    = "calico"
+	NetworkPolicyCilium    = "cilium"
 	NetworkPolicyNone      = "none"
 	LoadBalancerBasic      = "basic"
 	LoadBalancerStandard   = "standard"
