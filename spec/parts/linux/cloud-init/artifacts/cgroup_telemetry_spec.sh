@@ -181,6 +181,8 @@ STUB
         MOCK_WAAGENT_CGROUP="/azure.slice/waagent.service"
         create_memory_stat azure.slice/waagent.service 200 300
         create_memory_stat localdns.slice/localdns.service 50 60
+        printf '1048576\n' > "${CGROUP_ROOT}/system.slice/memory.max"
+        printf 'max\n' > "${CGROUP_ROOT}/localdns.slice/memory.max"
         prepare_memory_script
 
         When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
@@ -193,6 +195,10 @@ STUB
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_memory\":\"70\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_memory\":\"Not Found\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_memory\":\"110\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"system_max_memory\":\"1048576\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_max_memory\":\"max\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"kubepods_max_memory\":\"max\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"user_max_memory\":\"Not Found\"'
     End
 
     It 'emits cgroup v1 memory for an available service and tolerates an unavailable service'
@@ -221,6 +227,7 @@ STUB
         The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_memory\":\"50\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_memory\":\"70\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_memory\":\"Not Found\"'
+        The contents of file "${EVENTS_ROOT}"/* should not include '\"system_max_memory\"'
     End
 
     It 'emits pressure for available services when another service is unavailable'
@@ -433,6 +440,9 @@ STUB
         MOCK_WAAGENT_CGROUP="/azure.slice/waagent.service"
         create_cpu_stat_v2 azure.slice/waagent.service
         printf 'usage_usec 999\n' > "${CGROUP_ROOT}/azure.slice/waagent.service/cpu.stat"
+        mkdir -p "${CGROUP_ROOT}/localdns.slice" "${CGROUP_ROOT}/user.slice"
+        printf '200000 100000\n' > "${CGROUP_ROOT}/system.slice/cpu.max"
+        printf 'max 100000\n' > "${CGROUP_ROOT}/localdns.slice/cpu.max"
         prepare_cpu_script
 
         When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
@@ -443,6 +453,9 @@ STUB
         The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_cpu_usage\":{\"usage_usec\":\"100\",\"user_usec\":\"60\",\"system_usec\":\"40\",\"nr_periods\":\"20\",\"nr_throttled\":\"3\",\"throttled_usec\":\"7\"}'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_cpu_usage\":\"Not Found\"'
         The contents of file "${EVENTS_ROOT}"/* should include 'downstream rates must discard negative deltas'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"system_max_cpu\":\"200000 100000\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_max_cpu\":\"max 100000\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"user_max_cpu\":\"Not Found\"'
     End
 
     It 'names the event file so WALinuxAgent collects it'
