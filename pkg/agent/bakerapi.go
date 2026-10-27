@@ -50,6 +50,9 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		CustomData: templateGenerator.getNodeBootstrappingPayload(config),
 		CSE:        templateGenerator.getNodeBootstrappingCmd(config),
 	}
+	if hasWindowsKubeletConfiguration(config) && len(nodeBootstrapping.CustomData) > MaxCustomDataLength {
+		return nil, fmt.Errorf("windows kubelet configuration exceeds the CustomData size limit")
+	}
 
 	distro := config.AgentPoolProfile.Distro
 	if distro == datamodel.CustomizedWindowsOSImage ||

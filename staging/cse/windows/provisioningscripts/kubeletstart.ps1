@@ -44,9 +44,17 @@ $global:VolumePluginDir = [Io.path]::Combine($global:KubeDir, "volumeplugins")
 mkdir $global:VolumePluginDir -Force
 
 $KubeletArgList = $Global:ClusterConfiguration.Kubernetes.Kubelet.ConfigArgs # This is the initial list passed in from aks-engine
+$KubeletConfigFile = $Global:ClusterConfiguration.Kubernetes.Kubelet.ConfigFile
+$KubeletConfiguration = $null
+if ($null -ne $KubeletConfigFile) {
+    . (Join-Path $global:KubeDir 'kubeletconfig.ps1')
+    $KubeletConfiguration = Get-WindowsKubeletConfigurationForStartup -ConfigFile $KubeletConfigFile -ConfigArgs $KubeletArgList -KubeDir $global:KubeDir
+}
 $KubeletArgList += "--node-labels=$global:KubeletNodeLabels"
 # $KubeletArgList += "--hostname-override=$global:AzureHostname" TODO: remove - dead code?
-$KubeletArgList += "--volume-plugin-dir=$global:VolumePluginDir"
+if ($null -eq $KubeletConfiguration -or -not (Test-WindowsKubeletFlagInConfiguration -FlagName '--volume-plugin-dir' -ExpectedValue $global:VolumePluginDir -Configuration $KubeletConfiguration -RequestedFlags $KubeletConfigFile.FlagsToOmit -ConfigArgs $KubeletArgList)) {
+    $KubeletArgList += "--volume-plugin-dir=$global:VolumePluginDir"
+}
 if (-not ($KubeletArgList | Where-Object { $_ -like "--windows-priorityclass=*" })) {
     $KubeletArgList += "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"
 }
@@ -54,7 +62,9 @@ if (-not ($KubeletArgList | Where-Object { $_ -like "--windows-priorityclass=*" 
 # Only args that need to be calculated or combined with other ones on the Windows agent should be added here.
 
 # Update args to use ContainerD
-$KubeletArgList += @("--container-runtime-endpoint=npipe://./pipe/containerd-containerd")
+if ($null -eq $KubeletConfiguration -or -not (Test-WindowsKubeletFlagInConfiguration -FlagName '--container-runtime-endpoint' -ExpectedValue 'npipe://./pipe/containerd-containerd' -Configuration $KubeletConfiguration -RequestedFlags $KubeletConfigFile.FlagsToOmit -ConfigArgs $KubeletArgList)) {
+    $KubeletArgList += @("--container-runtime-endpoint=npipe://./pipe/containerd-containerd")
+}
 # Kubelet flag --container-runtime has been removed from k8s 1.27
 # Reference: https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG/CHANGELOG-1.27.md#other-cleanup-or-flake
 if ($global:KubeBinariesVersion -lt "1.27.0") {

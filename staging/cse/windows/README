@@ -1,3 +1,52 @@
+# Opt-in kubelet flag migration
+
+Windows migration uses the existing `KubeletConfig` map, explicit
+`EnableKubeletConfigFile=true`, and `EnabledFeatures["KUBELET_FLAGS_TO_OMIT"]`.
+The request is standard-base64 JSON (prefer unpadded), bounded to 1024 encoded
+bytes and 16 names. The caller owns version/artifact policy and inserts selected
+local values only when absent from the original raw and component-custom maps.
+No additional configuration field is required.
+
+Only `--volume-plugin-dir=c:\k\volumeplugins` and
+`--container-runtime-endpoint=npipe://./pipe/containerd-containerd` are eligible.
+The renderer checks equality to the existing appenders, then moves those selected
+map values to config and filters only their generated CLI entries. Custom target
+overrides and nonmatching values stay on the old path. Config mode off, invalid or
+empty requests, or custom `--config`/`--config-dir` preserve legacy CustomData,
+including its ZIP, without installing/removing feature files.
+
+The Windows adapter retains native raw/component/typed GC and log precedence,
+including `Mi` log units, and leaves all unselected CLI settings in place.
+It explicitly preserves the legacy effective five-minute report frequency: the
+old serializer suppresses the report pseudo-flag, while omitting that field from
+a new config could default it to the update frequency. The existing serving-
+certificate CLI/tag pipeline remains authoritative. This is bounded migration,
+not support for an arbitrary complete kubelet configuration or Linux defaults.
+
+NodePrep writes `c:\k\kubelet-config-rp.json`, attaches it to fresh cluster metadata,
+and refreshes only the owned helper and startup script using the existing inline
+`scripts.zip` delivery at fixed `windows/kubeletconfiguration/` paths. This refresh
+also runs when cached/PIS images skip BasePrep. The writer validates config and
+scripts before writes; startup fails on missing/corrupt/conflicting config before
+service launch and omits appenders only for loaded exact matches. Fresh legacy
+metadata ignores stale feature files without deleting them. Baked startup code
+changes, but its no-metadata argv behavior does not. Oversized active CustomData
+returns an API error (87380 base64 bytes); there is no new downloader or fallback.
+
+The two flag registrations and common config-flag deprecation are documented in
+versioned upstream source:
+- [volume-plugin-dir, v1.37.0](https://github.com/kubernetes/kubernetes/blob/v1.37.0/cmd/kubelet/app/options/options.go#L436)
+- [container-runtime-endpoint, v1.37.0](https://github.com/kubernetes/kubernetes/blob/v1.37.0/cmd/kubelet/app/options/options.go#L379)
+- [config-flag deprecation, v1.37.0](https://github.com/kubernetes/kubernetes/blob/v1.37.0/cmd/kubelet/app/options/options.go#L342)
+- [configuration defaults, v1.34.0](https://github.com/kubernetes/kubernetes/blob/v1.34.0/pkg/kubelet/apis/config/v1beta1/defaults.go)
+
+This is additive renderer support, not version-policy activation or evidence of
+a Windows Kubernetes 1.38 runtime test. Run `go test ./pkg/agent -run
+'^TestWindowsKubelet' -count=1` and `Invoke-Pester -Path
+staging/cse/windows/kubeletconfig.tests.ps1 -Output Detailed` for focused coverage.
+The tests mock native service/network/process calls; runtime artifact validation
+is a separate prerequisite for activation.
+
 # Unit Tests
 
 1. Execute unit tests on pipeline. The yaml file of unit test pipeline is .github/workflows/validate-windows-ut.yml.
