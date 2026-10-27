@@ -65,8 +65,8 @@ Describe 'ACL extension capture'
         (.provisioners[-5].inline[-1] | contains("acl-extensions.sh finish")) and
         (.provisioners[-5].inline[-2] | contains("/boot/flatcar/first_boot")) and
         (.provisioners[-4:] | map({type, direction, source, destination})) == [
-          {type: "file", direction: "download", source: "/var/lib/extensions/aks-opt.raw", destination: "aks-opt.raw"},
-          {type: "file", direction: "download", source: "/var/lib/confexts/aks-etc.raw", destination: "aks-etc.raw"},
+          {type: "file", direction: "download", source: "/var/lib/aks-extensions/aks-opt.raw", destination: "aks-opt.raw"},
+          {type: "file", direction: "download", source: "/var/lib/aks-extensions/aks-etc.raw", destination: "aks-etc.raw"},
           {type: "file", direction: "download", source: "/var/log/aks-opt.files.txt", destination: "aks-opt.files.txt"},
           {type: "file", direction: "download", source: "/var/log/aks-etc.files.txt", destination: "aks-etc.files.txt"}
         ]
@@ -192,11 +192,19 @@ SCRIPT
     End
   End
 
-  It 'rejects systemd versions without mutable extension support'
+  It 'accepts systemd 255 without a mutable-extension API'
     command() { return 0; }
     systemd-sysext() { echo 'systemd 255'; }
     When call checkExtensionSupport
+    The status should be success
+    The output should be blank
+  End
+
+  It 'rejects systemd older than 255'
+    command() { return 0; }
+    systemd-sysext() { echo 'systemd 254'; }
+    When call checkExtensionSupport
     The status should be failure
-    The stderr should include 'requires systemd >= 256'
+    The stderr should include 'require systemd >= 255'
   End
 End

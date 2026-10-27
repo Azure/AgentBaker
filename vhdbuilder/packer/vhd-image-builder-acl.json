@@ -924,13 +924,13 @@
     {
       "type": "file",
       "direction": "download",
-      "source": "/var/lib/extensions/aks-opt.raw",
+      "source": "/var/lib/aks-extensions/aks-opt.raw",
       "destination": "aks-opt.raw"
     },
     {
       "type": "file",
       "direction": "download",
-      "source": "/var/lib/confexts/aks-etc.raw",
+      "source": "/var/lib/aks-extensions/aks-etc.raw",
       "destination": "aks-etc.raw"
     },
     {
