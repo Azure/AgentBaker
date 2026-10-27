@@ -821,6 +821,20 @@ Describe 'Gets the Binaries' {
         $version | Should -Be "1.3.3"
     }
 
+    It 'can resolve Windows package download URL by name' {
+        $componentsJson.Packages[0] | Add-Member -NotePropertyName "name" -NotePropertyValue "oras" -Force
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
+            [PSCustomObject]@{
+                latestVersion = "1.3.5-2"
+            }
+        )
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = 'https://packages.aks.azure.com/dalec-packages/oras/${versionNoBuild}/windows/amd64/oras_${version}_amd64.zip'
+
+        $url = GetWindowsPackageDownloadUrlFromComponentsJson $componentsJson "oras"
+
+        $url | Should -Be 'https://packages.aks.azure.com/dalec-packages/oras/1.3.5/windows/amd64/oras_1.3.5-2_amd64.zip'
+    }
+
     It 'given there are two packages in the same directory, it combines them' {
         $testString = '{
   "Packages": [

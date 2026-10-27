@@ -245,8 +245,15 @@ function Pull-OCIArtifact
             throw "Unable to resolve ORAS version from components.json"
         }
 
-        $orasZip = "oras_${orasVersion}_windows_amd64.zip"
-        $orasUrl = "https://github.com/oras-project/oras/releases/download/v${orasVersion}/${orasZip}"
+        $orasUrl = $global:orasDownloadUrl
+        if ([string]::IsNullOrEmpty($orasUrl)) {
+            throw "Unable to resolve ORAS download URL from components.json"
+        }
+
+        $orasZip = [System.IO.Path]::GetFileName($orasUrl.Split('?')[0])
+        if ([string]::IsNullOrEmpty($orasZip)) {
+            throw "Unable to resolve ORAS archive name from download URL '$orasUrl'"
+        }
 
         Write-Log "Downloading oras v${orasVersion}"
         Invoke-WebRequest -UseBasicParsing $orasUrl -OutFile "$global:aksTempDir\$orasZip"
