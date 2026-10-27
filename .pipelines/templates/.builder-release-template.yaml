@@ -521,7 +521,7 @@ steps:
       )
     displayName: Copy to Immutable Storage Container
 
-  # Keep storage-token acquisition on the x64 build agents.
+  # The COSI convert jobs read the ACL VHD from the immutable container.
   - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
     - task: AzureCLI@2
       inputs:
@@ -530,9 +530,8 @@ steps:
         scriptLocation: inlineScript
         inlineScript: |
           set -euo pipefail
-          bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+          bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
           echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${CLASSIC_BLOB}"
-      name: exportVhdSas
       condition: |
         and(
           succeeded(),
@@ -540,7 +539,7 @@ steps:
           eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
           eq(variables['OS_SKU'], 'AzureContainerLinux')
         )
-      displayName: Copy ACL VHD to Immutable + mint convert SAS
+      displayName: Copy ACL VHD to Immutable Storage Container
 
     - bash: |
         echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER;isOutput=true]${DESTINATION_STORAGE_CONTAINER}"

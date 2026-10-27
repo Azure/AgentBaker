@@ -59,6 +59,7 @@ required_env_vars=(
     "IMG_CUSTOMIZER_CONTAINER"
     "AFD_DOWNLOAD_HOSTNAME"
     "COSI_CONTAINER"
+    "ARCHITECTURE"
 )
 
 for v in "${required_env_vars[@]}"
@@ -88,23 +89,26 @@ LOCAL_COSI="$WORK_DIR/out/${CAPTURED_SIG_VERSION}.cosi"
 COSI_NAME="${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
 COSI_DOWNLOAD_URL="https://${AFD_DOWNLOAD_HOSTNAME}/${COSI_CONTAINER}/${COSI_NAME}"
 
-# VHD_SAS_URL is set by the build job for the arm64 convert, whose pool has no
-# storage-token path; downloading via the SAS URL needs no Azure AD login. The
-# x64 convert leaves it unset and authenticates azcopy via the Azure CLI login.
-DOWNLOAD_SRC="${VHD_SAS_URL:-$VHD_BLOB_URL}"
-
 echo "Setting azcopy environment variables"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
 export AZCOPY_LOG_LOCATION="$WORK_DIR/azcopy-log-files/"
 export AZCOPY_JOB_PLAN_LOCATION="$WORK_DIR/azcopy-job-plan-files/"
-if [ -z "${VHD_SAS_URL:-}" ]; then
-    export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+# azcopy reads the VHD with the Azure CLI login. Without AZCOPY_TENANT_ID, older
+# azcopy releases (10.22.1 on the ARM64 convert pool) request the token from the
+# "common" tenant, which fails there with AADSTS53003.
+export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+if [ -z "${AZCOPY_TENANT_ID:-}" ]; then
+    if ! AZCOPY_TENANT_ID="$(az account show --query tenantId --output tsv)" || [ -z "$AZCOPY_TENANT_ID" ]; then
+        echo "##vso[task.logissue type=error]Unable to read the Azure CLI tenant for the azcopy login"
+        exit 1
+    fi
 fi
+export AZCOPY_TENANT_ID
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
 echo "Downloading VHD ${CAPTURED_SIG_VERSION}.vhd"
-if azcopy copy "$DOWNLOAD_SRC" "$LOCAL_VHD" --recursive=true; then
+if azcopy copy "$VHD_BLOB_URL" "$LOCAL_VHD" --recursive=true; then
     echo "Downloaded VHD to ${LOCAL_VHD}"
 else
     azExitCode=$?
@@ -124,11 +128,10 @@ else
 fi
 
 # Run the arch-matched ImageCustomizer image so its objcopy can read the VHD's
-# UKI kernel cmdline. ARCH_LOWER is reused for image_architecture below. This
-# convert job always runs on an agent whose host arch matches ARCHITECTURE (arm64
-# ACL converts run on a native arm64 pool via a separate job); no emulation.
-ARCH_LOWER="${ARCHITECTURE:-}"
-if [ "${ARCH_LOWER,,}" = "arm64" ]; then
+# UKI kernel cmdline. This convert job always runs on an agent whose host arch
+# matches ARCHITECTURE (arm64 ACL converts run on a native arm64 pool via a
+# separate job); no emulation.
+if [ "${ARCHITECTURE,,}" = "arm64" ]; then
     IMG_CUSTOMIZER_PLATFORM="linux/arm64"
 else
     IMG_CUSTOMIZER_PLATFORM="linux/amd64"
@@ -183,8 +186,7 @@ if ! COSI_IMAGE_VERSION="$(generate_cosi_package_version "${IMAGE_VERSION}" "${E
 fi
 echo "Normalized COSI package version: ${COSI_IMAGE_VERSION} (from IMAGE_VERSION=${IMAGE_VERSION}, ENABLE_FIPS=${ENABLE_FIPS:-false})"
 
-# ARCH_LOWER is derived once near the top of the script and reused here.
-if [ "${ARCH_LOWER,,}" = "arm64" ]; then
+if [ "${ARCHITECTURE,,}" = "arm64" ]; then
     IMAGE_ARCH="Arm64"
 else
     IMAGE_ARCH="x64"

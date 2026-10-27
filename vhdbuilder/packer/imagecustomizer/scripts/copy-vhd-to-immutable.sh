@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+# Copies the ACL VHD from the staging container to the immutable container that
+# the COSI convert jobs read, then removes the staging copy.
 export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
 export AZCOPY_CONCURRENCY_VALUE="AUTO"
 vhd_name="${CAPTURED_SIG_VERSION}.vhd"
@@ -40,11 +42,6 @@ if [ "$copy_status" != "success" ]; then
     exit 1
 fi
 
-expiry="$(date -u -d '+8 hours' '+%Y-%m-%dT%H:%MZ')"
-sas_url="$(az storage blob generate-sas --account-name "$STORAGE_ACCOUNT_NAME" \
-    --container-name "$VHD_CONTAINER_NAME" --name "$vhd_name" --permissions r \
-    --expiry "$expiry" --https-only --as-user --auth-mode login --full-uri --output tsv)"
-echo "##vso[task.setvariable variable=VHD_SAS_URL;isOutput=true;issecret=true]$sas_url"
 source_exists="$(az storage blob exists --blob-url "$source_uri" --auth-mode login \
     --query exists --output tsv)"
 case "${source_exists,,}" in

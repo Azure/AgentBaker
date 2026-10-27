@@ -32,7 +32,6 @@ jobs:
     variables:
       CAPTURED_SIG_VERSION: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportCapturedSigVersion.CAPTURED_SIG_VERSION'] ]
       IMAGE_VERSION: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportImageVersion.IMAGE_VERSION'] ]
-      VHD_SAS_URL: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportVhdSas.VHD_SAS_URL'] ]
       DESTINATION_STORAGE_CONTAINER: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportDestinationStorageContainer.DESTINATION_STORAGE_CONTAINER'] ]
     steps:
       - checkout: none
@@ -99,7 +98,6 @@ jobs:
           OFFER_NAME: $(OS_SKU)
           AFD_DOWNLOAD_HOSTNAME: $(AFD_DOWNLOAD_HOSTNAME)
           COSI_CONTAINER: $(COSI_CONTAINER)
-          VHD_SAS_URL: $(VHD_SAS_URL)
 
       - task: AzureCLI@2
         inputs:

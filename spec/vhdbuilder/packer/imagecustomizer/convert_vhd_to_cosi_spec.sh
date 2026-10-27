@@ -84,7 +84,7 @@ Describe 'generate_cosi_package_version'
   End
 End
 
-Describe 'VHD SAS handoff'
+Describe 'immutable VHD handoff'
   setup_handoff() {
     export DESTINATION_STORAGE_CONTAINER=https://storage.invalid/staging
     export CAPTURED_SIG_VERSION=test
@@ -97,7 +97,6 @@ Describe 'VHD SAS handoff'
     export MOCK_COMPLETE_AFTER_WAIT=0
     export MOCK_START_STATUS=0
     export MOCK_SHOW_STATUS=0
-    export MOCK_SAS_STATUS=0
 
     az() {
       case "$*" in
@@ -116,10 +115,6 @@ Describe 'VHD SAS handoff'
           printf '%s\n' "$MOCK_COPY_STATUS"
           return "$MOCK_SHOW_STATUS"
           ;;
-        'storage blob generate-sas '*)
-          echo MOCK_SAS
-          return "$MOCK_SAS_STATUS"
-          ;;
         *) return 1 ;;
       esac
     }
@@ -135,21 +130,20 @@ Describe 'VHD SAS handoff'
   }
   BeforeEach 'setup_handoff'
 
-  It 'waits for a successful copy before exporting the secret SAS and deleting the source'
+  It 'waits for a successful copy before deleting the source'
     MOCK_COPY_STATUS=pending
     MOCK_COMPLETE_AFTER_WAIT=1
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be success
     The line 3 of output should equal COPY_WAITED
-    The line 4 of output should equal '##vso[task.setvariable variable=VHD_SAS_URL;isOutput=true;issecret=true]MOCK_SAS'
-    The line 6 of output should equal SOURCE_REMOVED
+    The line 5 of output should equal SOURCE_REMOVED
+    The output should not include 'task.setvariable'
   End
 
   It 'reuses a successful immutable copy on retry'
     MOCK_DESTINATION_EXISTS=true
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be success
-    The output should include MOCK_SAS
     The output should include SOURCE_REMOVED
     The output should not include COPY_STARTED
     The output should not include COPY_WAITED
@@ -159,20 +153,18 @@ Describe 'VHD SAS handoff'
     MOCK_DESTINATION_EXISTS=true
     MOCK_COPY_STATUS=pending
     MOCK_COMPLETE_AFTER_WAIT=1
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be success
     The line 2 of output should equal COPY_WAITED
-    The line 3 of output should equal '##vso[task.setvariable variable=VHD_SAS_URL;isOutput=true;issecret=true]MOCK_SAS'
     The output should include SOURCE_REMOVED
     The output should not include COPY_STARTED
   End
 
-  It 'refreshes the SAS when the staging source is already removed'
+  It 'succeeds when the staging source is already removed'
     MOCK_DESTINATION_EXISTS=true
     MOCK_SOURCE_EXISTS=false
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be success
-    The output should include MOCK_SAS
     The output should include 'is already removed'
     The output should not include COPY_STARTED
     The output should not include SOURCE_REMOVED
@@ -180,24 +172,23 @@ Describe 'VHD SAS handoff'
 
   It 'stops when checking the destination fails'
     MOCK_EXISTS_STATUS=1
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be failure
     The output should be blank
   End
 
   It 'rejects an unknown destination existence result'
     MOCK_DESTINATION_EXISTS=unknown
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be failure
     The output should include 'Unable to determine whether the immutable VHD exists'
     The output should not include COPY_STARTED
-    The output should not include MOCK_SAS
     The output should not include SOURCE_REMOVED
   End
 
   It 'does not delete a source with an unknown existence result'
     MOCK_SOURCE_EXISTS=unknown
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be failure
     The output should include 'Unable to determine whether the staging VHD exists'
     The output should not include SOURCE_REMOVED
@@ -212,26 +203,24 @@ Describe 'VHD SAS handoff'
     End
     It 'preserves the source when the copy is not successful'
       MOCK_COPY_STATUS="$1"
-      When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+      When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
       The status should be failure
       The output should include 'VHD copy to immutable container finished with status'
-      The output should not include MOCK_SAS
       The output should not include SOURCE_REMOVED
     End
   End
 
   It 'preserves the source when the copy stays pending until timeout'
     MOCK_COPY_STATUS=pending
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be failure
     The output should include 'Timed out waiting for the immutable VHD copy'
-    The output should not include MOCK_SAS
     The output should not include SOURCE_REMOVED
   End
 
   It 'stops when starting the copy fails'
     MOCK_START_STATUS=1
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be failure
     The output should include COPY_STARTED
     The output should not include COPY_WAITED
@@ -240,19 +229,9 @@ Describe 'VHD SAS handoff'
 
   It 'preserves the source when reading the copy status fails'
     MOCK_SHOW_STATUS=1
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
+    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
     The status should be failure
     The output should include COPY_STARTED
-    The output should not include MOCK_SAS
-    The output should not include SOURCE_REMOVED
-  End
-
-  It 'preserves the source when SAS minting fails'
-    MOCK_SAS_STATUS=1
-    When run bash ./vhdbuilder/packer/imagecustomizer/scripts/export-vhd-sas.sh
-    The status should be failure
-    The output should include COPY_STARTED
-    The output should not include MOCK_SAS
     The output should not include SOURCE_REMOVED
   End
 End
@@ -274,8 +253,19 @@ Describe 'COSI artifact names'
     export AFD_DOWNLOAD_HOSTNAME=download.invalid
     export AFD_UPLOAD_ENDPOINT=https://upload.invalid
     export COSI_CONTAINER=cosi
+    export ARCHITECTURE=X86_64
+    export MOCK_AZ_TENANT_STATUS=0
+    unset AZCOPY_TENANT_ID
 
-    azcopy() { return 0; }
+    az() {
+      [ "$*" = 'account show --query tenantId --output tsv' ] || return 1
+      [ "$MOCK_AZ_TENANT_STATUS" = 0 ] || return 1
+      echo mock-tenant
+    }
+    # Read the login settings from a child process, as the real azcopy would.
+    azcopy() {
+      bash -c 'printf "%s %s %s\n" "${AZCOPY_AUTO_LOGIN_TYPE:-}" "${AZCOPY_TENANT_ID:-}" "$1"' _ "$2" > "$PWD/azcopy-call"
+    }
     docker() {
       if [ "$1" = pull ] && [ "$4" = "$IMG_CUSTOMIZER_CONTAINER" ] && [ "$MOCK_PRIMARY_PULL_FAIL" = 1 ]; then
         return 1
@@ -289,11 +279,22 @@ Describe 'COSI artifact names'
         fi
       fi
     }
-    export -f azcopy docker
+    export -f az azcopy docker
   }
   cleanup_artifacts() { rm -rf "$test_dir"; }
   BeforeEach 'setup_artifacts'
   AfterEach 'cleanup_artifacts'
+
+  run_convert() {
+    cd "$test_dir" || return 1
+    bash "$convert_script"
+  }
+
+  check_vhd_download() {
+    cd "$test_dir" || return 1
+    bash "$convert_script" >/dev/null || return $?
+    cat azcopy-call
+  }
 
   check_artifact_name() {
     cd "$test_dir" || return 1
@@ -346,6 +347,36 @@ Describe 'COSI artifact names'
     When run bash "$convert_script"
     The status should be failure
     The output should equal 'IMAGE_VERSION was not set!'
+  End
+
+  It 'rejects conversion without ARCHITECTURE'
+    export SKU_NAME=aclgen2TL
+    unset ARCHITECTURE
+    When run bash "$convert_script"
+    The status should be failure
+    The output should equal 'ARCHITECTURE was not set!'
+  End
+
+  It 'downloads the immutable VHD with the Azure CLI login and its tenant'
+    export SKU_NAME=aclgen2arm64TL ARCHITECTURE=ARM64
+    When call check_vhd_download
+    The status should be success
+    The output should equal "AZCLI mock-tenant ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
+  End
+
+  It 'keeps an explicitly configured azcopy tenant'
+    export SKU_NAME=aclgen2TL AZCOPY_TENANT_ID=explicit-tenant MOCK_AZ_TENANT_STATUS=1
+    When call check_vhd_download
+    The status should be success
+    The output should equal "AZCLI explicit-tenant ${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd"
+  End
+
+  It 'stops before downloading when the Azure CLI tenant is unavailable'
+    export SKU_NAME=aclgen2TL MOCK_AZ_TENANT_STATUS=1
+    When call run_convert
+    The status should be failure
+    The output should include 'Unable to read the Azure CLI tenant for the azcopy login'
+    The output should not include 'Downloading VHD'
   End
 
   It 'rejects a mutable primary image before downloading or converting'
