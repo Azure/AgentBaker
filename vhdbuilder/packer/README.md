@@ -60,6 +60,39 @@ disabled state after boot (without applying the rule in the test). Roll out new
 images through the normal canary stages and validate memory-sensitive workloads,
 reclaim CPU, latency, memory pressure, and evictions before broad deployment.
 
+# Azure Linux networkd recovery
+
+Azure Linux 3.0 images (AMD64, ARM64, and CVM; excluding OSGuard) enable
+`aks-networkd-recovery.timer`. Every five minutes it queries eth0's networkd
+`AdministrativeState` over D-Bus. If the state is `failed`, it immediately requests
+`networkctl reconfigure` for that interface only. Detection takes up to roughly
+five minutes; existing routes can continue working while networkd is failed, so
+route presence is not used as a health check.
+
+This mitigates the failed-interface recovery issue described in
+[systemd/systemd#29246](https://github.com/systemd/systemd/issues/29246) until
+the complete backport in
+[microsoft/azurelinux#19686](https://github.com/microsoft/azurelinux/pull/19686)
+is delivered. It is not a general connectivity repair mechanism.
+
+The oneshot service waits for `provision.complete`, so it does not run during VHD
+building or PIS base preparation. It is enabled but not started on the build VM.
+The check is stateless: a persistently failed interface is retried every five
+minutes without an hourly cap. Each D-Bus query is bounded to five seconds and
+each reconfiguration request to twenty seconds. Query errors and recovery
+requests are journaled; query errors never trigger recovery. Non-failed states
+are left alone. Missing interfaces, query errors, unexpected states, and failed
+or timed-out reconfiguration requests are logged but exit successfully so this
+best-effort check does not leave the systemd unit failed. The next timer tick
+checks again. Request acceptance is not proof of connectivity recovery.
+
+Inspect with `journalctl -u aks-networkd-recovery.service` and
+`systemctl list-timers aks-networkd-recovery.timer`. Disable the mitigation with
+`systemctl disable --now aks-networkd-recovery.timer` (an already-running oneshot
+may finish). Reconfiguration can briefly disrupt connectivity; validate live
+link-flap recovery on a canary before broad rollout. Existing nodes need a
+node-image upgrade. OSGuard, Ubuntu, Mariner 2.0, and ACL are unchanged.
+
 # Linux CSE configuration modules
 
 `parts/linux/cloud-init/artifacts/cse_config.sh` is installed as

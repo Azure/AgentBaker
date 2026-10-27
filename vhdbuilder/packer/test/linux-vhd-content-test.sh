@@ -2895,6 +2895,32 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
+testNetworkdRecoveryArtifacts() {
+  local test="testNetworkdRecoveryArtifacts"
+  if [ "$OS_SKU" != "AzureLinux" ] || [ "$OS_VERSION" != "3.0" ]; then
+    return 0
+  fi
+
+  local path
+  for path in /etc/systemd/system/aks-networkd-recovery.service /etc/systemd/system/aks-networkd-recovery.timer; do
+    if [ "$(stat -c '%a' "$path" 2>/dev/null)" != "644" ]; then
+      err "$test" "$path must exist with mode 0644"
+    fi
+  done
+  if [ "$(stat -c '%a' /opt/azure/containers/aks-networkd-recovery.sh 2>/dev/null)" != "755" ]; then
+    err "$test" "networkd recovery script must exist with mode 0755"
+  fi
+  if ! systemctl is-enabled --quiet aks-networkd-recovery.timer; then
+    err "$test" "networkd recovery timer must be enabled"
+  fi
+  if ! grep -Fxq 'OnCalendar=*:0/5' /etc/systemd/system/aks-networkd-recovery.timer; then
+    err "$test" "networkd recovery timer must check every five minutes"
+  fi
+  if ! grep -Fxq 'ConditionPathExists=/opt/azure/containers/provision.complete' /etc/systemd/system/aks-networkd-recovery.service; then
+    err "$test" "networkd recovery must wait for node provisioning to finish"
+  fi
+}
+
 testMarinerLivePatchingArtifacts() {
   local test="testMarinerLivePatchingArtifacts"
   local update_script="/opt/azure/containers/mariner-package-update.sh"
@@ -2988,6 +3014,7 @@ testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
 testMarinerLivePatchingArtifacts
+testNetworkdRecoveryArtifacts
 testNodeExporter $OS_SKU
 testNodeProblemDetector $OS_SKU $OS_VERSION
 testAKSNodeControllerBinary
