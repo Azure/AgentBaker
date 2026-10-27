@@ -37,13 +37,18 @@ garbage_collect_clusters_in_group() {
         return 0
     fi
 
+     local -a no_wait_args=()
+     if [ "${NO_WAIT,,}" = "true" ]; then
+         no_wait_args+=(--no-wait)
+     fi
+
     for cluster in $clusters; do
         echo "deleting cluster $cluster..."
-        if [ "${DRY_RUN}" = "true" ]; then
-            echo "DRY_RUN: az aks delete -g $group -n $cluster --yes --no-wait=$NO_WAIT"
+        if [ "${DRY_RUN,,}" = "true" ]; then
+            echo "DRY_RUN: az aks delete -g $group -n $cluster --yes ${no_wait_args[*]}"
             continue
         fi
-        if ! az aks delete -g "$group" -n "$cluster" --yes --no-wait="$NO_WAIT"; then
+        if ! az aks delete -g "$group" -n "$cluster" --yes "${no_wait_args[@]}"; then
             echo "failed to delete cluster: $cluster, continuing..."
         fi
     done

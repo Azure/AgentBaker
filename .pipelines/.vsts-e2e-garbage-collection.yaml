@@ -1,3 +1,6 @@
+trigger: none
+pr: none
+
 parameters:
   - name: DRY_RUN
     displayName: Run in dry-run mode
@@ -19,6 +22,7 @@ stages:
       - template: ./templates/e2e-gc-template.yaml
         parameters:
           ARM_SERVICE_CONNECTION: $(MSFT_ARM_SERVICE_CONNECTION)
+          SUBSCRIPTION_ID: $(MSFT_E2E_SUBSCRIPTION_ID)
           DRY_RUN: ${{ parameters.DRY_RUN }}
           NO_WAIT: ${{ parameters.NO_WAIT }}
 
@@ -29,5 +33,6 @@ stages:
       - template: ./templates/e2e-gc-template.yaml
         parameters:
           ARM_SERVICE_CONNECTION: $(TME_ARM_SERVICE_CONNECTION)
+          SUBSCRIPTION_ID: $(TME_E2E_SUBSCRIPTION_ID)
           DRY_RUN: ${{ parameters.DRY_RUN }}
           NO_WAIT: ${{ parameters.NO_WAIT }}
