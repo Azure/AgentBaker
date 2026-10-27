@@ -10,6 +10,7 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
+    "acl_usr_overlays": "{{or (env `ACL_USR_OVERLAYS`) `false`}}",
     "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "sku_name": "{{env `SKU_NAME`}}",
@@ -907,7 +908,8 @@
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
         "sudo touch /boot/flatcar/first_boot",
-        "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "# For IC, replace waagent's resolver whiteout with ACL's runtime symlink.",
+        "sudo /bin/bash -c '/usr/bin/waagent -force -deprovision+user && case \"{{user `acl_usr_overlays`}}\" in [Tt][Rr][Uu][Ee]) ln -sfn /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf ;; esac && sync' && export HISTSIZE=0 || exit 125"
       ]
     }
   ],
