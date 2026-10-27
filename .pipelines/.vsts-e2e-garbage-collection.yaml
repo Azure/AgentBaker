@@ -22,8 +22,8 @@ stages:
   - stage: e2e_gc_tme
     displayName: TME Tenant
     jobs:
-      - template: $(TME_ARM_SERVICE_CONNECTION)
+      - template: ./templates/e2e-gc-template.yaml
         parameters:
-          ARM_SERVICE_CONNECTION: ab-e2e-tme
+          ARM_SERVICE_CONNECTION: $(TME_ARM_SERVICE_CONNECTION)
           DRY_RUN: ${{ parameters.DRY_RUN }}
           NO_WAIT: ${{ parameters.NO_WAIT }}
