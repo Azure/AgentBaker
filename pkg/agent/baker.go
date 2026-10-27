@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"unicode/utf8"
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -694,6 +695,32 @@ func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel
 	return buffer.String(), nil
 }
 
+func getCloudInitFileContent(encoded string) (string, error) {
+	compressed, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode cloud-init file base64: %w", err)
+	}
+	content, err := getGzipDecodedValue(compressed)
+	if err != nil {
+		return "", err
+	}
+	node := yaml.Node{
+		Kind:  yaml.ScalarNode,
+		Tag:   "!!str",
+		Style: yaml.DoubleQuotedStyle,
+		Value: string(content),
+	}
+	if !utf8.Valid(content) {
+		node.Tag = "!!binary"
+		node.Value = base64.StdEncoding.EncodeToString(content)
+	}
+	scalar, err := yaml.Marshal(&node)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode cloud-init file content: %w", err)
+	}
+	return strings.ReplaceAll(strings.TrimSuffix(string(scalar), "\n"), "\n", "\n  "), nil
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
@@ -742,6 +769,7 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 		return ""
 	}
 
+	funcMap["GetCloudInitFileContent"] = getCloudInitFileContent
 	return funcMap
 }
 
