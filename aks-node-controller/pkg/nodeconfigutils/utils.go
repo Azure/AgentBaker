@@ -69,10 +69,16 @@ fi`
        "files": [{
          "path": "/opt/azure/containers/aks-node-controller-config.json",
          "mode": 384,
-         "contents": { "source": "data:;base64,%s" }
-       }]
+         "contents": { "source": "data:;base64,%[1]s" }
+       }%[2]s]
      }
     }`
+
+	flatcarEnabledFeaturesTemplate = `,{
+         "path": "%s",
+         "mode": 384,
+         "contents": { "source": "data:;base64,%s" }
+       }`
 )
 
 // CustomData builds base64-encoded VM custom data for cloud-init. The boothook writes the node
@@ -137,7 +143,14 @@ func CustomDataFlatcar(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON)
+	var enabledFeaturesEntry string
+	omissionInstruction, hasOmissionInstruction := cfg.GetEnabledFeatures()["KUBELET_FLAGS_TO_OMIT"]
+	if hasOmissionInstruction && !strings.ContainsAny(omissionInstruction, "\n\r") {
+		content := "KUBELET_FLAGS_TO_OMIT=" + omissionInstruction + "\n"
+		enabledFeaturesEntry = fmt.Sprintf(flatcarEnabledFeaturesTemplate,
+			EnabledFeaturesFilePath, base64.StdEncoding.EncodeToString([]byte(content)))
+	}
+	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON, enabledFeaturesEntry)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
