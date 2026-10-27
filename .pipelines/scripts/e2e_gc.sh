@@ -31,7 +31,7 @@ garbage_collect() {
 garbage_collect_clusters_in_group() {
     local group="$1"
 
-    clusters=$(az aks list -g $group 2>/dev/null | jq -r '.[] | select(.name | startswith("abe2e")) | .name' | tr -d '\"' || "")
+    clusters=$(az aks list -g "$group" 2>/dev/null | jq -r '.[] | select(.name | startswith("abe2e")) | .name' | tr -d '\"' || "")
     if [ -z "$clusters" ]; then
         echo "no clusters found to garbage collect in resource group: $group"
         return 0
