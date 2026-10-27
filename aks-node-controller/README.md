@@ -66,9 +66,18 @@ recursively deleting directories or removing installed system-trust certificates
 `AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only diagnostics;
 parsing for logging does not gate installation.
 
-These are internal capabilities only. No certificate-retrieval flow, standalone
-refresh command, refresh schedule, or native provisioning hook is enabled here.
-Existing provisioning still uses `init-aks-cloud.sh`.
+These are internal capabilities only. Existing provisioning still uses
+`init-aks-cloud.sh`.
+
+### Azure cloud certificate retrieval capabilities
+
+WireServer helpers retrieve legacy certificate packages and RCV1P root/intermediate
+operation groups. They preserve resource-name encoding, bounded requests/retries,
+flat download caching, and per-certificate download skipping.
+
+Retrieval does not install certificates or make opt-in decisions. Refresh
+orchestration, the standalone refresh command, scheduling, and native provisioning
+activation are supplied by later layers; they are not enabled here.
 
 ### Validating and normalizing AKSNodeConfig
 
