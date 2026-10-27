@@ -1,0 +1,30 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+# Run this gate on the final stacked PR, using a PlatformSettingsOverride
+# subscription which does not auto-inject the RCV1P opt-in tag.
+trigger: none
+pr: none
+parameters:
+  - name: subscriptionId
+    type: string
+    default: ""
+  - name: variableGroup
+    type: string
+    default: ab-e2e
+variables:
+  TAGS_TO_RUN: "nativecloudinit=true"
+  SKIP_E2E_TESTS: false
+  REQUIRE_NATIVE_CLOUD_INTEGRATION: "true"
+  SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: false
+  DISABLE_SCRIPTLESS: false
+  DISABLE_SCRIPT_LESS_COMPILATION: false
+  E2E_GO_TEST_TIMEOUT: "85m"
+jobs:
+  - template: ./templates/e2e-template.yaml
+    parameters:
+      name: Native Cloud Initialization Merge Gate
+      IgnoreScenariosWithMissingVhd: false
+      subscriptionId: ${{ parameters.subscriptionId }}
+      variableGroup: ${{ parameters.variableGroup }}
+      rcv1pTagsAutoInjected: false
+      failedTestsRetryCount: 0
+      jobTimeoutInMinutes: 100

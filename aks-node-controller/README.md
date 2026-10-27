@@ -112,6 +112,24 @@ Native initialization and periodic refresh emit guest-agent events through
 `EventLogger` using `CloudInitialization`, `CloudRepositoryInitialization`, and
 `CloudCertificateRefresh` task suffixes, alongside the existing ANC logs.
 
+#### Real-system integration
+
+The [native cloud-initialization E2E gate](../e2e/README.md#native-cloud-initialization-integration-gate)
+runs the complete PR stack on Ubuntu 22.04 and Azure Linux 3, with the PR-built
+ANC binary and actual provisioning through Node Ready. Its opted-in native VMs
+also run the guarded Linux `cloudintegration` test binary against real system
+trust stores, vendor-signed repositories, cron and systemd. The existing
+temporary-root/mock-command tests remain unit/component coverage, not VM
+acceptance. The production WireServer default is unchanged and VM provisioning
+uses the real Azure endpoint; only the in-process system-test certificate
+fixture uses a local HTTP service.
+
+Never enable `-cloud-system-integration` on a shared or production machine:
+the suite intentionally changes the disposable VM's trust store, package
+repository configuration and root refresh schedule. It restores the repository
+files and crontab and removes its unique test CA afterward. Successful container
+checks do not establish that the real-VM gate has passed.
+
 ### Validating and normalizing AKSNodeConfig
 
 Before serializing a typed config, producers such as RP should call:
