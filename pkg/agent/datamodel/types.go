@@ -1782,6 +1782,7 @@ type NodeBootstrappingConfiguration struct {
 	FIPSEnabled                  bool
 	HTTPProxyConfig              *HTTPProxyConfig
 	KubeletConfig                map[string]string
+	KubeletConfigFileConfig      *AKSKubeletConfiguration `json:",omitempty"`
 	KubeproxyConfig              map[string]string
 	EnableRuncShimV2             bool
 	GPUInstanceProfile           string
@@ -1810,8 +1811,6 @@ type NodeBootstrappingConfiguration struct {
 	EnabledFeatures map[string]string
 	// Version is required for aks-node-controller application to determine the version of the config file.
 	Version string
-
-	KubeletConfigFileConfig *AKSKubeletConfiguration `json:",omitempty"`
 
 	// PreProvisionOnly creates a pre-provisioned image for later node spawning.
 	// Skips kubelet and some component configuration for image capture scenarios.
