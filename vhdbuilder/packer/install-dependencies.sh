@@ -597,6 +597,7 @@ cachePackageAndBinaryComponents() {
             downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
             cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_ORAS_DOWNLOAD_ERROR
           elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+            # TODO: keep legacy behavior for flatcar and ACL
             evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
             installOras "${downloadDir}" "${evaluatedURL}" "${version}"
           fi
