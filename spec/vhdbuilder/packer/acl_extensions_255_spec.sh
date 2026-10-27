@@ -3,6 +3,13 @@
 Describe 'ACL systemd 255 extension lifecycle'
   Include vhdbuilder/packer/acl-extensions.sh
 
+  It 'refuses a root export identity'
+    SUDO_USER=root
+    When call prepareExtensionExport
+    The status should be failure
+    The stderr should include 'requires sudo from the non-root Packer account'
+  End
+
   validate_release_rejection() {
     local root="${SHELLSPEC_TMPBASE}/release"
     writeExtensionRelease "$root" opt aks-opt
@@ -17,7 +24,7 @@ Describe 'ACL systemd 255 extension lifecycle'
   End
 
   validate_lifecycle() {
-    local root="${SHELLSPEC_TMPBASE}/lifecycle"
+    local mode="${1:-normal}" root="${SHELLSPEC_TMPBASE}/lifecycle-${1:-normal}"
     mkdir -p "$root"/{etc/systemd/system,etc/alternatives,opt,varlib,varlog}
     ln -s "$(readlink -f "$(command -v awk)")" "$root/etc/alternatives/awk"
     if [ -f /etc/mke2fs.conf ]; then cp /etc/mke2fs.conf "$root/etc/mke2fs.conf"; fi
@@ -25,10 +32,20 @@ Describe 'ACL systemd 255 extension lifecycle'
     printf 'old\n' > "$root/opt/removed"
     printf 'old configuration\n' > "$root/etc/removed"
     printf 'old-machine-id\n' > "$root/etc/machine-id"
+    printf 'root:x:0:0:root:/root:/bin/bash\nacl-export-test:x:12345:12345:export:/home/acl-export-test:/bin/bash\n' > "$root/etc/passwd"
+    printf 'root:x:0:\nacl-export-test:x:12345:\n' > "$root/etc/group"
+    printf 'root:!:::::::\n' > "$root/etc/shadow"
+    printf 'passwd: files\ngroup: files\nshadow: files\nhosts: files dns\n' > "$root/etc/nsswitch.conf"
+    printf '127.0.0.1 localhost %s\n' "$(hostname)" > "$root/etc/hosts"
+    printf 'root ALL=(ALL) ALL\n@includedir /etc/sudoers.d\n' > "$root/etc/sudoers"
+    chmod 440 "$root/etc/sudoers"
+    mkdir -p "$root/etc/pam.d"
+    printf 'auth required pam_deny.so\naccount required pam_deny.so\nsession required pam_deny.so\n' > "$root/etc/pam.d/sudo"
     ln -s /usr/lib/os-release "$root/etc/os-release"
-    unshare --mount --propagation private bash -euo pipefail -s -- "$PWD" "$root" <<'SCRIPT'
+    unshare --mount --propagation private bash -euo pipefail -s -- "$PWD" "$root" "$mode" <<'SCRIPT'
 repo=$1
 root=$2
+mode=$3
 source "$repo/vhdbuilder/packer/acl-extensions.sh"
 native_sysext=$(command -v systemd-sysext)
 native_version=$("$native_sysext" --version | head -n1 | awk '{print $2}')
@@ -48,7 +65,10 @@ systemd-sysext() {
         fi
     fi
 }
-deprovisionExtensionBuild() { printf 'deprovisioned\n' > /etc/deprovisioned; }
+deprovisionExtensionBuild() {
+    printf 'deprovisioned\n' > /etc/deprovisioned
+    sed -i '/^acl-export-test:/d' /etc/passwd /etc/group
+}
 
 startExtensionCapture
 test -f "$root/etc/systemd/system/aks-extensions.service"
@@ -60,6 +80,11 @@ printf 'configuration\n' > /etc/captured
 rm /opt/removed /etc/removed
 # Keep the capture overlay referenced while finalization rotates its workdirs.
 exec 8</opt
+if [[ "$mode" == export ]]; then
+    SUDO_USER=acl-export-test prepareExtensionExport
+    if enableExtensionExport 2>"$root/unremoved-account.err"; then exit 1; fi
+    grep -q 'Refusing to export extensions containing the Packer account' "$root/unremoved-account.err"
+fi
 finishExtensionCapture
 exec 8<&-
 test "$(cat /opt/link)" = captured
@@ -83,6 +108,41 @@ test -z "$(ls -A /var/lib/aks-extensions.mutable/etc)"
 grep -q './opt/captured' /var/log/aks-opt.files.txt
 grep -q './etc/captured' /var/log/aks-etc.files.txt
 sha256sum /var/lib/aks-extensions/*.raw > "$root/images.sha256"
+
+if [[ "$mode" == export ]]; then
+    status=0
+    setpriv --reuid=12345 --regid=12345 --clear-groups /usr/bin/scp -f /var/log/aks-opt.files.txt </dev/null >"$root/scp-before.out" 2>"$root/scp-before.err" || status=$?
+    test "$status" = 255
+    grep -q 'unknown user 12345' "$root/scp-before.err"
+    enableExtensionExport
+    test "$(getent passwd acl-export-test | cut -d: -f3)" = 12345
+    ! grep -q '^acl-export-test:' /etc/shadow
+    ! grep -q '^acl-export-test:' /run/aks-extensions/image-etc/etc/passwd
+    test ! -e /run/aks-extensions/image-etc/etc/sudoers.d/99-aks-extension-export
+    test ! -e /home/acl-export-test
+    printf '\0\0\0' | setpriv --reuid=12345 --regid=12345 --clear-groups /usr/bin/scp -f /var/log/aks-opt.files.txt > "$root/scp-transfer.out" 2>"$root/scp-transfer.err"
+    grep -aq 'aks-opt.files.txt' "$root/scp-transfer.out"
+    test ! -s "$root/scp-transfer.err"
+    mkdir /run/aks-extensions/upload
+    chown 12345:12345 /run/aks-extensions/upload
+    printf 'C0600 5 cleanup.sh\nexit\n\0' | setpriv --reuid=12345 --regid=12345 --clear-groups /usr/bin/scp -t /run/aks-extensions/upload >"$root/scp-upload.out" 2>"$root/scp-upload.err"
+    test "$(cat /run/aks-extensions/upload/cleanup.sh)" = exit
+    test "$(stat -c %a /run/aks-extensions/upload/cleanup.sh)" = 600
+    if setpriv --reuid=12345 --regid=12345 --clear-groups sudo -n /usr/bin/true >"$root/denied.out" 2>"$root/denied.err"; then exit 1; fi
+    # Exercise the actual restricted sudo command without changing the host OS.
+    printf 'ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n' > "$root/acl-release"
+    mount --bind "$root/acl-release" /usr/lib/os-release
+    setpriv --reuid=12345 --regid=12345 --clear-groups sudo -n /var/lib/aks-extensions/acl-extensions.sh complete >"$root/complete.out" 2>"$root/complete.err"
+    umount /usr/lib/os-release
+    ! getent passwd acl-export-test
+    test ! -e /etc/sudoers.d/99-aks-extension-export
+    test ! -e /run/aks-extensions/export
+    sha256sum --status -c "$root/images.sha256"
+    status=0
+    setpriv --reuid=12345 --regid=12345 --clear-groups /usr/bin/scp -f /var/log/aks-opt.files.txt </dev/null >"$root/scp-after.out" 2>"$root/scp-after.err" || status=$?
+    test "$status" = 255
+    grep -q 'unknown user 12345' "$root/scp-after.err"
+fi
 
 printf 'persistent opt\n' > /opt/runtime
 printf 'persistent etc\n' > /etc/runtime
@@ -157,6 +217,13 @@ SCRIPT
   It 'captures, packages and reactivates writable layers without mutable APIs'
     Skip if 'requires root and a private mount namespace' [ "$(id -u)" -ne 0 ]
     When call validate_lifecycle
+    The status should be success
+    The output should be blank
+  End
+
+  It 'exports through real SCP after deprovisioning and removes temporary access through restricted sudo'
+    Skip if 'requires root and a private mount namespace' [ "$(id -u)" -ne 0 ]
+    When call validate_lifecycle export
     The status should be success
     The output should be blank
   End

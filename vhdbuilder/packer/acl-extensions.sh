@@ -257,6 +257,54 @@ finishExtensionCapture() {
     sync
 }
 
+prepareExtensionExport() {
+    local state=/run/aks-extensions/export user="${SUDO_USER:-}" entry uid
+    if [[ ! "$user" =~ ^[a-zA-Z_][a-zA-Z0-9_-]*$ || "$user" == root ]]; then
+        echo "Extension export requires sudo from the non-root Packer account" >&2
+        return 1
+    fi
+    entry=$(getent passwd "$user") || return
+    uid=$(printf '%s\n' "$entry" | cut -d: -f3)
+    [[ "$uid" =~ ^[0-9]+$ && "$uid" != 0 && ! -e "$state" && ! -L "$state" ]] || return 1
+    # Keep only the passwd record in RAM, never passwords or authorized keys.
+    install -d -m 700 "$state"
+    printf '%s\n' "$entry" > "$state/account"
+}
+
+enableExtensionExport() {
+    local state=/run/aks-extensions/export
+    local rule=/etc/sudoers.d/99-aks-extension-export entry user uid
+    entry=$(cat "$state/account")
+    user=${entry%%:*}
+    uid=$(printf '%s\n' "$entry" | cut -d: -f3)
+    if getent passwd "$user" >/dev/null || getent passwd "$uid" >/dev/null; then
+        echo "Refusing to export extensions containing the Packer account" >&2
+        return 1
+    fi
+    [[ ! -e "$rule" && ! -L "$rule" ]] || return 1
+    cp -p /etc/passwd "$state/passwd"
+    printf '%s\n' "$entry" >> /etc/passwd
+    mkdir -p /etc/sudoers.d
+    (
+        umask 077
+        # The account intentionally has no shadow entry or login credentials.
+        printf 'Defaults:%s !pam_acct_mgmt, !pam_session, !pam_setcred\n' "$user"
+        printf '%s ALL=(root) NOPASSWD: /var/lib/aks-extensions/acl-extensions.sh complete\n' "$user"
+    ) > "$rule"
+    chmod 440 "$rule"
+    visudo -cf "$rule" >/dev/null
+}
+
+completeExtensionExport() {
+    local state=/run/aks-extensions/export
+    [[ -f "$state/passwd" && -f "$state/account" ]] || return 1
+    cp -p "$state/passwd" /etc/passwd
+    rm /etc/sudoers.d/99-aks-extension-export
+    rm "$state/passwd" "$state/account"
+    rmdir "$state"
+    sync
+}
+
 main() {
     set -euo pipefail
     if [[ $EUID != 0 ]]; then
@@ -277,9 +325,11 @@ main() {
     case "${1:-}" in
         start) startExtensionCapture ;;
         finish) finishExtensionCapture ;;
+        finish-export) prepareExtensionExport; finishExtensionCapture; enableExtensionExport ;;
+        complete) completeExtensionExport ;;
         activate) activateExtensions ;;
         stop) stopExtensions ;;
-        *) echo "Usage: $0 {start|finish|activate|stop}" >&2; return 1 ;;
+        *) echo "Usage: $0 {start|finish|finish-export|complete|activate|stop}" >&2; return 1 ;;
     esac
 }
 
