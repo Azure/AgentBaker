@@ -37,10 +37,10 @@ namespace RunProcess {
     }
 
     function Install-TestKubeletConfiguration {
-        param([string] $Request = '', [bool] $RotationEnabled = $false)
+        param([string] $Request = 'WyItLXZvbHVtZS1wbHVnaW4tZGlyIiwiLS1jb250YWluZXItcnVudGltZS1lbmRwb2ludCJd')
         Set-WindowsKubeletConfiguration -ContentBase64 (ConvertTo-TestBase64 ($script:Configuration | ConvertTo-Json -Depth 10)) `
             -FlagsToOmitBase64 $Request -KubeDir $script:KubeDirectory -ClusterConfigPath $script:ClusterPath `
-            -BootstrapDirectory $script:BootstrapDirectory -ServingCertificateRotationEnabled $RotationEnabled
+            -BootstrapDirectory $script:BootstrapDirectory
     }
 }
 
@@ -119,7 +119,7 @@ Describe 'Windows kubelet materialization and startup' {
         [RunProcess.exec]::LastArguments = $null
     }
 
-    It 'delivers exact UTF8 bytes and attaches once without any omission request' {
+    It 'delivers exact UTF8 bytes and attaches once for a selected migration' {
         $content = $script:Configuration | ConvertTo-Json -Depth 10
         Install-TestKubeletConfiguration
         Install-TestKubeletConfiguration
@@ -127,10 +127,10 @@ Describe 'Windows kubelet materialization and startup' {
         [Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) | Should -Be (ConvertTo-TestBase64 $content)
         $cluster = Get-Content -LiteralPath $script:ClusterPath -Raw | ConvertFrom-Json
         @($cluster.Kubernetes.Kubelet.ConfigArgs | Where-Object { $_ -like '--config=*' }).Count | Should -Be 1
-        @($cluster.Kubernetes.Kubelet.ConfigFile.FlagsToOmit).Count | Should -Be 0
+        @($cluster.Kubernetes.Kubelet.ConfigFile.FlagsToOmit).Count | Should -Be 2
         (Get-WindowsKubeletConfigurationForStartup -ConfigFile $cluster.Kubernetes.Kubelet.ConfigFile -ConfigArgs $cluster.Kubernetes.Kubelet.ConfigArgs -KubeDir $script:KubeDirectory).staticPodPath | Should -Be $script:Configuration.staticPodPath
         . $script:StartupPath
-        $expected = ($global:KubeletConfigArgs + @("--config=$path", '--node-labels=example.com/node=windows', "--volume-plugin-dir=$($script:Configuration.volumePluginDir)", '--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS', '--container-runtime-endpoint=npipe://./pipe/containerd-containerd')) -join ' '
+        $expected = ($global:KubeletConfigArgs + @("--config=$path", '--node-labels=example.com/node=windows', '--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS')) -join ' '
         [RunProcess.exec]::LastArguments | Should -BeExactly $expected
         Test-Path $script:Configuration.volumePluginDir -PathType Container | Should -BeTrue
     }
@@ -172,7 +172,7 @@ Describe 'Windows kubelet materialization and startup' {
         $global:EnableKubeletServingCertificateRotation = $true
         Configure-KubeletServingCertificateRotation
         Write-TestClusterConfiguration
-        Install-TestKubeletConfiguration -RotationEnabled $true
+        Install-TestKubeletConfiguration
         . $script:StartupPath
         $expectedRotation = if ($Disabled -eq 'true') { 'false' } else { 'true' }
         [RunProcess.exec]::LastArguments | Should -Match "--rotate-server-certificates=$expectedRotation"
@@ -195,9 +195,12 @@ Describe 'Windows kubelet materialization and startup' {
         Test-Path (Join-Path $script:KubeDirectory 'kubelet-config-rp.json') | Should -BeFalse
     }
 
-    It 'rejects unsafe server TLS before writing' {
-        $script:Configuration.serverTLSBootstrap = $true
-        { Install-TestKubeletConfiguration } | Should -Throw '*serving-certificate*'
+    It 'leaves files and legacy startup unchanged without a selected migration' -ForEach @(
+        @{ Request = '' }, @{ Request = 'W10' }, @{ Request = 'WyItLWhhaXJwaW4tbW9kZSJd' }
+    ) {
+        $originalCluster = (Get-FileHash $script:ClusterPath).Hash
+        Install-TestKubeletConfiguration -Request $Request
+        (Get-FileHash $script:ClusterPath).Hash | Should -Be $originalCluster
         Test-Path (Join-Path $script:KubeDirectory 'kubelet-config-rp.json') | Should -BeFalse
         Get-Content -LiteralPath $script:StartupPath -Raw | Should -Be 'cached-startup'
     }
@@ -205,7 +208,7 @@ Describe 'Windows kubelet materialization and startup' {
     It 'rejects malformed active requests and missing or corrupt bootstrap scripts before writing' -ForEach @(
         @{ Failure = 'request' }, @{ Failure = 'missing' }, @{ Failure = 'corrupt' }, @{ Failure = 'config' }
     ) {
-        $request = ''
+        $request = ConvertTo-TestBase64 '["--volume-plugin-dir"]'
         if ($Failure -eq 'request') { $request = '!' }
         if ($Failure -eq 'missing') { Remove-Item (Join-Path $script:BootstrapDirectory 'kubeletstart.ps1') }
         if ($Failure -eq 'corrupt') { Set-Content (Join-Path $script:BootstrapDirectory 'kubeletstart.ps1') 'function {' }
@@ -232,6 +235,7 @@ Describe 'Windows kubelet materialization and startup' {
     ) {
         $originalCluster = (Get-FileHash $script:ClusterPath).Hash
         { Set-WindowsKubeletConfiguration -ContentBase64 $EncodedContent -KubeDir $script:KubeDirectory `
+            -FlagsToOmitBase64 'WyItLXZvbHVtZS1wbHVnaW4tZGlyIl0' `
             -ClusterConfigPath $script:ClusterPath -BootstrapDirectory $script:BootstrapDirectory } | Should -Throw
         (Get-FileHash $script:ClusterPath).Hash | Should -Be $originalCluster
         Test-Path (Join-Path $script:KubeDirectory 'kubelet-config-rp.json') | Should -BeFalse

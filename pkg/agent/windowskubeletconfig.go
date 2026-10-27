@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
+	"maps"
 	"sort"
 	"strings"
 	"text/template"
@@ -16,119 +16,73 @@ import (
 )
 
 func hasWindowsKubeletConfiguration(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config.AgentPoolProfile.IsWindows() && config.EnableKubeletConfigFile && config.KubeletConfigFileConfig != nil
+	return len(windowsKubeletMigrationValues(config)) != 0
 }
 
-func windowsKubeletFlagsToOmit(config *datamodel.NodeBootstrappingConfiguration) ([]string, error) {
-	if !hasWindowsKubeletConfiguration(config) {
-		return []string{}, nil
+func windowsKubeletMigrationValues(config *datamodel.NodeBootstrappingConfiguration) map[string]string {
+	if !config.AgentPoolProfile.IsWindows() || !config.EnableKubeletConfigFile {
+		return nil
 	}
-	if err := validateWindowsKubeletConfiguration(config); err != nil {
-		return nil, err
+	selected := make(map[string]string)
+	for flagName, value := range kubeletConfigMigrationValues(config) {
+		if flagName == "--volume-plugin-dir" || flagName == "--container-runtime-endpoint" {
+			selected[flagName] = value
+		}
 	}
-	return decodeWindowsKubeletOmissionRequest(config.EnabledFeatures["KUBELET_FLAGS_TO_OMIT"])
+	return selected
 }
 
-func validateWindowsKubeletConfiguration(config *datamodel.NodeBootstrappingConfiguration) error {
-	configuration := config.KubeletConfigFileConfig
-	if configuration.Kind != "KubeletConfiguration" || configuration.APIVersion != "kubelet.config.k8s.io/v1beta1" {
-		return fmt.Errorf("unsupported Windows kubelet configuration kind or apiVersion")
-	}
-	flagMaps := []map[string]string{config.KubeletConfig}
-	if config.ContainerService != nil && config.ContainerService.Properties != nil {
-		if overrides := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(datamodel.Componentkubelet); overrides != nil {
-			flagMaps = append(flagMaps, overrides.Config)
+func windowsKubeletConfigurationContent(flags, selected map[string]string) string {
+	flags = maps.Clone(flags)
+	for name, value := range flags {
+		if value == `""""` || value == `""` {
+			flags[name] = ""
 		}
 	}
-	rotationFlag := ""
-	for _, flags := range flagMaps {
-		for _, flagName := range []string{"--config", "--config-dir"} {
-			if _, present := flags[flagName]; present {
-				return fmt.Errorf("explicit Windows kubelet configuration conflicts with %s", flagName)
-			}
-		}
-		if value, present := flags["--rotate-server-certificates"]; present {
-			rotationFlag = value
+	var configuration datamodel.AKSKubeletConfiguration
+	_ = json.Unmarshal([]byte(GetKubeletConfigFileContent(flags, nil)), &configuration)
+	configuration.NodeStatusReportFrequency = "5m"
+	configuration.ContainerLogMaxFiles = strToInt32Ptr(flags["--container-log-max-files"])
+	for _, field := range []*[]string{&configuration.ClusterDNS, &configuration.TLSCipherSuites, &configuration.EnforceNodeAllocatable} {
+		if len(*field) == 1 && (*field)[0] == "" {
+			*field = nil
 		}
 	}
-	if configuration.ServerTLSBootstrap && rotationFlag != "true" {
-		return fmt.Errorf("windows serverTLSBootstrap requires the retained enabling serving-certificate rotation CLI and tag pipeline")
-	}
-	return nil
-}
-
-func decodeWindowsKubeletOmissionRequest(encoded string) ([]string, error) {
-	selected := make([]string, 0)
-	if encoded == "" {
-		return selected, nil
-	}
-	if len(encoded) > 1024 || strings.ContainsAny(encoded, "\r\n") {
-		return nil, fmt.Errorf("invalid Windows kubelet omission request encoding")
-	}
-	decoded, decodeErr := base64.StdEncoding.Strict().DecodeString(encoded)
-	if decodeErr != nil {
-		decoded, decodeErr = base64.RawStdEncoding.Strict().DecodeString(encoded)
-	}
-	if decodeErr != nil {
-		return nil, fmt.Errorf("invalid Windows kubelet omission request: %w", decodeErr)
-	}
-	if !bytes.HasPrefix(bytes.TrimSpace(decoded), []byte("[")) {
-		return nil, fmt.Errorf("windows kubelet omission request must be an array")
-	}
-	var requested []json.RawMessage
-	if decodeErr = json.Unmarshal(decoded, &requested); decodeErr != nil {
-		return nil, fmt.Errorf("invalid Windows kubelet omission request JSON: %w", decodeErr)
-	}
-	if len(requested) > 16 {
-		return nil, fmt.Errorf("too many Windows kubelet omission names")
-	}
-	return selectWindowsKubeletFlagsToOmit(requested)
-}
-
-func selectWindowsKubeletFlagsToOmit(requested []json.RawMessage) ([]string, error) {
-	selected := make([]string, 0)
-	seen := make(map[string]bool)
-	for _, entry := range requested {
-		var flagName string
-		if !bytes.HasPrefix(bytes.TrimSpace(entry), []byte("\"")) {
-			return nil, fmt.Errorf("windows kubelet omission names must be strings")
-		}
-		if err := json.Unmarshal(entry, &flagName); err != nil {
-			return nil, fmt.Errorf("invalid Windows kubelet omission name: %w", err)
-		}
-		if (flagName == "--volume-plugin-dir" || flagName == "--container-runtime-endpoint") && !seen[flagName] {
-			seen[flagName] = true
-			selected = append(selected, flagName)
-		}
-	}
-	sort.Strings(selected)
-	return selected, nil
+	applyKubeletConfigMigration(&configuration, selected)
+	content, _ := json.MarshalIndent(configuration, "", "    ")
+	return string(content)
 }
 
 func addWindowsKubeletConfigTemplateFuncs(config *datamodel.NodeBootstrappingConfiguration, functions template.FuncMap) {
-	functions["HasWindowsKubeletConfiguration"] = func() bool { return hasWindowsKubeletConfiguration(config) }
-	functions["GetWindowsKubeletFlagsToOmit"] = func() (string, error) {
-		flags, err := windowsKubeletFlagsToOmit(config)
-		if err != nil {
-			return "", err
-		}
-		serialized, err := json.Marshal(flags)
-		if err != nil {
-			return "", err
-		}
-		return base64.RawStdEncoding.EncodeToString(serialized), nil
-	}
-	if !hasWindowsKubeletConfiguration(config) {
+	selected := windowsKubeletMigrationValues(config)
+	content, encodedFlags := "", ""
+	functions["HasWindowsKubeletConfiguration"] = func() bool { return len(selected) != 0 }
+	functions["GetWindowsKubeletConfigContentBase64"] = func() string { return base64.StdEncoding.EncodeToString([]byte(content)) }
+	functions["GetWindowsKubeletFlagsToOmit"] = func() string { return encodedFlags }
+	if len(selected) == 0 {
 		return
+	}
+	working := *config
+	working.KubeletConfig = maps.Clone(config.KubeletConfig)
+	working.GetOrderedKubeletConfigStringForPowershell(config.AgentPoolProfile.CustomKubeletConfig)
+	content = windowsKubeletConfigurationContent(working.KubeletConfig, selected)
+	functions["EnableKubeletServingCertificateRotation"] = func() bool { return IsKubeletServingCertificateRotationEnabled(&working) }
+	flags := make([]string, 0, len(selected))
+	for name := range selected {
+		flags = append(flags, name)
+		delete(working.KubeletConfig, name)
+	}
+	sort.Strings(flags)
+	serialized, _ := json.Marshal(flags)
+	encodedFlags = base64.RawStdEncoding.EncodeToString(serialized)
+	functions["GetKubeletConfigKeyValsPsh"] = func() string {
+		return working.GetOrderedKubeletConfigStringForPowershell(config.AgentPoolProfile.CustomKubeletConfig)
 	}
 	baseScripts, present := functions["GetKubernetesWindowsAgentFunctions"].(func() string)
 	if !present {
 		return
 	}
 	functions["GetKubernetesWindowsAgentFunctions"] = func() (string, error) {
-		if _, err := windowsKubeletFlagsToOmit(config); err != nil {
-			return "", err
-		}
 		return appendWindowsKubeletConfigScripts(baseScripts())
 	}
 }

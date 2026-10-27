@@ -39,14 +39,14 @@ function Set-WindowsKubeletConfiguration {
         [AllowEmptyString()][string] $FlagsToOmitBase64,
         [Parameter(Mandatory = $true)][string] $KubeDir,
         [Parameter(Mandatory = $true)][string] $ClusterConfigPath,
-        [Parameter(Mandatory = $true)][string] $BootstrapDirectory,
-        [bool] $ServingCertificateRotationEnabled = $false
+        [Parameter(Mandatory = $true)][string] $BootstrapDirectory
     )
 
+    $flagsToOmit = @(ConvertFrom-WindowsKubeletOmissionRequest -EncodedRequest $FlagsToOmitBase64)
+    if ($flagsToOmit.Count -eq 0) { return }
     $contentBytes = [Convert]::FromBase64String($ContentBase64)
     $content = (New-Object System.Text.UTF8Encoding($false, $true)).GetString($contentBytes)
     $configuration = ConvertFrom-WindowsKubeletConfiguration -Content $content
-    $flagsToOmit = @(ConvertFrom-WindowsKubeletOmissionRequest -EncodedRequest $FlagsToOmitBase64)
     $clusterConfiguration = Get-Content -Path $ClusterConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
     $kubeletArguments = @($clusterConfiguration.Kubernetes.Kubelet.ConfigArgs)
     $configurationPath = Join-Path $KubeDir 'kubelet-config-rp.json'
@@ -56,11 +56,6 @@ function Set-WindowsKubeletConfiguration {
             if ($argument -cne $configurationArgument -or $clusterConfiguration.Kubernetes.Kubelet.ConfigFile.Path -cne $configurationPath) {
                 throw 'Explicit Windows kubelet configuration conflicts with existing --config or --config-dir'
             }
-        }
-    }
-    if ($configuration.serverTLSBootstrap -eq $true) {
-        if (-not $ServingCertificateRotationEnabled -or -not ($kubeletArguments -cmatch '^--rotate-server-certificates=(true|false)$')) {
-            throw 'Windows serverTLSBootstrap requires the retained serving-certificate rotation CLI and tag pipeline'
         }
     }
     foreach ($scriptName in @('kubeletconfig.ps1', 'kubeletstart.ps1')) {

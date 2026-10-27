@@ -525,11 +525,10 @@ function NodePrep {
     # PIS/VHD-cached nodes where BasePrep is skipped.
     Configure-KubeletServingCertificateRotation
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-{{if HasWindowsKubeletConfiguration}}    Set-WindowsKubeletConfiguration -ContentBase64 "{{GetKubeletConfigFileContentBase64}}" `
+{{if HasWindowsKubeletConfiguration}}    Set-WindowsKubeletConfiguration -ContentBase64 "{{GetWindowsKubeletConfigContentBase64}}" `
         -FlagsToOmitBase64 "{{GetWindowsKubeletFlagsToOmit}}" `
         -KubeDir $global:KubeDir -ClusterConfigPath $global:KubeClusterConfigPath `
-        -BootstrapDirectory "c:\AzureData\windows\kubeletconfiguration" `
-        -ServingCertificateRotationEnabled $global:EnableKubeletServingCertificateRotation
+        -BootstrapDirectory "c:\AzureData\windows\kubeletconfiguration"
 {{end}}
     Write-AzureConfig `
         -KubeDir $global:KubeDir `
