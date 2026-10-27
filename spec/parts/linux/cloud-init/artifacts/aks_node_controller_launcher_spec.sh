@@ -42,11 +42,22 @@ EOF
         # Feature-flag file is test-local and absent by default; tests that exercise the
         # source path create it explicitly.
         export FEATURES_PATH="${TEST_DIR}/enabled_features.sh"
+        export BASE_PREP_COMPLETE_PATH="${TEST_DIR}/base_prep.complete"
+        export PROVISION_COMPLETE_PATH="${TEST_DIR}/provision.complete"
+        export PROVISION_JSON_PATH="${TEST_DIR}/provision.json"
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN BASE_PREP_COMPLETE_PATH PROVISION_COMPLETE_PATH PROVISION_JSON_PATH
+    }
+
+    create_exiting_aks_node_controller() {
+        cat >"$BIN_PATH" <<EOF
+#!/bin/sh
+exit $1
+EOF
+        chmod +x "$BIN_PATH"
     }
 
     create_fake_aks_node_controller() {
@@ -181,6 +192,28 @@ EOF
         The variable firstArg should eq "provision"
         The variable secondArg should eq "--provision-config=${CONFIG_PATH}"
         The variable thirdArg should eq ""
+    End
+
+    It 'removes config and nbc cmd after a successful pre-provision run'
+        touch "$CONFIG_PATH" "$NBC_CMD_PATH" "$BASE_PREP_COMPLETE_PATH"
+        create_exiting_aks_node_controller 0
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "Removed pre-provision config, nbc cmd"
+        The path "$CONFIG_PATH" should not be exist
+        The path "$NBC_CMD_PATH" should not be exist
+    End
+
+    It 'keeps provisioning inputs after a normal provision run'
+        touch "$CONFIG_PATH" "$NBC_CMD_PATH" "$BASE_PREP_COMPLETE_PATH" "$PROVISION_COMPLETE_PATH"
+        create_exiting_aks_node_controller 0
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should not include "Removed pre-provision"
+        The path "$CONFIG_PATH" should be exist
+        The path "$NBC_CMD_PATH" should be exist
     End
 
     It 'passes only nbc cmd when provision config is absent'

@@ -29,19 +29,22 @@ func runScenarioFlow(ctx context.Context, name string, s *Scenario) error {
 	if config.Config.TestPreProvision || s.VHDCaching {
 		return runVHDCachingScenario(ctx, name, s)
 	}
-	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
-		return runScenario(ctx, name, s)
-	}
+	enableScriptlessNBCCSECmd(s)
+	return runScenario(ctx, name, s)
+}
 
+func enableScriptlessNBCCSECmd(s *Scenario) {
+	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
+		return
+	}
 	if s.Runtime == nil {
 		s.Runtime = &ScenarioRuntime{}
 	}
 	s.Runtime.EnableScriptlessNBCCSECmd = true
-	return runScenario(ctx, name, s)
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
-	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
+	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runVHDCachingScenario(ctx context.Context, name string, original *Scenario) error {
@@ -93,8 +96,6 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				}
 			}
 			nbc.PreProvisionOnly = true
-			nbc.EnableScriptlessNBCCSECmd = false
-			nbc.EnableScriptlessAKSNodeConfig = false
 			// Bake-only mutation: lets a scenario deliberately diverge bake-time
 			// state from provision-time state (e.g. a stale sentinel bootstrap token).
 			if original.PreProvisionBootstrapConfigMutator != nil {
@@ -110,6 +111,7 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 		}
 	}
 
+	enableScriptlessNBCCSECmd(bakeScenario)
 	err := runScenario(ctx, name, bakeScenario)
 	original.adoTestCases = append(original.adoTestCases, bakeScenario.adoTestCases...)
 	if err != nil {
@@ -146,6 +148,7 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 		}
 		return nil
 	}
+	enableScriptlessNBCCSECmd(provisionScenario)
 	err = runScenario(ctx, name, provisionScenario)
 	original.adoTestCases = append(original.adoTestCases, provisionScenario.adoTestCases...)
 	return err

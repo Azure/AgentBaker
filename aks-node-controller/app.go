@@ -128,11 +128,6 @@ type ProvisionFlags struct {
 	NBCCmd          string
 }
 
-type ProvisionStatusFiles struct {
-	ProvisionJSONFile     string
-	ProvisionCompleteFile string
-}
-
 func (a *App) Run(ctx context.Context, args []string) int {
 	cmd := &cli.Command{
 		Name:    "aks-node-controller",
@@ -167,11 +162,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				Name:  "provision-wait",
 				Usage: "Wait for provisioning to complete",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					provisionStatusFiles := ProvisionStatusFiles{
-						ProvisionJSONFile:     provisionJSONFilePath,
-						ProvisionCompleteFile: provisionCompleteFilePath,
-					}
-					provisionOutput, err := a.runProvisionWaitCommand(ctx, provisionStatusFiles)
+					provisionOutput, err := a.runProvisionWaitCommand(ctx, provisionJSONFilePath)
 					_, _ = fmt.Fprintln(cmd.Root().Writer, provisionOutput)
 					return err
 				},
@@ -243,12 +234,12 @@ func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dry
 	return err
 }
 
-func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles ProvisionStatusFiles) (string, error) {
+func (a *App) runProvisionWaitCommand(ctx context.Context, provisionJSONFile string) (string, error) {
 	slog.Info("aks-node-controller started", "task", "ProvisionWait")
 
 	startTime := time.Now()
 	a.eventLogger.LogEvent("ProvisionWait", "Starting", helpers.EventLevelInformational, startTime, startTime)
-	provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+	provisionOutput, err := a.ProvisionWait(ctx, provisionJSONFile)
 	endTime := time.Now()
 	if err != nil {
 		message := fmt.Sprintf("aks-node-controller exited with error %s", err.Error())
@@ -784,44 +775,52 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 	return provisionResult, provisionErr
 }
 
-// writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
+// writeCompleteFileOnError writes the provision.complete sentinel and provision.json if err is non-nil,
 // allowing provision-wait mode to unblock early on fail-fast validation errors.
+// provision.json is written last and atomically because provision-wait unblocks on its creation.
 func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err error) {
 	if err == nil {
 		return
 	}
-	if _, statErr := os.Stat(provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
-		data, err := json.Marshal(provisionResult)
-		if err != nil {
-			slog.Error("failed to marshal provision result", "error", err)
+	if _, statErr := os.Stat(provisionCompleteFilePath); errors.Is(statErr, os.ErrNotExist) {
+		if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
+			slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
 		}
-		baseDir := filepath.Dir(provisionJSONFilePath)
-		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
-			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
-		}
-		if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
-			slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
-		}
-	}
-	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
-		return // already exists
-	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
+	} else if statErr != nil {
 		slog.Error("failed to stat provision.complete file", "path", provisionCompleteFilePath, "error", statErr)
+	}
+	if _, statErr := os.Stat(provisionJSONFilePath); statErr == nil || !errors.Is(statErr, os.ErrNotExist) {
 		return
 	}
-	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
+	data, marshalErr := json.Marshal(provisionResult)
+	if marshalErr != nil {
+		slog.Error("failed to marshal provision result", "error", marshalErr)
+	}
+	if writeErr := writeFileAtomic(provisionJSONFilePath, data, 0600); writeErr != nil {
+		slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
 	}
 }
 
-func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, perm); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// ProvisionWait waits for provision.json, which CSE (cse_start.sh) and writeCompleteFileOnError write
+// atomically after the completion markers, so it signals completion for both regular and pre-provision runs.
+func (a *App) ProvisionWait(ctx context.Context, provisionJSONFile string) (string, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return "", fmt.Errorf("failed to create watcher: %w", err)
 	}
 	defer watcher.Close()
-	// Watch the directory containing the provision complete file
-	dir := filepath.Dir(filepaths.ProvisionCompleteFile)
+	dir := filepath.Dir(provisionJSONFile)
 	if err = os.MkdirAll(dir, 0755); err != nil { // create the directory if it doesn't exist
 		return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
@@ -829,19 +828,17 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 		return "", fmt.Errorf("failed to watch directory: %w", err)
 	}
 
-	if _, statErr := os.Stat(filepaths.ProvisionCompleteFile); statErr == nil {
-		// Fast path: provision.complete already exists when we enter. Avoid watcher overhead.
-		// We read and evaluate once and return immediately. Only this branch executes in this scenario.
-		return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
+	if _, statErr := os.Stat(provisionJSONFile); statErr == nil {
+		// Fast path: provision.json already exists when we enter. Avoid watcher overhead.
+		return readAndEvaluateProvision(provisionJSONFile)
 	}
 
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepaths.ProvisionCompleteFile {
-				// Event path: provision.complete was created after we started watching. Read and evaluate now.
-				// This is mutually exclusive with the fast path above; only one of these calls runs per invocation.
-				return readAndEvaluateProvision(filepaths.ProvisionJSONFile)
+			// Writers rename provision.json into place, which fsnotify reports as Create.
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == provisionJSONFile {
+				return readAndEvaluateProvision(provisionJSONFile)
 			}
 
 		case err := <-watcher.Errors:

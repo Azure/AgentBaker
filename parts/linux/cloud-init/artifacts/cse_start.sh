@@ -56,7 +56,8 @@ JSON_STRING=$( jq -n \
                   --arg kubelet "$KUBELET_START_TIME" \
                   '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CloudInitLocalStartTime: $cinitl, CloudInitStartTime: $cinit, CloudFinalStartTime: $cf, NetworkdStartTime: $ns, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
 mkdir -p /var/log/azure/aks
-echo $JSON_STRING | tee /var/log/azure/aks/provision.json
+# provision-wait unblocks on provision.json, so stage it here and rename it into place after the completion markers.
+echo $JSON_STRING | tee /var/log/azure/aks/provision.json.tmp
 
 # Cleanup cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json || true
@@ -123,6 +124,7 @@ else
     # provision.complete signals that a normal provisioning attempt finished.
     mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 fi
+mv -f /var/log/azure/aks/provision.json.tmp /var/log/azure/aks/provision.json
 
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs

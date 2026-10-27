@@ -91,10 +91,10 @@ func TestCustomDataWithANCHotfixFlowFixture(t *testing.T) {
 		t.Fatal("fixture NBC script heredoc is not terminated")
 	}
 	script := rendered[scriptStart : scriptStart+scriptEnd]
-	statusWrite := strings.Index(script, ">/var/log/azure/aks/provision.json")
+	statusWrite := strings.Index(script, "mv -f /var/log/azure/aks/provision.json.tmp /var/log/azure/aks/provision.json")
 	completeWrite := strings.Index(script, "touch /opt/azure/containers/provision.complete")
-	if statusWrite < 0 || completeWrite <= statusWrite {
-		t.Fatal("fixture must write provision.json before creating provision.complete")
+	if completeWrite < 0 || statusWrite <= completeWrite {
+		t.Fatal("fixture must create provision.complete before renaming provision.json into place")
 	}
 
 	dir := t.TempDir()
