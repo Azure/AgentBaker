@@ -62,15 +62,16 @@ Describe 'ACL extension capture'
         .provisioners[0].source == "vhdbuilder/packer/acl-extensions.sh" and
         (.provisioners[1].inline[0] | endswith(" start")) and
         .provisioners[2].inline[0] == "sudo mkdir -p /opt/azure/containers" and
-        (.provisioners[-6].inline[-1] | contains("acl-extensions.sh finish-export")) and
-        (.provisioners[-6].inline[-2] | contains("/boot/flatcar/first_boot")) and
+        (.provisioners[-7].inline[-1] | contains("acl-extensions.sh finish-export")) and
+        (.provisioners[-7].inline[-2] | contains("/boot/flatcar/first_boot")) and
         .provisioners[-1].inline == ["sudo /var/lib/aks-extensions/acl-extensions.sh complete"] and
         (.["error-cleanup-provisioner"].inline[0] | contains("acl-extensions.sh complete")) and
-        (.provisioners[-5:-1] | map({type, direction, source, destination})) == [
+        (.provisioners[-6:-1] | map({type, direction, source, destination})) == [
           {type: "file", direction: "download", source: "/var/lib/aks-extensions/aks-opt.raw", destination: "aks-opt.raw"},
           {type: "file", direction: "download", source: "/var/lib/aks-extensions/aks-etc.raw", destination: "aks-etc.raw"},
           {type: "file", direction: "download", source: "/var/log/aks-opt.files.txt", destination: "aks-opt.files.txt"},
-          {type: "file", direction: "download", source: "/var/log/aks-etc.files.txt", destination: "aks-etc.files.txt"}
+          {type: "file", direction: "download", source: "/var/log/aks-etc.files.txt", destination: "aks-etc.files.txt"},
+          {type: "file", direction: "download", source: "/var/log/aks-etc-base.files.txt", destination: "aks-etc-base.files.txt"}
         ]
       ' "$template" >/dev/null || return 1
     done
@@ -124,6 +125,14 @@ SCRIPT
     mount() { return 1; }
     When call writeExtensionListing "$TEST_ROOT/missing.raw" "$TEST_ROOT/missing.files.txt"
     The status should be failure
+    The output should be blank
+  End
+
+  It 'refuses a base etc inventory while the ACL extension overlay is mounted'
+    isExtensionMounted() { return 0; }
+    When call writeBaseEtcListing "$TEST_ROOT/merged.files.txt"
+    The status should be failure
+    The stderr should include 'Cannot list base /etc while the ACL extension overlay is mounted'
     The output should be blank
   End
 
