@@ -1782,7 +1782,6 @@ type NodeBootstrappingConfiguration struct {
 	FIPSEnabled                  bool
 	HTTPProxyConfig              *HTTPProxyConfig
 	KubeletConfig                map[string]string
-	KubeletConfigFileConfig      *AKSKubeletConfiguration `json:",omitempty"`
 	KubeproxyConfig              map[string]string
 	EnableRuncShimV2             bool
 	GPUInstanceProfile           string
