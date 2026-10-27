@@ -180,6 +180,12 @@ staged in a unique test-owned blob on the already-allowed E2E storage endpoint;
 cleanup deletes that blob. These scenarios do not change shared firewall rules.
 They exercise the Trident update path, not annotation-driven agent orchestration.
 
+When COSI artifacts are enabled, the TME publishing E2E job defaults
+`TEST_TIMEOUT_VMSS` to `30m` for staging, provisioning, validation, and reboot.
+Explicit timeout overrides are preserved. Ordinary runs retain the `17m`
+VM lifecycle default. The separate `30m` COSI download limit cannot extend
+the enclosing VM lifecycle deadline.
+
 Run offline unit tests with `go test -short ./...` from this directory. Live
 four-variant builds and update scenarios require the pipeline service connections.
 

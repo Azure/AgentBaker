@@ -68,6 +68,7 @@ jobs:
       - ${{ if gt(length(parameters.COSI_ARTIFACT_NAMES), 0) }}:
         - bash: |
             echo "##vso[task.setvariable variable=COSI_ARTIFACTS_DIR]$(Pipeline.Workspace)/cosi-info/$(Build.BuildId)-$(System.JobAttempt)"
+            echo "##vso[task.setvariable variable=TEST_TIMEOUT_VMSS]${TEST_TIMEOUT_VMSS:-30m}"
           displayName: Set COSI artifact directory
           condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
 
