@@ -21,7 +21,7 @@ parameters:
 
 jobs:
   - job: ${{ parameters.JOB_NAME }}
-    condition: and(succeeded(), in(dependencies.${{ parameters.DEPENDS_ON_JOB }}.result, 'Succeeded', 'SucceededWithIssues'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    condition: and(succeeded(), in(dependencies.${{ parameters.DEPENDS_ON_JOB }}.result, 'Succeeded', 'SucceededWithIssues'), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     dependsOn: ${{ parameters.DEPENDS_ON_JOB }}
     timeoutInMinutes: 120
     pool:

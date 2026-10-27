@@ -107,6 +107,94 @@ Describe 'bootstrap-cosi-convert-tools.sh'
     End
   End
 
+  Describe 'install_azure_cli'
+    az() { echo 'azure-cli 2.77.0'; }
+
+    It 'keeps an existing Azure CLI without changing repositories'
+      PKG=tdnf
+      sudo() { return 1; }
+      source() { return 1; }
+      When call install_azure_cli
+      The status should be success
+      The output should equal 'azure-cli 2.77.0'
+    End
+
+    Describe 'cold RPM installation'
+      Parameters
+        tdnf azurelinux azurelinux-repos-ms-oss
+        dnf azurelinux azurelinux-repos-ms-oss
+        tdnf mariner mariner-repos-microsoft
+        dnf mariner mariner-repos-microsoft
+      End
+
+      It "enables the native $2 repository before installing with $1"
+        PKG="$1"
+        TEST_DISTRO="$2"
+        TEST_REPOSITORY_PACKAGE="$3"
+        TEST_REPOSITORY_READY=false
+        unset -f az
+        source() { ID="$TEST_DISTRO"; }
+        sudo() {
+          echo "sudo $*"
+          case "$*" in
+            "$PKG install -y $TEST_REPOSITORY_PACKAGE")
+              TEST_REPOSITORY_READY=true
+              ;;
+            "$PKG install -y azure-cli")
+              if [ "$TEST_REPOSITORY_READY" != true ]; then
+                echo 'Native Azure CLI repository is not configured' >&2
+                return 1
+              fi
+              az() { echo 'azure-cli 2.77.0'; }
+              ;;
+            *) return 1 ;;
+          esac
+        }
+        install_without_az() {
+          set -e
+          PATH="$stub_dir" install_azure_cli
+        }
+        When run install_without_az
+        The status should be success
+        The line 1 of output should equal "sudo $1 install -y $3"
+        The line 2 of output should equal "sudo $1 install -y azure-cli"
+        The line 3 of output should equal 'azure-cli 2.77.0'
+        The stderr should equal ''
+      End
+    End
+
+    It 'stops when native repository installation fails'
+      PKG=tdnf
+      unset -f az
+      source() { ID=azurelinux; }
+      sudo() { echo 'Repository installation failed' >&2; return 17; }
+      install_without_az() {
+        set -e
+        PATH="$stub_dir" install_azure_cli
+      }
+      When run install_without_az
+      The status should equal 17
+      The output should equal ''
+      The stderr should equal 'Repository installation failed'
+    End
+
+    It 'preserves configured repositories on other RPM distributions'
+      PKG=dnf
+      unset -f az
+      source() { ID=rhel; }
+      sudo() {
+        echo "sudo $*"
+        az() { echo 'azure-cli 2.77.0'; }
+      }
+      install_without_az() { PATH="$stub_dir" install_azure_cli; }
+      When call install_without_az
+      The status should be success
+      The line 1 of output should equal 'sudo dnf install -y azure-cli'
+      The line 2 of output should equal 'azure-cli 2.77.0'
+      The stderr should equal ''
+    End
+  End
+
   Describe 'azcopy_release_for_machine'
     Parameters
       aarch64 arm64 4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc

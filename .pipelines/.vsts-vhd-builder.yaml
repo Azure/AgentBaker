@@ -46,6 +46,15 @@ parameters:
       - acg
       - acldevel
   - name: ACL_BASE_IMAGE_VERSION
+    displayName: ACL base image version override - shared fallback
+    type: string
+    default: ""
+  - name: ACL_BASE_IMAGE_VERSION_AMD64
+    displayName: ACL base image version override - AMD64
+    type: string
+    default: ""
+  - name: ACL_BASE_IMAGE_VERSION_ARM64
+    displayName: ACL base image version override - ARM64
     type: string
     default: ""
 
@@ -266,7 +275,7 @@ stages:
           parameters:
             ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
             VARIANT: amd64
-            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(ne(parameters.ACL_BASE_IMAGE_VERSION_AMD64, ''), parameters.ACL_BASE_IMAGE_VERSION_AMD64, parameters.ACL_BASE_IMAGE_VERSION) }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-tl-gen2
@@ -290,7 +299,7 @@ stages:
           parameters:
             ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
             VARIANT: arm64
-            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(ne(parameters.ACL_BASE_IMAGE_VERSION_ARM64, ''), parameters.ACL_BASE_IMAGE_VERSION_ARM64, parameters.ACL_BASE_IMAGE_VERSION) }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-tl-gen2
@@ -314,7 +323,7 @@ stages:
           parameters:
             ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
             VARIANT: amd64
-            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(ne(parameters.ACL_BASE_IMAGE_VERSION_AMD64, ''), parameters.ACL_BASE_IMAGE_VERSION_AMD64, parameters.ACL_BASE_IMAGE_VERSION) }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-fips-tl-gen2
@@ -338,7 +347,7 @@ stages:
           parameters:
             ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
             VARIANT: arm64
-            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ parameters.ACL_BASE_IMAGE_VERSION }}
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(ne(parameters.ACL_BASE_IMAGE_VERSION_ARM64, ''), parameters.ACL_BASE_IMAGE_VERSION_ARM64, parameters.ACL_BASE_IMAGE_VERSION) }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-fips-tl-gen2

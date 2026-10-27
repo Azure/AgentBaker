@@ -139,8 +139,13 @@ configuration and the VMSS SKU. Command-line arguments take precedence over envi
 ## ACL COSI Validation
 
 The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg` or
-`acldevel`) and an optional `ACL_BASE_IMAGE_VERSION` gallery-version
-override. The production ACG source is the default. Secure Boot stays enabled for signed sources;
+`acldevel`) and optional `ACL_BASE_IMAGE_VERSION_AMD64` and
+`ACL_BASE_IMAGE_VERSION_ARM64` gallery-version overrides. Each takes precedence
+over the existing shared `ACL_BASE_IMAGE_VERSION` fallback. Use separate values
+when the selected architectures have different gallery versions; leaving all
+overrides empty preserves their pinned defaults. Both the PR and release
+pipelines expose these parameters.
+The production ACG source is the default. Secure Boot stays enabled for signed sources;
 selecting `acldevel` disables Secure Boot only for ACL test VMs. Older base images
 without `trident-acl-agent` still build; images containing the agent enable its
 kubeconfig-triggered startup.
@@ -161,10 +166,12 @@ updates, including cookie persistence across reboot.
 ACL CVM builds keep the production ACG source and are not part of the
 four-variant COSI validation.
 
-Publishing runs convert all four ACL variants in architecture-matched jobs and
-produce `cosi-publishing-info-*` artifacts with a base64 `metadata_sha384` value.
-The E2E job downloads only the selected variants' artifacts. Non-publishing runs
-do not download or validate COSI artifacts.
+TME publishing runs convert the selected ACL variants in architecture-matched
+jobs and produce `cosi-publishing-info-*` artifacts with a base64
+`metadata_sha384` value. The E2E job downloads only those variants' artifacts.
+Non-publishing and non-TME runs do not convert, download, or validate COSI
+artifacts. Cold Azure Linux/Mariner convert agents install the native signed
+Microsoft OSS repository package before installing Azure CLI.
 
 `ACL_COSIUpdate_AMD64`, `ACL_COSIUpdate_ARM64`, and their `_FIPS` variants use
 separate nodes because they stage, finalize, reboot, and commit an A/B update.

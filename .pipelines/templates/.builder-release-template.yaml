@@ -36,11 +36,11 @@ steps:
         tar --exclude='./.git' \
             -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
         ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
-      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
       displayName: Bundle source for COSI convert
 
     - task: PublishPipelineArtifact@1
-      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
       displayName: Publish source bundle for COSI convert
       inputs:
         artifactName: agentbaker-sources-${{ parameters.artifactName }}
@@ -250,13 +250,13 @@ steps:
         echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
       name: exportCapturedSigVersion
       displayName: Export Captured SIG Version for COSI convert
-      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
     - bash: |
         echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${IMAGE_VERSION}"
       name: exportImageVersion
       displayName: Export Image Version for COSI convert
-      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   - bash: |
       set -euo pipefail
@@ -546,7 +546,7 @@ steps:
         echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER;isOutput=true]${DESTINATION_STORAGE_CONTAINER}"
       name: exportDestinationStorageContainer
       displayName: Export Destination Storage Container for COSI convert
-      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   - task: AzureCLI@2
     inputs:

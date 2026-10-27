@@ -99,6 +99,21 @@ install_azure_cli() {
             pkg_install azure-cli
             ;;
         tdnf|dnf)
+            local distro_id
+            distro_id="$(
+                # shellcheck source=/dev/null
+                source /etc/os-release && printf '%s' "${ID:?OS release must identify the agent distribution}"
+            )"
+            case "${distro_id}" in
+                azurelinux)
+                    # The native feed supplies both architectures and its signing keys;
+                    # the legacy Azure CLI yum repository only supplies x86_64.
+                    pkg_install azurelinux-repos-ms-oss
+                    ;;
+                mariner)
+                    pkg_install mariner-repos-microsoft
+                    ;;
+            esac
             pkg_install azure-cli
             ;;
     esac
