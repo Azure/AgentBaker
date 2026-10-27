@@ -36,6 +36,12 @@ func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, cfg *co
 	}
 	if cfg.InADO {
 		renewResourceGroupDeadline(ctx, azure, cfg, rg)
+		if rg.ID == nil || *rg.ID == "" {
+			return armresources.ResourceGroup{}, fmt.Errorf("RG %q has no resource ID", name)
+		}
+		if err := azure.EnsureResourceGroupRoles(ctx, *rg.ID); err != nil {
+			return armresources.ResourceGroup{}, fmt.Errorf("restore roles for RG %q: %w", name, err)
+		}
 	}
 	return rg, nil
 }
