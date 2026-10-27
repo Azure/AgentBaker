@@ -44,7 +44,9 @@ Manual native refresh commands must use the same environment setting.
 Non-ACL provisioning is unchanged.
 
 Kubelet/GPU downloads use `/var/lib/aks-sysext-cache`, independently of the
-captured `/opt`. Files outside `/opt` and `/etc` are not captured.
+captured `/opt`. ACL always uses this canonical cache, including when shared
+Packer callers pass legacy `/opt/.../downloads` destinations from components.json.
+Files outside `/opt` and `/etc` are not captured.
 
 The existing VHD-to-COSI conversion is unchanged. Deployment must restore the
 required `/var` content. An A/B update replacing only `/usr` does not replace

@@ -12,8 +12,8 @@ stub() {
 downloadSysextFromVersion() {
     local seName=$1
     local seURL=$2
-    # The cache must be available before /opt is merged from aks-opt.raw.
-    local downloadDir=${3:-"/var/lib/aks-sysext-cache/${seName}/downloads"}
+    # Packer passes a legacy /opt path; ACL downloads must match boot-visible discovery.
+    local downloadDir="/var/lib/aks-sysext-cache/${seName}/downloads"
 
     if ! retrycmd_if_failure 120 5 60 oras pull --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" --output "${downloadDir}" "${seURL}"; then
         echo "Failed to download ${seName} system extension from ${seURL}"
@@ -42,7 +42,7 @@ matchLocalSysext() {
 
 matchRemoteSysext() {
     local seURL=$1 desiredVer=$2 seArch=$3
-    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ]; then
         # For network isolated cluster, acr cache rule does not support oras repo tags.
         # return fixed renovateTag '-1' as workaround
         echo "v${desiredVer}-1-azlinux3-${seArch}"
