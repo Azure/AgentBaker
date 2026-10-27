@@ -1763,7 +1763,6 @@
     {
       "name": "azure-acr-credential-provider",
       "downloadLocation": "/opt/credentialprovider/downloads",
-      "windowsDownloadLocation": "c:\\akse-cache\\credential-provider\\",
       "downloadURIs": {
         "windows": {
           "default": {
