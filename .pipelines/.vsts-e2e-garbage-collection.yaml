@@ -1,8 +1,10 @@
 parameters:
   - name: DRY_RUN
+    displayName: Run in dry-run mode
     type: boolean
     default: false
   - name: NO_WAIT
+    displayName: Wait for resource deletion
     type: boolean
     default: false
 
