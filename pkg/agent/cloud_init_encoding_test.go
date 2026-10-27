@@ -3,6 +3,9 @@ package agent
 import (
 	"encoding/base64"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"text/template"
@@ -12,6 +15,123 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
+
+func TestPOSIXCksumMatchesSystem(t *testing.T) {
+	if _, err := exec.LookPath("cksum"); err != nil {
+		t.Skip("cksum is not installed")
+	}
+	for _, content := range []string{
+		"",
+		"#!/bin/bash\nprintf 'hello\\n'\n",
+		"\x00\xff\xc3\xa9\r\n\u0085\u2028\u2029",
+		strings.Repeat("x", 255),
+		strings.Repeat("x", 256),
+		strings.Repeat("x", 65536),
+	} {
+		cmd := exec.Command("cksum")
+		cmd.Stdin = strings.NewReader(content)
+		output, err := cmd.Output()
+		require.NoError(t, err)
+		require.Equal(t, string(output), fmt.Sprintf("%d %d\n", posixCksum(content), len(content)))
+	}
+}
+
+func TestCloudInitChecksumsMatchDeliveredFiles(t *testing.T) {
+	for _, distro := range []datamodel.Distro{
+		datamodel.AKSUbuntuContainerd2204Gen2,
+		datamodel.AKSUbuntuContainerd2404Gen2,
+		datamodel.AKSAzureLinuxV2Gen2,
+		datamodel.AKSAzureLinuxV3Gen2,
+		datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
+		datamodel.CustomizedImage,
+		datamodel.CustomizedImageLinuxGuard,
+		datamodel.CustomizedImageTrustedLaunch,
+	} {
+		for _, custom := range []bool{false, true} {
+			for _, preProvision := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/custom=%t/preProvision=%t", distro, custom, preProvision), func(t *testing.T) {
+					config := newNodeCustomDataRenderConfig(distro)
+					config.PreProvisionOnly = preProvision
+					if custom {
+						config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
+					}
+					generator := InitializeTemplateGenerator()
+					payload := generator.getLinuxNodeBootstrappingPayload(config)
+					compressed, err := base64.StdEncoding.DecodeString(payload)
+					require.NoError(t, err)
+					decoded, err := getGzipDecodedValue(compressed)
+					require.NoError(t, err)
+					var cloud cloudInit
+					require.NoError(t, yaml.Unmarshal(decoded, &cloud))
+					var expected []string
+					for _, file := range cloud.WriteFiles {
+						expected = append(expected, shellQuote(fmt.Sprintf("%d %d %s", posixCksum(file.Content), len(file.Content), file.Path)))
+					}
+					checksums, err := getCloudInitFileChecksums(config)
+					require.NoError(t, err)
+					require.NotEmpty(t, checksums)
+					require.Equal(t, strings.Join(expected, " "), checksums)
+					assertCloudInitChecksumCommand(t, generator.getLinuxNodeCSECommand(config), checksums, cloud)
+				})
+			}
+		}
+	}
+}
+
+func assertCloudInitChecksumCommand(t *testing.T, command, checksums string, cloud cloudInit) {
+	t.Helper()
+	require.Contains(t, command, "for checksum in "+checksums+"; do")
+	require.Less(t, strings.Index(command, "for checksum in "), strings.Index(command, "INIT_AKS_CLOUD_FILEPATH="))
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Log("sh is not installed; skipping shell execution")
+		return
+	}
+	output, err := exec.Command("sh", "-n", "-c", command).CombinedOutput()
+	require.NoError(t, err, "%s", output)
+	if _, lookupErr := exec.LookPath("cksum"); lookupErr != nil {
+		t.Log("cksum is not installed; skipping checksum command execution")
+		return
+	}
+	_, check, found := strings.Cut(command, "for checksum in ")
+	require.True(t, found)
+	check, _, found = strings.Cut(check, "done;")
+	require.True(t, found)
+	check = "for checksum in " + check + "done;"
+	root := t.TempDir()
+	for _, file := range cloud.WriteFiles {
+		target := filepath.Join(root, strings.TrimPrefix(file.Path, "/"))
+		require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o700))
+		require.NoError(t, os.WriteFile(target, []byte(file.Content), 0o600))
+		check = strings.ReplaceAll(check, file.Path, target)
+	}
+	cmd := exec.Command("sh", "-c", check)
+	cmd.Env = append(os.Environ(), "PROVISION_OUTPUT="+filepath.Join(root, "provision.log"))
+	output, err = cmd.CombinedOutput()
+	require.NoError(t, err, "%s", output)
+	require.Empty(t, output)
+}
+
+func TestCloudInitChecksumsSkipOtherModes(t *testing.T) {
+	for _, mode := range []string{"disabled", "scriptless", "flatcar", "acl"} {
+		t.Run(mode, func(t *testing.T) {
+			config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+			switch mode {
+			case "disabled":
+				config.DisableCustomData = true
+			case "scriptless":
+				config.EnableScriptlessCSECmd = true
+			case "flatcar":
+				config.AgentPoolProfile.Distro = datamodel.AKSFlatcarGen2
+			case "acl":
+				config.AgentPoolProfile.Distro = datamodel.AKSACLGen2TL
+			}
+			checksums, err := getCloudInitFileChecksums(config)
+			require.NoError(t, err)
+			require.Empty(t, checksums)
+			require.NotContains(t, InitializeTemplateGenerator().getLinuxNodeCSECommand(config), "for checksum in ")
+		})
+	}
+}
 
 func TestTraditionalCloudInitUsesSingleCompression(t *testing.T) {
 	template, err := parts.Templates.ReadFile(kubernetesNodeCustomDataYaml)
