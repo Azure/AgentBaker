@@ -20,6 +20,7 @@ const (
 	osReleaseIDAzureLinux          = "azurelinux"
 	osReleaseIDFlatcar             = "flatcar"
 	osReleaseIDUbuntu              = "ubuntu"
+	osReleaseIDMariner             = "mariner"
 	osVariantIDOSGuard             = "osguard"
 )
 
@@ -27,7 +28,7 @@ type nodeCustomDataPlatform string
 
 const (
 	nodeCustomDataPlatformUbuntu      nodeCustomDataPlatform = "ubuntu"
-	nodeCustomDataPlatformMariner     nodeCustomDataPlatform = "mariner"
+	nodeCustomDataPlatformMariner     nodeCustomDataPlatform = osReleaseIDMariner
 	nodeCustomDataPlatformUnsupported nodeCustomDataPlatform = "unsupported"
 )
 
