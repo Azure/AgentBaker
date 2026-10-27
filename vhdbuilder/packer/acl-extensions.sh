@@ -11,11 +11,7 @@ writeExtensionRelease() {
         level=CONFEXT_LEVEL
     fi
     mkdir -p "$root/$hierarchy" "$release_dir"
-    # systemd ignores empty extension hierarchies; /opt needs a payload
-    # even before provisioning has produced its first captured file.
-    [[ "$hierarchy" != opt ]] || touch "$root/opt/.aks-opt-extension"
     (
-        # os-release is supplied by the base OS, not by the build environment.
         # shellcheck disable=SC1091
         source /usr/lib/os-release
         printf 'ID=%s\nVERSION_ID=%s\n' "$ID" "$VERSION_ID"
@@ -29,10 +25,8 @@ writeExtensionRelease() {
 }
 
 buildExtensionImage() {
-    local root=$1 destination=$2
-    local size_kib
+    local root=$1 destination=$2 size_kib
     size_kib=$(du -sk "$root" | cut -f1)
-    # Account for inodes, the journal, and filesystem metadata.
     truncate -s "$((size_kib * 2 + 65536))K" "$destination"
     mkfs.ext4 -q -F -m 0 -d "$root" "$destination"
 }
@@ -46,8 +40,6 @@ writeExtensionListing() (
     {
         printf '# Image: %s\n' "${image##*/}"
         printf '# inode blocks mode links owner group size/device mtime path [-> symlink target]\n'
-        # Inspect the actual image, including filesystem-created entries and
-        # whiteout devices, rather than describing only the staging tree.
         (cd "$listing_root" && LC_ALL=C find . -ls | LC_ALL=C sort -k11)
     } > "$destination" || return
     chmod 644 "$destination"
@@ -55,24 +47,151 @@ writeExtensionListing() (
 
 checkExtensionSupport() {
     local command version
-    for command in systemd-sysext systemd-confext mkfs.ext4 truncate du mount umount mountpoint find sort mktemp; do
+    for command in systemd-sysext mkfs.ext4 truncate du mount umount mountpoint find sort mktemp findmnt flock; do
         command -v "$command" >/dev/null || {
             echo "ACL extension build requires $command" >&2
             return 1
         }
     done
     version=$(systemd-sysext --version | head -n1 | awk '{print $2}')
-    if [[ ! "$version" =~ ^[0-9]+$ ]] || ((version < 256)); then
-        echo "ACL extension build requires systemd >= 256 (mutable extensions)" >&2
+    if [[ ! "$version" =~ ^[0-9]+$ ]] || ((version < 255)); then
+        echo "ACL extensions require systemd >= 255" >&2
         return 1
     fi
+}
+
+checkExtensionRelease() (
+    local root=$1 hierarchy=$2 release level
+    if [[ "$hierarchy" == opt ]]; then
+        release="$root/usr/lib/extension-release.d/extension-release.aks-opt"
+        level=SYSEXT_LEVEL
+    else
+        release="$root/etc/extension-release.d/extension-release.aks-etc"
+        level=CONFEXT_LEVEL
+    fi
+    # Read only fixed metadata fields; never execute image-supplied content.
+    # shellcheck disable=SC1091
+    source /usr/lib/os-release
+    if ! grep -Fxq "ID=$ID" "$release"; then
+        echo "ACL $hierarchy extension does not match the base OS identity" >&2
+        return 1
+    fi
+    if grep -q "^$level=" "$release"; then
+        grep -Fxq "$level=${!level:-}" "$release"
+    else
+        grep -Fxq "VERSION_ID=$VERSION_ID" "$release"
+    fi || {
+        echo "ACL $hierarchy extension does not match the base OS version or level" >&2
+        return 1
+    }
+)
+
+isExtensionMounted() {
+    # ACL can already have an /etc mount underneath our overlay.
+    [[ "$(findmnt -rn -U -T "/$1" -o SOURCE)" == "aks-extensions-$1" ]]
+}
+
+unmountExtensionHierarchy() {
+    local hierarchy=$1 runtime=/run/aks-extensions
+    if isExtensionMounted "$hierarchy"; then
+        # Services may still hold files open during finalization/shutdown.
+        umount --lazy "/$hierarchy" || return
+    elif [[ -e "$runtime/$hierarchy.active" ]]; then
+        echo "Refusing to unmount an unexpected /$hierarchy mount" >&2
+        return 1
+    fi
+    rm -f "$runtime/$hierarchy.active"
+    if mountpoint -q "$runtime/base-$hierarchy"; then
+        umount --lazy "$runtime/base-$hierarchy" || return
+    fi
+    if mountpoint -q "$runtime/image-$hierarchy"; then
+        umount --lazy "$runtime/image-$hierarchy" || return
+    fi
+}
+
+mountExtensionHierarchy() {
+    local hierarchy=$1 mode=$2 runtime=/run/aks-extensions
+    local mutable=/var/lib/aks-extensions.mutable
+    local image="/var/lib/aks-extensions/aks-$hierarchy.raw" lower
+    isExtensionMounted "$hierarchy" && return 0
+    mkdir -p "$runtime/base-$hierarchy" "$runtime/image-$hierarchy" \
+        "$mutable/$hierarchy" "$mutable/$hierarchy.work"
+    lower="$runtime/base-$hierarchy"
+    if [[ "$mode" == activate ]]; then
+        [[ -f "$image" ]] || {
+            echo "Missing ACL extension image $image" >&2
+            return 1
+        }
+        mount -o loop,ro,noload "$image" "$runtime/image-$hierarchy" || return
+        if ! checkExtensionRelease "$runtime/image-$hierarchy" "$hierarchy"; then
+            unmountExtensionHierarchy "$hierarchy"
+            return 1
+        fi
+        lower="$runtime/image-$hierarchy/$hierarchy:$lower"
+    fi
+    if ! mount --bind "/$hierarchy" "$runtime/base-$hierarchy" ||
+        ! mount --make-private "$runtime/base-$hierarchy" ||
+        ! mount -t overlay "aks-extensions-$hierarchy" \
+            -o "lowerdir=$lower,upperdir=$mutable/$hierarchy,workdir=$mutable/$hierarchy.work" "/$hierarchy"; then
+        unmountExtensionHierarchy "$hierarchy"
+        return 1
+    fi
+    touch "$runtime/$hierarchy.active"
+}
+
+activateExtensions() {
+    mountExtensionHierarchy etc activate || return
+    if ! mountExtensionHierarchy opt activate; then
+        unmountExtensionHierarchy etc
+        return 1
+    fi
+}
+
+stopExtensions() {
+    unmountExtensionHierarchy opt || return
+    unmountExtensionHierarchy etc
+}
+
+installExtensionService() {
+    install -m 755 "${BASH_SOURCE[0]}" /var/lib/aks-extensions/acl-extensions.sh
+    cat > /etc/systemd/system/aks-extensions.service <<'UNIT'
+[Unit]
+Description=Activate writable ACL extension layers
+DefaultDependencies=no
+RequiresMountsFor=/var/lib/aks-extensions /var/lib/aks-extensions.mutable
+After=local-fs.target
+Before=sysinit.target systemd-sysext.service systemd-sysusers.service systemd-tmpfiles-setup.service cloud-init-local.service
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/var/lib/aks-extensions/acl-extensions.sh activate
+ExecStartPost=/usr/bin/systemctl daemon-reload
+ExecStop=/var/lib/aks-extensions/acl-extensions.sh stop
+
+[Install]
+WantedBy=sysinit.target
+UNIT
+    mkdir -p /etc/systemd/system/systemd-sysext.service.d
+    cat > /etc/systemd/system/systemd-sysext.service.d/20-aks-extensions.conf <<'UNIT'
+[Unit]
+Requires=aks-extensions.service
+After=aks-extensions.service
+
+[Service]
+Environment=SYSTEMD_SYSEXT_HIERARCHIES=/usr
+UNIT
+    systemctl enable aks-extensions.service systemd-sysext.service
+    systemctl daemon-reload
 }
 
 verifyExtensionCapture() {
     local hierarchy probe
     for hierarchy in opt etc; do
         probe=$(mktemp "/$hierarchy/.aks-capture.XXXXXX")
-        if [[ ! -f "/var/lib/extensions.mutable/$hierarchy/${probe##*/}" ]]; then
+        if [[ ! -f "/var/lib/aks-extensions.mutable/$hierarchy/${probe##*/}" ]]; then
             rm "$probe"
             echo "Writes to /$hierarchy are not reaching the capture layer" >&2
             return 1
@@ -82,80 +201,57 @@ verifyExtensionCapture() {
 }
 
 startExtensionCapture() {
-    local state=/var/lib/aks-extension-build
-    local hierarchy type binary
+    local state=/var/lib/aks-extension-build hierarchy upper
     checkExtensionSupport
-    [[ ! -e "$state" ]]
+    [[ ! -e "$state" && ! -e /var/lib/aks-extensions ]]
     for hierarchy in opt etc; do
-        local upper="/var/lib/extensions.mutable/$hierarchy"
-        if [[ -L "$upper" ]] || [[ -d "$upper" && -n "$(ls -A "$upper")" ]]; then
+        upper="/var/lib/aks-extensions.mutable/$hierarchy"
+        if [[ -L "$upper" || ( -e "$upper" && ! -d "$upper" ) ]] ||
+            [[ -d "$upper" && -n "$(ls -A "$upper")" ]]; then
             echo "Refusing to capture into existing mutable layer $upper" >&2
             return 1
         fi
     done
-    [[ ! -e /var/lib/extensions/aks-opt && ! -e /var/lib/extensions/aks-opt.raw ]]
-    [[ ! -e /var/lib/confexts/aks-etc && ! -e /var/lib/confexts/aks-etc.raw ]]
-    mkdir -p "$state" /var/lib/extensions.mutable/{opt,etc}
+    mkdir -p "$state" /var/lib/aks-extensions
     chmod 700 "$state"
-
-    # These bootstrap files must remain in the base /etc so activation does
-    # not depend on configuration supplied by the confext it is activating.
-    for type in sysext confext; do
-        binary=$(command -v "systemd-$type")
-        mkdir -p "/etc/systemd/system/systemd-$type.service.d"
-        local options=--mutable=auto
-        [[ "$type" != confext ]] || options="$options --noexec=false"
-        printf '[Service]\nExecStart=\nExecStart=%s %s refresh\nExecReload=\nExecReload=%s %s refresh\n' \
-            "$binary" "$options" "$binary" "$options" \
-            > "/etc/systemd/system/systemd-$type.service.d/20-aks-mutable.conf"
-    done
-    printf '[Unit]\nRequires=systemd-confext.service\nAfter=systemd-confext.service\n' \
-        >> /etc/systemd/system/systemd-sysext.service.d/20-aks-mutable.conf
-    systemctl enable systemd-sysext.service systemd-confext.service
-    systemctl daemon-reload
-    writeExtensionRelease /var/lib/extensions/aks-opt opt aks-opt
-    writeExtensionRelease /var/lib/confexts/aks-etc etc aks-etc
-    systemd-sysext --mutable=auto --no-reload refresh
-    systemd-confext --mutable=auto --noexec=false --no-reload refresh
+    installExtensionService
+    mountExtensionHierarchy opt capture
+    mountExtensionHierarchy etc capture
     verifyExtensionCapture
     touch "$state/capturing"
 }
 
-finishExtensionCapture() {
-    local state=/var/lib/aks-extension-build
-    [[ -f "$state/capturing" ]]
-    verifyExtensionCapture
-    # Deprovision before freezing /etc; otherwise the confext bakes the
-    # packer account or machine-specific agent state back into the image.
+deprovisionExtensionBuild() {
     /usr/bin/waagent -force -deprovision+user
     export HISTSIZE=0
     sync
-    systemd-confext --no-reload unmerge
-    systemd-sysext --no-reload unmerge
+}
 
-    mkdir "$state/opt-image" "$state/etc-image"
-    mv /var/lib/extensions.mutable/opt "$state/opt-image/opt"
-    mv /var/lib/extensions.mutable/etc "$state/etc-image/etc"
-    # PID 1 initializes machine-id before confext activation. Leave its
-    # empty deprovisioned file in the base, not in the immutable confext.
+finishExtensionCapture() {
+    local state=/var/lib/aks-extension-build hierarchy
+    [[ -f "$state/capturing" ]]
+    verifyExtensionCapture
+    deprovisionExtensionBuild
+    stopExtensions
+    for hierarchy in opt etc; do
+        mkdir "$state/$hierarchy-image"
+        mv "/var/lib/aks-extensions.mutable/$hierarchy" "$state/$hierarchy-image/$hierarchy"
+        # Rotate workdirs too: lazily detached build processes can retain the
+        # old overlay, so the new runtime overlay needs different directories.
+        mv "/var/lib/aks-extensions.mutable/$hierarchy.work" "$state/$hierarchy-work"
+        mkdir "/var/lib/aks-extensions.mutable/$hierarchy" "/var/lib/aks-extensions.mutable/$hierarchy.work"
+    done
     rm -f "$state/etc-image/etc/machine-id" /etc/machine-id
     touch /etc/machine-id
     chmod 644 /etc/machine-id
-    mkdir /var/lib/extensions.mutable/{opt,etc}
-    writeExtensionRelease "$state/opt-image" opt aks-opt
-    writeExtensionRelease "$state/etc-image" etc aks-etc
-    # ext4 preserves symlinks, ownership, xattrs, opaque directories, and
-    # overlay whiteout devices. Do not translate whiteouts into .wh.* files.
-    buildExtensionImage "$state/opt-image" /var/lib/extensions/aks-opt.raw
-    buildExtensionImage "$state/etc-image" /var/lib/confexts/aks-etc.raw
-    writeExtensionListing /var/lib/extensions/aks-opt.raw /var/log/aks-opt.files.txt
-    writeExtensionListing /var/lib/confexts/aks-etc.raw /var/log/aks-etc.files.txt
-    chmod 644 /var/lib/extensions/aks-opt.raw /var/lib/confexts/aks-etc.raw
-    rm -rf /var/lib/extensions/aks-opt /var/lib/confexts/aks-etc
-    systemd-confext --mutable=auto --noexec=false --no-reload merge
-    systemd-sysext --mutable=auto --no-reload merge
-    # Only discard captured data after both images have been merged.
-    rm -rf "$state/opt-image" "$state/etc-image"
+    for hierarchy in opt etc; do
+        writeExtensionRelease "$state/$hierarchy-image" "$hierarchy" "aks-$hierarchy"
+        buildExtensionImage "$state/$hierarchy-image" "/var/lib/aks-extensions/aks-$hierarchy.raw"
+        writeExtensionListing "/var/lib/aks-extensions/aks-$hierarchy.raw" "/var/log/aks-$hierarchy.files.txt"
+        chmod 644 "/var/lib/aks-extensions/aks-$hierarchy.raw"
+    done
+    activateExtensions
+    rm -rf "$state/opt-image" "$state/etc-image" "$state/opt-work" "$state/etc-work"
     rm "$state/capturing"
     rmdir "$state"
     sync
@@ -175,10 +271,15 @@ main() {
         echo "ACL extension capture is only supported on Azure Container Linux" >&2
         return 1
     fi
+    mkdir -p /run/aks-extensions
+    exec 9>/run/aks-extensions/lock
+    flock -x 9
     case "${1:-}" in
         start) startExtensionCapture ;;
         finish) finishExtensionCapture ;;
-        *) echo "Usage: $0 {start|finish}" >&2; return 1 ;;
+        activate) activateExtensions ;;
+        stop) stopExtensions ;;
+        *) echo "Usage: $0 {start|finish|activate|stop}" >&2; return 1 ;;
     esac
 }
 
