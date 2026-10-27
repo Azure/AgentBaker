@@ -36,8 +36,10 @@ EOF
 
     setup() {
         Include "./parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh"
+        Include "./parts/linux/cloud-init/artifacts/mariner/security-update.sh"
         TEST_DIR="/tmp/live-patching-test"
         mkdir -p ${TEST_DIR}
+        KNEAD_EVENTS_LOGGING_DIR="${TEST_DIR}/events"
         OS_RELEASE_FILE="${TEST_DIR}/os-release"
         SECURITY_PATCH_REPO_DIR="${TEST_DIR}"
         KUBECONFIG="${TEST_DIR}/kubeconfig"
@@ -50,6 +52,328 @@ EOF
 
     BeforeEach 'setup'
     AfterEach 'cleanup'
+
+    Describe 'generic Azure Linux 3 reconciliation'
+        setup_generic() {
+            setup_azurelinux3
+            TEST_CONFIG_FILE="${TEST_DIR}/live-patching-config.json"
+            TEST_CALLS_FILE="${TEST_DIR}/calls"
+            LIVE_PATCHING_STATE_FILE="${TEST_DIR}/state/current.json"
+            TEST_GOAL=""
+            TEST_STATUS=""
+            TEST_LEGACY_GOLDEN=""
+            LIVE_PATCHING_GOAL_ANNOTATION="test.azure.com/live-patching-goal"
+            : > "${TEST_CALLS_FILE}"
+            printf '%s' '{"components":[]}' > "${TEST_CONFIG_FILE}"
+            export TEST_CONFIG_FILE TEST_CALLS_FILE LIVE_PATCHING_STATE_FILE
+            export TEST_GOAL TEST_STATUS TEST_LEGACY_GOLDEN
+        }
+
+        set_generic_payload() {
+            printf '%s' "$1" > "${TEST_CONFIG_FILE}"
+            TEST_GOAL=$(sha256sum "${TEST_CONFIG_FILE}" | awk '{print $1}')
+            export TEST_GOAL
+        }
+
+        BeforeEach 'setup_generic'
+
+        Mock hostname
+            echo 'AKS-NODE-1'
+        End
+
+        Mock kubectl
+            case "$*" in
+                *"live-patching-golden-timestamp"*) printf '%s' "${TEST_LEGACY_GOLDEN}" ;;
+                *"get node"*"-o json")
+                    jq -nc --arg goal "${TEST_GOAL}" --arg status "${TEST_STATUS}" \
+                        '{metadata:{name:"aks-node-1",labels:{"kubernetes.azure.com/agentpool":"ap1"},annotations:{"test.azure.com/live-patching-goal":$goal,"kubernetes.azure.com/live-patching-status":$status}}}'
+                    ;;
+                *"get cm"*) cat "${TEST_CONFIG_FILE}" ;;
+                *"annotate --overwrite node"*) echo "annotate $*" >> "${TEST_CALLS_FILE}" ;;
+            esac
+        End
+
+        Mock tdnf
+            echo "tdnf mock called with args: $*"
+        End
+
+        Mock dnf
+            echo "dnf mock called with args: $*"
+        End
+
+        It 'fails when tdnf exits nonzero without an error-looking message'
+            Mock tdnf
+                echo 'package manager stopped'
+                return 1
+            End
+            Mock sleep
+                :
+            End
+            golden_timestamp='20260815T000000Z'
+
+            When call dnf_update
+            The status should be failure
+            The output should include 'package manager stopped'
+            The output should not include 'Executed dnf update'
+        End
+
+        It 'dispatches a generic securityPatch profile on Azure Linux 3'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'applying component: securityPatch'
+            The output should include 'generic live-patching completed successfully'
+            The output should include 'tdnf mock called with args: --snapshottime 1786752000 update'
+            The contents of file "${TEST_CALLS_FILE}" should include 'live-patching-current-timestamp=20260815T000000Z'
+            The contents of file "${TEST_CALLS_FILE}" should include 'live-patching-status={"currentHash"'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '20260815T000000Z'
+        End
+
+        It 'reads kubeletVersion from the generic securityPatch profile'
+            KUBELET_EXECUTABLE="${TEST_DIR}/missing-kubelet"
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\",\"kubeletVersion\":\"1.35.5\"}}}"}]}'
+
+            When call main
+            The status should be failure
+            The output should include 'retrieved target kubelet version from securityPatch profile: 1.35.5'
+            The output should include "kubelet executable not found at ${KUBELET_EXECUTABLE}"
+            The contents of file "${TEST_CALLS_FILE}" should not include 'live-patching-current-timestamp'
+            The contents of file "${TEST_CALLS_FILE}" should include '"code":"Failed"'
+        End
+
+        It 'reports success without package work for an untargeted node'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap2\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'no action needed'
+            The output should not include 'tdnf mock called'
+            The contents of file "${TEST_CALLS_FILE}" should not include 'live-patching-current-timestamp'
+            The contents of file "${TEST_CALLS_FILE}" should include '"code":"Succeeded"'
+        End
+
+        It 'rejects malformed envelopes and hash mismatches'
+            set_generic_payload '{"components":{}}'
+
+            When call main
+            The status should be failure
+            The output should include 'live-patching goal is:'
+            The stderr should include 'invalid envelope'
+            The output should not include 'tdnf mock called'
+        End
+
+        Describe 'requires a single JSON envelope'
+            Parameters
+                'multiple documents' $'{"components":[]}\n{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}'
+                'no documents' ''
+                'newline component alias' '{"components":[{"name":"securityPatch","nodeConfig":"{}"},{"name":"securityPatch\n","nodeConfig":"{}"}]}'
+                'NUL component alias' '{"components":[{"name":"security\u0000Patch","nodeConfig":"{}"}]}'
+            End
+
+            It "rejects $1 before package work or status publication"
+                set_generic_payload "$2"
+
+                When call main
+                The status should be failure
+                The output should include 'live-patching goal is:'
+                The stderr should include 'live-patching-config payload has invalid envelope'
+                The output should not include 'tdnf mock called'
+                The contents of file "${TEST_CALLS_FILE}" should equal ''
+                The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+            End
+        End
+
+        It 'accepts a single envelope with trailing newlines hashed exactly'
+            set_generic_payload $'{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}\n\n'
+
+            When call main
+            The status should be success
+            The output should include 'no action needed'
+            The contents of file "${TEST_CALLS_FILE}" should include "\"currentHash\":\"${TEST_GOAL}\""
+            The contents of file "${TEST_CALLS_FILE}" should include '"securityPatch":{"code":"Succeeded"}'
+        End
+
+        It 'rejects trailing newline changes when the goal hashes only the trimmed payload'
+            set_generic_payload '{"components":[]}'
+            printf '\n' >> "${TEST_CONFIG_FILE}"
+
+            When call main
+            The status should be failure
+            The output should include 'live-patching goal is:'
+            The stderr should include 'goal hash does not match'
+            The contents of file "${TEST_CALLS_FILE}" should equal ''
+            The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+        End
+
+        It 'rejects a payload whose hash does not match the goal'
+            printf '%s' '{"components":[]}' > "${TEST_CONFIG_FILE}"
+            TEST_GOAL='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+            export TEST_GOAL
+
+            When call main
+            The status should be failure
+            The output should include 'live-patching goal is:'
+            The stderr should include 'goal hash does not match'
+        End
+
+        It 'exits fast when generic status is converged'
+            TEST_GOAL='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+            TEST_STATUS='{"currentHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","components":{"securityPatch":{"code":"Succeeded"}}}'
+            export TEST_GOAL TEST_STATUS
+
+            When call main
+            The status should be success
+            The output should include 'already converged'
+            The output should not include 'tdnf mock called'
+        End
+
+        It 'writes failed component status when application fails'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"invalid\"}}}"}]}'
+
+            When call main
+            The status should be failure
+            The output should include 'component failed: securityPatch'
+            The contents of file "${TEST_CALLS_FILE}" should include '"code":"Failed"'
+        End
+
+        It 'repairs status from checkpoint without repeating package work'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\",\"kubeletVersion\":\"1.30.5\"}}}"}]}'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            jq -n --arg nodeConfig '{"agentPools":{"ap1":{"goldenTimestamp":"20260815T000000Z","kubeletVersion":"1.30.5"}}}' \
+                '{components:[{name:"securityPatch",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call main
+            The status should be success
+            The output should include 'component is already current: securityPatch'
+            The output should not include 'tdnf mock called'
+            The contents of file "${TEST_CALLS_FILE}" should not include 'live-patching-current-timestamp'
+            The contents of file "${TEST_CALLS_FILE}" should include '"code":"Succeeded"'
+        End
+
+        Describe 'rejects malformed timestamps before changing repositories'
+            Parameters
+                'relative date suffix' $'20260815T000000Z\n1 day'
+                'extra line prefix' $'1 day\n20260815T000000Z'
+                'trailing newline' $'20260815T000000Z\n'
+                'carriage return' $'20260815T000000Z\r'
+                'CRLF' $'20260815T000000Z\r\n'
+                'extra character' '20260815T000000Zx'
+                'invalid calendar date' '20260230T000000Z'
+            End
+
+            It "fails without package work or checkpointing for $1"
+                node_config=$(jq -nc --arg timestamp "$2" '{agentPools:{ap1:{goldenTimestamp:$timestamp}}}')
+                set_generic_payload "$(jq -nc --arg nodeConfig "${node_config}" '{components:[{name:"securityPatch",nodeConfig:$nodeConfig}]}')"
+                original_repo='baseurl=http://10.0.0.1/azurelinux/3.0/prod/base/aarch64'
+                printf '%s\n' "${original_repo}" > "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo"
+
+                When call main
+                The status should be failure
+                The output should include 'securityPatch goldenTimestamp is invalid'
+                The output should not include 'tdnf mock called'
+                The output should not include 'dnf mock called'
+                The contents of file "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo" should equal "${original_repo}"
+                The contents of file "${TEST_CALLS_FILE}" should include '"code":"Failed"'
+                The contents of file "${TEST_CALLS_FILE}" should not include 'live-patching-current-timestamp'
+                The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+            End
+        End
+
+        It 'fails before package work when a repository rewrite fails'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+            original_repo='baseurl=http://10.0.0.1/azurelinux/3.0/prod/base/aarch64'
+            printf '%s\n' "${original_repo}" > "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo"
+            Mock sed
+                if [ "$1" = '-i' ] || [ "$1" = '-Ei' ]; then
+                    echo 'repository write failed' >&2
+                    exit 1
+                fi
+                /bin/sed "$@"
+            End
+
+            When call main
+            The status should be failure
+            The output should include 'failed to rewrite security patch repositories'
+            The stderr should include 'repository write failed'
+            The output should not include 'tdnf mock called'
+            The contents of file "${SECURITY_PATCH_REPO_DIR}/azurelinux-official-base.repo" should equal "${original_repo}"
+            The contents of file "${TEST_CALLS_FILE}" should include '"code":"Failed"'
+            The contents of file "${TEST_CALLS_FILE}" should not include 'live-patching-current-timestamp'
+            The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+        End
+
+        It 'treats an omitted and empty kubeletVersion as the same selected profile'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\",\"kubeletVersion\":\"\"}}}"}]}'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            jq -n --arg nodeConfig '{"agentPools":{"ap1":{"goldenTimestamp":"20260815T000000Z"}}}' \
+                '{components:[{name:"securityPatch",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call main
+            The status should be success
+            The output should include 'component is already current: securityPatch'
+            The output should not include 'tdnf mock called'
+        End
+
+        It 'preserves sibling checkpoint state after securityPatch succeeds'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            printf '%s' '{"components":[{"name":"npd","nodeConfig":"{\"version\":\"v1\"}"}]}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call main
+            The status should be success
+            The output should include 'generic live-patching completed successfully'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"npd"'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"securityPatch"'
+        End
+
+        It 'checkpoints arbitrary components without interpreting their payload'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call write_component_checkpoint testComponent '{"version":"v2"}'
+            The status should be success
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"testComponent"'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"securityPatch"'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include 'v2'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"updatedAt"'
+        End
+
+        It 'delegates checkpoint comparison to the selected component comparator'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            printf '%s' '{"components":[{"name":"testComponent","nodeConfig":"{\"version\":\"v1\"}"}]}' > "${LIVE_PATCHING_STATE_FILE}"
+            compare_test_component() {
+                [ "$1" = '{"version":"v2"}' ] && [ "$2" = '{"version":"v1"}' ] && [ "$3" = '{"metadata":{}}' ]
+            }
+
+            When call component_is_current testComponent '{"version":"v2"}' '{"metadata":{}}' compare_test_component
+            The status should be success
+        End
+
+        It 'does not rerun when only another pool profile changes'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"},\"ap2\":{\"goldenTimestamp\":\"20260820T000000Z\"}}}"}]}'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            jq -n --arg nodeConfig '{"agentPools":{"ap1":{"goldenTimestamp":"20260815T000000Z"},"ap2":{"goldenTimestamp":"20260801T000000Z"}}}' \
+                '{components:[{name:"securityPatch",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call main
+            The status should be success
+            The output should include 'component is already current: securityPatch'
+            The output should not include 'tdnf mock called'
+        End
+
+        It 'falls back to legacy behavior on Mariner 2 despite a generic goal'
+            setup_mariner2
+            TEST_LEGACY_GOLDEN='20250815T000000Z'
+            TEST_GOAL='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+            export TEST_LEGACY_GOLDEN TEST_GOAL
+
+            When call main
+            The status should be success
+            The output should include 'dnf mock called with args: update'
+            The contents of file "${TEST_CALLS_FILE}" should not include 'live-patching-status'
+        End
+    End
 
     Describe 'Mariner 2.0'
         BeforeEach 'setup_mariner2'
@@ -236,7 +560,11 @@ EOF
 
         It 'should do nothing if golden timestamp equals current timestamp'
             Mock kubectl
-                echo "20250820T000000Z"
+                if [[ "$*" == *" -o json" ]]; then
+                    echo '{"metadata":{"annotations":{}}}'
+                else
+                    echo "20250820T000000Z"
+                fi
             End
             When run main
             The status should be success
@@ -495,7 +823,11 @@ EOF
 
         It 'should do nothing if golden timestamp equals current timestamp'
             Mock kubectl
-                echo "20250820T000000Z"
+                if [[ "$*" == *" -o json" ]]; then
+                    echo '{"metadata":{"annotations":{}}}'
+                else
+                    echo "20250820T000000Z"
+                fi
             End
             When run main
             The status should be success
@@ -634,6 +966,70 @@ KUBELET_EOF
         Describe 'on AzureLinux 3.0'
             BeforeEach 'setup_azurelinux3'
 
+            run_generic_kubelet_update() {
+                read_generic_config() {
+                    printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20261007T000000Z\",\"kubeletVersion\":\"1.29.11\"}}}"}]}'
+                }
+                local goal
+                goal=$(read_generic_config | sha256sum | cut -d' ' -f1)
+                generic_main '{"metadata":{"name":"test-node","labels":{"kubernetes.azure.com/agentpool":"ap1"},"annotations":{}}}' "${goal}"
+            }
+
+            It 'reports failure without checkpointing when the custom-patching read fails'
+                setup_kubelet_executable "1.29.10"
+                LIVE_PATCHING_STATE_FILE="${TEST_DIR}/state/current.json"
+                SECURITY_PATCH_TMP_DIR="${TEST_DIR}/download"
+                Mock kubectl
+                    if [[ "$*" == *"live-patching-custom-patching"* ]]; then
+                        echo 'API unavailable' >&2
+                        exit 1
+                    fi
+                    echo "kubectl called: $*"
+                End
+
+                When call run_generic_kubelet_update
+                The status should be failure
+                The stderr should include 'API unavailable'
+                The output should include 'failed to read custom patching annotation'
+                The output should include '"securityPatch":{"code":"Failed"}'
+                The output should not include 'tdnf mock: downloading'
+                The output should not include 'systemctl mock called'
+                The output should not include 'live-patching-current-timestamp='
+                The contents of file "${KUBELET_EXECUTABLE}" should include 'Kubernetes v1.29.10'
+                The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+            End
+
+            It 'reports failure without restarting or checkpointing when replacement fails'
+                setup_kubelet_executable "1.29.10"
+                LIVE_PATCHING_STATE_FILE="${TEST_DIR}/state/current.json"
+                SECURITY_PATCH_TMP_DIR="${TEST_DIR}/download"
+                export KUBELET_EXECUTABLE
+                Mock kubectl
+                    if [[ "$*" == *"live-patching-custom-patching"* ]]; then
+                        echo false
+                    else
+                        echo "kubectl called: $*"
+                    fi
+                End
+                Mock mv
+                    if [ "$2" = "${KUBELET_EXECUTABLE}" ]; then
+                        echo 'replacement denied' >&2
+                        exit 1
+                    fi
+                    /bin/mv "$@"
+                End
+
+                When call run_generic_kubelet_update
+                The status should be failure
+                The stderr should include 'replacement denied'
+                The output should include 'failed to replace kubelet executable'
+                The output should include '"securityPatch":{"code":"Failed"}'
+                The output should not include 'systemctl mock called'
+                The output should not include 'live-patching-current-timestamp='
+                The contents of file "${KUBELET_EXECUTABLE}" should include 'Kubernetes v1.29.10'
+                The path "${LIVE_PATCHING_STATE_FILE}" should not be exist
+            End
+
             It 'should skip update when target version annotation is not set'
                 setup_kubelet_executable "1.29.10"
                 setup_target_kubelet_version "" ""
@@ -742,6 +1138,25 @@ KUBELET_EOF
                 The output should include "to version 1.29.11"
                 The output should include "systemctl mock called with args: restart kubelet.service"
                 The output should include "kubelet update completed successfully"
+            End
+
+            It 'should fail when kubelet restart fails'
+                setup_kubelet_executable "1.29.10"
+                setup_target_kubelet_version "1.29.11" ""
+                TEST_SYSTEMCTL_ATTEMPT=0
+                export TEST_SYSTEMCTL_ATTEMPT
+                Mock systemctl
+                    TEST_SYSTEMCTL_ATTEMPT=$((TEST_SYSTEMCTL_ATTEMPT + 1))
+                    echo "systemctl mock called with args: $@"
+                    [ "${TEST_SYSTEMCTL_ATTEMPT}" -ge 2 ]
+                End
+
+                When run kubelet_update
+                The status should be failure
+                The output should include "failed to restart kubelet.service, restoring previous kubelet"
+                The output should include "systemctl mock called with args: restart kubelet.service"
+                The output should not include "kubelet update completed successfully"
+                The contents of file "${KUBELET_EXECUTABLE}" should include "Kubernetes v1.29.10"
             End
 
             It 'should successfully update kubelet with same version but different release'

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -21,6 +22,9 @@ import (
 )
 
 var AllowedSSHPrefixes = []string{ssh.KeyAlgoED25519, ssh.KeyAlgoRSA, ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512}
+
+// Match Azure CLI's Bastion tunnel buffer to avoid oversized WebSocket messages.
+const bastionWriteChunkSize = 4096
 
 type Bastion struct {
 	credential                                 azcore.TokenCredential
@@ -53,6 +57,26 @@ type tunnelSession struct {
 	session   *sessionToken
 	closeOnce sync.Once
 	closeErr  error
+	writeMu   sync.Mutex
+}
+
+func (t *tunnelSession) Write(p []byte) (int, error) {
+	t.writeMu.Lock()
+	defer t.writeMu.Unlock()
+	written := 0
+	for len(p) > 0 {
+		chunk := p[:min(len(p), bastionWriteChunkSize)]
+		n, err := t.Conn.Write(chunk)
+		written += n
+		if err != nil {
+			return written, err
+		}
+		if n != len(chunk) {
+			return written, io.ErrShortWrite
+		}
+		p = p[n:]
+	}
+	return written, nil
 }
 
 func (b *Bastion) NewTunnelSession(ctx context.Context, targetHost string, port uint16) (*tunnelSession, error) {
@@ -195,6 +219,23 @@ func sshClientConfig(user string, privateKey []byte) (*ssh.ClientConfig, error) 
 			ssh.PublicKeys(signer),
 		},
 		HostKeyAlgorithms: AllowedSSHPrefixes,
+		// Host-key fingerprint pinning is intentionally not performed here (risk-accepted,
+		// By-Design). This callback validates only the key algorithm, not a known fingerprint.
+		//
+		// Rationale:
+		//   - Test-only: this code path exists solely in the e2e harness and is never shipped
+		//     in a VHD or run on customer nodes.
+		//   - No key to pin: the target VMSS instances are created fresh per test run, so there
+		//     is no pre-known, trusted host-key fingerprint to compare against.
+		//   - Already authenticated transport: the connection is tunneled through Azure Bastion,
+		//     which is reached over an ARM-authenticated (AAD) HTTPS websocket, so an attacker
+		//     cannot transparently MITM the tunnel without first compromising the Azure control
+		//     plane.
+		//   - Proportionality: true pinning would require fetching each instance's host key over
+		//     the trusted ARM RunCommand channel and threading an expected-key through this
+		//     config, DialSSHOverBastion, the dialer func type in createVMSS, and its call sites —
+		//     disproportionate for a Low, test-only finding.
+		// If this dialer is ever reused outside the ephemeral e2e flow, add fingerprint pinning.
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			if !slices.Contains(AllowedSSHPrefixes, key.Type()) {
 				return fmt.Errorf("unexpected host key type: %s", key.Type())

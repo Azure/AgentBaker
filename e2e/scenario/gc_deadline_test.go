@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -12,22 +13,38 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 	"github.com/stretchr/testify/require"
 )
 
+type gcTestCredential struct{}
+
+func (gcTestCredential) GetToken(context.Context, policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"oid":"11111111-1111-4111-8111-111111111111"}`))
+	return azcore.AccessToken{Token: "e30." + payload + ".signature"}, nil
+}
+
 func gcTestAzure(t *testing.T, respond vmssCreationTestPolicy) *config.AzureClient {
 	t.Helper()
 	opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{respond}}}
-	client := &config.AzureClient{}
+	client := &config.AzureClient{Credential: gcTestCredential{}}
 	var err error
 	client.ResourceGroup, err = armresources.NewResourceGroupsClient("test", nil, opts)
 	require.NoError(t, err)
 	client.Tags, err = armresources.NewTagsClient("test", nil, opts)
+	require.NoError(t, err)
+	rolePolicy := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+		return gcResponse(req, http.StatusOK, `{}`)
+	})
+	client.RoleAssignments, err = armauthorization.NewRoleAssignmentsClient("test", nil,
+		&arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{rolePolicy}}})
 	require.NoError(t, err)
 	return client
 }
@@ -37,13 +54,71 @@ func gcResponse(req *http.Request, status int, body string) *http.Response {
 		Body: io.NopCloser(strings.NewReader(body)), Request: req}
 }
 
+func gcRoleAssignmentPolicy(t *testing.T, scope string, assignments, names map[string]string) vmssCreationTestPolicy {
+	t.Helper()
+	return func(req *http.Request) *http.Response {
+		require.Equal(t, http.MethodPut, req.Method)
+		prefix := scope + "/providers/Microsoft.Authorization/roleAssignments/"
+		require.True(t, strings.HasPrefix(req.URL.Path, prefix), "role must be scoped to the shared RG")
+		var assignment armauthorization.RoleAssignmentCreateParameters
+		require.NoError(t, json.NewDecoder(req.Body).Decode(&assignment))
+		require.NotNil(t, assignment.Properties)
+		require.Equal(t, to.Ptr("11111111-1111-4111-8111-111111111111"), assignment.Properties.PrincipalID)
+		require.NotNil(t, assignment.Properties.RoleDefinitionID)
+		role := *assignment.Properties.RoleDefinitionID
+		name := strings.TrimPrefix(req.URL.Path, prefix)
+		if previous, ok := names[role]; ok {
+			require.Equal(t, previous, name, "assignment name must remain stable across runs and recreation")
+		}
+		names[role] = name
+		if _, exists := assignments[role]; exists {
+			return gcResponse(req, http.StatusConflict, `{"error":{"code":"RoleAssignmentExists","message":"already assigned"}}`)
+		}
+		assignments[role] = name
+		return gcResponse(req, http.StatusCreated, `{}`)
+	}
+}
+
+func TestLocalResourceGroupDeadlineIsUntouched(t *testing.T) {
+	for _, buildID := range []string{"local", "12345"} {
+		for _, node := range []bool{false, true} {
+			name := "resource group"
+			if node {
+				name = "node resource group"
+			}
+			t.Run(buildID+"/"+name, func(t *testing.T) {
+				t.Parallel()
+				cfg := &config.Configuration{BuildID: buildID, SuiteTimeout: time.Hour}
+				azure := gcTestAzure(t, func(req *http.Request) *http.Response {
+					t.Fatalf("local run must not access GC deadlines: %s %s", req.Method, req.URL.Path)
+					return nil
+				})
+				logger := &executionLogger{}
+				ctx := logging.WithLogger(t.Context(), logger)
+				if node {
+					require.True(t, renewNodeResourceGroupDeadline(ctx, azure, cfg, &armcontainerservice.ManagedCluster{
+						Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr("rg")},
+					}))
+				} else {
+					require.True(t, renewResourceGroupDeadline(ctx, azure, cfg, armresources.ResourceGroup{
+						Name: to.Ptr("rg"), ID: to.Ptr("/subscriptions/test/resourceGroups/rg"),
+						Tags: map[string]*string{deletionDueTimeTag: to.Ptr("2000-01-01T00:00:00Z")},
+					}))
+				}
+				require.Empty(t, logger.logs)
+			})
+		}
+	}
+}
+
 func TestResourceGroupDeadline(t *testing.T) {
 	for _, tt := range []struct {
 		name, value, failure string
 		write                bool
 	}{
 		{name: "missing", write: true},
-		{name: "expired", value: `"2000-01-01T00:00:00Z"`, write: true},
+		{name: "expired weekday", value: `"1999-12-31T00:00:00Z"`, write: true},
+		{name: "expired Saturday", value: `"2000-01-01T00:00:00Z"`},
 		{name: "equal"},
 		{name: "later"},
 		{name: "null", value: "null", failure: "null deletion_due_time"},
@@ -57,10 +132,10 @@ func TestResourceGroupDeadline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
-				cfg := &config.Configuration{SuiteTimeout: 47 * time.Minute}
+				cfg := &config.Configuration{InADO: true, SuiteTimeout: 47 * time.Minute}
 				writes := 0
 				azure := gcTestAzure(t, func(req *http.Request) *http.Response {
-					due := time.Now().Add(cfg.SuiteTimeout + CleanupTimeout)
+					due := saturdayDeadline(time.Now().Add(cfg.SuiteTimeout + CleanupTimeout))
 					if req.URL.Path == "/operations/renew" {
 						return gcResponse(req, 200, `{"status":"Failed","error":{"code":"Denied","message":"failed"}}`)
 					}
@@ -74,7 +149,7 @@ func TestResourceGroupDeadline(t *testing.T) {
 						value := tt.value
 						if tt.name == "equal" || tt.name == "later" {
 							if tt.name == "later" {
-								due = due.Add(time.Hour)
+								due = due.AddDate(0, 0, 7)
 							}
 							value = `"` + due.UTC().Format(time.RFC3339Nano) + `"`
 						}
@@ -121,7 +196,7 @@ func TestResourceGroupDeadline(t *testing.T) {
 					require.NotContains(t, strings.Join(logger.logs, "\n"), "warning:")
 				}
 				if tt.name == "deleting" {
-					_, err := ensureResourceGroup(t.Context(), azure, "westus3")
+					_, err := ensureResourceGroup(t.Context(), azure, cfg, "westus3")
 					require.ErrorContains(t, err, "is deleting")
 				}
 			})
@@ -129,11 +204,11 @@ func TestResourceGroupDeadline(t *testing.T) {
 	}
 }
 
-func TestCachedResourceGroupSetupRenewsOnlyNodeDeadline(t *testing.T) {
+func TestCachedADOResourceGroupSetupRenewsBothDeadlines(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		cfg := &config.Configuration{SuiteTimeout: 47 * time.Minute}
-		expired := "2000-01-01T00:00:00Z"
+		cfg := &config.Configuration{InADO: true, SuiteTimeout: 47 * time.Minute}
+		expired := "1999-12-31T00:00:00Z"
 		tags := map[string]string{"abe2e-westus3": expired, "unused-node-rg": expired}
 		reads := map[string]int{}
 		writes := map[string]int{}
@@ -155,24 +230,24 @@ func TestCachedResourceGroupSetupRenewsOnlyNodeDeadline(t *testing.T) {
 			return gcResponse(req, 200, `{"properties":{"tags":{}}}`)
 		})
 		ctx := logging.WithLogger(t.Context(), t)
-		ensure := cachedFunc(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
-			return ensureResourceGroup(ctx, azure, location)
+		ensure := toolkit.Memoize(func(ctx context.Context, location string) (armresources.ResourceGroup, error) {
+			return ensureResourceGroup(ctx, azure, cfg, location)
 		})
-		prepareCluster := cachedFunc(func(ctx context.Context, name string) (bool, error) {
+		prepareCluster := toolkit.Memoize(func(ctx context.Context, name string) (bool, error) {
 			renewNodeResourceGroupDeadline(ctx, azure, cfg, &armcontainerservice.ManagedCluster{
 				Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr(name)},
 			})
 			return true, nil
 		})
-		due := time.Now().Add(cfg.SuiteTimeout + CleanupTimeout).UTC().Format(time.RFC3339Nano)
+		due := saturdayDeadline(time.Now().Add(cfg.SuiteTimeout + CleanupTimeout)).Format(time.RFC3339Nano)
 		for range 2 {
 			_, err := ensure(ctx, "westus3")
 			require.NoError(t, err)
 			_, err = prepareCluster(ctx, "actual-node-rg")
 			require.NoError(t, err)
 			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, reads)
-			require.Equal(t, map[string]int{"actual-node-rg": 1}, writes)
-			require.Equal(t, map[string]string{"abe2e-westus3": expired, "actual-node-rg": due, "unused-node-rg": expired}, tags)
+			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, writes)
+			require.Equal(t, map[string]string{"abe2e-westus3": due, "actual-node-rg": due, "unused-node-rg": expired}, tags)
 			time.Sleep(time.Hour)
 		}
 	})
@@ -216,7 +291,10 @@ func TestEnsureResourceGroup(t *testing.T) {
 				return gcResponse(req, status, string(body))
 			})
 			logger := &executionLogger{}
-			rg, err := ensureResourceGroup(logging.WithLogger(t.Context(), logger), azure, "westus3")
+			// Local setup must not require role-assignment credentials.
+			azure.Credential = nil
+			azure.RoleAssignments = nil
+			rg, err := ensureResourceGroup(logging.WithLogger(t.Context(), logger), azure, &config.Configuration{}, "westus3")
 			if tt.failure != "" {
 				require.ErrorContains(t, err, tt.failure)
 			} else {
@@ -226,5 +304,205 @@ func TestEnsureResourceGroup(t *testing.T) {
 			require.Equal(t, tt.wantMethods, methods)
 			require.NotContains(t, strings.Join(logger.logs, "\n"), "warning:")
 		})
+	}
+}
+
+func TestEnsureResourceGroupRestoresScopedRoles(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		exists bool
+	}{
+		{name: "new resource group"},
+		{name: "existing resource group without roles", exists: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			const scope = "/subscriptions/test/resourceGroups/abe2e-westus3"
+			const galleryRole = "/providers/Microsoft.Authorization/roleDefinitions/85a2d0d9-2eba-4c9c-b355-11c2cc0788ab"
+			const importRole = "/providers/Microsoft.Authorization/roleDefinitions/577a9874-89fd-4f24-9dbd-b5034d0ad23a"
+			groupExists := tt.exists
+			assignments := map[string]string{}
+			names := map[string]string{}
+			respond := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+				require.True(t, strings.EqualFold(scope, req.URL.Path))
+				if req.Method == http.MethodGet && !groupExists {
+					return gcResponse(req, http.StatusNotFound, `{}`)
+				}
+				if req.Method == http.MethodPut {
+					groupExists = true
+				} else {
+					require.Equal(t, http.MethodGet, req.Method)
+				}
+				return gcResponse(req, http.StatusOK,
+					`{"name":"abe2e-westus3","id":"`+scope+`","tags":{"deletion_due_time":"2000-01-01T08:00:00Z"}}`)
+			})
+			azure := gcTestAzure(t, respond)
+			var err error
+			rolePolicy := gcRoleAssignmentPolicy(t, scope, assignments, names)
+			azure.RoleAssignments, err = armauthorization.NewRoleAssignmentsClient("test", nil,
+				&arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{rolePolicy}}})
+			require.NoError(t, err)
+			cfg := &config.Configuration{InADO: true}
+			for attempt := range 3 {
+				if attempt == 2 {
+					groupExists = false
+					clear(assignments)
+				}
+				_, err = ensureResourceGroup(t.Context(), azure, cfg, "westus3")
+				require.NoError(t, err)
+				require.Len(t, assignments, 2)
+				require.Contains(t, assignments, galleryRole)
+				require.Contains(t, assignments, importRole)
+			}
+		})
+	}
+}
+
+func TestEnsureResourceGroupSurfacesRoleAssignmentErrors(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		status int
+		code   string
+	}{
+		{name: "permission denied", status: http.StatusForbidden, code: "AuthorizationFailed"},
+		{name: "unexpected conflict", status: http.StatusConflict, code: "RoleAssignmentUpdateNotPermitted"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			azure := gcTestAzure(t, func(req *http.Request) *http.Response {
+				require.Equal(t, http.MethodGet, req.Method)
+				return gcResponse(req, http.StatusOK,
+					`{"name":"abe2e-westus3","id":"/subscriptions/test/resourceGroups/abe2e-westus3","tags":{"deletion_due_time":"2000-01-01T08:00:00Z"}}`)
+			})
+			rolePolicy := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+				return gcResponse(req, tt.status, `{"error":{"code":"`+tt.code+`","message":"cannot assign role"}}`)
+			})
+			var err error
+			azure.RoleAssignments, err = armauthorization.NewRoleAssignmentsClient("test", nil,
+				&arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{rolePolicy}}})
+			require.NoError(t, err)
+			_, err = ensureResourceGroup(t.Context(), azure, &config.Configuration{InADO: true}, "westus3")
+			require.ErrorContains(t, err, tt.code)
+		})
+	}
+}
+
+func TestSaturdayDeadline(t *testing.T) {
+	for _, tt := range []struct {
+		name, earliest, want string
+	}{
+		{"Sunday", "2026-10-18T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Monday", "2026-10-19T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Tuesday", "2026-10-20T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Wednesday", "2026-10-21T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Thursday", "2026-10-22T12:00:00Z", "2026-10-24T08:00:00Z"},
+		{"Friday", "2026-10-23T23:59:59.999999999Z", "2026-10-24T08:00:00Z"},
+		{"Saturday midnight", "2026-10-24T00:00:00Z", "2026-10-24T08:00:00Z"},
+		{"before cutoff", "2026-10-24T07:59:59.999999999Z", "2026-10-24T08:00:00Z"},
+		{"at cutoff", "2026-10-24T08:00:00Z", "2026-10-24T08:00:00Z"},
+		{"after cutoff", "2026-10-24T08:00:00.000000001Z", "2026-10-31T08:00:00Z"},
+		{"Saturday end", "2026-10-24T23:59:59.999999999Z", "2026-10-31T08:00:00Z"},
+		{"local Saturday UTC Friday", "2026-10-24T01:00:00+13:00", "2026-10-24T08:00:00Z"},
+		{"local Sunday UTC Saturday", "2026-10-25T01:00:00+13:00", "2026-10-31T08:00:00Z"},
+		{"year boundary", "2026-12-31T12:00:00Z", "2027-01-02T08:00:00Z"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			earliest, err := time.Parse(time.RFC3339Nano, tt.earliest)
+			require.NoError(t, err)
+			due := saturdayDeadline(earliest)
+			require.Equal(t, tt.want, due.Format(time.RFC3339Nano))
+			require.Equal(t, time.UTC, due.Location())
+			require.False(t, due.Before(earliest))
+		})
+	}
+}
+
+func TestADOResourceGroupDeadline(t *testing.T) {
+	for _, shared := range []bool{false, true} {
+		kind := "node"
+		if shared {
+			kind = "shared"
+		}
+		for _, tt := range []struct {
+			name, existing, want string
+			create               bool
+			elapsed              time.Duration
+		}{
+			{name: "missing", want: "2000-01-08T08:00:00Z"},
+			{name: "expired", existing: "1999-12-31T00:00:00Z", want: "2000-01-08T08:00:00Z"},
+			{name: "later weekday", existing: "2000-01-09T12:00:00Z", want: "2000-01-15T08:00:00Z"},
+			{name: "equal", existing: "2000-01-08T08:00:00Z", want: "2000-01-08T08:00:00Z"},
+			{name: "Saturday before cutoff", existing: "2000-01-08T00:00:00Z", want: "2000-01-08T00:00:00Z"},
+			{name: "Saturday after cutoff", existing: "2000-01-08T12:00:00Z", want: "2000-01-08T12:00:00Z"},
+			{name: "expired Saturday", existing: "2000-01-01T08:00:00Z", want: "2000-01-01T08:00:00Z"},
+			{name: "Saturday expires during suite", elapsed: 7*24*time.Hour + 7*time.Hour, existing: "2000-01-08T08:00:00Z", want: "2000-01-08T08:00:00Z"},
+			{name: "local Friday UTC Saturday", existing: "2000-01-07T23:00:00-02:00", want: "2000-01-07T23:00:00-02:00"},
+			{name: "local Sunday UTC Saturday", existing: "2000-01-09T01:00:00+13:00", want: "2000-01-09T01:00:00+13:00"},
+			{name: "local Saturday UTC Friday", existing: "2000-01-08T01:00:00+13:00", want: "2000-01-08T08:00:00Z"},
+			{name: "later Saturday", existing: "2000-01-15T08:00:00Z", want: "2000-01-15T08:00:00Z"},
+			{name: "new shared RG", create: true, want: "2000-01-08T08:00:00Z"},
+			{name: "suite crosses into Saturday", elapsed: 6*24*time.Hour + 23*time.Hour, want: "2000-01-08T08:00:00Z"},
+			{name: "suite ends at cutoff", elapsed: 7*24*time.Hour + 6*time.Hour, want: "2000-01-08T08:00:00Z"},
+			{name: "suite crosses cutoff", elapsed: 7*24*time.Hour + 6*time.Hour + time.Nanosecond, want: "2000-01-15T08:00:00Z"},
+			{name: "suite crosses into Sunday", elapsed: 7*24*time.Hour + 23*time.Hour, want: "2000-01-15T08:00:00Z"},
+		} {
+			if tt.create && !shared {
+				continue
+			}
+			t.Run(kind+"/"+tt.name, func(t *testing.T) {
+				t.Parallel()
+				synctest.Test(t, func(t *testing.T) {
+					// The synthetic clock starts on Saturday, 2000-01-01.
+					elapsed := tt.elapsed
+					if elapsed == 0 {
+						elapsed = 48 * time.Hour
+					}
+					time.Sleep(elapsed)
+					cfg := &config.Configuration{InADO: true, SuiteTimeout: 2*time.Hour - CleanupTimeout}
+					writes := 0
+					azure := gcTestAzure(t, func(req *http.Request) *http.Response {
+						if req.Method == http.MethodGet && tt.create {
+							return gcResponse(req, 404, `{}`)
+						}
+						if req.Method == http.MethodPatch {
+							writes++
+							var patch armresources.TagsPatchResource
+							require.NoError(t, json.NewDecoder(req.Body).Decode(&patch))
+							require.Equal(t, armresources.TagsPatchOperationMerge, *patch.Operation)
+							require.Equal(t, map[string]*string{deletionDueTimeTag: to.Ptr(tt.want)}, patch.Properties.Tags)
+							return gcResponse(req, 200, `{"properties":{"tags":{}}}`)
+						}
+						require.Contains(t, []string{http.MethodGet, http.MethodPut}, req.Method)
+						if req.Method == http.MethodPut {
+							require.True(t, tt.create)
+						}
+						tags := map[string]*string{"owner": to.Ptr("keep")}
+						if tt.existing != "" {
+							tags[deletionDueTimeTag] = to.Ptr(tt.existing)
+						}
+						body, err := json.Marshal(armresources.ResourceGroup{
+							Name: to.Ptr("rg"), ID: to.Ptr("/subscriptions/test/resourceGroups/rg"), Tags: tags,
+						})
+						require.NoError(t, err)
+						return gcResponse(req, 200, string(body))
+					})
+					ctx := logging.WithLogger(t.Context(), t)
+					if shared {
+						_, err := ensureResourceGroup(ctx, azure, cfg, "westus3")
+						require.NoError(t, err)
+					} else {
+						require.True(t, renewNodeResourceGroupDeadline(ctx, azure, cfg, &armcontainerservice.ManagedCluster{
+							Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr("rg")},
+						}))
+					}
+					if tt.existing == tt.want {
+						require.Zero(t, writes)
+					} else {
+						require.Equal(t, 1, writes)
+					}
+				})
+			})
+		}
 	}
 }

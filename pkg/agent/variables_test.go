@@ -4,10 +4,86 @@
 package agent
 
 import (
+	"testing"
+
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func TestNetworkNameOverrides(t *testing.T) {
+	profileRouteTable := "profile-route-table"
+	profileSubnet := "profile-subnet"
+	empty := ""
+	customSubnetID := "/subscriptions/00000000-0000-0000-0000-000000000000" +
+		"/resourceGroups/test-resource-group/providers/Microsoft.Network/virtualNetworks/test-vnet/subnets/pool-subnet"
+	tests := []struct {
+		name           string
+		subnetID       string
+		routeTableName *string
+		subnetName     *string
+		wantRouteTable string
+		wantSubnet     string
+	}{
+		{
+			name:           "unset overrides preserve generated names",
+			wantRouteTable: "aks-agentpool-test-cluster-routetable", wantSubnet: "aks-subnet",
+		},
+		{
+			name: "unset overrides preserve pool subnet", subnetID: customSubnetID,
+			wantRouteTable: "aks-agentpool-test-cluster-routetable", wantSubnet: "pool-subnet",
+		},
+		{
+			name:           "profile names override generated names",
+			routeTableName: &profileRouteTable, subnetName: &profileSubnet,
+			wantRouteTable: profileRouteTable, wantSubnet: profileSubnet,
+		},
+		{
+			name: "profile names override pool names", subnetID: customSubnetID,
+			routeTableName: &profileRouteTable, subnetName: &profileSubnet,
+			wantRouteTable: profileRouteTable, wantSubnet: profileSubnet,
+		},
+		{
+			name: "explicit empty overrides are authoritative", subnetID: customSubnetID,
+			routeTableName: &empty, subnetName: &empty,
+			wantRouteTable: "", wantSubnet: "",
+		},
+		{
+			name: "route table override preserves pool subnet", subnetID: customSubnetID,
+			routeTableName: &profileRouteTable,
+			wantRouteTable: profileRouteTable, wantSubnet: "pool-subnet",
+		},
+		{
+			name:           "subnet override preserves generated route table",
+			subnetName:     &profileSubnet,
+			wantRouteTable: "aks-agentpool-test-cluster-routetable", wantSubnet: profileSubnet,
+		},
+	}
+	for name, render := range map[string]func(*datamodel.NodeBootstrappingConfiguration) paramsMap{
+		"CSE command":         getCSECommandVariables,
+		"Windows custom data": getWindowsCustomDataVariables,
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					config := getDefaultNBC()
+					config.ContainerService.Properties.ClusterID = "test-cluster"
+					config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = tt.subnetID
+					config.RouteTableName = tt.routeTableName
+					config.SubnetName = tt.subnetName
+
+					vars := render(config)
+					if got := vars["routeTableName"]; got != tt.wantRouteTable {
+						t.Errorf("routeTableName = %q, want %q", got, tt.wantRouteTable)
+					}
+					if got := vars["subnetName"]; got != tt.wantSubnet {
+						t.Errorf("subnetName = %q, want %q", got, tt.wantSubnet)
+					}
+				})
+			}
+		})
+	}
+}
 
 var _ = Describe("Windows custom data variables check", func() {
 	var (

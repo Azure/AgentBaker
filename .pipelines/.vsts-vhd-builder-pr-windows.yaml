@@ -38,6 +38,7 @@ pr:
       - staging/cse/windows/
 
     exclude:
+      - CODEOWNERS
       - vhdbuilder/release-notes
       - /**/*.md
       - .github/**
