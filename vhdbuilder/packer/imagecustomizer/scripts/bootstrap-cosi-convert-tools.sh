@@ -53,7 +53,7 @@ install_base_utilities() {
     if [ "${PKG}" = apt ]; then
         sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
     fi
-    # cosi-upload uses Microsoft's cgo-less OpenSSL backend (see packer.mk), so no
+    # cosi-uploader uses Microsoft's cgo-less OpenSSL backend (see packer.mk), so no
     # C toolchain or OpenSSL development packages are needed.
     pkg_install ca-certificates curl tar gnupg make jq openssl
     # git isn't used by the convert scripts, but agent-side cleanup checkouts need it.
@@ -158,7 +158,7 @@ install_azcopy() {
     azcopy --version
 }
 
-# packer.mk's build-cosi-upload rejects Go toolchains without Microsoft system
+# packer.mk's build-cosi-uploader rejects Go toolchains without Microsoft system
 # crypto. Ubuntu agents may ship a stock Go, so always install the repository's
 # pinned Microsoft Go there; Azure Linux's golang package is already Microsoft Go.
 install_go() {

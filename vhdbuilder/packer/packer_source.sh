@@ -2,14 +2,6 @@
 
 VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
 
-enableTridentACLAgent() {
-  if ! systemctl cat trident-acl-agent.service >/dev/null 2>&1; then
-    echo "Trident ACL agent is not installed in this base image; skipping startup trigger"
-    return 0
-  fi
-  systemctlEnableAndStart trident-acl-agent.path 30
-}
-
 kernelVersionGe() {
   local version_a="$1"
   local version_b="$2"

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-// Command cosi-upload streams a staged COSI artifact to PMC's Azure Front Door
+// Command cosi-uploader streams a staged COSI artifact to PMC's Azure Front Door
 // upload endpoint using the Azure Blob SDK's chunked block-blob upload. Because
 // the SDK splits the file into blocks (Put Block + Put Block List), it is not
 // subject to the single Put Blob size limit that a plain PUT hits on large COSI

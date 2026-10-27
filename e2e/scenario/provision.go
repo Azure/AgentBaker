@@ -726,48 +726,19 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	return properties
 }
 
-// aclVMSSSecurityProfile returns properties configured with ACL's required
-// TrustedLaunch security type (ACL's SIG image definition is created with
-// --features SecurityType=TrustedLaunch and rejects SecurityType=Standard
-// deployments). Secure Boot is disabled only when baseImageSigned is false,
-// which is required for unsigned/dev ACL builds (e.g. acldevel-sourced
-// images) whose kernel/shim is not enrolled in the platform's Secure Boot
-// db -- with Secure Boot on, UEFI firmware returns "Access denied" loading
-// the kernel EFI stub and boot never completes.
-func aclVMSSSecurityProfile(properties *armcompute.VirtualMachineScaleSetProperties, baseImageSigned bool) *armcompute.VirtualMachineScaleSetProperties {
-	if !baseImageSigned {
-		return addTrustedLaunchNoSecureBootToVMSS(properties)
-	}
-	return addTrustedLaunchToVMSS(properties)
-}
-
-// addTrustedLaunchNoSecureBootToVMSS sets SecurityType=TrustedLaunch (required by
-// ACL's SIG image definition, which is created with --features SecurityType=TrustedLaunch
-// and therefore rejects SecurityType=Standard deployments) but disables Secure Boot
-// enforcement while keeping vTPM enabled. This is required for unsigned/dev ACL
-// builds (e.g. acldevel-sourced COSI images) whose kernel/shim is not enrolled in
-// the platform's Secure Boot db -- with Secure Boot on, UEFI firmware returns
+// aclVMSSSecurityProfile deploys ACL VMs as TrustedLaunch. ACL builds set
+// ENABLE_TRUSTED_LAUNCH, so their SIG image definitions are created with
+// SecurityType=TrustedLaunch and reject Standard deployments; TrustedLaunch also
+// works once those definitions move to TrustedLaunchSupported. Secure Boot is
+// disabled only when baseImageSigned is false, which unsigned/dev ACL builds
+// (e.g. acldevel-sourced images) need: their kernel/shim is not enrolled in the
+// platform's Secure Boot db, so with Secure Boot on, UEFI firmware returns
 // "Access denied" loading the kernel EFI stub and boot never completes.
-func addTrustedLaunchNoSecureBootToVMSS(properties *armcompute.VirtualMachineScaleSetProperties) *armcompute.VirtualMachineScaleSetProperties {
-	if properties == nil {
-		properties = &armcompute.VirtualMachineScaleSetProperties{}
+func aclVMSSSecurityProfile(properties *armcompute.VirtualMachineScaleSetProperties, baseImageSigned bool) *armcompute.VirtualMachineScaleSetProperties {
+	properties = addTrustedLaunchToVMSS(properties)
+	if !baseImageSigned {
+		properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(false)
 	}
-
-	if properties.VirtualMachineProfile == nil {
-		properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
-	}
-
-	if properties.VirtualMachineProfile.SecurityProfile == nil {
-		properties.VirtualMachineProfile.SecurityProfile = &armcompute.SecurityProfile{}
-	}
-
-	properties.VirtualMachineProfile.SecurityProfile.SecurityType = to.Ptr(armcompute.SecurityTypesTrustedLaunch)
-	if properties.VirtualMachineProfile.SecurityProfile.UefiSettings == nil {
-		properties.VirtualMachineProfile.SecurityProfile.UefiSettings = &armcompute.UefiSettings{}
-	}
-	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(false)
-	properties.VirtualMachineProfile.SecurityProfile.UefiSettings.VTpmEnabled = to.Ptr(true)
-
 	return properties
 }
 

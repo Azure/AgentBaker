@@ -67,7 +67,7 @@ jobs:
       - bash: ./vhdbuilder/packer/imagecustomizer/scripts/bootstrap-cosi-convert-tools.sh
         displayName: Bootstrap COSI convert tooling
 
-      - bash: make -f packer.mk build-cosi-upload
+      - bash: make -f packer.mk build-cosi-uploader
         displayName: Build COSI uploader with Microsoft system crypto
         condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
 

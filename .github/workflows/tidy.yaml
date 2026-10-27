@@ -11,7 +11,7 @@ on: # zizmor: ignore[dangerous-triggers] intentional: pull_request_target is req
       - e2e/go.mod
       - aks-node-controller/go.mod
       - aks-live-patching/go.mod
-      - cmd/cosi-upload/go.mod
+      - vhdbuilder/cosi-uploader/go.mod
       - .github/workflows/tidy.yaml
 
 permissions:
@@ -57,7 +57,7 @@ jobs:
       - name: Run go mod tidy
         run: |
           set -e
-          for mod_dir in ./ e2e/ aks-node-controller/ aks-live-patching/ cmd/cosi-upload/; do
+          for mod_dir in ./ e2e/ aks-node-controller/ aks-live-patching/ vhdbuilder/cosi-uploader/; do
             echo "running go mod tidy in ${mod_dir}"
             pushd "$mod_dir"
                 go mod tidy
@@ -75,7 +75,7 @@ jobs:
         name: Remove toolchain lines
         run: |
           set -e
-          for mod_dir in ./ e2e/ aks-node-controller/ aks-live-patching/ cmd/cosi-upload/; do
+          for mod_dir in ./ e2e/ aks-node-controller/ aks-live-patching/ vhdbuilder/cosi-uploader/; do
             echo "removing any toolchain lines from go.mod in ${mod_dir}"
             pushd "$mod_dir"
                 # this pains me greatly, though adding the toolchain line seems to break our other workflows,

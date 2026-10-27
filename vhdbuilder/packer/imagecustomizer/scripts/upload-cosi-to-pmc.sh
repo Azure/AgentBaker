@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Uploads the COSI staged by convert-vhd-to-cosi.sh to PMC's AFD upload endpoint
-# under PMC's service connection. Delegates the transfer to the cmd/cosi-upload Go
+# under PMC's service connection. Delegates the transfer to the vhdbuilder/cosi-uploader Go
 # tool, which uses the Azure Blob SDK's chunked block-blob upload (Put Block + Put
 # Block List) so it is not subject to the single Put Blob size limit, and
 # authenticates via the AzureCLI@2 task's Microsoft Entra login.
@@ -31,9 +31,9 @@ if [ ! -f "$STAGED_COSI" ]; then
     exit 1
 fi
 
-UPLOADER="${COSI_WORK_DIR}/bin/cosi-upload"
+UPLOADER="${COSI_WORK_DIR}/bin/cosi-uploader"
 if [ ! -x "$UPLOADER" ]; then
-    echo "##vso[task.logissue type=error]cosi-upload binary not found at ${UPLOADER}; build it with 'go build -o bin/cosi-upload ./cmd/cosi-upload'"
+    echo "##vso[task.logissue type=error]cosi-uploader binary not found at ${UPLOADER}; build it with 'make -f packer.mk build-cosi-uploader'"
     exit 1
 fi
 

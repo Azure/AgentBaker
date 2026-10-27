@@ -1,4 +1,4 @@
-module github.com/Azure/agentbaker/cmd/cosi-upload
+module github.com/Azure/agentbaker/vhdbuilder/cosi-uploader
 
 go 1.26.0
 

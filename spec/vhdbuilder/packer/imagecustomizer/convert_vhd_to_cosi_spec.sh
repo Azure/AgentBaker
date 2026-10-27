@@ -263,7 +263,7 @@ Describe 'COSI artifact names'
     upload_script="$(pwd)/vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh"
     test_dir="$(mktemp -d)"
     mkdir -p "$test_dir/bin"
-    ln -s /bin/echo "$test_dir/bin/cosi-upload"
+    ln -s /bin/echo "$test_dir/bin/cosi-uploader"
     export CAPTURED_SIG_VERSION=202609.21.0
     export IMAGE_VERSION=202609.21.0
     export DESTINATION_STORAGE_CONTAINER=https://storage.invalid/vhds
