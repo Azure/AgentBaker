@@ -593,9 +593,14 @@ cachePackageAndBinaryComponents() {
         ;;
       "oras")
         for version in ${PACKAGE_VERSIONS[@]}; do
-          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
-          echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
+          if isMarinerOrAzureLinux || isUbuntu; then
+            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+            cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_ORAS_DOWNLOAD_ERROR
+          elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          fi
+          echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
         ;;
       "aks-secure-tls-bootstrap-client")
