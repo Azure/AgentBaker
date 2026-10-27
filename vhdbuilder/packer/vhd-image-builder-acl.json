@@ -946,6 +946,12 @@
       "destination": "aks-etc.files.txt"
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "/var/log/aks-etc-base.files.txt",
+      "destination": "aks-etc-base.files.txt"
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo /var/lib/aks-extensions/acl-extensions.sh complete"

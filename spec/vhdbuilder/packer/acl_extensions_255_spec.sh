@@ -31,6 +31,13 @@ Describe 'ACL systemd 255 extension lifecycle'
     printf 'base\n' > "$root/opt/base"
     printf 'old\n' > "$root/opt/removed"
     printf 'old configuration\n' > "$root/etc/removed"
+    printf 'base configuration\n' > "$root/etc/overridden"
+    printf 'base-only\n' > "$root/etc/base file"
+    chmod 751 "$root/etc/base file"
+    chown 23456:23457 "$root/etc/base file"
+    ln -s 'base file' "$root/etc/base-link"
+    ln -s absent "$root/etc/dangling-link"
+    touch "$root/etc/.base-hidden"
     printf 'old-machine-id\n' > "$root/etc/machine-id"
     printf 'root:x:0:0:root:/root:/bin/bash\nacl-export-test:x:12345:12345:export:/home/acl-export-test:/bin/bash\n' > "$root/etc/passwd"
     printf 'root:x:0:\nacl-export-test:x:12345:\n' > "$root/etc/group"
@@ -77,6 +84,7 @@ printf 'captured\n' > /opt/captured
 chmod 751 /opt/captured
 ln -s captured /opt/link
 printf 'configuration\n' > /etc/captured
+printf 'updated configuration\n' > /etc/overridden
 rm /opt/removed /etc/removed
 # Keep the capture overlay referenced while finalization rotates its workdirs.
 exec 8</opt
@@ -107,6 +115,22 @@ test -z "$(ls -A /var/lib/aks-extensions.mutable/opt)"
 test -z "$(ls -A /var/lib/aks-extensions.mutable/etc)"
 grep -q './opt/captured' /var/log/aks-opt.files.txt
 grep -q './etc/captured' /var/log/aks-etc.files.txt
+grep -F '# Base directory: /etc' /var/log/aks-etc-base.files.txt >/dev/null
+grep -F './etc/base\ file' /var/log/aks-etc-base.files.txt | grep -E '\-rwxr-x--x.*23456.*23457' >/dev/null
+grep -F './etc/base-link -> base\ file' /var/log/aks-etc-base.files.txt >/dev/null
+grep -F './etc/dangling-link -> absent' /var/log/aks-etc-base.files.txt >/dev/null
+grep -F './etc/.base-hidden' /var/log/aks-etc-base.files.txt >/dev/null
+grep -F './etc/removed' /var/log/aks-etc-base.files.txt >/dev/null
+grep -F './etc/overridden' /var/log/aks-etc-base.files.txt >/dev/null
+grep -F './etc/systemd/system/aks-extensions.service' /var/log/aks-etc-base.files.txt >/dev/null
+grep -F './etc/machine-id' /var/log/aks-etc-base.files.txt >/dev/null
+! grep -F './etc/captured' /var/log/aks-etc-base.files.txt
+! grep -F './etc/deprovisioned' /var/log/aks-etc-base.files.txt
+! grep -F './etc/extension-release.d/extension-release.aks-etc' /var/log/aks-etc-base.files.txt
+! grep -F './etc/sudoers.d/99-aks-extension-export' /var/log/aks-etc-base.files.txt
+test "$(stat -c %a /var/log/aks-etc-base.files.txt)" = 644
+test "$(cat "$root/etc/overridden")" = 'base configuration'
+test "$(cat /etc/overridden)" = 'updated configuration'
 sha256sum /var/lib/aks-extensions/*.raw > "$root/images.sha256"
 
 if [[ "$mode" == export ]]; then
