@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"regexp"
 	"sort"
@@ -396,6 +397,7 @@ func getCustomDataFromJSON(jsonStr string) string {
 // copied from AKS-Engine and filter out flags that already translated to config file.
 func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfiguration) string {
 	k := config.KubeletConfig
+	migrated := kubeletConfigMigrationValues(config)
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	kubeletConfigFileToggleEnabled := config.EnableKubeletConfigFile
@@ -404,6 +406,15 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	configuration with the customized one. */
 	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
 	if kubeletCustomConfigurations != nil {
+		if len(migrated) != 0 {
+			// The legacy merge mutates its custom map. Preserve override provenance
+			// so repeated CLI/config rendering makes the same migration decision.
+			kubeletCustomConfigurations = maps.Clone(kubeletCustomConfigurations)
+			k = maps.Clone(k)
+			for name := range migrated {
+				delete(k, name)
+			}
+		}
 		var version string
 		if cs.Properties.OrchestratorProfile != nil {
 			version = cs.Properties.OrchestratorProfile.OrchestratorVersion
@@ -419,6 +430,9 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	keys := []string{}
 	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
 	for key := range k {
+		if _, selected := migrated[key]; selected {
+			continue
+		}
 		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
 			if !ommitedKubletConfigFlags[key] {
 				keys = append(keys, key)
@@ -669,15 +683,15 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 }
 
 func getKubeletConfigFileContentForNode(config *datamodel.NodeBootstrappingConfiguration) string {
-	if config.KubeletConfigFileConfig != nil && IsKubeletConfigFileEnabled(config.ContainerService, config.AgentPoolProfile, config.EnableKubeletConfigFile) {
-		content, _ := json.MarshalIndent(config.KubeletConfigFileConfig, "", "    ")
-		return string(content)
-	}
-	return GetKubeletConfigFileContent(config.KubeletConfig, config.AgentPoolProfile.CustomKubeletConfig)
+	return getKubeletConfigFileContent(config.KubeletConfig, config.AgentPoolProfile.CustomKubeletConfig, kubeletConfigMigrationValues(config))
 }
 
 // GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
 func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
+	return getKubeletConfigFileContent(kc, customKc, nil)
+}
+
+func getKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig, migrated map[string]string) string {
 	if kc == nil {
 		return ""
 	}
@@ -734,6 +748,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 
 	// Settings from customKubeletConfig, only take if it's set.
 	setCustomKubeletConfig(customKc, kubeletConfig)
+	applyKubeletConfigMigration(kubeletConfig, migrated)
 
 	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
 	return string(configStringByte)
