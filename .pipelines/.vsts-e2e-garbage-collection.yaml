@@ -1,0 +1,39 @@
+schedules:
+- cron: '0 12 * * 6'
+  displayName: Scheduled Garbage Collection
+  always: true
+  branches:
+    include:
+      - main
+
+parameters:
+  - name: DRY_RUN
+    type: boolean
+    default: false
+  - name: NO_WAIT
+    type: boolean
+    default: false
+
+pool:
+  name: $(POOL_NAME)
+
+stages:
+  - stage: e2e_gc_msft
+    displayName: MSFT Tenant
+    variables:
+      - group: ab-e2e
+    jobs:
+      - template: ./templates/e2e-gc-template.yaml
+        parameters:
+          DRY_RUN: ${{ parameters.DRY_RUN }}
+          NO_WAIT: ${{ parameters.NO_WAIT }}
+
+  - stage: e2e_gc_tme
+    displayName: TME Tenant
+    variables:
+      - group: ab-e2e-tme
+    jobs:
+      - template: ./templates/e2e-gc-template.yaml
+        parameters:
+          DRY_RUN: ${{ parameters.DRY_RUN }}
+          NO_WAIT: ${{ parameters.NO_WAIT }}

@@ -1,0 +1,29 @@
+parameters:
+  - name: DRY_RUN
+    type: boolean
+    default: false
+  - name: NO_WAIT
+    type: boolean
+    default: false
+
+jobs:
+  - job: e2e_gc
+    displayName: Garbage Collection
+    steps:
+      - checkout: self
+        fetchTags: false
+        fetchDepth: 1
+
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: $(ARM_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            chmod +x .pipelines/scripts/e2e_gc.sh
+            .pipelines/scripts/e2e_gc.sh
+        env:
+          SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+          DRY_RUN: ${{ parameters.DRY_RUN }}
+          NO_WAIT: ${{ parameters.NO_WAIT }}
+        displayName: Garbage collect E2E clusters
