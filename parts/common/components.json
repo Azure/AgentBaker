@@ -961,14 +961,6 @@
                 "latestVersion": "1.3.5"
               }
             ]
-          },
-          "r2004": {
-            "versionsV2": [
-              {
-                "renovateTag": "name=oras, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "1.3.5"
-              }
-            ]
           }
         },
         "azurelinux": {
