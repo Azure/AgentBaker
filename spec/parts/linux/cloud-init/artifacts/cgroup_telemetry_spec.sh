@@ -335,6 +335,40 @@ STUB
             The status should be success
             The output should equal true
         End
+
+        It 'keeps small messages unchanged without chunk metadata'
+            publish_small() {
+                local field="$1" message
+                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                message=$(jq -cn --arg field "${field}" '{CgroupVersion: "cgroupv2", ($field): {metric: "value"}}')
+                publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test || return 1
+                jq -se --arg message "${message}" 'length == 1 and .[0].Message == $message and
+                    (.[0].Message | fromjson | has("TelemetryChunk") | not)' "${EVENTS_ROOT}"/*.json
+            }
+
+            When call publish_small "$1"
+            The status should be success
+            The output should equal true
+        End
+
+        It 'rejects oversized individual entries before publishing any chunks'
+            publish_oversized() {
+                local field="$1" message
+                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                message=$(jq -cn --arg field "${field}" '{($field): {metric: ([range(0; 4000) | "x"] | join(""))}}')
+                publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test
+            }
+            remaining_event_files() {
+                find "${EVENTS_ROOT}" -mindepth 1 -print
+            }
+
+            When call publish_oversized "$1"
+            The status should be failure
+            The stderr should include 'test telemetry: failed to bound event payload'
+            The result of function remaining_event_files should equal ""
+        End
     End
 
     Context 'when jq succeeds without emitting events'
