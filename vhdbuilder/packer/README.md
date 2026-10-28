@@ -36,6 +36,19 @@ An explicit boundary must be valid and at or below the current build version.
 
 # Linux build steps
 
+ACL Packer builds use Trusted Launch on x64/Arm64 and Confidential VM mode for
+x64 CVM jobs, including their FIPS variants. Both enable Secure Boot and vTPM.
+The base image must be Gen2, support the requested VM security type, and trust
+the certificates signing its UKI and `/usr` root hash. To share one x64 base
+between these jobs, publish it as `TrustedLaunchAndConfidentialVmSupported`
+with the required UEFI certificates enrolled before building.
+
+Capture definitions must be `TrustedLaunch` for ordinary ACL and `ConfidentialVM`
+for ACL CVM. CVM captures remain generalized and use guest-state-only PMK encryption;
+their default staging names gain `Confidential` to avoid reusing the old
+CVM-supported definitions. Explicit `SIG_IMAGE_NAME` overrides must match.
+No signing or certificate enrollment is performed by AgentBaker.
+
 The pipeline's `Build Go binaries` step runs `make -f packer.mk -j4 build-tools`
 to install the latest supported Microsoft Go toolchain, generate the prefetch
 script, and build the target-architecture binaries. The following VHD step runs

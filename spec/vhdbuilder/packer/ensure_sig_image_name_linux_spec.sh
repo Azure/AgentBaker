@@ -317,7 +317,7 @@ Describe 'ensure_sig_image_name_linux function'
   End
 
   Describe 'FEATURE_FLAGS cvm scenarios'
-    It 'should use the generalized ACL CVM resource name'
+    It 'should separate native ACL CVM captures from the old supported definition'
       SIG_IMAGE_NAME=""
       SKU_NAME="aclgen2CVM"
       IMG_OFFER="azure-linux-3"
@@ -325,7 +325,7 @@ Describe 'ensure_sig_image_name_linux function'
       FEATURE_FLAGS="cvm"
       When call ensure_sig_image_name_linux
       The status should be success
-	  The variable SIG_IMAGE_NAME should eq "aclgen2CVM"
+	  The variable SIG_IMAGE_NAME should eq "aclgen2CVMConfidential"
 	  The output should be present
     End
 

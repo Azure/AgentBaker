@@ -17,6 +17,7 @@ Describe 'ensure_sig_vhd_exists function'
     FEATURE_FLAGS=""
     HYPERV_GENERATION=""
     OS_TYPE=""
+    OS_SKU=""
     ENABLE_TRUSTED_LAUNCH=""
     TRUSTED_LAUNCH_SUPPORTED="False"
 
@@ -26,6 +27,7 @@ Describe 'ensure_sig_vhd_exists function'
     MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS=""
     MOCK_AZ_IMAGE_DEFINITIONS=""
     MOCK_AZ_IMAGE_VERSIONS=""
+    MOCK_SECURITY_TYPE=""
 
     # Create mocks for external commands
     # shellcheck disable=SC2329
@@ -91,6 +93,9 @@ Describe 'ensure_sig_vhd_exists function'
     # shellcheck disable=SC2329
     jq() {
       case "$*" in
+        *'.features[]?'*)
+          echo "$MOCK_SECURITY_TYPE"
+          ;;
         *provisioningState*)
           echo "$MOCK_AZ_SIG_SHOW_STATE"
           ;;
@@ -364,7 +369,7 @@ Describe 'ensure_sig_vhd_exists function'
       The output should include "SecurityType=ConfidentialVM"
     End
 
-    It 'should create a generalized combined-security definition for ACL CVM'
+    It 'should create a generalized native Confidential VM definition for ACL CVM'
       MODE="linuxVhdMode"
       AZURE_RESOURCE_GROUP_NAME="test-rg"
       SIG_GALLERY_NAME="test-gallery"
@@ -383,8 +388,33 @@ Describe 'ensure_sig_vhd_exists function'
       The status should be success
       The output should include "--gallery-image-definition aclgen2"
       The output should include "--os-state Generalized"
-      The output should include "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchAndConfidentialVmSupported"
+      The output should include "DiskControllerTypes=SCSI,NVMe SecurityType=ConfidentialVM"
       The output should not include "--os-state Specialized"
+    End
+
+    Describe 'Existing ACL capture definitions'
+      Parameters
+        None TrustedLaunch
+        cvm ConfidentialVM
+      End
+
+      It "rejects a supported-only ACL definition when $2 capture is required"
+        MODE=linuxVhdMode
+        OS_SKU=AzureContainerLinux
+        OS_TYPE=Linux
+        SIG_IMAGE_NAME=old-acl-definition
+        FEATURE_FLAGS="$1"
+        MOCK_AZ_SIG_SHOW_EXISTS=true
+        MOCK_AZ_SIG_SHOW_STATE=Succeeded
+        MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS=true
+        MOCK_SECURITY_TYPE=TrustedLaunchSupported
+
+        When call ensure_sig_vhd_exists
+        The status should be failure
+        The output should be present
+        The stderr should include "ACL Packer capture requires a $2 image definition"
+        The output should not include "image-definition create"
+      End
     End
 
     It 'should create image definition with HyperV Generation V1'

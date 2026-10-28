@@ -41,7 +41,10 @@ function produce_ua_token() {
 }
 
 function resolve_security_type_feature() {
-	if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+	local build_os="${OS_SKU:-}"
+	if [ "${build_os,,}" = "azurecontainerlinux" ] && grep -q "cvm" <<<"$FEATURE_FLAGS"; then
+		SECURITY_TYPE_FEATURE="ConfidentialVM"
+	elif [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 		# TODO: remove once all relevant images have been updated to TrustedLaunchSupported
 		# Note that ordering matters here - ENABLE_TRUSTED_LAUNCH -> TrustedLaunch takes precedence over TRUSTED_LAUNCH_SUPPORTED -> TrustedLaunchSupported
 		SECURITY_TYPE_FEATURE="TrustedLaunch"
@@ -87,6 +90,9 @@ function ensure_sig_image_name_linux() {
 		elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 			if [ "${OS_SKU,,}" != "azurecontainerlinux" ]; then
 				SIG_IMAGE_NAME+="Specialized"
+			else
+				# Keep VM-state captures separate from existing CVM-supported definitions.
+				SIG_IMAGE_NAME+="Confidential"
 			fi
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
@@ -648,7 +654,7 @@ function ensure_sig_vhd_exists() {
 					--hyper-v-generation ${HYPERV_GENERATION} \
 					--location ${AZURE_LOCATION} \
 					--os-state Generalized \
-					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchAndConfidentialVmSupported"
+					--features "DiskControllerTypes=SCSI,NVMe SecurityType=ConfidentialVM"
 			elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -724,6 +730,18 @@ function ensure_sig_vhd_exists() {
 		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+		if [ "${OS_SKU,,}" = "azurecontainerlinux" ]; then
+			local expected_security_type="TrustedLaunch"
+			if grep -q "cvm" <<<"$FEATURE_FLAGS"; then
+				expected_security_type="ConfidentialVM"
+			fi
+			local actual_security_type
+			actual_security_type=$(jq -r '.features[]? | select(.name == "SecurityType") | .value' <<<"${id}")
+			if [ "${actual_security_type}" != "${expected_security_type}" ]; then
+				echo "ACL Packer capture requires a ${expected_security_type} image definition; ${SIG_IMAGE_NAME} has ${actual_security_type}. Use a matching SIG_IMAGE_NAME." >&2
+				return 1
+			fi
+		fi
 		if [ "${MODE}" = "windowsVhdMode" ] &&
 			[ "${ENABLE_TRUSTED_LAUNCH,,}" != "true" ] &&
 			[ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then

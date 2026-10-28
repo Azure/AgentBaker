@@ -22,4 +22,15 @@ Describe 'resolve_security_type_feature'
     The status should be success
     The variable SECURITY_TYPE_FEATURE should equal "$4"
   End
+
+  It 'reports native Confidential VM capture for ACL CVM rather than supported-only'
+    OS_SKU=AzureContainerLinux
+    ENABLE_TRUSTED_LAUNCH=False
+    TRUSTED_LAUNCH_SUPPORTED=False
+    FEATURE_FLAGS=cvm
+
+    When call resolve_security_type_feature
+    The status should be success
+    The variable SECURITY_TYPE_FEATURE should equal ConfidentialVM
+  End
 End
