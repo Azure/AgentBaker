@@ -15,15 +15,6 @@ else
 	echo "cloud-init failed with exit code ${cloudInitExitCode}" >> ${PROVISION_OUTPUT};
 	exit ${cloudInitExitCode};
 fi;
-{{with GetCloudInitFileChecksums -}}
-for checksum in {{.}}; do
-	file="${checksum##* }";
-	if ! actual=$(cksum -- "${file}" 2>> "${PROVISION_OUTPUT}") || [ "${actual}" != "${checksum}" ]; then
-		echo "CustomData checksum verification failed: ${file}" | tee -a "${PROVISION_OUTPUT}";
-		exit 1;
-	fi;
-done;
-{{end -}}
 {{end}}
 INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
 if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then

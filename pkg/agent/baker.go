@@ -726,63 +726,6 @@ func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, c
 	return "!!binary |\n    " + content, nil
 }
 
-// POSIX cksum uses an MSB-first CRC-32 and includes the byte length.
-func posixCksum(content string) uint32 {
-	var table [256]uint32
-	for i := range table {
-		crc := uint32(i) << 24
-		for bit := 0; bit < 8; bit++ {
-			if crc&0x80000000 != 0 {
-				crc = crc<<1 ^ 0x04c11db7
-			} else {
-				crc <<= 1
-			}
-		}
-		table[i] = crc
-	}
-	var crc uint32
-	for i := 0; i < len(content); i++ {
-		crc = crc<<8 ^ table[byte(crc>>24)^content[i]]
-	}
-	for size := len(content); size > 0; size >>= 8 {
-		crc = crc<<8 ^ table[byte(crc>>24)^byte(size)]
-	}
-	return ^crc
-}
-
-var cloudInitChecksumPattern = regexp.MustCompile(`^[0-9]+ [0-9]+ /[A-Za-z0-9._/-]+$`)
-
-func getCloudInitFileChecksums(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
-	if config.DisableCustomData || !usePlainCloudInit(config) {
-		return "", nil
-	}
-	funcs := getBakerFuncMap(config, getParameters(config), getCustomDataVariables(config))
-	// Render only source checksums, so YAML never processes the bytes being checked.
-	funcs["GetCloudInitFileContent"] = func(content string) string {
-		return fmt.Sprintf("%d %d", posixCksum(content), len(content))
-	}
-	rendered, err := InitializeTemplateGenerator().getSingleLine(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, funcs, true)
-	if err != nil {
-		return "", err
-	}
-	var cloud cloudInit
-	if err := yaml.Unmarshal([]byte(rendered), &cloud); err != nil {
-		return "", fmt.Errorf("failed to parse cloud-init file checksums: %w", err)
-	}
-	if len(cloud.WriteFiles) == 0 {
-		return "", fmt.Errorf("cloud-init file checksums are empty")
-	}
-	checksums := make([]string, 0, len(cloud.WriteFiles))
-	for _, file := range cloud.WriteFiles {
-		line := file.Content + " " + file.Path
-		if !cloudInitChecksumPattern.MatchString(line) {
-			return "", fmt.Errorf("invalid cloud-init checksum entry for %q", file.Path)
-		}
-		checksums = append(checksums, shellQuote(line))
-	}
-	return strings.Join(checksums, " "), nil
-}
-
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
@@ -792,9 +735,6 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	}
 	funcMap["GetCloudInitFileContent"] = func(content string) (string, error) {
 		return getCloudInitFileContent(config, content)
-	}
-	funcMap["GetCloudInitFileChecksums"] = func() (string, error) {
-		return getCloudInitFileChecksums(config)
 	}
 
 	funcMap["GetParameter"] = func(s string) interface{} {
