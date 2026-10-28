@@ -10,82 +10,74 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-// getCustomDataVariables returns cloudinit data used by Linux.
+// getCustomDataVariables returns rendered, unencoded file contents used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
-	return getCustomDataVariablesWithEncoder(config, usePlainCloudInit(config))
-}
-
-func getCustomDataVariablesWithEncoder(config *datamodel.NodeBootstrappingConfiguration, plain bool) paramsMap {
-	encodeScript := getBase64EncodedGzippedCustomScript
-	if plain {
-		encodeScript = getCustomScript
-	}
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
-			"provisionStartScript":                  encodeScript(kubernetesCSEStartScript, config),
-			"provisionScript":                       encodeScript(kubernetesCSEMainScript, config),
-			"provisionSource":                       encodeScript(kubernetesCSEHelpersScript, config),
-			"provisionSourceUbuntu":                 encodeScript(kubernetesCSEHelpersScriptUbuntu, config),
-			"provisionSourceMariner":                encodeScript(kubernetesCSEHelpersScriptMariner, config),
-			"provisionSourceAzlOSGuard":             encodeScript(kubernetesCSEHelpersScriptAzlOSGuard, config),
-			"provisionSourceFlatcar":                encodeScript(kubernetesCSEHelpersScriptFlatcar, config),
-			"provisionSourceACL":                    encodeScript(kubernetesCSEHelpersScriptACL, config),
-			"provisionInstalls":                     encodeScript(kubernetesCSEInstall, config),
-			"provisionInstallsUbuntu":               encodeScript(kubernetesCSEInstallUbuntu, config),
-			"provisionInstallsMariner":              encodeScript(kubernetesCSEInstallMariner, config),
-			"provisionInstallsAzlOSGuard":           encodeScript(kubernetesCSEInstallAzlOSGuard, config),
-			"provisionInstallsFlatcar":              encodeScript(kubernetesCSEInstallFlatcar, config),
-			"provisionInstallsACL":                  encodeScript(kubernetesCSEInstallACL, config),
-			"provisionConfigs":                      encodeScript(kubernetesCSEConfig, config),
-			"provisionConfigsGPU":                   encodeScript(kubernetesCSEConfigGPU, config),
-			"provisionConfigsLocalDNS":              encodeScript(kubernetesCSEConfigLocalDNS, config),
-			"provisionConfigsKubelet":               encodeScript(kubernetesCSEConfigKubelet, config),
-			"provisionConfigsNetwork":               encodeScript(kubernetesCSEConfigNetwork, config),
-			"provisionConfigsChrony":                encodeScript(kubernetesCSEConfigChrony, config),
-			"provisionSendLogs":                     encodeScript(kubernetesCSESendLogs, config),
-			"provisionRedactCloudConfig":            encodeScript(kubernetesCSERedactCloudConfig, config),
-			"customSearchDomainsScript":             encodeScript(kubernetesCustomSearchDomainsScript, config),
-			"dhcpv6SystemdService":                  encodeScript(dhcpv6SystemdService, config),
-			"dhcpv6ConfigurationScript":             encodeScript(dhcpv6ConfigurationScript, config),
-			"kubeletSystemdService":                 encodeScript(kubeletSystemdService, config),
-			"reconcilePrivateHostsScript":           encodeScript(reconcilePrivateHostsScript, config),
-			"reconcilePrivateHostsService":          encodeScript(reconcilePrivateHostsService, config),
-			"ensureNoDupEbtablesScript":             encodeScript(ensureNoDupEbtablesScript, config),
-			"ensureNoDupEbtablesService":            encodeScript(ensureNoDupEbtablesService, config),
-			"bindMountScript":                       encodeScript(bindMountScript, config),
-			"bindMountSystemdService":               encodeScript(bindMountSystemdService, config),
-			"migPartitionSystemdService":            encodeScript(migPartitionSystemdService, config),
-			"migPartitionScript":                    encodeScript(migPartitionScript, config),
-			"ensureIMDSRestrictionScript":           encodeScript(ensureIMDSRestrictionScript, config),
-			"snapshotUpdateScript":                  encodeScript(snapshotUpdateScript, config),
-			"snapshotUpdateService":                 encodeScript(snapshotUpdateSystemdService, config),
-			"snapshotUpdateTimer":                   encodeScript(snapshotUpdateSystemdTimer, config),
-			"packageUpdateScriptMariner":            encodeScript(packageUpdateScriptMariner, config),
-			"packageUpdateServiceMariner":           encodeScript(packageUpdateSystemdServiceMariner, config),
-			"packageUpdateTimerMariner":             encodeScript(packageUpdateSystemdTimerMariner, config),
-			"componentManifestFile":                 encodeScript(componentManifestFile, config),
-			"validateKubeletCredentialsScript":      encodeScript(validateKubeletCredentialsScript, config),
-			"secureTLSBootstrapService":             encodeScript(secureTLSBootstrapService, config),
-			"cloudInitStatusCheckScript":            encodeScript(cloudInitStatusCheckScript, config),
-			"measureTLSBootstrappingLatencyScript":  encodeScript(measureTLSBootstrappingLatencyScript, config),
-			"measureTLSBootstrappingLatencyService": encodeScript(measureTLSBootstrappingLatencyService, config),
-			"configureAzureNetworkScript":           encodeScript(configureAzureNetworkScript, config),
-			"azureNetworkUdevRule":                  encodeScript(azureNetworkUdevRule, config),
+			"provisionStartScript":                  getCustomScript(kubernetesCSEStartScript, config),
+			"provisionScript":                       getCustomScript(kubernetesCSEMainScript, config),
+			"provisionSource":                       getCustomScript(kubernetesCSEHelpersScript, config),
+			"provisionSourceUbuntu":                 getCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
+			"provisionSourceMariner":                getCustomScript(kubernetesCSEHelpersScriptMariner, config),
+			"provisionSourceAzlOSGuard":             getCustomScript(kubernetesCSEHelpersScriptAzlOSGuard, config),
+			"provisionSourceFlatcar":                getCustomScript(kubernetesCSEHelpersScriptFlatcar, config),
+			"provisionSourceACL":                    getCustomScript(kubernetesCSEHelpersScriptACL, config),
+			"provisionInstalls":                     getCustomScript(kubernetesCSEInstall, config),
+			"provisionInstallsUbuntu":               getCustomScript(kubernetesCSEInstallUbuntu, config),
+			"provisionInstallsMariner":              getCustomScript(kubernetesCSEInstallMariner, config),
+			"provisionInstallsAzlOSGuard":           getCustomScript(kubernetesCSEInstallAzlOSGuard, config),
+			"provisionInstallsFlatcar":              getCustomScript(kubernetesCSEInstallFlatcar, config),
+			"provisionInstallsACL":                  getCustomScript(kubernetesCSEInstallACL, config),
+			"provisionConfigs":                      getCustomScript(kubernetesCSEConfig, config),
+			"provisionConfigsGPU":                   getCustomScript(kubernetesCSEConfigGPU, config),
+			"provisionConfigsLocalDNS":              getCustomScript(kubernetesCSEConfigLocalDNS, config),
+			"provisionConfigsKubelet":               getCustomScript(kubernetesCSEConfigKubelet, config),
+			"provisionConfigsNetwork":               getCustomScript(kubernetesCSEConfigNetwork, config),
+			"provisionConfigsChrony":                getCustomScript(kubernetesCSEConfigChrony, config),
+			"provisionSendLogs":                     getCustomScript(kubernetesCSESendLogs, config),
+			"provisionRedactCloudConfig":            getCustomScript(kubernetesCSERedactCloudConfig, config),
+			"customSearchDomainsScript":             getCustomScript(kubernetesCustomSearchDomainsScript, config),
+			"dhcpv6SystemdService":                  getCustomScript(dhcpv6SystemdService, config),
+			"dhcpv6ConfigurationScript":             getCustomScript(dhcpv6ConfigurationScript, config),
+			"kubeletSystemdService":                 getCustomScript(kubeletSystemdService, config),
+			"reconcilePrivateHostsScript":           getCustomScript(reconcilePrivateHostsScript, config),
+			"reconcilePrivateHostsService":          getCustomScript(reconcilePrivateHostsService, config),
+			"ensureNoDupEbtablesScript":             getCustomScript(ensureNoDupEbtablesScript, config),
+			"ensureNoDupEbtablesService":            getCustomScript(ensureNoDupEbtablesService, config),
+			"bindMountScript":                       getCustomScript(bindMountScript, config),
+			"bindMountSystemdService":               getCustomScript(bindMountSystemdService, config),
+			"migPartitionSystemdService":            getCustomScript(migPartitionSystemdService, config),
+			"migPartitionScript":                    getCustomScript(migPartitionScript, config),
+			"ensureIMDSRestrictionScript":           getCustomScript(ensureIMDSRestrictionScript, config),
+			"snapshotUpdateScript":                  getCustomScript(snapshotUpdateScript, config),
+			"snapshotUpdateService":                 getCustomScript(snapshotUpdateSystemdService, config),
+			"snapshotUpdateTimer":                   getCustomScript(snapshotUpdateSystemdTimer, config),
+			"packageUpdateScriptMariner":            getCustomScript(packageUpdateScriptMariner, config),
+			"packageUpdateServiceMariner":           getCustomScript(packageUpdateSystemdServiceMariner, config),
+			"packageUpdateTimerMariner":             getCustomScript(packageUpdateSystemdTimerMariner, config),
+			"componentManifestFile":                 getCustomScript(componentManifestFile, config),
+			"validateKubeletCredentialsScript":      getCustomScript(validateKubeletCredentialsScript, config),
+			"secureTLSBootstrapService":             getCustomScript(secureTLSBootstrapService, config),
+			"cloudInitStatusCheckScript":            getCustomScript(cloudInitStatusCheckScript, config),
+			"measureTLSBootstrappingLatencyScript":  getCustomScript(measureTLSBootstrappingLatencyScript, config),
+			"measureTLSBootstrappingLatencyService": getCustomScript(measureTLSBootstrappingLatencyService, config),
+			"configureAzureNetworkScript":           getCustomScript(configureAzureNetworkScript, config),
+			"azureNetworkUdevRule":                  getCustomScript(azureNetworkUdevRule, config),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap) //nolint:errcheck // no error is actually here
-	cloudInitData["initAKSCloud"] = encodeScript(initAKSCloudScript, config)
+	cloudInitData["initAKSCloud"] = getCustomScript(initAKSCloudScript, config)
 
 	if config.IsFlatcar() || config.IsACL() {
 		cloudInitData["provisionRedactCloudConfig"] = "" // Flatcar and ACL do not have cloud-init
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {
-		cloudInitData["kmsSystemdService"] = encodeScript(kmsSystemdService, config)
-		cloudInitData["aptPreferences"] = encodeScript(aptPreferences, config)
-		cloudInitData["dockerClearMountPropagationFlags"] = encodeScript(dockerClearMountPropagationFlags, config)
+		cloudInitData["kmsSystemdService"] = getCustomScript(kmsSystemdService, config)
+		cloudInitData["aptPreferences"] = getCustomScript(aptPreferences, config)
+		cloudInitData["dockerClearMountPropagationFlags"] = getCustomScript(dockerClearMountPropagationFlags, config)
 	}
 
 	return cloudInitFiles

@@ -1362,21 +1362,21 @@ func TestCSEScriptRoundTrip(t *testing.T) {
 }
 
 // discoverCSEScripts parses variables.go to find all constant names passed to
-// encodeScript(), then resolves those constants to file
+// getCustomScript(), then resolves those constants to file
 // paths from const.go, filtering to .sh files only.
 func discoverCSEScripts(t *testing.T) []string {
 	t.Helper()
 	root := repoRoot()
 
-	// Step 1: Read variables.go and extract constant names from encodeScript() calls
+	// Step 1: Read variables.go and extract constant names from getCustomScript() calls
 	variablesPath := filepath.Join(root, "pkg", "agent", "variables.go")
 	variablesBytes, err := os.ReadFile(variablesPath)
 	if err != nil {
 		t.Fatalf("failed to read variables.go: %v", err)
 	}
 
-	// Match: encodeScript(constantName, config)
-	callRe := regexp.MustCompile(`encodeScript\((\w+),`)
+	// Match: getCustomScript(constantName, config)
+	callRe := regexp.MustCompile(`getCustomScript\((\w+),`)
 	matches := callRe.FindAllStringSubmatch(string(variablesBytes), -1)
 	constNames := make(map[string]bool)
 	for _, m := range matches {

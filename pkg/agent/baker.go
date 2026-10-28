@@ -165,14 +165,12 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 		return t.getScriptlessBoothook(config)
 	}
 
-	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
-	// lots of tests fail.
 	var encoded string
 	if config.IsFlatcar() || config.IsACL() {
 		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
 		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
-		customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+		customData := t.getLinuxNodeCustomData(config)
 		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
 	}
 	return encoded
@@ -189,7 +187,7 @@ type encodedFile struct {
 func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstrappingConfiguration) string {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
-	nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	nodeCustomData := t.getLinuxNodeCustomData(config)
 	encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
 
 	// hotfixJSONFile is optional: only VHDs that bake a static default hotfix
@@ -344,9 +342,7 @@ func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator st
 	return fmt.Sprintf(cloudInitTemplate, strings.Join(fileList, separator))
 }
 
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
-// { "customData": "<customData string>" }.
-func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getLinuxNodeCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := parts.Templates.ReadFile(kubernetesNodeCustomDataYaml)
 	if err != nil {
 		panic(err)
@@ -356,11 +352,7 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 		panic(err)
 	}
 
-	customData, err := json.Marshal(map[string]string{"customData": str})
-	if err != nil {
-		panic(err)
-	}
-	return string(customData)
+	return str
 }
 
 const (
@@ -723,7 +715,7 @@ func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, c
 		})
 		return strings.TrimSuffix(string(encoded), "\n"), err
 	}
-	return "!!binary |\n    " + content, nil
+	return "!!binary |\n    " + getBase64EncodedGzippedCustomScriptFromStr(content), nil
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.

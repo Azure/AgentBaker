@@ -91,16 +91,18 @@ func TestCloudInitEncodingLeavesOtherModesUnchanged(t *testing.T) {
 				rendered, err := RenderLinuxNodeCustomDataTemplate(template, config)
 				require.NoError(t, err)
 				require.Equal(t, original, rendered)
-				require.Equal(t, original, getCustomDataFromJSON(generator.getLinuxNodeCustomDataJSONObject(config)))
+				require.Equal(t, original, generator.getLinuxNodeCustomData(config))
 			})
 		}
 	}
 }
 
 func legacyCloudInitFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
-	funcs := getBakerFuncMap(config, getParameters(config), getCustomDataVariablesWithEncoder(config, false))
+	funcs := getBakerFuncMap(config, getParameters(config), getCustomDataVariables(config))
 	funcs["GetCloudInitFileEncodingLine"] = func() string { return "encoding: " + encodingGZIP }
-	funcs["GetCloudInitFileContent"] = func(content string) string { return "!!binary |\n    " + content }
+	funcs["GetCloudInitFileContent"] = func(content string) string {
+		return "!!binary |\n    " + getBase64EncodedGzippedCustomScriptFromStr(content)
+	}
 	return funcs
 }
 
@@ -147,6 +149,24 @@ func TestPlainCloudInitFileContentRejectsInvalidUTF8(t *testing.T) {
 	output, err := RenderLinuxNodeCustomDataTemplate(input, config)
 	require.ErrorContains(t, err, "invalid UTF-8")
 	require.Empty(t, output)
+}
+
+func TestEncodedCloudInitFileContentUsesRawBytes(t *testing.T) {
+	for _, distro := range []datamodel.Distro{datamodel.AKSUbuntuContainerd2204Gen2, datamodel.AKSFlatcarGen2, datamodel.AKSACLGen2TL} {
+		for i, content := range []string{"", "#!/bin/bash\nprintf 'hello\\n'\n", "\x00\xff\r\n\u0085\u2028\u2029"} {
+			t.Run(fmt.Sprintf("%s/%d", distro, i), func(t *testing.T) {
+				config := newNodeCustomDataRenderConfig(distro)
+				config.EnableScriptlessCSECmd = true
+				encoded, err := getCloudInitFileContent(config, content)
+				require.NoError(t, err)
+				var file cloudInitWriteFile
+				require.NoError(t, yaml.Unmarshal([]byte("content: "+encoded+"\n"), &file))
+				decoded, err := getGzipDecodedValue([]byte(file.Content))
+				require.NoError(t, err)
+				require.Equal(t, []byte(content), decoded)
+			})
+		}
+	}
 }
 
 func BenchmarkTraditionalCloudInitEncoding(b *testing.B) {

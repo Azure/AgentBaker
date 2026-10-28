@@ -1320,7 +1320,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
 
 		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeCustomDataFilepath))
@@ -1534,7 +1534,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1551,7 +1551,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1568,7 +1568,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1586,7 +1586,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1604,7 +1604,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		decompressedPayload, err := getGzipDecodedValue(decodedPayload)
 		Expect(err).NotTo(HaveOccurred())
 
-		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+		expectedCustomData := templateGenerator.getLinuxNodeCustomData(config)
 
 		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
 		// Script contents can reference these paths; only delivery as write_files
