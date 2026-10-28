@@ -109,7 +109,7 @@ EOF
       bash "${ROOT_DIR}/.pipelines/scripts/e2e_run.sh"
     The status should be success
     The output should be present
-    The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <./...>'
+    The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <-timeout> <75m> <./...>'
     The contents of file "${COMMAND_LOG}" should include 'go <run> <.> <run> <--parallel> <60> <--suite-timeout> <75m> <--retries> <2> <--log-dir> <scenario-logs-12345> <--junit-file>'
     The contents of file "${COMMAND_LOG}" should include '<--output> <grouped>'
   End
@@ -123,7 +123,7 @@ EOF
       bash "${ROOT_DIR}/.pipelines/scripts/e2e_run.sh"
     The status should be failure
     The output should be present
-    The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <./...>'
+    The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <-timeout> <80m> <./...>'
     The contents of file "${COMMAND_LOG}" should not include 'go <run>'
   End
 End
