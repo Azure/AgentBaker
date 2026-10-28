@@ -60,7 +60,7 @@ Describe 'installAndConfigureArtifactStreaming'
       url=${url//\$\{version\}/$version}
       url=${url//\$\{SYSTEMD_ARCH\}/$3}
       When call installAndConfigureArtifactStreaming "$url" "$version"
-      The contents of file "$ARTIFACT_STREAMING_CALLS" should equal "downloadSysextFromVersion artifact-streaming mcr.microsoft.com/acr/v2/artifact-streaming-sysext:${version}-$3"
+      The contents of file "$ARTIFACT_STREAMING_CALLS" should equal "downloadSysextFromVersion artifact-streaming mcr.microsoft.com/azurecontainerregistry/v2/artifact-streaming-sysext:${version}-$3"
       The status should be success
     End
   End
@@ -68,7 +68,7 @@ Describe 'installAndConfigureArtifactStreaming'
   It 'fails when the combined sysext cannot be cached'
     OS="AZURECONTAINERLINUX"
     DOWNLOAD_RC=1
-    When run installAndConfigureArtifactStreaming "mcr.microsoft.com/acr/v2/artifact-streaming-sysext:v1.0.0-2-azlinux3-x86-64" "v1.0.0-2-azlinux3"
+    When run installAndConfigureArtifactStreaming "mcr.microsoft.com/azurecontainerregistry/v2/artifact-streaming-sysext:v1.0.0-2-azlinux3-x86-64" "v1.0.0-2-azlinux3"
     The status should equal "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
   End
 End

@@ -55,7 +55,7 @@ Describe 'cse_install_acl.sh'
             It "retains revision 2 for $2 with registry '$1' without listing tags"
                 BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="$1"
                 retrycmd_silent() { echo "unexpected tag listing" >&2; return 1; }
-                When call matchRemoteSysext "mcr.microsoft.com/acr/v2/artifact-streaming-sysext" "1.0.0-2-azlinux3" "$2"
+                When call matchRemoteSysext "mcr.microsoft.com/azurecontainerregistry/v2/artifact-streaming-sysext" "1.0.0-2-azlinux3" "$2"
                 The output should equal "v1.0.0-2-azlinux3-$2"
                 The status should be success
             End
@@ -109,7 +109,7 @@ Describe 'cse_install_acl.sh'
                 MCR_REPOSITORY_BASE="$2"
                 version=$(jq -r '.Packages[] | select(.name == "acr-mirror") | .downloadURIs.azurecontainerlinux.current.versionsV2[0].latestVersion' "$COMPONENTS_FILEPATH")
                 When call installArtifactStreamingSysext
-                The output should equal "mergeSysexts artifact-streaming $3/acr/v2/artifact-streaming-sysext ${version#v}"
+                The output should equal "mergeSysexts artifact-streaming $3/azurecontainerregistry/v2/artifact-streaming-sysext ${version#v}"
                 The status should be success
             End
         End
