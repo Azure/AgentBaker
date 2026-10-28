@@ -1455,7 +1455,7 @@ fi
 
 if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ "$(ls -A /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/)" ]; then
   cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
-  rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
+  rm -rf /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
