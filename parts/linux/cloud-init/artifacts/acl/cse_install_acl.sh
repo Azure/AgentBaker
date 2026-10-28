@@ -148,7 +148,7 @@ installArtifactStreamingSysext() {
         select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+-azlinux3$"))' \
         "${COMPONENTS_FILEPATH:-/opt/azure/components.json}") || return "$ERR_ORAS_PULL_SYSEXT_FAIL"
     local registry="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-${MCR_REPOSITORY_BASE:-mcr.microsoft.com}}"
-    mergeSysexts artifact-streaming "${registry%/}/acr/v2/artifact-streaming-sysext" "${version#v}"
+    mergeSysexts artifact-streaming "${registry%/}/azurecontainerregistry/v2/artifact-streaming-sysext" "${version#v}"
 }
 
 # Only called at build-time, unlike kubelet or credential provider installation.
