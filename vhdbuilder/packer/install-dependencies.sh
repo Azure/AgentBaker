@@ -596,6 +596,9 @@ cachePackageAndBinaryComponents() {
           if isMarinerOrAzureLinux || isUbuntu; then
             downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
             cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_ORAS_DOWNLOAD_ERROR
+            version_no_epoch="${version#*:}"
+            oras_version="${version_no_epoch%%-*}"
+            ln -sf "/opt/bin/${name}-${oras_version}" "/opt/bin/${name}" || exit $ERR_ORAS_DOWNLOAD_ERROR
           elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
             # TODO: keep legacy behavior for flatcar and ACL
             evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
