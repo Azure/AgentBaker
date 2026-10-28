@@ -206,6 +206,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/kubelet-flags.sh",
+      "destination": "/home/packer/kubelet-flags.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_config_network.sh",
       "destination": "/home/packer/provision_configs_network.sh"
     },

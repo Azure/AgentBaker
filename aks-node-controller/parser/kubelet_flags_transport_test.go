@@ -4,99 +4,74 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"os"
 	"os/exec"
-	"path/filepath"
-	"regexp"
-	"strings"
+	"strconv"
 	"testing"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
-func TestKubeletFlagsToOmitFromCustomDataToCSEChild(test *testing.T) {
+func TestKubeletFlagsToOmitUsesCurrentTypedConfig(test *testing.T) {
 	encodedOmissions := base64.RawStdEncoding.EncodeToString([]byte(`["--enable-server","--runtime-request-timeout"]`))
-	for _, mode := range []string{"cloud-init", "custom-data-only", "flatcar"} {
-		for _, instruction := range []struct {
-			name      string
-			value     string
-			inherited string
-			features  map[string]string
-		}{
-			{name: "absent"},
-			{name: "empty", inherited: encodedOmissions, features: map[string]string{"KUBELET_FLAGS_TO_OMIT": ""}},
-			{name: "present", value: encodedOmissions, features: map[string]string{"KUBELET_FLAGS_TO_OMIT": encodedOmissions}},
-		} {
-			test.Run(mode+"/"+instruction.name, func(test *testing.T) {
-				test.Setenv("KUBELET_FLAGS_TO_OMIT", instruction.inherited)
+	for _, testCase := range []struct {
+		name     string
+		features map[string]string
+		expected string
+	}{
+		{name: "absent"},
+		{name: "empty map", features: map[string]string{}},
+		{name: "empty instruction", features: map[string]string{"KUBELET_FLAGS_TO_OMIT": ""}},
+		{name: "selected", features: map[string]string{"KUBELET_FLAGS_TO_OMIT": encodedOmissions}, expected: encodedOmissions},
+		{name: "unrelated", features: map[string]string{"UNRELATED_FEATURE": "true"}},
+		{name: "mixed", features: map[string]string{"KUBELET_FLAGS_TO_OMIT": encodedOmissions, "UNRELATED_FEATURE": "true"}, expected: encodedOmissions},
+		{name: "malformed single line", features: map[string]string{"KUBELET_FLAGS_TO_OMIT": "invalid!"}, expected: "invalid!"},
+		{name: "newline", features: map[string]string{"KUBELET_FLAGS_TO_OMIT": encodedOmissions + "\n"}},
+		{name: "carriage return", features: map[string]string{"KUBELET_FLAGS_TO_OMIT": encodedOmissions + "\r"}},
+	} {
+		for _, configEnabled := range []bool{false, true} {
+			test.Run(testCase.name+"/config="+strconv.FormatBool(configEnabled), func(test *testing.T) {
+				test.Setenv("KUBELET_FLAGS_TO_OMIT", "stale-inherited-instruction")
+				test.Setenv("PRESERVED_TEST_ENV", "preserved")
 				config := &aksnodeconfigv1.Configuration{
-					CustomDataOnlyProvisioning: mode == "custom-data-only",
-					EnabledFeatures:            instruction.features,
+					Version: "v1", EnabledFeatures: testCase.features,
+					KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+						EnableKubeletConfigFile: configEnabled,
+						KubeletFlags:            map[string]string{"--runtime-request-timeout": "0s", "--enable-server": "false"},
+						KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+							EnableServer: proto.Bool(true), VolumePluginDir: "/etc/kubernetes/volumeplugins",
+							CgroupDriver: "systemd", RuntimeRequestTimeout: "15m",
+							ContainerRuntimeEndpoint: "unix:///run/containerd/containerd.sock",
+						},
+					},
 				}
-				expectedOmissions := instruction.value
-				buildCustomData := nodeconfigutils.CustomData
-				if mode == "flatcar" {
-					buildCustomData = nodeconfigutils.CustomDataFlatcar
-				}
-				customData, err := buildCustomData(config)
+				serialized, err := nodeconfigutils.MarshalConfigurationV1(config)
 				require.NoError(test, err)
-				payload, err := base64.StdEncoding.DecodeString(customData)
+				decoded, err := nodeconfigutils.UnmarshalConfigurationV1(serialized)
 				require.NoError(test, err)
-				featureContent := decodeKubeletFeaturesFromCustomData(test, payload, mode == "flatcar")
-				featuresPath := filepath.Join(test.TempDir(), "enabled_features.sh")
-				if instruction.name == "absent" {
-					require.Nil(test, featureContent)
-				} else {
-					require.Equal(test, "KUBELET_FLAGS_TO_OMIT="+expectedOmissions+"\n", string(featureContent))
-					require.NoError(test, os.WriteFile(featuresPath, featureContent, 0600))
-				}
-				launcher := exec.Command("/bin/bash", "-c", `source ../../parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh
-anc_hotfix_log() { :; }
-anc_hotfix_read_feature_flags "$1"
-/bin/bash -c 'printf "%s" "${KUBELET_FLAGS_TO_OMIT:-}"'`, "launcher-test", featuresPath)
-				output, err := launcher.CombinedOutput()
-				require.NoError(test, err, "%s", output)
-				require.Equal(test, expectedOmissions, string(output))
-				test.Setenv("KUBELET_FLAGS_TO_OMIT", string(output))
-				config.EnabledFeatures = nil
-				command, err := BuildCSECmd(context.Background(), config, nil)
+				command, err := BuildCSECmd(context.Background(), decoded, nil)
 				require.NoError(test, err)
-				child := exec.Command("/bin/bash", "-c", `printf '%s' "${KUBELET_FLAGS_TO_OMIT:-}"`)
+				child := exec.Command("/bin/bash", "-c", `printf '%s\n%s' "${KUBELET_FLAGS_TO_OMIT:-}" "$PRESERVED_TEST_ENV"`)
 				child.Env = command.Env
-				output, err = child.CombinedOutput()
+				output, err := child.CombinedOutput()
 				require.NoError(test, err, "%s", output)
-				require.Equal(test, expectedOmissions, string(output))
+				require.Equal(test, testCase.expected+"\npreserved", string(output))
+				environment := environToMap(command.Env)
+				require.NotContains(test, environment, "UNRELATED_FEATURE")
+				require.Equal(test, strconv.FormatBool(configEnabled), environment["KUBELET_CONFIG_FILE_ENABLED"])
+				require.Equal(test, "--enable-server=false --runtime-request-timeout=0s", environment["KUBELET_FLAGS"])
+				configJSON, err := base64.StdEncoding.DecodeString(environment["KUBELET_CONFIG_FILE_CONTENT"])
+				require.NoError(test, err)
+				var configFields map[string]any
+				require.NoError(test, json.Unmarshal(configJSON, &configFields))
+				require.Equal(test, true, configFields["enableServer"])
+				require.Equal(test, "/etc/kubernetes/volumeplugins", configFields["volumePluginDir"])
+				require.Equal(test, "systemd", configFields["cgroupDriver"])
+				require.Equal(test, "15m", configFields["runtimeRequestTimeout"])
+				require.Equal(test, "unix:///run/containerd/containerd.sock", configFields["containerRuntimeEndpoint"])
 			})
 		}
 	}
-}
-
-func decodeKubeletFeaturesFromCustomData(test *testing.T, payload []byte, flatcar bool) []byte {
-	test.Helper()
-	if flatcar {
-		var ignition struct {
-			Storage struct {
-				Files []struct {
-					Path     string
-					Contents struct{ Source string }
-				}
-			}
-		}
-		require.NoError(test, json.Unmarshal(payload, &ignition))
-		for _, file := range ignition.Storage.Files {
-			if file.Path == nodeconfigutils.EnabledFeaturesFilePath {
-				featureContent, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(file.Contents.Source, "data:;base64,"))
-				require.NoError(test, err)
-				return featureContent
-			}
-		}
-		return nil
-	}
-	featureBlock := regexp.MustCompile(`(?s)cat <<'EOF' >` + regexp.QuoteMeta(nodeconfigutils.EnabledFeaturesFilePath) + `\n(.*?)EOF\n`)
-	if matches := featureBlock.FindSubmatch(payload); matches != nil {
-		return matches[1]
-	}
-	return nil
 }

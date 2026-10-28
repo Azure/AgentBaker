@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'explicit kubelet renderer omissions'
-    Include ./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh
+    Include ./parts/linux/cloud-init/artifacts/kubelet-flags.sh
 
     setup() {
         TEST_DIR=$(mktemp -d)
@@ -38,6 +38,29 @@ Describe 'explicit kubelet renderer omissions'
 
     BeforeEach setup
     AfterEach cleanup
+
+    It 'sources definitions without reconciling unless the action is selected'
+        definitions_only() {
+            source ./parts/linux/cloud-init/artifacts/kubelet-flags.sh definitions "${RUNTIME_CGROUPS}" "${TEST_DIR}"
+            type -t reconcileKubeletConfigFlags
+        }
+        When call definitions_only
+        The status should be success
+        The output should equal function
+        The file "${MANAGED_DROP_IN}" should not be exist
+    End
+
+    It 'reconciles by sourcing with the current unexported state and preserves caller arguments'
+        source_action() {
+            local KUBELET_CONFIG_FILE_ENABLED=true
+            set -- caller-argument
+            source ./parts/linux/cloud-init/artifacts/kubelet-flags.sh --apply "${RUNTIME_CGROUPS}" "${TEST_DIR}" || return
+            [ "$1" = caller-argument ]
+        }
+        When call source_action
+        The status should be success
+        The file "${MANAGED_DROP_IN}" should be exist
+    End
 
     It 'omits only the requested matching appenders and preserves the baked service and custom flags'
         When call reconcile
@@ -360,6 +383,17 @@ Environment="CUSTOM=preserve-me"'
             /run/systemd/system/kubelet.service.d
             /usr/lib/systemd/system/kubelet.service.d
             /etc/systemd/system/service.d
+            /etc/systemd/system.control/kubelet.service.d
+            /run/systemd/system.control/kubelet.service.d
+            /run/systemd/transient/kubelet.service.d
+            /run/systemd/generator.early/kubelet.service.d
+            /etc/systemd/system.attached/kubelet.service.d
+            /run/systemd/system.attached/kubelet.service.d
+            /run/systemd/generator/kubelet.service.d
+            /run/systemd/generator.late/kubelet.service.d
+            /run/systemd/generator/service.d
+            /usr/local/lib/systemd/system/kubelet.service.d
+            /lib/systemd/system/kubelet.service.d
         End
         It "retains flags for an environment override in $1"
             mkdir -p "${TEST_DIR}$1"
@@ -368,6 +402,75 @@ Environment="CUSTOM=preserve-me"'
             The status should be success
             The file "${MANAGED_DROP_IN}" should not be exist
         End
+    End
+
+    Describe 'whole units preceding the recognized base service'
+        Parameters
+            /etc/systemd/system.control
+            /run/systemd/system.control
+            /run/systemd/transient
+            /run/systemd/generator.early
+        End
+        It "rolls back its owned override when $1 contains another unit"
+            reconcile
+            mkdir -p "${TEST_DIR}$1"
+            printf '[Service]\nExecStart=/opt/bin/kubelet --config /custom.json\n' > "${TEST_DIR}$1/kubelet.service"
+            When call reconcile
+            The status should be success
+            The file "${MANAGED_DROP_IN}" should not be exist
+            The contents of file "${TEST_DIR}$1/kubelet.service" should include '--config /custom.json'
+        End
+    End
+
+    Describe 'aliases can contribute otherwise unrecognized drop-ins'
+        Parameters
+            /etc/systemd/system
+            /run/systemd/generator
+            /usr/lib/systemd/system
+        End
+        It "rolls back its owned override for an alias in $1"
+            reconcile
+            mkdir -p "${TEST_DIR}$1/alias-kubelet.service.d"
+            ln -s "${SERVICE_FILE}" "${TEST_DIR}$1/alias-kubelet.service"
+            printf '[Service]\nEnvironment="KUBELET_CONFIG_FILE_FLAGS=--config /custom.json"\n' > "${TEST_DIR}$1/alias-kubelet.service.d/20-custom.conf"
+            When call reconcile
+            The status should be success
+            The file "${MANAGED_DROP_IN}" should not be exist
+            The contents of file "${TEST_DIR}$1/alias-kubelet.service.d/20-custom.conf" should include '--config /custom.json'
+        End
+    End
+
+    It 'retains flags for a relative alias to the checked service'
+        ln -s kubelet.service "${TEST_DIR}/etc/systemd/system/alias-kubelet.service"
+        When call reconcile
+        The status should be success
+        The file "${MANAGED_DROP_IN}" should not be exist
+    End
+
+    It 'retains flags if kubelet is an alias for another named unit'
+        mv "${SERVICE_FILE}" "${DROP_IN_DIR}/../custom-kubelet.service"
+        ln -s custom-kubelet.service "${SERVICE_FILE}"
+        When call reconcile
+        The status should be success
+        The file "${MANAGED_DROP_IN}" should not be exist
+        The path "${SERVICE_FILE}" should be symlink
+    End
+
+    It 'still renders when an unrelated service alias exists'
+        printf '[Service]\nExecStart=/bin/true\n' > "${DROP_IN_DIR}/../unrelated.service"
+        ln -s unrelated.service "${DROP_IN_DIR}/../alias-unrelated.service"
+        When call reconcile
+        The status should be success
+        The file "${MANAGED_DROP_IN}" should be exist
+    End
+
+    It 'preserves a higher-precedence symlinked unit and retains flags'
+        mkdir -p "${TEST_DIR}/run/systemd/generator.early"
+        ln -s /missing/custom.service "${TEST_DIR}/run/systemd/generator.early/kubelet.service"
+        When call reconcile
+        The status should be success
+        The file "${MANAGED_DROP_IN}" should not be exist
+        The path "${TEST_DIR}/run/systemd/generator.early/kubelet.service" should be symlink
     End
 
     Describe 'persisted base EnvironmentFile, not the CSE environment'
@@ -471,11 +574,11 @@ Environment="CUSTOM=preserve-me"'
     It 'reconciles after the final runtime writer and before kubelet starts on real nodes'
         final_writer_order() {
             awk '/^ensureKubelet\(\)/ { inside = 1 } inside { print } inside && /^}/ { exit }' ./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh |
-                grep -E 'Environment="KUBELET_CONTAINERD_FLAGS=|^[[:space:]]*reconcileKubeletConfigFlags |if ! systemctl daemon-reload|if ! systemctlEnableAndStartNoBlock kubelet'
+                grep -E 'Environment="KUBELET_CONTAINERD_FLAGS=|source .*/kubelet-flags.sh --apply |systemctl daemon-reload|if ! systemctlEnableAndStartNoBlock kubelet'
         }
         When call final_writer_order
         The line 1 of output should include 'Environment="KUBELET_CONTAINERD_FLAGS='
-        The line 2 of output should include 'reconcileKubeletConfigFlags '
+        The line 2 of output should include 'kubelet-flags.sh --apply '
         The line 3 of output should include 'systemctl daemon-reload'
         The line 4 of output should include 'systemctlEnableAndStartNoBlock kubelet'
         The lines of output should equal 4
