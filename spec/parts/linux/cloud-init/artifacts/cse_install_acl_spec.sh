@@ -52,11 +52,11 @@ Describe 'cse_install_acl.sh'
                 "cache.azurecr.io/aks-managed-repository" "x86-64"
                 "cache.azurecr.io/aks-managed-repository" "arm64"
             End
-            It "retains revision 2 for $2 with registry '$1' without listing tags"
+            It "retains revision 1 for $2 with registry '$1' without listing tags"
                 BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="$1"
                 retrycmd_silent() { echo "unexpected tag listing" >&2; return 1; }
-                When call matchRemoteSysext "mcr.microsoft.com/azurecontainerregistry/v2/artifact-streaming-sysext" "1.0.0-2-azlinux3" "$2"
-                The output should equal "v1.0.0-2-azlinux3-$2"
+                When call matchRemoteSysext "mcr.microsoft.com/azurecontainerregistry/v2/artifact-streaming-sysext" "1.0.0-1-azlinux3" "$2"
+                The output should equal "v1.0.0-1-azlinux3-$2"
                 The status should be success
             End
         End
@@ -64,12 +64,12 @@ Describe 'cse_install_acl.sh'
         Describe 'local resolution'
             setup_cache() {
                 SYSEXT_CACHE=$(mktemp -d)
-                touch "$SYSEXT_CACHE/artifact-streaming-v1.0.0-2-azlinux3-x86-64.raw"
+                touch "$SYSEXT_CACHE/artifact-streaming-v1.0.0-1-azlinux3-x86-64.raw"
                 touch "$SYSEXT_CACHE/artifact-streaming-v1.0.0-20-azlinux3-x86-64.raw"
                 touch "$SYSEXT_CACHE/artifact-streaming.raw"
             }
             cleanup_cache() {
-                rm -f "$SYSEXT_CACHE/artifact-streaming-v1.0.0-2-azlinux3-x86-64.raw" \
+                rm -f "$SYSEXT_CACHE/artifact-streaming-v1.0.0-1-azlinux3-x86-64.raw" \
                     "$SYSEXT_CACHE/artifact-streaming-v1.0.0-20-azlinux3-x86-64.raw" \
                     "$SYSEXT_CACHE/artifact-streaming.raw"
                 rmdir "$SYSEXT_CACHE"
@@ -82,8 +82,8 @@ Describe 'cse_install_acl.sh'
             }
 
             It 'selects the exact cached revision rather than a later prefix match'
-                When call matchLocalSysext artifact-streaming "1.0.0-2-azlinux3" x86-64
-                The output should equal "$SYSEXT_CACHE/artifact-streaming-v1.0.0-2-azlinux3-x86-64.raw"
+                When call matchLocalSysext artifact-streaming "1.0.0-1-azlinux3" x86-64
+                The output should equal "$SYSEXT_CACHE/artifact-streaming-v1.0.0-1-azlinux3-x86-64.raw"
                 The status should be success
             End
 
