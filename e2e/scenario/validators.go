@@ -1434,8 +1434,9 @@ func isKnownCVMInitrdFailure(s *Scenario, unitName, errorMessages string) bool {
 	if !s.Tags.CVM || s.VHD == nil || unitName != "initrd-core-tmpfiles-setup.service" {
 		return false
 	}
-	if s.VHD.Distro != datamodel.AKSUbuntuContainerd2404CVMGen2 &&
-		s.VHD.Distro != datamodel.AKSUbuntuMinimalContainerd2604CVMGen2 {
+	switch s.VHD.Distro {
+	case datamodel.AKSUbuntuContainerd2404CVMGen2, datamodel.AKSUbuntuMinimalContainerd2604CVMGen2:
+	default:
 		return false
 	}
 
@@ -1456,19 +1457,6 @@ func isKnownCVMInitrdFailure(s *Scenario, unitName, errorMessages string) bool {
 		}
 	}
 	return foundMissingConfig
-}
-
-func checkKnownCVMInitrdFailure(ctx context.Context, s *Scenario, unitName string) (bool, error) {
-	if unitName != "initrd-core-tmpfiles-setup.service" || !s.Tags.CVM {
-		return false, nil
-	}
-	errorLogs, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		fmt.Sprintf("LC_ALL=C journalctl -b -u %s -p err --no-pager --quiet -o cat", unitName),
-		0, "unable to inspect initrd unit errors")
-	if err != nil {
-		return false, fmt.Errorf("retrieve errors of failed unit %s: %w", unitName, err)
-	}
-	return isKnownCVMInitrdFailure(s, unitName, errorLogs.stdout), nil
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
@@ -1520,10 +1508,17 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 		return fmt.Errorf(`parse and unmarshal "systemctl list-units" command output: %w`, err)
 	}
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
-		return !unitFailureAllowList[unit.Name] &&
-			!(strings.HasSuffix(unit.Name, ".mount") && slices.ContainsFunc(mountFailureAllowPrefixes, func(prefix string) bool {
-				return strings.HasPrefix(unit.Name, prefix)
-			}))
+		if unitFailureAllowList[unit.Name] {
+			return false
+		}
+		if strings.HasSuffix(unit.Name, ".mount") {
+			for _, prefix := range mountFailureAllowPrefixes {
+				if strings.HasPrefix(unit.Name, prefix) {
+					return false
+				}
+			}
+		}
+		return true
 	})
 
 	if len(failedUnits) < 1 {
@@ -1543,13 +1538,16 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 			continue
 		}
 		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
-		knownFailure, err := checkKnownCVMInitrdFailure(ctx, s, unit.Name)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		if knownFailure {
-			logging.Logf(ctx, "Allowing %s with the exact missing core-writable.conf error (Ubuntu bug 2170424)", unit.Name)
-			continue
+		if unit.Name == "initrd-core-tmpfiles-setup.service" && s.Tags.CVM {
+			errorLogs, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+				fmt.Sprintf("journalctl -b -u %s -p err --no-pager --quiet -o cat", unit.Name),
+				0, "unable to inspect initrd unit errors")
+			if err != nil {
+				errs = append(errs, fmt.Errorf("retrieve errors of failed unit %s: %w", unit.Name, err))
+			} else if isKnownCVMInitrdFailure(s, unit.Name, errorLogs.stdout) {
+				logging.Logf(ctx, "Allowing %s with the exact missing core-writable.conf error (Ubuntu bug 2170424)", unit.Name)
+				continue
+			}
 		}
 		unexpectedUnits = append(unexpectedUnits, unit)
 	}

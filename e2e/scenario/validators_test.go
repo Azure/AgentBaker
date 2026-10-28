@@ -37,10 +37,7 @@ func TestIsKnownCVMInitrdFailure(t *testing.T) {
 			"read with additional error", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, unit,
 			missingConfigRead + summaries + "\nFailed to create directory: Read-only file system", false,
 		},
-		{
-			"different exit status", config.VHDUbuntu2404CVMGen2Containerd, true, unit,
-			missingConfig + "\ninitrd-core-tmpfiles-setup.service: Main process exited, code=exited, status=2/INVALIDARGUMENT", false,
-		},
+		{"different exit status", config.VHDUbuntu2404CVMGen2Containerd, true, unit, missingConfig + "\ninitrd-core-tmpfiles-setup.service: Main process exited, code=exited, status=2/INVALIDARGUMENT", false},
 		{"missing diagnostic", config.VHDUbuntu2404CVMGen2Containerd, true, unit, summaries, false},
 		{"empty journal", config.VHDUbuntu2404CVMGen2Containerd, true, unit, "", false},
 		{"TPM unit", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, "systemd-tpm2-setup.service", missingConfig, false},
