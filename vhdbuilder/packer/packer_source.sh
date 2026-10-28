@@ -282,6 +282,8 @@ copyPackerFiles() {
   CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST=/etc/systemd/system/cgroup-pressure-telemetry.service
   CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC=/home/packer/cgroup-pressure-telemetry.sh
   CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST=/opt/scripts/cgroup-pressure-telemetry.sh
+  CGROUP_TELEMETRY_EVENTS_SRC=/home/packer/cgroup-telemetry-events.sh
+  CGROUP_TELEMETRY_EVENTS_DEST=/opt/scripts/cgroup-telemetry-events.sh
   CGROUP_PRESSURE_TELEMETRY_TIMER_SRC=/home/packer/cgroup-pressure-telemetry.timer
   CGROUP_PRESSURE_TELEMETRY_TIMER_DEST=/etc/systemd/system/cgroup-pressure-telemetry.timer
   UPDATE_CERTS_SERVICE_SRC=/home/packer/update_certs.service
@@ -727,6 +729,7 @@ copyPackerFiles() {
   cpAndMode $SERVICE_EXECUTION_TELEMETRY_SERVICE_SRC $SERVICE_EXECUTION_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC $CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC $CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST 755
+  cpAndMode $CGROUP_TELEMETRY_EVENTS_SRC $CGROUP_TELEMETRY_EVENTS_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_TIMER_SRC $CGROUP_PRESSURE_TELEMETRY_TIMER_DEST 644
   local systemd_version
   systemd_version=$(systemctl --version | awk 'NR == 1 { print $2 }')

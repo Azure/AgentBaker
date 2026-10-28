@@ -62,6 +62,7 @@ Describe 'cgroup telemetry'
 
     prepare_pressure_script() {
         sed \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e 's|CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=cgroup2fs|' \
             -e "s|CGROUP=\"/sys/fs/cgroup\"|CGROUP=\"${CGROUP_ROOT}\"|" \
@@ -250,7 +251,7 @@ Describe 'cgroup telemetry'
     It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
         check_pressure_size_boundaries() {
             local fits_filter
-            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh)
+            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh)
             [ -n "${fits_filter}" ] || return 1
             jq -ne "${fits_filter}"'
                 def repeat_text($text; $count): [range(0; $count) | $text] | join("");
@@ -275,6 +276,37 @@ Describe 'cgroup telemetry'
         When call check_pressure_size_boundaries
         The status should be success
         The output should equal true
+    End
+
+    Describe 'shared cgroup event publication'
+        Parameters
+            Pressure
+            CPUUsage
+            Memory
+        End
+
+        It 'splits and reconstructs the requested object without losing its entries'
+            publish_and_validate() {
+                local field="$1" message
+                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                message=$(jq -cn --arg field "${field}" '
+                    {CgroupVersion: "cgroupv2", ($field):
+                        ([range(0; 20) | {key: ("metric" + tostring), value: ([range(0; 200) | "x"] | join(""))}] | from_entries)}')
+                publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test || return 1
+                jq -se --arg field "${field}" '
+                    length as $count |
+                    length > 1 and
+                    ([.[].Message | fromjson | .[$field]] | add | length == 20) and
+                    ([.[].Message | fromjson | .TelemetryChunk.index] | sort == [range(0; length)]) and
+                    all(.[]; (.Message | fromjson | .TelemetryChunk.count) == $count)
+                ' "${EVENTS_ROOT}"/*.json
+            }
+
+            When call publish_and_validate "$1"
+            The status should be success
+            The output should equal true
+        End
     End
 
     Context 'when jq succeeds without emitting events'

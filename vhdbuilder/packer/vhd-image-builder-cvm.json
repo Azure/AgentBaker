@@ -662,6 +662,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh",
+      "destination": "/home/packer/cgroup-telemetry-events.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service",
       "destination": "/home/packer/cgroup-pressure-telemetry.service"
     },

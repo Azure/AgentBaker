@@ -1,6 +1,9 @@
 #!/bin/bash
 set -uo pipefail
 
+# shellcheck source=./cgroup-telemetry-events.sh
+source /opt/scripts/cgroup-telemetry-events.sh || exit 1
+
 getServicePressure() {
     local service_cgroup="$1"
     local cpu_pressure
@@ -304,55 +307,6 @@ fi
 
 message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
-if ! EVENT_JSON=$( jq -cn \
-    --arg Timestamp     "${STARTTIME_FORMATTED}" \
-    --arg OperationId   "${ENDTIME_FORMATTED}" \
-    --arg Version       "1.23" \
-    --arg TaskName      "${TASK_NAME}" \
-    --arg EventLevel    "${eventlevel}" \
-    --arg Message       "${message_string}" \
-    --arg EventPid      "0" \
-    --arg EventTid      "0" \
-    --arg id "${EVENTS_FILE_NAME}" '
-    # These byte limits are multiples of 3, so their Base64 length bounds are exact on jq 1.5.
-    def fits: (.Message | @base64 | length) <= 4096 and (tojson | @base64 | length) <= 8192;
-    {Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName,
-     EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid} as $event |
-    if ($event | fits) then [$event] else
-        ($Message | fromjson) as $payload |
-        ($payload.Pressure | to_entries) as $entries |
-        ((($entries | length) + 3) / 4 | floor) as $count |
-        [range(0; $count) as $index |
-            $payload |
-            .Pressure = ($entries[$index * 4:($index + 1) * 4] | from_entries) |
-            .TelemetryChunk = {id: $id, index: $index, count: $count, encoding: "json"} |
-            tojson as $message | $event | .Message = $message]
-    end |
-    if length > 0 and all(.[]; fits) then .[]
-    else error("pressure event exceeds guest agent transport limits") end
-'); then
-    echo "pressure telemetry: failed to bound event payload" >&2
-    exit 1
-fi
-
-if [ -z "${EVENT_JSON}" ]; then
-    echo "pressure telemetry: no events generated" >&2
-    exit 1
-fi
-
-mkdir -p "${EVENTS_LOGGING_DIR}" || exit 1
-event_index=0
-while IFS= read -r event; do
-    printf -v target '%s/%s%06d.json' "${EVENTS_LOGGING_DIR%/}" "${EVENTS_FILE_NAME}" "${event_index}"
-    # WALinuxAgent deletes all entries in events/, including hidden staging files.
-    temporary=$(mktemp "${EVENTS_LOGGING_DIR%/}/../.pressure-event.XXXXXXXX") || exit 1
-    # Publish complete files only, without overwriting another sample or fragment.
-    if ! printf '%s\n' "${event}" > "${temporary}" ||
-        ! chmod 0644 "${temporary}" || ! ln "${temporary}" "${target}"; then
-        echo "pressure telemetry: failed to publish ${target}" >&2
-        rm -f "${temporary}"
-        exit 1
-    fi
-    rm -f "${temporary}" || exit 1
-    event_index=$((event_index + 1))
-done <<< "${EVENT_JSON}"
+publishCgroupTelemetry "${EVENTS_LOGGING_DIR}" "${EVENTS_FILE_NAME}" \
+    "${STARTTIME_FORMATTED}" "${ENDTIME_FORMATTED}" "${TASK_NAME}" "${eventlevel}" \
+    "${message_string}" Pressure pressure || exit 1
