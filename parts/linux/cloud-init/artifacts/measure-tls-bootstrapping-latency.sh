@@ -18,7 +18,10 @@ WATCH_TIMEOUT_SECONDS=${WATCH_TIMEOUT_SECONDS:-300}  # default to 5 minutes
 createGuestAgentEvent() {
     local task=$1; startTime=$2; endTime=$3;
     local eventsFileName
-    eventsFileName=$(date +%s%3N)
+    # The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+    # timestamp plus the emitting process's PID is unique by construction: two live
+    # processes cannot share a PID, and two forks of date cannot share a nanosecond.
+    eventsFileName="$(date +%s%N)${BASHPID}"
 
     json_string=$( jq -n \
         --arg Timestamp   "${startTime}" \
