@@ -171,3 +171,10 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ] && [ "$OS_VARIANT_ID" != "AZURECONTAINERLIN
 else
     echo "Skipping WALinuxAgent manifest install (VARIANT_ID=${OS_VARIANT_ID:-unset})"
 fi
+
+# Packer must reset CVM anchors even when no AIB optimization follows.
+if printf '%s\n' "${2:-}" | grep -q "cvm"; then
+    # shellcheck source=/dev/null
+    . /opt/azure/containers/aib-deprovision.sh
+    cleanupNvPCRCredentials true /
+fi
