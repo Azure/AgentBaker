@@ -1,5 +1,24 @@
 #!/bin/bash
 
+Describe 'ACL experimental AIB template'
+  validate_template() {
+    jq -e '
+      (.properties.customize | length) == 1 and
+      .properties.customize[0].type == "Shell" and
+      .properties.customize[0].inline == [
+        "sudo test -s /opt/azure/containers/prefetch.sh",
+        "sudo test -s /opt/azure/containers/cleanup-vhd.sh"
+      ] and .properties.optimize.vmBoot.state == "Enabled" and
+      .properties.optimize.workload.state == "Enabled"
+    ' vhdbuilder/prefetch/templates/acl-experiment.json
+  }
+  It 'retains a nonempty preflight customizer without deleting the baked cleanup'
+    When call validate_template
+    The status should be success
+    The output should equal true
+  End
+End
+
 Describe 'ACL workload prefetch first-boot postcondition'
   Include ./vhdbuilder/scripts/acl-prefetch-driver.sh
 

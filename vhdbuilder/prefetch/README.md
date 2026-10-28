@@ -13,6 +13,9 @@ The hook warms the baked workload, runs the existing VHD cleanup, verifies the
 selected UKI's addon, restores the legacy first-boot marker, and flushes writes.
 It deliberately fails when required scripts or first-boot state are missing.
 The initial experiment targets UKI-based AMD64 ACL Trusted Launch images.
+The customizer only checks prerequisites: the AIB service rejects an empty
+customizer list. Its boot can consume first-boot state, which the late workload
+hook must restore; the final-image gate below remains mandatory.
 
 Run the existing [optimizer](scripts/optimize.sh) with its normal required
 environment and these overrides:

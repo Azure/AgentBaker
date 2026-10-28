@@ -13,7 +13,16 @@
             "type": "<SOURCE_TYPE>",
             "<SOURCE_ID_KEY>": "<SOURCE_ID>"
         },
-        "customize": [],
+        "customize": [
+            {
+                "type": "Shell",
+                "name": "CheckACLExperimentPrerequisites",
+                "inline": [
+                    "sudo test -s /opt/azure/containers/prefetch.sh",
+                    "sudo test -s /opt/azure/containers/cleanup-vhd.sh"
+                ]
+            }
+        ],
         "vmProfile": {
             "vmSize": "Standard_D4s_v5",
             "osDiskSizeGB": 60
