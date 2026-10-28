@@ -1331,38 +1331,51 @@ func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *S
 	)
 }
 
-// ValidateWindowsExporter asserts that the service registered by windowsexporterfunc.ps1
+const (
+	windowsExporterSkipMarker   = `C:\k\skip_vhd_windows_exporter`
+	windowsExporterAssetsMarker = `C:\k\windows-exporter\windows-exporter-assets.complete`
+	windowsExporterServiceName  = "aks-windows-exporter"
+)
+
+// windowsExporterIsCSEOwned reports whether the VHD carries baked exporter assets,
+// meaning CSE (not aks-vm-extension) owns the aks-windows-exporter service.
+func windowsExporterIsCSEOwned(ctx context.Context, s *Scenario) (bool, error) {
+	ownershipCheck := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'SKIP'; exit 0 }", windowsExporterAssetsMarker),
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'MISSING'; exit 0 }", windowsExporterSkipMarker),
+		"Write-Output 'PRESENT'",
+	}
+	res, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(ownershipCheck, "\n"), 0,
+		fmt.Sprintf("could not check aks-windows-exporter markers on %s", s.Runtime.VM.PrivateIP))
+	if err != nil {
+		return false, fmt.Errorf("check aks-windows-exporter markers: %w", err)
+	}
+	owned, err := validateWindowsExporterOwnership(res.stdout)
+	if err != nil {
+		return false, err
+	}
+	if !owned {
+		logging.Logf(ctx, "Skipping aks-windows-exporter validation: baked assets marker %s not found (aks-vm-extension manages the service on this VHD)", windowsExporterAssetsMarker)
+	}
+	return owned, nil
+}
+
+// ValidateWindowsExporter asserts that the service managed by windowsexporterfunc.ps1
 // is running and serving Prometheus metrics. Older VHDs without baked assets remain
 // extension-managed. On new VHDs the baked skip marker disables the extension;
 // its presence is not proof of successful CSE startup, so service and metrics are checked below.
 func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 	const (
-		sentinel    = `C:\k\skip_vhd_windows_exporter`
-		assets      = `C:\k\windows-exporter\windows-exporter-assets.complete`
-		binary      = `C:\k\windows-exporter\windows-exporter.exe`
-		configFile  = `C:\k\windows-exporter\windows-exporter-config.yml`
-		serviceName = "aks-windows-exporter"
+		binary     = `C:\k\windows-exporter\windows-exporter.exe`
+		configFile = `C:\k\windows-exporter\windows-exporter-config.yml`
 	)
+	serviceName := windowsExporterServiceName
 	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
 
-	sentinelCheck := []string{
-		"$ErrorActionPreference = \"Stop\"",
-		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'SKIP'; exit 0 }", assets),
-		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'MISSING'; exit 0 }", sentinel),
-		"Write-Output 'PRESENT'",
-	}
-	res, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(sentinelCheck, "\n"), 0,
-		fmt.Sprintf("could not check aks-windows-exporter sentinel %s on %s", sentinel, s.Runtime.VM.PrivateIP))
-	if err != nil {
-		return fmt.Errorf("check aks-windows-exporter sentinel %s: %w", sentinel, err)
-	}
-	owned, err := validateWindowsExporterOwnership(res.stdout)
-	if err != nil {
+	owned, err := windowsExporterIsCSEOwned(ctx, s)
+	if err != nil || !owned {
 		return err
-	}
-	if !owned {
-		logging.Logf(ctx, "Skipping aks-windows-exporter validation: baked assets marker %s not found (aks-vm-extension manages the service on this VHD)", assets)
-		return nil
 	}
 
 	logging.Logf(ctx, "skip_vhd_windows_exporter sentinel present, validating aks-windows-exporter installation")
@@ -1394,6 +1407,27 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 	}
 	logging.Logf(ctx, "aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
 	return nil
+}
+
+// ValidateWindowsExporterRegisteredDisabled asserts that a PIS bake (BasePrep only)
+// registered aks-windows-exporter without enabling or starting it. Unlike
+// ValidateWindowsServiceIsNotRunning, a missing service fails this check.
+func ValidateWindowsExporterRegisteredDisabled(ctx context.Context, s *Scenario) error {
+	owned, err := windowsExporterIsCSEOwned(ctx, s)
+	if err != nil || !owned {
+		return err
+	}
+
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("$svc = Get-Service -Name '%s'", windowsExporterServiceName),
+		"Write-Output $svc",
+		fmt.Sprintf("if ($svc.Status -ne 'Stopped') { throw \"service %s is $($svc.Status), expected Stopped after BasePrep\" }", windowsExporterServiceName),
+		fmt.Sprintf("if ($svc.StartType -ne 'Disabled') { throw \"service %s StartType is $($svc.StartType), expected Disabled after BasePrep\" }", windowsExporterServiceName),
+	}
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("aks-windows-exporter is not registered disabled on %s", s.Runtime.VM.PrivateIP))
+	return err
 }
 
 func validateWindowsExporterOwnership(result string) (bool, error) {

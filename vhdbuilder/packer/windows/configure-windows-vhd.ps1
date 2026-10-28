@@ -827,7 +827,6 @@ function Install-WindowsExporterOnVHD
     $exporterCacheDir   = "c:\akse-cache\windows-exporter"
     $exporterInstallDir = "C:\k\windows-exporter"
     $exporterConfigSrc  = "c:\k\windows-exporter-config.yml"
-    $exporterHealthSrc  = "c:\k\windows-exporter-health.ps1"
     $exporterAssetsFile = Join-Path $exporterInstallDir "windows-exporter-assets.complete"
 
     if (-not (Test-Path $exporterCacheDir))
@@ -878,15 +877,6 @@ function Install-WindowsExporterOnVHD
     else
     {
         throw "windows-exporter config not staged at $exporterConfigSrc"
-    }
-
-    if (Test-Path $exporterHealthSrc)
-    {
-        Copy-Item -Path $exporterHealthSrc -Destination (Join-Path $exporterInstallDir "windows-exporter-health.ps1") -Force
-    }
-    else
-    {
-        throw "windows-exporter health script not staged at $exporterHealthSrc"
     }
 
     # Commit the markers only after staging is complete. Marker write failures fail the build.

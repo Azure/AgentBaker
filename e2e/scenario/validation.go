@@ -116,6 +116,7 @@ func ValidateCommonWindows(ctx context.Context, s *Scenario) error {
 	return runValidators(ctx, s,
 		ValidateTLSBootstrapping,
 		ValidateKubeletServingCertificateRotation,
+		ValidateWindowsExporter,
 	)
 }
 

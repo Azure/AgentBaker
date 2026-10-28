@@ -9,7 +9,7 @@
     used so existing customer dashboards/alerts continue to work.
 
     Lifecycle:
-    - VHD build stages the binary, config, health script, the assets marker, and
+    - VHD build stages the binary, config, the assets marker, and
       C:\k\skip_vhd_windows_exporter (which disables the aks-vm-extension path).
     - BasePrep (Register-WindowsExporter) registers the service disabled once
       nssm.exe is available, so PIS-cached images carry a registered service that
@@ -26,21 +26,22 @@
 $global:WindowsExporterInstallDir     = "C:\k\windows-exporter"
 $global:WindowsExporterBinary         = Join-Path $global:WindowsExporterInstallDir "windows-exporter.exe"
 $global:WindowsExporterConfig         = Join-Path $global:WindowsExporterInstallDir "windows-exporter-config.yml"
-$global:WindowsExporterHealthScript   = Join-Path $global:WindowsExporterInstallDir "windows-exporter-health.ps1"
 $global:WindowsExporterAssetsFile     = Join-Path $global:WindowsExporterInstallDir "windows-exporter-assets.complete"
 $global:WindowsExporterSkipFile       = "C:\k\skip_vhd_windows_exporter"
 $global:WindowsExporterServiceName    = "aks-windows-exporter"
 $global:WindowsExporterPort           = 19100
 $global:WindowsExporterStdoutLog      = "C:\k\windows-exporter.log"
 $global:WindowsExporterStderrLog      = "C:\k\windows-exporter.err.log"
-$global:WindowsExporterNssm           = "C:\k\nssm.exe"
 
-function Invoke-WindowsExporterNssm {
-    param([Parameter(Mandatory=$true)][string[]]$Arguments)
+function Invoke-WindowsExporterRequest {
+    param([Parameter(Mandatory=$true)][string]$Path)
 
-    & $global:WindowsExporterNssm @Arguments | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw "nssm.exe $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$($global:WindowsExporterPort)/$Path" -TimeoutSec 10 -ErrorAction Stop
+        return [string]$response.Content
+    }
+    catch {
+        return ""
     }
 }
 
@@ -50,41 +51,12 @@ function Test-WindowsExporterHealth {
         [int]$RetryInterval = 5
     )
 
-    if (Test-Path $global:WindowsExporterHealthScript) {
-        . $global:WindowsExporterHealthScript
-        for ($i = 0; $i -le $RetryCount; $i++) {
-            $healthResult = Get-Health
-            $service = Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue
-            if ($service -and $service.Status -eq 'Running' -and $healthResult -ne "") {
-                Write-Log "aks-windows-exporter health check passed: $healthResult"
-                $versionResult = Get-Version
-                if ($versionResult -ne "") {
-                    Write-Log "aks-windows-exporter version $versionResult"
-                }
-                return $true
-            }
-            if ($i -lt $RetryCount) {
-                Start-Sleep -Seconds $RetryInterval
-            }
-        }
-
-        Write-Log "aks-windows-exporter health script check failed after $($RetryCount + 1) attempts"
-        return $false
-    }
-
-    Write-Log "windows-exporter health script not found at $($global:WindowsExporterHealthScript); falling back to direct health endpoint probe"
     for ($i = 0; $i -le $RetryCount; $i++) {
-        $result = ""
-        try {
-            $response = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$($global:WindowsExporterPort)/health" -TimeoutSec 10 -ErrorAction Stop
-            $result = [string]$response.Content
-        }
-        catch {
-            $result = ""
-        }
+        $result = Invoke-WindowsExporterRequest -Path "health"
         $service = Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue
         if ($service -and $service.Status -eq 'Running' -and $null -ne $result -and $result.Contains("ok")) {
             Write-Log "aks-windows-exporter health check passed: $result"
+            Write-WindowsExporterVersion
             return $true
         }
         if ($i -lt $RetryCount) {
@@ -93,6 +65,22 @@ function Test-WindowsExporterHealth {
     }
     Write-Log "aks-windows-exporter health check failed after $($RetryCount + 1) attempts"
     return $false
+}
+
+function Write-WindowsExporterVersion {
+    # Best effort: the version is logged for diagnostics only.
+    $result = Invoke-WindowsExporterRequest -Path "version"
+    if ([string]::IsNullOrEmpty($result)) {
+        return
+    }
+    try {
+        $versionInfo = $result | ConvertFrom-Json -ErrorAction Stop
+        if (-not [string]::IsNullOrEmpty($versionInfo.version)) {
+            Write-Log "aks-windows-exporter version $($versionInfo.version)"
+        }
+    }
+    catch {
+    }
 }
 
 function Test-WindowsExporterAssets {
@@ -126,12 +114,9 @@ function Test-WindowsExporterAssets {
         return 'Invalid'
     }
 
-    if (-not (Test-Path $global:WindowsExporterHealthScript)) {
-        Write-Log "windows-exporter health script not found at $($global:WindowsExporterHealthScript); health validation will use direct endpoint probe"
-    }
-
-    if (-not (Test-Path $global:WindowsExporterNssm)) {
-        Write-Log "nssm.exe not found at $($global:WindowsExporterNssm); cannot manage $($global:WindowsExporterServiceName)"
+    $nssm = Join-Path $global:KubeDir "nssm.exe"
+    if (-not (Test-Path $nssm)) {
+        Write-Log "nssm.exe not found at $nssm; cannot manage $($global:WindowsExporterServiceName)"
         return 'Invalid'
     }
 
@@ -156,35 +141,36 @@ function Register-WindowsExporter {
         return $false
     }
 
-    Write-Log "Registering $($global:WindowsExporterServiceName) as a disabled service"
+    $svc = $global:WindowsExporterServiceName
+    Write-Log "Registering $svc as a disabled service"
     $appParameters = "--config.file=`"$($global:WindowsExporterConfig)`""
 
     # NSSM settings mirror aks-vm-extension/aks-windows-node-vm-extension/entrypoint.ps1 Install-SystemService
     # to preserve service behavior (logs, rotation, restart policy) that customers rely on.
     try {
         if (-not (Get-Service $global:WindowsExporterServiceName -ErrorAction SilentlyContinue)) {
-            Invoke-WindowsExporterNssm -Arguments @("install", $global:WindowsExporterServiceName, $global:WindowsExporterBinary)
+            $null = Invoke-Nssm -KubeDir $global:KubeDir install $svc $global:WindowsExporterBinary
         } else {
             Write-Log "$($global:WindowsExporterServiceName) is already registered; updating its settings"
         }
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Application", $global:WindowsExporterBinary)
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppDirectory", $global:WindowsExporterInstallDir)
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppParameters", $appParameters)
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "DisplayName", $global:WindowsExporterServiceName)
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Description", $global:WindowsExporterServiceName)
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Start", "SERVICE_DISABLED")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "ObjectName", "LocalSystem")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Type", "SERVICE_WIN32_OWN_PROCESS")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRestartDelay", "5000")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppThrottle", "1500")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppStdout", $global:WindowsExporterStdoutLog)
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppStderr", $global:WindowsExporterStderrLog)
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppStdoutCreationDisposition", "4")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppStderrCreationDisposition", "4")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateFiles", "1")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateOnline", "1")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateSeconds", "86400")
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "AppRotateBytes", "10485760")
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc Application $global:WindowsExporterBinary
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppDirectory $global:WindowsExporterInstallDir
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppParameters $appParameters
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc DisplayName $svc
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc Description $svc
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc Start SERVICE_DISABLED
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc ObjectName LocalSystem
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc Type SERVICE_WIN32_OWN_PROCESS
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppRestartDelay 5000
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppThrottle 1500
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppStdout $global:WindowsExporterStdoutLog
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppStderr $global:WindowsExporterStderrLog
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppStdoutCreationDisposition 4
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppStderrCreationDisposition 4
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppRotateFiles 1
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppRotateOnline 1
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppRotateSeconds 86400
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc AppRotateBytes 10485760
     }
     catch {
         Write-Log "failed to register aks-windows-exporter: $_"
@@ -220,14 +206,15 @@ function Enable-WindowsExporter {
         }
     }
 
-    Write-Log "Enabling and starting $($global:WindowsExporterServiceName)"
+    $svc = $global:WindowsExporterServiceName
+    Write-Log "Enabling and starting $svc"
     try {
-        Invoke-WindowsExporterNssm -Arguments @("set", $global:WindowsExporterServiceName, "Start", "SERVICE_AUTO_START")
+        $null = Invoke-Nssm -KubeDir $global:KubeDir set $svc Start SERVICE_AUTO_START
         # Restart a service that is already running (for example, a CSE re-run) so
         # settings applied by Register-WindowsExporter take effect.
         $service = Get-Service $global:WindowsExporterServiceName -ErrorAction Stop
         if ($service.Status -ne 'Stopped') {
-            Invoke-WindowsExporterNssm -Arguments @("stop", $global:WindowsExporterServiceName)
+            $null = Invoke-Nssm -KubeDir $global:KubeDir stop $svc
         }
     }
     catch {
@@ -236,7 +223,7 @@ function Enable-WindowsExporter {
     }
 
     try {
-        Invoke-WindowsExporterNssm -Arguments @("start", $global:WindowsExporterServiceName)
+        $null = Invoke-Nssm -KubeDir $global:KubeDir start $svc
     }
     catch {
         # NSSM can return nonzero while the service is still START_PENDING.

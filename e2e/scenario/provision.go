@@ -58,6 +58,7 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				ValidateWindowsFileExcludesBootstrapToken(ctx, scenario, "C:\\AzureData\\CustomDataSetupScript.ps1"),
 				ValidateWindowsServiceIsNotRunning(ctx, scenario, "kubelet"),
 				ValidateWindowsServiceIsRunning(ctx, scenario, "containerd"),
+				ValidateWindowsExporterRegisteredDisabled(ctx, scenario),
 			)
 		} else {
 			validationErr = errors.Join(
