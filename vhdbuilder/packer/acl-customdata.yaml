@@ -13,10 +13,6 @@ storage:
       inline: |
         ID=azurelinux
         SYSEXT_LEVEL=1.0
-  - path: /etc/flatcar/enabled-sysext.conf
-    overwrite: true
-    contents:
-      inline: ""
   - path: /etc/flatcar/update.conf
     overwrite: true
     contents:
