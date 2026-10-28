@@ -1,6 +1,6 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
-  TAGS_TO_SKIP: "os=windows,gpu=true"
+  TAGS_TO_SKIP: "os=windows,gpu=true,cvm=true"
   SKIP_E2E_TESTS: false
   E2E_FAILED_TESTS_RETRY_COUNT: 0
 schedules:

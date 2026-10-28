@@ -31,7 +31,9 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -
 BASH_ONLY_LIST=$(cat <<'EOF'
 ./e2e/scenario/validate_anc_hotfix.sh
 ./vhdbuilder/packer/install-ig.sh
+./vhdbuilder/packer/publish-generalized-cvm-if-required.sh
 ./vhdbuilder/packer/ubuntu-2604-cvm/trim-2604-cvm-packages.sh
+./parts/linux/cloud-init/artifacts/npd-update.sh
 ./parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh
 EOF
 )

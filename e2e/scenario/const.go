@@ -14,6 +14,12 @@ const (
 	clusterDNSServiceIP = "172.16.0.10"
 )
 
+// The LocalDNS pod ("cluster") listener. A LocalDNS-enabled pool has kubelet
+// pointed here, so this is the nameserver written into every pod's resolv.conf
+// at sandbox creation -- and the address the pod-DNS fallback must keep serving
+// when localdns itself is down.
+const localDNSClusterListenerIP = "169.254.10.11"
+
 // cse output parsing consts
 const (
 	extensionErrorCodeRegex   = `ProvisioningState/failed/(\d+)`

@@ -268,6 +268,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh",
+      "destination": "/home/packer/remove-bootstrap-kubeconfig.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
@@ -415,6 +420,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf",
       "destination": "/home/packer/sysctl-d-60-CIS.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-mglru.conf",
+      "destination": "/home/packer/aks-mglru.conf"
     },
     {
       "type": "file",
@@ -710,6 +720,16 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns.service",
       "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.sh",
+      "destination": "/home/packer/localdns-fallback.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-fallback.service",
+      "destination": "/home/packer/localdns-fallback.service"
     },
     {
       "type": "file",

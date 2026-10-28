@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -17,7 +18,37 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
+
+func TestBuildCSECmdContainerdImagePullSettings(t *testing.T) {
+	for _, version := range []string{"1.7.22", "2.2.4"} {
+		t.Run(version, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "containerd"), []byte(fmt.Sprintf(`#!/bin/sh
+[ "$1" = "--version" ] || exit 1
+echo "containerd containerd.io %s test"
+`, version)), 0755))
+			t.Setenv("PATH", dir)
+			cfg := &aksnodeconfigv1.Configuration{ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+				ImagePullWithSyncFs:      proto.Bool(false),
+				ImagePullProgressTimeout: proto.String("0s"),
+			}}
+			cmd, err := BuildCSECmd(context.Background(), cfg, nil)
+			require.NoError(t, err)
+			env := environToMap(cmd.Env)
+			for _, key := range []string{"CONTAINERD_CONFIG_CONTENT", "CONTAINERD_CONFIG_NO_GPU_CONTENT"} {
+				content, err := base64.StdEncoding.DecodeString(env[key])
+				require.NoError(t, err)
+				require.Contains(t, string(content), "image_pull_with_sync_fs = false")
+				require.Contains(t, string(content), `image_pull_progress_timeout = "0s"`)
+			}
+			require.NotContains(t, env, "ANC_CONFIGURE_CONTAINERD_BINARY")
+			require.NotContains(t, env, "CONTAINERD_IMAGE_PULL_WITH_SYNC_FS")
+			require.NotContains(t, env, "CONTAINERD_IMAGE_PULL_PROGRESS_TIMEOUT")
+		})
+	}
+}
 
 func TestBuildCSECmd(t *testing.T) {
 	tests := []struct {
@@ -152,6 +183,7 @@ oom_score = -999
 				assert.Equal(t, helpers.AzureChinaCloud, vars["TARGET_CLOUD"])
 				assert.Equal(t, "false", vars["IS_CUSTOM_CLOUD"])
 				assert.Equal(t, "https://management.chinacloudapi.cn/", vars["ARM_RESOURCE_ENDPOINT"])
+				assertHasKeyWithValue(t, vars, "MCR_REPOSITORY_BASE", "mcr.azure.cn/")
 			},
 		},
 		{
@@ -393,6 +425,58 @@ oom_score = -999
 	}
 }
 
+func TestBuildCSECmd_MCRRepositoryBase(t *testing.T) {
+	tests := []struct {
+		name     string
+		location string
+		expected string
+	}{
+		{name: "empty", expected: "mcr.microsoft.com/"},
+		{name: "public", location: "eastus", expected: "mcr.microsoft.com/"},
+		{name: "unknown", location: "unknownregion", expected: "mcr.microsoft.com/"},
+		{name: "China east 2", location: "chinaeast2", expected: "mcr.azure.cn/"},
+		{name: "China east 3", location: "chinaeast3", expected: "mcr.azure.cn/"},
+		{name: "China north 2", location: "chinanorth2", expected: "mcr.azure.cn/"},
+		{name: "China north 3", location: "chinanorth3", expected: "mcr.azure.cn/"},
+		{name: "USNat east", location: "usnateast", expected: "mcr.microsoft.eaglex.ic.gov/"},
+		{name: "USNat west", location: "usnatwest", expected: "mcr.microsoft.eaglex.ic.gov/"},
+		{name: "USSec east", location: "usseceast", expected: "mcr.microsoft.scloud/"},
+		{name: "USSec west", location: "ussecwest", expected: "mcr.microsoft.scloud/"},
+		{name: "USSec west central", location: "ussecwestcentral", expected: "mcr.microsoft.scloud/"},
+		{name: "Bleu France central", location: "bleufrancecentral", expected: "mcr.sovcloud-azure.fr/"},
+		{name: "Bleu France south", location: "bleufrancesouth", expected: "mcr.sovcloud-azure.fr/"},
+		{name: "Delos Germany central", location: "deloscloudgermanycentral", expected: "mcr.sovcloud-azure.de/"},
+		{name: "Delos Germany north", location: "deloscloudgermanynorth", expected: "mcr.sovcloud-azure.de/"},
+		{name: "Delos prefix must match RP", location: "deloseast", expected: "mcr.microsoft.com/"},
+		{name: "legacy Germany northeast", location: "germanynortheast", expected: "mcr.microsoft.com/"},
+		{name: "legacy Germany central", location: "germanycentral", expected: "mcr.microsoft.com/"},
+		{name: "USGov Virginia", location: "usgovvirginia", expected: "mcr.microsoft.com/"},
+		{name: "USGov Arizona", location: "usgovarizona", expected: "mcr.microsoft.com/"},
+		{name: "USGov Texas", location: "usgovtexas", expected: "mcr.microsoft.com/"},
+		{name: "USDoD", location: "usdodcentral", expected: "mcr.microsoft.com/"},
+		{name: "GovSG central", location: "singaporecentral", expected: "mcr.microsoft.com/"},
+		{name: "GovSG north", location: "singaporenorth", expected: "mcr.microsoft.com/"},
+		{name: "prefix only", location: "eastuschina", expected: "mcr.microsoft.com/"},
+	}
+	for _, tt := range tests {
+		for _, location := range []string{tt.location, " \t" + strings.ToUpper(tt.location) + " \n", strings.Join(strings.Split(tt.location, ""), " ")} {
+			for _, cloud := range []string{"", helpers.AksCustomCloudName} {
+				t.Run(fmt.Sprintf("%s/location=%q/cloud=%s", tt.name, location, cloud), func(t *testing.T) {
+					config := &aksnodeconfigv1.Configuration{
+						ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: location},
+						CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+							CustomCloudEnvName: cloud,
+						},
+					}
+					cmd, err := BuildCSECmd(context.Background(), config, nil)
+					require.NoError(t, err)
+					assertHasKeyWithValue(t, environToMap(cmd.Env), "MCR_REPOSITORY_BASE", tt.expected)
+				})
+			}
+		}
+	}
+}
+
 func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	secret := "super-secret-value"
 	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
@@ -405,6 +489,16 @@ func TestBuildCSECmd_SetsServicePrincipalFileContent(t *testing.T) {
 	// The value should be exactly the secret, without additional base64 encoding.
 	// Actually the client which passes the secret to aks-node-controller should have base64 encoded it first.
 	assert.Equal(t, secret, vars["SERVICE_PRINCIPAL_FILE_CONTENT"])
+}
+
+func TestBuildCSECmd_SetsCustomDataOnlyProvisioning(t *testing.T) {
+	cmd, err := BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{
+		CustomDataOnlyProvisioning: true,
+	}, nil)
+	require.NoError(t, err)
+
+	vars := environToMap(cmd.Env)
+	assert.Equal(t, "true", vars["CUSTOM_DATA_ONLY_PROVISIONING"])
 }
 
 func TestBuildCSECmd_CiliumNetworkPolicy(t *testing.T) {
@@ -458,6 +552,35 @@ func TestBuildCSECmd_SetsEnableManagedGpuDra(t *testing.T) {
 
 			vars := environToMap(cmd.Env)
 			assert.Equal(t, tt.expected, vars["ENABLE_MANAGED_GPU_DRA"])
+		})
+	}
+}
+
+func TestBuildCSECmd_SetsEnableKmpp(t *testing.T) {
+	tests := []struct {
+		name     string
+		enabled  bool
+		expected string
+	}{
+		{
+			name:     "disabled by default",
+			expected: "false",
+		},
+		{
+			name:     "enabled",
+			enabled:  true,
+			expected: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &aksnodeconfigv1.Configuration{EnableKmpp: tt.enabled}
+			cmd, err := BuildCSECmd(context.TODO(), cfg, nil)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			assert.Equal(t, tt.expected, vars["ENABLE_KMPP"])
 		})
 	}
 }
@@ -570,8 +693,10 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assertHasKeyWithValue(t, vars, "NO_PROXY_URLS", "")
 				assertHasKeyWithValue(t, vars, "HTTP_PROXY_TRUSTED_CA", "")
 				assertHasKeyWithValue(t, vars, "TARGET_ENVIRONMENT", helpers.DefaultCloudName)
+				assertHasKeyWithValue(t, vars, "MCR_REPOSITORY_BASE", "mcr.microsoft.com/")
 				assertHasKeyWithValue(t, vars, "ARM_RESOURCE_ENDPOINT", "https://management.azure.com/")
 				assertHasKeyWithValue(t, vars, "TLS_BOOTSTRAP_TOKEN", "")
+				assertHasKeyWithValue(t, vars, "REMOVE_BOOTSTRAP_KUBECONFIG", "false")
 				assertHasKeyWithValue(t, vars, "ENABLE_SECURE_TLS_BOOTSTRAPPING", "false")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE", "")
 				assertHasKeyWithValue(t, vars, "SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID", "")

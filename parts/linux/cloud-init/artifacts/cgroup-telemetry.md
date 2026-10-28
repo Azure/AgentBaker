@@ -6,6 +6,8 @@ and throttling counters are emitted in its `CPUUsage` object; they are
 intentionally separate from the CPU PSI values emitted by
 `cgroup-pressure-telemetry.sh`. The collector requires cgroup v2.
 
+The monitored persistent services include containerd, kubelet, WALinuxAgent,
+node diagnostics and telemetry agents, LocalDNS, and supported GPU services.
 Each persistent service has the following cumulative counters:
 
 | Counter | Unit | cgroup v2 source |
@@ -25,6 +27,40 @@ reset and must be discarded rather than interpreted as a rate.
 An unavailable service is emitted as `"Not Found"`. If a service cgroup exists
 but a counter is absent or malformed, only that counter is emitted as
 `"Not Found"` so the remaining counters in the observation remain usable.
+The WALinuxAgent cgroup is resolved from systemd because distributions can
+place the service in `azure.slice` instead of `system.slice`. The CPU and memory
+collectors try `walinuxagent.service` first, then `waagent.service` if the first
+lookup fails or returns an empty or root cgroup. The metric names remain
+`walinuxagent_service_cpu_usage` and `walinuxagent_service_memory` for either
+unit name.
+
+# Pressure telemetry size limits
+
+`cgroup-pressure-telemetry.sh` checks the final message against 3,072 UTF-8
+bytes and the serialized event against 6,144 bytes before publishing it for
+WALinuxAgent. Samples that fit keep their original message. Oversized samples
+are split into groups of at most four pressure entries, preserving metric names,
+values, `CgroupVersion`, and the original event metadata. Every part is checked
+again; a sample that still exceeds either bound is rejected with an error before
+any parts are published, rather than silently truncated.
+The bounds work with jq 1.5: 3,072 and 6,144 bytes correspond exactly to
+4,096 and 8,192 Base64 characters. Base64 is used only to measure size;
+the emitted messages remain JSON strings.
+
+Each split message includes `TelemetryChunk` with a shared `id`, zero-based
+`index`, total `count`, and `encoding: "json"`. Consumers must read entries across
+parts instead of assuming one event contains every service. To reconstruct a
+sample, group by VM identity, TaskName and chunk id, verify every index is present,
+and merge the `Pressure` objects. Missing parts are incomplete data, not zeros.
+Unsplit messages have no chunk metadata.
+
+Files are published atomically with numeric names and a distinct part index.
+Temporary files are staged in the parent directory on the same filesystem,
+outside `events/`, so WALinuxAgent's queue cleanup cannot delete them before
+publication.
+Splitting increases event count without changing WALinuxAgent's collection
+quotas; it prevents size truncation, not other ingestion failures. This
+pressure-only implementation has no dependency on a new VHD or shared helper.
 
 # Recurring service execution telemetry
 

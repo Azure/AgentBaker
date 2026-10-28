@@ -12,10 +12,10 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
 2. Detects which CSE provisioning scripts differ from the immutable VHD baseline
    (the release tag the VHD was built from, derived from linux_sig_version.json),
    selects their write_files entries from parts/linux/cloud-init/nodecustomdata.yml,
-   injects those entries into the scriptless section of nodecustomdata.yml, and
-   renders self-contained ANC payloads for Ubuntu and Mariner with AgentBaker's
-   canonical Go-template renderer. Diffing against the frozen baseline keeps both
-   delivery paths cumulative.
+   injects entries not already supplied by the scriptless section into
+   nodecustomdata.yml, and renders self-contained ANC payloads for Ubuntu and
+   Mariner with AgentBaker's canonical Go-template renderer. Diffing against the
+   frozen baseline keeps both delivery paths cumulative.
 
 3. Writes `scripts_version` for script hotfixes. With --use-anc-for-scripts, also
    writes the `hotfixes` map to activate the embedded ANC payload. Independent ANC
@@ -467,7 +467,7 @@ def update_nodecustomdata(target_varkeys):
         return
 
     lines = clean_content.splitlines(keepends=True)
-    _, else_line, end_line = find_block_boundaries(lines)
+    start_line, else_line, end_line = find_block_boundaries(lines)
     if else_line is None or end_line is None:
         raise GenerationError(
             f"could not find traditional write_files section in {TEMPLATE}"
@@ -480,10 +480,23 @@ def update_nodecustomdata(target_varkeys):
     if not selected_blocks:
         raise GenerationError("no matching write_files blocks found for nodecustomdata")
 
-    injected_lines = ["\n", f"{SCRIPTS_BEGIN}\n"]
-    for block_lines in selected_blocks:
-        injected_lines.extend(block_lines)
-    injected_lines.append(f"{SCRIPTS_END}\n")
+    # Compare entire blocks, including guards and content, ignoring only boundary
+    # whitespace. Matching paths or variable keys alone can hide distinct entries.
+    existing_blocks = {
+        "".join(block_lines).strip()
+        for _, block_lines in parse_write_files_blocks(lines[start_line + 1:else_line])
+    }
+    selected_blocks = [
+        block_lines for block_lines in selected_blocks
+        if "".join(block_lines).strip() not in existing_blocks
+    ]
+
+    injected_lines = []
+    if selected_blocks:
+        injected_lines = ["\n", f"{SCRIPTS_BEGIN}\n"]
+        for block_lines in selected_blocks:
+            injected_lines.extend(block_lines)
+        injected_lines.append(f"{SCRIPTS_END}\n")
 
     with open(TEMPLATE, "w") as template_file:
         template_file.writelines(lines[:else_line] + injected_lines + lines[else_line:])

@@ -130,8 +130,8 @@ Describe 'cse_config_gpu.sh'
         End
     End
     Describe 'ensureArtifactStreaming'
-        # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
-        # runs the version-appropriate enablement path:
+        # ensureArtifactStreaming runs the version-appropriate enablement path
+        # before enabling the acr-mirror/overlaybd services:
         #   - acr-mirror 1.0.0+ -> setup.sh aks
         #   - older packages    -> acr-config --enable-containerd
         # The enablement binary paths are overridable (ACR_MIRROR_SETUP_SCRIPT /
@@ -148,7 +148,7 @@ Describe 'cse_config_gpu.sh'
         AfterEach 'cleanup_streaming'
 
         waitForContainerdReady() {
-            return 0
+            return "${CONTAINERD_READY_RC:-0}"
         }
         systemctl() {
             echo "systemctl $@"
@@ -159,18 +159,19 @@ Describe 'cse_config_gpu.sh'
         }
 
         install_setup_sh() {
-            printf '#!/bin/sh\necho "setup.sh $@"\n' > "${ACR_MIRROR_SETUP_SCRIPT}"
+            printf '#!/bin/sh\necho "setup.sh $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_MIRROR_SETUP_SCRIPT}"
             chmod +x "${ACR_MIRROR_SETUP_SCRIPT}"
         }
         install_acr_config() {
-            printf '#!/bin/sh\necho "acr-config $@"\n' > "${ACR_CONFIG_BIN}"
+            printf '#!/bin/sh\necho "acr-config $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_CONFIG_BIN}"
             chmod +x "${ACR_CONFIG_BIN}"
         }
 
         It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
             install_setup_sh
             When run ensureArtifactStreaming
-            The output should include "setup.sh aks"
+            The line 1 of output should equal "setup.sh aks"
+            The line 2 of output should equal "retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter"
             The output should not include "Older acr-mirror package"
             The status should be success
         End
@@ -179,7 +180,8 @@ Describe 'cse_config_gpu.sh'
             install_acr_config
             When run ensureArtifactStreaming
             The output should include "Older acr-mirror package is detected"
-            The output should include "acr-config --enable-containerd azurecr.io"
+            The line 2 of output should equal "acr-config --enable-containerd azurecr.io"
+            The line 3 of output should equal "retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter"
             The status should be success
         End
 
@@ -188,7 +190,32 @@ Describe 'cse_config_gpu.sh'
             install_setup_sh
             When run ensureArtifactStreaming
             The output should include "retrycmd_if_failure"
-            The output should not include "setup.sh aks"
+            The line 1 of output should equal "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not configure or start streaming when containerd is not ready'
+            CONTAINERD_READY_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should be blank
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not start streaming services when setup.sh fails'
+            SETUP_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should equal "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not start streaming services when legacy acr-config fails'
+            SETUP_RC=1
+            install_acr_config
+            When run ensureArtifactStreaming
+            The output should include "acr-config --enable-containerd azurecr.io"
+            The output should not include "retrycmd_if_failure"
             The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
         End
     End
@@ -281,13 +308,20 @@ Describe 'cse_config_gpu.sh'
     Describe 'configureManagedGPUExperience'
         # Mock the helper functions
         logs_to_events() {
-            echo "logs_to_events $1 $2"
-            eval "$2"
+            echo "logs_to_events $*"
+            shift
+            # Match the real wrapper: split arguments, but do not eval shell quotes.
+            ${@}
+        }
+
+        configureNvidiaGPUDriverMode() {
+            echo "configureNvidiaGPUDriverMode mode=${1:-}"
+            return "${MODE_WRITE_STATUS}"
         }
 
         installNvidiaManagedExpPkgFromCache() {
             echo "installNvidiaManagedExpPkgFromCache called"
-            return 0
+            return "${INSTALL_STATUS}"
         }
 
         startNvidiaManagedExpServices() {
@@ -325,13 +359,27 @@ Describe 'cse_config_gpu.sh'
             echo "rm $@"
         }
 
-        BeforeEach 'KUBELET_NODE_LABELS=""'
+        setup_managed_gpu() {
+            GPU_NODE=true
+            skip_nvidia_driver_install=false
+            ENABLE_MANAGED_GPU_EXPERIENCE=false
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=false
+            ENABLE_MANAGED_GPU_DRA=false
+            MODE_WRITE_STATUS=0
+            INSTALL_STATUS=0
+            KUBELET_NODE_LABELS=""
+        }
+
+        BeforeEach 'setup_managed_gpu'
 
         It 'should not enable managed GPU experience if not GPU node'
             GPU_NODE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
@@ -346,11 +394,26 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
             The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'does not write a driver mode when GPU driver installation is skipped'
+            skip_nvidia_driver_install="true"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "systemctlDisableAndStop"
         End
 
         It 'should not enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is unspecified'
@@ -360,10 +423,43 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should not include "installNvidiaManagedExpPkgFromCache called"
             The output should not include "startNvidiaManagedExpServices called"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        Describe 'neither managed mode selected'
+            Parameters
+                false false
+                '' ''
+                false ''
+                '' false
+                unset unset
+            End
+
+            It "succeeds without calling the mode writer for DevicePlugin='$1', DRA='$2'"
+                if [ "$1" = unset ]; then
+                    unset ENABLE_MANAGED_GPU_EXPERIENCE
+                else
+                    ENABLE_MANAGED_GPU_EXPERIENCE=$1
+                fi
+                if [ "$2" = unset ]; then
+                    unset ENABLE_MANAGED_GPU_EXPERIENCE_DRA
+                else
+                    ENABLE_MANAGED_GPU_EXPERIENCE_DRA=$2
+                fi
+                MODE_WRITE_STATUS=1
+
+                When call configureManagedGPUExperience
+
+                The status should be success
+                The output should not include "configureNvidiaGPUDriverMode"
+                The output should not include "installNvidiaManagedExpPkgFromCache called"
+                The output should not include "startNvidiaManagedExpServices called"
+            End
         End
 
         It 'should enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is true'
@@ -373,6 +469,8 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DevicePlugin"
             The output should include "installNvidiaManagedExpPkgFromCache called"
             The output should include "startNvidiaManagedExpServices called"
             The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
@@ -392,6 +490,9 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DRA"
+            The line 3 of output should include "AKS.CSE.installNvidiaManagedExpPkgFromCache"
             The output should include "installNvidiaManagedExpPkgFromCache called"
             # DRA defers service start (incl the compute-domain override) to startNvidiaManagedExpServices
             The output should not include "startNvidiaManagedExpServices called"
@@ -405,6 +506,8 @@ Describe 'cse_config_gpu.sh'
 
             When call configureManagedGPUExperience
 
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
             The output should include "systemctlDisableAndStop nvidia-device-plugin"
             The output should include "systemctlDisableAndStop nvidia-dcgm"
             The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
@@ -412,6 +515,63 @@ Describe 'cse_config_gpu.sh'
             The output should include "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
             The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
             The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'does not publish DRA from the raw flag when managed DRA is not selected'
+            ENABLE_MANAGED_GPU_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'fails without writing a mode when both managed modes are selected'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When run configureManagedGPUExperience
+
+            The status should equal "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should include "cannot both be true"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+        End
+
+        Describe 'mode write failures'
+            Parameters
+                true false DRA
+                false true DevicePlugin
+            End
+
+            It "fails before package or service changes when writing $3"
+                ENABLE_MANAGED_GPU_EXPERIENCE_DRA=$1
+                ENABLE_MANAGED_GPU_EXPERIENCE=$2
+                MODE_WRITE_STATUS=1
+
+                When run configureManagedGPUExperience
+
+                The status should equal "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
+                The line 2 of output should equal "configureNvidiaGPUDriverMode mode=$3"
+                The output should not include "installNvidiaManagedExpPkgFromCache called"
+                The output should not include "startNvidiaManagedExpServices called"
+                The output should not include "systemctlDisableAndStop"
+            End
+        End
+
+        It 'publishes the selected DRA mode before a managed package installation failure'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            INSTALL_STATUS=1
+
+            When run configureManagedGPUExperience
+
+            The status should equal "${ERR_NVIDIA_DCGM_INSTALL}"
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DRA"
+            The line 3 of output should include "AKS.CSE.installNvidiaManagedExpPkgFromCache"
+            The output should not include "startNvidiaManagedExpServices called"
         End
     End
     Describe 'startNvidiaManagedExpServices'
@@ -581,6 +741,9 @@ Describe 'cse_config_gpu.sh'
         setup_cdi_dropin() {
             CDI_TEST_DIR=$(mktemp -d)
             NVIDIA_CDI_REFRESH_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+            # The timeout override is a separate, higher-sorted drop-in so it beats the toolkit's own
+            # 10-container-engines.conf (TimeoutStartSec=90s) in systemd's lexical drop-in merge.
+            NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/90-aks-cdi-refresh-timeout.conf"
         }
         cleanup_cdi_dropin() {
             rm -rf "${CDI_TEST_DIR}"
@@ -589,6 +752,10 @@ Describe 'cse_config_gpu.sh'
         AfterEach 'cleanup_cdi_dropin'
 
         Describe 'configureNvidiaCDIRefresh'
+            # The TimeoutStartSec widening is arm64 (Grace-Blackwell) only; default the mock to arm64
+            # so the shared drop-in assertions below exercise the GB path, and override per-test.
+            getCPUArch() { echo "${MOCK_CPU_ARCH:-arm64}"; }
+
             It 'treats the known nvidia-ctk failures as success and reloads systemd'
                 systemctl() { echo "systemctl $*"; return 0; }
 
@@ -600,6 +767,33 @@ Describe 'cse_config_gpu.sh'
                 # driver userspace is ready, 127 = nvidia-smi missing on pre-reorder aks-gpu images.
                 The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "[Service]"
                 The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+            End
+
+            It 'writes the timeout override to a 90- drop-in on arm64 (must out-sort toolkit 10-container-engines.conf)'
+                MOCK_CPU_ARCH="arm64"
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                # The 90- prefix is load-bearing: systemd merges drop-ins in lexical order (last wins),
+                # and the toolkit's own 10-container-engines.conf pins TimeoutStartSec=90s. A 10-aks-*
+                # name sorts before it and loses, so the override must sort after it.
+                The path "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should be file
+                The contents of file "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should include "TimeoutStartSec=300"
+                # the tolerate-failure drop-in stays free of the timeout (separation keeps ordering clear)
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "TimeoutStartSec"
+            End
+
+            It 'does not write the timeout drop-in on x86 (generates in <1s, default timeout is fine)'
+                MOCK_CPU_ARCH="amd64"
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+                The path "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should not be exist
             End
 
             It 'keeps the units restartable so the .path trigger can still refresh the spec'

@@ -40,6 +40,12 @@ parts/linux/cloud-init/artifacts/localdns.service @Azure/agentbakeradmin @saewon
 parts/linux/cloud-init/artifacts/localdns-delegate.conf @Azure/agentbakeradmin @saewoni @yewmsft @robbiezhang
 spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @Azure/agentbakeradmin @saewoni @yewmsft @robbiezhang
 
+# Code owners for the localdns pod-DNS fallback
+
+parts/linux/cloud-init/artifacts/localdns-fallback.sh @Azure/agentbakeradmin @saewoni @yewmsft
+parts/linux/cloud-init/artifacts/localdns-fallback.service @Azure/agentbakeradmin @saewoni @yewmsft
+spec/parts/linux/cloud-init/artifacts/localdns-fallback_spec.sh @Azure/agentbakeradmin @saewoni @yewmsft
+
 # Set components.json & windows_settings.json to no code-owner so that it can be approved and merged by component owner
 
 parts/common/components.json
@@ -56,6 +62,10 @@ e2e/localdns/validate-localdns-exporter-metrics.sh @Azure/agentbakeradmin @saewo
 e2e/localdns/ @Azure/agentbakeradmin @saewoni @yewmsft
 e2e/scenario/scenario_localdns_hosts.go @Azure/agentbakeradmin @saewoni @yewmsft
 e2e/scenario/validate_localdns_exporter_metrics.go @Azure/agentbakeradmin @saewoni @yewmsft
+e2e/scenario/scenario_localdns_restart_budget.go @Azure/agentbakeradmin @saewoni @yewmsft
+e2e/scenario/scenario_localdns_fallback.go @Azure/agentbakeradmin @saewoni @yewmsft
+e2e/scenario/validators_localdns_fallback.go @Azure/agentbakeradmin @saewoni @yewmsft
+e2e/scenario/validators_localdns_fallback_test.go @Azure/agentbakeradmin @saewoni @yewmsft
 
 # Code owners for Windows CSE files
 

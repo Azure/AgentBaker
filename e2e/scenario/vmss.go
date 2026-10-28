@@ -550,6 +550,10 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		}
 	}
 
+	if s.Runtime.NBC.IsCustomDataOnlyProvisioningEnabled() {
+		cse = ""
+	}
+
 	// These two links are really for local development
 	if config.Config.IsLocalBuild() {
 		logging.Logf(ctx,

@@ -49,6 +49,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 	isMIGNode := getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
+		"CUSTOM_DATA_ONLY_PROVISIONING":                        fmt.Sprintf("%t", config.GetCustomDataOnlyProvisioning()),
 		"MOBY_VERSION":                                         "",
 		"CLOUDPROVIDER_BACKOFF":                                fmt.Sprintf("%v", cloudProviderSettings.backoff),
 		"CLOUDPROVIDER_BACKOFF_MODE":                           cloudProviderSettings.backoffMode,
@@ -131,6 +132,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"CUSTOM_ENV_JSON":                                      config.GetCustomCloudConfig().GetCustomEnvJsonContent(),
 		"IS_CUSTOM_CLOUD":                                      fmt.Sprintf("%v", getIsAksCustomCloud(config.GetCustomCloudConfig())),
 		"AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX":       config.GetCustomCloudConfig().GetContainerRegistryDnsSuffix(),
+		"MCR_REPOSITORY_BASE":                                  getMCRRepositoryBase(config),
 		"CSE_HELPERS_FILEPATH":                                 getCSEHelpersFilepath(),
 		"CSE_DISTRO_HELPERS_FILEPATH":                          getCSEDistroHelpersFilepath(),
 		"CSE_INSTALL_FILEPATH":                                 getCSEInstallFilepath(),
@@ -150,6 +152,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"NO_PROXY_URLS":                                        getStringifiedStringArray(config.GetHttpProxyConfig().GetNoProxyEntries(), ","),
 		"PROXY_VARS":                                           getProxyVariables(config.GetHttpProxyConfig()),
 		"TLS_BOOTSTRAP_TOKEN":                                  config.GetBootstrappingConfig().GetTlsBootstrappingToken(),
+		"REMOVE_BOOTSTRAP_KUBECONFIG":                          fmt.Sprintf("%v", config.GetBootstrappingConfig().GetRemoveBootstrapKubeconfig()),
 		"ENABLE_SECURE_TLS_BOOTSTRAPPING":                      fmt.Sprintf("%v", getEnableSecureTLSBootstrapping(config.GetBootstrappingConfig())),
 		"SECURE_TLS_BOOTSTRAPPING_AAD_RESOURCE":                config.GetBootstrappingConfig().GetSecureTlsBootstrappingAadResource(),
 		"SECURE_TLS_BOOTSTRAPPING_USER_ASSIGNED_IDENTITY_ID":   config.GetBootstrappingConfig().GetSecureTlsBootstrappingUserAssignedIdentityId(),
@@ -197,6 +200,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"ENABLE_IMDS_RESTRICTION":                              fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
 		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":         fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
 		"PRE_PROVISION_ONLY":                                   fmt.Sprintf("%v", config.GetPreProvisionOnly()),
+		"ENABLE_KMPP":                                          fmt.Sprintf("%v", config.GetEnableKmpp()),
 		"SHOULD_ENABLE_LOCALDNS":                               shouldEnableLocalDns(config),
 		"SHOULD_ENABLE_HOSTS_PLUGIN":                           shouldEnableHostsPlugin(config),
 		"LOCALDNS_CPU_LIMIT":                                   getLocalDnsCpuLimitInPercentage(config),

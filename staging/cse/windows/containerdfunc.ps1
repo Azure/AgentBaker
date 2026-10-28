@@ -112,9 +112,9 @@ function CreateHypervisorRuntime {
   )
 
   return @"
-        [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-$buildnumber]
+        [plugins.{{runtimePlugin}}.containerd.runtimes.runhcs-wcow-hypervisor-$buildnumber]
           runtime_type = "io.containerd.runhcs.v1"
-          [plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-$buildnumber.options]
+          [plugins.{{runtimePlugin}}.containerd.runtimes.runhcs-wcow-hypervisor-$buildnumber.options]
             Debug = true
             DebugType = 2
             SandboxImage = "$image-windows-$version-amd64"
@@ -170,8 +170,10 @@ function ProcessAndWriteContainerdConfig {
   $hypervRuntimes = ""
 
   $templateFilePath =  "containerdtemplate.toml"
+  $runtimePlugin = "cri"
   if (([version]$ContainerdVersion).CompareTo([version]"2.0.0") -ge 0) {
     $templateFilePath= "containerd2template.toml"
+    $runtimePlugin = "'io.containerd.cri.v1.runtime'"
   }
 
   $templatePath = [Io.Path]::Combine( $global:WindowsDataDir, $templateFilePath)
@@ -209,6 +211,7 @@ function ProcessAndWriteContainerdConfig {
   $processedTemplate = $template.Replace('{{sandboxIsolation}}', $sandboxIsolation).
   Replace('{{pauseImage}}', $pauseImage).
   Replace('{{hypervisors}}', $hypervRuntimes).
+  Replace('{{runtimePlugin}}', $runtimePlugin).
   Replace('{{cnibin}}', $formatedBin).
   Replace('{{cniconf}}', $formatedConf).
   Replace('{{containerAnnotations}}', $containerAnnotations).

@@ -24,6 +24,7 @@ type Tags struct {
 	NetworkIsolated        bool
 	NonAnonymousACR        bool
 	GPU                    bool
+	CVM                    bool
 	WASM                   bool
 	Kata                   bool
 	BootstrapTokenFallback bool
@@ -269,6 +270,19 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 
 	s.updateTags(ctx, vmss)
 	return nil
+}
+
+func (s *Scenario) RemoveBoostrapKubeconfig() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.RemoveBootstrapKubeconfig {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.GetBootstrappingConfig().GetRemoveBootstrapKubeconfig() {
+		return true
+	}
+	return false
 }
 
 func (s *Scenario) SecureTLSBootstrappingEnabled() bool {
