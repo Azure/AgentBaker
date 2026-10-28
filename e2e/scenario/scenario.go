@@ -73,6 +73,11 @@ var _ = Register(&Scenario{
 			return errors.Join(
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				ValidateFileDoesNotExist(ctx, s, "/etc/extensions/artifact-streaming.raw"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "artifact-streaming-setup.service"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "acr-mirror.service"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "overlaybd-tcmu.service"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "overlaybd-snapshotter.service"),
 			)
 		},
 	},
@@ -99,7 +104,13 @@ var _ = Register(&Scenario{
 			return errors.Join(
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				ValidateFileExists(ctx, s, "/etc/extensions/artifact-streaming.raw"),
+				ValidateFileDoesNotExist(ctx, s, "/etc/extensions/overlaybd.raw"),
+				ValidateFileIsRegularFile(ctx, s, "/etc/containerd/config.toml"),
+				ValidateFileExists(ctx, s, "/etc/acr/acr.toml"),
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+				ValidateFileExists(ctx, s, "/etc/overlaybd-snapshotter/config.json"),
+				ValidateSystemdUnitIsRunning(ctx, s, "artifact-streaming-setup.service"),
 				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
 				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),

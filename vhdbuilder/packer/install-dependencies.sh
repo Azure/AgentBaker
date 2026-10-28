@@ -392,6 +392,13 @@ downloadAndInstallCriTools() {
 installAndConfigureArtifactStreaming() {
   local downloadURL="$1"
   local version="$2"
+  if isACL "$OS" "$OS_VARIANT"; then
+    # Cache only: activation is feature-gated during node provisioning.
+    downloadSysextFromVersion artifact-streaming "$downloadURL" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
+    echo "  - artifact-streaming sysext version ${version}" >> "${VHD_LOGS_FILEPATH}"
+    return
+  fi
+
   # The arm64 packages have "-arm64" inserted before the file extension,
   # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
   if [ "$(isARM64)" -eq 1 ]; then
@@ -400,27 +407,21 @@ installAndConfigureArtifactStreaming() {
   local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
   retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit "${ERR_ARTIFACT_STREAMING_DOWNLOAD}"
 
-  if isACL "$OS" "$OS_VARIANT"; then
-    retrycmd_if_failure 10 2 120 dnf install -y "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
-  else
-    case "$downloadURL" in
-      *.deb)
-        apt_get_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
-        ;;
-      *.rpm)
-        dnf_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
-        ;;
-      *)
-        echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
-        exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
-        ;;
-    esac
-  fi
+  case "$downloadURL" in
+    *.deb)
+      apt_get_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
+      ;;
+    *.rpm)
+      dnf_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
+      ;;
+    *)
+      echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
+      exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
+      ;;
+  esac
   rm "$MIRROR_DOWNLOAD_PATH"
 
-  if ! isACL "$OS" "$OS_VARIANT"; then
-    /opt/acr/tools/overlaybd/install.sh
-  fi
+  /opt/acr/tools/overlaybd/install.sh
   # Remove the bundled OverlayBD installer packages (~55-58 MB); they're unused at runtime.
   rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
   echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}

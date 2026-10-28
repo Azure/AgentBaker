@@ -153,7 +153,14 @@ Describe 'cse_config_gpu.sh'
             return "${CONTAINERD_READY_RC:-0}"
         }
         systemctl() {
+            if [ "${FAIL_SYSTEMCTL:-}" = "$*" ]; then
+                return 1
+            fi
             echo "systemctl $@"
+        }
+        installArtifactStreamingSysext() {
+            echo "installArtifactStreamingSysext"
+            return "${SYSEXT_RC:-0}"
         }
         retrycmd_if_failure() {
             echo "retrycmd_if_failure $@"
@@ -187,23 +194,78 @@ Describe 'cse_config_gpu.sh'
             The status should be success
         End
 
-        It 'unmasks the OverlayBD services on Azure Container Linux'
+        Describe 'initializes the ACL sysext before unmasking consumers'
+            Parameters
+                "AZURECONTAINERLINUX" ""
+                "AZURELINUX" "AZURECONTAINERLINUX"
+            End
+            It "orders initialization on $1 $2"
+                OS="$1"
+                OS_VARIANT="$2"
+                install_setup_sh
+                When run ensureArtifactStreaming
+                The output should equal "$(cat <<'EXPECTED'
+systemctl mask acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service artifact-streaming-setup.service
+installArtifactStreamingSysext
+systemctl daemon-reload
+systemctl unmask artifact-streaming-setup.service
+systemctl start artifact-streaming-setup.service
+setup.sh aks
+systemctl unmask acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+systemctl enable acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+retrycmd_if_failure 120 5 25 systemctl restart acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+systemctl restart containerd
+EXPECTED
+)"
+                The status should be success
+            End
+        End
+
+        It 'materializes a preserved ACL containerd config before configuring ACR'
             OS="$ACL_OS_NAME"
             install_setup_sh
+            test() {
+                if [ "$*" = "-L /etc/containerd/config.toml" ]; then
+                    return 0
+                fi
+                builtin test "$@"
+            }
+            readlink() { echo "/usr/share/containerd/config.toml"; }
+            cp() { echo "cp $*"; }
             When run ensureArtifactStreaming
-            The output should include "systemctl unmask overlaybd-tcmu.service overlaybd-snapshotter.service"
+            The output should include "cp --remove-destination /usr/share/containerd/config.toml /etc/containerd/config.toml"
             The output should include "setup.sh aks"
             The status should be success
         End
 
-        It 'unmasks the OverlayBD services for the Azure Linux ACL variant'
-            OS="$AZURELINUX_OS_NAME"
-            OS_VARIANT="$ACL_OS_VARIANT"
+        It 'leaves consumers masked when sysext initialization fails'
+            OS="$ACL_OS_NAME"
+            FAIL_SYSTEMCTL="start artifact-streaming-setup.service"
             install_setup_sh
             When run ensureArtifactStreaming
-            The output should include "systemctl unmask overlaybd-tcmu.service overlaybd-snapshotter.service"
+            The output should not include "setup.sh aks"
+            The output should not include "systemctl unmask acr-mirror.service"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'leaves consumers masked when ACR configuration fails'
+            OS="$ACL_OS_NAME"
+            export SETUP_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
             The output should include "setup.sh aks"
-            The status should be success
+            The output should not include "systemctl unmask acr-mirror.service"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'fails before initialization if the sysext cannot be merged'
+            OS="$ACL_OS_NAME"
+            SYSEXT_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should not include "systemctl daemon-reload"
+            The output should not include "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
         End
 
         It 'fails fast when enabling the streaming services fails'

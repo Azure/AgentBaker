@@ -64,7 +64,7 @@ if [ -s /sys/class/dmi/id/product_uuid ]; then
 fi`
 
 	flatcarTemplate = `{
-     "ignition": { "version": "3.4.0" }%[2]s,
+     "ignition": { "version": "3.4.0" },
      "storage": {
        "files": [{
          "path": "/opt/azure/containers/aks-node-controller-config.json",
@@ -73,47 +73,6 @@ fi`
        }]
      }
     }`
-
-	artifactStreamingUnit = `[Unit]
-Description=Configure AKS artifact streaming
-Requires=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
-After=containerd.service acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
-Before=aks-node-controller.service
-
-[Service]
-Type=oneshot
-ExecStart=/opt/acr/tools/mirror/setup.sh aks
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-`
-
-	artifactStreamingSystemd = `,
-     "systemd": {
-       "units": [
-         {
-           "name": "acr-mirror.service",
-           "enabled": true,
-           "mask": false
-         },
-         {
-           "name": "overlaybd-tcmu.service",
-           "enabled": true,
-           "mask": false
-         },
-         {
-           "name": "overlaybd-snapshotter.service",
-           "enabled": true,
-           "mask": false
-         },
-         {
-           "name": "aks-artifact-streaming.service",
-           "enabled": true,
-           "contents": %q
-         }
-       ]
-     }`
 )
 
 // CustomData builds base64-encoded VM custom data for cloud-init. The boothook writes the node
@@ -178,11 +137,7 @@ func CustomDataFlatcar(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	var artifactStreamingConfig string
-	if cfg.GetEnableArtifactStreaming() {
-		artifactStreamingConfig = fmt.Sprintf(artifactStreamingSystemd, artifactStreamingUnit)
-	}
-	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON, artifactStreamingConfig)
+	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 

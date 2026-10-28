@@ -635,12 +635,29 @@ EOF
 }
 
 ensureArtifactStreaming() {
-  waitForContainerdReady || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
-  if isACL "$OS" "$OS_VARIANT"; then
-    systemctl unmask overlaybd-tcmu.service overlaybd-snapshotter.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
-  fi
-
   local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
+  if isACL "$OS" "$OS_VARIANT"; then
+    local services=(acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service)
+    # DALEC's Upholds= starts unmasked units as soon as the manager reloads.
+    systemctl mask "${services[@]}" artifact-streaming-setup.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    installArtifactStreamingSysext || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl daemon-reload || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl unmask artifact-streaming-setup.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl start artifact-streaming-setup.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    # acr-config rejects ACL's absolute symlink, including a preserved GPU config.
+    if test -L /etc/containerd/config.toml; then
+      cp --remove-destination "$(readlink -f /etc/containerd/config.toml)" /etc/containerd/config.toml || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    fi
+    "$acr_mirror_setup" aks || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl unmask "${services[@]}" || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl enable "${services[@]}" || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    retrycmd_if_failure 120 5 25 systemctl restart "${services[@]}" || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl restart containerd || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    waitForContainerdReady || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    return
+  fi
+  waitForContainerdReady || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+
   if [ -x "$acr_mirror_setup" ]; then
     "$acr_mirror_setup" aks || exit $ERR_ARTIFACT_STREAMING_INSTALL
   else

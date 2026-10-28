@@ -2531,11 +2531,11 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.0.0"
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=acr/v2/artifact-streaming-sysext",
+                "latestVersion": "v1.0.0-2-azlinux3"
               }
             ],
-            "downloadURL": "https://acrstreamingpackage.z5.web.core.windows.net/${version}/acr-mirror-azurelinux3.rpm"
+            "downloadURL": "mcr.microsoft.com/acr/v2/artifact-streaming-sysext:${version}-${SYSTEMD_ARCH}"
           }
         }
       }

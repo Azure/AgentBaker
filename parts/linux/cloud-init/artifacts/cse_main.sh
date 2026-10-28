@@ -398,7 +398,7 @@ EOF
         fi
     fi
 
-    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && ! isACL "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
@@ -621,6 +621,11 @@ function nodePrep {
     # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && systemctl cat localdns-exporter.socket &>/dev/null; then
         addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
+    fi
+
+    # Keep ACL sysexts masked during PIS image preparation; configure them on the real node.
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && isACL "$OS" "$OS_VARIANT"; then
+        logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
