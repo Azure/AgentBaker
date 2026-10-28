@@ -166,9 +166,10 @@ The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg` or
 `acldevel`) and optional `ACL_BASE_IMAGE_VERSION_AMD64` and
 `ACL_BASE_IMAGE_VERSION_ARM64` gallery-version overrides. Each takes precedence
 over the existing shared `ACL_BASE_IMAGE_VERSION` fallback. Use separate values
-when the selected architectures have different gallery versions; leaving all
-overrides empty preserves their pinned defaults. Both the PR and release
-pipelines expose these parameters.
+when the selected architectures have different gallery versions. The overrides
+default to a single space, because the Run pipeline form treats an empty default
+as required; leave that space in all three to keep the pinned versions. Values
+are trimmed. Both the PR and release pipelines expose these parameters.
 The production ACG source is the default. Secure Boot stays enabled for signed sources;
 selecting `acldevel` disables Secure Boot only for ACL test VMs. Older base images
 without `trident-acl-agent` still build; images containing the agent enable its
