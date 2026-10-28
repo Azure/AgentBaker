@@ -151,6 +151,16 @@ EOF
         The output should not include "Spawned aks-node-controller"
     End
 
+    It 'pre-pulls networking images without requiring provision config'
+        create_fake_aks_node_controller
+
+        When run bash "$SCRIPT" prepull-networking-images
+        The status should be success
+        The output should include "Using VHD-baked binary"
+        firstArg=$(sed -n '1p' "${TEST_DIR}/args")
+        The variable firstArg should eq "prepull-networking-images"
+    End
+
     It 'passes both provision config and nbc cmd when both files are present'
         touch "$CONFIG_PATH" "$NBC_CMD_PATH"
         create_fake_aks_node_controller

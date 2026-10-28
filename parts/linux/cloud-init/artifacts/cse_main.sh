@@ -609,7 +609,7 @@ function nodePrep {
         exit $VALIDATION_ERR
     fi
 
-    checkServiceHealth containerd || exit $ERR_SYSTEMCTL_START_FAIL
+    checkServiceHealth containerd;nic || exit $ERR_SYSTEMCTL_START_FAIL
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         checkServiceHealth secure-tls-bootstrap || true
     fi

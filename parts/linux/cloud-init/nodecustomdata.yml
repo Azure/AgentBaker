@@ -35,6 +35,15 @@ write_files:
 {{end}}
 
 {{- else }}
+{{if GetVariableProperty "cloudInitData" "enabledFeatures"}}
+- path: /opt/azure/containers/enabled_features.sh
+  permissions: "0600"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "enabledFeatures"}}
+
+{{end}}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
   encoding: gzip

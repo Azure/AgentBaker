@@ -135,6 +135,19 @@ Describe 'NVIDIA Fabric Manager startup timeout'
     End
 End
 
+Describe 'networking image pre-pull ordering'
+    It 'runs after containerd is healthy and before kubelet starts'
+        ordering_is_valid() {
+            prepull_line="$(grep -n 'checkServiceHealth containerd;nic' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
+            kubelet_line="$(grep -n 'logs_to_events "AKS.CSE.ensureKubelet"' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
+            [ -n "${prepull_line}" ] && [ "${prepull_line}" -lt "${kubelet_line}" ]
+        }
+
+        When call ordering_is_valid
+        The status should be success
+    End
+End
+
 Describe 'proxy environment exports'
     setup() {
         unset HTTP_PROXY http_proxy HTTPS_PROXY https_proxy NO_PROXY no_proxy

@@ -114,6 +114,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-networking-image-cache.sh",
+      "destination": "/home/packer/aks-networking-image-cache.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh",
       "destination": "/home/packer/aks-node-controller-hotfix.sh"
     },
