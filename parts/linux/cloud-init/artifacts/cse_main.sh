@@ -398,6 +398,8 @@ EOF
         fi
     fi
 
+    # Defer ACL artifact streaming to nodePrep: keep sysext services masked
+    # during PIS image preparation and activate them on the real node.
     if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && ! isACL "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
