@@ -19,11 +19,11 @@ Describe 'cse_config.sh'
             MOCK_CGROUP_VERSION="cgroup2fs"
             FAILED_TELEMETRY_COMMAND=""
             memory_commands="systemctlEnableAndStartNoBlock cgroup-memory-telemetry.timer 30
-systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service"
+systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30"
             cpu_pressure_commands="systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.timer 30
-systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.service
+systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.service 30
 systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.timer 30
-systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service"
+systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service 30"
         }
 
         BeforeEach 'setup_cgroup_telemetry'
@@ -87,11 +87,11 @@ $cpu_pressure_commands"
         Describe 'startup failures'
             Parameters
                 "systemctlEnableAndStartNoBlock cgroup-memory-telemetry.timer 30" 1
-                "systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service" 2
+                "systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30" 2
                 "systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.timer 30" 3
-                "systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.service" 4
+                "systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.service 30" 4
                 "systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.timer 30" 5
-                "systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service" 6
+                "systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service 30" 6
             End
 
             It "exits with the telemetry error and stops setup when '$1' fails"
@@ -107,7 +107,7 @@ $cpu_pressure_commands"
 
         It 'exits with the telemetry error when memory service startup fails on cgroup v1'
             MOCK_CGROUP_VERSION="tmpfs"
-            FAILED_TELEMETRY_COMMAND="systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service"
+            FAILED_TELEMETRY_COMMAND="systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30"
 
             When run enableAndStartCgroupTelemetry
 
