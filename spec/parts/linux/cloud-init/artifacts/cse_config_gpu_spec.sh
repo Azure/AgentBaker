@@ -130,8 +130,8 @@ Describe 'cse_config_gpu.sh'
         End
     End
     Describe 'ensureArtifactStreaming'
-        # ensureArtifactStreaming enables the acr-mirror/overlaybd services and then
-        # runs the version-appropriate enablement path:
+        # ensureArtifactStreaming runs the version-appropriate enablement path
+        # before enabling the acr-mirror/overlaybd services:
         #   - acr-mirror 1.0.0+ -> setup.sh aks
         #   - older packages    -> acr-config --enable-containerd
         # The enablement binary paths are overridable (ACR_MIRROR_SETUP_SCRIPT /
@@ -148,7 +148,7 @@ Describe 'cse_config_gpu.sh'
         AfterEach 'cleanup_streaming'
 
         waitForContainerdReady() {
-            return 0
+            return "${CONTAINERD_READY_RC:-0}"
         }
         systemctl() {
             echo "systemctl $@"
@@ -159,18 +159,19 @@ Describe 'cse_config_gpu.sh'
         }
 
         install_setup_sh() {
-            printf '#!/bin/sh\necho "setup.sh $@"\n' > "${ACR_MIRROR_SETUP_SCRIPT}"
+            printf '#!/bin/sh\necho "setup.sh $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_MIRROR_SETUP_SCRIPT}"
             chmod +x "${ACR_MIRROR_SETUP_SCRIPT}"
         }
         install_acr_config() {
-            printf '#!/bin/sh\necho "acr-config $@"\n' > "${ACR_CONFIG_BIN}"
+            printf '#!/bin/sh\necho "acr-config $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_CONFIG_BIN}"
             chmod +x "${ACR_CONFIG_BIN}"
         }
 
         It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
             install_setup_sh
             When run ensureArtifactStreaming
-            The output should include "setup.sh aks"
+            The line 1 of output should equal "setup.sh aks"
+            The line 2 of output should equal "retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter"
             The output should not include "Older acr-mirror package"
             The status should be success
         End
@@ -179,7 +180,8 @@ Describe 'cse_config_gpu.sh'
             install_acr_config
             When run ensureArtifactStreaming
             The output should include "Older acr-mirror package is detected"
-            The output should include "acr-config --enable-containerd azurecr.io"
+            The line 2 of output should equal "acr-config --enable-containerd azurecr.io"
+            The line 3 of output should equal "retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter"
             The status should be success
         End
 
@@ -188,7 +190,32 @@ Describe 'cse_config_gpu.sh'
             install_setup_sh
             When run ensureArtifactStreaming
             The output should include "retrycmd_if_failure"
-            The output should not include "setup.sh aks"
+            The line 1 of output should equal "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not configure or start streaming when containerd is not ready'
+            CONTAINERD_READY_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should be blank
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not start streaming services when setup.sh fails'
+            SETUP_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should equal "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not start streaming services when legacy acr-config fails'
+            SETUP_RC=1
+            install_acr_config
+            When run ensureArtifactStreaming
+            The output should include "acr-config --enable-containerd azurecr.io"
+            The output should not include "retrycmd_if_failure"
             The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
         End
     End

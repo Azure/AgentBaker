@@ -775,6 +775,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/aks-networkd-recovery.sh",
+      "destination": "/home/packer/aks-networkd-recovery.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/aks-networkd-recovery.service",
+      "destination": "/home/packer/aks-networkd-recovery.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/aks-networkd-recovery.timer",
+      "destination": "/home/packer/aks-networkd-recovery.timer"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },

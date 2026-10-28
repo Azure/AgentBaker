@@ -16,6 +16,34 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func TestContainerdImagePullPresenceRoundTrip(t *testing.T) {
+	for _, raw := range []string{
+		`{"containerdConfig":{"imagePullWithSyncFs":false,"imagePullProgressTimeout":"0s"}}`,
+		`{"containerd_config":{"image_pull_with_sync_fs":true,"image_pull_progress_timeout":"30s"}}`,
+		`{"containerd_config":{}}`,
+	} {
+		cfg, err := UnmarshalConfigurationV1([]byte(raw))
+		require.NoError(t, err)
+		encoded, err := MarshalConfigurationV1(cfg)
+		require.NoError(t, err)
+		restored, err := UnmarshalConfigurationV1(encoded)
+		require.NoError(t, err)
+		require.True(t, proto.Equal(cfg, restored))
+		wire, err := proto.Marshal(cfg)
+		require.NoError(t, err)
+		decoded := &aksnodeconfigv1.Configuration{}
+		require.NoError(t, proto.Unmarshal(wire, decoded))
+		require.True(t, proto.Equal(cfg, decoded))
+		if cfg.ContainerdConfig.ImagePullWithSyncFs != nil {
+			require.Contains(t, string(encoded), `"image_pull_with_sync_fs"`)
+			require.NotNil(t, decoded.ContainerdConfig.ImagePullWithSyncFs)
+			require.NotNil(t, decoded.ContainerdConfig.ImagePullProgressTimeout)
+		} else {
+			require.NotContains(t, string(encoded), "image_pull_")
+		}
+	}
+}
+
 func TestUnmarshalConfigurationV1(t *testing.T) {
 	tests := []struct {
 		name    string
