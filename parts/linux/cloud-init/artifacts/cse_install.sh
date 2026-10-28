@@ -178,7 +178,8 @@ downloadCredentialProvider() {
     # if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set to non-empty string
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${cred_version_for_oras}-linux-${CPU_ARCH}"
-        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
+        # Use bash builtin ## to remove all chars ("*") up to the final "/"
+        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
         return
     elif isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
@@ -190,7 +191,8 @@ downloadCredentialProvider() {
         return
     fi
 
-    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
     echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
     # Only apply per-operation budget during real CSE runs (CSE_STARTTIME_SECONDS set).
     # During VHD build, use 0 (unlimited) to avoid flakiness from transient network issues.
@@ -222,7 +224,8 @@ installOras() {
     mkdir -p $ORAS_DOWNLOAD_DIR
 
     echo "Installing Oras version $ORAS_VERSION..."
-    ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    ORAS_TMP=${ORAS_DOWNLOAD_URL##*/}
     retrycmd_get_tarball 120 5 60 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} 300 || exit $ERR_ORAS_DOWNLOAD_ERROR
 
     if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
@@ -314,7 +317,8 @@ downloadAzureCNI() {
     logs_to_events "AKS.CSE.logDownloadURL" "echo $VNET_CNI_PLUGINS_URL"
     VNET_CNI_PLUGINS_URL=$(update_base_url $VNET_CNI_PLUGINS_URL)
 
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/}
     retrycmd_get_tarball 120 5 60 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} 300 || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
@@ -421,7 +425,8 @@ setupCNIDirs() {
 }
 
 installAzureCNI() {
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/}
     CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
@@ -883,5 +888,3 @@ EOF
     systemctl enable nvidia-persistenced.service || exit 1
     systemctl restart nvidia-persistenced.service || exit 1
 }
-
-#EOF
