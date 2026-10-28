@@ -1,0 +1,37 @@
+{
+    "type": "Microsoft.VirtualMachineImages",
+    "apiVersion": "2025-10-01",
+    "location": "<LOCATION>",
+    "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+            "<IMAGE_BUILDER_IDENTITY_ID>": {}
+        }
+    },
+    "properties": {
+        "source": {
+            "type": "<SOURCE_TYPE>",
+            "<SOURCE_ID_KEY>": "<SOURCE_ID>"
+        },
+        "customize": [],
+        "vmProfile": {
+            "vmSize": "Standard_D4s_v5",
+            "osDiskSizeGB": 60
+        },
+        "optimize": {
+            "vmBoot": {
+                "state": "Enabled"
+            },
+            "workload": {
+                "state": "Enabled",
+                "scriptUri": "<WORKLOAD_OPTIMIZATION_SCRIPT_URL>"
+            }
+        },
+        "distribute": [
+            {
+                "type": "VHD",
+                "runOutputName": "VHD"
+            }
+        ]
+    }
+}
