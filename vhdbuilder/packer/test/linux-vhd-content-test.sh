@@ -2681,27 +2681,20 @@ testNodeProblemDetector() {
 
 testKMPP() {
   local test="testKMPP"
-  local kmppVersion proxyVersion unit state
+  local kmppVersion unit state
   echo "$test:Start"
 
   kmppVersion=$(getPackageExpectedVersion "kmpp-containers" "" "" "")
-  proxyVersion=$(getPackageExpectedVersion "xdg-dbus-proxy" "" "" "")
   # CVM resolves the Azure Linux 3.0 entries but install-dependencies.sh skips it.
   if [ "$kmppVersion" = "<SKIP>" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
-    for unit in kmpp-containers xdg-dbus-proxy; do
-      if command -v rpm >/dev/null 2>&1 && rpm -q "$unit" >/dev/null 2>&1; then
-        err "$test" "$unit is installed but KMPP is not baked for this image (OS_SKU=$OS_SKU FEATURE_FLAGS=$FEATURE_FLAGS)"
-      fi
-    done
-    if [ -e /etc/systemd/system/kmpp-dbus-proxy.service ]; then
-      err "$test" "kmpp-dbus-proxy.service exists but KMPP is not baked for this image"
+    if command -v rpm >/dev/null 2>&1 && rpm -q kmpp-containers >/dev/null 2>&1; then
+      err "$test" "kmpp-containers is installed but KMPP is not baked for this image (OS_SKU=$OS_SKU FEATURE_FLAGS=$FEATURE_FLAGS)"
     fi
     echo "$test: Skipping, KMPP is not baked for this image"
     return 0
   fi
 
   assertPackageVersion "$test" "kmpp-containers" "$kmppVersion" true
-  assertPackageVersion "$test" "xdg-dbus-proxy" "$proxyVersion" true
   [ -f /etc/kmpp/disableDefaultProvider ] || err "$test" "Missing /etc/kmpp/disableDefaultProvider"
   if grep -qi kmpp /etc/pki/tls/openssl.cnf; then
     err "$test" "/etc/pki/tls/openssl.cnf must not load the KMPP provider"
@@ -2722,12 +2715,7 @@ testKMPP() {
   if [ -e /var/opt/msft/ap/data/kmpp-private ]; then
     err "$test" "/var/opt/msft/ap/data/kmpp-private must not be baked into the VHD"
   fi
-  for unit in kmpp-containers xdg-dbus-proxy; do
-    grep -qsx "$unit" /etc/tdnf/locks.d/kmpp.conf || err "$test" "Missing tdnf lock for $unit"
-  done
-  [ -s /etc/systemd/system/kmpp-dbus-proxy.service ] || err "$test" "Missing kmpp-dbus-proxy.service"
-  state=$(systemctl is-enabled kmpp-dbus-proxy.service 2>/dev/null)
-  [ "$state" = "disabled" ] || err "$test" "kmpp-dbus-proxy.service must be disabled on the VHD, got '$state'"
+  grep -qsx kmpp-containers /etc/tdnf/locks.d/kmpp.conf || err "$test" "Missing tdnf lock for kmpp-containers"
 
   echo "$test:Finish"
 }

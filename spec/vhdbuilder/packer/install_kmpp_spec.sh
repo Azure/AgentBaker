@@ -8,14 +8,13 @@ Describe 'KMPP package selection'
         while IFS= read -r package; do
             updatePackageVersions "${package}" "${os}" "${release}" "${variant}"
             printf '%s: %s\n' "$(jq -r .name <<< "${package}")" "${PACKAGE_VERSIONS[*]}"
-        done < <(jq -c '.Packages[] | select(.name == "kmpp-containers" or .name == "xdg-dbus-proxy")' parts/common/components.json)
+        done < <(jq -c '.Packages[] | select(.name == "kmpp-containers")' parts/common/components.json)
     }
 
     It 'bakes KMPP on Azure Linux 3.0'
         When call select_kmpp_packages AZURELINUX 3.0
         The status should be success
         The output should include 'kmpp-containers: 3.1.0_212'
-        The output should include 'xdg-dbus-proxy: 0.1.6'
     End
 
     Parameters
@@ -45,16 +44,12 @@ Describe 'KMPP VHD installation helpers'
         KMPP_TDNF_LOCK_FILE="${TEST_DIR}/etc/tdnf/locks.d/kmpp.conf"
         KMPP_SYSTEMD_DIR="${TEST_DIR}/usr/lib/systemd/system"
         KMPP_DATA_DIR="${TEST_DIR}/var/opt/msft/ap/data"
-        KMPP_DBUS_PROXY_SERVICE_SRC="${TEST_DIR}/home/packer/kmpp-dbus-proxy.service"
-        KMPP_DBUS_PROXY_SERVICE_DEST="${TEST_DIR}/etc/systemd/system/kmpp-dbus-proxy.service"
         VHD_LOGS_FILEPATH="${TEST_DIR}/vhd.log"
         TEST_CALLS="${TEST_DIR}/calls"
         KMPP_GROUPS="kmpp kmppcert"
-        EXTENDED_REPO_INSTALLED=false
-        mkdir -p "${KMPP_SYSTEMD_DIR}" "${KMPP_DATA_DIR}/kmpp-private/private" "${KMPP_DATA_DIR}/kmpp/certs" "$(dirname "${KMPP_DBUS_PROXY_SERVICE_SRC}")"
+        mkdir -p "${KMPP_SYSTEMD_DIR}" "${KMPP_DATA_DIR}/kmpp-private/private" "${KMPP_DATA_DIR}/kmpp/certs"
         echo default > "${KMPP_SYSTEMD_DIR}/dbus-com.microsoft.kmpp.service"
         echo tpm > "${KMPP_SYSTEMD_DIR}/dbus-com.microsoft.kmpp.service.tpm"
-        echo proxy > "${KMPP_DBUS_PROXY_SERVICE_SRC}"
         touch "${TEST_CALLS}"
         export TEST_CALLS
     }
@@ -70,11 +65,9 @@ Describe 'KMPP VHD installation helpers'
         [ -f "${KMPP_DISABLE_DEFAULT_PROVIDER_FILE}" ] && echo "optout present" >> "${TEST_CALLS}"
         return 0
     }
-    dnf_remove() { echo "dnf_remove $*" >> "${TEST_CALLS}"; }
     systemctl() { echo "systemctl $*" >> "${TEST_CALLS}"; }
     gpasswd() { echo "gpasswd $*" >> "${TEST_CALLS}"; }
     id() { echo "${KMPP_GROUPS}"; }
-    rpm() { [ "${EXTENDED_REPO_INSTALLED}" = "true" ]; }
 
     Describe 'installKMPP'
         It 'opts out of the default provider before install, then holds, masks and wipes state'
@@ -133,48 +126,4 @@ systemctl mask dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.servi
         End
     End
 
-    Describe 'installKMPPDbusProxy'
-        It 'installs from the extended repo, removes the repo again, and ships a disabled unit'
-            When call installKMPPDbusProxy 0.1.6
-            The status should be success
-            The output should include 'Installing xdg-dbus-proxy version 0.1.6'
-            The contents of file "${TEST_CALLS}" should equal 'dnf_install 30 1 600 azurelinux-repos-extended
-resolved xdg-dbus-proxy 0.1.6 0.1.6-1
-dnf_install 30 1 600 xdg-dbus-proxy-0.1.6-1
-dnf_remove 30 1 600 azurelinux-repos-extended
-systemctl daemon-reload
-systemctl disable kmpp-dbus-proxy.service'
-            The contents of file "${KMPP_TDNF_LOCK_FILE}" should equal 'xdg-dbus-proxy'
-            The contents of file "${KMPP_DBUS_PROXY_SERVICE_DEST}" should equal 'proxy'
-            The contents of file "${VHD_LOGS_FILEPATH}" should equal '  - xdg-dbus-proxy version 0.1.6-1'
-        End
-
-        It 'keeps the extended repo when the base image already had it'
-            EXTENDED_REPO_INSTALLED=true
-            When call installKMPPDbusProxy 0.1.6
-            The status should be success
-            The output should include 'Installing xdg-dbus-proxy'
-            The contents of file "${TEST_CALLS}" should not include 'azurelinux-repos-extended'
-        End
-
-        It 'removes the extended repo even when the proxy install fails'
-            dnf_install() {
-                echo "dnf_install $*" >> "${TEST_CALLS}"
-                [ "$4" = "azurelinux-repos-extended" ]
-            }
-            When call installKMPPDbusProxy 0.1.6
-            The status should be failure
-            The output should include 'Installing xdg-dbus-proxy'
-            The contents of file "${TEST_CALLS}" should include 'dnf_remove 30 1 600 azurelinux-repos-extended'
-            The path "${KMPP_DBUS_PROXY_SERVICE_DEST}" should not be exist
-        End
-
-        It 'removes the extended repo when no package matches the pinned version'
-            getLatestRPMPackageVersion() { return 1; }
-            When call installKMPPDbusProxy 9.9.9
-            The status should be failure
-            The output should include 'Failed to find valid xdg-dbus-proxy version for 9.9.9'
-            The contents of file "${TEST_CALLS}" should include 'dnf_remove 30 1 600 azurelinux-repos-extended'
-        End
-    End
 End

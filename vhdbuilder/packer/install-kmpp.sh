@@ -1,23 +1,17 @@
 #!/bin/bash
-# Bake KMPP (Key Material Protection Platform) and its D-Bus proxy into Azure Linux 3.0 VHDs.
-# Both stay dormant on the VHD. CSE turns them on only when ENABLE_KMPP=true.
+# Bake KMPP (Key Material Protection Platform) into Azure Linux 3.0 VHDs.
+# It stays dormant on the VHD. CSE turns it on only when ENABLE_KMPP=true.
 #
 # installKMPP():
 #   1. Opts out of KMPP as the OpenSSL default provider before the package postinst runs
 #   2. Installs kmpp-containers and holds it against unattended tdnf updates
 #   3. Reverts the TPM unit swap the postinst makes when the build VM has a TPM
 #   4. Stops, disables and masks the KMPP units and removes the state they created
-#
-# installKMPPDbusProxy():
-#   1. Installs xdg-dbus-proxy from the Azure Linux extended repo, then drops that repo again
-#   2. Installs kmpp-dbus-proxy.service, disabled
 
 KMPP_DISABLE_DEFAULT_PROVIDER_FILE="${KMPP_DISABLE_DEFAULT_PROVIDER_FILE:-/etc/kmpp/disableDefaultProvider}"
 KMPP_TDNF_LOCK_FILE="${KMPP_TDNF_LOCK_FILE:-/etc/tdnf/locks.d/kmpp.conf}"
 KMPP_SYSTEMD_DIR="${KMPP_SYSTEMD_DIR:-/usr/lib/systemd/system}"
 KMPP_DATA_DIR="${KMPP_DATA_DIR:-/var/opt/msft/ap/data}"
-KMPP_DBUS_PROXY_SERVICE_SRC="${KMPP_DBUS_PROXY_SERVICE_SRC:-/home/packer/kmpp-dbus-proxy.service}"
-KMPP_DBUS_PROXY_SERVICE_DEST="${KMPP_DBUS_PROXY_SERVICE_DEST:-/etc/systemd/system/kmpp-dbus-proxy.service}"
 KMPP_UNITS=("dbus-com.microsoft.kmpp.service" "dbus-com.microsoft.kmppctrl.service")
 
 # The 3.1.0 %preun does not check whether it runs for an erase or an upgrade, so
@@ -71,40 +65,6 @@ installKMPP() {
 
     # Starting the service created a machine secret. Each node must create its own.
     rm -rf "${KMPP_DATA_DIR}/kmpp" "${KMPP_DATA_DIR}/kmpp-private" || return 1
-
-    echo "  - ${pkg} version ${fullPackageVersion}" >> "${VHD_LOGS_FILEPATH}"
-}
-
-installKMPPDbusProxy() {
-    local version="$1"
-    local pkg="xdg-dbus-proxy"
-    local fullPackageVersion
-
-    echo "[kmpp] Installing ${pkg} version ${version}"
-
-    # xdg-dbus-proxy only ships in the extended repo. Drop the repo afterwards
-    # (unless the base image already had it) so the VHD repo set is unchanged.
-    local addedExtendedRepo=false
-    if ! rpm -q azurelinux-repos-extended >/dev/null 2>&1; then
-        dnf_install 30 1 600 azurelinux-repos-extended || return 1
-        addedExtendedRepo=true
-    fi
-    fullPackageVersion=$(getLatestRPMPackageVersion "${pkg}" "${version}") || fullPackageVersion=""
-    if [ -n "${fullPackageVersion}" ]; then
-        logResolvedPackageVersion "${pkg}" "${version}" "${fullPackageVersion}"
-        dnf_install 30 1 600 "${pkg}-${fullPackageVersion}" || fullPackageVersion=""
-    else
-        echo "[kmpp] Failed to find valid ${pkg} version for ${version}"
-    fi
-    if [ "${addedExtendedRepo}" = "true" ]; then
-        dnf_remove 30 1 600 azurelinux-repos-extended || return 1
-    fi
-    [ -n "${fullPackageVersion}" ] || return 1
-    holdKMPPPackage "${pkg}" || return 1
-
-    install -D -m 0644 "${KMPP_DBUS_PROXY_SERVICE_SRC}" "${KMPP_DBUS_PROXY_SERVICE_DEST}" || return 1
-    systemctl daemon-reload || return 1
-    systemctl disable kmpp-dbus-proxy.service || return 1
 
     echo "  - ${pkg} version ${fullPackageVersion}" >> "${VHD_LOGS_FILEPATH}"
 }

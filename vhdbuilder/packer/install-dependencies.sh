@@ -721,22 +721,18 @@ cachePackageAndBinaryComponents() {
         # node-exporter is installed on the VHD so CSE only needs to enable+start it.
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
         ;;
-      "kmpp-containers"|"xdg-dbus-proxy")
+      "kmpp-containers")
         # Azure Linux 3.0 only. Empty manifest entries skip every other OS,
         # including OSGuard and Kata (azurelinuxkata falls back to default).
         # components.json cannot express CVM, so skip it here: KMPP on CVM
         # (always vTPM) is out of scope and its builder does not ship install-kmpp.sh.
-        # Both stay dormant on the VHD; CSE enables them when ENABLE_KMPP=true.
+        # It stays dormant on the VHD; CSE enables it when ENABLE_KMPP=true.
         if echo "$FEATURE_FLAGS" | grep -q "cvm"; then
           echo "INFO: skipping ${name} on CVM"
           continue
         fi
         source /home/packer/install-kmpp.sh
-        if [ "${name}" = "kmpp-containers" ]; then
-          installKMPP "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
-        else
-          installKMPPDbusProxy "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
-        fi
+        installKMPP "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
         ;;
       "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
         # Ubuntu and Azure Linux 3 builders carry this helper. Empty manifest entries
