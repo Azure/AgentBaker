@@ -609,19 +609,9 @@ function nodePrep {
         exit $VALIDATION_ERR
     fi
 
-    checkServiceHealth containerd || exit $ERR_SYSTEMCTL_START_FAIL
+    checkServiceHealth containerd;nic || exit $ERR_SYSTEMCTL_START_FAIL
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         checkServiceHealth secure-tls-bootstrap || true
-    fi
-
-    if [ "${ENABLE_NETWORKING_IMAGE_CACHE:-}" = "true" ]; then
-        networking_image_cache_anc="${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}"
-        echo "ENABLE_NETWORKING_IMAGE_CACHE=true; pulling and unpacking synth-rendered networking images"
-        if "${networking_image_cache_anc}" prepull-networking-images; then
-            echo "ANC networking image pre-pull completed"
-        else
-            echo "ANC networking image pre-pull failed; continuing (fail-open)"
-        fi
     fi
 
     # Add localdns-exporter kubelet node label before ensureKubelet so it's

@@ -46,7 +46,7 @@ EOF
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN ANC_SELECTED_BIN_PATH
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN
     }
 
     create_fake_aks_node_controller() {
@@ -149,6 +149,16 @@ EOF
         The status should be success
         The output should include "Gracefully exit aks-node-controller without provision config or nbc cmd"
         The output should not include "Spawned aks-node-controller"
+    End
+
+    It 'pre-pulls networking images without requiring provision config'
+        create_fake_aks_node_controller
+
+        When run bash "$SCRIPT" prepull-networking-images
+        The status should be success
+        The output should include "Using VHD-baked binary"
+        firstArg=$(sed -n '1p' "${TEST_DIR}/args")
+        The variable firstArg should eq "prepull-networking-images"
     End
 
     It 'passes both provision config and nbc cmd when both files are present'

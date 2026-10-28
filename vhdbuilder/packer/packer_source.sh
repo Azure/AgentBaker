@@ -147,6 +147,8 @@ copyPackerFiles() {
   AKS_CHECK_NETWORK_SERVICE_DEST=/etc/systemd/system/aks-check-network.service
   AKS_NODE_CONTROLLER_LAUNCHER_SRC=/home/packer/aks-node-controller-launcher.sh
   AKS_NODE_CONTROLLER_LAUNCHER_DEST=/opt/azure/containers/aks-node-controller-launcher.sh
+  AKS_NETWORKING_IMAGE_CACHE_SRC=/home/packer/aks-networking-image-cache.sh
+  AKS_NETWORKING_IMAGE_CACHE_DEST=/opt/azure/containers/aks-networking-image-cache.sh
   AKS_NODE_CONTROLLER_HOTFIX_SRC=/home/packer/aks-node-controller-hotfix.sh
   AKS_NODE_CONTROLLER_HOTFIX_DEST=/opt/azure/containers/aks-node-controller-hotfix.sh
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
@@ -337,6 +339,8 @@ copyPackerFiles() {
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
   cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
   cpAndMode $AKS_NODE_CONTROLLER_LAUNCHER_SRC $AKS_NODE_CONTROLLER_LAUNCHER_DEST 0755
+  cpAndMode $AKS_NETWORKING_IMAGE_CACHE_SRC $AKS_NETWORKING_IMAGE_CACHE_DEST 0755
+  ln -sf $AKS_NETWORKING_IMAGE_CACHE_DEST /usr/local/bin/nic
   cpAndMode $AKS_NODE_CONTROLLER_HOTFIX_SRC $AKS_NODE_CONTROLLER_HOTFIX_DEST 0755
 
   AKS_NODE_CONTROLLER_SERVICE_SRC=/home/packer/aks-node-controller.service

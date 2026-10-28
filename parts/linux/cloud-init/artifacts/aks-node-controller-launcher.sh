@@ -39,6 +39,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/aks-node-controller-hotfix.sh"
 # this is to ensure that shellspec won't interpret any further lines below
 ${__SOURCED__:+return}
 
+if [ "${1:-}" = "prepull-networking-images" ]; then
+    anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
+    exec "$ANC_HOTFIX_SELECTED_BIN" prepull-networking-images
+fi
+
 if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     log "Gracefully exit aks-node-controller without provision config or nbc cmd"
     exit 0
@@ -46,7 +51,6 @@ fi
 
 anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
 BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
-export ANC_SELECTED_BIN_PATH="$BIN_PATH"
 
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then

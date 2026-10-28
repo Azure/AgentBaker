@@ -22,7 +22,7 @@ import (
 
 const (
 	networkingImageCacheComponentName = "networkingImageCache"
-	networkingImageCacheSchemaVersion = 1
+	networkingImageCacheSchemaVersion = 2
 	defaultImageFetcherPath           = "/opt/azure/containers/image-fetcher"
 	defaultNetworkingStatusPath       = "/opt/azure/containers/networking-image-cache-status.json"
 	agentPoolLabelKey                 = "kubernetes.azure.com/agentpool"
@@ -37,10 +37,19 @@ const (
 )
 
 type networkingImageCacheConfig struct {
-	SchemaVersion int                    `json:"schemaVersion"`
-	AgentPool     string                 `json:"agentPool,omitempty"`
-	Images        []networkingImageEntry `json:"images"`
-	Fingerprint   string                 `json:"-"`
+	SchemaVersion int
+	AgentPool     string
+	Images        []networkingImageEntry
+	Fingerprint   string
+}
+
+type networkingImageCachePayload struct {
+	SchemaVersion int                        `json:"schemaVersion"`
+	AgentPools    map[string]json.RawMessage `json:"agentPools"`
+}
+
+type networkingImageCacheAgentPool struct {
+	Images []networkingImageEntry `json:"images"`
 }
 
 type networkingImageEntry struct {
@@ -107,25 +116,24 @@ func (a *App) runPrepullNetworkingImagesCommand(ctx context.Context) (err error)
 	ctx, cancel := context.WithTimeout(ctx, networkingOverallTimeout)
 	defer cancel()
 
-	config, fetchErr := a.fetchNetworkingImageCacheConfig(ctx)
+	localPool, poolErr := a.agentPoolFromNodeConfig()
+	if poolErr != nil {
+		status.Outcome = "skipped"
+		return poolErr
+	}
+	status.AgentPool = localPool
+	if localPool == "" {
+		status.Outcome = "skipped"
+		return errors.New("node config has no kubernetes.azure.com/agentpool label")
+	}
+
+	config, fetchErr := a.fetchNetworkingImageCacheConfig(ctx, localPool)
 	if fetchErr != nil {
 		status.Outcome = "skipped"
 		return fetchErr
 	}
 	status.SchemaVersion = config.SchemaVersion
 	status.ComponentFingerprint = config.Fingerprint
-	status.AgentPool = config.AgentPool
-
-	localPool, poolErr := a.agentPoolFromNodeConfig()
-	if poolErr != nil {
-		return poolErr
-	}
-	if localPool == "" {
-		return errors.New("node config has no kubernetes.azure.com/agentpool label")
-	}
-	if !strings.EqualFold(config.AgentPool, localPool) {
-		return fmt.Errorf("LPS agent pool %q does not match node config pool %q", config.AgentPool, localPool)
-	}
 
 	results, pullErr := a.pullNetworkingImages(ctx, config.Images)
 	status.Images = results
@@ -143,7 +151,7 @@ func (a *App) runPrepullNetworkingImagesCommand(ctx context.Context) (err error)
 	return nil
 }
 
-func (a *App) fetchNetworkingImageCacheConfig(ctx context.Context) (*networkingImageCacheConfig, error) {
+func (a *App) fetchNetworkingImageCacheConfig(ctx context.Context, localPool string) (*networkingImageCacheConfig, error) {
 	var (
 		data []byte
 		err  error
@@ -165,31 +173,53 @@ func (a *App) fetchNetworkingImageCacheConfig(ctx context.Context) (*networkingI
 		}
 	}
 
-	var config networkingImageCacheConfig
-	decoder := json.NewDecoder(strings.NewReader(string(data)))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&config); err != nil {
+	var schema struct {
+		SchemaVersion int `json:"schemaVersion"`
+	}
+	schemaDecoder := json.NewDecoder(strings.NewReader(string(data)))
+	if err := schemaDecoder.Decode(&schema); err != nil {
 		return nil, fmt.Errorf("parsing networking image cache config: %w", err)
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+	if err := schemaDecoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return nil, errors.New("parsing networking image cache config: trailing JSON data")
 	}
-	if config.SchemaVersion != networkingImageCacheSchemaVersion {
-		return nil, fmt.Errorf("unsupported networking image cache schema version %d", config.SchemaVersion)
-	}
-	config.AgentPool = strings.TrimSpace(config.AgentPool)
-	if config.AgentPool == "" {
-		return nil, errors.New("networking image cache config has no agentPool")
-	}
-	if len(config.Images) == 0 {
-		return nil, errors.New("networking image cache config has no images")
-	}
-	if len(config.Images) > maxNetworkingImages {
-		return nil, fmt.Errorf("networking image count %d exceeds limit %d", len(config.Images), maxNetworkingImages)
+	if schema.SchemaVersion != networkingImageCacheSchemaVersion {
+		return nil, fmt.Errorf("unsupported networking image cache schema version %d", schema.SchemaVersion)
 	}
 
-	deduped := make(map[string]networkingImageEntry, len(config.Images))
-	for _, image := range config.Images {
+	var payload networkingImageCachePayload
+	decoder := json.NewDecoder(strings.NewReader(string(data)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		return nil, fmt.Errorf("parsing networking image cache config: %w", err)
+	}
+	localPool = strings.TrimSpace(localPool)
+	if localPool == "" {
+		return nil, errors.New("local agent pool must not be empty")
+	}
+	rawPool, ok := payload.AgentPools[localPool]
+	if !ok {
+		return nil, fmt.Errorf("networking image cache config has no inventory for local agent pool %q", localPool)
+	}
+
+	var pool networkingImageCacheAgentPool
+	poolDecoder := json.NewDecoder(strings.NewReader(string(rawPool)))
+	poolDecoder.DisallowUnknownFields()
+	if err := poolDecoder.Decode(&pool); err != nil {
+		return nil, fmt.Errorf("parsing networking image cache config for local agent pool %q: %w", localPool, err)
+	}
+	if err := poolDecoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("parsing networking image cache config for local agent pool %q: trailing JSON data", localPool)
+	}
+	if len(pool.Images) == 0 {
+		return nil, fmt.Errorf("networking image cache config has no images for local agent pool %q", localPool)
+	}
+	if len(pool.Images) > maxNetworkingImages {
+		return nil, fmt.Errorf("networking image count %d for local agent pool %q exceeds limit %d", len(pool.Images), localPool, maxNetworkingImages)
+	}
+
+	deduped := make(map[string]networkingImageEntry, len(pool.Images))
+	for _, image := range pool.Images {
 		image.Reference = strings.TrimSpace(image.Reference)
 		if err := validateNetworkingImageReference(image.Reference); err != nil {
 			return nil, err
@@ -200,15 +230,19 @@ func (a *App) fetchNetworkingImageCacheConfig(ctx context.Context) (*networkingI
 			deduped[image.Reference] = image
 		}
 	}
-	config.Images = config.Images[:0]
+	config := &networkingImageCacheConfig{
+		SchemaVersion: payload.SchemaVersion,
+		AgentPool:     localPool,
+		Images:        make([]networkingImageEntry, 0, len(deduped)),
+		Fingerprint:   fmt.Sprintf("%x", sha256.Sum256(data)),
+	}
 	for _, image := range deduped {
 		config.Images = append(config.Images, image)
 	}
 	sort.Slice(config.Images, func(i, j int) bool {
 		return config.Images[i].Reference < config.Images[j].Reference
 	})
-	config.Fingerprint = fmt.Sprintf("%x", sha256.Sum256(data))
-	return &config, nil
+	return config, nil
 }
 
 func (a *App) waitForNetworkingImageRetry(ctx context.Context) error {
