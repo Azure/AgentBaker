@@ -1,46 +1,48 @@
-Starting build on  Fri Oct 16 21:09:59 UTC 2026
+Starting build on  Fri Oct 23 00:31:56 UTC 2026
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.3.4
   - aks-secure-tls-bootstrap-client package version 1.1.4-ubuntu26.04u2 (requested 1.1.4)
   - aks-secure-tls-bootstrap-client version 1.1.4
-  - moby-runc package version 1.4.3-ubuntu26.04u36 (requested 1.4.3)
+  - moby-runc package version 1.4.3-ubuntu26.04u37 (requested 1.4.3)
   - runc version 1.4.3
-  - moby-containerd package version 2.3.3-ubuntu26.04u3 (requested 2.3.3)
-  - containerd version 2.3.3
+  - moby-containerd package version 2.3.7-ubuntu26.04u3 (requested 2.3.7)
+  - containerd version 2.3.7
   - CNI plugin version 1.6.2
-  - containernetworking-plugins package version 1.9.1-ubuntu26.04u51 (requested 1.9.1)
+  - containernetworking-plugins package version 1.9.1-ubuntu26.04u55 (requested 1.9.1)
   - containernetworking-plugins version 1.9.1
   - Azure CNI version 1.5.38
   - Azure CNI version 1.6.21
-  - kubernetes-cri-tools package version 1.34.0-ubuntu26.04u38 (requested 1.34.0)
-  - kubelet package version 1.36.4-ubuntu26.04u8 (requested 1.36.4)
+  - kubernetes-cri-tools package version 1.34.0-ubuntu26.04u42 (requested 1.34.0)
+  - kubelet package version 1.36.4-ubuntu26.04u9 (requested 1.36.4)
   - cached kubelet binary at /opt/bin/kubelet-1.36.4
   - kubelet version 1.36.4
-  - kubelet package version 1.36.3-ubuntu26.04u9 (requested 1.36.3)
+  - kubelet package version 1.36.3-ubuntu26.04u10 (requested 1.36.3)
   - cached kubelet binary at /opt/bin/kubelet-1.36.3
   - kubelet version 1.36.3
-  - kubectl package version 1.36.4-ubuntu26.04u3 (requested 1.36.4)
+  - kubectl package version 1.36.4-ubuntu26.04u4 (requested 1.36.4)
   - cached kubectl binary at /opt/bin/kubectl-1.36.4
   - kubectl version 1.36.4
-  - kubectl package version 1.36.3-ubuntu26.04u7 (requested 1.36.3)
+  - kubectl package version 1.36.3-ubuntu26.04u8 (requested 1.36.3)
   - cached kubectl binary at /opt/bin/kubectl-1.36.3
   - kubectl version 1.36.3
-  - ig package version 0.57.0-ubuntu26.04u2 (requested 0.57.0)
+  - ig package version 0.57.0-ubuntu26.04u3 (requested 0.57.0)
   - ig-gadgets package version 0.57.0-ubuntu20.04u1 (requested 0.57.0)
   - ig version 0.57.0
-  - azure-acr-credential-provider package version 1.36.7-ubuntu26.04u1 (requested 1.36.7)
-  - azure-acr-credential-provider version 1.36.7
-  - azure-acr-credential-provider package version 1.37.0-ubuntu26.04u2 (requested 1.37.0)
-  - azure-acr-credential-provider version 1.37.0
-  - nvidia-device-plugin package version 0.19.3-ubuntu26.04u18 (requested 0.19.3)
+  - azure-acr-credential-provider package version 1.36.8-ubuntu26.04u3 (requested 1.36.8)
+  - azure-acr-credential-provider version 1.36.8
+  - azure-acr-credential-provider package version 1.37.1-ubuntu26.04u2 (requested 1.37.1)
+  - azure-acr-credential-provider version 1.37.1
+  - nvidia-device-plugin package version 0.19.3-ubuntu26.04u20 (requested 0.19.3)
   - nvidia-device-plugin version 0.19.3
   - datacenter-gpu-manager-4-core package version 1:4.6.0-1 (requested 4.6.0)
   - datacenter-gpu-manager-4-core version 4.6.0
   - datacenter-gpu-manager-4-proprietary package version 1:4.6.0-1 (requested 4.6.0)
   - datacenter-gpu-manager-4-proprietary version 4.6.0
-  - dcgm-exporter package version 4.8.3-ubuntu26.04u9 (requested 4.8.3)
+  - dcgm-exporter package version 4.8.3-ubuntu26.04u10 (requested 4.8.3)
   - dcgm-exporter version 4.8.3
-  - node-exporter-kubernetes package version 1.12.1-ubuntu26.04u10 (requested 1.12.1)
+  - node-problem-detector-kubernetes package version 0.8.25-ubuntu26.04u25 (requested 0.8.25)
+  - node-problem-detector-aks-config package version 1.0.0-ubuntu24.04u2 (requested 1.0.0)
+  - node-exporter-kubernetes package version 1.12.1-ubuntu26.04u11 (requested 1.12.1)
   - node-exporter version 1.12.1
   - acr-mirror version 1.0.0
   - blobfuse2 version 2.5.5
@@ -48,78 +50,78 @@ Components installed at node provisioning time (CSE) for supported GPU VM sizes 
   - nvidia-grid-driver=580.178.04-20261006181431
 images pre-pulled:
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.3.0
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.7.17-0
-  - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.4.0-0
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.44-0
+  - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.7.17-0
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-25
   - mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-41
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-20
+  - mcr.microsoft.com/oss/v2/kubernetes/pause:3.6
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.7-2
   - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.3-18
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-25
-  - mcr.microsoft.com/containernetworking/v2/azure-cni:v1.8.13
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-20
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-32
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.44-0
-  - mcr.microsoft.com/oss/v2/kubernetes/pause:3.6
   - mcr.microsoft.com/containernetworking/v2/azure-cns:v1.8.13
   - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-29
+  - mcr.microsoft.com/containernetworking/v2/azure-cni:v1.8.13
   - mcr.microsoft.com/containernetworking/azure-npm:v1.6.42
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.7.17-0
+  - mcr.microsoft.com/containernetworking/cilium-log-collector:v0.0.2-0
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.8-260923
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.6-260811
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.7.17-0
   - mcr.microsoft.com/containernetworking/azure-cns:v1.6.44-0
-  - mcr.microsoft.com/containernetworking/cilium-log-collector:v0.0.2-0
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b
   - mcr.microsoft.com/containernetworking/azure-iptables-monitor:v0.0.5-0
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b
+  - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.8.2-11
   - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.32.1-11
   - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.6.1-1
-  - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.8.2-11
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.33.19-1
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-targetallocator
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.33.20-2
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.35.11-2
   - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.34.15-1
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.35.10-1
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.36.7-1
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.36.8-2
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.34.16-2
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.37.1-1
   - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-27
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.37.0-1
   - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-22
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-16
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-17
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.34.5
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.11
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.10
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.6-260811
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.14-260923
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.8-260923
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.12-260811
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.7
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.6-260811
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.11
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.34.5
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.9
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.6
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.10
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.8
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.7
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.8-260923
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.7
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.15
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.16
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.14-260923
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.9
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.8
   - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.19.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.18.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.17.0
   - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.16.0
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.33.13-11
-  - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.14.1
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.11-5
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.4-4
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.35.8-4
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.14-260923
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.17.0
+  - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.14.1
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.18.0
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.35.8-4
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.33.13-11
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.11-5
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.4-4
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.12-260811
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-cfg
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.8.0-ci-prod-09-03-2026-fd42f68c
 Successfully copied coredns binary of v1.14.7-2
 kubelet/kubectl downloaded:
--rwxr-xr-x 1 root root 57038560 Oct 16 21:16 /opt/bin/kubelet-1.36.4
--rwxr-xr-x 1 root root 93208640 Oct 16 21:16 /opt/bin/kubelet-1.36.3
--rwxr-xr-x 1 root root 83192144 Oct 16 21:16 /opt/bin/kubectl-1.36.4
--rwxr-xr-x 1 root root 83192176 Oct 16 21:16 /opt/bin/kubectl-1.36.3
+-rwxr-xr-x 1 root root 57038560 Oct 23 01:32 /opt/bin/kubelet-1.36.4
+-rwxr-xr-x 1 root root 93208640 Oct 23 01:32 /opt/bin/kubelet-1.36.3
+-rwxr-xr-x 1 root root 83192144 Oct 23 01:32 /opt/bin/kubectl-1.36.4
+-rwxr-xr-x 1 root root 83192176 Oct 23 01:32 /opt/bin/kubectl-1.36.3
 === Installed Packages Begin
 Listing...
 3cpio/resolute,now 0.14.0-1ubuntu1 arm64 [installed,automatic]
@@ -134,9 +136,9 @@ azure-vm-utils/resolute,now 0.6.0-4build1 arm64 [installed]
 base-files/resolute-updates,now 14ubuntu6.2 arm64 [installed,automatic]
 base-passwd/resolute,now 3.6.8 arm64 [installed,automatic]
 bash/resolute,now 5.3-2ubuntu1 arm64 [installed]
-bind9-dnsutils/resolute-security,now 1:9.20.24-1ubuntu0.4 arm64 [installed]
-bind9-host/resolute-security,now 1:9.20.24-1ubuntu0.4 arm64 [installed,automatic]
-bind9-libs/resolute-security,now 1:9.20.24-1ubuntu0.4 arm64 [installed,automatic]
+bind9-dnsutils/resolute-updates,resolute-security,now 1:9.20.24-1ubuntu0.4 arm64 [installed]
+bind9-host/resolute-updates,resolute-security,now 1:9.20.24-1ubuntu0.4 arm64 [installed,automatic]
+bind9-libs/resolute-updates,resolute-security,now 1:9.20.24-1ubuntu0.4 arm64 [installed,automatic]
 binutils-aarch64-linux-gnu/resolute,now 2.46-3ubuntu2 arm64 [installed,automatic]
 binutils-common/resolute,now 2.46-3ubuntu2 arm64 [installed,automatic]
 binutils/resolute,now 2.46-3ubuntu2 arm64 [installed,automatic]
@@ -144,20 +146,20 @@ blobfuse2/resolute,now 2.5.5 arm64 [installed]
 bsdutils/resolute-updates,resolute-security,now 1:2.41.3-3ubuntu2.2 arm64 [installed]
 busybox-initramfs/resolute,now 1:1.37.0-7ubuntu1 arm64 [installed,automatic]
 bzip2/resolute-updates,resolute-security,now 1.0.8-6ubuntu0.1 arm64 [installed,automatic]
-ca-certificates/resolute-updates,resolute-security,now 20260601~26.04.1 all [installed]
+ca-certificates/resolute-updates,resolute-security,now 20260816ubuntu0.26.04.1 all [installed]
 ceph-common/resolute-updates,resolute-security,now 20.2.0-0ubuntu2.1 arm64 [installed]
 cgroup-lite/resolute,now 1.15build1 all [installed]
 chrony/resolute,now 4.8-2ubuntu1 arm64 [installed]
-cifs-utils/resolute-updates,resolute-security,now 2:7.4-1ubuntu0.26.04.3 arm64 [installed]
+cifs-utils/resolute-updates,resolute-security,now 2:7.4-1ubuntu0.26.04.4 arm64 [installed]
 cloud-guest-utils/resolute,now 0.33-1build1 all [installed]
-cloud-init-base/resolute-updates,now 26.1-0ubuntu3~26.04.1 all [installed,automatic]
-cloud-init/resolute-updates,now 26.1-0ubuntu3~26.04.1 all [installed]
+cloud-init-base/resolute-updates,now 26.2-0ubuntu1~26.04.1 all [installed,automatic]
+cloud-init/resolute-updates,now 26.2-0ubuntu1~26.04.1 all [installed]
 conntrack/resolute,now 1:1.4.9-1 arm64 [installed]
 console-setup-linux/resolute-updates,now 1.237ubuntu3.1 all [installed,automatic]
 console-setup/resolute-updates,now 1.237ubuntu3.1 all [installed]
-containerd-accelerated-container-image/resolute,now 1.4.5-ubuntu26.04u4 arm64 [installed,automatic]
+containerd-accelerated-container-image/resolute,now 1.4.5-ubuntu26.04u7 arm64 [installed,automatic]
 containerd-overlaybd/resolute,now 1.0.18-ubuntu26.04u2 arm64 [installed,automatic]
-containernetworking-plugins/resolute,now 1.9.1-ubuntu26.04u51 arm64 [installed]
+containernetworking-plugins/resolute,now 1.9.1-ubuntu26.04u55 arm64 [installed]
 coreutils-from-uutils/resolute,now 0.0.0~ubuntu25 all [installed]
 coreutils/resolute,now 9.5-1ubuntu2+0.0.0~ubuntu25 all [installed]
 cpp-15-aarch64-linux-gnu/resolute,now 15.2.0-16ubuntu1 arm64 [installed,automatic]
@@ -167,7 +169,7 @@ cpp/resolute,now 4:15.2.0-5ubuntu1 arm64 [installed,automatic]
 cracklib-runtime/resolute,now 2.9.6-5.2build3 arm64 [installed]
 cron-daemon-common/resolute,now 3.0pl1-200ubuntu1 all [installed,automatic]
 cron/resolute,now 3.0pl1-200ubuntu1 arm64 [installed]
-curl/resolute-security,now 8.18.0-1ubuntu2.8 arm64 [installed]
+curl/resolute-updates,resolute-security,now 8.18.0-1ubuntu2.8 arm64 [installed]
 dash/resolute,now 0.5.12-12ubuntu3 arm64 [installed]
 dbus-bin/resolute,now 1.16.2-2ubuntu4 arm64 [installed,automatic]
 dbus-daemon/resolute,now 1.16.2-2ubuntu4 arm64 [installed,automatic]
@@ -179,7 +181,7 @@ debconf/resolute,now 1.5.92 all [installed,automatic]
 debianutils/resolute,now 5.23.2build1 arm64 [installed,automatic]
 dhcpcd-base/resolute,now 1:10.3.0-7 arm64 [installed,automatic]
 diffutils/resolute-updates,resolute-security,now 1:3.12-1ubuntu0.1 arm64 [installed]
-distro-info-data/resolute-updates,resolute-security,now 0.72-0ubuntu0.26.04.1 all [installed,automatic]
+distro-info-data/resolute-updates,resolute-security,now 2026.10.12-0ubuntu0.26.04.1 all [installed,automatic]
 distro-info/resolute,now 1.15 arm64 [installed,automatic]
 dkms/resolute,now 3.2.2-1ubuntu1 all [installed]
 dmsetup/resolute,now 2:1.02.205-2ubuntu3 arm64 [installed]
@@ -221,7 +223,7 @@ hostname/resolute,now 3.25build1 arm64 [installed]
 htop/resolute,now 3.4.1-5build2 arm64 [installed]
 hwdata/resolute,now 0.394-1build1 all [installed,automatic]
 ig-gadgets/now 0.57.0-ubuntu20.04u1 arm64 [installed,local]
-ig/resolute,now 0.57.0-ubuntu26.04u2 arm64 [installed]
+ig/resolute,now 0.57.0-ubuntu26.04u3 arm64 [installed]
 init-system-helpers/resolute,now 1.69 all [installed]
 initramfs-tools-bin/resolute,now 0.151ubuntu1 arm64 [installed,automatic]
 initramfs-tools-core/resolute,now 0.151ubuntu1 all [installed,automatic]
@@ -238,7 +240,7 @@ keyboard-configuration/resolute-updates,now 1.237ubuntu3.1 all [installed,automa
 keyutils/resolute,now 1.6.3-6ubuntu3 arm64 [installed]
 klibc-utils/resolute,now 2.0.14-1ubuntu2 arm64 [installed,automatic]
 kmod/resolute,now 34.2-2ubuntu2 arm64 [installed]
-kubernetes-cri-tools/resolute,now 1.34.0-ubuntu26.04u38 arm64 [installed,upgradable to: 1.37.0-ubuntu26.04u2]
+kubernetes-cri-tools/resolute,now 1.34.0-ubuntu26.04u42 arm64 [installed,upgradable to: 1.37.0-ubuntu26.04u5]
 libacl1/resolute,now 2.3.2-2 arm64 [installed,automatic]
 libaio1t64/resolute,now 0.3.113-8build1 arm64 [installed,automatic]
 libapparmor1/resolute-updates,now 5.0.2-0ubuntu1~26.04.1 arm64 [installed,automatic]
@@ -282,8 +284,8 @@ libcrypt1/resolute,now 1:4.5.1-1 arm64 [installed,automatic]
 libcryptsetup12/resolute,now 2:2.8.4-1ubuntu4 arm64 [installed,automatic]
 libctf-nobfd0/resolute,now 2.46-3ubuntu2 arm64 [installed,automatic]
 libctf0/resolute,now 2.46-3ubuntu2 arm64 [installed,automatic]
-libcurl3t64-gnutls/resolute-security,now 8.18.0-1ubuntu2.8 arm64 [installed,automatic]
-libcurl4t64/resolute-security,now 8.18.0-1ubuntu2.8 arm64 [installed,automatic]
+libcurl3t64-gnutls/resolute-updates,resolute-security,now 8.18.0-1ubuntu2.8 arm64 [installed,automatic]
+libcurl4t64/resolute-updates,resolute-security,now 8.18.0-1ubuntu2.8 arm64 [installed,automatic]
 libdaxctl1/resolute,now 81-1ubuntu1 arm64 [installed,automatic]
 libdb5.3t64/resolute,now 5.3.28+dfsg2-10ubuntu1 arm64 [installed,automatic]
 libdbus-1-3/resolute,now 1.16.2-2ubuntu4 arm64 [installed,automatic]
@@ -355,7 +357,7 @@ liblocale-gettext-perl/resolute,now 1.07-8 arm64 [installed,automatic]
 liblsan0/resolute,now 16-20260322-1ubuntu1 arm64 [installed,automatic]
 liblua5.4-0/resolute,now 5.4.8-1build1 arm64 [installed,automatic]
 liblz4-1/resolute,now 1.10.0-8 arm64 [installed,automatic]
-liblzma5/resolute,now 5.8.3-1 arm64 [installed,automatic]
+liblzma5/resolute-updates,resolute-security,now 5.8.3-1ubuntu0.1 arm64 [installed,automatic]
 libmagic-mgc/resolute,now 1:5.46-5build2 arm64 [installed,automatic]
 libmagic1t64/resolute,now 1:5.46-5build2 arm64 [installed,automatic]
 libmaxminddb0/resolute,now 1.12.2-1build2 arm64 [installed,automatic]
@@ -389,7 +391,7 @@ libpam-modules-bin/resolute-updates,resolute-security,now 1.7.0-5ubuntu3.2 arm64
 libpam-modules/resolute-updates,resolute-security,now 1.7.0-5ubuntu3.2 arm64 [installed,automatic]
 libpam-pwquality/resolute,now 1.4.5-5build1 arm64 [installed]
 libpam-runtime/resolute-updates,resolute-security,now 1.7.0-5ubuntu3.2 all [installed,automatic]
-libpam-systemd/resolute-updates,resolute-security,now 259.5-0ubuntu3.4 arm64 [installed,automatic]
+libpam-systemd/resolute-updates,now 259.9-0ubuntu0.1 arm64 [installed,automatic]
 libpam0g/resolute-updates,resolute-security,now 1.7.0-5ubuntu3.2 arm64 [installed,automatic]
 libparted2t64/resolute,now 3.6-6 arm64 [installed,automatic]
 libpci3/resolute,now 1:3.14.0-1build2 arm64 [installed,automatic]
@@ -432,8 +434,8 @@ libssh2-1t64/resolute-updates,resolute-security,now 1.11.1-1ubuntu0.26.04.4 arm6
 libssl3t64/resolute-updates,resolute-security,now 3.5.5-1ubuntu3.7 arm64 [installed,automatic]
 libstdc++6/resolute,now 16-20260322-1ubuntu1 arm64 [installed,automatic]
 libsysfs2/resolute,now 2.1.1-7build1 arm64 [installed,automatic]
-libsystemd-shared/resolute-updates,resolute-security,now 259.5-0ubuntu3.4 arm64 [installed,automatic]
-libsystemd0/resolute-updates,resolute-security,now 259.5-0ubuntu3.4 arm64 [installed,automatic]
+libsystemd-shared/resolute-updates,now 259.9-0ubuntu0.1 arm64 [installed,automatic]
+libsystemd0/resolute-updates,now 259.9-0ubuntu0.1 arm64 [installed,automatic]
 libtalloc2/resolute-updates,resolute-security,now 2:2.4.3+samba4.23.6+dfsg-1ubuntu2.2 arm64 [installed,automatic]
 libtasn1-6/resolute,now 4.21.0-2 arm64 [installed,automatic]
 libtcmalloc-minimal4t64/resolute,now 2.18.1-1 arm64 [installed,automatic]
@@ -452,7 +454,7 @@ libtss2-tcti-device0t64/resolute,now 4.1.3-6 arm64 [installed,automatic]
 libtss2-tcti-mssim0t64/resolute,now 4.1.3-6 arm64 [installed,automatic]
 libtss2-tcti-swtpm0t64/resolute,now 4.1.3-6 arm64 [installed,automatic]
 libubsan1/resolute,now 16-20260322-1ubuntu1 arm64 [installed,automatic]
-libudev1/resolute-updates,resolute-security,now 259.5-0ubuntu3.4 arm64 [installed,automatic]
+libudev1/resolute-updates,now 259.9-0ubuntu0.1 arm64 [installed,automatic]
 libunistring5/resolute,now 1.3-2build1 arm64 [installed,automatic]
 liburcu8t64/resolute,now 0.15.6-1 arm64 [installed,automatic]
 libusb-1.0-0/resolute,now 2:1.0.29-2build1 arm64 [installed,automatic]
@@ -493,8 +495,8 @@ lxd-installer/resolute,now 14ubuntu0 all [installed]
 make/resolute,now 4.4.1-3 arm64 [installed]
 mawk/resolute,now 1.3.4.20260129-1 arm64 [installed,automatic]
 media-types/resolute,now 14.0.0build1 all [installed,automatic]
-moby-containerd/resolute,now 2.3.3-ubuntu26.04u3 arm64 [installed,upgradable to: 2.4.1-ubuntu26.04u1]
-moby-runc/resolute,now 1.4.3-ubuntu26.04u36 arm64 [installed,upgradable to: 1.6.0~rc.1-ubuntu26.04u5]
+moby-containerd/resolute,now 2.3.7-ubuntu26.04u3 arm64 [installed,upgradable to: 2.4.2-ubuntu26.04u3]
+moby-runc/resolute,now 1.4.3-ubuntu26.04u37 arm64 [installed,upgradable to: 1.6.0~rc.1-ubuntu26.04u8]
 mokutil/resolute,now 0.7.2-2 arm64 [installed,automatic]
 mount/resolute-updates,resolute-security,now 2.41.3-3ubuntu2.2 arm64 [installed]
 ncurses-base/resolute,now 6.6+20251231-1 all [installed]
@@ -506,11 +508,13 @@ netplan-generator/resolute-updates,now 1.2-1ubuntu5.1 arm64 [installed,automatic
 netplan.io/resolute-updates,now 1.2-1ubuntu5.1 arm64 [installed,automatic]
 nfs-common/resolute,now 1:2.8.5-1ubuntu1 arm64 [installed]
 nftables/resolute,now 1.1.6-1 arm64 [installed]
-node-exporter-kubernetes/resolute,now 1.12.1-ubuntu26.04u10 arm64 [installed]
+node-exporter-kubernetes/resolute,now 1.12.1-ubuntu26.04u11 arm64 [installed]
+node-problem-detector-aks-config/now 1.0.0-ubuntu24.04u2 arm64 [installed,local]
+node-problem-detector-kubernetes/resolute,now 0.8.25-ubuntu26.04u25 arm64 [installed]
 nvme-cli/resolute,now 2.16-1 arm64 [installed]
-openssh-client/resolute-security,now 1:10.2p1-2ubuntu3.8 arm64 [installed,automatic]
-openssh-server/resolute-security,now 1:10.2p1-2ubuntu3.8 arm64 [installed]
-openssh-sftp-server/resolute-security,now 1:10.2p1-2ubuntu3.8 arm64 [installed,automatic]
+openssh-client/resolute-updates,resolute-security,now 1:10.2p1-2ubuntu3.8 arm64 [installed,automatic]
+openssh-server/resolute-updates,resolute-security,now 1:10.2p1-2ubuntu3.8 arm64 [installed]
+openssh-sftp-server/resolute-updates,resolute-security,now 1:10.2p1-2ubuntu3.8 arm64 [installed,automatic]
 openssl-provider-legacy/resolute-updates,resolute-security,now 3.5.5-1ubuntu3.7 arm64 [installed,automatic]
 openssl/resolute-updates,resolute-security,now 3.5.5-1ubuntu3.7 arm64 [installed,automatic]
 packages-microsoft-prod/resolute,now 1.2-ubuntu26.04 all [installed]
@@ -559,7 +563,7 @@ python3-json-pointer/resolute,now 2.4-4 all [installed,automatic]
 python3-jsonpatch/resolute,now 1.32-6 all [installed,automatic]
 python3-jsonschema-specifications/resolute,now 2023.12.1-4 all [installed,automatic]
 python3-jsonschema/resolute,now 4.19.2-6ubuntu2 all [installed,automatic]
-python3-jwt/resolute-security,now 2.10.1-4ubuntu1.2 all [installed,automatic]
+python3-jwt/resolute-updates,resolute-security,now 2.10.1-4ubuntu1.3 all [installed,automatic]
 python3-launchpadlib/resolute,now 2.1.0-1build1 all [installed,automatic]
 python3-lazr.restfulclient/resolute,now 0.14.6-3build1 all [installed,automatic]
 python3-lazr.uri/resolute,now 1.0.6-7build1 all [installed,automatic]
@@ -583,7 +587,7 @@ python3-setuptools/resolute,now 78.1.1-0.1build1 all [installed,automatic]
 python3-typeguard/resolute,now 4.4.4-2 all [installed,automatic]
 python3-typing-extensions/resolute,now 4.15.0-2 all [installed,automatic]
 python3-update-manager/resolute,now 1:26.04.5 all [installed,automatic]
-python3-urllib3/resolute-security,now 2.6.3-1ubuntu1.2 all [installed,automatic]
+python3-urllib3/resolute-updates,resolute-security,now 2.6.3-1ubuntu1.2 all [installed,automatic]
 python3-wadllib/resolute,now 2.0.0-3 all [installed,automatic]
 python3-wcwidth/resolute,now 0.2.14+dfsg1-1build1 all [installed,automatic]
 python3-xkit/resolute,now 0.5.0ubuntu8 all [installed,automatic]
@@ -612,19 +616,19 @@ sudo-rs/resolute-updates,resolute-security,now 0.2.13-0ubuntu1.2 arm64 [installe
 sudo/resolute-updates,resolute-security,now 1.9.17p2-1ubuntu3.2 arm64 [installed]
 sysfsutils/resolute,now 2.1.1-7build1 arm64 [installed]
 sysstat/resolute,now 12.7.7-0ubuntu2 arm64 [installed]
-systemd-resolved/resolute-updates,resolute-security,now 259.5-0ubuntu3.4 arm64 [installed]
-systemd-sysv/resolute-updates,resolute-security,now 259.5-0ubuntu3.4 arm64 [installed]
-systemd/resolute-updates,resolute-security,now 259.5-0ubuntu3.4 arm64 [installed]
+systemd-resolved/resolute-updates,now 259.9-0ubuntu0.1 arm64 [installed]
+systemd-sysv/resolute-updates,now 259.9-0ubuntu0.1 arm64 [installed]
+systemd/resolute-updates,now 259.9-0ubuntu0.1 arm64 [installed]
 sysvinit-utils/resolute,now 3.15-5ubuntu1 arm64 [installed,automatic]
 tar/resolute-updates,resolute-security,now 1.35+dfsg-4ubuntu0.4 arm64 [installed]
 tpm-udev/resolute,now 4.1.3-6 all [installed,automatic]
-tzdata/resolute-updates,now 2026e-0ubuntu0.26.04.1 all [installed,automatic]
+tzdata/resolute-updates,resolute-security,now 2026e-0ubuntu0.26.04.1 all [installed,automatic]
 ubuntu-drivers-common/resolute,now 1:0.10.9 arm64 [installed]
 ubuntu-keyring/resolute,now 2023.11.28.1build1 all [installed,automatic]
-ubuntu-pro-client/resolute-updates,resolute-security,now 37.2ubuntu0.1 arm64 [installed]
+ubuntu-pro-client/resolute-updates,now 38ubuntu0~26.04 arm64 [installed]
 ubuntu-release-upgrader-core/resolute-updates,now 1:26.04.27 all [installed]
 ucf/resolute,now 3.0052ubuntu1 all [installed,automatic]
-udev/resolute-updates,resolute-security,now 259.5-0ubuntu3.4 arm64 [installed]
+udev/resolute-updates,now 259.9-0ubuntu0.1 arm64 [installed]
 unattended-upgrades/resolute,now 2.12ubuntu9 all [installed]
 unminimize/resolute,now 0.5build1 arm64 [installed]
 usb.ids/resolute,now 2025.12.13-1 all [installed,automatic]
@@ -637,13 +641,13 @@ whiptail/resolute,now 0.52.25-1ubuntu3 arm64 [installed,automatic]
 xfsprogs/resolute,now 6.18.0-3 arm64 [installed,automatic]
 xkb-data/resolute,now 2.46-2 all [installed,automatic]
 xxd/resolute-updates,resolute-security,now 2:9.1.2141-1ubuntu4.9 arm64 [installed]
-xz-utils/resolute,now 5.8.3-1 arm64 [installed]
+xz-utils/resolute-updates,resolute-security,now 5.8.3-1ubuntu0.1 arm64 [installed]
 zip/resolute,now 3.0-15ubuntu3 arm64 [installed]
-zlib1g/resolute-updates,resolute-security,now 1:1.3.dfsg+really1.3.1-1ubuntu3.1 arm64 [installed,automatic]
+zlib1g/resolute-updates,resolute-security,now 1:1.3.dfsg+really1.3.1-1ubuntu3.2 arm64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   20G  8.5G  70% /
+/dev/root        29G   20G  8.4G  71% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  812K   13G   1% /run
 efivarfs        128M   14K  128M   1% /sys/firmware/efi/efivars
@@ -675,22 +679,22 @@ LOGO=ubuntu-logo
 PUUID: BootCurrent: 0004
 Timeout: 0 seconds
 BootOrder: 0004,0001,0000
-Boot0000* EFI Network	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,635161f83edfc546913ff2d2f965ed0e343a0d0006570d003a345706000d3a34)/MAC(000000000000,0)/IPv4(0.0.0.0,0,DHCP,0.0.0.0,0.0.0.0,0.0.0.0)
-      dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba 63 51 61 f8 3e df c5 46 91 3f f2 d2 f9 65 ed 0e 34 3a 0d 00 06 57 0d 00 3a 34 57 06 00 0d 3a 34 / 03 0b 25 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 / 03 0c 1b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 / 7f ff 04 00
+Boot0000* EFI Network	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,635161f83edfc546913ff2d2f965ed0e363a0d009c640d003a36649c000d3a36)/MAC(000000000000,0)/IPv4(0.0.0.0,0,DHCP,0.0.0.0,0.0.0.0,0.0.0.0)
+      dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba 63 51 61 f8 3e df c5 46 91 3f f2 d2 f9 65 ed 0e 36 3a 0d 00 9c 64 0d 00 3a 36 64 9c 00 0d 3a 36 / 03 0b 25 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 / 03 0c 1b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 / 7f ff 04 00
 Boot0001* EFI SCSI Device	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,0)
       dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba d9 63 61 ba a1 04 29 4d b6 05 72 e2 ff b1 dc 7f 1a 78 b3 f8 82 1e 18 48 a1 c3 63 d8 06 ec 15 bb / 03 02 08 00 00 00 00 00 / 7f ff 04 00
 Boot0002* EFI SCSI Device	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,1)
       dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba d9 63 61 ba a1 04 29 4d b6 05 72 e2 ff b1 dc 7f 1a 78 b3 f8 82 1e 18 48 a1 c3 63 d8 06 ec 15 bb / 03 02 08 00 00 00 01 00 / 7f ff 04 00
 Boot0003* EFI SCSI Device	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,2)
       dp: 02 02 18 00 00 00 00 00 00 00 00 00 00 00 00 00 56 4d 42 75 73 00 00 00 / 01 04 34 00 a2 e5 17 9b 91 08 dd 42 b6 53 80 b5 c2 28 09 ba d9 63 61 ba a1 04 29 4d b6 05 72 e2 ff b1 dc 7f 1a 78 b3 f8 82 1e 18 48 a1 c3 63 d8 06 ec 15 bb / 03 02 08 00 00 00 02 00 / 7f ff 04 00
-Boot0004* Ubuntu	HD(15,GPT,59207e04-0d4f-490b-a3be-12c8a3d262a1,0x800,0x31801)/FIuntu\shimaa64.efi
-      dp: 04 01 2a 00 0f 00 00 00 00 08 00 00 00 00 00 00 01 18 03 00 00 00 00 00 04 7e 20 59 4f 0d 0b 49 a3 be 12 c8 a3 d2 62 a1 02 02 / 04 04 36 00 5c 00 45 00 46 00 49 00 5c 00 75 00 62 00 75 00 6e 00 74 00 75 00 5c 00 73 00 68 00 69 00 6d 00 61 00 61 00 36 00 34 00 2e 00 65 00 66 00 69 00 00 00 / 7f ff 04 00
+Boot0004* Ubuntu	HD(15,GPT,9d08d0ff-0023-4188-a968-5a836c40b789,0x800,0x31801)/FIuntu\shimaa64.efi
+      dp: 04 01 2a 00 0f 00 00 00 00 08 00 00 00 00 00 00 01 18 03 00 00 00 00 00 ff d0 08 9d 23 00 88 41 a9 68 5a 83 6c 40 b7 89 02 02 / 04 04 36 00 5c 00 45 00 46 00 49 00 5c 00 75 00 62 00 75 00 6e 00 74 00 75 00 5c 00 73 00 68 00 69 00 6d 00 61 00 61 00 36 00 34 00 2e 00 65 00 66 00 69 00 00 00 / 7f ff 04 00
 Using kernel:
 Linux version 7.0.0-1017-azure (buildd@bos03-arm64-032) (aarch64-linux-gnu-gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #17-Ubuntu SMP PREEMPT Thu Sep 24 16:12:21 UTC 2026
-Install completed successfully on  Fri Oct 16 21:25:11 UTC 2026
-VSTS Build NUMBER: 20261016.9_main_186203461
-VSTS Build ID: 186203461
-Commit: b82d9e42d09ce0aa8939e54d3ba5f5a7dc2fda5b
+Install completed successfully on  Fri Oct 23 01:41:32 UTC 2026
+VSTS Build NUMBER: 20261023.1_main_187253500
+VSTS Build ID: 187253500
+Commit: 69ab263bfcc17003df16b7d8e81863c8c8bde7b5
 Ubuntu version: 26.04
 Hyperv generation: V2
 Feature flags: minimal
