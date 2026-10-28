@@ -823,3 +823,20 @@ get_compute_sku() {
     fi
     echo "$vm_sku"
 }
+
+enableAndStartCgroupTelemetry() {
+    # Don't enable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
+    if ! isMarinerOrAzureLinux "$OS"; then
+        systemctlEnableAndStartNoBlock cgroup-memory-telemetry.timer 30 || exit $ERR_START_CGROUP_TELEMETRY
+        systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service || exit $ERR_START_CGROUP_TELEMETRY
+    fi
+
+    CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+    if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+        systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.timer 30 || exit $ERR_START_CGROUP_TELEMETRY
+        systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.service || exit $ERR_START_CGROUP_TELEMETRY
+
+        systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.timer 30 || exit $ERR_START_CGROUP_TELEMETRY
+        systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service || exit $ERR_START_CGROUP_TELEMETRY
+    fi
+}

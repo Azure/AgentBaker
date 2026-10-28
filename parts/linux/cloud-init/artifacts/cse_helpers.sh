@@ -170,6 +170,8 @@ ERR_CHRONY_NTP_SYNC_FAIL=245 # Chrony could not synchronize with the configured 
 ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for Intel TDX
 # -----------------------------------------------------------------------------
 
+ERR_START_CGROUP_TELEMETRY=247 # Error enabling and starting cgroup telemetry services
+
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
 [ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
 
