@@ -8,7 +8,7 @@ KUBELET_CLIENT_CURRENT_PEM_PATH="${KUBELET_CLIENT_CURRENT_PEM_PATH:-/var/lib/kub
 
 logs_to_events() {
     local task=$1; shift
-    local eventsFileName=$(date +%s%3N)
+    local eventsFileName="$(date +%s%N)${BASHPID}"
 
     local startTime=$(date +"%F %T.%3N")
     ${@}
