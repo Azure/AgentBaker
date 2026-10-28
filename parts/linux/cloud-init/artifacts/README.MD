@@ -3,6 +3,19 @@ For tutorial for the descriptions of components.json, please refer to this [doc]
 For CA refresh logging and Linux opt-in certificate diagnostics, see
 [CA refresh diagnostics](../../../../doc/ca-refresh.md).
 
+## CustomData file encoding
+
+Traditional Linux CustomData is gzip-compressed once around the whole
+cloud-config document. Its `write_files` content uses YAML double-quoted
+scalars to preserve script bytes, including whitespace and Unicode line
+separators. Flatcar, ACL, and scriptless delivery retain per-file gzip encoding.
+This changes packaging only; no new VHD binary or guest-side checksum gate is
+required.
+
+Template entries use `cloudInitFileData` with `GetCloudInitFileEncodingLine`
+and `GetCloudInitFileContent`. Legacy `cloudInitData` lookups still return
+gzip/base64 content, including when mixed with new entries in a hotfix template.
+
 ## SSH-disable telemetry
 
 When `DISABLE_SSH=true` and `basePrep` runs, `disableSSH` emits structured

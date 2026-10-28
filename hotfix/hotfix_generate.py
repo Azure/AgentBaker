@@ -421,7 +421,10 @@ def parse_write_files_blocks(traditional_lines):
 
         if in_block:
             current_block.append(line)
-            match = re.search(r'GetVariableProperty\s+"cloudInitData"\s+"(\w+)"', stripped)
+            match = re.search(
+                r'GetVariableProperty\s+"cloudInit(?:File)?Data"\s+"(\w+)"',
+                stripped,
+            )
             if match:
                 current_varkeys.add(match.group(1))
 

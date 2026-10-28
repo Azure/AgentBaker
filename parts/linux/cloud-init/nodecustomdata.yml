@@ -28,201 +28,174 @@ write_files:
 {{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
+  content: {{GetVariableProperty "cloudInitFileData" "initAKSCloud" | GetCloudInitFileContent}}
 {{end}}
 
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSource"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionSource" | GetCloudInitFileContent}}
 
 
 {{if IsACL }}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceACL"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionSourceACL" | GetCloudInitFileContent}}
 {{- else if IsAzlOSGuard}}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceAzlOSGuard"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionSourceAzlOSGuard" | GetCloudInitFileContent}}
 {{- else if IsMariner}}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceMariner"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionSourceMariner" | GetCloudInitFileContent}}
 {{- else if IsFlatcar }}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceFlatcar"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionSourceFlatcar" | GetCloudInitFileContent}}
 {{- else }}
 - path: {{GetCSEHelpersScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionSourceUbuntu" | GetCloudInitFileContent}}
 {{end}}
 
 {{ if not IsCustomImage -}}
 - path: /opt/azure/containers/provision_start.sh
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionStartScript" | GetCloudInitFileContent}}
 {{- end }}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionScript"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionScript" | GetCloudInitFileContent}}
 
 - path: {{GetCSEInstallScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionInstalls" | GetCloudInitFileContent}}
 
 {{if IsACL }}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsACL"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionInstallsACL" | GetCloudInitFileContent}}
 {{- else if IsAzlOSGuard}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsAzlOSGuard"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionInstallsAzlOSGuard" | GetCloudInitFileContent}}
 {{- else if IsMariner}}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsMariner"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionInstallsMariner" | GetCloudInitFileContent}}
 {{- else if IsFlatcar }}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsFlatcar"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionInstallsFlatcar" | GetCloudInitFileContent}}
 {{- else }}
 - path: {{GetCSEInstallScriptDistroFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionInstallsUbuntu" | GetCloudInitFileContent}}
 {{end}}
 
 - path: {{GetCSEConfigScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionConfigs" | GetCloudInitFileContent}}
 
 - path: {{GetCSEConfigGPUScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionConfigsGPU"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionConfigsGPU" | GetCloudInitFileContent}}
 
 - path: {{GetCSEConfigLocalDNSScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionConfigsLocalDNS"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionConfigsLocalDNS" | GetCloudInitFileContent}}
 
 - path: {{GetCSEConfigKubeletScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionConfigsKubelet"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionConfigsKubelet" | GetCloudInitFileContent}}
 
 - path: {{GetCSEConfigNetworkScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionConfigsNetwork"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionConfigsNetwork" | GetCloudInitFileContent}}
 
 - path: {{GetCSEConfigAddonsScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionConfigsAddons"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionConfigsAddons" | GetCloudInitFileContent}}
 
 - path: {{GetCSEConfigChronyScriptFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "provisionConfigsChrony"}}
+  content: {{GetVariableProperty "cloudInitFileData" "provisionConfigsChrony" | GetCloudInitFileContent}}
 
 {{if IsAKSCustomCloud}}
 - path: {{GetInitAKSCloudFilepath}}
   permissions: "0744"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "initAKSCloud"}}
+  content: {{GetVariableProperty "cloudInitFileData" "initAKSCloud" | GetCloudInitFileContent}}
 {{end}}
 
 - path: /etc/systemd/system/reconcile-private-hosts.service
   permissions: "0644"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
+  content: {{GetVariableProperty "cloudInitFileData" "reconcilePrivateHostsService" | GetCloudInitFileContent}}
 
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
+  content: {{GetVariableProperty "cloudInitFileData" "kubeletSystemdService" | GetCloudInitFileContent}}
 
 - path: /opt/azure-network/configure-azure-network.sh
   permissions: "0755"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "configureAzureNetworkScript"}}
+  content: {{GetVariableProperty "cloudInitFileData" "configureAzureNetworkScript" | GetCloudInitFileContent}}
 
 - path: /etc/udev/rules.d/99-azure-network.rules
   permissions: "0644"
-  encoding: gzip
+  {{GetCloudInitFileEncodingLine}}
   owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "azureNetworkUdevRule"}}
+  content: {{GetVariableProperty "cloudInitFileData" "azureNetworkUdevRule" | GetCloudInitFileContent}}
 {{- end }}
