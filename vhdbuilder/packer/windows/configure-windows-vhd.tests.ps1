@@ -104,6 +104,12 @@ Describe 'Download-FileWithAzCopy' {
     }
 }
 
+Describe 'Get-OrasDownloadUrl' {
+    It 'returns the DALEC Windows amd64 package URL' {
+        Get-OrasDownloadUrl -Version '1.3.6' | Should -Be 'https://packages.aks.azure.com/dalec-packages/oras/1.3.6/windows/amd64/oras_1.3.6-1_amd64.zip'
+    }
+}
+
 Describe 'Invoke-PackageDownload' {
     BeforeEach {
         $script:tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-configure-windows-vhd-$(New-Guid)"

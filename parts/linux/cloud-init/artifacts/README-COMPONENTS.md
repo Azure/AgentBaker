@@ -217,6 +217,8 @@ Trivy uses one `TRIVY_PMC_VERSION` in `trivy-scan.sh` for Ubuntu and Azure Linux
 
 Each resolution is logged as `requested -> full package version` and written to the VHD release notes. The release notes also include the distro's complete installed-package inventory; explicit resolution entries cover packages that are cached or unpacked without being registered as installed packages.
 
+ORAS uses PMC packages on Ubuntu 22.04, 24.04, and 26.04 and Azure Linux 3.0. The Ubuntu package is named `az-oras` but provides the `oras` executable. Ubuntu 20.04 and other distros without a PMC package entry continue to use the upstream release archive.
+
 ## Can I keep only 1 patch version?
 Yes. Just place the latest version of the component in `latestVersion`. `previousLatestVersion` is optional.
 

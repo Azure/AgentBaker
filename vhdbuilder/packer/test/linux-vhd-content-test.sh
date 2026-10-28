@@ -286,6 +286,20 @@ testPackagesInstalled() {
         fi
         continue
         ;;
+      "oras")
+        if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
+          continue
+        fi
+        local oras_version_output
+        if ! oras_version_output=$(oras version 2>&1); then
+          err "$test" "Failed to run oras version: ${oras_version_output}"
+          continue
+        fi
+        if ! grep -Fq "${PACKAGE_VERSIONS[0]}" <<< "$oras_version_output"; then
+          err "$test" "Expected oras version ${PACKAGE_VERSIONS[0]}, got: ${oras_version_output}"
+        fi
+        continue
+        ;;
       "cni-plugins")
         testCNIPluginsInstalled "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
