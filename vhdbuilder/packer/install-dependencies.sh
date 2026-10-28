@@ -1435,11 +1435,6 @@ fi
 configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')" || exit $ERR_PACKER_COPY_FILE
 systemctl daemon-reload
 
-if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ "$(ls -A /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/)" ]; then
-  cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
-  rm -rf /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
-fi
-
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
