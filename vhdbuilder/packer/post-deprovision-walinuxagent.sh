@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 # Post-deprovision WALinuxAgent install script.
-# Called by packer inline block AFTER 'waagent -force -deprovision+user',
+# Called by Packer and AIB AFTER 'waagent -force -deprovision+user',
 # which clears /var/lib/waagent/. This script reads the target WALinuxAgent
 # version from components.json and installs it from the wireserver manifest
 # so the agent daemon can pick it up locally without downloading at

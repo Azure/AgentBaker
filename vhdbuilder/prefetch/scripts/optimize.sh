@@ -20,6 +20,11 @@ set -uxo pipefail
 [ -z "${FEATURE_FLAGS:-}" ] && echo "FEATURE_FLAGS is not set" && exit 1
 [ -z "${ENABLE_TRUSTED_LAUNCH:-}" ] && echo "ENABLE_TRUSTED_LAUNCH is not set" && exit 1
 [ -z "${WORKLOAD_OPTIMIZATION_SCRIPT_URL:-}" ] && echo "WORKLOAD_OPTIMIZATION_SCRIPT_URL is not set" && exit 1
+AGENTBAKER_SCRIPT_BASE_URL="https://raw.githubusercontent.com/Azure/AgentBaker/$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse HEAD)/vhdbuilder/packer" || exit $?
+CVM_BUILD=false
+if grep -q "cvm" <<< "${FEATURE_FLAGS}"; then
+    CVM_BUILD=true
+fi
 
 IMAGE_BUILDER_API_VERSION="2025-10-01"
 MANAGED_DISK_API_VERSION="2024-03-02"
@@ -128,6 +133,8 @@ run_image_builder_template() {
         sed -e "s#<LOCATION>#${LOCATION}#g" \
             -e "s#<IMAGE_BUILDER_IDENTITY_ID>#${IMAGE_BUILDER_IDENTITY_ID}#g" \
             -e "s#<WORKLOAD_OPTIMIZATION_SCRIPT_URL>#${WORKLOAD_OPTIMIZATION_SCRIPT_URL}#g" \
+            -e "s#<AGENTBAKER_SCRIPT_BASE_URL>#${AGENTBAKER_SCRIPT_BASE_URL}#g" \
+            -e "s#<CVM_BUILD>#${CVM_BUILD}#g" \
             -e "s#<SOURCE_TYPE>#${SOURCE_TYPE}#g" \
             -e "s#<SOURCE_ID_KEY>#${SOURCE_ID_KEY}#g" \
             -e "s#<SOURCE_ID>#${SOURCE_ID}#g" \

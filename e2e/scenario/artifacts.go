@@ -142,12 +142,16 @@ func artifactDir(artifactName string) string {
 
 func writeToFile(artifactName, fileName, content string) error {
 	dirPath := artifactDir(artifactName)
-	// Create the directory if it doesn't exist
-	if err := os.MkdirAll(dirPath, 0755); err != nil {
+	cleanName := filepath.Clean(fileName)
+	if filepath.IsAbs(cleanName) || cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("invalid artifact file name %q", fileName)
+	}
+
+	fullPath := filepath.Join(dirPath, cleanName)
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return err
 	}
 
-	fullPath := filepath.Join(dirPath, fileName)
 	return os.WriteFile(fullPath, []byte(content), 0600)
 }
 

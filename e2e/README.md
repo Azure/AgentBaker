@@ -56,6 +56,43 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### CVM validation
+
+The Ubuntu and Azure Linux V3 CVM scenarios run standard node validation plus
+CVM-specific VMSS, guest platform, measured-boot PCR, and Microsoft Azure
+Attestation checks. Azure Container Linux (ACL) retains standard node validation
+only; the attestation collector does not yet support its immutable OS.
+Disk security is checked against each scenario's configured encryption mode.
+Attestation verifies the signature, issuer, token validity, scenario nonce, compliance,
+Secure Boot, vTPM, and SEV-SNP or TDX policy claims. The collector retrieves a pinned
+revision of `Azure/cvm-attestation-tools` and its Python dependencies on the test VM.
+On-node Python collection, including MAA and IMDS requests, is limited to three
+minutes, with forced termination after a further ten seconds if needed.
+The entire collector, including package installation, Git fetch, and Python dependency
+setup, has an eight-minute remote deadline and a nine-minute SSH backstop.
+The five dedicated CVM validators have a separate twelve-minute validation budget
+after provisioning, still bounded by the overall scenario deadline. Other scenarios,
+including ACL, retain their existing timeout behavior. Collector phase timings and
+sanitized service failures are retained in the redacted log; transport failures retain
+partial output, and workspace cleanup reconnects if its SSH transport is unusable.
+Image selection uses the existing selector (including "latest" and build metadata);
+the exact resolved resource ID is recorded and compared with fresh Azure reads of
+both the VMSS and VM instance. This confirms reported image selection, not disk-content
+integrity. PCR evidence requires SHA-256 PCRs 0-23 with valid 32-byte digests and is also
+published as `cvm/measured-boot-pcrs.json`. It establishes readability and format only:
+there is no nonce-bound PCR quote, event-log replay, or approved measurement baseline.
+Evidence is written under the scenario's `cvm/` artifact directory, with verdicts in
+`cvm/cvm-checks.json` and `cvm-attestation-summary.json`; raw attestation tokens are
+not published.
+Attestation results distinguish `passed`, `failed` (invalid tokens or rejected
+assertions), and `unable_to_verify` (collection, timeout, or verification-service
+errors). Both failure statuses fail the scenario. The summary records an overall
+`attestation` result; properties not established by accepted evidence use
+`status: unable_to_verify` with `passed: null`, rather than claiming they are
+disabled. A verified property mismatch records the actual observed value and
+`status: failed`. Previously verified results are retained if later artifact
+publication or cleanup fails.
+
 ### DRA MIG workload validation
 
 The existing `Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed` scenario uses

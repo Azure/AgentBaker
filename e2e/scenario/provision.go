@@ -281,6 +281,11 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 
 	logging.Logf(ctx, "Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
 
+	if s.ValidationTimeout > 0 {
+		validationCtx, validationCancel := context.WithTimeout(ctx, s.ValidationTimeout)
+		defer validationCancel()
+		return validateVM(validationCtx, s)
+	}
 	return validateVM(vmssCtx, s)
 }
 

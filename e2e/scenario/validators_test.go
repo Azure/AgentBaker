@@ -3,12 +3,131 @@ package scenario
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os/exec"
+	"strings"
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	resourcev1 "k8s.io/api/resource/v1"
 )
+
+func TestIsKnownCVMInitrdFailure(t *testing.T) {
+	const unit = "initrd-core-tmpfiles-setup.service"
+	const missingConfig = "Failed to open 'core-writable.conf': No such file or directory"
+	const missingConfigRead = "Failed to read 'core-writable.conf': No such file or directory"
+	const summaries = "\ninitrd-core-tmpfiles-setup.service: Main process exited, code=exited, status=1/FAILURE" +
+		"\ninitrd-core-tmpfiles-setup.service: Failed with result 'exit-code'." +
+		"\nFailed to start initrd-core-tmpfiles-setup.service - Create initial writable directories."
+	tests := []struct {
+		name     string
+		vhd      *config.Image
+		cvm      bool
+		unit     string
+		messages string
+		want     bool
+	}{
+		{"2404 known error", config.VHDUbuntu2404CVMGen2Containerd, true, unit, missingConfig + summaries, true},
+		{"2604 known open error", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, unit, missingConfig + summaries, true},
+		{"2604 repeated read error", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, unit, missingConfigRead + summaries + "\n" + missingConfigRead + summaries + "\n", true},
+		{"different error", config.VHDUbuntu2404CVMGen2Containerd, true, unit, "Failed to open 'core-writable.conf': Permission denied" + summaries, false},
+		{"read permission error", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, unit, "Failed to read 'core-writable.conf': Permission denied" + summaries, false},
+		{"different config", config.VHDUbuntu2404CVMGen2Containerd, true, unit, "Failed to open 'other.conf': No such file or directory" + summaries, false},
+		{"additional error", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, unit, missingConfig + summaries + "\nFailed to create directory: Read-only file system", false},
+		{
+			"read with additional error", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, unit,
+			missingConfigRead + summaries + "\nFailed to create directory: Read-only file system", false,
+		},
+		{"different exit status", config.VHDUbuntu2404CVMGen2Containerd, true, unit, missingConfig + "\ninitrd-core-tmpfiles-setup.service: Main process exited, code=exited, status=2/INVALIDARGUMENT", false},
+		{"missing diagnostic", config.VHDUbuntu2404CVMGen2Containerd, true, unit, summaries, false},
+		{"empty journal", config.VHDUbuntu2404CVMGen2Containerd, true, unit, "", false},
+		{"TPM unit", config.VHDUbuntu2604MinimalCVMGen2Containerd, true, "systemd-tpm2-setup.service", missingConfig, false},
+		{"non-CVM scenario", config.VHDUbuntu2404CVMGen2Containerd, false, unit, missingConfig, false},
+		{"non-CVM image", config.VHDUbuntu2404Gen2Containerd, true, unit, missingConfig, false},
+		{"2004 image", config.VHDUbuntu2004CVMGen2Containerd, true, unit, missingConfig, false},
+		{"missing image", nil, true, unit, missingConfig, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Scenario{Tags: Tags{CVM: tt.cvm}, Config: Config{VHD: tt.vhd}}
+			require.Equal(t, tt.want, isKnownCVMInitrdFailure(s, tt.unit, tt.messages))
+		})
+	}
+}
+
+func TestParseFailedSystemdUnits(t *testing.T) {
+	tests := []struct {
+		name    string
+		output  string
+		want    []systemdUnit
+		wantErr bool
+	}{
+		{
+			name:   "legacy systemd",
+			output: "  example.service loaded failed failed Example service\n",
+			want:   []systemdUnit{{Name: "example.service"}},
+		},
+		{
+			name: "multiple units including missing initrd unit",
+			output: "initrd-core-tmpfiles-setup.service not-found failed failed initrd-core-tmpfiles-setup.service\n" +
+				"run-cloud\\x2dinit-tmp-tmp123456.mount loaded failed failed Temporary mount\n",
+			want: []systemdUnit{
+				{Name: "initrd-core-tmpfiles-setup.service"},
+				{Name: `run-cloud\x2dinit-tmp-tmp123456.mount`},
+			},
+		},
+		{name: "no failed units", output: ""},
+		{name: "blank lines", output: " \n\t\n"},
+		{name: "unexpected header", output: "UNIT LOAD ACTIVE SUB DESCRIPTION\n", wantErr: true},
+		{name: "truncated entry", output: "example.service loaded failed\n", wantErr: true},
+		{name: "unexpected active state", output: "example.service loaded active running Example\n", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			units, err := parseFailedSystemdUnits(tt.output)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Nil(t, units)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.want, units)
+			}
+		})
+	}
+}
+
+func TestKernelPanicPattern(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		want    bool
+	}{
+		{"ramoops module load", "systemd[1]: Starting Load Kernel Module ramoops...", false},
+		{"ramoops initialization", "ramoops: using 0x100000 at 0x40000000", false},
+		{"kernel oops", "kernel: Oops: 0000 [#1] SMP", true},
+		{"kernel oops mentioning ramoops", "kernel: Oops: fatal exception in ramoops", true},
+		{"kernel panic", "kernel: Kernel panic - not syncing: Fatal exception", true},
+		{"kernel bug", "kernel: BUG: unable to handle page fault", true},
+		{"call trace", "kernel: Call Trace:", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := exec.Command("grep", "-iE", kernelPanicPattern)
+			cmd.Stdin = strings.NewReader(tt.message + "\n")
+			output, err := cmd.CombinedOutput()
+			if tt.want {
+				require.NoError(t, err, string(output))
+				require.Contains(t, string(output), tt.message)
+			} else {
+				var exitErr *exec.ExitError
+				require.ErrorAs(t, err, &exitErr, string(output))
+				require.Equal(t, 1, exitErr.ExitCode(), string(output))
+				require.Empty(t, output)
+			}
+		})
+	}
+}
 
 func TestValidateDRAMIGAllocation(t *testing.T) {
 	tests := []struct {
