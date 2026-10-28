@@ -941,7 +941,7 @@
           "r2604": {
             "versionsV2": [
               {
-                "renovateTag": "name=oras, repository=production, os=ubuntu, release=26.04",
+                "renovateTag": "name=az-oras, repository=production, os=ubuntu, release=26.04",
                 "latestVersion": "1.3.5"
               }
             ]
@@ -949,7 +949,7 @@
           "r2404": {
             "versionsV2": [
               {
-                "renovateTag": "name=oras, repository=production, os=ubuntu, release=24.04",
+                "renovateTag": "name=az-oras, repository=production, os=ubuntu, release=24.04",
                 "latestVersion": "1.3.5"
               }
             ]
@@ -957,7 +957,7 @@
           "r2204": {
             "versionsV2": [
               {
-                "renovateTag": "name=oras, repository=production, os=ubuntu, release=22.04",
+                "renovateTag": "name=az-oras, repository=production, os=ubuntu, release=22.04",
                 "latestVersion": "1.3.5"
               }
             ]
@@ -965,7 +965,7 @@
           "r2004": {
             "versionsV2": [
               {
-                "renovateTag": "name=oras, repository=production, os=ubuntu, release=20.04",
+                "renovateTag": "name=az-oras, repository=production, os=ubuntu, release=20.04",
                 "latestVersion": "1.3.5"
               }
             ]
