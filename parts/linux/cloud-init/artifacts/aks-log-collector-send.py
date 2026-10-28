@@ -3,13 +3,16 @@
 import urllib3
 import uuid
 import time
+import sys
+import hashlib
+from datetime import datetime, timezone
 from http import HTTPStatus
 import xml.etree.ElementTree as ET
 
 MAX_RETRIES = 10
 SLEEP_SECONDS = 3
 
-def upload_logs():
+def upload_logs(log_path='/var/lib/waagent/logcollector/logs.zip'):
     # retry policy for each request made via the pool manager
     retries = urllib3.util.Retry(
         total=MAX_RETRIES,
@@ -35,14 +38,16 @@ def upload_logs():
             deployment_id = role_config_name.split('.')[0]
 
             # Upload the logs
-            with open('/var/lib/waagent/logcollector/logs.zip', 'rb') as logs:
+            with open(log_path, 'rb') as logs:
                 logs_data = logs.read()
+                bundle_sha256 = hashlib.sha256(logs_data).hexdigest()
+                correlation_id = str(uuid.uuid4())
                 upload_logs = http.request(
                     'PUT',
                     'http://168.63.129.16:32526/vmAgentLog',
                     headers={
                         'x-ms-version': '2015-09-01',
-                        'x-ms-client-correlationid': str(uuid.uuid4()),
+                        'x-ms-client-correlationid': correlation_id,
                         'x-ms-client-name': 'AKSCSEPlugin',
                         'x-ms-client-version': '0.1.0',
                         'x-ms-containerid': container_id,
@@ -51,6 +56,13 @@ def upload_logs():
                     body=logs_data,
                 )
 
+            # An HTTP acknowledgment identifies the exact bytes accepted by the
+            # host, not downstream retention or support-access authorization.
+            print(
+                f'Guest agent log upload: utc={datetime.now(timezone.utc).isoformat()} '
+                f'correlation_id={correlation_id} bundle_sha256={bundle_sha256} '
+                f'bytes={len(logs_data)} http_status={upload_logs.status}'
+            )
             if upload_logs.status == HTTPStatus.OK:
                 print(f'(retry={retry}) Successfully uploaded guest agent logs')
                 exit(0)
@@ -70,4 +82,4 @@ def upload_logs():
 
 if __name__ == "__main__":
     print('Uploading guest agent VM logs to Wireserver via the vmAgentLog endpoint...')
-    upload_logs()
+    upload_logs(sys.argv[1] if len(sys.argv) > 1 else '/var/lib/waagent/logcollector/logs.zip')
