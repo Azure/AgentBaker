@@ -91,3 +91,67 @@ Describe 'Azure Linux 3 Kata payload copies'
         End
     End
 End
+
+Describe 'ACL Kata payload copies'
+    Include './parts/linux/cloud-init/artifacts/cse_helpers.sh'
+    Include './vhdbuilder/packer/packer_source.sh'
+
+    setup() {
+        TEST_ROOT=$(mktemp -d)
+        GUEST="$TEST_ROOT/opt/aks-sysext/usr/share/kata-containers/kata-containers.img"
+        SHIM_LINK="$TEST_ROOT/opt/aks-sysext-rw/usr/local/bin/containerd-shim-kata-v2-rs"
+        mkdir -p "$TEST_ROOT/home/packer" "$TEST_ROOT/opt/aks-sysext-rw/usr/local/bin"
+        printf 'guest\n' > "$TEST_ROOT/home/packer/kata-containers.img"
+    }
+
+    cleanup() {
+        rm -rf "$TEST_ROOT"
+    }
+
+    # Exercise the real copy helper and ln against a temporary filesystem.
+    # Re-source in a subshell to avoid recursive mocking.
+    cpAndMode() {
+        (
+            # shellcheck disable=SC1091
+            . ./vhdbuilder/packer/packer_source.sh
+            cpAndMode "$TEST_ROOT$1" "$TEST_ROOT$2" "$3"
+        ) || exit "$?"
+    }
+
+    ln() {
+        command ln "$1" "$2" "$TEST_ROOT$3"
+    }
+
+    guest_mode() {
+        stat -c '%a' "$GUEST"
+    }
+
+    shim_link_target() {
+        readlink "$SHIM_LINK"
+    }
+
+    BeforeEach 'setup'
+    AfterEach 'cleanup'
+
+    It 'adds the guest image to the aks-sysext and links the kata-v2 shim from /usr/bin'
+        When run copyACLKataFiles
+        The status should be success
+        The contents of file "$GUEST" should equal 'guest'
+        The result of function guest_mode should equal 755
+        The result of function shim_link_target should equal /usr/bin/containerd-shim-kata-v2-rs
+    End
+
+    It 'fails when the guest image is missing'
+        rm "$TEST_ROOT/home/packer/kata-containers.img"
+        When run copyACLKataFiles
+        The status should equal "$ERR_PACKER_COPY_FILE"
+        The stderr should include "$TEST_ROOT/home/packer/kata-containers.img"
+    End
+
+    It 'fails when the writable aks-sysext bin directory is missing'
+        rm -r "$TEST_ROOT/opt/aks-sysext-rw"
+        When run copyACLKataFiles
+        The status should equal "$ERR_PACKER_COPY_FILE"
+        The stderr should include 'containerd-shim-kata-v2-rs'
+    End
+End

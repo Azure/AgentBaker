@@ -2942,6 +2942,37 @@ testNetworkdRecoveryArtifacts() {
   fi
 }
 
+# ACL Kata nodes get the Kata binaries from the base image and the guest image through the aks-sysext.
+testKataPayload() {
+  local test="testKataPayload" config key file
+  if [ "$OS_SKU" != "AzureContainerLinux" ]; then
+    return 0
+  fi
+  case "${FEATURE_FLAGS}" in *kata*) ;; *) return 0 ;; esac
+  echo "$test: Start"
+  # Every file named by the Kata configs that the containerd runtime handlers use must exist.
+  for config in /usr/share/defaults/kata-containers/configuration.toml /usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml; do
+    if [ ! -f "$config" ]; then
+      err "$test" "Missing Kata config $config"
+      continue
+    fi
+    for key in path kernel image virtio_fs_daemon; do
+      file=$(sed -n "s/^${key} = \"\(.*\)\"$/\1/p" "$config")
+      if [ -z "$file" ] || [ ! -s "$file" ]; then
+        err "$test" "$config: $key '$file' does not exist"
+      fi
+    done
+  done
+  # The kata handler finds its shim through PATH, the kata-v2 handler through an explicit runtime_path.
+  if ! command -v containerd-shim-kata-v2 >/dev/null; then
+    err "$test" "containerd-shim-kata-v2 is not in PATH"
+  fi
+  if [ ! -x /usr/local/bin/containerd-shim-kata-v2-rs ]; then
+    err "$test" "/usr/local/bin/containerd-shim-kata-v2-rs is not executable"
+  fi
+  echo "$test: Finish"
+}
+
 testMarinerLivePatchingArtifacts() {
   local test="testMarinerLivePatchingArtifacts"
   local update_script="/opt/azure/containers/mariner-package-update.sh"
@@ -3036,6 +3067,7 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testMarinerLivePatchingArtifacts
 testNetworkdRecoveryArtifacts
+testKataPayload
 testNodeExporter $OS_SKU
 testNodeProblemDetector $OS_SKU $OS_VERSION
 testAKSNodeControllerBinary
