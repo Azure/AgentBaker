@@ -199,11 +199,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
-      "destination": "/home/packer/provision_configs_addons.sh"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_config_chrony.sh",
       "destination": "/home/packer/provision_configs_chrony.sh"
     },

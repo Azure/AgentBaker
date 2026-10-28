@@ -135,6 +135,7 @@ fi
 
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
+source ./AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
 source ./AgentBaker/vhdbuilder/packer/packer_source.sh
 
 validateDownloadPackage() {

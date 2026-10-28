@@ -191,57 +191,6 @@ updatePMCRepository() {
     fi
 }
 
-updateAptWithNvidiaPkg() {
-    readonly nvidia_gpg_keyring_path="/etc/apt/keyrings/nvidia.gpg"
-    mkdir -p "$(dirname "${nvidia_gpg_keyring_path}")"
-
-    readonly nvidia_sources_list_path="/etc/apt/sources.list.d/nvidia.list"
-    local cpu_arch=$(getCPUArch)  # Returns amd64 or arm64
-    local repo_arch=""
-    local nvidia_ubuntu_release=""
-
-    if [ "$cpu_arch" = "amd64" ]; then
-        repo_arch="x86_64"
-    elif [ "$cpu_arch" = "arm64" ]; then
-        repo_arch="sbsa"
-    else
-        echo "Unknown CPU architecture: ${cpu_arch}"
-        return
-    fi
-
-    if [ "${UBUNTU_RELEASE}" = "22.04" ]; then
-        nvidia_ubuntu_release="ubuntu2204"
-    elif [ "${UBUNTU_RELEASE}" = "24.04" ]; then
-        nvidia_ubuntu_release="ubuntu2404"
-    elif [ "${UBUNTU_RELEASE}" = "26.04" ]; then
-        nvidia_ubuntu_release="ubuntu2604"
-    else
-        echo "NVIDIA repo setup is not supported on Ubuntu ${UBUNTU_RELEASE}"
-        return
-    fi
-
-    # Construct URLs based on detected architecture and Ubuntu version
-    echo "deb [arch=${cpu_arch} signed-by=${nvidia_gpg_keyring_path}] https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch} /" > ${nvidia_sources_list_path}
-
-    # Add NVIDIA repository
-    local nvidia_gpg_key_name="3bf863cc.pub"
-    if [ "${nvidia_ubuntu_release}" = "ubuntu2604" ]; then
-        nvidia_gpg_key_name="60DF8A40.pub"
-    fi
-    local nvidia_gpg_key_url="https://developer.download.nvidia.com/compute/cuda/repos/${nvidia_ubuntu_release}/${repo_arch}/${nvidia_gpg_key_name}"
-
-    # Download the armored NVIDIA repo key and dearmor it into a binary keyring.
-    # apt only accepts a signed-by keyring with a .gpg (binary) or .asc (armored) extension;
-    # NVIDIA publishes an ASCII-armored *.pub, so a raw .pub file is rejected as an "unsupported
-    # filetype" and the key is ignored (the repo then fails to verify with NO_PUBKEY). Newer apt
-    # (e.g. 3.x on Ubuntu 26.04) enforces this strictly, so dearmor to nvidia.gpg.
-    local nvidia_gpg_key_tmp="/tmp/${nvidia_gpg_key_name}"
-    retrycmd_curl_file 120 5 25 "${nvidia_gpg_key_tmp}" "${nvidia_gpg_key_url}" 300 || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
-    gpg --dearmor < "${nvidia_gpg_key_tmp}" > "${nvidia_gpg_keyring_path}" || exit $ERR_NVIDIA_GPG_KEY_DOWNLOAD_TIMEOUT
-    rm -f "${nvidia_gpg_key_tmp}"
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-}
-
 isPackageInstalled() {
     local packageName="${1}"
     if dpkg -l "${packageName}" 2>/dev/null | grep -q "^ii"; then
@@ -665,19 +614,6 @@ downloadPkgFromVersion() {
     version_no_epoch="${fullPackageVersion#*:}"
     cp -al "${APT_CACHE_DIR}/${packageName}_${version_no_epoch}"* "${downloadDir}/" || exit "$ERR_APT_INSTALL_TIMEOUT"
     echo "Succeeded to download ${packageName} version ${fullPackageVersion} for requested version ${packageVersion}"
-}
-
-installContainerd() {
-    local packageVersion="${3:-}"
-    CONTAINERD_DOWNLOADS_DIR="${1:-$CONTAINERD_DOWNLOADS_DIR}"
-    eval containerdOverrideDownloadURL="${2:-}"
-
-    # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
-    if [ ! -z "${containerdOverrideDownloadURL}" ]; then
-        installContainerdFromOverride ${containerdOverrideDownloadURL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        return 0
-    fi
-    installContainerdWithAptGet "${packageVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 installContainerdFromOverride() {

@@ -3932,6 +3932,11 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) er
 
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
+		logging.Logf(ctx, "Skipping RX-buffer validation: legacy image %s may not contain the NIC-tuning artifacts", s.VHD.Distro)
+		return nil
+	}
+
 	// Query the VM's actual CPU count using nproc
 	cpuCountCmd := "nproc"
 	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
