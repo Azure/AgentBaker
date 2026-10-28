@@ -8,7 +8,8 @@ Describe 'ACL experimental AIB template'
       .properties.customize[0].inline == [
         "sudo test -s /opt/azure/containers/prefetch.sh",
         "sudo test -s /opt/azure/containers/cleanup-vhd.sh"
-      ] and .properties.optimize.vmBoot.state == "Enabled" and
+      ] and .properties.vmProfile.vmSize == "Standard_D4s_v6" and
+      .properties.optimize.vmBoot.state == "Enabled" and
       .properties.optimize.workload.state == "Enabled"
     ' vhdbuilder/prefetch/templates/acl-experiment.json
   }

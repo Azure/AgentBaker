@@ -24,7 +24,7 @@
             }
         ],
         "vmProfile": {
-            "vmSize": "Standard_D4s_v5",
+            "vmSize": "Standard_D4s_v6",
             "osDiskSizeGB": 60
         },
         "optimize": {

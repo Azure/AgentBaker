@@ -13,6 +13,8 @@ The hook warms the baked workload, runs the existing VHD cleanup, verifies the
 selected UKI's addon, restores the legacy first-boot marker, and flushes writes.
 It deliberately fails when required scripts or first-boot state are missing.
 The initial experiment targets UKI-based AMD64 ACL Trusted Launch images.
+The experimental builder uses `Standard_D4s_v6`, matching the pilot nodes;
+both D4s_v5 and D4ds_v5 were rejected by eastus2 capacity preflight.
 The customizer only checks prerequisites: the AIB service rejects an empty
 customizer list. Its boot can consume first-boot state, which the late workload
 hook must restore; the final-image gate below remains mandatory.
