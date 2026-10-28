@@ -47,7 +47,11 @@ func scriptlessUnsupported(s *Scenario) bool {
 func runVHDCachingScenario(ctx context.Context, name string, original *Scenario) error {
 	bakeScenario := freshScenario(original)
 	bakeScenario.artifactName = vhdStageArtifactName(original, name, "vhd-bake")
+	scriptless := !config.Config.DisableScriptless && !original.IsWindows() &&
+		len(original.Config.CustomDataWriteFiles) == 0 && original.VHD != nil &&
+		original.VHD.SupportsScriptless() && config.Config.SIGVersionTagName == "buildId"
 
+	bakeScenario.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: scriptless}
 	bakeScenario.Config.SkipDefaultValidation = true
 	bakeScenario.Config.Validator = func(ctx context.Context, scenario *Scenario) error {
 		var validationErr error
@@ -62,13 +66,18 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				ValidateWindowsServiceIsRunning(ctx, scenario, "containerd"),
 			)
 		} else {
-			validationErr = errors.Join(
+			checks := []error{
 				ValidateFileExists(ctx, scenario, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, scenario, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, scenario, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, scenario, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
-			)
+			}
+			if scriptless {
+				checks = append(checks, ValidateFileExists(ctx, scenario, "/opt/azure/containers/provision.complete"))
+			} else {
+				checks = append(checks, ValidateFileDoesNotExist(ctx, scenario, "/opt/azure/containers/provision.complete"))
+			}
+			validationErr = errors.Join(checks...)
 		}
 		return validationErr
 	}
@@ -93,7 +102,7 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				}
 			}
 			nbc.PreProvisionOnly = true
-			nbc.EnableScriptlessNBCCSECmd = false
+			nbc.EnableScriptlessNBCCSECmd = scriptless
 			nbc.EnableScriptlessAKSNodeConfig = false
 			// Bake-only mutation: lets a scenario deliberately diverge bake-time
 			// state from provision-time state (e.g. a stale sentinel bootstrap token).
@@ -117,6 +126,15 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 	}
 
 	logging.Log(ctx, "=== Creating VHD Image ===")
+	if !bakeScenario.IsWindows() {
+		// Match RP image generalization by removing per-run provisioning state before capture.
+		cleanup := "sudo rm -f /opt/azure/containers/provision.complete /var/log/azure/aks/provision.json" +
+			" /opt/azure/containers/aks-node-controller-config.json /opt/azure/containers/aks-node-controller-nbc-cmd.sh" +
+			" /opt/azure/containers/boothook.sh /opt/bin/boothook.sh"
+		if _, err = execScriptOnVMForScenarioValidateExitCode(ctx, bakeScenario, cleanup, 0, "generalize VM before image capture"); err != nil {
+			return err
+		}
+	}
 	bakeScenario.failed = true
 	customVHD, err := CreateImage(ctx, bakeScenario)
 	if err != nil {
@@ -131,12 +149,16 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 	provisionScenario := freshScenario(original)
 	provisionScenario.artifactName = vhdStageArtifactName(original, name, "vhd-provision")
 	provisionScenario.Config.VHD = customVHD
+	provisionScenario.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: scriptless}
 	provisionScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
 		var markerErr error
 		if s.IsWindows() {
 			markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
 		} else {
 			markerErr = ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+			if markerErr == nil && scriptless {
+				markerErr = ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Skipping basePrep - base_prep.complete file exists")
+			}
 		}
 		if markerErr != nil {
 			return markerErr
