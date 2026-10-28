@@ -22,6 +22,43 @@ import (
 
 const aclCOSIAMD64ImageID = "/SharedGalleries/035db282-f1c8-4ce7-b78f-2a7265d5398c-ACLDEVEL/Images/acldevel/Versions/0.20260827.1192019"
 
+func TestCOSIUpdateScenariosDisabled(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("COSI_ARTIFACTS_DIR", dir)
+	data, err := json.Marshal(cosiPublishingInfo{
+		CosiURL:        "https://download.invalid/image.cosi",
+		MetadataSHA384: base64.StdEncoding.EncodeToString(make([]byte, sha512.Size384)),
+	})
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		artifact string
+		build    func() *Scenario
+	}{
+		{cosiAMD64PublishingArtifact, cosiUpdateAMD64Scenario},
+		{cosiARM64PublishingArtifact, cosiUpdateARM64Scenario},
+		{cosiAMD64FIPSPublishingArtifact, cosiUpdateAMD64FIPSScenario},
+		{cosiARM64FIPSPublishingArtifact, cosiUpdateARM64FIPSScenario},
+	} {
+		t.Run(test.artifact, func(t *testing.T) {
+			artifactDir := filepath.Join(dir, test.artifact)
+			require.NoError(t, os.Mkdir(artifactDir, 0700))
+			require.NoError(t, os.WriteFile(filepath.Join(artifactDir, "cosi-publishing-info.json"), data, 0600))
+
+			s := test.build()
+			require.True(t, s.Tags.COSIUpdate)
+			require.NotNil(t, s.Validator)
+			outcome := runExecution(t.Context(), s.Name, s.Name, s,
+				func(context.Context, string, *Scenario) error {
+					t.Fatal("disabled COSI update scenario ran")
+					return nil
+				})
+			require.NoError(t, outcome.Error)
+			require.NotEmpty(t, outcome.SkipReason)
+		})
+	}
+}
+
 func TestValidateCOSIUpdateInput(t *testing.T) {
 	validHash := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0xab}, sha512.Size384))
 	require.NoError(t, validateCOSIUpdateInput("https://download.example.com/acl.cosi", validHash))

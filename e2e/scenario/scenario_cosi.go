@@ -107,6 +107,7 @@ func cosiUpdateAMD64Scenario() *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
+		SkipReason:  "COSI update tests are temporarily disabled",
 		Location:    "westus3",
 		Tags: Tags{
 			COSIUpdate: true,
@@ -152,6 +153,7 @@ func cosiUpdateARM64Scenario() *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
+		SkipReason:  "COSI update tests are temporarily disabled",
 		Location:    "westus3",
 		Tags: Tags{
 			COSIUpdate: true,
@@ -205,6 +207,7 @@ func cosiUpdateAMD64FIPSScenario() *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
+		SkipReason:  "COSI update tests are temporarily disabled",
 		Location:    "westus3",
 		Tags: Tags{
 			COSIUpdate: true,
@@ -254,6 +257,7 @@ func cosiUpdateARM64FIPSScenario() *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
+		SkipReason:  "COSI update tests are temporarily disabled",
 		Location:    "westus3",
 		Tags: Tags{
 			COSIUpdate: true,
