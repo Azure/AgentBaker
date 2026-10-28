@@ -14,9 +14,9 @@ storage:
         ID=azurelinux
         SYSEXT_LEVEL=1.0
   - path: /etc/flatcar/enabled-sysext.conf
+    overwrite: true
     contents:
-      inline: |
-        overlaybd
+      inline: ""
   - path: /etc/flatcar/update.conf
     overwrite: true
     contents:
@@ -48,6 +48,10 @@ storage:
 # The Flatcar customdata has a dropin for update-ca-certificates.service that is omitted here.
 systemd:
   units:
+  - name: artifact-streaming-setup.service
+    mask: true
+  - name: acr-mirror.service
+    mask: true
   - name: overlaybd-tcmu.service
     mask: true
   - name: overlaybd-snapshotter.service

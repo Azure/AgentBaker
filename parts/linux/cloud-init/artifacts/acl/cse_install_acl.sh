@@ -22,6 +22,13 @@ downloadSysextFromVersion() {
 matchLocalSysext() {
     local seName=$1 desiredVer=$2 seArch=$3
     local downloadDir="/opt/${seName}/downloads"
+    # A fully pinned DALEC version must not select a different revision.
+    case "${desiredVer}" in
+        *-azlinux3)
+            find "${downloadDir}" -maxdepth 2 -name "${seName}-v${desiredVer}-${seArch}.raw" -type f 2>/dev/null | head -n1
+            return
+            ;;
+    esac
     # Try arch-specific versioned filename first (kubelet-style: name-vVER.X-arch.raw)
     local match
     match=$(find "${downloadDir}" -maxdepth 2 -name "${seName}-v${desiredVer}*-${seArch}.raw" -type f 2>/dev/null | sort -V | tail -n1)
@@ -38,6 +45,13 @@ matchLocalSysext() {
 
 matchRemoteSysext() {
     local seURL=$1 desiredVer=$2 seArch=$3
+    # Pinned tags also work with isolated registries that cannot enumerate tags.
+    case "${desiredVer}" in
+        *-azlinux3)
+            echo "v${desiredVer}-${seArch}"
+            return 0
+            ;;
+    esac
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         # For network isolated cluster, acr cache rule does not support oras repo tags.
         # return fixed renovateTag '-1' as workaround
@@ -125,6 +139,16 @@ installCredentialProviderFromPkg() {
 
 installCredentialProviderPackageFromBootstrapProfileRegistry() {
     installCredentialProviderFromPkg "$2" "$1"
+}
+
+installArtifactStreamingSysext() {
+    local version
+    version=$(jq -er '.Packages[] | select(.name == "acr-mirror") |
+        .downloadURIs.azurecontainerlinux.current.versionsV2[0].latestVersion |
+        select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+-azlinux3$"))' \
+        "${COMPONENTS_FILEPATH:-/opt/azure/components.json}") || return "$ERR_ORAS_PULL_SYSEXT_FAIL"
+    local registry="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-${MCR_REPOSITORY_BASE:-mcr.microsoft.com}}"
+    mergeSysexts artifact-streaming "${registry%/}/acr/v2/artifact-streaming-sysext" "${version#v}"
 }
 
 # Only called at build-time, unlike kubelet or credential provider installation.
