@@ -353,7 +353,7 @@ func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {
 
 	// #nosec G204 -- scriptPath is validated as a file path and passed after "--" so bash treats it as a script, not an option or shell input.
 	cmd := exec.CommandContext(ctx, "/bin/bash", "--", scriptPath)
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "KUBELET_FLAGS_TO_OMIT=")
 	return cmd, nil
 }
 

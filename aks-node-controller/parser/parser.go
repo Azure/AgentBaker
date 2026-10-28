@@ -326,7 +326,15 @@ func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration, gpu
 	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
 	env := mapToEnviron(getCSEEnv(ctx, config, gpuConfig))
-	cmd.Env = append(os.Environ(), env...) // append existing environment variables
+	for _, assignment := range os.Environ() {
+		if !strings.HasPrefix(assignment, "KUBELET_FLAGS_TO_OMIT=") {
+			cmd.Env = append(cmd.Env, assignment)
+		}
+	}
+	cmd.Env = append(cmd.Env, env...)
+	if instruction, present := config.GetEnabledFeatures()["KUBELET_FLAGS_TO_OMIT"]; present && !strings.ContainsAny(instruction, "\r\n") {
+		cmd.Env = append(cmd.Env, "KUBELET_FLAGS_TO_OMIT="+instruction)
+	}
 	sort.Strings(cmd.Env)
 	return cmd, nil
 }
