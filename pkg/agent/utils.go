@@ -22,6 +22,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/Masterminds/semver/v3"
+	"mvdan.cc/sh/v3/syntax"
 )
 
 /*
@@ -202,7 +203,32 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	}
 	csStr := buffer.String()
 	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
+	if strings.HasSuffix(csFilename, ".sh") {
+		csStr, err = minifyShellScript(csFilename, csStr)
+		if err != nil {
+			panic(fmt.Sprintf("BUG: failed to minify %s: %v", csFilename, err))
+		}
+	}
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
+}
+
+func minifyShellScript(name, script string) (string, error) {
+	parser := syntax.NewParser(syntax.Variant(syntax.LangBash), syntax.KeepComments(true))
+	file, err := parser.Parse(strings.NewReader(script), name)
+	if err != nil {
+		return "", err
+	}
+	var output bytes.Buffer
+	if err := syntax.NewPrinter(syntax.Minify(true)).Print(&output, file); err != nil {
+		return "", err
+	}
+	// Provisioning uses these trailing comments to detect complete script delivery.
+	for _, comment := range file.Last {
+		if comment.Text == "HELPERSEOF" || comment.Text == "EOF" {
+			output.WriteString("#" + comment.Text + "\n")
+		}
+	}
+	return output.String(), nil
 }
 
 // This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.

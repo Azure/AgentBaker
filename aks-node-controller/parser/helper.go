@@ -312,10 +312,6 @@ func getCSEConfigNetworkFilepath() string {
 	return cseConfigNetworkScriptFilepath
 }
 
-func getCSEConfigAddonsFilepath() string {
-	return cseConfigAddonsScriptFilepath
-}
-
 func getCSEConfigChronyFilepath() string {
 	return cseConfigChronyScriptFilepath
 }
