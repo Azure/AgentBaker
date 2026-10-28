@@ -20,6 +20,13 @@
                 "inline": [
                     "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh && sudo rm -f /opt/azure/containers/cleanup-vhd.sh"
                 ]
+            },
+            {
+                "type": "Shell",
+                "name": "InstallDeprovisionHook",
+                "inline": [
+                    "hook=$(sudo mktemp /tmp/DeprovisioningScript.XXXXXX) && trap 'sudo rm -f -- \"${hook}\"' EXIT && printf '%s\\n' '#!/bin/bash -eu' 'exec sudo /bin/bash -eu /opt/azure/containers/aib-deprovision.sh <CVM_BUILD>' | sudo tee \"${hook}\" > /dev/null && sudo chmod 0755 \"${hook}\" && sudo mv -fT -- \"${hook}\" /tmp/DeprovisioningScript.sh"
+                ]
             }
         ],
         "optimize": {

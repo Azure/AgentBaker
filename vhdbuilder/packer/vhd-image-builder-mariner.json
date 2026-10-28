@@ -10,6 +10,7 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
+    "run_prefetch_optimization": "{{env `RUN_PREFETCH_OPTIMIZATION`}}",
     "kata_uvm_version": "{{env `KATA_UVM_VERSION`}}",
     "system_collection_uri": "{{env `SYSTEM_COLLECTIONURI`}}",
     "system_team_project_id": "{{env `SYSTEM_TEAMPROJECTID`}}",
@@ -132,6 +133,11 @@
       "type": "file",
       "source": "vhdbuilder/packer/cleanup-vhd.sh",
       "destination": "/home/packer/cleanup-vhd.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/aib-deprovision.sh",
+      "destination": "/home/packer/aib-deprovision.sh"
     },
     {
       "type": "file",
@@ -976,7 +982,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /bin/bash -c 'waagent -force -deprovision+user && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh' || exit 125"
+        "sudo /bin/bash -c 'waagent -force -deprovision+user && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh \"{{user `run_prefetch_optimization`}}\" \"{{user `feature_flags`}}\"' || exit 125"
       ]
     }
   ],

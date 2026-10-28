@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 # Post-deprovision WALinuxAgent install script.
-# Called by packer inline block AFTER 'waagent -force -deprovision+user',
+# Called by Packer and AIB AFTER 'waagent -force -deprovision+user',
 # which clears /var/lib/waagent/. This script reads the target WALinuxAgent
 # version from components.json and installs it from the wireserver manifest
 # so the agent daemon can pick it up locally without downloading at
@@ -8,6 +8,12 @@
 #
 # NOTE: -x is intentionally omitted to avoid leaking SAS tokens from
 # wireserver manifest/blob URLs in packer build logs.
+
+# Packer passes the optimization setting and feature flags; AIB uses the defaults.
+PREFETCH_OPTIMIZATION="${1:-false}"
+if [ "$(uname -m)" = "aarch64" ] && printf '%s\n' "${2:-}" | grep -q "cvm"; then
+    PREFETCH_OPTIMIZATION=false
+fi
 
 # ---- resolv.conf state tracking (read by the EXIT trap) ----
 RESOLV_CONF_ORIGINAL_STATE=""      # "symlink", "file", or "absent"; empty = not modified
@@ -68,8 +74,11 @@ cleanup() {
         esac
         rm -f "${RESOLV_CONF_BAK}"
     fi
-    rm -f /opt/azure/containers/install_walinuxagent.py
-    rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh
+    if [ "${PREFETCH_OPTIMIZATION,,}" != "true" ]; then
+        rm -f /opt/azure/containers/install_walinuxagent.py
+        rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh
+        rm -f /opt/azure/containers/aib-deprovision.sh
+    fi
     sync
 }
 trap cleanup EXIT
