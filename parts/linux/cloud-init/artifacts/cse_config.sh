@@ -7,7 +7,6 @@ source "${CSE_CONFIG_GPU_FILEPATH:-${BASH_SOURCE[0]%.sh}_gpu.sh}"
 source "${CSE_CONFIG_LOCALDNS_FILEPATH:-${BASH_SOURCE[0]%.sh}_localdns.sh}"
 source "${CSE_CONFIG_KUBELET_FILEPATH:-${BASH_SOURCE[0]%.sh}_kubelet.sh}"
 source "${CSE_CONFIG_NETWORK_FILEPATH:-${BASH_SOURCE[0]%.sh}_network.sh}"
-source "${CSE_CONFIG_ADDONS_FILEPATH:-${BASH_SOURCE[0]%.sh}_addons.sh}"
 source "${CSE_CONFIG_CHRONY_FILEPATH:-${BASH_SOURCE[0]%.sh}_chrony.sh}"
 
 configureAdminUser(){
@@ -702,50 +701,9 @@ ensureSysctl() {
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
-ensureK8sControlPlane() {
-    if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
-        return
-    fi
-    retrycmd_if_failure 120 5 25 $KUBECTL 2>/dev/null cluster-info || exit $ERR_K8S_RUNNING_TIMEOUT
-}
-
 createKubeManifestDir() {
     KUBEMANIFESTDIR=/etc/kubernetes/manifests
     mkdir -p $KUBEMANIFESTDIR
-}
-
-writeKubeConfig() {
-    KUBECONFIGDIR=/home/$ADMINUSER/.kube
-    KUBECONFIGFILE=$KUBECONFIGDIR/config
-    mkdir -p $KUBECONFIGDIR
-    touch $KUBECONFIGFILE
-    chown $ADMINUSER:$ADMINUSER $KUBECONFIGDIR
-    chown $ADMINUSER:$ADMINUSER $KUBECONFIGFILE
-    chmod 700 $KUBECONFIGDIR
-    chmod 600 $KUBECONFIGFILE
-    set +x
-    echo "
----
-apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: \"$CA_CERTIFICATE\"
-    server: $KUBECONFIG_SERVER
-  name: \"$MASTER_FQDN\"
-contexts:
-- context:
-    cluster: \"$MASTER_FQDN\"
-    user: \"$MASTER_FQDN-admin\"
-  name: \"$MASTER_FQDN\"
-current-context: \"$MASTER_FQDN\"
-kind: Config
-users:
-- name: \"$MASTER_FQDN-admin\"
-  user:
-    client-certificate-data: \"$KUBECONFIG_CERTIFICATE\"
-    client-key-data: \"$KUBECONFIG_KEY\"
-" > $KUBECONFIGFILE
-    set -x
 }
 
 disableSSH() {

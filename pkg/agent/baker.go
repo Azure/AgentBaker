@@ -1482,9 +1482,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetCSEConfigNetworkScriptFilepath": func() string {
 			return cseConfigNetworkScriptFilepath
 		},
-		"GetCSEConfigAddonsScriptFilepath": func() string {
-			return cseConfigAddonsScriptFilepath
-		},
 		"GetCSEConfigChronyScriptFilepath": func() string {
 			return cseConfigChronyScriptFilepath
 		},
