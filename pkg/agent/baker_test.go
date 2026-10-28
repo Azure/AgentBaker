@@ -1680,7 +1680,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
 	})
 
-	It("should put provisioning in CustomData and omit CSE when CustomData-only provisioning is enabled", func() {
+	It("should put provisioning in CustomData and retain the CSE wait command when CustomData-only provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
 		config.CustomDataOnlyProvisioning = true
@@ -1696,7 +1696,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(string(payload)).To(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
 		Expect(string(payload)).To(ContainSubstring("if [ -s /sys/class/dmi/id/product_uuid ]; then"))
 		Expect(string(payload)).To(ContainSubstring("cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned"))
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(BeEmpty())
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
 
 	It("should omit the Ready reporting handoff when CSE delivery is already selected", func() {
