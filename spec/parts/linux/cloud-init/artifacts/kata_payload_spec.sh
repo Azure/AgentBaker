@@ -39,9 +39,6 @@ Describe 'Azure Linux 3 Kata payload copies'
         esac
     }
 
-    bakeModprobeCISWithoutVulnerableModules() { :; }
-    configureServiceExecutionTelemetryForSystemdVersion() { :; }
-    systemctl() { printf 'systemd 255\n'; }
 
     signed_payload_is_intact() {
         local file

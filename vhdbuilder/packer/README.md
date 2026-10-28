@@ -17,6 +17,23 @@ external-vhd-src->(func/init: ensure dest existing/static gallery/definition, in
 # Roadmap
 Goal1: remove mariner workflow so things will be simplified.
 
+# Shared Windows Gen2 staging definitions
+
+The Windows build template sets `trustedLaunchSupported` for every Gen2 image.
+Ordinary WS2022 and WS2025 Gen2 images advertise `TrustedLaunchSupported`, so the
+same image can serve Standard and Trusted Launch virtual machines. Gen1 is unchanged.
+New staging definitions are created with that capability directly, without a follow-up
+capability update or `startsAtVersion` boundary because they have no old versions.
+Dedicated Trusted Launch builds and their metadata precedence are unchanged.
+This image capability does not change AKS RP's OS eligibility checks.
+
+An existing Standard definition is updated in place, preserving unrelated features
+and setting `startsAtVersion` to the current build version. Azure CLI performs the
+update and waits for completion; the builder checks the returned capability and
+boundary. Already-capable definitions with an absent or null boundary are reused
+without a write or boundary backfill.
+An explicit boundary must be valid and at or below the current build version.
+
 # Linux build steps
 
 The pipeline's `Build Go binaries` step runs `make -f packer.mk -j4 build-tools`
@@ -59,6 +76,39 @@ The Linux VHD content test checks both the installed rule and the effective
 disabled state after boot (without applying the rule in the test). Roll out new
 images through the normal canary stages and validate memory-sensitive workloads,
 reclaim CPU, latency, memory pressure, and evictions before broad deployment.
+
+# Azure Linux networkd recovery
+
+Azure Linux 3.0 images (AMD64, ARM64, and CVM; excluding OSGuard) enable
+`aks-networkd-recovery.timer`. Every five minutes it queries eth0's networkd
+`AdministrativeState` over D-Bus. If the state is `failed`, it immediately requests
+`networkctl reconfigure` for that interface only. Detection takes up to roughly
+five minutes; existing routes can continue working while networkd is failed, so
+route presence is not used as a health check.
+
+This mitigates the failed-interface recovery issue described in
+[systemd/systemd#29246](https://github.com/systemd/systemd/issues/29246) until
+the complete backport in
+[microsoft/azurelinux#19686](https://github.com/microsoft/azurelinux/pull/19686)
+is delivered. It is not a general connectivity repair mechanism.
+
+The oneshot service waits for `provision.complete`, so it does not run during VHD
+building or PIS base preparation. It is enabled but not started on the build VM.
+The check is stateless: a persistently failed interface is retried every five
+minutes without an hourly cap. Each D-Bus query is bounded to five seconds and
+each reconfiguration request to twenty seconds. Query errors and recovery
+requests are journaled; query errors never trigger recovery. Non-failed states
+are left alone. Missing interfaces, query errors, unexpected states, and failed
+or timed-out reconfiguration requests are logged but exit successfully so this
+best-effort check does not leave the systemd unit failed. The next timer tick
+checks again. Request acceptance is not proof of connectivity recovery.
+
+Inspect with `journalctl -u aks-networkd-recovery.service` and
+`systemctl list-timers aks-networkd-recovery.timer`. Disable the mitigation with
+`systemctl disable --now aks-networkd-recovery.timer` (an already-running oneshot
+may finish). Reconfiguration can briefly disrupt connectivity; validate live
+link-flap recovery on a canary before broad rollout. Existing nodes need a
+node-image upgrade. OSGuard, Ubuntu, Mariner 2.0, and ACL are unchanged.
 
 # Linux CSE configuration modules
 

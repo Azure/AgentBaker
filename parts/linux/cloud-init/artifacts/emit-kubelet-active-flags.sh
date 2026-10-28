@@ -100,7 +100,10 @@ emitKubeletActiveFlagsEvent() {
     fi
     message="$(getKubeletActiveFlagsJSON)"
     now="$(date +"%F %T.%3N")"
-    eventsFileName="$(date +%s%3N)"
+    # The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+    # timestamp plus the emitting process's PID is unique by construction: two live
+    # processes cannot share a PID, and two forks of date cannot share a nanosecond.
+    eventsFileName="$(date +%s%N)${BASHPID}"
     mkdir -p "${EVENTS_LOGGING_DIR}"
     jq -n \
         --arg Timestamp   "${now}" \
