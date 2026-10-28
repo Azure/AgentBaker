@@ -401,8 +401,9 @@ cat >%[6]s <<'EOF'
 set -eu
 echo "ok"
 mkdir -p %[7]s
-echo '{"ExitCode":"0","Error":"","Output":"%[9]s"}' >%[7]s/provision.json
 touch %[8]s
+echo '{"ExitCode":"0","Error":"","Output":"%[9]s"}' >%[7]s/provision.json.tmp
+mv -f %[7]s/provision.json.tmp %[7]s/provision.json
 echo "%[9]s"
 EOF
 chmod 0600 %[6]s`,
@@ -619,7 +620,6 @@ func usesScriptlessProvisioning(s *Scenario) bool {
 	}
 	nbc := s.Runtime.NBC
 	return (nbc.EnableScriptlessAKSNodeConfig || nbc.EnableScriptlessNBCCSECmd) &&
-		!nbc.PreProvisionOnly &&
 		s.VHD.SupportsScriptless()
 }
 

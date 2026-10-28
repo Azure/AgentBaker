@@ -46,7 +46,14 @@ without NBC execution or Phase 2.5 comparison.
 AgentBaker rejects empty, whitespace-only, malformed, or non-object JSON before
 generating artifacts. The caller remains responsible for the AKSNodeConfig schema
 and supported version; the serialized input is passed through unchanged.
-Windows and `PreProvisionOnly` are not supported in this mode.
+Windows is not supported in this mode.
+
+`PreProvisionOnly` is supported and uses the same CSE `provision-wait`, which waits for
+`provision.json`. `cse_start.sh` writes the completion marker (`base_prep.complete` or
+`provision.complete`) before renaming `provision.json` into place, and the boothook and launcher
+remove any `provision.json` captured from the bake. After a successful pre-provision run,
+the launcher removes the config and `nbc-cmd.sh` so bake-time secrets and
+config are not captured into the image.
 
 Existing boothook and Ignition delivery, supporting files, and CSE `provision-wait`
 are retained. `ScriptlessCSEProvisionMode` selects CSE delivery instead of embedding
@@ -210,7 +217,7 @@ sequenceDiagram
     ARM->>VM: Initiate aks-node-controller (Go binary)<br/>in provision-wait mode via CSE
 
     loop Monitor provisioning status
-        VM->>VM: Check /opt/azure/containers/provision.complete
+        VM->>VM: Check /var/log/azure/aks/provision.json
     end
 
     VM-->>Client: Return CSE status with<br/>/var/log/azure/aks/provision.json content
@@ -225,13 +232,13 @@ Key components:
     - When `/var/lib/waagent/experimental_skip_ready_report` marks an active readiness handoff, ANC reports provisioning status directly in Go (`goal_state.go`), without a Python script. It writes Hyper-V KVP diagnostics and sends a GoalState health report to Azure wireserver: `Ready` on success, or `NotReady` with `ProvisioningFailed` on failure, including failures before the provisioning command starts. HTTP reporting uses three attempts with five-second retry delays and 30-second request timeouts, without a proxy. KVP and HTTP reporting errors are logged without replacing the original provisioning result, and dry runs do not send reports.
     - Failure descriptions include the structured CSE JSON emitted by the current command, including `Output` and boot-timing fields. If no matching CSE JSON was emitted, ANC reports its captured `ExitCode`, `Error`, and `Output` instead. WireServer descriptions are limited to 4,096 bytes after XML escaping: oversized output retains its tail and sets `OutputTruncated`; oversized metadata also sets `DetailsTruncated` and falls back to the core result fields. The complete captured output remains in ANC's local logs. Hyper-V KVP diagnostics retain their existing smaller limits.
     - The controller performs a tolerant (forward‑compatible) parse of `aksnodeconfigv1.Configuration`: unknown fields, additional enum values, or future‑version knobs are ignored (and may be logged) so that a newer control‑plane can talk to an older VHD image.
-    - If the config cannot be safely interpreted (e.g. unsupported `Version`, malformed required field, or incompatible schema change), the controller fails fast. It writes the sentinel file `provision.complete` early so the `provision-wait` process stops polling and can surface an error instead of hanging indefinitely.
-    - In a fail‑fast path the normal bootstrap scripts never run, therefore `provision.json` (which would contain the serialized `CSEStatus`) is never created. A typical error looks like:
+    - If the config cannot be safely interpreted (e.g. unsupported `Version`, malformed required field, or incompatible schema change), the controller fails fast. It writes `provision.complete` and then an error `provision.json` so the `provision-wait` process stops waiting and can surface an error instead of hanging indefinitely.
+    - In a fail‑fast path the normal bootstrap scripts never run, so `provision.json` contains only ANC's error result. If ANC cannot write it, a typical error looks like:
         ```
         failed to read provision.json: open /var/log/azure/aks/provision.json: no such file or directory. One reason could be that AKSNodeConfig is not properly set.
         ```
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
-- **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
+- **provision-wait**: waits for `provision.json` to be present and reads it. It contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
 
 ### Provisioning script hotfix payloads
 

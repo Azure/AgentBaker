@@ -1537,7 +1537,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should fall back to regular custom data when pre-provisioning is enabled", func() {
+	It("should use scriptless custom data when pre-provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(true)
 
@@ -1545,54 +1545,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
-		decompressedPayload, err := getGzipDecodedValue(decodedPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
-
-		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNodeCustomDataFilepath))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		Expect(string(decodedPayload)).To(HavePrefix("#cloud-boothook\n"))
+		Expect(string(decodedPayload)).To(ContainSubstring(aksNbcCmdFilepath))
 	})
 })
 
 var _ = Describe("getNodeBootstrappingCmd", func() {
-	It("should use the regular linux CSE command when pre-provisioning is enabled", func() {
-		templateGenerator := InitializeTemplateGenerator()
-		agentPoolProfile := &datamodel.AgentPoolProfile{
-			Name:   "nodepool1",
-			OSType: datamodel.Linux,
-			Distro: datamodel.AKSUbuntuContainerd2204Gen2,
-		}
-		config := &datamodel.NodeBootstrappingConfiguration{
-			ContainerService: &datamodel.ContainerService{
-				Location: "eastus",
-				Properties: &datamodel.Properties{
-					OrchestratorProfile: &datamodel.OrchestratorProfile{
-						OrchestratorVersion: "1.29.0",
-						OrchestratorType:    datamodel.Kubernetes,
-						KubernetesConfig: &datamodel.KubernetesConfig{
-							ContainerRuntimeConfig: map[string]string{},
-						},
-					},
-					HostedMasterProfile: &datamodel.HostedMasterProfile{
-						FQDN: "test-cluster.hcp.eastus.azmk8s.io",
-					},
-					AgentPoolProfiles: []*datamodel.AgentPoolProfile{agentPoolProfile},
-				},
-			},
-			AgentPoolProfile:          agentPoolProfile,
-			CloudSpecConfig:           datamodel.AzurePublicCloudSpecForTest,
-			K8sComponents:             &datamodel.K8sComponents{},
-			KubeletConfig:             map[string]string{},
-			EnableScriptlessNBCCSECmd: true,
-			PreProvisionOnly:          true,
-		}
-
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
-	})
-
 	newScriptlessCmdTestConfig := func() *datamodel.NodeBootstrappingConfiguration {
 		agentPoolProfile := &datamodel.AgentPoolProfile{
 			Name:   "nodepool1",
@@ -1664,6 +1622,15 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
+	})
+
+	It("should use the aks-node-controller provision-wait command when pre-provisioning with scriptless", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newScriptlessCmdTestConfig()
+		config.EnableScriptlessNBCCSECmd = true
+		config.PreProvisionOnly = true
+
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
 
 	It("should use the regular linux CSE command when EnableScriptlessNBCCSECmd is false", func() {
@@ -1743,13 +1710,13 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(BeEmpty())
 	})
 
-	It("should not enable CustomData-only provisioning for pre-provisioning", func() {
+	It("should allow CustomData-only provisioning for pre-provisioning", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
 		config.PreProvisionOnly = true
 		config.CustomDataOnlyProvisioning = true
 
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(BeEmpty())
 	})
 
 	It("should disable CustomData-only provisioning for unsupported images", func() {

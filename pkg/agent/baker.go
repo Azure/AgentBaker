@@ -64,6 +64,8 @@ set -euo pipefail
 logger -t aks-boothook "boothook start $(date -Ins)"
 
 mkdir -p /opt/bin /opt/azure/containers /var/lib/waagent /var/log/azure
+# provision-wait unblocks on provision.json; drop any copy captured from a pre-provision (PIS) bake.
+rm -f /var/log/azure/aks/provision.json
 `
 	boothookProvisionTemplate = `
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
@@ -107,6 +109,7 @@ fi
 `
 	cseBootHookTemplate = `#!/bin/bash
 set -euo pipefail
+[ -e /opt/azure/containers/provision.complete ] || rm -f /var/log/azure/aks/provision.json
 %s
 `
 	// boothookFileEntry is appended to the boothook for each additional file.
@@ -284,7 +287,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return (config.EnableScriptlessAKSNodeConfig || (config.EnableScriptlessNBCCSECmd) || config.IsCustomDataOnlyProvisioningEnabled()) && !config.PreProvisionOnly
+	return (config.EnableScriptlessAKSNodeConfig || (config.EnableScriptlessNBCCSECmd) || config.IsCustomDataOnlyProvisioningEnabled())
 }
 
 func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {

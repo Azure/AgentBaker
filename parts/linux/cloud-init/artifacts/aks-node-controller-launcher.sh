@@ -22,6 +22,9 @@ NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.
 # producer is the sole trusted writer. Parsed below at wrapper runtime; absent file (default-off,
 # or an older VHD without the producer) is a no-op.
 FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
+BASE_PREP_COMPLETE_PATH="${BASE_PREP_COMPLETE_PATH:-/opt/azure/containers/base_prep.complete}"
+PROVISION_COMPLETE_PATH="${PROVISION_COMPLETE_PATH:-/opt/azure/containers/provision.complete}"
+PROVISION_JSON_PATH="${PROVISION_JSON_PATH:-/var/log/azure/aks/provision.json}"
 LOGGER_TAG="aks-node-controller-launcher"
 
 log() {
@@ -57,6 +60,10 @@ if [ -f "$NBC_CMD_PATH" ]; then
     command+=("--nbc-cmd=$NBC_CMD_PATH")
 fi
 
+# provision.json may be left over from a pre-provision (PIS bake) run captured in the image.
+# writeCompleteFileOnError does not overwrite an existing one, so a stale success would mask a fail-fast error.
+[ -f "$PROVISION_COMPLETE_PATH" ] || rm -f "$PROVISION_JSON_PATH"
+
 "${command[@]}" &
 child_pid=$!
 log "Spawned aks-node-controller (pid ${child_pid})"
@@ -66,6 +73,13 @@ exit_code=$?
 
 if [ "$exit_code" -eq 0 ]; then
     log "aks-node-controller completed successfully"
+    # A successful pre-provision (PIS bake) run leaves base_prep.complete without provision.complete.
+    # Remove the provisioning inputs so bake-time secrets and config are not captured into the image
+    # and cannot be picked up by the launcher on nodes booted from it.
+    if [ -f "$BASE_PREP_COMPLETE_PATH" ] && [ ! -f "$PROVISION_COMPLETE_PATH" ]; then
+        rm -f "$CONFIG_PATH" "$NBC_CMD_PATH"
+        log "Removed pre-provision config, nbc cmd"
+    fi
 else
     log "aks-node-controller exited with code ${exit_code}"
 fi

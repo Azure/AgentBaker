@@ -681,73 +681,61 @@ func TestApp_Provision_DryRun(t *testing.T) {
 func TestApp_ProvisionWait(t *testing.T) {
 	testData := `{"ExitCode": "0", "Output": "hello world", "Error": ""}`
 
-	t.Run("event path (file created after call)", func(t *testing.T) {
+	t.Run("event path (file renamed into place after call)", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		tempDir := t.TempDir()
-		p := ProvisionStatusFiles{
-			ProvisionJSONFile:     filepath.Join(tempDir, "provision.json"),
-			ProvisionCompleteFile: filepath.Join(tempDir, "provision.complete"),
-		}
+		jsonFile := filepath.Join(t.TempDir(), "provision.json")
 
 		go func() {
 			time.Sleep(150 * time.Millisecond)
-			_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
-			_, _ = os.Create(p.ProvisionCompleteFile)
+			_ = writeFileAtomic(jsonFile, []byte(testData), 0644)
 		}()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()
-		data, err := tt.App.ProvisionWait(ctx, p)
+		data, err := tt.App.ProvisionWait(ctx, jsonFile)
 		assert.NoError(t, err)
 		assert.Equal(t, testData, data)
 	})
 
 	t.Run("fast path (file exists before call)", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		tempDir := t.TempDir()
-		p := ProvisionStatusFiles{
-			ProvisionJSONFile:     filepath.Join(tempDir, "provision.json"),
-			ProvisionCompleteFile: filepath.Join(tempDir, "provision.complete"),
-		}
-		_ = os.WriteFile(p.ProvisionJSONFile, []byte(testData), 0644)
-		_, _ = os.Create(p.ProvisionCompleteFile)
+		jsonFile := filepath.Join(t.TempDir(), "provision.json")
+		_ = os.WriteFile(jsonFile, []byte(testData), 0644)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()
-		data, err := tt.App.ProvisionWait(ctx, p)
+		data, err := tt.App.ProvisionWait(ctx, jsonFile)
 		assert.NoError(t, err)
 		assert.Equal(t, testData, data)
 	})
 
 	t.Run("provision completion with failure ExitCode", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		tempDir := t.TempDir()
-		p := ProvisionStatusFiles{
-			ProvisionJSONFile:     filepath.Join(tempDir, "provision.json"),
-			ProvisionCompleteFile: filepath.Join(tempDir, "provision.complete"),
-		}
+		jsonFile := filepath.Join(t.TempDir(), "provision.json")
 		failJSON := `{"ExitCode": "7", "Error": "boom", "Output": "trace"}`
-		_ = os.WriteFile(p.ProvisionJSONFile, []byte(failJSON), 0644)
-		_, _ = os.Create(p.ProvisionCompleteFile)
+		_ = os.WriteFile(jsonFile, []byte(failJSON), 0644)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()
-		_, err := tt.App.ProvisionWait(ctx, p)
+		_, err := tt.App.ProvisionWait(ctx, jsonFile)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "provision failed")
 	})
 
-	t.Run("timeout waiting for completion", func(t *testing.T) {
+	t.Run("completion markers alone do not unblock", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		tempDir := t.TempDir()
-		p := ProvisionStatusFiles{
-			ProvisionJSONFile:     filepath.Join(tempDir, "provision.json"),
-			ProvisionCompleteFile: filepath.Join(tempDir, "provision.complete"),
-		}
+		jsonFile := filepath.Join(tempDir, "provision.json")
 
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		go func() {
+			time.Sleep(50 * time.Millisecond)
+			_, _ = os.Create(filepath.Join(tempDir, "base_prep.complete"))
+			_, _ = os.Create(filepath.Join(tempDir, "provision.complete"))
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
-		_, err := tt.App.ProvisionWait(ctx, p)
+		_, err := tt.App.ProvisionWait(ctx, jsonFile)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "context deadline exceeded")
 	})
