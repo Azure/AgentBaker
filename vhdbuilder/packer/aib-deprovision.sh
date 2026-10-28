@@ -19,18 +19,18 @@ installPinnedWALinuxAgent() {
 cleanupNvPCRCredentials() {
     local is_cvm="$1"
     local root_dir="${2%/}"
-    local ID credential_dir
+    local ID VERSION_ID credential_dir
 
     [ "${is_cvm}" = "true" ] || return 0
     # shellcheck source=/dev/null
     . "${root_dir}/etc/os-release" || return $?
-    if [ "${ID}" != "ubuntu" ]; then
+    if [ "${ID}" != "ubuntu" ] || [ "${VERSION_ID}" != "26.04" ]; then
         return 0
     fi
 
-    # systemd's anchor is bound to the build VM's TPM. Leave SRK, NV indices,
+    # systemd 259's anchor is bound to the build VM's TPM. Leave SRK, NV indices,
     # disk-encryption keys and unrelated system credentials intact.
-    echo "Removing build-VM NvPCR anchor credentials from Ubuntu CVM"
+    echo "Removing build-VM NvPCR anchor credentials from Ubuntu 26.04 CVM"
     rm -f -- \
         "${root_dir}/var/lib/systemd/nvpcr/nvpcr-anchor.cred" \
         "${root_dir}/run/systemd/nvpcr/nvpcr-anchor.cred" || return $?
