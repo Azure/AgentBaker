@@ -3,12 +3,87 @@ package scenario
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	resourcev1 "k8s.io/api/resource/v1"
 )
+
+func TestParseFailedSystemdUnits(t *testing.T) {
+	tests := []struct {
+		name    string
+		output  string
+		want    []systemdUnit
+		wantErr bool
+	}{
+		{
+			name:   "legacy systemd",
+			output: "  example.service loaded failed failed Example service\n",
+			want:   []systemdUnit{{Name: "example.service"}},
+		},
+		{
+			name: "multiple units including missing initrd unit",
+			output: "initrd-core-tmpfiles-setup.service not-found failed failed initrd-core-tmpfiles-setup.service\n" +
+				"run-cloud\\x2dinit-tmp-tmp123456.mount loaded failed failed Temporary mount\n",
+			want: []systemdUnit{
+				{Name: "initrd-core-tmpfiles-setup.service"},
+				{Name: `run-cloud\x2dinit-tmp-tmp123456.mount`},
+			},
+		},
+		{name: "no failed units", output: ""},
+		{name: "blank lines", output: " \n\t\n"},
+		{name: "unexpected header", output: "UNIT LOAD ACTIVE SUB DESCRIPTION\n", wantErr: true},
+		{name: "truncated entry", output: "example.service loaded failed\n", wantErr: true},
+		{name: "unexpected active state", output: "example.service loaded active running Example\n", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			units, err := parseFailedSystemdUnits(tt.output)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Nil(t, units)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.want, units)
+			}
+		})
+	}
+}
+
+func TestKernelPanicPattern(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		want    bool
+	}{
+		{"ramoops module load", "systemd[1]: Starting Load Kernel Module ramoops...", false},
+		{"ramoops initialization", "ramoops: using 0x100000 at 0x40000000", false},
+		{"kernel oops", "kernel: Oops: 0000 [#1] SMP", true},
+		{"kernel oops mentioning ramoops", "kernel: Oops: fatal exception in ramoops", true},
+		{"kernel panic", "kernel: Kernel panic - not syncing: Fatal exception", true},
+		{"kernel bug", "kernel: BUG: unable to handle page fault", true},
+		{"call trace", "kernel: Call Trace:", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := exec.Command("grep", "-iE", kernelPanicPattern)
+			cmd.Stdin = strings.NewReader(tt.message + "\n")
+			output, err := cmd.CombinedOutput()
+			if tt.want {
+				require.NoError(t, err, string(output))
+				require.Contains(t, string(output), tt.message)
+			} else {
+				var exitErr *exec.ExitError
+				require.ErrorAs(t, err, &exitErr, string(output))
+				require.Equal(t, 1, exitErr.ExitCode(), string(output))
+				require.Empty(t, output)
+			}
+		})
+	}
+}
 
 func TestValidateDRAMIGAllocation(t *testing.T) {
 	tests := []struct {

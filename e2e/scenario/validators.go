@@ -1430,6 +1430,25 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 	return err
 }
 
+type systemdUnit struct {
+	Name string
+}
+
+func parseFailedSystemdUnits(output string) ([]systemdUnit, error) {
+	var units []systemdUnit
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if len(fields) < 4 || fields[2] != "failed" {
+			return nil, fmt.Errorf("unexpected failed systemd unit entry: %q", line)
+		}
+		units = append(units, systemdUnit{Name: fields[0]})
+	}
+	return units, nil
+}
+
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return nil
@@ -1467,16 +1486,16 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 		unitFailureAllowList["systemd-sysupdate.service"] = true
 	}
 
-	type systemdUnit struct {
-		Name string `json:"unit,omitempty"`
-	}
-	var failedUnits []systemdUnit
-	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, "unable to list failed systemd units")
+	// Older systemd versions do not support JSON output for list-units.
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		"LC_ALL=C systemctl list-units --failed --plain --no-legend --no-pager --full",
+		0, "unable to list failed systemd units")
 	if err != nil {
 		return fmt.Errorf("list failed systemd units: %w", err)
 	}
-	if err := json.Unmarshal([]byte(result.stdout), &failedUnits); err != nil {
-		return fmt.Errorf(`parse and unmarshal "systemctl list-units" command output: %w`, err)
+	failedUnits, err := parseFailedSystemdUnits(result.stdout)
+	if err != nil {
+		return fmt.Errorf(`parse "systemctl list-units" command output: %w`, err)
 	}
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
 		if unitFailureAllowList[unit.Name] {
@@ -4146,6 +4165,8 @@ func hasMANAHardware(ctx context.Context, s *Scenario) (bool, error) {
 	return result.exitCode == "0", nil
 }
 
+const kernelPanicPattern = `(kernel: )?(panic|\boops\b|call trace|backtrace|general protection fault|BUG:|RIP:)`
+
 // ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
 // - Kernel panics/crashes (panic, oops, call trace, BUG, etc.)
 // - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
@@ -4171,7 +4192,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 
 	patterns := map[string]categoryPattern{
 		"PANIC/CRASH": {
-			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
+			pattern: kernelPanicPattern,
 			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot).
 			// Also exclude the benign DRM panic-handler registration messages ("Registered N planes with drm panic")
 			// emitted by simple-framebuffer/hyperv_drm on kernels with CONFIG_DRM_PANIC (6.10+, e.g. Ubuntu 26.04 /

@@ -100,8 +100,9 @@ configureServiceExecutionTelemetryForSystemdVersion() {
             -e '/^OnSuccess=service-execution-telemetry@/d' \
             -e '/^OnFailure=service-execution-telemetry@/d' \
             "${unit_dir}/${service}" || return 1
+        # ExecStopPost consumes one escape layer before systemctl receives the unit name.
         printf 'ExecStopPost=-/bin/systemctl --no-block start %s\n' \
-            "$collector_unit" >> "${unit_dir}/${service}" || return 1
+            "${collector_unit//\\/\\\\}" >> "${unit_dir}/${service}" || return 1
     done
 }
 
