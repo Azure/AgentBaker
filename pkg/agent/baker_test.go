@@ -343,7 +343,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".supportsScriptlessProvisioning()", func() {
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is true and no CustomCATrustConfig, it returns false", func() {
+			It("given EnableScriptlessNBCCSECmd and PreProvisionOnly, it returns true", func() {
+				config.EnableScriptlessNBCCSECmd = true
+				config.PreProvisionOnly = true
+				Expect(supportsScriptlessProvisioning(config)).To(BeTrue())
+			})
+			It("given PreProvisionOnly without EnableScriptlessNBCCSECmd, it returns false", func() {
 				config.PreProvisionOnly = true
 				Expect(supportsScriptlessProvisioning(config)).To(BeFalse())
 			})
@@ -1537,7 +1542,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should fall back to regular custom data when pre-provisioning is enabled", func() {
+	It("should use scriptless custom data when pre-provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(true)
 
@@ -1545,19 +1550,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
-		decompressedPayload, err := getGzipDecodedValue(decodedPayload)
-		Expect(err).NotTo(HaveOccurred())
-
-		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
-
-		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNodeCustomDataFilepath))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeCustomDataFilepath))
 	})
 })
 
 var _ = Describe("getNodeBootstrappingCmd", func() {
-	It("should use the regular linux CSE command when pre-provisioning is enabled", func() {
+	It("should use the provision-wait CSE command when pre-provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		agentPoolProfile := &datamodel.AgentPoolProfile{
 			Name:   "nodepool1",
@@ -1589,8 +1587,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 			PreProvisionOnly:          true,
 		}
 
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
 
 	newScriptlessCmdTestConfig := func() *datamodel.NodeBootstrappingConfiguration {
