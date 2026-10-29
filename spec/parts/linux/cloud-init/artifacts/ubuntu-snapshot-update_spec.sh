@@ -411,6 +411,36 @@ EOF
         The output should include '"securityPatch":{"code":"Succeeded"}'
     End
 
+    # LPC renders localDNS before npdConfig, so npdConfig must not inherit localDNS's reporters.
+    It 'does not report localDNS current or message for npdConfig dispatched after it'
+        use_test_localdns_paths
+        cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+cat > /dev/null
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output) output="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+echo "patched-corefile" > "${output}"
+echo "v2" > "${output}.version"
+echo applied
+EOF
+        chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+        Mock systemctl
+            echo "systemctl called with args: $*"
+            [ "$1" != "is-active" ]
+        End
+        set_payload_goal '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"}}}"},{"name":"npdConfig","nodeConfig":"{}"}]}'
+
+        When call knead_main
+        The status should be success
+        The output should include '"localDNS":{"code":"Succeeded","current":"v2"}'
+        The output should include '"npdConfig":{"code":"Succeeded"}'
+    End
+
     It 'reports localDNS current when the handler is skipped as already current'
         use_test_localdns_paths
         echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"

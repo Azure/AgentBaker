@@ -296,6 +296,39 @@ EOF
             The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"v2"}'
         End
 
+        # LPC renders localDNS before npdConfig, so npdConfig must not inherit localDNS's reporters.
+        It 'does not report localDNS current or message for npdConfig dispatched after it'
+            use_test_localdns_paths
+            updateNPDConfigs() { echo "updateNPDConfigs called"; }
+            npdConfigsIsCurrent() { return 1; }
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+cat > /dev/null
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output) output="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+echo "patched-corefile" > "${output}"
+echo "v2" > "${output}.version"
+echo applied
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            Mock systemctl
+                echo "systemctl called with args: $*"
+                [ "$1" != "is-active" ]
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"}}}"},{"name":"npdConfig","nodeConfig":"{}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'updateNPDConfigs called'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"v2"}'
+            The contents of file "${TEST_CALLS_FILE}" should include '"npdConfig":{"code":"Succeeded"}'
+        End
+
         It 'reports localDNS current when the handler is skipped as already current'
             use_test_localdns_paths
             echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"

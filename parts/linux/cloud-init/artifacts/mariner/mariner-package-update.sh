@@ -221,6 +221,8 @@ apply_components() {
             npdConfig)
                 component_handler=updateNPDConfigs
                 component_comparator=npdConfigsIsCurrent
+                component_message_reporter=""
+                component_current_reporter=""
                 ;;
             localDNS)
                 component_handler=updateLocalDNS

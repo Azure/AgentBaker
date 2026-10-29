@@ -317,6 +317,8 @@ knead_apply_components() {
             npdConfig)
                 component_comparator=npdConfigsIsCurrent
                 component_handler=updateNPDConfigs
+                component_message_reporter=""
+                component_current_reporter=""
                 ;;
             localDNS)
                 component_comparator=localDNSIsCurrent
