@@ -61,6 +61,11 @@ execution, public-file writes, and guest-agent events. The trust-store helpers
 write downloaded contents without PEM/X.509 filtering, update the platform's
 existing CA tools, and preserve Ubuntu's OpenSSL bundle/symlink behavior.
 
+Cloud commands run in their own process groups with a two-minute timeout, or
+the caller's earlier cancellation. Cancellation kills the entire group. A
+five-second `WaitDelay` bounds output draining after cancellation or command
+exit, including when a descendant leaves the group but retains an output pipe.
+
 Cache cleanup removes flat staging files, including hidden files, without
 recursively deleting directories or removing installed system-trust certificates.
 `AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only diagnostics;
