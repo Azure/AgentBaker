@@ -99,7 +99,7 @@ var _ = Register(&Scenario{
 			config.EnableArtifactStreaming = true
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
