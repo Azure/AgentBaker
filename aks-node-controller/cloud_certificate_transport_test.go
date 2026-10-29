@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -75,6 +77,139 @@ func TestCloudCertificateRequestRetryAndCancellation(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 		require.EqualValues(t, 1, attempts.Load())
 	})
+}
+
+func TestCloudCertificateTruncatedHTTP200(t *testing.T) {
+	complete := cloudTestCertificate(t)
+	for _, tc := range []struct {
+		name     string
+		failures int32
+	}{
+		{"recover on retry", 1},
+		{"exhaust retries", cloudRequestAttempts},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			var attempts atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				attempt := attempts.Add(1)
+				w.Header().Set("Content-Length", strconv.Itoa(len(complete)))
+				w.WriteHeader(http.StatusOK)
+				if attempt <= tc.failures {
+					// Returning fewer bytes than Content-Length closes the response early.
+					_, _ = w.Write(complete[:len(complete)/2])
+					return
+				}
+				_, _ = w.Write(complete)
+			}))
+			defer server.Close()
+			c.wireEndpoint = server.URL
+			waits := 0
+			c.wait = func(ctx context.Context, _ time.Duration) error {
+				waits++
+				return ctx.Err()
+			}
+
+			body, err := c.requestCertificates(t.Context(), certificatePackagePath("root", "crt"))
+			wantAttempts := tc.failures + 1
+			if tc.failures == cloudRequestAttempts {
+				wantAttempts = cloudRequestAttempts
+				require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+				require.Nil(t, body)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, complete, body)
+			}
+			require.Equal(t, wantAttempts, attempts.Load())
+			require.EqualValues(t, wantAttempts-1, waits)
+		})
+	}
+}
+
+func TestCloudOperationCertificateTruncatedDownload(t *testing.T) {
+	complete := cloudTestCertificate(t)
+	for _, failures := range []int32{1, cloudRequestAttempts} {
+		t.Run(strconv.Itoa(int(failures)), func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			var attempts atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.RequestURI {
+				case "/machine?comp=acmspackage&type=operationrequestsroot&ext=json":
+					_, _ = io.WriteString(w, `{"OperationsInfo":[{"ResouceFileName":"truncated.crt"},{"ResouceFileName":"complete.crt"}]}`)
+				case "/machine?comp=acmspackage&type=truncated&ext=crt":
+					attempt := attempts.Add(1)
+					w.Header().Set("Content-Length", strconv.Itoa(len(complete)))
+					w.WriteHeader(http.StatusOK)
+					if attempt <= failures {
+						_, _ = w.Write(complete[:len(complete)/2])
+						return
+					}
+					_, _ = w.Write(complete)
+				case "/machine?comp=acmspackage&type=complete&ext=crt":
+					_, _ = w.Write(complete)
+				default:
+					t.Errorf("unexpected certificate request: %s", r.RequestURI)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+			c.wireEndpoint = server.URL
+
+			certificates, err := c.operationCertificateGroup(t.Context(), "operationrequestsroot")
+			require.NoError(t, err)
+			want := map[string][]byte{"complete.crt": complete}
+			wantAttempts := failures + 1
+			if failures == cloudRequestAttempts {
+				wantAttempts = cloudRequestAttempts
+				_, statErr := os.Stat(c.path("/root/AzureCACertificates/truncated.crt"))
+				require.ErrorIs(t, statErr, os.ErrNotExist)
+			} else {
+				want["truncated.crt"] = complete
+			}
+			require.Equal(t, wantAttempts, attempts.Load())
+			require.Equal(t, want, certificates)
+			for name, payload := range want {
+				cached, readErr := os.ReadFile(c.path("/root/AzureCACertificates/" + name))
+				require.NoError(t, readErr)
+				require.Equal(t, payload, cached)
+			}
+		})
+	}
+}
+
+func TestCloudCertificateCloseDelimitedResponse(t *testing.T) {
+	complete := cloudTestCertificate(t)
+	partial := complete[:len(complete)/2]
+	c := newTestCloudInitializer(t, cloudTestUbuntu)
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			t.Error("test server does not support connection hijacking")
+			return
+		}
+		conn, writer, err := hijacker.Hijack()
+		if err != nil {
+			t.Errorf("hijack test connection: %v", err)
+			return
+		}
+		defer conn.Close()
+		if _, err := writer.WriteString("HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n" + string(partial)); err != nil {
+			t.Errorf("write close-delimited response: %v", err)
+			return
+		}
+		if err := writer.Flush(); err != nil {
+			t.Errorf("flush close-delimited response: %v", err)
+		}
+	}))
+	defer server.Close()
+	c.wireEndpoint = server.URL
+
+	body, err := c.requestCertificates(t.Context(), certificatePackagePath("root", "crt"))
+	require.NoError(t, err)
+	require.Equal(t, partial, body)
+	require.EqualValues(t, 1, attempts.Load())
 }
 
 func TestCloudCertificateRequestsDoNotFollowRedirects(t *testing.T) {
