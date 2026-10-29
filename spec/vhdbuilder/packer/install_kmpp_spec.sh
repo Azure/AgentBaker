@@ -14,7 +14,7 @@ Describe 'KMPP package selection'
     It 'bakes KMPP on Azure Linux 3.0'
         When call select_kmpp_packages AZURELINUX 3.0
         The status should be success
-        The output should include 'kmpp-containers: 3.1.0_212'
+        The output should include 'kmpp-containers: 5.1.1_296'
     End
 
     Parameters
@@ -30,7 +30,7 @@ Describe 'KMPP package selection'
         When call select_kmpp_packages "$2" "$3" "$4"
         The status should be success
         The output should include 'kmpp-containers: '
-        The output should not include '3.1.0_212'
+        The output should not include '5.1.1_296'
         The output should not include '0.1.6'
     End
 End
@@ -71,12 +71,12 @@ Describe 'KMPP VHD installation helpers'
 
     Describe 'installKMPP'
         It 'opts out of the default provider before install, then holds, masks and wipes state'
-            When call installKMPP 3.1.0_212
+            When call installKMPP 5.1.1_296
             The status should be success
-            The output should include 'Installing kmpp-containers version 3.1.0_212'
+            The output should include 'Installing kmpp-containers version 5.1.1_296'
             The path "${KMPP_DISABLE_DEFAULT_PROVIDER_FILE}" should be file
-            The contents of file "${TEST_CALLS}" should equal 'resolved kmpp-containers 3.1.0_212 3.1.0_212-1
-dnf_install 30 1 600 kmpp-containers-3.1.0_212-1
+            The contents of file "${TEST_CALLS}" should equal 'resolved kmpp-containers 5.1.1_296 5.1.1_296-1
+dnf_install 30 1 600 kmpp-containers-5.1.1_296-1
 optout present
 systemctl daemon-reload
 systemctl stop dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service
@@ -85,14 +85,14 @@ systemctl mask dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.servi
             The contents of file "${KMPP_TDNF_LOCK_FILE}" should equal 'kmpp-containers'
             The path "${KMPP_DATA_DIR}/kmpp-private" should not be exist
             The path "${KMPP_DATA_DIR}/kmpp" should not be exist
-            The contents of file "${VHD_LOGS_FILEPATH}" should equal '  - kmpp-containers version 3.1.0_212-1'
+            The contents of file "${VHD_LOGS_FILEPATH}" should equal '  - kmpp-containers version 5.1.1_296-1'
         End
 
         It 'reverts the TPM unit swap and tss membership from the build VM'
             mv "${KMPP_SYSTEMD_DIR}/dbus-com.microsoft.kmpp.service" "${KMPP_SYSTEMD_DIR}/dbus-com.microsoft.kmpp.service.default"
             mv "${KMPP_SYSTEMD_DIR}/dbus-com.microsoft.kmpp.service.tpm" "${KMPP_SYSTEMD_DIR}/dbus-com.microsoft.kmpp.service"
             KMPP_GROUPS="kmpp kmppcert tss"
-            When call installKMPP 3.1.0_212
+            When call installKMPP 5.1.1_296
             The status should be success
             The output should include 'Reverting TPM unit swap'
             The contents of file "${KMPP_SYSTEMD_DIR}/dbus-com.microsoft.kmpp.service" should equal 'default'
@@ -102,7 +102,7 @@ systemctl mask dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.servi
         End
 
         It 'leaves the units alone when no TPM swap happened'
-            When call installKMPP 3.1.0_212
+            When call installKMPP 5.1.1_296
             The status should be success
             The output should not include 'Reverting TPM unit swap'
             The contents of file "${KMPP_SYSTEMD_DIR}/dbus-com.microsoft.kmpp.service" should equal 'default'
@@ -119,7 +119,7 @@ systemctl mask dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.servi
 
         It 'fails when the install fails'
             dnf_install() { return 1; }
-            When call installKMPP 3.1.0_212
+            When call installKMPP 5.1.1_296
             The status should be failure
             The output should include 'Installing kmpp-containers'
             The path "${KMPP_TDNF_LOCK_FILE}" should not be exist

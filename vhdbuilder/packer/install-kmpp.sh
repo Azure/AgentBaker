@@ -14,9 +14,9 @@ KMPP_SYSTEMD_DIR="${KMPP_SYSTEMD_DIR:-/usr/lib/systemd/system}"
 KMPP_DATA_DIR="${KMPP_DATA_DIR:-/var/opt/msft/ap/data}"
 KMPP_UNITS=("dbus-com.microsoft.kmpp.service" "dbus-com.microsoft.kmppctrl.service")
 
-# The 3.1.0 %preun does not check whether it runs for an erase or an upgrade, so
-# an unattended upgrade would delete the units and the kmpp user. Version bumps
-# must come through components.json and a new VHD instead.
+# An unattended upgrade reruns the postinst, which starts the units and, on a
+# node with a vTPM, swaps in the TPM unit again. Version bumps must come through
+# components.json and a new VHD instead.
 holdKMPPPackage() {
     local package="$1"
     mkdir -p "$(dirname "${KMPP_TDNF_LOCK_FILE}")" || return 1

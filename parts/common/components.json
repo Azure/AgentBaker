@@ -2364,7 +2364,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=kmpp-containers, os=azurelinux, release=3.0",
-                "latestVersion": "3.1.0_212"
+                "latestVersion": "5.1.1_296"
               }
             ]
           },
