@@ -16,11 +16,17 @@
         },
         "customize": [
             {
+                "type": "File",
+                "name": "StageACLFirstBootHelper",
+                "sourceUri": "<WORKLOAD_OPTIMIZATION_SCRIPT_URL>",
+                "destination": "/tmp/acl-prefetch-driver.sh"
+            },
+            {
                 "type": "Shell",
-                "name": "CheckACLExperimentPrerequisites",
+                "name": "PrepareACLFirstBootForCapture",
                 "inline": [
-                    "sudo test -s /opt/azure/containers/prefetch.sh",
-                    "sudo test -s /opt/azure/containers/cleanup-vhd.sh"
+                    "sudo /bin/bash /tmp/acl-prefetch-driver.sh --prepare-only",
+                    "sudo rm -f /tmp/acl-prefetch-driver.sh"
                 ]
             }
         ],

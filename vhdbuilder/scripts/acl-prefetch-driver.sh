@@ -1,6 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
+aclPrefetchPhase() {
+    if [[ $# -eq 0 ]]; then
+        echo workload
+    elif [[ $# -eq 1 && "$1" == --prepare-only ]]; then
+        echo customization
+    else
+        echo "Usage: acl-prefetch-driver.sh [--prepare-only]" >&2
+        return 2
+    fi
+}
+
 verifyAndRearmACLFirstBoot() {
     local boot_dir="${1:-/boot}"
     local template="${boot_dir}/acl/uki-addons/firstboot.addon.efi"
@@ -32,7 +43,23 @@ verifyAndRearmACLFirstBoot() {
     touch "${boot_dir}/flatcar/first_boot" || return 1
 }
 
+runACLPhase() {
+    local phase="$1" prefetch="$2" cleanup="$3" boot_dir="$4"
+    if [[ "${phase}" == workload ]]; then
+        systemctl start containerd || return $?
+        /bin/bash "${prefetch}" || return $?
+    fi
+    /bin/bash -eu "${cleanup}" || return $?
+    verifyAndRearmACLFirstBoot "${boot_dir}" || return $?
+    if [[ "${phase}" == workload ]]; then
+        rm -f "${prefetch}" "${cleanup}" || return $?
+    fi
+    sync
+}
+
 main() {
+    local phase
+    phase="$(aclPrefetchPhase "$@")" || return $?
     local ID VARIANT_ID
     # shellcheck source=/dev/null
     source /etc/os-release
@@ -49,13 +76,8 @@ main() {
         return 1
     fi
 
-    systemctl start containerd
-    /bin/bash "${prefetch}"
-    /bin/bash -eu "${cleanup}"
-    verifyAndRearmACLFirstBoot
-    rm -f "${prefetch}" "${cleanup}"
-    sync
-    printf 'ACL prefetch: rearmed first boot after workload; optimizer boot ID: '
+    runACLPhase "${phase}" "${prefetch}" "${cleanup}" /boot || return $?
+    printf 'ACL prefetch: rearmed first boot in %s phase; boot ID: ' "${phase}"
     cat /proc/sys/kernel/random/boot_id
 }
 

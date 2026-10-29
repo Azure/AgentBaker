@@ -5,19 +5,25 @@ Provides functionality to generate scripts used for prefetch optimization.
 ## ACL first-boot experiment
 
 ACL remains excluded from release prefetch optimization. The opt-in
-[`acl-experiment.json`](templates/acl-experiment.json) template tests a late
-first-boot reset without changing that release gate. It omits the normal
-customizer cleanup, preserving the baked cleanup script for the
-[`acl-prefetch-driver.sh`](../scripts/acl-prefetch-driver.sh) workload hook.
-The hook warms the baked workload, runs the existing VHD cleanup, verifies the
-selected UKI's addon, restores the legacy first-boot marker, and flushes writes.
+[`acl-experiment.json`](templates/acl-experiment.json) template rearms first boot
+at customization capture without changing that release gate. Its native file
+customizer stages the pinned
+[`acl-prefetch-driver.sh`](../scripts/acl-prefetch-driver.sh), then invokes
+`--prepare-only`: run the existing VHD cleanup, verify the selected UKI's addon,
+restore the legacy first-boot marker, and flush writes. This leaves the baked
+cleanup and workload scripts available for optimization.
+The workload hook warms the baked workload and repeats the reset defensively.
+Do not rely on workload-script disk mutations being captured.
 It deliberately fails when required scripts or first-boot state are missing.
 The initial experiment targets UKI-based AMD64 ACL Trusted Launch images.
 The experimental builder uses `Standard_D4s_v6`, matching the pilot nodes;
 both D4s_v5 and D4ds_v5 were rejected by eastus2 capacity preflight.
-The customizer only checks prerequisites: the AIB service rejects an empty
-customizer list. Its boot can consume first-boot state, which the late workload
-hook must restore; the final-image gate below remains mandatory.
+The AIB service rejects an empty customizer list. A live late-reset-only
+prototype completed optimization but its distributed image had no first-boot
+argument, did not receive fresh Ignition CustomData, and still contained both
+scripts the workload hook was intended to remove. That is why restoration is
+required in the customization capture path, not only in the workload hook.
+The final-image gate below remains mandatory.
 
 Run the existing [optimizer](scripts/optimize.sh) with its normal required
 environment and these overrides:
