@@ -722,13 +722,13 @@ cachePackageAndBinaryComponents() {
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
         ;;
       "kmpp-containers")
-        # Azure Linux 3.0 only. Empty manifest entries skip every other OS,
-        # including OSGuard and Kata (azurelinuxkata falls back to default).
-        # components.json cannot express CVM, so skip it here: KMPP on CVM
-        # (always vTPM) is out of scope and its builder does not ship install-kmpp.sh.
+        # Azure Linux 3.0 only, excluding OS Guard, Kata and CVM, which have no plan to
+        # enable KMPP. The CVM builder does not ship install-kmpp.sh.
         # It stays dormant on the VHD; CSE enables it when ENABLE_KMPP=true.
-        if echo "$FEATURE_FLAGS" | grep -q "cvm"; then
-          echo "INFO: skipping ${name} on CVM"
+        if ! isAzureLinux "$OS" "$OS_VARIANT" || [ "${OS_VERSION}" != "3.0" ] || \
+          isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ] || \
+          echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+          echo "INFO: skipping ${name}: KMPP is baked only into Azure Linux 3.0 non-CVM, non-Kata, non-OS Guard images"
           continue
         fi
         source /home/packer/install-kmpp.sh
