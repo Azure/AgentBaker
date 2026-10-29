@@ -3,6 +3,7 @@
 Describe 'ACL experimental AIB template'
   validate_template() {
     jq -e '
+      .properties.buildTimeoutInMinutes == 60 and
       (.properties.customize | length) == 1 and
       .properties.customize[0].type == "Shell" and
       .properties.customize[0].inline == [

@@ -9,6 +9,7 @@
         }
     },
     "properties": {
+        "buildTimeoutInMinutes": 60,
         "source": {
             "type": "<SOURCE_TYPE>",
             "<SOURCE_ID_KEY>": "<SOURCE_ID>"

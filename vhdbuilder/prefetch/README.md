@@ -36,6 +36,18 @@ Keep the original source as the unoptimized control; the treatment must be
 imported from AIB's final VHD output. Record both immutable image IDs and the
 source build/commit. Never select `latest` for either arm.
 
+For the NVMe-only v6 builder, prepare a generalized gallery source from the
+same exported VHD with `DiskControllerTypes=SCSI,NVMe` and
+`SecurityType=TrustedLaunchSupported`. Point `PREFETCH_SOURCE_IMAGE_VERSION_ID`
+at that exact version and set `ENABLE_TRUSTED_LAUNCH=False` **for this prepared
+AIB source only**, so the optimizer uses `SharedImageVersion` rather than the
+legacy TL-to-managed-image conversion. That conversion lost controller
+metadata and failed v6 VM creation in the live experiment. The AIB source
+allows a standard Gen2 build VM; this does not change the required Trusted
+Launch/Secure Boot settings of either final benchmark image or node.
+Keep the final control/treatment image definition `SecurityType=TrustedLaunch`.
+The experimental template limits each image build to 60 minutes.
+
 **The hook's capture semantics are experimental.** A successful AIB run does not
 prove that its disk mutations survive distribution. Before cluster performance
 testing, boot the final output with unique Ignition CustomData, verify the
