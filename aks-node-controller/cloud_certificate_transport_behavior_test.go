@@ -66,20 +66,56 @@ func TestCloudOperationCertificateTransport(t *testing.T) {
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
-func TestCloudCertificateTransportEncodesResourceNames(t *testing.T) {
-	c := newTestCloudInitializer(t, cloudTestUbuntu)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		query := r.URL.Query()
-		if query.Get("type") != "root+ca" || query.Get("ext") != "crt" {
-			t.Errorf("incorrectly encoded certificate resource: %s", r.URL)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		_, _ = io.WriteString(w, "raw certificate payload\n\n")
-	}))
-	defer server.Close()
-	c.wireEndpoint = server.URL
-	payload, err := c.operationCertificate(t.Context(), "root+ca.crt")
-	require.NoError(t, err)
-	require.Equal(t, "raw certificate payload\n", string(payload))
+func TestCloudCertificateTransportPreservesShellQuery(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		filename       string
+		wantRequestURI string
+	}{
+		{
+			name:           "ordinary resource",
+			filename:       "root.crt",
+			wantRequestURI: "/machine?comp=acmspackage&type=root&ext=crt",
+		},
+		{
+			name:           "literal plus",
+			filename:       "root+ca.crt",
+			wantRequestURI: "/machine?comp=acmspackage&type=root+ca&ext=crt",
+		},
+		{
+			name:           "percent-escaped plus",
+			filename:       "root%2Bca.crt",
+			wantRequestURI: "/machine?comp=acmspackage&type=root%2Bca&ext=crt",
+		},
+		{
+			name:           "ampersand",
+			filename:       "root&ca.crt",
+			wantRequestURI: "/machine?comp=acmspackage&type=root&ca&ext=crt",
+		},
+		{
+			name:           "plus in extension",
+			filename:       "root.crt+ca",
+			wantRequestURI: "/machine?comp=acmspackage&type=root&ext=crt+ca",
+		},
+		{
+			name:           "percent escape in extension",
+			filename:       "root.c%2Brt",
+			wantRequestURI: "/machine?comp=acmspackage&type=root&ext=c%2Brt",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.RequestURI != tc.wantRequestURI {
+					t.Errorf("certificate request differs from init-aks-cloud.sh: got %q, want %q", r.RequestURI, tc.wantRequestURI)
+				}
+				_, _ = io.WriteString(w, "raw certificate payload\n\n")
+			}))
+			defer server.Close()
+			c.wireEndpoint = server.URL
+			payload, err := c.operationCertificate(t.Context(), tc.filename)
+			require.NoError(t, err)
+			require.Equal(t, "raw certificate payload\n", string(payload))
+		})
+	}
 }
