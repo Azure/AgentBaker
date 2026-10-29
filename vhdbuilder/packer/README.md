@@ -145,6 +145,23 @@ Rendered shell payloads are minified with the `mvdan.cc/sh/v3/syntax` Bash parse
 before gzip and base64 encoding. Trailing `#HELPERSEOF` and `#EOF` delivery markers
 are preserved. VHD source scripts and non-shell payloads are not minified.
 
+The Go unit-test workflow uploads `cse-minification-diffs` for review. To generate
+the same artifacts locally, run from the repository root with an absolute output
+directory:
+
+```bash
+CSE_SCRIPT_DIFF_DIR="$(mktemp -d)" \
+  go test ./pkg/agent -run '^TestCSEScriptMinificationArtifacts$' -count=1 -v
+```
+
+Each OS/cloud fixture contains `before/` (after comment stripping and template
+rendering), `after/` (decoded production payload scripts), and `diff/` (unmodified
+Git diffs). The baseline is not reformatted with the minifier. These synthetic
+fixtures cover six OS variants, public/custom cloud, and LocalDNS enabled; all
+discovered scripts are exported, including ones not delivered by that fixture's
+OS/cloud. The test checks Bash syntax without executing provisioning scripts.
+Artifact inspection is not proof of semantic equivalence or dependency safety.
+
 When adding a module, also register its source-to-variable mapping in
 `hotfix/hotfix_generate.py`. The current keys are `provisionConfigsGPU`,
 `provisionConfigsLocalDNS`, `provisionConfigsKubelet`, `provisionConfigsNetwork`,
