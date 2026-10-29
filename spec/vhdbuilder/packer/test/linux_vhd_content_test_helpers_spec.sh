@@ -370,3 +370,49 @@ Describe 'isCloudInitLogMsgIgnored'
     The status should be success
   End
 End
+
+Describe 'testPam AzureLinux 4.0 failure handling'
+  BeforeAll "eval \"\$(sed -n '/^testPam()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  err() { echo "$1:Error: $2" >&2; }
+  python3() { :; }
+  pip3() { :; }
+  deactivate() { :; }
+  pytest() {
+    echo "test_pam.py::test_user_can_login RERUN"
+    echo "FAILED test_pam.py::test_user_can_login - assert False"
+    echo "==================== 1 failed, 12 passed, 5 rerun in 9.00s ===================="
+    return 1
+  }
+
+  setup_pam_dir() {
+    PAM_TEST_ROOT=$(mktemp -d)
+    mkdir -p "$PAM_TEST_ROOT/AgentBaker/vhdbuilder/packer/test/pam/bin"
+    touch "$PAM_TEST_ROOT/AgentBaker/vhdbuilder/packer/test/pam/bin/activate"
+    cd "$PAM_TEST_ROOT" || return 1
+  }
+
+  cleanup_pam_dir() {
+    cd "$SHELLSPEC_PROJECT_ROOT" && rm -rf "$PAM_TEST_ROOT"
+  }
+
+  BeforeEach 'setup_pam_dir'
+  AfterEach 'cleanup_pam_dir'
+
+  It 'reports PAM failures as warnings on AzureLinux 4.0'
+    When call testPam AzureLinux 4.0
+    The status should be success
+    The output should include 'testPam: Warning: ignoring PAM test failures on AzureLinux 4.0'
+    The output should include 'FAILED test_pam.py::test_user_can_login - assert False'
+    The output should include '1 failed, 12 passed, 5 rerun'
+    The output should not include 'test_pam.py::test_user_can_login RERUN'
+    The stderr should not include ':Error:'
+  End
+
+  It 'keeps PAM failures fatal on AzureLinux 3.0'
+    When call testPam AzureLinux 3.0
+    The status should be failure
+    The output should not include 'Warning: ignoring PAM test failures'
+    The stderr should include 'testPam:Error: PAM configuration is not functional'
+  End
+End
