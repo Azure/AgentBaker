@@ -267,6 +267,9 @@ os:
       destination: /etc/systemd/system/cgroup-cpu-telemetry.timer
       permissions: 600
     # cgroup-pressure
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+      destination: /opt/scripts/cgroup-telemetry-events.sh
+      permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh
       destination: /opt/scripts/cgroup-pressure-telemetry.sh
       permissions: 755

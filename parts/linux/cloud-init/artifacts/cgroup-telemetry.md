@@ -60,7 +60,8 @@ outside `events/`, so WALinuxAgent's queue cleanup cannot delete them before
 publication.
 Splitting increases event count without changing WALinuxAgent's collection
 quotas; it prevents size truncation, not other ingestion failures. This
-pressure-only implementation has no dependency on a new VHD or shared helper.
+shared `cgroup-telemetry-events.sh` helper is installed in the VHD alongside
+the collectors and can also publish other cgroup observation types.
 
 # Collector unit activation
 
