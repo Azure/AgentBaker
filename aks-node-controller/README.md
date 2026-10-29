@@ -106,9 +106,14 @@ ANC provides a standalone command for refreshing Azure cloud CA certificates:
 /opt/azure/containers/aks-node-controller refresh-cloud-certificates --location westus2
 ```
 
+The refresh routine normalizes and validates the location before clearing its
+staging cache or making requests, so inputs such as `usSecGov` and ` US SEC GOV `
+select the same legacy endpoint as `ussecgov`.
+
 Regions starting with `ussec` or `usnat` use the legacy certificate endpoint.
-Other regions check WireServer's root-certificate opt-in before retrieving root
-and intermediate certificates. Only the JSON boolean `true` enables opt-in;
+Other regions check WireServer's root-certificate opt-in through the dedicated
+`isOptedInForRootCerts` helper before retrieving root and intermediate certificates.
+Only the JSON boolean `true` enables opt-in;
 nonempty malformed or non-true responses skip installation. Failed or empty
 opt-in requests remain errors. Individual operation-certificate download failures
 are logged and skipped, and legacy trust-store installation failures remain
