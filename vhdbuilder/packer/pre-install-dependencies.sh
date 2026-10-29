@@ -35,7 +35,10 @@ installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will no
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
-  dnf_install 30 1 600 authselect libselinux-utils rsyslog || exit "$ERR_APT_INSTALL_TIMEOUT"
+  # cronie provides crontab for the init-aks-cloud.sh ca-refresh job and the /etc/cron.* paths
+  # hardened by cis.sh; cronie-anacron matches AzL3 as the dailyjobs provider and pulls in crontabs.
+  # crond.service is enabled by the azurelinux-release systemd preset.
+  dnf_install 30 1 600 authselect cronie cronie-anacron libselinux-utils rsyslog || exit "$ERR_APT_INSTALL_TIMEOUT"
   # AKS owns forwarding rules and retains the POC's permissive SELinux policy.
   if [ "$(getenforce)" != "Disabled" ]; then
     setenforce 0 || exit 1
