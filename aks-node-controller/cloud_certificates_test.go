@@ -59,6 +59,148 @@ func TestCloudCertificateRefreshModes(t *testing.T) {
 	}
 }
 
+func TestCloudCertificateRefreshNormalizesLocation(t *testing.T) {
+	cert := cloudTestCertificate(t)
+	for _, tc := range []struct {
+		name, location string
+		legacy         bool
+	}{
+		{"ussec lowercase", "ussecgov", true},
+		{"ussec mixed case", "usSecGov", true},
+		{"ussec whitespace", " \tUS SEC GOV\r\n", true},
+		{"usnat lowercase", "usnateast", true},
+		{"usnat mixed case", "usNatEast", true},
+		{"usnat whitespace", " US NAT East ", true},
+		{"rcv1p lowercase", "westus2", false},
+		{"rcv1p mixed case and whitespace", " \tWest US2\n", false},
+		{"rcv1p empty", "", false},
+		{"rcv1p whitespace only", " \t\n", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			requests := serveCloudTestResponses(t, c, cert, `{"IsOptedInForRootCerts":true}`)
+			var commands []string
+			c.run = func(cmd *exec.Cmd) error {
+				commands = append(commands, cmd.Args[0])
+				return nil
+			}
+			platform, err := c.platform()
+			require.NoError(t, err)
+			refreshed, err := c.refresh(t.Context(), platform, tc.location)
+			require.NoError(t, err)
+			require.True(t, refreshed)
+			require.Equal(t, []string{"update-ca-certificates"}, commands)
+			wantRequests := 5
+			wantFirst := "/acms/isOptedInForRootCerts?"
+			if tc.legacy {
+				wantRequests = 1
+				wantFirst = "/machine?comp=acmspackage&type=cacertificates&ext=json"
+			}
+			require.Len(t, requests, wantRequests)
+			require.Equal(t, wantFirst, <-requests)
+		})
+	}
+}
+
+func TestCloudCertificateRefreshRejectsInvalidLocationBeforeSideEffects(t *testing.T) {
+	for _, location := range []string{`westus";echo bad`, "westus%bad", "ussec/gov"} {
+		t.Run(location, func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			requests := serveCloudTestResponses(t, c, nil, `{"IsOptedInForRootCerts":false}`)
+			c.run = func(*exec.Cmd) error {
+				t.Fatal("invalid locations must not update the trust store")
+				return nil
+			}
+			require.NoError(t, c.writeFile("/root/AzureCACertificates/stale.crt", []byte("keep")))
+			platform, err := c.platform()
+			require.NoError(t, err)
+			refreshed, err := c.refresh(t.Context(), platform, location)
+			require.ErrorContains(t, err, "cloud location contains unsupported characters")
+			require.False(t, refreshed)
+			require.Empty(t, requests)
+			cached, err := os.ReadFile(c.path("/root/AzureCACertificates/stale.crt"))
+			require.NoError(t, err)
+			require.Equal(t, "keep", string(cached))
+		})
+	}
+}
+
+func TestCloudRootCertificateOptIn(t *testing.T) {
+	for _, tc := range []struct {
+		name, response string
+		wantOptedIn    bool
+		wantError      string
+	}{
+		{"opted in", `{"IsOptedInForRootCerts":true}`, true, ""},
+		{"opted out", `{"IsOptedInForRootCerts":false}`, false, ""},
+		{"malformed JSON", "not json", false, ""},
+		{"missing field", `{}`, false, ""},
+		{"wrong field case", `{"isOptedInForRootCerts":true}`, false, ""},
+		{"string true", `{"IsOptedInForRootCerts":"true"}`, false, ""},
+		{"whitespace only", " ", false, ""},
+		{"empty response", "", false, "response is empty"},
+		{"newlines only", "\n\n", false, "response is empty"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			requests := serveCloudTestResponses(t, c, nil, tc.response)
+			c.run = func(*exec.Cmd) error {
+				t.Fatal("opt-in checks must not update the trust store")
+				return nil
+			}
+			require.NoError(t, c.writeFile("/root/AzureCACertificates/stale.crt", []byte("keep")))
+			optedIn, err := c.isOptedInForRootCerts(t.Context())
+			if tc.wantError != "" {
+				require.ErrorContains(t, err, tc.wantError)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tc.wantOptedIn, optedIn)
+			require.Len(t, requests, 1)
+			require.Equal(t, "/acms/isOptedInForRootCerts?", <-requests)
+			cached, err := os.ReadFile(c.path("/root/AzureCACertificates/stale.crt"))
+			require.NoError(t, err)
+			require.Equal(t, "keep", string(cached))
+		})
+	}
+}
+
+func TestCloudRootCertificateOptInRequestErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		canceled bool
+	}{
+		{"HTTP failure", false},
+		{"cancellation", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCloudInitializer(t, cloudTestUbuntu)
+			var requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requests.Add(1)
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			}))
+			t.Cleanup(server.Close)
+			c.wireEndpoint = server.URL
+			c.wireClient = server.Client()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			if tc.canceled {
+				cancel()
+			}
+			optedIn, err := c.isOptedInForRootCerts(ctx)
+			require.False(t, optedIn)
+			require.ErrorContains(t, err, "check Azure cloud root certificate opt-in")
+			if tc.canceled {
+				require.ErrorIs(t, err, context.Canceled)
+				require.Zero(t, requests.Load())
+			} else {
+				require.Positive(t, requests.Load())
+			}
+		})
+	}
+}
+
 func TestCloudCertificateRefreshNonTrueOptInResponsesSkip(t *testing.T) {
 	for _, response := range []string{
 		"not json", " ", `{}`, `null`, `[]`, `{"IsOptedInForRootCerts":false}`,

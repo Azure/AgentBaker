@@ -33,15 +33,11 @@ func (c *cloudInitializer) refreshCertificates(ctx context.Context, location str
 	refreshCtx, cancel := context.WithTimeout(ctx, cloudRefreshTimeout)
 	defer cancel()
 	return c.withEvent("CloudCertificateRefresh", func() error {
-		normalizedLocation, err := normalizeCloudLocation(location)
-		if err != nil {
-			return err
-		}
 		platform, err := c.platform()
 		if err != nil {
 			return err
 		}
-		_, err = c.refresh(refreshCtx, platform, normalizedLocation)
+		_, err = c.refresh(refreshCtx, platform, location)
 		return err
 	})
 }
