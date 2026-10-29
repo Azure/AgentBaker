@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"github.com/vincent-petithory/dataurl"
+	"gopkg.in/yaml.v3"
 )
 
 // this regex looks for groups of the following forms, returning KEY and VALUE as submatches.
@@ -1319,7 +1320,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
 
 		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeCustomDataFilepath))
@@ -1533,7 +1534,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1550,7 +1551,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1567,7 +1568,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1585,7 +1586,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1603,11 +1604,17 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		decompressedPayload, err := getGzipDecodedValue(decodedPayload)
 		Expect(err).NotTo(HaveOccurred())
 
-		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+		expectedCustomData := templateGenerator.getLinuxNodeCustomData(config)
 
 		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNodeCustomDataFilepath))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		// Script contents can reference these paths; only delivery as write_files
+		// entries would indicate that the scriptless path was used.
+		var cloudConfig cloudInit
+		Expect(yaml.Unmarshal(decompressedPayload, &cloudConfig)).To(Succeed())
+		for _, file := range cloudConfig.WriteFiles {
+			Expect(file.Path).NotTo(Equal(aksNodeCustomDataFilepath))
+			Expect(file.Path).NotTo(Equal(aksNbcCmdFilepath))
+		}
 	})
 })
 
