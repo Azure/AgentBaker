@@ -28,6 +28,7 @@
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
+    "custom_kernel_enabled": "{{or (env `CUSTOM_KERNEL_ENABLED`) `false`}}",
     "branch": "{{env `BRANCH`}}",
     "ua_token": "{{env `UA_TOKEN`}}",
     "vhd_build_timestamp": "{{user `VHD_BUILD_TIMESTAMP`}}"
@@ -859,11 +860,28 @@
       ]
     },
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/custom-kernel",
+      "destination": "/home/packer/"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash /home/packer/custom-kernel/manage.sh install '{{user `custom_kernel_enabled`}}'"
+      ]
+    },
+    {
       "type": "shell",
       "inline": "sudo reboot",
       "expect_disconnect": true,
       "skip_clean": true,
       "pause_after": "60s"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash /home/packer/custom-kernel/manage.sh verify '{{user `custom_kernel_enabled`}}'"
+      ]
     },
     {
       "type": "shell",
@@ -906,6 +924,12 @@
       "type": "shell",
       "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /home/packer/post-install-dependencies.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash /home/packer/custom-kernel/manage.sh verify '{{user `custom_kernel_enabled`}}'"
       ]
     },
     {

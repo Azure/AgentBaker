@@ -8,6 +8,15 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: customKernelStorageAccount
+    type: string
+    default: ""
+  - name: customKernelContainer
+    type: string
+    default: ""
+  - name: customKernelBlobPrefix
+    type: string
+    default: ""
 
 steps:
   - template: ./.template-override-components-json.yaml
@@ -96,6 +105,25 @@ steps:
     displayName: Build Go binaries
     retryCountOnTaskFailure: 3
 
+  - ${{ if ne(parameters.customKernelBlobPrefix, '') }}:
+      - task: AzureCLI@2
+        displayName: Download and verify test kernel packages
+        inputs:
+          azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            set -euo pipefail
+            bash vhdbuilder/packer/custom-kernel/manage.sh download \
+              "$SUBSCRIPTION_ID" "$CUSTOM_KERNEL_STORAGE_ACCOUNT" \
+              "$CUSTOM_KERNEL_CONTAINER" "$CUSTOM_KERNEL_BLOB_PREFIX" \
+              vhdbuilder/packer/custom-kernel/packages
+            echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]${SKU_NAME}-customkernel"
+        env:
+          CUSTOM_KERNEL_STORAGE_ACCOUNT: ${{ parameters.customKernelStorageAccount }}
+          CUSTOM_KERNEL_CONTAINER: ${{ parameters.customKernelContainer }}
+          CUSTOM_KERNEL_BLOB_PREFIX: ${{ parameters.customKernelBlobPrefix }}
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
@@ -116,6 +144,7 @@ steps:
       UA_TOKEN: $(ua-token)
       LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
       CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
+      CUSTOM_KERNEL_ENABLED: ${{ ne(parameters.customKernelBlobPrefix, '') }}
 
   - task: AzureCLI@2
     inputs:

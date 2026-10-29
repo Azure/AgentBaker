@@ -5,6 +5,18 @@ pool:
   name: $(POOL_NAME)
 
 parameters:
+  - name: customKernelStorageAccount
+    displayName: Test kernel storage account (Ubuntu 2604 Minimal AMD64 only)
+    type: string
+    default: ""
+  - name: customKernelContainer
+    displayName: Test kernel private blob container
+    type: string
+    default: ""
+  - name: customKernelBlobPrefix
+    displayName: Test kernel blob prefix (empty disables custom kernel)
+    type: string
+    default: ""
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
@@ -815,6 +827,9 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2604-minimal-gen2-containerd
+              customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+              customKernelContainer: ${{ parameters.customKernelContainer }}
+              customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
       - job: build2604minimalarm64gen2containerd
         condition: eq('${{ parameters.build2604minimalarm64gen2containerd }}', true)
         dependsOn: [ ]

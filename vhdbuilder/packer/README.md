@@ -25,6 +25,12 @@ script, and build the target-architecture binaries. The following VHD step runs
 in the same job and reuses those files. For local builds, run `build-tools` before
 `run-packer` or `run-imagecustomizer`.
 
+# Custom Ubuntu kernel experiments
+
+See [Testing a custom Ubuntu kernel](custom-kernel/README.md) for private blob
+uploads, pipeline permissions, opt-in builds, and post-reboot verification.
+This workflow is test-only and does not change the default kernel build.
+
 # Ubuntu BCC build
 
 Ubuntu BCC remains pinned to v0.29.0, fetched with a shallow tag clone, and built
