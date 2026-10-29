@@ -785,18 +785,6 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "auto update DALEC Windows package versions and revisions",
-      "managerFilePatterns": [
-        "/parts/common/components.json/"
-      ],
-      "matchStrings": [
-        "\"renovateTag\":\\s*\"dalec-windows=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\""
-      ],
-      "datasourceTemplate": "custom.dalec-windows",
-      "versioningTemplate": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$"
-    },
-    {
-      "customType": "regex",
       "description": "auto update containerImages in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -1038,13 +1026,6 @@
     }
   ],
   "customDatasources": {
-    "dalec-windows": {
-      "defaultRegistryUrlTemplate": "https://raw.githubusercontent.com/Azure/dalec-build-defs/main/specs/{{packageName}}/matrix.yml",
-      "format": "yaml",
-      "transformTemplates": [
-        "{\"releases\": [$each($lookup(components, \"{{packageName}}\").versions, function($value, $version) { {\"version\": $version & \"-\" & $string($value.revision)} })]}"
-      ]
-    },
     "deb2004": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages",
       "format": "plain",
