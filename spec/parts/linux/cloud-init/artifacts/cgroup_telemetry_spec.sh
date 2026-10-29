@@ -62,6 +62,7 @@ Describe 'cgroup telemetry'
 
     prepare_pressure_script() {
         sed \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e 's|CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=cgroup2fs|' \
             -e "s|CGROUP=\"/sys/fs/cgroup\"|CGROUP=\"${CGROUP_ROOT}\"|" \
@@ -278,7 +279,7 @@ STUB
     It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
         check_pressure_size_boundaries() {
             local fits_filter
-            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh)
+            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh)
             [ -n "${fits_filter}" ] || return 1
             jq -ne "${fits_filter}"'
                 def repeat_text($text; $count): [range(0; $count) | $text] | join("");
@@ -303,6 +304,71 @@ STUB
         When call check_pressure_size_boundaries
         The status should be success
         The output should equal true
+    End
+
+    Describe 'shared cgroup event publication'
+        Parameters
+            Pressure
+            CPUUsage
+            Memory
+        End
+
+        It 'splits and reconstructs the requested object without losing its entries'
+            publish_and_validate() {
+                local field="$1" message
+                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                message=$(jq -cn --arg field "${field}" '
+                    {CgroupVersion: "cgroupv2", ($field):
+                        ([range(0; 20) | {key: ("metric" + tostring), value: ([range(0; 200) | "x"] | join(""))}] | from_entries)}')
+                publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test || return 1
+                jq -se --arg field "${field}" '
+                    length as $count |
+                    length > 1 and
+                    ([.[].Message | fromjson | .[$field]] | add | length == 20) and
+                    ([.[].Message | fromjson | .TelemetryChunk.index] | sort == [range(0; length)]) and
+                    all(.[]; (.Message | fromjson | .TelemetryChunk.count) == $count)
+                ' "${EVENTS_ROOT}"/*.json
+            }
+
+            When call publish_and_validate "$1"
+            The status should be success
+            The output should equal true
+        End
+
+        It 'keeps small messages unchanged without chunk metadata'
+            publish_small() {
+                local field="$1" message
+                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                message=$(jq -cn --arg field "${field}" '{CgroupVersion: "cgroupv2", ($field): {metric: "value"}}')
+                publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test || return 1
+                jq -se --arg message "${message}" 'length == 1 and .[0].Message == $message and
+                    (.[0].Message | fromjson | has("TelemetryChunk") | not)' "${EVENTS_ROOT}"/*.json
+            }
+
+            When call publish_small "$1"
+            The status should be success
+            The output should equal true
+        End
+
+        It 'rejects oversized individual entries before publishing any chunks'
+            publish_oversized() {
+                local field="$1" message
+                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                message=$(jq -cn --arg field "${field}" '{($field): {metric: ([range(0; 4000) | "x"] | join(""))}}')
+                publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test
+            }
+            remaining_event_files() {
+                find "${EVENTS_ROOT}" -mindepth 1 -print
+            }
+
+            When call publish_oversized "$1"
+            The status should be failure
+            The stderr should include 'test telemetry: failed to bound event payload'
+            The result of function remaining_event_files should equal ""
+        End
     End
 
     Context 'when jq succeeds without emitting events'
