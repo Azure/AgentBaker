@@ -76,14 +76,18 @@ func TestCloudCertificateResponseLimits(t *testing.T) {
 }
 
 func TestCloudCommandSuccess(t *testing.T) {
+	executable, err := os.Executable()
+	require.NoError(t, err)
 	c := &cloudInitializer{}
-	output, err := c.command(t.Context(), []byte("input"), os.Args[0],
+	output, err := c.command(t.Context(), []byte("input"), executable,
 		"-test.run=^TestCloudCommandHelperProcess$", "--", "echo", "")
 	require.NoError(t, err)
 	require.Equal(t, "C:input", string(output))
 }
 
 func TestCloudCommandAlreadyCanceled(t *testing.T) {
+	executable, err := os.Executable()
+	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	called := false
@@ -91,7 +95,7 @@ func TestCloudCommandAlreadyCanceled(t *testing.T) {
 		called = true
 		return cmd.Run()
 	}}
-	output, err := c.command(ctx, nil, os.Args[0],
+	output, err := c.command(ctx, nil, executable,
 		"-test.run=^TestCloudCommandHelperProcess$", "--", "echo", "")
 	require.ErrorIs(t, err, context.Canceled)
 	require.False(t, called, "an already-canceled context must not invoke the command runner")
@@ -99,6 +103,8 @@ func TestCloudCommandAlreadyCanceled(t *testing.T) {
 }
 
 func TestCloudCommandCancellation(t *testing.T) {
+	executable, err := os.Executable()
+	require.NoError(t, err)
 	for _, tc := range []struct {
 		name         string
 		mode         string
@@ -121,30 +127,13 @@ func TestCloudCommandCancellation(t *testing.T) {
 			}}
 			var parent, child *os.Process
 			t.Cleanup(func() {
-				cancel()
-				for _, process := range []*os.Process{child, parent} {
-					if process == nil {
-						continue
-					}
-					if err := process.Kill(); err != nil &&
-						!errors.Is(err, os.ErrProcessDone) && !errors.Is(err, syscall.ESRCH) {
-						t.Errorf("clean up process %d: %v", process.Pid, err)
-					}
-				}
-				if child != nil {
-					defer child.Release()
-				}
-				select {
-				case <-finished:
-				case <-time.After(5 * time.Second):
-					t.Error("command did not finish after subprocess cleanup")
-				}
+				cleanupCloudCommand(t, cancel, finished, parent, child)
 			})
 			var output []byte
 			var commandErr error
 			go func() {
 				defer close(finished)
-				output, commandErr = c.command(ctx, nil, os.Args[0],
+				output, commandErr = c.command(ctx, nil, executable,
 					"-test.run=^TestCloudCommandHelperProcess$", "--", tc.mode, readyPath)
 			}()
 			select {
@@ -180,10 +169,44 @@ func TestCloudCommandCancellation(t *testing.T) {
 	}
 }
 
+func cleanupCloudCommand(t *testing.T, cancel context.CancelFunc, finished <-chan struct{}, parent, child *os.Process) {
+	t.Helper()
+	cancel()
+	killCloudCommandTestProcess(t, child)
+	killCloudCommandTestProcess(t, parent)
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Error("command did not finish after subprocess cleanup")
+	}
+	if child != nil {
+		if err := child.Release(); err != nil {
+			t.Errorf("release child process: %v", err)
+		}
+	}
+}
+
+func killCloudCommandTestProcess(t *testing.T, process *os.Process) {
+	t.Helper()
+	if process == nil {
+		return
+	}
+	if err := process.Kill(); err != nil &&
+		!errors.Is(err, os.ErrProcessDone) && !errors.Is(err, syscall.ESRCH) {
+		t.Errorf("clean up process %d: %v", process.Pid, err)
+	}
+}
+
 func TestCloudCommandHelperProcess(t *testing.T) {
 	if len(os.Args) != 5 || os.Args[2] != "--" {
 		return
 	}
+	runCloudCommandHelperProcess(t)
+	os.Exit(0)
+}
+
+func runCloudCommandHelperProcess(t *testing.T) {
+	t.Helper()
 	switch os.Args[3] {
 	case "echo":
 		input, err := io.ReadAll(os.Stdin)
@@ -193,13 +216,15 @@ func TestCloudCommandHelperProcess(t *testing.T) {
 	case "hold":
 		time.Sleep(time.Minute)
 	case "group", "detached":
-		child := exec.Command(os.Args[0], os.Args[1], "--", "hold", os.Args[4])
+		executable, err := os.Executable()
+		require.NoError(t, err)
+		child := exec.Command(executable, os.Args[1], "--", "hold", os.Args[4])
 		child.Stdout, child.Stderr = os.Stdout, os.Stderr
 		if os.Args[3] == "detached" {
 			child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		}
 		require.NoError(t, child.Start())
-		defer child.Process.Kill()
+		defer killCloudCommandTestProcess(t, child.Process)
 		fmt.Fprintln(os.Stdout, "stdout-marker")
 		fmt.Fprintln(os.Stderr, "stderr-marker")
 		require.NoError(t, os.WriteFile(os.Args[4], []byte(strconv.Itoa(child.Process.Pid)), 0o600))
@@ -207,5 +232,4 @@ func TestCloudCommandHelperProcess(t *testing.T) {
 	default:
 		t.Fatalf("unknown command helper mode %q", os.Args[3])
 	}
-	os.Exit(0)
 }
