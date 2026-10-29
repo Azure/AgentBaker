@@ -336,7 +336,23 @@ Describe 'testCronPermissions invocation'
 End
 
 Describe 'isCloudInitLogMsgIgnored'
-  BeforeAll "eval \"\$(sed -n '/^CLOUD_INIT_LOG_MSG_IGNORE_LIST=(/,/^)/p;/^isCloudInitLogMsgIgnored()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+  BeforeAll "eval \"\$(sed -n '/^CLOUD_INIT_LOG_MSG_IGNORE_LIST=(/,/^)/p;/^AZL4_CLOUD_INIT_LOG_MSG_IGNORE_LIST=(/,/^)/p;/^isCloudInitLogMsgIgnored()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  Context 'AzureLinux 4.0 DHCP lease errors'
+    Parameters
+      "4.0" "2026-10-27 20:23:26,123 - azure.py[ERROR]: Failed to obtain DHCP lease (iface=None)" success
+      "4.0" "2026-10-27 20:23:26,124 - azure.py[ERROR]: Azure datasource failure occurred: result=error|reason=failure to obtain DHCP lease|agent=Cloud-Init/25.2|duration=300.27|interface=None" success
+      "4.0" "2026-10-27 20:18:26,125 - subp.py[WARNING]: Command ['hostname', '-f'] failed" success
+      "4.0" "2026-10-27 20:23:26,126 - util.py[ERROR]: Failed to mount /dev/sdb1" failure
+      "3.0" "2026-10-27 20:23:26,123 - azure.py[ERROR]: Failed to obtain DHCP lease (iface=None)" failure
+    End
+
+    It "returns $3 on OS_VERSION $1 for '$2'"
+      OS_VERSION="$1"
+      When call isCloudInitLogMsgIgnored "$2"
+      The status should be "$3"
+    End
+  End
 
   It 'ignores a message matching the ignore list'
     When call isCloudInitLogMsgIgnored "2026-10-27 20:18:26,125 - subp.py[WARNING]: Command ['hostname', '-f'] failed"
