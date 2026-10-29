@@ -60,5 +60,8 @@ main() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    if [[ "${EUID}" -ne 0 ]]; then
+        exec sudo -n /bin/bash "${BASH_SOURCE[0]}" "$@"
+    fi
     main "$@"
 fi

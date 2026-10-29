@@ -1,5 +1,28 @@
 #!/bin/bash
 
+Describe 'ACL workload privilege boundary'
+  Skip if 'already running as root' [ "${EUID}" -eq 0 ]
+
+  It 'reexecutes the workload with noninteractive sudo before touching the image'
+    Mock sudo
+      printf '%s\n' "$*"
+    End
+    When run bash ./vhdbuilder/scripts/acl-prefetch-driver.sh
+    The status should be success
+    The output should equal '-n /bin/bash ./vhdbuilder/scripts/acl-prefetch-driver.sh'
+  End
+
+  It 'propagates a denied sudo invocation'
+    Mock sudo
+      echo 'sudo unavailable' >&2
+      exit 23
+    End
+    When run bash ./vhdbuilder/scripts/acl-prefetch-driver.sh
+    The status should equal 23
+    The stderr should equal 'sudo unavailable'
+  End
+End
+
 Describe 'ACL experimental AIB template'
   validate_template() {
     jq -e '
