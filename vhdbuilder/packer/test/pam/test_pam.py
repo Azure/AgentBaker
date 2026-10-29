@@ -3,6 +3,7 @@ import pwd
 import random
 import string
 import sys
+import time
 
 import pexpect
 import pytest
@@ -10,6 +11,9 @@ import pytest
 
 # Run Command already runs as root; avoid nested login terminals on AzL4.
 LOGIN_COMMAND = "login" if os.environ.get("OS_VERSION") == "4.0" else "sudo login"
+
+PROMPT_TIMEOUT_SECONDS = 5
+TRANSIENT_EOF_GRACE_SECONDS = 5
 
 
 class BashSpawn(pexpect.spawn):
@@ -19,22 +23,51 @@ class BashSpawn(pexpect.spawn):
     def __init(self, command, args=[]):
         super().__init__(command, args, logfile=sys.stdout, timeout=1)
 
+    def isalive(self):
+        # ptyprocess uses a blocking waitpid() once EOF is flagged, which would
+        # hang until login exits after the transient EOF described in expect().
+        flag_eof = self.flag_eof
+        self.flag_eof = False
+        try:
+            return super().isalive()
+        finally:
+            self.flag_eof = flag_eof
+
+    def expect(self, pattern, *args, **kwargs):
+        # util-linux login closes its stdio and calls vhangup() before reopening
+        # the tty, so the pty master can report EOF while login is still alive.
+        deadline = time.monotonic() + TRANSIENT_EOF_GRACE_SECONDS
+        retried = False
+        while True:
+            try:
+                return super().expect(pattern, *args, **kwargs)
+            except pexpect.EOF:
+                if not self.isalive() or time.monotonic() >= deadline:
+                    raise
+                if not retried:
+                    print("\n-----Transient EOF while child is alive; retrying")
+                    retried = True
+                if self.before:
+                    self.buffer = self.before + self.buffer
+                self.flag_eof = False
+                time.sleep(0.05)
+
     def expect_login_prompt(self, user):
         print("\n-----Expecting login prompt")
-        self.expect([r"[Ll]ogin: "], timeout=1)
+        self.expect([r"[Ll]ogin: "], timeout=PROMPT_TIMEOUT_SECONDS)
         print("\n-----Sending username")
         self.sendline(user)
 
     def expect_password_prompt(self, pw):
         print("\n-----Expecting password prompt")
-        self.expect([r"[Pp]assword: "], timeout=1)
+        self.expect([r"[Pp]assword: "], timeout=PROMPT_TIMEOUT_SECONDS)
         print("\n-----Sending password")
         self.waitnoecho()
         self.sendline(pw)
 
     def expect_bash_prompt(self):
         print("\n-----Expecting bash prompt")
-        self.expect([r"\$ "], timeout=1)
+        self.expect([r"\$ "], timeout=PROMPT_TIMEOUT_SECONDS)
         print("\n-----Found bash prompt")
 
 
@@ -284,7 +317,7 @@ def change_password(user, new_pw):
     print(f"\n=== Changing password for {user.name} to {new_pw}")
     result = False
     child = BashSpawn(f"{LOGIN_COMMAND} {user.name}", encoding='utf-8',
-                      logfile=sys.stdout, timeout=1)
+                      logfile=sys.stdout, timeout=PROMPT_TIMEOUT_SECONDS)
     try:
         child.expect_password_prompt(user.pw)
         child.expect([r"\$"])
