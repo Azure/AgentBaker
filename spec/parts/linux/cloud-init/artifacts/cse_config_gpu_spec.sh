@@ -130,6 +130,7 @@ Describe 'cse_config_gpu.sh'
         End
     End
     Describe 'ensureArtifactStreaming'
+        Include "./parts/linux/cloud-init/artifacts/acl/cse_helpers_acl.sh"
         # ensureArtifactStreaming runs the version-appropriate enablement path
         # before enabling the acr-mirror/overlaybd services:
         #   - acr-mirror 1.0.0+ -> setup.sh aks
