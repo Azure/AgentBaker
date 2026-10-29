@@ -50,6 +50,7 @@ Describe 'cgroup telemetry'
     prepare_memory_script() {
         local cgroup_version="${1:-cgroup2fs}"
         sed \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e "s|CGROUP_VERSION=\$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=${cgroup_version}|" \
             -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
@@ -74,6 +75,7 @@ Describe 'cgroup telemetry'
     prepare_cpu_script() {
         local cgroup_version="${1:-cgroup2fs}"
         sed \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e "s|CGROUP_VERSION=\$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=${cgroup_version}|" \
             -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
@@ -284,19 +286,10 @@ STUB
     End
 
     Describe 'event size boundaries'
-        Parameters
-            pressure
-            cpu
-            memory
-        End
-
         It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
             check_telemetry_size_boundaries() {
-                local fits_filter source_file="./parts/linux/cloud-init/artifacts/cgroup-$1-telemetry.sh"
-                if [ "$1" = pressure ]; then
-                    source_file=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
-                fi
-                fits_filter=$(sed -n '/^    def fits:/p' "${source_file}")
+                local fits_filter
+                fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh)
                 [ -n "${fits_filter}" ] || return 1
                 jq -ne "${fits_filter}"'
                     def repeat_text($text; $count): [range(0; $count) | $text] | join("");
@@ -318,7 +311,7 @@ STUB
                 '
             }
 
-            When call check_telemetry_size_boundaries "$1"
+            When call check_telemetry_size_boundaries
             The status should be success
             The output should equal true
         End
@@ -414,6 +407,28 @@ STUB
             When run bash "${TEST_ROOT}/cgroup-$1-telemetry.sh"
             The status should equal 1
             The stderr should equal "$1 telemetry: no events generated"
+            The result of function remaining_event_files should equal ""
+        End
+    End
+
+    Describe 'when the shared publisher fails'
+        Parameters
+            cpu
+            memory
+        End
+
+        It 'fails the collector without publishing an event'
+            prepare_cpu_script
+            prepare_memory_script
+            printf '%s\n' 'publishCgroupTelemetry() { echo "publisher failed" >&2; return 42; }' > "${TEST_ROOT}/failing-helper.sh"
+            sed -i "s|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|${TEST_ROOT}/failing-helper.sh|" "${TEST_ROOT}/cgroup-$1-telemetry.sh"
+            remaining_event_files() {
+                find "${EVENTS_ROOT}" -mindepth 1 -print
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-$1-telemetry.sh"
+            The status should equal 1
+            The stderr should include 'publisher failed'
             The result of function remaining_event_files should equal ""
         End
     End
