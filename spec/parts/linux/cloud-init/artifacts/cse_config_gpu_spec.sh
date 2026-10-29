@@ -140,6 +140,8 @@ Describe 'cse_config_gpu.sh'
             TEST_ACR_DIR="$(mktemp -d)"
             ACR_MIRROR_SETUP_SCRIPT="${TEST_ACR_DIR}/setup.sh"
             ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
+            ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE="${TEST_ACR_DIR}/node-security-profile"
+            touch "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
             OS="$UBUNTU_OS_NAME"
             OS_VARIANT=""
         }
@@ -175,6 +177,119 @@ Describe 'cse_config_gpu.sh'
             printf '#!/bin/sh\necho "acr-config $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_CONFIG_BIN}"
             chmod +x "${ACR_CONFIG_BIN}"
         }
+
+        Describe 'ACL IPE compatibility'
+            BeforeEach 'install_setup_sh'
+
+            Describe 'incompatible boot-time profiles'
+                Parameters
+                    "$ACL_OS_NAME" "" "ipe=audit" "audit"
+                    "$ACL_OS_NAME" "" "selinux=enforcing,ipe=enforcing" "enforcing"
+                    "$AZURELINUX_OS_NAME" "$ACL_OS_VARIANT" "ipe=audit,selinux=permissive" "audit"
+                End
+
+                It "rejects '$3' on OS=$1 variant=$2 before streaming side effects"
+                    OS="$1"
+                    OS_VARIANT="$2"
+                    printf '%s' "$3" > "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+
+                    When run ensureArtifactStreaming
+
+                    The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                    The output should be blank
+                    The stderr should include "boot-time ACL security profile requests ipe=$4"
+                End
+            End
+
+            Describe 'compatible boot-time profiles'
+                Parameters
+                    "ipe=disabled"
+                    "selinux=enforcing,ipe=off"
+                    ""
+                    "selinux=enforcing"
+                    "ipe=off,ipe=audit"
+                End
+
+                It "allows '$1', matching ACL's first-key parsing and disabled default"
+                    OS="$ACL_OS_NAME"
+                    printf '%s' "$1" > "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+
+                    When run ensureArtifactStreaming
+
+                    The status should be success
+                    The output should include "setup.sh aks"
+                    The stderr should be blank
+                End
+            End
+
+            It 'fails explicitly if an existing cache cannot be read'
+                OS="$ACL_OS_NAME"
+                cat() { return 1; }
+
+                When run ensureArtifactStreaming
+
+                The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                The output should be blank
+                The stderr should include "Cannot read the cached ACL security profile"
+            End
+
+            It 'allows missing cache on older images or failed initrd lookups with a warning'
+                OS="$ACL_OS_NAME"
+                rm "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+
+                When run ensureArtifactStreaming
+
+                The status should be success
+                The output should include "setup.sh aks"
+                The stderr should include "WARNING: No cached ACL security profile"
+            End
+
+            It 'does not apply the IPE restriction to Ubuntu'
+                printf 'ipe=audit' > "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+
+                When run ensureArtifactStreaming
+
+                The status should be success
+                The output should include "setup.sh aks"
+                The stderr should be blank
+            End
+
+            Describe 'nodePrep activation on PIS nodes'
+                logs_to_events() {
+                    shift
+                    "$@"
+                }
+                ensureKubelet() { echo "ensureKubelet"; }
+                run_node_prep_streaming() {
+                    eval "$(sed -n '/# Keep ACL sysexts masked during PIS image preparation/,/logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet/p' \
+                        ./parts/linux/cloud-init/artifacts/cse_main.sh)"
+                }
+
+                It 'propagates the IPE conflict before starting kubelet'
+                    OS="$ACL_OS_NAME"
+                    ARTIFACT_STREAMING_ENABLED=true
+                    printf 'ipe=audit' > "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+
+                    When run run_node_prep_streaming
+
+                    The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                    The output should be blank
+                    The stderr should include "boot-time ACL security profile requests ipe=audit"
+                End
+
+                It 'does not reject an IPE node when streaming is disabled'
+                    OS="$ACL_OS_NAME"
+                    ARTIFACT_STREAMING_ENABLED=false
+                    printf 'ipe=audit' > "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+
+                    When run run_node_prep_streaming
+
+                    The status should be success
+                    The output should equal "ensureKubelet"
+                    The stderr should be blank
+                End
+            End
+        End
 
         It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
             install_setup_sh

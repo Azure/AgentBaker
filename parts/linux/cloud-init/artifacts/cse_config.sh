@@ -634,9 +634,39 @@ configureContainerdLegacyMooncakeMcrHost() {
 EOF
 }
 
+validateACLArtifactStreamingSecurityProfile() {
+  local profile_cache="${ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE:-/run/acl/node-security-profile}"
+  if [ ! -e "$profile_cache" ]; then
+    echo "WARNING: No cached ACL security profile; continuing artifact streaming without an IPE tag check." >&2
+    return 0
+  fi
+
+  local profile pair key mode
+  local -a pairs
+  if ! profile="$(cat "$profile_cache")"; then
+    echo "Cannot read the cached ACL security profile: ${profile_cache}." >&2
+    return 1
+  fi
+  # Match ACL's initrd parser: comma-separated pairs, first matching key wins.
+  IFS=',' read -ra pairs <<< "$profile"
+  for pair in "${pairs[@]}"; do
+    IFS='=' read -r key mode <<< "$pair"
+    [ "$key" = "ipe" ] || continue
+    case "$mode" in
+      audit|enforcing)
+        echo "Artifact streaming requires OverlayBD, but the boot-time ACL security profile requests ipe=${mode}. Disable artifact streaming or disable IPE before provisioning." >&2
+        return 1
+        ;;
+    esac
+    break
+  done
+  return 0
+}
+
 ensureArtifactStreaming() {
   local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
   if isACL "$OS" "$OS_VARIANT"; then
+    validateACLArtifactStreamingSecurityProfile || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
     local services=(acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service)
     # DALEC's Upholds= starts unmasked units as soon as the manager reloads.
     systemctl mask "${services[@]}" artifact-streaming-setup.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
