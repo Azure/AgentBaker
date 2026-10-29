@@ -8,17 +8,10 @@ status=$(cat /var/run/mdsd-ci/update.status)
 
 if [ "$status" = "add" ]; then
         echo "Status changed to $status."
-        # By design: the rsyslog config dropped here is not content-validated before being
-        # copied into /etc/rsyslog.d and loaded via `systemctl restart rsyslog` below. The
-        # trust boundary for this script is the /var/run/mdsd-ci directory itself, which is
-        # populated by the privileged Container Insights (mdsd/AMA) add-on via a hostPath
-        # mount - a component deployed and access-controlled outside this repo. This relies
-        # on a deployment assumption - confirmed by the add-on owner - that every writer
-        # granted access to this hostPath already has node-level privilege equivalent to what
-        # this script could additionally restrict; it is not an inherent property of directory
-        # access, since a workload could in principle be scoped to write only this path. Given
-        # that assumption, adding content validation here would not meaningfully reduce risk;
-        # the real control point is that add-on's hostPath/RBAC configuration, not this script.
+        # The Container Insights add-on supplies this config outside AgentBaker.
+        # Copying it trusts /var/run/mdsd-ci writers to configure host rsyslog.
+        # Deployment owners must restrict writers to components trusted for that role;
+        # hostPath write access alone does not imply equivalent node-level privilege.
         [ -f "/var/run/mdsd-ci/70-rsyslog-forward-mdsd-ci.conf" ] && cp /var/run/mdsd-ci/70-rsyslog-forward-mdsd-ci.conf /etc/rsyslog.d
 elif [ "$status" = "remove" ]; then
         echo "Status changed to $status."
