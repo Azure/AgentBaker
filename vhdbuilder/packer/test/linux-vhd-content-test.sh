@@ -35,6 +35,19 @@ err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
 
+isCloudInitLogMsgIgnored() {
+  local msg="$1"
+  local pattern
+  local -a patterns=("${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}")
+  for pattern in "${patterns[@]}"; do
+    # shellcheck disable=SC3010
+    if [[ "$msg" == *"$pattern"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 # assertPackageVersion verifies that the installed deb/rpm package version matches
 # either the exact expected version or, when allowed, that upstream version plus
 # a distro package revision.
@@ -1058,14 +1071,11 @@ testCloudInit() {
     if test -f "$FILE"; then
       echo "Cloud-init log exists. Checking its content..."
       grep 'WARNING\|ERROR' $FILE | while read -r msg; do
-        for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
-            # shellcheck disable=SC3010
-            if [[ "$msg" == *"$pattern"* ]]; then
-                echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
-            else
-                err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
-            fi
-        done
+        if isCloudInitLogMsgIgnored "$msg"; then
+          echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
+        else
+          err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
+        fi
       done
       echo "Cloud-init log is OK."
     else
