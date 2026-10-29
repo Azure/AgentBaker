@@ -634,9 +634,51 @@ configureContainerdLegacyMooncakeMcrHost() {
 EOF
 }
 
+validateACLArtifactStreamingIPECompatibility() {
+  local securityfs_root="${ARTIFACT_STREAMING_SECURITYFS_ROOT:-/sys/kernel/security}"
+  if ! findmnt -n -t securityfs --mountpoint "$securityfs_root" >/dev/null; then
+    echo "Cannot determine ACL IPE state: securityfs is not mounted at ${securityfs_root}." >&2
+    return 1
+  fi
+  if [ ! -r "$securityfs_root" ] || [ ! -x "$securityfs_root" ]; then
+    echo "Cannot read ACL IPE state from ${securityfs_root}." >&2
+    return 1
+  fi
+  [ -d "${securityfs_root}/ipe" ] || return 0
+
+  local policies_dir="${securityfs_root}/ipe/policies"
+  if [ ! -d "$policies_dir" ] || [ ! -r "$policies_dir" ] || [ ! -x "$policies_dir" ]; then
+    echo "Cannot enumerate ACL IPE policies in ${policies_dir}." >&2
+    return 1
+  fi
+  local policy active
+  # ACL selects EROFS after policy activation, including in audit mode.
+  # Loaded but inactive policies do not enable IPE. Include dot-prefixed names.
+  for policy in "$policies_dir"/* "$policies_dir"/.[!.]* "$policies_dir"/..?*; do
+    [ -e "$policy" ] || continue
+    if ! active="$(cat "${policy}/active")"; then
+      echo "Cannot read ACL IPE policy state from ${policy}/active." >&2
+      return 1
+    fi
+    case "$active" in
+      0) ;;
+      1)
+        echo "Artifact streaming requires OverlayBD, but ACL IPE is active and requires EROFS. Disable artifact streaming or disable IPE before provisioning." >&2
+        return 1
+        ;;
+      *)
+        echo "Invalid ACL IPE policy state in ${policy}/active: ${active}." >&2
+        return 1
+        ;;
+    esac
+  done
+  return 0
+}
+
 ensureArtifactStreaming() {
   local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
   if isACL "$OS" "$OS_VARIANT"; then
+    validateACLArtifactStreamingIPECompatibility || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
     local services=(acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service)
     # DALEC's Upholds= starts unmasked units as soon as the manager reloads.
     systemctl mask "${services[@]}" artifact-streaming-setup.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"

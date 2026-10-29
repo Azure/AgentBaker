@@ -140,6 +140,8 @@ Describe 'cse_config_gpu.sh'
             TEST_ACR_DIR="$(mktemp -d)"
             ACR_MIRROR_SETUP_SCRIPT="${TEST_ACR_DIR}/setup.sh"
             ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
+            ARTIFACT_STREAMING_SECURITYFS_ROOT="${TEST_ACR_DIR}/security"
+            mkdir -p "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies"
             OS="$UBUNTU_OS_NAME"
             OS_VARIANT=""
         }
@@ -151,6 +153,10 @@ Describe 'cse_config_gpu.sh'
 
         waitForContainerdReady() {
             return "${CONTAINERD_READY_RC:-0}"
+        }
+        findmnt() {
+            [ "$*" = "-n -t securityfs --mountpoint ${ARTIFACT_STREAMING_SECURITYFS_ROOT}" ] || return 1
+            return "${FINDMNT_RC:-0}"
         }
         systemctl() {
             if [ "${FAIL_SYSTEMCTL:-}" = "$*" ]; then
@@ -175,6 +181,158 @@ Describe 'cse_config_gpu.sh'
             printf '#!/bin/sh\necho "acr-config $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_CONFIG_BIN}"
             chmod +x "${ACR_CONFIG_BIN}"
         }
+
+        Describe 'ACL IPE compatibility'
+            BeforeEach 'install_setup_sh'
+
+            write_ipe_policy() {
+                mkdir -p "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies/$1"
+                printf '%s\n' "$2" > "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies/$1/active"
+            }
+
+            Describe 'active policies'
+                Parameters
+                    "$ACL_OS_NAME" "" 0 "acl_ipe_boot_policy"
+                    "$ACL_OS_NAME" "" 1 "acl_ipe_boot_policy"
+                    "$AZURELINUX_OS_NAME" "$ACL_OS_VARIANT" 0 ".custom_policy"
+                End
+
+                It "rejects active IPE for OS=$1 variant=$2 enforce=$3 policy=$4 before streaming side effects"
+                    OS="$1"
+                    OS_VARIANT="$2"
+                    printf '%s\n' "$3" > "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/enforce"
+                    write_ipe_policy "a_inactive_policy" 0
+                    write_ipe_policy "$4" 1
+
+                    When run ensureArtifactStreaming
+
+                    The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                    The output should be blank
+                    The stderr should include "ACL IPE is active and requires EROFS"
+                End
+            End
+
+            It 'allows a loaded but inactive policy even when enforce is 1'
+                OS="$ACL_OS_NAME"
+                printf '1\n' > "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/enforce"
+                write_ipe_policy "acl_ipe_boot_policy" 0
+
+                When run ensureArtifactStreaming
+
+                The status should be success
+                The output should include "setup.sh aks"
+                The stderr should be blank
+            End
+
+            It 'allows an older ACL kernel without IPE when securityfs is mounted'
+                OS="$ACL_OS_NAME"
+                rmdir "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies" "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe"
+
+                When run ensureArtifactStreaming
+
+                The status should be success
+                The output should include "setup.sh aks"
+                The stderr should be blank
+            End
+
+            It 'rejects unmounted securityfs rather than treating IPE as disabled'
+                OS="$ACL_OS_NAME"
+                FINDMNT_RC=1
+
+                When run ensureArtifactStreaming
+
+                The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                The output should be blank
+                The stderr should include "securityfs is not mounted"
+            End
+
+            It 'rejects a missing policies directory'
+                OS="$ACL_OS_NAME"
+                rmdir "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies"
+
+                When run ensureArtifactStreaming
+
+                The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                The output should be blank
+                The stderr should include "Cannot enumerate ACL IPE policies"
+            End
+
+            It 'rejects a policy whose active state cannot be read'
+                OS="$ACL_OS_NAME"
+                mkdir -p "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies/unreadable"
+
+                When run ensureArtifactStreaming
+
+                The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                The output should be blank
+                The stderr should include "Cannot read ACL IPE policy state"
+            End
+
+            Describe 'invalid policy state'
+                Parameters
+                    ""
+                    "unexpected"
+                End
+
+                It "rejects active='$1'"
+                    OS="$ACL_OS_NAME"
+                    write_ipe_policy "acl_ipe_boot_policy" "$1"
+
+                    When run ensureArtifactStreaming
+
+                    The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                    The output should be blank
+                    The stderr should include "Invalid ACL IPE policy state"
+                End
+            End
+
+            It 'does not apply the IPE restriction to Ubuntu'
+                write_ipe_policy "acl_ipe_boot_policy" 1
+                FINDMNT_RC=1
+
+                When run ensureArtifactStreaming
+
+                The status should be success
+                The output should include "setup.sh aks"
+                The stderr should be blank
+            End
+
+            Describe 'nodePrep activation on PIS nodes'
+                logs_to_events() {
+                    shift
+                    "$@"
+                }
+                ensureKubelet() { echo "ensureKubelet"; }
+                run_node_prep_streaming() {
+                    eval "$(sed -n '/# Keep ACL sysexts masked during PIS image preparation/,/logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet/p' \
+                        ./parts/linux/cloud-init/artifacts/cse_main.sh)"
+                }
+
+                It 'propagates the IPE conflict before starting kubelet'
+                    OS="$ACL_OS_NAME"
+                    ARTIFACT_STREAMING_ENABLED=true
+                    write_ipe_policy "acl_ipe_boot_policy" 1
+
+                    When run run_node_prep_streaming
+
+                    The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                    The output should be blank
+                    The stderr should include "ACL IPE is active and requires EROFS"
+                End
+
+                It 'does not reject an IPE node when streaming is disabled'
+                    OS="$ACL_OS_NAME"
+                    ARTIFACT_STREAMING_ENABLED=false
+                    write_ipe_policy "acl_ipe_boot_policy" 1
+
+                    When run run_node_prep_streaming
+
+                    The status should be success
+                    The output should equal "ensureKubelet"
+                    The stderr should be blank
+                End
+            End
+        End
 
         It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
             install_setup_sh
