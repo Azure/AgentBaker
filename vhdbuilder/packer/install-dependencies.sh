@@ -251,9 +251,11 @@ cacheVersionedKubernetesPackageBinary() {
   local package_name=${1}
   local package_version=${2}
   local download_dir=${3}
+  # binary name inside the package, defaults to the package name (e.g. az-oras ships /usr/bin/oras)
+  local binary_name=${4:-${package_name}}
   local version_no_epoch
   local k8s_version
-  local binary_path="/opt/bin/${package_name}"
+  local binary_path="/opt/bin/${binary_name}"
 
   version_no_epoch="${package_version#*:}"
   k8s_version="${version_no_epoch%%-*}"
@@ -277,13 +279,13 @@ cacheVersionedKubernetesPackageBinary() {
       return 1
     fi
 
-    if [ ! -f "${tmp_dir}/usr/bin/${package_name}" ]; then
-      echo "Failed to find /usr/bin/${package_name} in ${deb_file}"
+    if [ ! -f "${tmp_dir}/usr/bin/${binary_name}" ]; then
+      echo "Failed to find /usr/bin/${binary_name} in ${deb_file}"
       rm -rf "${tmp_dir}"
       return 1
     fi
 
-    install -m0755 "${tmp_dir}/usr/bin/${package_name}" "${binary_path}"
+    install -m0755 "${tmp_dir}/usr/bin/${binary_name}" "${binary_path}"
     rm -rf "${tmp_dir}"
   elif isMarinerOrAzureLinux "$OS"; then
     local rpm_file
@@ -294,13 +296,13 @@ cacheVersionedKubernetesPackageBinary() {
       return 1
     fi
 
-    rpm2cpio "${rpm_file}" | cpio -i --to-stdout "./usr/bin/${package_name}" "./usr/local/bin/${package_name}" | install -m0755 /dev/stdin "${binary_path}"
+    rpm2cpio "${rpm_file}" | cpio -i --to-stdout "./usr/bin/${binary_name}" "./usr/local/bin/${binary_name}" | install -m0755 /dev/stdin "${binary_path}"
   else
     echo "Skipping versioned binary extraction for unsupported OS ${OS}"
     return 0
   fi
 
-  echo "  - cached ${package_name} binary at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
+  echo "  - cached ${binary_name} binary from ${package_name} at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
 }
 
 # this is for the old package not coming from Dalec, currently fixed at 1.6.2.
@@ -783,8 +785,13 @@ cachePackageAndBinaryComponents() {
       "oras")
         for version in ${PACKAGE_VERSIONS[@]}; do
           if isMarinerOrAzureLinux || isUbuntu; then
-            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
-            cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_ORAS_DOWNLOAD_ERROR
+            # PMC publishes oras as "az-oras" on Ubuntu and "oras" on Azure Linux; the binary is /usr/bin/oras in both
+            orasPkgName="${name}"
+            if isUbuntu; then
+              orasPkgName="az-oras"
+            fi
+            downloadPkgFromVersion "${orasPkgName}" "${version}" "${downloadDir}"
+            cacheVersionedKubernetesPackageBinary "${orasPkgName}" "${version}" "${downloadDir}" "${name}" || exit $ERR_ORAS_DOWNLOAD_ERROR
             version_no_epoch="${version#*:}"
             oras_version="${version_no_epoch%%-*}"
             ln -sf "/opt/bin/${name}-${oras_version}" "/opt/bin/${name}" || exit $ERR_ORAS_DOWNLOAD_ERROR
