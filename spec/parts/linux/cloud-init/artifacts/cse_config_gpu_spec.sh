@@ -142,6 +142,8 @@ Describe 'cse_config_gpu.sh'
             ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
             ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE="${TEST_ACR_DIR}/node-security-profile"
             ARTIFACT_STREAMING_SECURITYFS_ROOT="${TEST_ACR_DIR}/security"
+            ARTIFACT_STREAMING_IPE_GUARD_SCRIPT="${TEST_ACR_DIR}/check-artifact-streaming-ipe.sh"
+            CONTAINERD_SERVICE_DROPIN_DIR="${TEST_ACR_DIR}/containerd.service.d"
             touch "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
             mkdir -p "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies"
             OS="$UBUNTU_OS_NAME"
@@ -183,6 +185,106 @@ Describe 'cse_config_gpu.sh'
             printf '#!/bin/sh\necho "acr-config $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_CONFIG_BIN}"
             chmod +x "${ACR_CONFIG_BIN}"
         }
+
+        Describe 'persistent ACL streaming startup guard'
+            BeforeEach 'install_setup_sh'
+
+            provision_streaming() {
+                OS="$ACL_OS_NAME"
+                ensureArtifactStreaming > /dev/null
+            }
+            run_installed_guard() {
+                env -i PATH="${TEST_ACR_DIR}/bin:${PATH}" \
+                    ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE="$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE" \
+                    ARTIFACT_STREAMING_SECURITYFS_ROOT="$ARTIFACT_STREAMING_SECURITYFS_ROOT" \
+                    /bin/bash "$ARTIFACT_STREAMING_IPE_GUARD_SCRIPT"
+            }
+            install_findmnt_stub() {
+                mkdir -p "${TEST_ACR_DIR}/bin"
+                printf '#!/bin/bash\nexit %s\n' "$1" > "${TEST_ACR_DIR}/bin/findmnt"
+                chmod +x "${TEST_ACR_DIR}/bin/findmnt"
+            }
+
+            It 'blocks a later IPE tag at startup without running provisioning again'
+                provision_streaming
+                printf 'selinux=enforcing,ipe=audit' > "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+
+                When run run_installed_guard
+
+                The status should equal 1
+                The output should be blank
+                The stderr should include "boot-time ACL security profile requests ipe=audit"
+            End
+
+            It 'blocks a later active kernel policy despite a disabled cached tag'
+                provision_streaming
+                install_findmnt_stub 0
+                printf 'ipe=disabled' > "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+                mkdir -p "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies/active_policy"
+                printf '1\n' > "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies/active_policy/active"
+
+                When run run_installed_guard
+
+                The status should equal 1
+                The output should be blank
+                The stderr should include "ACL IPE is active and requires EROFS"
+            End
+
+            It 'keeps startup best effort when both sources are unavailable'
+                provision_streaming
+                install_findmnt_stub 1
+                rm "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+
+                When run run_installed_guard
+
+                The status should be success
+                The output should be blank
+                The stderr should include "No cached ACL security profile"
+                The stderr should include "skipping the kernel IPE check"
+            End
+
+            It 'allows startup when IPE remains disabled'
+                provision_streaming
+                install_findmnt_stub 0
+
+                When run run_installed_guard
+
+                The status should be success
+                The output should be blank
+                The stderr should be blank
+            End
+
+            It 'installs one pre-start check idempotently without resetting existing checks'
+                provision_streaming
+                provision_streaming
+
+                When call cat "${CONTAINERD_SERVICE_DROPIN_DIR}/10-aks-streaming-ipe-check.conf"
+
+                The output should equal "[Service]
+ExecStartPre=/bin/bash \"${ARTIFACT_STREAMING_IPE_GUARD_SCRIPT}\""
+                The status should be success
+            End
+
+            It 'does not install the guard on non-ACL nodes'
+                When run ensureArtifactStreaming
+
+                The status should be success
+                The output should include "setup.sh aks"
+                The path "$ARTIFACT_STREAMING_IPE_GUARD_SCRIPT" should not be exist
+                The path "$CONTAINERD_SERVICE_DROPIN_DIR" should not be exist
+            End
+
+            It 'fails before streaming side effects when the guard cannot be installed'
+                OS="$ACL_OS_NAME"
+                ARTIFACT_STREAMING_IPE_GUARD_SCRIPT="${TEST_ACR_DIR}/missing/guard.sh"
+                mkdir() { return 1; }
+
+                When run ensureArtifactStreaming
+
+                The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                The output should be blank
+            End
+        End
 
         Describe 'best-effort ACL IPE compatibility'
             BeforeEach 'install_setup_sh'
@@ -391,6 +493,8 @@ Describe 'cse_config_gpu.sh'
                     The status should be success
                     The output should equal "ensureKubelet"
                     The stderr should be blank
+                    The path "$ARTIFACT_STREAMING_IPE_GUARD_SCRIPT" should not be exist
+                    The path "$CONTAINERD_SERVICE_DROPIN_DIR" should not be exist
                 End
             End
         End
@@ -437,6 +541,8 @@ systemctl restart containerd
 EXPECTED
 )"
                 The status should be success
+                The file "$ARTIFACT_STREAMING_IPE_GUARD_SCRIPT" should be exist
+                The file "${CONTAINERD_SERVICE_DROPIN_DIR}/10-aks-streaming-ipe-check.conf" should be exist
             End
         End
 

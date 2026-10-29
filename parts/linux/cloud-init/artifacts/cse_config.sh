@@ -706,10 +706,41 @@ validateACLArtifactStreamingIPECompatibility() {
   return 0
 }
 
+installACLArtifactStreamingStartupGuard() {
+  local guard_script="${ARTIFACT_STREAMING_IPE_GUARD_SCRIPT:-/opt/azure/containers/check-artifact-streaming-ipe.sh}"
+  local dropin="${CONTAINERD_SERVICE_DROPIN_DIR:-/etc/systemd/system/containerd.service.d}/10-aks-streaming-ipe-check.conf"
+  local temporary_script temporary_dropin
+
+  mkdir -p "$(dirname "$guard_script")" "$(dirname "$dropin")" || return 1
+  temporary_script="$(mktemp "${guard_script}.XXXXXX")" || return 1
+  # Serialize only the shared checks, not provisioning code or its environment.
+  if ! {
+    printf '#!/bin/bash\n' &&
+      declare -f validateACLArtifactStreamingSecurityProfile validateACLArtifactStreamingIPECompatibility &&
+      printf '\nvalidateACLArtifactStreamingIPECompatibility\n'
+  } > "$temporary_script" ||
+      ! chmod 0755 "$temporary_script" ||
+      ! mv -f "$temporary_script" "$guard_script"; then
+    rm -f "$temporary_script"
+    echo "Failed to install the ACL artifact streaming startup guard." >&2
+    return 1
+  fi
+
+  temporary_dropin="$(mktemp "${dropin}.XXXXXX")" || return 1
+  if ! printf '[Service]\nExecStartPre=/bin/bash "%s"\n' "$guard_script" > "$temporary_dropin" ||
+      ! chmod 0644 "$temporary_dropin" ||
+      ! mv -f "$temporary_dropin" "$dropin"; then
+    rm -f "$temporary_dropin"
+    echo "Failed to install the ACL artifact streaming containerd drop-in." >&2
+    return 1
+  fi
+}
+
 ensureArtifactStreaming() {
   local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
   if isACL "$OS" "$OS_VARIANT"; then
     validateACLArtifactStreamingIPECompatibility || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    installACLArtifactStreamingStartupGuard || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
     local services=(acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service)
     # DALEC's Upholds= starts unmasked units as soon as the manager reloads.
     systemctl mask "${services[@]}" artifact-streaming-setup.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
