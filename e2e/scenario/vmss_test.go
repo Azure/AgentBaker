@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,6 +28,123 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
+
+func TestCloudConfigScriptlessMutations(t *testing.T) {
+	const payload = `#cloud-config
+datasource:
+  Azure:
+    experimental_skip_ready_report: true
+bootcmd:
+- - /bin/bash
+  - -c
+  - |
+    #!/bin/bash
+    set -euo pipefail
+    mkdir -p /opt/azure/containers
+    nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
+    #hotfix-marker
+    systemctl start --no-block aks-node-controller.service
+`
+	for _, archiveMode := range []bool{false, true} {
+		testPayload := payload
+		if archiveMode {
+			var initial struct {
+				BootCmd [][]string `yaml:"bootcmd"`
+			}
+			require.NoError(t, yaml.Unmarshal([]byte(payload), &initial))
+			archive, err := yaml.Marshal([]map[string]string{
+				{"type": "text/cloud-boothook", "content": initial.BootCmd[0][2]},
+				{"type": "text/cloud-config", "content": "datasource:\n  Azure:\n    experimental_skip_ready_report: true\nbootcmd:\n- [/bin/echo, archive-bootcmd]\n"},
+			})
+			require.NoError(t, err)
+			testPayload = "#cloud-config-archive\n" + string(archive)
+		}
+		for _, tt := range []struct {
+			name   string
+			mutate func(string) (string, error)
+			want   string
+		}{
+			{
+				name: "NBC binary",
+				mutate: func(data string) (string, error) {
+					return CustomDataWithNBCCmdHack(data, "https://example.test/anc")
+				},
+				want: "https://example.test/anc",
+			},
+			{
+				name: "ANC hotfix fixture",
+				mutate: func(data string) (string, error) {
+					return CustomDataWithANCHotfixFlowFixture(data, "https://example.test/anc")
+				},
+				want: ancNBCCmdMarker,
+			},
+			{
+				name: "file fixtures",
+				mutate: func(data string) (string, error) {
+					return injectWriteFilesEntriesToCustomData(data, []CustomDataWriteFile{
+						{Path: "/opt/azure/containers/fixture", Content: "first\nsecond"},
+					})
+				},
+				want: "/opt/azure/containers/fixture",
+			},
+		} {
+			t.Run(fmt.Sprintf("%s/archive=%t", tt.name, archiveMode), func(t *testing.T) {
+				encoded, err := tt.mutate(base64.StdEncoding.EncodeToString([]byte(testPayload)))
+				require.NoError(t, err)
+				decoded, err := base64.StdEncoding.DecodeString(encoded)
+				require.NoError(t, err)
+				var config struct {
+					Datasource map[string]map[string]bool `yaml:"datasource"`
+					BootCmd    [][]string                 `yaml:"bootcmd"`
+				}
+				var script string
+				if archiveMode {
+					require.True(t, strings.HasPrefix(string(decoded), "#cloud-config-archive\n"))
+					var parts []struct {
+						Type    string `yaml:"type"`
+						Content string `yaml:"content"`
+					}
+					require.NoError(t, yaml.Unmarshal(decoded, &parts))
+					require.Len(t, parts, 2)
+					require.Equal(t, "text/cloud-boothook", parts[0].Type)
+					require.Equal(t, "text/cloud-config", parts[1].Type)
+					require.NoError(t, yaml.Unmarshal([]byte(parts[1].Content), &config))
+					require.Equal(t, [][]string{{"/bin/echo", "archive-bootcmd"}}, config.BootCmd)
+					script = parts[0].Content
+				} else {
+					require.True(t, strings.HasPrefix(string(decoded), "#cloud-config\n"))
+					require.NoError(t, yaml.Unmarshal(decoded, &config))
+					require.Len(t, config.BootCmd, 1)
+					require.Len(t, config.BootCmd[0], 3)
+					require.Equal(t, []string{"/bin/bash", "-c"}, config.BootCmd[0][:2])
+					script = config.BootCmd[0][2]
+				}
+				require.True(t, config.Datasource["Azure"]["experimental_skip_ready_report"])
+				require.Contains(t, script, tt.want)
+				cmd := exec.Command("bash", "-n")
+				cmd.Stdin = strings.NewReader(script)
+				output, err := cmd.CombinedOutput()
+				require.NoError(t, err, string(output))
+			})
+		}
+	}
+}
+
+func TestCloudConfigScriptlessMutationRejectsInvalidBootcmd(t *testing.T) {
+	for _, payload := range []string{
+		"#cloud-config\ndatasource: {}\n",
+		"#cloud-config\nbootcmd: []\n",
+		"#cloud-config\nbootcmd:\n- echo test\n",
+		"#cloud-config\nbootcmd:\n- [sh, -c, echo]\n",
+		"#cloud-config-archive\n{}\n",
+		"#cloud-config-archive\n- type: text/cloud-config\n  content: 'bootcmd: []'\n",
+		"#cloud-config-archive\n- type: text/cloud-boothook\n  content: 42\n",
+		"#cloud-config-archive\n- type: text/cloud-boothook\n  content: '#hotfix-marker'\n- type: text/cloud-boothook\n  content: '#hotfix-marker'\n",
+	} {
+		_, err := CustomDataWithNBCCmdHack(base64.StdEncoding.EncodeToString([]byte(payload)), "https://example.test/anc")
+		require.Error(t, err)
+	}
+}
 
 type vmssCreationTestPolicy func(*http.Request) *http.Response
 

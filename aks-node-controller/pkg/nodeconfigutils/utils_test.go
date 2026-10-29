@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/textproto"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"gopkg.in/yaml.v3"
 )
 
 func TestContainerdImagePullPresenceRoundTrip(t *testing.T) {
@@ -377,15 +379,74 @@ func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t
 	require.NoError(t, err)
 	on := string(decoded)
 
-	require.True(t, strings.HasPrefix(on, "#cloud-boothook\n"))
+	require.True(t, strings.HasPrefix(on, "#cloud-config\n"))
 	require.NotContains(t, on, "MIME-Version:")
 	require.NotContains(t, on, "multipart/mixed")
-	require.Contains(t, on, "# azure-experimental-node-ready")
+	require.NotContains(t, on, "# azure-experimental-node-ready")
+	require.Contains(t, on, "experimental_skip_ready_report: true")
 	require.Contains(t, on, "touch /var/lib/waagent/experimental_skip_ready_report")
 	require.Contains(t, on, "if [ -s /sys/class/dmi/id/product_uuid ]; then")
 	require.Contains(t, on, "cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned")
 	require.Contains(t, on, AKSNodeConfigFilePath)
 	require.Contains(t, on, "systemctl start --no-block aks-node-controller.service")
+	var config struct {
+		Datasource map[string]map[string]bool `yaml:"datasource"`
+		BootCmd    [][]string                 `yaml:"bootcmd"`
+	}
+	require.NoError(t, yaml.Unmarshal(decoded, &config))
+	require.True(t, config.Datasource["Azure"]["experimental_skip_ready_report"])
+	require.Len(t, config.BootCmd, 1)
+	require.Len(t, config.BootCmd[0], 3)
+	require.Equal(t, []string{"/bin/bash", "-c"}, config.BootCmd[0][:2])
+	cmd := exec.Command("bash", "-n")
+	cmd.Stdin = strings.NewReader(config.BootCmd[0][2])
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+}
+
+func TestCustomDataArchiveOptIn(t *testing.T) {
+	cfg := &aksnodeconfigv1.Configuration{
+		CustomDataOnlyProvisioning: true,
+		UseCloudConfigArchive:      true,
+	}
+	serialized, err := MarshalConfigurationV1(cfg)
+	require.NoError(t, err)
+	cfg, err = UnmarshalConfigurationV1(serialized)
+	require.NoError(t, err)
+	require.True(t, cfg.GetUseCloudConfigArchive())
+	customData, err := CustomData(cfg)
+	require.NoError(t, err)
+	payload, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(string(payload), "#cloud-config-archive\n"))
+	var parts []struct {
+		Type    string `yaml:"type"`
+		Content string `yaml:"content"`
+	}
+	require.NoError(t, yaml.Unmarshal(payload, &parts))
+	require.Len(t, parts, 2)
+	require.Equal(t, "text/cloud-boothook", parts[0].Type)
+	require.True(t, strings.HasPrefix(parts[0].Content, "#!/bin/bash\n"))
+	require.Contains(t, parts[0].Content, AKSNodeConfigFilePath)
+	require.Contains(t, parts[0].Content, "/var/lib/waagent/provisioned")
+	cmd := exec.Command("bash", "-n")
+	cmd.Stdin = strings.NewReader(parts[0].Content)
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+	require.Equal(t, "text/cloud-config", parts[1].Type)
+	var config struct {
+		Datasource map[string]map[string]bool `yaml:"datasource"`
+	}
+	require.NoError(t, yaml.Unmarshal([]byte(parts[1].Content), &config))
+	require.True(t, config.Datasource["Azure"]["experimental_skip_ready_report"])
+
+	cfg.CustomDataOnlyProvisioning = false
+	customData, err = CustomData(cfg)
+	require.NoError(t, err)
+	payload, err = base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(string(payload), "MIME-Version:"))
+	require.NotContains(t, string(payload), "experimental_skip_ready_report")
 }
 
 func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {

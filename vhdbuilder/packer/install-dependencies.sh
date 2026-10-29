@@ -46,6 +46,41 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+installPatchedCloudInit() {
+  local os="$1"
+  local release="$2"
+  local package_root="${3:-/home/packer/cloudinit}"
+  local version
+  local -a names=(cloud-init)
+  [ "$os" = "UBUNTU" ] || return 0
+  case "$release" in
+    24.04) version="26.2-0ubuntu1~24.04.2+aks2" ;;
+    26.04)
+      version="26.2-0ubuntu1~26.04.1+aks2"
+      names+=(cloud-init-base cloud-init-azure cloud-init-cloud-sigma cloud-init-smart-os)
+      ;;
+    *) return 0 ;;
+  esac
+
+  local package_dir="${package_root}/${release}"
+  (cd "$package_dir" && sha256sum --strict -c SHA256SUMS) || return 1
+  local name
+  local -a packages=()
+  for name in "${names[@]}"; do
+    packages+=("${package_dir}/${name}_${version}_all.deb")
+  done
+  apt_get_install 30 1 600 "${packages[@]}" || return 1
+  for name in "${names[@]}"; do
+    if [ "$(dpkg-query -W -f='${Version}' "$name")" != "$version" ]; then
+      echo "Unexpected ${name} version after patched cloud-init installation" >&2
+      return 1
+    fi
+  done
+  python3 -c 'from cloudinit.sources.DataSourceAzure import _ds_cfg_overrides_from_customdata
+assert _ds_cfg_overrides_from_customdata("#cloud-config\ndatasource:\n  Azure:\n    experimental_skip_ready_report: true\n") == {"experimental_skip_ready_report": True}
+assert _ds_cfg_overrides_from_customdata("#cloud-config-archive\n- type: text/cloud-config\n  content: |\n    datasource:\n      Azure:\n        experimental_skip_ready_report: true\n") == {"experimental_skip_ready_report": True}'
+}
+
 configureServiceExecutionTelemetryForSystemdVersion() {
     local systemd_version="$1"
     local unit_dir="${2:-/etc/systemd/system}"
@@ -1307,6 +1342,9 @@ if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
+
+# Enable per-node datasource overrides without disabling Ready reporting image-wide.
+installPatchedCloudInit "$OS" "$OS_VERSION" || exit 1
 
 # ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,
 # so these must be called separately (mirrored in the Mariner/AzureLinux block below).

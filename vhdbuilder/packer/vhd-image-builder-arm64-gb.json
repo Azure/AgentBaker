@@ -121,6 +121,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/ubuntu/cloudinit",
+      "destination": "/home/packer/"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/ubuntu/gb/format-mount-nvme-root.sh",
       "destination": "/home/packer/format-mount-nvme-root.sh"
     },

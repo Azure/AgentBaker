@@ -1,0 +1,3 @@
+*
+!Dockerfile
+!runtime-datasource-options.patch

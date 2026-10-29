@@ -368,8 +368,99 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	}
 
 	binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
-	customData = strings.Replace(string(decoded), hotfixMarker, binaryDownloadCmd, -1)
-	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
+	rendered, err := mutateScriptlessCustomData(decoded, func(script string) (string, error) {
+		if !strings.Contains(script, hotfixMarker) {
+			return "", fmt.Errorf("hotfix marker %q not found in custom data", hotfixMarker)
+		}
+		return strings.ReplaceAll(script, hotfixMarker, binaryDownloadCmd), nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(rendered), nil
+}
+
+// Mutate the script rather than the serialized YAML so multiline shell commands
+// retain their indentation and cannot overwrite the datasource configuration.
+func mutateScriptlessCustomData(decoded []byte, mutate func(string) (string, error)) ([]byte, error) {
+	header, _, _ := strings.Cut(string(decoded), "\n")
+	if header != "#cloud-config" && header != "#cloud-config-archive" {
+		script, err := mutate(string(decoded))
+		return []byte(script), err
+	}
+	var document yaml.Node
+	if err := yaml.Unmarshal(decoded, &document); err != nil {
+		return nil, fmt.Errorf("parse scriptless cloud-config: %w", err)
+	}
+	if len(document.Content) != 1 {
+		return nil, fmt.Errorf("scriptless custom data must contain one YAML document")
+	}
+	root := document.Content[0]
+	var scriptNode *yaml.Node
+	if header == "#cloud-config-archive" {
+		if root.Kind != yaml.SequenceNode {
+			return nil, fmt.Errorf("scriptless cloud-config-archive must contain a sequence")
+		}
+		for _, part := range root.Content {
+			if part.Kind != yaml.MappingNode {
+				return nil, fmt.Errorf("scriptless archive parts must be mappings")
+			}
+			var content *yaml.Node
+			var contentType string
+			for i := 0; i+1 < len(part.Content); i += 2 {
+				switch part.Content[i].Value {
+				case "type":
+					contentType = part.Content[i+1].Value
+				case "content":
+					content = part.Content[i+1]
+				}
+			}
+			if contentType != "text/cloud-boothook" {
+				continue
+			}
+			if scriptNode != nil || content == nil || content.Kind != yaml.ScalarNode || content.Tag != "!!str" {
+				return nil, fmt.Errorf("scriptless archive requires exactly one string boothook")
+			}
+			scriptNode = content
+		}
+	} else {
+		if root.Kind != yaml.MappingNode {
+			return nil, fmt.Errorf("scriptless cloud-config must contain a mapping")
+		}
+		for i := 0; i+1 < len(root.Content); i += 2 {
+			if root.Content[i].Value != "bootcmd" {
+				continue
+			}
+			commands := root.Content[i+1]
+			if commands.Kind != yaml.SequenceNode || len(commands.Content) != 1 {
+				return nil, fmt.Errorf("scriptless cloud-config must contain one bootcmd")
+			}
+			command := commands.Content[0]
+			if command.Kind != yaml.SequenceNode || len(command.Content) != 3 ||
+				command.Content[0].Value != "/bin/bash" || command.Content[1].Value != "-c" ||
+				command.Content[2].Kind != yaml.ScalarNode {
+				return nil, fmt.Errorf("scriptless bootcmd must invoke /bin/bash -c")
+			}
+			scriptNode = command.Content[2]
+		}
+	}
+	if scriptNode == nil {
+		return nil, fmt.Errorf("scriptless custom data missing provisioning script")
+	}
+	script, err := mutate(scriptNode.Value)
+	if err != nil {
+		return nil, err
+	}
+	scriptNode.Value = script
+	// The user-data header is emitted explicitly below.
+	document.HeadComment = ""
+	root.HeadComment = ""
+	root.Content[0].HeadComment = ""
+	rendered, err := yaml.Marshal(&document)
+	if err != nil {
+		return nil, fmt.Errorf("serialize scriptless cloud-config: %w", err)
+	}
+	return append([]byte(header+"\n"), rendered...), nil
 }
 
 // CustomDataWithANCHotfixFlowFixture seeds the hotfix pointer that download-hotfix reads,
@@ -417,13 +508,16 @@ chmod 0600 %[6]s`,
 		ancNBCCmdMarker,
 	)
 
-	rendered := string(decoded)
-	if !strings.Contains(rendered, hotfixMarker) {
-		return "", fmt.Errorf("hotfix marker %q not found in custom data", hotfixMarker)
+	rendered, err := mutateScriptlessCustomData(decoded, func(script string) (string, error) {
+		if !strings.Contains(script, hotfixMarker) {
+			return "", fmt.Errorf("hotfix marker %q not found in custom data", hotfixMarker)
+		}
+		return strings.Replace(script, hotfixMarker, fixtureCmd, 1), nil
+	})
+	if err != nil {
+		return "", err
 	}
-
-	customData = strings.Replace(rendered, hotfixMarker, fixtureCmd, 1)
-	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
+	return base64.StdEncoding.EncodeToString(rendered), nil
 }
 
 func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachineScaleSet, error) {
@@ -1540,6 +1634,25 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		return "", fmt.Errorf("failed to decode customData: %w", err)
 	}
 
+	if strings.HasPrefix(string(decoded), "#cloud-config-archive\n") ||
+		(strings.HasPrefix(string(decoded), "#cloud-config\n") && strings.Contains(string(decoded), "\nbootcmd:")) {
+		rendered, err := mutateScriptlessCustomData(decoded, func(script string) (string, error) {
+			entryBlock, err := renderBoothookWriteFilesEntries(entries)
+			if err != nil {
+				return "", err
+			}
+			// Write fixtures before any provisioning processes are launched.
+			const launch = "nohup /bin/bash /opt/azure/containers/provision_preload.sh"
+			if !strings.Contains(script, launch) {
+				return "", fmt.Errorf("scriptless bootcmd missing provision preload command")
+			}
+			return strings.Replace(script, launch, entryBlock+launch, 1), nil
+		})
+		if err != nil {
+			return "", err
+		}
+		return base64.StdEncoding.EncodeToString(rendered), nil
+	}
 	if strings.Contains(string(decoded), "#cloud-boothook") {
 		return injectWriteFilesEntriesToBoothookCustomData(decoded, entries)
 	}

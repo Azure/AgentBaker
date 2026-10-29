@@ -42,6 +42,81 @@ script, and build the target-architecture binaries. The following VHD step runs
 in the same job and reuses those files. For local builds, run `build-tools` before
 `run-packer` or `run-imagecustomizer`.
 
+# Experimental per-node cloud-init Ready reporting
+
+Ubuntu 24.04 and 26.04 Packer builds install locally patched cloud-init 26.2
+packages from [ubuntu/cloudinit](ubuntu/cloudinit). The Ubuntu source package
+versions and SHA-256 checksums are pinned in its Dockerfile. Run
+`bash vhdbuilder/packer/ubuntu/cloudinit/build.sh` from the repository root to
+rebuild the packages. The build runs the Azure datasource unit tests before
+building the Debian packages; it does not run cloud-init's entire test suite.
+The packages are architecture-independent and used by both amd64 and arm64.
+Ubuntu 26.04 requires the split cloud-init packages, not just its metapackage.
+
+The local patch permits only a boolean `experimental_skip_ready_report` override
+from uncompressed `#cloud-config` or `#cloud-config-archive` CustomData. It reads
+the value during metadata discovery before the initial Ready-report decision,
+before any archive boothook or bootcmd executes. It does not enable Peyton's
+boothook marker handling, MIME multipart parsing, nested archives, or arbitrary
+datasource overrides. CustomData-only provisioning defaults to this form:
+
+```yaml
+#cloud-config
+datasource:
+  Azure:
+    experimental_skip_ready_report: true
+bootcmd:
+  - ["/bin/bash", "-c", "<generated provisioning script>"]
+```
+
+To opt into archive/boothook delivery, set `CustomDataOnlyProvisioning = true`
+and `UseCloudConfigArchive = true` on the node bootstrapping configuration.
+The ANC configuration has the equivalent `use_cloud_config_archive` field.
+The option has no effect on normal CSE delivery. The generated archive contains
+a provisioning boothook and a cloud-config part holding the datasource flag.
+The patch also accepts cloud-config parts with additional `bootcmd` commands:
+
+```yaml
+#cloud-config-archive
+- type: text/cloud-boothook
+  content: |
+    #!/bin/bash
+    echo "Boothook" > /var/tmp/boothook.log
+- type: text/cloud-config
+  content: |
+    datasource:
+      Azure:
+        experimental_skip_ready_report: true
+    bootcmd:
+      - echo "Bootcmd" > /var/tmp/bootcmd.log
+```
+
+Only cloud-config parts supply datasource overrides; boothook text is never
+interpreted as datasource configuration. Parts can omit `type` when cloud-init
+can infer cloud-config from their content. With multiple cloud-config parts,
+the last valid explicit boolean wins; custom merge directives are not applied
+to this early override. Invalid entries or non-boolean flag values are logged
+and ignored. Avoid conflicting flags across parts.
+
+By default the provisioning script runs in `bootcmd`, later than a boothook.
+Archive mode moves that script to the boothook; additional bootcmd commands run
+afterward, not as prerequisites for provisioning. Both retain the WALinuxAgent
+handoff and start aks-node-controller to report the final provisioning result.
+Normal CSE provisioning and oversized-payload CSE fallback omit the override;
+Ready reporting is not disabled image-wide. Ubuntu 20.04/22.04 packages are
+unchanged and Ubuntu CustomData-only requests for those releases are rejected.
+Existing Ubuntu images without the patch must not enable this experimental mode.
+
+The packages use a `+aks2` version suffix and are not held against distro updates.
+A later cloud-init update may replace the patch; production rollout requires an
+upstreamed override or a maintained package-delivery policy. Validate normal CSE,
+CustomData-only success/failure, and PIS provisioning on rebuilt images before
+release. Unit tests and package builds do not establish Azure runtime readiness.
+
+The existing success scenario was renamed from
+`Ubuntu2204_CustomDataOnlyProvisioning` to `Ubuntu2404_CustomDataOnlyProvisioning`;
+external exact-name selectors must be updated.
+
 # Ubuntu BCC build
 
 Ubuntu BCC remains pinned to v0.29.0, fetched with a shallow tag clone, and built

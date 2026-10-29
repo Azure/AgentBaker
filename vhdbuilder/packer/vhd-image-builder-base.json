@@ -124,6 +124,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/ubuntu/cloudinit",
+      "destination": "/home/packer/"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },

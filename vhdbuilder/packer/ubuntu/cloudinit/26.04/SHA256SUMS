@@ -1,0 +1,5 @@
+4635d3a7a46226c59cb2de84952d09c996bdd5652c852365e96ff8164c1c9031  ./cloud-init-azure_26.2-0ubuntu1~26.04.1+aks2_all.deb
+8d764e079e86a4f6834fa2074fa917db8222c0432f43cfcf627da3b310fc5ced  ./cloud-init-base_26.2-0ubuntu1~26.04.1+aks2_all.deb
+a382e3728eae0cebebb3e2e2d5a28e8a9ec3084314b83f9c28477eb0870d8279  ./cloud-init-cloud-sigma_26.2-0ubuntu1~26.04.1+aks2_all.deb
+bf91db9548a3f7624db55484f732e099ba690bfac74b3fb7623244b354a6a1a5  ./cloud-init-smart-os_26.2-0ubuntu1~26.04.1+aks2_all.deb
+a58d1d0872c59f799c6aa429c0ba81d379759e91305600646fc1391f068e9e98  ./cloud-init_26.2-0ubuntu1~26.04.1+aks2_all.deb

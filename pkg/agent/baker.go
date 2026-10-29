@@ -73,12 +73,10 @@ nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 	hotfixMarkerTemplate = `
 #hotfix-marker
 `
-	readyReportHandoffTemplate = `# azure-experimental-node-ready
-
-touch /var/lib/waagent/experimental_skip_ready_report
+	readyReportHandoffTemplate = `touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
-# Patched cloud-init consumes the CustomData marker above before this boothook runs.
+# The patched Azure datasource reads the cloud-config flag before bootcmd runs.
 # WALinuxAgent reports Ready independently once ovf-env.xml and the SSH host key exist.
 # A sentinel matching this instance's id makes it skip that report, leaving
 # aks-node-controller as the only reporter.
@@ -184,7 +182,7 @@ type encodedFile struct {
 
 // getScriptlessBoothook builds custom data for scriptless provisioning.
 // It encodes the node custom data, cse downloader script
-// into the appropriate format (boothook or flatcar ignition).
+// into the appropriate format (cloud-config, boothook or flatcar ignition).
 func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstrappingConfiguration) string {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
@@ -239,6 +237,21 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		finalCustomData = buildScriptlessCustomData(flatcarAutoTemplate, flatcarFileEntry, ",", encodedFiles)
 	} else {
 		finalCustomData = customData + t.getScriptlessNBCCmd(config)
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			script := strings.TrimPrefix(finalCustomData, "#cloud-boothook\n")
+			indentedScript := "    " + strings.ReplaceAll(strings.TrimSuffix(script, "\n"), "\n", "\n    ") + "\n"
+			if config.UseCloudConfigArchive {
+				finalCustomData = "#cloud-config-archive\n" +
+					"- type: text/cloud-boothook\n  content: |\n" + indentedScript +
+					"- type: text/cloud-config\n  content: |\n" +
+					"    datasource:\n      Azure:\n        experimental_skip_ready_report: true\n"
+			} else {
+				// bootcmd strings use /bin/sh; explicitly select bash for provisioning.
+				finalCustomData = "#cloud-config\n" +
+					"datasource:\n  Azure:\n    experimental_skip_ready_report: true\n" +
+					"bootcmd:\n- - /bin/bash\n  - -c\n  - |\n" + indentedScript
+			}
+		}
 	}
 	encodedFinalCustomData := base64.StdEncoding.EncodeToString([]byte(finalCustomData))
 	if len(encodedFinalCustomData) < MaxCustomDataLength {
@@ -793,6 +806,11 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
 	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
 		config.CustomDataOnlyProvisioning = false
+	}
+	if config.IsCustomDataOnlyProvisioningEnabled() &&
+		!config.AgentPoolProfile.Distro.Is2404VHDDistro() &&
+		!config.AgentPoolProfile.Distro.Is2604VHDDistro() {
+		return fmt.Errorf("CustomData-only provisioning requires an Ubuntu 24.04 or 26.04 image with patched cloud-init")
 	}
 
 	if config.EnableScriptlessAKSNodeConfig {

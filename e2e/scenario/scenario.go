@@ -572,47 +572,45 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 }
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_CustomDataOnlyProvisioning",
-	Description: "Tests that an Ubuntu 22.04 node can be bootstrapped entirely through CustomData without CSE",
+	Name:        "Ubuntu2404_CustomDataOnlyProvisioning",
+	Description: "Tests that an Ubuntu 24.04 node can be bootstrapped entirely through CustomData without CSE",
 	Config: Config{
 		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		VHD:     config.VHDUbuntu2404Gen2Containerd,
 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.CustomDataOnlyProvisioning = true
 		},
-		// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateReportReadyRan(ctx, s)
 		},
 	},
 })
 
-// TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
-// var _ = Register(&Scenario{
-// 	Name:        "Ubuntu2204_CustomDataOnlyProvisioning_Failure",
-// 	Description: "Tests that an Ubuntu 22.04 node returns an error without CSE",
-// 	Config: Config{
-// 		Cluster: ClusterKubenet,
-// 		VHD:     config.VHDUbuntu2204Gen2Containerd,
-// 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-// 			nbc.CustomDataOnlyProvisioning = true
-// 			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
-// 				HTTPSProxy: to.Ptr(cluster.ProxyURL),
-// 				NoProxy: &[]string{
-// 					"localhost",
-// 					"127.0.0.1",
-// 					"168.63.129.16",
-// 					"169.254.169.254",
-// 					"10.0.0.0/8",
-// 					"172.16.0.0/12",
-// 					cluster.ClusterParams.FQDN,
-// 				},
-// 				TrustedCA: to.Ptr("foo bar!"),
-// 			}
-// 		},
-// 		// ExpectedError: "ExitCode: 161",
-// 	},
-// })
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2404_CustomDataOnlyProvisioning_Failure",
+	Description: "Tests that an Ubuntu 24.04 node returns an error without CSE",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDUbuntu2404Gen2Containerd,
+		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.CustomDataOnlyProvisioning = true
+			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
+				HTTPSProxy: to.Ptr(cluster.ProxyURL),
+				NoProxy: &[]string{
+					"localhost",
+					"127.0.0.1",
+					"168.63.129.16",
+					"169.254.169.254",
+					"10.0.0.0/8",
+					"172.16.0.0/12",
+					cluster.ClusterParams.FQDN,
+				},
+				TrustedCA: to.Ptr("foo bar!"),
+			}
+		},
+		ExpectedError: "\"ExitCode\":\"161\"",
+	},
+})
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_CustomCA",

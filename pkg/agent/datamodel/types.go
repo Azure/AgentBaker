@@ -1844,7 +1844,12 @@ type NodeBootstrappingConfiguration struct {
 	// CustomDataOnlyProvisioning indicates whether the node should be provisioned using only custom data.
 	// When true, the node will not rely on CSE for reporting provisioning status.
 	// Linux validation disables this for Flatcar, ACL, and Azure Linux, including in scriptless Phase 3.
+	// Ubuntu requires a 24.04 or 26.04 VHD with the patched cloud-init runtime datasource override.
 	CustomDataOnlyProvisioning bool
+
+	// UseCloudConfigArchive opts CustomData-only provisioning into an archive containing
+	// a provisioning boothook and cloud-config datasource options instead of plain cloud-config bootcmd.
+	UseCloudConfigArchive bool
 
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
 	// interfaces configured on the agent pool. The node bootstrapping scripts use

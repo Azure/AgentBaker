@@ -1,0 +1,287 @@
+--- a/cloudinit/sources/DataSourceAzure.py
++++ b/cloudinit/sources/DataSourceAzure.py
+@@ -19,7 +19,7 @@
+ 
+ import requests
+ 
+-from cloudinit import net, performance, sources, subp, util
++from cloudinit import handlers, net, performance, sources, subp, util
+ from cloudinit.config import cc_mounts
+ from cloudinit.event import EventScope, EventType
+ from cloudinit.net import device_driver
+@@ -874,6 +874,10 @@
+             crawled_data["metadata"]["random_seed"] = seed
+         crawled_data["metadata"]["instance-id"] = self._iid()
+ 
++        self.ds_cfg.update(
++            _ds_cfg_overrides_from_customdata(crawled_data["userdata_raw"])
++        )
++
+         if self._negotiated is False and self._is_ephemeral_networking_up():
+             if self.ds_cfg.get("experimental_skip_ready_report", False):
+                 LOG.debug(
+@@ -1769,6 +1773,72 @@
+         return None
+ 
+ 
++def _ds_cfg_overrides_from_customdata(userdata_raw) -> dict:
++    """Read only explicitly allowed datasource options before reporting Ready."""
++    if isinstance(userdata_raw, bytes):
++        try:
++            userdata_raw = userdata_raw.decode("utf-8")
++        except UnicodeDecodeError:
++            report_diagnostic_event(
++                "Ignoring non-UTF-8 datasource custom data",
++                logger_func=LOG.warning,
++            )
++            return {}
++    if not isinstance(userdata_raw, str):
++        return {}
++    lines = userdata_raw.lstrip().splitlines()
++    if not lines:
++        return {}
++    if lines[0].strip() == "#cloud-config":
++        return _ds_cfg_from_cloud_config(userdata_raw)
++    if lines[0].strip() != "#cloud-config-archive":
++        return {}
++
++    overrides = {}
++    entries = util.load_yaml(userdata_raw, default=[], allowed=(list,))
++    for entry in entries:
++        if isinstance(entry, str):
++            entry = {"content": entry}
++        if not isinstance(entry, dict) or not isinstance(
++            entry.get("content"), str
++        ):
++            report_diagnostic_event(
++                "Ignoring invalid cloud-config-archive entry",
++                logger_func=LOG.warning,
++            )
++            continue
++        content = entry["content"]
++        content_type = entry.get("type") or handlers.type_from_starts_with(
++            content, "text/cloud-config"
++        )
++        if content_type == "text/cloud-config":
++            overrides.update(_ds_cfg_from_cloud_config(content))
++    return overrides
++
++
++def _ds_cfg_from_cloud_config(content) -> dict:
++    config = util.load_yaml(content, default={})
++    for key in ("datasource", "Azure"):
++        config = config.get(key, {})
++        if not isinstance(config, dict):
++            report_diagnostic_event(
++                "Ignoring invalid datasource mapping in custom data",
++                logger_func=LOG.warning,
++            )
++            return {}
++
++    option = "experimental_skip_ready_report"
++    if option not in config:
++        return {}
++    if not isinstance(config[option], bool):
++        report_diagnostic_event(
++            "Ignoring non-boolean experimental_skip_ready_report",
++            logger_func=LOG.warning,
++        )
++        return {}
++    return {option: config[option]}
++
++
+ def _hostname_from_imds(imds_data):
+     try:
+         return imds_data["compute"]["osProfile"]["computerName"]
+--- a/tests/unittests/sources/test_azure.py
++++ b/tests/unittests/sources/test_azure.py
+@@ -9,6 +9,7 @@
+ import os
+ import stat
+ import sys
++import textwrap
+ import xml.etree.ElementTree as ET
+ from pathlib import Path
+ 
+@@ -5341,10 +5342,30 @@
+         assert len(self.mock_kvp_report_via_kvp.mock_calls) == 1
+         assert len(self.mock_kvp_report_success_to_host.mock_calls) == 1
+ 
++    @pytest.mark.parametrize(
++        "customdata_format", [None, "cloud-config", "cloud-config-archive"]
++    )
+     @pytest.mark.parametrize("pps_type", ["None", "Running", "Savable"])
+-    def test_skip_ready_report(self, pps_type):
++    def test_skip_ready_report(self, pps_type, customdata_format):
+         """Verify ready report is skipped when configured to."""
+-        self.azure_ds.ds_cfg["experimental_skip_ready_report"] = True
++        self.azure_ds.ds_cfg["experimental_skip_ready_report"] = (
++            customdata_format is None
++        )
++        custom_data = (
++            "#cloud-config\ndatasource:\n  Azure:\n"
++            "    experimental_skip_ready_report: true\n"
++            if customdata_format
++            else ""
++        )
++        if customdata_format == "cloud-config-archive":
++            custom_data = (
++                "#cloud-config-archive\n"
++                "- type: text/cloud-boothook\n"
++                "  content: |\n    #!/bin/sh\n    echo boothook\n"
++                "- type: text/cloud-config\n"
++                "  content: |\n"
++                + textwrap.indent(custom_data, "    ")
++            )
+ 
+         is_pps = pps_type in ("Running", "Savable")
+ 
+@@ -5364,13 +5385,16 @@
+                 mock.MagicMock(contents=json.dumps(imds_md_source).encode()),
+                 mock.MagicMock(
+                     contents=construct_ovf_env(
+-                        provision_guest_proxy_agent=False
++                        provision_guest_proxy_agent=False,
++                        custom_data=custom_data,
+                     ).encode()
+                 ),
+                 mock.MagicMock(contents=json.dumps(self.imds_md).encode()),
+             ]
+         else:
+-            ovf = construct_ovf_env(provision_guest_proxy_agent=False)
++            ovf = construct_ovf_env(
++                provision_guest_proxy_agent=False, custom_data=custom_data
++            )
+             md, ud, cfg = dsaz.read_azure_ovf(ovf)
+             self.mock_util_mount_cb.return_value = (md, ud, cfg, {})
+             self.mock_readurl.side_effect = [
+--- /dev/null
++++ b/tests/unittests/sources/test_azure_runtime_options.py
+@@ -0,0 +1,127 @@
++import pytest
++import yaml
++
++from cloudinit.sources.DataSourceAzure import _ds_cfg_overrides_from_customdata
++from cloudinit.user_data import UserDataProcessor
++
++
++@pytest.mark.parametrize("enabled", [True, False])
++@pytest.mark.parametrize("as_bytes", [True, False])
++def test_boolean_override(enabled, as_bytes):
++    config = (
++        "#cloud-config\ndatasource:\n  Azure:\n"
++        f"    experimental_skip_ready_report: {str(enabled).lower()}\n"
++        "    apply_network_config: false\n"
++        "    data_dir: /untrusted\n"
++    )
++    if as_bytes:
++        config = config.encode()
++    assert _ds_cfg_overrides_from_customdata(config) == {
++        "experimental_skip_ready_report": enabled
++    }
++
++
++@pytest.mark.parametrize(
++    "config",
++    [
++        None,
++        "",
++        b"\xff",
++        "#cloud-config\n",
++        "#cloud-config\n[not, a, mapping]",
++        "#cloud-config\ndatasource: null",
++        "#cloud-config\ndatasource:\n  Azure: []",
++        "#cloud-config\ndatasource:\n  Azure:\n    data_dir: /untrusted",
++        "#cloud-config\ndatasource: [",
++        "#cloud-config\ndatasource:\n  Azure:\n"
++        '    experimental_skip_ready_report: "false"',
++        "#cloud-config\ndatasource:\n  Azure:\n"
++        "    experimental_skip_ready_report: 1",
++        "#cloud-config\ndatasource:\n  Azure:\n"
++        "    experimental_skip_ready_report: null",
++        "#cloud-boothook\n# azure-experimental-node-ready\n",
++        "Content-Type: multipart/mixed\n\n#cloud-config\n",
++    ],
++)
++def test_no_override(config):
++    assert _ds_cfg_overrides_from_customdata(config) == {}
++
++
++def archive(entries):
++    return "#cloud-config-archive\n" + yaml.safe_dump(entries)
++
++
++def cloud_config(enabled):
++    return (
++        "datasource:\n  Azure:\n"
++        f"    experimental_skip_ready_report: {str(enabled).lower()}\n"
++        "    apply_network_config: false\n"
++        "bootcmd:\n- echo bootcmd\n"
++    )
++
++
++@pytest.mark.parametrize("enabled", [True, False])
++@pytest.mark.parametrize("as_bytes", [True, False])
++@pytest.mark.parametrize("explicit_type", [True, False])
++def test_archive_override(enabled, as_bytes, explicit_type):
++    entry = {"content": cloud_config(enabled)}
++    if explicit_type:
++        entry["type"] = "text/cloud-config"
++    payload = archive(
++        [
++            {"type": "text/cloud-boothook", "content": "#!/bin/sh\necho hook\n"},
++            entry,
++        ]
++    )
++    if as_bytes:
++        payload = payload.encode()
++    assert _ds_cfg_overrides_from_customdata(payload) == {
++        "experimental_skip_ready_report": enabled
++    }
++
++
++def test_archive_part_order_and_scalar_content():
++    assert _ds_cfg_overrides_from_customdata(
++        archive([cloud_config(True), cloud_config(False)])
++    ) == {"experimental_skip_ready_report": False}
++    assert _ds_cfg_overrides_from_customdata(
++        archive([cloud_config(False), cloud_config(True)])
++    ) == {"experimental_skip_ready_report": True}
++
++
++@pytest.mark.parametrize(
++    "entries",
++    [
++        [],
++        {},
++        [None, 42, {"content": []}, {"type": "text/cloud-config"}],
++        [{"type": "text/cloud-boothook", "content": cloud_config(True)}],
++        [{"content": "#!/bin/sh\n" + cloud_config(True)}],
++        [{"type": "text/cloud-config", "content": "datasource: null"}],
++        [{"type": "text/cloud-config", "content": "datasource: ["}],
++        [{"type": "text/cloud-config", "content": "datasource:\n  Azure: []"}],
++        [{"type": "text/cloud-config", "content": cloud_config("invalid")}],
++    ],
++)
++def test_archive_ignores_invalid_or_unrelated_parts(entries):
++    assert _ds_cfg_overrides_from_customdata(archive(entries)) == {}
++
++
++def test_cloud_init_expands_archive_without_running_commands():
++    payload = archive(
++        [
++            {"type": "text/cloud-boothook", "content": "#!/bin/sh\necho hook\n"},
++            {"type": "text/cloud-config", "content": cloud_config(True)},
++        ]
++    )
++    message = UserDataProcessor(None).process(payload)
++    parts = message.get_payload()
++    assert [part.get_content_type() for part in parts] == [
++        "text/cloud-boothook",
++        "text/cloud-config",
++    ]
++    config = yaml.safe_load(parts[1].get_payload())
++    assert config["bootcmd"] == ["echo bootcmd"]
++    assert _ds_cfg_overrides_from_customdata(payload) == {
++        "experimental_skip_ready_report": True
++    }

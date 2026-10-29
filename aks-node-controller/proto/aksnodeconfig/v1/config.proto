@@ -183,4 +183,8 @@ message Configuration {
   // Indicates whether the node should be provisioned using only custom data.
   // When true, the node will not rely on CSE for reporting provisioning status.
   bool custom_data_only_provisioning = 47;
+
+  // For CustomData-only provisioning, use a cloud-config-archive with a provisioning
+  // boothook and datasource cloud-config instead of plain cloud-config bootcmd.
+  bool use_cloud_config_archive = 48;
 }
