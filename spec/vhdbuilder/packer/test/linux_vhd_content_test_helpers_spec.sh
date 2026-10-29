@@ -305,4 +305,63 @@ Describe 'testCronPermissions invocation'
     The output should include "checkPathDoesNotExist:/etc/cron.deny"
     The output should not include "testCronPermissions: Skipping cron file check"
   End
+
+  Describe 'testOrasBinaryInstalled helper function'
+    BeforeAll "eval \"\$(sed -n '/^testOrasBinaryInstalled()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+    err() {
+      printf '%s:%s\n' "$1" "$2" >&2
+    }
+
+    create_fake_oras() {
+      local path="$1"
+      local version="$2"
+      printf '#!/bin/bash\nif [ "$1" = "version" ]; then\n  echo "Version: %s"\n  exit 0\nfi\nexit 1\n' "$version" > "$path"
+      chmod +x "$path"
+    }
+
+    It 'passes when unversioned oras symlink points to the expected executable and version'
+      root_dir="${SHELLSPEC_WORKDIR}/oras-ok"
+      mkdir -p "$root_dir"
+      create_fake_oras "$root_dir/oras-1.3.5" "1.3.5"
+      ln -sf "$root_dir/oras-1.3.5" "$root_dir/oras"
+
+      When call testOrasBinaryInstalled "1.3.5-2" "$root_dir/oras" "$root_dir/oras-1.3.5"
+      The status should equal 0
+      The error should equal ""
+    End
+
+    It 'fails when the unversioned oras symlink is missing'
+      root_dir="${SHELLSPEC_WORKDIR}/oras-missing-symlink"
+      mkdir -p "$root_dir"
+      create_fake_oras "$root_dir/oras-1.3.5" "1.3.5"
+
+      When call testOrasBinaryInstalled "1.3.5-2" "$root_dir/oras" "$root_dir/oras-1.3.5"
+      The status should equal 1
+      The error should include "is expected to be a symlink"
+    End
+
+    It 'fails when the unversioned oras symlink points to the wrong target'
+      root_dir="${SHELLSPEC_WORKDIR}/oras-bad-target"
+      mkdir -p "$root_dir"
+      create_fake_oras "$root_dir/oras-1.3.5" "1.3.5"
+      create_fake_oras "$root_dir/oras-1.3.4" "1.3.4"
+      ln -sf "$root_dir/oras-1.3.4" "$root_dir/oras"
+
+      When call testOrasBinaryInstalled "1.3.5-2" "$root_dir/oras" "$root_dir/oras-1.3.5"
+      The status should equal 1
+      The error should include "points to"
+    End
+
+    It 'fails when oras reports an unexpected upstream version'
+      root_dir="${SHELLSPEC_WORKDIR}/oras-version-mismatch"
+      mkdir -p "$root_dir"
+      create_fake_oras "$root_dir/oras-1.3.5" "1.3.4"
+      ln -sf "$root_dir/oras-1.3.5" "$root_dir/oras"
+
+      When call testOrasBinaryInstalled "1.3.5-2" "$root_dir/oras" "$root_dir/oras-1.3.5"
+      The status should equal 1
+      The error should include "oras version mismatch"
+    End
+  End
 End

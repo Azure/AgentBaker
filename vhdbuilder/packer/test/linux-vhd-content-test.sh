@@ -233,6 +233,54 @@ testAcrCredentialProviderInstalled() {
   echo "$test:Finish"
 }
 
+testOrasBinaryInstalled() {
+  local expectedVersion="$1"
+  local orasPathOverride="${2:-}"
+  local versionedPathOverride="${3:-}"
+  local test="testOrasBinaryInstalled"
+  local versionNoEpoch upstreamVersion
+  local orasPath versionedOrasPath
+  local resolvedSymlink installedVersion
+
+  versionNoEpoch="${expectedVersion#*:}"
+  upstreamVersion="${versionNoEpoch%%-*}"
+  orasPath="${orasPathOverride:-/opt/bin/oras}"
+  versionedOrasPath="${versionedPathOverride:-/opt/bin/oras-${upstreamVersion}}"
+
+  if [ ! -x "${versionedOrasPath}" ]; then
+    err "$test" "expected executable ${versionedOrasPath} is missing or not executable"
+    return 1
+  fi
+
+  if [ ! -L "${orasPath}" ]; then
+    err "$test" "${orasPath} is expected to be a symlink to ${versionedOrasPath}"
+    return 1
+  fi
+
+  resolvedSymlink=$(readlink "${orasPath}")
+  if [ "${resolvedSymlink}" != "${versionedOrasPath}" ]; then
+    err "$test" "${orasPath} points to ${resolvedSymlink}; expected ${versionedOrasPath}"
+    return 1
+  fi
+
+  if [ ! -x "${orasPath}" ]; then
+    err "$test" "${orasPath} is not executable"
+    return 1
+  fi
+
+  installedVersion=$("${orasPath}" version 2>/dev/null | awk -F': *' '/^Version:/ {print $2; exit}')
+  if [ -z "${installedVersion}" ]; then
+    err "$test" "unable to parse oras version from ${orasPath} version output"
+    return 1
+  fi
+  if [ "${installedVersion}" != "${upstreamVersion}" ]; then
+    err "$test" "oras version mismatch, expected ${upstreamVersion} but found ${installedVersion}"
+    return 1
+  fi
+
+  return 0
+}
+
 testPackagesInstalled() {
   local test="testPackagesInstalled"
   CPU_ARCH=$(getCPUArch) # "arm64" or "amd64"
@@ -321,6 +369,9 @@ testPackagesInstalled() {
                 ;;
             esac
             testContainerd "$version" "$pkgName"
+            ;;
+          "oras")
+            testOrasBinaryInstalled "$version"
             ;;
         esac
         break
