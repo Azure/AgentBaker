@@ -182,6 +182,10 @@ func escapeSingleLine(escapedStr string) string {
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE.
 func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
+	return getBase64EncodedGzippedCustomScriptFromStr(getCustomScript(csFilename, config))
+}
+
+func getCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := parts.Templates.ReadFile(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug.
@@ -209,7 +213,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 			panic(fmt.Sprintf("BUG: failed to minify %s: %v", csFilename, err))
 		}
 	}
-	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
+	return csStr
 }
 
 func minifyShellScript(name, script string) (string, error) {
