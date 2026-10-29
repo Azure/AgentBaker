@@ -32,7 +32,7 @@ az account set -s "${SUBSCRIPTION_ID}"
 echo "Using subscription ${SUBSCRIPTION_ID} for e2e tests"
 
 # Setup go
-GOPATH="$(go env GOPATH)"
+GOPATH="$(go env GOPATH | tr -d "'\"")"
 export GOPATH
 go version
 
@@ -96,7 +96,7 @@ fi
 az extension add --name bastion
 
 cd e2e
-go test -count=1 ./...
+go test -count=1 -timeout "${E2E_GO_TEST_TIMEOUT}" ./...
 
 go run . run \
   --parallel 60 \

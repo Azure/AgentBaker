@@ -18,6 +18,7 @@ Describe 'ensure_sig_vhd_exists function'
     HYPERV_GENERATION=""
     OS_TYPE=""
     ENABLE_TRUSTED_LAUNCH=""
+    TRUSTED_LAUNCH_SUPPORTED="False"
 
     # Mock variables to control az command behavior
     MOCK_AZ_SIG_SHOW_STATE=""
@@ -61,6 +62,7 @@ Describe 'ensure_sig_vhd_exists function'
               return 0
               ;;
             "create")
+              MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="true"
               echo "az $*"
               return 0
               ;;
@@ -125,7 +127,84 @@ Describe 'ensure_sig_vhd_exists function'
 
   BeforeEach 'setup_environment'
 
+  Describe 'shared Windows Gen2 image creation'
+    Parameters
+      windows-2022-containerd-gen2 False True TrustedLaunchSupported
+      windows-2025-gen2 False True TrustedLaunchSupported
+      windows-2025-gen2-tl True True TrustedLaunch
+      windows-2025-gen2 False False ''
+    End
+
+    It "creates $1 with TL enabled=$2 supported=$3"
+      MODE="windowsVhdMode"
+      AZURE_RESOURCE_GROUP_NAME="test-rg"
+      SIG_GALLERY_NAME="test-gallery"
+      SIG_IMAGE_NAME="$1"
+      AZURE_LOCATION="eastus"
+      OS_TYPE="Windows"
+      HYPERV_GENERATION="V2"
+      ARCHITECTURE="x64"
+      ENABLE_TRUSTED_LAUNCH="$2"
+      TRUSTED_LAUNCH_SUPPORTED="$3"
+      MOCK_AZ_SIG_SHOW_EXISTS="true"
+      MOCK_AZ_SIG_SHOW_STATE="Succeeded"
+      MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="false"
+
+      # shellcheck disable=SC2329
+      ensure_sig_trusted_launch_supported() {
+        echo "Reconciled $1"
+      }
+
+      When call ensure_sig_vhd_exists
+      The status should be success
+      The output should include "--gallery-image-definition $1"
+      The output should include 'DiskControllerTypes=SCSI,NVMe'
+      if [ -n "$4" ]; then
+        The output should include "SecurityType=$4"
+      else
+        The output should not include 'SecurityType='
+      fi
+      The output should not include 'Reconciled'
+    End
+  End
+
   Describe 'Basic function execution'
+    It 'reconciles capability for an existing shared Windows Gen2 definition'
+      MODE="windowsVhdMode"
+      ENABLE_TRUSTED_LAUNCH="False"
+      TRUSTED_LAUNCH_SUPPORTED="True"
+      MOCK_AZ_SIG_SHOW_EXISTS="true"
+      MOCK_AZ_SIG_SHOW_STATE="Succeeded"
+      MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="true"
+
+      # shellcheck disable=SC2329
+      ensure_sig_trusted_launch_supported() {
+        echo "Reconciled $1"
+      }
+
+      When call ensure_sig_vhd_exists
+      The status should be success
+      The output should include 'Reconciled mock-value'
+    End
+
+    It 'propagates an existing shared Windows capability update failure'
+      MODE="windowsVhdMode"
+      ENABLE_TRUSTED_LAUNCH="False"
+      TRUSTED_LAUNCH_SUPPORTED="True"
+      MOCK_AZ_SIG_SHOW_EXISTS="true"
+      MOCK_AZ_SIG_SHOW_STATE="Succeeded"
+      MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="true"
+
+      # shellcheck disable=SC2329
+      ensure_sig_trusted_launch_supported() {
+        return 1
+      }
+
+      When call ensure_sig_vhd_exists
+      The status should be failure
+      The output should include 'Image definition'
+    End
+
     It 'should complete successfully with minimal setup when gallery does not exist'
       MODE="linuxVhdMode"
       AZURE_RESOURCE_GROUP_NAME="test-rg"

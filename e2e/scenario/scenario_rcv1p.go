@@ -26,10 +26,11 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	azruntime "github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
 // rcv1pOptInTag is the ARM tag that must be set on the VM resource for wireserver to serve
@@ -66,7 +67,7 @@ func skipIfRCV1PNotExplicit(ctx context.Context) string {
 
 // CachedPlatformSettingsOverrideFeatureFlag checks the Microsoft.Compute/PlatformSettingsOverride
 // feature flag, caching the result (including errors) per subscription ID.
-var CachedPlatformSettingsOverrideFeatureFlag = cachedFunc(queryFeatureFlag)
+var CachedPlatformSettingsOverrideFeatureFlag = toolkit.Memoize(queryFeatureFlag)
 
 // getE2ESubscriptionFeatureFlag returns the PlatformSettingsOverride feature flag status on the
 // default E2E subscription.
@@ -124,7 +125,7 @@ type branchCSEZipRequest struct {
 // pipeline packaging in .pipelines/scripts/windows_package_cse.sh), uploads it to the
 // E2E blob storage and returns a SAS-signed URL. The result, including any error, is
 // cached so the zip is built and uploaded at most once per location across all parallel tests.
-var CachedBranchCSEPackageURL = cachedFunc(buildBranchCSEPackageURL)
+var CachedBranchCSEPackageURL = toolkit.Memoize(buildBranchCSEPackageURL)
 
 func buildBranchCSEPackageURL(ctx context.Context, request branchCSEZipRequest) (string, error) {
 	// 5m covers a cold-start storage account create (~30-90s) plus the zip build/upload.
@@ -347,7 +348,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 			rcv1pOptInVMConfigMutator(vmss)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {

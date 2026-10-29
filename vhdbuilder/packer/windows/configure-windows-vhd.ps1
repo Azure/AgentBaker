@@ -446,6 +446,8 @@ function Get-ContainerImages
     $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
     $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
 
+    # Every servercore/nanoserver entry maps to the same tarballs, so import each one once.
+    $importedBaseImageUrls = @{}
     foreach ($image in $imagesToPull)
     {
         $imagePrefix = $image.Split(":")[0]
@@ -470,6 +472,13 @@ function Get-ContainerImages
 
             foreach ($url in $containerBaseImageurls)
             {
+                if ($importedBaseImageUrls.ContainsKey($url))
+                {
+                    Write-Log "Skipping $url for $image, already imported"
+                    continue
+                }
+                $importedBaseImageUrls[$url] = $true
+
                 $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
                 $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
                 Write-Log "Downloading image $image to $tmpDest"
@@ -565,21 +574,6 @@ function LogFilesInDirectory
         $sizeKB = [math]::Round($_.Length / 1KB, 2)
         Write-Host "$( $_.Name ) - $sizeKB KB"
     }
-}
-
-function Get-ToolsToVHD
-{
-    if (!(Test-Path -Path $global:aksToolsDir))
-    {
-        New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
-    }
-
-    Write-Log "Getting DU (Windows Disk Usage)"
-    Download-File -URL "https://download.sysinternals.com/files/DU.zip" -Dest "$global:aksToolsDir\DU.zip"
-    Expand-Archive -Path "$global:aksToolsDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
-    Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
-
-    LogFilesInDirectory "$global:aksToolsDir\DU"
 }
 
 function Register-ExpandVolumeTask
@@ -1127,7 +1121,6 @@ try
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
-            Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
             Install-WindowsCiliumNetworking
             # Update all the registry keys again in case the steps in between reset them. Ok, some of the steps in between do reset them. But there's a risk that the steps also need

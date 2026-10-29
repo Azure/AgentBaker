@@ -24,7 +24,10 @@ fi
 echo "SIG image version ID from packer output: ${MANAGED_SIG_ID}"
 
 set +x
-TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
+# use a random, non-guessable admin password (prefix guarantees upper/lower/special to satisfy Azure VM complexity rules).
+# openssl rand -hex avoids piping through tr: under `set -e` without `pipefail`, a pipeline's exit status is
+# that of its last command, so a silent openssl failure would otherwise go undetected (tr succeeds on empty input).
+TEST_VM_ADMIN_PASSWORD="TestVM@$(openssl rand -hex 24)"
 set -x
 
 # For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
@@ -86,7 +89,13 @@ if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
     # To take care of Mariner Kata TL images
     TARGET_COMMAND_STRING+=" "
   fi
-  TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
+  # Unsigned dev ACL base images (aclBaseImageSource=acldevel) cannot boot with Secure Boot on.
+  SECURE_BOOT="true"
+  ACL_BASE_IMAGE_SIGNED="${ACL_BASE_IMAGE_SIGNED:-true}"
+  if [ "${ACL_BASE_IMAGE_SIGNED,,}" = "false" ]; then
+    SECURE_BOOT="false"
+  fi
+  TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot ${SECURE_BOOT} --enable-vtpm true"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
@@ -136,6 +145,8 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
       "" \
       "$TEST_VM_RESOURCE_GROUP_NAME" || exit $?
   else
+    # disable tracing so the admin password isn't emitted to the build log
+    set +x
     az vm create \
         --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
         --name "$VM_NAME" \
@@ -145,10 +156,12 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
         --nics "$TESTING_NIC_ID" \
         "${TEST_VM_USER_DATA_ARGS[@]}" \
         ${TARGET_COMMAND_STRING}
+    set -x
   fi
 else
+  # disable tracing so the admin password isn't emitted to the build log
+  set +x
   az vm create \
-      --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
@@ -156,9 +169,10 @@ else
       --admin-password "$TEST_VM_ADMIN_PASSWORD" \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
+  set -x
 fi
 
-echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME"
 
 time az vm wait -g "$TEST_VM_RESOURCE_GROUP_NAME" -n "$VM_NAME" --created
 capture_benchmark "${SCRIPT_NAME}_create_test_vm"
@@ -171,13 +185,15 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
   # If the pipeline that called this didn't set a branch, default to master.
   GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
   GIT_COMMIT_HASH="${GIT_COMMIT_HASH:-$(git rev-parse HEAD)}"
+  AGENTBAKER_REPOSITORY_URL="${AGENTBAKER_REPOSITORY_URL:-https://github.com/Azure/AgentBaker.git}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
+  # Prefix optional values so Run Command does not drop empty positional arguments.
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name "$VM_NAME" \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --scripts "@$SCRIPT_PATH" \
-      --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}") && break
+      --parameters "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "img-sku:${IMG_SKU}" "feature-flags:${FEATURE_FLAGS}" "${GIT_COMMIT_HASH}" "${AGENTBAKER_REPOSITORY_URL}") && break
     if [ "$i" -eq 3 ]; then
       echo "Linux content-test Run Command failed after ${i} attempts." >&2
       exit 1

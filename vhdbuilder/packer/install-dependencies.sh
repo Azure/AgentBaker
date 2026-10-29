@@ -46,6 +46,195 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+configureServiceExecutionTelemetryForSystemdVersion() {
+    local systemd_version="$1"
+    local unit_dir="${2:-/etc/systemd/system}"
+    local collector_unit
+    local service
+
+    case "$systemd_version" in
+        ''|*[!0-9]*)
+            echo "invalid systemd version for service execution telemetry: ${systemd_version}" >&2
+            return 1
+            ;;
+    esac
+
+    for service in \
+        cgroup-memory-telemetry.service \
+        cgroup-pressure-telemetry.service \
+        aks-log-collector.service; do
+        case "$service" in
+            cgroup-memory-telemetry.service)
+                collector_unit='service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service'
+                ;;
+            cgroup-pressure-telemetry.service)
+                collector_unit='service-execution-telemetry@cgroup\x2dpressure\x2dtelemetry.service.service'
+                ;;
+            aks-log-collector.service)
+                collector_unit='service-execution-telemetry@aks\x2dlog\x2dcollector.service.service'
+                ;;
+        esac
+
+        # Systemd retains the memory accounting of an exited unit from version 256, so the
+        # ExecStopPost snapshot is only needed below that. Dropping it elsewhere also keeps
+        # the snapshot process out of the very cgroup whose peak it would otherwise inflate.
+        if [ "$systemd_version" -ge 256 ]; then
+            sed -i \
+                -e '/^ExecStopPost=-\/opt\/scripts\/service-execution-telemetry\.sh --snapshot-memory-peak %n$/d' \
+                "${unit_dir}/${service}" || return 1
+        fi
+
+        if [ "$systemd_version" -ge 258 ]; then
+            sed -i \
+                -e '/^CPUAccounting=true$/d' \
+                -e '/^MemoryAccounting=true$/d' \
+                "${unit_dir}/${service}" || return 1
+            continue
+        fi
+
+        if [ "$systemd_version" -ge 249 ]; then
+            continue
+        fi
+
+        sed -i \
+            -e '/^OnSuccess=service-execution-telemetry@/d' \
+            -e '/^OnFailure=service-execution-telemetry@/d' \
+            "${unit_dir}/${service}" || return 1
+        printf 'ExecStopPost=-/bin/systemctl --no-block start %s\n' \
+            "$collector_unit" >> "${unit_dir}/${service}" || return 1
+    done
+}
+
+VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
+
+kernelVersionGe() {
+  local version_a="$1"
+  local version_b="$2"
+  local sorted
+  local highest_version
+
+  sorted=$(printf "%s\n%s\n" "$version_a" "$version_b" | sort -V)
+  highest_version=$(printf "%s\n" "$sorted" | tail -n 1)
+  [ "$version_a" = "$highest_version" ]
+}
+
+ubuntuKernelIncludesVulnerableModuleFixes() {
+  local kernel_release
+  local fixed_kernel
+  local os_version
+
+  kernel_release="$(uname -r 2>/dev/null || true)"
+  if [ -z "$kernel_release" ]; then
+    return 1
+  fi
+
+  # Prefer the OS_VERSION env var, but fall back to /etc/os-release when it is empty.
+  # VHD build scripts run in environments where OS_VERSION is not always exported, so
+  # relying on it alone made out-of-scope releases (e.g. Ubuntu 26.04) fall through to the
+  # default bake path and ship the deny rules. Reading /etc/os-release keeps this gate
+  # consistent with cleanup-vhd.sh and cse_helpers.sh, which detect the release the same way.
+  os_version="${OS_VERSION}"
+  if [ -z "$os_version" ]; then
+    os_version="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || true)"
+  fi
+  if [ -z "$os_version" ]; then
+    return 1
+  fi
+
+  case "$os_version" in
+    20.04)
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
+    22.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    24.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    # Future Ubuntu releases are not in this mitigation scope by default; if a
+    # future release needs the deny rules, add an explicit case above.
+    *) return 0 ;;
+  esac
+
+  kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
+removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
+  local modprobe_conf
+  local tmp_modprobe_conf
+
+  for modprobe_conf in /etc/modprobe.d/*.conf; do
+    [ -f "$modprobe_conf" ] || continue
+    tmp_modprobe_conf="${modprobe_conf}.tmp.$$"
+    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    cat "$tmp_modprobe_conf" > "$modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    rm -f "$tmp_modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
+  done
+}
+
+# CVE-2026-31431 (Copy Fail), DirtyFrag, Fragnesia mitigation: copyPackerFiles bakes the full
+# modprobe-CIS.conf, including the algif_aead / esp4 / esp6 / rxrpc deny rules. Strip only
+# those rules (and their comments) on OS streams that no longer need them; the rest of the
+# CIS module deny list (dccp/sctp/rds/tipc/cramfs/etc.) stays intact on every OS stream.
+#
+# The vulnerable-module block is removed on fixed Ubuntu 22.04 / 24.04 kernels,
+# by default on future Ubuntu releases that are not explicitly in mitigation scope,
+# and on AzureLinux 3.0 (non-OSGuard) because:
+#   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
+#      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
+#      at runtime if it detects an older vulnerable Ubuntu kernel.
+#   2. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
+#   3. Customer workloads require those kernel modules; the bake-in actively blocks
+#      legitimate use cases on fixed kernels.
+# See https://github.com/Azure/AKS/issues/5753.
+# Other Ubuntu 20.04 kernels, Mariner / AzureLinux 2.0, and AzureLinux OSGuard keep the full bake-in.
+configureVulnerableKernelModuleDenyRules() {
+  local modprobe_cis=/etc/modprobe.d/CIS.conf
+  local context_message
+
+  if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
+    context_message="on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
+  elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    context_message="on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the full bake-in)"
+  else
+    return 0
+  fi
+
+  echo "Removing algif_aead / esp4 / esp6 / rxrpc deny rules from modprobe.d ${context_message}"
+  sed -i -E \
+    -e '/^# CVE-2026-31431 \(Copy Fail\):/d' \
+    -e '/^# until kernel fix is available\. See https:\/\/ubuntu\.com\/blog\/copy-fail-vulnerability-fixes-available$/d' \
+    -e '/^# DirtyFrag \/ CopyFail2:/d' \
+    -e '/^# write LPE vulnerabilities\. rxrpc path bypasses AppArmor userns restrictions\.$/d' \
+    -e '/^# AKS platform components do not require kernel IPsec ESP\/XFRM or AFS\/RxRPC\.$/d' \
+    -e '/^# Disabling these modules prevents workloads that rely on those protocols from working$/d' \
+    -e '/^# on the node\. See https:\/\/github\.com\/V4bel\/dirtyfrag$/d' \
+    "$modprobe_cis" || return 1
+  removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || return 1
+  if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
+    echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d/*.conf"
+    grep -nE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf || true
+    return 1
+  fi
+}
+
 # doing this at vhd allows CSE to be faster with just mv
 unpackTgzToCNIDownloadsDIR() {
   local download_dir=${1}
@@ -624,8 +813,10 @@ cachePackageAndBinaryComponents() {
         done
         ;;
       "inspektor-gadget")
-        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ]; then
-          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default} (IS_KATA=${IS_KATA})"
+        # Azure Linux 3 Kata installs IG on the host. Host gadgets observe host
+        # processes and runc pods; workloads inside Kata guest VMs are not visible.
+        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default}"
         else
           ig_version="${PACKAGE_VERSIONS[0]}"
           if isUbuntu "$OS"; then
@@ -711,13 +902,20 @@ cachePackageAndBinaryComponents() {
         ;;
       "node-exporter")
         # Skipping is handled by empty versionsV2 arrays in components.json
-        # for mariner, flatcar, acl, and osguard. Kata is skipped explicitly here.
-        if [ "${IS_KATA}" = "true" ]; then
-          echo "Skipping node-exporter installation for kata (IS_KATA=${IS_KATA})"
-        else
-          # Download and install node-exporter-kubernetes at VHD build time.
-          # node-exporter is installed on the VHD so CSE only needs to enable+start it.
-          installNodeExporter "${PACKAGE_VERSIONS[0]}"
+        # for mariner, flatcar, acl, and osguard. Azure Linux 3 Kata resolves
+        # through its azurelinuxkata entry. Its host kernel (kernel-mshv) is built
+        # without CONFIG_PSI, so node-exporter exposes no node_pressure_* metrics
+        # there: https://github.com/microsoft/azurelinux/issues/19417
+        # Download and install node-exporter-kubernetes at VHD build time.
+        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+        installNodeExporter "${PACKAGE_VERSIONS[0]}"
+        ;;
+      "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
+        # Ubuntu and Azure Linux 3 builders carry this helper. Empty manifest entries
+        # leave other OSes (and unpublished targets) extension-managed.
+        if (isUbuntu || isAzureLinux) && [ "${IS_KATA}" != "true" ]; then
+          source /home/packer/install-npd.sh
+          installNPDPackage "${name}" "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
         fi
         ;;
       "acr-mirror")
@@ -766,64 +964,10 @@ cachePackageAndBinaryComponents() {
 }
 
 cacheContainerImageComponents() {
-  # Download/cache all declared container images within components.json that apply to the respective OS SKU
-
-  # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
-  # Account for possibility that number of cores is 3 or less
-  num_proc=$(nproc)
-  if [ "$num_proc" -gt 3 ]; then
-    parallel_container_image_pull_limit=$(nproc --ignore=2)
-  else
-    parallel_container_image_pull_limit=1
-  fi
-  echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
-
-  declare -a image_pids=()
-
-  ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-  while IFS= read -r imageToBePulled; do
-    downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-    amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    updateMultiArchVersions "${imageToBePulled}"
-    amd64OnlyVersions=""
-    if [ "${amd64OnlyVersionsStr}" != "null" ]; then
-      amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
-    fi
-
-    if [ "$(isARM64)" -eq 1 ]; then
-      versions="${MULTI_ARCH_VERSIONS[*]}"
-    else
-      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
-    fi
-
-    for version in ${versions}; do
-      CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-      pullContainerImage "ctr" "${CONTAINER_IMAGE}" &
-      image_pids+=($!)
-      echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-      while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
-        wait -n || {
-          ret=$?
-          echo "A background job pullContainerImage failed: ${ret}, ${CONTAINER_IMAGE}. Exiting..." >&2
-          for pid in "${image_pids[@]}"; do
-            kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-          done
-          exit "${ret}"
-      }
-      done
-    done
-  done <<< "$ContainerImages"
-  echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
-  while [ "$(jobs -p | wc -l)" -gt 0 ]; do
-    wait -n || {
-      ret=$?
-      echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
-      for pid in "${image_pids[@]}"; do
-        kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
-      done
-      exit "${ret}"
-    }
-  done
+  /opt/azure/containers/image-fetcher cache-components \
+    --components-file "$COMPONENTS_FILEPATH" \
+    --concurrency "${IMAGE_FETCHER_CONCURRENCY:-20}" \
+    --vhd-log-file "$VHD_LOGS_FILEPATH"
 }
 
 cacheGPUContainerImageComponents() {
@@ -846,8 +990,12 @@ cacheGPUContainerImageComponents() {
     fi
   done <<< "$GPUContainerImages"
 
-  # For Ubuntu, pre-pull the CUDA driver image
-  if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
+  # For Ubuntu, pre-pull the CUDA driver image so node provisioning is a cache hit instead of an MCR
+  # pull. On arm64 this is limited to 24.04 -- the only arm64 GPU (Grace-Blackwell) target; other
+  # arm64 Ubuntu VHDs (e.g. 22.04, 26.04-minimal) have no GPU consumer and shouldn't carry the image.
+  # x86 keeps caching on all Ubuntu versions as before. The kernel-module PREBAKE below stays x86-only
+  # -- GB has no VHD driver prebake, so this caches the image without baking a driver (no dkms-marker).
+  if [ $OS = $UBUNTU_OS_NAME ] && { [ "$(isARM64)" -ne 1 ] || { [ "$(isARM64)" -eq 1 ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; }; }; then
     gpu_action="copy"
 
     while IFS= read -r imageToBePulled; do
@@ -871,7 +1019,7 @@ cacheGPUContainerImageComponents() {
 
     mkdir -p /opt/{actions,gpu}
 
-    /opt/azure/containers/image-fetcher "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+    /opt/azure/containers/image-fetcher cache-image --image "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
@@ -1234,6 +1382,12 @@ echo "VHD will be built with containerd as the container runtime"
 # Cache packages and binaries declared within components.json
 cachePackageAndBinaryComponents
 
+# Delegate ACL AMD64 image fetching to the host containerd Transfer service.
+export IMAGE_FETCHER_USE_TRANSFER="false"
+if isACL "$OS" "$OS_VARIANT" && [ "$CPU_ARCH" = "amd64" ]; then
+  export IMAGE_FETCHER_USE_TRANSFER="true"
+fi
+
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
 
@@ -1273,6 +1427,14 @@ fi
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
+configureVulnerableKernelModuleDenyRules || exit $ERR_PACKER_COPY_FILE
+if isAzureLinux "$OS" "$OS_VARIANT" && [ "$OS_VERSION" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+  # Enable for deployed nodes, without running recovery on the build VM.
+  systemctl enable aks-networkd-recovery.timer || exit 1
+fi
+configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')" || exit $ERR_PACKER_COPY_FILE
+systemctl daemon-reload
+
 # Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
 if ! isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart cgroup-memory-telemetry.timer 30 || exit 1
@@ -1282,6 +1444,10 @@ fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+  systemctlEnableAndStart cgroup-cpu-telemetry.timer 30 || exit 1
+  systemctl enable cgroup-cpu-telemetry.service || exit 1
+  systemctl restart cgroup-cpu-telemetry.service
+
   systemctlEnableAndStart cgroup-pressure-telemetry.timer 30 || exit 1
   systemctl enable cgroup-pressure-telemetry.service || exit 1
   systemctl restart cgroup-pressure-telemetry.service

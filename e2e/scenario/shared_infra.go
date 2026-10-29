@@ -7,18 +7,20 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v10"
 	"github.com/google/uuid"
 )
 
@@ -45,7 +47,7 @@ type SharedInfra struct {
 	TenantID       string // tenant ID of the user-assigned managed identity
 }
 
-var CachedEnsureSharedInfra = cachedFunc(ensureSharedInfra)
+var CachedEnsureSharedInfra = toolkit.Memoize(ensureSharedInfra)
 
 func ensureSharedInfra(ctx context.Context, location string) (*SharedInfra, error) {
 	defer logging.LogStep(ctx, "ensuring shared infrastructure")()
@@ -59,23 +61,39 @@ func ensureSharedInfra(ctx context.Context, location string) (*SharedInfra, erro
 		return nil, fmt.Errorf("ensuring PE subnet: %w", err)
 	}
 
-	bastionDNS, err := ensureSharedBastion(ctx, rg, location)
-	if err != nil {
-		return nil, fmt.Errorf("ensuring shared bastion: %w", err)
+	// Subnet writes share a VNet lock in Azure; finish them before provisioning services.
+	if err := ensureSubnet(ctx, rg, SharedVNetName, "AzureBastionSubnet", BastionSubnetCIDR); err != nil {
+		return nil, fmt.Errorf("ensuring bastion subnet: %w", err)
 	}
-
-	firewallIP, err := ensureSharedFirewall(ctx, rg, location)
-	if err != nil {
-		return nil, fmt.Errorf("ensuring shared firewall: %w", err)
+	if err := ensureSubnet(ctx, rg, SharedVNetName, "AzureFirewallSubnet", FirewallSubnetCIDR); err != nil {
+		return nil, fmt.Errorf("ensuring firewall subnet: %w", err)
+	}
+	var bastionDNS, firewallIP string
+	if err := runConcurrent(ctx,
+		func(ctx context.Context) error {
+			var err error
+			bastionDNS, err = ensureSharedBastion(ctx, rg, location)
+			if err != nil {
+				return fmt.Errorf("ensuring shared bastion: %w", err)
+			}
+			return nil
+		},
+		func(ctx context.Context) error {
+			var err error
+			firewallIP, err = ensureSharedFirewall(ctx, rg, location)
+			if err != nil {
+				return fmt.Errorf("ensuring shared firewall: %w", err)
+			}
+			return nil
+		},
+	); err != nil {
+		return nil, err
 	}
 
 	identityID, tenantID, err := ensureClusterIdentity(ctx, rg, location)
 	if err != nil {
 		return nil, fmt.Errorf("ensuring cluster identity: %w", err)
 	}
-
-	// Best-effort cleanup of orphaned cluster subnets
-	cleanupOrphanedSubnets(ctx, rg)
 
 	return &SharedInfra{
 		VNetName:       SharedVNetName,
@@ -175,59 +193,6 @@ func ensurePESubnet(ctx context.Context, rg string) error {
 	return nil
 }
 
-// cleanupOrphanedSubnets removes cluster subnets whose corresponding AKS cluster
-// no longer exists and that have no active Azure resources attached.
-// Only considers subnets that are not recently provisioned to avoid racing with
-// cluster creation.
-func cleanupOrphanedSubnets(ctx context.Context, rg string) {
-	pager := config.Azure.Subnet.NewListPager(rg, SharedVNetName, nil)
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			logging.Logf(ctx, "warning: failed to list subnets for cleanup: %v", err)
-			return
-		}
-		for _, subnet := range page.Value {
-			name := *subnet.Name
-			if !strings.HasPrefix(name, "aks-subnet-") {
-				continue
-			}
-			if subnetHasActiveResources(subnet) {
-				continue
-			}
-			clusterName := strings.TrimPrefix(name, "aks-subnet-")
-			_, err := config.Azure.AKS.Get(ctx, rg, clusterName, nil)
-			if err == nil {
-				continue
-			}
-			if !isNotFoundError(err) {
-				logging.Logf(ctx, "warning: transient error checking cluster %s, skipping subnet cleanup: %v", clusterName, err)
-				continue
-			}
-			logging.Logf(ctx, "deleting orphaned subnet %s", name)
-			poller, err := config.Azure.Subnet.BeginDelete(ctx, rg, SharedVNetName, name, nil)
-			if err != nil {
-				logging.Logf(ctx, "warning: failed to start deleting subnet %s: %v", name, err)
-				continue
-			}
-			if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
-				logging.Logf(ctx, "warning: failed to delete subnet %s: %v", name, err)
-			}
-		}
-	}
-}
-
-func subnetHasActiveResources(subnet *armnetwork.Subnet) bool {
-	if subnet.Properties == nil {
-		return false
-	}
-	return len(subnet.Properties.IPConfigurations) > 0 ||
-		len(subnet.Properties.ServiceAssociationLinks) > 0 ||
-		len(subnet.Properties.ResourceNavigationLinks) > 0 ||
-		subnet.Properties.NetworkSecurityGroup != nil ||
-		subnet.Properties.RouteTable != nil
-}
-
 func ensureSubnet(ctx context.Context, rg, vnetName, subnetName, cidr string) error {
 	_, err := config.Azure.Subnet.Get(ctx, rg, vnetName, subnetName, nil)
 	if err == nil {
@@ -318,10 +283,6 @@ func ensureSharedBastion(ctx context.Context, rg, location string) (string, erro
 		return "", fmt.Errorf("checking shared bastion: %w", err)
 	}
 
-	if err := ensureSubnet(ctx, rg, SharedVNetName, "AzureBastionSubnet", BastionSubnetCIDR); err != nil {
-		return "", fmt.Errorf("ensuring bastion subnet: %w", err)
-	}
-
 	logging.Logf(ctx, "creating shared bastion public IP %s", SharedBastionPIPName)
 	pipPoller, err := config.Azure.PublicIPAddresses.BeginCreateOrUpdate(ctx, rg, SharedBastionPIPName, armnetwork.PublicIPAddress{
 		Location: to.Ptr(location),
@@ -387,20 +348,17 @@ const (
 )
 
 // ensureSharedFirewall creates or retrieves the shared Azure Firewall and returns its private IP.
-// The firewall is shared across all clusters in the RG, so its application rules persist beyond
-// the lifetime of any single cluster. We reconcile rules on every call so that changes to allowed
-// FQDNs (notably the per-sub blob storage account FQDN, which now embeds a sub-suffix) are picked
-// up. Without this, a firewall created against an older BlobStorageAccount() name silently blocks
-// CSE zip downloads from the new per-sub storage account, causing Windows CSE to fail with
-// NO_CSE_RESULT_LOG and Linux CSE to hang on artifact downloads.
+// The firewall is shared across all clusters in the RG, so its rules persist beyond the lifetime
+// of any single cluster. Reconcile the per-sub blob storage FQDN and NTP network rule so existing
+// firewalls allow CSE artifact downloads and public NTP synchronization.
 func ensureSharedFirewall(ctx context.Context, rg, location string) (string, error) {
 	existing, err := config.Azure.AzureFirewall.Get(ctx, rg, SharedFirewallName, nil)
 	if err == nil {
 		// Fast path: rules already match current config.
-		if firewallAppRulesUpToDate(existing.AzureFirewall) {
+		if firewallAppRulesUpToDate(existing.AzureFirewall) && firewallNetworkRulesUpToDate(existing.AzureFirewall) {
 			return getFirewallPrivateIP(existing.AzureFirewall)
 		}
-		logging.Logf(ctx, "shared firewall %s exists but app rules are stale; updating", SharedFirewallName)
+		logging.Logf(ctx, "shared firewall %s exists but rules are stale; updating", SharedFirewallName)
 		firewallSubnetID := fmt.Sprintf(
 			"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/AzureFirewallSubnet",
 			config.Config.SubscriptionID, rg, SharedVNetName,
@@ -419,7 +377,7 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 		updated := getFirewall(ctx, location, firewallSubnetID, publicIPID)
 		fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, *updated, nil)
 		if err != nil {
-			return "", fmt.Errorf("updating shared firewall app rules: %w", err)
+			return "", fmt.Errorf("updating shared firewall rules: %w", err)
 		}
 		fwResp, err := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		if err != nil {
@@ -429,11 +387,6 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 	}
 	if !isNotFoundError(err) {
 		return "", fmt.Errorf("checking shared firewall: %w", err)
-	}
-
-	// Ensure firewall subnet exists
-	if err := ensureSubnet(ctx, rg, SharedVNetName, "AzureFirewallSubnet", FirewallSubnetCIDR); err != nil {
-		return "", fmt.Errorf("ensuring firewall subnet: %w", err)
 	}
 
 	firewallSubnetID := fmt.Sprintf(
@@ -514,6 +467,33 @@ func firewallAppRulesUpToDate(fw armnetwork.AzureFirewall) bool {
 	return false
 }
 
+func firewallNetworkRulesUpToDate(fw armnetwork.AzureFirewall) bool {
+	if fw.Properties == nil {
+		return false
+	}
+	for _, coll := range fw.Properties.NetworkRuleCollections {
+		if coll == nil || coll.Properties == nil || coll.Properties.Action == nil || coll.Properties.Action.Type == nil ||
+			*coll.Properties.Action.Type != armnetwork.AzureFirewallRCActionTypeAllow {
+			continue
+		}
+		for _, rule := range coll.Properties.Rules {
+			if rule == nil || rule.Name == nil || *rule.Name != "ntp" {
+				continue
+			}
+			hasSource := slices.ContainsFunc(rule.SourceAddresses, func(s *string) bool { return s != nil && *s == SharedVNetCIDR })
+			hasDestination := slices.ContainsFunc(rule.DestinationAddresses, func(s *string) bool { return s != nil && *s == "*" })
+			hasPort := slices.ContainsFunc(rule.DestinationPorts, func(s *string) bool { return s != nil && *s == "123" })
+			hasUDP := slices.ContainsFunc(rule.Protocols, func(p *armnetwork.AzureFirewallNetworkRuleProtocol) bool {
+				return p != nil && *p == armnetwork.AzureFirewallNetworkRuleProtocolUDP
+			})
+			if hasSource && hasDestination && hasPort && hasUDP {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // ensureClusterIdentity creates a user-assigned managed identity for AKS clusters
 // and grants it Network Contributor on the subscription so it can manage route tables
 // in both the shared VNet and the MC_ resource groups.
@@ -567,7 +547,7 @@ type ClusterSubnetRequest struct {
 	DualStack   bool
 }
 
-var CachedEnsureClusterSubnet = cachedFunc(ensureClusterSubnet)
+var CachedEnsureClusterSubnet = toolkit.Memoize(ensureClusterSubnet)
 
 func ensureClusterSubnet(ctx context.Context, req ClusterSubnetRequest) (string, error) {
 	rg := config.ResourceGroupName(req.Location)

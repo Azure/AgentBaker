@@ -31,6 +31,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV3FIPS:                     SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2FIPS:                 SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2Kata:                 SIGAzureLinuxV3KataImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2KataCC:               SIGAzureLinuxV3KataCCImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Arm64Gen2:                SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Arm64Gen2FIPS:            SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2TL:                   SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
@@ -40,6 +41,9 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSACLGen2FIPSTL:                        SIGACLGen2FIPSTLImageConfigTemplate.WithOptions(),
 			AKSACLArm64Gen2FIPSTL:                   SIGACLArm64Gen2FIPSTLImageConfigTemplate.WithOptions(),
 			AKSACLCVMGen2:                           SIGACLCVMGen2ImageConfigTemplate.WithOptions(),
+			AKSACLCVMGen2FIPS:                       SIGACLCVMGen2FIPSImageConfigTemplate.WithOptions(),
+			// TODO: add back once "aclkatagen2TL" has at least one valid image version.
+			// AKSACLKataGen2TL: SIGACLKataGen2TLImageConfigTemplate.WithOptions(),
 		}
 		actual := GetMaintainedLinuxSIGImageConfigMap()
 		for distro, config := range expected {
@@ -107,7 +111,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(22))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(25))
 
 		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
@@ -444,5 +448,17 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aclCVMGen2.Gallery).To(Equal("aksazurelinux"))
 		Expect(aclCVMGen2.Definition).To(Equal("aclgen2CVM"))
 		Expect(aclCVMGen2.Version).To(Equal(LinuxSIGImageVersion))
+
+		aclKataGen2TL := sigConfig.SigAzureLinuxImageConfig[AKSACLKataGen2TL]
+		Expect(aclKataGen2TL.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aclKataGen2TL.Gallery).To(Equal("aksazurelinux"))
+		Expect(aclKataGen2TL.Definition).To(Equal("aclkatagen2TL"))
+		Expect(aclKataGen2TL.Version).To(Equal(LinuxSIGImageVersion))
+
+		aclCVMGen2FIPS := sigConfig.SigAzureLinuxImageConfig[AKSACLCVMGen2FIPS]
+		Expect(aclCVMGen2FIPS.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aclCVMGen2FIPS.Gallery).To(Equal("aksazurelinux"))
+		Expect(aclCVMGen2FIPS.Definition).To(Equal("aclgen2fipsCVM"))
+		Expect(aclCVMGen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
 	})
 })

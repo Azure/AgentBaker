@@ -8,12 +8,43 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: ENABLE_COSI_PUBLISHING
+    type: boolean
+    default: false
+  - name: kataCC
+    type: boolean
+    default: false
 
 steps:
+  # Keep the baked version and publishing metadata identical across UTC midnight.
+  - bash: |
+      set -euo pipefail
+      image_version="${IMAGE_VERSION:-$(date -u +%Y%m.%d.0)}"
+      echo "##vso[task.setvariable variable=IMAGE_VERSION]${image_version}"
+    displayName: Set IMAGE_VERSION
+
   - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+
+  # Bundle before downloading scanner binaries into the source tree.
+  - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.SourcesDirectory)"
+        tar --exclude='./.git' \
+            -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
+        ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      displayName: Bundle source for COSI convert
+
+    - task: PublishPipelineArtifact@1
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      displayName: Publish source bundle for COSI convert
+      inputs:
+        artifactName: agentbaker-sources-${{ parameters.artifactName }}
+        targetPath: $(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz
 
   - task: UniversalPackages@0
     displayName: Download CIS scanner
@@ -60,18 +91,62 @@ steps:
       artifactName: 'mariner-kata-3-0-uvm'
       itemPattern: |
         **/kata-containers.img**
+        **/kata-containers-version.txt
       downloadPath: $(Build.SourcesDirectory)
 
+  - ${{ if eq(parameters.kataCC, true) }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download signed Kata-CC payload for AZL3
+      inputs:
+        source: specific
+        project: CloudNativeCompute
+        pipeline: 318279
+        buildVersionToDownload: latestFromBranch
+        branchName: refs/heads/master
+        allowPartiallySucceededBuilds: false
+        allowFailedBuilds: false
+        artifactName: drop_container_job_sign_uvm_azl3
+        itemPattern: |
+          **/kata-containers.img
+          **/kata-containers-cc.img
+          **/kata-containers-igvm.img
+          **/kata-containers-igvm-debug.img
+          **/igvm-measurement.cose
+          **/reference-info-base64
+        downloadPath: $(Build.SourcesDirectory)/kata-cc
+
   - bash: |
-      set -x
-      GOPATH="$(go env GOPATH)"
+      set -euo pipefail
+      version_file="$(Build.SourcesDirectory)/kata-containers-version.txt"
+      if [[ ! -s "$version_file" ]]; then
+        echo "Missing Kata UVM version file. Rebuild pipeline 417429 with version metadata." >&2
+        exit 1
+      fi
+      version=$(cat "$version_file")
+      if [[ ! "$version" =~ ^[a-zA-Z0-9._+~^-]+$ ]]; then
+        echo "Invalid Kata UVM version value. Rebuild pipeline 417429 with version metadata." >&2
+        exit 1
+      fi
+      echo "Kata UVM tools RPM version-release: $version"
+      echo "##vso[task.setvariable variable=KATA_UVM_VERSION]$version"
+    condition: and(succeeded(), eq(variables.OS_SKU, 'AzureLinux'), eq(variables.IMG_OFFER, 'azure-linux-3'), contains(variables.FEATURE_FLAGS, 'kata'))
+    displayName: Read Kata UVM version
+
+  - bash: |
+      set -ex
+      GOPATH="$(go env GOPATH | tr -d "'\"")"
       echo "GOPATH is currently set to $GOPATH"
       export PATH="$PATH:$GOPATH/bin"
+      mkdir -p "$GOPATH/bin"
       pushd /tmp
-      GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
+      curl -LO https://github.com/cue-lang/cue/releases/download/v0.17.1/cue_v0.17.1_linux_amd64.tar.gz && \
+      echo "a39b0c97695069d95d276d99be0f5dbabb081d801bfdc9ba49b76efaf94e2369  cue_v0.17.1_linux_amd64.tar.gz" | sha256sum -c - && \
+        tar -xzf cue_v0.17.1_linux_amd64.tar.gz && \
+        install -m 0755 cue "$GOPATH/bin/cue"
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: Setup Cue
+    retryCountOnTaskFailure: 3
 
   - bash: |
       SKU_NAME=${OS_VERSION} && \
@@ -88,6 +163,10 @@ steps:
       echo "Set SKU_NAME to $SKU_NAME"
     displayName: Set SKU Name
 
+  - bash: make -f packer.mk -j4 build-tools
+    displayName: Build Go binaries
+    retryCountOnTaskFailure: 3
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
@@ -95,7 +174,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk run-packer
-    condition: ne(variables['BUILDER'], 'imagecustomizer')
+    condition: and(succeeded(), ne(variables['BUILDER'], 'imagecustomizer'))
     displayName: Build VHD
     retryCountOnTaskFailure: 3
     env:
@@ -108,6 +187,7 @@ steps:
       UA_TOKEN: $(ua-token)
       LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
       CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
+      IMAGE_VERSION: $(IMAGE_VERSION)
 
   - task: AzureCLI@2
     inputs:
@@ -116,7 +196,7 @@ steps:
       scriptLocation: inlineScript
       inlineScript: |
         make -f packer.mk run-imagecustomizer
-    condition: eq(variables['BUILDER'], 'imagecustomizer')
+    condition: and(succeeded(), eq(variables['BUILDER'], 'imagecustomizer'))
     displayName: Build VHD - Image Customizer
     retryCountOnTaskFailure: 3
     env:
@@ -164,6 +244,19 @@ steps:
       echo "##vso[task.setvariable variable=VHD_DEBUG]False"
     condition: always()
     displayName: Set Post-Build Variables
+
+  - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
+    - bash: |
+        echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
+      name: exportCapturedSigVersion
+      displayName: Export Captured SIG Version for COSI convert
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+
+    - bash: |
+        echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${IMAGE_VERSION}"
+      name: exportImageVersion
+      displayName: Export Image Version for COSI convert
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   - bash: |
       set -euo pipefail
@@ -268,46 +361,6 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       DRY_RUN: $(DRY_RUN)
 
-  - bash: |
-      set -euo pipefail
-
-      metadata_dir="$(Build.ArtifactStagingDirectory)/e2e-vhd-metadata"
-      metadata_file="${metadata_dir}/${VHD_ARTIFACT_NAME}.json"
-      mkdir -p "$metadata_dir"
-
-      if [ -z "${MANAGED_SIG_ID}" ]; then
-        echo "##vso[task.logissue type=error]Packer did not return a managed SIG image version ID" >&2
-        exit 1
-      fi
-
-      regions="$(jq -nc \
-        --arg buildLocation "${PACKER_BUILD_LOCATION}" \
-        --arg replications "${REPLICATIONS:-}" \
-        '([$buildLocation] + ($replications | split(",") | map(split("=")[0] | gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))) | unique')"
-
-      jq -n \
-        --arg imageName "${SIG_IMAGE_NAME}" \
-        --arg resourceId "${MANAGED_SIG_ID}" \
-        --arg version "${CAPTURED_SIG_VERSION}" \
-        --argjson regions "$regions" \
-        '{($imageName): {resourceId: $resourceId, version: $version, regions: $regions}}' > "$metadata_file"
-    condition: succeeded()
-    displayName: Create E2E VHD metadata
-    env:
-      VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
-      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
-      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
-      MANAGED_SIG_ID: $(MANAGED_SIG_ID)
-      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
-      REPLICATIONS: $(REPLICATIONS)
-
-  - task: PublishPipelineArtifact@0
-    condition: succeeded()
-    displayName: Publish E2E VHD metadata
-    inputs:
-      artifactName: 'e2e-vhd-metadata-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)'
-      targetPath: '$(Build.ArtifactStagingDirectory)/e2e-vhd-metadata/${{ parameters.artifactName }}.json'
-
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
@@ -327,15 +380,23 @@ steps:
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       LOCATION: $(PACKER_BUILD_LOCATION)
+      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
       SIG_GALLERY_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       SKU_NAME: $(SKU_NAME)
+      OS_SKU: $(OS_SKU)
       STORAGE_ACCOUNT_BLOB_URL: $(CLASSIC_BLOB)
       STORAGE_ACCOUNT_BLOB_URL_STAGING: $(CLASSIC_BLOB_STAGING)
       VHD_NAME: $(VHD_NAME)
       IMAGE_BUILDER_IDENTITY_ID: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
+      BUILD_BUILDID: $(Build.BuildId)
+      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
+      BUILD_NUMBER: $(Build.BuildNumber)
+      BRANCH: $(Build.SourceBranch)
+      IMG_SKU: $(IMG_SKU)
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
       HYPERV_GENERATION: $(HYPERV_GENERATION)
       FEATURE_FLAGS: $(FEATURE_FLAGS)
@@ -391,7 +452,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
-    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'NVIDIA_GB', 'NVIDIA_CUDA_PREBAKE'))
+    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'NVIDIA_GB'))
     displayName: Copy CIS Reports
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
@@ -452,12 +513,127 @@ steps:
         succeeded(),
         eq(variables.ENVIRONMENT, 'tme'),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          not(and(eq('${{ parameters.ENABLE_COSI_PUBLISHING }}', true), eq(variables['OS_SKU'], 'AzureContainerLinux'))),
         or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.PREFETCH_COMPATIBLE, 'False')
         )
       )
     displayName: Copy to Immutable Storage Container
+
+  # The COSI convert jobs read the ACL VHD from the immutable container.
+  - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          set -euo pipefail
+          bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
+          echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${CLASSIC_BLOB}"
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.ENVIRONMENT, 'tme'),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux')
+        )
+      displayName: Copy ACL VHD to Immutable Storage Container
+
+    - bash: |
+        echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER;isOutput=true]${DESTINATION_STORAGE_CONTAINER}"
+      name: exportDestinationStorageContainer
+      displayName: Export Destination Storage Container for COSI convert
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+
+        metadata_file="${BUILD_ARTIFACTSTAGINGDIRECTORY:?}/e2e-vhd-metadata/${VHD_ARTIFACT_NAME}.json"
+
+        if [ -z "${MANAGED_SIG_ID:-}" ]; then
+            echo "##vso[task.logissue type=error]Packer did not return a managed SIG image version ID" >&2
+            exit 1
+        fi
+
+        regions="$(jq -nc \
+            --arg buildLocation "${PACKER_BUILD_LOCATION:?}" \
+            --arg replications "${REPLICATIONS:-}" \
+            '([$buildLocation] + ($replications | split(",") | map(split("=")[0] | gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))) | unique')"
+
+        metadata="$(jq -nc \
+            --arg imageName "${SIG_IMAGE_NAME:?}" \
+            --arg resourceId "${MANAGED_SIG_ID}" \
+            --arg version "${CAPTURED_SIG_VERSION:?}" \
+            --argjson regions "${regions}" \
+            '{($imageName): {resourceId: $resourceId, version: $version, regions: $regions}}')"
+
+        prefetch_settings="${GENERATE_PUBLISHING_INFO:-False}:${RUN_PREFETCH_OPTIMIZATION:-False}:${PREFETCH_COMPATIBLE:-False}"
+        case "${prefetch_settings,,}:${OS_SKU,,}:${FEATURE_FLAGS,,}" in
+            true:true:true:ubuntu:*cvm*|true:true:true:azurelinux:*cvm*)
+                # Preserve the capture entry; query the generalized version in the same gallery.
+                gallery_id="${MANAGED_SIG_ID%/images/*}"
+                generalized_id="${gallery_id}/images/${SKU_NAME:?}/versions/${CAPTURED_SIG_VERSION}"
+                echo "Reading generalized CVM image ${SKU_NAME}/${CAPTURED_SIG_VERSION} for E2E metadata"
+                if ! generalized_version="$(
+                    az sig image-version show --ids "${generalized_id}" --expand ReplicationStatus \
+                        --output json --only-show-errors
+                )"; then
+                    echo "##vso[task.logissue type=warning]Unable to read generalized CVM image ${generalized_id}; omitting it from E2E metadata" >&2
+                elif ! generalized_entry="$(jq -ce --arg expectedId "${generalized_id}" --arg version "${CAPTURED_SIG_VERSION}" --arg buildLocation "${PACKER_BUILD_LOCATION}" '
+                    select((.id | type) == "string") |
+                    select((.id | ascii_downcase) == ($expectedId | ascii_downcase)) |
+                    select(.provisioningState == "Succeeded" and
+                        any(.replicationStatus.summary[]?; .region == $buildLocation and .state == "Completed")) |
+                    {
+                        resourceId: .id,
+                        version: $version,
+                        regions: ([.replicationStatus.summary[]? |
+                            select(.state == "Completed") | .region |
+                            select(type == "string" and length > 0)] | unique)
+                    } |
+                    select(.regions | length > 0)
+                ' <<<"${generalized_version}")"; then
+                    echo "##vso[task.logissue type=warning]Generalized CVM image ${generalized_id} is not ready with confirmed replica regions; omitting it from E2E metadata" >&2
+                else
+                    metadata="$(jq -c --arg imageName "${SKU_NAME}" --argjson entry "${generalized_entry}" \
+                        '. + {($imageName): $entry}' <<<"${metadata}")"
+                    echo "Added image ready for E2Es: ${SKU_NAME}/${CAPTURED_SIG_VERSION}, replicated regions: $(jq -r '.regions | join(", ")' <<<"${generalized_entry}")"
+                fi
+                ;;
+        esac
+
+        mkdir -p "$(dirname "${metadata_file}")"
+        printf '%s\n' "${metadata}" >"${metadata_file}"
+        echo "Created E2E VHD metadata: ${metadata_file}"
+    condition: succeeded()
+    displayName: Create E2E VHD metadata
+    env:
+      GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
+      RUN_PREFETCH_OPTIMIZATION: $(RUN_PREFETCH_OPTIMIZATION)
+      PREFETCH_COMPATIBLE: $(PREFETCH_COMPATIBLE)
+      VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
+      SKU_NAME: $(SKU_NAME)
+      OS_SKU: $(OS_SKU)
+      FEATURE_FLAGS: $(FEATURE_FLAGS)
+      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+      MANAGED_SIG_ID: $(MANAGED_SIG_ID)
+      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
+      REPLICATIONS: $(REPLICATIONS)
+
+  - task: PublishPipelineArtifact@0
+    condition: succeeded()
+    displayName: Publish E2E VHD metadata
+    inputs:
+      artifactName: 'e2e-vhd-metadata-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)'
+      targetPath: '$(Build.ArtifactStagingDirectory)/e2e-vhd-metadata/${{ parameters.artifactName }}.json'
 
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program
@@ -515,6 +691,7 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
       OFFER_NAME: $(OS_SKU)
+      IMAGE_VERSION: $(IMAGE_VERSION)
 
   - task: PublishPipelineArtifact@1
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))

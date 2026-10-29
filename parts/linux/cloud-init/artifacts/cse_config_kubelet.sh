@@ -206,44 +206,6 @@ ensurePodInfraContainerImage() {
     rm -f ${POD_INFRA_CONTAINER_IMAGE_TAR}
 }
 
-validateKubeletNodeLabels() {
-    local labels="$1"
-    local validated_labels=""
-    local delimiter=""
-
-    # Return empty if no labels provided
-    if [ -z "$labels" ]; then
-        echo "No labels found in KUBELET_NODE_LABELS"
-        return 0
-    fi
-
-    # Split labels by comma and process each
-    IFS=',' read -ra LABEL_ARRAY <<< "$labels"
-    for label in "${LABEL_ARRAY[@]}"; do
-        # Split each label into key and value
-        # shellcheck disable=SC3010
-        if [[ "$label" == *"="* ]]; then
-            key="${label%%=*}"
-            value="${label#*=}"
-
-            # Check if key length exceeds 63 characters
-            if [ ${#key} -gt 63 ]; then
-                echo "Warning: Label key '$key' exceeds 63 characters, truncating to 63 characters" >&2
-                key="${key:0:63}"
-            fi
-
-            # Rebuild the label with potentially truncated key
-            validated_labels="${validated_labels}${delimiter}${key}=${value}"
-        fi
-
-        # Set delimiter for subsequent labels
-        delimiter=","
-    done
-
-    # Update the global variable with validated labels
-    KUBELET_NODE_LABELS="$validated_labels"
-}
-
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -286,6 +248,17 @@ EOF
     if [ -n "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         echo "using bootstrap token to generate a bootstrap-kubeconfig"
 
+        if [ "${REMOVE_BOOTSTRAP_KUBECONFIG:-false}" = "true" ]; then
+            REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN="/etc/systemd/system/kubelet.service.d/10-remove-bootstrap-kubeconfig.conf"
+            mkdir -p "$(dirname "${REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN}")"
+            touch "${REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN}"
+            chmod 0600 "${REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN}"
+            tee "${REMOVE_BOOTSTRAP_KUBECONFIG_DROP_IN}" > /dev/null <<EOF
+[Service]
+ExecStartPost=-/bin/bash /opt/azure/containers/remove-bootstrap-kubeconfig.sh
+EOF
+        fi
+
         CREDENTIAL_VALIDATION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-credential-validation.conf"
         mkdir -p "$(dirname "${CREDENTIAL_VALIDATION_DROP_IN}")"
         touch "${CREDENTIAL_VALIDATION_DROP_IN}"
@@ -306,7 +279,7 @@ Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfi
 EOF
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0600 "${BOOTSTRAP_KUBECONFIG_FILE}"
         tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
@@ -362,13 +335,10 @@ EOF
 #!/bin/bash
 # Disallow container from reaching out to the special IP address 168.63.129.16
 # for TCP protocol (which http uses)
-#
 # 168.63.129.16 contains protected settings that have priviledged info.
 # HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.
 # IT listens on both port 80 and 32526 hence access is only needed for agent but not the containers.
-#
 # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
-#
 # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
 # for DNS.
 
@@ -508,6 +478,12 @@ writeCredentialProviderConfig() {
       - --registry-mirror=${MCR_REPOSITORY_BASE}:${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
     fi
 
+    # Temporary workaround: GODEBUG=tlsmlkem=0 disables ML-KEM TLS key exchange.
+    # VirtualNode2 runs the host credential-provider binary with its own OpenSSL
+    # libraries; older versions reject ML-KEM key generation and break image pulls.
+    # Keep this until users have time to upgrade their VirtualNode2 Helm deployments
+    # to a version with fixed libraries. This affects only the credential provider.
+    # https://github.com/microsoft/azurelinux/issues/18546
     if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
         tee "${config_file_path}" > /dev/null <<EOF
@@ -515,6 +491,9 @@ apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -537,6 +516,9 @@ apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
   - name: acr-credential-provider
+    env:
+      - name: GODEBUG
+        value: tlsmlkem=0
     matchImages:
       - "*.azurecr.io"
       - "*.azurecr.cn"
@@ -573,5 +555,3 @@ setKubeletNodeIPFlag() {
         KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
     fi
 }
-
-#EOF

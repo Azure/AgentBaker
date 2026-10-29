@@ -164,6 +164,12 @@ ERR_AZNFS_INSTALL_FAIL=242 # Failed to install aznfs RPM package
 ERR_SECONDARY_NIC_CONFIG_FAIL=243 # Error configuring secondary NIC network interface
 # -----------------------------------------------------------------------------
 
+# ----------------------- Chrony ----------------------------------------------
+ERR_CVM_PLATFORM_DETECTION_FAIL=244 # Unable to distinguish SEV-SNP from TDX
+ERR_CHRONY_NTP_SYNC_FAIL=245 # Chrony could not synchronize with the configured NTP pools
+ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for Intel TDX
+# -----------------------------------------------------------------------------
+
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
 [ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
 
@@ -617,10 +623,6 @@ systemctl_disable() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4"
 }
 
-sysctl_reload() {
-    retrycmd_silent $1 $2 $3 "false" sysctl --system
-}
-
 systemctlEnableAndStart() {
     service=$1; timeout=$2
     systemctl_restart 100 5 $timeout $service
@@ -684,10 +686,65 @@ waitForContainerdReady() {
     fi
 }
 
+# A unit that isn't installed is not an error, a unit that resists stop/disable is.
+# The optional second argument enables SSH telemetry without changing other callers.
 systemctlDisableAndStop() {
+    local unit=$1 attempt_id=${2:-} result=0
+    local cat_result=0 stop_result=null disable_result=null
+    local start_time
+    if [ -n "$attempt_id" ]; then
+        start_time=$(date -u +"%F %T.%3N")
+        emitSSHDisableEvent "$attempt_id" Started "$unit" "$start_time" null '{}' ||
+            echo "WARNING: could not emit SSH disable start event for $unit" >&2
+    fi
+    if systemctl cat "$unit" &>/dev/null; then
+        stop_result=0
+        systemctl_stop 20 5 25 "$unit" || { stop_result=$?; echo "$unit could not be stopped"; result=1; }
+        disable_result=0
+        systemctl_disable 20 5 25 "$unit" || { disable_result=$?; echo "$unit could not be disabled"; result=1; }
+    else
+        cat_result=$?
+    fi
+    if [ -n "$attempt_id" ]; then
+        local details
+        if details=$(jq -cn \
+                        --argjson results "[$cat_result,$stop_result,$disable_result]" \
+                        '$results | {CatExitCode: .[0], StopExitCode: .[1], DisableExitCode: .[2], Skipped: (.[0] != 0)}'); then
+            emitSSHDisableEvent "$attempt_id" Completed "$unit" "$start_time" "$result" "$details" ||
+                echo "WARNING: could not emit SSH disable result event for $unit" >&2
+        else
+            echo "WARNING: could not serialize SSH disable result for $unit" >&2
+        fi
+    fi
+    return "$result"
+}
+
+emitSSHDisableEvent() {
+        local task="AKS.CSE.disableSSH" event_file
+        [ -z "$3" ] || task="${task}.unit"
+    mkdir -p "$EVENTS_LOGGING_DIR" || return 1
+    event_file=$(mktemp "${EVENTS_LOGGING_DIR%/}/../.ssh-disable.XXXXXX") || return 1
+    if ! jq -cn \
+                --arg Timestamp "$4" --arg OperationId "$(date -u +"%F %T.%3N")" --arg TaskName "$task" \
+                --arg AttemptId "$1" --arg Phase "$2" --arg Unit "$3" \
+                --argjson ExitCode "$5" --argjson Details "$6" \
+                '{Timestamp: $Timestamp, OperationId: $OperationId, TaskName: $TaskName, Version: "1.23", EventPid: 0, EventTid: 0,
+          EventLevel: (if ($ExitCode // 0) != 0 then "Error" else "Informational" end),
+                    Message: ({AttemptId: $AttemptId, Phase: $Phase, Unit: $Unit,
+                        ExitCode: $ExitCode, SchemaVersion: 1} + $Details | tojson)}' > "$event_file" ||
+        ! mv "$event_file" "${EVENTS_LOGGING_DIR%/}/$(date +%s%N)${BASHPID:-$$}${RANDOM}.json"; then
+        rm -f "$event_file"
+        return 1
+    fi
+}
+
+# Like systemctlDisableAndStop, but also reset-failed so a unit we tear down and never start
+# isn't left in systemd "failed" state for node-health checks -- e.g. the vendor
+# compute-domain-kubelet-plugin.service the dra-driver deb auto-starts (and fails) on x86 managed-DRA.
+systemctlDisableStopAndResetFailed() {
+    systemctlDisableAndStop "$1"
     if systemctl cat "$1" &>/dev/null; then
-        systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
-        systemctl_disable 20 5 25 $1 || echo "$1 could not be disabled"
+        systemctl reset-failed "$1" 2>/dev/null || true
     fi
 }
 
@@ -839,7 +896,8 @@ isARM64() {
 
 isRegistryUrl() {
     local binary_url=$1
-    registry_regex='^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(\/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*:[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$' # regex copied from https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pull
+    # regex copied from https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pull
+    registry_regex='^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(\/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*:[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$'
     # shellcheck disable=SC3010
     if [[ ${binary_url} =~ $registry_regex ]]; then # check if the binary_url is in the format of mcr.microsoft.com/componant/binary:1.0"
         return 0 # true
@@ -851,7 +909,10 @@ logs_to_events() {
     # local vars here allow for nested function tracking
     # installContainerRuntime for example
     local task=$1; shift
-    local eventsFileName=$(date +%s%3N)
+    # The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+    # timestamp plus the emitting process's PID is unique by construction: two live
+    # processes cannot share a PID, and two forks of date cannot share a nanosecond.
+    local eventsFileName="$(date +%s%N)${BASHPID}"
 
     local startTime=$(date +"%F %T.%3N")
     ${@}
@@ -963,7 +1024,9 @@ get_imds_vm_tag_value() {
 }
 
 isAmdAmaEnabledNode() {
-    if [ "$(get_compute_sku)" = "Standard_NM16ads_MA35D" ]; then
+    local sku_name
+    sku_name=$(get_compute_sku)
+    if [ "$sku_name" = "Standard_NM16ads_MA35D" ] || [ "$sku_name" = "Standard_NM320ads_MA35D" ]; then
         return 0
     fi
     return 1
@@ -1055,6 +1118,16 @@ isAzureLinux() {
     return 1
 }
 
+isAzureLinuxArm64BaseImage() {
+    local os="$1"
+    local cpu_arch="$2"
+    local os_variant="$3"
+
+    [ "$os" = "$AZURELINUX_OS_NAME" ] &&
+        [ "$cpu_arch" = "arm64" ] &&
+        [ -z "$os_variant" ]
+}
+
 isFlatcar() {
     local os=${1-$OS}
     if [ "$os" = "$FLATCAR_OS_NAME" ]; then
@@ -1101,19 +1174,6 @@ evalPackageDownloadURL() {
     echo ""
 }
 
-installJq() {
-    # jq is not available until downloaded in install-dependencies.sh with the installDeps function
-    # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
-    if command -v jq &> /dev/null; then
-        return 0
-    fi
-    if isMarinerOrAzureLinux "$OS"; then
-        tdnf install -y jq && echo "jq was installed: $(jq --version)"
-    else
-        apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
-    fi
-}
-
 # Returns the JSON for the given package on the given OS and OS version.
 getPackageJSON() {
     local package=$1
@@ -1148,19 +1208,6 @@ getPackageJSON() {
 updatePackageVersions() {
     PACKAGE_VERSIONS=()
     readarray -t PACKAGE_VERSIONS < <(jq -r "if .versionsV2 == null then .versions // [] else .versionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$(getPackageJSON "$@")")
-    return
-}
-
-# sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
-updateMultiArchVersions() {
-    MULTI_ARCH_VERSIONS=()
-    readarray -t MULTI_ARCH_VERSIONS < <(jq -r "if .multiArchVersionsV2 == null then .multiArchVersions // [] else .multiArchVersionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$1")
-    return
-}
-
-# sets PACKAGE_DOWNLOAD_URL to the URL of the package based on the os and osVersion
-updatePackageDownloadURL() {
-    PACKAGE_DOWNLOAD_URL=$(jq -r ".downloadURL | values" <<< "$(getPackageJSON "$@")")
     return
 }
 
@@ -1285,28 +1332,6 @@ removeKubeletFlag() {
     elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
         KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
     fi
-}
-
-verify_DNS_health(){
-    local domain_name=$1
-    if [ -z "$domain_name" ]; then
-        echo "DNS domain is empty"
-        return $ERR_DNS_HEALTH_FAIL
-    fi
-
-    dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
-    if [ "$?" -ne 0 ]; then
-        echo "Failed to resolve root domain '.'"
-        return $ERR_DNS_HEALTH_FAIL
-    fi
-
-    dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
-    ret_code=$?
-    if [ "$ret_code" -ne 0 ] || [ -z "$dig_check_domain" ]; then
-        echo "Failed to resolve domain $domain_name return code: $ret_code"
-        return $ERR_DNS_HEALTH_FAIL
-    fi
-    echo "DNS health check passed"
 }
 
 resolve_packages_source_url() {
@@ -1481,51 +1506,6 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
-configureSSHService() {
-    local os_param="${1:-$OS}"
-    local os_version_param="${2:-$OS_VERSION}"
-
-    # If not Ubuntu, no changes needed
-    if [ "$os_param" != "$UBUNTU_OS_NAME" ]; then
-        return 0
-    fi
-
-    # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
-    if semverCompare "22.10" "$os_version_param" ; then
-        return 0
-    fi
-
-    # For Ubuntu 22.10+ with socket-based SSH activation
-    # disable socket if is active
-    if systemctl is-active --quiet ssh.socket; then
-        # Socket is active, disable it and switch to service-based activation
-        systemctl disable --now ssh.socket || echo "Warning: Could not disable ssh.socket"
-    fi
-
-    # Remove the socket-based configuration files if present
-    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
-        rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
-    fi
-
-    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
-        rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
-    fi
-
-    # For all Ubuntu versions, just make sure ssh service is enabled and running
-    if ! systemctl is-enabled --quiet ssh.service; then
-        echo "Enabling SSH service..."
-        systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
-    fi
-    # Verify SSH service is now running
-    if ! systemctl is-active --quiet ssh; then
-        echo "Error: Failed to start SSH service after configuration changes"
-        return $ERR_SYSTEMCTL_START_FAIL
-    fi
-
-    echo "SSH service successfully reconfigured and started"
-    return 0
-}
-
 # Helper to extract tarballs with --no-same-owner for portability and security
 # Usage: extract_tarball <tarball> <destination> [tar options]
 # Always uses --no-same-owner
@@ -1607,14 +1587,12 @@ function get_sandbox_image_from_containerd_config() {
 # kube-reserved and system-reserved enforcement tiers (Node Memory Hardening F2/F5).
 # It MUST be called before kubelet starts so that /kubereserved.slice and /system.slice
 # exist and are managed by systemd before the first kubelet enforcement pass.
-#
 # The function:
 #   - Asserts cgroupv2 unified hierarchy (cgroupv1 is not supported by this feature
 #     because mixed/legacy hierarchies cannot reliably enforce per-slice MemoryMax).
 #   - Drops a /etc/systemd/system/kubereserved.slice unit (system.slice ships with systemd).
 #   - Triggers `systemctl daemon-reload` and `systemctl start kubereserved.slice` so the
 #     cgroup is materialised at /sys/fs/cgroup/kubereserved.slice prior to kubelet boot.
-#
 # Inputs (env, all optional — the function is a no-op if the RP did not opt in):
 #   KUBE_RESERVED_CGROUP    — absolute cgroup name, e.g. "/kubereserved.slice"
 #   SYSTEM_RESERVED_CGROUP  — absolute cgroup name, e.g. "/system.slice"
@@ -1624,7 +1602,6 @@ function get_sandbox_image_from_containerd_config() {
 # from KUBELET_FLAGS as a fallback. Both vars are unset (empty string) when the RP did
 # not opt the pool into Node Memory Hardening, which keeps ensureKubeletCgroupHierarchy
 # a no-op for non-hardened pools.
-#
 # When kubelet config-file mode is enabled, --kube-reserved-cgroup /
 # --system-reserved-cgroup are filtered out of KUBELET_FLAGS by the RP
 # (TranslatedKubeletConfigFlags) and rendered into kubeletconfig.json instead, so

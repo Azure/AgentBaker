@@ -1,6 +1,11 @@
 #!/bin/bash
 
 configPrivateClusterHosts() {
+    if [ ! -f /etc/systemd/system/reconcile-private-hosts.service ]; then
+        echo "Skipping private hosts reconciliation: service is absent"
+        return 0
+    fi
+
     mkdir -p /etc/systemd/system/reconcile-private-hosts.service.d/
     touch /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf
     tee /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf > /dev/null <<EOF
@@ -74,6 +79,12 @@ ensureDHCPv6() {
 }
 
 ensureAzureNetworkConfig() {
+    if [ ! -x /opt/azure-network/configure-azure-network.sh ] ||
+       [ ! -f /etc/udev/rules.d/99-azure-network.rules ]; then
+        echo "Skipping Azure NIC tuning: image does not contain required files"
+        return 0
+    fi
+
     # Reload udev rules to pick up the new azure-network rules
     udevadm control --reload-rules
 
@@ -274,5 +285,3 @@ NETWORKD_EOF
         fi
     fi
 }
-
-#EOF

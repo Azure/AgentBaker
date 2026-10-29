@@ -23,8 +23,10 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version: '1.26'
+        go-version: '1.27'
     - name: Run unit tests for go code in the repository (with coverage)
+      env:
+        CSE_SCRIPT_DIFF_DIR: ${{ runner.temp }}/cse-minification-diffs
       # Single instrumented pass instead of `make test` followed by a second coverage run:
       # this builds and tests each module once, mirroring what `make test` does, while also
       # producing coverage profiles.
@@ -36,6 +38,15 @@ jobs:
         go test $(go list ./... | grep -v e2e) -coverprofile=coverage/agentbaker.out -covermode=atomic
         (cd aks-node-controller && go build -mod=readonly ./... && go test ./... -coverprofile=../coverage/aks-node-controller.out -covermode=atomic)
         (cd aks-live-patching && go build -mod=readonly ./... && go test ./... -coverprofile=../coverage/aks-live-patching.out -covermode=atomic)
+        (cd vhdbuilder/cosi-uploader && go build -mod=readonly ./... && go test ./... -coverprofile=../../coverage/cosi-uploader.out -covermode=atomic)
+    - name: Upload CSE minification diffs
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      if: (!cancelled())
+      with:
+        name: cse-minification-diffs
+        path: ${{ runner.temp }}/cse-minification-diffs
+        if-no-files-found: error
+        retention-days: 5
     - name: Strip generated/mock code from coverage profiles
       run: |
         set -ex
@@ -57,8 +68,12 @@ jobs:
           (cd aks-live-patching && gocover-cobertura < ../coverage/aks-live-patching.out > ../coverage/aks-live-patching.xml)
         fi
         rm -f coverage/*.out
+    - name: Test GRID driver version validation
+      run: |
+        cd e2e
+        go test -short ./scenario -run '^TestNvidiaDriverVersionValidationScript'
     - name: Upload coverage reports
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: (!cancelled())
       with:
         name: go-coverage

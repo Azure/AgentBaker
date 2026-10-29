@@ -59,27 +59,27 @@ type executor struct {
 	consoleMu   sync.Mutex
 	resultsMu   sync.Mutex
 	results     []scenarioResult
-	scheduled   []string
-	finalized   bool
+	shutdownCtx context.Context
+	shutdown    context.CancelCauseFunc
 	scenarios   sync.WaitGroup
 	runScenario func(context.Context, string, string, *scenario.Scenario) scenario.Outcome
 }
 
 func newExecutor(ctx context.Context, stdout io.Writer, opts runOptions, runnable int) *executor {
+	shutdownCtx, shutdown := context.WithCancelCause(context.Background())
 	return &executor{
 		ctx:         ctx,
 		stdout:      stdout,
 		opts:        opts,
 		stream:      opts.outputMode == "stream" || (opts.outputMode == "auto" && runnable <= 3),
 		sem:         make(chan struct{}, opts.parallel),
+		shutdownCtx: shutdownCtx,
+		shutdown:    shutdown,
 		runScenario: scenario.Run,
 	}
 }
 
 func (e *executor) schedule(name string, original *scenario.Scenario) {
-	e.resultsMu.Lock()
-	e.scheduled = append(e.scheduled, name)
-	e.resultsMu.Unlock()
 	e.scenarios.Add(1)
 	go func() {
 		defer e.scenarios.Done()
@@ -88,6 +88,7 @@ func (e *executor) schedule(name string, original *scenario.Scenario) {
 }
 
 func (e *executor) wait(gracePeriod time.Duration) error {
+	defer e.shutdown(nil)
 	done := make(chan struct{})
 	go func() {
 		e.scenarios.Wait()
@@ -107,29 +108,9 @@ func (e *executor) wait(gracePeriod time.Duration) error {
 		return e.ctx.Err()
 	case <-timer.C:
 		err := fmt.Errorf("scenarios did not stop within %s after suite cancellation: %w", gracePeriod, e.ctx.Err())
-		e.failUnfinished(err)
+		e.shutdown(err)
+		<-done
 		return err
-	}
-}
-
-func (e *executor) failUnfinished(err error) {
-	e.resultsMu.Lock()
-	defer e.resultsMu.Unlock()
-	e.finalized = true
-
-	finished := make(map[string]struct{}, len(e.results))
-	for _, result := range e.results {
-		finished[result.Name] = struct{}{}
-	}
-	for _, name := range e.scheduled {
-		if _, ok := finished[name]; ok {
-			continue
-		}
-		e.results = append(e.results, scenarioResult{
-			Name:     name,
-			Status:   statusFailed,
-			Attempts: []attemptResult{{Attempt: 1, Status: statusFailed, Message: err.Error()}},
-		})
 	}
 }
 
@@ -189,20 +170,18 @@ func (e *executor) executeAttempt(name string, attempt int, original *scenario.S
 	result = attemptResult{Attempt: attempt, LogPath: logPath}
 	var outcome scenario.Outcome
 	defer func() {
-		if recovered := recover(); recovered != nil {
-			outcome.Error = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
-		}
 		logErr := logger.Err()
 		if logErr != nil {
 			addLogError(&outcome, logErr)
 		}
-		switch status, message := classifyAttempt(outcome); status {
+		status, message := classifyAttempt(outcome)
+		switch status {
 		case statusSkipped:
-			logger.Log("SKIP:", message)
+			message = "SKIP: " + message
 		case statusFailed:
-			logger.Log("🔴 FAIL:", message)
+			message = "🔴 FAIL: " + message
 		}
-		if closeErr := logger.Close(); logErr == nil {
+		if closeErr := logger.Close(message); logErr == nil {
 			logErr = closeErr
 			if closeErr != nil {
 				addLogError(&outcome, closeErr)
@@ -224,7 +203,23 @@ func (e *executor) executeAttempt(name string, attempt int, original *scenario.S
 		artifactName = filepath.Join(name, fmt.Sprintf("attempt-%d", attempt))
 	}
 	attemptCtx = logging.WithLogger(attemptCtx, logger)
-	outcome = e.runScenario(attemptCtx, name, artifactName, original)
+	// A blocked scenario must not prevent the runner from finalizing its logs.
+	outcomes := make(chan scenario.Outcome, 1)
+	go func() {
+		var outcome scenario.Outcome
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				outcome.Error = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
+			}
+			outcomes <- outcome
+		}()
+		outcome = e.runScenario(attemptCtx, name, artifactName, original)
+	}()
+	select {
+	case outcome = <-outcomes:
+	case <-e.shutdownCtx.Done():
+		outcome.Error = context.Cause(e.shutdownCtx)
+	}
 	return result
 }
 
@@ -263,10 +258,6 @@ func (e *executor) release() {
 
 func (e *executor) addResult(result scenarioResult) {
 	e.resultsMu.Lock()
-	if e.finalized {
-		e.resultsMu.Unlock()
-		return
-	}
 	e.results = append(e.results, result)
 	e.resultsMu.Unlock()
 }
@@ -412,6 +403,15 @@ func (l *scenarioLogger) Logf(format string, args ...any) {
 }
 
 func (l *scenarioLogger) write(message string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.file == nil {
+		return
+	}
+	l.writeLocked(message)
+}
+
+func (l *scenarioLogger) writeLocked(message string) {
 	prefix := fmt.Sprintf("[%.3fs] ", time.Since(l.started).Seconds())
 	var output strings.Builder
 	for _, line := range strings.Split(strings.TrimSuffix(message, "\n"), "\n") {
@@ -420,13 +420,9 @@ func (l *scenarioLogger) write(message string) {
 		output.WriteByte('\n')
 	}
 	formatted := output.String()
-	l.mu.Lock()
-	if l.file != nil {
-		if _, err := l.file.WriteString(formatted); err != nil {
-			l.recordErr(fmt.Errorf("write scenario log %s: %w", l.path, err))
-		}
+	if _, err := l.file.WriteString(formatted); err != nil {
+		l.recordErr(fmt.Errorf("write scenario log %s: %w", l.path, err))
 	}
-	l.mu.Unlock()
 	if l.executor.stream {
 		l.executor.consoleMu.Lock()
 		for _, line := range strings.Split(strings.TrimSuffix(formatted, "\n"), "\n") {
@@ -465,10 +461,13 @@ func (l *scenarioLogger) FlushConsole(status resultStatus, attempt, maxAttempts 
 	_, _ = fmt.Fprintf(l.executor.stdout, "=== %s (%s) ===\n%s", name, label, output)
 }
 
-func (l *scenarioLogger) Close() error {
+func (l *scenarioLogger) Close(message string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.file != nil {
+		if message != "" {
+			l.writeLocked(message)
+		}
 		if err := l.file.Sync(); err != nil {
 			l.recordErr(fmt.Errorf("sync scenario log %s: %w", l.path, err))
 		}

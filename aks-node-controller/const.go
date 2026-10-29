@@ -6,4 +6,5 @@ const (
 	logPath                   = "/var/log/azure/aks-node-controller.log"
 	provisionJSONFilePath     = "/var/log/azure/aks/provision.json"
 	provisionCompleteFilePath = "/opt/azure/containers/provision.complete"
+	readyReportMarkerPath     = "/var/lib/waagent/experimental_skip_ready_report"
 )

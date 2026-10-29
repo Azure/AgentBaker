@@ -213,6 +213,8 @@ Package-backed component entries use revisionless upstream versions whenever the
 
 The `ig-gadgets` versions remain in `install-ig.sh` because their publication differs from the `ig` package. Renovate tracks their upstream version from the PMC feeds, and the VHD build resolves the latest matching DEB or RPM revision.
 
+Trivy uses one `TRIVY_PMC_VERSION` in `trivy-scan.sh` for Ubuntu and Azure Linux, specified as `major.minor.patch`; scanning resolves the latest matching DEB or RPM revision for the selected distro. Renovate tracks the PMC RPM feed and strips package revisions from updates. The separate GitHub fallback version continues to track actual upstream releases for SKUs without PMC packages.
+
 Each resolution is logged as `requested -> full package version` and written to the VHD release notes. The release notes also include the distro's complete installed-package inventory; explicit resolution entries cover packages that are cached or unpacked without being registered as installed packages.
 
 ## Can I keep only 1 patch version?

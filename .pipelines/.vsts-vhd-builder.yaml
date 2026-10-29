@@ -12,6 +12,7 @@ pr:
     - vhdbuilder/packer
     - vhdbuilder/scripts/linux
     - .pipelines/.vsts-vhd-builder.yaml
+    - .pipelines/templates/acl-image-versions.yaml
     - .pipelines/templates/.builder-release-template.yaml
     - .pipelines/templates/.template-override-components-json.yaml
     - .pipelines/templates/.template-copy-file.yaml
@@ -23,6 +24,7 @@ pr:
     - go.mod
     - go.sum
     exclude:
+    - CODEOWNERS
     - schemas/windows_settings.cue
     - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
@@ -37,9 +39,35 @@ pr:
 pool:
   name: $(POOL_NAME)
 
+parameters:
+  - name: ACL_BASE_IMAGE_SOURCE
+    type: string
+    default: acg
+    values:
+      - acg
+      - acldevel
+  # The Run pipeline form marks a string parameter whose default is "" as required,
+  # so these default to a single space. Leave the space to keep the pinned versions;
+  # values are trimmed where they're used.
+  - name: ACL_BASE_IMAGE_VERSION
+    displayName: ACL base image version override - shared fallback
+    type: string
+    default: " "
+  - name: ACL_BASE_IMAGE_VERSION_AMD64
+    displayName: ACL base image version override - AMD64
+    type: string
+    default: " "
+  - name: ACL_BASE_IMAGE_VERSION_ARM64
+    displayName: ACL base image version override - ARM64
+    type: string
+    default: " "
+
 variables:
+  - template: ./templates/acl-image-versions.yaml
   - name: MODE
     value: "linuxVhdMode"
+  - name: USE_SHALLOW_REPLICATION
+    value: "true"
   - group: aks-vuln-to-kusto
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
@@ -84,10 +112,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-            # NVIDIA_CUDA_PREBAKE bakes the CUDA driver kernel module into this shared x86 gen2 image so GPU
-            # nodes can later skip the ~80-150s in-CSE DKMS compile via the configGPUDrivers skip-build path
-            # (PR #8787); non-GPU and --gpu-driver None nodes tear the module down during provisioning.
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]NVIDIA_CUDA_PREBAKE'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -131,10 +156,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-            # NVIDIA_CUDA_PREBAKE bakes the CUDA driver kernel module into this shared x86 gen2 image so GPU
-            # nodes can later skip the ~80-150s in-CSE DKMS compile via the configGPUDrivers skip-build path
-            # (PR #8787); non-GPU and --gpu-driver None nodes tear the module down during provisioning.
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]NVIDIA_CUDA_PREBAKE'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
@@ -245,10 +267,6 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]acl'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
-            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -258,6 +276,11 @@ stages:
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
+        - template: ./templates/.acl-base-image-vars.yaml
+          parameters:
+            ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+            VARIANT: amd64
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(ne(trim(parameters.ACL_BASE_IMAGE_VERSION_AMD64), ''), trim(parameters.ACL_BASE_IMAGE_VERSION_AMD64), trim(parameters.ACL_BASE_IMAGE_VERSION)) }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-tl-gen2
@@ -268,10 +291,6 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]acl'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
-            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -281,6 +300,11 @@ stages:
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
+        - template: ./templates/.acl-base-image-vars.yaml
+          parameters:
+            ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+            VARIANT: arm64
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(ne(trim(parameters.ACL_BASE_IMAGE_VERSION_ARM64), ''), trim(parameters.ACL_BASE_IMAGE_VERSION_ARM64), trim(parameters.ACL_BASE_IMAGE_VERSION)) }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-tl-gen2
@@ -291,10 +315,6 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]acl'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-acl'
-            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -304,6 +324,11 @@ stages:
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
+        - template: ./templates/.acl-base-image-vars.yaml
+          parameters:
+            ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+            VARIANT: amd64
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(ne(trim(parameters.ACL_BASE_IMAGE_VERSION_AMD64), ''), trim(parameters.ACL_BASE_IMAGE_VERSION_AMD64), trim(parameters.ACL_BASE_IMAGE_VERSION)) }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-fips-tl-gen2
@@ -314,10 +339,6 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]acl'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
-            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-acl'
-            echo '##vso[task.setvariable variable=IMG_VERSION]3.20260809.01'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v6'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -327,6 +348,11 @@ stages:
             echo '##vso[task.setvariable variable=TRUSTED_LAUNCH_SUPPORTED]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
           displayName: Setup Build Variables
+        - template: ./templates/.acl-base-image-vars.yaml
+          parameters:
+            ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
+            VARIANT: arm64
+            SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(ne(trim(parameters.ACL_BASE_IMAGE_VERSION_ARM64), ''), trim(parameters.ACL_BASE_IMAGE_VERSION_ARM64), trim(parameters.ACL_BASE_IMAGE_VERSION)) }}
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: acl-arm64-fips-tl-gen2
@@ -343,3 +369,4 @@ stages:
         parameters:
           IgnoreScenariosWithMissingVhd: true
           useVhdMetadataArtifacts: true
+          ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}

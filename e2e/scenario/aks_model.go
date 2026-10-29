@@ -18,7 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v10"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
 
@@ -86,7 +86,7 @@ func azureOverlayNetworkDualStackClusterModelMutator(model *armcontainerservice.
 		networkProfile.PodCidr,
 		to.Ptr("fd12:3456:789a::/64"),
 	}
-	networkProfile.ServiceCidr = to.Ptr("172.16.0.0/16")
+	networkProfile.ServiceCidr = to.Ptr(clusterServiceCIDR)
 	networkProfile.ServiceCidrs = []*string{
 		networkProfile.ServiceCidr,
 		to.Ptr("fd12:3456:789a:1::/108"),
@@ -130,8 +130,8 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 			},
 			NetworkProfile: &armcontainerservice.NetworkProfile{
 				NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
-				ServiceCidr:   to.Ptr("172.16.0.0/16"),
-				DNSServiceIP:  to.Ptr("172.16.0.10"),
+				ServiceCidr:   to.Ptr(clusterServiceCIDR),
+				DNSServiceIP:  to.Ptr(clusterDNSServiceIP),
 			},
 			AddonProfiles: map[string]*armcontainerservice.ManagedClusterAddonProfile{
 				"omsagent": {
@@ -207,10 +207,25 @@ func getLatestGAKubernetesVersion(ctx context.Context, location string) (string,
 }
 
 func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID string) *armnetwork.AzureFirewall {
-	var (
-		natRuleCollections []*armnetwork.AzureFirewallNatRuleCollection
-		netRuleCollections []*armnetwork.AzureFirewallNetworkRuleCollection
-	)
+	var natRuleCollections []*armnetwork.AzureFirewallNatRuleCollection
+
+	// Public NTP pools use rotating addresses; restrict egress by source, protocol and port.
+	netRuleCollections := []*armnetwork.AzureFirewallNetworkRuleCollection{{
+		Name: to.Ptr("ntp"),
+		Properties: &armnetwork.AzureFirewallNetworkRuleCollectionPropertiesFormat{
+			Priority: to.Ptr[int32](200),
+			Action: &armnetwork.AzureFirewallRCAction{
+				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
+			},
+			Rules: []*armnetwork.AzureFirewallNetworkRule{{
+				Name:                 to.Ptr("ntp"),
+				SourceAddresses:      []*string{to.Ptr(SharedVNetCIDR)},
+				DestinationAddresses: []*string{to.Ptr("*")},
+				DestinationPorts:     []*string{to.Ptr("123")},
+				Protocols:            []*armnetwork.AzureFirewallNetworkRuleProtocol{to.Ptr(armnetwork.AzureFirewallNetworkRuleProtocolUDP)},
+			}},
+		},
+	}}
 
 	// Application rule for AKS FQDN tags
 	aksAppRule := armnetwork.AzureFirewallApplicationRule{

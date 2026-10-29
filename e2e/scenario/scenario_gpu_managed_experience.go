@@ -14,7 +14,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
 func getDCGMPackageNames(os string) []string {
@@ -360,6 +360,8 @@ func newUbuntuNvidiaDevicePluginScenario(name, description string, cluster func(
 					return err
 				}
 				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+					ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DevicePlugin"),
 					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
 					// Validate that the NVIDIA device plugin systemd service is running
 					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
@@ -812,7 +814,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_DraDriverNvidiaGpuRunning",
-	Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2",
+	Description: "Tests DRA driver and persisted driver mode on Ubuntu 24.04 VHD with containerd v2",
 	Tags: Tags{
 		GPU: true,
 	},
@@ -841,6 +843,8 @@ var _ = Register(&Scenario{
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
+				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
 				ValidateRuncVersion(ctx, s, runcVersions),
 				ValidateContainerRuntimePlugins(ctx, s),
@@ -857,7 +861,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_DraDriverNvidiaGpuRunning_AKSNodeController",
-	Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2 using aks-node-controller",
+	Description: "Tests DRA driver and persisted driver mode on Ubuntu 24.04 VHD with containerd v2 using aks-node-controller",
 	Tags: Tags{
 		GPU:        true,
 		Scriptless: true,
@@ -893,6 +897,8 @@ var _ = Register(&Scenario{
 			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
 			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
+				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
 				ValidateRuncVersion(ctx, s, runcVersions),
 				ValidateContainerRuntimePlugins(ctx, s),
@@ -903,6 +909,62 @@ var _ = Register(&Scenario{
 				return err
 			}
 			return ValidateDRAWorkloadSchedulable(ctx, s)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed",
+	Description: "Tests DRA driver and workload allocation of MIG 1g.10gb devices with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
+	Location:    "westus2",
+	Tags: Tags{
+		GPU: true,
+	},
+	Config: Config{
+		Cluster:               ClusterKubenet,
+		VHD:                   config.VHDUbuntu2404Gen2Containerd,
+		WaitForSSHAfterReboot: 5 * time.Minute,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+			nbc.ConfigGPUDriverIfNeeded = true
+			nbc.EnableNvidia = true
+			nbc.EnableManagedGPUDRA = true
+			nbc.GPUInstanceProfile = "MIG1g"
+			nbc.MigStrategy = "Mixed"
+		},
+		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+			vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+
+			extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+			if err != nil {
+				return fmt.Errorf("create AKS VM extension: %w", err)
+			}
+			vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			return nil
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
+			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
+
+			if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
+				return err
+			}
+			if err := ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb", 7); err != nil {
+				return err
+			}
+			if err := ValidateDraDriverNvidiaGpuServiceRunning(ctx, s); err != nil {
+				return err
+			}
+			if err := errors.Join(
+				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
+				ValidateContainerd2Properties(ctx, s, containerdVersions),
+				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerRuntimePlugins(ctx, s),
+			); err != nil {
+				return err
+			}
+			return ValidateDRAWithMIGWorkloadSchedulable(ctx, s, "1g.10gb")
 		},
 	},
 })

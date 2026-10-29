@@ -2,147 +2,66 @@ package scenario
 
 import (
 	"context"
-	"fmt"
-	"sync/atomic"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCachedFuncReturnsConsistentResults(t *testing.T) {
-	var callCount atomic.Int32
-	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
-		callCount.Add(1)
-		return "result-" + key, nil
+func TestVMSizeSKUReusesRegionalCatalogue(t *testing.T) {
+	// Each invocation needs a fresh region because the cache lives for the process.
+	location := "SkuCacheTest" + uuid.NewString()
+	calls := 0
+	client, err := armcompute.NewResourceSKUsClient("test", nil, &arm.ClientOptions{
+		ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{
+			vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+				calls++
+				assert.Equal(t, http.MethodGet, req.Method)
+				assert.Equal(t, strings.ToLower(req.URL.Query().Get("$filter")), req.URL.Query().Get("$filter"))
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": {"application/json"}},
+					Body: io.NopCloser(strings.NewReader(`{"value":[
+						{"name":"size-a","resourceType":"virtualMachines"},
+						{"name":"size-b","resourceType":"virtualMachines"}
+					]}`)),
+					Request: req,
+				}
+			}),
+		}},
 	})
-
-	ctx := context.Background()
-	first, err := fn(ctx, "a")
 	require.NoError(t, err)
+	previousAzure := config.Azure
+	config.Azure = &config.AzureClient{ResourceSKUs: client}
+	t.Cleanup(func() { config.Azure = previousAzure })
 
-	second, err := fn(ctx, "a")
-	require.NoError(t, err)
-
-	assert.Equal(t, first, second, "cached function should return the same result on repeated calls")
-	assert.Equal(t, int32(1), callCount.Load(), "underlying function should only be called once for the same key")
-}
-
-func TestCachedFuncDifferentKeysProduceDifferentCacheEntries(t *testing.T) {
-	var callCount atomic.Int32
-	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
-		callCount.Add(1)
-		return "result-" + key, nil
-	})
-
-	ctx := context.Background()
-
-	resultA, err := fn(ctx, "a")
-	require.NoError(t, err)
-
-	resultB, err := fn(ctx, "b")
-	require.NoError(t, err)
-
-	assert.Equal(t, "result-a", resultA)
-	assert.Equal(t, "result-b", resultB)
-	assert.NotEqual(t, resultA, resultB, "different keys should produce different results")
-	assert.Equal(t, int32(2), callCount.Load(), "underlying function should be called once per unique key")
-}
-
-func TestCachedFuncCachesErrors(t *testing.T) {
-	var callCount atomic.Int32
-	expectedErr := fmt.Errorf("something went wrong")
-	fn := cachedFunc(func(ctx context.Context, key string) (string, error) {
-		callCount.Add(1)
-		return "", expectedErr
-	})
-
-	ctx := context.Background()
-
-	_, err1 := fn(ctx, "a")
-	require.ErrorIs(t, err1, expectedErr)
-
-	_, err2 := fn(ctx, "a")
-	require.ErrorIs(t, err2, expectedErr)
-
-	assert.Equal(t, int32(1), callCount.Load(), "shared-operation errors must be cached")
-}
-
-func TestCachedFuncWaiterHonorsCancellation(t *testing.T) {
-	var callCount atomic.Int32
-	started := make(chan struct{})
-	release := make(chan struct{})
-	fn := cachedFunc(func(context.Context, string) (string, error) {
-		callCount.Add(1)
-		close(started)
-		<-release
-		return "result", nil
-	})
-
-	ownerResult := make(chan string, 1)
-	go func() {
-		result, _ := fn(context.Background(), "key")
-		ownerResult <- result
-	}()
-	<-started
-
-	waiterCtx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, err := fn(waiterCtx, "key")
+	_, err = getVMSizeSKU(ctx, location, "size-a")
 	require.ErrorIs(t, err, context.Canceled)
-	assert.Equal(t, int32(1), callCount.Load(), "canceled waiter started another shared operation")
+	assert.Zero(t, calls)
 
-	close(release)
-	assert.Equal(t, "result", <-ownerResult)
-	result, err := fn(context.Background(), "key")
-	require.NoError(t, err)
-	assert.Equal(t, "result", result)
-	assert.Equal(t, int32(1), callCount.Load(), "successful shared operation was not cached")
-}
-
-func TestCachedFuncPanicUnblocksWaiters(t *testing.T) {
-	var callCount atomic.Int32
-	fn := cachedFunc(func(context.Context, string) (string, error) {
-		callCount.Add(1)
-		panic("boom")
-	})
-
-	require.Panics(t, func() {
-		_, _ = fn(context.Background(), "key")
-	}, "owner call did not propagate panic")
-
-	_, err := fn(context.Background(), "key")
-	require.ErrorContains(t, err, "cached operation panicked: boom")
-	assert.Equal(t, int32(1), callCount.Load(), "panicked operation was started again")
-}
-
-func TestCachedFuncWithStructKey(t *testing.T) {
-	type request struct {
-		Location string
-		Type     string
+	for _, test := range []struct{ location, size string }{
+		{location, "size-a"},
+		{strings.ToLower(location), "SIZE-B"},
+	} {
+		sku, err := getVMSizeSKU(t.Context(), test.location, test.size)
+		require.NoError(t, err)
+		assert.Equal(t, strings.ToLower(test.size), *sku.Name)
 	}
-
-	var callCount atomic.Int32
-	fn := cachedFunc(func(ctx context.Context, req request) (string, error) {
-		callCount.Add(1)
-		return req.Location + "-" + req.Type, nil
-	})
-
-	ctx := context.Background()
-
-	r1, err := fn(ctx, request{Location: "eastus", Type: "ext1"})
+	assert.Equal(t, 1, calls)
+	_, err = getVMSizeSKU(t.Context(), location, "missing-size")
+	require.ErrorContains(t, err, `VM size "missing-size" not found in location`)
+	assert.Equal(t, 1, calls)
+	_, err = getVMSizeSKU(t.Context(), location+"-other", "size-a")
 	require.NoError(t, err)
-	assert.Equal(t, "eastus-ext1", r1)
-
-	// same key should return cached result
-	r2, err := fn(ctx, request{Location: "eastus", Type: "ext1"})
-	require.NoError(t, err)
-	assert.Equal(t, r1, r2)
-
-	// different key should call the function again
-	r3, err := fn(ctx, request{Location: "westus", Type: "ext1"})
-	require.NoError(t, err)
-	assert.Equal(t, "westus-ext1", r3)
-
-	assert.Equal(t, int32(2), callCount.Load(), "underlying function should be called once per unique struct key")
+	assert.Equal(t, 2, calls, "different regions need separate catalogues")
 }

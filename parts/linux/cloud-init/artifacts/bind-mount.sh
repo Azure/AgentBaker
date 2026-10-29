@@ -37,7 +37,12 @@ prepareKubeletDisk() {
     # location before kubelet itself may start.
     mkdir -p "${KUBELET_DIR}"
     mount --bind "${KUBELET_MOUNT_POINT}" "${KUBELET_DIR}"
-    chmod a+w "${KUBELET_DIR}"
+
+    # The directory holds the kubelet kubeconfig and TLS material, so it must
+    # never be writable by unprivileged local users. Preserve its existing
+    # read and execute permissions while removing group and other write access.
+    chown root:root "${KUBELET_DIR}"
+    chmod go-w "${KUBELET_DIR}"
 }
 
 # Prevent ShellSpec from executing the production entry point when sourcing.

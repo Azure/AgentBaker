@@ -115,7 +115,7 @@ func ValidateKataErofsContainerdConfig(ctx context.Context, s *Scenario) error {
 // "io.containerd.cri.v1.runtime" paths, but nothing guarantees it keeps doing so. This
 // validator pins the property we actually care about: after containerd has parsed the config,
 // the Kata handlers are present in the effective configuration and containerd raised no
-// warnings while getting there.
+// unexpected warnings while getting there.
 func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 	// This must run on the node itself, not in a debug pod. The "debugnonhost" daemonset pods
 	// used by execOnVMForScenarioOnUnprivilegedPod run a bare CBL-Mariner base image with no
@@ -150,11 +150,14 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 	errs = append(errs, assert.Contains(normalizedDump, `runtime_type = "io.containerd.kata.v2"`,
 		"expected the kata v2 shim runtime_type in the effective containerd config.\nDump:\n%s", dump))
 
-	// A warning here means containerd did not fully understand the config we generated, e.g. it
-	// had to fall back on deprecated handling for the legacy plugin paths the Kata templates use.
-	errs = append(errs, assert.NotContains(diagnostics, "level=warning",
-		"containerd reported warnings while parsing the AgentBaker-generated config.\nstdout:\n%s\nstderr:\n%s",
-		execResult.stdout, execResult.stderr))
+	// Kata's legacy config is expected to be migrated by newer containerd versions.
+	for _, line := range strings.Split(diagnostics, "\n") {
+		if strings.Contains(line, "msg=\"Configuration migrated from version 2, use `containerd config migrate` to avoid migration\"") {
+			continue
+		}
+		errs = append(errs, assert.NotContains(line, "level=warning",
+			"containerd reported an unexpected warning while parsing the AgentBaker-generated config: %s", line))
+	}
 
 	return errors.Join(errs...)
 }

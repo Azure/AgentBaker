@@ -5,6 +5,21 @@ const (
 	defaultNamespace = "default"
 )
 
+// The e2e cluster is deliberately created on a NON-default service CIDR, so that
+// anything which silently assumes the 10.0.0.0/16 default is caught here rather
+// than in production. These must stay in lockstep: clusterDNSServiceIP is the
+// .10 address of clusterServiceCIDR, and it is where kube-dns is allocated.
+const (
+	clusterServiceCIDR  = "172.16.0.0/16"
+	clusterDNSServiceIP = "172.16.0.10"
+)
+
+// The LocalDNS pod ("cluster") listener. A LocalDNS-enabled pool has kubelet
+// pointed here, so this is the nameserver written into every pod's resolv.conf
+// at sandbox creation -- and the address the pod-DNS fallback must keep serving
+// when localdns itself is down.
+const localDNSClusterListenerIP = "169.254.10.11"
+
 // cse output parsing consts
 const (
 	extensionErrorCodeRegex   = `ProvisioningState/failed/(\d+)`

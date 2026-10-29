@@ -34,14 +34,21 @@ func ensureResourceGroup(ctx context.Context, azure *config.AzureClient, cfg *co
 	if rg.Properties != nil && rg.Properties.ProvisioningState != nil && strings.EqualFold(*rg.Properties.ProvisioningState, "Deleting") {
 		return armresources.ResourceGroup{}, fmt.Errorf("RG %q is deleting", name)
 	}
-	renewResourceGroupDeadline(ctx, azure, cfg, rg)
+	if cfg.InADO {
+		renewResourceGroupDeadline(ctx, azure, cfg, rg)
+		if rg.ID == nil || *rg.ID == "" {
+			return armresources.ResourceGroup{}, fmt.Errorf("RG %q has no resource ID", name)
+		}
+		if err := azure.EnsureResourceGroupRoles(ctx, *rg.ID); err != nil {
+			return armresources.ResourceGroup{}, fmt.Errorf("restore roles for RG %q: %w", name, err)
+		}
+	}
 	return rg, nil
 }
 
-// GC expires parent and node RGs independently. Allow a suite plus cleanup from
-// now, without a permanent exemption. Renewal is best-effort so tag failures do
-// not block usable infrastructure. This cannot stop a DELETE already selected
-// by GC or protect the node RG before the initial AKS lookup.
+// Renewal is best-effort so tag failures do not block usable infrastructure.
+// This cannot stop a DELETE already selected by GC or protect the node RG
+// before the initial AKS lookup.
 func renewResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, rg armresources.ResourceGroup) bool {
 	if err := extendResourceGroupDeadline(ctx, azure, cfg, rg); err != nil {
 		logging.Logf(ctx, "warning: failed to renew resource group GC deadline: %v", err)
@@ -51,6 +58,9 @@ func renewResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, 
 }
 
 func renewNodeResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, cluster *armcontainerservice.ManagedCluster) bool {
+	if !cfg.InADO {
+		return true
+	}
 	if cluster == nil || cluster.Properties == nil || cluster.Properties.NodeResourceGroup == nil || *cluster.Properties.NodeResourceGroup == "" {
 		logging.Log(ctx, "warning: cannot renew GC deadline: AKS response has no node resource group")
 		return false
@@ -65,6 +75,9 @@ func renewNodeResourceGroupDeadline(ctx context.Context, azure *config.AzureClie
 }
 
 func extendResourceGroupDeadline(ctx context.Context, azure *config.AzureClient, cfg *config.Configuration, rg armresources.ResourceGroup) error {
+	if !cfg.InADO {
+		return nil
+	}
 	resourceGroup := ""
 	if rg.Name != nil {
 		resourceGroup = *rg.Name
@@ -81,10 +94,15 @@ func extendResourceGroupDeadline(ctx context.Context, azure *config.AzureClient,
 		if err != nil {
 			return fmt.Errorf("parsing %s for RG %q: %w", deletionDueTimeTag, resourceGroup, err)
 		}
-		if !existing.Before(due) {
+		// Preserve Saturday expiry so repeated runs do not postpone collection.
+		if existing.UTC().Weekday() == time.Saturday {
 			return nil
 		}
+		if existing.After(due) {
+			due = existing
+		}
 	}
+	due = saturdayDeadline(due)
 	if rg.ID == nil || *rg.ID == "" {
 		return fmt.Errorf("RG %q has no resource ID", resourceGroup)
 	}
@@ -105,4 +123,15 @@ func extendResourceGroupDeadline(ctx context.Context, azure *config.AzureClient,
 	}
 	logging.Logf(ctx, "extended RG %q GC deadline to %s", resourceGroup, due.UTC().Format(time.RFC3339Nano))
 	return nil
+}
+
+func saturdayDeadline(due time.Time) time.Time {
+	due = due.UTC()
+	days := (int(time.Saturday) - int(due.Weekday()) + 7) % 7
+	// Saturday 08:00 UTC avoids weekday office hours in the US, NZ, and AU.
+	deadline := due.Truncate(24*time.Hour).AddDate(0, 0, days).Add(8 * time.Hour)
+	if deadline.Before(due) {
+		deadline = deadline.AddDate(0, 0, 7)
+	}
+	return deadline
 }

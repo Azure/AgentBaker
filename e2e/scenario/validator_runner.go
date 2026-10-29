@@ -1,35 +1,27 @@
 package scenario
 
-import (
-	"context"
-	"errors"
-	"fmt"
-	"runtime/debug"
-	"sync"
-)
+import "context"
 
 type validator func(context.Context, *Scenario) error
 
 func runValidators(ctx context.Context, s *Scenario, validators ...validator) error {
-	errs := make([]error, len(validators))
-	var group sync.WaitGroup
+	tasks := make([]func(context.Context) error, len(validators))
 	for i, validate := range validators {
-		group.Go(func() {
-			errs[i] = runValidator(ctx, s, validate)
-		})
+		tasks[i] = func(ctx context.Context) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			return validate(ctx, s)
+		}
 	}
-	group.Wait()
-	return errors.Join(errs...)
+	return runConcurrent(ctx, tasks...)
 }
 
-func runValidator(ctx context.Context, s *Scenario, v validator) (err error) {
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			err = fmt.Errorf("panic: %v\n%s", recovered, debug.Stack())
+func runValidator(ctx context.Context, s *Scenario, v validator) error {
+	return runWithPanicRecovery(ctx, func(ctx context.Context) error {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-	}()
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	return v(ctx, s)
+		return v(ctx, s)
+	})
 }

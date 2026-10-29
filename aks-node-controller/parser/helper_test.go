@@ -17,9 +17,12 @@ limitations under the License.
 package parser
 
 import (
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -27,8 +30,11 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 var expectedKubeletConfigFlags = "--address=0.0.0.0" +
@@ -170,14 +176,17 @@ net.ipv4.tcp_retries2=8
 		{
 			name: "SysctlConfig with custom values",
 			args: args{
+				// The kernel caps fs.file-max at LONG_MAX, which is MaxInt64 on 64-bit nodes.
 				s: &aksnodeconfigv1.SysctlConfig{
 					NetIpv4TcpMaxSynBacklog: to.Ptr(int32(9999)),
 					NetCoreRmemDefault:      to.Ptr(int32(9999)),
 					NetIpv4IpLocalPortRange: to.Ptr("32768 62535"),
+					FsFileMax:               to.Ptr(int64(math.MaxInt64)),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString(
-				[]byte(`net.core.message_burst=80
+				[]byte(`fs.file-max=9223372036854775807
+net.core.message_burst=80
 net.core.message_cost=40
 net.core.rmem_default=9999
 net.core.somaxconn=16384
@@ -195,6 +204,180 @@ net.ipv4.tcp_retries2=8
 			if got := getSysctlContent(tt.args.s); got != tt.want {
 				t.Errorf("getSysctlContent() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestSysctlSettingsRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		json string
+		want map[string]string
+	}{
+		{
+			name: "omitted sysctl config",
+			json: `{}`,
+		},
+		{
+			name: "empty sysctl config",
+			json: `{"sysctlConfig": {}}`,
+		},
+		{
+			name: "custom settings",
+			json: `{"sysctlConfig": {
+				"fsInotifyMaxUserInstances": 2048,
+				"netIpv4TcpFinTimeout": 30,
+				"netIpv4TcpRmem": "4096 131072 6291456",
+				"netIpv4IpLocalReservedPorts": "30000-31000,32000",
+				"netIpv4TcpRetries2": 12
+			}}`,
+			want: map[string]string{
+				"fs.inotify.max_user_instances":    "2048",
+				"net.ipv4.tcp_fin_timeout":         "30",
+				"net.ipv4.tcp_rmem":                "4096 131072 6291456",
+				"net.ipv4.ip_local_reserved_ports": "30000-31000,32000",
+				"net.ipv4.tcp_retries2":            "12",
+			},
+		},
+		{
+			name: "explicit zero values preserve presence",
+			json: `{"sysctlConfig": {
+				"fsInotifyMaxUserInstances": 0,
+				"netIpv4TcpFinTimeout": 0,
+				"netIpv4TcpRetries2": 0
+			}}`,
+			want: map[string]string{
+				"fs.inotify.max_user_instances": "0",
+				"net.ipv4.tcp_fin_timeout":      "0",
+				"net.ipv4.tcp_retries2":         "0",
+			},
+		},
+		{
+			name: "explicit empty reservations",
+			json: `{"sysctlConfig": {"netIpv4IpLocalReservedPorts": ""}}`,
+			want: map[string]string{"net.ipv4.ip_local_reserved_ports": ""},
+		},
+		{
+			name: "automatic reservation unchanged",
+			json: `{"sysctlConfig": {"netIpv4IpLocalPortRange": "32768 65400"}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "65330",
+			},
+		},
+		{
+			name: "customer reservations retain automatic port",
+			json: `{"sysctlConfig": {
+				"netIpv4IpLocalPortRange": "32768 65400",
+				"netIpv4IpLocalReservedPorts": "30000-31000,32000"
+			}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "30000-31000,32000,65330",
+			},
+		},
+		{
+			name: "empty reservations retain automatic port",
+			json: `{"sysctlConfig": {
+				"netIpv4IpLocalPortRange": "32768 65400",
+				"netIpv4IpLocalReservedPorts": ""
+			}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "65330",
+			},
+		},
+		{
+			name: "existing automatic port not duplicated",
+			json: `{"sysctlConfig": {
+				"netIpv4IpLocalPortRange": "32768 65400",
+				"netIpv4IpLocalReservedPorts": "32000,65330"
+			}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "32000,65330",
+			},
+		},
+		{
+			name: "range covering automatic port not duplicated",
+			json: `{"sysctlConfig": {
+				"netIpv4IpLocalPortRange": "32768 65400",
+				"netIpv4IpLocalReservedPorts": "65300-65400"
+			}}`,
+			want: map[string]string{
+				"net.ipv4.ip_local_port_range":     "32768 65400",
+				"net.ipv4.ip_local_reserved_ports": "65300-65400",
+			},
+		},
+		{
+			name: "automatic reservation threshold unchanged",
+			json: `{"sysctlConfig": {"netIpv4IpLocalPortRange": "32768 65330"}}`,
+			want: map[string]string{"net.ipv4.ip_local_port_range": "32768 65330"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := []byte(`{"kubernetesVersion":"1.34.0","customLinuxOsConfig":` + test.json + `}`)
+			config, err := nodeconfigutils.UnmarshalConfigurationV1(payload)
+			require.NoError(t, err)
+			encoded, err := nodeconfigutils.MarshalConfigurationV1(config)
+			require.NoError(t, err)
+			restored, err := nodeconfigutils.UnmarshalConfigurationV1(encoded)
+			require.NoError(t, err)
+			require.True(t, proto.Equal(config, restored))
+			wire, err := proto.Marshal(restored)
+			require.NoError(t, err)
+			decoded := &aksnodeconfigv1.Configuration{}
+			require.NoError(t, proto.Unmarshal(wire, decoded))
+			require.True(t, proto.Equal(config, decoded))
+
+			command, err := BuildCSECmd(context.Background(), decoded, nil)
+			require.NoError(t, err)
+			content, err := base64.StdEncoding.DecodeString(environToMap(command.Env)["SYSCTL_CONTENT"])
+			require.NoError(t, err)
+			require.True(t, strings.HasSuffix(string(content), "\n"))
+			want := map[string]string{
+				"net.core.message_burst":            "80",
+				"net.core.message_cost":             "40",
+				"net.core.somaxconn":                "16384",
+				"net.ipv4.neigh.default.gc_thresh1": "4096",
+				"net.ipv4.neigh.default.gc_thresh2": "8192",
+				"net.ipv4.neigh.default.gc_thresh3": "16384",
+				"net.ipv4.tcp_max_syn_backlog":      "16384",
+				"net.ipv4.tcp_retries2":             "8",
+			}
+			for key, value := range test.want {
+				want[key] = value
+			}
+			got := make(map[string]string)
+			for _, line := range strings.Split(strings.TrimSuffix(string(content), "\n"), "\n") {
+				key, value, ok := strings.Cut(line, "=")
+				require.True(t, ok, "expected key=value: %q", line)
+				require.NotContains(t, got, key, "duplicate sysctl key")
+				got[key] = value
+			}
+			require.Equal(t, want, got)
+		})
+	}
+}
+
+func TestReservedPortsContain(t *testing.T) {
+	for _, test := range []struct {
+		ports string
+		want  bool
+	}{
+		{"", false},
+		{"6533", false},
+		{"16533", false},
+		{"65330", true},
+		{"32000,65330", true},
+		{"65330-65400", true},
+		{"65000-65330", true},
+		{"65000-65329", false},
+		{"65331-65400", false},
+	} {
+		t.Run(test.ports, func(t *testing.T) {
+			require.Equal(t, test.want, reservedPortsContain(test.ports, ipLocalReservedPorts))
 		})
 	}
 }
@@ -364,6 +547,68 @@ func Test_createSortedKeyValueInt32Pairs(t *testing.T) {
 	}
 }
 
+func TestContainerdImagePullTemplates(t *testing.T) {
+	for _, version := range []string{"1.7.22", "2.2.4"} {
+		for _, noGPU := range []bool{false, true} {
+			for _, tc := range []struct {
+				name     string
+				settings *aksnodeconfigv1.ContainerdConfig
+			}{
+				{"absent", nil},
+				{"empty", &aksnodeconfigv1.ContainerdConfig{}},
+				{"false", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: proto.Bool(false)}},
+				{"true", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: proto.Bool(true)}},
+				{"zero timeout", &aksnodeconfigv1.ContainerdConfig{ImagePullProgressTimeout: proto.String("0s")}},
+				{"both", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: proto.Bool(true), ImagePullProgressTimeout: proto.String("1m30s")}},
+			} {
+				t.Run(fmt.Sprintf("%s/noGPU=%t/%s", version, noGPU, tc.name), func(t *testing.T) {
+					assertContainerdImagePullTemplate(t, tc.settings, noGPU, version)
+				})
+			}
+		}
+	}
+}
+
+func assertContainerdImagePullTemplate(t *testing.T, settings *aksnodeconfigv1.ContainerdConfig, noGPU bool, version string) {
+	t.Helper()
+	cfg := &aksnodeconfigv1.Configuration{
+		KubernetesVersion: "1.34.0",
+		GpuConfig:         &aksnodeconfigv1.GpuConfig{EnableNvidia: proto.Bool(true)},
+		ContainerdConfig:  settings,
+	}
+	rendered, err := containerdConfigFromAKSNodeConfig(cfg, noGPU, version)
+	require.NoError(t, err)
+	plugin := "io.containerd.grpc.v1.cri"
+	if isContainerdV2(version) {
+		plugin = "io.containerd.cri.v1.images"
+	}
+	header := `[plugins."` + plugin + `"]` + "\n"
+	start := strings.Index(rendered, header)
+	require.NotEqual(t, -1, start)
+	section := rendered[start+len(header):]
+	if next := regexp.MustCompile(`(?m)^[ \t]*\[`).FindStringIndex(section); next != nil {
+		section = section[:next[0]]
+	}
+	if settings != nil && settings.ImagePullWithSyncFs != nil {
+		require.Contains(t, section, fmt.Sprintf("  image_pull_with_sync_fs = %t\n", settings.GetImagePullWithSyncFs()))
+		require.Equal(t, 1, strings.Count(rendered, "image_pull_with_sync_fs"))
+	} else {
+		require.NotContains(t, rendered, "image_pull_with_sync_fs")
+	}
+	if settings != nil && settings.ImagePullProgressTimeout != nil {
+		require.Contains(t, section, fmt.Sprintf("  image_pull_progress_timeout = %q\n", settings.GetImagePullProgressTimeout()))
+		require.Equal(t, 1, strings.Count(rendered, "image_pull_progress_timeout"))
+	} else {
+		require.NotContains(t, rendered, "image_pull_progress_timeout")
+	}
+	if settings == nil || (settings.ImagePullWithSyncFs == nil && settings.ImagePullProgressTimeout == nil) {
+		cfg.ContainerdConfig = nil
+		baseline, err := containerdConfigFromAKSNodeConfig(cfg, noGPU, version)
+		require.NoError(t, err)
+		require.Equal(t, baseline, rendered)
+	}
+}
+
 func Test_getContainerdConfig(t *testing.T) {
 	type args struct {
 		aksnodeconfig *aksnodeconfigv1.Configuration
@@ -499,6 +744,35 @@ oom_score = -999
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getContainerdConfigBase64(tt.args.aksnodeconfig, ""); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestContainerdV1KataConfigMatchesNodeBootstrappingConfig(t *testing.T) {
+	config := &aksnodeconfigv1.Configuration{
+		IsKata: true,
+	}
+
+	for _, noGPU := range []bool{false, true} {
+		t.Run(map[bool]string{false: "GPU", true: "no GPU"}[noGPU], func(t *testing.T) {
+			got, err := containerdConfigFromAKSNodeConfig(config, noGPU, "1.7.22")
+			if err != nil {
+				t.Fatalf("containerdConfigFromAKSNodeConfig() error = %v", err)
+			}
+
+			for _, want := range []string{
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`,
+				`privileged_without_host_devices = true`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]`,
+				`ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"`,
+			} {
+				if !strings.Contains(got, want) {
+					t.Errorf("containerd config does not contain %q", want)
+				}
+			}
+			if strings.Contains(got, `.containerd.runtimes.katacli`) {
+				t.Error("containerd config contains the obsolete katacli runtime")
 			}
 		})
 	}
@@ -1719,6 +1993,7 @@ const expectedlocalDNSCorefile = `# ********************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind 169.254.10.10 169.254.10.11
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -1743,6 +2018,7 @@ health-check.localdns.local:53 {
         serve_stale 3600s immediate
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -1769,6 +2045,7 @@ cluster.local:53 {
         denial 9984
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -1788,6 +2065,7 @@ testdomain456.com:53 {
         serve_stale 3600s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -1814,6 +2092,7 @@ testdomain456.com:53 {
         serve_stale 72000s verify
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253
@@ -1904,6 +2183,29 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 				includeHostsPlugin: true,
 			},
 			wantContains: "",
+		},
+		{
+			name: "enabled LocalDNS with nil overrides still enables reload",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true},
+				},
+			},
+			wantContains: "health-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    reload\n    whoami\n}",
+		},
+		{
+			name: "enabled LocalDNS with empty overrides still enables reload",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
+						EnableLocalDns:   true,
+						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{},
+						KubeDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{},
+					},
+				},
+				includeHostsPlugin: true,
+			},
+			wantContains: "health-check.localdns.local:53 {\n    bind 169.254.10.10 169.254.10.11\n    reload\n    whoami\n}",
 		},
 		{
 			name: "LocalDNSProfile enabled returns base64 string with hosts plugin",
@@ -2006,7 +2308,26 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getLocalDnsCorefileBase64WithHostsPlugin(tt.args.aksnodeconfig, tt.args.includeHostsPlugin)
 			assertCorefileBase64Contains(t, got, tt.wantContains, tt.wantNotContains)
+			if tt.args.aksnodeconfig.GetLocalDnsProfile().GetEnableLocalDns() {
+				decoded, err := base64.StdEncoding.DecodeString(got)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if strings.Count(string(decoded), "\n    reload\n") != 1 {
+					t.Errorf("expected exactly one Corefile reload directive, got:\n%s", decoded)
+				}
+				assertLocalDNSLoadBalanceBlocks(t, string(decoded))
+			}
 		})
+	}
+}
+
+func assertLocalDNSLoadBalanceBlocks(t *testing.T, corefile string) {
+	t.Helper()
+	for _, block := range strings.Split(corefile, "\n}\n") {
+		if strings.Contains(block, "\n    forward . ") && strings.Count(block, "\n    loadbalance\n") != 1 {
+			t.Errorf("expected loadbalance in every forwarding server block:\n%s", block)
+		}
 	}
 }
 
@@ -2156,14 +2477,158 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 				t.Fatalf("failed to decode generated corefile: %v", err)
 			}
 			corefile := normalizeCorefileString(string(decoded))
-			if tt.wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(tt.wantContains)) {
-				t.Fatalf("expected generated corefile to contain %q, got:\n%s", tt.wantContains, string(decoded))
+			assertCorefileContents(t, corefile, string(decoded), tt.wantContains, tt.wantNotContains)
+		})
+	}
+}
+
+// assertCorefileContents checks a normalized corefile against inclusion and exclusion
+// expectations. raw is the un-normalized corefile, reported on failure so the message
+// shows the template's real output.
+func assertCorefileContents(t *testing.T, corefile, raw, wantContains string, wantNotContains []string) {
+	t.Helper()
+	if wantContains != "" && !strings.Contains(corefile, normalizeCorefileString(wantContains)) {
+		t.Fatalf("expected generated corefile to contain %q, got:\n%s", wantContains, raw)
+	}
+	for _, want := range wantNotContains {
+		if strings.Contains(corefile, normalizeCorefileString(want)) {
+			t.Fatalf("expected generated corefile not to contain %q, got:\n%s", want, raw)
+		}
+	}
+}
+
+// Test_getLocalDNSCorefileBase64ServeStalePolicy covers the serve_stale_policy directive
+// (CoreDNS >= 1.14.7). The directive is only valid alongside an emitted serve_stale line,
+// so the template must never render it on its own, and it is restricted to the default
+// (".") server block, so it must never render in a per-domain block.
+func Test_getLocalDNSCorefileBase64ServeStalePolicy(t *testing.T) {
+	tests := []struct {
+		name            string
+		domain          string // defaults to "." when empty
+		serveStale      string
+		policy          string
+		kubeDNS         bool
+		wantContains    string
+		wantNotContains []string
+	}{
+		{
+			name:            "no policy omits serve_stale_policy",
+			serveStale:      "Immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:       "prefer positive with immediate",
+			serveStale: "Immediate",
+			policy:     "PreferPositive",
+			wantContains: strings.Join([]string{
+				"serve_stale 3600s immediate",
+				"serve_stale_policy prefer_positive",
+			}, "\n        "),
+		},
+		{
+			name:       "prefer positive with verify",
+			serveStale: "Verify",
+			policy:     "PreferPositive",
+			wantContains: strings.Join([]string{
+				"serve_stale 3600s verify",
+				"serve_stale_policy prefer_positive",
+			}, "\n        "),
+		},
+		{
+			// serve_stale is not emitted at all, so the policy must not be either.
+			name:            "prefer positive with disable omits both",
+			serveStale:      "Disable",
+			policy:          "PreferPositive",
+			wantNotContains: []string{"serve_stale_policy", "serve_stale "},
+		},
+		{
+			// Guards against a dangling directive if ServeStale ever carries a value
+			// outside the known set: the outer "ne Disable" check would pass, but no
+			// serve_stale line is rendered.
+			name:            "prefer positive with unknown serve stale omits both",
+			serveStale:      "Bogus",
+			policy:          "PreferPositive",
+			wantNotContains: []string{"serve_stale_policy", "serve_stale "},
+		},
+		{
+			name:            "unknown policy value omits serve_stale_policy",
+			serveStale:      "Immediate",
+			policy:          "PreferNegative",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:       "renders in KubeDNS overrides",
+			serveStale: "Immediate",
+			policy:     "PreferPositive",
+			kubeDNS:    true,
+			wantContains: strings.Join([]string{
+				"serve_stale 3600s immediate",
+				"serve_stale_policy prefer_positive",
+			}, "\n        "),
+		},
+		{
+			// The policy is restricted to the default (".") server block. A per-domain
+			// block still gets its serve_stale line, but never the policy.
+			name:            "omitted in a cluster.local VnetDNS block",
+			domain:          "cluster.local",
+			serveStale:      "Immediate",
+			policy:          "PreferPositive",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			name:            "omitted in a cluster.local KubeDNS block",
+			domain:          "cluster.local",
+			serveStale:      "Verify",
+			policy:          "PreferPositive",
+			kubeDNS:         true,
+			wantContains:    "serve_stale 3600s verify",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+		{
+			// A custom domain takes a different path through the template than
+			// cluster.local, which is special-cased by $fwdToClusterCoreDNS.
+			name:            "omitted in a custom-domain VnetDNS block",
+			domain:          "testdomain.com",
+			serveStale:      "Immediate",
+			policy:          "PreferPositive",
+			wantContains:    "serve_stale 3600s immediate",
+			wantNotContains: []string{"serve_stale_policy"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			override := &aksnodeconfigv1.LocalDnsOverrides{
+				QueryLogging:                "Log",
+				Protocol:                    "PreferUDP",
+				ForwardDestination:          "VnetDNS",
+				ForwardPolicy:               "Sequential",
+				MaxConcurrent:               to.Ptr(int32(1000)),
+				CacheDurationInSeconds:      to.Ptr(int32(3600)),
+				ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+				ServeStale:                  tt.serveStale,
+				ServeStalePolicy:            tt.policy,
 			}
-			for _, wantNotContains := range tt.wantNotContains {
-				if strings.Contains(corefile, normalizeCorefileString(wantNotContains)) {
-					t.Fatalf("expected generated corefile not to contain %q, got:\n%s", wantNotContains, string(decoded))
-				}
+			profile := &aksnodeconfigv1.LocalDnsProfile{EnableLocalDns: true}
+			domain := tt.domain
+			if domain == "" {
+				domain = "."
 			}
+			if tt.kubeDNS {
+				profile.KubeDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{domain: override}
+			} else {
+				profile.VnetDnsOverrides = map[string]*aksnodeconfigv1.LocalDnsOverrides{domain: override}
+			}
+			got := getLocalDnsCorefileBase64WithHostsPlugin(&aksnodeconfigv1.Configuration{LocalDnsProfile: profile}, false)
+
+			decoded, err := base64.StdEncoding.DecodeString(got)
+			if err != nil {
+				t.Fatalf("failed to decode generated corefile: %v", err)
+			}
+			corefile := normalizeCorefileString(string(decoded))
+			assertCorefileContents(t, corefile, string(decoded), tt.wantContains, tt.wantNotContains)
 		})
 	}
 }
@@ -2534,8 +2999,10 @@ func Test_getStringFromNetworkPolicyType(t *testing.T) {
 	}{
 		{"azure", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE, helpers.NetworkPolicyAzure},
 		{"calico", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO, helpers.NetworkPolicyCalico},
+		{"cilium matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CILIUM, "cilium"},
 		{"none matches scriptful raw string", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE, helpers.NetworkPolicyNone},
 		{"unspecified", aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_UNSPECIFIED, ""},
+		{"unknown", aksnodeconfigv1.NetworkPolicy(99), ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
