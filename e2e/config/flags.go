@@ -5,6 +5,7 @@ import "github.com/urfave/cli/v3"
 func Flags() []cli.Flag {
 	defaults := DefaultConfiguration()
 	return []cli.Flag{
+		&cli.BoolFlag{Name: "acl-base-image-signed", Value: defaults.ACLBaseImageSigned, Destination: &Config.ACLBaseImageSigned, Sources: cli.EnvVars("ACL_BASE_IMAGE_SIGNED"), Usage: "Whether the ACL base image is signed (default true). Set to false for non-prod (e.g. acldevel-sourced) images whose kernel/shim is not enrolled in the platform Secure Boot db, which disables Secure Boot for ACL scenarios"},
 		&cli.StringFlag{Name: "acr-secret-name", Value: defaults.ACRSecretName, Destination: &Config.ACRSecretName, Sources: cli.EnvVars("ACR_SECRET_NAME")},
 		&cli.StringFlag{Name: "acr-target-repository", Value: defaults.AzureContainerRegistrytargetRepository, Destination: &Config.AzureContainerRegistrytargetRepository, Sources: cli.EnvVars("ACR_TARGET_REPOSITORY")},
 		&cli.StringFlag{Name: "blob-container", Value: defaults.BlobContainer, Destination: &Config.BlobContainer, Sources: cli.EnvVars("BLOB_CONTAINER")},

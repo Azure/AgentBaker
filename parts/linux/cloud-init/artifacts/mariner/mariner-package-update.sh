@@ -25,7 +25,7 @@ knead_emit_event() {
     local message="$2"
     local level="${3:-Informational}"
     local events_file_name
-    events_file_name="$(date +%s%3N)"
+    events_file_name="$(date +%s%N)${BASHPID}"
     local timestamp
     timestamp="$(date +"%F %T.%3N")"
     local event_json
