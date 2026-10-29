@@ -2420,7 +2420,7 @@
             "versionsV2": [
               {
                 "renovateTag": "github-releases=Azure/WALinuxAgent",
-                "latestVersion": "2.15.0.1"
+                "latestVersion": "2.16.0.2"
               }
             ]
           }
