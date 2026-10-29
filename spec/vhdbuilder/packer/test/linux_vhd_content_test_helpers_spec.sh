@@ -334,3 +334,23 @@ Describe 'testCronPermissions invocation'
     The output should not include "testCronPermissions: Skipping cron file check"
   End
 End
+
+Describe 'isCloudInitLogMsgIgnored'
+  BeforeAll "eval \"\$(sed -n '/^CLOUD_INIT_LOG_MSG_IGNORE_LIST=(/,/^)/p;/^isCloudInitLogMsgIgnored()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  It 'ignores a message matching the ignore list'
+    When call isCloudInitLogMsgIgnored "2026-10-27 20:18:26,125 - subp.py[WARNING]: Command ['hostname', '-f'] failed"
+    The status should be success
+  End
+
+  It 'does not ignore a message matching no ignore-list pattern'
+    When call isCloudInitLogMsgIgnored "2026-10-27 20:23:26,126 - util.py[ERROR]: Failed to mount /dev/sdb1"
+    The status should be failure
+  End
+
+  It 'ignores a message matching a later pattern without flagging earlier ones'
+    CLOUD_INIT_LOG_MSG_IGNORE_LIST+=("util.py[ERROR]: Failed to mount")
+    When call isCloudInitLogMsgIgnored "2026-10-27 20:23:26,126 - util.py[ERROR]: Failed to mount /dev/sdb1"
+    The status should be success
+  End
+End
