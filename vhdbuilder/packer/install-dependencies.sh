@@ -280,7 +280,7 @@ cacheVersionedKubernetesPackageBinary() {
     fi
 
     if [ ! -f "${tmp_dir}/usr/bin/${binary_name}" ]; then
-      echo "Failed to find /usr/bin/${binary_name} in ${deb_file}"
+      echo "Failed to find /usr/bin/${package_name} in ${deb_file}"
       rm -rf "${tmp_dir}"
       return 1
     fi
@@ -302,7 +302,7 @@ cacheVersionedKubernetesPackageBinary() {
     return 0
   fi
 
-  echo "  - cached ${binary_name} binary from ${package_name} at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
+  echo "  - cached ${package_name} binary at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
 }
 
 # this is for the old package not coming from Dalec, currently fixed at 1.6.2.
@@ -800,7 +800,7 @@ cachePackageAndBinaryComponents() {
             evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
             installOras "${downloadDir}" "${evaluatedURL}" "${version}"
           fi
-          echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+          echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
         ;;
       "aks-secure-tls-bootstrap-client")
