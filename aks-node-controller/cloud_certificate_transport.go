@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"maps"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -53,11 +52,8 @@ func (c *cloudInitializer) requestCertificates(ctx context.Context, path string)
 }
 
 func certificatePackagePath(kind, extension string) string {
-	return "/machine?" + url.Values{
-		"comp": {"acmspackage"},
-		"type": {kind},
-		"ext":  {extension},
-	}.Encode()
+	// Match the shell's raw query values without assuming WireServer's decoding contract.
+	return "/machine?comp=acmspackage&type=" + kind + "&ext=" + extension
 }
 
 func validCloudCertificateName(name string) bool {
