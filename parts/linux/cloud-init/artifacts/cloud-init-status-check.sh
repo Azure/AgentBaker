@@ -48,7 +48,10 @@ handleCloudInitStatus() {
     local startTime=$(date +"%F %T.%3N")
     local endTime=$(date +"%F %T.%3N")
     local task="AKS.CSE.CloudInitStatusCheck"
-    local eventsFileName=$(date +%s%3N)
+    # The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+    # timestamp plus the emitting process's PID is unique by construction: two live
+    # processes cannot share a PID, and two forks of date cannot share a nanosecond.
+    local eventsFileName="$(date +%s%N)${BASHPID}"
     jsonString=$( jq -n \
         --arg Timestamp   "${startTime}" \
         --arg OperationId "${endTime}" \

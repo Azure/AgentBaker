@@ -62,6 +62,7 @@ Describe 'cgroup telemetry'
 
     prepare_pressure_script() {
         sed \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e 's|CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=cgroup2fs|' \
             -e "s|CGROUP=\"/sys/fs/cgroup\"|CGROUP=\"${CGROUP_ROOT}\"|" \
@@ -111,6 +112,34 @@ Describe 'cgroup telemetry'
                 (map(.TelemetryChunk.index) == [range(0; $count)]) and
                 all(.[]; .TelemetryChunk.encoding == "json" and .TelemetryChunk.count == $count))
         ' "${EVENTS_ROOT}"/*.json
+    }
+
+    freeze_event_timestamp() {
+        mkdir -p "${TEST_ROOT}/bin"
+        cat > "${TEST_ROOT}/bin/date" <<'STUB'
+#!/bin/bash
+if [ "$1" = "+%s%N" ]; then
+    echo 1700000000000000000
+    exit 0
+fi
+exec /bin/date "$@"
+STUB
+        chmod +x "${TEST_ROOT}/bin/date"
+    }
+
+    emitted_event_task_count() {
+        jq -s 'map(.TaskName) | unique | length' "${EVENTS_ROOT}"/*.json
+    }
+
+    emitted_event_file_names_class() {
+        local path
+        for path in "${EVENTS_ROOT}"/*; do
+            if ! printf '%s' "$(basename "${path}")" | grep -Eq '^[0-9]+\.json$'; then
+                echo "not-collectable:$(basename "${path}")"
+                return
+            fi
+        done
+        echo collectable
     }
 
     BeforeEach 'setup_cgroup_telemetry_test'
@@ -250,7 +279,7 @@ Describe 'cgroup telemetry'
     It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
         check_pressure_size_boundaries() {
             local fits_filter
-            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh)
+            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh)
             [ -n "${fits_filter}" ] || return 1
             jq -ne "${fits_filter}"'
                 def repeat_text($text; $count): [range(0; $count) | $text] | join("");
@@ -275,6 +304,71 @@ Describe 'cgroup telemetry'
         When call check_pressure_size_boundaries
         The status should be success
         The output should equal true
+    End
+
+    Describe 'shared cgroup event publication'
+        Parameters
+            Pressure
+            CPUUsage
+            Memory
+        End
+
+        It 'splits and reconstructs the requested object without losing its entries'
+            publish_and_validate() {
+                local field="$1" message
+                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                message=$(jq -cn --arg field "${field}" '
+                    {CgroupVersion: "cgroupv2", ($field):
+                        ([range(0; 20) | {key: ("metric" + tostring), value: ([range(0; 200) | "x"] | join(""))}] | from_entries)}')
+                publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test || return 1
+                jq -se --arg field "${field}" '
+                    length as $count |
+                    length > 1 and
+                    ([.[].Message | fromjson | .[$field]] | add | length == 20) and
+                    ([.[].Message | fromjson | .TelemetryChunk.index] | sort == [range(0; length)]) and
+                    all(.[]; (.Message | fromjson | .TelemetryChunk.count) == $count)
+                ' "${EVENTS_ROOT}"/*.json
+            }
+
+            When call publish_and_validate "$1"
+            The status should be success
+            The output should equal true
+        End
+
+        It 'keeps small messages unchanged without chunk metadata'
+            publish_small() {
+                local field="$1" message
+                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                message=$(jq -cn --arg field "${field}" '{CgroupVersion: "cgroupv2", ($field): {metric: "value"}}')
+                publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test || return 1
+                jq -se --arg message "${message}" 'length == 1 and .[0].Message == $message and
+                    (.[0].Message | fromjson | has("TelemetryChunk") | not)' "${EVENTS_ROOT}"/*.json
+            }
+
+            When call publish_small "$1"
+            The status should be success
+            The output should equal true
+        End
+
+        It 'rejects oversized individual entries before publishing any chunks'
+            publish_oversized() {
+                local field="$1" message
+                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                message=$(jq -cn --arg field "${field}" '{($field): {metric: ([range(0; 4000) | "x"] | join(""))}}')
+                publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test
+            }
+            remaining_event_files() {
+                find "${EVENTS_ROOT}" -mindepth 1 -print
+            }
+
+            When call publish_oversized "$1"
+            The status should be failure
+            The stderr should include 'test telemetry: failed to bound event payload'
+            The result of function remaining_event_files should equal ""
+        End
     End
 
     Context 'when jq succeeds without emitting events'
@@ -475,5 +569,30 @@ Describe 'cgroup telemetry'
             The status should be success
             The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_memory\":\"Not Found\"'
         End
+    End
+
+    It 'gives collectors distinct event file names within the same millisecond'
+        for cgroup_path in \
+            . \
+            system.slice \
+            azure.slice \
+            kubepods.slice \
+            user.slice \
+            system.slice/containerd.service \
+            system.slice/kubelet.service; do
+            create_memory_stat "${cgroup_path}" 1 2
+            create_pressure_files "${cgroup_path}"
+        done
+        create_cpu_stat_v2 system.slice/containerd.service
+        create_cpu_stat_v2 system.slice/kubelet.service
+        prepare_memory_script
+        prepare_pressure_script
+        prepare_cpu_script
+        freeze_event_timestamp
+
+        When run env PATH="${TEST_ROOT}/bin:${PATH}" bash -c 'bash "$1" && bash "$2" && bash "$3"' _ "${TEST_ROOT}/cgroup-memory-telemetry.sh" "${TEST_ROOT}/cgroup-pressure-telemetry.sh" "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+        The status should be success
+        The result of function emitted_event_task_count should equal 3
+        The result of function emitted_event_file_names_class should equal collectable
     End
 End

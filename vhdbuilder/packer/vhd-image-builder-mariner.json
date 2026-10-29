@@ -200,11 +200,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
-      "destination": "/home/packer/provision_configs_addons.sh"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_config_chrony.sh",
       "destination": "/home/packer/provision_configs_chrony.sh"
     },
@@ -397,6 +392,21 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/package-update.timer",
       "destination": "/home/packer/snapshot-update.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/aks-networkd-recovery.sh",
+      "destination": "/home/packer/aks-networkd-recovery.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/aks-networkd-recovery.service",
+      "destination": "/home/packer/aks-networkd-recovery.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/aks-networkd-recovery.timer",
+      "destination": "/home/packer/aks-networkd-recovery.timer"
     },
     {
       "type": "file",
@@ -622,6 +632,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh",
       "destination": "/home/packer/cgroup-pressure-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh",
+      "destination": "/home/packer/cgroup-telemetry-events.sh"
     },
     {
       "type": "file",

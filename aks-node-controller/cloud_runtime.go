@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/common"
@@ -20,7 +21,10 @@ import (
 
 const cloudResponseLimit = 8 << 20
 
-const cloudCommandTimeout = 2 * time.Minute
+const (
+	cloudCommandTimeout   = 2 * time.Minute
+	cloudCommandWaitDelay = 5 * time.Second
+)
 
 type cloudPlatform struct {
 	ID, Version, Codename string
@@ -84,7 +88,7 @@ func (c *cloudInitializer) platform() (cloudPlatform, error) {
 	case strings.Contains(id, osReleaseIDFlatcar):
 		id = osReleaseIDFlatcar
 	case id == osReleaseIDAzureContainerLinux,
-		id == osReleaseIDAzureLinux && values["VARIANT_ID"] == osReleaseIDAzureContainerLinux:
+		id == osReleaseIDAzureLinux && strings.ToLower(values["VARIANT_ID"]) == osReleaseIDAzureContainerLinux:
 		id = osReleaseIDAzureContainerLinux
 	case strings.Contains(values["NAME"], "Mariner"), id == osReleaseIDMariner:
 		id = osReleaseIDMariner
@@ -141,6 +145,16 @@ func (c *cloudInitializer) command(ctx context.Context, input []byte, name strin
 	ctx, cancel := context.WithTimeout(ctx, cloudCommandTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		if errors.Is(err, syscall.ESRCH) {
+			return os.ErrProcessDone
+		}
+		return err
+	}
+	// A descendant can leave the process group but still hold an output pipe open.
+	cmd.WaitDelay = cloudCommandWaitDelay
 	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	cmd.Stdin = bytes.NewReader(input)
 	var stdout, stderr bytes.Buffer

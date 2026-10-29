@@ -25,11 +25,16 @@ rpm/tdnf on Azure Linux.
 - CSE starts the baked service in `nodePrep`, after kubelet configuration and GPU
   setup. This also runs on PIS-cached images. No public-settings file is generated;
   monitor defaults and hardware selection come from the config package.
-- Pins exist for Ubuntu 20.04, 22.04, 24.04 and 26.04 and Azure Linux 3.0, amd64
-  and arm64. The config package content is the same on every release, so Ubuntu
-  26.04, which has no config build of its own, uses the 24.04 package (see below).
-  Azure Linux OSGuard, Kata, Azure Container Linux, Mariner 2 and other OSes remain
+- Pins exist for Ubuntu 20.04, 22.04, 24.04 and 26.04 and Azure Linux 3.0 (including
+  Kata), amd64 and arm64. The config package content is the same on every release, so
+  Ubuntu 26.04, which has no config build of its own, uses the 24.04 package (see below).
+  Azure Linux OSGuard, Azure Container Linux, Mariner 2 and other OSes remain
   extension-managed.
+- Azure Linux 3 Kata uses the same packages, tdnf lock and handler as Azure Linux 3.
+  NPD runs on the Kata host, not inside Kata guest VMs. The Kata host kernel lacks PSI,
+  so pressure monitors fall back to load and iowait. LPC config updates change only
+  the held NPD config package; Kata's OS, kernel and Kata packages still update only
+  through images (unattended upgrades and securityPatch stay excluded for Kata).
 
 ## VHD package pins (`components.json`)
 

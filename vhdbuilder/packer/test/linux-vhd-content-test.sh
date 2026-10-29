@@ -73,6 +73,26 @@ assertPackageVersion() {
   return 0
 }
 
+testEmudhraRootRemoval() {
+  local bundle subjects checked=0
+  for bundle in "$@"; do
+    [ -e "$bundle" ] || [ -L "$bundle" ] || continue
+    subjects=$(set -o pipefail; openssl crl2pkcs7 -nocrl -certfile "$bundle" | openssl pkcs7 -print_certs -noout) ||
+      { err testEmudhraRootRemoval "Cannot read $bundle"; return 1; }
+    if ! grep -Eq '^subject=.*CN ?= ?DigiCert Global Root G2(,|$)' <<< "$subjects" ||
+      grep -Eq '^subject=.*CN ?= ?(emSign ECC Root CA - G3|AAA Certificate Services)(,|$)' <<< "$subjects"; then
+      err testEmudhraRootRemoval "$bundle: control root missing, or emSign/AAA root still trusted"
+      return 1
+    fi
+    checked=1
+  done
+  [ "$checked" -eq 1 ] || { err testEmudhraRootRemoval "No CA bundle found"; return 1; }
+}
+
+# Check the captured image before test setup can upgrade its CA packages.
+testEmudhraRootRemoval /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
+  /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem || exit 1
+
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
@@ -135,6 +155,7 @@ fi
 
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
+source ./AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
 source ./AgentBaker/vhdbuilder/packer/packer_source.sh
 
 validateDownloadPackage() {
@@ -2659,7 +2680,6 @@ testNodeProblemDetector() {
     AzureLinux) [ "${os_version}" = 3.0 ] || return 0 ;;
     *) return 0 ;;
   esac
-  case "${FEATURE_FLAGS}" in *kata*) return 0 ;; esac
   for executable in /usr/bin/node-problem-detector /usr/bin/npd-log-counter /usr/bin/npd-health-checker /opt/bin/node-problem-detector-startup.sh; do
     [ -x "${executable}" ] || err "$test" "Missing executable ${executable}"
   done
@@ -2895,6 +2915,32 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
+testNetworkdRecoveryArtifacts() {
+  local test="testNetworkdRecoveryArtifacts"
+  if [ "$OS_SKU" != "AzureLinux" ] || [ "$OS_VERSION" != "3.0" ]; then
+    return 0
+  fi
+
+  local path
+  for path in /etc/systemd/system/aks-networkd-recovery.service /etc/systemd/system/aks-networkd-recovery.timer; do
+    if [ "$(stat -c '%a' "$path" 2>/dev/null)" != "644" ]; then
+      err "$test" "$path must exist with mode 0644"
+    fi
+  done
+  if [ "$(stat -c '%a' /opt/azure/containers/aks-networkd-recovery.sh 2>/dev/null)" != "755" ]; then
+    err "$test" "networkd recovery script must exist with mode 0755"
+  fi
+  if ! systemctl is-enabled --quiet aks-networkd-recovery.timer; then
+    err "$test" "networkd recovery timer must be enabled"
+  fi
+  if ! grep -Fxq 'OnCalendar=*:0/5' /etc/systemd/system/aks-networkd-recovery.timer; then
+    err "$test" "networkd recovery timer must check every five minutes"
+  fi
+  if ! grep -Fxq 'ConditionPathExists=/opt/azure/containers/provision.complete' /etc/systemd/system/aks-networkd-recovery.service; then
+    err "$test" "networkd recovery must wait for node provisioning to finish"
+  fi
+}
+
 testMarinerLivePatchingArtifacts() {
   local test="testMarinerLivePatchingArtifacts"
   local update_script="/opt/azure/containers/mariner-package-update.sh"
@@ -2988,6 +3034,7 @@ testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
 testMarinerLivePatchingArtifacts
+testNetworkdRecoveryArtifacts
 testNodeExporter $OS_SKU
 testNodeProblemDetector $OS_SKU $OS_VERSION
 testAKSNodeControllerBinary

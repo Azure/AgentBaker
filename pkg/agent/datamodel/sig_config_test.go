@@ -41,10 +41,9 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSACLGen2FIPSTL:                        SIGACLGen2FIPSTLImageConfigTemplate.WithOptions(),
 			AKSACLArm64Gen2FIPSTL:                   SIGACLArm64Gen2FIPSTLImageConfigTemplate.WithOptions(),
 			AKSACLCVMGen2:                           SIGACLCVMGen2ImageConfigTemplate.WithOptions(),
+			AKSACLCVMGen2FIPS:                       SIGACLCVMGen2FIPSImageConfigTemplate.WithOptions(),
 			// TODO: add back once "aclkatagen2TL" has at least one valid image version.
 			// AKSACLKataGen2TL: SIGACLKataGen2TLImageConfigTemplate.WithOptions(),
-			// TODO: add once "aclgen2fipsCVM" has at least one valid image version.
-			// AKSACLCVMGen2FIPS: SIGACLCVMGen2FIPSImageConfigTemplate.WithOptions(),
 		}
 		actual := GetMaintainedLinuxSIGImageConfigMap()
 		for distro, config := range expected {

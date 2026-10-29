@@ -54,6 +54,50 @@ the provisioning config in CustomData; the automatic size fallback uses the same
 config-only payload. Leaving the new flag false preserves legacy, Phase 2, and
 Phase 2.5 behavior.
 
+### Azure cloud trust-store capabilities
+
+The shared cloud runtime provides platform detection, bounded HTTP and command
+execution, public-file writes, and guest-agent events. The trust-store helpers
+write downloaded contents without PEM/X.509 filtering, update the platform's
+existing CA tools, and preserve Ubuntu's OpenSSL bundle/symlink behavior.
+
+Cloud commands run in their own process groups with a two-minute timeout, or
+the caller's earlier cancellation. Cancellation kills the entire group. A
+five-second `WaitDelay` bounds output draining after cancellation or command
+exit, including when a descendant leaves the group but retains an output pipe.
+
+Cache cleanup removes flat staging files, including hidden files, without
+recursively deleting directories or removing installed system-trust certificates.
+`AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only diagnostics;
+parsing for logging does not gate installation.
+
+Existing provisioning still uses `init-aks-cloud.sh`; these helpers do not change
+the provisioning entry point.
+
+### Azure cloud certificate retrieval capabilities
+
+WireServer helpers retrieve legacy certificate packages and RCV1P root/intermediate
+operation groups. Requests preserve the shell's `comp=acmspackage&type=...&ext=...`
+parameter order and raw values without additional URL escaping. WireServer's
+special-character decoding contract is not verified. Request/retry bounds, flat
+download caching, and per-certificate download skipping are preserved.
+
+RCV1P manifests are decoded as JSON from `OperationsInfo[].ResouceFileName`;
+the field's misspelling is part of the protocol. JSON whitespace does not affect
+parsing, and same-named fields at other levels are ignored. Invalid JSON or an
+incompatible `OperationsInfo` structure returns an error rather than falling back
+to text matching.
+
+HTTP 2xx responses must also be read without errors. Detectable transfer
+truncation, such as a body shorter than `Content-Length`, is retried rather than
+returning partial certificate bytes, unlike the shell's status-only success
+check. This is not certificate-content validation: a close-delimited response
+without a length or chunk-framing error can still contain incomplete content.
+
+Retrieval helpers do not install certificates or make opt-in decisions; the refresh
+orchestration below combines those capabilities. Repository configuration,
+scheduling, and native provisioning activation are supplied by later layers.
+
 ### Azure cloud certificate refresh
 
 ANC provides a standalone command for refreshing Azure cloud CA certificates:

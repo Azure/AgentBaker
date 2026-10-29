@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -17,7 +18,37 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
+
+func TestBuildCSECmdContainerdImagePullSettings(t *testing.T) {
+	for _, version := range []string{"1.7.22", "2.2.4"} {
+		t.Run(version, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "containerd"), []byte(fmt.Sprintf(`#!/bin/sh
+[ "$1" = "--version" ] || exit 1
+echo "containerd containerd.io %s test"
+`, version)), 0755))
+			t.Setenv("PATH", dir)
+			cfg := &aksnodeconfigv1.Configuration{ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+				ImagePullWithSyncFs:      proto.Bool(false),
+				ImagePullProgressTimeout: proto.String("0s"),
+			}}
+			cmd, err := BuildCSECmd(context.Background(), cfg, nil)
+			require.NoError(t, err)
+			env := environToMap(cmd.Env)
+			for _, key := range []string{"CONTAINERD_CONFIG_CONTENT", "CONTAINERD_CONFIG_NO_GPU_CONTENT"} {
+				content, err := base64.StdEncoding.DecodeString(env[key])
+				require.NoError(t, err)
+				require.Contains(t, string(content), "image_pull_with_sync_fs = false")
+				require.Contains(t, string(content), `image_pull_progress_timeout = "0s"`)
+			}
+			require.NotContains(t, env, "ANC_CONFIGURE_CONTAINERD_BINARY")
+			require.NotContains(t, env, "CONTAINERD_IMAGE_PULL_WITH_SYNC_FS")
+			require.NotContains(t, env, "CONTAINERD_IMAGE_PULL_PROGRESS_TIMEOUT")
+		})
+	}
+}
 
 func TestBuildCSECmd(t *testing.T) {
 	tests := []struct {

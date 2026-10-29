@@ -204,7 +204,7 @@ We have some custom data sources in the renovate.json now. Let's walk through an
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     }
 ```
@@ -285,6 +285,10 @@ Renovate will actually convert this plain text file to a JSON file which looks l
 }
 ```
 So the JSONata query you are working on, should take this as inputs, instead of the raw content.
+
+For the Ubuntu PMC and NVIDIA Debian indexes, the transform joins the trimmed lines once and splits them into package stanzas at one or more blank lines. Leading blank lines are removed before splitting. It matches the exact `Package:` header, then reads the following `Version:` line within each matching stanza, preserving feed order. This relies on the same `Package:`-then-`Version:` arrangement as the previous transform. The outer array keeps `releases` an array even for zero or one matching version; no matches produce `{"releases": []}`.
+
+Avoid looking up `releases[$i + 1]` for every matching package line: JSONata repeatedly traverses the full line sequence for these positional lookups, making large indexes expensive. Keep version extraction local to the matching stanza instead. Renovate's plain fetcher trims each line (including CRLF line endings) and preserves blank lines, so whitespace-only separators also become stanza boundaries.
 
 How do I know that? By reading the Renovate trace carefully you will find it's actually trying to parse this JSON file.
 If the raw content from your `transformTemplates` is not in plain text but other format, I would still highly recommend you enable the Renovate trace so that you can see what is happening behing the scene.

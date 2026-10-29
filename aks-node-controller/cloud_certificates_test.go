@@ -199,23 +199,25 @@ func TestCloudLegacyCertificateInstallationDoesNotIgnoreCancellation(t *testing.
 	require.ErrorIs(t, c.refreshCertificates(ctx, "usnateast"), context.Canceled)
 }
 
-func TestCloudCertificateResourceNamesAreURLEncoded(t *testing.T) {
+func TestCloudCertificateRefreshPreservesShellQuery(t *testing.T) {
 	c := newTestCloudInitializer(t, "ID=azurelinux\n")
 	cert := cloudTestCertificate(t)
 	var fetched atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch kind := r.URL.Query().Get("type"); {
-		case r.URL.Path == "/acms/isOptedInForRootCerts":
+		switch r.RequestURI {
+		case "/acms/isOptedInForRootCerts":
 			_, _ = io.WriteString(w, `{"IsOptedInForRootCerts":true}`)
-		case kind == "operationrequestsroot":
+		case "/machine?comp=acmspackage&type=operationrequestsroot&ext=json":
 			_, _ = io.WriteString(w, `{"OperationsInfo":[{"ResouceFileName":"root+ca.crt"}]}`)
-		case kind == "operationrequestsintermediate":
+		case "/machine?comp=acmspackage&type=operationrequestsintermediate&ext=json":
 			_, _ = io.WriteString(w, `{"OperationsInfo":[{"ResouceFileName":"intermediate.crt"}]}`)
-		case kind == "root+ca", kind == "intermediate":
+		case "/machine?comp=acmspackage&type=root+ca&ext=crt":
 			fetched.Store(true)
 			_, _ = w.Write(cert)
+		case "/machine?comp=acmspackage&type=intermediate&ext=crt":
+			_, _ = w.Write(cert)
 		default:
-			t.Errorf("incorrectly encoded certificate resource: %s", r.URL)
+			t.Errorf("certificate request differs from init-aks-cloud.sh: %s", r.RequestURI)
 			w.WriteHeader(http.StatusBadRequest)
 		}
 	}))

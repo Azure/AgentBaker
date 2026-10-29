@@ -47,7 +47,7 @@ type AzureClient struct {
 	StorageContainers         *armstorage.BlobContainersClient
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
-	Credential                *azidentity.AzureCLICredential
+	Credential                azcore.TokenCredential
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
 	NetworkInterfaces         *armnetwork.InterfacesClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
@@ -489,6 +489,25 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 	return nil
 }
 
+// EnsureResourceGroupRoles restores CI runner access lost when a shared RG is garbage-collected.
+func (a *AzureClient) EnsureResourceGroupRoles(ctx context.Context, scope string) error {
+	principalID, err := getCurrentPrincipalID(ctx, a.Credential)
+	if err != nil {
+		return fmt.Errorf("resolve current principal: %w", err)
+	}
+	for _, roleDefID := range []string{
+		// Compute Gallery Artifacts Publisher.
+		"/providers/Microsoft.Authorization/roleDefinitions/85a2d0d9-2eba-4c9c-b355-11c2cc0788ab",
+		// Container Registry Data Importer and Data Reader.
+		"/providers/Microsoft.Authorization/roleDefinitions/577a9874-89fd-4f24-9dbd-b5034d0ad23a",
+	} {
+		if err := a.assignRole(ctx, scope, principalID, roleDefID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // assignBlobContributorToCurrentPrincipal grants "Storage Blob Data Contributor" on the
 // e2e blob container to the principal currently authenticated against ARM (the test
 // runner: ADO service-connection SP in pipelines, or the developer's user identity
@@ -504,7 +523,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 // Idempotent: uses a deterministic role-assignment name derived from
 // (scope, principalID, roleDefinitionID) so re-runs recreate the same assignment ID
 // instead of accumulating duplicate assignments (Azure caps at ~2000/sub); a pre-existing
-// role assignment returns 409 Conflict which is swallowed.
+// role assignment is accepted.
 func (a *AzureClient) assignBlobContributorToCurrentPrincipal(ctx context.Context) error {
 	principalID, err := getCurrentPrincipalID(ctx, a.Credential)
 	if err != nil {
@@ -519,10 +538,12 @@ func (a *AzureClient) assignBlobContributorToCurrentPrincipal(ctx context.Contex
 	)
 	// Storage Blob Data Contributor built-in role.
 	roleDefID := "/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"
-	// Deterministic assignment name so re-runs produce the same GUID and hit the 409
-	// swallow-path below instead of creating a new assignment each run.
+	return a.assignRole(ctx, scope, principalID, roleDefID)
+}
+
+func (a *AzureClient) assignRole(ctx context.Context, scope, principalID, roleDefID string) error {
 	uid := uuid.NewSHA1(uuid.NameSpaceOID, []byte(scope+"|"+principalID+"|"+roleDefID)).String()
-	_, err = a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
+	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
 		Properties: &armauthorization.RoleAssignmentProperties{
 			PrincipalID:      to.Ptr(principalID),
 			RoleDefinitionID: to.Ptr(roleDefID),
@@ -534,10 +555,10 @@ func (a *AzureClient) assignBlobContributorToCurrentPrincipal(ctx context.Contex
 	}, nil)
 	var respError *azcore.ResponseError
 	if err != nil {
-		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
+		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict && respError.ErrorCode == "RoleAssignmentExists" {
 			return nil
 		}
-		return fmt.Errorf("assign Storage Blob Data Contributor role to current principal %s: %w", principalID, err)
+		return fmt.Errorf("assign role %s to principal %s at %s: %w", roleDefID, principalID, scope, err)
 	}
 	return nil
 }
