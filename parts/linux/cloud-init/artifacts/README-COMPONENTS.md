@@ -219,7 +219,9 @@ Each resolution is logged as `requested -> full package version` and written to 
 
 ORAS uses PMC packages on Ubuntu 22.04, 24.04, and 26.04 and Azure Linux 3.0. The Ubuntu package is named `az-oras` but provides the `oras` executable. Ubuntu 20.04 and other distros without a PMC package entry continue to use the upstream release archive.
 
-The Windows ORAS entry pins the full DALEC package version, including its revision (for example, `1.3.6-1`). Its URL uses `${versionNoBuild}` for the upstream-version directory and `${version}` for the ZIP filename. Like the Windows DALEC credential-provider packages, this entry is updated manually after confirming that the ZIP is published; upstream GitHub releases do not track DALEC packaging revisions.
+The Windows ORAS entry tracks the full DALEC package version, including its revision (for example, `1.3.6-1`). Its URL uses `${versionNoBuild}` for the upstream-version directory and `${version}` for the ZIP filename. The `dalec-windows=oras` Renovate tracker reads versions and revisions from DALEC's `specs/oras/matrix.yml`, including packaging-only rebuilds. A merged matrix entry can precede package publication, so confirm that the Windows ZIP is available before merging an update.
+
+The DALEC repository is private. The Renovate operator must configure an authenticated `raw.githubusercontent.com` host rule with read access to `Azure/dalec-build-defs`; credentials belong in the bot's secret configuration, not this repository. Without that access, the dependency is detected but version lookup fails.
 
 ## Can I keep only 1 patch version?
 Yes. Just place the latest version of the component in `latestVersion`. `previousLatestVersion` is optional.
