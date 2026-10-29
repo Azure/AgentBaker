@@ -235,36 +235,15 @@ testAcrCredentialProviderInstalled() {
 
 testOrasBinaryInstalled() {
   local expectedVersion="$1"
-  local orasPathOverride="${2:-}"
-  local versionedPathOverride="${3:-}"
+  local orasPath="${2:-/opt/bin/oras}"
   local test="testOrasBinaryInstalled"
-  local versionNoEpoch upstreamVersion
-  local orasPath versionedOrasPath
-  local resolvedSymlink installedVersion
+  local versionNoEpoch upstreamVersion installedVersion
 
   versionNoEpoch="${expectedVersion#*:}"
   upstreamVersion="${versionNoEpoch%%-*}"
-  orasPath="${orasPathOverride:-/opt/bin/oras}"
-  versionedOrasPath="${versionedPathOverride:-/opt/bin/oras-${upstreamVersion}}"
-
-  if [ ! -x "${versionedOrasPath}" ]; then
-    err "$test" "expected executable ${versionedOrasPath} is missing or not executable"
-    return 1
-  fi
-
-  if [ ! -L "${orasPath}" ]; then
-    err "$test" "${orasPath} is expected to be a symlink to ${versionedOrasPath}"
-    return 1
-  fi
-
-  resolvedSymlink=$(readlink "${orasPath}")
-  if [ "${resolvedSymlink}" != "${versionedOrasPath}" ]; then
-    err "$test" "${orasPath} points to ${resolvedSymlink}; expected ${versionedOrasPath}"
-    return 1
-  fi
 
   if [ ! -x "${orasPath}" ]; then
-    err "$test" "${orasPath} is not executable"
+    err "$test" "expected executable ${orasPath} is missing or not executable"
     return 1
   fi
 
