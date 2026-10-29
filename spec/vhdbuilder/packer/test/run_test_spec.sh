@@ -104,6 +104,58 @@ Describe 'Linux content-test Run Command parameters'
   End
 End
 
+Describe 'Linux content-test failure handling'
+  run_failure_handling() (
+    set -eu
+    ret='{}'
+    errMsg="$ERR_MSG"
+    eval "$(sed -n '/^case "${OS_VERSION:-}" in$/,/^esac$/p' vhdbuilder/packer/test/run-test.sh)"
+    eval "$(sed -n '/^function reportTestFailuresAsWarnings()/,/^}/p' vhdbuilder/packer/test/run-test.sh)"
+    eval "$(sed -n '/^  if \[\[ "\$errMsg" == \*":Error:"\* \]\]; then$/,/^  fi$/p' vhdbuilder/packer/test/run-test.sh)"
+    echo 'run-test continued'
+  )
+  collect_warnings() { run_failure_handling | grep '^##vso\[task.logissue type=warning\]'; }
+
+  Context 'exit status'
+    Parameters
+      22.04 '' 1
+      V3 '' 1
+      V4 '' 0
+      4.0 '' 0
+      V4 false 1
+      V4 FALSE 1
+      22.04 true 0
+      22.04 TRUE 0
+    End
+
+    It "exits $3 for OS_VERSION '$1' with VHD_TEST_FAILURES_AS_WARNINGS '$2'"
+      OS_VERSION="$1" VHD_TEST_FAILURES_AS_WARNINGS="$2"
+      ERR_MSG=$'testPam:Error: pam failed\ntestCloudInit:Error: cloud-init errors'
+      When run run_failure_handling
+      The status should equal "$3"
+      The output should include 'Tests failed.'
+      if [ "$3" -eq 0 ]; then
+        The output should include 'run-test continued'
+        The output should include '##vso[task.logissue type=warning]2 VHD content test(s) failed'
+      else
+        The output should not include '##vso[task.logissue'
+      fi
+    End
+  End
+
+  It 'logs a summary plus one warning per failing test and skips continuation lines'
+    OS_VERSION=V4 VHD_TEST_FAILURES_AS_WARNINGS=''
+    ERR_MSG=$'testPam:Error: pam failed\r\nPAM output line\ntestCloudInit:Error: cloud-init errors'
+    expected=$(printf '%s\n' \
+      '##vso[task.logissue type=warning]2 VHD content test(s) failed; reporting as warnings because VHD_TEST_FAILURES_AS_WARNINGS=true' \
+      '##vso[task.logissue type=warning]VHD content test failed (non-fatal): testPam:Error: pam failed' \
+      '##vso[task.logissue type=warning]VHD content test failed (non-fatal): testCloudInit:Error: cloud-init errors')
+    When call collect_warnings
+    The status should be success
+    The output should equal "$expected"
+  End
+End
+
 Describe 'Test VM credential log hygiene'
   openssl() { printf 'deadbeefcafebabe1234567890abcdef\n'; }
   az() { printf '%s\n' "$@" > "$AZ_ARGS"; }

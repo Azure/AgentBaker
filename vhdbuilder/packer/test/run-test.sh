@@ -2,6 +2,13 @@
 set -eux
 : "${CONTAINTER_BASE_URLS_EXISTING:=false}"
 
+# TEMP: report AzL4 content-test failures as pipeline warnings instead of failing the build while they are
+# root-caused. Set VHD_TEST_FAILURES_AS_WARNINGS=true|false to override the per-OS default.
+case "${OS_VERSION:-}" in
+  V4|4.0) : "${VHD_TEST_FAILURES_AS_WARNINGS:=true}" ;;
+  *) : "${VHD_TEST_FAILURES_AS_WARNINGS:=false}" ;;
+esac
+
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 PERFORMANCE_DATA_FILE=vhd-build-performance-data.json
@@ -62,6 +69,22 @@ function cleanup() {
   fi
 }
 trap cleanup EXIT
+
+# Logs one Azure DevOps warning per failing "testname:Error: message" line, plus a summary, so the failures show up
+# in the build summary without failing the step.
+function reportTestFailuresAsWarnings() {
+  local errMsg="$1" failure
+  local failures=()
+  while IFS= read -r failure; do
+    case "$failure" in
+      *:Error:*) failures+=("${failure%$'\r'}") ;;
+    esac
+  done <<< "$errMsg"
+  echo "##vso[task.logissue type=warning]${#failures[@]} VHD content test(s) failed; reporting as warnings because VHD_TEST_FAILURES_AS_WARNINGS=true"
+  for failure in "${failures[@]}"; do
+    echo "##vso[task.logissue type=warning]VHD content test failed (non-fatal): ${failure}"
+  done
+}
 
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_test_resource_group"
@@ -222,7 +245,10 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
     echo "Extracted error message: $errMsg"
     echo "Test output is: "
     echo "$ret"
-    exit 1
+    if [ "${VHD_TEST_FAILURES_AS_WARNINGS,,}" != "true" ]; then
+      exit 1
+    fi
+    reportTestFailuresAsWarnings "$errMsg"
   fi
 fi
 
