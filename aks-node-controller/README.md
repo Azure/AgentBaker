@@ -71,8 +71,8 @@ recursively deleting directories or removing installed system-trust certificates
 `AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only diagnostics;
 parsing for logging does not gate installation.
 
-These are internal capabilities only. Existing provisioning still uses
-`init-aks-cloud.sh`.
+Existing provisioning still uses `init-aks-cloud.sh`; these helpers do not change
+the provisioning entry point.
 
 ### Azure cloud certificate retrieval capabilities
 
@@ -94,9 +94,41 @@ returning partial certificate bytes, unlike the shell's status-only success
 check. This is not certificate-content validation: a close-delimited response
 without a length or chunk-framing error can still contain incomplete content.
 
-Retrieval does not install certificates or make opt-in decisions. Refresh
-orchestration, the standalone refresh command, scheduling, and native provisioning
-activation are supplied by later layers; they are not enabled here.
+Retrieval helpers do not install certificates or make opt-in decisions; the refresh
+orchestration below combines those capabilities. Repository configuration,
+scheduling, and native provisioning activation are supplied by later layers.
+
+### Azure cloud certificate refresh
+
+ANC provides a standalone command for refreshing Azure cloud CA certificates:
+
+```sh
+/opt/azure/containers/aks-node-controller refresh-cloud-certificates --location westus2
+```
+
+The refresh routine normalizes and validates the location before clearing its
+staging cache or making requests, so inputs such as `usSecGov` and ` US SEC GOV `
+select the same legacy endpoint as `ussecgov`.
+
+Regions starting with `ussec` or `usnat` use the legacy certificate endpoint.
+Other regions check WireServer's root-certificate opt-in through the dedicated
+`isOptedInForRootCerts` helper before retrieving root and intermediate certificates.
+Only the JSON boolean `true` enables opt-in;
+nonempty malformed or non-true responses skip installation. Failed or empty
+opt-in requests remain errors. Individual operation-certificate download failures
+are logged and skipped, and legacy trust-store installation failures remain
+best-effort unless the context is canceled.
+
+Downloaded contents are passed to the system trust-store tools without additional
+PEM/X.509 validation. Refresh clears the flat staging cache, including hidden
+files, without removing existing system trust-store certificates. Raw responses
+are never logged; `AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only
+diagnostics. The refresh command has a 15-minute budget and emits
+`CloudCertificateRefresh` guest-agent events.
+
+This command does not configure repositories or install refresh schedules.
+Existing provisioning still uses `init-aks-cloud.sh`; native cloud initialization
+is not yet connected to the provisioning entry point.
 
 ### Validating and normalizing AKSNodeConfig
 
