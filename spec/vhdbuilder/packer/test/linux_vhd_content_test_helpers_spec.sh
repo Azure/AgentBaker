@@ -316,6 +316,7 @@ Describe 'testCronPermissions invocation'
     create_fake_oras() {
       local path="$1"
       local version="$2"
+      # shellcheck disable=SC2016 # $1 must stay literal in the generated script
       printf '#!/bin/bash\nif [ "$1" = "version" ]; then\n  echo "Version: %s"\n  exit 0\nfi\nexit 1\n' "$version" > "$path"
       chmod +x "$path"
     }
@@ -327,6 +328,17 @@ Describe 'testCronPermissions invocation'
       ln -sf "$root_dir/oras-1.3.5" "$root_dir/oras"
 
       When call testOrasBinaryInstalled "1.3.5-2" "$root_dir/oras" "$root_dir/oras-1.3.5"
+      The status should equal 0
+      The error should equal ""
+    End
+
+    It 'passes when DALEC oras reports build metadata in its version'
+      root_dir="${SHELLSPEC_WORKDIR}/oras-dalec-build-metadata"
+      mkdir -p "$root_dir"
+      create_fake_oras "$root_dir/oras-1.3.5" "1.3.5+ubuntu.24.04"
+      ln -sf "$root_dir/oras-1.3.5" "$root_dir/oras"
+
+      When call testOrasBinaryInstalled "1.3.5" "$root_dir/oras" "$root_dir/oras-1.3.5"
       The status should equal 0
       The error should equal ""
     End

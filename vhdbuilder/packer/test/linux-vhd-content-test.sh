@@ -273,7 +273,8 @@ testOrasBinaryInstalled() {
     err "$test" "unable to parse oras version from ${orasPath} version output"
     return 1
   fi
-  if [ "${installedVersion}" != "${upstreamVersion}" ]; then
+  # DALEC builds append build metadata, e.g. "1.3.5+ubuntu.24.04"
+  if [ "${installedVersion%%+*}" != "${upstreamVersion}" ]; then
     err "$test" "oras version mismatch, expected ${upstreamVersion} but found ${installedVersion}"
     return 1
   fi
