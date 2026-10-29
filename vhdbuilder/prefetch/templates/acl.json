@@ -17,22 +17,19 @@
         "customize": [
             {
                 "type": "File",
-                "name": "StageACLFirstBootHelper",
+                "name": "StageACLDeprovisionHelper",
                 "sourceUri": "<WORKLOAD_OPTIMIZATION_SCRIPT_URL>",
                 "destination": "/tmp/acl-prefetch-driver.sh"
             },
             {
                 "type": "Shell",
-                "name": "PrepareACLFirstBootForCapture",
+                "name": "ConfigureACLDeprovisioning",
                 "inline": [
-                    "sudo /bin/bash /tmp/acl-prefetch-driver.sh --prepare-only && sudo rm -f /tmp/acl-prefetch-driver.sh"
+                    "command -v acl-image-prepare >/dev/null || { echo 'ACL base image must include acl-image-prepare' >&2; exit 1; }",
+                    "printf '%s\\n' '#!/bin/bash' 'set -euo pipefail' 'sudo /bin/bash /tmp/acl-prefetch-driver.sh --deprovision' | sudo tee /tmp/DeprovisioningScript.sh >/dev/null"
                 ]
             }
         ],
-        "vmProfile": {
-            "vmSize": "Standard_D4s_v6",
-            "osDiskSizeGB": 60
-        },
         "optimize": {
             "vmBoot": {
                 "state": "Enabled"
