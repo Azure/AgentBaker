@@ -213,9 +213,8 @@ Describe 'ensure_sig_image_name_linux function'
   End
 
   Describe 'OS_SKU AzureContainerLinux (ACL) scenarios'
-    # ACL uses a direct shared gallery source image (not marketplace).
-    # Its destination SIG image definitions (aclgen2TL, aclgen2arm64TL)
-    # intentionally have no AzureLinux prefix.
+    # ACL uses a direct shared gallery source image. Its destination SIG image
+    # definitions (aclgen2TL, aclgen2arm64TL) intentionally have no AzureLinux prefix.
     It 'should NOT add AzureLinux prefix when OS_SKU is AzureContainerLinux (gen2 TL)'
       SIG_IMAGE_NAME=""
       SKU_NAME="aclgen2TL"
