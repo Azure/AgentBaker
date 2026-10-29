@@ -75,8 +75,7 @@ Describe 'ACL experimental AIB template'
       .properties.customize[0].destination == "/tmp/acl-prefetch-driver.sh" and
       .properties.customize[1].type == "Shell" and
       .properties.customize[1].inline == [
-        "sudo /bin/bash /tmp/acl-prefetch-driver.sh --prepare-only",
-        "sudo rm -f /tmp/acl-prefetch-driver.sh"
+        "sudo /bin/bash /tmp/acl-prefetch-driver.sh --prepare-only && sudo rm -f /tmp/acl-prefetch-driver.sh"
       ] and .properties.vmProfile.vmSize == "Standard_D4s_v6" and
       .properties.optimize.vmBoot.state == "Enabled" and
       .properties.optimize.workload.state == "Enabled"
