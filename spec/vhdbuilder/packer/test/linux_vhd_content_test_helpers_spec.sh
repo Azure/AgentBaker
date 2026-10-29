@@ -285,6 +285,95 @@ Describe 'Inspektor Gadget version helper functions'
   End
 End
 
+Describe 'isKernelModuleBuiltin'
+  BeforeAll "eval \"\$(sed -n '/^isKernelModuleBuiltin()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  write_modules_builtin() {
+    MODULES_BUILTIN="$(mktemp)"
+    printf '%s\n' \
+      'kernel/crypto/algif_aead.ko' \
+      'kernel/crypto/algif_hash.ko' \
+      'kernel/net/ipv4/esp4_offload.ko' >"$MODULES_BUILTIN"
+  }
+  remove_modules_builtin() { rm -f "$MODULES_BUILTIN"; }
+
+  BeforeEach 'write_modules_builtin'
+  AfterEach 'remove_modules_builtin'
+
+  It 'detects a module listed in modules.builtin'
+    When call isKernelModuleBuiltin algif_aead "$MODULES_BUILTIN"
+    The status should be success
+  End
+
+  It 'does not match a module that only shares a prefix with a built-in module'
+    When call isKernelModuleBuiltin esp4 "$MODULES_BUILTIN"
+    The status should be failure
+  End
+
+  It 'does not match a module that only shares a suffix with a built-in module'
+    When call isKernelModuleBuiltin aead "$MODULES_BUILTIN"
+    The status should be failure
+  End
+
+  It 'reports a missing modules.builtin as not built in'
+    When call isKernelModuleBuiltin algif_aead "${MODULES_BUILTIN}.absent"
+    The status should be failure
+    The stderr should equal ''
+  End
+End
+
+Describe 'testVulnerableKernelModulesDisabled built-in modules'
+  BeforeAll "eval \"\$(sed -n '/^testVulnerableKernelModulesDisabled()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  err() { echo "$1:Error: $2" >&2; }
+  # Deny rules are present and nothing is loaded; any other grep runs for real.
+  grep() {
+    case "$*" in
+      *'/proc/modules'*) return 1 ;;
+      *'/etc/modprobe.d/'*) return 0 ;;
+      *) command grep "$@" ;;
+    esac
+  }
+  # modprobe succeeds for the built-in module and for $LOADABLE_MODULE, and refuses everything else.
+  modprobe() {
+    case "$1" in
+      -r) return 0 ;;
+      algif_aead) return 0 ;;
+      "$LOADABLE_MODULE") return 0 ;;
+      *) return 1 ;;
+    esac
+  }
+  isKernelModuleBuiltin() { [ "$1" = algif_aead ]; }
+
+  It 'warns instead of failing for a built-in module on AzureLinux 4.0'
+    LOADABLE_MODULE=''
+    When call testVulnerableKernelModulesDisabled AzureLinux 4.0
+    The status should be success
+    The output should include 'testVulnerableKernelModulesDisabled: Warning: algif_aead is built into the AzureLinux 4.0 kernel'
+    The output should include 'modprobe esp4 correctly refused to load'
+    The output should include 'modprobe rxrpc correctly refused to load'
+    The output should not include 'modprobe algif_aead correctly refused to load'
+    The stderr should not include ':Error:'
+  End
+
+  It 'still fails when a module that is not built in loads on AzureLinux 4.0'
+    LOADABLE_MODULE=esp4
+    When call testVulnerableKernelModulesDisabled AzureLinux 4.0
+    The status should be failure
+    The output should include 'Warning: algif_aead is built into the AzureLinux 4.0 kernel'
+    The stderr should include 'testVulnerableKernelModulesDisabled:Error: modprobe esp4 succeeded'
+    The stderr should not include 'algif_aead'
+  End
+
+  It 'keeps a built-in module fatal on AzureLinux 2.0'
+    LOADABLE_MODULE=''
+    When call testVulnerableKernelModulesDisabled AzureLinux 2.0
+    The status should be failure
+    The output should not include 'Warning:'
+    The stderr should include 'testVulnerableKernelModulesDisabled:Error: modprobe algif_aead succeeded'
+  End
+End
+
 Describe 'testCronPermissions invocation'
   BeforeAll "eval \"\$(sed -n '/^testCronPermissions()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
 

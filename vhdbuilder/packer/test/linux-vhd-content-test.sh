@@ -1689,6 +1689,15 @@ ubuntuKernelIncludesVulnerableModuleFixes() {
   kernelVersionGe "$kernel_release" "$fixed_kernel"
 }
 
+# kmod's modprobe returns success for a module compiled into the kernel before it evaluates
+# "install <mod> /bin/false", so a built-in module can never be blocked by a deny rule.
+isKernelModuleBuiltin() {
+  local mod="$1"
+  local builtin_file="${2:-/lib/modules/$(uname -r)/modules.builtin}"
+
+  grep -qsE "(^|/)${mod}\.ko(\.[a-z]+)?$" "$builtin_file" 2>/dev/null
+}
+
 testVulnerableKernelModulesDisabled() {
   local os_sku="${1:-$OS_SKU}"
   local os_version="${2:-$OS_VERSION}"
@@ -1753,6 +1762,13 @@ testVulnerableKernelModulesDisabled() {
       failed=1
     else
       echo "$test: ${mod} module is not loaded"
+    fi
+
+    if [ "$os_sku" = "AzureLinux" ] && [ "$os_version" = "4.0" ] && isKernelModuleBuiltin "${mod}"; then
+      # TODO: remove once the AzureLinux 4.0 kernel ships ${mod} as a module again, or AzureLinux 4.0
+      # is descoped like AzureLinux 3.0 (deny rules stripped and their absence asserted).
+      echo "$test: Warning: ${mod} is built into the AzureLinux 4.0 kernel; its modprobe deny rule cannot block it"
+      continue
     fi
 
     if modprobe "${mod}" 2>/dev/null; then
