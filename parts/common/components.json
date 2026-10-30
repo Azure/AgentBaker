@@ -2355,6 +2355,29 @@
       }
     },
     {
+      "name": "kmpp-containers",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": []
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=kmpp-containers, os=azurelinux, release=3.0",
+                "latestVersion": "5.1.1_296"
+              }
+            ]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": []
+          }
+        }
+      }
+    },
+    {
       "name": "node-exporter",
       "downloadLocation": "/opt/node-exporter",
       "downloadURIs": {

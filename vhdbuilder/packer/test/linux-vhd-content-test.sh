@@ -2699,6 +2699,47 @@ testNodeProblemDetector() {
   [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
 }
 
+testKMPP() {
+  local test="testKMPP"
+  local kmppVersion unit state
+  echo "$test:Start"
+
+  kmppVersion=$(getPackageExpectedVersion "kmpp-containers" "" "" "")
+  # CVM resolves the Azure Linux 3.0 entries but install-dependencies.sh skips it.
+  if [ "$kmppVersion" = "<SKIP>" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    if command -v rpm >/dev/null 2>&1 && rpm -q kmpp-containers >/dev/null 2>&1; then
+      err "$test" "kmpp-containers is installed but KMPP is not baked for this image (OS_SKU=$OS_SKU FEATURE_FLAGS=$FEATURE_FLAGS)"
+    fi
+    echo "$test: Skipping, KMPP is not baked for this image"
+    return 0
+  fi
+
+  assertPackageVersion "$test" "kmpp-containers" "$kmppVersion" true
+  [ -f /etc/kmpp/disableDefaultProvider ] || err "$test" "Missing /etc/kmpp/disableDefaultProvider"
+  if grep -qi kmpp /etc/pki/tls/openssl.cnf; then
+    err "$test" "/etc/pki/tls/openssl.cnf must not load the KMPP provider"
+  fi
+  for unit in dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service; do
+    state=$(systemctl is-enabled "$unit" 2>/dev/null)
+    [ "$state" = "masked" ] || err "$test" "$unit must be masked on the VHD, got '$state'"
+    if systemctl is-active --quiet "$unit"; then
+      err "$test" "$unit must not be running on the VHD"
+    fi
+  done
+  if grep -q DeviceAllow /usr/lib/systemd/system/dbus-com.microsoft.kmpp.service; then
+    err "$test" "dbus-com.microsoft.kmpp.service is the TPM variant, expected the package default"
+  fi
+  if id -nG kmpp 2>/dev/null | tr ' ' '\n' | grep -qx tss; then
+    err "$test" "kmpp user must not be in the tss group"
+  fi
+  if [ -e /var/opt/msft/ap/data/kmpp-private ]; then
+    err "$test" "/var/opt/msft/ap/data/kmpp-private must not be baked into the VHD"
+  fi
+  grep -qsx kmpp-containers /etc/tdnf/locks.d/kmpp.conf || err "$test" "Missing tdnf lock for kmpp-containers"
+
+  echo "$test:Finish"
+}
+
 testKneadSecurityPatchingAssets() {
   local test="testKneadSecurityPatchingAssets"
   local os_sku="$1"
@@ -3037,6 +3078,7 @@ testMarinerLivePatchingArtifacts
 testNetworkdRecoveryArtifacts
 testNodeExporter $OS_SKU
 testNodeProblemDetector $OS_SKU $OS_VERSION
+testKMPP
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService

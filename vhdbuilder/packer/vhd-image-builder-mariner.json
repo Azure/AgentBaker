@@ -385,6 +385,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-kmpp.sh",
+      "destination": "/home/packer/install-kmpp.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/package-update.service",
       "destination": "/home/packer/snapshot-update.service"
     },
