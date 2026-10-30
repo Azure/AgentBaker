@@ -793,7 +793,7 @@ get_compute_sku() {
 }
 
 enableAndStartCgroupTelemetry() {
-    local units=() unit cgroup_version
+    local units=() unit
 
     # Don't enable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
     if ! isMarinerOrAzureLinux "$OS"; then
