@@ -94,7 +94,11 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 			assert.Nil(t, nbc.AgentPoolProfile.LocalDNSProfile)
 			assert.Nil(t, nodeConfig.LocalDnsProfile)
 			assert.True(t, s.VHD.UnsupportedLocalDns)
+			assert.Equal(t, "1.34.11", nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+			assert.Equal(t, "1.34.11", nodeConfig.KubernetesVersion)
 		} else {
+			assert.Equal(t, "1.36.5", nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+			assert.Equal(t, "1.36.5", nodeConfig.KubernetesVersion)
 			require.NotNil(t, nbc.AgentPoolProfile.LocalDNSProfile)
 			assert.True(t, nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS)
 			require.NotNil(t, nodeConfig.LocalDnsProfile)

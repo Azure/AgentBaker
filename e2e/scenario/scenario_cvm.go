@@ -14,6 +14,8 @@ const (
 	cvmLocation = "westus"
 	cvmSNPSKU   = "Standard_DC2ads_v5"
 	cvmTDXSKU   = "Standard_DC2eds_v6"
+	// Ubuntu 20.04 CVM uses cgroup v1, which kubelet rejects by default from 1.35.
+	cvmUbuntu2004KubernetesVersion = "1.34.11"
 )
 
 var (
@@ -97,6 +99,7 @@ func newCVMScenario(
 				nbc.AgentPoolProfile.VMSize = vmSize
 				if vhd.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
 					nbc.AgentPoolProfile.LocalDNSProfile = nil
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = cvmUbuntu2004KubernetesVersion
 				}
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -107,6 +110,7 @@ func newCVMScenario(
 	if vhd.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
 		s.AKSNodeConfigMutator = func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
 			cfg.LocalDnsProfile = nil
+			cfg.KubernetesVersion = cvmUbuntu2004KubernetesVersion
 		}
 	}
 	return s
