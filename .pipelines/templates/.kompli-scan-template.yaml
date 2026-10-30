@@ -1,0 +1,283 @@
+#################################################################################
+# .kompli-scan-template.yaml                                         #
+#                                                                               #
+# Shared ADO steps template that downloads the kompli       #
+# binary and the benchmark definition packages from an Azure Artifacts NuGet feed onto #
+# the build agent. It is the AgentBaker counterpart of the Augmentation         #
+# Engine's .pipelines/templates/test/kompli-scan.yml, and is meant   #
+# to be the shared entry point for evolving compliance/benchmark integrations   #
+# (CIS today, STIG next) in the ADO VHD builder.                                #
+#                                                                               #
+# Package NAMES and VERSIONS are NOT hard-coded here: they are pinned in the    #
+# repo manifest vhdbuilder/packer/kompli-scan.json and read at runtime          #
+# with jq. Bumping a version therefore always requires a PR (PR-gating), the    #
+# same model ACL uses. A non-blocking staleness warning fires when a pin is     #
+# older than stalenessThresholdDays.                                            #
+#                                                                               #
+# Unlike the Augmentation Engine template, this one does NOT run the scan on   #
+# the agent: the kompli must scan the live node OS, so the actual scan runs #
+# on the scan VM built from the VHD (see vhdbuilder/packer/vhd-scanning.sh ->    #
+# kompli-report.sh). This template only performs the reusable,        #
+# benchmark-agnostic download and lays artifacts down at a predictable path.    #
+#                                                                               #
+# Output layout (under downloadRoot):                                           #
+#   kompli        the kompli binary (chmod +x)             #
+#   definitions/<key>.benchmark.json  one definition per benchmark key in the manifest  #
+#                                                                               #
+# Dependencies (agent tools): jq, bash. dotnet SDK is provisioned by this       #
+# template (UseDotNet@2) — not assumed to pre-exist on the pool.                #
+#                                                                               #
+# Feed auth:                                                                     #
+#   authMode=basic (default): the running build's own identity resolves        #
+#     `vstsFeed` directly — only works for a feed in the SAME ADO org/project   #
+#     as this pipeline. The build identity needs Feed Reader on the feed.       #
+#   authMode=bearer: a NuGet-type service connection (NOT an Azure/ARM service   #
+#     connection — DotNetCoreCLI@2's `externalFeedCredentials` expects a NuGet   #
+#     external-feed connection) for a feed in a different ADO org. Provide       #
+#     feedServiceConnection.                                                    #
+#################################################################################
+
+parameters:
+- name: condition
+  type: string
+  default: succeeded()
+  displayName: 'Runtime condition gating every step (e.g. restrict to specific OS/versions)'
+
+- name: manifestPath
+  type: string
+  default: '$(Build.SourcesDirectory)/vhdbuilder/packer/kompli-scan.json'
+  displayName: 'Path to the PR-gated version manifest'
+
+- name: stalenessThresholdDays
+  type: number
+  default: 180
+  displayName: 'Emit a non-blocking warning when a pinned version is older than this many days'
+
+- name: feedName
+  type: string
+  default: 'ComplianceEnginePackages'
+  displayName: 'Azure Artifacts NuGet feed name hosting the kompli + benchmark packages'
+
+- name: feedProject
+  type: string
+  default: ''
+  displayName: 'ADO project hosting the feed (empty = org-scoped feed)'
+
+- name: authMode
+  type: string
+  default: 'basic'
+  values:
+  - basic
+  - bearer
+  displayName: 'Feed auth: basic (same-org vstsFeed) or bearer (NuGet service connection, cross-org)'
+
+- name: feedServiceConnection
+  type: string
+  default: ''
+  displayName: 'NuGet service connection with Feed Reader (required when authMode=bearer; must be a NuGet-type connection, not Azure/ARM)'
+
+- name: downloadRoot
+  type: string
+  default: '$(Build.SourcesDirectory)/vhdbuilder/kompli'
+  displayName: 'Agent directory to place the kompli binary and benchmark definitions'
+
+steps:
+# ── Phase 0: ensure dotnet is present ───────────────────────────────────────────
+- task: UseDotNet@2
+  displayName: 'kompli: ensure dotnet SDK'
+  condition: ${{ parameters.condition }}
+  inputs:
+    packageType: sdk
+    version: '8.x'
+
+# ── Phase 1: generate a throwaway restore project from the manifest ────────────
+- script: |
+    set -euo pipefail
+
+    manifest="${{ parameters.manifestPath }}"
+    if [ ! -f "${manifest}" ]; then
+        echo "##[error]Compliance version manifest not found: ${manifest}"
+        exit 1
+    fi
+    command -v jq >/dev/null 2>&1 || { echo "##[error]jq is required but not installed"; exit 1; }
+
+    download_root="${{ parameters.downloadRoot }}"
+    def_dir="${download_root}/definitions"
+    tmp_dir="${download_root}/.download"
+    proj_dir="${download_root}/.restore-proj"
+    rm -rf "${download_root}"
+    mkdir -p "${def_dir}" "${tmp_dir}" "${proj_dir}"
+
+    threshold="${{ parameters.stalenessThresholdDays }}"
+    now=$(date -u +%s)
+    # Splits a '<package>@<version>' pin into _name / _ver (package names contain
+    # no '@'). Fails on a malformed pin.
+    split_pin() {
+        local label="$1" pin="$2"
+        _name="${pin%@*}"; _ver="${pin##*@}"
+        if [ "${_name}" = "${pin}" ] || [ -z "${_name}" ] || [ -z "${_ver}" ]; then
+            echo "##[error]'${label}' pin must be '<package>@<version>' (got '${pin}')"
+            exit 1
+        fi
+    }
+    # Compliance package versions are '<YYYYMMDD>.<buildid>[-suffix]', so the pin
+    # date is the version's leading 8 digits — no separate 'updated' field.
+    warn_if_stale() {
+        local label="$1" ver="$2" datestr upd_epoch age
+        datestr="${ver:0:8}"
+        if ! printf '%s' "$datestr" | grep -Eq '^[0-9]{8}$' || ! upd_epoch=$(date -u -d "${datestr:0:4}-${datestr:4:2}-${datestr:6:2}" +%s 2>/dev/null); then
+            echo "##vso[task.logissue type=warning]${label}: cannot derive a date from version '${ver}'; skipping staleness check."
+            return 0
+        fi
+        age=$(( (now - upd_epoch) / 86400 ))
+        if [ "${age}" -gt "${threshold}" ]; then
+            echo "##vso[task.logissue type=warning]${label} version '${ver}' is ${age} days old (threshold ${threshold}). Open a PR to bump vhdbuilder/packer/kompli-scan.json."
+        fi
+    }
+
+    # Kompli pin ('<package>@<version>') from the manifest.
+    a_pin=$(jq -r '.kompli // empty' "${manifest}")
+    [ -n "${a_pin}" ] || { echo "##[error]'kompli' pin missing in ${manifest}"; exit 1; }
+    split_pin "kompli" "${a_pin}"; a_name="${_name}"; a_ver="${_ver}"
+    warn_if_stale "kompli" "${a_ver}"
+
+    bench_count=$(jq -r '(.benchmarks // {}) | length' "${manifest}")
+    [ "${bench_count}" -ge 1 ] || { echo "##[error]'benchmarks' must contain at least one entry in ${manifest}"; exit 1; }
+    declare -A bench_name bench_ver
+    for key in $(jq -r '.benchmarks | keys[]' "${manifest}"); do
+        b_pin=$(jq -r --arg k "$key" '.benchmarks[$k]' "${manifest}")
+        split_pin "${key}" "${b_pin}"
+        bench_name["${key}"]="${_name}"; bench_ver["${key}"]="${_ver}"
+        warn_if_stale "${key}" "${_ver}"
+    done
+
+    # One throwaway SDK-style project restores every pinned package (kompli +
+    # every unique benchmark id@version) in a single restore; `packagesDirectory`
+    # places each package's extracted contents under
+    # <tmp_dir>/<id-lowercase>/<normalized-version>/, preserving its internal
+    # layout (e.g. kompli's runtimes/<rid>/native/).
+    {
+        echo '<Project Sdk="Microsoft.NET.Sdk">'
+        echo '  <PropertyGroup>'
+        echo '    <TargetFramework>net8.0</TargetFramework>'
+        echo '  </PropertyGroup>'
+        echo '  <ItemGroup>'
+        printf '    <PackageReference Include="%s" Version="%s" />\n' "${a_name}" "${a_ver}"
+        # Dedupe identical id@version pairs (e.g. two benchmark keys sharing one package).
+        declare -A seen
+        for key in "${!bench_name[@]}"; do
+            pair="${bench_name[$key]}@${bench_ver[$key]}"
+            [ -n "${seen[$pair]:-}" ] && continue
+            seen["${pair}"]=1
+            printf '    <PackageReference Include="%s" Version="%s" />\n' "${bench_name[$key]}" "${bench_ver[$key]}"
+        done
+        echo '  </ItemGroup>'
+        echo '</Project>'
+    } > "${proj_dir}/restore.csproj"
+    echo "Generated restore project at ${proj_dir}/restore.csproj"
+  displayName: 'kompli: prepare restore project (manifest-driven)'
+  condition: ${{ parameters.condition }}
+
+# ── Phase 2: restore every pinned package by feed NAME, no manual feed URL ──────
+- task: DotNetCoreCLI@2
+  displayName: 'kompli: restore pinned packages'
+  condition: ${{ parameters.condition }}
+  inputs:
+    command: 'restore'
+    projects: '${{ parameters.downloadRoot }}/.restore-proj/restore.csproj'
+    feedsToUse: 'select'
+    includeNuGetOrg: false
+    packagesDirectory: '${{ parameters.downloadRoot }}/.download'
+    verbosityRestore: 'Minimal'
+    ${{ if ne(parameters.feedProject, '') }}:
+      vstsFeed: '${{ parameters.feedProject }}/${{ parameters.feedName }}'
+    ${{ else }}:
+      vstsFeed: '${{ parameters.feedName }}'
+    ${{ if eq(parameters.authMode, 'bearer') }}:
+      externalFeedCredentials: ${{ parameters.feedServiceConnection }}
+
+# ── Phase 3: select the right binary/definitions out of the restored packages ──
+- script: |
+    set -euo pipefail
+
+    manifest="${{ parameters.manifestPath }}"
+    command -v jq >/dev/null 2>&1 || { echo "##[error]jq is required but not installed"; exit 1; }
+
+    download_root="${{ parameters.downloadRoot }}"
+    def_dir="${download_root}/definitions"
+    tmp_dir="${download_root}/.download"
+    proj_dir="${download_root}/.restore-proj"
+
+    split_pin() {
+        local pin="$1"
+        _name="${pin%@*}"; _ver="${pin##*@}"
+    }
+    # Finds the (single) restored version directory NuGet created for a
+    # lowercased package id under tmp_dir, since NuGet's own folder-name
+    # version normalization needn't be reimplemented here.
+    restored_dir() {
+        local id_lower="$1"
+        find "${tmp_dir}/${id_lower}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1
+    }
+
+    a_pin=$(jq -r '.kompli' "${manifest}"); split_pin "${a_pin}"; a_name="${_name}"
+    declare -A bench_name
+    for key in $(jq -r '.benchmarks | keys[]' "${manifest}"); do
+        b_pin=$(jq -r --arg k "$key" '.benchmarks[$k]' "${manifest}")
+        split_pin "${b_pin}"; bench_name["${key}"]="${_name}"
+    done
+
+    # The package ships multiarch runtimes/<rid>/native/kompli (ADR-0003 in
+    # unified-definitions) — select the binary matching this agent's build
+    # architecture; a flat `find` here would non-deterministically pick
+    # whichever arch happens to sort first, silently staging the wrong ELF on
+    # an arm64 build. Fall back to a flat layout (single binary, no
+    # runtimes/ tree) for older/non-RID packages.
+    case "${ARCHITECTURE^^}" in
+        ARM64) kompli_rid=linux-arm64 ;;
+        X86_64|AMD64) kompli_rid=linux-x64 ;;
+        *) echo "##[error]Unrecognized ARCHITECTURE '${ARCHITECTURE}' for kompli RID selection"; exit 1 ;;
+    esac
+    a_dir=$(restored_dir "${a_name,,}")
+    if [ -z "${a_dir}" ]; then
+        echo "##[error]kompli package ${a_name} was not restored under ${tmp_dir}/${a_name,,}"
+        exit 1
+    fi
+    kompli_bin="${a_dir}/runtimes/${kompli_rid}/native/kompli"
+    if [ ! -f "${kompli_bin}" ]; then
+        kompli_bin=$(find "${a_dir}" -name 'kompli' -type f | head -1)
+    fi
+    if [ -z "${kompli_bin}" ] || [ ! -f "${kompli_bin}" ]; then
+        echo "##[error]kompli binary not found in package ${a_name} (looked for RID ${kompli_rid}, dir ${a_dir})"
+        find "${a_dir}" -type f || true
+        exit 1
+    fi
+    cp "${kompli_bin}" "${download_root}/kompli"
+    chmod +x "${download_root}/kompli"
+    echo "Kompli staged at ${download_root}/kompli (RID ${kompli_rid})"
+
+    # Benchmark definitions: one per key under .benchmarks (each value a
+    # '<package>@<version>' pin), renamed to definitions/<key>.benchmark.json.
+    for key in "${!bench_name[@]}"; do
+        b_name="${bench_name[$key]}"
+        b_dir=$(restored_dir "${b_name,,}")
+        if [ -z "${b_dir}" ]; then
+            echo "##[error]benchmark package ${b_name} (key ${key}) was not restored under ${tmp_dir}/${b_name,,}"
+            exit 1
+        fi
+        def=$(find "${b_dir}" -name '*.benchmark.json' -type f | head -1)
+        if [ -z "${def}" ]; then
+            echo "##[error]No *.benchmark.json found in benchmark package ${b_name} (key ${key})"
+            find "${b_dir}" -type f || true
+            exit 1
+        fi
+        cp "${def}" "${def_dir}/${key}.benchmark.json"
+        echo "Definition for ${key} staged at ${def_dir}/${key}.benchmark.json"
+    done
+
+    rm -rf "${tmp_dir}" "${proj_dir}"
+    echo "kompli artifacts ready under ${download_root}:"
+    ls -lR "${download_root}" || true
+  displayName: 'kompli: stage kompli binary + benchmark definitions'
+  condition: ${{ parameters.condition }}
+
