@@ -1,6 +1,9 @@
 #!/bin/bash
 set -uo pipefail
 
+# shellcheck source=./cgroup-telemetry-events.sh
+source /opt/scripts/cgroup-telemetry-events.sh || exit 1
+
 isNonNegativeInteger() {
     case "$1" in
         ''|*[!0-9]*) return 1 ;;
@@ -122,21 +125,19 @@ nvidia_dcgm_exporter_service_cpu_usage system.slice/nvidia-dcgm-exporter.service
 openibd_service_cpu_usage system.slice/openibd.service
 EOF
 
+for slice in "${CPU_CGROUP}"/*.slice; do
+    [ -d "${slice}" ] || continue
+    cpu_usage=$(jq -c \
+        --arg SLICE "${slice##*/}" \
+        --arg MAX "$(if [ -f "${slice}/cpu.max" ]; then cat "${slice}/cpu.max"; else echo "Not Found"; fi)" \
+        '. + {($SLICE | sub("\\.slice$"; "") + "_max_cpu"): $MAX}' <<< "${cpu_usage}")
+done
+
 message_string=$(jq -c -n \
     --arg CGROUPV "${VERSION}" \
     --argjson CPU_USAGE "${cpu_usage}" \
     '{ CgroupVersion: $CGROUPV, CPUUsage: $CPU_USAGE }')
 
-EVENT_JSON=$(jq -n \
-    --arg Timestamp "${STARTTIME_FORMATTED}" \
-    --arg OperationId "${ENDTIME_FORMATTED}" \
-    --arg Version "1.23" \
-    --arg TaskName "${TASK_NAME}" \
-    --arg EventLevel "${eventlevel}" \
-    --arg Message "${message_string}" \
-    --arg EventPid "0" \
-    --arg EventTid "0" \
-    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}')
-
-mkdir -p "${EVENTS_LOGGING_DIR}"
-echo "${EVENT_JSON}" > "${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json"
+publishCgroupTelemetry "${EVENTS_LOGGING_DIR}" "${EVENTS_FILE_NAME}" \
+    "${STARTTIME_FORMATTED}" "${ENDTIME_FORMATTED}" "${TASK_NAME}" "${eventlevel}" \
+    "${message_string}" CPUUsage cpu || exit 1
