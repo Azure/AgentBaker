@@ -17,6 +17,7 @@ Describe 'cse_config.sh'
             OS_VARIANT=""
             MOCK_CGROUP_VERSION="cgroup2fs"
             FAILED_TELEMETRY_COMMAND=""
+            MISSING_TELEMETRY_UNITS=""
             memory_commands="systemctlEnableAndStartNoBlock cgroup-memory-telemetry.timer 30
 systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30"
             cpu_pressure_commands="systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.timer 30
@@ -39,6 +40,51 @@ systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service 30"
             echo "systemctlEnableAndStartNoBlock $*"
             [ "systemctlEnableAndStartNoBlock $*" != "$FAILED_TELEMETRY_COMMAND" ]
         }
+
+        systemctl() {
+            [ "$#" -eq 2 ] && [ "$1" = "cat" ] || return 1
+            case " $MISSING_TELEMETRY_UNITS " in
+                *" $2 "*) return 1 ;;
+            esac
+            return 0
+        }
+
+        Describe 'missing units'
+            Parameters
+                cgroup-memory-telemetry.timer
+                cgroup-memory-telemetry.service
+                cgroup-cpu-telemetry.timer
+                cgroup-cpu-telemetry.service
+                cgroup-pressure-telemetry.timer
+                cgroup-pressure-telemetry.service
+            End
+
+            It "skips absent $1 and starts the remaining eligible units"
+                MISSING_TELEMETRY_UNITS="$1"
+                expected_commands="$memory_commands
+$cpu_pressure_commands"
+                expected_commands="${expected_commands/systemctlEnableAndStartNoBlock $1 30/$1 not found on this VHD, skipping}"
+
+                When run enableAndStartCgroupTelemetry
+
+                The status should be success
+                The output should equal "$expected_commands"
+            End
+        End
+
+        It 'succeeds without starting telemetry when all units are absent'
+            MISSING_TELEMETRY_UNITS="cgroup-memory-telemetry.timer cgroup-memory-telemetry.service cgroup-cpu-telemetry.timer cgroup-cpu-telemetry.service cgroup-pressure-telemetry.timer cgroup-pressure-telemetry.service"
+
+            When run enableAndStartCgroupTelemetry
+
+            The status should be success
+            The output should equal "cgroup-memory-telemetry.timer not found on this VHD, skipping
+cgroup-memory-telemetry.service not found on this VHD, skipping
+cgroup-cpu-telemetry.timer not found on this VHD, skipping
+cgroup-cpu-telemetry.service not found on this VHD, skipping
+cgroup-pressure-telemetry.timer not found on this VHD, skipping
+cgroup-pressure-telemetry.service not found on this VHD, skipping"
+        End
 
         Describe 'OS and cgroup eligibility'
             Parameters
