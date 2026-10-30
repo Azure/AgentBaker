@@ -1040,7 +1040,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.4.3"
+                "latestVersion": "1.5.2"
               }
             ]
           },
@@ -1048,7 +1048,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.4.3"
+                "latestVersion": "1.5.2"
               }
             ]
           },
@@ -1056,7 +1056,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.4.3"
+                "latestVersion": "1.5.2"
               }
             ]
           }
@@ -1073,7 +1073,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "2.3.7"
+                "latestVersion": "2.4.2"
               }
             ]
           },
@@ -1081,7 +1081,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "2.3.7"
+                "latestVersion": "2.4.2"
               }
             ]
           },
@@ -1127,7 +1127,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/base/x86_64/repodata, name=containerd2, os=azurelinux, release=3.0",
-                "latestVersion": "2.2.4"
+                "latestVersion": "2.3.7"
               }
             ]
           },
