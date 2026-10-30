@@ -100,6 +100,58 @@ func TestValidateAndNormalize(t *testing.T) {
 	}
 }
 
+func TestValidateAndNormalizeRuntimeClassInImageCriApi(t *testing.T) {
+	const rpGates = "RotateKubeletServerCertificate=true"
+	for _, tc := range []struct {
+		name      string
+		isKata    bool
+		version   string
+		gates     string
+		wantGates string
+	}{
+		{"kata 1.29 defaults the gate", true, "1.29.0", rpGates, rpGates + ",RuntimeClassInImageCriApi=true"},
+		{"kata 1.36 defaults the gate", true, "1.36.4", rpGates, rpGates + ",RuntimeClassInImageCriApi=true"},
+		{"kata without RP gates defaults the gate", true, "1.36.4", "", "RuntimeClassInImageCriApi=true"},
+		{"kata 1.28 predates the gate", true, "1.28.15", rpGates, rpGates},
+		{"non-kata is unchanged", false, "1.36.4", rpGates, rpGates},
+		{"RP opt-out is preserved", true, "1.36.4", rpGates + ",RuntimeClassInImageCriApi=false", rpGates + ",RuntimeClassInImageCriApi=false"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wantGates, err := parseFeatureGates(tc.wantGates)
+			require.NoError(t, err)
+			fileGates, err := parseFeatureGates(tc.gates)
+			require.NoError(t, err)
+			for _, cfg := range []*aksnodeconfigv1.Configuration{
+				{
+					Version: "v1", KubernetesVersion: tc.version, IsKata: tc.isKata,
+					KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+						KubeletFlags: map[string]string{"--feature-gates": tc.gates},
+					},
+				},
+				{
+					Version: "v1", KubernetesVersion: tc.version, IsKata: tc.isKata,
+					KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+						EnableKubeletConfigFile: true,
+						KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{FeatureGates: fileGates},
+					},
+				},
+			} {
+				require.NoError(t, validateAndNormalize(cfg))
+				kubelet := cfg.KubeletConfig
+				if kubelet.EnableKubeletConfigFile {
+					require.Equal(t, wantGates, kubelet.KubeletConfigFileConfig.FeatureGates)
+					require.NotContains(t, kubelet.KubeletFlags, "--feature-gates")
+				} else {
+					require.Equal(t, tc.wantGates, kubelet.KubeletFlags["--feature-gates"])
+				}
+				before := proto.Clone(cfg)
+				require.NoError(t, validateAndNormalize(cfg))
+				require.True(t, proto.Equal(before, cfg), "normalization must be idempotent")
+			}
+		})
+	}
+}
+
 func TestValidateAndNormalizeErrors(t *testing.T) {
 	for _, tc := range []struct {
 		name string

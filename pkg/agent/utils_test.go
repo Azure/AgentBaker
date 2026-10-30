@@ -6,6 +6,7 @@ package agent
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1672,6 +1673,61 @@ func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTim
 			t.Fatalf("streaming-connection-idle-timeout must not appear in final kubelet command line via custom configuration for k8s >= 1.34, got: %s", cmdLine)
 		}
 	})
+}
+
+func TestValidateAndSetLinuxNodeBootstrappingConfiguration_RuntimeClassInImageCriApi(t *testing.T) {
+	const rpGates = "RotateKubeletServerCertificate=true"
+	testCases := []struct {
+		name      string
+		distro    datamodel.Distro
+		version   string
+		gates     string
+		wantGates string
+	}{
+		{"kata 1.29 defaults the gate", datamodel.AKSAzureLinuxV3Gen2Kata, "1.29.0", rpGates, rpGates + ",RuntimeClassInImageCriApi=true"},
+		{"kata 1.36 defaults the gate", datamodel.AKSAzureLinuxV3Gen2Kata, "1.36.4", rpGates, rpGates + ",RuntimeClassInImageCriApi=true"},
+		{"kata-cc defaults the gate", datamodel.AKSAzureLinuxV3Gen2KataCC, "1.36.4", rpGates, rpGates + ",RuntimeClassInImageCriApi=true"},
+		{"kata without RP gates defaults the gate", datamodel.AKSAzureLinuxV3Gen2Kata, "1.36.4", "", "RuntimeClassInImageCriApi=true"},
+		{"kata 1.28 predates the gate", datamodel.AKSAzureLinuxV3Gen2Kata, "1.28.15", rpGates, rpGates},
+		{"non-kata is unchanged", datamodel.AKSAzureLinuxV3Gen2, "1.36.4", rpGates, rpGates},
+		{"RP opt-out is preserved", datamodel.AKSAzureLinuxV3Gen2Kata, "1.36.4",
+			rpGates + ",RuntimeClassInImageCriApi=false", rpGates + ",RuntimeClassInImageCriApi=false"},
+	}
+
+	for _, tc := range testCases {
+		for _, configFile := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s, config file %t", tc.name, configFile), func(t *testing.T) {
+				config := &datamodel.NodeBootstrappingConfiguration{
+					ContainerService: &datamodel.ContainerService{
+						Properties: &datamodel.Properties{
+							OrchestratorProfile: &datamodel.OrchestratorProfile{
+								OrchestratorType:    datamodel.Kubernetes,
+								OrchestratorVersion: tc.version,
+							},
+						},
+					},
+					AgentPoolProfile:        &datamodel.AgentPoolProfile{Distro: tc.distro},
+					EnableKubeletConfigFile: configFile,
+					KubeletConfig:           map[string]string{"--feature-gates": tc.gates},
+				}
+
+				require.NoError(t, ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config))
+				require.Equal(t, tc.wantGates, config.KubeletConfig["--feature-gates"])
+
+				flags := GetOrderedKubeletConfigFlagString(config)
+				if !configFile {
+					require.Equal(t, "--feature-gates="+tc.wantGates, flags)
+					return
+				}
+				require.NotContains(t, flags, "--feature-gates")
+				var file struct {
+					FeatureGates map[string]bool `json:"featureGates"`
+				}
+				require.NoError(t, json.Unmarshal([]byte(GetKubeletConfigFileContent(config.KubeletConfig, nil)), &file))
+				require.Equal(t, strKeyValToMapBool(tc.wantGates, ",", "="), file.FeatureGates)
+			})
+		}
+	}
 }
 
 func TestValidateAndSetLinuxNodeBootstrappingConfiguration_TransparentHugePageValues(t *testing.T) {

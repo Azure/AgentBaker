@@ -52,12 +52,12 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 	} {
 		delete(flags, flag)
 	}
-	normalizeFeatureGateFlag(kubelet, gates, version)
+	normalizeFeatureGateFlag(kubelet, gates, version, cfg.GetIsKata())
 	kubeReserved, systemReserved := normalizeReservedCgroupFlags(kubelet)
 	if version.GreaterThanEqual(semver.MustParse("1.34.0")) {
 		delete(flags, "--streaming-connection-idle-timeout")
 	}
-	normalizeKubeletConfigFile(kubelet.GetKubeletConfigFileConfig(), version, kubeReserved, systemReserved)
+	normalizeKubeletConfigFile(kubelet.GetKubeletConfigFileConfig(), version, kubeReserved, systemReserved, cfg.GetIsKata())
 	return nil
 }
 
@@ -106,7 +106,7 @@ func parseFeatureGates(raw string) (map[string]bool, error) {
 	return gates, nil
 }
 
-func normalizeFeatureGateFlag(kubelet *aksnodeconfigv1.KubeletConfig, gates map[string]bool, version *semver.Version) {
+func normalizeFeatureGateFlag(kubelet *aksnodeconfigv1.KubeletConfig, gates map[string]bool, version *semver.Version, isKata bool) {
 	flags := kubelet.KubeletFlags
 	servingRotation := kubelet.EnableKubeletConfigFile && kubelet.GetKubeletConfigFileConfig().GetServerTlsBootstrap()
 	rotationFlag, hasRotationFlag := flags["--rotate-server-certificates"]
@@ -116,7 +116,7 @@ func normalizeFeatureGateFlag(kubelet *aksnodeconfigv1.KubeletConfig, gates map[
 	_, hasGateFlag := flags["--feature-gates"]
 	// Do not introduce a CLI map that could override an existing config-file map.
 	if hasGateFlag || hasRotationFlag || !kubelet.EnableKubeletConfigFile {
-		normalizeFeatureGates(gates, version, servingRotation)
+		normalizeFeatureGates(gates, version, servingRotation, isKata)
 	}
 	keys := make([]string, 0, len(gates))
 	for key := range gates {
@@ -158,14 +158,14 @@ func normalizeReservedCgroupFlags(kubelet *aksnodeconfigv1.KubeletConfig) (strin
 }
 
 func normalizeKubeletConfigFile(fileConfig *aksnodeconfigv1.KubeletConfigFileConfig, version *semver.Version,
-	kubeReserved, systemReserved string) {
+	kubeReserved, systemReserved string, isKata bool) {
 	if fileConfig == nil {
 		return
 	}
 	if fileConfig.FeatureGates == nil {
 		fileConfig.FeatureGates = make(map[string]bool)
 	}
-	normalizeFeatureGates(fileConfig.FeatureGates, version, fileConfig.ServerTlsBootstrap)
+	normalizeFeatureGates(fileConfig.FeatureGates, version, fileConfig.ServerTlsBootstrap, isKata)
 	fileConfig.KubeReservedCgroup = kubeReserved
 	fileConfig.SystemReservedCgroup = systemReserved
 	if version.GreaterThanEqual(semver.MustParse("1.34.0")) {
@@ -173,7 +173,7 @@ func normalizeKubeletConfigFile(fileConfig *aksnodeconfigv1.KubeletConfigFileCon
 	}
 }
 
-func normalizeFeatureGates(gates map[string]bool, version *semver.Version, servingRotation bool) {
+func normalizeFeatureGates(gates map[string]bool, version *semver.Version, servingRotation, isKata bool) {
 	if servingRotation {
 		gates["RotateKubeletServerCertificate"] = true
 	}
@@ -184,6 +184,13 @@ func normalizeFeatureGates(gates map[string]bool, version *semver.Version, servi
 	}
 	if version.GreaterThanEqual(semver.MustParse("1.20.0")) && version.LessThan(semver.MustParse("1.25.0")) {
 		gates["DisableAcceleratorUsageMetrics"] = false
+	}
+	// The gate makes kubelet pass the RuntimeClass handler to PullImage, so kata-v2 images unpack straight into erofs.
+	if isKata && version.GreaterThanEqual(semver.MustParse("1.29.0")) {
+		// Default only, so the RP can still turn it off.
+		if _, set := gates["RuntimeClassInImageCriApi"]; !set {
+			gates["RuntimeClassInImageCriApi"] = true
+		}
 	}
 }
 

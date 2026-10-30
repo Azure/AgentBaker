@@ -855,6 +855,7 @@ func filterEvictionSignals(signals map[string]string) map[string]string {
 	return validSignals
 }
 
+//nolint:unparam // generic key/value parser; every current caller parses feature gates
 func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {
 	m := make(map[string]bool)
 	pairs := strings.Split(str, strDelim)

@@ -457,6 +457,7 @@ var _ = Register(&Scenario{
 				ValidateKataErofsContainerdConfig(ctx, s),
 				ValidateKataContainerdConfigDump(ctx, s),
 				ValidateKataHostReadiness(ctx, s),
+				ValidateKataRuntimeClassInImageCriApi(ctx, s),
 			); err != nil {
 				return err
 			}
