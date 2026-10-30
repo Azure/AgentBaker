@@ -3153,6 +3153,7 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 		errs = append(errs, err)
 	}
 	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL, hasInfiniBand, requirePressure))
+	errs = append(errs, validateNodeExporterListenAddress(ctx, s))
 
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
 		"node-exporter should remain active after scraping"); err != nil {
@@ -3220,6 +3221,27 @@ func nodeExporterRequiresPressure(ctx context.Context, s *Scenario) (bool, error
 	available := result.exitCode == "0"
 	logging.Logf(ctx, "node-exporter pressure expectations on Kata: PSI available=%t", available)
 	return available, nil
+}
+
+// validateNodeExporterListenAddress checks that the unauthenticated exporter listens
+// only on the node IP that scrapers use, not on every address (secondary NICs, IPv6,
+// bridges). The startup script is VHD-delivered; older VHDs used by standalone PR
+// E2Es keep their previous behavior and skip this check.
+func validateNodeExporterListenAddress(ctx context.Context, s *Scenario) error {
+	script := fmt.Sprintf(`if ! grep -q getNodeExporterListenIP /opt/bin/node-exporter-startup.sh; then
+    echo "SKIP: VHD predates node-IP-only listening"
+    exit 0
+fi
+listeners=$(ss -H -lnt 'sport = :19100' | awk '{print $4}' | sort -u | tr '\n' ' ')
+echo "node-exporter listeners: ${listeners}"
+[ "${listeners}" = "%s:19100 " ]`, s.Runtime.VM.PrivateIP)
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
+		fmt.Sprintf("node-exporter must listen only on the node IP %s:19100", s.Runtime.VM.PrivateIP))
+	if err != nil {
+		return fmt.Errorf("validate node-exporter listen address: %w", err)
+	}
+	logging.Logf(ctx, "%s", strings.TrimSpace(result.stdout))
+	return nil
 }
 
 func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand, requirePressure bool) error {
