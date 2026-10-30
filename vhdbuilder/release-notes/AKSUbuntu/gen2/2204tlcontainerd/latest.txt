@@ -1,61 +1,61 @@
-Starting build on  Fri Oct 23 01:46:41 UTC 2026
+Starting build on  Fri Oct 30 04:40:28 UTC 2026
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
-  - oras version 1.3.4
-  - aks-secure-tls-bootstrap-client package version 1.1.4-ubuntu22.04u2 (requested 1.1.4)
-  - aks-secure-tls-bootstrap-client version 1.1.4
+  - oras version 1.3.6
+  - aks-secure-tls-bootstrap-client package version 1.1.6-ubuntu22.04u1 (requested 1.1.6)
+  - aks-secure-tls-bootstrap-client version 1.1.6
   - moby-runc package version 1.4.3-ubuntu22.04u37 (requested 1.4.3)
   - runc version 1.4.3
-  - moby-containerd package version 1.7.36-ubuntu22.04u4 (requested 1.7.36)
+  - moby-containerd package version 1.7.36-ubuntu22.04u5 (requested 1.7.36)
   - containerd version 1.7.36
   - CNI plugin version 1.6.2
-  - containernetworking-plugins package version 1.9.1-ubuntu22.04u55 (requested 1.9.1)
+  - containernetworking-plugins package version 1.9.1-ubuntu22.04u61 (requested 1.9.1)
   - containernetworking-plugins version 1.9.1
   - Azure CNI version 1.5.38
   - Azure CNI version 1.6.21
-  - kubernetes-cri-tools package version 1.34.0-ubuntu22.04u42 (requested 1.34.0)
-  - kubelet package version 1.34.11-ubuntu22.04u15 (requested 1.34.11)
+  - kubernetes-cri-tools package version 1.34.0-ubuntu22.04u47 (requested 1.34.0)
+  - kubelet package version 1.34.12-ubuntu22.04u12 (requested 1.34.12)
+  - cached kubelet binary at /opt/bin/kubelet-1.34.12
+  - kubelet version 1.34.12
+  - kubelet package version 1.34.11-ubuntu22.04u18 (requested 1.34.11)
   - cached kubelet binary at /opt/bin/kubelet-1.34.11
   - kubelet version 1.34.11
-  - kubelet package version 1.34.10-ubuntu22.04u20 (requested 1.34.10)
-  - cached kubelet binary at /opt/bin/kubelet-1.34.10
-  - kubelet version 1.34.10
-  - kubelet package version 1.35.8-ubuntu22.04u11 (requested 1.35.8)
+  - kubelet package version 1.35.9-ubuntu22.04u4 (requested 1.35.9)
+  - cached kubelet binary at /opt/bin/kubelet-1.35.9
+  - kubelet version 1.35.9
+  - kubelet package version 1.35.8-ubuntu22.04u12 (requested 1.35.8)
   - cached kubelet binary at /opt/bin/kubelet-1.35.8
   - kubelet version 1.35.8
-  - kubelet package version 1.35.7-ubuntu22.04u18 (requested 1.35.7)
-  - cached kubelet binary at /opt/bin/kubelet-1.35.7
-  - kubelet version 1.35.7
-  - kubelet package version 1.36.4-ubuntu22.04u9 (requested 1.36.4)
+  - kubelet package version 1.36.5-ubuntu22.04u5 (requested 1.36.5)
+  - cached kubelet binary at /opt/bin/kubelet-1.36.5
+  - kubelet version 1.36.5
+  - kubelet package version 1.36.4-ubuntu22.04u10 (requested 1.36.4)
   - cached kubelet binary at /opt/bin/kubelet-1.36.4
   - kubelet version 1.36.4
-  - kubelet package version 1.36.3-ubuntu22.04u10 (requested 1.36.3)
-  - cached kubelet binary at /opt/bin/kubelet-1.36.3
-  - kubelet version 1.36.3
-  - kubectl package version 1.34.11-ubuntu22.04u5 (requested 1.34.11)
+  - kubectl package version 1.34.12-ubuntu22.04u12 (requested 1.34.12)
+  - cached kubectl binary at /opt/bin/kubectl-1.34.12
+  - kubectl version 1.34.12
+  - kubectl package version 1.34.11-ubuntu22.04u18 (requested 1.34.11)
   - cached kubectl binary at /opt/bin/kubectl-1.34.11
   - kubectl version 1.34.11
-  - kubectl package version 1.34.10-ubuntu22.04u11 (requested 1.34.10)
-  - cached kubectl binary at /opt/bin/kubectl-1.34.10
-  - kubectl version 1.34.10
-  - kubectl package version 1.35.8-ubuntu22.04u5 (requested 1.35.8)
+  - kubectl package version 1.35.9-ubuntu22.04u4 (requested 1.35.9)
+  - cached kubectl binary at /opt/bin/kubectl-1.35.9
+  - kubectl version 1.35.9
+  - kubectl package version 1.35.8-ubuntu22.04u12 (requested 1.35.8)
   - cached kubectl binary at /opt/bin/kubectl-1.35.8
   - kubectl version 1.35.8
-  - kubectl package version 1.35.7-ubuntu22.04u9 (requested 1.35.7)
-  - cached kubectl binary at /opt/bin/kubectl-1.35.7
-  - kubectl version 1.35.7
-  - kubectl package version 1.36.4-ubuntu22.04u4 (requested 1.36.4)
+  - kubectl package version 1.36.5-ubuntu22.04u5 (requested 1.36.5)
+  - cached kubectl binary at /opt/bin/kubectl-1.36.5
+  - kubectl version 1.36.5
+  - kubectl package version 1.36.4-ubuntu22.04u10 (requested 1.36.4)
   - cached kubectl binary at /opt/bin/kubectl-1.36.4
   - kubectl version 1.36.4
-  - kubectl package version 1.36.3-ubuntu22.04u8 (requested 1.36.3)
-  - cached kubectl binary at /opt/bin/kubectl-1.36.3
-  - kubectl version 1.36.3
   - kubernetes-binaries version v1.33.13
   - kubernetes-binaries version v1.33.12
   - azure-acr-credential-provider version v1.30.15
   - azure-acr-credential-provider version v1.31.12
   - azure-acr-credential-provider version v1.32.11
   - azure-acr-credential-provider version v1.33.7
-  - ig package version 0.57.0-ubuntu22.04u3 (requested 0.57.0)
+  - ig package version 0.57.0-ubuntu22.04u5 (requested 0.57.0)
   - ig-gadgets package version 0.57.0-ubuntu20.04u1 (requested 0.57.0)
   - ig version 0.57.0
   - azure-acr-credential-provider package version 1.33.20-ubuntu22.04u3 (requested 1.33.20)
@@ -68,114 +68,110 @@ Components downloaded in this VHD build (some of the below components might get 
   - azure-acr-credential-provider version 1.36.8
   - azure-acr-credential-provider package version 1.37.1-ubuntu22.04u2 (requested 1.37.1)
   - azure-acr-credential-provider version 1.37.1
-  - nvidia-device-plugin package version 0.19.3-ubuntu22.04u20 (requested 0.19.3)
+  - nvidia-device-plugin package version 0.19.3-ubuntu22.04u21 (requested 0.19.3)
   - nvidia-device-plugin version 0.19.3
-  - dra-driver-nvidia-gpu package version 0.5.0-ubuntu22.04u8 (requested 0.5.0)
+  - dra-driver-nvidia-gpu package version 0.5.0-ubuntu22.04u10 (requested 0.5.0)
   - dra-driver-nvidia-gpu version 0.5.0
   - datacenter-gpu-manager-4-core package version 1:4.5.3-1 (requested 4.5.3)
   - datacenter-gpu-manager-4-core version 4.5.3
   - datacenter-gpu-manager-4-proprietary package version 1:4.5.3-1 (requested 4.5.3)
   - datacenter-gpu-manager-4-proprietary version 4.5.3
-  - dcgm-exporter package version 4.8.2-ubuntu22.04u19 (requested 4.8.2)
+  - dcgm-exporter package version 4.8.2-ubuntu22.04u21 (requested 4.8.2)
   - dcgm-exporter version 4.8.2
-  - node-problem-detector-kubernetes package version 0.8.25-ubuntu22.04u25 (requested 0.8.25)
+  - node-problem-detector-kubernetes package version 0.8.25-ubuntu22.04u26 (requested 0.8.25)
   - node-problem-detector-aks-config package version 1.0.0-ubuntu22.04u2 (requested 1.0.0)
-  - node-exporter-kubernetes package version 1.12.1-ubuntu22.04u11 (requested 1.12.1)
+  - node-exporter-kubernetes package version 1.12.1-ubuntu22.04u13 (requested 1.12.1)
   - node-exporter version 1.12.1
   - acr-mirror version 1.0.0
-  - blobfuse2 version 2.5.5
+  - blobfuse2 version 2.5.6
   - nvidia-cuda-driver=580.159.04-20261020182457
 Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
   - nvidia-grid-driver=580.178.04-20261006181431
   - bpftrace v0.9.4
 images pre-pulled:
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.7.17-0
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.3.0
-  - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-41
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-25
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.7-2
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.7.17-0
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.3-27
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-33
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.4.0-0
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-29
-  - mcr.microsoft.com/oss/v2/kubernetes/pause:3.6
   - mcr.microsoft.com/containernetworking/azure-cni:v1.6.44-0
-  - mcr.microsoft.com/containernetworking/v2/azure-cni:v1.8.13
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.3-18
-  - mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.13.1-20
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.1-36
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-41
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.14.7-6
+  - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.1
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:v1.8.23-37
+  - mcr.microsoft.com/oss/v2/kubernetes/pause:3.6
   - mcr.microsoft.com/containernetworking/v2/azure-cns:v1.8.13
+  - mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2
+  - mcr.microsoft.com/containernetworking/v2/azure-cni:v1.8.13
   - mcr.microsoft.com/containernetworking/azure-npm:v1.6.42
   - mcr.microsoft.com/containernetworking/cilium-log-collector:v0.0.2-0
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.14-260923
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.18.12-260811
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.8-260923
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.7.17-0
   - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.6-260811
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.20.2-261006
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.7.17-0
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless:v1.19.8-261006
   - mcr.microsoft.com/containernetworking/azure-cns:v1.6.44-0
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.8.0-ci-prod-09-03-2026-fd42f68c
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b
   - mcr.microsoft.com/containernetworking/azure-iptables-monitor:v0.0.5-0
-  - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.8.2-11
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.5.7-6
   - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.32.1-11
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/secrets-store/driver:v1.6.1-1
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-targetallocator
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.34.16-2
+  - mcr.microsoft.com/oss/v2/azure/secrets-store/provider-azure:v1.8.2-16
   - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.33.20-2
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.36.8-2
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.34.16-2
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:v2.15.0-4
   - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.37.1-1
-  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.35.11-2
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-27
-  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-22
-  - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-17
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-targetallocator
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-16
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.34.5
+  - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.16-17
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.9.0-29
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.36.8-2
+  - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-34
+  - mcr.microsoft.com/oss/v2/kubernetes/azure-cloud-node-manager:v1.35.11-2
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.33.11
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.14-260923
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.18.12-260811
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.8-260923
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.6
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.19.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.17.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.18.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.7
-  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.6-260811
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.16.0
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.9
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.10
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.8
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azuredisk-csi:v1.34.5
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.7
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.35.6
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.8
   - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.34.7
   - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.16
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.15
-  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.9
-  - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/azurefile-csi:v1.33.9
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/livenessprobe:v2.20.0-8
   - mcr.microsoft.com/oss/v2/kubernetes/windows-gmsa-webhook:v0.14.1
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-cfg
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/csi-node-driver-registrar:v2.18.0-8
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.6-260811
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.20.2-261006
+  - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.26.15
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.8
+  - mcr.microsoft.com/oss/v2/kubernetes-csi/blob-csi:v1.27.9
   - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.33.13-11
-  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.11-5
+  - mcr.microsoft.com/containernetworking/cilium/cilium-distroless-init:v1.19.8-261006
   - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.4-4
   - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.35.8-4
+  - mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.11-5
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:7.4.0-main-09-11-2026-e2bfa13b-cfg
   - bcc-tools
   - libbcc-examples
-Successfully copied coredns binary of v1.14.7-2
+Successfully copied coredns binary of v1.14.7-6
 kubelet/kubectl downloaded:
--rwxr-xr-x 1 root root  81953060 May 27 21:30 /opt/bin/kubelet-1.33.12
--rwxr-xr-x 1 root root  60395704 May 27 21:30 /opt/bin/kubectl-1.33.12
--rwxr-xr-x 1 root root  82022692 Jun 26 00:26 /opt/bin/kubelet-1.33.13
--rwxr-xr-x 1 root root  60444856 Jun 26 00:26 /opt/bin/kubectl-1.33.13
--rwxr-xr-x 1 root root  61499424 Oct 23 02:24 /opt/bin/kubelet-1.34.11
--rwxr-xr-x 1 root root 102431264 Oct 23 02:24 /opt/bin/kubelet-1.34.10
--rwxr-xr-x 1 root root  60189056 Oct 23 02:24 /opt/bin/kubelet-1.35.8
--rwxr-xr-x 1 root root  60180896 Oct 23 02:24 /opt/bin/kubelet-1.35.7
--rwxr-xr-x 1 root root  61161056 Oct 23 02:24 /opt/bin/kubelet-1.36.4
--rwxr-xr-x 1 root root 102545440 Oct 23 02:24 /opt/bin/kubelet-1.36.3
--rwxr-xr-x 1 root root  93435376 Oct 23 02:24 /opt/bin/kubectl-1.34.11
--rwxr-xr-x 1 root root  93439504 Oct 23 02:24 /opt/bin/kubectl-1.34.10
--rwxr-xr-x 1 root root  89773360 Oct 23 02:24 /opt/bin/kubectl-1.35.8
--rwxr-xr-x 1 root root  89773392 Oct 23 02:24 /opt/bin/kubectl-1.35.7
--rwxr-xr-x 1 root root  90269872 Oct 23 02:24 /opt/bin/kubectl-1.36.4
--rwxr-xr-x 1 root root  90269904 Oct 23 02:24 /opt/bin/kubectl-1.36.3
+-rwxr-xr-x 1 root root 81953060 May 27 21:30 /opt/bin/kubelet-1.33.12
+-rwxr-xr-x 1 root root 60395704 May 27 21:30 /opt/bin/kubectl-1.33.12
+-rwxr-xr-x 1 root root 82022692 Jun 26 00:26 /opt/bin/kubelet-1.33.13
+-rwxr-xr-x 1 root root 60444856 Jun 26 00:26 /opt/bin/kubectl-1.33.13
+-rwxr-xr-x 1 root root 61610368 Oct 30 04:47 /opt/bin/kubelet-1.34.12
+-rwxr-xr-x 1 root root 61610368 Oct 30 04:47 /opt/bin/kubelet-1.34.11
+-rwxr-xr-x 1 root root 60295936 Oct 30 04:47 /opt/bin/kubelet-1.35.9
+-rwxr-xr-x 1 root root 60304128 Oct 30 04:47 /opt/bin/kubelet-1.35.8
+-rwxr-xr-x 1 root root 61272032 Oct 30 04:47 /opt/bin/kubelet-1.36.5
+-rwxr-xr-x 1 root root 61276096 Oct 30 04:47 /opt/bin/kubelet-1.36.4
+-rwxr-xr-x 1 root root 93501104 Oct 30 04:47 /opt/bin/kubectl-1.34.12
+-rwxr-xr-x 1 root root 93501104 Oct 30 04:47 /opt/bin/kubectl-1.34.11
+-rwxr-xr-x 1 root root 89834992 Oct 30 04:47 /opt/bin/kubectl-1.35.9
+-rwxr-xr-x 1 root root 89839088 Oct 30 04:47 /opt/bin/kubectl-1.35.8
+-rwxr-xr-x 1 root root 90335536 Oct 30 04:48 /opt/bin/kubectl-1.36.5
+-rwxr-xr-x 1 root root 90335536 Oct 30 04:48 /opt/bin/kubectl-1.36.4
 === Installed Packages Begin
 Listing...
 acr-mirror/now 1.0.0-1 amd64 [installed,local]
@@ -199,7 +195,7 @@ bind9-libs/jammy-updates,jammy-security,now 1:9.18.39-0ubuntu0.22.04.7 amd64 [in
 binutils-common/jammy-updates,jammy-security,now 2.38-4ubuntu2.12 amd64 [installed,automatic]
 binutils-x86-64-linux-gnu/jammy-updates,jammy-security,now 2.38-4ubuntu2.12 amd64 [installed,automatic]
 binutils/jammy-updates,jammy-security,now 2.38-4ubuntu2.12 amd64 [installed,automatic]
-blobfuse2/jammy,now 2.5.5 amd64 [installed]
+blobfuse2/jammy,now 2.5.6 amd64 [installed]
 bolt/jammy,now 0.9.2-1 amd64 [installed]
 bsdextrautils/jammy-updates,jammy-security,now 2.37.2-4ubuntu3.6 amd64 [installed,automatic]
 bsdutils/jammy-updates,jammy-security,now 1:2.37.2-4ubuntu3.6 amd64 [installed]
@@ -222,9 +218,9 @@ command-not-found/jammy,now 22.04.0 all [installed]
 conntrack/jammy,now 1:1.4.6-2build2 amd64 [installed]
 console-setup-linux/jammy,now 1.205ubuntu3 all [installed,automatic]
 console-setup/jammy,now 1.205ubuntu3 all [installed,automatic]
-containerd-accelerated-container-image/jammy,now 1.4.5-ubuntu22.04u7 amd64 [installed,automatic]
-containerd-overlaybd/jammy,now 1.0.18-ubuntu22.04u2 amd64 [installed,automatic]
-containernetworking-plugins/jammy,now 1.9.1-ubuntu22.04u55 amd64 [installed]
+containerd-accelerated-container-image/jammy,now 1.4.5-ubuntu22.04u8 amd64 [installed,automatic]
+containerd-overlaybd/jammy,now 1.0.18-ubuntu22.04u3 amd64 [installed,automatic]
+containernetworking-plugins/jammy,now 1.9.1-ubuntu22.04u61 amd64 [installed]
 coreutils/jammy-updates,jammy-security,now 8.32-4.1ubuntu1.4 amd64 [installed,automatic]
 cpio/jammy-updates,jammy-security,now 2.13+dfsg-7ubuntu0.2 amd64 [installed]
 cpp-11/jammy-updates,jammy-security,now 11.4.0-1ubuntu1~22.04.3 amd64 [installed,automatic]
@@ -309,7 +305,7 @@ hostname/jammy,now 3.23ubuntu2 amd64 [installed]
 htop/jammy,now 3.0.5-7build2 amd64 [installed]
 hwdata/jammy,now 0.357-1 all [installed,automatic]
 ig-gadgets/now 0.57.0-ubuntu20.04u1 amd64 [installed,local]
-ig/jammy,now 0.57.0-ubuntu22.04u3 amd64 [installed]
+ig/jammy,now 0.57.0-ubuntu22.04u5 amd64 [installed]
 info/jammy,now 6.8-4build1 amd64 [installed]
 init-system-helpers/jammy,now 1.62 all [installed]
 init/jammy,now 1.62 amd64 [installed]
@@ -335,7 +331,7 @@ keyutils/jammy,now 1.6.1-2ubuntu3 amd64 [installed]
 klibc-utils/jammy-updates,jammy-security,now 2.0.10-4ubuntu0.2 amd64 [installed,automatic]
 kmod/jammy-updates,jammy-security,now 29-1ubuntu1.1 amd64 [installed]
 kpartx/jammy-updates,now 0.8.8-1ubuntu1.22.04.4 amd64 [installed,automatic]
-kubernetes-cri-tools/jammy,now 1.34.0-ubuntu22.04u42 amd64 [installed,upgradable to: 1.37.0-ubuntu22.04u5]
+kubernetes-cri-tools/jammy,now 1.34.0-ubuntu22.04u47 amd64 [installed,upgradable to: 1.37.0-ubuntu22.04u6]
 landscape-common/jammy-updates,now 23.02-0ubuntu1~22.04.7 amd64 [installed]
 less/jammy-updates,jammy-security,now 590-1ubuntu0.22.04.3 amd64 [installed,automatic]
 libacl1/jammy,now 2.3.1-1 amd64 [installed,automatic]
@@ -370,7 +366,7 @@ libboost-iostreams1.74.0/jammy,now 1.74.0-14ubuntu3 amd64 [installed,automatic]
 libboost-program-options1.74.0/jammy,now 1.74.0-14ubuntu3 amd64 [installed,automatic]
 libboost-thread1.74.0/jammy,now 1.74.0-14ubuntu3 amd64 [installed,automatic]
 libbpf0/jammy-updates,jammy-security,now 1:0.5.0-1ubuntu22.04.1 amd64 [installed,automatic]
-libbrotli1/jammy,now 1.0.9-2build6 amd64 [installed,automatic]
+libbrotli1/jammy-updates,jammy-security,now 1.0.9-2ubuntu0.1 amd64 [installed,automatic]
 libbsd0/jammy,now 0.11.5-1 amd64 [installed,automatic]
 libbz2-1.0/jammy-updates,jammy-security,now 1.0.8-5ubuntu0.1 amd64 [installed,automatic]
 libc-bin/jammy-updates,jammy-security,now 2.35-0ubuntu3.15 amd64 [installed,automatic]
@@ -647,24 +643,24 @@ libxtables12/jammy-updates,now 1.8.7-1ubuntu5.2 amd64 [installed,automatic]
 libxxhash0/jammy,now 0.8.1-1 amd64 [installed,automatic]
 libyaml-0-2/jammy,now 0.2.2-1build2 amd64 [installed,automatic]
 libzstd1/jammy,now 1.4.8+dfsg-3build1 amd64 [installed,automatic]
-linux-azure-cloud-tools-5.15.0-1123/jammy-updates,jammy-security,now 5.15.0-1123.132 amd64 [installed,automatic]
-linux-azure-headers-5.15.0-1123/jammy-updates,jammy-security,now 5.15.0-1123.132 all [installed,automatic]
-linux-azure-tools-5.15.0-1123/jammy-updates,jammy-security,now 5.15.0-1123.132 amd64 [installed,automatic]
+linux-azure-cloud-tools-5.15.0-1125/jammy-updates,jammy-security,now 5.15.0-1125.134 amd64 [installed,automatic]
+linux-azure-headers-5.15.0-1125/jammy-updates,jammy-security,now 5.15.0-1125.134 all [installed,automatic]
+linux-azure-tools-5.15.0-1125/jammy-updates,jammy-security,now 5.15.0-1125.134 amd64 [installed,automatic]
 linux-base-sgx/jammy-updates,now 4.5ubuntu9+22.04.1 all [installed,automatic]
 linux-base/jammy-updates,now 4.5ubuntu9+22.04.1 all [installed]
-linux-cloud-tools-5.15.0-1123-azure/jammy-updates,jammy-security,now 5.15.0-1123.132 amd64 [installed,automatic]
-linux-cloud-tools-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1123.121 amd64 [installed]
-linux-cloud-tools-common/jammy-updates,jammy-security,now 5.15.0-198.208 all [installed,automatic]
-linux-headers-5.15.0-1123-azure/jammy-updates,jammy-security,now 5.15.0-1123.132 amd64 [installed]
-linux-headers-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1123.121 amd64 [installed]
-linux-image-5.15.0-1123-azure/jammy-updates,jammy-security,now 5.15.0-1123.132 amd64 [installed,automatic]
-linux-image-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1123.121 amd64 [installed]
-linux-libc-dev/jammy-updates,jammy-security,now 5.15.0-198.208 amd64 [installed,automatic]
-linux-modules-5.15.0-1123-azure/jammy-updates,jammy-security,now 5.15.0-1123.132 amd64 [installed,automatic]
-linux-modules-extra-5.15.0-1123-azure/jammy-updates,jammy-security,now 5.15.0-1123.132 amd64 [installed]
-linux-tools-5.15.0-1123-azure/jammy-updates,jammy-security,now 5.15.0-1123.132 amd64 [installed,automatic]
-linux-tools-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1123.121 amd64 [installed]
-linux-tools-common/jammy-updates,jammy-security,now 5.15.0-198.208 all [installed,automatic]
+linux-cloud-tools-5.15.0-1125-azure/jammy-updates,jammy-security,now 5.15.0-1125.134 amd64 [installed,automatic]
+linux-cloud-tools-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1125.123 amd64 [installed]
+linux-cloud-tools-common/jammy-updates,jammy-security,now 5.15.0-202.212 all [installed,automatic]
+linux-headers-5.15.0-1125-azure/jammy-updates,jammy-security,now 5.15.0-1125.134 amd64 [installed]
+linux-headers-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1125.123 amd64 [installed]
+linux-image-5.15.0-1125-azure/jammy-updates,jammy-security,now 5.15.0-1125.134 amd64 [installed,automatic]
+linux-image-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1125.123 amd64 [installed]
+linux-libc-dev/jammy-updates,jammy-security,now 5.15.0-202.212 amd64 [installed,automatic]
+linux-modules-5.15.0-1125-azure/jammy-updates,jammy-security,now 5.15.0-1125.134 amd64 [installed,automatic]
+linux-modules-extra-5.15.0-1125-azure/jammy-updates,jammy-security,now 5.15.0-1125.134 amd64 [installed]
+linux-tools-5.15.0-1125-azure/jammy-updates,jammy-security,now 5.15.0-1125.134 amd64 [installed,automatic]
+linux-tools-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1125.123 amd64 [installed]
+linux-tools-common/jammy-updates,jammy-security,now 5.15.0-202.212 all [installed,automatic]
 locales/jammy-updates,jammy-security,now 2.35-0ubuntu3.15 all [installed,automatic]
 login/jammy-updates,jammy-security,now 1:4.8.1-2ubuntu2.2 amd64 [installed]
 logrotate/jammy-updates,jammy-security,now 3.19.0-1ubuntu1.1 amd64 [installed]
@@ -683,8 +679,8 @@ manpages/jammy,now 5.10-1ubuntu1 all [installed]
 mawk/jammy,now 1.3.4.20200120-3 amd64 [installed,automatic]
 mdadm/jammy-updates,now 4.2-0ubuntu2 amd64 [installed]
 media-types/jammy,now 7.0.0 all [installed]
-moby-containerd/jammy,now 1.7.36-ubuntu22.04u4 amd64 [installed,upgradable to: 2.4.2-ubuntu22.04u3]
-moby-runc/jammy,now 1.4.3-ubuntu22.04u37 amd64 [installed,upgradable to: 1.6.0~rc.1-ubuntu22.04u8]
+moby-containerd/jammy,now 1.7.36-ubuntu22.04u5 amd64 [installed,upgradable to: 2.4.2-ubuntu22.04u4]
+moby-runc/jammy,now 1.4.3-ubuntu22.04u37 amd64 [installed,upgradable to: 1.6.0~rc.1-ubuntu22.04u9]
 mokutil/jammy-updates,jammy-security,now 0.6.0-2~22.04.2 amd64 [installed,automatic]
 motd-news-config/jammy-updates,now 12ubuntu4.7 all [installed]
 mount/jammy-updates,jammy-security,now 2.37.2-4ubuntu3.6 amd64 [installed]
@@ -703,9 +699,9 @@ netplan.io/jammy-updates,now 0.107.1-3ubuntu0.22.04.5 amd64 [installed,automatic
 networkd-dispatcher/jammy-updates,jammy-security,now 2.1-2ubuntu0.22.04.2 all [installed,automatic]
 nfs-common/jammy-updates,now 1:2.6.1-1ubuntu1.2 amd64 [installed]
 nftables/jammy-updates,now 1.0.2-1ubuntu3.1 amd64 [installed]
-node-exporter-kubernetes/jammy,now 1.12.1-ubuntu22.04u11 amd64 [installed]
+node-exporter-kubernetes/jammy,now 1.12.1-ubuntu22.04u13 amd64 [installed]
 node-problem-detector-aks-config/jammy,now 1.0.0-ubuntu22.04u2 amd64 [installed]
-node-problem-detector-kubernetes/jammy,now 0.8.25-ubuntu22.04u25 amd64 [installed]
+node-problem-detector-kubernetes/jammy,now 0.8.25-ubuntu22.04u26 amd64 [installed]
 ntfs-3g/jammy-updates,jammy-security,now 1:2021.8.22-3ubuntu1.4 amd64 [installed]
 nvme-cli/jammy-updates,now 1.16-3ubuntu0.3 amd64 [installed]
 open-iscsi/jammy-updates,now 2.1.5-1ubuntu1.3 amd64 [installed]
@@ -900,7 +896,7 @@ zstd/jammy,now 1.4.8+dfsg-3build1 amd64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   22G  7.1G  76% /
+/dev/root        29G   22G  7.8G  74% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  784K   13G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
@@ -924,17 +920,17 @@ UBUNTU_CODENAME=jammy
 PUUID: BootCurrent: 0004
 Timeout: 0 seconds
 BootOrder: 0004,0001,0000
-Boot0000* EFI Network	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,635161f83edfc546913ff2d2f965ed0e353a0d00a1af0d003a35afa1000d3a35)/MAC(000000000000,0)/IPv4(0.0.0.00.0.0.0,0,0)
+Boot0000* EFI Network	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,635161f83edfc546913ff2d2f965ed0eb2a5a870b89da870a5b29db870a8a5b2)/MAC(000000000000,0)/IPv4(0.0.0.00.0.0.0,0,0)
 Boot0001* EFI SCSI Device	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,0)
 Boot0002* EFI SCSI Device	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,1)
 Boot0003* EFI SCSI Device	AcpiEx(VMBus,,)/VenHw(9b17e5a2-0891-42dd-b653-80b5c22809ba,d96361baa104294db60572e2ffb1dc7f1a78b3f8821e1848a1c363d806ec15bb)/SCSI(0,2)
 Boot0004* ubuntu	HD(15,GPT,de2daaf2-b55f-4aca-ac16-18549ec4eceb,0x2800,0x35000)/File(FIuntu\shimx64.efi)
 Using kernel:
-Linux version 5.15.0-1123-azure (buildd@lcy02-amd64-038) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #132-Ubuntu SMP Wed Sep 16 19:50:51 UTC 2026
-Install completed successfully on  Fri Oct 23 03:01:30 UTC 2026
-VSTS Build NUMBER: 20261023.1_main_187253500
-VSTS Build ID: 187253500
-Commit: 69ab263bfcc17003df16b7d8e81863c8c8bde7b5
+Linux version 5.15.0-1125-azure (buildd@lcy02-amd64-017) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #134-Ubuntu SMP Thu Oct 15 22:18:32 UTC 2026
+Install completed successfully on  Fri Oct 30 04:58:05 UTC 2026
+VSTS Build NUMBER: 20261030.1_main_188525510
+VSTS Build ID: 188525510
+Commit: dea396d75db00d8823f70cd7c72788ff039c888f
 Ubuntu version: 22.04
 Hyperv generation: V2
 Feature flags: None
