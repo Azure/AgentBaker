@@ -610,6 +610,7 @@ func newUbuntu2404NvidiaDevicePluginMIGSingleScenario(name, description string, 
 					ValidateMIGModeEnabled(ctx, s, 1),
 					ValidateMIGInstanceProfileCounts(ctx, s, map[string]int{"MIG 2g.20gb": 3}),
 					ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "single"),
+					ValidateNodeHasLabel(ctx, s, "nvidia.com/mig.strategy", "single"),
 				); err != nil {
 					return err
 				}
@@ -842,7 +843,11 @@ var _ = Register(&Scenario{
 			); err != nil {
 				return err
 			}
-			if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
+			if err := errors.Join(
+				ValidateMIGModeEnabled(ctx, s, 1),
+				ValidateNvidiaDevicePluginMIGStrategy(ctx, s, "mixed"),
+				ValidateNodeHasLabel(ctx, s, "nvidia.com/mig.strategy", "mixed"),
+			); err != nil {
 				return err
 			}
 			if err := ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb", 7); err != nil {
