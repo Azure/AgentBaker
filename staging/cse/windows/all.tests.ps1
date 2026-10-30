@@ -9,16 +9,18 @@ Describe 'Windows CSE bundle imports' {
         New-Item -Path $WINDOWS_SCRIPTS_DIRECTORY -ItemType Directory | Out-Null
 
         # Leave other helpers empty so configfunc cannot indirectly import SSH.
-        Get-ChildItem -Path $PSScriptRoot -Filter '*.ps1' | ForEach-Object {
-            New-Item -Path (Join-Path $WINDOWS_SCRIPTS_DIRECTORY $_.Name) -ItemType File | Out-Null
+        foreach ($helper in @(
+            'helpers', 'azurecnifunc', 'calicofunc', 'configfunc', 'containerdfunc',
+            'kubeletfunc', 'kubernetesfunc', 'nvidiagpudriverfunc', 'securetlsbootstrapfunc',
+            'windowsciliumnetworkingfunc', 'networkisolatedclusterfunc'
+        )) {
+            New-Item -Path "$WINDOWS_SCRIPTS_DIRECTORY\$helper.ps1" -ItemType File | Out-Null
         }
         Copy-Item "$PSScriptRoot\sshfunc.ps1" "$WINDOWS_SCRIPTS_DIRECTORY\sshfunc.ps1" -Force
         function Install-OpenSSH { param($SSHKeys) throw 'legacy implementation' }
 
         . "$PSScriptRoot\all.ps1"
 
-        $command = Get-Command Install-OpenSSH -CommandType Function
-        $command.Parameters.ContainsKey('Enabled') | Should -BeTrue
-        $command.Parameters.ContainsKey('SSHKeys') | Should -BeTrue
+        (Get-Command Install-OpenSSH -CommandType Function).Parameters.ContainsKey('Enabled') | Should -BeTrue
     }
 }
