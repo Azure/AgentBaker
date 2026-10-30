@@ -262,9 +262,10 @@ func TestWindowsCustomDataIncludesCurrentSSHFunctions(t *testing.T) {
 			require.Contains(t, customData, `Install-OpenSSH -Enabled $sshEnabled -SSHKeys $global:SSHKeys`)
 			require.NotContains(t, customData, "Set-SSHAccess")
 			loadHelpers := strings.Index(customData, ". Get-HelperScripts")
-			loadSSH := strings.Index(customData, `. c:\AzureData\windows\windowsssh.ps1`)
+			loadSSH := strings.Index(customData, `'c:\AzureData\windows\sshfunc.ps1'`)
 			require.GreaterOrEqual(t, loadHelpers, 0)
-			require.Greater(t, loadSSH, loadHelpers)
+			require.GreaterOrEqual(t, loadSSH, 0)
+			require.Less(t, loadSSH, loadHelpers)
 
 			matches := regexp.MustCompile(`\$zippedFiles="([^"]+)"`).FindStringSubmatch(customData)
 			require.Len(t, matches, 2)

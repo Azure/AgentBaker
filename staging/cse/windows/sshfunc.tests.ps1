@@ -115,19 +115,6 @@ Describe 'Install-OpenSSH' {
         Assert-MockCalled Start-Service -Times 1 -Exactly
     }
 
-    It 'overrides an old cached function using the inline load from the template' {
-        function Install-OpenSSH { param($SSHKeys) throw 'old cached implementation' }
-        $inlinePath = Join-Path $TestDrive 'windowsssh.ps1'
-        Copy-Item -LiteralPath "$PSScriptRoot\sshfunc.ps1" -Destination $inlinePath
-        $template = Get-Content "$PSScriptRoot\..\..\..\parts\windows\kuberneteswindowssetup.ps1.template" -Raw
-        $load = [regex]::Match($template, '(?m)^\s*\. c:\\AzureData\\windows\\windowsssh\.ps1').Value
-        $load | Should -Not -BeNullOrEmpty
-        . ([scriptblock]::Create($load.Replace('c:\AzureData\windows\windowsssh.ps1', "'$inlinePath'")))
-
-        Install-OpenSSH -Enabled $false
-        $script:sshActions | Should -Be @('Set:Disabled', 'Stop')
-    }
-
     It 'requires keys for the enabled-only caller' -TestCases @(
         @{ Keys = $null }
         @{ Keys = @() }

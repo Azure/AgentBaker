@@ -137,8 +137,11 @@ Describe 'Windows CSE PIS phase placement' {
             $sshIndex | Should -BeLessThan $kubeletIndex
         }
 
-        It 'loads the inline SSH implementation after the cached CSE package' {
-            $script:TemplateText | Should -Match '(?s)\. Get-HelperScripts\s*#[^\r\n]*\s*\. c:\\AzureData\\windows\\windowsssh\.ps1'
+        It 'loads SSH helpers through the optional scripts in Get-HelperScripts' {
+            $helpers = Get-FunctionBody -Text $script:TemplateText -Name 'Get-HelperScripts'
+            $helpers | Should -Match "'c:\\AzureData\\windows\\sshfunc\.ps1'"
+            $helpers | Should -Match 'if \(Test-Path -Path \$script\)\s*\{\s*\. \$script'
+            $script:TemplateText | Should -Not -Match 'windowsssh\.ps1'
         }
     }
 
