@@ -499,6 +499,7 @@ func (a *AzureClient) EnsureResourceGroupRoles(ctx context.Context, scope string
 		// NOTE: the CI identity that's running the tests MUST have either an Owner or RBAC administatror role over the scope of the E2E subscription
 		// for these role assignments to be created - whenever adding a new role here make sure to also update the CI identity's Owner/RBAC administrator role
 		// ABAC conditions (if present) to include the new role. If no such Owner/RBAC adminstrator role exists for the CI identity, one will need to be created.
+		// Make sure to perform these checks on all subscriptions where we run E2E tests: MSFT tenant ACS - Test subscription, TME tenant Node SIG CI + RCV1P subscriptions.
 
 		// Compute Gallery Artifacts Publisher.
 		"/providers/Microsoft.Authorization/roleDefinitions/85a2d0d9-2eba-4c9c-b355-11c2cc0788ab",
