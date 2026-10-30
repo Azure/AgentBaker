@@ -415,8 +415,6 @@ function Install-GmsaPlugin {
     Write-Log "Successfully installed the GMSA plugin"
 }
 
-. "$PSScriptRoot\sshfunc.ps1"
-
 function Config-CredentialProvider {
     Param(
         [Parameter(Mandatory=$true)][string]

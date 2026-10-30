@@ -108,8 +108,7 @@ Describe 'Install-OpenSSH' {
         }
     }
 
-    It 'supports the old enabled-only caller through configfunc' {
-        . "$PSScriptRoot\configfunc.ps1"
+    It 'supports the old enabled-only caller' {
         Install-OpenSSH -SSHKeys @('ssh-rsa live-key')
         $script:icaclsCallCount | Should -Be 4
         Assert-MockCalled Start-Service -Times 1 -Exactly
