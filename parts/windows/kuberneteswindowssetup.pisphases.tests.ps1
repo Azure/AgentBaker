@@ -1,7 +1,7 @@
 # A node booted from a PIS-cached VHD skips BasePrep, because base_prep.complete is already in the
 # image. NodePrep must therefore apply the live cluster configuration and credentials, even when
 # BasePrep also configured a component such as SSH during the bake.
-# These checks read the template as text so they pin the phase a call is made from.
+# Phase checks read the template as text; helper-loading checks execute the extracted function.
 
 BeforeAll {
     $script:TemplatePath = Join-Path $PSScriptRoot 'kuberneteswindowssetup.ps1.template'
@@ -140,11 +140,50 @@ Describe 'Windows CSE PIS phase placement' {
             $sshIndex | Should -BeLessThan $kubeletIndex
         }
 
-        It 'loads SSH helpers through the optional scripts in Get-HelperScripts' {
-            $helpers = Get-FunctionBody -Text $script:TemplateText -Name 'Get-HelperScripts'
-            $helpers | Should -Match "'c:\\AzureData\\windows\\sshfunc\.ps1'"
-            $helpers | Should -Match 'if \(Test-Path -Path \$script\)\s*\{\s*\. \$script'
-            $script:TemplateText | Should -Not -Match 'windowsssh\.ps1'
+        Context 'fallback helper loading' {
+            BeforeEach {
+                $ErrorActionPreference = 'Stop'
+                $script:SavedCSEPackageUrl = $global:CSEScriptsPackageUrl
+                $script:SavedExplicitCSEPackageUrl = $global:IsExplicitCSEScriptsPackageUrl
+                $global:CSEScriptsPackageUrl = $null
+                $script:HelperDirectory = Join-Path $TestDrive ([guid]::NewGuid().ToString())
+                New-Item -Path $script:HelperDirectory -ItemType Directory -Force | Out-Null
+
+                # Simulate a cached bundle without all.ps1 to exercise individual imports.
+                foreach ($name in @('windowscsehelper', 'azurecnifunc', 'calicofunc', 'configfunc', 'containerdfunc', 'kubeletfunc', 'kubernetesfunc', 'nvidiagpudriverfunc')) {
+                    Set-Content -Path (Join-Path $script:HelperDirectory "$name.ps1") -Value ''
+                }
+
+                $helpers = Get-FunctionBody -Text $script:TemplateText -Name 'Get-HelperScripts'
+                $helpers = [regex]::Replace($helpers, '(?i)([''"]?)c:\\AzureData\\windows\\([a-z0-9.]+)\1', [System.Text.RegularExpressions.MatchEvaluator] {
+                    param($match)
+                    "'{0}'" -f (Join-Path $script:HelperDirectory $match.Groups[2].Value).Replace("'", "''")
+                })
+                $helpers = $helpers.Replace('"scripts.zip"', ('"{0}"' -f (Join-Path $TestDrive 'scripts.zip')))
+                . ([scriptblock]::Create($helpers))
+                $zippedFiles = ''
+                Mock Expand-Archive
+                Mock Write-Log
+            }
+
+            AfterEach {
+                $global:CSEScriptsPackageUrl = $script:SavedCSEPackageUrl
+                $global:IsExplicitCSEScriptsPackageUrl = $script:SavedExplicitCSEPackageUrl
+            }
+
+            It 'imports the SSH helper when it is present' {
+                Set-Content -Path (Join-Path $script:HelperDirectory 'sshfunc.ps1') -Value "function Get-TestSSHHelper { 'loaded' }"
+
+                . Get-HelperScripts
+
+                Get-TestSSHHelper | Should -Be 'loaded'
+            }
+
+            It 'succeeds without importing an SSH helper when the file is absent' {
+                { . Get-HelperScripts } | Should -Not -Throw
+
+                Get-Command Get-TestSSHHelper -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+            }
         }
 
         Context 'bundle compatibility' {
