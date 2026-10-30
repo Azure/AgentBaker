@@ -379,6 +379,18 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:        "AzureLinuxV3_KMPP",
+	Description: "Tests that KMPP baked into the Azure Linux V3 Gen2 VHD is started and reachable through /var/run/kmpp/dbus when EnableKMPP is set",
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDAzureLinuxV3Gen2,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableKMPP = true
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_CustomKubeletConfig_ANC",
 	Description: "Tests Azure Linux 3 ANC bootstrapping with custom seccomp configuration and message of the day, chrony restarts, AppArmor, and the expected containerd version",
 	Tags: Tags{

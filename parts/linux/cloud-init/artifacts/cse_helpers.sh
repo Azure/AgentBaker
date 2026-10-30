@@ -174,6 +174,10 @@ ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for Intel TDX
 ERR_KUBELET_CLIENT_KEY_PERM_FAIL=247 # Could not create/chmod the kubelet client private key under a safe umask
 # -----------------------------------------------------------------------------
 
+# ----------------------- KMPP ------------------------------------------------
+ERR_KMPP_START_FAIL=248 # Could not start KMPP, expose its D-Bus socket, or reach it over that socket
+# -----------------------------------------------------------------------------
+
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
 [ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
 
