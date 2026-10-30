@@ -481,7 +481,8 @@ Describe 'NPD binary handler'
         TEST_NODE='{"metadata":{"name":"node-1"}}'
         TEST_DESIRED='{"ubuntuPackageVersions":{"24.04":"9.9.9-ubuntu24.04u1","26.04":"0.8.25-ubuntu26.04u25"}}'
         HEARTBEAT=fresh
-        export TEST_CALLS BINARY_INSTALLED CONFIG_INSTALLED HEARTBEAT NPD_PACKAGE_CACHE
+        HB_FILE="${TEST_DIR}/heartbeat"
+        export TEST_CALLS BINARY_INSTALLED CONFIG_INSTALLED HEARTBEAT HB_FILE NPD_PACKAGE_CACHE
     }
     cleanup() { rm -rf "${TEST_DIR}"; }
     BeforeEach setup
@@ -504,10 +505,21 @@ Describe 'NPD binary handler'
         touch "${NPD_PACKAGE_CACHE}/$1.deb"
     }
     npd_validate_package() { echo "validate $1" >> "${TEST_CALLS}"; }
-    npd_install_package() { echo "install $1" >> "${TEST_CALLS}"; }
+    npd_install_package() {
+        echo "install $1" >> "${TEST_CALLS}"
+        # The old NPD process heartbeats while the package installs.
+        if [ "${HEARTBEAT}" = during_install ]; then
+            date -u +%Y-%m-%dT%H:%M:%SZ > "${HB_FILE}"
+            command sleep 1.1
+        fi
+    }
     npd_restart_and_check() { echo restart >> "${TEST_CALLS}"; }
     Mock kubectl
-        if [ "${HEARTBEAT}" = fresh ]; then t="$(date -u -d '+5 sec' +%Y-%m-%dT%H:%M:%SZ)"; else t="2020-01-01T00:00:00Z"; fi
+        case "${HEARTBEAT}" in
+            fresh) t="$(date -u -d '+5 sec' +%Y-%m-%dT%H:%M:%SZ)" ;;
+            during_install) t="$(cat "${HB_FILE}")" ;;
+            *) t="2020-01-01T00:00:00Z" ;;
+        esac
         printf '{"status":{"conditions":[{"type":"KernelDeadlock","lastHeartbeatTime":"%s"}]}}' "$t"
     End
     sleep() { :; }
@@ -531,6 +543,14 @@ Describe 'NPD binary handler'
         The stderr should include 'did not report node conditions'
         The contents of file "${TEST_CALLS}" should include "install ${NPD_PACKAGE_CACHE}/node-problem-detector-kubernetes_0.8.25-ubuntu26.04u24.deb"
         The path "${NPD_UPDATE_DIR}/pending-binary" should not be exist
+    End
+
+    It 'does not count a heartbeat from the old NPD during the install'
+        export HEARTBEAT=during_install
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be failure
+        The output should include 'npdBinary failed: PackageActivation'
+        The stderr should include 'did not report node conditions'
     End
 
     It 'keeps binary and config transactions separate'

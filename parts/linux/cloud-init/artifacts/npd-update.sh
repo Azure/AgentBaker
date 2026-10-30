@@ -547,8 +547,9 @@ npd_update_component() {
         npd_fail TransactionState
         return 1
     fi
-    since="$(date +%s)"
-    if ! npd_install_package "${package}" || ! npd_restart_and_check ||
+    # Take the reporting baseline just before the restart, after the install, so a
+    # heartbeat from the old process during the install can't satisfy the check.
+    if ! npd_install_package "${package}" || ! since="$(date +%s)" || ! npd_restart_and_check ||
        { [ "${NPD_COMPONENT}" = npdBinary ] && ! npd_check_reporting "${node_json}" "${since}"; }; then
         npd_recover_pending || knead_emit_npd_config_event Failed 'reason=RecoveryFailed' Error
         npd_fail PackageActivation
