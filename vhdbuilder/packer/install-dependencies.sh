@@ -782,8 +782,17 @@ cachePackageAndBinaryComponents() {
         ;;
       "oras")
         for version in ${PACKAGE_VERSIONS[@]}; do
-          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ] && [ -z "${PACKAGE_DOWNLOAD_URL}" ]; then
+            # The Ubuntu DALEC package is named az-oras but contains /usr/bin/oras.
+            downloadPkgFromVersion "az-oras" "${version}" "/opt/oras/downloads" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+            installPackageFromCache "oras" "${version}" "/opt/bin/oras" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+          elif isAzureLinux "${OS}" && [ -z "${PACKAGE_DOWNLOAD_URL}" ]; then
+            downloadPkgFromVersion "oras" "${version}" "/opt/oras/downloads" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+            installRPMPackageFromFile "oras" "${version}" "/opt/bin/oras" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+          else
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          fi
           echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
         ;;
