@@ -124,3 +124,5 @@ rm -f /opt/azure/disk-usage.txt
 rm -f /opt/azure/containers/image-fetcher
 # Cleanup IMDS instance metadata cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json
+# Cleanup Microsoft.Azure.Extensions.CustomScript to prevent unnecessary logs/telemetry payloads being persisted on the OS disk
+rm -rf /var/log/azure/Microsoft.Azure.Extensions.CustomScript

@@ -174,6 +174,8 @@ ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for Intel TDX
 ERR_KUBELET_CLIENT_KEY_PERM_FAIL=247 # Could not create/chmod the kubelet client private key under a safe umask
 # -----------------------------------------------------------------------------
 
+ERR_START_CGROUP_TELEMETRY=248 # Error enabling and starting cgroup telemetry services
+
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
 [ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
 

@@ -791,3 +791,25 @@ get_compute_sku() {
     fi
     echo "$vm_sku"
 }
+
+enableAndStartCgroupTelemetry() {
+    local units=() unit
+
+    # Don't enable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
+    if ! isMarinerOrAzureLinux "$OS"; then
+        units+=(cgroup-memory-telemetry.timer cgroup-memory-telemetry.service)
+    fi
+
+    if [ "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" ]; then
+        units+=(cgroup-cpu-telemetry.timer cgroup-cpu-telemetry.service
+            cgroup-pressure-telemetry.timer cgroup-pressure-telemetry.service)
+    fi
+
+    for unit in "${units[@]}"; do
+        if systemctl cat "$unit" &>/dev/null; then
+            systemctlEnableAndStartNoBlock "$unit" 30 || exit $ERR_START_CGROUP_TELEMETRY
+        else
+            echo "$unit not found on this VHD, skipping"
+        fi
+    done
+}
