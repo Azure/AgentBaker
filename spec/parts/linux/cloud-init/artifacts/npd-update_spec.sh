@@ -513,11 +513,27 @@ Describe 'NPD binary handler'
             command sleep 1.1
         fi
     }
-    npd_restart_and_check() { echo restart >> "${TEST_CALLS}"; }
+    # In at_stop mode the old NPD process heartbeats in the same second it stops,
+    # whether an explicit stop or the restart stops it.
+    old_npd_stops() {
+        if [ "${HEARTBEAT}" = at_stop ] && [ ! -f "${HB_FILE}.stopped" ]; then
+            date -u +%Y-%m-%dT%H:%M:%SZ > "${HB_FILE}"
+            touch "${HB_FILE}.stopped"
+        fi
+    }
+    npd_restart_and_check() {
+        old_npd_stops
+        echo restart >> "${TEST_CALLS}"
+    }
+    systemctl() {
+        echo "systemctl $*" >> "${TEST_CALLS}"
+        if [ "$1" = stop ]; then old_npd_stops; fi
+    }
     Mock kubectl
+        echo "kubectl $*" >> "${TEST_CALLS}"
         case "${HEARTBEAT}" in
             fresh) t="$(date -u -d '+5 sec' +%Y-%m-%dT%H:%M:%SZ)" ;;
-            during_install) t="$(cat "${HB_FILE}")" ;;
+            during_install|at_stop) t="$(cat "${HB_FILE}")" ;;
             *) t="2020-01-01T00:00:00Z" ;;
         esac
         printf '{"status":{"conditions":[{"type":"KernelDeadlock","lastHeartbeatTime":"%s"}]}}' "$t"
@@ -551,6 +567,22 @@ Describe 'NPD binary handler'
         The status should be failure
         The output should include 'npdBinary failed: PackageActivation'
         The stderr should include 'did not report node conditions'
+    End
+
+    It 'does not count a heartbeat from the old NPD in the second it stops'
+        export HEARTBEAT=at_stop
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be failure
+        The output should include 'npdBinary failed: PackageActivation'
+        The stderr should include 'did not report node conditions'
+    End
+
+    It 'stops the old NPD before the restart and bounds each reporting request'
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be success
+        The output should include 'npdBinary updated successfully'
+        The contents of file "${TEST_CALLS}" should include 'systemctl stop node-problem-detector.service'
+        The contents of file "${TEST_CALLS}" should include '--request-timeout=10s'
     End
 
     It 'keeps binary and config transactions separate'

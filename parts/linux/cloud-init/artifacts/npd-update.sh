@@ -455,7 +455,8 @@ npd_check_reporting() {
     [ -n "${node_name}" ] || return 1
     for ((attempt=0; attempt<NPD_REPORT_ATTEMPTS; attempt++)); do
         # shellcheck disable=SC2086
-        heartbeat="$(${kubectl_cmd} get node "${node_name}" -o json 2>/dev/null | jq -r '
+        # Bound each request so a stalled apiserver connection still reaches rollback.
+        heartbeat="$(${kubectl_cmd} get node "${node_name}" -o json --request-timeout=10s 2>/dev/null | jq -r '
             [.status.conditions[]? | select(.type == "KernelDeadlock" or .type == "ReadonlyFilesystem")
              | .lastHeartbeatTime | fromdateiso8601] | max // 0' 2>/dev/null)" || heartbeat=0
         if [ "${heartbeat:-0}" -ge "${since}" ] 2>/dev/null; then
@@ -465,6 +466,20 @@ npd_check_reporting() {
     done
     echo "${NPD_COMPONENT}: NPD did not report node conditions after the update" >&2
     return 1
+}
+
+# Stops NPD and prints a reporting baseline in epoch seconds. Heartbeats are
+# second-granular, so the baseline is the first full second after the stop:
+# every heartbeat from the stopped process is older, and every heartbeat from
+# the process started next is the same or newer.
+npd_stop_for_reporting_baseline() {
+    local stopped
+    systemctl stop node-problem-detector.service || return 1
+    stopped="$(date +%s)" || return 1
+    while [ "$(date +%s)" -le "${stopped}" ]; do
+        sleep 0.1
+    done
+    date +%s
 }
 
 npd_restart_and_check() {
@@ -547,9 +562,11 @@ npd_update_component() {
         npd_fail TransactionState
         return 1
     fi
-    # Take the reporting baseline just before the restart, after the install, so a
-    # heartbeat from the old process during the install can't satisfy the check.
-    if ! npd_install_package "${package}" || ! since="$(date +%s)" || ! npd_restart_and_check ||
+    # For the binary, stop the old process and take the reporting baseline after it,
+    # so no heartbeat from the old process can satisfy the reporting check.
+    if ! npd_install_package "${package}" ||
+       { [ "${NPD_COMPONENT}" = npdBinary ] && ! since="$(npd_stop_for_reporting_baseline)"; } ||
+       ! npd_restart_and_check ||
        { [ "${NPD_COMPONENT}" = npdBinary ] && ! npd_check_reporting "${node_json}" "${since}"; }; then
         npd_recover_pending || knead_emit_npd_config_event Failed 'reason=RecoveryFailed' Error
         npd_fail PackageActivation
