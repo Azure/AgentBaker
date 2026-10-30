@@ -7,7 +7,29 @@ KUBELET_DEFAULT_FILE="${KUBELET_DEFAULT_FILE:-/etc/default/kubelet}"
 NODE_EXPORTER_ROUTE_PROBE_IP="${NODE_EXPORTER_ROUTE_PROBE_IP:-168.63.129.16}"
 
 isIPv4Address() {
-    printf '%s\n' "$1" | grep -Eqx '[0-9]{1,3}(\.[0-9]{1,3}){3}'
+    printf '%s\n' "$1" | grep -Eqx '[0-9]{1,3}(\.[0-9]{1,3}){3}' || return 1
+    # Unspecified and loopback addresses are not the node IP; 0.0.0.0 would
+    # listen on every interface.
+    case "$1" in
+        0.0.0.0|127.*) return 1 ;;
+    esac
+}
+
+# Prints the value of kubelet's --node-ip flag. Only KUBELET_FLAGS tokens are
+# considered, so a node label containing "--node-ip=" cannot match.
+getKubeletNodeIPFlag() {
+    local flags token value=""
+    local -a tokens
+    flags=$(sed -n 's/^KUBELET_FLAGS=//p' "$KUBELET_DEFAULT_FILE" 2>/dev/null | tail -n 1)
+    flags="${flags#\"}"
+    flags="${flags%\"}"
+    read -ra tokens <<< "$flags"
+    for token in "${tokens[@]}"; do
+        case "$token" in
+            --node-ip=*) value="${token#--node-ip=}" ;;
+        esac
+    done
+    printf '%s\n' "$value"
 }
 
 # Prints the node IPv4 address node-exporter must listen on: the address scrapers
@@ -15,10 +37,9 @@ isIPv4Address() {
 # which would also expose the unauthenticated endpoint on secondary NICs, IPv6,
 # and bridge addresses.
 getNodeExporterListenIP() {
-    local node_ip_flag address
+    local address
     # kubelet registers --node-ip (set by CSE from IMDS) as the Node InternalIP.
-    node_ip_flag=$(grep -o -- '--node-ip=[^[:space:]"]*' "$KUBELET_DEFAULT_FILE" 2>/dev/null | tail -n 1)
-    for address in $(printf '%s' "${node_ip_flag#--node-ip=}" | tr ',' ' '); do
+    for address in $(getKubeletNodeIPFlag | tr ',' ' '); do
         if isIPv4Address "$address"; then
             printf '%s\n' "$address"
             return 0

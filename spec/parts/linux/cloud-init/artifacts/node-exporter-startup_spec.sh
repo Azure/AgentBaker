@@ -275,6 +275,44 @@ Describe 'node-exporter-startup.sh listen address'
         The output should equal '10.224.0.9'
     End
 
+    It 'ignores --node-ip text inside node labels'
+        printf '%s\n' 'KUBELET_FLAGS=--address=0.0.0.0 --node-ip=10.224.0.4' \
+            'KUBELET_NODE_LABELS=example.com/custom--node-ip=10.224.0.99,agentpool=x' > "$KUBELET_DEFAULT_FILE"
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.4'
+    End
+
+    It 'falls back to the route when only a label mentions --node-ip'
+        printf '%s\n' 'KUBELET_FLAGS=--address=0.0.0.0' \
+            'KUBELET_NODE_LABELS=example.com/custom--node-ip=10.224.0.99' > "$KUBELET_DEFAULT_FILE"
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.9'
+    End
+
+    It 'reads a quoted KUBELET_FLAGS value'
+        printf '%s\n' 'KUBELET_FLAGS="--address=0.0.0.0 --node-ip=10.224.0.4"' > "$KUBELET_DEFAULT_FILE"
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.4'
+    End
+
+    It 'never uses the unspecified or loopback address from --node-ip'
+        kubelet_flags '--node-ip=0.0.0.0'
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.9'
+    End
+
+    It 'rejects an unspecified route source address'
+        kubelet_flags '--node-ip=127.0.0.1'
+        ip() { printf '%s\n' '168.63.129.16 dev eth0 src 0.0.0.0 uid 0'; }
+        When call getNodeExporterListenIP
+        The status should be failure
+        The output should equal ''
+    End
+
     It 'fails instead of returning an empty or wildcard address'
         ip() { return 2; }
         When call getNodeExporterListenIP
