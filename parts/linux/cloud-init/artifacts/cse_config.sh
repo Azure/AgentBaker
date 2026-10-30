@@ -702,6 +702,56 @@ configureNodeProblemDetector() {
     systemctlEnableAndStart node-problem-detector 30 || return $ERR_SYSTEMCTL_START_FAIL
 }
 
+# configureKMPP starts the KMPP service baked (masked) into Azure Linux 3.0 VHDs and exposes
+# the host system bus to the KMPP CSI provider at /run/kmpp/dbus (hostPath /var/run/kmpp/dbus).
+# The bind mount is unfiltered; a filtered D-Bus proxy socket will replace it at the same path.
+configureKMPP() {
+    local unit_dir="${KMPP_UNIT_DIR:-/usr/lib/systemd/system}"
+    local mount_unit_file="${KMPP_DBUS_MOUNT_UNIT_FILE:-/etc/systemd/system/run-kmpp-dbus.mount}"
+    local kmpp_service="dbus-com.microsoft.kmpp.service"
+    local kmppctrl_service="dbus-com.microsoft.kmppctrl.service"
+
+    if [ ! -f "${unit_dir}/${kmpp_service}" ]; then
+        echo "KMPP is not baked into this VHD, skipping KMPP configuration"
+        return 0
+    fi
+
+    retrycmd_if_failure 10 2 30 systemctl unmask "${kmpp_service}" "${kmppctrl_service}" || return "$ERR_KMPP_START_FAIL"
+    systemctlEnableAndStart "${kmpp_service}" 30 || return "$ERR_KMPP_START_FAIL"
+    retrycmd_if_failure 10 2 30 systemctl start "${kmppctrl_service}" || return "$ERR_KMPP_START_FAIL"
+
+    mkdir -p "$(dirname "${mount_unit_file}")" /run/kmpp/dbus || return "$ERR_KMPP_START_FAIL"
+    cat > "${mount_unit_file}" <<EOF || return "$ERR_KMPP_START_FAIL"
+[Unit]
+Description=Expose the host system bus to KMPP clients
+DefaultDependencies=no
+Requires=dbus.socket
+After=dbus.socket
+Conflicts=umount.target
+Before=umount.target
+
+[Mount]
+What=/run/dbus
+Where=/run/kmpp/dbus
+Type=none
+Options=bind
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    chmod 0644 "${mount_unit_file}" || return "$ERR_KMPP_START_FAIL"
+    systemctl daemon-reload || return "$ERR_KMPP_START_FAIL"
+    systemctlEnableAndStart run-kmpp-dbus.mount 30 || return "$ERR_KMPP_START_FAIL"
+
+    if ! retrycmd_if_failure 10 2 10 busctl --address=unix:path=/run/kmpp/dbus/system_bus_socket \
+        call com.microsoft.kmpp / com.microsoft.kmpp GetVersion; then
+        echo "KMPP is not reachable through /run/kmpp/dbus/system_bus_socket"
+        return "$ERR_KMPP_START_FAIL"
+    fi
+
+    addKubeletNodeLabel "kubernetes.azure.com/kmpp=enabled"
+}
+
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
     mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
