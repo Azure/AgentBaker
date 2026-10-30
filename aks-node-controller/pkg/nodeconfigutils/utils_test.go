@@ -2,6 +2,7 @@ package nodeconfigutils
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -42,6 +43,18 @@ func TestContainerdImagePullPresenceRoundTrip(t *testing.T) {
 			require.NotContains(t, string(encoded), "image_pull_")
 		}
 	}
+}
+
+func decodeFlatcarCustomData(t *testing.T, cfg *aksnodeconfigv1.Configuration) map[string]any {
+	t.Helper()
+	customData, err := CustomDataFlatcar(cfg)
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+
+	var ignition map[string]any
+	require.NoError(t, json.Unmarshal(decoded, &ignition))
+	return ignition
 }
 
 func TestUnmarshalConfigurationV1(t *testing.T) {
@@ -298,6 +311,31 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 
 	_, err = reader.NextPart()
 	require.ErrorIs(t, err, io.EOF)
+}
+
+func TestCustomDataFlatcarDefersArtifactStreamingToProvisioning(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		cfg := &aksnodeconfigv1.Configuration{EnableArtifactStreaming: enabled}
+		ignition := decodeFlatcarCustomData(t, cfg)
+		require.NotContains(t, ignition, "systemd", "Ignition must not start streaming before containerd is configured")
+
+		storage, ok := ignition["storage"].(map[string]any)
+		require.True(t, ok)
+		files, ok := storage["files"].([]any)
+		require.True(t, ok)
+		require.NotEmpty(t, files)
+		file, ok := files[0].(map[string]any)
+		require.True(t, ok)
+		contents, ok := file["contents"].(map[string]any)
+		require.True(t, ok)
+		source, ok := contents["source"].(string)
+		require.True(t, ok)
+		configJSON, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(source, "data:;base64,"))
+		require.NoError(t, err)
+		decoded, err := UnmarshalConfigurationV1(configJSON)
+		require.NoError(t, err)
+		require.Equal(t, enabled, decoded.GetEnableArtifactStreaming())
+	}
 }
 
 // decodeBoothook extracts the decoded cloud-boothook part from the base64-encoded custom data.

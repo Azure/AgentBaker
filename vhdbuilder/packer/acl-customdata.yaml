@@ -42,3 +42,13 @@ storage:
 # NOTE: ACL does NOT have update-ca-certificates.service (Flatcar-specific).
 # ACL uses update-ca-trust (Azure Linux style) which is invoked on-demand by CSE scripts.
 # The Flatcar customdata has a dropin for update-ca-certificates.service that is omitted here.
+systemd:
+  units:
+  - name: artifact-streaming-setup.service
+    mask: true
+  - name: acr-mirror.service
+    mask: true
+  - name: overlaybd-tcmu.service
+    mask: true
+  - name: overlaybd-snapshotter.service
+    mask: true

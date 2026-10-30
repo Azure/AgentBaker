@@ -73,10 +73,66 @@ var _ = Register(&Scenario{
 			return errors.Join(
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				ValidateFileDoesNotExist(ctx, s, "/etc/extensions/artifact-streaming.raw"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "artifact-streaming-setup.service"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "acr-mirror.service"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "overlaybd-tcmu.service"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "overlaybd-snapshotter.service"),
 			)
 		},
 	},
 })
+
+// Artifact streaming changes both the node bootstrap input and the services activated on the
+// node, so this requires a separate node from the baseline ACL scenario.
+var _ = Register(&Scenario{
+	Name:        "ACL_ArtifactStreaming",
+	Description: "Tests that an ACL node with artifact streaming enabled activates OverlayBD and acr-mirror",
+	SkipIf:      skipACLArtifactStreamingOnMainBuiltImage,
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDACLGen2TL,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableArtifactStreaming = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.EnableArtifactStreaming = true
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				ValidateFileExists(ctx, s, "/etc/extensions/artifact-streaming.raw"),
+				ValidateFileDoesNotExist(ctx, s, "/etc/extensions/overlaybd.raw"),
+				ValidateFileIsRegularFile(ctx, s, "/etc/containerd/config.toml"),
+				ValidateFileExists(ctx, s, "/etc/acr/acr.toml"),
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+				ValidateFileExists(ctx, s, "/etc/overlaybd-snapshotter/config.json"),
+				ValidateSystemdUnitIsRunning(ctx, s, "artifact-streaming-setup.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+			)
+		},
+	},
+})
+
+// ACL e2e provisions with the CSE scripts baked into the VHD rather than the branch's scripts,
+// so the ACL artifact streaming path only exists on VHDs built from a branch that contains it.
+func skipACLArtifactStreamingOnMainBuiltImage(context.Context) string {
+	if laneResolvedMainBuiltImage() {
+		return fmt.Sprintf(
+			"this lane resolved a main-built image (%s=%s), which predates ACL artifact streaming support baked into the VHD; run against the PR's VHD build to exercise it",
+			config.Config.SIGVersionTagName,
+			config.Config.SIGVersionTagValue,
+		)
+	}
+	return ""
+}
 
 var _ = Register(&Scenario{
 	Name:        "ACL_CustomCA",

@@ -649,7 +649,8 @@
       ],
       "matchPackageNames": [
         "oss/v2/kubernetes/*-sysext",
-        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext",
+        "azurecontainerregistry/v2/artifact-streaming-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
       "extractVersion": "^(?<version>.+-azlinux3)-x86-64$",
