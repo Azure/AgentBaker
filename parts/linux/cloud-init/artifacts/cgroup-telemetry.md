@@ -58,6 +58,11 @@ Files are published atomically with numeric names and a distinct part index.
 Temporary files are staged in the parent directory on the same filesystem,
 outside `events/`, so WALinuxAgent's queue cleanup cannot delete them before
 publication.
+During image builds, cleanup prints and removes only a snapshot of published
+event files. It leaves the queue directory and parent intact because collectors
+can publish new events or stage temporary files concurrently. Read and removal
+failures remain build errors; telemetry services and their enabled state are
+unchanged.
 Splitting increases event count without changing WALinuxAgent's collection
 quotas; it prevents size truncation, not other ingestion failures. This
 pressure-only implementation has no dependency on a new VHD or shared helper.

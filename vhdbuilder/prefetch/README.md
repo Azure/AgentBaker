@@ -90,12 +90,40 @@ for targeted validation. Use immutable source/output image versions and a new
 output name for each changed candidate; an existing output can be reused by the
 optimizer's idempotency check.
 
-The standard release path handles its normal source conversion. A separately
-prepared NVMe-capable gallery source was needed for the D4s_v6 pilot because
-the legacy TL-to-managed-image conversion lost controller metadata. That
-pilot-specific hardware and source workaround are not release template defaults.
+ACL release builds use the generalized `TrustedLaunchSupported` gallery version
+directly, even when the final-node Trusted Launch flavor flag is enabled. This
+preserves firmware certificates and disk-controller metadata instead of applying
+the legacy TL-to-managed-image conversion. Other operating systems retain their
+existing conversion behavior.
 Do not disable final-node Trusted Launch or Secure Boot to work around an image
 builder limitation.
+
+### Signed-root source compatibility
+
+Image Builder's deprovisioning override is supported, but its build VM must
+first be able to boot the source image. Microsoft explicitly lists
+[`TrustedLaunch` sources as unsupported](https://learn.microsoft.com/en-us/azure/virtual-machines/image-builder-overview#confidential-vm-and-trusted-launch-support);
+`TrustedLaunchSupported` is a different supported image type. The 2025-10-01
+build-VM profile has no explicit Secure Boot/vTPM configuration.
+
+The new ephemeral-signed ACL candidate could not verify its `/usr` root-hash
+signature on a Standard Packer VM (`Required key not available`). Enabling
+Trusted Launch and using the source gallery's firmware certificate resolved
+that boot failure. Azure then required a strict `TrustedLaunch` image definition
+for capture of that VM's security data.
+
+MAP can now export only the captured OS disk and republish it into a Supported
+definition while retaining the signing certificate. A private exported image
+passed fresh Ignition and no-replay reboot checks with Trusted Launch. This
+resolves the image-type conversion, not the separate question of whether AIB's
+temporary VM trusts the signed filesystem.
+
+Validate AIB boot and optimization with the actual source. If that VM does not
+trust the development key, qualify an isolated production-ESRP-signed candidate
+without disabling signature verification. Do not relabel captured security data
+or assume that dropping gallery trust through managed-image conversion is safe.
+The earlier optimized pilot used a different source and does not establish
+compatibility for this candidate.
 
 ### Earlier prototype
 

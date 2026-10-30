@@ -46,6 +46,17 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+dumpBuildTelemetryEvents() {
+  local events_dir="${1:-/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events}"
+  local event_file
+  # Snapshot published files, not the directory that live collectors still use.
+  for event_file in "${events_dir}"/*; do
+    [ -f "${event_file}" ] || continue
+    cat -- "${event_file}" || return $?
+    rm -- "${event_file}" || return $?
+  done
+}
+
 configureServiceExecutionTelemetryForSystemdVersion() {
     local systemd_version="$1"
     local unit_dir="${2:-/etc/systemd/system}"
@@ -1453,10 +1464,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
   systemctl restart cgroup-pressure-telemetry.service
 fi
 
-if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ "$(ls -A /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/)" ]; then
-  cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
-  rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
-fi
+dumpBuildTelemetryEvents || exit 1
 capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then

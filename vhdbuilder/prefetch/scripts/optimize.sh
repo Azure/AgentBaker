@@ -188,6 +188,24 @@ need_new_template() {
 }
 
 prepare_source() {
+    if [ "${OS_SKU:-}" = "AzureContainerLinux" ]; then
+        local definition
+        definition="$(az sig image-definition show \
+            --ids "${CAPTURED_SIG_VERSION_ID%/versions/*}" -o json)" || return $?
+        if ! jq -e '
+            .osState == "Generalized" and
+            any(.features[]?; .name == "SecurityType" and .value == "TrustedLaunchSupported")
+        ' <<< "${definition}" >/dev/null; then
+            echo "##vso[task.logissue type=error]ACL prefetch requires a generalized TrustedLaunchSupported gallery source; publish an OS-only capture instead of relabeling a TrustedLaunch image." >&2
+            return 1
+        fi
+        echo "Using the ACL Supported gallery source without losing its firmware trust or disk-controller metadata"
+        SOURCE_TYPE="SharedImageVersion"
+        SOURCE_ID_KEY="imageVersionId"
+        SOURCE_ID="${CAPTURED_SIG_VERSION_ID}"
+        return 0
+    fi
+
     # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || grep -q "cvm" <<< "$FEATURE_FLAGS"; then
         echo "image ${SKU_NAME} is a TL/CVM flavor, will create managed image source"
