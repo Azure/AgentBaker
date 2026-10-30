@@ -126,6 +126,7 @@ generate-manifest:
 generate-testdata:
 	@echo $(GOFLAGS)
 	cd aks-node-controller && GENERATE_TEST_DATA="true" go test ./parser/...
+	GENERATE_TEST_DATA="true" go test ./pkg/agent/ -run 'TestWindowsBootstrap'
 
 .PHONY: generate # TODO: ONLY generate go testdata
 generate: bootstrap
