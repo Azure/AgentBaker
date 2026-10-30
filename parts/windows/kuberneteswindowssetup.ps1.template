@@ -488,7 +488,13 @@ function BasePrep {
 function NodePrep {
     # Apply the live node policy even when BasePrep was cached in a PIS image.
     $sshEnabled=[System.Convert]::ToBoolean("{{WindowsSSHEnabled}}")
-    Install-OpenSSH -Enabled $sshEnabled -SSHKeys $global:SSHKeys
+    # Older VHD bundles have an enabled-only implementation; preserve their behavior.
+    $installOpenSSH = Get-Command -Name Install-OpenSSH -CommandType Function -ErrorAction SilentlyContinue
+    if ($installOpenSSH -and $installOpenSSH.Parameters.ContainsKey('Enabled')) {
+        Install-OpenSSH -Enabled $sshEnabled -SSHKeys $global:SSHKeys
+    } else {
+        Write-Log "The CSE bundle does not support live SSH policy enforcement; preserving legacy behavior"
+    }
 
     # Write the kubeconfigs here, not in BasePrep: BasePrep is skipped on
     # PIS/VHD-cached nodes, so anything written there is baked with stale

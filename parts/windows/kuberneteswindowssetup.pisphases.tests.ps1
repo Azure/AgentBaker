@@ -41,6 +41,9 @@ BeforeAll {
 
     $script:BasePrepBody = Get-FunctionBody -Text $script:TemplateText -Name 'BasePrep'
     $script:NodePrepBody = Get-FunctionBody -Text $script:TemplateText -Name 'NodePrep'
+    $script:SSHPolicyBody = $script:NodePrepBody.Substring($script:NodePrepBody.IndexOf('{') + 1)
+    $script:SSHPolicyBody = $script:SSHPolicyBody.Substring(0, $script:SSHPolicyBody.IndexOf('    # Write the kubeconfigs'))
+    function Write-Log { param($Message) }
 }
 
 Describe 'Windows CSE PIS phase placement' {
@@ -142,6 +145,68 @@ Describe 'Windows CSE PIS phase placement' {
             $helpers | Should -Match "'c:\\AzureData\\windows\\sshfunc\.ps1'"
             $helpers | Should -Match 'if \(Test-Path -Path \$script\)\s*\{\s*\. \$script'
             $script:TemplateText | Should -Not -Match 'windowsssh\.ps1'
+        }
+
+        Context 'bundle compatibility' {
+            BeforeEach {
+                $script:SavedSSHKeys = $global:SSHKeys
+                $global:SSHKeys = @('ssh-rsa live-node-key')
+                Mock Write-Log
+            }
+
+            AfterEach {
+                $global:SSHKeys = $script:SavedSSHKeys
+            }
+
+            It 'applies policy <Enabled> with live keys when the bundle supports it' -TestCases @(
+                @{ Enabled = 'True' }
+                @{ Enabled = 'False' }
+            ) {
+                param($Enabled)
+                $script:SSHPolicyCall = $null
+                function Install-OpenSSH {
+                    param([bool]$Enabled, [string[]]$SSHKeys)
+                    $script:SSHPolicyCall = @{ Enabled = $Enabled; Keys = $SSHKeys }
+                }
+
+                & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', $Enabled)))
+
+                $script:SSHPolicyCall.Enabled | Should -Be ([System.Convert]::ToBoolean($Enabled))
+                $script:SSHPolicyCall.Keys | Should -Be @('ssh-rsa live-node-key')
+                Assert-MockCalled Write-Log -Times 0 -Exactly
+            }
+
+            It 'preserves an enabled-only legacy implementation for policy <Enabled>' -TestCases @(
+                @{ Enabled = 'True' }
+                @{ Enabled = 'False' }
+            ) {
+                param($Enabled)
+                function Install-OpenSSH {
+                    [CmdletBinding()]
+                    param([string[]]$SSHKeys)
+                    throw 'NodePrep must not call the legacy implementation'
+                }
+
+                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', $Enabled))) } | Should -Not -Throw
+                Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like '*preserving legacy behavior*' }
+            }
+
+            It 'skips enforcement when the bundle has no SSH function' {
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Install-OpenSSH' }
+
+                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', 'False'))) } | Should -Not -Throw
+                Assert-MockCalled Write-Log -Times 1 -Exactly
+            }
+
+            It 'does not hide enforcement failures from a supported bundle' {
+                function Install-OpenSSH {
+                    param([bool]$Enabled, [string[]]$SSHKeys)
+                    throw 'SSH policy enforcement failed'
+                }
+
+                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', 'True'))) } | Should -Throw '*SSH policy enforcement failed*'
+                Assert-MockCalled Write-Log -Times 0 -Exactly
+            }
         }
     }
 

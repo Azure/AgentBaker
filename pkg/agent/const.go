@@ -37,7 +37,6 @@ const (
 	/* Windows script to upload CSE logs. These should all be listed in
 	baker.go:func GetKubernetesWindowsAgentFunctions. */
 	kubernetesWindowsSendLogsPS1 = "windows/sendlogs.ps1"
-	kubernetesWindowsSSHFunctionsPS1 = "windows/sshfunc.ps1"
 )
 
 // cloud-init (i.e. ARM customData) source file references.
