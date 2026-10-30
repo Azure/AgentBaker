@@ -673,9 +673,10 @@ copyPackerFiles() {
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
 
-  # Copy the post-deprovision WALinuxAgent install script and its Python helper
+  # Copy the deprovision scripts and WALinuxAgent installer before waagent removes the build user.
   # Skip for Flatcar and ACL, which do not manually install WALinuxAgent
   if ! { isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; }; then
+    cpAndMode /home/packer/aib-deprovision.sh /opt/azure/containers/aib-deprovision.sh 755
     cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 755
     cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
   fi
