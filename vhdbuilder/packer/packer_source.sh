@@ -22,6 +22,15 @@ copyNetworkdRecoveryFiles() {
   fi
 }
 
+copyACLKataFiles() {
+  # /usr is read-only on ACL. systemd-sysext merges the aks-sysext extension into /usr, so the
+  # guest image appears in /usr/share/kata-containers, where the Kata configs expect it.
+  cpAndMode /home/packer/kata-containers.img /opt/aks-sysext/usr/share/kata-containers/kata-containers.img 0755
+  # The aks-sysext also replaces /usr/local/bin, where the kata-v2 runtime handler looks for its
+  # shim; the ACL Kata base image ships the Kata binaries in /usr/bin.
+  ln -snf /usr/bin/containerd-shim-kata-v2-rs /opt/aks-sysext-rw/usr/local/bin/containerd-shim-kata-v2-rs || exit $ERR_PACKER_COPY_FILE
+}
+
 copyPackerFiles() {
   SYSCTL_CONFIG_SRC=/home/packer/sysctl-d-60-CIS.conf
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
@@ -214,7 +223,9 @@ copyPackerFiles() {
   PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
   cpAndMode $PVT_HOST_SVC_SRC $PVT_HOST_SVC_DEST 600
 
-  if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+  if grep -q "kata" <<< "$FEATURE_FLAGS" && isACL "$OS" "$OS_VARIANT"; then
+    copyACLKataFiles
+  elif grep -q "kata" <<< "$FEATURE_FLAGS"; then
     # KataCC SPEC file assumes kata config points to the files exactly under this path
     # shellcheck disable=SC3010
     if [ "${OS_VERSION}" = "2.0" ]; then

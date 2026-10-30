@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # The AzL3 guest is built separately. Validate after installing the host RPMs.
-if [ "${IMG_OFFER:-}" != "azure-linux-3" ]; then
+if [ "${IMG_OFFER:-}" != "azure-linux-3" ] && [ "${OS_SKU:-}" != "AzureContainerLinux" ]; then
   exit 0
 fi
 case "${FEATURE_FLAGS:-}" in
@@ -22,7 +22,14 @@ case "$guest_version" in
     exit 1
     ;;
 esac
-if ! host_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}\n' kata-containers); then
+if [ "${OS_SKU:-}" = "AzureContainerLinux" ]; then
+  # ACL has no rpm command; tdnf reads the same database. Drop the epoch to match the rpm query.
+  host_version=$(tdnf -q --disablerepo='*' list installed kata-containers |
+    awk '$1 ~ /^kata-containers\./ { sub(/^[0-9]+:/, "", $2); print $2 }') || host_version=""
+else
+  host_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}\n' kata-containers) || host_version=""
+fi
+if [ -z "$host_version" ]; then
   echo "Cannot determine installed kata-containers host RPM version" >&2
   exit 1
 fi
