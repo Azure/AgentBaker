@@ -365,6 +365,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-livepatch-handler.sh",
+      "destination": "/home/packer/localdns-livepatch-handler.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh",
       "destination": "/home/packer/mariner-package-update.sh"
     },
