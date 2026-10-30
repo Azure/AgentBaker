@@ -782,8 +782,18 @@ cachePackageAndBinaryComponents() {
         ;;
       "oras")
         for version in ${PACKAGE_VERSIONS[@]}; do
-          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          # OS entries without a downloadURL install the DALEC-built PMC package
+          if [ -z "${PACKAGE_DOWNLOAD_URL}" ] && isUbuntu; then
+            # The Ubuntu PMC package is named az-oras but ships /usr/bin/oras
+            downloadPkgFromVersion "az-oras" "${version}" "/opt/${name}/downloads" || exit $ERR_ORAS_DOWNLOAD_ERROR
+            installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $ERR_ORAS_DOWNLOAD_ERROR
+          elif [ -z "${PACKAGE_DOWNLOAD_URL}" ] && isMarinerOrAzureLinux; then
+            downloadPkgFromVersion "${name}" "${version}" "$(getPackageDownloadDir "${name}")" || exit $ERR_ORAS_DOWNLOAD_ERROR
+            installRPMPackageFromFile "${name}" "${version}" "/opt/bin/${name}" || exit $ERR_ORAS_DOWNLOAD_ERROR
+          else
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          fi
           echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
         ;;

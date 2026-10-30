@@ -304,6 +304,44 @@ function GetWindowsPackageVersionFromComponentsJson {
     throw "Could not find package '$packageName' in components.json"
 }
 
+function GetWindowsPackageDownloadUrlFromComponentsJson {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent,
+
+        [Parameter(Mandatory = $true)][String]
+        $packageName
+    )
+
+    foreach ($package in $componentsJsonContent.Packages) {
+        if ($package.name -ne $packageName) {
+            continue
+        }
+
+        $part = GetWindowsDownloadPartForPackage $package
+        if ($null -eq $part -or $null -eq $part.versionsV2 -or $part.versionsV2.Count -eq 0) {
+            throw "Could not find Windows versions for package '$packageName' in components.json"
+        }
+
+        $downloadUrl = $part.windowsDownloadUrl
+        if ($null -eq $downloadUrl -or $downloadUrl -eq "") {
+            $downloadUrl = $part.downloadUrl
+        }
+        if ($null -eq $downloadUrl -or $downloadUrl -eq "") {
+            throw "Could not find a valid Windows download URL for package '$packageName' in components.json"
+        }
+
+        $latestVersion = $part.versionsV2[0].latestVersion
+        if ([string]::IsNullOrEmpty($latestVersion) -or $latestVersion -eq "<SKIP>") {
+            throw "Could not find a valid Windows version for package '$packageName' in components.json"
+        }
+
+        return ReplaceVarsInUrl -versionString $latestVersion -stringToReplace $downloadUrl
+    }
+
+    throw "Could not find package '$packageName' in components.json"
+}
+
 function GetOCIArtifactsFromComponentsJson {
 
     Param(

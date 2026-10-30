@@ -109,6 +109,7 @@
       ],
       "matchPackageNames": [
         "aks-secure-tls-bootstrap-client",
+        "az-oras",
         "azure-acr-credential-provider",
         "containernetworking-plugins",
         "containerd2",
@@ -125,7 +126,8 @@
         "node-exporter-kubernetes",
         "node-problem-detector-aks-config",
         "node-problem-detector-kubernetes",
-        "nvidia-device-plugin"
+        "nvidia-device-plugin",
+        "oras"
       ],
       "extractVersion": "^(?:\\d+:)?(?<version>\\d+\\.\\d+\\.\\d+)(?:[-+].*)?$",
       "versioning": "semver"

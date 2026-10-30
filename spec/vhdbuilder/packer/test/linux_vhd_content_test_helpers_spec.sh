@@ -333,4 +333,59 @@ Describe 'testCronPermissions invocation'
     The output should include "checkPathDoesNotExist:/etc/cron.deny"
     The output should not include "testCronPermissions: Skipping cron file check"
   End
+
+  Describe 'testOrasBinaryInstalled helper function'
+    BeforeAll "eval \"\$(sed -n '/^testOrasBinaryInstalled()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+    err() {
+      printf '%s:%s\n' "$1" "$2" >&2
+    }
+
+    create_fake_oras() {
+      local path="$1"
+      local version="$2"
+      # shellcheck disable=SC2016 # $1 must stay literal in the generated script
+      printf '#!/bin/bash\nif [ "$1" = "version" ]; then\n  echo "Version: %s"\n  exit 0\nfi\nexit 1\n' "$version" > "$path"
+      chmod +x "$path"
+    }
+
+    It 'passes when oras is installed with the expected version'
+      root_dir="${SHELLSPEC_WORKDIR}/oras-ok"
+      mkdir -p "$root_dir"
+      create_fake_oras "$root_dir/oras" "1.3.5"
+
+      When call testOrasBinaryInstalled "1.3.5-2" "$root_dir/oras"
+      The status should equal 0
+      The error should equal ""
+    End
+
+    It 'passes when DALEC oras reports build metadata in its version'
+      root_dir="${SHELLSPEC_WORKDIR}/oras-dalec-build-metadata"
+      mkdir -p "$root_dir"
+      create_fake_oras "$root_dir/oras" "1.3.5+ubuntu.24.04"
+
+      When call testOrasBinaryInstalled "1.3.5" "$root_dir/oras"
+      The status should equal 0
+      The error should equal ""
+    End
+
+    It 'fails when oras is missing'
+      root_dir="${SHELLSPEC_WORKDIR}/oras-missing"
+      mkdir -p "$root_dir"
+
+      When call testOrasBinaryInstalled "1.3.5-2" "$root_dir/oras"
+      The status should equal 1
+      The error should include "is missing or not executable"
+    End
+
+    It 'fails when oras reports an unexpected upstream version'
+      root_dir="${SHELLSPEC_WORKDIR}/oras-version-mismatch"
+      mkdir -p "$root_dir"
+      create_fake_oras "$root_dir/oras" "1.3.4"
+
+      When call testOrasBinaryInstalled "1.3.5-2" "$root_dir/oras"
+      The status should equal 1
+      The error should include "oras version mismatch"
+    End
+  End
 End

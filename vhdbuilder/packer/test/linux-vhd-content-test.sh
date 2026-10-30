@@ -254,6 +254,34 @@ testAcrCredentialProviderInstalled() {
   echo "$test:Finish"
 }
 
+testOrasBinaryInstalled() {
+  local expectedVersion="$1"
+  local orasPath="${2:-/opt/bin/oras}"
+  local test="testOrasBinaryInstalled"
+  local versionNoEpoch upstreamVersion installedVersion
+
+  versionNoEpoch="${expectedVersion#*:}"
+  upstreamVersion="${versionNoEpoch%%-*}"
+
+  if [ ! -x "${orasPath}" ]; then
+    err "$test" "expected executable ${orasPath} is missing or not executable"
+    return 1
+  fi
+
+  installedVersion=$("${orasPath}" version 2>/dev/null | awk -F': *' '/^Version:/ {print $2; exit}')
+  if [ -z "${installedVersion}" ]; then
+    err "$test" "unable to parse oras version from ${orasPath} version output"
+    return 1
+  fi
+  # DALEC builds append build metadata, e.g. "1.3.5+ubuntu.24.04"
+  if [ "${installedVersion%%+*}" != "${upstreamVersion}" ]; then
+    err "$test" "oras version mismatch, expected ${upstreamVersion} but found ${installedVersion}"
+    return 1
+  fi
+
+  return 0
+}
+
 testPackagesInstalled() {
   local test="testPackagesInstalled"
   CPU_ARCH=$(getCPUArch) # "arm64" or "amd64"
@@ -342,6 +370,9 @@ testPackagesInstalled() {
                 ;;
             esac
             testContainerd "$version" "$pkgName"
+            ;;
+          "oras")
+            testOrasBinaryInstalled "$version"
             ;;
         esac
         break
