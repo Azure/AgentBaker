@@ -800,8 +800,7 @@ enableAndStartCgroupTelemetry() {
         units+=(cgroup-memory-telemetry.timer cgroup-memory-telemetry.service)
     fi
 
-    cgroup_version=$(stat -fc %T /sys/fs/cgroup)
-    if [ "$cgroup_version" = "cgroup2fs" ]; then
+    if [ "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" ]; then
         units+=(cgroup-cpu-telemetry.timer cgroup-cpu-telemetry.service
             cgroup-pressure-telemetry.timer cgroup-pressure-telemetry.service)
     fi
