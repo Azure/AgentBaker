@@ -18,7 +18,9 @@ func TestLivePatchingUsesVHDInsteadOfCustomData(t *testing.T) {
 	require.NotContains(t, rendered, "/opt/azure/containers/ubuntu-snapshot-update.sh")
 	require.NotContains(t, rendered, "/opt/azure/containers/security-update.sh")
 	require.NotContains(t, rendered, "/opt/azure/containers/npd-update.sh")
-	size := len(getBase64EncodedGzippedCustomScriptFromStr(rendered))
+	payload := InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(config)
+	require.Equal(t, getBase64EncodedGzippedCustomScriptFromStr(rendered), payload)
+	size := len(payload)
 	t.Logf("traditional custom data: %d encoded characters", size)
 	require.Less(t, size, MaxCustomDataLength)
 }

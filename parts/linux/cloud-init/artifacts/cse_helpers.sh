@@ -170,7 +170,11 @@ ERR_CHRONY_NTP_SYNC_FAIL=245 # Chrony could not synchronize with the configured 
 ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for Intel TDX
 # -----------------------------------------------------------------------------
 
-ERR_START_CGROUP_TELEMETRY=247 # Error enabling and starting cgroup telemetry services
+# ----------------------- Kubernetes client credentials ------------------------
+ERR_KUBELET_CLIENT_KEY_PERM_FAIL=247 # Could not create/chmod the kubelet client private key under a safe umask
+# -----------------------------------------------------------------------------
+
+ERR_START_CGROUP_TELEMETRY=248 # Error enabling and starting cgroup telemetry services
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.
 [ -f /etc/profile.d/path.sh ] && . /etc/profile.d/path.sh
@@ -623,10 +627,6 @@ systemctl_stop() {
 
 systemctl_disable() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4"
-}
-
-sysctl_reload() {
-    retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
 
 systemctlEnableAndStart() {
@@ -1180,19 +1180,6 @@ evalPackageDownloadURL() {
     echo ""
 }
 
-installJq() {
-    # jq is not available until downloaded in install-dependencies.sh with the installDeps function
-    # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
-    if command -v jq &> /dev/null; then
-        return 0
-    fi
-    if isMarinerOrAzureLinux "$OS"; then
-        tdnf install -y jq && echo "jq was installed: $(jq --version)"
-    else
-        apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
-    fi
-}
-
 # Returns the JSON for the given package on the given OS and OS version.
 getPackageJSON() {
     local package=$1
@@ -1227,19 +1214,6 @@ getPackageJSON() {
 updatePackageVersions() {
     PACKAGE_VERSIONS=()
     readarray -t PACKAGE_VERSIONS < <(jq -r "if .versionsV2 == null then .versions // [] else .versionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$(getPackageJSON "$@")")
-    return
-}
-
-# sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
-updateMultiArchVersions() {
-    MULTI_ARCH_VERSIONS=()
-    readarray -t MULTI_ARCH_VERSIONS < <(jq -r "if .multiArchVersionsV2 == null then .multiArchVersions // [] else .multiArchVersionsV2 // [] | map(.latestVersion, .previousLatestVersion) end | .[] | values" <<< "$1")
-    return
-}
-
-# sets PACKAGE_DOWNLOAD_URL to the URL of the package based on the os and osVersion
-updatePackageDownloadURL() {
-    PACKAGE_DOWNLOAD_URL=$(jq -r ".downloadURL | values" <<< "$(getPackageJSON "$@")")
     return
 }
 
@@ -1364,28 +1338,6 @@ removeKubeletFlag() {
     elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
         KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
     fi
-}
-
-verify_DNS_health(){
-    local domain_name=$1
-    if [ -z "$domain_name" ]; then
-        echo "DNS domain is empty"
-        return $ERR_DNS_HEALTH_FAIL
-    fi
-
-    dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
-    if [ "$?" -ne 0 ]; then
-        echo "Failed to resolve root domain '.'"
-        return $ERR_DNS_HEALTH_FAIL
-    fi
-
-    dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
-    ret_code=$?
-    if [ "$ret_code" -ne 0 ] || [ -z "$dig_check_domain" ]; then
-        echo "Failed to resolve domain $domain_name return code: $ret_code"
-        return $ERR_DNS_HEALTH_FAIL
-    fi
-    echo "DNS health check passed"
 }
 
 resolve_packages_source_url() {
@@ -1558,51 +1510,6 @@ oras_login_with_kubelet_identity() {
     set -x
 
     echo "successfully logged in to acr '$acr_url' with identity token"
-}
-
-configureSSHService() {
-    local os_param="${1:-$OS}"
-    local os_version_param="${2:-$OS_VERSION}"
-
-    # If not Ubuntu, no changes needed
-    if [ "$os_param" != "$UBUNTU_OS_NAME" ]; then
-        return 0
-    fi
-
-    # Only for Ubuntu 22.10+ or newer socket activation is used, for earlier versions no changes needed
-    if semverCompare "22.10" "$os_version_param" ; then
-        return 0
-    fi
-
-    # For Ubuntu 22.10+ with socket-based SSH activation
-    # disable socket if is active
-    if systemctl is-active --quiet ssh.socket; then
-        # Socket is active, disable it and switch to service-based activation
-        systemctl disable --now ssh.socket || echo "Warning: Could not disable ssh.socket"
-    fi
-
-    # Remove the socket-based configuration files if present
-    if [ -f /etc/systemd/system/ssh.service.d/00-socket.conf ]; then
-        rm /etc/systemd/system/ssh.service.d/00-socket.conf || echo "Warning: Could not remove 00-socket.conf"
-    fi
-
-    if [ -f /etc/systemd/system/ssh.socket.d/addresses.conf ]; then
-        rm /etc/systemd/system/ssh.socket.d/addresses.conf || echo "Warning: Could not remove addresses.conf"
-    fi
-
-    # For all Ubuntu versions, just make sure ssh service is enabled and running
-    if ! systemctl is-enabled --quiet ssh.service; then
-        echo "Enabling SSH service..."
-        systemctlEnableAndStart ssh 30 || return $ERR_SYSTEMCTL_START_FAIL
-    fi
-    # Verify SSH service is now running
-    if ! systemctl is-active --quiet ssh; then
-        echo "Error: Failed to start SSH service after configuration changes"
-        return $ERR_SYSTEMCTL_START_FAIL
-    fi
-
-    echo "SSH service successfully reconfigured and started"
-    return 0
 }
 
 # Helper to extract tarballs with --no-same-owner for portability and security

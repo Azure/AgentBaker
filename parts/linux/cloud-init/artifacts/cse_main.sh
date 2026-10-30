@@ -444,7 +444,7 @@ function nodePrep {
 
     # This function first creates the systemd drop-in directory for kubelet.service.
     # Pay attention to ordering relative to other functions that create kubelet drop-ins.
-    logs_to_events "AKS.CSE.configureK8s" configureK8s
+    logs_to_events "AKS.CSE.configureK8s" configureK8s || exit "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
@@ -452,6 +452,12 @@ function nodePrep {
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
+        # OUTBOUND_COMMAND is intentionally expanded unquoted here (not a scanner oversight):
+        # it is a full shell command (e.g. `curl -v --insecure --proxy-insecure <url>`) built by
+        # the RP from config.OutboundType/CloudSpecConfig (see GetOutboundCommand in baker.go),
+        # not an arbitrary string from an external caller. Quoting it would break word-splitting
+        # into argv and make the outbound connectivity check fail to execute. Do not add quotes
+        # here without also changing it to an array (e.g. OUTBOUND_COMMAND=(...)) end to end.
         retrycmd_if_failure 20 1 15 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
     fi
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then

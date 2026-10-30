@@ -421,7 +421,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/secrets-store/driver",
-          "latestVersion": "v1.6.1-1"
+          "latestVersion": "v1.5.7-6"
         }
       ]
     },
@@ -431,7 +431,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.8.2-11"
+          "latestVersion": "v1.8.2-16"
         }
       ]
     },
@@ -642,21 +642,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.19.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.18.0"
+          "latestVersion": "v2.20.0-8"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.19.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.18.0"
+          "latestVersion": "v2.20.0-8"
         }
       ]
     },
@@ -666,21 +658,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.17.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.16.0"
+          "latestVersion": "v2.18.0-8"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.17.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.16.0"
+          "latestVersion": "v2.18.0-8"
         }
       ]
     },
@@ -2303,6 +2287,14 @@
           "OSGUARD/v3.0": {
             "versionsV2": []
           }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [{
+              "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=node-problem-detector-kubernetes, os=azurelinux, release=3.0",
+              "latestVersion": "0.8.25"
+            }]
+          }
         }
       }
     },
@@ -2347,6 +2339,37 @@
               "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=node-problem-detector-aks-config, os=azurelinux, release=3.0",
               "latestVersion": "1.0.0"
             }]
+          },
+          "OSGUARD/v3.0": {
+            "versionsV2": []
+          }
+        },
+        "azurelinuxkata": {
+          "v3.0": {
+            "versionsV2": [{
+              "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=node-problem-detector-aks-config, os=azurelinux, release=3.0",
+              "latestVersion": "1.0.0"
+            }]
+          }
+        }
+      }
+    },
+    {
+      "name": "kmpp-containers",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versionsV2": []
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/ms-oss/x86_64/repodata, name=kmpp-containers, os=azurelinux, release=3.0",
+                "latestVersion": "5.1.1_296"
+              }
+            ]
           },
           "OSGUARD/v3.0": {
             "versionsV2": []
@@ -2436,7 +2459,7 @@
             "versionsV2": [
               {
                 "renovateTag": "github-releases=Azure/WALinuxAgent",
-                "latestVersion": "2.15.0.1"
+                "latestVersion": "2.16.0.2"
               }
             ]
           }

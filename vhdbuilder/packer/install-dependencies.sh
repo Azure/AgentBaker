@@ -910,10 +910,23 @@ cachePackageAndBinaryComponents() {
         # node-exporter is installed on the VHD so CSE only needs to enable+start it.
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
         ;;
+      "kmpp-containers")
+        # Azure Linux 3.0 only, excluding OS Guard, Kata and CVM, which have no plan to
+        # enable KMPP. The CVM builder does not ship install-kmpp.sh.
+        # It stays dormant on the VHD; CSE enables it when ENABLE_KMPP=true.
+        if ! isAzureLinux "$OS" "$OS_VARIANT" || [ "${OS_VERSION}" != "3.0" ] || \
+          isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ] || \
+          echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+          echo "INFO: skipping ${name}: KMPP is baked only into Azure Linux 3.0 non-CVM, non-Kata, non-OS Guard images"
+          continue
+        fi
+        source /home/packer/install-kmpp.sh
+        installKMPP "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
+        ;;
       "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
-        # Ubuntu and Azure Linux 3 builders carry this helper. Empty manifest entries
-        # leave other OSes (and unpublished targets) extension-managed.
-        if (isUbuntu || isAzureLinux) && [ "${IS_KATA}" != "true" ]; then
+        # Ubuntu and Azure Linux 3 (including Kata) builders carry this helper. Empty
+        # manifest entries leave other OSes (and unpublished targets) extension-managed.
+        if isUbuntu || isAzureLinux; then
           source /home/packer/install-npd.sh
           installNPDPackage "${name}" "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
         fi

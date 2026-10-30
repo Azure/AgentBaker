@@ -73,6 +73,26 @@ assertPackageVersion() {
   return 0
 }
 
+testEmudhraRootRemoval() {
+  local bundle subjects checked=0
+  for bundle in "$@"; do
+    [ -e "$bundle" ] || [ -L "$bundle" ] || continue
+    subjects=$(set -o pipefail; openssl crl2pkcs7 -nocrl -certfile "$bundle" | openssl pkcs7 -print_certs -noout) ||
+      { err testEmudhraRootRemoval "Cannot read $bundle"; return 1; }
+    if ! grep -Eq '^subject=.*CN ?= ?DigiCert Global Root G2(,|$)' <<< "$subjects" ||
+      grep -Eq '^subject=.*CN ?= ?(emSign ECC Root CA - G3|AAA Certificate Services)(,|$)' <<< "$subjects"; then
+      err testEmudhraRootRemoval "$bundle: control root missing, or emSign/AAA root still trusted"
+      return 1
+    fi
+    checked=1
+  done
+  [ "$checked" -eq 1 ] || { err testEmudhraRootRemoval "No CA bundle found"; return 1; }
+}
+
+# Check the captured image before test setup can upgrade its CA packages.
+testEmudhraRootRemoval /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
+  /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem || exit 1
+
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
@@ -135,6 +155,7 @@ fi
 
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
+source ./AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
 source ./AgentBaker/vhdbuilder/packer/packer_source.sh
 
 validateDownloadPackage() {
@@ -2659,7 +2680,6 @@ testNodeProblemDetector() {
     AzureLinux) [ "${os_version}" = 3.0 ] || return 0 ;;
     *) return 0 ;;
   esac
-  case "${FEATURE_FLAGS}" in *kata*) return 0 ;; esac
   for executable in /usr/bin/node-problem-detector /usr/bin/npd-log-counter /usr/bin/npd-health-checker /opt/bin/node-problem-detector-startup.sh; do
     [ -x "${executable}" ] || err "$test" "Missing executable ${executable}"
   done
@@ -2677,6 +2697,47 @@ testNodeProblemDetector() {
   fi
   [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
   [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
+}
+
+testKMPP() {
+  local test="testKMPP"
+  local kmppVersion unit state
+  echo "$test:Start"
+
+  kmppVersion=$(getPackageExpectedVersion "kmpp-containers" "" "" "")
+  # CVM resolves the Azure Linux 3.0 entries but install-dependencies.sh skips it.
+  if [ "$kmppVersion" = "<SKIP>" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    if command -v rpm >/dev/null 2>&1 && rpm -q kmpp-containers >/dev/null 2>&1; then
+      err "$test" "kmpp-containers is installed but KMPP is not baked for this image (OS_SKU=$OS_SKU FEATURE_FLAGS=$FEATURE_FLAGS)"
+    fi
+    echo "$test: Skipping, KMPP is not baked for this image"
+    return 0
+  fi
+
+  assertPackageVersion "$test" "kmpp-containers" "$kmppVersion" true
+  [ -f /etc/kmpp/disableDefaultProvider ] || err "$test" "Missing /etc/kmpp/disableDefaultProvider"
+  if grep -qi kmpp /etc/pki/tls/openssl.cnf; then
+    err "$test" "/etc/pki/tls/openssl.cnf must not load the KMPP provider"
+  fi
+  for unit in dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service; do
+    state=$(systemctl is-enabled "$unit" 2>/dev/null)
+    [ "$state" = "masked" ] || err "$test" "$unit must be masked on the VHD, got '$state'"
+    if systemctl is-active --quiet "$unit"; then
+      err "$test" "$unit must not be running on the VHD"
+    fi
+  done
+  if grep -q DeviceAllow /usr/lib/systemd/system/dbus-com.microsoft.kmpp.service; then
+    err "$test" "dbus-com.microsoft.kmpp.service is the TPM variant, expected the package default"
+  fi
+  if id -nG kmpp 2>/dev/null | tr ' ' '\n' | grep -qx tss; then
+    err "$test" "kmpp user must not be in the tss group"
+  fi
+  if [ -e /var/opt/msft/ap/data/kmpp-private ]; then
+    err "$test" "/var/opt/msft/ap/data/kmpp-private must not be baked into the VHD"
+  fi
+  grep -qsx kmpp-containers /etc/tdnf/locks.d/kmpp.conf || err "$test" "Missing tdnf lock for kmpp-containers"
+
+  echo "$test:Finish"
 }
 
 testKneadSecurityPatchingAssets() {
@@ -3017,6 +3078,7 @@ testMarinerLivePatchingArtifacts
 testNetworkdRecoveryArtifacts
 testNodeExporter $OS_SKU
 testNodeProblemDetector $OS_SKU $OS_VERSION
+testKMPP
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService
