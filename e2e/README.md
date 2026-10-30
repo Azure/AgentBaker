@@ -17,15 +17,16 @@ From a high-level, for each scenario,
    pods can successfully be scheduled and run on the new node.
 
 Windows VHD-caching scenarios retain SSH access during the bake when enabled:
-`BasePrep` installs and configures OpenSSH, and `NodePrep` reapplies the current
-policy and keys, including on cached images. Only Windows scenarios that explicitly
+`BasePrep` installs and configures OpenSSH. When the bundled `Install-OpenSSH`
+function supports the `Enabled` parameter, `NodePrep` reapplies the current policy
+and keys, including on cached images. Only Windows scenarios that explicitly
 skip SSH connectivity validation use VMSS RunCommand for guest checks in both
 the bake and real-node stages. Linux behavior is unchanged.
 OpenSSH remains stopped and disabled while the live authorized keys and ACLs are
 prepared; provisioning only re-enables it after those steps succeed.
-The shared `Install-OpenSSH` implementation ships in both the CSE package and
-CustomData. Provisioning loads the inline copy after the cached CSE scripts so
-older packages cannot override the current SSH policy handling.
+The shared `Install-OpenSSH` implementation ships only in the versioned Windows
+CSE bundle, not in CustomData. Older bundles retain their existing SSH behavior
+and require an updated CSE bundle or VHD to receive this fix.
 
 ## Writing and extending scenarios
 
