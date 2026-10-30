@@ -1,7 +1,7 @@
 # A node booted from a PIS-cached VHD skips BasePrep, because base_prep.complete is already in the
-# image. Every setting that describes the cluster, the node identity or a credential must therefore
-# be written in NodePrep, or the node runs on values captured when the image was baked.
-# These checks read the template as text so they pin the phase a call is made from.
+# image. NodePrep must therefore apply the live cluster configuration and credentials, even when
+# BasePrep also configured a component such as SSH during the bake.
+# Phase checks read the template as text; helper-loading checks execute the extracted function.
 
 BeforeAll {
     $script:TemplatePath = Join-Path $PSScriptRoot 'kuberneteswindowssetup.ps1.template'
@@ -41,6 +41,9 @@ BeforeAll {
 
     $script:BasePrepBody = Get-FunctionBody -Text $script:TemplateText -Name 'BasePrep'
     $script:NodePrepBody = Get-FunctionBody -Text $script:TemplateText -Name 'NodePrep'
+    $script:SSHPolicyBody = $script:NodePrepBody.Substring($script:NodePrepBody.IndexOf('{') + 1)
+    $script:SSHPolicyBody = $script:SSHPolicyBody.Substring(0, $script:SSHPolicyBody.IndexOf('    # Write the kubeconfigs'))
+    function Write-Log { param($Message) }
 }
 
 Describe 'Windows CSE PIS phase placement' {
@@ -115,6 +118,134 @@ Describe 'Windows CSE PIS phase placement' {
         It 'writes the cluster CA certificate in NodePrep only' {
             $script:NodePrepBody | Should -Match 'Write-CACert'
             $script:BasePrepBody | Should -Not -Match 'Write-CACert'
+        }
+    }
+
+    Context 'SSH access policy' {
+        It 'applies the live SSH policy and keys in NodePrep' {
+            $script:NodePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)'
+            $script:NodePrepBody | Should -Match 'Install-OpenSSH -Enabled \$sshEnabled -SSHKeys \$global:SSHKeys'
+        }
+
+        It 'preserves SSH configuration in BasePrep only when enabled' {
+            $script:BasePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)'
+            $script:BasePrepBody | Should -Match 'if\s*\(\s*\$sshEnabled\s*\)\s*\{\s*Install-OpenSSH -SSHKeys \$SSHKeys\s*\}'
+        }
+
+        It 'applies SSH policy before starting Kubernetes services' {
+            $sshIndex = $script:NodePrepBody.IndexOf('Install-OpenSSH')
+            $kubeletIndex = $script:NodePrepBody.IndexOf('Install-KubernetesServices')
+            $sshIndex | Should -BeGreaterThan -1
+            $kubeletIndex | Should -BeGreaterThan -1
+            $sshIndex | Should -BeLessThan $kubeletIndex
+        }
+
+        Context 'fallback helper loading' {
+            BeforeEach {
+                $ErrorActionPreference = 'Stop'
+                $script:SavedCSEPackageUrl = $global:CSEScriptsPackageUrl
+                $script:SavedExplicitCSEPackageUrl = $global:IsExplicitCSEScriptsPackageUrl
+                $global:CSEScriptsPackageUrl = $null
+                $script:HelperDirectory = Join-Path $TestDrive ([guid]::NewGuid().ToString())
+                New-Item -Path $script:HelperDirectory -ItemType Directory -Force | Out-Null
+
+                # Simulate a cached bundle without all.ps1 to exercise individual imports.
+                foreach ($name in @('windowscsehelper', 'azurecnifunc', 'calicofunc', 'configfunc', 'containerdfunc', 'kubeletfunc', 'kubernetesfunc', 'nvidiagpudriverfunc')) {
+                    Set-Content -Path (Join-Path $script:HelperDirectory "$name.ps1") -Value ''
+                }
+
+                $helpers = Get-FunctionBody -Text $script:TemplateText -Name 'Get-HelperScripts'
+                $helpers = [regex]::Replace($helpers, '(?i)([''"]?)c:\\AzureData\\windows\\([a-z0-9.]+)\1', [System.Text.RegularExpressions.MatchEvaluator] {
+                    param($match)
+                    "'{0}'" -f (Join-Path $script:HelperDirectory $match.Groups[2].Value).Replace("'", "''")
+                })
+                $helpers = $helpers.Replace('"scripts.zip"', ('"{0}"' -f (Join-Path $TestDrive 'scripts.zip')))
+                . ([scriptblock]::Create($helpers))
+                $zippedFiles = ''
+                Mock Expand-Archive
+                Mock Write-Log
+            }
+
+            AfterEach {
+                $global:CSEScriptsPackageUrl = $script:SavedCSEPackageUrl
+                $global:IsExplicitCSEScriptsPackageUrl = $script:SavedExplicitCSEPackageUrl
+            }
+
+            It 'imports the SSH helper when it is present' {
+                Set-Content -Path (Join-Path $script:HelperDirectory 'sshfunc.ps1') -Value "function Get-TestSSHHelper { 'loaded' }"
+
+                . Get-HelperScripts
+
+                Get-TestSSHHelper | Should -Be 'loaded'
+            }
+
+            It 'succeeds without importing an SSH helper when the file is absent' {
+                { . Get-HelperScripts } | Should -Not -Throw
+
+                Get-Command Get-TestSSHHelper -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+            }
+        }
+
+        Context 'bundle compatibility' {
+            BeforeEach {
+                $script:SavedSSHKeys = $global:SSHKeys
+                $global:SSHKeys = @('ssh-rsa live-node-key')
+                Mock Write-Log
+            }
+
+            AfterEach {
+                $global:SSHKeys = $script:SavedSSHKeys
+            }
+
+            It 'applies policy <Enabled> with live keys when the bundle supports it' -TestCases @(
+                @{ Enabled = 'True' }
+                @{ Enabled = 'False' }
+            ) {
+                param($Enabled)
+                $script:SSHPolicyCall = $null
+                function Install-OpenSSH {
+                    param([bool]$Enabled, [string[]]$SSHKeys)
+                    $script:SSHPolicyCall = @{ Enabled = $Enabled; Keys = $SSHKeys }
+                }
+
+                & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', $Enabled)))
+
+                $script:SSHPolicyCall.Enabled | Should -Be ([System.Convert]::ToBoolean($Enabled))
+                $script:SSHPolicyCall.Keys | Should -Be @('ssh-rsa live-node-key')
+                Assert-MockCalled Write-Log -Times 0 -Exactly
+            }
+
+            It 'preserves an enabled-only legacy implementation for policy <Enabled>' -TestCases @(
+                @{ Enabled = 'True' }
+                @{ Enabled = 'False' }
+            ) {
+                param($Enabled)
+                function Install-OpenSSH {
+                    [CmdletBinding()]
+                    param([string[]]$SSHKeys)
+                    throw 'NodePrep must not call the legacy implementation'
+                }
+
+                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', $Enabled))) } | Should -Not -Throw
+                Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like '*preserving legacy behavior*' }
+            }
+
+            It 'skips enforcement when the bundle has no SSH function' {
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Install-OpenSSH' }
+
+                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', 'False'))) } | Should -Not -Throw
+                Assert-MockCalled Write-Log -Times 1 -Exactly
+            }
+
+            It 'does not hide enforcement failures from a supported bundle' {
+                function Install-OpenSSH {
+                    param([bool]$Enabled, [string[]]$SSHKeys)
+                    throw 'SSH policy enforcement failed'
+                }
+
+                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', 'True'))) } | Should -Throw '*SSH policy enforcement failed*'
+                Assert-MockCalled Write-Log -Times 0 -Exactly
+            }
         }
     }
 

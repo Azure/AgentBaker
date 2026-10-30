@@ -347,6 +347,7 @@ function Get-HelperScripts {
         'c:\AzureData\windows\securetlsbootstrapfunc.ps1'
         'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1'
         'c:\AzureData\windows\networkisolatedclusterfunc.ps1'
+        'c:\AzureData\windows\sshfunc.ps1'
     )
 
     foreach ($script in $optionalFunctionScripts) {
@@ -485,6 +486,16 @@ function BasePrep {
 # ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
+    # Apply the live node policy even when BasePrep was cached in a PIS image.
+    $sshEnabled=[System.Convert]::ToBoolean("{{WindowsSSHEnabled}}")
+    # Older VHD bundles have an enabled-only implementation; preserve their behavior.
+    $installOpenSSH = Get-Command -Name Install-OpenSSH -CommandType Function -ErrorAction SilentlyContinue
+    if ($installOpenSSH -and $installOpenSSH.Parameters.ContainsKey('Enabled')) {
+        Install-OpenSSH -Enabled $sshEnabled -SSHKeys $global:SSHKeys
+    } else {
+        Write-Log "The CSE bundle does not support live SSH policy enforcement; preserving legacy behavior"
+    }
+
     # Write the kubeconfigs here, not in BasePrep: BasePrep is skipped on
     # PIS/VHD-cached nodes, so anything written there is baked with stale
     # bake-time values. Both are only consumed in NodePrep, so write them from
