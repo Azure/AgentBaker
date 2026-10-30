@@ -65,3 +65,31 @@ func TestNvidiaDriverVersionValidationScriptRejectsInvalidVersion(t *testing.T) 
 		})
 	}
 }
+
+func TestNvidiaModulesNotLoadedScript(t *testing.T) {
+	tests := []struct {
+		name      string
+		modules   string
+		lsmodExit string
+		wantExit  int
+	}{
+		{"unrelated modules", "Module Size Used by\nx_tables 123 0", "0", 0},
+		{"core module", "Module Size Used by\nnvidia 123 0", "0", 1},
+		{"auxiliary module", "Module Size Used by\nnvidia_uvm 123 0", "0", 1},
+		{"inspection failure", "Module Size Used by", "17", 17},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			command := exec.Command("bash", "-c", `lsmod() { printf '%s\n' "$TEST_LSMOD_OUTPUT"; return "$TEST_LSMOD_EXIT"; }
+`+nvidiaModulesNotLoadedScript())
+			command.Env = append(os.Environ(), "TEST_LSMOD_OUTPUT="+tt.modules, "TEST_LSMOD_EXIT="+tt.lsmodExit)
+			output, err := command.CombinedOutput()
+			if tt.wantExit == 0 {
+				require.NoError(t, err, string(output))
+			} else {
+				require.Error(t, err)
+			}
+			require.Equal(t, tt.wantExit, command.ProcessState.ExitCode(), string(output))
+		})
+	}
+}

@@ -402,6 +402,21 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Bake cleanup uses the explicit GPU_NODE=false opt-out in CustomData, even
+    # on GPU VMs. SkipGpuDriverInstall is a nodePrep VM tag; do not infer bake
+    # eligibility from cached IMDS or tags on derived nodes.
+    if [ "${PRE_PROVISION_ONLY}" = "true" ] && [ "${GPU_NODE}" != "true" ] &&
+       { [ "${OS}" = "${UBUNTU_OS_NAME}" ] || { isMarinerOrAzureLinux "$OS" "$OS_VARIANT" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; }; }; then
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+            if [ ! -r /opt/azure/containers/provision_installs_ubuntu_gpu.sh ]; then
+                echo "image containing PIS GPU cleanup helper required"
+                exit $ERR_NVIDIA_DRIVER_INSTALL
+            fi
+            source /opt/azure/containers/provision_installs_ubuntu_gpu.sh || exit $ERR_NVIDIA_DRIVER_INSTALL
+        fi
+        logs_to_events "AKS.CSE.cleanUpGPUDriversForBasePrep" cleanUpGPUDriversForBasePrep || exit $ERR_NVIDIA_DRIVER_INSTALL
+    fi
+
     # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
     # If hosts plugin is enabled, enableAKSLocalDNSHostsSetup() was already called at the
     # very start of basePrep (before disableSystemdResolved) to give the timer a head start
@@ -645,8 +660,9 @@ function nodePrep {
     logs_to_events "AKS.CSE.configureNodeProblemDetector" configureNodeProblemDetector
 
 
-    # Clean up GPU drivers if not a GPU node or if skipping driver install
-    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
+    # Only clean up on executions that ran basePrep. Derived PIS nodes skip it
+    # and must retain any customer driver installed after the image bake.
+    if [ "${BASE_PREP_RAN}" = "true" ] && { [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; }; then
         logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
     fi
 
@@ -749,8 +765,10 @@ function nodePrep {
 # when nodes are created from that VHD image.
 logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync_or_report_error || exit $?
 
+BASE_PREP_RAN=false
 if [ ! -f /opt/azure/containers/base_prep.complete ]; then
     basePrep
+    BASE_PREP_RAN=true
 else
     echo "Skipping basePrep - base_prep.complete file exists"
 fi

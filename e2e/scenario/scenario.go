@@ -2997,6 +2997,7 @@ var _ = Register(&Scenario{
 			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			return errors.Join(
 				ValidateNvidiaSMINotInstalled(ctx, s),
+				ValidateNvidiaModulesNotLoaded(ctx, s),
 				ValidateContainerd2Properties(ctx, s, containerdVersions),
 				ValidateRuncVersion(ctx, s, runcVersions),
 			)
@@ -3118,6 +3119,37 @@ var _ = Register(&Scenario{
 				ValidateNvidiaDriverVersion(ctx, s, datamodel.NvidiaGridV20DriverVersion),
 				ValidateKubeletHasNotStopped(ctx, s),
 			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:             "Ubuntu2404_GPUDriverOptOut_VHDCaching",
+	Description:      "Installs the VHD-cached, components-approved NVIDIA driver artifact with a post-basePrep customer RunCommand while managed driver installation remains opted out, then verifies the real driver survives PIS VHD-cached provisioning",
+	K8sSystemPoolSKU: "Standard_D2s_v3",
+	Tags: Tags{
+		GPU: true,
+	},
+	Config: Config{
+		Cluster:                ClusterKubenet,
+		VHD:                    config.VHDUbuntu2404Gen2Containerd,
+		VHDCaching:             true,
+		VHDCachingPostBasePrep: installCustomerNvidiaDriver,
+		PreProvisionBootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessCSECmd = !config.Config.DisableScriptless
+		},
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessCSECmd = false
+			nbc.AgentPoolProfile.VMSize = "Standard_NC4as_T4_v3"
+			nbc.ConfigGPUDriverIfNeeded = false
+			nbc.EnableGPUDevicePluginIfNeeded = false
+			nbc.EnableNvidia = false
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return ValidateCustomerNvidiaDriver(ctx, s)
 		},
 	},
 })
