@@ -1584,14 +1584,14 @@
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.35.9-4-azlinux3",
-                "previousLatestVersion": "v1.35.8-12-azlinux3"
+                "latestVersion": "v1.35.10-1-azlinux3",
+                "previousLatestVersion": "v1.35.9-4-azlinux3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubelet-sysext",
-                "latestVersion": "v1.36.5-5-azlinux3",
-                "previousLatestVersion": "v1.36.4-10-azlinux3"
+                "latestVersion": "v1.36.6-1-azlinux3",
+                "previousLatestVersion": "v1.36.5-5-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubelet-sysext:${version}-${SYSTEMD_ARCH}"
@@ -1700,20 +1700,20 @@
               {
                 "k8sVersion": "1.34",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.34.12-10-azlinux3",
-                "previousLatestVersion": "v1.34.11-16-azlinux3"
+                "latestVersion": "v1.34.13-1-azlinux3",
+                "previousLatestVersion": "v1.34.12-10-azlinux3"
               },
               {
                 "k8sVersion": "1.35",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.35.9-4-azlinux3",
-                "previousLatestVersion": "v1.35.8-1-azlinux3"
+                "latestVersion": "v1.35.10-1-azlinux3",
+                "previousLatestVersion": "v1.35.9-4-azlinux3"
               },
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/kubectl-sysext",
-                "latestVersion": "v1.36.5-5-azlinux3",
-                "previousLatestVersion": "v1.36.4-10-azlinux3"
+                "latestVersion": "v1.36.6-1-azlinux3",
+                "previousLatestVersion": "v1.36.5-5-azlinux3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kubectl-sysext:${version}-${SYSTEMD_ARCH}"
