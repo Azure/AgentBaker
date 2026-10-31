@@ -178,6 +178,11 @@ func ValidateKataHostReadiness(ctx context.Context, s *Scenario) error {
 		"test -x "+kataV2ShimBinaryPath, 0, "Rust Kata v2 shim is not executable on the Kata VHD"); err != nil {
 		errs = append(errs, err)
 	}
+	// kata-ctl creates the sandbox snapshots that ValidateKataV2SnapshotRestore restores from.
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		kataHostCommand("sh -c 'command -v kata-ctl'"), 0, "kata-ctl is not present on the Kata VHD"); err != nil {
+		errs = append(errs, err)
+	}
 
 	// The Kata configuration file referenced by options.ConfigPath in the containerd config.
 	errs = append(errs, ValidateFileExists(ctx, s, kataConfigPath))

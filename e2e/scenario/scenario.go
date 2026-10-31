@@ -432,14 +432,15 @@ var _ = Register(&Scenario{
 // through e2e/scenario/node_config.go -> AgentPoolProfile.Distro -> the IsKata template func, so this
 // scenario exercises that whole path against a real node.
 //
-// The scenario asserts three increasingly strong properties:
+// The scenario asserts four increasingly strong properties:
 //  1. the rendered /etc/containerd/config.toml contains the Kata runtime handlers and EROFS preamble,
 //  2. containerd actually parsed and loaded them (no unexpected warnings, handlers in `config dump`),
 //  3. for every handler in kataRuntimeHandlers, a pod scheduled via a Kata RuntimeClass runs
-//     and is genuinely VM-isolated.
+//     and is genuinely VM-isolated,
+//  4. kata-v2 sandboxes can be snapshotted with kata-ctl and restored via pod annotation.
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3Gen2Kata",
-	Description: "Tests that an AzureLinuxV3 Gen2 Kata node is bootstrapped with working kata containerd runtime handlers, and can run VM-isolated pods via Kata RuntimeClasses",
+	Description: "Tests that an AzureLinuxV3 Gen2 Kata node is bootstrapped with working kata containerd runtime handlers, can run VM-isolated pods via Kata RuntimeClasses, and can snapshot and restore kata-v2 sandboxes",
 	Tags: Tags{
 		Kata: true,
 	},
@@ -450,6 +451,11 @@ var _ = Register(&Scenario{
 			// Leave unattended upgrades on so that CSE's kata-specific opt-out branch is
 			// actually exercised, which ValidateKataHostReadiness asserts.
 			nbc.DisableUnattendedUpgrades = false
+			// Snapshot/restore chains run alongside the isolation pods, up to five Kata VMs at once.
+			nbc.AgentPoolProfile.VMSize = "Standard_D4ds_v5"
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_D4ds_v5")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			if err := errors.Join(
@@ -465,7 +471,7 @@ var _ = Register(&Scenario{
 					return err
 				}
 			}
-			return nil
+			return ValidateKataV2SnapshotRestore(ctx, s)
 		},
 	},
 })
