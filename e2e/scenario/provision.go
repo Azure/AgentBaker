@@ -29,19 +29,11 @@ func runScenarioFlow(ctx context.Context, name string, s *Scenario) error {
 	if config.Config.TestPreProvision || s.VHDCaching {
 		return runVHDCachingScenario(ctx, name, s)
 	}
-	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
-		return runScenario(ctx, name, s)
-	}
-
-	if s.Runtime == nil {
-		s.Runtime = &ScenarioRuntime{}
-	}
-	s.Runtime.EnableScriptlessNBCCSECmd = true
 	return runScenario(ctx, name, s)
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
-	return s.Config.SkipScriptlessNBCCSECmd || s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
+	return s.Config.SkipScriptlessNBCCSECmd || s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runVHDCachingScenario(ctx context.Context, name string, original *Scenario) error {
@@ -258,6 +250,9 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 
 	if s.Runtime == nil {
 		s.Runtime = &ScenarioRuntime{}
+	}
+	if !config.Config.DisableScriptless && !scriptlessUnsupported(s) {
+		s.Runtime.EnableScriptlessNBCCSECmd = true
 	}
 	s.Runtime.Cluster = cluster
 	s.Runtime.VMSize = config.Config.VMSKU()

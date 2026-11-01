@@ -2393,12 +2393,10 @@ var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_VHDCaching",
 	Description: "T",
 	Config: Config{
-		Cluster:    ClusterLatestKubernetesVersionKubenet,
-		VHD:        config.VHDUbuntu2604MinimalGen2Containerd,
-		VHDCaching: true,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.EnableScriptlessNBCCSECmd = !config.Config.DisableScriptless
-		},
+		Cluster:                ClusterLatestKubernetesVersionKubenet,
+		VHD:                    config.VHDUbuntu2604MinimalGen2Containerd,
+		VHDCaching:             true,
+		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return nil
 		},
@@ -3207,12 +3205,10 @@ var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_VHDCaching",
 	Description: "T",
 	Config: Config{
-		Cluster:    ClusterKubenet,
-		VHD:        config.VHDUbuntu2204Gen2Containerd,
-		VHDCaching: true,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.EnableScriptlessNBCCSECmd = !config.Config.DisableScriptless
-		},
+		Cluster:                ClusterKubenet,
+		VHD:                    config.VHDUbuntu2204Gen2Containerd,
+		VHDCaching:             true,
+		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return nil
 		},
