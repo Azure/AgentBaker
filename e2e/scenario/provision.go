@@ -341,12 +341,10 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		}
 		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
 
-		if !nbc.PreProvisionOnly {
-			nbc.EnableScriptlessCSECmd = false
-			if !nbc.EnableScriptlessAKSNodeConfig && !config.Config.DisableScriptless && !s.Tags.Scriptless &&
-				(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
-				nbc.EnableScriptlessNBCCSECmd = true
-			}
+		nbc.EnableScriptlessCSECmd = false
+		if !nbc.EnableScriptlessAKSNodeConfig && !config.Config.DisableScriptless && !s.Tags.Scriptless &&
+			(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
+			nbc.EnableScriptlessNBCCSECmd = true
 		}
 	}
 
