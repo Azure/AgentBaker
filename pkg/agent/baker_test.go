@@ -58,7 +58,7 @@ func TestScriptlessAKSNodeConfigSkipsNBCRendering(t *testing.T) {
 				require.Equal(t, config.AKSNodeConfigJSON, string(decoded))
 				require.True(t, supportsScriptlessProvisioning(config))
 				config.PreProvisionOnly = true
-				require.False(t, supportsScriptlessProvisioning(config), "Phase 3 must not bypass the bake fallback when NBC scriptless is also enabled")
+				require.True(t, supportsScriptlessProvisioning(config))
 			})
 		}
 	}
@@ -1857,15 +1857,15 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(BeEmpty())
 	})
 
-	It("should not enable CustomData-only provisioning for pre-provisioning", func() {
+	It("should support CustomData-only provisioning for pre-provisioning", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
 		config.PreProvisionOnly = true
 		config.CustomDataOnlyProvisioning = true
 
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 		config.EnableScriptlessNBCCSECmd = true
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
 
 	It("should disable CustomData-only provisioning for unsupported images", func() {
