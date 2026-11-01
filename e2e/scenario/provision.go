@@ -66,12 +66,10 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 			validationErr = errors.Join(
 				ValidateFileExists(ctx, scenario, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, scenario, "/opt/azure/containers/base_prep.complete"),
+				ValidateFileExists(ctx, scenario, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, scenario, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
 			)
-			if scriptless {
-				validationErr = errors.Join(validationErr, ValidateFileExists(ctx, scenario, "/opt/azure/containers/provision.complete"))
-			}
 		}
 		return validationErr
 	}
