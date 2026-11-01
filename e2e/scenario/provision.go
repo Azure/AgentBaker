@@ -47,13 +47,11 @@ func scriptlessUnsupported(s *Scenario) bool {
 func runVHDCachingScenario(ctx context.Context, name string, original *Scenario) error {
 	bakeScenario := freshScenario(original)
 	bakeScenario.artifactName = vhdStageArtifactName(original, name, "vhd-bake")
+	// Older VHD scripts do not write provision.complete during a scriptless bake.
 	buildID := os.Getenv("BUILD_BUILDID")
-	freshVHD := original.VHD != nil && original.VHD.Version == "" &&
-		buildID != "" && config.Config.SIGVersionTagName == "buildId" && config.Config.SIGVersionTagValue == buildID
-	scriptless := freshVHD && !config.Config.DisableScriptless && !original.IsWindows() &&
-		!original.Config.SkipScriptlessNBCCSECmd && len(original.Config.CustomDataWriteFiles) == 0 &&
-		original.VHD.SupportsScriptless()
-
+	scriptless := original.VHDCaching && original.VHD.Version == "" && buildID != "" &&
+		config.Config.SIGVersionTagName == "buildId" && config.Config.SIGVersionTagValue == buildID &&
+		!config.Config.DisableScriptless && original.VHD.SupportsScriptless()
 	bakeScenario.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: scriptless}
 	bakeScenario.Config.SkipDefaultValidation = true
 	bakeScenario.Config.Validator = func(ctx context.Context, scenario *Scenario) error {
@@ -69,17 +67,15 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				ValidateWindowsServiceIsRunning(ctx, scenario, "containerd"),
 			)
 		} else {
-			checks := []error{
+			validationErr = errors.Join(
 				ValidateFileExists(ctx, scenario, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, scenario, "/opt/azure/containers/base_prep.complete"),
 				ValidateSystemdUnitIsRunning(ctx, scenario, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
+			)
+			if scriptless {
+				validationErr = errors.Join(validationErr, ValidateFileExists(ctx, scenario, "/opt/azure/containers/provision.complete"))
 			}
-			// Current scripts come from either the PR VHD or legacy CustomData delivery.
-			if freshVHD || !scenario.Runtime.NBC.EnableScriptlessCSECmd {
-				checks = append(checks, ValidateFileExists(ctx, scenario, "/opt/azure/containers/provision.complete"))
-			}
-			validationErr = errors.Join(checks...)
 		}
 		return validationErr
 	}
@@ -364,13 +360,12 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		}
 		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
 
-		// Ineligible bakes must keep their original script delivery mode.
-		if !nbc.PreProvisionOnly || nbc.EnableScriptlessNBCCSECmd {
+		if !nbc.PreProvisionOnly {
 			nbc.EnableScriptlessCSECmd = false
-		}
-		if !nbc.PreProvisionOnly && !nbc.EnableScriptlessAKSNodeConfig && !config.Config.DisableScriptless && !s.Tags.Scriptless &&
-			(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
-			nbc.EnableScriptlessNBCCSECmd = true
+			if !nbc.EnableScriptlessAKSNodeConfig && !config.Config.DisableScriptless && !s.Tags.Scriptless &&
+				(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
+				nbc.EnableScriptlessNBCCSECmd = true
+			}
 		}
 	}
 
