@@ -995,20 +995,7 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		return nil, fmt.Errorf("scenario runtime is incomplete for image creation")
 	}
 	if s.IsWindows() {
-		logging.Log(ctx, "Running sysprep on Windows VM...")
-		res, err := RunCommand(ctx, s, windowsSysprepScript)
-		var stdout, stderr string
-		if res.Output != nil {
-			stdout = strings.TrimSpace(*res.Output)
-		}
-		if res.Error != nil {
-			stderr = strings.TrimSpace(*res.Error)
-		}
-		logging.Logf(ctx, "Sysprep stdout: %s", stdout)
-		if stderr != "" {
-			logging.Logf(ctx, "Sysprep stderr: %s", stderr)
-		}
-		if err != nil {
+		if _, err := RunCommand(ctx, s, windowsSysprepScript); err != nil {
 			return nil, fmt.Errorf("failed to run sysprep on Windows VM for image creation: %w", err)
 		}
 	} else {
