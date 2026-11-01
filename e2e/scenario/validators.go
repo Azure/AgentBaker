@@ -3524,7 +3524,17 @@ fi`)
 
 // ValidateSSHServiceDisabled validates that SSH services and sockets are disabled and stopped on the node
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
-	resp, err := RunCommand(ctx, s, validateSSHServiceDisabledScript)
+	command := validateSSHServiceDisabledScript
+	if s.IsWindows() {
+		command = `$ErrorActionPreference = 'Stop'
+$service = Get-Service -Name sshd -ErrorAction Stop
+if ($service.Status -ne 'Stopped' -or $service.StartType -ne 'Disabled') {
+    throw "SSH service is not stopped and disabled: Status=$($service.Status), StartType=$($service.StartType)"
+}
+Write-Output 'SUCCESS: SSH units are disabled and stopped'
+`
+	}
+	resp, err := RunCommand(ctx, s, command)
 	if err != nil {
 		return fmt.Errorf("run command to check SSH service status: %w", err)
 	}
@@ -3932,6 +3942,11 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) er
 
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
+		logging.Logf(ctx, "Skipping RX-buffer validation: legacy image %s may not contain the NIC-tuning artifacts", s.VHD.Distro)
+		return nil
+	}
+
 	// Query the VM's actual CPU count using nproc
 	cpuCountCmd := "nproc"
 	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")

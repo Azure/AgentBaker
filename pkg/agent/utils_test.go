@@ -15,10 +15,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -1271,21 +1273,65 @@ func TestRemoveComments_ShellPatterns(t *testing.T) {
 	}
 }
 
-// TestCSEScriptRoundTrip exercises the full CSE assembly pipeline for each embedded shell
-// script: removeComments → gzip → base64 → base64-decode → gunzip, then validates:
-//   - byte-for-byte round-trip integrity (decoded output == stripped input)
-//   - bash -n syntax check on the decoded output (catches broken scripts)
-//
-// This exercises the comment-stripping and encoding stages of the production pipeline
-// in getBase64EncodedGzippedCustomScript() (pkg/agent/utils.go). The Go template
-// execution step is not included here since it requires a full NodeBootstrappingConfiguration.
-// The comment stripping happens BEFORE template execution, so the stripped output must
-// still be syntactically valid bash — a node cannot provision if any CSE script has a
-// syntax error after stripping.
-//
-// The script list is dynamically derived by parsing variables.go and const.go source
-// to find all .sh files passed to getBase64EncodedGzippedCustomScript(). If a new script
-// is added to the CSE pipeline, it is automatically covered by this test.
+func TestMinifyShellScript(t *testing.T) {
+	tests := []struct {
+		name   string
+		script string
+		marker string
+	}{
+		{
+			name:   "functions and helper marker",
+			script: "#!/bin/bash\n# removable comment\nsay_hello() {\n    printf '%s\\n' \"hello world\"\n}\nsay_hello\n#HELPERSEOF\n",
+			marker: "#HELPERSEOF",
+		},
+		{
+			name:   "heredoc payload",
+			script: "#!/bin/bash\n# removable comment\ncat <<'EOF'\n  indentation matters\n\n# literal content\n${not_expanded}\nEOF\n#EOF\n",
+			marker: "#EOF",
+		},
+		{
+			name:   "multiline string and parameter expansion",
+			script: "#!/bin/bash\n# removable comment\nvalue='first line\n\n# literal content\n  last line'\nprintf '%s\\n' \"$value\" \"${value#first}\"\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			minified, err := minifyShellScript(tt.name+".sh", tt.script)
+			require.NoError(t, err)
+			require.True(t, strings.HasPrefix(minified, "#!/bin/bash\n"))
+			require.NotContains(t, minified, "# removable comment")
+			require.Less(t, len(minified), len(tt.script))
+			if tt.marker != "" {
+				require.True(t, strings.HasSuffix(minified, tt.marker+"\n"))
+			}
+			expected, err := exec.Command("bash", "-c", tt.script).CombinedOutput()
+			require.NoError(t, err, string(expected))
+			actual, err := exec.Command("bash", "-c", minified).CombinedOutput()
+			require.NoError(t, err, string(actual))
+			require.Equal(t, string(expected), string(actual))
+		})
+	}
+}
+
+func TestMinifyShellScriptRejectsInvalidSyntax(t *testing.T) {
+	_, err := minifyShellScript("invalid.sh", "if true; then\n")
+	require.ErrorContains(t, err, "invalid.sh")
+}
+
+func TestCustomScriptLeavesSystemdUnitUnminified(t *testing.T) {
+	config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+	encoded := getBase64EncodedGzippedCustomScript(kubeletSystemdService, config)
+	compressed, err := base64.StdEncoding.DecodeString(encoded)
+	require.NoError(t, err)
+	decoded, err := getGzipDecodedValue(compressed)
+	require.NoError(t, err)
+	original, err := parts.Templates.ReadFile(kubeletSystemdService)
+	require.NoError(t, err)
+	require.Equal(t, string(removeComments(original)), string(decoded))
+}
+
+// Exercise the production rendering, minification and encoding path for every
+// embedded CSE shell script, including scripts with Go template directives.
 func TestCSEScriptRoundTrip(t *testing.T) {
 	cseScripts := discoverCSEScripts(t)
 	if len(cseScripts) == 0 {
@@ -1293,32 +1339,44 @@ func TestCSEScriptRoundTrip(t *testing.T) {
 	}
 	t.Logf("discovered %d CSE shell scripts", len(cseScripts))
 
-	artifactsDir := filepath.Join(repoRoot(), "parts")
+	config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
 
 	for _, script := range cseScripts {
 		t.Run(filepath.Base(script), func(t *testing.T) {
-			decoded := cseRoundTrip(t, filepath.Join(artifactsDir, script))
+			encoded := getBase64EncodedGzippedCustomScript(script, config)
+			compressed, err := base64.StdEncoding.DecodeString(encoded)
+			require.NoError(t, err)
+			decoded, err := getGzipDecodedValue(compressed)
+			require.NoError(t, err)
+			plain := getCustomScript(script, config)
+			minified, err := minifyShellScript(script, plain)
+			require.NoError(t, err)
+			require.Equal(t, minified, plain, "plain delivery must not bypass the minifier")
+			require.Equal(t, plain, string(decoded))
+			if script == kubernetesCSEHelpersScript {
+				require.True(t, strings.HasSuffix(string(decoded), "#HELPERSEOF\n"))
+			}
 			cseValidateBashSyntax(t, script, decoded)
 		})
 	}
 }
 
 // discoverCSEScripts parses variables.go to find all constant names passed to
-// getBase64EncodedGzippedCustomScript(), then resolves those constants to file
+// getCustomScript(), then resolves those constants to file
 // paths from const.go, filtering to .sh files only.
 func discoverCSEScripts(t *testing.T) []string {
 	t.Helper()
 	root := repoRoot()
 
-	// Step 1: Read variables.go and extract constant names from getBase64EncodedGzippedCustomScript() calls
+	// Step 1: Read variables.go and extract constant names from getCustomScript() calls
 	variablesPath := filepath.Join(root, "pkg", "agent", "variables.go")
 	variablesBytes, err := os.ReadFile(variablesPath)
 	if err != nil {
 		t.Fatalf("failed to read variables.go: %v", err)
 	}
 
-	// Match: getBase64EncodedGzippedCustomScript(constantName, config)
-	callRe := regexp.MustCompile(`getBase64EncodedGzippedCustomScript\((\w+),`)
+	// Match: getCustomScript(constantName, config)
+	callRe := regexp.MustCompile(`getCustomScript\((\w+),`)
 	matches := callRe.FindAllStringSubmatch(string(variablesBytes), -1)
 	constNames := make(map[string]bool)
 	for _, m := range matches {
@@ -1361,37 +1419,6 @@ func discoverCSEScripts(t *testing.T) []string {
 	return scripts
 }
 
-// cseRoundTrip reads a shell script, runs it through the production CSE pipeline
-// (removeComments → gzip → base64 → decode → gunzip), validates byte-for-byte
-// round-trip integrity, and returns the decoded output.
-func cseRoundTrip(t *testing.T, path string) []byte {
-	t.Helper()
-
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("failed to read %s: %v", path, err)
-	}
-
-	stripped := removeComments(raw)
-	encoded := getBase64EncodedGzippedCustomScriptFromStr(string(stripped))
-
-	gzipped, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		t.Fatalf("base64 decode failed: %v", err)
-	}
-
-	decoded, err := getGzipDecodedValue(gzipped)
-	if err != nil {
-		t.Fatalf("gzip decode failed: %v", err)
-	}
-
-	if diff := cmp.Diff(string(stripped), string(decoded)); diff != "" {
-		t.Errorf("round-trip mismatch (-stripped +decoded):\n%s", diff)
-	}
-
-	return decoded
-}
-
 func TestGzipWriterPoolDoesNotMixPayloads(t *testing.T) {
 	for i := 0; i < 16; i++ {
 		payload := strings.Repeat(string(rune('a'+i)), 4096)
@@ -1411,7 +1438,7 @@ func TestGzipWriterPoolDoesNotMixPayloads(t *testing.T) {
 }
 
 // cseValidateBashSyntax runs bash -n on the decoded script to catch syntax errors
-// introduced by comment stripping. Skips scripts with Go template directives.
+// introduced by rendering or minification. Skips scripts with Go template directives.
 func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
 	t.Helper()
 
@@ -1440,7 +1467,7 @@ func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
 	cmd := exec.Command(bashPath, "-O", "extglob", "-n", tmpFile.Name())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("bash -n syntax check FAILED for %s after removeComments + round-trip:\n%s\n%s",
+		t.Errorf("bash -n syntax check FAILED for %s after rendering + minification + round-trip:\n%s\n%s",
 			script, string(output), err)
 	}
 }

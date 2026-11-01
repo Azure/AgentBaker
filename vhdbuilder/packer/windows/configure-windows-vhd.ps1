@@ -225,6 +225,22 @@ function Invoke-PackageDownload
     }
 }
 
+function Get-OrasDownloadUrl
+{
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Version
+    )
+
+    if ($Version -notmatch '^(?<upstream>\d+\.\d+\.\d+)-\d+$') {
+        throw "Expected an ORAS package version including the DALEC revision, got '${Version}'"
+    }
+
+    $upstreamVersion = $Matches.upstream
+    $orasZip = "oras_${Version}_amd64.zip"
+    return "https://packages.aks.azure.com/dalec-packages/oras/${upstreamVersion}/windows/amd64/${orasZip}"
+}
+
 function Pull-OCIArtifact
 {
     param (
@@ -245,8 +261,8 @@ function Pull-OCIArtifact
             throw "Unable to resolve ORAS version from components.json"
         }
 
-        $orasZip = "oras_${orasVersion}_windows_amd64.zip"
-        $orasUrl = "https://github.com/oras-project/oras/releases/download/v${orasVersion}/${orasZip}"
+        $orasUrl = Get-OrasDownloadUrl -Version $orasVersion
+        $orasZip = Split-Path -Path $orasUrl -Leaf
 
         Write-Log "Downloading oras v${orasVersion}"
         Invoke-WebRequest -UseBasicParsing $orasUrl -OutFile "$global:aksTempDir\$orasZip"

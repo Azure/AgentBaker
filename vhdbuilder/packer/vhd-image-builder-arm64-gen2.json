@@ -196,11 +196,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
-      "destination": "/home/packer/provision_configs_addons.sh"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_config_chrony.sh",
       "destination": "/home/packer/provision_configs_chrony.sh"
     },
@@ -623,6 +618,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh",
       "destination": "/home/packer/cgroup-pressure-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh",
+      "destination": "/home/packer/cgroup-telemetry-events.sh"
     },
     {
       "type": "file",

@@ -7,7 +7,6 @@ source "${CSE_CONFIG_GPU_FILEPATH:-${BASH_SOURCE[0]%.sh}_gpu.sh}"
 source "${CSE_CONFIG_LOCALDNS_FILEPATH:-${BASH_SOURCE[0]%.sh}_localdns.sh}"
 source "${CSE_CONFIG_KUBELET_FILEPATH:-${BASH_SOURCE[0]%.sh}_kubelet.sh}"
 source "${CSE_CONFIG_NETWORK_FILEPATH:-${BASH_SOURCE[0]%.sh}_network.sh}"
-source "${CSE_CONFIG_ADDONS_FILEPATH:-${BASH_SOURCE[0]%.sh}_addons.sh}"
 source "${CSE_CONFIG_CHRONY_FILEPATH:-${BASH_SOURCE[0]%.sh}_chrony.sh}"
 
 configureAdminUser(){
@@ -506,7 +505,17 @@ configureK8s() {
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
         if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+            # client.key is the kubelet client private key; path is overridable for testing.
+            # Create under a restrictive umask so the file is never briefly world-readable
+            # between creation and chmod (avoids a TOCTOU window), then chmod again to cover
+            # the case where the file already existed with looser permissions.
+            local client_key_path="${CLIENT_KEY_PATH:-/etc/kubernetes/certs/client.key}"
+            # Guard both operations: if either fails, stop before writing the private key
+            # rather than silently falling through and writing it with whatever (possibly
+            # world-readable) permissions the file ended up with.
+            (umask 077 && touch "${client_key_path}") || return "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
+            chmod 0600 "${client_key_path}" || return "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
+            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > "${client_key_path}"
         fi
         if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
             echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
@@ -702,50 +711,9 @@ ensureSysctl() {
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
-ensureK8sControlPlane() {
-    if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
-        return
-    fi
-    retrycmd_if_failure 120 5 25 $KUBECTL 2>/dev/null cluster-info || exit $ERR_K8S_RUNNING_TIMEOUT
-}
-
 createKubeManifestDir() {
     KUBEMANIFESTDIR=/etc/kubernetes/manifests
     mkdir -p $KUBEMANIFESTDIR
-}
-
-writeKubeConfig() {
-    KUBECONFIGDIR=/home/$ADMINUSER/.kube
-    KUBECONFIGFILE=$KUBECONFIGDIR/config
-    mkdir -p $KUBECONFIGDIR
-    touch $KUBECONFIGFILE
-    chown $ADMINUSER:$ADMINUSER $KUBECONFIGDIR
-    chown $ADMINUSER:$ADMINUSER $KUBECONFIGFILE
-    chmod 700 $KUBECONFIGDIR
-    chmod 600 $KUBECONFIGFILE
-    set +x
-    echo "
----
-apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: \"$CA_CERTIFICATE\"
-    server: $KUBECONFIG_SERVER
-  name: \"$MASTER_FQDN\"
-contexts:
-- context:
-    cluster: \"$MASTER_FQDN\"
-    user: \"$MASTER_FQDN-admin\"
-  name: \"$MASTER_FQDN\"
-current-context: \"$MASTER_FQDN\"
-kind: Config
-users:
-- name: \"$MASTER_FQDN-admin\"
-  user:
-    client-certificate-data: \"$KUBECONFIG_CERTIFICATE\"
-    client-key-data: \"$KUBECONFIG_KEY\"
-" > $KUBECONFIGFILE
-    set -x
 }
 
 disableSSH() {
@@ -822,4 +790,26 @@ get_compute_sku() {
         return 1
     fi
     echo "$vm_sku"
+}
+
+enableAndStartCgroupTelemetry() {
+    local units=() unit
+
+    # Don't enable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
+    if ! isMarinerOrAzureLinux "$OS"; then
+        units+=(cgroup-memory-telemetry.timer cgroup-memory-telemetry.service)
+    fi
+
+    if [ "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" ]; then
+        units+=(cgroup-cpu-telemetry.timer cgroup-cpu-telemetry.service
+            cgroup-pressure-telemetry.timer cgroup-pressure-telemetry.service)
+    fi
+
+    for unit in "${units[@]}"; do
+        if systemctl cat "$unit" &>/dev/null; then
+            systemctlEnableAndStartNoBlock "$unit" 30 || exit $ERR_START_CGROUP_TELEMETRY
+        else
+            echo "$unit not found on this VHD, skipping"
+        fi
+    done
 }
