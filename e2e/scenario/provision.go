@@ -978,6 +978,20 @@ while ($true) {
 }
 `
 
+// Keep aligned with aks-rp's vhd/generalizelinux.go; basePrep outputs must survive capture.
+const linuxGeneralizeScript = `#!/bin/bash
+set -euo pipefail
+: > /etc/machine-id
+rm -f \
+  /opt/azure/containers/provision.complete \
+  /opt/azure/containers/aks-node-controller-config.json \
+  /opt/azure/containers/aks-node-controller-nbc-cmd.sh \
+  /opt/azure/containers/boothook.sh \
+  /opt/bin/boothook.sh \
+  /var/log/azure/aks/provision.json
+echo "reset /etc/machine-id"
+`
+
 func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
@@ -1002,12 +1016,8 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 			return nil, fmt.Errorf("failed to run sysprep on Windows VM for image creation: %w", err)
 		}
 	} else {
-		// Retain base_prep.complete, but never capture a previous run's result or command.
-		cleanup := "sudo rm -f /opt/azure/containers/provision.complete /var/log/azure/aks/provision.json" +
-			" /opt/azure/containers/aks-node-controller-config.json /opt/azure/containers/aks-node-controller-nbc-cmd.sh" +
-			" /opt/azure/containers/boothook.sh /opt/bin/boothook.sh"
-		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cleanup, 0, "generalize VM before image capture"); err != nil {
-			return nil, err
+		if _, err := RunCommand(ctx, s, linuxGeneralizeScript); err != nil {
+			return nil, fmt.Errorf("failed to generalize Linux VM for image creation: %w", err)
 		}
 	}
 
