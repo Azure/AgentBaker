@@ -285,8 +285,10 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
 	// NBC scriptless phase 2 supports pre-provision runs because cse_start.sh writes
 	// provision.complete after the bake result. Other scriptless modes remain unsupported.
-	return config.EnableScriptlessNBCCSECmd ||
-		(config.EnableScriptlessAKSNodeConfig || config.IsCustomDataOnlyProvisioningEnabled()) && !config.PreProvisionOnly
+	if config.PreProvisionOnly {
+		return config.EnableScriptlessNBCCSECmd && !config.EnableScriptlessAKSNodeConfig && !config.IsCustomDataOnlyProvisioningEnabled()
+	}
+	return config.EnableScriptlessNBCCSECmd || config.EnableScriptlessAKSNodeConfig || config.IsCustomDataOnlyProvisioningEnabled()
 }
 
 func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {

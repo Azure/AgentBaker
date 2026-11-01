@@ -618,6 +618,9 @@ func usesScriptlessProvisioning(s *Scenario) bool {
 		return false
 	}
 	nbc := s.Runtime.NBC
+	if nbc.PreProvisionOnly && (nbc.EnableScriptlessAKSNodeConfig || nbc.IsCustomDataOnlyProvisioningEnabled()) {
+		return false
+	}
 	return (nbc.EnableScriptlessAKSNodeConfig || nbc.EnableScriptlessNBCCSECmd) &&
 		s.VHD.SupportsScriptless()
 }

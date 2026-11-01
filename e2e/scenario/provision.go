@@ -47,9 +47,12 @@ func scriptlessUnsupported(s *Scenario) bool {
 func runVHDCachingScenario(ctx context.Context, name string, original *Scenario) error {
 	bakeScenario := freshScenario(original)
 	bakeScenario.artifactName = vhdStageArtifactName(original, name, "vhd-bake")
-	scriptless := !config.Config.DisableScriptless && !original.IsWindows() &&
-		len(original.Config.CustomDataWriteFiles) == 0 && original.VHD != nil &&
-		original.VHD.SupportsScriptless() && config.Config.SIGVersionTagName == "buildId"
+	buildID := os.Getenv("BUILD_BUILDID")
+	freshVHD := original.VHD != nil && original.VHD.Version == "" &&
+		buildID != "" && config.Config.SIGVersionTagName == "buildId" && config.Config.SIGVersionTagValue == buildID
+	scriptless := freshVHD && !config.Config.DisableScriptless && !original.IsWindows() &&
+		!original.Config.SkipScriptlessNBCCSECmd && len(original.Config.CustomDataWriteFiles) == 0 &&
+		original.VHD.SupportsScriptless()
 
 	bakeScenario.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: scriptless}
 	bakeScenario.Config.SkipDefaultValidation = true
@@ -72,10 +75,9 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				ValidateSystemdUnitIsRunning(ctx, scenario, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
 			}
-			if scriptless {
+			// Current scripts come from either the PR VHD or legacy CustomData delivery.
+			if freshVHD || !scenario.Runtime.NBC.EnableScriptlessCSECmd {
 				checks = append(checks, ValidateFileExists(ctx, scenario, "/opt/azure/containers/provision.complete"))
-			} else {
-				checks = append(checks, ValidateFileDoesNotExist(ctx, scenario, "/opt/azure/containers/provision.complete"))
 			}
 			validationErr = errors.Join(checks...)
 		}
@@ -362,8 +364,11 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		}
 		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
 
-		nbc.EnableScriptlessCSECmd = false
-		if !nbc.EnableScriptlessAKSNodeConfig && !config.Config.DisableScriptless && !s.Tags.Scriptless &&
+		// Ineligible bakes must keep their original script delivery mode.
+		if !nbc.PreProvisionOnly || nbc.EnableScriptlessNBCCSECmd {
+			nbc.EnableScriptlessCSECmd = false
+		}
+		if !nbc.PreProvisionOnly && !nbc.EnableScriptlessAKSNodeConfig && !config.Config.DisableScriptless && !s.Tags.Scriptless &&
 			(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
 			nbc.EnableScriptlessNBCCSECmd = true
 		}

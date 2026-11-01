@@ -57,6 +57,8 @@ func TestScriptlessAKSNodeConfigSkipsNBCRendering(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, config.AKSNodeConfigJSON, string(decoded))
 				require.True(t, supportsScriptlessProvisioning(config))
+				config.PreProvisionOnly = true
+				require.False(t, supportsScriptlessProvisioning(config), "Phase 3 must not bypass the bake fallback when NBC scriptless is also enabled")
 			})
 		}
 	}
@@ -1861,6 +1863,8 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		config.PreProvisionOnly = true
 		config.CustomDataOnlyProvisioning = true
 
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+		config.EnableScriptlessNBCCSECmd = true
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
 	})
 
