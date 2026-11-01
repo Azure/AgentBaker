@@ -403,6 +403,9 @@ sequenceDiagram
 **Note: if you have changed code or artifacts used to generate custom data or custom script extension payloads, you
 should set `DISABLE_SCRIPTLESS=true` in `.env`. Otherwise scriptless provisioning only uses scripts that are built into VHD.**
 
+Linux `VHDCaching` tests use scriptless provisioning by default. When testing an older VHD
+whose bake scripts do not write `provision.complete`, set `DISABLE_SCRIPTLESS=true`.
+
 Run the E2E suite with `e2e-local.sh`. This script starts the E2E CLI.
 
 Use `go run . run --help` from this directory to see runner configuration. CLI flags are canonical. Existing environment variables are aliases.

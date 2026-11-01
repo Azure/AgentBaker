@@ -47,10 +47,7 @@ func scriptlessUnsupported(s *Scenario) bool {
 func runVHDCachingScenario(ctx context.Context, name string, original *Scenario) error {
 	bakeScenario := freshScenario(original)
 	bakeScenario.artifactName = vhdStageArtifactName(original, name, "vhd-bake")
-	// Older VHD scripts do not write provision.complete during a scriptless bake.
-	buildID := os.Getenv("BUILD_BUILDID")
-	currentBuildVHD := buildID != "" && config.Config.SIGVersionTagName == "buildId" && config.Config.SIGVersionTagValue == buildID
-	scriptless := original.VHDCaching && currentBuildVHD && !original.IsWindows() && !config.Config.DisableScriptless
+	scriptless := original.VHDCaching && !original.IsWindows() && !config.Config.DisableScriptless
 	bakeScenario.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: scriptless}
 	bakeScenario.Config.SkipDefaultValidation = true
 	bakeScenario.Config.Validator = func(ctx context.Context, scenario *Scenario) error {
