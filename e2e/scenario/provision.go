@@ -118,15 +118,6 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 	}
 
 	logging.Log(ctx, "=== Creating VHD Image ===")
-	if !bakeScenario.IsWindows() {
-		// Match RP image generalization by removing per-run provisioning state before capture.
-		cleanup := "sudo rm -f /opt/azure/containers/provision.complete /var/log/azure/aks/provision.json" +
-			" /opt/azure/containers/aks-node-controller-config.json /opt/azure/containers/aks-node-controller-nbc-cmd.sh" +
-			" /opt/azure/containers/boothook.sh /opt/bin/boothook.sh"
-		if _, err = execScriptOnVMForScenarioValidateExitCode(ctx, bakeScenario, cleanup, 0, "generalize VM before image capture"); err != nil {
-			return err
-		}
-	}
 	bakeScenario.failed = true
 	customVHD, err := CreateImage(ctx, bakeScenario)
 	if err != nil {
@@ -1009,6 +1000,14 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to run sysprep on Windows VM for image creation: %w", err)
+		}
+	} else {
+		// Retain base_prep.complete, but never capture a previous run's result or command.
+		cleanup := "sudo rm -f /opt/azure/containers/provision.complete /var/log/azure/aks/provision.json" +
+			" /opt/azure/containers/aks-node-controller-config.json /opt/azure/containers/aks-node-controller-nbc-cmd.sh" +
+			" /opt/azure/containers/boothook.sh /opt/bin/boothook.sh"
+		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cleanup, 0, "generalize VM before image capture"); err != nil {
+			return nil, err
 		}
 	}
 
