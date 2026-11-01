@@ -7,6 +7,7 @@ if (-not $WINDOWS_SCRIPTS_DIRECTORY) {
 . "$WINDOWS_SCRIPTS_DIRECTORY\azurecnifunc.ps1"
 . "$WINDOWS_SCRIPTS_DIRECTORY\calicofunc.ps1"
 . "$WINDOWS_SCRIPTS_DIRECTORY\configfunc.ps1"
+. "$WINDOWS_SCRIPTS_DIRECTORY\sshfunc.ps1"
 . "$WINDOWS_SCRIPTS_DIRECTORY\containerdfunc.ps1"
 . "$WINDOWS_SCRIPTS_DIRECTORY\kubeletfunc.ps1"
 . "$WINDOWS_SCRIPTS_DIRECTORY\kubernetesfunc.ps1"
