@@ -1,0 +1,13 @@
+operator:
+  oci:
+    disallow-pulling: true
+  logs:
+    enabled: true
+    channel: file
+    filename: /var/log/ig-diagnostics/gadget.log
+    format: json
+    mode: all
+    max-size-mb: 20
+    max-age-days: 1
+    max-backups: 2
+    compress: false

@@ -2878,6 +2878,36 @@ testInspektorGadgetAssets() {
     echo "$test: ig/ig-gadgets upstream version compatibility satisfied (ig=${ig_ver} ig-gadgets=${ig_gadgets_ver})"
   fi
 
+  if ! echo "${FEATURE_FLAGS}" | grep -q kata; then
+    local asset
+    for asset in /etc/ig.d/diagnostics.yaml /usr/lib/systemd/system/ig-diagnostics.service /usr/share/inspektor-gadget/diagnostics.sh; do
+      if [ ! -s "${asset}" ]; then
+        err "$test" "Continuous diagnostics asset missing: ${asset}"
+      fi
+    done
+    if [ "$(cat /etc/ig.d/diagnostics-version 2>/dev/null)" != 1 ]; then
+      err "$test" "Continuous diagnostics capability missing"
+    fi
+    if systemctl is-enabled --quiet ig-diagnostics.service ||
+       systemctl is-active --quiet ig-diagnostics.service; then
+      err "$test" "Continuous diagnostics must be disabled and stopped for capture"
+    fi
+    if [ -e /run/ig-diagnostics/collectors.json ] ||
+       [ -e /var/log/ig-diagnostics/gadget.log ]; then
+      err "$test" "Live diagnostics state must not be captured"
+    fi
+    if [ -d /var/lib/ig-diagnostics/gadgets ] &&
+       [ -n "$(find /var/lib/ig-diagnostics/gadgets -type f -print -quit)" ]; then
+      err "$test" "Live collector definitions must not be captured"
+    fi
+    local gadget
+    for gadget in top_process top_cpu_throttle; do
+      if ! grep -Eq "/${gadget}:v?[0-9]+\.[0-9]+\.[0-9]+$" "${tracking_file}"; then
+        err "$test" "Required diagnostics image not imported: ${gadget}"
+      fi
+    done
+  fi
+
   echo "$test:Finish"
 }
 

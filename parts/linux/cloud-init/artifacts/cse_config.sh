@@ -681,6 +681,40 @@ configureNodeExporter() {
     echo "Node Exporter started successfully"
 }
 
+configureIGDiagnostics() {
+    local directory="${IG_DIAGNOSTICS_CONFIG_DIR:-/etc/ig.d}"
+    if ! { isUbuntu || isAzureLinux; } ||
+       isAzureLinuxOSGuard || [ "${OS}" = "${AZURELINUX_KATA_OS_NAME}" ] ||
+       [ "${IS_KATA:-false}" = true ]; then
+        return 0
+    fi
+    if [ ! -f "${SYS_DIR:-/sys}/fs/cgroup/cgroup.controllers" ]; then
+        echo "IG continuous diagnostics requires cgroup v2; keeping legacy collection"
+        return 0
+    fi
+    if [ ! -f "${directory}/skip_vhd_ig" ] ||
+       [ ! -f "${directory}/diagnostics-version" ]; then
+        echo "IG continuous diagnostics is unavailable on this VHD; keeping legacy collection"
+        return 0
+    fi
+    if [ "$(cat "${directory}/diagnostics-version")" != 1 ] ||
+       ! systemctl cat ig-diagnostics.service >/dev/null 2>&1; then
+        echo "WARNING: IG continuous diagnostics is unavailable on this VHD"
+        return 1
+    fi
+    if ! command -v python3 >/dev/null || ! command -v jq >/dev/null; then
+        echo "WARNING: IG diagnostics requires python3 and jq"
+        return 1
+    fi
+    # Optional diagnostics must not spend the CSE service helper's long retry
+    # budget or wait for collectors to warm before core NPD can start.
+    if ! timeout -k 1s 10s systemctl enable ig-diagnostics.service ||
+       ! timeout -k 1s 10s systemctl start --no-block ig-diagnostics.service; then
+        echo "WARNING: Failed to activate IG continuous diagnostics"
+        return 1
+    fi
+}
+
 configureNodeProblemDetector() {
     local skip_file="${NPD_SKIP_FILE:-/etc/node-problem-detector.d/skip_vhd_npd}"
     if ! { isUbuntu || isAzureLinux; } || [ ! -f "${skip_file}" ]; then

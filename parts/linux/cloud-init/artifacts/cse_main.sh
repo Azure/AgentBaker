@@ -642,6 +642,7 @@ function nodePrep {
     fi
 
     logs_to_events "AKS.CSE.configureNodeExporter" configureNodeExporter
+    logs_to_events "AKS.CSE.configureIGDiagnostics" configureIGDiagnostics || true
     logs_to_events "AKS.CSE.configureNodeProblemDetector" configureNodeProblemDetector
 
 
