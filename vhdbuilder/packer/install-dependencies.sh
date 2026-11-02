@@ -1382,6 +1382,15 @@ net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
+# Azure Linux 4 ships 70-azurelinux-hardening.conf, which sets conf.default.forwarding = 0.
+# systemd-sysctl applies that after conf.all.forwarding = 1, so new interfaces such as pod veths
+# cannot forward. CSE rewrites 99-force-bridge-forward.conf from its own copy, so use a separate file.
+if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+  tee "/etc/sysctl.d/99-force-default-forwarding.conf" > /dev/null <<EOF
+net.ipv4.conf.default.forwarding = 1
+net.ipv6.conf.default.forwarding = 1
+EOF
+fi
 capture_benchmark "${SCRIPT_NAME}_set_ip_forwarding"
 
 setUdevRules
