@@ -31,17 +31,21 @@ func ValidateKMPP(ctx context.Context, s *Scenario) error {
 }
 
 func validateKMPPEnabled(ctx context.Context, s *Scenario) error {
+	// systemctl is-active/is-enabled pass if any listed unit matches, and set -e ignores
+	// negated commands, so check each unit separately and exit explicitly on forbidden states.
 	const script = `set -ex
-sudo systemctl is-active dbus-com.microsoft.kmpp.service run-kmpp-dbus.mount
-sudo systemctl is-enabled dbus-com.microsoft.kmpp.service run-kmpp-dbus.mount
+for unit in dbus-com.microsoft.kmpp.service run-kmpp-dbus.mount; do
+  sudo systemctl is-active "$unit"
+  sudo systemctl is-enabled "$unit"
+done
 sudo test -S /var/run/kmpp/dbus/system_bus_socket
 sudo test -d /var/opt/msft/ap/data/kmpp/certs
 sudo busctl --address=unix:path=/var/run/kmpp/dbus/system_bus_socket call com.microsoft.kmpp / com.microsoft.kmpp GetVersion
 # Process mode, even on a vTPM node: the package default unit, kmpp not in tss.
-! grep -q DeviceAllow /usr/lib/systemd/system/dbus-com.microsoft.kmpp.service
-! id -nG kmpp | tr ' ' '\n' | grep -qx tss
+if grep -q DeviceAllow /usr/lib/systemd/system/dbus-com.microsoft.kmpp.service; then exit 1; fi
+if id -nG kmpp | tr ' ' '\n' | grep -qx tss; then exit 1; fi
 # KMPP must not become the system OpenSSL default provider.
-! grep -qi kmpp /etc/pki/tls/openssl.cnf
+if grep -qi kmpp /etc/pki/tls/openssl.cnf; then exit 1; fi
 `
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "KMPP must be running and reachable through /var/run/kmpp/dbus"); err != nil {
 		return err
@@ -53,8 +57,10 @@ func validateKMPPDormant(ctx context.Context, s *Scenario) error {
 	const script = `set -ex
 [ "$(systemctl is-enabled dbus-com.microsoft.kmpp.service || true)" = masked ]
 [ "$(systemctl is-enabled dbus-com.microsoft.kmppctrl.service || true)" = masked ]
-! systemctl is-active dbus-com.microsoft.kmpp.service
-! mountpoint -q /run/kmpp/dbus
+for unit in dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service; do
+  if systemctl is-active "$unit"; then exit 1; fi
+done
+if mountpoint -q /run/kmpp/dbus; then exit 1; fi
 `
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "KMPP must stay masked and unexposed when EnableKMPP is false"); err != nil {
 		return err
