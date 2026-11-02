@@ -106,6 +106,31 @@ coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
 VHD-caching behavior remain in effect.
 
+### Ubuntu PIS GPU cleanup
+
+`Ubuntu2404_GPUDriverOptOut_VHDCaching` needs a new Ubuntu 24.04 Gen2 image
+containing the baked cleanup helper; use same-run E2E VHD metadata or
+`--vhd-metadata-file` with `2404gen2containerd`. The helper is baked, not
+transferred in CustomData. An opt-out PIS bake without it fails explicitly;
+ordinary nodes and derived PIS nodes do not require it.
+Opt out of the managed driver in bake CustomData (`EnableNvidia=false`,
+rendering `GPU_NODE=false`) before capture; a tag only on the derived VM does
+not request bake cleanup.
+
+Cleanup is ownership-aware, not a guarantee of a driver-free snapshot. Unfamiliar
+driver packages, versions, configuration, or an unsafe purge plan are retained
+intact with a warning, and the bake continues. The four NVIDIA EGL platform
+adapter libraries are retained independently of the known GB driver. Inspection
+errors and failures after teardown starts still stop the bake, because the driver
+may have been left partially removed. Derived nodePrep never falls back to
+destructive cleanup of retained or customer-installed drivers.
+The apt purge preflight also checks dependency removals against exact installed
+versions in the image's GB BOM waves (including wave3 IMEX). Unowned removals
+and proposed installs or configuration retain the intact driver instead. A
+successful bake with retention warnings is not evidence of successful teardown.
+The stock `nvidia-settings` recommendation is eligible for removal only when
+auto-installed, using its exact installed version; a manual installation is retained.
+
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node

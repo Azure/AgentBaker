@@ -44,6 +44,67 @@ func (f vmssCreationTestPolicy) Do(req *policy.Request) (*http.Response, error) 
 	return f(req.Raw()), nil
 }
 
+func TestCreateVMSSModelHonorsScriptlessNBCOverride(t *testing.T) {
+	oldScriptless := config.Config.DisableScriptless
+	oldPrepareVHD := CachedPrepareVHD
+	config.Config.DisableScriptless = false
+	CachedPrepareVHD = func(context.Context, GetVHDRequest) (config.VHDResourceID, error) {
+		return "fixture-image", nil
+	}
+	t.Cleanup(func() {
+		config.Config.DisableScriptless = oldScriptless
+		CachedPrepareVHD = oldPrepareVHD
+	})
+
+	for _, enableScriptlessCSECmd := range []bool{false, true} {
+		name := "traditional override"
+		if enableScriptlessCSECmd {
+			name = "scriptless CSE"
+		}
+		t.Run(name, func(t *testing.T) {
+			vhd := *config.VHDUbuntu2404Gen2Containerd
+			cluster := &Cluster{
+				Model: &armcontainerservice.ManagedCluster{
+					Name:     to.Ptr("cluster"),
+					Location: to.Ptr("westus3"),
+					Properties: &armcontainerservice.ManagedClusterProperties{
+						CurrentKubernetesVersion: to.Ptr("1.34.0"),
+						NodeResourceGroup:        to.Ptr("node-rg"),
+						NetworkProfile: &armcontainerservice.NetworkProfile{
+							NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
+						},
+					},
+				},
+				KubeletIdentity: &armcontainerservice.UserAssignedIdentity{
+					ClientID:   to.Ptr("client-id"),
+					ResourceID: to.Ptr("/subscriptions/sub/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/kubelet"),
+				},
+				ClusterParams: &ClusterParams{
+					BootstrapToken: "token",
+					CACert:         []byte("ca-cert"),
+					FQDN:           "cluster.example.test",
+				},
+			}
+			nbc, err := getBaseNBC(t.Context(), cluster, &vhd)
+			require.NoError(t, err)
+			nbc.EnableScriptlessCSECmd = enableScriptlessCSECmd
+			s := &Scenario{
+				Config:   Config{VHD: &vhd},
+				Location: "westus3",
+				Runtime: &ScenarioRuntime{
+					NBC:      nbc,
+					Cluster:  cluster,
+					VMSSName: "vmss",
+				},
+			}
+
+			model, err := createVMSSModel(t.Context(), s)
+			require.NoError(t, err)
+			require.NotEmpty(t, *model.Properties.VirtualMachineProfile.OSProfile.CustomData)
+		})
+	}
+}
+
 type vmssCreationTestCase struct {
 	name          string
 	provisionCode string

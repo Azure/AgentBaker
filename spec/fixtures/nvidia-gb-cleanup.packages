@@ -1,0 +1,13 @@
+# Exact arm64 package metadata from NVIDIA's ubuntu2404/sbsa/Packages.
+# https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/sbsa/Packages
+Package: nvidia-imex
+Version: 580.159.04-1ubuntu1
+Architecture: arm64
+Depends: libc6 (>= 2.34), libgcc-s1 (>= 4.2), nvidia-modprobe
+SHA256: ec5a683e755daf97ae0082149d168c1920e825045700cf6b5090bca85655c671
+
+Package: nvidia-settings
+Version: 580.159.04-1ubuntu1
+Architecture: arm64
+Depends: libc6 (>= 2.38), libcairo2 (>= 1.2.4), libgdk-pixbuf-2.0-0 (>= 2.22.0), libglib2.0-0t64 (>= 2.16.0), libgtk-3-0t64 (>= 3.0.0), libjansson4 (>= 2.14), libpango-1.0-0 (>= 1.14.0), libpangocairo-1.0-0 (>= 1.14.0), libx11-6, libxnvctrl0 (>= 580.159.04), libxxf86vm1, libvdpau1, pkg-config, screen-resolution-extra (>= 0.17~)
+SHA256: c3c029bc37fca7ca78e84313eb62e5546be1336cd2330c4c525648044f2e65b2
