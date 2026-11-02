@@ -50,6 +50,7 @@ Describe 'cgroup telemetry'
     prepare_memory_script() {
         local cgroup_version="${1:-cgroup2fs}"
         sed \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e "s|CGROUP_VERSION=\$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=${cgroup_version}|" \
             -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
@@ -74,6 +75,7 @@ Describe 'cgroup telemetry'
     prepare_cpu_script() {
         local cgroup_version="${1:-cgroup2fs}"
         sed \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e "s|CGROUP_VERSION=\$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=${cgroup_version}|" \
             -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
@@ -181,6 +183,8 @@ STUB
         MOCK_WAAGENT_CGROUP="/azure.slice/waagent.service"
         create_memory_stat azure.slice/waagent.service 200 300
         create_memory_stat localdns.slice/localdns.service 50 60
+        printf '1048576\n' > "${CGROUP_ROOT}/system.slice/memory.max"
+        printf 'max\n' > "${CGROUP_ROOT}/localdns.slice/memory.max"
         prepare_memory_script
 
         When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
@@ -193,6 +197,10 @@ STUB
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_memory\":\"70\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_memory\":\"Not Found\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_memory\":\"110\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"system_max_memory\":\"1048576\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_max_memory\":\"max\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"kubepods_max_memory\":\"max\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"user_max_memory\":\"Not Found\"'
     End
 
     It 'emits cgroup v1 memory for an available service and tolerates an unavailable service'
@@ -221,6 +229,7 @@ STUB
         The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_memory\":\"50\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_memory\":\"70\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"sync_container_logs_service_memory\":\"Not Found\"'
+        The contents of file "${EVENTS_ROOT}"/* should not include '\"system_max_memory\"'
     End
 
     It 'emits pressure for available services when another service is unavailable'
@@ -276,34 +285,36 @@ STUB
         The result of function validate_service_values should equal true
     End
 
-    It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
-        check_pressure_size_boundaries() {
-            local fits_filter
-            fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh)
-            [ -n "${fits_filter}" ] || return 1
-            jq -ne "${fits_filter}"'
-                def repeat_text($text; $count): [range(0; $count) | $text] | join("");
-                [
-                    ([3071, 3072, 3073][] as $bytes |
-                        {Message: repeat_text("a"; $bytes)} |
-                        fits == ($bytes <= 3072)),
-                    (["\u00e9", "\u20ac", "\ud83d\ude00"][] as $text |
-                        (if $text == "\u00e9" then 1536 elif $text == "\u20ac" then 1024 else 768 end) as $count |
-                        repeat_text($text; $count) as $message |
-                        ({Message: $message} | fits) and
-                        ({Message: ($message + "a")} | fits | not)),
-                    ([6143, 6144, 6145][] as $bytes |
-                        {Message: "", Padding: ""} |
-                        .Padding = repeat_text("a"; $bytes - (tojson | length)) |
-                        fits == ($bytes <= 6144)),
-                    ({Message: repeat_text("\""; 3072)} | fits | not)
-                ] | all
-            '
-        }
+    Describe 'event size boundaries'
+        It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
+            check_telemetry_size_boundaries() {
+                local fits_filter
+                fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh)
+                [ -n "${fits_filter}" ] || return 1
+                jq -ne "${fits_filter}"'
+                    def repeat_text($text; $count): [range(0; $count) | $text] | join("");
+                    [
+                        ([3071, 3072, 3073][] as $bytes |
+                            {Message: repeat_text("a"; $bytes)} |
+                            fits == ($bytes <= 3072)),
+                        (["\u00e9", "\u20ac", "\ud83d\ude00"][] as $text |
+                            (if $text == "\u00e9" then 1536 elif $text == "\u20ac" then 1024 else 768 end) as $count |
+                            repeat_text($text; $count) as $message |
+                            ({Message: $message} | fits) and
+                            ({Message: ($message + "a")} | fits | not)),
+                        ([6143, 6144, 6145][] as $bytes |
+                            {Message: "", Padding: ""} |
+                            .Padding = repeat_text("a"; $bytes - (tojson | length)) |
+                            fits == ($bytes <= 6144)),
+                        ({Message: repeat_text("\""; 3072)} | fits | not)
+                    ] | all
+                '
+            }
 
-        When call check_pressure_size_boundaries
-        The status should be success
-        The output should equal true
+            When call check_telemetry_size_boundaries
+            The status should be success
+            The output should equal true
+        End
     End
 
     Describe 'shared cgroup event publication'
@@ -372,6 +383,12 @@ STUB
     End
 
     Context 'when jq succeeds without emitting events'
+        Parameters
+            pressure
+            cpu
+            memory
+        End
+
         Mock jq
             exit 0
         End
@@ -381,13 +398,37 @@ STUB
                 create_pressure_files "${cgroup_path}"
             done
             prepare_pressure_script
+            prepare_cpu_script
+            prepare_memory_script
             remaining_event_files() {
                 find "${EVENTS_ROOT}" -mindepth 1 -print
             }
 
-            When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+            When run bash "${TEST_ROOT}/cgroup-$1-telemetry.sh"
             The status should equal 1
-            The stderr should equal 'pressure telemetry: no events generated'
+            The stderr should equal "$1 telemetry: no events generated"
+            The result of function remaining_event_files should equal ""
+        End
+    End
+
+    Describe 'when the shared publisher fails'
+        Parameters
+            cpu
+            memory
+        End
+
+        It 'fails the collector without publishing an event'
+            prepare_cpu_script
+            prepare_memory_script
+            printf '%s\n' 'publishCgroupTelemetry() { echo "publisher failed" >&2; return 42; }' > "${TEST_ROOT}/failing-helper.sh"
+            sed -i "s|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|${TEST_ROOT}/failing-helper.sh|" "${TEST_ROOT}/cgroup-$1-telemetry.sh"
+            remaining_event_files() {
+                find "${EVENTS_ROOT}" -mindepth 1 -print
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-$1-telemetry.sh"
+            The status should equal 1
+            The stderr should include 'publisher failed'
             The result of function remaining_event_files should equal ""
         End
     End
@@ -433,6 +474,9 @@ STUB
         MOCK_WAAGENT_CGROUP="/azure.slice/waagent.service"
         create_cpu_stat_v2 azure.slice/waagent.service
         printf 'usage_usec 999\n' > "${CGROUP_ROOT}/azure.slice/waagent.service/cpu.stat"
+        mkdir -p "${CGROUP_ROOT}/localdns.slice" "${CGROUP_ROOT}/user.slice"
+        printf '200000 100000\n' > "${CGROUP_ROOT}/system.slice/cpu.max"
+        printf 'max 100000\n' > "${CGROUP_ROOT}/localdns.slice/cpu.max"
         prepare_cpu_script
 
         When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
@@ -443,6 +487,9 @@ STUB
         The contents of file "${EVENTS_ROOT}"/* should include '\"walinuxagent_service_cpu_usage\":{\"usage_usec\":\"100\",\"user_usec\":\"60\",\"system_usec\":\"40\",\"nr_periods\":\"20\",\"nr_throttled\":\"3\",\"throttled_usec\":\"7\"}'
         The contents of file "${EVENTS_ROOT}"/* should include '\"node_exporter_service_cpu_usage\":\"Not Found\"'
         The contents of file "${EVENTS_ROOT}"/* should include 'downstream rates must discard negative deltas'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"system_max_cpu\":\"200000 100000\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_max_cpu\":\"max 100000\"'
+        The contents of file "${EVENTS_ROOT}"/* should include '\"user_max_cpu\":\"Not Found\"'
     End
 
     It 'names the event file so WALinuxAgent collects it'
@@ -454,6 +501,151 @@ STUB
         # WALinuxAgent only collects event files matching ^(\d+)\.json$; any other name is dropped
         # silently and the observation never reaches telemetry.
         The result of function emitted_event_file_name_class should equal collectable
+    End
+
+    Describe 'large CPU observations'
+        Parameters
+            123456789
+            18446744073709551615
+        End
+
+        It 'bounds CPU events without losing counters or slice limits'
+            for cgroup_path in \
+                system.slice/containerd.service system.slice/kubelet.service \
+                system.slice/walinuxagent.service system.slice/node-problem-detector.service \
+                system.slice/node-exporter.service system.slice/sync-container-logs.service \
+                localdns.slice/localdns.service system.slice/nvidia-persistenced.service \
+                system.slice/nvidia-gridd.service system.slice/nvidia-fabricmanager.service \
+                system.slice/nvidia-device-plugin.service system.slice/dra-driver-nvidia-gpu.service \
+                system.slice/nvidia-dcgm.service system.slice/nvidia-dcgm-exporter.service \
+                system.slice/openibd.service; do
+                create_cpu_stat_v2 "${cgroup_path}"
+                sed -i -E "s/ [0-9]+$/ $1/" "${CGROUP_ROOT}/${cgroup_path}/cpu.stat"
+            done
+            mkdir -p "${CGROUP_ROOT}/azure.slice" "${CGROUP_ROOT}/kubepods.slice" "${CGROUP_ROOT}/user.slice"
+            for slice in "${CGROUP_ROOT}"/*.slice; do
+                printf '200000 100000\n' > "${slice}/cpu.max"
+            done
+            prepare_cpu_script
+            TEST_CPU_COUNTER="$1"
+            validate_cpu_events() {
+                jq -se --arg counter "${TEST_CPU_COUNTER}" '
+                    def utf8bytelength:
+                        reduce explode[] as $codepoint (0;
+                            . + (if $codepoint < 128 then 1 elif $codepoint < 2048 then 2
+                                 elif $codepoint < 65536 then 3 else 4 end));
+                    length > 1 and
+                    all(.[]; (.Message | utf8bytelength) <= 3072 and (tojson | utf8bytelength) <= 6144) and
+                    ([.[].Message | fromjson | .CPUUsage | keys[]] | length == 22) and
+                    ([.[].Message | fromjson | .CPUUsage | keys[]] | unique | length == 22) and
+                    ([.[].Message | fromjson | .CPUUsage] | add |
+                        .counter_units.usage_usec == "microseconds" and
+                        (.counter_reset_behavior | contains("discard negative deltas")) and
+                        ([to_entries[] | select(.key | endswith("_service_cpu_usage")) | .value] |
+                            length == 15 and all(.[]; all(.[]; . == $counter))) and
+                        ([to_entries[] | select(.key | endswith("_max_cpu")) | .value] |
+                            length == 5 and all(.[]; . == "200000 100000"))) and
+                    ([.[].Message | fromjson] | sort_by(.TelemetryChunk.index) |
+                        length as $count |
+                        (map(.TelemetryChunk.id) | unique | length == 1) and
+                        (map(.TelemetryChunk.index) == [range(0; $count)]) and
+                        all(.[]; .CgroupVersion == "cgroupv2" and
+                            .TelemetryChunk.encoding == "json" and .TelemetryChunk.count == $count))
+                ' "${EVENTS_ROOT}"/*.json
+            }
+            collectable_cpu_event_names() {
+                local file
+                for file in "${EVENTS_ROOT}"/*; do
+                    basename "${file}" | grep -Eq '^[0-9]+\.json$' || return 1
+                done
+                echo true
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+            The status should be success
+            The result of function validate_cpu_events should equal true
+            The result of function collectable_cpu_event_names should equal true
+        End
+    End
+
+    Describe 'large memory observations'
+        Parameters
+            80 1
+            12 55
+        End
+
+        It 'bounds memory events without losing usage or long escaped slice names'
+            create_memory_stat system.slice/walinuxagent.service 20 30
+            TEST_SLICE_COUNT="$1"
+            TEST_SLICE_PREFIX=""
+            for ((i = 0; i < $2; i++)); do
+                TEST_SLICE_PREFIX="${TEST_SLICE_PREFIX}\x2d"
+            done
+            for ((i = 0; i < TEST_SLICE_COUNT; i++)); do
+                mkdir -p "${CGROUP_ROOT}/${TEST_SLICE_PREFIX}${i}.slice"
+                printf '%s\n' "$((1048576 + i))" > "${CGROUP_ROOT}/${TEST_SLICE_PREFIX}${i}.slice/memory.max"
+            done
+            prepare_memory_script
+            validate_memory_events() {
+                jq -se --arg prefix "${TEST_SLICE_PREFIX}" --argjson count "${TEST_SLICE_COUNT}" '
+                    def utf8bytelength:
+                        reduce explode[] as $codepoint (0;
+                            . + (if $codepoint < 128 then 1 elif $codepoint < 2048 then 2
+                                 elif $codepoint < 65536 then 3 else 4 end));
+                    length > 1 and
+                    all(.[]; (.Message | utf8bytelength) <= 3072 and (tojson | utf8bytelength) <= 6144) and
+                    ([.[].Message | fromjson | .Memory | keys[]] | length == 23 + $count) and
+                    ([.[].Message | fromjson | .Memory | keys[]] | unique | length == 23 + $count) and
+                    ([.[].Message | fromjson | .Memory] | add | . as $memory |
+                        .walinuxagent_service_memory == "50" and
+                        .containerd_service_memory == "Not Found" and
+                        .cgroup_capacity_memory == "1000000" and
+                        all(range(0; $count);
+                            . as $index |
+                            $memory[$prefix + ($index | tostring) + "_max_memory"] == (1048576 + $index | tostring))) and
+                    ([.[].Message | fromjson] | sort_by(.TelemetryChunk.index) |
+                        length as $chunks |
+                        (map(.TelemetryChunk.id) | unique | length == 1) and
+                        (map(.TelemetryChunk.index) == [range(0; $chunks)]) and
+                        all(.[]; .CgroupVersion == "cgroupv2" and
+                            .TelemetryChunk.encoding == "json" and .TelemetryChunk.count == $chunks))
+                ' "${EVENTS_ROOT}"/*.json
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+            The status should be success
+            The result of function validate_memory_events should equal true
+        End
+    End
+
+    Describe 'escaped slice names'
+        Parameters
+            memory Memory
+            cpu CPUUsage
+        End
+
+        It 'preserves distinct escaped and unescaped slice identities'
+            mkdir -p "${CGROUP_ROOT}/tenant\x2dblue.slice" "${CGROUP_ROOT}/tenantx2dblue.slice"
+            printf '1048576\n' > "${CGROUP_ROOT}/tenant\x2dblue.slice/memory.max"
+            printf '2097152\n' > "${CGROUP_ROOT}/tenantx2dblue.slice/memory.max"
+            printf '100000 100000\n' > "${CGROUP_ROOT}/tenant\x2dblue.slice/cpu.max"
+            printf '200000 100000\n' > "${CGROUP_ROOT}/tenantx2dblue.slice/cpu.max"
+            prepare_memory_script
+            prepare_cpu_script
+            TEST_SLICE_RESOURCE="$1"
+            TEST_SLICE_FIELD="$2"
+            validate_slice_names() {
+                jq -se --arg field "${TEST_SLICE_FIELD}" --arg resource "${TEST_SLICE_RESOURCE}" '
+                    [.[].Message | fromjson | .[$field]] | add |
+                    .["tenant\\x2dblue_max_" + $resource] == (if $resource == "memory" then "1048576" else "100000 100000" end) and
+                    .["tenantx2dblue_max_" + $resource] == (if $resource == "memory" then "2097152" else "200000 100000" end)
+                ' "${EVENTS_ROOT}"/*.json
+            }
+
+            When run bash "${TEST_ROOT}/cgroup-$1-telemetry.sh"
+            The status should be success
+            The result of function validate_slice_names should equal true
+        End
     End
 
     It 'rejects cgroup v1'

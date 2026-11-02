@@ -174,8 +174,10 @@ ERR_CHRONY_CONFIG_FAIL=246 # Chrony could not be configured for Intel TDX
 ERR_KUBELET_CLIENT_KEY_PERM_FAIL=247 # Could not create/chmod the kubelet client private key under a safe umask
 # -----------------------------------------------------------------------------
 
+ERR_START_CGROUP_TELEMETRY=248 # Error enabling and starting cgroup telemetry services
+
 # ----------------------- KMPP ------------------------------------------------
-ERR_KMPP_START_FAIL=248 # Could not start KMPP, expose its D-Bus socket, or reach it over that socket
+ERR_KMPP_START_FAIL=249 # Could not start KMPP, expose its D-Bus socket, or reach it over that socket
 # -----------------------------------------------------------------------------
 
 # This probably wasn't launched via a login shell, so ensure the PATH is correct.

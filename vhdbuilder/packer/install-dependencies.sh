@@ -782,8 +782,17 @@ cachePackageAndBinaryComponents() {
         ;;
       "oras")
         for version in ${PACKAGE_VERSIONS[@]}; do
-          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ] && [ -z "${PACKAGE_DOWNLOAD_URL}" ]; then
+            # The Ubuntu DALEC package is named az-oras but contains /usr/bin/oras.
+            downloadPkgFromVersion "az-oras" "${version}" "/opt/oras/downloads" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+            installPackageFromCache "oras" "${version}" "/opt/bin/oras" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+          elif isAzureLinux "${OS}" && [ -z "${PACKAGE_DOWNLOAD_URL}" ]; then
+            downloadPkgFromVersion "oras" "${version}" "/opt/oras/downloads" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+            installRPMPackageFromFile "oras" "${version}" "/opt/bin/oras" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+          else
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          fi
           echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
         ;;
@@ -1447,30 +1456,6 @@ if isAzureLinux "$OS" "$OS_VARIANT" && [ "$OS_VERSION" = "3.0" ] && ! isAzureLin
 fi
 configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')" || exit $ERR_PACKER_COPY_FILE
 systemctl daemon-reload
-
-# Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
-if ! isMarinerOrAzureLinux "$OS"; then
-  systemctlEnableAndStart cgroup-memory-telemetry.timer 30 || exit 1
-  systemctl enable cgroup-memory-telemetry.service || exit 1
-  systemctl restart cgroup-memory-telemetry.service
-fi
-
-CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
-if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-  systemctlEnableAndStart cgroup-cpu-telemetry.timer 30 || exit 1
-  systemctl enable cgroup-cpu-telemetry.service || exit 1
-  systemctl restart cgroup-cpu-telemetry.service
-
-  systemctlEnableAndStart cgroup-pressure-telemetry.timer 30 || exit 1
-  systemctl enable cgroup-pressure-telemetry.service || exit 1
-  systemctl restart cgroup-pressure-telemetry.service
-fi
-
-if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ "$(ls -A /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/)" ]; then
-  cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
-  rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
-fi
-capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # remove snapd, which is not used by container stack

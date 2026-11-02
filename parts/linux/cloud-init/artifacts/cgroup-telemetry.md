@@ -1,7 +1,7 @@
 # Cgroup CPU telemetry
 
-`cgroup-cpu-telemetry.timer` emits one
-`AKS.Runtime.cpu_usage_telemetry_cgroupv2` event every five minutes. CPU usage
+`cgroup-cpu-telemetry.timer` emits an
+`AKS.Runtime.cpu_usage_telemetry_cgroupv2` observation every five minutes. CPU usage
 and throttling counters are emitted in its `CPUUsage` object; they are
 intentionally separate from the CPU PSI values emitted by
 `cgroup-pressure-telemetry.sh`. The collector requires cgroup v2.
@@ -34,12 +34,18 @@ lookup fails or returns an empty or root cgroup. The metric names remain
 `walinuxagent_service_cpu_usage` and `walinuxagent_service_memory` for either
 unit name.
 
-# Pressure telemetry size limits
+For cgroup v2, the CPU and memory collectors discover top-level `.slice`
+directories and report the raw `cpu.max` and `memory.max` contents as
+`<slice>_max_cpu` and `<slice>_max_memory`, respectively. Missing limit files
+are reported as `"Not Found"`; unlimited values remain `"max"` or the raw
+`cpu.max` quota and period string.
 
-`cgroup-pressure-telemetry.sh` checks the final message against 3,072 UTF-8
+# Cgroup telemetry size limits
+
+The pressure, CPU, and memory collectors check the final message against 3,072 UTF-8
 bytes and the serialized event against 6,144 bytes before publishing it for
 WALinuxAgent. Samples that fit keep their original message. Oversized samples
-are split into groups of at most four pressure entries, preserving metric names,
+are split into groups of at most four entries, preserving metric names,
 values, `CgroupVersion`, and the original event metadata. Every part is checked
 again; a sample that still exceeds either bound is rejected with an error before
 any parts are published, rather than silently truncated.
@@ -51,7 +57,8 @@ Each split message includes `TelemetryChunk` with a shared `id`, zero-based
 `index`, total `count`, and `encoding: "json"`. Consumers must read entries across
 parts instead of assuming one event contains every service. To reconstruct a
 sample, group by VM identity, TaskName and chunk id, verify every index is present,
-and merge the `Pressure` objects. Missing parts are incomplete data, not zeros.
+and merge the `Pressure`, `CPUUsage`, or `Memory` objects for the corresponding
+collector. Missing parts are incomplete data, not zeros.
 Unsplit messages have no chunk metadata.
 
 Files are published atomically with numeric names and a distinct part index.

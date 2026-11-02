@@ -3524,7 +3524,17 @@ fi`)
 
 // ValidateSSHServiceDisabled validates that SSH services and sockets are disabled and stopped on the node
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
-	resp, err := RunCommand(ctx, s, validateSSHServiceDisabledScript)
+	command := validateSSHServiceDisabledScript
+	if s.IsWindows() {
+		command = `$ErrorActionPreference = 'Stop'
+$service = Get-Service -Name sshd -ErrorAction Stop
+if ($service.Status -ne 'Stopped' -or $service.StartType -ne 'Disabled') {
+    throw "SSH service is not stopped and disabled: Status=$($service.Status), StartType=$($service.StartType)"
+}
+Write-Output 'SUCCESS: SSH units are disabled and stopped'
+`
+	}
+	resp, err := RunCommand(ctx, s, command)
 	if err != nil {
 		return fmt.Errorf("run command to check SSH service status: %w", err)
 	}

@@ -11,6 +11,155 @@ Describe 'cse_config.sh'
     CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'enableAndStartCgroupTelemetry'
+        setup_cgroup_telemetry() {
+            OS="UBUNTU"
+            OS_VARIANT=""
+            MOCK_CGROUP_VERSION="cgroup2fs"
+            FAILED_TELEMETRY_COMMAND=""
+            MISSING_TELEMETRY_UNITS=""
+            memory_commands="systemctlEnableAndStartNoBlock cgroup-memory-telemetry.timer 30
+systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30"
+            cpu_pressure_commands="systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.timer 30
+systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.service 30
+systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.timer 30
+systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service 30"
+        }
+
+        BeforeEach 'setup_cgroup_telemetry'
+
+        stat() {
+            if [ "$*" != "-fc %T /sys/fs/cgroup" ]; then
+                echo "Unexpected stat arguments: $*" >&2
+                return 1
+            fi
+            echo "$MOCK_CGROUP_VERSION"
+        }
+
+        systemctlEnableAndStartNoBlock() {
+            echo "systemctlEnableAndStartNoBlock $*"
+            [ "systemctlEnableAndStartNoBlock $*" != "$FAILED_TELEMETRY_COMMAND" ]
+        }
+
+        systemctl() {
+            [ "$#" -eq 2 ] && [ "$1" = "cat" ] || return 1
+            case " $MISSING_TELEMETRY_UNITS " in
+                *" $2 "*) return 1 ;;
+            esac
+            return 0
+        }
+
+        Describe 'missing units'
+            Parameters
+                cgroup-memory-telemetry.timer
+                cgroup-memory-telemetry.service
+                cgroup-cpu-telemetry.timer
+                cgroup-cpu-telemetry.service
+                cgroup-pressure-telemetry.timer
+                cgroup-pressure-telemetry.service
+            End
+
+            It "skips absent $1 and starts the remaining eligible units"
+                MISSING_TELEMETRY_UNITS="$1"
+                expected_commands="$memory_commands
+$cpu_pressure_commands"
+                expected_commands="${expected_commands/systemctlEnableAndStartNoBlock $1 30/$1 not found on this VHD, skipping}"
+
+                When run enableAndStartCgroupTelemetry
+
+                The status should be success
+                The output should equal "$expected_commands"
+            End
+        End
+
+        It 'succeeds without starting telemetry when all units are absent'
+            MISSING_TELEMETRY_UNITS="cgroup-memory-telemetry.timer cgroup-memory-telemetry.service cgroup-cpu-telemetry.timer cgroup-cpu-telemetry.service cgroup-pressure-telemetry.timer cgroup-pressure-telemetry.service"
+
+            When run enableAndStartCgroupTelemetry
+
+            The status should be success
+            The output should equal "cgroup-memory-telemetry.timer not found on this VHD, skipping
+cgroup-memory-telemetry.service not found on this VHD, skipping
+cgroup-cpu-telemetry.timer not found on this VHD, skipping
+cgroup-cpu-telemetry.service not found on this VHD, skipping
+cgroup-pressure-telemetry.timer not found on this VHD, skipping
+cgroup-pressure-telemetry.service not found on this VHD, skipping"
+        End
+
+        Describe 'OS and cgroup eligibility'
+            Parameters
+                UBUNTU "" true
+                MARINER "" false
+                MARINERKATA "" false
+                AZURELINUX "" false
+                AZURELINUXKATA "" false
+                AZURELINUX OSGUARD false
+                AZURECONTAINERLINUX "" true
+                AZURELINUX AZURECONTAINERLINUX true
+            End
+
+            It "configures eligible telemetry on cgroup v2 for $1 variant '$2'"
+                OS="$1"
+                OS_VARIANT="$2"
+                expected_commands="$cpu_pressure_commands"
+                if [ "$3" = "true" ]; then
+                    expected_commands="$memory_commands
+$cpu_pressure_commands"
+                fi
+
+                When run enableAndStartCgroupTelemetry
+
+                The status should be success
+                The output should equal "$expected_commands"
+            End
+
+            It "configures only eligible memory telemetry on cgroup v1 for $1 variant '$2'"
+                OS="$1"
+                OS_VARIANT="$2"
+                MOCK_CGROUP_VERSION="tmpfs"
+                expected_commands=""
+                if [ "$3" = "true" ]; then
+                    expected_commands="$memory_commands"
+                fi
+
+                When run enableAndStartCgroupTelemetry
+
+                The status should be success
+                The output should equal "$expected_commands"
+            End
+        End
+
+        Describe 'startup failures'
+            Parameters
+                "systemctlEnableAndStartNoBlock cgroup-memory-telemetry.timer 30" 1
+                "systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30" 2
+                "systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.timer 30" 3
+                "systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.service 30" 4
+                "systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.timer 30" 5
+                "systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service 30" 6
+            End
+
+            It "exits with the telemetry error and stops setup when '$1' fails"
+                FAILED_TELEMETRY_COMMAND="$1"
+
+                When run enableAndStartCgroupTelemetry
+
+                The status should equal "$ERR_START_CGROUP_TELEMETRY"
+                The lines of output should equal "$2"
+                The line "$2" of output should equal "$1"
+            End
+        End
+
+        It 'exits with the telemetry error when memory service startup fails on cgroup v1'
+            MOCK_CGROUP_VERSION="tmpfs"
+            FAILED_TELEMETRY_COMMAND="systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30"
+
+            When run enableAndStartCgroupTelemetry
+
+            The status should equal "$ERR_START_CGROUP_TELEMETRY"
+            The output should equal "$memory_commands"
+        End
+    End
     Describe 'configureTransparentHugePageSystemdService'
         setup_thp_service() {
             THP_ENABLED="never"
