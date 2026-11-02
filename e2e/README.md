@@ -112,8 +112,8 @@ derived node. NBC conversion sets the JSON `pre_provision_only` field for each
 stage; AgentBaker passes the JSON through unchanged. Both stages
 check config-only execution. `Ubuntu2604Minimal_VHDCaching` and
 `Ubuntu2404_VHDCaching` retain NBC scriptless coverage. The two Ubuntu 26.04
-variants share their scenario definition but use separate bake/capture/scale-up
-lifecycles because each image must be baked with its selected provisioning mode.
+scenarios are defined separately and use separate bake/capture/scale-up lifecycles
+because each image must be baked with its selected provisioning mode.
 The runner does not automatically run every scenario in both modes; Phase 2.5
 environment comparison is not a second provisioning run.
 These dual-marker tests require a VHD containing the new bake completion contract;
