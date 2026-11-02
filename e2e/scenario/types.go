@@ -191,9 +191,6 @@ type Config struct {
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
 
-	// SkipScriptlessNBCCSECmd prevents RunScenario from automatically repeating the scenario using scriptless NBC provisioning.
-	SkipScriptlessNBCCSECmd bool
-
 	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
 	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
 	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.
