@@ -52,12 +52,22 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 	} {
 		delete(flags, flag)
 	}
-	normalizeFeatureGateFlag(kubelet, gates, version, cfg.GetIsKata())
+	// Kata nodes default RuntimeClassInImageCriApi=true so kubelet passes the pod's RuntimeClass handler to PullImage,
+	// and kata-v2 images are unpacked once, straight into erofs. It is only a default: a value that is already set wins.
+	_, cliSetsRuntimeClass := gates["RuntimeClassInImageCriApi"]
+	_, fileSetsRuntimeClass := kubelet.GetKubeletConfigFileConfig().GetFeatureGates()["RuntimeClassInImageCriApi"]
+	// A config file that kubelet never loads doesn't count. "Already set" includes a default added by an earlier
+	// Validate run, such as RP's before it sends the config, which keeps normalization idempotent.
+	runtimeClassSet := cliSetsRuntimeClass || (kubelet.EnableKubeletConfigFile && fileSetsRuntimeClass)
+	// defaultRuntimeClass tells normalizeFeatureGates to add RuntimeClassInImageCriApi=true, on 1.29+ where the gate
+	// exists, to each gate map it normalizes: the command-line flags and/or the config file.
+	defaultRuntimeClass := cfg.GetIsKata() && !runtimeClassSet
+	normalizeFeatureGateFlag(kubelet, gates, version, defaultRuntimeClass)
 	kubeReserved, systemReserved := normalizeReservedCgroupFlags(kubelet)
 	if version.GreaterThanEqual(semver.MustParse("1.34.0")) {
 		delete(flags, "--streaming-connection-idle-timeout")
 	}
-	normalizeKubeletConfigFile(kubelet.GetKubeletConfigFileConfig(), version, kubeReserved, systemReserved, cfg.GetIsKata())
+	normalizeKubeletConfigFile(kubelet.GetKubeletConfigFileConfig(), version, kubeReserved, systemReserved, defaultRuntimeClass)
 	return nil
 }
 
@@ -106,7 +116,7 @@ func parseFeatureGates(raw string) (map[string]bool, error) {
 	return gates, nil
 }
 
-func normalizeFeatureGateFlag(kubelet *aksnodeconfigv1.KubeletConfig, gates map[string]bool, version *semver.Version, isKata bool) {
+func normalizeFeatureGateFlag(kubelet *aksnodeconfigv1.KubeletConfig, gates map[string]bool, version *semver.Version, defaultRuntimeClass bool) {
 	flags := kubelet.KubeletFlags
 	servingRotation := kubelet.EnableKubeletConfigFile && kubelet.GetKubeletConfigFileConfig().GetServerTlsBootstrap()
 	rotationFlag, hasRotationFlag := flags["--rotate-server-certificates"]
@@ -116,7 +126,7 @@ func normalizeFeatureGateFlag(kubelet *aksnodeconfigv1.KubeletConfig, gates map[
 	_, hasGateFlag := flags["--feature-gates"]
 	// Do not introduce a CLI map that could override an existing config-file map.
 	if hasGateFlag || hasRotationFlag || !kubelet.EnableKubeletConfigFile {
-		normalizeFeatureGates(gates, version, servingRotation, isKata)
+		normalizeFeatureGates(gates, version, servingRotation, defaultRuntimeClass)
 	}
 	keys := make([]string, 0, len(gates))
 	for key := range gates {
@@ -158,14 +168,14 @@ func normalizeReservedCgroupFlags(kubelet *aksnodeconfigv1.KubeletConfig) (strin
 }
 
 func normalizeKubeletConfigFile(fileConfig *aksnodeconfigv1.KubeletConfigFileConfig, version *semver.Version,
-	kubeReserved, systemReserved string, isKata bool) {
+	kubeReserved, systemReserved string, defaultRuntimeClass bool) {
 	if fileConfig == nil {
 		return
 	}
 	if fileConfig.FeatureGates == nil {
 		fileConfig.FeatureGates = make(map[string]bool)
 	}
-	normalizeFeatureGates(fileConfig.FeatureGates, version, fileConfig.ServerTlsBootstrap, isKata)
+	normalizeFeatureGates(fileConfig.FeatureGates, version, fileConfig.ServerTlsBootstrap, defaultRuntimeClass)
 	fileConfig.KubeReservedCgroup = kubeReserved
 	fileConfig.SystemReservedCgroup = systemReserved
 	if version.GreaterThanEqual(semver.MustParse("1.34.0")) {
@@ -173,7 +183,7 @@ func normalizeKubeletConfigFile(fileConfig *aksnodeconfigv1.KubeletConfigFileCon
 	}
 }
 
-func normalizeFeatureGates(gates map[string]bool, version *semver.Version, servingRotation, isKata bool) {
+func normalizeFeatureGates(gates map[string]bool, version *semver.Version, servingRotation, defaultRuntimeClass bool) {
 	if servingRotation {
 		gates["RotateKubeletServerCertificate"] = true
 	}
@@ -186,8 +196,7 @@ func normalizeFeatureGates(gates map[string]bool, version *semver.Version, servi
 		gates["DisableAcceleratorUsageMetrics"] = false
 	}
 	// The gate makes kubelet pass the RuntimeClass handler to PullImage, so kata-v2 images unpack straight into erofs.
-	if isKata && version.GreaterThanEqual(semver.MustParse("1.29.0")) {
-		// Default only, so the RP can still turn it off.
+	if defaultRuntimeClass && version.GreaterThanEqual(semver.MustParse("1.29.0")) {
 		if _, set := gates["RuntimeClassInImageCriApi"]; !set {
 			gates["RuntimeClassInImageCriApi"] = true
 		}
