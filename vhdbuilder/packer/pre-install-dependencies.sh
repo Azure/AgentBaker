@@ -234,6 +234,7 @@ capture_benchmark "${SCRIPT_NAME}_install_kernel_hwe_arm64"
 
 installPinnedUbuntuKernel() (
   local suite version abi archive source_file preferences_file flavor=azure
+  local metapackage_patterns=""
   local -a packages
   case "$UBUNTU_RELEASE" in
     22.04) suite=jammy; version=5.15.0-1126.135 ;;
@@ -262,6 +263,10 @@ installPinnedUbuntuKernel() (
     "linux-tools-${abi}-${flavor}=${version}"
     "linux-cloud-tools-${abi}-${flavor}=${version}"
   )
+  if [ "$flavor" = "azure-fde" ]; then
+    packages+=("linux-azure-fde-lts-${UBUNTU_RELEASE}=${version}")
+    metapackage_patterns="linux-azure-fde-lts-${UBUNTU_RELEASE} linux-*-azure-fde-lts-${UBUNTU_RELEASE}"
+  fi
   if [ "$UBUNTU_RELEASE" = "26.04" ]; then
     packages+=("linux-main-modules-zfs-${abi}-${flavor}=${version}")
   else
@@ -271,9 +276,9 @@ installPinnedUbuntuKernel() (
   source_file=$(mktemp /etc/apt/sources.list.d/aks-kernel-XXXXXX.list) || return 1
   trap 'rm -f "$source_file" "${preferences_file:-}"' EXIT
   preferences_file=$(mktemp /etc/apt/preferences.d/aks-kernel-XXXXXX) || return 1
-  # Only this ABI at this exact build may come from proposed.
+  # Only this ABI and its FDE LTS metapackages at this exact build may come from proposed.
   cat > "$preferences_file" <<EOF
-Package: linux-*${abi}*
+Package: linux-*${abi}* ${metapackage_patterns}
 Pin: version ${version}
 Pin-Priority: 1001
 
