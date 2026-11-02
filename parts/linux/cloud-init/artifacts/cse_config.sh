@@ -704,7 +704,7 @@ configureNodeProblemDetector() {
 
 # configureKMPP starts the KMPP service baked (masked) into Azure Linux 3.0 VHDs and exposes
 # the host system bus to the KMPP CSI provider at /run/kmpp/dbus (hostPath /var/run/kmpp/dbus).
-# The bind mount is unfiltered; a filtered D-Bus proxy socket will replace it at the same path.
+# The bind mount is unfiltered. Restricting which callers and methods it allows is planned separately.
 configureKMPP() {
     local unit_dir="${KMPP_UNIT_DIR:-/usr/lib/systemd/system}"
     local mount_unit_file="${KMPP_DBUS_MOUNT_UNIT_FILE:-/etc/systemd/system/run-kmpp-dbus.mount}"
