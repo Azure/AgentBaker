@@ -209,8 +209,9 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	// Select the appropriate containerd config template based on version and GPU presence.
 	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
 	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
+	// Like NBC's IsContainerdV2Distro, keep Kata on the v1 template even with a 2.x binary.
 	var _template *template.Template
-	if isContainerdV2(containerdVersion) {
+	if !aksnodeconfig.GetIsKata() && isContainerdV2(containerdVersion) {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate

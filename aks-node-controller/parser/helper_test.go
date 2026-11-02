@@ -749,32 +749,36 @@ oom_score = -999
 	}
 }
 
-func TestContainerdV1KataConfigMatchesNodeBootstrappingConfig(t *testing.T) {
+func TestContainerdKataConfigMatchesNodeBootstrappingConfig(t *testing.T) {
 	config := &aksnodeconfigv1.Configuration{
 		IsKata: true,
 	}
 
-	for _, noGPU := range []bool{false, true} {
-		t.Run(map[bool]string{false: "GPU", true: "no GPU"}[noGPU], func(t *testing.T) {
-			got, err := containerdConfigFromAKSNodeConfig(config, noGPU, "1.7.22")
-			if err != nil {
-				t.Fatalf("containerdConfigFromAKSNodeConfig() error = %v", err)
-			}
+	for _, version := range []string{"", "1.7.22", "2.3.7"} {
+		for _, noGPU := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/noGPU=%t", version, noGPU), func(t *testing.T) {
+				got, err := containerdConfigFromAKSNodeConfig(config, noGPU, version)
+				require.NoError(t, err)
 
-			for _, want := range []string{
-				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`,
-				`privileged_without_host_devices = true`,
-				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]`,
-				`ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"`,
-			} {
-				if !strings.Contains(got, want) {
-					t.Errorf("containerd config does not contain %q", want)
+				for _, want := range []string{
+					`[plugins."io.containerd.grpc.v1.cri".containerd]`,
+					`disable_snapshot_annotations = false`,
+					`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]`,
+					`privileged_without_host_devices = true`,
+					`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]`,
+					`ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"`,
+					`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]`,
+					`snapshotter = "erofs"`,
+					`pod_annotations = ["io.katacontainers.snapshot-name"]`,
+					`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]`,
+				} {
+					require.Contains(t, got, want)
 				}
-			}
-			if strings.Contains(got, `.containerd.runtimes.katacli`) {
-				t.Error("containerd config contains the obsolete katacli runtime")
-			}
-		})
+				require.NotContains(t, got, `.containerd.runtimes.katacli`)
+				require.NotContains(t, got, `plugins."io.containerd.cri.v1.images"`)
+				require.NotContains(t, got, `plugins."io.containerd.cri.v1.runtime"`)
+			})
+		}
 	}
 }
 
