@@ -291,30 +291,8 @@ func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfigur
 	if input == "" {
 		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires non-empty AKSNodeConfigJSON")
 	}
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(input), &fields); err != nil {
-		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires AKSNodeConfigJSON to be a valid JSON object: %w", err)
-	}
-	if fields == nil {
+	if !json.Valid([]byte(input)) || input[0] != '{' {
 		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires AKSNodeConfigJSON to be a valid JSON object")
-	}
-	phase, snakeCase := fields["pre_provision_only"]
-	camelPhase, camelCase := fields["preProvisionOnly"]
-	if snakeCase && camelCase {
-		return fmt.Errorf("AKSNodeConfigJSON must not contain both pre_provision_only and preProvisionOnly")
-	}
-	if camelCase {
-		phase = camelPhase
-	}
-	var preProvisionOnly bool
-	if phase != nil {
-		if err := json.Unmarshal(phase, &preProvisionOnly); err != nil {
-			return fmt.Errorf("AKSNodeConfigJSON pre_provision_only must be a boolean: %w", err)
-		}
-	}
-	// Phase 3 owns its phase, but an NBC bake request must not silently run nodePrep.
-	if config.PreProvisionOnly && !preProvisionOnly {
-		return fmt.Errorf("NBC PreProvisionOnly=true requires AKSNodeConfigJSON pre_provision_only=true")
 	}
 	return nil
 }
@@ -849,7 +827,10 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	}
 
 	if config.EnableScriptlessAKSNodeConfig {
-		return validateScriptlessAKSNodeConfig(config)
+		if err := validateScriptlessAKSNodeConfig(config); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {

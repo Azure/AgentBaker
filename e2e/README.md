@@ -109,7 +109,7 @@ VHD-caching generalization remain in effect.
 
 `Ubuntu2604Minimal_AKSNodeConfig_VHDCaching` uses Phase 3 for both the bake and
 derived node. NBC conversion sets the JSON `pre_provision_only` field for each
-stage; AgentBaker validates this field without rewriting the JSON. Both stages
+stage; AgentBaker passes the JSON through unchanged. Both stages
 check config-only execution. `Ubuntu2604Minimal_VHDCaching` and
 `Ubuntu2404_VHDCaching` retain NBC scriptless coverage. The two Ubuntu 26.04
 variants share their scenario definition but use separate bake/capture/scale-up

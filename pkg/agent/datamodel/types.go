@@ -1832,7 +1832,7 @@ type NodeBootstrappingConfiguration struct {
 	// no NBC command is rendered or delivered, and ANC does not enter comparison mode.
 	// Requires a non-empty serialized JSON object. Windows is unsupported.
 	// AKSNodeConfigJSON owns the provisioning phase and is passed through unchanged.
-	// NBC PreProvisionOnly=true requires PreProvisionOnly=true in the JSON as well.
+	// For pre-provisioning, the caller must set PreProvisionOnly in AKSNodeConfigJSON.
 	EnableScriptlessAKSNodeConfig bool
 
 	// ScriptlessCSEProvisionMode specifies the delivery mode for scriptless phases 2 and 3,

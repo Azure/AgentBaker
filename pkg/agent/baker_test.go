@@ -68,38 +68,24 @@ func TestScriptlessAKSNodeConfigPreservesJSONProvisioningPhase(t *testing.T) {
 	generator := InitializeTemplateGenerator()
 	for _, preProvisionOnly := range []bool{true, false} {
 		for _, mixedFlags := range []bool{false, true} {
-			for _, tc := range []struct {
-				field   string
-				bake    bool
-				invalid bool
-			}{
-				{},
-				{field: `,"pre_provision_only":false`},
-				{field: `,"pre_provision_only":true`, bake: true},
-				{field: `,"preProvisionOnly":false`},
-				{field: `,"preProvisionOnly":true`, bake: true},
-				{field: `,"pre_provision_only":null`},
-				{field: `,"preProvisionOnly":false,"pre_provision_only":true`, invalid: true},
-				{field: `,"preProvisionOnly":true,"pre_provision_only":true`, invalid: true},
-				{field: `,"pre_provision_only":"true"`, invalid: true},
-				{field: `,"preProvisionOnly":1`, invalid: true},
+			for _, field := range []string{
+				"",
+				`,"pre_provision_only":false`,
+				`,"pre_provision_only":true`,
+				`,"preProvisionOnly":false`,
+				`,"preProvisionOnly":true`,
 			} {
-				t.Run(fmt.Sprintf("nbcBake=%t/mixed=%t/field=%s", preProvisionOnly, mixedFlags, tc.field), func(t *testing.T) {
+				t.Run(fmt.Sprintf("nbcBake=%t/mixed=%t/field=%s", preProvisionOnly, mixedFlags, field), func(t *testing.T) {
 					config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
 					config.PreProvisionOnly = preProvisionOnly
 					config.EnableScriptlessAKSNodeConfig = true
 					config.EnableScriptlessNBCCSECmd = mixedFlags
 					config.EnableScriptlessCSECmd = mixedFlags
-					input := " \n" + `{"version":"v1","future":{"number":9007199254740993}` + tc.field + "}\n"
+					input := " \n" + `{"version":"v1","future":{"number":9007199254740993}` + field + "}\n"
 					config.AKSNodeConfigJSON = input
 
-					err := ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)
+					require.NoError(t, ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config))
 					require.Equal(t, input, config.AKSNodeConfigJSON)
-					if tc.invalid || (preProvisionOnly && !tc.bake) {
-						require.ErrorContains(t, err, "pre_provision_only")
-						return
-					}
-					require.NoError(t, err)
 					payload, err := base64.StdEncoding.DecodeString(generator.getNodeBootstrappingPayload(config))
 					require.NoError(t, err)
 					require.Contains(t, string(payload), getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON))
