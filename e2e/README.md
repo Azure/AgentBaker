@@ -84,20 +84,22 @@ Scenarios specifically covering legacy CLI flags must set
 `CustomLinuxOSConfig` nil. ANC conversion preserves that opt-out. Windows defaults
 are unchanged.
 
-Scenarios with an `AKSNodeConfigMutator` default to Phase 3 provisioning, using
-AKSNodeConfig instead of the NBC command. A bootstrap config mutator can opt out
+Eligible scenarios with an `AKSNodeConfigMutator`, or with neither
+`BootstrapConfigMutator` nor `BootstrapConfigMutatorWithError`, default to Phase 3
+provisioning, using AKSNodeConfig instead of the NBC command. A bootstrap config mutator can opt out
 by setting `EnableScriptlessAKSNodeConfig = false`, or explicitly select Phase 3
 without an AKSNodeConfig mutator by setting it to `true`.
-The runner converts the NBC, applies the AKSNodeConfig mutator, validates and
+The runner converts the NBC, applies the AKSNodeConfig mutator if present, validates and
 normalizes Phase 3 settings with `nodeconfigutils.Validate`,
 and serializes the result for AgentBaker. The early-failure scenario checks that an
 unsupported version is rejected before VM creation. Common validation checks config-only execution and absence
 of the NBC command and comparison path.
 
-Scenarios without an AKSNodeConfig mutator retain their existing provisioning
-mode unless they explicitly select Phase 3. A Scriptless tag alone does not opt
-into Phase 3. Existing scriptless opt-outs, image restrictions, and VHD-caching
-behavior remain in effect.
+Scenarios with a bootstrap mutator but no AKSNodeConfig mutator retain their
+existing provisioning mode unless they explicitly select Phase 3. This includes
+empty bootstrap mutators and error-returning bootstrap mutators. A Scriptless tag
+alone does not override this selection. Existing scriptless opt-outs, image
+restrictions, and VHD-caching behavior remain in effect.
 
 ### LocalDNS fallback checks
 

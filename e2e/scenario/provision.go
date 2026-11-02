@@ -287,7 +287,8 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 func prepareNodeConfiguration(ctx context.Context, s *Scenario, nbc *datamodel.NodeBootstrappingConfiguration) error {
 	if !config.Config.DisableScriptless {
 		nbc.EnableScriptlessCSECmd = true
-		nbc.EnableScriptlessAKSNodeConfig = s.AKSNodeConfigMutator != nil
+		nbc.EnableScriptlessAKSNodeConfig = s.AKSNodeConfigMutator != nil ||
+			(s.BootstrapConfigMutator == nil && s.BootstrapConfigMutatorWithError == nil)
 	}
 	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
 		nbc.EnableScriptlessNBCCSECmd = true

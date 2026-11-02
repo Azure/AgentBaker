@@ -156,8 +156,8 @@ type Config struct {
 	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
 	// AKSNodeConfigMutator customizes the converted config before it is delivered to ANC.
-	// When set, eligible scenarios default to Phase 3 provisioning. BootstrapConfigMutator
-	// can opt out by setting EnableScriptlessAKSNodeConfig to false.
+	// Eligible scenarios default to Phase 3 when this is set or both bootstrap mutators are nil.
+	// Bootstrap mutators can override the default through EnableScriptlessAKSNodeConfig.
 	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
