@@ -2389,37 +2389,48 @@ var _ = Register(&Scenario{
 	},
 })
 
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2604Minimal_AKSNodeConfig_VHDCaching",
-	Description: "Tests JSON-only scriptless provisioning during PIS bake and derived-node scale-up",
-	SkipIf: func(context.Context) string {
-		if config.Config.DisableScriptless || config.Config.TestPreProvision {
-			return "requires Phase 3 provisioning"
-		}
-		return ""
-	},
-	Config: Config{
-		Cluster:    ClusterLatestKubernetesVersionKubenet,
-		VHD:        config.VHDUbuntu2604MinimalGen2Containerd,
-		VHDCaching: true,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.EnableScriptlessAKSNodeConfig = true
+var _ = Register(ubuntu2604MinimalVHDCachingScenario(false))
+var _ = Register(ubuntu2604MinimalVHDCachingScenario(true))
+
+func ubuntu2604MinimalVHDCachingScenario(phase3 bool) *Scenario {
+	s := &Scenario{
+		Name:        "Ubuntu2604Minimal_VHDCaching",
+		Description: "Tests NBC provisioning during PIS bake and derived-node scale-up",
+		Config: Config{
+			Cluster:                ClusterLatestKubernetesVersionKubenet,
+			VHD:                    config.VHDUbuntu2604MinimalGen2Containerd,
+			VHDCaching:             true,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				// If the VHD has incorrect settings (like network misconfiguration)
+				// deploying more than one VM may expose the issue.
+				// This check is not always reliable, since only one VM is created per test run in the current framework.
+				// Therefore, tests may incorrectly pass more often than they fail in these cases.
+				vmss.SKU.Capacity = to.Ptr[int64](2)
+			},
 		},
-		Validator: func(ctx context.Context, s *Scenario) error {
+	}
+	if phase3 {
+		s.Name = "Ubuntu2604Minimal_AKSNodeConfig_VHDCaching"
+		s.Description = "Tests JSON-only scriptless provisioning during PIS bake and derived-node scale-up"
+		s.SkipIf = func(context.Context) string {
+			if config.Config.DisableScriptless || config.Config.TestPreProvision {
+				return "requires Phase 3 provisioning"
+			}
+			return ""
+		}
+		s.BootstrapConfigMutator = func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessAKSNodeConfig = true
+		}
+		s.Validator = func(ctx context.Context, s *Scenario) error {
 			if !s.Runtime.NBC.EnableScriptlessAKSNodeConfig {
 				return fmt.Errorf("expected JSON-only scriptless provisioning")
 			}
 			return nil
-		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			// If the VHD has incorrect settings (like network misconfiguration)
-			// deploying more than one VM may expose the issue.
-			// This check is not always reliable, since only one VM is created per test run in the current framework.
-			// Therefore, tests may incorrectly pass more often than they fail in these cases.
-			vmss.SKU.Capacity = to.Ptr[int64](2)
-		},
-	},
-})
+		}
+	}
+	return s
+}
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_CustomCa",
