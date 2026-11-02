@@ -64,6 +64,42 @@ func TestScriptlessAKSNodeConfigSkipsNBCRendering(t *testing.T) {
 	}
 }
 
+func TestScriptlessAKSNodeConfigUsesNBCProvisioningPhase(t *testing.T) {
+	generator := InitializeTemplateGenerator()
+	for _, preProvisionOnly := range []bool{true, false} {
+		for _, mixedFlags := range []bool{false, true} {
+			for _, phaseField := range []string{
+				"",
+				`,"pre_provision_only":false`,
+				`,"pre_provision_only":true`,
+				`,"preProvisionOnly":true`,
+				`,"preProvisionOnly":false,"pre_provision_only":true`,
+			} {
+				t.Run(fmt.Sprintf("bake=%t/mixed=%t/field=%s", preProvisionOnly, mixedFlags, phaseField), func(t *testing.T) {
+					config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+					config.PreProvisionOnly = preProvisionOnly
+					config.EnableScriptlessAKSNodeConfig = true
+					config.EnableScriptlessNBCCSECmd = mixedFlags
+					config.EnableScriptlessCSECmd = mixedFlags
+					config.AKSNodeConfigJSON = `{"version":"v1","future":{"number":9007199254740993}` + phaseField + `}`
+
+					require.NoError(t, ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config))
+					require.JSONEq(t, fmt.Sprintf(
+						`{"version":"v1","future":{"number":9007199254740993},"pre_provision_only":%t}`,
+						preProvisionOnly,
+					), config.AKSNodeConfigJSON)
+					require.Contains(t, config.AKSNodeConfigJSON, "9007199254740993")
+					payload, err := base64.StdEncoding.DecodeString(generator.getNodeBootstrappingPayload(config))
+					require.NoError(t, err)
+					require.Contains(t, string(payload), getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON))
+					require.NotContains(t, string(payload), aksNbcCmdFilepath)
+					require.Equal(t, "/opt/azure/containers/aks-node-controller provision-wait", generator.getNodeBootstrappingCmd(config))
+				})
+			}
+		}
+	}
+}
+
 func TestRenderLinuxNodeCustomDataTemplateUsesBakerPlatformFunctions(t *testing.T) {
 	template := []byte(`#cloud-config
 write_files:

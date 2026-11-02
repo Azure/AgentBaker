@@ -286,14 +286,26 @@ func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfigura
 	return config.EnableScriptlessNBCCSECmd || config.EnableScriptlessAKSNodeConfig || config.IsCustomDataOnlyProvisioningEnabled()
 }
 
-func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
+func prepareScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
 	input := strings.TrimSpace(config.AKSNodeConfigJSON)
 	if input == "" {
 		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires non-empty AKSNodeConfigJSON")
 	}
-	if !json.Valid([]byte(input)) || input[0] != '{' {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(input), &fields); err != nil {
+		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires AKSNodeConfigJSON to be a valid JSON object: %w", err)
+	}
+	if fields == nil {
 		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires AKSNodeConfigJSON to be a valid JSON object")
 	}
+	// Phase 3 has no NBC command to carry the phase; normalize both protobuf JSON names.
+	delete(fields, "preProvisionOnly")
+	fields["pre_provision_only"] = json.RawMessage(fmt.Sprintf("%t", config.PreProvisionOnly))
+	encoded, err := json.Marshal(fields)
+	if err != nil {
+		return fmt.Errorf("serialize Phase 3 AKSNodeConfigJSON: %w", err)
+	}
+	config.AKSNodeConfigJSON = string(encoded)
 	return nil
 }
 
@@ -827,10 +839,7 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	}
 
 	if config.EnableScriptlessAKSNodeConfig {
-		if err := validateScriptlessAKSNodeConfig(config); err != nil {
-			return err
-		}
-		return nil
+		return prepareScriptlessAKSNodeConfig(config)
 	}
 
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {

@@ -1831,7 +1831,7 @@ type NodeBootstrappingConfiguration struct {
 	// It takes precedence over EnableScriptlessNBCCSECmd and EnableScriptlessCSECmd:
 	// no NBC command is rendered or delivered, and ANC does not enter comparison mode.
 	// Requires a non-empty serialized JSON object. Windows is unsupported.
-	// For pre-provisioning, the caller must set PreProvisionOnly in AKSNodeConfigJSON.
+	// AgentBaker copies NBC PreProvisionOnly into AKSNodeConfigJSON for both bake and normal-node runs.
 	EnableScriptlessAKSNodeConfig bool
 
 	// ScriptlessCSEProvisionMode specifies the delivery mode for scriptless phases 2 and 3,
