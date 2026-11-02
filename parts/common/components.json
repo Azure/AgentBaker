@@ -1604,7 +1604,13 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.36.4"
+                "latestVersion": "1.36.5",
+                "previousLatestVersion": "1.36.4"
+              },
+              {
+                "k8sVersion": "1.37",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.37.0"
               }
             ]
           },
@@ -1735,7 +1741,13 @@
               {
                 "k8sVersion": "1.36",
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.36.4"
+                "latestVersion": "1.36.5",
+                "previousLatestVersion": "1.36.4"
+              },
+              {
+                "k8sVersion": "1.37",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.37.0"
               }
             ]
           },
