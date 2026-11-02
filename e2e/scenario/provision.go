@@ -122,17 +122,19 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 	provisionScenario.artifactName = vhdStageArtifactName(original, name, "vhd-provision")
 	provisionScenario.Config.VHD = customVHD
 	provisionScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
-		var markerErr error
+		markerPath := "/opt/azure/containers/provision.complete"
 		if s.IsWindows() {
-			markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
-		} else {
-			markerErr = ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
-			if markerErr == nil {
-				markerErr = ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Skipping basePrep - base_prep.complete file exists")
-			}
+			markerPath = "C:\\AzureData\\provision.complete"
 		}
-		if markerErr != nil {
-			return markerErr
+		err := ValidateFileExists(ctx, s, markerPath)
+		if err != nil {
+			return err
+		}
+		if !s.IsWindows() {
+			err = ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Skipping basePrep - base_prep.complete file exists")
+		}
+		if err != nil {
+			return err
 		}
 		if original.Config.Validator != nil {
 			return original.Config.Validator(ctx, s)

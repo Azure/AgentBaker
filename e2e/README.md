@@ -107,18 +107,6 @@ coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
 VHD-caching generalization remain in effect.
 
-`Ubuntu2604Minimal_AKSNodeConfig_VHDCaching` uses Phase 3 for both the bake and
-derived node. NBC conversion sets the JSON `pre_provision_only` field for each
-stage; AgentBaker passes the JSON through unchanged. Both stages
-check config-only execution. `Ubuntu2604Minimal_VHDCaching` and
-`Ubuntu2404_VHDCaching` retain NBC scriptless coverage. The two Ubuntu 26.04
-scenarios are defined separately and use separate bake/capture/scale-up lifecycles
-because each image must be baked with its selected provisioning mode.
-The runner does not automatically run every scenario in both modes; Phase 2.5
-environment comparison is not a second provisioning run.
-These dual-marker tests require a VHD containing the new bake completion contract;
-use the PR VHD gate to test the changed scripts, not an older released image.
-
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node
