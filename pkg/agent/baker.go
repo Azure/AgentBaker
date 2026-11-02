@@ -286,7 +286,7 @@ func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfigura
 	return config.EnableScriptlessNBCCSECmd || config.EnableScriptlessAKSNodeConfig || config.IsCustomDataOnlyProvisioningEnabled()
 }
 
-func prepareScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
+func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
 	input := strings.TrimSpace(config.AKSNodeConfigJSON)
 	if input == "" {
 		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires non-empty AKSNodeConfigJSON")
@@ -298,14 +298,24 @@ func prepareScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfigura
 	if fields == nil {
 		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires AKSNodeConfigJSON to be a valid JSON object")
 	}
-	// Phase 3 has no NBC command to carry the phase; normalize both protobuf JSON names.
-	delete(fields, "preProvisionOnly")
-	fields["pre_provision_only"] = json.RawMessage(fmt.Sprintf("%t", config.PreProvisionOnly))
-	encoded, err := json.Marshal(fields)
-	if err != nil {
-		return fmt.Errorf("serialize Phase 3 AKSNodeConfigJSON: %w", err)
+	phase, snakeCase := fields["pre_provision_only"]
+	camelPhase, camelCase := fields["preProvisionOnly"]
+	if snakeCase && camelCase {
+		return fmt.Errorf("AKSNodeConfigJSON must not contain both pre_provision_only and preProvisionOnly")
 	}
-	config.AKSNodeConfigJSON = string(encoded)
+	if camelCase {
+		phase = camelPhase
+	}
+	var preProvisionOnly bool
+	if phase != nil {
+		if err := json.Unmarshal(phase, &preProvisionOnly); err != nil {
+			return fmt.Errorf("AKSNodeConfigJSON pre_provision_only must be a boolean: %w", err)
+		}
+	}
+	// Phase 3 owns its phase, but an NBC bake request must not silently run nodePrep.
+	if config.PreProvisionOnly && !preProvisionOnly {
+		return fmt.Errorf("NBC PreProvisionOnly=true requires AKSNodeConfigJSON pre_provision_only=true")
+	}
 	return nil
 }
 
@@ -839,7 +849,7 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	}
 
 	if config.EnableScriptlessAKSNodeConfig {
-		return prepareScriptlessAKSNodeConfig(config)
+		return validateScriptlessAKSNodeConfig(config)
 	}
 
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {

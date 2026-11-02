@@ -2390,14 +2390,25 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2604Minimal_VHDCaching",
-	Description: "T",
+	Name:        "Ubuntu2604Minimal_AKSNodeConfig_VHDCaching",
+	Description: "Tests JSON-only scriptless provisioning during PIS bake and derived-node scale-up",
+	SkipIf: func(context.Context) string {
+		if config.Config.DisableScriptless || config.Config.TestPreProvision {
+			return "requires Phase 3 provisioning"
+		}
+		return ""
+	},
 	Config: Config{
-		Cluster:                ClusterLatestKubernetesVersionKubenet,
-		VHD:                    config.VHDUbuntu2604MinimalGen2Containerd,
-		VHDCaching:             true,
-		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+		Cluster:    ClusterLatestKubernetesVersionKubenet,
+		VHD:        config.VHDUbuntu2604MinimalGen2Containerd,
+		VHDCaching: true,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessAKSNodeConfig = true
+		},
 		Validator: func(ctx context.Context, s *Scenario) error {
+			if !s.Runtime.NBC.EnableScriptlessAKSNodeConfig {
+				return fmt.Errorf("expected JSON-only scriptless provisioning")
+			}
 			return nil
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {

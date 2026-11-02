@@ -59,6 +59,7 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				ValidateFileExists(ctx, scenario, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, scenario, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
+				ValidateScriptlessPhase3(ctx, scenario),
 			)
 		}
 		return validationErr
@@ -84,7 +85,6 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				}
 			}
 			nbc.PreProvisionOnly = true
-			nbc.EnableScriptlessAKSNodeConfig = false
 			// Bake-only mutation: lets a scenario deliberately diverge bake-time
 			// state from provision-time state (e.g. a stale sentinel bootstrap token).
 			if original.PreProvisionBootstrapConfigMutator != nil {
