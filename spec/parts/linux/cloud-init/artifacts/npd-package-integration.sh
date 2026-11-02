@@ -2,10 +2,11 @@
 # Run only in a disposable Ubuntu or Azure Linux 3 container with jq installed
 # (Azure Linux also needs tar and rpm-build):
 # bash spec/parts/linux/cloud-init/artifacts/npd-package-integration.sh /tmp/npd.{deb,rpm}
-# Uses real apt/dpkg or tdnf/rpm and the published package. Only NPD restart is stubbed.
+# Uses real apt/dpkg or tdnf/rpm and the published package. Only NPD stop and restart are stubbed.
 set -euo pipefail
 
 source ./parts/linux/cloud-init/artifacts/npd-update.sh
+npd_select_component npdConfig
 
 package="$(realpath "$1")"
 format="$(npd_package_format)"
@@ -67,6 +68,7 @@ esac
 desired="$(jq -nc --arg map "${map}" --arg release "${release}" --arg version "${new_version}" '{($map):{($release):$version}}')"
 old_goal="$(jq -nc --arg map "${map}" --arg release "${release}" --arg version "${old_version}" '{($map):{($release):$version}}')"
 
+npd_stop_for_reporting_baseline() { date +%s; }
 npd_restart_and_check() { return 0; }
 # Equal baked package must not contact repositories.
 npd_refresh_metadata() { echo 'unexpected metadata refresh' >&2; return 1; }

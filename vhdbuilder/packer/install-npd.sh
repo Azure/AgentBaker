@@ -23,11 +23,14 @@ holdNPDPackage() {
 # Prints a private apt configuration for releases that use another release's
 # config package (see npd_ubuntu_config_source), or nothing. Shares the mapping
 # with the LPC handler so baked and live-updated configs come from one place.
-npdConfigAptConf() {
+# Runs in a subshell so the handler's variables stay out of the VHD build shell.
+npdConfigAptConf() (
     # shellcheck disable=SC1090,SC1091
     source "${NPD_UPDATE_SCRIPT:-/home/packer/npd-update.sh}" || return 1
-    NPD_UPDATE_DIR="${NPD_BUILD_DIR:-/tmp/npd-build}" npd_config_apt_conf
-}
+    NPD_UPDATE_DIR="${NPD_BUILD_DIR:-/tmp/npd-build}"
+    npd_select_component npdConfig || return 1
+    npd_apt_conf
+)
 
 installNPDPackage() {
     local package="$1"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Entry points set NPD_COMPONENT in a subshell on purpose so components stay isolated.
+# Entry points select a component in a subshell on purpose so components stay isolated.
 # shellcheck disable=SC2030,SC2031
 
 # NPD's handlers for the RP npdConfig and npdBinary contracts on Ubuntu and Azure
@@ -8,7 +8,12 @@
 # own package, transaction marker, cached rollback package and status, and one
 # never moves the other's package. The generic updaters own the
 # goal/checkpoint/status; dpkg or rpm owns package state. Only the package
-# primitives differ by OS; the transaction is shared.
+# primitives differ by OS, and only the hooks chosen by npd_select_component
+# differ by component; the transaction is shared.
+#
+# Layout: component selection, shared platform and payload helpers, shared package
+# primitives, shared service control, the shared transaction, config-only hooks,
+# binary-only hooks, and the entry points the generic updaters call.
 : "${NPD_OS_RELEASE_FILE:=/etc/os-release}"
 : "${NPD_SKIP_FILE:=/etc/node-problem-detector.d/skip_vhd_npd}"
 : "${NPD_PACKAGE_CACHE:=/opt/node-problem-detector/downloads}"
@@ -19,26 +24,65 @@
 : "${NPD_UNIT_FILE:=/etc/systemd/system/node-problem-detector.service}"
 : "${NPD_REPORT_ATTEMPTS:=24}"
 
-# The component being processed. The update and comparator entry points set it in
-# a subshell, so it never leaks between components.
-NPD_COMPONENT=npdConfig
+# ----------------------------------------------------------------------------
+# Component selection
+# ----------------------------------------------------------------------------
 
-npd_package_name() {
+# Set by npd_select_component. Empty until a component is selected, so nothing
+# acts on a package by default.
+NPD_COMPONENT=""
+NPD_PACKAGE=""
+NPD_PENDING_FILE=""
+NPD_RELEASE_HOOK=""
+NPD_VALIDATE_HOOK=""
+NPD_POST_INSTALL_HOOK=""
+NPD_ACTIVATION_CHECK=""
+
+# Selects the component for the rest of this subshell. It only sets the package,
+# the durable transaction marker and the hooks where components differ; the shared
+# transaction does the work. Returns failure (never exits: this file is sourced
+# into the generic updaters) for an unknown component or a missing hook.
+#   NPD_RELEASE_HOOK       <distro> <node release> -> release whose payload entry
+#                          and repository this node follows
+#   NPD_VALIDATE_HOOK      <extracted package dir> -> success when the content is usable
+#   NPD_POST_INSTALL_HOOK  runs after every install, including rollback
+#   NPD_ACTIVATION_CHECK   <node json> <baseline epoch> -> success when the restarted
+#                          NPD works beyond its health endpoint
+npd_select_component() {
+    local hook
+    NPD_COMPONENT="$1"
     case "${NPD_COMPONENT}" in
-        npdBinary) printf node-problem-detector-kubernetes ;;
-        *) printf node-problem-detector-aks-config ;;
+        npdConfig)
+            NPD_PACKAGE=node-problem-detector-aks-config
+            NPD_PENDING_FILE="${NPD_UPDATE_DIR}/pending"
+            NPD_RELEASE_HOOK=npd_config_release
+            NPD_VALIDATE_HOOK=npd_validate_config_stage
+            NPD_POST_INSTALL_HOOK=npd_remove_obsolete_configs
+            NPD_ACTIVATION_CHECK=:
+            ;;
+        npdBinary)
+            NPD_PACKAGE=node-problem-detector-kubernetes
+            NPD_PENDING_FILE="${NPD_UPDATE_DIR}/pending-binary"
+            NPD_RELEASE_HOOK=npd_node_release
+            NPD_VALIDATE_HOOK=npd_validate_binary_stage
+            NPD_POST_INSTALL_HOOK=:
+            NPD_ACTIVATION_CHECK=npd_check_reporting
+            ;;
+        *)
+            echo "unsupported NPD component: ${NPD_COMPONENT:-<none>}" >&2
+            NPD_COMPONENT=""
+            return 1
+            ;;
     esac
+    for hook in "${NPD_RELEASE_HOOK}" "${NPD_VALIDATE_HOOK}" "${NPD_POST_INSTALL_HOOK}" "${NPD_ACTIVATION_CHECK}"; do
+        if [ "${hook}" != : ] && ! declare -F "${hook}" >/dev/null; then
+            echo "${NPD_COMPONENT}: missing hook ${hook}" >&2
+            return 1
+        fi
+    done
 }
 
-# Durable per-component transaction marker recording the version to restore.
-npd_pending_file() {
-    case "${NPD_COMPONENT}" in
-        npdBinary) printf '%s' "${NPD_UPDATE_DIR}/pending-binary" ;;
-        *) printf '%s' "${NPD_UPDATE_DIR}/pending" ;;
-    esac
-}
-
-knead_emit_npd_config_event() {
+knead_emit_npd_event() {
     if declare -F knead_emit_event >/dev/null; then
         knead_emit_event "AKS.LivePatching.${NPD_COMPONENT}.$1" "$2" "${3:-Informational}" || true
     fi
@@ -46,9 +90,13 @@ knead_emit_npd_config_event() {
 
 npd_fail() {
     echo "${NPD_COMPONENT} failed: $1"
-    knead_emit_npd_config_event Failed "reason=$1" Error
+    knead_emit_npd_event Failed "reason=$1" Error
     return 1
 }
+
+# ----------------------------------------------------------------------------
+# Shared: platform, versions and payload
+# ----------------------------------------------------------------------------
 
 # Prints "<ubuntu|azurelinux> <VERSION_ID>" for OS families that can own baked NPD.
 npd_platform() (
@@ -76,11 +124,11 @@ npd_installed_version() {
     local status
     case "$(npd_package_format)" in
         deb)
-            status="$(dpkg-query -W -f='${db:Status-Status}' "$(npd_package_name)" 2>/dev/null)" || return 1
+            status="$(dpkg-query -W -f='${db:Status-Status}' "${NPD_PACKAGE}" 2>/dev/null)" || return 1
             [ "${status}" = installed ] || return 1
-            dpkg-query -W -f='${Version}' "$(npd_package_name)"
+            dpkg-query -W -f='${Version}' "${NPD_PACKAGE}"
             ;;
-        rpm) rpm -q --qf '%{VERSION}-%{RELEASE}' "$(npd_package_name)" 2>/dev/null ;;
+        rpm) rpm -q --qf '%{VERSION}-%{RELEASE}' "${NPD_PACKAGE}" 2>/dev/null ;;
         *) return 1 ;;
     esac
 }
@@ -99,35 +147,19 @@ npd_version_ge() {
     esac
 }
 
-# The config package content is the same on every release. Ubuntu releases
-# without their own config build use another release's package: they read that
-# release's payload entry and download from its repository. Prints
-# "<release> <codename>" of the source, or nothing when the node has its own build.
-npd_ubuntu_config_source() {
+# Release hook for components built for every release: the node follows its own.
+npd_node_release() {
+    printf '%s' "$2"
+}
+
+# Codename of the Microsoft repository for an Ubuntu release another release follows.
+npd_ubuntu_codename() {
     case "$1" in
-        26.04) printf '24.04 noble' ;;
+        20.04) printf focal ;;
+        22.04) printf jammy ;;
+        24.04) printf noble ;;
+        *) return 1 ;;
     esac
-}
-
-# Prints the release whose payload entry and package version this node follows
-# for the current component. Only the config package is shared across releases;
-# every release has its own binary build.
-npd_component_release() {
-    if [ "${NPD_COMPONENT}" = npdConfig ]; then
-        npd_config_release "$@"
-    else
-        printf '%s' "$2"
-    fi
-}
-
-# Prints the release whose config payload entry and package version this node follows.
-npd_config_release() {
-    local distro="$1" release="$2" source
-    if [ "${distro}" = ubuntu ]; then
-        source="$(npd_ubuntu_config_source "${release}")"
-        [ -z "${source}" ] || release="${source%% *}"
-    fi
-    printf '%s' "${release}"
 }
 
 # Prints the version selected for this node, or nothing when it is not targeted.
@@ -172,30 +204,9 @@ npd_desired_version() {
     printf '%s' "${version}"
 }
 
-# A pending transaction must recover even if the package manager already records the new version.
-npd_component_is_current() {
-    local desired="$1" current="$2" platform distro release version installed
-    [ ! -f "$(npd_pending_file)" ] || return 1
-    [ -f "${NPD_SKIP_FILE}" ] || return 1
-    platform="$(npd_platform)" || return 1
-    read -r distro release <<< "${platform}"
-    release="$(npd_component_release "${distro}" "${release}")"
-    version="$(npd_desired_version "${desired}" "${distro}" "${release}")" || return 1
-    [ -n "${version}" ] || return 1
-    [ "${version}" = "$(npd_desired_version "${current}" "${distro}" "${release}")" ] || return 1
-    installed="$(npd_installed_version)" || return 1
-    npd_version_ge "${installed}" "${version}"
-}
-
-npdConfigsIsCurrent() (
-    NPD_COMPONENT=npdConfig
-    npd_component_is_current "$@"
-)
-
-npdBinaryIsCurrent() (
-    NPD_COMPONENT=npdBinary
-    npd_component_is_current "$@"
-)
+# ----------------------------------------------------------------------------
+# Shared: package primitives
+# ----------------------------------------------------------------------------
 
 npd_package_fields() {
     case "$(npd_package_format)" in
@@ -219,7 +230,7 @@ npd_find_cached_package() {
     arch="$(npd_native_arch)" || return 1
     for package in "${NPD_PACKAGE_CACHE}"/*."${format}"; do
         [ -f "${package}" ] || continue
-        if [ "$(npd_package_fields "${package}")" = "$(printf '%s\t%s\t%s' "$(npd_package_name)" "${version}" "${arch}")" ]; then
+        if [ "$(npd_package_fields "${package}")" = "$(printf '%s\t%s\t%s' "${NPD_PACKAGE}" "${version}" "${arch}")" ]; then
             printf '%s' "${package}"
             return 0
         fi
@@ -237,32 +248,32 @@ npd_tdnf() {
     tdnf -c "${config_dir}/tdnf.conf" "$@"
 }
 
-# Prints a private apt configuration that reads only the config source release's
-# Microsoft repository, or nothing when the node has its own config build. System
-# apt sources, lists and caches are untouched; packages are still signature-checked
-# against the keys apt already trusts.
-npd_config_apt_conf() {
-    local platform source source_release codename dir
-    [ "${NPD_COMPONENT}" = npdConfig ] || return 0
+# Prints a private apt configuration that reads only the Microsoft repository of
+# the release this component follows, or nothing when that is the node's own
+# release. System apt sources, lists and caches are untouched; packages are still
+# signature-checked against the keys apt already trusts.
+npd_apt_conf() {
+    local platform node_release followed codename dir
     platform="$(npd_platform)" || return 1
     [ "${platform%% *}" = ubuntu ] || return 0
-    source="$(npd_ubuntu_config_source "${platform#* }")"
-    [ -n "${source}" ] || return 0
-    read -r source_release codename <<< "${source}"
+    node_release="${platform#* }"
+    followed="$("${NPD_RELEASE_HOOK}" ubuntu "${node_release}")" || return 1
+    [ "${followed}" != "${node_release}" ] || return 0
+    codename="$(npd_ubuntu_codename "${followed}")" || return 1
     dir="${NPD_UPDATE_DIR}/apt"
     mkdir -p "${dir}/lists/partial" "${dir}/cache/archives/partial" || return 1
     printf 'deb [arch=amd64,arm64] https://packages.microsoft.com/ubuntu/%s/prod %s main\n' \
-        "${source_release}" "${codename}" > "${dir}/sources.list" || return 1
+        "${followed}" "${codename}" > "${dir}/sources.list" || return 1
     printf 'Dir::Etc::SourceList "%s/sources.list";\nDir::Etc::SourceParts "-";\nDir::State::Lists "%s/lists";\nDir::Cache "%s/cache";\n' \
         "${dir}" "${dir}" "${dir}" > "${dir}/apt.conf" || return 1
     printf '%s' "${dir}/apt.conf"
 }
 
-# apt-get for package metadata and downloads; only the config package may use a
-# shared release's repository.
-npd_config_apt_get() {
+# apt-get for package metadata and downloads, through the private configuration
+# when the component follows another release.
+npd_apt_get() {
     local conf
-    conf="$(npd_config_apt_conf)" || return 1
+    conf="$(npd_apt_conf)" || return 1
     if [ -n "${conf}" ]; then
         APT_CONFIG="${conf}" apt-get "$@"
     else
@@ -273,7 +284,7 @@ npd_config_apt_get() {
 npd_refresh_metadata() {
     case "$(npd_package_format)" in
         deb)
-            npd_config_apt_get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
+            npd_apt_get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
                 -o APT::Update::Error-Mode=any update
             ;;
         rpm) npd_tdnf makecache --refresh ;;
@@ -285,13 +296,13 @@ npd_download_package() {
     local version="$1"
     case "$(npd_package_format)" in
         deb)
-            (cd "${NPD_PACKAGE_CACHE}" && npd_config_apt_get -o Acquire::Retries=3 \
+            (cd "${NPD_PACKAGE_CACHE}" && npd_apt_get -o Acquire::Retries=3 \
                 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
-                download "$(npd_package_name)=${version}")
+                download "${NPD_PACKAGE}=${version}")
             ;;
         rpm)
             npd_tdnf install -y --downloadonly --downloaddir "${NPD_PACKAGE_CACHE}" \
-                "$(npd_package_name)-${version}"
+                "${NPD_PACKAGE}-${version}"
             ;;
         *) return 1 ;;
     esac
@@ -305,50 +316,27 @@ npd_extract_package() {
     esac
 }
 
+# Extracts the package to a scratch directory and lets the component check it.
 npd_validate_package() {
-    local package="$1" stage file
+    local package="$1" stage result=0
     stage="$(mktemp -d "${NPD_UPDATE_DIR}/validate.XXXXXX")" || return 1
-    if ! npd_extract_package "${package}" "${stage}"; then
-        rm -rf "${stage}"
-        return 1
+    if npd_extract_package "${package}" "${stage}"; then
+        "${NPD_VALIDATE_HOOK}" "${stage}" || result=1
+    else
+        result=1
     fi
-    local result=0
-    if [ "${NPD_COMPONENT}" = npdBinary ]; then
-        npd_validate_binary_stage "${stage}" || result=1
-        rm -rf "${stage}"
-        return "${result}"
-    fi
-    test -x "${stage}/opt/bin/node-problem-detector-startup.sh" || result=1
-    test -s "${stage}/etc/systemd/system/node-problem-detector.service" || result=1
-    test -s "${stage}/etc/node-problem-detector.d/custom-plugin-monitor/custom-kubelet-monitor.json" || result=1
-    while IFS= read -r -d '' file; do
-        case "${file}" in
-            *.json) jq -e 'type == "object"' "${file}" >/dev/null || result=1 ;;
-            *.sh) bash -n "${file}" || result=1 ;;
-        esac
-    done < <(find "${stage}" -type f -print0)
     rm -rf "${stage}"
     return "${result}"
-}
-
-# The binary package must carry the NPD executables, and the new binary must run on
-# this node before it replaces the working one.
-npd_validate_binary_stage() {
-    local stage="$1" executable
-    for executable in node-problem-detector npd-log-counter npd-health-checker; do
-        test -x "${stage}/usr/bin/${executable}" || return 1
-    done
-    "${stage}/usr/bin/node-problem-detector" --version 2>&1 | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'
 }
 
 npd_hold_packages() {
     case "$(npd_package_format)" in
         # dpkg selections avoid apt's slow initialization (see holdWALinuxAgent).
-        deb) printf '%s hold\n' "$(npd_package_name)" | dpkg --set-selections ;;
+        deb) printf '%s hold\n' "${NPD_PACKAGE}" | dpkg --set-selections ;;
         rpm)
             mkdir -p "$(dirname "${NPD_TDNF_LOCK_FILE}")" || return 1
-            grep -qsx "$(npd_package_name)" "${NPD_TDNF_LOCK_FILE}" ||
-                printf '%s\n' "$(npd_package_name)" >> "${NPD_TDNF_LOCK_FILE}"
+            grep -qsx "${NPD_PACKAGE}" "${NPD_TDNF_LOCK_FILE}" ||
+                printf '%s\n' "${NPD_PACKAGE}" >> "${NPD_TDNF_LOCK_FILE}"
             ;;
         *) return 1 ;;
     esac
@@ -373,7 +361,7 @@ npd_install_package() {
         *) return 1 ;;
     esac
     npd_hold_packages || return 1
-    npd_remove_obsolete_configs
+    "${NPD_POST_INSTALL_HOOK}"
 }
 
 # An interrupted rpm upgrade can leave both versions in the rpm database. The
@@ -385,7 +373,7 @@ npd_remove_stale_rpm_entries() {
         if [ -n "${entry}" ] && [ "${entry}" != "${keep}" ]; then
             rpm -e --justdb --nodeps --noscripts "${entry}" || return 1
         fi
-    done < <(rpm -q --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' "$(npd_package_name)" 2>/dev/null)
+    done < <(rpm -q --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' "${NPD_PACKAGE}" 2>/dev/null)
 }
 
 # An interrupted dpkg run blocks every later apt transaction until its journal
@@ -401,72 +389,9 @@ npd_repair_package_state() {
     esac
 }
 
-# Package-manager backups of NPD config files and the unit.
-npd_find_config_backups() {
-    find "${NPD_CONFIG_DIR}" "$(dirname "${NPD_UNIT_FILE}")" -maxdepth 4 \
-        \( -path "${NPD_CONFIG_DIR}/*" -o -path "${NPD_UNIT_FILE}.*" \) \
-        \( "$@" \) -print0 2>/dev/null
-}
-
-# NPD discovers monitor JSONs by directory, so leftover package configs must not
-# survive upgrades or rollback. Never delete unrelated files such as the marker.
-npd_remove_obsolete_configs() {
-    local conffiles path _checksum obsolete file
-    # Only the config package owns the monitor directory NPD reads.
-    [ "${NPD_COMPONENT}" = npdConfig ] || return 0
-    case "$(npd_package_format)" in
-        deb)
-            # dpkg retains removed conffiles.
-            conffiles="$(dpkg-query -W -f='${Conffiles}' node-problem-detector-aks-config)" || return 1
-            while read -r path _checksum obsolete; do
-                if [ "${obsolete}" = obsolete ]; then
-                    case "${path}" in
-                        "${NPD_SKIP_FILE}") return 1 ;;
-                        "${NPD_CONFIG_DIR}"/*) rm -f -- "${path}" || return 1 ;;
-                    esac
-                fi
-            done <<< "${conffiles}"
-            # --force-confnew keeps locally modified files as *.dpkg-old.
-            while IFS= read -r -d '' file; do
-                rm -f -- "${file}" || return 1
-            done < <(npd_find_config_backups -name '*.dpkg-old' -o -name '*.dpkg-dist')
-            ;;
-        rpm)
-            # rpm removes unmodified files dropped by the new package. Match
-            # dpkg --force-confnew for locally modified %config(noreplace) files.
-            while IFS= read -r -d '' file; do
-                case "${file}" in
-                    *.rpmnew) mv -f -- "${file}" "${file%.rpmnew}" || return 1 ;;
-                    *.rpmsave) rm -f -- "${file}" || return 1 ;;
-                esac
-            done < <(npd_find_config_backups -name '*.rpmnew' -o -name '*.rpmsave')
-            ;;
-        *) return 1 ;;
-    esac
-}
-
-# A process can be active with a healthy /healthz while every apiserver call fails
-# (for example a TLS incompatibility between a new binary and the node's OpenSSL).
-# After a binary update, require NPD to refresh its node condition heartbeat.
-npd_check_reporting() {
-    local node_json="$1" since="$2" node_name heartbeat attempt
-    local kubectl_cmd="${KUBECTL:-/opt/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig}"
-    node_name="$(printf '%s' "${node_json}" | jq -r '.metadata.name // empty')" || return 1
-    [ -n "${node_name}" ] || return 1
-    for ((attempt=0; attempt<NPD_REPORT_ATTEMPTS; attempt++)); do
-        # shellcheck disable=SC2086
-        # Bound each request so a stalled apiserver connection still reaches rollback.
-        heartbeat="$(${kubectl_cmd} get node "${node_name}" -o json --request-timeout=10s 2>/dev/null | jq -r '
-            [.status.conditions[]? | select(.type == "KernelDeadlock" or .type == "ReadonlyFilesystem")
-             | .lastHeartbeatTime | fromdateiso8601] | max // 0' 2>/dev/null)" || heartbeat=0
-        if [ "${heartbeat:-0}" -ge "${since}" ] 2>/dev/null; then
-            return 0
-        fi
-        sleep 5
-    done
-    echo "${NPD_COMPONENT}: NPD did not report node conditions after the update" >&2
-    return 1
-}
+# ----------------------------------------------------------------------------
+# Shared: service control
+# ----------------------------------------------------------------------------
 
 # Stops NPD and prints a reporting baseline in epoch seconds. Heartbeats are
 # second-granular, so the baseline is the first full second after the stop:
@@ -496,55 +421,71 @@ npd_restart_and_check() {
     return 1
 }
 
+# ----------------------------------------------------------------------------
+# Shared: transaction
+# ----------------------------------------------------------------------------
+
 # The durable pending file records the version to restore, not a successful goal.
 # Reinstalling that cached package repairs both package-manager state and live files.
 npd_recover_pending() {
-    local old_version package pending
-    pending="$(npd_pending_file)"
-    [ -f "${pending}" ] || return 0
-    old_version="$(cat "${pending}")" || return 1
+    local old_version package
+    [ -f "${NPD_PENDING_FILE}" ] || return 0
+    old_version="$(cat "${NPD_PENDING_FILE}")" || return 1
     package="$(npd_find_cached_package "${old_version}")" || return 1
     # A repair can fail when a package's maintainer script keeps failing. Still
     # attempt the rollback: reinstalling the prior package replaces a broken NPD
     # package, and the install and health checks keep pending until it succeeds.
     npd_repair_package_state || echo "${NPD_COMPONENT}: package-manager repair failed; attempting rollback"
     npd_install_package "${package}" && npd_restart_and_check || return 1
-    rm -f "${pending}"
+    rm -f "${NPD_PENDING_FILE}"
 }
 
-# The shared transaction for the current component.
+# A pending transaction must recover even if the package manager already records the new version.
+npd_component_is_current() {
+    local desired="$1" current="$2" platform distro release version installed
+    [ ! -f "${NPD_PENDING_FILE}" ] || return 1
+    [ -f "${NPD_SKIP_FILE}" ] || return 1
+    platform="$(npd_platform)" || return 1
+    read -r distro release <<< "${platform}"
+    release="$("${NPD_RELEASE_HOOK}" "${distro}" "${release}")" || return 1
+    version="$(npd_desired_version "${desired}" "${distro}" "${release}")" || return 1
+    [ -n "${version}" ] || return 1
+    [ "${version}" = "$(npd_desired_version "${current}" "${distro}" "${release}")" ] || return 1
+    installed="$(npd_installed_version)" || return 1
+    npd_version_ge "${installed}" "${version}"
+}
+
+# The shared transaction for the selected component.
 npd_update_component() {
     # Ubuntu securityPatch is sourced into the same reconciler and exports APT_CONFIG.
     # Keep its snapshot-only repositories out of NPD package operations.
     unset APT_CONFIG
-    local payload="$1" node_json="${2:-}" platform distro release desired installed package pending since
-    pending="$(npd_pending_file)"
+    local payload="$1" node_json="${2:-}" platform distro release desired installed package since
     if [ ! -f "${NPD_SKIP_FILE}" ] || ! platform="$(npd_platform)"; then
         echo "${NPD_COMPONENT}: no action for an unsupported or extension-managed node"
-        knead_emit_npd_config_event NoAction 'Node does not own baked NPD'
+        knead_emit_npd_event NoAction 'Node does not own baked NPD'
         return 0
     fi
     read -r distro release <<< "${platform}"
     # Require the baked package for normal onboarding; a pending transaction may
     # temporarily leave the package manager in a partial state.
-    if [ ! -f "${pending}" ] && ! npd_installed_version >/dev/null; then
-        echo "${NPD_COMPONENT}: no AgentBaker $(npd_package_name) package; no action"
+    if [ ! -f "${NPD_PENDING_FILE}" ] && ! npd_installed_version >/dev/null; then
+        echo "${NPD_COMPONENT}: no AgentBaker ${NPD_PACKAGE} package; no action"
         return 0
     fi
     mkdir -p "${NPD_UPDATE_DIR}" "${NPD_PACKAGE_CACHE}" || { npd_fail WorkDirectory; return 1; }
     npd_recover_pending || { npd_fail RecoveryFailed; return 1; }
-    # Releases without their own config build follow their config source's entry.
-    release="$(npd_component_release "${distro}" "${release}")"
+    release="$("${NPD_RELEASE_HOOK}" "${distro}" "${release}")" || { npd_fail InvalidConfig; return 1; }
     desired="$(npd_desired_version "${payload}" "${distro}" "${release}")" || { npd_fail InvalidConfig; return 1; }
     if [ -z "${desired}" ]; then
         echo "${NPD_COMPONENT}: no package selected for ${distro} ${release}; no action"
-        knead_emit_npd_config_event NoAction "No package selected for ${distro} ${release}"
+        knead_emit_npd_event NoAction "No package selected for ${distro} ${release}"
         return 0
     fi
     installed="$(npd_installed_version)" || { npd_fail InstalledVersion; return 1; }
     if npd_version_ge "${installed}" "${desired}"; then
         echo "${NPD_COMPONENT}: installed ${installed} satisfies ${desired}; no action"
-        knead_emit_npd_config_event NoAction "Installed ${installed} satisfies ${desired}"
+        knead_emit_npd_event NoAction "Installed ${installed} satisfies ${desired}"
         return 0
     fi
     # The old package is cached during baking or the previous successful update.
@@ -557,32 +498,164 @@ npd_update_component() {
         package="$(npd_find_cached_package "${desired}")" || { npd_fail PackageIdentity; return 1; }
     fi
     npd_validate_package "${package}" || { npd_fail PackageValidation; return 1; }
-    if ! printf '%s\n' "${installed}" > "${pending}.tmp" ||
-       ! mv "${pending}.tmp" "${pending}"; then
+    if ! printf '%s\n' "${installed}" > "${NPD_PENDING_FILE}.tmp" ||
+       ! mv "${NPD_PENDING_FILE}.tmp" "${NPD_PENDING_FILE}"; then
         npd_fail TransactionState
         return 1
     fi
-    # For the binary, stop the old process and take the reporting baseline after it,
-    # so no heartbeat from the old process can satisfy the reporting check.
+    # Stop the old process before taking the baseline so nothing it reports can
+    # satisfy the activation check of the new package.
     if ! npd_install_package "${package}" ||
-       { [ "${NPD_COMPONENT}" = npdBinary ] && ! since="$(npd_stop_for_reporting_baseline)"; } ||
+       ! since="$(npd_stop_for_reporting_baseline)" ||
        ! npd_restart_and_check ||
-       { [ "${NPD_COMPONENT}" = npdBinary ] && ! npd_check_reporting "${node_json}" "${since}"; }; then
-        npd_recover_pending || knead_emit_npd_config_event Failed 'reason=RecoveryFailed' Error
+       ! "${NPD_ACTIVATION_CHECK}" "${node_json}" "${since}"; then
+        npd_recover_pending || knead_emit_npd_event Failed 'reason=RecoveryFailed' Error
         npd_fail PackageActivation
         return 1
     fi
-    rm -f "${pending}" || { npd_fail TransactionState; return 1; }
+    rm -f "${NPD_PENDING_FILE}" || { npd_fail TransactionState; return 1; }
     echo "${NPD_COMPONENT} updated successfully: ${desired}"
-    knead_emit_npd_config_event Succeeded "Installed ${desired}"
+    knead_emit_npd_event Succeeded "Installed ${desired}"
 }
 
+# ----------------------------------------------------------------------------
+# npdConfig hooks
+# ----------------------------------------------------------------------------
+
+# The config package content is the same on every release. Ubuntu releases
+# without their own config build use another release's package: they read that
+# release's payload entry and download from its repository. Prints the source
+# release, or nothing when the node has its own build.
+npd_ubuntu_config_source() {
+    case "$1" in
+        26.04) printf '24.04' ;;
+    esac
+}
+
+# Release hook: the release whose config payload entry and package this node follows.
+npd_config_release() {
+    local distro="$1" release="$2" source
+    if [ "${distro}" = ubuntu ]; then
+        source="$(npd_ubuntu_config_source "${release}")"
+        [ -z "${source}" ] || release="${source}"
+    fi
+    printf '%s' "${release}"
+}
+
+npd_validate_config_stage() {
+    local stage="$1" file result=0
+    test -x "${stage}/opt/bin/node-problem-detector-startup.sh" || result=1
+    test -s "${stage}/etc/systemd/system/node-problem-detector.service" || result=1
+    test -s "${stage}/etc/node-problem-detector.d/custom-plugin-monitor/custom-kubelet-monitor.json" || result=1
+    while IFS= read -r -d '' file; do
+        case "${file}" in
+            *.json) jq -e 'type == "object"' "${file}" >/dev/null || result=1 ;;
+            *.sh) bash -n "${file}" || result=1 ;;
+        esac
+    done < <(find "${stage}" -type f -print0)
+    return "${result}"
+}
+
+# Package-manager backups of NPD config files and the unit.
+npd_find_config_backups() {
+    find "${NPD_CONFIG_DIR}" "$(dirname "${NPD_UNIT_FILE}")" -maxdepth 4 \
+        \( -path "${NPD_CONFIG_DIR}/*" -o -path "${NPD_UNIT_FILE}.*" \) \
+        \( "$@" \) -print0 2>/dev/null
+}
+
+# Post-install hook. NPD discovers monitor JSONs by directory, so leftover package
+# configs must not survive upgrades or rollback. Never delete unrelated files such
+# as the marker.
+npd_remove_obsolete_configs() {
+    local conffiles path _checksum obsolete file
+    case "$(npd_package_format)" in
+        deb)
+            # dpkg retains removed conffiles.
+            conffiles="$(dpkg-query -W -f='${Conffiles}' "${NPD_PACKAGE}")" || return 1
+            while read -r path _checksum obsolete; do
+                if [ "${obsolete}" = obsolete ]; then
+                    case "${path}" in
+                        "${NPD_SKIP_FILE}") return 1 ;;
+                        "${NPD_CONFIG_DIR}"/*) rm -f -- "${path}" || return 1 ;;
+                    esac
+                fi
+            done <<< "${conffiles}"
+            # --force-confnew keeps locally modified files as *.dpkg-old.
+            while IFS= read -r -d '' file; do
+                rm -f -- "${file}" || return 1
+            done < <(npd_find_config_backups -name '*.dpkg-old' -o -name '*.dpkg-dist')
+            ;;
+        rpm)
+            # rpm removes unmodified files dropped by the new package. Match
+            # dpkg --force-confnew for locally modified %config(noreplace) files.
+            while IFS= read -r -d '' file; do
+                case "${file}" in
+                    *.rpmnew) mv -f -- "${file}" "${file%.rpmnew}" || return 1 ;;
+                    *.rpmsave) rm -f -- "${file}" || return 1 ;;
+                esac
+            done < <(npd_find_config_backups -name '*.rpmnew' -o -name '*.rpmsave')
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+# ----------------------------------------------------------------------------
+# npdBinary hooks
+# ----------------------------------------------------------------------------
+
+# The binary package must carry the NPD executables, and the new binary must run on
+# this node before it replaces the working one.
+npd_validate_binary_stage() {
+    local stage="$1" executable
+    for executable in node-problem-detector npd-log-counter npd-health-checker; do
+        test -x "${stage}/usr/bin/${executable}" || return 1
+    done
+    "${stage}/usr/bin/node-problem-detector" --version 2>&1 | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'
+}
+
+# Activation check. A process can be active with a healthy /healthz while every
+# apiserver call fails (for example a TLS incompatibility between a new binary and
+# the node's OpenSSL), so require NPD to refresh its node condition heartbeat.
+npd_check_reporting() {
+    local node_json="$1" since="$2" node_name heartbeat attempt
+    local kubectl_cmd="${KUBECTL:-/opt/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig}"
+    node_name="$(printf '%s' "${node_json}" | jq -r '.metadata.name // empty')" || return 1
+    [ -n "${node_name}" ] || return 1
+    for ((attempt=0; attempt<NPD_REPORT_ATTEMPTS; attempt++)); do
+        # Bound each request so a stalled apiserver connection still reaches rollback.
+        # shellcheck disable=SC2086
+        heartbeat="$(${kubectl_cmd} get node "${node_name}" -o json --request-timeout=10s 2>/dev/null | jq -r '
+            [.status.conditions[]? | select(.type == "KernelDeadlock" or .type == "ReadonlyFilesystem")
+             | .lastHeartbeatTime | fromdateiso8601] | max // 0' 2>/dev/null)" || heartbeat=0
+        if [ "${heartbeat:-0}" -ge "${since}" ] 2>/dev/null; then
+            return 0
+        fi
+        sleep 5
+    done
+    echo "${NPD_COMPONENT}: NPD did not report node conditions after the update" >&2
+    return 1
+}
+
+# ----------------------------------------------------------------------------
+# Entry points called by the generic updaters
+# ----------------------------------------------------------------------------
+
+npdConfigsIsCurrent() (
+    npd_select_component npdConfig || return 1
+    npd_component_is_current "$@"
+)
+
+npdBinaryIsCurrent() (
+    npd_select_component npdBinary || return 1
+    npd_component_is_current "$@"
+)
+
 updateNPDConfigs() (
-    NPD_COMPONENT=npdConfig
+    npd_select_component npdConfig || return 1
     npd_update_component "$@"
 )
 
 updateNPDBinary() (
-    NPD_COMPONENT=npdBinary
+    npd_select_component npdBinary || return 1
     npd_update_component "$@"
 )

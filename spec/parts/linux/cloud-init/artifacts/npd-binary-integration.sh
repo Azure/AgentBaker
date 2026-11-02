@@ -5,14 +5,14 @@
 # bash spec/parts/linux/cloud-init/artifacts/npd-binary-integration.sh <old-binary-pkg> <new-version>
 # Installs a real older NPD binary package, then drives updateNPDBinary to a newer
 # published revision with the real package manager and PMC. Only the NPD service
-# restart and the apiserver reporting check are stubbed.
+# stop, restart and the apiserver reporting check are stubbed.
 set -euo pipefail
 
 source ./parts/linux/cloud-init/artifacts/npd-update.sh
 
 old_package="$(realpath "$1")"
 new_version="$2"
-NPD_COMPONENT=npdBinary
+npd_select_component npdBinary
 format="$(npd_package_format)"
 read -r distro release <<< "$(npd_platform)"
 IFS=$'\t' read -r _name old_version _arch <<< "$(npd_package_fields "${old_package}")"
@@ -28,6 +28,7 @@ mkdir -p "$(dirname "${NPD_SKIP_FILE}")"
 touch "${NPD_SKIP_FILE}"
 goal() { jq -nc --arg map "${map}" --arg release "${release}" --arg version "$1" '{($map):{($release):$version}}'; }
 
+npd_stop_for_reporting_baseline() { date +%s; }
 npd_restart_and_check() { return 0; }
 npd_check_reporting() { return 0; }
 
@@ -38,10 +39,10 @@ updateNPDBinary "$(goal "${old_version}")" '{}'
 eval "${npd_refresh_metadata_real}"
 
 # Real download and held upgrade of the binary; the config package is untouched.
-config_before="$(NPD_COMPONENT=npdConfig npd_installed_version 2>/dev/null || echo none)"
+config_before="$(npd_select_component npdConfig && npd_installed_version 2>/dev/null || echo none)"
 updateNPDBinary "$(goal "${new_version}")" '{}'
 test "$(npd_installed_version)" = "${new_version}"
-test "$(NPD_COMPONENT=npdConfig npd_installed_version 2>/dev/null || echo none)" = "${config_before}"
+test "$(npd_select_component npdConfig && npd_installed_version 2>/dev/null || echo none)" = "${config_before}"
 test ! -f "${NPD_UPDATE_DIR}/pending-binary"
 /usr/bin/node-problem-detector --version
 case "${format}" in

@@ -160,10 +160,17 @@ Binary-specific checks:
 - Before installing, the staged package must contain the NPD executables, and the
   new `node-problem-detector --version` must run on the node.
 - After restarting NPD, `/healthz` is not enough: a binary can stay active and
-  healthy while every apiserver call fails. The handler also requires NPD to
-  refresh its node condition heartbeat (`KernelDeadlock` or `ReadonlyFilesystem`)
-  after the restart, and otherwise rolls back to the cached binary. Rollback itself
+  healthy while every apiserver call fails. The handler stops NPD before the
+  restart and requires a node condition heartbeat (`KernelDeadlock` or
+  `ReadonlyFilesystem`) newer than the stop, so a heartbeat from the old process
+  cannot count. Otherwise it rolls back to the cached binary. Rollback itself
   only requires local health, so an apiserver outage cannot block recovery.
+
+Both components share one transaction in `npd-update.sh`. Each entry point calls
+`npd_select_component`, which sets the package, the transaction marker and the
+hooks where the components differ (release mapping, package validation,
+post-install cleanup and the post-restart check). An unknown component fails
+before any package operation.
 
 The VHD caches both packages in `/opt/node-problem-detector/downloads` for offline
 rollback (about 20 MB for the binary).
@@ -181,11 +188,11 @@ and generic handler. The E2E validator checks baked service startup.
 disposable Ubuntu or Azure Linux 3 container. It uses the published package and
 the real package manager, creates a local test revision, and tests held upgrade,
 local-edit replacement, removed-config cleanup, marker preservation and downgrade
-recovery. Only service restart is stubbed.
+recovery. Only the service stop and restart are stubbed.
 `spec/parts/linux/cloud-init/artifacts/npd-binary-integration.sh` does the same for
 the binary with two published revisions: real held upgrade, interrupted recovery
-and rollback when NPD stops reporting. Only the restart and reporting check are
-stubbed.
+and rollback when NPD stops reporting. Only the service stop, restart and the
+reporting check are stubbed.
 
 Like the generic updaters and securityPatch handlers, `npd-update.sh` is delivered
 only by the VHD. It is not written by provisioning CustomData or hotfix delivery,
