@@ -2786,8 +2786,8 @@ func Test_getLocalDnsCpuLimitInPercentage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getLocalDnsCpuLimitInPercentage(tt.args.aksnodeconfig); got != tt.want {
-				t.Errorf("getLocalDnsCpuLimitInPercentage() = %v, want %v", got, tt.want)
+			if got := GetLocalDnsCpuLimitInPercentage(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("GetLocalDnsCpuLimitInPercentage() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -2837,8 +2837,8 @@ func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getLocalDnsMemoryLimitInMb(tt.args.aksnodeconfig); got != tt.want {
-				t.Errorf("getLocalDnsMemoryLimitInMb() = %v, want %v", got, tt.want)
+			if got := GetLocalDnsMemoryLimitInMb(tt.args.aksnodeconfig); got != tt.want {
+				t.Errorf("GetLocalDnsMemoryLimitInMb() = %v, want %v", got, tt.want)
 			}
 		})
 	}
