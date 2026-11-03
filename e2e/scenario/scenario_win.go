@@ -345,6 +345,44 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:        "Windows2025Gen2_WindowsCiliumNetworking_DisableOutboundNAT",
+	Description: "Windows Server 2025 Gen2 with Windows Cilium Networking (WCN) and Windows outbound NAT disabled",
+	Config: Config{
+		Cluster:               ClusterAzureNetwork,
+		VHD:                   config.VHDWindows2025Gen2,
+		VMConfigMutator:       EmptyVMConfigMutator,
+		WaitForSSHAfterReboot: 5 * time.Minute,
+		BootstrapConfigMutatorWithError: func(ctx context.Context, cluster *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) error {
+			// The WcnAgent outbound NAT setting is written by the CSE package, so test the branch CSE
+			// instead of the published package selected by the default CseScriptsPackageURL.
+			cseMutator, err := rcv1pWindowsCSEMutator(ctx)
+			if err != nil {
+				return err
+			}
+			cseMutator(cluster, configuration)
+			if err := Windows2025BootstrapConfigMutator(configuration); err != nil {
+				return err
+			}
+			if configuration.AgentPoolProfile.AgentPoolWindowsProfile == nil {
+				configuration.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{}
+			}
+			configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingEnabled = to.Ptr(true)
+			configuration.AgentPoolProfile.AgentPoolWindowsProfile.NextGenNetworkingConfig = to.Ptr("")
+			configuration.AgentPoolProfile.AgentPoolWindowsProfile.DisableOutboundNat = to.Ptr(true)
+			return nil
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2"),
+				ValidateKubeletArgs(ctx, s),
+				ValidateWindowsCiliumIsRunning(ctx, s),
+				ValidateWindowsCiliumNetworkingDisableOutboundNat(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "Windows2022_SecureTLSBootstrapping_BootstrapToken_Fallback",
 	Description: "Windows Server 2022 with Containerd 2- hyperv gen 2 using secure TLS bootstrapping bootstrap token fallback",
 	Tags: Tags{

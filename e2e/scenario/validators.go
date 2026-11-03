@@ -2379,6 +2379,20 @@ func ValidateWindowsCiliumIsRunning(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
+// ValidateWindowsCiliumNetworkingDisableOutboundNat asserts that CSE passed the AKS
+// disable-windows-outbound-nat option to WcnAgent as a DWORD DisableOutboundNat=1.
+func ValidateWindowsCiliumNetworkingDisableOutboundNat(ctx context.Context, s *Scenario) error {
+	script := `$path = 'HKLM:\SYSTEM\CurrentControlSet\Services\HNS\wcna_state\config'
+$value = Get-ItemPropertyValue -Path $path -Name DisableOutboundNat -ErrorAction Stop
+$kind = (Get-Item -Path $path -ErrorAction Stop).GetValueKind('DisableOutboundNat')
+Write-Output "$kind=$value"`
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "could not read WcnAgent DisableOutboundNat registry value")
+	if err != nil {
+		return fmt.Errorf("read WcnAgent DisableOutboundNat registry value: %w", err)
+	}
+	return assert.Equal(strings.TrimSpace(result.stdout), "DWord=1")
+}
+
 func ValidateWindowsCiliumIsNotRunning(ctx context.Context, s *Scenario) error {
 	// some of the services used by windows cilium are dependencies of other services, so they may be running even if cilium is not
 	// for example, ebpfcore is used by Guest Proxy Agent (GPA), so it may be running even if cilium is not
