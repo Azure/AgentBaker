@@ -875,6 +875,11 @@ cachePackageAndBinaryComponents() {
           echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
         ;;
+      "nvidia-container-toolkit")
+        for version in "${PACKAGE_VERSIONS[@]}"; do
+          echo "  - nvidia-container-toolkit version ${version} (pinned for GPU node provisioning)" >> "${VHD_LOGS_FILEPATH}"
+        done
+        ;;
       "${K8S_DEVICE_PLUGIN_PKG}")
         for version in ${PACKAGE_VERSIONS[@]}; do
           if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
@@ -992,6 +997,17 @@ cacheContainerImageComponents() {
     --vhd-log-file "$VHD_LOGS_FILEPATH"
 }
 
+logCachedNvidiaContainerToolkitVersion() {
+  local image="$1"
+  local version
+  if version=$(timeout 30 ctr -n k8s.io run --rm "$image" "nvidia-container-toolkit-version-$$" \
+    /bin/sh -c 'dpkg-deb -f /opt/gpu/nvidia-container-toolkit_*.deb Version') && [ -n "$version" ]; then
+    echo "  - nvidia-container-toolkit version ${version} (cached in CUDA driver image; installed at node provisioning time)" >> "$VHD_LOGS_FILEPATH"
+  else
+    echo "Warning: unable to read NVIDIA container toolkit version from cached image ${image}" >&2
+  fi
+}
+
 cacheGPUContainerImageComponents() {
   # Download/install GPU container image components
   GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
@@ -1046,6 +1062,10 @@ cacheGPUContainerImageComponents() {
       cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+    # GB's installed toolkit is already included in the installed-package inventory.
+    if ! echo "$FEATURE_FLAGS" | grep -q "NVIDIA_GB"; then
+      logCachedNvidiaContainerToolkitVersion "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+    fi
   fi
 
   # Add a separate section for runtime-installed components
@@ -1153,44 +1173,6 @@ EOF
       touch /etc/node-problem-detector.d/skip_vhd_npd
     fi
   fi
-}
-
-writeNvidiaContainerToolkitReleaseNotes() {
-  local driver_image="$1"
-  local driver_tag="$2"
-  local version
-  local source
-
-  if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-    if [ "$CPU_ARCH" = "arm64" ] && [ "$UBUNTU_RELEASE" = "24.04" ] && grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
-      version=$(dpkg-query -W -f='${Version}' nvidia-container-toolkit) || return $?
-      source="installed on the VHD"
-    elif [ -n "$driver_image" ] && [ -n "$driver_tag" ]; then
-      # The toolkit is shipped as debs inside the driver image, not installed on the VHD.
-      version=$(ctr -n k8s.io run --rm "${driver_image}:${driver_tag}" nvidia-container-toolkit-version \
-        /bin/sh -c 'dpkg-deb -f /opt/gpu/nvidia-container-toolkit_*.deb Version') || return $?
-      source="cached in the CUDA driver image; installed at node provisioning time"
-    else
-      return 0
-    fi
-  elif isAzureLinux "$OS" "$OS_VARIANT" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT" && \
-    [ "$CPU_ARCH" = "amd64" ] && [ "$IS_KATA" != "true" ]; then
-    version=$(jq -r '.Packages[] | select(.name == "nvidia-container-toolkit") |
-      .downloadURIs.azurelinux.current.versionsV2[0].latestVersion // empty' "$COMPONENTS_FILEPATH") || return $?
-    source="pinned in components.json; installed at node provisioning time"
-  else
-    return 0
-  fi
-
-  if [ -z "$version" ]; then
-    echo "Error: NVIDIA container toolkit version is missing from release-note metadata" >&2
-    return 1
-  fi
-
-  {
-    echo "NVIDIA container toolkit for supported GPU VM sizes:"
-    echo "  - nvidia-container-toolkit version ${version} (${source})"
-  } >> "$VHD_LOGS_FILEPATH"
 }
 
 # This function extracts CoreDNS binary from cached coredns images (latest version)
@@ -1542,8 +1524,6 @@ if isAzureLinux "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && ! isAzureLinuxO
     echo "Warning: no Azure Linux NVIDIA GPU driver packages found for kernel $(uname -r)" | tee -a "${VHD_LOGS_FILEPATH}" >&2
   fi
 fi
-
-writeNvidiaContainerToolkitReleaseNotes "$NVIDIA_DRIVER_IMAGE" "$NVIDIA_DRIVER_IMAGE_TAG"
 
 # nvidia repos are non msft public endpoints and should not be present on VHDs.
 # The installation logic during provisioning time will use the cached rpm/deb files
