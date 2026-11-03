@@ -826,4 +826,46 @@ EOF
             The status should be failure
         End
     End
+
+    Describe 'backup and restore'
+        # Each file is backed up under its own name, so a restore puts back exactly the files it names,
+        # whatever the order of localDNSPatchedFiles.
+        prepare_backup() {
+            echo 'prepared A' > "${LOCALDNS_LIVEPATCHED_COREFILE}"
+            echo 'A' > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            echo 'served A' > "${LOCALDNS_SERVED_COREFILE}"
+            TEST_BACKUP_DIR="${TEST_DIR}/backup"
+            mkdir -p "${TEST_BACKUP_DIR}"
+            localDNSBackup "${TEST_BACKUP_DIR}"
+            echo 'prepared B' > "${LOCALDNS_LIVEPATCHED_COREFILE}"
+            rm -f "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            echo 'served B' > "${LOCALDNS_SERVED_COREFILE}"
+        }
+        BeforeEach 'prepare_backup'
+
+        It 'restores only the named files'
+            When call localDNSRestore "${TEST_BACKUP_DIR}" "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            The status should be success
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'prepared A'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'A'
+            The contents of file "${LOCALDNS_SERVED_COREFILE}" should equal 'served B'
+        End
+
+        It 'restores every patched file when none is named'
+            When call localDNSRestore "${TEST_BACKUP_DIR}"
+            The status should be success
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'prepared A'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'A'
+            The contents of file "${LOCALDNS_SERVED_COREFILE}" should equal 'served A'
+        End
+
+        It 'removes a named file that did not exist when the backup was taken'
+            rm -f "${TEST_BACKUP_DIR}/livepatched.localdns.corefile.version"
+            echo 'B' > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            When call localDNSRestore "${TEST_BACKUP_DIR}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            The status should be success
+            The path "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should not be exist
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'prepared B'
+        End
+    End
 End
