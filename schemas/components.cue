@@ -41,6 +41,8 @@ package components
 	latestVersion:           string
 	previousLatestVersion?:  string
 	containerImagePrefetch?: #ContainerImagePrefetchOptimizations
+	// windowsDownloadURL overrides the release's windowsDownloadURL/downloadURL for this entry only.
+	windowsDownloadURL?: string
 }
 
 #ReleaseDownloadURI: {
@@ -64,6 +66,7 @@ package components
 	if windowsDownloadRequiresAzCopy == true {
 		windowsDownloadURL?: =~"^[^?]*$"
 		downloadURL?:        =~"^[^?]*$"
+		versionsV2: [...{windowsDownloadURL?: =~"^[^?]*$"}]
 	}
 }
 
