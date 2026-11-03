@@ -56,6 +56,20 @@ TRADITIONAL_TEMPLATE = """- path: {{GetCSEHelpersScriptFilepath}}
 
 
 class HotfixGenerateTests(unittest.TestCase):
+    def test_workflow_enables_dual_script_delivery(self):
+        repository = Path(__file__).resolve().parents[1]
+        workflow = repository / ".github/workflows/hotfix-generate.yml"
+        commands = [
+            line.strip()
+            for line in workflow.read_text().splitlines()
+            if line.strip().startswith("python3 hotfix/hotfix_generate.py ")
+        ]
+        self.assertEqual(
+            ['python3 hotfix/hotfix_generate.py "origin/${GITHUB_BASE_REF}" '
+             '--use-anc-for-scripts'],
+            commands,
+        )
+
     def test_production_renderer_omits_empty_platform_payloads(self):
         repository = Path(__file__).resolve().parents[1]
         lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
@@ -65,7 +79,7 @@ class HotfixGenerateTests(unittest.TestCase):
         cases = [
             ("custom cloud only", hotfix_generate.build_hotfix_template(
                 {"initAKSCloud"}, lines[outer_else + 1:end]
-            ), set()),
+            ), {"ubuntu", "mariner"}),
             ("missing", "#cloud-config\n", set()),
             ("null", "write_files:\n", set()),
             ("empty list", "write_files: []\n", set()),
