@@ -88,6 +88,22 @@ DNS_HEALTH_CHECK_TRIES=2
 
 AKS_NODE_CONTROLLER_BINARY="/opt/azure/containers/aks-node-controller"
 
+# The corefileVersion this start fetched from LPS and applied the limits of. Written to the .version
+# file only once CoreDNS is ready on it (commit_localdns_corefile_version); a start that fetched
+# nothing leaves it empty, so a plain restart never writes the .version file.
+LOCALDNS_PENDING_COREFILE_VERSION=""
+
+# CPU and memory limit live patching, shared with the runtime live-patching handler and installed
+# next to this script. Without it the LPS fetch is skipped, as the limits it carries cannot be applied.
+# Its functions log what they do on stderr, which the calls below fold into this script's output.
+LOCALDNS_LIMITS_SCRIPT="${LOCALDNS_LIMITS_SCRIPT:-${LOCALDNS_SCRIPT_PATH}/localdns-limits.sh}"
+if [ -f "${LOCALDNS_LIMITS_SCRIPT}" ]; then
+    # shellcheck source=parts/linux/cloud-init/artifacts/localdns-limits.sh
+    source "${LOCALDNS_LIMITS_SCRIPT}"
+else
+    echo "WARNING: ${LOCALDNS_LIMITS_SCRIPT} not found; LocalDNS live patching is unavailable."
+fi
+
 # Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/localdns_spec.sh.
@@ -420,15 +436,34 @@ refresh_localdns_corefile_from_lps() {
         discard_livepatched_localdns_corefile "aks-node-controller binary unavailable" || true
         return 0
     fi
+    if ! command -v localdns_limits_preflight >/dev/null 2>&1; then
+        echo "LocalDNS limit functions are unavailable; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+
+    # Same order as the runtime handler (localdns-livepatch-handler.sh): preflight, render, limits,
+    # then CoreDNS starts on the result and the version is committed once it is ready. The preflight
+    # comes first so that a node whose limits cannot be managed fetches and writes nothing.
+    local preflight
+    local baked_cpu
+    local baked_memory
+    local previous_cpu
+    local previous_memory
+    if ! preflight="$(localdns_limits_preflight)"; then
+        echo "LocalDNS limits preflight failed: ${preflight}; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+    read -r baked_cpu baked_memory previous_cpu previous_memory <<< "${preflight}"
 
     # The fetch command is fail-open and always exits successfully. Its final stdout line is the
     # machine-readable outcome.
     #
     # Outcomes split by whether LPS is authoritative about this node:
-    #   applied/alreadyCurrent - LPS published a corefile; keep the live-patched source.
+    #   rendered/alreadyCurrent - LPS published a corefile; keep the live-patched source and apply
+    #     its limits (apply_lps_localdns_limits).
     #   notFound/noCorefileData - LPS is reachable and has nothing (or nothing usable) for this
     #     node. That is authoritative, so any previously live-patched corefile is revoked and the
-    #     baked corefile takes over again.
+    #     baked corefile and limits take over again.
     #   failed/unexpected - the fetch itself broke, so LPS said nothing either way. Keep the last
     #     known-good live-patched corefile; discarding on a transient error would flap this node's
     #     DNS config on every network hiccup.
@@ -445,12 +480,14 @@ refresh_localdns_corefile_from_lps() {
         return 0
     fi
     case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
-        applied|alreadyCurrent)
+        rendered|alreadyCurrent)
             echo "LocalDNS LPS config fetch outcome: ${outcome}"
+            apply_lps_localdns_limits "${outcome}" "${baked_cpu}" "${baked_memory}" "${previous_cpu}" "${previous_memory}"
             ;;
         notFound|noCorefileData)
             echo "LocalDNS LPS config fetch outcome: ${outcome}; LPS has no corefile for this node."
             discard_livepatched_localdns_corefile "LPS outcome ${outcome}" || true
+            reset_localdns_limits_to_baked "${baked_cpu}" "${baked_memory}"
             ;;
         failed)
             echo "LocalDNS LPS config fetch outcome: ${outcome}; continuing with existing corefile."
@@ -464,6 +501,70 @@ refresh_localdns_corefile_from_lps() {
 
 localdns_corefile_version_file() {
     echo "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version"
+}
+
+# Applies the CPU and memory limits of the corefileVersion LPS returned, before CoreDNS starts.
+# A failure must not fail localdns.service or provisioning: the limits go back to what the slice ran
+# with, the live-patched corefile is discarded, and CoreDNS starts on the baked corefile and limits.
+# The runtime handler retries the patch once the node has joined. On success, records the version for
+# commit_localdns_corefile_version.
+apply_lps_localdns_limits() {
+    local outcome="$1"
+    local baked_cpu="$2"
+    local baked_memory="$3"
+    local previous_cpu="$4"
+    local previous_memory="$5"
+    local desired
+    local desired_version
+    local desired_cpu
+    local desired_memory
+    local limits_error
+    local reverted
+
+    if ! desired="$(localdns_limits_from_anc_output "${outcome}" "${baked_cpu}" "${baked_memory}")"; then
+        echo "WARNING: ${desired}; discarding the LPS corefile."
+        discard_livepatched_localdns_corefile "unreadable aks-node-controller output" || true
+        return 0
+    fi
+    read -r desired_version desired_cpu desired_memory <<< "${desired}"
+    if ! { limits_error="$(localdns_limits_apply "${desired_cpu}" "${desired_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
+        echo "WARNING: live patching ${limits_error}."
+        if { reverted="$(localdns_limits_revert "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
+            echo "Reverted the localdns.slice limits to ${reverted}."
+        else
+            echo "WARNING: Reverting the localdns.slice limits also failed; ${reverted}."
+        fi
+        discard_livepatched_localdns_corefile "limits of corefileVersion ${desired_version} could not be applied" || true
+        return 0
+    fi
+    LOCALDNS_PENDING_COREFILE_VERSION="${desired_version}"
+    return 0
+}
+
+# Resets the limits to the baked ones when LPS revokes the live patch. Best effort, like the revoke.
+reset_localdns_limits_to_baked() {
+    local baked_cpu="$1"
+    local baked_memory="$2"
+    local state
+
+    if ! { state="$(localdns_limits_revert "${baked_cpu}" "${baked_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
+        echo "WARNING: Resetting the localdns.slice limits to the baked ones failed; ${state}."
+    fi
+    return 0
+}
+
+# Commits the LPS patch this start applied: the .version file says its corefile and limits are in
+# effect. Called once CoreDNS is ready; a start that fetched nothing has no version to write.
+commit_localdns_corefile_version() {
+    if [ -z "${LOCALDNS_PENDING_COREFILE_VERSION}" ]; then
+        return 0
+    fi
+    if ! localdns_write_corefile_version "$(localdns_corefile_version_file)" "${LOCALDNS_PENDING_COREFILE_VERSION}"; then
+        echo "WARNING: Failed to write $(localdns_corefile_version_file); the runtime live patching retries it."
+        return 0
+    fi
+    echo "Committed LocalDNS corefileVersion ${LOCALDNS_PENDING_COREFILE_VERSION}."
+    return 0
 }
 
 # Build iptables rules to skip conntrack for DNS traffic to and from localdns.
@@ -1362,8 +1463,9 @@ fi
 
 # Fetch LocalDNS config from LPS on a bootstrap start. This is fail-open: no config or fetch errors keep
 # the locally generated corefile. If LPS returns a usable profile/corefile, LIVEPATCHED_LOCALDNS_CORE_FILE
-# is written before VNET DNS replacement builds UPDATED_LOCALDNS_CORE_FILE for CoreDNS. Later starts skip
-# the fetch and reuse whatever live-patched corefile is on disk.
+# is written and its CPU/memory limits applied to localdns.slice before VNET DNS replacement builds
+# UPDATED_LOCALDNS_CORE_FILE for CoreDNS. Later starts skip the fetch and reuse whatever live-patched
+# corefile is on disk.
 # ---------------------------------------------------------------------------------------------------------------------
 refresh_localdns_corefile_from_lps
 
@@ -1429,6 +1531,9 @@ start_localdns || exit $ERR_LOCALDNS_FAIL
 
 # Wait to direct traffic to localdns until it's ready.
 wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
+
+# Commit the LPS patch this start applied, now that CoreDNS is ready on it.
+commit_localdns_corefile_version
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------

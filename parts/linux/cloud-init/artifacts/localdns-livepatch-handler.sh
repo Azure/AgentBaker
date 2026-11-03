@@ -27,9 +27,24 @@
 # Restarting stays the fallback whenever the in-place path cannot be carried out or verified: no
 # usable forward-server record, a running Corefile without the reload plugin, CoreDNS metrics that
 # cannot be read, or a reload that never shows up.
+#
+# A patch also sets localdns.slice's CPU and memory limits (localdns-limits.sh), since the
+# corefileVersion covers them too. updateLocalDNS runs the same sequence as localdns.sh at bootstrap:
+#   0 preflight  systemctl responds, the baked limits parse, record the running limits
+#   1 backup     the live-patched Corefile, its .version and the served Corefile
+#   2 render     aks-node-controller -> rendered | alreadyCurrent; on rendered it has removed .version
+#                (uncommit) before writing the new Corefile
+#   3 limits     skip a limit already in effect, else set-property it; verify kernel and drop-ins
+#   4 serve      reload (or restart) CoreDNS onto the new Corefile; skipped on alreadyCurrent
+#   5 commit     write .version
+#   6 ready      CoreDNS /ready decides the result; .version stays either way
+# A failure before the commit undoes the run: the limits go back to the ones recorded in step 0 and
+# the files to the backup. Limits go first so that no failure path ever has to switch CoreDNS back
+# to an older Corefile. A failure after the commit undoes nothing; the next run checks again.
 
-# The live-patched source Corefile. aks-node-controller writes it (plus a .version sidecar); localdns.sh
-# prefers it over the baked Corefile on every start, so it is what makes a patch survive a reboot.
+# The live-patched source Corefile. aks-node-controller writes it; its .version sidecar is written here
+# once the patch is in effect. localdns.sh prefers it over the baked Corefile on every start, so it is
+# what makes a patch survive a reboot.
 LOCALDNS_LIVEPATCHED_COREFILE="${LOCALDNS_LIVEPATCHED_COREFILE:-/opt/azure/containers/localdns/livepatched.localdns.corefile}"
 # The Corefile localdns.sh regenerates from CustomData on every start; served again once a patch is revoked.
 LOCALDNS_BAKED_COREFILE="${LOCALDNS_BAKED_COREFILE:-/opt/azure/containers/localdns/localdns.corefile}"
@@ -43,9 +58,21 @@ LOCALDNS_METRICS_URL="${LOCALDNS_METRICS_URL:-http://127.0.0.1:9253/metrics}"
 # The reload plugin checks every 30s +/- 7.5s of jitter, so a change lands within ~38s.
 LOCALDNS_RELOAD_TIMEOUT_SECONDS="${LOCALDNS_RELOAD_TIMEOUT_SECONDS:-90}"
 LOCALDNS_RELOAD_POLL_SECONDS="${LOCALDNS_RELOAD_POLL_SECONDS:-2}"
+# How long a patch waits for CoreDNS's /ready once it is committed.
+LOCALDNS_READY_TIMEOUT_SECONDS="${LOCALDNS_READY_TIMEOUT_SECONDS:-60}"
+LOCALDNS_READY_POLL_SECONDS="${LOCALDNS_READY_POLL_SECONDS:-2}"
+# The limit functions shared with localdns.sh, installed next to it on every OS.
+# Its functions log what they do on stderr, which the calls below fold into this handler's output.
+LOCALDNS_LIMITS_SCRIPT="${LOCALDNS_LIMITS_SCRIPT:-/opt/azure/containers/localdns/localdns-limits.sh}"
 # Why this run's localDNS patch failed, reported as the component's "message" in the live-patching
 # status. updateLocalDNS clears it on entry and sets it on every path that fails the patch.
 LOCALDNS_FAILURE_MESSAGE=""
+
+# Sourced unconditionally like this file itself; updateLocalDNS fails the patch if it is missing.
+# shellcheck source=parts/linux/cloud-init/artifacts/localdns-limits.sh
+if ! source "${LOCALDNS_LIMITS_SCRIPT}"; then
+    echo "failed to source ${LOCALDNS_LIMITS_SCRIPT}"
+fi
 
 # Prints this node's agent pool from its Node object (the reconciler's node_json). The is-current
 # check and the apply both take the pool from here, so they always select the same entry, and it
@@ -295,9 +322,10 @@ localDNSServe() {
 }
 
 # Reports this node's localDNS "current" for the live-patching status: the corefileVersion of the
-# last patch applied here, from the .version file aks-node-controller writes with it. A failed patch
-# restores the previous file and a revoke deletes it, so this is always what the node serves from.
-# Prints nothing when no live patch is applied, which leaves "current" out of the status.
+# last patch applied here, from the .version file a patch writes once its Corefile and limits are
+# in effect. A failed patch restores the previous file or removes it, and a revoke deletes it, so
+# this never names a version the node does not run. Prints nothing when no live patch is applied,
+# which leaves "current" out of the status.
 localDNSCurrent() {
     local version_file="${LOCALDNS_LIVEPATCHED_COREFILE}.version"
 
@@ -331,15 +359,20 @@ localDNSBackup() {
     done < <(localDNSPatchedFiles)
 }
 
-# Puts every patched file back the way it was before this run, removing files that did not exist.
-# The served Corefile goes back through a rename so the reload plugin only ever sees whole files.
+# Puts the patched files back the way they were before this run, removing files that did not exist.
+# count limits it to the first count files of localDNSPatchedFiles (default: all of them). The served
+# Corefile goes back through a rename so the reload plugin only ever sees whole files.
 localDNSRestore() {
     local backup_dir="$1"
+    local count="${2:-3}"
     local index=0
     local file
     local tmp
 
     while IFS= read -r file; do
+        if [ "${index}" -ge "${count}" ]; then
+            break
+        fi
         if [ -e "${backup_dir}/${index}" ]; then
             if tmp="$(mktemp "${file}.XXXXXX")" && cp -p "${backup_dir}/${index}" "${tmp}" && mv -f "${tmp}" "${file}"; then
                 :
@@ -354,6 +387,96 @@ localDNSRestore() {
     done < <(localDNSPatchedFiles)
 }
 
+# Undoes a patch that failed before its commit: sets the limits back to the ones recorded in the
+# preflight and puts back the first restore_count patched files (see localDNSRestore). When the
+# limits cannot be set back, their drop-ins are removed instead and so is .version, since the node
+# no longer runs any version's limits. keep_version=false removes .version in any case, for a run
+# that changed no file. Sets the status message, starting with failure.
+localDNSUndo() {
+    local backup_dir="$1"
+    local restore_count="$2"
+    local keep_version="$3"
+    local failure="$4"
+    local previous_cpu="$5"
+    local previous_memory="$6"
+    local baked_cpu="$7"
+    local baked_memory="$8"
+    local detail
+    local reverted=true
+
+    if ! { detail="$(localdns_limits_revert "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
+        reverted=false
+    fi
+    echo "localDNS limits after the undo: ${detail}"
+    localDNSRestore "${backup_dir}" "${restore_count}"
+    if [ "${reverted}" != true ] || [ "${keep_version}" != true ]; then
+        rm -f "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+    fi
+    LOCALDNS_FAILURE_MESSAGE="$(localdns_limits_failure_message "${failure}" "${reverted}" "${detail}")"
+}
+
+# Revokes an earlier patch when the payload has nothing for this node: drops the live-patched
+# Corefile, resets the limits to the baked ones and serves the baked Corefile. managed is false on a
+# node that never had LocalDNS set up (no localdns.slice), which has no limits to reset.
+localDNSRevoke() {
+    local backup_dir="$1"
+    local managed="$2"
+    local baked_cpu="$3"
+    local baked_memory="$4"
+    local previous_cpu="$5"
+    local previous_memory="$6"
+    local limits_error
+    local state
+    local revoke_message=""
+    local serve_result
+
+    echo "localDNS has no config applicable to this node; serving the baked corefile"
+    rm -f "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+    if [ "${managed}" = true ] && ! { limits_error="$(localdns_limits_apply "${baked_cpu}" "${baked_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
+        # The control plane no longer publishes a config for this node, so the Corefile revoke goes
+        # ahead regardless; the limits are left for the next boot to bring back.
+        state="$(localdns_limits_fall_back_to_baked "${baked_cpu}" "${baked_memory}")"
+        echo "failed to reset the localDNS limits to the baked ones: ${limits_error}; ${state}"
+        revoke_message="$(printf '%.512s' "resetting to the baked limits: ${limits_error}; ${state}")"
+    fi
+
+    localDNSServe "${LOCALDNS_BAKED_COREFILE}"
+    serve_result=$?
+    case "${serve_result}" in
+        0)
+            if [ -n "${revoke_message}" ]; then
+                LOCALDNS_FAILURE_MESSAGE="${revoke_message}"
+                return 1
+            fi
+            echo "localDNS update completed successfully"
+            return 0
+            ;;
+        1)
+            if [ "${managed}" = true ]; then
+                localDNSUndo "${backup_dir}" 3 true "${LOCALDNS_FAILURE_MESSAGE:-could not serve the baked corefile}" \
+                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+            else
+                : "${LOCALDNS_FAILURE_MESSAGE:=could not serve the baked corefile}"
+                localDNSRestore "${backup_dir}"
+            fi
+            return 1
+            ;;
+        *)
+            if [ "${managed}" = true ]; then
+                localDNSUndo "${backup_dir}" 3 true "localdns.service restart failed" \
+                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+            else
+                LOCALDNS_FAILURE_MESSAGE="localdns.service restart failed; restored the previous corefile"
+                localDNSRestore "${backup_dir}"
+            fi
+            if ! systemctl restart localdns.service; then
+                echo "failed to restart localdns.service on the restored corefile"
+            fi
+            return 1
+            ;;
+    esac
+}
+
 updateLocalDNS() {
     local component_payload="${1:-}"
     local node_json="${2:-}"
@@ -362,9 +485,22 @@ updateLocalDNS() {
     local outcome
     local apply_outcome
     local apply_error
-    local source_corefile
     local backup_dir
     local serve_result
+    local preflight
+    local preflight_status=0
+    local managed=true
+    local baked_cpu="-"
+    local baked_memory="-"
+    local previous_cpu="-"
+    local previous_memory="-"
+    local desired
+    local desired_version
+    local desired_cpu
+    local desired_memory
+    local limits_error
+    local restore_count=2
+    local keep_version=true
 
     LOCALDNS_FAILURE_MESSAGE=""
 
@@ -373,6 +509,34 @@ updateLocalDNS() {
         LOCALDNS_FAILURE_MESSAGE="aks-node-controller binary not found"
         return 1
     fi
+    if ! command -v localdns_limits_preflight > /dev/null 2>&1; then
+        echo "${LOCALDNS_LIMITS_SCRIPT} is required for localDNS live patching"
+        LOCALDNS_FAILURE_MESSAGE="localdns-limits.sh not found"
+        return 1
+    fi
+
+    # Step 0: preflight. Nothing is written yet, so a failure leaves everything as it was. A node
+    # without localdns.slice never had LocalDNS set up; that only matters if the payload has a
+    # config for it, since a revoke there has no limits to reset.
+    preflight="$(localdns_limits_preflight)" || preflight_status=$?
+    case "${preflight_status}" in
+        0)
+            read -r baked_cpu baked_memory previous_cpu previous_memory <<< "${preflight}"
+            echo "localDNS limits: baked cpu $(localdns_limits_format_cpu "${baked_cpu}"), memory $(localdns_limits_format_memory "${baked_memory}");" \
+                "running cpu $(localdns_limits_format_cpu "${previous_cpu}"), memory $(localdns_limits_format_memory "${previous_memory}")"
+            ;;
+        2)
+            echo "${LOCALDNS_LIMITS_BAKED_SLICE_FILE} does not exist; LocalDNS is not set up on this node"
+            managed=false
+            ;;
+        *)
+            echo "localDNS limits preflight failed: ${preflight}"
+            LOCALDNS_FAILURE_MESSAGE="${preflight}"
+            return 1
+            ;;
+    esac
+
+    # Step 1: back up.
     if ! backup_dir="$(mktemp -d)"; then
         echo "failed to create a backup directory for localDNS live patching"
         LOCALDNS_FAILURE_MESSAGE="could not create a backup directory"
@@ -385,6 +549,8 @@ updateLocalDNS() {
         return 1
     fi
 
+    # Step 2: render. On rendered, aks-node-controller has removed .version before writing the new
+    # Corefile, so a run that stops anywhere before the commit never claims the new version.
     apply_args=(apply-localdns-config --config-file - --output "${LOCALDNS_LIVEPATCHED_COREFILE}")
     # Without the label, aks-node-controller falls back to the node's provisioning files.
     if agent_pool="$(localDNSNodeAgentPool "${node_json}")"; then
@@ -404,8 +570,22 @@ updateLocalDNS() {
     apply_outcome="$(printf '%s\n' "${outcome}" | tail -n 1)"
 
     case "${apply_outcome}" in
-        applied|alreadyCurrent)
-            source_corefile="${LOCALDNS_LIVEPATCHED_COREFILE}"
+        rendered|alreadyCurrent)
+            if [ "${managed}" != true ]; then
+                echo "localDNS has a config for this node, but localdns.slice is not set up here"
+                LOCALDNS_FAILURE_MESSAGE="${preflight}"
+                localDNSRestore "${backup_dir}"
+                rm -rf "${backup_dir}"
+                return 1
+            fi
+            if ! desired="$(localdns_limits_from_anc_output "${outcome}" "${baked_cpu}" "${baked_memory}")"; then
+                echo "failed to read the localDNS patch from aks-node-controller: ${desired}"
+                LOCALDNS_FAILURE_MESSAGE="${desired}"
+                localDNSRestore "${backup_dir}"
+                rm -rf "${backup_dir}"
+                return 1
+            fi
+            read -r desired_version desired_cpu desired_memory <<< "${desired}"
             ;;
         noCorefileData)
             # Nothing in this payload applies to this node: either no pool in the cluster has
@@ -413,10 +593,11 @@ updateLocalDNS() {
             # control plane, not a failed apply, so it succeeds -- reporting failure would peg those
             # nodes at localDNS=Failed and re-dispatch every component on every tick. It also revokes
             # any earlier patch, the same way the bootstrap path does, so the node serves its baked
-            # Corefile again instead of a config the control plane no longer publishes.
-            echo "localDNS has no config applicable to this node; serving the baked corefile"
-            rm -f "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
-            source_corefile="${LOCALDNS_BAKED_COREFILE}"
+            # Corefile and limits again instead of a config the control plane no longer publishes.
+            localDNSRevoke "${backup_dir}" "${managed}" "${baked_cpu}" "${baked_memory}" "${previous_cpu}" "${previous_memory}"
+            serve_result=$?
+            rm -rf "${backup_dir}"
+            return "${serve_result}"
             ;;
         notFound)
             # In the runtime apply path the payload is supplied inline, so notFound is not expected;
@@ -436,33 +617,73 @@ updateLocalDNS() {
             ;;
     esac
 
-    localDNSServe "${source_corefile}"
-    serve_result=$?
-    case "${serve_result}" in
-        0)
-            echo "localDNS update completed successfully"
-            rm -rf "${backup_dir}"
-            return 0
-            ;;
-        1)
-            # CoreDNS is still serving the previous Corefile. Put the files back so they describe it
-            # again; the reload plugin sees the served file change and settles on it.
-            : "${LOCALDNS_FAILURE_MESSAGE:=could not serve the new corefile}"
-            localDNSRestore "${backup_dir}"
-            rm -rf "${backup_dir}"
-            return 1
-            ;;
-        *)
-            # A fallback restart failed, so localdns may be down on the new Corefile. Put the previous
-            # files back and start it on those; anything further is left to the unit's own
-            # Restart=/OnFailure= handling.
-            LOCALDNS_FAILURE_MESSAGE="localdns.service restart failed; restored the previous corefile"
-            localDNSRestore "${backup_dir}"
-            rm -rf "${backup_dir}"
-            if ! systemctl restart localdns.service; then
-                echo "failed to restart localdns.service on the restored corefile"
-            fi
-            return 1
-            ;;
-    esac
+    # Step 3: limits. CoreDNS has not been touched yet, so an undo restores the live-patched Corefile
+    # and .version but not the served Corefile. An alreadyCurrent run changed no file and has nothing
+    # to restore; it only drops .version, since that version's limits are no longer in effect.
+    if [ "${apply_outcome}" = alreadyCurrent ]; then
+        restore_count=0
+        keep_version=false
+    fi
+    if ! { limits_error="$(localdns_limits_apply "${desired_cpu}" "${desired_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
+        echo "live patching the localDNS limits failed: ${limits_error}"
+        localDNSUndo "${backup_dir}" "${restore_count}" "${keep_version}" "live patching ${limits_error}" \
+            "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+        rm -rf "${backup_dir}"
+        return 1
+    fi
+
+    # Step 4: serve. localDNSServe itself leaves CoreDNS alone when the served Corefile would not change.
+    if [ "${apply_outcome}" = rendered ]; then
+        localDNSServe "${LOCALDNS_LIVEPATCHED_COREFILE}"
+        serve_result=$?
+        case "${serve_result}" in
+            0)
+                ;;
+            1)
+                # CoreDNS is still serving the previous Corefile. Put the files and limits back so they
+                # describe it again; the reload plugin sees the served file change and settles on it.
+                localDNSUndo "${backup_dir}" 3 true "${LOCALDNS_FAILURE_MESSAGE:-could not serve the new corefile}" \
+                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+                rm -rf "${backup_dir}"
+                return 1
+                ;;
+            *)
+                # A fallback restart failed, so localdns may be down on the new Corefile. Put the previous
+                # files and limits back and start it on those; anything further is left to the unit's own
+                # Restart=/OnFailure= handling.
+                localDNSUndo "${backup_dir}" 3 true "localdns.service restart failed" \
+                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+                rm -rf "${backup_dir}"
+                if ! systemctl restart localdns.service; then
+                    echo "failed to restart localdns.service on the restored corefile"
+                fi
+                return 1
+                ;;
+        esac
+    fi
+    rm -rf "${backup_dir}"
+
+    # Step 5: commit. From here on nothing is undone: this version's Corefile and limits are in effect,
+    # and a run that finds CoreDNS unready is retried by the next one, which checks again.
+    if ! localdns_write_corefile_version "${LOCALDNS_LIVEPATCHED_COREFILE}.version" "${desired_version}"; then
+        echo "failed to write ${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+        LOCALDNS_FAILURE_MESSAGE="could not write the corefile version; corefileVersion ${desired_version} applied, committed again on the next run"
+        return 1
+    fi
+    echo "committed localDNS corefileVersion ${desired_version}"
+
+    # Step 6: readiness decides the result. This also catches CoreDNS being OOM-killed under a lower
+    # MemoryMax.
+    if ! systemctl is-active --quiet localdns.service; then
+        echo "localdns.service is not running"
+        LOCALDNS_FAILURE_MESSAGE="localdns.service is not running; corefileVersion ${desired_version} applied, readiness checked again on the next run"
+        return 1
+    fi
+    if ! localdns_wait_ready "${LOCALDNS_READY_TIMEOUT_SECONDS}" "${LOCALDNS_READY_POLL_SECONDS}"; then
+        echo "CoreDNS did not report ready within ${LOCALDNS_READY_TIMEOUT_SECONDS}s"
+        LOCALDNS_FAILURE_MESSAGE="CoreDNS did not report ready within ${LOCALDNS_READY_TIMEOUT_SECONDS}s; corefileVersion ${desired_version} applied, readiness checked again on the next run"
+        return 1
+    fi
+    echo "localDNS update completed successfully"
+    return 0
 }

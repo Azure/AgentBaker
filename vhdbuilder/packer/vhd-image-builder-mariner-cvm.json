@@ -790,6 +790,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-limits.sh",
+      "destination": "/home/packer/localdns-limits.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns.service",
       "destination": "/home/packer/localdns.service"
     },

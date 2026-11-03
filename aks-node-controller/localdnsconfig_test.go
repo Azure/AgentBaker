@@ -135,7 +135,13 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 	}
 	apply := func(t *testing.T, app *App, out string) (localDNSConfigOutcome, error) {
 		t.Helper()
-		return app.fetchAndApplyLocalDNSConfig(context.Background(), out, "", app.fetchLocalDNSConfig)
+		result, err := app.fetchAndApplyLocalDNSConfig(context.Background(), out, "", app.fetchLocalDNSConfig)
+		return result.outcome, err
+	}
+	// commit stands in for the caller, which writes the .version file once the patch is in effect.
+	commit := func(t *testing.T, out, version string) {
+		t.Helper()
+		require.NoError(t, os.WriteFile(localDNSCorefileVersionPath(out), []byte(version+"\n"), 0o600))
 	}
 	read := func(t *testing.T, path string) string {
 		t.Helper()
@@ -149,7 +155,7 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		assert.True(t, os.IsNotExist(statErr))
 	}
 
-	t.Run("renders this pool's profile and records its corefileVersion", func(t *testing.T) {
+	t.Run("renders this pool's profile and leaves the version to the caller", func(t *testing.T) {
 		app := newApp(t, localDNSTestPayload(map[string]string{
 			"pool1": localDNSTestPoolEntry("v1", 7200),
 			"pool2": localDNSTestPoolEntry("v2", 60),
@@ -158,12 +164,12 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 
 		outcome, err := apply(t, app, out)
 		require.NoError(t, err)
-		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome)
 		got := read(t, out)
 		assert.Contains(t, got, "health-check.localdns.local:53")
 		assert.Contains(t, got, "forward . 10.20.0.10")
 		assert.Contains(t, got, "cache 7200 {", "pool1's profile, not pool2's, is rendered")
-		assert.Equal(t, "v1\n", read(t, localDNSCorefileVersionPath(out)))
+		assertNotWritten(t, localDNSCorefileVersionPath(out))
 	})
 
 	t.Run("same version and content is already current", func(t *testing.T) {
@@ -171,34 +177,105 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 		_, err := apply(t, app, out)
 		require.NoError(t, err)
+		commit(t, out, "v1")
 
 		outcome, err := apply(t, app, out)
 		require.NoError(t, err)
 		assert.Equal(t, outcomeLocalDNSConfigAlreadyCurrent, outcome)
+		assert.Equal(t, "v1\n", read(t, localDNSCorefileVersionPath(out)), "an already current run keeps the version")
 	})
 
-	t.Run("matching version with a stale corefile rewrites it", func(t *testing.T) {
+	t.Run("same content without a committed version is rendered again", func(t *testing.T) {
+		// A run that rendered the Corefile but failed before the caller committed it.
 		app := newApp(t, localDNSTestPayload(map[string]string{"pool1": localDNSTestPoolEntry("v1", 7200)}))
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
-		require.NoError(t, os.WriteFile(out, []byte("stale-corefile"), 0o644))
-		require.NoError(t, writeLocalDNSCorefileVersion(localDNSCorefileVersionPath(out), "v1"))
+		_, err := apply(t, app, out)
+		require.NoError(t, err)
 
 		outcome, err := apply(t, app, out)
 		require.NoError(t, err)
-		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
-		assert.Contains(t, read(t, out), "cache 7200 {")
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome)
 	})
 
-	t.Run("new version with the same corefile records the new version", func(t *testing.T) {
+	t.Run("matching version with a stale corefile rewrites it and uncommits the version", func(t *testing.T) {
+		app := newApp(t, localDNSTestPayload(map[string]string{"pool1": localDNSTestPoolEntry("v1", 7200)}))
+		out := filepath.Join(t.TempDir(), "localdns.corefile")
+		require.NoError(t, os.WriteFile(out, []byte("stale-corefile"), 0o644))
+		commit(t, out, "v1")
+
+		outcome, err := apply(t, app, out)
+		require.NoError(t, err)
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome)
+		assert.Contains(t, read(t, out), "cache 7200 {")
+		assertNotWritten(t, localDNSCorefileVersionPath(out))
+	})
+
+	t.Run("new version with the same corefile uncommits the old version", func(t *testing.T) {
 		// e.g. only the CPU/memory limits changed: they are in the hash but not in the Corefile.
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 		_, err := apply(t, newApp(t, localDNSTestPayload(map[string]string{"pool1": localDNSTestPoolEntry("v1", 7200)})), out)
 		require.NoError(t, err)
+		commit(t, out, "v1")
 
 		outcome, err := apply(t, newApp(t, localDNSTestPayload(map[string]string{"pool1": localDNSTestPoolEntry("v2", 7200)})), out)
 		require.NoError(t, err)
-		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
-		assert.Equal(t, "v2\n", read(t, localDNSCorefileVersionPath(out)))
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome)
+		assertNotWritten(t, localDNSCorefileVersionPath(out))
+	})
+
+	t.Run("a version file that cannot be removed fails without writing", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root ignores the read-only directory this test relies on")
+		}
+		app := newApp(t, localDNSTestPayload(map[string]string{"pool1": localDNSTestPoolEntry("v1", 7200)}))
+		dir := t.TempDir()
+		out := filepath.Join(dir, "localdns.corefile")
+		require.NoError(t, os.WriteFile(out, []byte("stale-corefile"), 0o644))
+		commit(t, out, "v1")
+		require.NoError(t, os.Chmod(dir, 0o555))
+		t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+
+		outcome, err := apply(t, app, out)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "removing localDNS corefile version")
+		assert.Equal(t, outcomeLocalDNSConfigFailed, outcome)
+		assert.Equal(t, "stale-corefile", read(t, out))
+		assert.Equal(t, "v1\n", read(t, localDNSCorefileVersionPath(out)))
+	})
+
+	t.Run("prints the version and the profile's limits before the outcome", func(t *testing.T) {
+		entry := strings.Replace(localDNSTestPoolEntry("v1", 7200), `"enableLocalDns":true,`,
+			`"enableLocalDns":true,"cpuLimitInMilliCores":1505,"memoryLimitInMb":768,`, 1)
+		app := newApp(t, localDNSTestPayload(map[string]string{"pool1": entry}))
+		out := filepath.Join(t.TempDir(), "localdns.corefile")
+
+		result, err := app.fetchAndApplyLocalDNSConfig(context.Background(), out, "", app.fetchLocalDNSConfig)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"version: v1", "cpuQuota: 150.5%", "memoryMax: 768M", "rendered"}, result.lines())
+
+		commit(t, out, "v1")
+		result, err = app.fetchAndApplyLocalDNSConfig(context.Background(), out, "", app.fetchLocalDNSConfig)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"version: v1", "cpuQuota: 150.5%", "memoryMax: 768M", "alreadyCurrent"}, result.lines())
+	})
+
+	t.Run("a limit the profile leaves unset is not printed", func(t *testing.T) {
+		// No default is filled in: the caller falls back to the baked localdns.slice value.
+		entry := strings.Replace(localDNSTestPoolEntry("v1", 7200), `"enableLocalDns":true,`,
+			`"enableLocalDns":true,"memoryLimitInMb":768,`, 1)
+		app := newApp(t, localDNSTestPayload(map[string]string{"pool1": entry}))
+		out := filepath.Join(t.TempDir(), "localdns.corefile")
+
+		result, err := app.fetchAndApplyLocalDNSConfig(context.Background(), out, "", app.fetchLocalDNSConfig)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"version: v1", "memoryMax: 768M", "rendered"}, result.lines())
+	})
+
+	t.Run("outcomes without a corefile print only the outcome", func(t *testing.T) {
+		for _, outcome := range []localDNSConfigOutcome{outcomeLocalDNSConfigNotFound, outcomeLocalDNSConfigNoCorefileData, outcomeLocalDNSConfigFailed} {
+			result := localDNSConfigResult{outcome: outcome, update: localDNSCorefileUpdate{desiredVersion: "v1", cpuQuota: "150.0%"}}
+			assert.Equal(t, []string{string(outcome)}, result.lines())
+		}
 	})
 
 	t.Run("entry without a corefileVersion fails without writing", func(t *testing.T) {
@@ -267,9 +344,9 @@ func TestLocalDNSRenderReusesBootstrapValues(t *testing.T) {
 			return localDNSTestProfilePayload, nil
 		}
 		out := filepath.Join(t.TempDir(), "livepatched.localdns.corefile")
-		outcome, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
+		result, err := tt.App.fetchAndApplyLocalDNSConfig(context.Background(), out, "", tt.App.fetchLocalDNSConfig)
 		got, _ := os.ReadFile(out)
-		return string(got), outcome, err
+		return string(got), result.outcome, err
 	}
 
 	t.Run("baked corefile CoreDNS IP wins over node config", func(t *testing.T) {
@@ -279,7 +356,7 @@ func TestLocalDNSRenderReusesBootstrapValues(t *testing.T) {
 
 		got, outcome, err := render(t, tt)
 		require.NoError(t, err)
-		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome)
 		assert.Contains(t, got, "forward . 10.20.0.10")
 		assert.NotContains(t, got, "10.99.0.10")
 	})
@@ -291,7 +368,7 @@ func TestLocalDNSRenderReusesBootstrapValues(t *testing.T) {
 
 		got, outcome, err := render(t, tt)
 		require.NoError(t, err)
-		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome)
 		assert.Contains(t, got, "forward . 10.99.0.10")
 	})
 
@@ -358,33 +435,32 @@ func TestLocalDNSApplyAgentPoolFlag(t *testing.T) {
 		app.nbcCmdPath = filepath.Join(t.TempDir(), "missing-nbc-cmd.sh")
 		writeLocalDNSTestBakedCorefile(t, app, bakedLocalDNSTestCorefile(false))
 	}
-	apply := func(t *testing.T, app *App, agentPool string) (string, string, localDNSConfigOutcome, error) {
+	apply := func(t *testing.T, app *App, agentPool string) (string, localDNSConfigResult, error) {
 		t.Helper()
 		out := filepath.Join(t.TempDir(), "livepatched.localdns.corefile")
-		outcome, err := app.applyLocalDNSConfig(context.Background(), payload, out, agentPool)
+		result, err := app.applyLocalDNSConfig(context.Background(), payload, out, agentPool)
 		got, _ := os.ReadFile(out)
-		version, _ := os.ReadFile(localDNSCorefileVersionPath(out))
-		return string(got), string(version), outcome, err
+		return string(got), result, err
 	}
 
 	t.Run("flag selects the pool when no provisioning files exist", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		classicCSENode(t, tt.App)
 
-		got, version, outcome, err := apply(t, tt.App, "pool1")
+		got, outcome, err := apply(t, tt.App, "pool1")
 		require.NoError(t, err)
-		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome.outcome)
+		assert.Equal(t, "v1", outcome.update.desiredVersion)
 		assert.Contains(t, got, "cache 7200 {")
-		assert.Equal(t, "v1\n", version)
 	})
 
 	t.Run("without the flag a node with no provisioning files fails", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		classicCSENode(t, tt.App)
 
-		got, _, outcome, err := apply(t, tt.App, "")
+		got, outcome, err := apply(t, tt.App, "")
 		require.Error(t, err)
-		assert.Equal(t, outcomeLocalDNSConfigFailed, outcome)
+		assert.Equal(t, outcomeLocalDNSConfigFailed, outcome.outcome)
 		assert.Empty(t, got)
 	})
 
@@ -393,20 +469,20 @@ func TestLocalDNSApplyAgentPoolFlag(t *testing.T) {
 		writeLocalDNSTestNodeConfig(t, tt.App) // names pool1
 		writeLocalDNSTestBakedCorefile(t, tt.App, bakedLocalDNSTestCorefile(false))
 
-		got, version, outcome, err := apply(t, tt.App, "pool2")
+		got, outcome, err := apply(t, tt.App, "pool2")
 		require.NoError(t, err)
-		assert.Equal(t, outcomeLocalDNSConfigApplied, outcome)
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome.outcome)
+		assert.Equal(t, "v2", outcome.update.desiredVersion)
 		assert.Contains(t, got, "cache 60 {")
-		assert.Equal(t, "v2\n", version)
 	})
 
 	t.Run("flag for a pool missing from the payload is no corefile data", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		classicCSENode(t, tt.App)
 
-		got, _, outcome, err := apply(t, tt.App, "pool3")
+		got, outcome, err := apply(t, tt.App, "pool3")
 		require.NoError(t, err)
-		assert.Equal(t, outcomeLocalDNSConfigNoCorefileData, outcome)
+		assert.Equal(t, outcomeLocalDNSConfigNoCorefileData, outcome.outcome)
 		assert.Empty(t, got)
 	})
 
@@ -420,9 +496,9 @@ func TestLocalDNSApplyAgentPoolFlag(t *testing.T) {
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", "apply-localdns-config",
 			"--config-file", configFile, "--output", out, "--agent-pool", "pool1"})
 		assert.Equal(t, 0, exitCode)
-		version, err := os.ReadFile(localDNSCorefileVersionPath(out))
+		got, err := os.ReadFile(out)
 		require.NoError(t, err)
-		assert.Equal(t, "v1\n", string(version))
+		assert.Contains(t, string(got), "cache 7200 {")
 	})
 }
 
@@ -452,13 +528,13 @@ func TestLocalDNSApplyPrintsErrorBeforeOutcome(t *testing.T) {
 		assert.Equal(t, string(outcomeLocalDNSConfigFailed), lines[1])
 	})
 
-	t.Run("success prints only the outcome", func(t *testing.T) {
+	t.Run("success prints the version before the outcome", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		writeLocalDNSTestBakedCorefile(t, tt.App, bakedLocalDNSTestCorefile(false))
 
 		lines, err := run(t, tt.App, "pool1")
 		require.NoError(t, err)
-		assert.Equal(t, []string{string(outcomeLocalDNSConfigApplied)}, lines)
+		assert.Equal(t, []string{"version: v1", string(outcomeLocalDNSConfigRendered)}, lines)
 	})
 }
 

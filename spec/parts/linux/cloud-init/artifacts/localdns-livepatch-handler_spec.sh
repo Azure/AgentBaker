@@ -14,7 +14,13 @@ Describe 'localdns-livepatch-handler.sh'
         LOCALDNS_AKS_NODE_CONTROLLER="${TEST_DIR}/aks-node-controller"
         LOCALDNS_RELOAD_TIMEOUT_SECONDS=5
         LOCALDNS_RELOAD_POLL_SECONDS=0
+        LOCALDNS_READY_TIMEOUT_SECONDS=1
+        LOCALDNS_READY_POLL_SECONDS=0
+        LOCALDNS_LIMITS_SCRIPT=./parts/linux/cloud-init/artifacts/localdns-limits.sh
         Include ./parts/linux/cloud-init/artifacts/localdns-livepatch-handler.sh
+        Include ./spec/parts/linux/cloud-init/artifacts/localdns_limits_fakes.sh
+        # A running localdns.slice on the CSE limits of the e2e node config (2008 millicores, 128 MB).
+        setup_fake_localdns_slice "${TEST_DIR}/slice" "200.8%" "128M"
 
         # The baked corefile carries the Azure DNS placeholder for VnetDNS traffic and the CoreDNS
         # service IP for cluster.local, as the template renders them.
@@ -58,24 +64,36 @@ while [ "$#" -gt 0 ]; do
         *) shift ;;
     esac
 done
-if [ "${TEST_ANC_OUTCOME}" = "applied" ]; then
+# Like aks-node-controller, uncommit the old version before writing a changed Corefile, and print
+# the version and the profile's limits before the outcome.
+if [ "${TEST_ANC_OUTCOME}" = "rendered" ]; then
+    rm -f "${output}.version"
     cp "${TEST_PATCH_SOURCE}" "${output}"
-    echo "v2" > "${output}.version"
 fi
 [ -z "${TEST_ANC_ERROR:-}" ] || echo "error: ${TEST_ANC_ERROR}"
+case "${TEST_ANC_OUTCOME}" in
+    rendered|alreadyCurrent)
+        echo "version: v2"
+        [ -z "${TEST_ANC_CPU:-}" ] || echo "cpuQuota: ${TEST_ANC_CPU}"
+        [ -z "${TEST_ANC_MEMORY:-}" ] || echo "memoryMax: ${TEST_ANC_MEMORY}"
+        ;;
+esac
 echo "${TEST_ANC_OUTCOME}"
 exit "${TEST_ANC_EXIT:-0}"
 EOF
         chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
 
-        TEST_ANC_OUTCOME="applied"
+        TEST_ANC_OUTCOME="rendered"
         TEST_ANC_EXIT=0
         TEST_ANC_ERROR=""
         TEST_ANC_ARGS_FILE="${TEST_DIR}/anc-args"
+        TEST_ANC_CPU=""
+        TEST_ANC_MEMORY=""
         TEST_LOCALDNS_ACTIVE="true"
         TEST_RESTART_STATUS=0
         TEST_RELOAD_MODE="reload"
-        export TEST_ANC_OUTCOME TEST_ANC_EXIT TEST_ANC_ERROR TEST_ANC_ARGS_FILE TEST_PATCH_SOURCE
+        TEST_READY_BODY="OK"
+        export TEST_ANC_OUTCOME TEST_ANC_EXIT TEST_ANC_ERROR TEST_ANC_ARGS_FILE TEST_PATCH_SOURCE TEST_ANC_CPU TEST_ANC_MEMORY
     }
 
     cleanup() {
@@ -103,6 +121,12 @@ EOF
     }
 
     systemctl() {
+        case "$1" in
+            show|set-property)
+                fake_localdns_systemctl "$@"
+                return
+                ;;
+        esac
         echo "systemctl $*"
         case "$1" in
             is-active) [ "${TEST_LOCALDNS_ACTIVE}" = "true" ] ;;
@@ -110,10 +134,17 @@ EOF
         esac
     }
 
-    # Stands in for CoreDNS's metrics endpoint. The reload plugin publishes a hash of the config it
-    # loaded; here the served file's own hash plays that part, so a changed file reads as a reload.
+    # Stands in for CoreDNS's ready and metrics endpoints. The reload plugin publishes a hash of the
+    # config it loaded; here the served file's own hash plays that part, so a changed file reads as a
+    # reload.
     curl() {
         local served_sha failed=0
+        case "$*" in
+            */ready)
+                echo "${TEST_READY_BODY}"
+                return 0
+                ;;
+        esac
         if [ "${TEST_RELOAD_MODE}" = "down" ]; then
             return 7
         fi
@@ -160,13 +191,17 @@ EOF
         It 'leaves CoreDNS alone when the served corefile is already current'
             cp "${TEST_PATCH_SOURCE}" "${LOCALDNS_LIVEPATCHED_COREFILE}"
             render_expected "${TEST_PATCH_SOURCE}" "10.1.0.4 10.1.0.5" > "${LOCALDNS_SERVED_COREFILE}"
-            TEST_ANC_OUTCOME="alreadyCurrent"
+            record_initial_served
+            # A new version that only changed the limits renders the same Corefile.
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
             # Any metrics read would fail, proving no reload was waited on.
             TEST_RELOAD_MODE="down"
             When call updateLocalDNS '{}'
             The status should be success
             The output should include 'localDNS served corefile is already current'
             The output should not include 'systemctl restart'
+            Assert served_unchanged
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v2'
         End
 
         It 'restores the previous corefiles when CoreDNS rejects the patch'
@@ -288,13 +323,14 @@ EOF
     End
 
     Describe 'other outcomes'
-        It 'writes the patch for the next start when localdns is not running'
+        It 'writes and commits the patch for the next start, but fails, when localdns is not running'
             TEST_LOCALDNS_ACTIVE="false"
             When call updateLocalDNS '{}'
-            The status should be success
+            The status should be failure
             The output should include 'localdns.service is not running'
             The output should not include 'systemctl restart'
             The path "${LOCALDNS_LIVEPATCHED_COREFILE}" should be exist
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v2'
             Assert served_unchanged
         End
 
@@ -321,6 +357,282 @@ EOF
             When call updateLocalDNS '{}'
             The status should be failure
             The output should include 'aks-node-controller binary is required for localDNS live patching'
+        End
+    End
+
+    Describe 'limits'
+        saved_cpu() {
+            sed -n 's/^CPUQuota=//p' "${LOCALDNS_LIMITS_SAVED_DIR}/50-CPUQuota.conf"
+        }
+
+        saved_memory() {
+            sed -n 's/^MemoryMax=//p' "${LOCALDNS_LIMITS_SAVED_DIR}/50-MemoryMax.conf"
+        }
+
+        # A node an earlier patch (v1) left on its own Corefile and a CPU limit of 400%.
+        write_earlier_patch() {
+            echo "earlier-patch" > "${LOCALDNS_LIVEPATCHED_COREFILE}"
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            fake_localdns_apply_live "CPUQuota=400%"
+            fake_localdns_save "CPUQuota=400%"
+        }
+
+        It 'applies the limits before serving the corefile, then commits the version'
+            TEST_ANC_CPU="300.0%"
+            TEST_ANC_MEMORY="512M"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'CoreDNS reloaded the localDNS corefile'
+            The output should include 'committed localDNS corefileVersion v2'
+            The output should include 'localDNS update completed successfully'
+            The output should include 'systemctl set-property localdns.slice CPUQuota=300%'
+            The output should include 'systemctl set-property localdns.slice MemoryMax=536870912'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal '300000 100000'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/memory.max" should equal '536870912'
+            The result of function saved_cpu should equal '300%'
+            The result of function saved_memory should equal '536870912'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v2'
+        End
+
+        It 'sets a limit the payload leaves out back to the baked value'
+            write_earlier_patch
+            TEST_ANC_MEMORY="512M"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'localDNS update completed successfully'
+            The output should include 'CPUQuota=200.8%'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal '200800 100000'
+        End
+
+        It 'changes nothing when the preflight fails'
+            write_earlier_patch
+            FAKE_SYSTEMCTL_DOWN=true
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'localDNS limits preflight failed'
+            The path "${TEST_ANC_ARGS_FILE}" should not be exist
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'earlier-patch'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v1'
+            Assert served_unchanged
+            The variable LOCALDNS_FAILURE_MESSAGE should equal 'systemctl did not respond; limits and corefile left unchanged'
+        End
+
+        It 'changes nothing when the baked limits cannot be read'
+            sed -i 's/^CPUQuota=.*/CPUQuota=lots/' "${LOCALDNS_LIMITS_BAKED_SLICE_FILE}"
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'localDNS limits preflight failed'
+            The path "${LOCALDNS_LIVEPATCHED_COREFILE}" should not be exist
+            The variable LOCALDNS_FAILURE_MESSAGE should equal "cannot read the baked limits from ${LOCALDNS_LIMITS_BAKED_SLICE_FILE}; limits and corefile left unchanged"
+        End
+
+        It 'reverts the limits and restores the previous corefile and version when a limit fails'
+            write_earlier_patch
+            TEST_ANC_CPU="300.0%"
+            TEST_ANC_MEMORY="512M"
+            FAKE_SET_PROPERTY_FAIL=MemoryMax
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'live patching the localDNS limits failed'
+            The output should not include 'CoreDNS reloaded'
+            The output should include 'CPUQuota=400%'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal '400000 100000'
+            The result of function saved_cpu should equal '400%'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'earlier-patch'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v1'
+            Assert served_unchanged
+            The variable LOCALDNS_FAILURE_MESSAGE should equal 'live patching the memory limit failed (systemctl set-property MemoryMax=536870912 failed: Failed to set unit properties on localdns.slice: Access denied); reverted to the previous corefile and limits: cpu 400%, memory 128M'
+        End
+
+        It 'catches a limit that was applied but not saved'
+            TEST_ANC_CPU="300.0%"
+            FAKE_SET_PROPERTY_UNSAVED=CPUQuota
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'live patching the localDNS limits failed'
+            The output should include 'CPUQuota=300%'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal '200800 100000'
+            The path "${LOCALDNS_LIVEPATCHED_COREFILE}" should not be exist
+            The variable LOCALDNS_FAILURE_MESSAGE should equal 'live patching the cpu limit failed (applied but not saved: live 300%, saved 200.8%); reverted to the previous corefile and limits: cpu 200.8%, memory 128M'
+        End
+
+        It 'removes the drop-ins and the version when the revert fails too'
+            write_earlier_patch
+            TEST_ANC_CPU="300.0%"
+            TEST_ANC_MEMORY="512M"
+            # CPUQuota is set, MemoryMax fails, and so does setting CPUQuota back.
+            FAKE_SET_PROPERTY_FAIL_FROM=2
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'live patching the localDNS limits failed'
+            The output should include 'reverting the localdns.slice limits failed'
+            The path "${LOCALDNS_LIMITS_SAVED_DIR}/50-CPUQuota.conf" should not be exist
+            The path "${LOCALDNS_LIMITS_SAVED_DIR}/50-MemoryMax.conf" should not be exist
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'earlier-patch'
+            The path "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should not be exist
+            Assert served_unchanged
+            The variable LOCALDNS_FAILURE_MESSAGE should equal 'live patching the memory limit failed (systemctl set-property MemoryMax=536870912 failed: Failed to set unit properties on localdns.slice: Access denied); previous corefile restored; reverting to the previous limits also failed; in effect: cpu 300%, memory 128M; saved: removed, baked applies after a reboot; baked: cpu 200.8%, memory 128M'
+        End
+
+        It 'reverts the limits too when CoreDNS rejects the corefile'
+            write_earlier_patch
+            TEST_ANC_CPU="300.0%"
+            TEST_RELOAD_MODE="reject"
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'CoreDNS rejected the localDNS corefile'
+            The output should include 'CPUQuota=400%'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal '400000 100000'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'earlier-patch'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v1'
+            Assert served_unchanged
+            The variable LOCALDNS_FAILURE_MESSAGE should equal 'CoreDNS rejected the new corefile and kept serving the previous one; reverted to the previous corefile and limits: cpu 400%, memory 128M'
+        End
+
+        It 'drops the version when CoreDNS rejects the corefile and the limits cannot be reverted'
+            write_earlier_patch
+            TEST_ANC_CPU="300.0%"
+            TEST_RELOAD_MODE="reject"
+            FAKE_SET_PROPERTY_FAIL_FROM=2
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'CoreDNS rejected the localDNS corefile'
+            The output should include 'reverting the localdns.slice limits failed'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'earlier-patch'
+            The path "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should not be exist
+            The path "${LOCALDNS_LIMITS_SAVED_DIR}/50-CPUQuota.conf" should not be exist
+            Assert served_unchanged
+            The variable LOCALDNS_FAILURE_MESSAGE should include 'reverting to the previous limits also failed; in effect: cpu 300%, memory 128M'
+        End
+
+        It 'fails but keeps the committed version when CoreDNS does not become ready'
+            TEST_ANC_CPU="300.0%"
+            TEST_READY_BODY=""
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'CoreDNS did not report ready within 1s'
+            The output should include 'CPUQuota=300%'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v2'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal '300000 100000'
+            The variable LOCALDNS_FAILURE_MESSAGE should equal 'CoreDNS did not report ready within 1s; corefileVersion v2 applied, readiness checked again on the next run'
+        End
+
+        It 'reports a not running localdns once the patch is committed'
+            TEST_LOCALDNS_ACTIVE="false"
+            updateLocalDNS '{}' > /dev/null || true
+            When call localDNSFailureMessage
+            The output should equal 'localdns.service is not running; corefileVersion v2 applied, readiness checked again on the next run'
+        End
+    End
+
+    Describe 'alreadyCurrent'
+        # The node already has v2's Corefile and version on disk.
+        write_current_patch() {
+            cp "${TEST_PATCH_SOURCE}" "${LOCALDNS_LIVEPATCHED_COREFILE}"
+            echo "v2" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            render_expected "${TEST_PATCH_SOURCE}" "10.1.0.4 10.1.0.5" > "${LOCALDNS_SERVED_COREFILE}"
+            record_initial_served
+            TEST_ANC_OUTCOME="alreadyCurrent"
+            # Any metrics read would fail, proving CoreDNS is not touched.
+            TEST_RELOAD_MODE="down"
+        }
+
+        It 'still checks the limits and readiness'
+            write_current_patch
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'localDNS update completed successfully'
+            The output should not include 'localDNS served corefile'
+            The output should not include 'systemctl restart'
+            The output should include 'already in effect'
+            The contents of file "${FAKE_SET_PROPERTY_LOG}" should equal ''
+            Assert served_unchanged
+        End
+
+        It 'sets limits that drifted without touching CoreDNS'
+            write_current_patch
+            TEST_ANC_CPU="300.0%"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'localDNS update completed successfully'
+            The output should not include 'systemctl restart'
+            The output should include 'CPUQuota=300%'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal '300000 100000'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v2'
+            Assert served_unchanged
+        End
+
+        It 'drops the version when a drifted limit cannot be set'
+            write_current_patch
+            TEST_ANC_CPU="300.0%"
+            FAKE_SET_PROPERTY_FAIL=CPUQuota
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'live patching the localDNS limits failed'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal "$(cat "${TEST_PATCH_SOURCE}")"
+            The path "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should not be exist
+            Assert served_unchanged
+        End
+
+        It 'fails when CoreDNS is not ready'
+            write_current_patch
+            TEST_READY_BODY=""
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'CoreDNS did not report ready within 1s'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v2'
+        End
+    End
+
+    Describe 'revoke limits'
+        It 'resets the limits to the baked ones'
+            echo "earlier-patch" > "${LOCALDNS_LIVEPATCHED_COREFILE}"
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            fake_localdns_apply_live "CPUQuota=400%"
+            fake_localdns_save "CPUQuota=400%"
+            TEST_ANC_OUTCOME="noCorefileData"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'localDNS has no config applicable to this node'
+            The output should include 'CPUQuota=200.8%'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal '200800 100000'
+            The path "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should not be exist
+        End
+
+        It 'still revokes the corefile, but fails, when the limits cannot be reset'
+            echo "earlier-patch" > "${LOCALDNS_LIVEPATCHED_COREFILE}"
+            fake_localdns_apply_live "CPUQuota=400%"
+            fake_localdns_save "CPUQuota=400%"
+            FAKE_SET_PROPERTY_FAIL=all
+            TEST_ANC_OUTCOME="noCorefileData"
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'failed to reset the localDNS limits to the baked ones'
+            The path "${LOCALDNS_LIVEPATCHED_COREFILE}" should not be exist
+            The path "${LOCALDNS_LIMITS_SAVED_DIR}/50-CPUQuota.conf" should not be exist
+            The output should include 'CPUQuota=200.8%'
+            The variable LOCALDNS_FAILURE_MESSAGE should equal 'resetting to the baked limits: the cpu limit failed (systemctl set-property CPUQuota=200.8% failed: Failed to set unit properties on localdns.slice: Access denied); in effect: cpu 400%, memory 128M; saved: removed, baked applies after a reboot; baked: cpu 200.8%, memory 128M'
+        End
+    End
+
+    Describe 'node without LocalDNS'
+        It 'succeeds when the payload has nothing for it'
+            rm -f "${LOCALDNS_LIMITS_BAKED_SLICE_FILE}"
+            TEST_LOCALDNS_ACTIVE="false"
+            TEST_ANC_OUTCOME="noCorefileData"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'LocalDNS is not set up on this node'
+            The contents of file "${FAKE_SET_PROPERTY_LOG}" should equal ''
+        End
+
+        It 'fails and writes nothing when the payload has a config for it'
+            rm -f "${LOCALDNS_LIMITS_BAKED_SLICE_FILE}"
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'localdns.slice is not set up here'
+            The path "${LOCALDNS_LIVEPATCHED_COREFILE}" should not be exist
+            The variable LOCALDNS_FAILURE_MESSAGE should equal "cannot read the baked limits from ${LOCALDNS_LIMITS_BAKED_SLICE_FILE}; limits and corefile left unchanged"
         End
     End
 
@@ -386,7 +698,7 @@ EOF
             TEST_RELOAD_MODE="reject"
             updateLocalDNS '{}' > /dev/null || true
             When call localDNSFailureMessage
-            The output should equal 'CoreDNS rejected the new corefile and kept serving the previous one'
+            The output should equal 'CoreDNS rejected the new corefile and kept serving the previous one; reverted to the previous corefile and limits: cpu 200.8%, memory 128M'
         End
 
         It 'reports a failed fallback restart'
@@ -394,7 +706,7 @@ EOF
             TEST_RESTART_STATUS=1
             updateLocalDNS '{}' > /dev/null || true
             When call localDNSFailureMessage
-            The output should equal 'localdns.service restart failed; restored the previous corefile'
+            The output should equal 'localdns.service restart failed; reverted to the previous corefile and limits: cpu 200.8%, memory 128M'
         End
 
         It 'reports a missing aks-node-controller'

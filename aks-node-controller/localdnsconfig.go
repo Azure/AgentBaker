@@ -44,7 +44,7 @@ type localDNSConfigFetcher func(context.Context) (string, error)
 type localDNSConfigOutcome string
 
 const (
-	outcomeLocalDNSConfigApplied        localDNSConfigOutcome = "applied"
+	outcomeLocalDNSConfigRendered       localDNSConfigOutcome = "rendered"
 	outcomeLocalDNSConfigAlreadyCurrent localDNSConfigOutcome = "alreadyCurrent"
 	outcomeLocalDNSConfigNotFound       localDNSConfigOutcome = "notFound"
 	outcomeLocalDNSConfigNoCorefileData localDNSConfigOutcome = "noCorefileData"
@@ -68,6 +68,36 @@ type localDNSCorefileUpdate struct {
 	corefile       string
 	desiredVersion string
 	hasCorefile    bool
+	// cpuQuota and memoryMax are the profile's limits in the units localdns.slice takes (CPUQuota=,
+	// MemoryMax=). Empty when the profile leaves a limit unset: the caller then uses the baked value.
+	cpuQuota  string
+	memoryMax string
+}
+
+// localDNSConfigResult is the outcome of a fetch or apply, plus what the caller needs to finish the
+// patch when a Corefile was rendered or is already current.
+type localDNSConfigResult struct {
+	outcome localDNSConfigOutcome
+	update  localDNSCorefileUpdate
+}
+
+// lines returns the output lines for this result. The outcome is always last, since both shell
+// callers read it with tail -n 1. For rendered and alreadyCurrent the lines before it carry the
+// version to commit and the limits to apply; aks-node-controller no longer writes the .version file
+// itself, because the version stands for the Corefile and the limits, and only the caller applies
+// the limits.
+func (r localDNSConfigResult) lines() []string {
+	var lines []string
+	if r.outcome == outcomeLocalDNSConfigRendered || r.outcome == outcomeLocalDNSConfigAlreadyCurrent {
+		lines = append(lines, "version: "+r.update.desiredVersion)
+		if r.update.cpuQuota != "" {
+			lines = append(lines, "cpuQuota: "+r.update.cpuQuota)
+		}
+		if r.update.memoryMax != "" {
+			lines = append(lines, "memoryMax: "+r.update.memoryMax)
+		}
+	}
+	return append(lines, string(r.outcome))
 }
 
 // runApplyLocalDNSConfigCommand applies a payload the reconciler already has in hand. agentPool is
@@ -77,18 +107,21 @@ type localDNSCorefileUpdate struct {
 //
 // The outcome is always the last line of output. On failure the reason is printed on the line before
 // it as "error: <reason>": Run discards returned errors, and the localDNS handler reports this reason
-// as the component's message in live-patching-status.
+// as the component's message in live-patching-status. See localDNSConfigResult.lines for the lines
+// printed on success.
 func (a *App) runApplyLocalDNSConfigCommand(ctx context.Context, configPath, outputPath, agentPool string, writer io.Writer) error {
-	outcome := outcomeLocalDNSConfigFailed
+	result := localDNSConfigResult{outcome: outcomeLocalDNSConfigFailed}
 	config, err := readLocalDNSConfigInput(configPath)
 	if err == nil {
-		outcome, err = a.applyLocalDNSConfig(ctx, config, outputPath, agentPool)
+		result, err = a.applyLocalDNSConfig(ctx, config, outputPath, agentPool)
 	}
 	if writer != nil {
 		if err != nil {
 			_, _ = fmt.Fprintf(writer, "error: %s\n", err)
 		}
-		_, _ = fmt.Fprintf(writer, "%s\n", outcome)
+		for _, line := range result.lines() {
+			_, _ = fmt.Fprintln(writer, line)
+		}
 	}
 	return err
 }
@@ -108,7 +141,7 @@ func readLocalDNSConfigInput(configPath string) (string, error) {
 	return string(data), nil
 }
 
-func (a *App) applyLocalDNSConfig(ctx context.Context, config, outputPath, agentPool string) (localDNSConfigOutcome, error) {
+func (a *App) applyLocalDNSConfig(ctx context.Context, config, outputPath, agentPool string) (localDNSConfigResult, error) {
 	return a.fetchAndApplyLocalDNSConfig(ctx, outputPath, agentPool, func(context.Context) (string, error) {
 		return config, nil
 	})
@@ -131,7 +164,8 @@ func (a *App) runFetchLocalDNSConfigCommand(ctx context.Context, outputPath stri
 
 	// There is no Node object before the node joins, so the agent pool comes from the provisioning
 	// files. Reaching LPS needs those same files, so a node without them never gets this far.
-	outcome, err := a.fetchAndApplyLocalDNSConfig(ctx, outputPath, "", a.fetchLocalDNSConfig)
+	result, err := a.fetchAndApplyLocalDNSConfig(ctx, outputPath, "", a.fetchLocalDNSConfig)
+	outcome := result.outcome
 	level := helpers.EventLevelInformational
 	if outcome == outcomeLocalDNSConfigFailed {
 		level = helpers.EventLevelError
@@ -147,50 +181,57 @@ func (a *App) runFetchLocalDNSConfigCommand(ctx context.Context, outputPath stri
 		a.eventLogger.LogEvent("FetchLocalDNSConfig", message, level, startTime, time.Now())
 	}
 	// The bootstrap shell caller is intentionally fail-open, so it cannot use the
-	// process exit status to distinguish an applied config from a fallback. Keep
+	// process exit status to distinguish a rendered config from a fallback. Keep
 	// the machine-readable outcome as the final stdout line.
-	fmt.Fprintln(os.Stdout, outcome)
+	for _, line := range result.lines() {
+		fmt.Fprintln(os.Stdout, line)
+	}
 	return nil
 }
 
-func (a *App) fetchAndApplyLocalDNSConfig(ctx context.Context, outputPath, agentPool string, fetcher localDNSConfigFetcher) (localDNSConfigOutcome, error) {
+// fetchAndApplyLocalDNSConfig renders this node's Corefile from the payload and writes it to
+// outputPath. It never writes the .version file next to it: the caller writes that once it has also
+// applied the limits and CoreDNS serves the Corefile. Before a changed Corefile is written the old
+// .version is removed, so a node is never left claiming a version whose Corefile it does not have.
+func (a *App) fetchAndApplyLocalDNSConfig(ctx context.Context, outputPath, agentPool string, fetcher localDNSConfigFetcher) (localDNSConfigResult, error) {
+	failed := localDNSConfigResult{outcome: outcomeLocalDNSConfigFailed}
 	if outputPath == "" {
 		outputPath = defaultLocalDNSCorefilePath
 	}
 	config, err := fetcher(ctx)
 	if err != nil {
 		if isLPSUnavailable(err) {
-			return outcomeLocalDNSConfigNotFound, nil
+			return localDNSConfigResult{outcome: outcomeLocalDNSConfigNotFound}, nil
 		}
-		return outcomeLocalDNSConfigFailed, err
+		return failed, err
 	}
 	update, err := a.localDNSCorefileUpdateFromConfig(config, agentPool)
 	if err != nil {
-		return outcomeLocalDNSConfigFailed, err
+		return failed, err
 	}
 	versionPath := localDNSCorefileVersionPath(outputPath)
 	if !update.hasCorefile {
-		return outcomeLocalDNSConfigNoCorefileData, nil
+		return localDNSConfigResult{outcome: outcomeLocalDNSConfigNoCorefileData}, nil
 	}
 	current, readErr := os.ReadFile(outputPath)
 	if readErr != nil && !os.IsNotExist(readErr) {
-		return outcomeLocalDNSConfigFailed, fmt.Errorf("reading localDNS corefile %s: %w", outputPath, readErr)
+		return failed, fmt.Errorf("reading localDNS corefile %s: %w", outputPath, readErr)
 	}
 	contentMatches := readErr == nil && bytes.Equal(current, []byte(update.corefile))
 	currentVersion, err := readLocalDNSCorefileVersion(versionPath)
 	if err != nil {
-		return outcomeLocalDNSConfigFailed, err
+		return failed, err
 	}
 	if currentVersion == update.desiredVersion && contentMatches {
-		return outcomeLocalDNSConfigAlreadyCurrent, nil
+		return localDNSConfigResult{outcome: outcomeLocalDNSConfigAlreadyCurrent, update: update}, nil
+	}
+	if err := os.Remove(versionPath); err != nil && !os.IsNotExist(err) {
+		return failed, fmt.Errorf("removing localDNS corefile version %s: %w", versionPath, err)
 	}
 	if err := writeLocalDNSCorefile(outputPath, update.corefile); err != nil {
-		return outcomeLocalDNSConfigFailed, err
+		return failed, err
 	}
-	if err := writeLocalDNSCorefileVersion(versionPath, update.desiredVersion); err != nil {
-		return outcomeLocalDNSConfigFailed, err
-	}
-	return outcomeLocalDNSConfigApplied, nil
+	return localDNSConfigResult{outcome: outcomeLocalDNSConfigRendered, update: update}, nil
 }
 
 func (a *App) fetchLocalDNSConfig(ctx context.Context) (string, error) {
@@ -310,6 +351,14 @@ func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPo
 		if _, statErr := os.Stat(a.getLocalDNSHostsFilePath()); statErr != nil {
 			includeHostsPlugin = false
 		}
+	}
+	// Same units as the CSE values in localdns.slice (parser.getLocalDnsCpuLimitInPercentage and
+	// getLocalDnsMemoryLimitInMb), but without their defaults: an unset limit is left to the baked one.
+	if milliCores := profile.GetCpuLimitInMilliCores(); milliCores != 0 {
+		update.cpuQuota = fmt.Sprintf("%.1f%%", float64(milliCores)/10.0)
+	}
+	if memoryMb := profile.GetMemoryLimitInMb(); memoryMb != 0 {
+		update.memoryMax = fmt.Sprintf("%dM", memoryMb)
 	}
 	corefile, err := parser.GenerateLocalDnsCorefileFromAKSNodeConfig(nodeConfig, includeHostsPlugin)
 	if err != nil {
@@ -451,16 +500,6 @@ func readLocalDNSCorefileVersion(path string) (string, error) {
 		return "", fmt.Errorf("reading localDNS corefile version %s: %w", path, err)
 	}
 	return strings.TrimSpace(string(data)), nil
-}
-
-func writeLocalDNSCorefileVersion(path string, version string) error {
-	if strings.TrimSpace(version) == "" {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return fmt.Errorf("create parent directory: %w", err)
-	}
-	return os.WriteFile(path, []byte(strings.TrimSpace(version)+"\n"), 0600)
 }
 
 // nodeAgentPoolNameFromNBCCmd reads the agent pool name from the existing nbc-cmd.sh file.
