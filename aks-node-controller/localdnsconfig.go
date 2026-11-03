@@ -352,13 +352,14 @@ func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPo
 			includeHostsPlugin = false
 		}
 	}
-	// Same units as the CSE values in localdns.slice (parser.getLocalDnsCpuLimitInPercentage and
-	// getLocalDnsMemoryLimitInMb), but without their defaults: an unset limit is left to the baked one.
-	if milliCores := profile.GetCpuLimitInMilliCores(); milliCores != 0 {
-		update.cpuQuota = fmt.Sprintf("%.1f%%", float64(milliCores)/10.0)
+	// The same functions CSE uses to write localdns.slice, so both paths format limits identically.
+	// Only for a set limit: for an unset one they return the provisioning defaults (200%, 128M),
+	// but an unset limit must fall back to the baked localdns.slice value instead.
+	if profile.GetCpuLimitInMilliCores() != 0 {
+		update.cpuQuota = parser.GetLocalDnsCpuLimitInPercentage(nodeConfig)
 	}
-	if memoryMb := profile.GetMemoryLimitInMb(); memoryMb != 0 {
-		update.memoryMax = fmt.Sprintf("%dM", memoryMb)
+	if profile.GetMemoryLimitInMb() != 0 {
+		update.memoryMax = parser.GetLocalDnsMemoryLimitInMb(nodeConfig)
 	}
 	corefile, err := parser.GenerateLocalDnsCorefileFromAKSNodeConfig(nodeConfig, includeHostsPlugin)
 	if err != nil {

@@ -1037,8 +1037,8 @@ func shouldEnableHostsPlugin(aksnodeconfig *aksnodeconfigv1.Configuration) strin
 	return fmt.Sprintf("%v", shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetEnableHostsPlugin())
 }
 
-// getLocalDnsCpuLimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
-func getLocalDnsCpuLimitInPercentage(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+// GetLocalDnsCpuLimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
+func GetLocalDnsCpuLimitInPercentage(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetCpuLimitInMilliCores() != 0 {
 		// Convert milli-cores to percentage and return as formatted string.
 		return fmt.Sprintf("%.1f%%", float64(aksnodeconfig.GetLocalDnsProfile().GetCpuLimitInMilliCores())/10.0)
@@ -1046,8 +1046,8 @@ func getLocalDnsCpuLimitInPercentage(aksnodeconfig *aksnodeconfigv1.Configuratio
 	return defaultLocalDnsCpuLimitInPercentage
 }
 
-// getLocalDnsMemoryLimitInMb returns memory limit in MB that will be used in localdns systemd unit.
-func getLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+// GetLocalDnsMemoryLimitInMb returns memory limit in MB that will be used in localdns systemd unit.
+func GetLocalDnsMemoryLimitInMb(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if shouldEnableLocalDns(aksnodeconfig) == "true" && aksnodeconfig.GetLocalDnsProfile().GetMemoryLimitInMb() != 0 {
 		// Return memory limit as a string with "M" suffix.
 		return fmt.Sprintf("%dM", aksnodeconfig.GetLocalDnsProfile().GetMemoryLimitInMb())
