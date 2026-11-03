@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	resourcev1 "k8s.io/api/resource/v1"
@@ -39,9 +40,72 @@ func TestParseFailedSystemdUnits(t *testing.T) {
 		{name: "truncated entry", output: "example.service loaded failed\n", wantErr: true},
 		{name: "unexpected active state", output: "example.service loaded active running Example\n", wantErr: true},
 	}
+	for _, distro := range datamodel.AvailableUbuntu2004Distros {
+		t.Run(string(distro), func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					units, err := parseFailedSystemdUnits(tt.output, distro)
+					if tt.wantErr {
+						require.Error(t, err)
+						require.Nil(t, units)
+					} else {
+						require.NoError(t, err)
+						require.Equal(t, tt.want, units)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestParseFailedSystemdUnitsJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		distro  datamodel.Distro
+		output  string
+		want    []systemdUnit
+		wantErr bool
+	}{
+		{
+			name:   "Ubuntu 22.04",
+			distro: datamodel.AKSUbuntuContainerd2204Gen2,
+			output: `[{"unit":"example.service","load":"loaded","active":"failed","sub":"failed"}]`,
+			want:   []systemdUnit{{Name: "example.service"}},
+		},
+		{
+			name:   "Ubuntu 24.04 CVM",
+			distro: datamodel.AKSUbuntuContainerd2404CVMGen2,
+			output: `[{"unit":"run-cloud\\x2dinit-tmp-tmp123456.mount"}]`,
+			want:   []systemdUnit{{Name: `run-cloud\x2dinit-tmp-tmp123456.mount`}},
+		},
+		{
+			name:   "Ubuntu 26.04 CVM with no failed units",
+			distro: datamodel.AKSUbuntuMinimalContainerd2604CVMGen2,
+			output: `[]`,
+			want:   []systemdUnit{},
+		},
+		{
+			name:   "Azure Linux",
+			distro: datamodel.AKSAzureLinuxV3Gen2,
+			output: `[{"unit":"example.service"}]`,
+			want:   []systemdUnit{{Name: "example.service"}},
+		},
+		{
+			name:    "malformed JSON",
+			distro:  datamodel.AKSUbuntuContainerd2204Gen2,
+			output:  `[{"unit":`,
+			wantErr: true,
+		},
+		{
+			name:    "newer image rejects legacy output",
+			distro:  datamodel.AKSUbuntuContainerd2404CVMGen2,
+			output:  "example.service loaded failed failed Example service\n",
+			wantErr: true,
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			units, err := parseFailedSystemdUnits(tt.output)
+			units, err := parseFailedSystemdUnits(tt.output, tt.distro)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Nil(t, units)

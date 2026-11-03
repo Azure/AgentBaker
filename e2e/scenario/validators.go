@@ -1431,11 +1431,18 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 }
 
 type systemdUnit struct {
-	Name string
+	Name string `json:"unit,omitempty"`
 }
 
-func parseFailedSystemdUnits(output string) ([]systemdUnit, error) {
+func parseFailedSystemdUnits(output string, distro datamodel.Distro) ([]systemdUnit, error) {
 	var units []systemdUnit
+	if !slices.Contains(datamodel.AvailableUbuntu2004Distros, distro) {
+		if err := json.Unmarshal([]byte(output), &units); err != nil {
+			return nil, err
+		}
+		return units, nil
+	}
+
 	for _, line := range strings.Split(output, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) == 0 {
@@ -1486,14 +1493,18 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 		unitFailureAllowList["systemd-sysupdate.service"] = true
 	}
 
-	// Older systemd versions do not support JSON output for list-units.
+	command := "systemctl list-units --failed --output json"
+	if slices.Contains(datamodel.AvailableUbuntu2004Distros, s.VHD.Distro) {
+		// Ubuntu 20.04's systemd does not support JSON output for list-units.
+		command = "LC_ALL=C systemctl list-units --failed --plain --no-legend --no-pager --full"
+	}
 	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"LC_ALL=C systemctl list-units --failed --plain --no-legend --no-pager --full",
+		command,
 		0, "unable to list failed systemd units")
 	if err != nil {
 		return fmt.Errorf("list failed systemd units: %w", err)
 	}
-	failedUnits, err := parseFailedSystemdUnits(result.stdout)
+	failedUnits, err := parseFailedSystemdUnits(result.stdout, s.VHD.Distro)
 	if err != nil {
 		return fmt.Errorf(`parse "systemctl list-units" command output: %w`, err)
 	}
