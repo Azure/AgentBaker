@@ -50,6 +50,9 @@ LOCALDNS_LIVEPATCHED_COREFILE="${LOCALDNS_LIVEPATCHED_COREFILE:-/opt/azure/conta
 LOCALDNS_BAKED_COREFILE="${LOCALDNS_BAKED_COREFILE:-/opt/azure/containers/localdns/localdns.corefile}"
 # The Corefile CoreDNS runs with (coredns -conf ...).
 LOCALDNS_SERVED_COREFILE="${LOCALDNS_SERVED_COREFILE:-/opt/azure/containers/localdns/updated.localdns.corefile}"
+# The served Corefile's forward IPs for the localdns metrics exporter (localdns_*_forward_info). localdns.sh
+# writes it on every start; an in-place patch rewrites it once CoreDNS has reloaded.
+LOCALDNS_FORWARD_IPS_PROM_FILE="${LOCALDNS_FORWARD_IPS_PROM_FILE:-/opt/azure/containers/localdns/forward_ips.prom}"
 # Written by localdns.sh (replace_azurednsip_in_corefile): what 168.63.129.16 resolved to on its last start.
 LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE:-/run/localdns/vnet-dns-forward-servers}"
 LOCALDNS_AKS_NODE_CONTROLLER="${LOCALDNS_AKS_NODE_CONTROLLER:-/opt/azure/containers/aks-node-controller}"
@@ -163,16 +166,6 @@ localDNSForwardServers() {
     printf '%s' "${servers}"
 }
 
-# Builds the Corefile CoreDNS should serve from a source Corefile. Same substitution as
-# replace_azurednsip_in_corefile in localdns.sh, with the servers it recorded.
-localDNSRenderServedCorefile() {
-    local source_corefile="$1"
-    local output="$2"
-    local forward_servers="$3"
-
-    sed -e "s|168.63.129.16|${forward_servers}|g" "${source_corefile}" > "${output}"
-}
-
 localDNSReloadMetrics() {
     curl -s --noproxy '*' --connect-timeout 2 --max-time 5 "${LOCALDNS_METRICS_URL}"
 }
@@ -265,7 +258,7 @@ localDNSServe() {
         LOCALDNS_FAILURE_MESSAGE="could not create a temp file for the served corefile"
         return 1
     fi
-    if ! localDNSRenderServedCorefile "${source_corefile}" "${desired}" "${forward_servers}"; then
+    if ! localdns_render_served_corefile "${source_corefile}" "${desired}" "${forward_servers}"; then
         rm -f "${desired}"
         echo "failed to render the served localDNS corefile"
         LOCALDNS_FAILURE_MESSAGE="could not render the served corefile"
@@ -306,6 +299,9 @@ localDNSServe() {
     case "${reload_result}" in
         0)
             echo "CoreDNS reloaded the localDNS corefile"
+            # The patch may add or drop zones, or move one between VNet DNS and CoreDNS, so refresh the
+            # forward_info metrics; on a restart localdns.sh does this itself.
+            localdns_export_forward_ips "${LOCALDNS_SERVED_COREFILE}" "${LOCALDNS_FORWARD_IPS_PROM_FILE}"
             return 0
             ;;
         1)

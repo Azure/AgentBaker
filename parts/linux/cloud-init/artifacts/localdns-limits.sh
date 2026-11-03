@@ -1,7 +1,9 @@
 #!/bin/bash
 #
 # LocalDNS CPU and memory limit live patching, shared by localdns.sh (bootstrap) and
-# localdns-livepatch-handler.sh (runtime). Both source this file; it only defines functions.
+# localdns-livepatch-handler.sh (runtime). Both source this file; it only defines functions. It also
+# holds the two Corefile steps both of them run: rendering the served Corefile and exporting its
+# forward targets as metrics (at the end of this file).
 #
 # corefileVersion, the RP's hash of a pool's LocalDNS profile, covers the CPU and memory limits as
 # well as the Corefile, so version X is only applied once localdns.slice runs with X's limits too.
@@ -513,4 +515,98 @@ localdns_wait_ready() {
         fi
         sleep "${poll}"
     done
+}
+
+# Builds the Corefile CoreDNS serves from a source Corefile. The Corefile is rendered with the Azure DNS
+# IP standing in for the VNet's DNS servers in every VnetDNS forward; this replaces it with the servers
+# localdns.sh learned from DHCP and recorded at startup (Azure DNS itself on an Azure DNS VNet).
+# localdns.sh uses it at startup and the live-patch handler for an in-place patch, so both serve the
+# same Corefile for the same source.
+localdns_render_served_corefile() {
+    local source_corefile="$1"
+    local output="$2"
+    local forward_servers="$3"
+    local azure_dns_ip="${4:-168.63.129.16}"
+
+    sed -e "s|${azure_dns_ip}|${forward_servers}|g" "${source_corefile}" > "${output}"
+}
+
+# Exports the forward targets of a served Corefile to prom_file for the localdns metrics exporter: one
+# localdns_vnetdns_forward_info line per forward in a block bound to the node listener, one
+# localdns_kubedns_forward_info line per forward in a block bound to the cluster listener, each labeled
+# with its block. localdns.sh exports at startup and the live-patch handler after an in-place reload,
+# so the metrics follow the Corefile CoreDNS serves. Best-effort: a failure is logged on stdout and
+# never returned, so metrics never affect DNS. Exporting this way avoids parsing the Corefile on every
+# metrics scrape.
+localdns_export_forward_ips() {
+    local served_corefile="$1"
+    local prom_file="$2"
+    local node_listener_ip="${3:-169.254.10.10}"
+    local cluster_listener_ip="${4:-169.254.10.11}"
+    local forward_entries bind_ip block fwd_ip
+    local vnetdns_found=false kubedns_found=false
+    local tmp
+
+    # Single-pass awk outputs "bind_ip|zone|forward_ip" triples:
+    #   - Tracks current zone from block headers like ".:53 {" or "cluster.local:53 {"
+    #   - Tracks bind IP from "bind 169.254.10.10" or "bind 169.254.10.11"
+    #   - Extracts forward IPs from "forward . <ip> ..." lines
+    #   - Resets state on block close "}"
+    forward_entries=$(awk '
+        /^[^ #].*:53 / {
+            block = $1
+            bind_ip = ""
+        }
+        /bind / {
+            for (i=2; i<=NF; i++) {
+                if ($i ~ /^169\.254\.10\.(10|11)$/) bind_ip = $i
+            }
+        }
+        /forward \. / && bind_ip != "" {
+            for (i=3; i<=NF; i++) {
+                if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/)
+                    print bind_ip "|" block "|" $i
+            }
+        }
+        /^}/ { block = ""; bind_ip = "" }
+    ' "${served_corefile}")
+
+    # Write the metrics to a temp file, then rename it into place, so the exporter never reads a
+    # partially written file during a scrape.
+    if ! tmp="$(mktemp "${prom_file}.XXXXXX")"; then
+        echo "WARNING: Failed to create temp file for ${prom_file}. Metrics export skipped."
+    elif ! {
+        echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_vnetdns_forward_info gauge"
+        while IFS='|' read -r bind_ip block fwd_ip; do
+            [ "$bind_ip" = "${node_listener_ip}" ] || continue
+            echo "localdns_vnetdns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
+            vnetdns_found=true
+        done <<< "$forward_entries"
+        if [ "$vnetdns_found" = false ]; then
+            echo 'localdns_vnetdns_forward_info{ip="unknown",block="none",status="missing"} 0'
+        fi
+        echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
+        echo "# TYPE localdns_kubedns_forward_info gauge"
+        while IFS='|' read -r bind_ip block fwd_ip; do
+            [ "$bind_ip" = "${cluster_listener_ip}" ] || continue
+            echo "localdns_kubedns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
+            kubedns_found=true
+        done <<< "$forward_entries"
+        if [ "$kubedns_found" = false ]; then
+            echo 'localdns_kubedns_forward_info{ip="unknown",block="none",status="missing"} 0'
+        fi
+    } > "$tmp"; then
+        echo "WARNING: Failed to write metrics to temp file $tmp. Metrics export skipped."
+        rm -f "$tmp"
+    elif ! chmod 0644 "$tmp"; then
+        echo "WARNING: Failed to set permissions on temp file $tmp. Metrics export skipped."
+        rm -f "$tmp"
+    elif ! mv -f "$tmp" "${prom_file}"; then
+        echo "WARNING: Failed to move temp file to ${prom_file}. Metrics export skipped."
+        rm -f "$tmp"
+    else
+        echo "Successfully exported forward IPs to ${prom_file}"
+    fi
+    return 0
 }

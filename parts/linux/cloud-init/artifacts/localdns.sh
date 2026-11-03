@@ -94,15 +94,16 @@ AKS_NODE_CONTROLLER_BINARY="${AKS_NODE_CONTROLLER_BINARY:-/opt/azure/containers/
 # nothing leaves it empty, so a plain restart never writes the .version file.
 LOCALDNS_PENDING_COREFILE_VERSION=""
 
-# CPU and memory limit live patching, shared with the runtime live-patching handler and installed
-# next to this script. Without it the LPS fetch is skipped, as the limits it carries cannot be applied.
+# Shared with the runtime live-patching handler and installed next to this script: CPU and memory
+# limit live patching, plus rendering the served Corefile and exporting its forward IPs. Without it a
+# start cannot render the served Corefile and fails; cleanup still works.
 # Its functions log what they do on stderr, which the calls below fold into this script's output.
 LOCALDNS_LIMITS_SCRIPT="${LOCALDNS_LIMITS_SCRIPT:-${LOCALDNS_SCRIPT_PATH}/localdns-limits.sh}"
 if [ -f "${LOCALDNS_LIMITS_SCRIPT}" ]; then
     # shellcheck source=parts/linux/cloud-init/artifacts/localdns-limits.sh
     source "${LOCALDNS_LIMITS_SCRIPT}"
 else
-    echo "WARNING: ${LOCALDNS_LIMITS_SCRIPT} not found; LocalDNS live patching is unavailable."
+    echo "WARNING: ${LOCALDNS_LIMITS_SCRIPT} not found; localdns cannot start or be live patched."
 fi
 
 # Function definitions used in this file.
@@ -262,22 +263,22 @@ replace_azurednsip_in_corefile() {
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
     local source_corefile
     source_corefile="$(localdns_source_corefile)"
-    cp "${source_corefile}" "${UPDATED_LOCALDNS_CORE_FILE}" || {
-        echo "Failed to copy ${source_corefile} to ${UPDATED_LOCALDNS_CORE_FILE}"
-        return 1
-    }
 
     local forward_servers="${AZURE_DNS_IP}"
     if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ] && [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
         echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${UPDATED_LOCALDNS_CORE_FILE}"
-        sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${UPDATED_LOCALDNS_CORE_FILE}" || {
-            echo "Replacing AzureDNSIP in corefile failed."
-            return 1
-        }
         forward_servers="${UPSTREAM_VNET_DNS_SERVERS}"
-        echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
     else
         echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
+    fi
+    # The same render the live-patch handler uses (localdns-limits.sh). With no replacement,
+    # forward_servers is the Azure DNS IP itself and the source is served as is.
+    localdns_render_served_corefile "${source_corefile}" "${UPDATED_LOCALDNS_CORE_FILE}" "${forward_servers}" "${AZURE_DNS_IP}" || {
+        echo "Failed to render ${UPDATED_LOCALDNS_CORE_FILE} from ${source_corefile}"
+        return 1
+    }
+    if [ "${forward_servers}" != "${AZURE_DNS_IP}" ]; then
+        echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
     fi
 
     if [ ! -f "${UPDATED_LOCALDNS_CORE_FILE}" ] || [ ! -s "${UPDATED_LOCALDNS_CORE_FILE}" ]; then
@@ -292,80 +293,11 @@ replace_azurednsip_in_corefile() {
 
     record_vnet_dns_forward_servers "${forward_servers}"
 
-    # Export forward IPs to .prom file for metrics exporter (best-effort)
-    # This avoids parsing the corefile on every metrics scrape
-    # Metrics export is non-fatal - if it fails, log warning and continue so DNS service isn't affected
-    local FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
-
-    # Parse forward IPs from ALL server blocks in the corefile.
-    # Each metric line includes a "block" label identifying which zone the forward came from
-    # (e.g., block=".:53", block="cluster.local:53").
-    #
-    # Single-pass awk outputs "bind_ip|zone|forward_ip" triples:
-    #   - Tracks current zone from block headers like ".:53 {" or "cluster.local:53 {"
-    #   - Tracks bind IP from "bind 169.254.10.10" or "bind 169.254.10.11"
-    #   - Extracts forward IPs from "forward . <ip> ..." lines
-    #   - Resets state on block close "}"
-    local forward_entries bind_ip block fwd_ip
-    local vnetdns_found=false kubedns_found=false
-    forward_entries=$(awk '
-        /^[^ #].*:53 / {
-            block = $1
-            bind_ip = ""
-        }
-        /bind / {
-            for (i=2; i<=NF; i++) {
-                if ($i ~ /^169\.254\.10\.(10|11)$/) bind_ip = $i
-            }
-        }
-        /forward \. / && bind_ip != "" {
-            for (i=3; i<=NF; i++) {
-                if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/)
-                    print bind_ip "|" block "|" $i
-            }
-        }
-        /^}/ { block = ""; bind_ip = "" }
-    ' "${UPDATED_LOCALDNS_CORE_FILE}")
-
-    # Write Prometheus metrics to temp file, then atomically rename
-    # This prevents the exporter from reading a partially-written file during scrapes
-    # Generate one metric line per IP+block combination
-    local tmp
-    if ! tmp="$(mktemp "${FORWARD_IPS_PROM_FILE}.XXXXXX")"; then
-        echo "WARNING: Failed to create temp file for ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
-    elif ! {
-        echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
-        echo "# TYPE localdns_vnetdns_forward_info gauge"
-        while IFS='|' read -r bind_ip block fwd_ip; do
-            [ "$bind_ip" = "${LOCALDNS_NODE_LISTENER_IP}" ] || continue
-            echo "localdns_vnetdns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
-            vnetdns_found=true
-        done <<< "$forward_entries"
-        if [ "$vnetdns_found" = false ]; then
-            echo 'localdns_vnetdns_forward_info{ip="unknown",block="none",status="missing"} 0'
-        fi
-        echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
-        echo "# TYPE localdns_kubedns_forward_info gauge"
-        while IFS='|' read -r bind_ip block fwd_ip; do
-            [ "$bind_ip" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ] || continue
-            echo "localdns_kubedns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
-            kubedns_found=true
-        done <<< "$forward_entries"
-        if [ "$kubedns_found" = false ]; then
-            echo 'localdns_kubedns_forward_info{ip="unknown",block="none",status="missing"} 0'
-        fi
-    } > "$tmp"; then
-        echo "WARNING: Failed to write metrics to temp file $tmp. Metrics export skipped."
-        rm -f "$tmp"
-    elif ! chmod 0644 "$tmp"; then
-        echo "WARNING: Failed to set permissions on temp file $tmp. Metrics export skipped."
-        rm -f "$tmp"
-    elif ! mv -f "$tmp" "${FORWARD_IPS_PROM_FILE}"; then
-        echo "WARNING: Failed to move temp file to ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
-        rm -f "$tmp"
-    else
-        echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
-    fi
+    # Export the forward IPs for the metrics exporter (best-effort; localdns-limits.sh), the same export
+    # the live-patch handler runs after an in-place reload.
+    localdns_export_forward_ips "${UPDATED_LOCALDNS_CORE_FILE}" "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" \
+        "${LOCALDNS_NODE_LISTENER_IP}" "${LOCALDNS_CLUSTER_LISTENER_IP}" ||
+        echo "WARNING: Failed to export forward IPs. Metrics export skipped."
 
     # Persist the upstream DNS server(s) so aks-localdns-hosts-setup.sh can resolve against them
     # directly, bypassing localdns. Without this, the timer's dig queries would go through

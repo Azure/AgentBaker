@@ -10,6 +10,7 @@ Describe 'localdns-livepatch-handler.sh'
         LOCALDNS_LIVEPATCHED_COREFILE="${TEST_DIR}/localdns/livepatched.localdns.corefile"
         LOCALDNS_BAKED_COREFILE="${TEST_DIR}/localdns/localdns.corefile"
         LOCALDNS_SERVED_COREFILE="${TEST_DIR}/localdns/updated.localdns.corefile"
+        LOCALDNS_FORWARD_IPS_PROM_FILE="${TEST_DIR}/localdns/forward_ips.prom"
         LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/run/vnet-dns-forward-servers"
         LOCALDNS_AKS_NODE_CONTROLLER="${TEST_DIR}/aks-node-controller"
         LOCALDNS_RELOAD_TIMEOUT_SECONDS=5
@@ -224,6 +225,36 @@ EOF
             The output should include 'CoreDNS rejected the localDNS corefile'
             The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'earlier-patch'
             The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v1'
+        End
+
+        # A patch can add or drop zones, or move one between VNet DNS and CoreDNS, which changes the
+        # forward targets the forward_info metrics report.
+        It 'refreshes the forward_info metrics once CoreDNS has reloaded the patch'
+            cat >> "${TEST_PATCH_SOURCE}" <<'EOF'
+contoso.internal:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+    }
+}
+EOF
+            echo 'previous metrics' > "${LOCALDNS_FORWARD_IPS_PROM_FILE}"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'CoreDNS reloaded the localDNS corefile'
+            The output should include "Successfully exported forward IPs to ${LOCALDNS_FORWARD_IPS_PROM_FILE}"
+            The contents of file "${LOCALDNS_FORWARD_IPS_PROM_FILE}" should include 'localdns_vnetdns_forward_info{ip="10.1.0.4",block="contoso.internal:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_FORWARD_IPS_PROM_FILE}" should include 'localdns_vnetdns_forward_info{ip="10.1.0.5",block=".:53",status="ok"} 1'
+            The contents of file "${LOCALDNS_FORWARD_IPS_PROM_FILE}" should include 'localdns_kubedns_forward_info{ip="10.0.0.10",block="cluster.local:53",status="ok"} 1'
+        End
+
+        It 'leaves the forward_info metrics alone when CoreDNS rejects the patch'
+            echo 'previous metrics' > "${LOCALDNS_FORWARD_IPS_PROM_FILE}"
+            TEST_RELOAD_MODE="reject"
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'CoreDNS rejected the localDNS corefile'
+            The output should not include 'exported forward IPs'
+            The contents of file "${LOCALDNS_FORWARD_IPS_PROM_FILE}" should equal 'previous metrics'
         End
     End
 
