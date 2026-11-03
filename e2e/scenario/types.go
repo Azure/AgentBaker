@@ -196,6 +196,12 @@ type Config struct {
 	// SkipScriptlessNBCCSECmd prevents RunScenario from automatically repeating the scenario using scriptless NBC provisioning.
 	SkipScriptlessNBCCSECmd bool
 
+	// ForceScriptlessNBCCSECmd overrides mode selection after scenario mutators for an additive sampled run.
+	ForceScriptlessNBCCSECmd bool
+
+	// ExcludeFromNBCSampling preserves scenarios that specifically require a different provisioning path.
+	ExcludeFromNBCSampling bool
+
 	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
 	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
 	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.

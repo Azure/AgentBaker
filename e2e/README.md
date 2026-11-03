@@ -111,6 +111,46 @@ restrictions, and VHD-caching behavior remain in effect.
 VHD-caching scenarios keep their existing mode, including explicit Phase 3
 selection in `Ubuntu2604Minimal_AKSNodeConfig_VHDCaching`.
 
+### Random additional NBC-command coverage
+
+The Linux E2E pipeline adds three randomly selected scenarios for each active
+OS/version: Ubuntu 22.04, Ubuntu 24.04, Ubuntu 26.04, and Azure Linux 3. These are
+12 **additional VM runs**, not replacements for the original scenarios. Original
+names, configuration and validators remain unchanged.
+
+The runner's `--random-nbc-coverage` (`E2E_RANDOM_NBC_COVERAGE`) is disabled
+outside that pipeline. The sample size is fixed at three per OS/version.
+Sampling occurs after name and tag filtering, without replacement within each
+OS/version. It fails before Azure initialization if any group has fewer than
+three eligible scenarios, rather than silently losing OS coverage. Leave sampling
+disabled for narrowly filtered runs.
+
+The seed is generated automatically from the build ID and current UTC date
+(`build-id/YYYY-MM-DD`); neither the sample size nor seed is configurable.
+The pipeline supplies `$(Build.BuildId)` as the runner's build ID. The same
+revision, filters, build ID and UTC date reproduce the selection; a new build or
+date changes the seed. Retries within a run use the original selection, even if
+the date changes. The seed and selected names are printed.
+To enable the same fixed-size sampling locally:
+
+```sh
+go run . run --random-nbc-coverage \
+  --skip-tags 'os=windows,gpu=true,cvm=true'
+```
+
+Additional runs are named `<original>/ScriptlessNBCCSECmd`, with separate logs,
+JUnit results and attempt-owned resources. The runner forces NBC-command mode
+after bootstrap mutators, retains ANC mutators for existing Phase 2.5 comparisons,
+and runs the original validators plus common NBC execution checks.
+
+Sampling excludes unsupported images (including Windows, ACL and frozen Azure
+Linux 2), VHD caching, known/conditional skips, expected failures, specialized
+scriptless/hotfix tests, and scenarios without common SSH validation. Set
+`ExcludeFromNBCSampling` for a scenario whose assertions require another
+provisioning path, such as CustomData-only delivery. Sampling cannot be combined
+with `--disable-scriptless` or `--test-pre-provision`. Runtime failures and skips
+remain visible through normal per-scenario reporting.
+
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node

@@ -648,8 +648,9 @@ var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_CustomDataOnlyProvisioning",
 	Description: "Tests that an Ubuntu 22.04 node can be bootstrapped entirely through CustomData without CSE",
 	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
+		ExcludeFromNBCSampling: true,
+		Cluster:                ClusterKubenet,
+		VHD:                    config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.CustomDataOnlyProvisioning = true
 		},

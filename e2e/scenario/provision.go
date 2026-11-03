@@ -312,6 +312,15 @@ func prepareNodeConfiguration(ctx context.Context, s *Scenario, nbc *datamodel.N
 	if config.Config.DisableScriptless || scriptlessUnsupported(s) || !s.VHD.SupportsScriptless() {
 		nbc.EnableScriptlessAKSNodeConfig = false
 	}
+	if s.ForceScriptlessNBCCSECmd {
+		if config.Config.DisableScriptless || scriptlessUnsupported(s) || !s.VHD.SupportsScriptless() ||
+			s.VHDCaching || nbc.PreProvisionOnly || nbc.IsCustomDataOnlyProvisioningEnabled() {
+			return fmt.Errorf("scenario %q cannot use forced scriptless NBC-command provisioning", s.Name)
+		}
+		nbc.EnableScriptlessAKSNodeConfig = false
+		nbc.EnableScriptlessNBCCSECmd = true
+		nbc.EnableScriptlessCSECmd = false
+	}
 	if nbc.EnableScriptlessAKSNodeConfig {
 		nbc.EnableScriptlessNBCCSECmd = false
 	}

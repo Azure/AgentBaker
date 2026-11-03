@@ -22,6 +22,10 @@ parameters:
     type: number
     displayName: Maximum duration of the E2E job
     default: 90
+  - name: randomNBCCoverage
+    type: boolean
+    displayName: Add three random NBC-command scenarios per active Linux OS/version
+    default: false
   - name: useVhdMetadataArtifacts
     type: boolean
     displayName: Resolve VHDs from metadata artifacts produced by this pipeline
@@ -126,6 +130,9 @@ jobs:
           SUBSCRIPTION_ID_OVERRIDE: ${{parameters.subscriptionId}}
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
           E2E_FAILED_TESTS_RETRY_COUNT: ${{parameters.failedTestsRetryCount}}
+          E2E_RANDOM_NBC_COVERAGE: ${{parameters.randomNBCCoverage}}
+          ${{ if eq(parameters.randomNBCCoverage, true) }}:
+            BUILD_ID: $(Build.BuildId)
           RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
           ${{ if eq(parameters.useVhdMetadataArtifacts, true) }}:
             E2E_VHD_METADATA_FILE: $(E2E_VHD_METADATA_FILE)
