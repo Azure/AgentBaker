@@ -505,7 +505,17 @@ configureK8s() {
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "false" ] && [ -z "${TLS_BOOTSTRAP_TOKEN:-}" ]; then
         # only create the client cert and key if we're not using vanilla/secure TLS bootstrapping
         if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+            # client.key is the kubelet client private key; path is overridable for testing.
+            # Create under a restrictive umask so the file is never briefly world-readable
+            # between creation and chmod (avoids a TOCTOU window), then chmod again to cover
+            # the case where the file already existed with looser permissions.
+            local client_key_path="${CLIENT_KEY_PATH:-/etc/kubernetes/certs/client.key}"
+            # Guard both operations: if either fails, stop before writing the private key
+            # rather than silently falling through and writing it with whatever (possibly
+            # world-readable) permissions the file ended up with.
+            (umask 077 && touch "${client_key_path}") || return "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
+            chmod 0600 "${client_key_path}" || return "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
+            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > "${client_key_path}"
         fi
         if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
             echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
@@ -634,9 +644,30 @@ EOF
 }
 
 ensureArtifactStreaming() {
-  waitForContainerdReady || exit $ERR_ARTIFACT_STREAMING_INSTALL
-
   local acr_mirror_setup="${ACR_MIRROR_SETUP_SCRIPT:-/opt/acr/tools/mirror/setup.sh}"
+  if isACL "$OS" "$OS_VARIANT"; then
+    validateACLArtifactStreamingIPECompatibility || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    local services=(acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service)
+    # DALEC's Upholds= starts unmasked units as soon as the manager reloads.
+    systemctl mask "${services[@]}" artifact-streaming-setup.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    installArtifactStreamingSysext || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl daemon-reload || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl unmask artifact-streaming-setup.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl start artifact-streaming-setup.service || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    # acr-config rejects ACL's absolute symlink, including a preserved GPU config.
+    if test -L /etc/containerd/config.toml; then
+      cp --remove-destination "$(readlink -f /etc/containerd/config.toml)" /etc/containerd/config.toml || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    fi
+    "$acr_mirror_setup" aks || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl unmask "${services[@]}" || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl enable "${services[@]}" || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    retrycmd_if_failure 120 5 25 systemctl restart "${services[@]}" || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    systemctl restart containerd || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    waitForContainerdReady || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+    return
+  fi
+  waitForContainerdReady || exit "$ERR_ARTIFACT_STREAMING_INSTALL"
+
   if [ -x "$acr_mirror_setup" ]; then
     "$acr_mirror_setup" aks || exit $ERR_ARTIFACT_STREAMING_INSTALL
   else
@@ -780,4 +811,26 @@ get_compute_sku() {
         return 1
     fi
     echo "$vm_sku"
+}
+
+enableAndStartCgroupTelemetry() {
+    local units=() unit
+
+    # Don't enable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
+    if ! isMarinerOrAzureLinux "$OS"; then
+        units+=(cgroup-memory-telemetry.timer cgroup-memory-telemetry.service)
+    fi
+
+    if [ "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" ]; then
+        units+=(cgroup-cpu-telemetry.timer cgroup-cpu-telemetry.service
+            cgroup-pressure-telemetry.timer cgroup-pressure-telemetry.service)
+    fi
+
+    for unit in "${units[@]}"; do
+        if systemctl cat "$unit" &>/dev/null; then
+            systemctlEnableAndStartNoBlock "$unit" 30 || exit $ERR_START_CGROUP_TELEMETRY
+        else
+            echo "$unit not found on this VHD, skipping"
+        fi
+    done
 }

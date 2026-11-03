@@ -385,6 +385,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/install-kmpp.sh",
+      "destination": "/home/packer/install-kmpp.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/package-update.service",
       "destination": "/home/packer/snapshot-update.service"
     },
@@ -632,6 +637,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh",
       "destination": "/home/packer/cgroup-pressure-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh",
+      "destination": "/home/packer/cgroup-telemetry-events.sh"
     },
     {
       "type": "file",

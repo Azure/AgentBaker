@@ -16,6 +16,18 @@ From a high-level, for each scenario,
 3. Liveness and health checks and then run to make sure the new VM's kubelet is posting NodeReady, and that workload
    pods can successfully be scheduled and run on the new node.
 
+Windows VHD-caching scenarios retain SSH access during the bake when enabled:
+`BasePrep` installs and configures OpenSSH. When the bundled `Install-OpenSSH`
+function supports the `Enabled` parameter, `NodePrep` reapplies the current policy
+and keys, including on cached images. Only Windows scenarios that explicitly
+skip SSH connectivity validation use VMSS RunCommand for guest checks in both
+the bake and real-node stages. Linux behavior is unchanged.
+OpenSSH remains stopped and disabled while the live authorized keys and ACLs are
+prepared; provisioning only re-enables it after those steps succeed.
+The shared `Install-OpenSSH` implementation ships only in the versioned Windows
+CSE bundle, not in CustomData. Older bundles retain their existing SSH behavior
+and require an updated CSE bundle or VHD to receive this fix.
+
 ## Writing and extending scenarios
 
 Extend an existing scenario's `Validator` when its node has the required settings.
@@ -80,9 +92,10 @@ Scenarios specifically covering legacy CLI flags must set
 are unchanged.
 
 Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
-bootstrap config mutator of five scenarios: `Ubuntu2204_ArtifactStreaming`,
+bootstrap config mutator of six scenarios: `Ubuntu2204_ArtifactStreaming`,
 `AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
-and `Ubuntu2204_Early_Failure_Scriptless` (the existing `_Scriptless`-suffix scenario).
+`Ubuntu2204_Early_Failure_Scriptless` (the existing `_Scriptless`-suffix scenario),
+and `Ubuntu2604Minimal_AKSNodeConfig_VHDCaching`.
 The runner converts the NBC, applies the AKSNodeConfig mutator, validates and
 normalizes Phase 3 settings with `nodeconfigutils.Validate`,
 and serializes the result for AgentBaker. The early-failure scenario checks that an
@@ -92,7 +105,7 @@ of the NBC command and comparison path.
 All other scenarios retain their existing provisioning mode, including Phase 2/2.5
 coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
-VHD-caching behavior remain in effect.
+VHD-caching generalization remain in effect.
 
 ### LocalDNS fallback checks
 

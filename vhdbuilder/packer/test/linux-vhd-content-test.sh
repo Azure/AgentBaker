@@ -307,6 +307,20 @@ testPackagesInstalled() {
         fi
         continue
         ;;
+      "oras")
+        if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
+          continue
+        fi
+        local oras_version_output
+        if ! oras_version_output=$(oras version 2>&1); then
+          err "$test" "Failed to run oras version: ${oras_version_output}"
+          continue
+        fi
+        if ! grep -Fq "${PACKAGE_VERSIONS[0]}" <<< "$oras_version_output"; then
+          err "$test" "Expected oras version ${PACKAGE_VERSIONS[0]}, got: ${oras_version_output}"
+        fi
+        continue
+        ;;
       "cni-plugins")
         testCNIPluginsInstalled "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
@@ -814,33 +828,40 @@ testFips() {
 testLtsKernel() {
   local test="testLtsKernel"
   echo "$test:Start"
-  os_version=$1
-  os_sku=$2
-  enable_fips=$3
+  local os_version=$1
+  local os_sku=$2
+  local enable_fips=$3
+  local expected_version expected_kernel kernel flavor=azure
 
   # shellcheck disable=SC3010
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
     echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
-    # Check the Ubuntu version and set the expected kernel version
-    if [ "$os_version" = "22.04" ]; then
-      expected_kernel="5.15"
-    elif [ "$os_version" = "24.04" ]; then
-      expected_kernel="6.8"
-    else
-      # TODO(2604): update once 26.04 LTS kernel metapackage is available
-      echo "LTS kernel not installed for: $os_version"
+    case "$os_version" in
+      22.04) expected_version=5.15.0-1126.135 ;;
+      24.04) expected_version=6.8.0-1073.82 ;;
+      26.04) expected_version=7.0.0-1020.21 ;;
+      *) echo "No pinned LTS kernel for: $os_version"; return ;;
+    esac
+    if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+      flavor=azure-fde
+      case "$os_version" in
+        24.04) expected_version=6.8.0-1071.78 ;;
+        26.04) expected_version=7.0.0-1019.19 ;;
+        *) echo "No pinned FDE kernel for: $os_version"; return ;;
+      esac
     fi
+    expected_kernel="${expected_version%.*}-${flavor}"
 
-    kernel=$(uname -r)
+    kernel=$(uname -r) || { err "$test" "Cannot determine running kernel version"; return 1; }
     echo "Current kernel version: $kernel"
-    # shellcheck disable=SC3010
-    if [[ "$kernel" == *"$expected_kernel"* ]]; then
-      echo "Kernel version is as expected ($expected_kernel)."
-    else
+    if [ "$kernel" != "$expected_kernel" ]; then
       err $test "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
+      return 1
     fi
+    assertPackageVersion "$test" "linux-image-${expected_kernel}" "$expected_version" || return 1
+    echo "Kernel version is as expected ($expected_kernel, package $expected_version)."
   else
-    echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
+    echo "OS is not Ubuntu or FIPS is enabled, skip LTS kernel test"
   fi
 
 }
@@ -2680,7 +2701,6 @@ testNodeProblemDetector() {
     AzureLinux) [ "${os_version}" = 3.0 ] || return 0 ;;
     *) return 0 ;;
   esac
-  case "${FEATURE_FLAGS}" in *kata*) return 0 ;; esac
   for executable in /usr/bin/node-problem-detector /usr/bin/npd-log-counter /usr/bin/npd-health-checker /opt/bin/node-problem-detector-startup.sh; do
     [ -x "${executable}" ] || err "$test" "Missing executable ${executable}"
   done
@@ -2698,6 +2718,47 @@ testNodeProblemDetector() {
   fi
   [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
   [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
+}
+
+testKMPP() {
+  local test="testKMPP"
+  local kmppVersion unit state
+  echo "$test:Start"
+
+  kmppVersion=$(getPackageExpectedVersion "kmpp-containers" "" "" "")
+  # CVM resolves the Azure Linux 3.0 entries but install-dependencies.sh skips it.
+  if [ "$kmppVersion" = "<SKIP>" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    if command -v rpm >/dev/null 2>&1 && rpm -q kmpp-containers >/dev/null 2>&1; then
+      err "$test" "kmpp-containers is installed but KMPP is not baked for this image (OS_SKU=$OS_SKU FEATURE_FLAGS=$FEATURE_FLAGS)"
+    fi
+    echo "$test: Skipping, KMPP is not baked for this image"
+    return 0
+  fi
+
+  assertPackageVersion "$test" "kmpp-containers" "$kmppVersion" true
+  [ -f /etc/kmpp/disableDefaultProvider ] || err "$test" "Missing /etc/kmpp/disableDefaultProvider"
+  if grep -qi kmpp /etc/pki/tls/openssl.cnf; then
+    err "$test" "/etc/pki/tls/openssl.cnf must not load the KMPP provider"
+  fi
+  for unit in dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service; do
+    state=$(systemctl is-enabled "$unit" 2>/dev/null)
+    [ "$state" = "masked" ] || err "$test" "$unit must be masked on the VHD, got '$state'"
+    if systemctl is-active --quiet "$unit"; then
+      err "$test" "$unit must not be running on the VHD"
+    fi
+  done
+  if grep -q DeviceAllow /usr/lib/systemd/system/dbus-com.microsoft.kmpp.service; then
+    err "$test" "dbus-com.microsoft.kmpp.service is the TPM variant, expected the package default"
+  fi
+  if id -nG kmpp 2>/dev/null | tr ' ' '\n' | grep -qx tss; then
+    err "$test" "kmpp user must not be in the tss group"
+  fi
+  if [ -e /var/opt/msft/ap/data/kmpp-private ]; then
+    err "$test" "/var/opt/msft/ap/data/kmpp-private must not be baked into the VHD"
+  fi
+  grep -qsx kmpp-containers /etc/tdnf/locks.d/kmpp.conf || err "$test" "Missing tdnf lock for kmpp-containers"
+
+  echo "$test:Finish"
 }
 
 testKneadSecurityPatchingAssets() {
@@ -3038,6 +3099,7 @@ testMarinerLivePatchingArtifacts
 testNetworkdRecoveryArtifacts
 testNodeExporter $OS_SKU
 testNodeProblemDetector $OS_SKU $OS_VERSION
+testKMPP
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService
