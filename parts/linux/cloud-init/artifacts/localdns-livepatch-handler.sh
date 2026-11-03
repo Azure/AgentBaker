@@ -341,40 +341,42 @@ localDNSFailureMessage() {
     printf '%.512s' "${LOCALDNS_FAILURE_MESSAGE:-}"
 }
 
-# The files a patch touches, in a fixed order so backups map back to them by index.
+# The files a patch touches. Each is backed up under its own name, so a restore names the files it
+# puts back and never depends on this order.
 localDNSPatchedFiles() {
     printf '%s\n' "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version" "${LOCALDNS_SERVED_COREFILE}"
 }
 
 localDNSBackup() {
     local backup_dir="$1"
-    local index=0
     local file
 
     while IFS= read -r file; do
-        if [ -e "${file}" ] && ! cp -p "${file}" "${backup_dir}/${index}"; then
+        if [ -e "${file}" ] && ! cp -p "${file}" "${backup_dir}/$(basename "${file}")"; then
             return 1
         fi
-        index=$((index + 1))
     done < <(localDNSPatchedFiles)
 }
 
-# Puts the patched files back the way they were before this run, removing files that did not exist.
-# count limits it to the first count files of localDNSPatchedFiles (default: all of them). The served
+# Puts the named patched files back the way they were before this run, removing a file that did not
+# exist then. With no files named, it restores every file in localDNSPatchedFiles. The served
 # Corefile goes back through a rename so the reload plugin only ever sees whole files.
 localDNSRestore() {
     local backup_dir="$1"
-    local count="${2:-3}"
-    local index=0
     local file
+    local backup
     local tmp
 
-    while IFS= read -r file; do
-        if [ "${index}" -ge "${count}" ]; then
-            break
-        fi
-        if [ -e "${backup_dir}/${index}" ]; then
-            if tmp="$(mktemp "${file}.XXXXXX")" && cp -p "${backup_dir}/${index}" "${tmp}" && mv -f "${tmp}" "${file}"; then
+    shift
+    if [ "$#" -eq 0 ]; then
+        while IFS= read -r file; do
+            set -- "$@" "${file}"
+        done < <(localDNSPatchedFiles)
+    fi
+    for file in "$@"; do
+        backup="${backup_dir}/$(basename "${file}")"
+        if [ -e "${backup}" ]; then
+            if tmp="$(mktemp "${file}.XXXXXX")" && cp -p "${backup}" "${tmp}" && mv -f "${tmp}" "${file}"; then
                 :
             else
                 rm -f "${tmp:-}"
@@ -383,32 +385,33 @@ localDNSRestore() {
         else
             rm -f "${file}"
         fi
-        index=$((index + 1))
-    done < <(localDNSPatchedFiles)
+    done
 }
 
 # Undoes a patch that failed before its commit: sets the limits back to the ones recorded in the
-# preflight and puts back the first restore_count patched files (see localDNSRestore). When the
-# limits cannot be set back, their drop-ins are removed instead and so is .version, since the node
-# no longer runs any version's limits. keep_version=false removes .version in any case, for a run
-# that changed no file. Sets the status message, starting with failure.
+# preflight and restores the patched files named after the limit values (none for a run that changed
+# no file). When the limits cannot be set back, their drop-ins are removed instead and so is
+# .version, since the node no longer runs any version's limits. keep_version=false removes .version
+# in any case. Sets the status message, starting with failure.
 localDNSUndo() {
     local backup_dir="$1"
-    local restore_count="$2"
-    local keep_version="$3"
-    local failure="$4"
-    local previous_cpu="$5"
-    local previous_memory="$6"
-    local baked_cpu="$7"
-    local baked_memory="$8"
+    local keep_version="$2"
+    local failure="$3"
+    local previous_cpu="$4"
+    local previous_memory="$5"
+    local baked_cpu="$6"
+    local baked_memory="$7"
     local detail
     local reverted=true
 
+    shift 7
     if ! { detail="$(localdns_limits_revert "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
         reverted=false
     fi
     echo "localDNS limits after the undo: ${detail}"
-    localDNSRestore "${backup_dir}" "${restore_count}"
+    if [ "$#" -gt 0 ]; then
+        localDNSRestore "${backup_dir}" "$@"
+    fi
     if [ "${reverted}" != true ] || [ "${keep_version}" != true ]; then
         rm -f "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
     fi
@@ -453,8 +456,9 @@ localDNSRevoke() {
             ;;
         1)
             if [ "${managed}" = true ]; then
-                localDNSUndo "${backup_dir}" 3 true "${LOCALDNS_FAILURE_MESSAGE:-could not serve the baked corefile}" \
-                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+                localDNSUndo "${backup_dir}" true "${LOCALDNS_FAILURE_MESSAGE:-could not serve the baked corefile}" \
+                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}" \
+                    "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version" "${LOCALDNS_SERVED_COREFILE}"
             else
                 : "${LOCALDNS_FAILURE_MESSAGE:=could not serve the baked corefile}"
                 localDNSRestore "${backup_dir}"
@@ -463,8 +467,9 @@ localDNSRevoke() {
             ;;
         *)
             if [ "${managed}" = true ]; then
-                localDNSUndo "${backup_dir}" 3 true "localdns.service restart failed" \
-                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+                localDNSUndo "${backup_dir}" true "localdns.service restart failed" \
+                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}" \
+                    "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version" "${LOCALDNS_SERVED_COREFILE}"
             else
                 LOCALDNS_FAILURE_MESSAGE="localdns.service restart failed; restored the previous corefile"
                 localDNSRestore "${backup_dir}"
@@ -499,8 +504,6 @@ updateLocalDNS() {
     local desired_cpu
     local desired_memory
     local limits_error
-    local restore_count=2
-    local keep_version=true
 
     LOCALDNS_FAILURE_MESSAGE=""
 
@@ -620,14 +623,16 @@ updateLocalDNS() {
     # Step 3: limits. CoreDNS has not been touched yet, so an undo restores the live-patched Corefile
     # and .version but not the served Corefile. An alreadyCurrent run changed no file and has nothing
     # to restore; it only drops .version, since that version's limits are no longer in effect.
-    if [ "${apply_outcome}" = alreadyCurrent ]; then
-        restore_count=0
-        keep_version=false
-    fi
     if ! { limits_error="$(localdns_limits_apply "${desired_cpu}" "${desired_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
         echo "live patching the localDNS limits failed: ${limits_error}"
-        localDNSUndo "${backup_dir}" "${restore_count}" "${keep_version}" "live patching ${limits_error}" \
-            "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+        if [ "${apply_outcome}" = alreadyCurrent ]; then
+            localDNSUndo "${backup_dir}" false "live patching ${limits_error}" \
+                "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+        else
+            localDNSUndo "${backup_dir}" true "live patching ${limits_error}" \
+                "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}" \
+                "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+        fi
         rm -rf "${backup_dir}"
         return 1
     fi
@@ -642,8 +647,9 @@ updateLocalDNS() {
             1)
                 # CoreDNS is still serving the previous Corefile. Put the files and limits back so they
                 # describe it again; the reload plugin sees the served file change and settles on it.
-                localDNSUndo "${backup_dir}" 3 true "${LOCALDNS_FAILURE_MESSAGE:-could not serve the new corefile}" \
-                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+                localDNSUndo "${backup_dir}" true "${LOCALDNS_FAILURE_MESSAGE:-could not serve the new corefile}" \
+                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}" \
+                    "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version" "${LOCALDNS_SERVED_COREFILE}"
                 rm -rf "${backup_dir}"
                 return 1
                 ;;
@@ -651,8 +657,9 @@ updateLocalDNS() {
                 # A fallback restart failed, so localdns may be down on the new Corefile. Put the previous
                 # files and limits back and start it on those; anything further is left to the unit's own
                 # Restart=/OnFailure= handling.
-                localDNSUndo "${backup_dir}" 3 true "localdns.service restart failed" \
-                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}"
+                localDNSUndo "${backup_dir}" true "localdns.service restart failed" \
+                    "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}" \
+                    "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version" "${LOCALDNS_SERVED_COREFILE}"
                 rm -rf "${backup_dir}"
                 if ! systemctl restart localdns.service; then
                     echo "failed to restart localdns.service on the restored corefile"
