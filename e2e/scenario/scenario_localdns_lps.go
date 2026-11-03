@@ -25,6 +25,9 @@ const (
 	// 128 MB), so the scenario can tell a live-patched limit from the CSE-written localdns.slice.
 	localDNSPatchedCPUMilliCores = 3000
 	localDNSPatchedMemoryMB      = 512
+	// The payload's VnetDNS "." cache duration differs from node_config.go (3600 everywhere), so the
+	// served Corefile shows whether the patch, not the baked config, is in effect.
+	localDNSPatchedCacheSeconds = 1800
 )
 
 func init() {
@@ -164,7 +167,7 @@ func localDNSLPSPayload(version string) string {
             "forwardDestination": "VnetDNS",
             "forwardPolicy": "Sequential",
             "maxConcurrent": 1000,
-            "cacheDurationInSeconds": 3600,
+            "cacheDurationInSeconds": ` + fmt.Sprint(localDNSPatchedCacheSeconds) + `,
             "serveStaleDurationInSeconds": 3600,
             "serveStale": "Immediate"
           }
@@ -265,9 +268,12 @@ func validateLocalDNSLPSBootstrapPatch(ctx context.Context, s *Scenario) error {
 	return validateLocalDNSLPSPatchInEffect(ctx, s)
 }
 
-// validateLocalDNSLPSPatchInEffect checks the payload's limits on localdns.slice, the committed
-// corefileVersion, and that localdns serves DNS.
+// validateLocalDNSLPSPatchInEffect checks that the patched Corefile is served, the payload's limits
+// on localdns.slice, the committed corefileVersion, and that localdns serves DNS.
 func validateLocalDNSLPSPatchInEffect(ctx context.Context, s *Scenario) error {
+	if err := ValidateFileHasContent(ctx, s, localDNSUpdatedCorefile, fmt.Sprintf("cache %d", localDNSPatchedCacheSeconds)); err != nil {
+		return err
+	}
 	if err := validateLocalDNSLPSLimits(ctx, s); err != nil {
 		return err
 	}
