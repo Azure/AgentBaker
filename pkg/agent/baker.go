@@ -283,7 +283,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return (config.EnableScriptlessAKSNodeConfig || (config.EnableScriptlessNBCCSECmd) || config.IsCustomDataOnlyProvisioningEnabled()) && !config.PreProvisionOnly
+	return config.EnableScriptlessNBCCSECmd || config.EnableScriptlessAKSNodeConfig || config.IsCustomDataOnlyProvisioningEnabled()
 }
 
 func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
@@ -865,6 +865,15 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	if IsKubeletServingCertificateRotationEnabled(config) {
 		// ensure the required feature gate is set
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+	}
+
+	// The gate makes kubelet pass the RuntimeClass handler to PullImage, so kata-v2 images unpack straight into erofs.
+	if config.AgentPoolProfile != nil && config.AgentPoolProfile.Distro.IsKataDistro() &&
+		IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.29.0") {
+		// Default only, so the RP can still turn it off.
+		if _, set := strKeyValToMapBool(kubeletFlags["--feature-gates"], ",", "=")["RuntimeClassInImageCriApi"]; !set {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RuntimeClassInImageCriApi", true)
+		}
 	}
 
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {

@@ -3,15 +3,39 @@ package scenario
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 )
+
+func TestAKSNodeConfigConversionPreservesProvisioningPhase(t *testing.T) {
+	for _, bake := range []bool{true, false} {
+		t.Run(fmt.Sprintf("bake=%t", bake), func(t *testing.T) {
+			nbc, err := baseTemplateLinux("westus2", "1.37.1", "amd64")
+			require.NoError(t, err)
+			nbc.EnableScriptlessAKSNodeConfig = true
+			nbc.PreProvisionOnly = bake
+			cfg, err := nbcToAKSNodeConfigV1(nbc)
+			require.NoError(t, err)
+			require.Equal(t, bake, cfg.PreProvisionOnly)
+			data, err := nodeconfigutils.MarshalConfigurationV1(cfg)
+			require.NoError(t, err)
+			nbc.AKSNodeConfigJSON = string(data)
+			require.NoError(t, agent.ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(nbc))
+			require.Equal(t, string(data), nbc.AKSNodeConfigJSON)
+			cmd, err := parser.BuildCSECmd(t.Context(), cfg, nil)
+			require.NoError(t, err)
+			require.Contains(t, cmd.Env, fmt.Sprintf("PRE_PROVISION_ONLY=%t", bake))
+		})
+	}
+}
 
 func TestLinuxKubeletConfigFileDefaults(t *testing.T) {
 	for _, version := range []string{"1.33.12", "1.36.5", "1.37.1"} {

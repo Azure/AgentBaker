@@ -875,22 +875,34 @@ func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
 	// Prepend tmpDir to PATH so our fake binary is found first.
 	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
 
-	config := &aksnodeconfigv1.Configuration{
-		NeedsCgroupv2: to.Ptr(true),
-		// ContainerdVersion is intentionally NOT set — should be auto-detected.
-		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
+	for _, isKata := range []bool{false, true} {
+		t.Run(fmt.Sprintf("isKata=%t", isKata), func(t *testing.T) {
+			config := &aksnodeconfigv1.Configuration{
+				IsKata:           isKata,
+				NeedsCgroupv2:    to.Ptr(true),
+				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
+			}
+
+			cmd, err := BuildCSECmd(context.TODO(), config, nil)
+			require.NoError(t, err)
+
+			vars := environToMap(cmd.Env)
+			assert.Equal(t, fmt.Sprintf("%t", isKata), vars["IS_KATA"])
+			for _, key := range []string{"CONTAINERD_CONFIG_CONTENT", "CONTAINERD_CONFIG_NO_GPU_CONTENT"} {
+				containerdConfig, err := getBase64DecodedValue([]byte(vars[key]))
+				require.NoError(t, err)
+				if isKata {
+					assert.Contains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
+					assert.Contains(t, containerdConfig, `disable_snapshot_annotations = false`)
+					assert.NotContains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
+					assert.NotContains(t, containerdConfig, `plugins."io.containerd.cri.v1.runtime"`)
+				} else {
+					assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
+					assert.NotContains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
+				}
+			}
+		})
 	}
-
-	cmd, err := BuildCSECmd(context.TODO(), config, nil)
-	require.NoError(t, err)
-
-	vars := environToMap(cmd.Env)
-
-	// Verify the v2 containerd config template was used (uses "io.containerd.cri.v1.images" path).
-	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
-	require.NoError(t, err)
-	assert.Contains(t, containerdConfig, `plugins."io.containerd.cri.v1.images"`)
-	assert.NotContains(t, containerdConfig, `plugins."io.containerd.grpc.v1.cri"`)
 }
 
 func TestBuildCSECmd_FallsBackToV1WhenContainerdDetectionFails(t *testing.T) {
