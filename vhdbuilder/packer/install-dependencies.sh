@@ -997,11 +997,37 @@ cacheContainerImageComponents() {
     --vhd-log-file "$VHD_LOGS_FILEPATH"
 }
 
+getCachedNvidiaContainerToolkitVersion() {
+  local image="$1"
+  local digest manifest layer
+  local version
+  digest=$(timeout 30 ctr -n k8s.io images list "name==${image}" | awk 'NR == 2 {print $3}') || return
+  [ -n "$digest" ] || return 1
+  manifest=$(timeout 30 ctr -n k8s.io content get "$digest") || return
+  if printf '%s\n' "$manifest" | jq -e '.manifests' >/dev/null; then
+    digest=$(printf '%s\n' "$manifest" | jq -er --arg arch "$CPU_ARCH" '.manifests[] |
+      select(.platform.os == "linux" and .platform.architecture == $arch) | .digest') || return
+    manifest=$(timeout 30 ctr -n k8s.io content get "$digest") || return
+  fi
+  # Read package filenames from cached gzip layers without creating unpacked snapshots.
+  while IFS= read -r layer; do
+    version=$(set -o pipefail
+      timeout 30 ctr -n k8s.io content get "$layer" |
+        tar -tzf - |
+        awk -F_ '/^(\.\/)?opt\/gpu\/nvidia-container-toolkit_[^\/]+[.]deb$/ {print $(NF-1)}'
+    ) || return
+    if [ -n "$version" ]; then
+      printf '%s\n' "$version"
+      return
+    fi
+  done < <(printf '%s\n' "$manifest" | jq -er '.layers | reverse[] | .digest')
+  return 1
+}
+
 logCachedNvidiaContainerToolkitVersion() {
   local image="$1"
   local version
-  if version=$(timeout 30 ctr -n k8s.io run --rm "$image" "nvidia-container-toolkit-version-$$" \
-    /bin/sh -c 'dpkg-deb -f /opt/gpu/nvidia-container-toolkit_*.deb Version') && [ -n "$version" ]; then
+  if version=$(getCachedNvidiaContainerToolkitVersion "$image") && [ -n "$version" ]; then
     echo "  - nvidia-container-toolkit version ${version} (cached in CUDA driver image; installed at node provisioning time)" >> "$VHD_LOGS_FILEPATH"
   else
     echo "Warning: unable to read NVIDIA container toolkit version from cached image ${image}" >&2
