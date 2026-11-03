@@ -307,18 +307,18 @@ knead_apply_components() {
         echo "applying component: ${component}"
 
         # Select the handler for this component; unsupported components are ignored.
+        # Only some components report a message and current; reset them so a component never
+        # reports another one's.
+        component_message_reporter=""
+        component_current_reporter=""
         case "${component}" in
             securityPatch)
                 component_comparator=securityPatchIsCurrent
                 component_handler=updateSecurityPatch
-                component_message_reporter=""
-                component_current_reporter=""
                 ;;
             npdConfig)
                 component_comparator=npdConfigsIsCurrent
                 component_handler=updateNPDConfigs
-                component_message_reporter=""
-                component_current_reporter=""
                 ;;
             localDNS)
                 component_comparator=localDNSIsCurrent

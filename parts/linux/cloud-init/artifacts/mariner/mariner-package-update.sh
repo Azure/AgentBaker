@@ -211,18 +211,18 @@ apply_components() {
             component_index=$((component_index + 1))
             continue
         fi
+        # Only some components report a message and current; reset them so a component never
+        # reports another one's.
+        component_message_reporter=""
+        component_current_reporter=""
         case "${component_name}" in
             securityPatch)
                 component_handler=updateSecurityPatch
                 component_comparator=securityPatchIsCurrent
-                component_message_reporter=""
-                component_current_reporter=""
                 ;;
             npdConfig)
                 component_handler=updateNPDConfigs
                 component_comparator=npdConfigsIsCurrent
-                component_message_reporter=""
-                component_current_reporter=""
                 ;;
             localDNS)
                 component_handler=updateLocalDNS
