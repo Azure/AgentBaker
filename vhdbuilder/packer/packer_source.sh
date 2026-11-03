@@ -363,6 +363,12 @@ copyPackerFiles() {
   LOCALDNS_SCRIPT_DEST=/opt/azure/containers/localdns/localdns.sh
   cpAndMode $LOCALDNS_SCRIPT_SRC $LOCALDNS_SCRIPT_DEST 0755
 
+  # Sourced by localdns.sh and by the live-patching handler, so it is installed on every OS
+  # localdns.sh is, including those without the handler.
+  LOCALDNS_LIMITS_SCRIPT_SRC=/home/packer/localdns-limits.sh
+  LOCALDNS_LIMITS_SCRIPT_DEST=/opt/azure/containers/localdns/localdns-limits.sh
+  cpAndMode $LOCALDNS_LIMITS_SCRIPT_SRC $LOCALDNS_LIMITS_SCRIPT_DEST 0644
+
   LOCALDNS_SERVICE_SRC=/home/packer/localdns.service
   LOCALDNS_SERVICE_DEST=/etc/systemd/system/localdns.service
   cpAndMode $LOCALDNS_SERVICE_SRC $LOCALDNS_SERVICE_DEST 0644

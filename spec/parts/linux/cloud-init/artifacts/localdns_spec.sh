@@ -4,6 +4,19 @@ lsb_release() {
     echo "mock lsb_release"
 }
 
+# localdns.sh sources the limit functions from next to itself on a node; here, from the repo.
+LOCALDNS_LIMITS_SCRIPT=./parts/linux/cloud-init/artifacts/localdns-limits.sh
+
+# A running localdns.slice on the CSE limits of the e2e node config (2008 millicores, 128 MB), with
+# systemctl standing in for the calls localdns-limits.sh makes.
+use_fake_localdns_slice() {
+    Include ./spec/parts/linux/cloud-init/artifacts/localdns_limits_fakes.sh
+    setup_fake_localdns_slice "$1" "200.8%" "128M"
+    systemctl() {
+        fake_localdns_systemctl "$@"
+    }
+}
+
 Describe 'localdns.sh'
 
 # This section tests - verify_localdns_corefile, verify_localdns_slicefile, verify_localdns_binary, replace_azurednsip_in_corefile.
@@ -397,11 +410,13 @@ EOF
         End
 
         It 'should fetch LocalDNS LPS config through aks-node-controller when binary exists'
+            use_fake_localdns_slice "${TEST_DIR}/slice"
             AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/aks-node-controller"
             cat > "${AKS_NODE_CONTROLLER_BINARY}" <<'EOF'
 #!/bin/bash
 echo "anc args: $*"
-echo "applied"
+echo "version: v2"
+echo "rendered"
 exit 0
 EOF
             chmod +x "${AKS_NODE_CONTROLLER_BINARY}"
@@ -410,7 +425,7 @@ EOF
             The status should be success
             The output should include "anc args: fetch-localdns-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
             The output should include "LocalDNS LPS config fetch outcome: anc args: fetch-localdns-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
-            The output should include "applied"
+            The output should include "rendered"
         End
 
         It 'should skip LocalDNS LPS config fetch when aks-node-controller binary is missing'
@@ -590,6 +605,7 @@ EOF
             # The baked corefile is rewritten from live CustomData on every startup by
             # regenerate_localdns_corefile, so it always reflects the node's current desired config.
             echo "baked-current-config" > "$LOCALDNS_CORE_FILE"
+            use_fake_localdns_slice "${TEST_DIR}/slice"
         }
 
         # Simulate a node that was live patched on an earlier boot: both the live-patched corefile
@@ -599,14 +615,12 @@ EOF
             echo "v1" > "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version"
         }
 
-        # Stub aks-node-controller so fetch-localdns-config emits the given outcome as its final
-        # stdout line, matching the real command's fail-open contract (always exit 0).
+        # Stub aks-node-controller so fetch-localdns-config prints the given lines, the last being the
+        # outcome, matching the real command's fail-open contract (always exit 0).
         stub_aks_node_controller() {
-            cat > "${AKS_NODE_CONTROLLER_BINARY}" <<EOF
-#!/bin/bash
-echo "$1"
-exit 0
-EOF
+            printf '#!/bin/bash\n' > "${AKS_NODE_CONTROLLER_BINARY}"
+            printf 'echo "%s"\n' "$@" >> "${AKS_NODE_CONTROLLER_BINARY}"
+            printf 'exit 0\n' >> "${AKS_NODE_CONTROLLER_BINARY}"
             chmod +x "${AKS_NODE_CONTROLLER_BINARY}"
         }
 
@@ -710,15 +724,118 @@ EOF
             The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should be exist
         End
 
-        It 'should keep the livepatched corefile when LPS reports applied'
+        It 'should keep the livepatched corefile and apply its limits when LPS reports rendered'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "version: v2" "cpuQuota: 300.0%" "memoryMax: 512M" "rendered"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "LocalDNS LPS config fetch outcome: version: v2"
+            The output should include "systemctl set-property localdns.slice CPUQuota=300%"
+            The output should include "systemctl set-property localdns.slice MemoryMax=536870912"
+            The output should not include "Discarded live-patched localdns corefile"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should be exist
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal "300000 100000"
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/memory.max" should equal "536870912"
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal "v2"
+        End
+
+        It 'should apply the limits when LPS reports alreadyCurrent'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "version: v1" "cpuQuota: 300.0%" "alreadyCurrent"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "systemctl set-property localdns.slice CPUQuota=300%"
+            The output should include "memory limit 128M is already in effect"
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal "v1"
+        End
+
+        It 'should leave the version for commit_localdns_corefile_version to write'
+            stub_aks_node_controller "version: v2" "rendered"
+            refresh_localdns_corefile_from_lps > /dev/null
+            When call commit_localdns_corefile_version
+            The status should be success
+            The output should include "Committed LocalDNS corefileVersion v2."
+            The contents of file "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should equal "v2"
+        End
+
+        It 'should use the baked limits for limits the payload leaves out'
+            write_stale_livepatched_corefile
+            fake_localdns_apply_live "CPUQuota=400%"
+            stub_aks_node_controller "version: v2" "rendered"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "systemctl set-property localdns.slice CPUQuota=200.8%"
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal "200800 100000"
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal "v2"
+        End
+
+        It 'should fall back to the baked corefile and the previous limits when a limit fails'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "version: v2" "cpuQuota: 300.0%" "memoryMax: 512M" "rendered"
+            FAKE_SET_PROPERTY_FAIL=MemoryMax
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "WARNING: live patching the memory limit failed"
+            The output should include "Reverted the localdns.slice limits to cpu 200.8%, memory 128M."
+            The output should include "limits of corefileVersion v2 could not be applied"
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal "200800 100000"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should not be exist
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal ""
+        End
+
+        It 'should remove the saved limits when they cannot be reverted either'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "version: v2" "cpuQuota: 300.0%" "memoryMax: 512M" "rendered"
+            FAKE_SET_PROPERTY_FAIL_FROM=2
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "WARNING: Reverting the localdns.slice limits also failed; in effect: cpu 300%, memory 128M; saved: removed, baked applies after a reboot"
+            The path "${LOCALDNS_LIMITS_SAVED_DIR}/50-CPUQuota.conf" should not be exist
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal ""
+        End
+
+        It 'should reset the limits to the baked ones when LPS revokes the patch'
+            write_stale_livepatched_corefile
+            fake_localdns_apply_live "CPUQuota=400%"
+            fake_localdns_save "CPUQuota=400%"
+            stub_aks_node_controller "noCorefileData"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "LPS has no corefile for this node."
+            The output should include "systemctl set-property localdns.slice CPUQuota=200.8%"
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal "200800 100000"
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal ""
+        End
+
+        It 'should not fetch when the limits preflight fails'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "version: v2" "rendered"
+            FAKE_SYSTEMCTL_DOWN=true
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "LocalDNS limits preflight failed: systemctl did not respond"
+            The output should not include "LocalDNS LPS config fetch outcome"
+            The contents of file "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should equal "livepatched-from-earlier-boot"
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal ""
+        End
+
+        It 'should not write a version on a start that fetched nothing'
+            write_stale_livepatched_corefile
+            When call commit_localdns_corefile_version
+            The status should be success
+            The output should equal ""
+            The contents of file "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should equal "v1"
+        End
+
+        It "should treat an older binary's applied outcome as unexpected and commit nothing"
             write_stale_livepatched_corefile
             stub_aks_node_controller "applied"
             When call refresh_localdns_corefile_from_lps
             The status should be success
-            The output should include "LocalDNS LPS config fetch outcome: applied"
-            The output should not include "Discarded live-patched localdns corefile"
-            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should be exist
-            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should be exist
+            The output should include "Unexpected LocalDNS LPS config fetch outcome"
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal ""
         End
 
         It 'should discard an unverifiable livepatched corefile when the binary is missing'
