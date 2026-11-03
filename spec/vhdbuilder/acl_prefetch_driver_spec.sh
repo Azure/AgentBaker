@@ -149,18 +149,34 @@ Describe 'ACL release AIB template'
     local work
     work="$(mktemp -d)"
     (
+      printf 'existing AIB hook\n' > "${work}/DeprovisioningScript.sh"
+      chmod 0777 "${work}/DeprovisioningScript.sh"
+      if [[ "${ACL_HOOK_SYMLINK:-false}" == true ]]; then
+        printf 'unrelated file\n' > "${work}/target"
+        rm "${work}/DeprovisioningScript.sh"
+        ln -s "${work}/target" "${work}/DeprovisioningScript.sh"
+      fi
       export ACL_HOOK_TEST_ROOT="${work}"
       acl-image-prepare() { return 0; }
       sudo() {
-        if [[ "$*" != 'tee /tmp/DeprovisioningScript.sh' ]]; then
+        if [[ "$*" != 'install -m 0700 /dev/stdin /tmp/DeprovisioningScript.sh' ]]; then
           echo "unexpected command: $*" >&2
           return 1
         fi
-        cat > "${ACL_HOOK_TEST_ROOT}/DeprovisioningScript.sh"
+        if [[ "${ACL_HOOK_INSTALL_FAILURE:-false}" == true ]]; then
+          echo "install denied" >&2
+          return 17
+        fi
+        command install -m 0700 /dev/stdin "${ACL_HOOK_TEST_ROOT}/DeprovisioningScript.sh"
       }
       export -f acl-image-prepare sudo
       jq -r '.properties.customize[1].inline[]' vhdbuilder/prefetch/templates/acl.json |
-        bash -euo pipefail
+        bash -euo pipefail || exit $?
+      [[ "$(stat -c '%a' "${work}/DeprovisioningScript.sh")" == 700 ]] || exit 18
+      [[ ! -L "${work}/DeprovisioningScript.sh" ]] || exit 19
+      if [[ "${ACL_HOOK_SYMLINK:-false}" == true ]]; then
+        [[ "$(cat "${work}/target")" == 'unrelated file' ]] || exit 20
+      fi
       cat "${work}/DeprovisioningScript.sh"
     )
     local status=$?
@@ -189,10 +205,26 @@ Describe 'ACL release AIB template'
     The output should equal true
   End
 
-  It 'writes an executable shell program for the documented override'
+  It 'replaces the existing hook with an owner-only executable shell program'
     expected="$(printf '%s\n' '#!/bin/bash' 'set -euo pipefail' 'sudo /bin/bash /tmp/acl-prefetch-driver.sh --deprovision')"
     When call run_configuration
     The status should be success
     The output should equal "${expected}"
+  End
+
+  It 'replaces a destination symlink without overwriting its target'
+    export ACL_HOOK_SYMLINK=true
+    expected="$(printf '%s\n' '#!/bin/bash' 'set -euo pipefail' 'sudo /bin/bash /tmp/acl-prefetch-driver.sh --deprovision')"
+    When call run_configuration
+    The status should be success
+    The output should equal "${expected}"
+  End
+
+  It 'propagates hook installation failure'
+    export ACL_HOOK_INSTALL_FAILURE=true
+    When call run_configuration
+    The status should equal 17
+    The stderr should equal 'install denied'
+    The output should be blank
   End
 End

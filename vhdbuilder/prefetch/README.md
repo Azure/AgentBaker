@@ -28,6 +28,11 @@ Microsoft documents
 create `/tmp/DeprovisioningScript.sh` during customization. Image Builder runs
 it at the end of customization to generalize the image for reuse.
 
+Image Builder pre-creates this hook as its temporary SSH user. The template uses
+`install -m 0700` to replace it rather than `tee` to reopen it: Linux's protected
+temporary-file checks can reject the latter even as root. This retains the
+kernel hardening setting and makes the replacement executable only by its owner.
+
 The ACL template stages the pinned driver and installs that override. The
 deprovisioning path:
 

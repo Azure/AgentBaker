@@ -26,7 +26,7 @@
                 "name": "ConfigureACLDeprovisioning",
                 "inline": [
                     "command -v acl-image-prepare >/dev/null || { echo 'ACL base image must include acl-image-prepare' >&2; exit 1; }",
-                    "printf '%s\\n' '#!/bin/bash' 'set -euo pipefail' 'sudo /bin/bash /tmp/acl-prefetch-driver.sh --deprovision' | sudo tee /tmp/DeprovisioningScript.sh >/dev/null"
+                    "printf '%s\\n' '#!/bin/bash' 'set -euo pipefail' 'sudo /bin/bash /tmp/acl-prefetch-driver.sh --deprovision' | sudo install -m 0700 /dev/stdin /tmp/DeprovisioningScript.sh"
                 ]
             }
         ],
