@@ -2506,10 +2506,13 @@ testBlobfuse2() {
 testLshwInstalled() {
   local test="testLshwInstalled"
   echo "$test:Start"
-  if [ "$OS_SKU" != "Ubuntu" ] || [ "$OS_VERSION" != "26.04" ] || [[ "$IMG_SKU" != *minimal* ]]; then
-    echo "$test: Skipping, only applicable to Ubuntu 26.04 minimal"
-    return 0
-  fi
+  case "$OS_SKU/$OS_VERSION/$IMG_SKU" in
+    Ubuntu/26.04/*minimal*) ;;
+    *)
+      echo "$test: Skipping, only applicable to Ubuntu 26.04 minimal"
+      return 0
+      ;;
+  esac
   if ! dpkg-query -W -f='${Status}' lshw 2>/dev/null | grep -q "install ok installed"; then
     err "$test" "lshw is not installed"
     return 1
