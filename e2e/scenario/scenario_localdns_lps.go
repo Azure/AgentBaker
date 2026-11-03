@@ -1,13 +1,8 @@
 package scenario
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"fmt"
-	"os"
-	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -18,9 +13,8 @@ const (
 	desiredLocalDNSVersion          = "e2e-localdns-corefile-version"
 	localDNSPayloadPath             = "/opt/azure/containers/localdns/e2e-localdns-lps-payload.json"
 	localDNSFetcherStamp            = "/opt/azure/containers/localdns/e2e-localdns-lps-fetcher-called"
-	localDNSBranchScriptArchivePath = "/opt/azure/containers/localdns/e2e-localdns.sh.gz.b64"
-	localDNSLimitsScriptArchivePath = "/opt/azure/containers/localdns/e2e-localdns-limits.sh.gz.b64"
 	localDNSFetcherPath             = "/opt/azure/containers/localdns/e2e-fetch-localdns-config"
+	localDNSFetcherDropInPath       = "/etc/systemd/system/localdns.service.d/00-e2e-lps-fetcher.conf"
 	localDNSUnavailableFetcherStamp = "/opt/azure/containers/localdns/e2e-localdns-lps-unavailable-called"
 
 	localDNSBakedCorefile       = "/opt/azure/containers/localdns/localdns.corefile"
@@ -47,9 +41,13 @@ func init() {
 	//  5. keeps all of that across a reboot.
 	// Reporting that version in live-patching-status is the knead reconciler's job on its first
 	// run after the node joins; this E2E has no LPC driving localDNS, so it checks the file.
+	//
+	// It tests the localdns.sh and localdns-limits.sh baked into the VHD, so it only runs on a VHD
+	// built from this branch (see skipUnlessBranchVHD).
 	Register(&Scenario{
 		Name:        "LocalDNSLPSBootstrapPatch",
 		Description: "Tests LocalDNS LPS bootstrap patching applies Corefile and limits and reports corefileVersion",
+		SkipIf:      skipUnlessBranchVHD,
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -61,22 +59,10 @@ func init() {
 			},
 			CustomDataWriteFiles: []CustomDataWriteFile{
 				{
-					Path:        localDNSBranchScriptArchivePath,
+					Path:        localDNSFetcherDropInPath,
 					Permissions: "0644",
 					Owner:       "root",
-					Content:     mustReadCompressedLocalDNSArtifact(),
-				},
-				{
-					Path:        localDNSLimitsScriptArchivePath,
-					Permissions: "0644",
-					Owner:       "root",
-					Content:     mustReadCompressedLocalDNSLimitsArtifact(),
-				},
-				{
-					Path:        "/etc/systemd/system/localdns.service.d/00-e2e-branch-localdns.conf",
-					Permissions: "0644",
-					Owner:       "root",
-					Content:     localDNSBranchScriptDropIn(),
+					Content:     localDNSFetcherDropIn(),
 				},
 				{
 					Path:        localDNSPayloadPath,
@@ -114,6 +100,7 @@ func init() {
 	Register(&Scenario{
 		Name:        "LocalDNSLPSUnavailableFallback",
 		Description: "Tests LocalDNS bootstrap falls back to the baked Corefile when LPS has no config",
+		SkipIf:      skipUnlessBranchVHD,
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -125,22 +112,10 @@ func init() {
 			},
 			CustomDataWriteFiles: []CustomDataWriteFile{
 				{
-					Path:        localDNSBranchScriptArchivePath,
+					Path:        localDNSFetcherDropInPath,
 					Permissions: "0644",
 					Owner:       "root",
-					Content:     mustReadCompressedLocalDNSArtifact(),
-				},
-				{
-					Path:        localDNSLimitsScriptArchivePath,
-					Permissions: "0644",
-					Owner:       "root",
-					Content:     mustReadCompressedLocalDNSLimitsArtifact(),
-				},
-				{
-					Path:        "/etc/systemd/system/localdns.service.d/00-e2e-branch-localdns.conf",
-					Permissions: "0644",
-					Owner:       "root",
-					Content:     localDNSBranchScriptDropIn(),
+					Content:     localDNSFetcherDropIn(),
 				},
 				{
 					Path:        localDNSFetcherPath,
@@ -157,51 +132,20 @@ func init() {
 	})
 }
 
-// mustReadCompressedLocalDNSArtifact returns the branch's localdns.sh, repointed at the
-// e2e fetcher wrapper and gzip+base64 encoded for delivery through cloud-init write_files.
-// It panics on failure: the script is checked into the repo, so a read error means the
-// checkout is unusable for every LocalDNS scenario.
-func mustReadCompressedLocalDNSArtifact() string {
-	return mustReadCompressedArtifact("parts/linux/cloud-init/artifacts/localdns.sh", func(content string) string {
-		return strings.ReplaceAll(content,
-			`AKS_NODE_CONTROLLER_BINARY="/opt/azure/containers/aks-node-controller"`,
-			`AKS_NODE_CONTROLLER_BINARY="`+localDNSFetcherPath+`"`)
-	})
+// skipUnlessBranchVHD skips the LPS scenarios unless the VHD under test was built in this pipeline
+// run, which is when a VHD metadata file is set (the VHD build's e2e stage). They test the
+// localdns.sh and localdns-limits.sh baked into the VHD, which a VHD from main may predate.
+func skipUnlessBranchVHD(context.Context) string {
+	if config.Config.VHDMetadataFile == "" {
+		return "needs a VHD built from this branch; runs in the VHD build's e2e stage"
+	}
+	return ""
 }
 
-// mustReadCompressedLocalDNSLimitsArtifact returns the branch's localdns-limits.sh, which the
-// branch's localdns.sh sources from next to itself; the VHD under test may predate it.
-func mustReadCompressedLocalDNSLimitsArtifact() string {
-	return mustReadCompressedArtifact("parts/linux/cloud-init/artifacts/localdns-limits.sh", func(content string) string {
-		return content
-	})
-}
-
-func mustReadCompressedArtifact(relPath string, edit func(string) string) string {
-	path := repoPath(relPath)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		panic(fmt.Sprintf("reading %s for the LocalDNS LPS scenarios: %v", path, err))
-	}
-	content := edit(string(data))
-
-	var buf bytes.Buffer
-	zw := gzip.NewWriter(&buf)
-	if _, err := zw.Write([]byte(content)); err != nil {
-		panic(fmt.Sprintf("compressing %s for the LocalDNS LPS scenarios: %v", path, err))
-	}
-	if err := zw.Close(); err != nil {
-		panic(fmt.Sprintf("compressing %s for the LocalDNS LPS scenarios: %v", path, err))
-	}
-	return base64.StdEncoding.EncodeToString(buf.Bytes())
-}
-
-func localDNSBranchScriptDropIn() string {
-	const limitsScript = "/opt/azure/containers/localdns/localdns-limits.sh"
-	return `[Service]
-ExecStartPre=/bin/bash -c 'base64 -d ` + localDNSBranchScriptArchivePath + ` | gzip -d > /opt/azure/containers/localdns/localdns.sh && chmod 0544 /opt/azure/containers/localdns/localdns.sh'
-ExecStartPre=/bin/bash -c 'base64 -d ` + localDNSLimitsScriptArchivePath + ` | gzip -d > ` + limitsScript + ` && chmod 0644 ` + limitsScript + `'
-`
+// localDNSFetcherDropIn points the VHD's localdns.sh at the e2e fetcher wrapper instead of
+// aks-node-controller, so the bootstrap fetch gets the scenario's payload instead of asking LPS.
+func localDNSFetcherDropIn() string {
+	return "[Service]\nEnvironment=AKS_NODE_CONTROLLER_BINARY=" + localDNSFetcherPath + "\n"
 }
 
 func localDNSLPSPayload(version string) string {

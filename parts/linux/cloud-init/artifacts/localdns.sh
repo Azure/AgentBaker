@@ -86,7 +86,8 @@ START_LOCALDNS_TIMEOUT=10
 DNS_HEALTH_CHECK_TIMEOUT=2
 DNS_HEALTH_CHECK_TRIES=2
 
-AKS_NODE_CONTROLLER_BINARY="/opt/azure/containers/aks-node-controller"
+# Overridable so the LPS e2e scenarios can point the bootstrap fetch at a fake LPS through a unit drop-in.
+AKS_NODE_CONTROLLER_BINARY="${AKS_NODE_CONTROLLER_BINARY:-/opt/azure/containers/aks-node-controller}"
 
 # The corefileVersion this start fetched from LPS and applied the limits of. Written to the .version
 # file only once CoreDNS is ready on it (commit_localdns_corefile_version); a start that fetched
