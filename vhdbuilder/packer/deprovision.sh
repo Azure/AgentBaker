@@ -1,5 +1,6 @@
 #!/bin/bash -eu
-# AIB's final deprovision hook. Do not enable tracing: the agent installer uses SAS URLs.
+# Shared Packer cleanup helpers and AIB's final deprovision hook.
+# Do not enable tracing: the agent installer uses SAS URLs.
 
 installPinnedWALinuxAgent() {
     local root_dir="${1%/}"
@@ -63,7 +64,7 @@ main() {
     cleanupNvPCRCredentials "${is_cvm}" / || return $?
     rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh \
         /opt/azure/containers/install_walinuxagent.py \
-        /opt/azure/containers/aib-deprovision.sh \
+        /opt/azure/containers/deprovision.sh \
         /tmp/DeprovisioningScript.sh || return $?
     sync
 }

@@ -138,8 +138,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/aib-deprovision.sh",
-      "destination": "/home/packer/aib-deprovision.sh"
+      "source": "vhdbuilder/packer/deprovision.sh",
+      "destination": "/home/packer/deprovision.sh"
     },
     {
       "type": "file",

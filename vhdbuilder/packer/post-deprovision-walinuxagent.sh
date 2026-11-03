@@ -11,6 +11,8 @@
 
 # Packer passes the optimization setting and feature flags; AIB uses the defaults.
 PREFETCH_OPTIMIZATION="${1:-false}"
+# The flag requests optimization, but the release pipeline skips AIB for ARM64 CVMs.
+# Do not retain helpers for an optimization stage that will not run.
 if [ "$(uname -m)" = "aarch64" ] && printf '%s\n' "${2:-}" | grep -q "cvm"; then
     PREFETCH_OPTIMIZATION=false
 fi
@@ -77,7 +79,7 @@ cleanup() {
     if [ "${PREFETCH_OPTIMIZATION,,}" != "true" ]; then
         rm -f /opt/azure/containers/install_walinuxagent.py
         rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh
-        rm -f /opt/azure/containers/aib-deprovision.sh
+        rm -f /opt/azure/containers/deprovision.sh
     fi
     sync
 }
@@ -175,6 +177,6 @@ fi
 # Packer must reset CVM anchors even when no AIB optimization follows.
 if printf '%s\n' "${2:-}" | grep -q "cvm"; then
     # shellcheck source=/dev/null
-    . /opt/azure/containers/aib-deprovision.sh
+    . /opt/azure/containers/deprovision.sh
     cleanupNvPCRCredentials true /
 fi
