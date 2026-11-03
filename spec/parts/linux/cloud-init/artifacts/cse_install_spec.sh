@@ -331,7 +331,6 @@ Describe 'cse_install.sh'
 
         BeforeEach 'setup'
         setup() {
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.34.0"
         }
@@ -354,18 +353,6 @@ Describe 'cse_install.sh'
             The output line 2 should include "installKubeletKubectlFromURL"
         End
 
-        It 'should not call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails but SHOULD_ENFORCE_KUBE_PMC_INSTALL is true'
-            installToolFromBootstrapProfileRegistry() {
-                echo "installToolFromBootstrapProfileRegistry fails"
-                return 1
-            }
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
-            When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
-            The output line 1 should include "installToolFromBootstrapProfileRegistry fails"
-            The output line 2 should include "Failed to install k8s tools from bootstrap profile registry, and not falling back to binary installation due to SHOULD_ENFORCE_KUBE_PMC_INSTALL=true"
-            The output line 3 should include "mock exit calling with 207"
-        End
-
         It 'should not call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails for k8s >= 1.35.0'
             installToolFromBootstrapProfileRegistry() {
                 echo "installToolFromBootstrapProfileRegistry fails"
@@ -374,7 +361,7 @@ Describe 'cse_install.sh'
             KUBERNETES_VERSION="1.35.8"
             When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
             The output line 1 should include "installToolFromBootstrapProfileRegistry fails"
-            The output line 2 should include "not falling back to binary installation since kubernetes-node binaries are not published for 1.35+"
+            The output line 2 should include "Failed to install kubelet 1.35.8 from bootstrap profile registry"
             The output line 3 should include "mock exit calling with 207"
             The output should not include "installKubeletKubectlFromURL"
         End
@@ -386,7 +373,7 @@ Describe 'cse_install.sh'
             }
             KUBERNETES_VERSION="1.35.0"
             When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
-            The output line 2 should include "not falling back to binary installation"
+            The output line 2 should include "Failed to install kubelet 1.35.0 from bootstrap profile registry"
             The output should not include "installKubeletKubectlFromURL"
         End
     End

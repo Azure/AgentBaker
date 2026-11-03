@@ -537,20 +537,13 @@ installKubeletKubectlFromBootstrapProfileRegistry() {
     for tool_name in $(get_kubernetes_tools); do
         install_path="/opt/bin/${tool_name}"
         if ! installToolFromBootstrapProfileRegistry "${tool_name}" "${registry_server}" "${kubernetes_version}" "${install_path}"; then
-            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
-            # TODO: remove SHOULD_ENFORCE_KUBE_PMC_INSTALL check when the test cluster supports > 1.34.0 case
-            # kubernetes-node binaries are not published for 1.35+, so the URL fallback can only fail
-            # and its oras errors would hide the real package pull failure above.
+            # kubernetes-node binaries are deprecated and not published for 1.35+, skip the URL fallback.
             if semverCompare "${kubernetes_version:-0.0.0}" 1.35.0; then
-                echo "Failed to install ${tool_name} ${kubernetes_version} from bootstrap profile registry, not falling back to binary installation since kubernetes-node binaries are not published for 1.35+"
+                echo "Failed to install ${tool_name} ${kubernetes_version} from bootstrap profile registry"
                 exit $ERR_ORAS_PULL_K8S_FAIL
-            # if install from bootstrap profile registry fails, fallback to install from URL
-            elif [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ];then
+            else
                 logs_to_events "AKS.CSE.configureKubeletAndKubectl.installKubeletKubectlFromURL-Fallback" installKubeletKubectlFromURL
                 return
-            else
-                echo "Failed to install k8s tools from bootstrap profile registry, and not falling back to binary installation due to SHOULD_ENFORCE_KUBE_PMC_INSTALL=true"
-                exit $ERR_ORAS_PULL_K8S_FAIL
             fi
         fi
     done
