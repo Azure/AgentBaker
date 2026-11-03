@@ -110,6 +110,38 @@ may finish). Reconfiguration can briefly disrupt connectivity; validate live
 link-flap recovery on a canary before broad rollout. Existing nodes need a
 node-image upgrade. OSGuard, Ubuntu, Mariner 2.0, and ACL are unchanged.
 
+# Azure NVMe read-ahead mitigation
+
+Linux VHDs for Ubuntu, Mariner/Azure Linux (including OSGuard), and ACL install
+`99-azure-nvme-readahead.rules` and enable `azure-nvme-readahead.service` and
+`azure-nvme-readahead.timer`. They change **only** the known-bad `65536` KiB
+read-ahead value to `256` KiB on `MSFT NVMe Accelerator v1.0` namespaces.
+Local NVMe, SCSI, NFS, other models, and other read-ahead values are untouched.
+Flatcar is excluded.
+
+This is a guest workaround for
+[Azure/AKS#5743](https://github.com/Azure/AKS/issues/5743), not the platform fix.
+The udev rule handles new/changed disks and reconciles sibling namespaces on
+disk add/change/remove events. The oneshot also runs before kubelet at boot.
+Namespace rescans can reset existing disks without emitting a udev event, so a
+30-second timer provides a backstop (plus scheduling delay, not a hard deadline).
+The helper logs corrections and returns failure on I/O errors; already-correct
+devices incur no writes. Units are enabled, not started, during image building.
+No CSE change is required, and PIS/ANC nodes use the same baked configuration.
+
+**Residual limitation:** files opened during the rescan-to-correction window can
+retain excessive per-file read-ahead until reopened. Reapplying the device
+setting does not repair those open files. Do not restart applications
+automatically. Validate workload behavior and sequential-I/O tradeoffs during
+canary rollout. Existing nodes need a node-image upgrade to receive these files.
+
+Inspect with `cat /sys/block/nvme*n*/queue/read_ahead_kb`,
+`systemctl list-timers azure-nvme-readahead.timer`, and
+`journalctl -u azure-nvme-readahead.service`. For intentional 64 MiB tuning,
+disable both units and mask the udev rule (replace the rule file with a symlink
+to `/dev/null`), then reload udev rules before applying the desired value.
+Other custom values are preserved without disabling the mitigation.
+
 # Linux CSE configuration modules
 
 `parts/linux/cloud-init/artifacts/cse_config.sh` is installed as

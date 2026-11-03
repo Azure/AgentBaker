@@ -1472,6 +1472,43 @@ testMGLRUDisabled() {
   echo "$test: MGLRU is disabled after boot"
 }
 
+testNVMeReadAhead() {
+  local test="testNVMeReadAhead"
+  local script="/opt/azure/containers/azure-nvme-readahead.sh"
+  local rule="/etc/udev/rules.d/99-azure-nvme-readahead.rules"
+  local unit device model current
+
+  [ "$OS_SKU" != "Flatcar" ] || return 0
+  if [ "$(stat -c '%a' "$script" 2>/dev/null)" != "755" ]; then
+    err "$test" "$script must exist with mode 0755"
+  fi
+  if [ "$(stat -c '%a' "$rule" 2>/dev/null)" != "644" ] ||
+    ! grep -Fq 'ATTR{queue/read_ahead_kb}=="65536", ATTR{queue/read_ahead_kb}="256"' "$rule"; then
+    err "$test" "Missing or incorrect NVMe read-ahead udev rule"
+  fi
+  for unit in azure-nvme-readahead.service azure-nvme-readahead.timer; do
+    if [ "$(stat -c '%a' "/etc/systemd/system/$unit" 2>/dev/null)" != "644" ] ||
+      ! systemctl is-enabled --quiet "$unit"; then
+      err "$test" "$unit must be installed with mode 0644 and enabled"
+    fi
+  done
+  if ! systemctl is-active --quiet azure-nvme-readahead.timer; then
+    err "$test" "NVMe read-ahead reconciliation timer is not active after boot"
+  fi
+  for device in /sys/block/nvme*n*; do
+    [ -d "$device" ] || continue
+    if ! read -r model < "$device/device/model"; then
+      err "$test" "Cannot read model for $device"
+      continue
+    fi
+    [ "$model" = "MSFT NVMe Accelerator v1.0" ] || continue
+    # Observe the boot result; do not apply the workaround in the test.
+    if ! read -r current < "$device/queue/read_ahead_kb" || [ "$current" = 65536 ]; then
+      err "$test" "$device still has excessive or unreadable read-ahead"
+    fi
+  done
+}
+
 testNetworkSettings() {
   local test="testNetworkSettings"
   local settings_file=/etc/sysctl.d/60-CIS.conf
@@ -3088,6 +3125,7 @@ testLoginDefs
 testUserAdd
 testNetworkSettings
 testMGLRUDisabled
+testNVMeReadAhead
 testCronPermissions "$IMG_SKU" "$OS_SKU"
 testCoreDumpSettings
 testNfsServerService

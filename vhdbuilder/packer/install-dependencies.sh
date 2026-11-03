@@ -1375,6 +1375,11 @@ capture_benchmark "${SCRIPT_NAME}_set_ip_forwarding"
 setUdevRules
 capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
+if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS" "$OS_VARIANT" || isACL "$OS" "$OS_VARIANT"; then
+  # Enable for deployed nodes; do not start reconciliation on the build VM.
+  systemctl enable azure-nvme-readahead.service azure-nvme-readahead.timer || exit 1
+fi
+
 if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
     disableSystemdResolvedCache
     disableSystemdIptables || exit 1

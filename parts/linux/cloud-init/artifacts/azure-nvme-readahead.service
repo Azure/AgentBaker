@@ -1,0 +1,13 @@
+[Unit]
+Description=Mitigate excessive Azure NVMe read-ahead
+Before=kubelet.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/containers/azure-nvme-readahead.sh
+TimeoutStartSec=10s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

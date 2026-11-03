@@ -494,6 +494,26 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/azure-nvme-readahead.sh",
+      "destination": "/home/packer/azure-nvme-readahead.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/azure-nvme-readahead.rules",
+      "destination": "/home/packer/azure-nvme-readahead.rules"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/azure-nvme-readahead.service",
+      "destination": "/home/packer/azure-nvme-readahead.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/azure-nvme-readahead.timer",
+      "destination": "/home/packer/azure-nvme-readahead.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config",
       "destination": "/home/packer/sshd_config"
     },

@@ -22,6 +22,15 @@ copyNetworkdRecoveryFiles() {
   fi
 }
 
+copyNVMeReadAheadFiles() {
+  if isUbuntu "$OS" || isMarinerOrAzureLinux "$OS" "$OS_VARIANT" || isACL "$OS" "$OS_VARIANT"; then
+    cpAndMode /home/packer/azure-nvme-readahead.sh /opt/azure/containers/azure-nvme-readahead.sh 755
+    cpAndMode /home/packer/azure-nvme-readahead.rules /etc/udev/rules.d/99-azure-nvme-readahead.rules 644
+    cpAndMode /home/packer/azure-nvme-readahead.service /etc/systemd/system/azure-nvme-readahead.service 644
+    cpAndMode /home/packer/azure-nvme-readahead.timer /etc/systemd/system/azure-nvme-readahead.timer 644
+  fi
+}
+
 copyPackerFiles() {
   SYSCTL_CONFIG_SRC=/home/packer/sysctl-d-60-CIS.conf
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
@@ -498,6 +507,7 @@ copyPackerFiles() {
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   copyMGLRUConfig
   copyNetworkdRecoveryFiles
+  copyNVMeReadAheadFiles
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $LOGROTATE_CIS_CONFIG_SRC $LOGROTATE_CIS_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644

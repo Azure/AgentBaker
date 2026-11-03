@@ -206,6 +206,18 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-mglru.conf
       destination: /etc/tmpfiles.d/aks-mglru.conf
       permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azure-nvme-readahead.sh
+      destination: /opt/azure/containers/azure-nvme-readahead.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azure-nvme-readahead.rules
+      destination: /etc/udev/rules.d/99-azure-nvme-readahead.rules
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azure-nvme-readahead.service
+      destination: /etc/systemd/system/azure-nvme-readahead.service
+      permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/azure-nvme-readahead.timer
+      destination: /etc/systemd/system/azure-nvme-readahead.timer
+      permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/sshd_config
       destination: /etc/ssh/sshd_config
       permissions: 600

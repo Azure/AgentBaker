@@ -1,0 +1,4 @@
+# Correct only the affected accelerator's known-bad default, not local NVMe or SCSI.
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="nvme*n*", ENV{ID_MODEL}=="MSFT NVMe Accelerator v1.0", ATTR{queue/read_ahead_kb}=="65536", ATTR{queue/read_ahead_kb}="256"
+# Attaching/removing a namespace can reset the other namespaces on its controller.
+ACTION=="add|change|remove", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="nvme*n*", ENV{ID_MODEL}=="MSFT NVMe Accelerator v1.0", RUN+="/opt/azure/containers/azure-nvme-readahead.sh"

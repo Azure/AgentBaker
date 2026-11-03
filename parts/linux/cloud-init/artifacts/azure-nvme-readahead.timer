@@ -1,0 +1,10 @@
+[Unit]
+Description=Recover Azure NVMe read-ahead after eventless namespace rescans
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=30s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
