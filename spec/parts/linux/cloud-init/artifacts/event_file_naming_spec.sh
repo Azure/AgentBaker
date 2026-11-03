@@ -41,7 +41,7 @@ Describe 'WALinuxAgent event file naming'
 
     It 'covers all known emission sites'
         When call compliant_name_count
-        The output should equal 16
+        The output should equal 17
     End
 
     Describe 'repeated emission from a single process'
