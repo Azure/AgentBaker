@@ -991,6 +991,63 @@ EOF
             The output should include "failed to enable and start kubereserved.slice"
         End
     End
+
+    Describe 'checkEgressEndpoints'
+        # Stub curl: hosts in FAIL_HOSTS time out, and MCR discovery redirects to REDIRECT_URL.
+        curl() {
+            # Real curl is a binary that writes no xtrace, so the stub silences its own trace.
+            { set +x; } 2>/dev/null
+            local target=${*: -1} host arg
+            host=${target#https://}
+            host=${host%%/*}
+            for arg in "$@"; do
+                case $arg in *:443:mcr-0001.mcr-msedge.net:443) host=mcr-0001.mcr-msedge.net ;; esac
+            done
+            case " ${FAIL_HOSTS:-} " in *" ${host} "*) echo "curl: (28) Connection timed out" >&2; return 28 ;; esac
+            case "$*" in *redirect_url*) printf '%s' "${REDIRECT_URL-https://eastus.data.mcr.microsoft.com/blob?sig=SECRET}" ;; esac
+            return 0
+        }
+        # Runs the check against a sandboxed IMDS cache and events directory, then prints its event.
+        run_check() {
+            local root
+            root=$(mktemp -d)
+            IMDS_INSTANCE_METADATA_CACHE_FILE="${root}/imds.json"
+            EVENTS_LOGGING_DIR="${root}/events/"
+            printf '{"compute":{"azEnvironment":"%s"}}' "$1" > "${IMDS_INSTANCE_METADATA_CACHE_FILE}"
+            checkEgressEndpoints || echo "unexpected failure"
+            jq -c '{level: .EventLevel, task: .TaskName, message: (.Message | fromjson)}' "${root}"/events/*.json
+            rm -rf "${root}"
+        }
+
+        It 'records an informational event when every public cloud endpoint is reachable'
+            FAIL_HOSTS=""
+            When call run_check AzurePublicCloud
+            The status should be success
+            The output should include '"level":"Informational","task":"AKS.CSE.egressCheck"'
+            The output should include '"https://mcr-0001.mcr-msedge.net","https://mcr.microsoft.com"'
+            The output should include '"Blocked":[],"Skipped":false'
+        End
+
+        It 'records a blocked MCR data endpoint by host only, without tracing the signed query'
+            # cse_main.sh runs under set -x, so the example traces like production.
+            set -x
+            FAIL_HOSTS="eastus.data.mcr.microsoft.com"
+            When call run_check AzurePublicCloud
+            The output should include '"level":"Error"'
+            The output should include '"Blocked":["https://eastus.data.mcr.microsoft.com: curl: (28) Connection timed out"]'
+            The output should not include 'SECRET'
+            The output should not include 'sig='
+            The stderr should not include 'SECRET'
+            The stderr should not include 'sig='
+        End
+
+        It 'skips clouds without a public endpoint list'
+            FAIL_HOSTS="mcr.microsoft.com"
+            When call run_check USNatCloud
+            The status should be success
+            The output should include '"Checked":[],"Blocked":[],"Skipped":true'
+        End
+    End
 End
 
 Describe 'GPU driver image reference resolution'
