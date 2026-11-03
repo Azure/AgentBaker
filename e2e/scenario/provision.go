@@ -41,7 +41,7 @@ func runScenarioFlow(ctx context.Context, name string, s *Scenario) error {
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
-	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
+	return s.Config.SkipScriptlessNBCCSECmd || s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runVHDCachingScenario(ctx context.Context, name string, original *Scenario) error {
@@ -437,10 +437,7 @@ func annotateVMSSCreateError(s *Scenario, err error) error {
 func maybeSkipScenario(ctx context.Context, name string, s *Scenario) error {
 	s.Tags = s.EffectiveTags()
 
-	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
-		Image:    *s.VHD,
-		Location: s.Location,
-	})
+	_, err := resolveImageReference(ctx, s.VHD, s.Location)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			return &skipError{message: fmt.Sprintf("scenario %q image for VHD %s was not found: %s", name, s.VHD.Distro, err)}
@@ -737,6 +734,22 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	return properties
 }
 
+// aclVMSSSecurityProfile deploys ACL VMs as TrustedLaunch. ACL builds set
+// ENABLE_TRUSTED_LAUNCH, so their SIG image definitions are created with
+// SecurityType=TrustedLaunch and reject Standard deployments; TrustedLaunch also
+// works once those definitions move to TrustedLaunchSupported. Secure Boot is
+// disabled only when baseImageSigned is false, which unsigned/dev ACL builds
+// (e.g. acldevel-sourced images) need: their kernel/shim is not enrolled in the
+// platform's Secure Boot db, so with Secure Boot on, UEFI firmware returns
+// "Access denied" loading the kernel EFI stub and boot never completes.
+func aclVMSSSecurityProfile(properties *armcompute.VirtualMachineScaleSetProperties, baseImageSigned bool) *armcompute.VirtualMachineScaleSetProperties {
+	properties = addTrustedLaunchToVMSS(properties)
+	if !baseImageSigned {
+		properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(false)
+	}
+	return properties
+}
+
 func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -780,6 +793,15 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 // It is generally slower than SSH because each call creates a VirtualMachineRunCommand
 // resource on the VM and waits for it to provision.
 func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
+	view, err := runCommand(ctx, s, command)
+	if err != nil {
+		return view, err
+	}
+	return view, runCommandScriptError(view)
+}
+
+// runCommand preserves script exit codes for validators that expect non-zero results.
+func runCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
 	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
 		s.Runtime.VM == nil || s.Runtime.VM.VM == nil || s.Runtime.VM.VM.InstanceID == nil {
@@ -836,8 +858,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	if getResp.Properties == nil || getResp.Properties.InstanceView == nil {
 		return armcompute.VirtualMachineRunCommandInstanceView{}, errors.New("RunCommand result missing instance view")
 	}
-	view := *getResp.Properties.InstanceView
-	return view, runCommandScriptError(view)
+	return *getResp.Properties.InstanceView, nil
 }
 
 func RestartVMSSVM(ctx context.Context, s *Scenario) error {

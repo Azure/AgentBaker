@@ -15,8 +15,9 @@ readContainerImage() {
     echo "$containerImage"
 }
 
-Describe 'cse_helpers.sh'
+Describe 'cse_helpers.sh and build helpers'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./vhdbuilder/scripts/linux/tool_installs.sh"
 
     Describe 'isAzureLinuxArm64BaseImage'
         Parameters

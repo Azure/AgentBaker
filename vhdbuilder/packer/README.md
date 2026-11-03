@@ -119,13 +119,12 @@ node-image upgrade. OSGuard, Ubuntu, Mariner 2.0, and ACL are unchanged.
 - `cse_config_localdns.sh` -> `provision_configs_localdns.sh`
 - `cse_config_kubelet.sh` -> `provision_configs_kubelet.sh`
 - `cse_config_network.sh` -> `provision_configs_network.sh`
-- `cse_config_addons.sh` -> `provision_configs_addons.sh` (autoscaler, ACI connector, Azure Policy)
 - `cse_config_chrony.sh` -> `provision_configs_chrony.sh`
 
 `cse_cmd.sh` and the ANC parser provide their paths through
 `CSE_CONFIG_GPU_FILEPATH`, `CSE_CONFIG_LOCALDNS_FILEPATH`,
 `CSE_CONFIG_KUBELET_FILEPATH`, `CSE_CONFIG_NETWORK_FILEPATH`, and
-`CSE_CONFIG_ADDONS_FILEPATH`, and `CSE_CONFIG_CHRONY_FILEPATH`; the parent sources each explicitly.
+`CSE_CONFIG_CHRONY_FILEPATH`; the parent sources each explicitly.
 If a variable is unset or empty, its path defaults to the corresponding sibling
 of the sourced parent (`provision_configs_*.sh` on-node, `cse_config_*.sh` in the
 source tree). Explicit paths take precedence.
@@ -142,10 +141,31 @@ variables and template functions. Flatcar and ACL reuse those entries through
 the Ignition archive conversion. Scriptless CustomData relies on the baked files
 unless a hotfix explicitly selects an override.
 
+Rendered shell payloads are minified with the `mvdan.cc/sh/v3/syntax` Bash parser
+before gzip and base64 encoding. Trailing `#HELPERSEOF` and `#EOF` delivery markers
+are preserved. VHD source scripts and non-shell payloads are not minified.
+
+The Go unit-test workflow uploads `cse-minification-diffs` for review. To generate
+the same artifacts locally, run from the repository root with an absolute output
+directory:
+
+```bash
+CSE_SCRIPT_DIFF_DIR="$(mktemp -d)" \
+  go test ./pkg/agent -run '^TestCSEScriptMinificationArtifacts$' -count=1 -v
+```
+
+Each OS/cloud fixture contains `before/` (after comment stripping and template
+rendering), `after/` (decoded production payload scripts), and `diff/` (unmodified
+Git diffs). The baseline is not reformatted with the minifier. These synthetic
+fixtures cover six OS variants, public/custom cloud, and LocalDNS enabled; all
+discovered scripts are exported, including ones not delivered by that fixture's
+OS/cloud. The test checks Bash syntax without executing provisioning scripts.
+Artifact inspection is not proof of semantic equivalence or dependency safety.
+
 When adding a module, also register its source-to-variable mapping in
 `hotfix/hotfix_generate.py`. The current keys are `provisionConfigsGPU`,
 `provisionConfigsLocalDNS`, `provisionConfigsKubelet`, `provisionConfigsNetwork`,
-`provisionConfigsAddons`, and `provisionConfigsChrony`. Each module can be
+and `provisionConfigsChrony`. Each module can be
 hotfixed independently; delivering this split to an older VHD requires the
 updated parent and all new modules together. Keep the immutable VHD baseline so
 subsequent hotfix payloads remain cumulative.

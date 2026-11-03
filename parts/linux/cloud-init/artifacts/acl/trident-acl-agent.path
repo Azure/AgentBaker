@@ -1,0 +1,19 @@
+[Unit]
+Description=Start the Trident ACL Agent once kubelet's kubeconfig exists
+Documentation=https://microsoft.github.io/trident/
+
+# The service unit lives on /usr, which an A/B update replaces; this path unit
+# lives on the root partition, which it does not. Without this condition, an
+# image whose /usr lacks the agent leaves both units failed with the reason
+# buried in the path unit's journal. Skipped units are not failed units, and
+# systemd logs the missing path by name.
+ConditionPathExists=/usr/lib/systemd/system/trident-acl-agent.service
+
+[Path]
+# The agent exits if kubelet's kubeconfig is absent, which it is until kubelet
+# finishes TLS bootstrapping. Wait for the file rather than enabling the service.
+PathExists=/var/lib/kubelet/kubeconfig
+Unit=trident-acl-agent.service
+
+[Install]
+WantedBy=multi-user.target
