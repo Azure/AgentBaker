@@ -97,6 +97,11 @@ func (api *APIServer) ListenAndServe(ctx context.Context) error {
 
 	errors := make(chan error)
 	go func() {
+		// Plaintext HTTP (not ListenAndServeTLS) is intentional here, risk-accepted
+		// By-Design - see the authn/authz rationale in NewRouter (routers.go).
+		// This server is only reachable from the AKS RP control plane over the
+		// cluster-internal network; TLS termination/authentication is handled at
+		// the network boundary, not in this process.
 		errors <- svr.ListenAndServe()
 	}()
 

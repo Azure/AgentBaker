@@ -1387,6 +1387,156 @@ func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *S
 	)
 }
 
+const (
+	windowsExporterSkipMarker   = `C:\k\skip_vhd_windows_exporter`
+	windowsExporterAssetsMarker = `C:\k\windows-exporter\windows-exporter-assets.complete`
+	windowsExporterServiceName  = "aks-windows-exporter"
+)
+
+// windowsExporterIsCSEOwned reports whether the VHD carries baked exporter assets,
+// meaning CSE (not aks-vm-extension) owns the aks-windows-exporter service.
+func windowsExporterIsCSEOwned(ctx context.Context, s *Scenario) (bool, error) {
+	ownershipCheck := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'SKIP'; exit 0 }", windowsExporterAssetsMarker),
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'MISSING'; exit 0 }", windowsExporterSkipMarker),
+		"Write-Output 'PRESENT'",
+	}
+	res, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(ownershipCheck, "\n"), 0,
+		fmt.Sprintf("could not check aks-windows-exporter markers on %s", s.Runtime.VM.PrivateIP))
+	if err != nil {
+		return false, fmt.Errorf("check aks-windows-exporter markers: %w", err)
+	}
+	owned, err := validateWindowsExporterOwnership(res.stdout)
+	if err != nil {
+		return false, err
+	}
+	if !owned {
+		logging.Logf(ctx, "Skipping aks-windows-exporter validation: baked assets marker %s not found (aks-vm-extension manages the service on this VHD)", windowsExporterAssetsMarker)
+	}
+	return owned, nil
+}
+
+// ValidateWindowsExporter asserts that the service managed by windowsexporterfunc.ps1
+// is running and serving Prometheus metrics. Older VHDs without baked assets remain
+// extension-managed. On new VHDs the baked skip marker disables the extension;
+// its presence is not proof of successful CSE startup, so service and metrics are checked below.
+func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
+	const (
+		binary     = `C:\k\windows-exporter\windows-exporter.exe`
+		configFile = `C:\k\windows-exporter\windows-exporter-config.yml`
+	)
+	serviceName := windowsExporterServiceName
+	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
+
+	owned, err := windowsExporterIsCSEOwned(ctx, s)
+	if err != nil || !owned {
+		return err
+	}
+
+	logging.Logf(ctx, "skip_vhd_windows_exporter sentinel present, validating aks-windows-exporter installation")
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing binary: %s' }", binary, binary),
+		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing config: %s' }", configFile, configFile),
+		fmt.Sprintf("$svc = Get-Service -Name '%s'", serviceName),
+		"Write-Output $svc",
+		fmt.Sprintf("if ($svc.Status -ne 'Running') { throw \"service %s is not running: $($svc.Status)\" }", serviceName),
+		fmt.Sprintf("if ($svc.StartType -ne 'Automatic') { throw \"service %s StartType is $($svc.StartType), expected Automatic\" }", serviceName),
+		// Scrape the node IP to validate the address used by monitoring infrastructure.
+		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
+		"$metricsContent = [string]$resp.Content",
+		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($metricsContent.Length) characters\"",
+		"$requiredMetricNames = @('windows_cpu_info', 'windows_cpu_time_total', 'windows_logical_disk_free_bytes', 'windows_logical_disk_size_bytes', 'windows_memory_available_bytes', 'windows_net_bytes_received_total', 'windows_net_bytes_sent_total', 'windows_os_info', 'windows_pagefile_free_bytes', 'windows_process_cpu_time_total')",
+		"foreach ($metricName in $requiredMetricNames) {",
+		"  if ($metricsContent -match \"(?m)^$([regex]::Escape($metricName))(?:\\{|\\s)\") { Write-Output \"$metricName 1\" }",
+		"}",
+	}
+	validationResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
+	if err != nil {
+		return err
+	}
+
+	if err := validateWindowsExporterMetrics(validationResult.stdout); err != nil {
+		return fmt.Errorf("windows-exporter scrape did not satisfy the metrics contract: %w\nmetric summary:\n%s", err, validationResult.stdout)
+	}
+	logging.Logf(ctx, "aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
+	return nil
+}
+
+// ValidateWindowsExporterRegisteredDisabled asserts that a PIS bake (BasePrep only)
+// registered aks-windows-exporter without enabling or starting it. Unlike
+// ValidateWindowsServiceIsNotRunning, a missing service fails this check.
+func ValidateWindowsExporterRegisteredDisabled(ctx context.Context, s *Scenario) error {
+	owned, err := windowsExporterIsCSEOwned(ctx, s)
+	if err != nil || !owned {
+		return err
+	}
+
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("$svc = Get-Service -Name '%s'", windowsExporterServiceName),
+		"Write-Output $svc",
+		fmt.Sprintf("if ($svc.Status -ne 'Stopped') { throw \"service %s is $($svc.Status), expected Stopped after BasePrep\" }", windowsExporterServiceName),
+		fmt.Sprintf("if ($svc.StartType -ne 'Disabled') { throw \"service %s StartType is $($svc.StartType), expected Disabled after BasePrep\" }", windowsExporterServiceName),
+	}
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("aks-windows-exporter is not registered disabled on %s", s.Runtime.VM.PrivateIP))
+	return err
+}
+
+func validateWindowsExporterOwnership(result string) (bool, error) {
+	switch strings.TrimSpace(result) {
+	case "SKIP":
+		return false, nil
+	case "PRESENT":
+		return true, nil
+	case "MISSING":
+		return false, fmt.Errorf("windows-exporter baked assets are present but the baked extension skip marker is missing")
+	default:
+		return false, fmt.Errorf("unexpected windows-exporter ownership check result: %q", result)
+	}
+}
+
+func validateWindowsExporterMetrics(metricsText string) error {
+	metricNames := make(map[string]struct{})
+	for line := range strings.SplitSeq(metricsText, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if end := strings.IndexAny(line, "{ \t"); end > 0 {
+			metricNames[line[:end]] = struct{}{}
+		}
+	}
+
+	requiredMetrics := []string{
+		"windows_cpu_info",
+		"windows_cpu_time_total",
+		"windows_logical_disk_free_bytes",
+		"windows_logical_disk_size_bytes",
+		"windows_memory_available_bytes",
+		"windows_net_bytes_received_total",
+		"windows_net_bytes_sent_total",
+		"windows_os_info",
+		"windows_pagefile_free_bytes",
+		"windows_process_cpu_time_total",
+	}
+	var missingMetrics []string
+	for _, name := range requiredMetrics {
+		if _, exists := metricNames[name]; !exists {
+			missingMetrics = append(missingMetrics, name)
+		}
+	}
+	if len(missingMetrics) > 0 {
+		return fmt.Errorf("required metrics are missing: %s", strings.Join(missingMetrics, ", "))
+	}
+
+	return nil
+}
+
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) error {
 	command := []string{
 		"set -ex",
@@ -3524,7 +3674,17 @@ fi`)
 
 // ValidateSSHServiceDisabled validates that SSH services and sockets are disabled and stopped on the node
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
-	resp, err := RunCommand(ctx, s, validateSSHServiceDisabledScript)
+	command := validateSSHServiceDisabledScript
+	if s.IsWindows() {
+		command = `$ErrorActionPreference = 'Stop'
+$service = Get-Service -Name sshd -ErrorAction Stop
+if ($service.Status -ne 'Stopped' -or $service.StartType -ne 'Disabled') {
+    throw "SSH service is not stopped and disabled: Status=$($service.Status), StartType=$($service.StartType)"
+}
+Write-Output 'SUCCESS: SSH units are disabled and stopped'
+`
+	}
+	resp, err := RunCommand(ctx, s, command)
 	if err != nil {
 		return fmt.Errorf("run command to check SSH service status: %w", err)
 	}
@@ -3932,6 +4092,11 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) er
 
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
+		logging.Logf(ctx, "Skipping RX-buffer validation: legacy image %s may not contain the NIC-tuning artifacts", s.VHD.Distro)
+		return nil
+	}
+
 	// Query the VM's actual CPU count using nproc
 	cpuCountCmd := "nproc"
 	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")

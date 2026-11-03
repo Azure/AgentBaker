@@ -105,6 +105,8 @@ copyPackerFiles() {
   CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST=/etc/systemd/system/cgroup-pressure-telemetry.service
   CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC=/home/packer/cgroup-pressure-telemetry.sh
   CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST=/opt/scripts/cgroup-pressure-telemetry.sh
+  CGROUP_TELEMETRY_EVENTS_SRC=/home/packer/cgroup-telemetry-events.sh
+  CGROUP_TELEMETRY_EVENTS_DEST=/opt/scripts/cgroup-telemetry-events.sh
   CGROUP_PRESSURE_TELEMETRY_TIMER_SRC=/home/packer/cgroup-pressure-telemetry.timer
   CGROUP_PRESSURE_TELEMETRY_TIMER_DEST=/etc/systemd/system/cgroup-pressure-telemetry.timer
   UPDATE_CERTS_SERVICE_SRC=/home/packer/update_certs.service
@@ -309,7 +311,7 @@ copyPackerFiles() {
   cpAndMode $CSE_CONFIG_SRC $CSE_CONFIG_DEST 0744
 
   local config_module
-  for config_module in provision_configs_gpu.sh provision_configs_localdns.sh provision_configs_kubelet.sh provision_configs_network.sh provision_configs_addons.sh provision_configs_chrony.sh; do
+  for config_module in provision_configs_gpu.sh provision_configs_localdns.sh provision_configs_kubelet.sh provision_configs_network.sh provision_configs_chrony.sh; do
     cpAndMode "/home/packer/${config_module}" "/opt/azure/containers/${config_module}" 0744
   done
 
@@ -523,6 +525,7 @@ copyPackerFiles() {
   cpAndMode $SERVICE_EXECUTION_TELEMETRY_SERVICE_SRC $SERVICE_EXECUTION_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC $CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC $CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST 755
+  cpAndMode $CGROUP_TELEMETRY_EVENTS_SRC $CGROUP_TELEMETRY_EVENTS_DEST 644
   cpAndMode $CGROUP_PRESSURE_TELEMETRY_TIMER_SRC $CGROUP_PRESSURE_TELEMETRY_TIMER_DEST 644
   cpAndMode $UPDATE_CERTS_SERVICE_SRC $UPDATE_CERTS_SERVICE_DEST 644
   cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
@@ -563,6 +566,19 @@ copyPackerFiles() {
     # not Debian-style common-auth/common-password.
     cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
     cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+
+    # Configuration for the Trident ACL Agent, which drives A/B OS updates on
+    # ACL nodes. The agent itself and its unit come from the trident-acl-agent
+    # package in the ACL base image; only its configuration and its start
+    # trigger are supplied here.
+    # cpAndMode creates the .service.d directory, so no mkdir is needed.
+    TAA_OVERRIDE_SRC=/home/packer/trident-acl-agent-override.conf
+    TAA_OVERRIDE_DEST=/etc/systemd/system/trident-acl-agent.service.d/10-aks.conf
+    cpAndMode $TAA_OVERRIDE_SRC $TAA_OVERRIDE_DEST 600
+
+    TAA_PATH_UNIT_SRC=/home/packer/trident-acl-agent.path
+    TAA_PATH_UNIT_DEST=/etc/systemd/system/trident-acl-agent.path
+    cpAndMode $TAA_PATH_UNIT_SRC $TAA_PATH_UNIT_DEST 600
   else
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644

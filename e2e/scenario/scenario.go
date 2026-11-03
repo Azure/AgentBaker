@@ -67,16 +67,72 @@ var _ = Register(&Scenario{
 		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				ValidateFileDoesNotExist(ctx, s, "/etc/extensions/artifact-streaming.raw"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "artifact-streaming-setup.service"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "acr-mirror.service"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "overlaybd-tcmu.service"),
+				ValidateSystemdUnitIsNotRunning(ctx, s, "overlaybd-snapshotter.service"),
 			)
 		},
 	},
 })
+
+// Artifact streaming changes both the node bootstrap input and the services activated on the
+// node, so this requires a separate node from the baseline ACL scenario.
+var _ = Register(&Scenario{
+	Name:        "ACL_ArtifactStreaming",
+	Description: "Tests that an ACL node with artifact streaming enabled activates OverlayBD and acr-mirror",
+	SkipIf:      skipACLArtifactStreamingOnMainBuiltImage,
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDACLGen2TL,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableArtifactStreaming = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+			config.EnableArtifactStreaming = true
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				ValidateFileExists(ctx, s, "/etc/extensions/artifact-streaming.raw"),
+				ValidateFileDoesNotExist(ctx, s, "/etc/extensions/overlaybd.raw"),
+				ValidateFileIsRegularFile(ctx, s, "/etc/containerd/config.toml"),
+				ValidateFileExists(ctx, s, "/etc/acr/acr.toml"),
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd"),
+				ValidateFileExists(ctx, s, "/etc/overlaybd-snapshotter/config.json"),
+				ValidateSystemdUnitIsRunning(ctx, s, "artifact-streaming-setup.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+			)
+		},
+	},
+})
+
+// ACL e2e provisions with the CSE scripts baked into the VHD rather than the branch's scripts,
+// so the ACL artifact streaming path only exists on VHDs built from a branch that contains it.
+func skipACLArtifactStreamingOnMainBuiltImage(context.Context) string {
+	if laneResolvedMainBuiltImage() {
+		return fmt.Sprintf(
+			"this lane resolved a main-built image (%s=%s), which predates ACL artifact streaming support baked into the VHD; run against the PR's VHD build to exercise it",
+			config.Config.SIGVersionTagName,
+			config.Config.SIGVersionTagValue,
+		)
+	}
+	return ""
+}
 
 var _ = Register(&Scenario{
 	Name:        "ACL_CustomCA",
@@ -92,7 +148,7 @@ var _ = Register(&Scenario{
 			}
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
@@ -120,7 +176,7 @@ var _ = Register(&Scenario{
 			nbc.IsARM64 = true
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 			vmss.SKU.Name = to.Ptr("Standard_D2pds_v6")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
@@ -144,7 +200,7 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.LocalDNSProfile = nil
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
@@ -185,7 +241,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterAzureNetwork,
 		VHD:     config.VHDACLGen2TL,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 		},
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -216,7 +272,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 		},
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.SecureTLSBootstrappingConfig = &datamodel.SecureTLSBootstrappingConfig{
@@ -235,7 +291,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 		},
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.SSHStatus = datamodel.SSHOff
@@ -263,6 +319,20 @@ func init() {
 	}
 }
 
+// skipIfACLBaseImageUnsigned skips ACL GPU scenarios when running against an
+// unsigned/dev ACL base image (ACL_BASE_IMAGE_SIGNED=false, e.g. acldevel-sourced).
+// Unsigned dev builds are pinned to a specific VERSION_ID that is not guaranteed to
+// have a matching NVIDIA GPU sysext (nvidia-container-toolkit, nvidia-driver-*, etc.)
+// published to MCR yet, since GPU sysext publishing lags the dev image build. That
+// causes GPU provisioning to fail with an unrelated-looking VMExtensionProvisioningError
+// rather than a real product regression, so skip GPU scenarios for unsigned builds.
+func skipIfACLBaseImageUnsigned(context.Context) string {
+	if !config.Config.ACLBaseImageSigned {
+		return "ACL_BASE_IMAGE_SIGNED=false (unsigned/dev ACL base image); matching NVIDIA GPU sysexts are not guaranteed to be published for this build"
+	}
+	return ""
+}
+
 func aclGPUScenario(name, vmSize, location string) *Scenario {
 	return &Scenario{
 		Name:        name,
@@ -271,6 +341,7 @@ func aclGPUScenario(name, vmSize, location string) *Scenario {
 		Tags: Tags{
 			GPU: true,
 		},
+		SkipIf: skipIfACLBaseImageUnsigned,
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
@@ -282,7 +353,7 @@ func aclGPUScenario(name, vmSize, location string) *Scenario {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
@@ -302,6 +373,7 @@ func aclGRIDScenario(name, vmSize string) *Scenario {
 		Tags: Tags{
 			GPU: true,
 		},
+		SkipIf: skipIfACLBaseImageUnsigned,
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLGen2TL,
@@ -313,7 +385,7 @@ func aclGRIDScenario(name, vmSize string) *Scenario {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
-				vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 			},
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
@@ -441,6 +513,7 @@ var _ = Register(&Scenario{
 				ValidateKataErofsContainerdConfig(ctx, s),
 				ValidateKataContainerdConfigDump(ctx, s),
 				ValidateKataHostReadiness(ctx, s),
+				ValidateKataRuntimeClassInImageCriApi(ctx, s),
 			); err != nil {
 				return err
 			}
@@ -734,7 +807,7 @@ func newUbuntu2204EmbeddedScriptHotfixScenario() *Scenario {
 		Payload:     payload,
 	}}
 	// Older VHDs do not have the modules sourced by the current provision config.
-	for _, suffix := range []string{"gpu", "localdns", "kubelet", "network", "addons", "chrony"} {
+	for _, suffix := range []string{"gpu", "localdns", "kubelet", "network", "chrony"} {
 		name := "cse_config_" + suffix + ".sh"
 		module, err := os.ReadFile(repoPath("parts/linux/cloud-init/artifacts/" + name))
 		if err != nil {
@@ -971,7 +1044,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterAzureNetworkIsolated,
 		VHD:     config.VHDACLGen2TL,
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 		},
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -2375,20 +2448,45 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_VHDCaching",
-	Description: "T",
+	Description: "Tests NBC provisioning during PIS bake and derived-node scale-up",
 	Config: Config{
 		Cluster:                ClusterLatestKubernetesVersionKubenet,
 		VHD:                    config.VHDUbuntu2604MinimalGen2Containerd,
 		VHDCaching:             true,
 		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-		Validator: func(ctx context.Context, s *Scenario) error {
-			return nil
-		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			// If the VHD has incorrect settings (like network misconfiguration)
 			// deploying more than one VM may expose the issue.
 			// This check is not always reliable, since only one VM is created per test run in the current framework.
 			// Therefore, tests may incorrectly pass more often than they fail in these cases.
+			vmss.SKU.Capacity = to.Ptr[int64](2)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2604Minimal_AKSNodeConfig_VHDCaching",
+	Description: "Tests JSON-only scriptless provisioning during PIS bake and derived-node scale-up",
+	SkipIf: func(context.Context) string {
+		if config.Config.DisableScriptless || config.Config.TestPreProvision {
+			return "requires Phase 3 provisioning"
+		}
+		return ""
+	},
+	Config: Config{
+		Cluster:    ClusterLatestKubernetesVersionKubenet,
+		VHD:        config.VHDUbuntu2604MinimalGen2Containerd,
+		VHDCaching: true,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessAKSNodeConfig = true
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			if !s.Runtime.NBC.EnableScriptlessAKSNodeConfig {
+				return fmt.Errorf("expected JSON-only scriptless provisioning")
+			}
+			return nil
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.SKU.Capacity = to.Ptr[int64](2)
 		},
 	},
@@ -3492,7 +3590,7 @@ var _ = Register(&Scenario{
 			nbc.StandardSecondaryNICCount = 1
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 			addSecondaryNIC(vmss)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
@@ -3660,7 +3758,7 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.CustomNodeLabels["kubernetes.azure.com/azure-cni-overlay"] = "true"
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 			DualStackVMConfigMutator(vmss)
 			addDualStackSecondaryNIC(vmss)
 		},
