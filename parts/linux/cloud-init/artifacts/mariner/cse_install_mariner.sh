@@ -67,7 +67,12 @@ installDeps() {
 
 installKataDeps() {
     if [ "$OS_VERSION" != "1.0" ]; then
-      if ! dnf_install 30 1 600 kata-packages-host; then
+      local kataPackages=(kata-packages-host)
+      if [ "$OS_VERSION" = "3.0" ]; then
+        # Keep the known-good host kernel while investigating 6.18.58 networking failures.
+        kataPackages+=("kernel-mshv-6.18.34.mshv3-1.azl3")
+      fi
+      if ! dnf_install 30 1 600 "${kataPackages[@]}"; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     fi
