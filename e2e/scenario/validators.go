@@ -1529,18 +1529,16 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 	// extract failed unit logs
 	var errs []error
 	failedUnitLogs := make(map[string]string, len(failedUnits))
-	unexpectedUnits := make([]systemdUnit, 0, len(failedUnits))
 	for _, unit := range failedUnits {
 		unitLogs, err := execScriptOnVMForScenario(ctx, s, fmt.Sprintf("journalctl -u %s", unit.Name))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("retrieve logs of failed unit %s: %w", unit.Name, err))
-			unexpectedUnits = append(unexpectedUnits, unit)
 			continue
 		}
 		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
 		if unit.Name == "initrd-core-tmpfiles-setup.service" && s.Tags.CVM {
 			errorLogs, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-				fmt.Sprintf("journalctl -b -u %s -p err --no-pager --quiet -o cat", unit.Name),
+				fmt.Sprintf("journalctl -b -u %s -p notice --no-pager --quiet -o cat", unit.Name),
 				0, "unable to inspect initrd unit errors")
 			if err != nil {
 				errs = append(errs, fmt.Errorf("retrieve errors of failed unit %s: %w", unit.Name, err))
@@ -1549,19 +1547,13 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 				continue
 			}
 		}
-		unexpectedUnits = append(unexpectedUnits, unit)
+		errs = append(errs, fmt.Errorf(
+			"the following systemd unit has unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
+			unit.Name,
+		))
 	}
 	if err := dumpFileMapToDir(s.artifactName, failedUnitLogs); err != nil {
 		errs = append(errs, fmt.Errorf("dump failed systemd unit logs: %w", err))
-	}
-
-	if len(unexpectedUnits) > 0 {
-		errs = append(errs, fmt.Errorf(
-			"the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
-			lo.Map(unexpectedUnits, func(unit systemdUnit, _ int) string {
-				return unit.Name
-			}),
-		))
 	}
 	return errors.Join(errs...)
 }
