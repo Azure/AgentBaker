@@ -102,6 +102,14 @@ provisioning additionally checks the guest symlink targets for the Ignition
 boot-command and file-extraction units; NBC/Phase 3/custom-data-only payloads do
 not render those legacy units and must not run those checks.
 
+Select `ACL_LegacyCSE` with `DISABLE_SCRIPTLESS=false` to exercise the legacy
+Ignition/CSE path using the scripts already baked into the image. This scenario
+explicitly disables NBC, Phase 3 and custom-data-only provisioning while keeping
+the first-boot extraction and boot-command units. Setting
+`DISABLE_SCRIPTLESS=true` instead embeds the full script payload, which can exceed
+Azure's custom-data limit before a VM is created; it is not the equivalent
+existing-image legacy check.
+
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node

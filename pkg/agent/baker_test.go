@@ -1425,6 +1425,38 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedClean))
 	})
 
+	It("should keep legacy ACL custom data within Azure limits when using baked CSE scripts", func() {
+		generator := InitializeTemplateGenerator()
+		config := newConfig(false)
+		config.AgentPoolProfile.Distro = datamodel.AKSACLGen2TL
+		config.EnableScriptlessCSECmd = true
+		config.EnableScriptlessNBCCSECmd = false
+		config.EnableScriptlessAKSNodeConfig = false
+		config.CustomDataOnlyProvisioning = false
+		Expect(supportsScriptlessProvisioning(config)).To(BeFalse())
+
+		payload := generator.getLinuxNodeBootstrappingPayload(config)
+		decoded, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(payload)).To(BeNumerically("<=", 87380))
+		Expect(len(decoded)).To(BeNumerically("<=", 65535))
+		var ignition struct {
+			Storage struct {
+				Links []struct {
+					Path   string `json:"path"`
+					Target string `json:"target"`
+				} `json:"links"`
+			} `json:"storage"`
+		}
+		Expect(json.Unmarshal(decoded, &ignition)).To(Succeed())
+		Expect(ignition.Storage.Links).To(HaveLen(2))
+		for _, link := range ignition.Storage.Links {
+			Expect(link.Path).To(Equal("/etc/systemd/system/sysinit.target.wants/" + strings.TrimPrefix(link.Target, "/etc/systemd/system/")))
+			Expect(link.Target).To(BeElementOf("/etc/systemd/system/ignition-bootcmds.service", "/etc/systemd/system/ignition-file-extract.service"))
+		}
+		Expect(string(decoded)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+	})
+
 	It("should render valid ignition JSON with the encoded files for scriptless ACL custom data", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)

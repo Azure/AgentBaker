@@ -79,6 +79,36 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(&Scenario{
+	Name:        "ACL_LegacyCSE",
+	Description: "Tests legacy ACL Ignition first-boot links using the baked CSE scripts without NBC provisioning",
+	Config: Config{
+		Cluster:                 ClusterKubenet,
+		VHD:                     config.VHDACLGen2TL,
+		SkipScriptlessNBCCSECmd: true,
+		BootstrapConfigMutatorWithError: func(_ context.Context, _ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) error {
+			if config.Config.DisableScriptless {
+				return fmt.Errorf("ACL_LegacyCSE requires baked CSE scripts; leave DISABLE_SCRIPTLESS=false")
+			}
+			nbc.EnableScriptlessCSECmd = true
+			nbc.EnableScriptlessNBCCSECmd = false
+			nbc.EnableScriptlessAKSNodeConfig = false
+			nbc.CustomDataOnlyProvisioning = false
+			return nil
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
+				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt", "Executing in scriptless CSE mode."),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
 	Name:        "ACL_CustomCA",
 	Description: "Tests that a node using an ACL VHD can be properly bootstrapped and custom CA was correctly added",
 	Config: Config{

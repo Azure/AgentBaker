@@ -56,6 +56,36 @@ func TestScriptlessProvisioningMode(t *testing.T) {
 	require.False(t, config.VHDACLGen2TL.SupportsScriptless())
 }
 
+func TestACLLegacyCSEScenarioUsesBakedScriptsWithoutNBC(t *testing.T) {
+	disabled := config.Config.DisableScriptless
+	config.Config.DisableScriptless = false
+	t.Cleanup(func() { config.Config.DisableScriptless = disabled })
+	var legacy *Scenario
+	for _, registered := range List() {
+		if registered.Name == "ACL_LegacyCSE" {
+			copied := *registered
+			legacy = &copied
+			break
+		}
+	}
+	require.NotNil(t, legacy)
+	require.True(t, scriptlessUnsupported(legacy))
+	require.Equal(t, config.VHDACLGen2TL, legacy.VHD)
+	nbc := &datamodel.NodeBootstrappingConfiguration{
+		EnableScriptlessNBCCSECmd: true, EnableScriptlessAKSNodeConfig: true, CustomDataOnlyProvisioning: true,
+	}
+	require.NoError(t, legacy.BootstrapConfigMutatorWithError(context.Background(), nil, nbc))
+	legacy.Runtime = &ScenarioRuntime{NBC: nbc}
+	require.True(t, nbc.EnableScriptlessCSECmd)
+	require.False(t, usesScriptlessProvisioning(legacy))
+	require.False(t, nbc.EnableScriptlessNBCCSECmd)
+	require.False(t, nbc.EnableScriptlessAKSNodeConfig)
+	require.False(t, nbc.CustomDataOnlyProvisioning)
+	require.ErrorContains(t, ValidateACLLegacyFirstBoot(context.Background(), legacy), "nil VM")
+	config.Config.DisableScriptless = true
+	require.ErrorContains(t, legacy.BootstrapConfigMutatorWithError(context.Background(), nil, nbc), "leave DISABLE_SCRIPTLESS=false")
+}
+
 func TestACLNBCValidationDoesNotSkip(t *testing.T) {
 	metadata := config.Config.VHDMetadataFile
 	config.Config.VHDMetadataFile = "test-metadata.json"
