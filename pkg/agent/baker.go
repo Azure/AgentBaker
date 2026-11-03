@@ -283,7 +283,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return (config.EnableScriptlessAKSNodeConfig || (config.EnableScriptlessNBCCSECmd) || config.IsCustomDataOnlyProvisioningEnabled()) && !config.PreProvisionOnly
+	return config.EnableScriptlessNBCCSECmd || config.EnableScriptlessAKSNodeConfig || config.IsCustomDataOnlyProvisioningEnabled()
 }
 
 func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {

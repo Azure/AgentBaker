@@ -242,6 +242,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 
 	cfg := &aksnodeconfigv1.Configuration{
 		Version:             "v1",
+		PreProvisionOnly:    nbc.PreProvisionOnly,
 		BootstrappingConfig: bootstrappingConfig,
 		DisableCustomData:   true,
 		LinuxAdminUsername:  "azureuser",
