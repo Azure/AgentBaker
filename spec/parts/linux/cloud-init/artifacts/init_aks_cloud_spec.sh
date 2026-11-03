@@ -168,12 +168,69 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
         End
     End
 
+    Describe 'prerequisites'
+        Parameters
+            1 0 0 'ubuntu-main'
+            0 1 0 'mariner'
+            0 0 1 'azurelinux'
+        End
+
+        It 'configures repositories without refreshing indexes or scheduling refresh'
+            IS_UBUNTU=$1
+            IS_MARINER=$2
+            IS_AZURELINUX=$3
+            install_ca_refresh_schedule=1
+
+            When run run_repo_dispatch prerequisites
+            The status should be success
+            The output should include "$4 https://repodepot.example.com"
+            The output should not include 'apt update'
+            The output should not include 'dnf cache'
+            The output should not include 'refresh scheduling reached'
+        End
+
+        It 'fails rather than continuing after signing key bootstrap fails'
+            IS_UBUNTU=1
+            init_ubuntu_pmc_repo_depot() { echo 'key download failed' >&2; return 19; }
+
+            When run run_repo_dispatch prerequisites
+            The status should eq 19
+            The output should include 'ubuntu-main'
+            The stderr should include 'key download failed'
+            The output should not include 'refresh scheduling reached'
+        End
+    End
+
+    Describe 'successful process handoff'
+        Parameters
+            1 0 0 'apt update'
+            0 1 0 'dnf cache'
+            0 0 1 'dnf cache'
+        End
+
+        It 'completes initialization without repeating repository setup'
+            IS_UBUNTU=$1
+            IS_MARINER=$2
+            IS_AZURELINUX=$3
+            skip_prerequisites=1
+            install_ca_refresh_schedule=1
+
+            When run run_repo_dispatch init
+            The status should be success
+            The output should include "$4"
+            The output should include 'refresh scheduling reached'
+            The output should not include 'ubuntu-main'
+            The output should not include 'ubuntu-pmc'
+            The output should not include 'mariner https'
+            The output should not include 'azurelinux https'
+        End
+    End
+
     Describe 'ca-refresh'
         Parameters
             0
             1
         End
-
         It 'skips repo initialization and scheduling regardless of certificate opt-in'
             IS_UBUNTU=1
             install_ca_refresh_schedule=$1
@@ -397,6 +454,7 @@ End
 
 Describe 'init-aks-cloud.sh functional tests'
     setup() {
+        unset KEY_DOWNLOADS_FILE
         TEST_DIR="$(mktemp -d)"
         export OS_RELEASE_FILE="${TEST_DIR}/os-release"
         export APT_SOURCES_LIST="${TEST_DIR}/apt/sources.list"
@@ -598,6 +656,9 @@ EOF
             printf 'HTTP/1.1 200 OK\n'
         End
         Mock wget
+            if [ -n "${KEY_DOWNLOADS_FILE:-}" ]; then
+                printf '%s\n' "$3" >> "$KEY_DOWNLOADS_FILE"
+            fi
             echo 'fake-key-data'
         End
         Mock gpg
@@ -610,6 +671,7 @@ EOF
         It 'writes microsoft-prod sources files pointing at the depot only'
             ubuntuRel=22.04
             repodepot_endpoint="https://repodepot.example.com"
+            export KEY_DOWNLOADS_FILE="${TEST_DIR}/key-downloads"
             When call init_ubuntu_pmc_repo_depot "${repodepot_endpoint}"
             The output should be present
             The status should be success
@@ -619,6 +681,24 @@ EOF
             The contents of file "${APT_SOURCES_LIST_D_DIR}/microsoft-prod.sources" should not include "https://packages.microsoft.com"
             The path "${APT_KEYRINGS_DIR}/microsoft.asc.gpg" should be exist
             The path "${APT_KEYRINGS_DIR}/msopentech.asc.gpg" should be exist
+            The contents of file "${APT_SOURCES_LIST_D_DIR}/microsoft-prod.sources" should include "Signed-By: ${APT_KEYRINGS_DIR}/microsoft.asc.gpg ${APT_KEYRINGS_DIR}/msopentech.asc.gpg"
+            The contents of file "$KEY_DOWNLOADS_FILE" should eq "$(printf 'https://repodepot.example.com/keys/microsoft.asc\nhttps://repodepot.example.com/keys/msopentech.asc')"
+        End
+
+        It 'propagates signing key download failures'
+            wget() { echo 'signing key download failed' >&2; return 17; }
+            When run add_key_ubuntu microsoft.asc https://repodepot.example.com
+            The status should eq 17
+            The output should include 'Adding microsoft.asc'
+            The stderr should include 'signing key download failed'
+        End
+
+        It 'propagates signing key conversion failures'
+            gpg() { cat >/dev/null; echo 'signing key conversion failed' >&2; return 18; }
+            When run add_key_ubuntu microsoft.asc https://repodepot.example.com
+            The status should eq 18
+            The output should include 'Adding microsoft.asc'
+            The stderr should include 'signing key conversion failed'
         End
     End
 
@@ -1121,6 +1201,11 @@ REPO
             The path "${YUM_REPOS_DIR}/azurelinux-nvidia.repo" should be exist
             The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should include "baseurl=https://repodepot.example.com/azurelinux/"
             The contents of file "${YUM_REPOS_DIR}/azurelinux-base.repo" should not include "packages.microsoft.com"
+            The contents of file "${YUM_REPOS_DIR}/azurelinux-ms-oss.repo" should include 'baseurl=https://repodepot.example.com/azurelinux/$releasever/prod/ms-oss/$basearch'
+            The contents of file "${YUM_REPOS_DIR}/azurelinux-ms-oss.repo" should include 'gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY'
+            The contents of file "${YUM_REPOS_DIR}/azurelinux-ms-oss.repo" should include 'gpgcheck=1'
+            The contents of file "${YUM_REPOS_DIR}/azurelinux-ms-oss.repo" should include 'repo_gpgcheck=1'
+            The contents of file "${YUM_REPOS_DIR}/azurelinux-ms-oss.repo" should include 'sslverify=1'
         End
     End
 End

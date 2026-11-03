@@ -1094,7 +1094,8 @@ func getCSETimeout(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return GetCSETimeout(cseTimeout)
 }
 
-func getRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+// GetRepoDepotEndpoint returns the provisioning repository endpoint for custom clouds.
+func GetRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if getIsAksCustomCloud(aksnodeconfig.GetCustomCloudConfig()) {
 		return aksnodeconfig.GetCustomCloudConfig().GetRepoDepotEndpoint()
 	}

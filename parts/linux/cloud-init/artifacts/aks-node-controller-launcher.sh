@@ -44,18 +44,29 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
-BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
-
-command=("$BIN_PATH" provision)
+provision_args=()
 if [ -f "$CONFIG_PATH" ]; then
     log "Launching aks-node-controller with config ${CONFIG_PATH}"
-    command+=("--provision-config=$CONFIG_PATH")
+    provision_args+=("--provision-config=$CONFIG_PATH")
 fi
 if [ -f "$NBC_CMD_PATH" ]; then
     log "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
-    command+=("--nbc-cmd=$NBC_CMD_PATH")
+    provision_args+=("--nbc-cmd=$NBC_CMD_PATH")
 fi
+
+# The handoff exists only in this launcher's process tree, never on a PIS-cached disk.
+unset AKS_CLOUD_PREREQUISITES_DONE
+"$BIN_PATH" cloud-prerequisites "${provision_args[@]}"
+exit_code=$?
+if [ "$exit_code" -ne 0 ]; then
+    log "ANC cloud prerequisites failed with code ${exit_code}; stopping before hotfix acquisition"
+    exit "$exit_code"
+fi
+export AKS_CLOUD_PREREQUISITES_DONE=true
+
+anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
+BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
+command=("$BIN_PATH" provision "${provision_args[@]}")
 
 "${command[@]}" &
 child_pid=$!

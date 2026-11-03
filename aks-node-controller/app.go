@@ -48,6 +48,9 @@ type App struct {
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
 	cmdRun      func(cmd *exec.Cmd) error
 	eventLogger *helpers.EventLogger
+	// Override cloud initialization and completion paths for tests.
+	initAKSCloudPath     string
+	provisionStatusFiles *ProvisionStatusFiles
 
 	// hotfixVersionPath overrides the default hotfix version file location for testing.
 	// It is also the path check-hotfix writes the resolved pointer to.
@@ -148,6 +151,27 @@ func (a *App) Run(ctx context.Context, args []string) int {
 			return errors.New("missing command argument")
 		},
 		Commands: []*cli.Command{
+			{
+				Name:  "cloud-prerequisites",
+				Usage: "Initialize cloud trust and repositories before acquiring hotfixes",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "provision-config", Usage: "path to the provision config file"},
+					&cli.StringFlag{Name: "nbc-cmd", Usage: "path to the NBC command file"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					result, err := a.initializeCloudPrerequisites(ctx, ProvisionFlags{
+						ProvisionConfig: cmd.String("provision-config"),
+						NBCCmd:          cmd.String("nbc-cmd"),
+					})
+					if err != nil {
+						a.reportProvisionStatus(ctx, result, err)
+						a.writeCompleteFileOnError(result, err)
+						now := time.Now()
+						a.eventLogger.LogEvent("Provision", result.Error, helpers.EventLevelError, now, now)
+					}
+					return err
+				},
+			},
 			{
 				Name:  "provision",
 				Usage: "Run node provisioning",
@@ -790,27 +814,34 @@ func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err err
 	if err == nil {
 		return
 	}
-	if _, statErr := os.Stat(provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
+	files := ProvisionStatusFiles{
+		ProvisionJSONFile:     provisionJSONFilePath,
+		ProvisionCompleteFile: provisionCompleteFilePath,
+	}
+	if a.provisionStatusFiles != nil {
+		files = *a.provisionStatusFiles
+	}
+	if _, statErr := os.Stat(files.ProvisionJSONFile); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
 		data, err := json.Marshal(provisionResult)
 		if err != nil {
 			slog.Error("failed to marshal provision result", "error", err)
 		}
-		baseDir := filepath.Dir(provisionJSONFilePath)
+		baseDir := filepath.Dir(files.ProvisionJSONFile)
 		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
 			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
 		}
-		if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
-			slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
+		if writeErr := os.WriteFile(files.ProvisionJSONFile, data, 0600); writeErr != nil {
+			slog.Error("failed to write provision.json file", "path", files.ProvisionJSONFile, "error", writeErr)
 		}
 	}
-	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
+	if _, statErr := os.Stat(files.ProvisionCompleteFile); statErr == nil {
 		return // already exists
 	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
-		slog.Error("failed to stat provision.complete file", "path", provisionCompleteFilePath, "error", statErr)
+		slog.Error("failed to stat provision.complete file", "path", files.ProvisionCompleteFile, "error", statErr)
 		return
 	}
-	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
+	if writeErr := os.WriteFile(files.ProvisionCompleteFile, []byte{}, 0600); writeErr != nil {
+		slog.Error("failed to write provision.complete file", "path", files.ProvisionCompleteFile, "error", writeErr)
 	}
 }
 

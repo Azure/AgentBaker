@@ -233,6 +233,25 @@ Key components:
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
 
+The launcher first runs **cloud-prerequisites** using the same inputs as `provision`
+(NBC takes precedence when both inputs exist). It parses settings without executing
+NBC and runs `init-aks-cloud.sh prerequisites` to install cloud CAs and configure
+RepoDepot repositories and signing keys before `check-hotfix` and `download-hotfix`.
+Required bootstrap failures stop acquisition and use ANC's provisioning failure
+reporting and completion signaling. TLS and repository signature verification stay
+enabled for both direct downloads and package-manager fallback.
+
+On success, the launcher passes `AKS_CLOUD_PREREQUISITES_DONE=true` only to its
+process tree. Normal cloud initialization skips duplicate certificate/repository
+setup but still refreshes repository indexes and schedules certificate refresh.
+There is no on-disk completion marker for PIS to capture; each launcher invocation
+initializes the real node's live settings.
+
+This ordering change requires a newly built VHD. Already-released images still
+acquire hotfixes using their baked launcher and ANC and need an earlier delivered
+bootstrap step or an image upgrade. A downloaded binary cannot initialize the
+prerequisites for its own download.
+
 ### Provisioning script hotfix payloads
 
 Patched ANC binaries can embed selected Linux provisioning scripts generated from
