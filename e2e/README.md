@@ -64,6 +64,11 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
 - Set bootstrap inputs through `NodeBootstrappingConfiguration`. Mirror RP's
   agent-pool settings in both `nbc.ContainerService.Properties.AgentPoolProfiles[0]`
   and `nbc.AgentPoolProfile` where required.
+- Pair Linux bootstrap mutators with an equivalent `AKSNodeConfigMutator`,
+  including GPU, network, kubelet, and OS settings, so Phase 3 exercises the same
+  scenario inputs. Keep Windows, frozen Azure Linux V2, VHD-caching-only scenarios,
+  and the explicit `ScriptlessCSECmd_Hotfix` delivery check on their existing
+  provisioning paths.
 - Set VMSS properties through `VMConfigMutator`; keep its SKU and
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.

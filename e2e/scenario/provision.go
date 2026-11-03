@@ -1303,6 +1303,11 @@ func runScenarioUbuntu2404GPUNPD(name, vmSize, location, k8sSystemPoolSKU string
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableNvidia = true
 			},
+			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+				cfg.VmSize = vmSize
+				cfg.GpuConfig.ConfigGpuDriver = true
+				cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+			},
 			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr(vmSize)
 
