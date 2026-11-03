@@ -705,23 +705,43 @@ configureNodeProblemDetector() {
 # configureKMPP starts the KMPP service baked (masked) into Azure Linux 3.0 VHDs and exposes
 # the host system bus to the KMPP CSI provider at /run/kmpp/dbus (hostPath /var/run/kmpp/dbus).
 # The bind mount is unfiltered. Restricting which callers and methods it allows is planned separately.
+#
+# The RPM runs both KMPP services in kmpp.slice, which sits at the cgroup root, outside
+# system.slice where AKS reserves CPU and memory for system daemons (SYSTEM_RESERVED_CGROUP).
+# Drop-ins move them to system-kmpp.slice, a child of system.slice, with the RPM's limits.
+# kmpp.slice is masked so that any unit still pointing at it fails to start instead of
+# silently running outside the system-reserved budget.
 configureKMPP() {
     local unit_dir="${KMPP_UNIT_DIR:-/usr/lib/systemd/system}"
-    local mount_unit_file="${KMPP_DBUS_MOUNT_UNIT_FILE:-/etc/systemd/system/run-kmpp-dbus.mount}"
+    local etc_dir="${KMPP_SYSTEMD_ETC_DIR:-/etc/systemd/system}"
     local kmpp_service="dbus-com.microsoft.kmpp.service"
     local kmppctrl_service="dbus-com.microsoft.kmppctrl.service"
+    local service
 
     if [ ! -f "${unit_dir}/${kmpp_service}" ]; then
         echo "KMPP is not baked into this VHD, skipping KMPP configuration"
         return 0
     fi
 
-    retrycmd_if_failure 10 2 30 systemctl unmask "${kmpp_service}" "${kmppctrl_service}" || return "$ERR_KMPP_START_FAIL"
-    systemctlEnableAndStart "${kmpp_service}" 30 || return "$ERR_KMPP_START_FAIL"
-    retrycmd_if_failure 10 2 30 systemctl start "${kmppctrl_service}" || return "$ERR_KMPP_START_FAIL"
+    mkdir -p "${etc_dir}/${kmpp_service}.d" "${etc_dir}/${kmppctrl_service}.d" /run/kmpp/dbus || return "$ERR_KMPP_START_FAIL"
+    # Same limits as the RPM's kmpp.slice, shared by both services.
+    cat > "${etc_dir}/system-kmpp.slice" <<EOF || return "$ERR_KMPP_START_FAIL"
+[Unit]
+Description=KMPP key isolation service
 
-    mkdir -p "$(dirname "${mount_unit_file}")" /run/kmpp/dbus || return "$ERR_KMPP_START_FAIL"
-    cat > "${mount_unit_file}" <<EOF || return "$ERR_KMPP_START_FAIL"
+[Slice]
+CPUAccounting=true
+CPUQuota=50%
+MemoryAccounting=true
+MemoryMax=20M
+EOF
+    for service in "${kmpp_service}" "${kmppctrl_service}"; do
+        cat > "${etc_dir}/${service}.d/10-system-slice.conf" <<EOF || return "$ERR_KMPP_START_FAIL"
+[Service]
+Slice=system-kmpp.slice
+EOF
+    done
+    cat > "${etc_dir}/run-kmpp-dbus.mount" <<EOF || return "$ERR_KMPP_START_FAIL"
 [Unit]
 Description=Expose the host system bus to KMPP clients
 DefaultDependencies=no
@@ -739,8 +759,14 @@ Options=bind
 [Install]
 WantedBy=multi-user.target
 EOF
-    chmod 0644 "${mount_unit_file}" || return "$ERR_KMPP_START_FAIL"
+    chmod 0644 "${etc_dir}/system-kmpp.slice" "${etc_dir}/${kmpp_service}.d/10-system-slice.conf" \
+        "${etc_dir}/${kmppctrl_service}.d/10-system-slice.conf" "${etc_dir}/run-kmpp-dbus.mount" || return "$ERR_KMPP_START_FAIL"
+    retrycmd_if_failure 10 2 30 systemctl mask kmpp.slice || return "$ERR_KMPP_START_FAIL"
     systemctl daemon-reload || return "$ERR_KMPP_START_FAIL"
+
+    retrycmd_if_failure 10 2 30 systemctl unmask "${kmpp_service}" "${kmppctrl_service}" || return "$ERR_KMPP_START_FAIL"
+    systemctlEnableAndStart "${kmpp_service}" 30 || return "$ERR_KMPP_START_FAIL"
+    retrycmd_if_failure 10 2 30 systemctl start "${kmppctrl_service}" || return "$ERR_KMPP_START_FAIL"
     systemctlEnableAndStart run-kmpp-dbus.mount 30 || return "$ERR_KMPP_START_FAIL"
 
     if ! retrycmd_if_failure 10 2 10 busctl --address=unix:path=/run/kmpp/dbus/system_bus_socket \

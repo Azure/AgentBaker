@@ -38,6 +38,15 @@ for unit in dbus-com.microsoft.kmpp.service run-kmpp-dbus.mount; do
   sudo systemctl is-active "$unit"
   sudo systemctl is-enabled "$unit"
 done
+# KMPP must run under system.slice, which holds the system-reserved budget, never in the RPM's root kmpp.slice.
+for unit in dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service; do
+  [ "$(systemctl show -p Slice --value "$unit")" = system-kmpp.slice ]
+done
+case "$(systemctl show -p ControlGroup --value dbus-com.microsoft.kmpp.service)" in
+  /system.slice/system-kmpp.slice/*) ;;
+  *) exit 1 ;;
+esac
+[ "$(systemctl is-enabled kmpp.slice || true)" = masked ]
 sudo test -S /var/run/kmpp/dbus/system_bus_socket
 sudo test -d /var/opt/msft/ap/data/kmpp/certs
 sudo busctl --address=unix:path=/var/run/kmpp/dbus/system_bus_socket call com.microsoft.kmpp / com.microsoft.kmpp GetVersion

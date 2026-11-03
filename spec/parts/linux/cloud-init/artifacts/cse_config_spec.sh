@@ -1295,16 +1295,16 @@ PubkeyAuthentication no"
         setup_kmpp() {
             KMPP_TEST_DIR="$(mktemp -d)"
             KMPP_UNIT_DIR="${KMPP_TEST_DIR}/unit"
-            KMPP_DBUS_MOUNT_UNIT_FILE="${KMPP_TEST_DIR}/etc/run-kmpp-dbus.mount"
+            KMPP_SYSTEMD_ETC_DIR="${KMPP_TEST_DIR}/etc"
             KMPP_CALLS="${KMPP_TEST_DIR}/calls"
-            /bin/mkdir -p "${KMPP_UNIT_DIR}" "$(dirname "${KMPP_DBUS_MOUNT_UNIT_FILE}")"
+            /bin/mkdir -p "${KMPP_UNIT_DIR}" "${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmpp.service.d" "${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmppctrl.service.d"
             touch "${KMPP_UNIT_DIR}/dbus-com.microsoft.kmpp.service"
             KUBELET_NODE_LABELS="kubernetes.azure.com/role=agent"
             unset FAIL_ON
         }
         cleanup_kmpp() {
             rm -rf "${KMPP_TEST_DIR}"
-            unset KMPP_TEST_DIR KMPP_UNIT_DIR KMPP_DBUS_MOUNT_UNIT_FILE KMPP_CALLS KUBELET_NODE_LABELS FAIL_ON
+            unset KMPP_TEST_DIR KMPP_UNIT_DIR KMPP_SYSTEMD_ETC_DIR KMPP_CALLS KUBELET_NODE_LABELS FAIL_ON
         }
         record() {
             echo "$*" >> "${KMPP_CALLS}"
@@ -1329,25 +1329,31 @@ PubkeyAuthentication no"
             The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/role=agent"
         End
 
-        It 'starts KMPP, bind-mounts the system bus, checks GetVersion and labels the node'
+        It 'moves KMPP under system.slice, starts it, bind-mounts the system bus, checks GetVersion and labels the node'
             When call configureKMPP
             The status should be success
             The output should include "adding label kubernetes.azure.com/kmpp=enabled"
-            The contents of file "${KMPP_CALLS}" should equal "systemctl unmask dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service
+            The contents of file "${KMPP_CALLS}" should equal "mkdir -p ${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmpp.service.d ${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmppctrl.service.d /run/kmpp/dbus
+chmod 0644 ${KMPP_SYSTEMD_ETC_DIR}/system-kmpp.slice ${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmpp.service.d/10-system-slice.conf ${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmppctrl.service.d/10-system-slice.conf ${KMPP_SYSTEMD_ETC_DIR}/run-kmpp-dbus.mount
+systemctl mask kmpp.slice
+systemctl daemon-reload
+systemctl unmask dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service
 enable-start dbus-com.microsoft.kmpp.service
 systemctl start dbus-com.microsoft.kmppctrl.service
-mkdir -p $(dirname "${KMPP_DBUS_MOUNT_UNIT_FILE}") /run/kmpp/dbus
-chmod 0644 ${KMPP_DBUS_MOUNT_UNIT_FILE}
-systemctl daemon-reload
 enable-start run-kmpp-dbus.mount
 busctl --address=unix:path=/run/kmpp/dbus/system_bus_socket call com.microsoft.kmpp / com.microsoft.kmpp GetVersion"
-            The contents of file "${KMPP_DBUS_MOUNT_UNIT_FILE}" should include "What=/run/dbus"
-            The contents of file "${KMPP_DBUS_MOUNT_UNIT_FILE}" should include "Where=/run/kmpp/dbus"
-            The contents of file "${KMPP_DBUS_MOUNT_UNIT_FILE}" should include "Options=bind"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/system-kmpp.slice" should include "CPUQuota=50%"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/system-kmpp.slice" should include "MemoryMax=20M"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmpp.service.d/10-system-slice.conf" should include "Slice=system-kmpp.slice"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmppctrl.service.d/10-system-slice.conf" should include "Slice=system-kmpp.slice"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/run-kmpp-dbus.mount" should include "What=/run/dbus"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/run-kmpp-dbus.mount" should include "Where=/run/kmpp/dbus"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/run-kmpp-dbus.mount" should include "Options=bind"
             The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/role=agent,kubernetes.azure.com/kmpp=enabled"
         End
 
         Parameters
+            "masking kmpp.slice" "systemctl mask kmpp.slice"
             "unmask" "systemctl unmask"
             "the KMPP service start" "enable-start dbus-com.microsoft.kmpp.service"
             "the kmppctrl start" "systemctl start dbus-com.microsoft.kmppctrl.service"
