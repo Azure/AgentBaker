@@ -1019,6 +1019,28 @@ stop_watchdog_sleep() {
     fi
 }
 
+# Send a notification to systemd without waiting for PID 1 to process it.
+#
+# By default systemd-notify (systemd >= 246) sends the message and then waits up to 5s on a
+# barrier for PID 1 to process it. On a busy node PID 1 can take longer than that, and the
+# call fails with "Failed to invoke barrier: Connection timed out" even though the message
+# was delivered. Under 'set -e' that failure ended this script, and the EXIT trap tore down a
+# healthy resolver (Azure/AKS#6063). Nothing here uses the acknowledgement, so skip the wait.
+#
+# Skipping the wait is safe here: the barrier exists so that PID 1 can still attribute a
+# message whose sender has exited, but systemd-notify sends on behalf of its parent -- this
+# script, the unit's main process -- which outlives the message. A real failure to send
+# still fails the call.
+#
+# systemd < 246 (Ubuntu 20.04 ships 245) has neither the barrier nor --no-block, and rejects
+# unknown options, so only pass the flag where systemd-notify supports it.
+notify_systemd() {
+    case "$(systemd-notify --help 2>&1)" in
+        *--no-block*) systemd-notify --no-block "$@" ;;
+        *) systemd-notify "$@" ;;
+    esac
+}
+
 start_localdns_watchdog() {
     if [ -n "${NOTIFY_SOCKET:-}" ] && [ -n "${WATCHDOG_USEC:-}" ]; then
         # Health check at 20% of WATCHDOG_USEC; this means that we should check.
@@ -1050,7 +1072,7 @@ start_localdns_watchdog() {
             fi
 
             if [ "$health_check_passed" = true ]; then
-                systemd-notify WATCHDOG=1
+                notify_systemd WATCHDOG=1
             else
                 echo "localdns health check failed - will be restarted if failures persist."
 
@@ -1066,7 +1088,7 @@ start_localdns_watchdog() {
                 # Check if sliding window threshold is exceeded
                 if [ "$sliding_window_failure_count" -ge "$max_sliding_window_failures" ]; then
                     echo "max sliding window failures (${max_sliding_window_failures} in ${sliding_window_duration_in_seconds}s) reached. Triggering restart."
-                    systemd-notify WATCHDOG=trigger
+                    notify_systemd WATCHDOG=trigger
                     exit $ERR_LOCALDNS_FAIL
                 fi
             fi
@@ -1300,7 +1322,7 @@ fi
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
 if [ -n "${NOTIFY_SOCKET:-}" ]; then
-   systemd-notify --ready
+   notify_systemd --ready
 fi
 
 # Systemd watchdog: send pings so we get restarted if we go unhealthy.

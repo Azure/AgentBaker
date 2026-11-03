@@ -1468,6 +1468,129 @@ EOF
         End
     End
 
+# This section tests - notify_systemd
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#
+# systemd-notify (systemd >= 246) waits up to 5s by default for PID 1 to acknowledge the
+# message. On a busy node that wait times out, and under 'set -e' the failure used to end the
+# script and tear down a healthy resolver (Azure/AKS#6063).
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'notify_systemd'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        BeforeEach 'setup'
+
+        It 'should pass --no-block when systemd-notify supports it'
+            systemd-notify() {
+                if [ "$1" = "--help" ]; then
+                    echo "     --no-block        Do not wait until operation finished"
+                    return 0
+                fi
+                echo "systemd-notify $*"
+            }
+            When call notify_systemd WATCHDOG=1
+            The status should be success
+            The output should equal "systemd-notify --no-block WATCHDOG=1"
+        End
+
+        It 'should omit --no-block on systemd < 246, which rejects unknown options'
+            # Ubuntu 20.04 ships systemd 245: no --no-block, and no barrier to skip either.
+            systemd-notify() {
+                if [ "$1" = "--help" ]; then
+                    echo "     --ready           Inform the init system about service start-up completion"
+                    return 0
+                fi
+                echo "systemd-notify $*"
+            }
+            When call notify_systemd --ready
+            The status should be success
+            The output should equal "systemd-notify --ready"
+        End
+
+        It 'should still fail when the message cannot be sent'
+            # Only the wait for the acknowledgement is skipped; a real send failure must not be masked.
+            systemd-notify() {
+                if [ "$1" = "--help" ]; then
+                    echo "     --no-block        Do not wait until operation finished"
+                    return 0
+                fi
+                echo "Failed to notify init system: No such file or directory" >&2
+                return 1
+            }
+            When call notify_systemd WATCHDOG=1
+            The status should be failure
+            The stderr should include "Failed to notify init system"
+        End
+    End
+
+# This section tests the watchdog loop against a PID 1 that is too busy to acknowledge pings.
+# It runs the shipped notify_systemd and start_localdns_watchdog under the shipped 'set' line and
+# EXIT trap, so 'set -e' behaves as it does on a node.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'watchdog loop with a busy PID 1'
+        LOCALDNS_SRC="./parts/linux/cloud-init/artifacts/localdns.sh"
+
+        build_watchdog_harness() {
+            harness=$(mktemp)
+            {
+                echo '#!/bin/bash'
+                grep -m1 -E '^set -' "$LOCALDNS_SRC"
+                echo 'ERR_LOCALDNS_FAIL=99'
+                echo 'LOCALDNS_NODE_LISTENER_IP=169.254.10.10'
+                echo 'LOCALDNS_CLUSTER_LISTENER_IP=169.254.10.11'
+                echo 'DNS_HEALTH_CHECK_TIMEOUT=1'
+                echo 'DNS_HEALTH_CHECK_TRIES=1'
+                echo 'CURL_COMMAND=(curl)'
+                # Healthy resolver: every health check passes.
+                echo 'curl() { echo OK; }'
+                echo 'dig() { return 0; }'
+                echo 'sleep() { :; }'
+                # systemd >= 246 with a busy PID 1: the message is sent, but waiting for the
+                # acknowledgement times out unless --no-block skips the wait.
+                echo 'systemd-notify() {'
+                echo '    case "$1" in'
+                echo '        --help) echo "     --no-block        Do not wait until operation finished" ;;'
+                echo '        --no-block) echo "NOTIFY_SENT ${*:2}" ;;'
+                echo '        *) echo "Failed to invoke barrier: Connection timed out" >&2; return 1 ;;'
+                echo '    esac'
+                echo '}'
+                echo 'cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 0; }'
+                # Stop after three healthy ticks.
+                echo 'ticks=0'
+                echo 'export_resource_metrics() { ticks=$((ticks + 1)); if [ "$ticks" -ge 3 ]; then echo "LOOP_SURVIVED"; trap - EXIT; exit 0; fi; }'
+                sed -n '/^stop_watchdog_sleep() {/,/^}/p; /^notify_systemd() {/,/^}/p; /^start_localdns_watchdog() {/,/^}/p' "$LOCALDNS_SRC"
+                grep -E "^trap .*EXIT$" "$LOCALDNS_SRC"
+                echo 'NOTIFY_SOCKET=/run/systemd/notify'
+                echo 'WATCHDOG_USEC=60000000'
+                echo 'start_localdns_watchdog'
+            } > "$harness"
+        }
+        cleanup_watchdog_harness() {
+            rm -f "$harness"
+        }
+        BeforeEach 'build_watchdog_harness'
+        AfterEach 'cleanup_watchdog_harness'
+
+        It 'keeps serving when PID 1 is too slow to acknowledge the watchdog ping'
+            When run command bash "$harness"
+            The status should be success
+            The output should include "NOTIFY_SENT WATCHDOG=1"
+            The output should include "LOOP_SURVIVED"
+            The output should not include "Executing cleanup function."
+            The output should not include "CLEANUP_RAN"
+            The stderr should not include "Failed to invoke barrier"
+        End
+
+        It 'routes every notification through notify_systemd'
+            # A direct 'systemd-notify WATCHDOG=...' or 'systemd-notify --ready' call would wait
+            # for the acknowledgement again.
+            When run command grep -nE '^[^#]*systemd-notify (WATCHDOG|--ready)' "$LOCALDNS_SRC"
+            The status should be failure
+            The output should equal ""
+        End
+    End
+
 # This section tests - stop_watchdog_sleep
 # This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #
