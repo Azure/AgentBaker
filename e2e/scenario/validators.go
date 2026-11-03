@@ -3046,18 +3046,32 @@ echo "  2. Hosts file populated later: CoreDNS picks it up via reload"
 	return nil
 }
 
-// ValidateANCLauncherOutput checks that the aks-node-controller-launcher.sh output contains
-// expectedContent, regardless of how the VHD launches it:
-//   - ACL/Flatcar VHDs still launch the launcher via the aks-node-controller.service systemd unit
-//     (ignition doesn't support cloud-boothooks), so its stdout/stderr only lands in the journal.
-//   - All other VHDs launch the launcher as a direct fork from the cloud-boothook (not a systemd
-//     unit, for faster dispatch - see baker.go boothookTemplate), with stdout/stderr redirected to
-//     /var/log/azure/aks-node-controller.output.
-func ValidateANCLauncherOutput(ctx context.Context, s *Scenario, expectedContent string) error {
-	if s.VHD.Flatcar {
-		return ValidateJournalctlOutput(ctx, s, "aks-node-controller.service", expectedContent)
+func ancLauncherOutputCommand(s *Scenario) string {
+	// Ignition starts the service; CSE-delivered payloads launch the script directly.
+	if s.VHD.Flatcar && !s.Runtime.NBC.ScriptlessCSEProvisionMode {
+		return "sudo journalctl -u aks-node-controller.service --no-pager -o cat"
 	}
-	return ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", expectedContent)
+	return "sudo cat /var/log/azure/aks-node-controller.output"
+}
+
+func readANCLauncherOutput(ctx context.Context, s *Scenario) (string, error) {
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, ancLauncherOutputCommand(s), 0, "could not read ANC launcher output")
+	if err != nil {
+		return "", fmt.Errorf("read ANC launcher output: %w", err)
+	}
+	return result.stdout, nil
+}
+
+// ValidateANCLauncherOutput checks the log source used by the selected delivery mode.
+func ValidateANCLauncherOutput(ctx context.Context, s *Scenario, expectedContent string) error {
+	output, err := readANCLauncherOutput(ctx, s)
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(output, expectedContent) {
+		return fmt.Errorf("ANC launcher output does not contain %q", expectedContent)
+	}
+	return nil
 }
 
 // ValidateJournalctlOutput checks if specific content exists in the systemd service logs
@@ -3847,18 +3861,17 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	var errs []error
 	errs = append(errs,
 		ValidateFileExists(ctx, s, fileNameToCheck),
-		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"),
+		ValidateANCLauncherOutput(ctx, s, "Using NBC command for scriptless phase 2"),
 	)
-	if s.Runtime.NBC != nil && s.Runtime.NBC.ScriptlessCSEProvisionMode {
+	if s.Runtime.NBC.ScriptlessCSEProvisionMode && !s.VHD.Flatcar {
 		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected journalctl to contain 'starting /opt/bin/boothook.sh' for scriptless phase 2"); err != nil {
 			errs = append(errs, fmt.Errorf("check journalctl for 'starting /opt/bin/boothook.sh': %w", err))
 		}
 	}
-	errs = append(errs, ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"))
 	if enableScriptlessCompilation(s) {
 		errs = append(errs,
 			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix"),
-			ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using hotfix binary"),
+			ValidateANCLauncherOutput(ctx, s, "Using hotfix binary"),
 		)
 	}
 	return errors.Join(errs...)
@@ -3900,21 +3913,65 @@ func ValidateScriptlessComparison(ctx context.Context, s *Scenario) error {
 	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) || config.Config.VHDMetadataFile == "" {
 		return nil
 	}
-	logFile := "/var/log/azure/aks-node-controller.output"
-	hasContent, err := fileHasContent(ctx, s, logFile, "env compare: no differences found between provision-config and nbc-cmd env vars")
+	output, err := readANCLauncherOutput(ctx, s)
 	if err != nil {
-		return fmt.Errorf("check whether %s reports no env var differences: %w", logFile, err)
+		return fmt.Errorf("read scriptless environment comparison: %w", err)
 	}
-	if hasContent {
+	return validateScriptlessComparisonOutput(output)
+}
+
+func validateScriptlessComparisonOutput(output string) error {
+	if strings.Contains(output, "env compare: no differences found between provision-config and nbc-cmd env vars") {
 		return nil
 	}
-	// Grep for all env-compare diff markers to show what's different.
-	diffCmd := "sudo grep -E 'differs|only-in-pc|only-in-nbc|env var differences' " + logFile + " || true"
-	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, diffCmd, 0, "could not grep for differences in aks-node-controller.output")
-	if err != nil {
-		return fmt.Errorf("grep for differences in aks-node-controller.output: %w", err)
+	var differences []string
+	for line := range strings.SplitSeq(output, "\n") {
+		if strings.Contains(line, "differs") || strings.Contains(line, "only-in-pc") ||
+			strings.Contains(line, "only-in-nbc") || strings.Contains(line, "env var differences") {
+			differences = append(differences, line)
+		}
 	}
-	return fmt.Errorf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", result.stdout)
+	if len(differences) == 0 {
+		return fmt.Errorf("ANC launcher output contains no successful environment comparison or difference details")
+	}
+	return fmt.Errorf("expected no env var differences between provision-config and nbc-cmd, but found differences:\n%s", strings.Join(differences, "\n"))
+}
+
+const validateACLLegacyFirstBootScript = `set -euo pipefail
+for unit in ignition-bootcmds.service ignition-file-extract.service; do
+    expected="/etc/systemd/system/$unit"
+    link="/etc/systemd/system/sysinit.target.wants/$unit"
+    if ! sudo test -L "$link"; then
+        echo "Expected first-boot symlink: $link" >&2
+        exit 1
+    fi
+    if ! actual="$(sudo readlink -e "$link")"; then
+        echo "Unable to resolve first-boot symlink: $link" >&2
+        exit 1
+    fi
+    if [[ "$actual" != "$expected" ]]; then
+        echo "Unexpected first-boot symlink target for $link: $actual (expected $expected)" >&2
+        exit 1
+    fi
+done
+`
+
+// ValidateACLLegacyFirstBoot checks the guest links rendered only by legacy ACL Butane.
+func ValidateACLLegacyFirstBoot(ctx context.Context, s *Scenario) error {
+	if s == nil || s.VHD == nil {
+		return fmt.Errorf("ACL first-boot validation requires a scenario image")
+	}
+	if s.VHD.OS != config.OSACL {
+		return nil
+	}
+	if s.Runtime == nil || s.Runtime.NBC == nil {
+		return fmt.Errorf("ACL first-boot validation requires NBC metadata")
+	}
+	if usesScriptlessProvisioning(s) {
+		return nil
+	}
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, validateACLLegacyFirstBootScript, 0, "legacy ACL first-boot symlink validation failed")
+	return err
 }
 
 // ValidateStaleCachedKubeBinariesRemoved validates that stale versioned kube binaries (e.g. kubelet-1.29.0, kubectl-1.29.0)

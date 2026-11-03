@@ -94,6 +94,14 @@ coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
 does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
 VHD-caching behavior remain in effect.
 
+ACL's NBC provisioning mode is determined by the actual payload flags, not by
+`SupportsScriptless()`, which still limits compilation and Phase 3 selection.
+NBC command and environment-comparison checks read the ANC service journal for
+Ignition delivery, or the launcher output file for CSE delivery. Legacy ACL
+provisioning additionally checks the guest symlink targets for the Ignition
+boot-command and file-extraction units; NBC/Phase 3/custom-data-only payloads do
+not render those legacy units and must not run those checks.
+
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node

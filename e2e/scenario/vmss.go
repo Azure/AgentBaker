@@ -618,13 +618,16 @@ func usesScriptlessProvisioning(s *Scenario) bool {
 		return false
 	}
 	nbc := s.Runtime.NBC
-	return (nbc.EnableScriptlessAKSNodeConfig || nbc.EnableScriptlessNBCCSECmd) &&
-		!nbc.PreProvisionOnly &&
-		s.VHD.SupportsScriptless()
+	// Match payload selection; image support separately gates compilation.
+	return (nbc.EnableScriptlessAKSNodeConfig || nbc.EnableScriptlessNBCCSECmd || nbc.IsCustomDataOnlyProvisioningEnabled()) &&
+		!nbc.PreProvisionOnly
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
-	return usesScriptlessProvisioning(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
+	return usesScriptlessProvisioning(s) &&
+		(s.Runtime.NBC.EnableScriptlessAKSNodeConfig || s.Runtime.NBC.EnableScriptlessNBCCSECmd) &&
+		s.VHD.SupportsScriptless() &&
+		len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
