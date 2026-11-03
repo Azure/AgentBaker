@@ -606,11 +606,14 @@ npd_remove_obsolete_configs() {
 # The binary package must carry the NPD executables, and the new binary must run on
 # this node before it replaces the working one.
 npd_validate_binary_stage() {
-    local stage="$1" executable
+    local stage="$1" executable version
     for executable in node-problem-detector npd-log-counter npd-health-checker; do
         test -x "${stage}/usr/bin/${executable}" || return 1
     done
-    "${stage}/usr/bin/node-problem-detector" --version 2>&1 | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'
+    # Check the binary's own exit status, not just its output: the updaters do not
+    # set pipefail. Bound the run so a hanging binary fails validation.
+    version="$(timeout 30 "${stage}/usr/bin/node-problem-detector" --version 2>&1)" || return 1
+    [[ "${version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]
 }
 
 # Activation check. A process can be active with a healthy /healthz while every

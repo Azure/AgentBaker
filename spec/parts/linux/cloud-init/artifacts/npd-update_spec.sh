@@ -591,6 +591,8 @@ Describe 'NPD binary handler'
         touch "${NPD_PACKAGE_CACHE}/$1.deb"
     }
     npd_validate_package() { echo "validate $1" >> "${TEST_CALLS}"; }
+    # Rollback repairs dpkg state first; record it instead of touching the test host.
+    npd_repair_package_state() { echo repair >> "${TEST_CALLS}"; }
     npd_install_package() {
         echo "install $1" >> "${TEST_CALLS}"
         # The old NPD process heartbeats while the package installs.
@@ -711,6 +713,29 @@ Describe 'NPD binary handler'
         for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\necho v0.8.25\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
         When call npd_validate_binary_stage "${stage}"
         The status should be success
+    End
+
+    It 'rejects a binary that prints a version and then exits nonzero'
+        stage="${TEST_DIR}/stage"; mkdir -p "${stage}/usr/bin"
+        for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\necho v0.8.25\nexit 3\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
+        When call npd_validate_binary_stage "${stage}"
+        The status should be failure
+    End
+
+    It 'rejects a binary whose version output does not start with a version'
+        stage="${TEST_DIR}/stage"; mkdir -p "${stage}/usr/bin"
+        for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\necho error: bad\necho v0.8.25\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
+        When call npd_validate_binary_stage "${stage}"
+        The status should be failure
+    End
+
+    It 'rolls back without touching the host package manager'
+        export HEARTBEAT=stale
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be failure
+        The output should include 'npdBinary failed: PackageActivation'
+        The stderr should include 'did not report node conditions'
+        The contents of file "${TEST_CALLS}" should include 'repair'
     End
 
     It 'rejects a binary package whose executable does not run'
