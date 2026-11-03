@@ -357,4 +357,59 @@ Describe 'localdns-limits.sh'
             The status should be failure
         End
     End
+
+    Describe 'served Corefile'
+        write_source_corefile() {
+            cat > "${TEST_DIR}/source.corefile" <<'EOF'
+.:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+    }
+}
+cluster.local:53 {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
+    }
+}
+EOF
+        }
+        BeforeEach 'write_source_corefile'
+
+        It 'replaces the Azure DNS IP with the VNet DNS servers'
+            When call localdns_render_served_corefile "${TEST_DIR}/source.corefile" "${TEST_DIR}/served.corefile" "10.1.0.4 10.1.0.5"
+            The status should be success
+            The contents of file "${TEST_DIR}/served.corefile" should include 'forward . 10.1.0.4 10.1.0.5 {'
+            The contents of file "${TEST_DIR}/served.corefile" should include 'forward . 10.0.0.10 {'
+            The contents of file "${TEST_DIR}/served.corefile" should not include '168.63.129.16'
+        End
+
+        It 'serves the source as is on an Azure DNS VNet'
+            When call localdns_render_served_corefile "${TEST_DIR}/source.corefile" "${TEST_DIR}/served.corefile" "168.63.129.16"
+            The status should be success
+            The contents of file "${TEST_DIR}/served.corefile" should equal "$(cat "${TEST_DIR}/source.corefile")"
+        End
+
+        It 'exports one forward_info line per forward, by listener and block'
+            When call localdns_export_forward_ips "${TEST_DIR}/source.corefile" "${TEST_DIR}/forward_ips.prom"
+            The status should be success
+            The output should include "Successfully exported forward IPs to ${TEST_DIR}/forward_ips.prom"
+            The contents of file "${TEST_DIR}/forward_ips.prom" should include 'localdns_vnetdns_forward_info{ip="168.63.129.16",block=".:53",status="ok"} 1'
+            The contents of file "${TEST_DIR}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="10.0.0.10",block="cluster.local:53",status="ok"} 1'
+        End
+
+        It 'reports a missing forward for a listener with none'
+            sed -i '/forward \. 10\.0\.0\.10/d' "${TEST_DIR}/source.corefile"
+            When call localdns_export_forward_ips "${TEST_DIR}/source.corefile" "${TEST_DIR}/forward_ips.prom"
+            The status should be success
+            The output should include 'Successfully exported forward IPs'
+            The contents of file "${TEST_DIR}/forward_ips.prom" should include 'localdns_kubedns_forward_info{ip="unknown",block="none",status="missing"} 0'
+        End
+
+        It 'never fails the caller when the metrics cannot be written'
+            When call localdns_export_forward_ips "${TEST_DIR}/source.corefile" "${TEST_DIR}/missing-dir/forward_ips.prom"
+            The status should be success
+            The output should include 'Metrics export skipped'
+            The stderr should be present
+        End
+    End
 End
