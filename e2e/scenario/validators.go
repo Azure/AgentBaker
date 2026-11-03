@@ -3897,7 +3897,8 @@ func ValidateScriptlessComparison(ctx context.Context, s *Scenario) error {
 	// 1. AKSNodeConfig not populated
 	// 2. using scriptless phase 1
 	// 3. E2E not run off of PR VHD build
-	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) || config.Config.VHDMetadataFile == "" {
+	// 4. CSE delivery omits the optional ANC comparison config
+	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) || config.Config.VHDMetadataFile == "" || s.Runtime.NBC.ScriptlessCSEProvisionMode {
 		return nil
 	}
 	logFile := "/var/log/azure/aks-node-controller.output"

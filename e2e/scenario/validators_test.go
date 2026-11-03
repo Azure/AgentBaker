@@ -5,10 +5,31 @@ import (
 	"encoding/hex"
 	"testing"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	resourcev1 "k8s.io/api/resource/v1"
 )
+
+func TestValidateScriptlessComparisonSkipsCSEDelivery(t *testing.T) {
+	original := config.Config.VHDMetadataFile
+	config.Config.VHDMetadataFile = "test-vhd-metadata.json"
+	t.Cleanup(func() { config.Config.VHDMetadataFile = original })
+	s := &Scenario{
+		Config: Config{VHD: config.VHDUbuntu2204Gen2Containerd},
+		Runtime: &ScenarioRuntime{
+			AKSNodeConfig: &aksnodeconfigv1.Configuration{},
+			NBC: &datamodel.NodeBootstrappingConfiguration{
+				EnableScriptlessNBCCSECmd:  true,
+				ScriptlessCSEProvisionMode: true,
+			},
+		},
+	}
+	require.True(t, usesScriptlessNBCCSECmd(s))
+	require.NoError(t, ValidateScriptlessComparison(t.Context(), s))
+}
 
 func TestValidateDRAMIGAllocation(t *testing.T) {
 	tests := []struct {

@@ -270,7 +270,9 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 	nbcCMD := t.getLinuxNodeCSECommand(config)
 	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
 	var encodedAKSNodeConfig string
-	if config.AKSNodeConfigJSON != "" {
+	// CSE delivery omits optional comparison data to avoid duplicating large inputs
+	// such as custom CAs in a single shell argument.
+	if config.AKSNodeConfigJSON != "" && !config.ScriptlessCSEProvisionMode {
 		encodedAKSNodeConfig = getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)
 	}
 

@@ -1254,6 +1254,50 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decoded)).NotTo(ContainSubstring("--nbc-cmd"))
 	})
 
+	It("should omit ANC comparison data from NBC CSE delivery and keep CustomCA below the shell argument limit", func() {
+		data := make([]byte, 67*1024)
+		_, err := rand.Read(data)
+		Expect(err).NotTo(HaveOccurred())
+		cert := base64.StdEncoding.EncodeToString(data)
+
+		for _, distro := range []datamodel.Distro{
+			datamodel.AKSUbuntuContainerd2204Gen2,
+			datamodel.AKSAzureLinuxV3Gen2,
+			datamodel.AKSACLGen2TL,
+			datamodel.AKSFlatcarGen2,
+		} {
+			for _, explicitDelivery := range []bool{false, true} {
+				By(fmt.Sprintf("distro=%s explicit CSE delivery=%t", distro, explicitDelivery))
+				config := newConfig(false)
+				config.AgentPoolProfile.Distro = distro
+				config.ScriptlessCSEProvisionMode = explicitDelivery
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{cert},
+				}
+				config.AKSNodeConfigJSON = fmt.Sprintf(`{"version":"v1","custom_ca_certs":[%q]}`, cert)
+				generator := InitializeTemplateGenerator()
+				payload := generator.getLinuxNodeBootstrappingPayload(config)
+				Expect(config.ScriptlessCSEProvisionMode).To(BeTrue())
+				Expect(len(payload)).To(BeNumerically("<", MaxCustomDataLength))
+
+				cmd := generator.getNodeBootstrappingCmd(config)
+				Expect(len(cmd)).To(BeNumerically("<", 128*1024), "Linux with 4-KiB pages limits each argument, including its NUL, to 128 KiB")
+				prefix, suffix, ok := strings.Cut(cseScriptlessPhase2Template, "%s")
+				Expect(ok).To(BeTrue())
+				Expect(cmd).To(HavePrefix(prefix))
+				Expect(cmd).To(HaveSuffix(suffix))
+				blob := strings.TrimSuffix(strings.TrimPrefix(cmd, prefix), suffix)
+				compressed, err := base64.StdEncoding.DecodeString(blob)
+				Expect(err).NotTo(HaveOccurred())
+				decoded, err := getGzipDecodedValue(compressed)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(decoded)).NotTo(ContainSubstring(aksNodeConfigFilepath))
+				Expect(string(decoded)).To(ContainSubstring(aksNbcCmdFilepath))
+				Expect(string(decoded)).To(ContainSubstring(getBase64EncodedGzippedCustomScriptFromStr(generator.getLinuxNodeCSECommand(config))))
+			}
+		}
+	})
+
 	It("should persist nodecustomdata in the scriptless NBC boothook", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
@@ -1657,7 +1701,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		decodedGzip, err := getGzipDecodedValue(decoded)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(decodedGzip)).To(ContainSubstring(aksNbcCmdFilepath))
-		Expect(string(decodedGzip)).To(ContainSubstring(aksNodeConfigFilepath))
+		Expect(string(decodedGzip)).NotTo(ContainSubstring(aksNodeConfigFilepath))
 
 		// custom data now carries the early boothook, which fetches and decrypts these
 		// same CSE settings itself so provisioning can start ahead of the CSE handler.
