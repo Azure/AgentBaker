@@ -300,6 +300,24 @@ server = "https://$mcrRegistry"
   Write-Log "Wrote bootstrap profile container registry hosts config from '$mcrRegistry' to '$registryHost' at '$hostsTomlPath'"
 }
 
+function Get-ContainerdVersionFromString {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $VersionString
+  )
+
+  # Returns major.minor.patch from `containerd -v` output. The leading "v" is optional and any
+  # "+build" or "-revision" suffix is dropped, matching how Linux normalizes the package version.
+  # Examples:
+  #  - containerd github.com/containerd/containerd v1.7.20+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
+  #  - containerd github.com/containerd/containerd/v2 2.3.7-4 6f589cf13dc01a5b493911355427e05b2ff005d7
+  $fields = $VersionString.Trim().Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)
+  if ($fields.Count -ge 3 -and $fields[2] -match '^v?(\d+\.\d+\.\d+)') {
+    return $matches[1]
+  }
+  throw "Unable to parse containerd version from '$VersionString'"
+}
+
 function Install-Containerd {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -370,12 +388,9 @@ function Install-Containerd {
   try {
     # Check containerd version to determine if it supports annotations
     Push-Location $global:ContainerdInstallLocation
-    # Examples:
-    #  - containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8
-    #  - containerd github.com/containerd/containerd v1.7.9+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
     $versionstring=$(.\containerd.exe -v)
     Write-Log "containerd version: $versionstring"
-    $containerdVersion=$versionstring.split(" ")[2].Split("+")[0].substring(1)
+    $containerdVersion = Get-ContainerdVersionFromString -VersionString $versionstring
     Pop-Location
   } catch {
     Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION -ErrorMessage "Failed in getting Windows containerd version. Error: $_"
