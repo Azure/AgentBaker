@@ -466,6 +466,9 @@ function nodePrep {
         # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
         touch /var/run/outbound-check-skipped # TODO(fseldow): remove this file in future when egress extension checks /opt/azure/outbound-check-skipped
         touch /opt/azure/outbound-check-skipped
+    elif [ -n "${OUTBOUND_COMMAND}" ]; then
+        # Telemetry only: records the endpoints node-problem-detector checks, without gating provisioning.
+        checkEgressEndpoints
     fi
 
     # Configure Azure network settings (udev rules for NIC configuration)

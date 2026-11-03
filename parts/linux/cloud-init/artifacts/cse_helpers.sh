@@ -952,6 +952,101 @@ logs_to_events() {
     fi
 }
 
+# Immutable linux/amd64 config blob of mcr.microsoft.com/oss/kubernetes/pause:3.6. MCR answers a
+# blob GET with a redirect to the regional data endpoint that serves image layers to this node.
+MCR_DATA_DISCOVERY_URL="https://mcr.microsoft.com/v2/oss/kubernetes/pause/blobs/sha256:7b178dc69474dd40a6471673c620079746e086c341b373fa723c09e043a5b911"
+
+# Prints nothing when the endpoint is reachable, or the URL and curl error when it is not.
+# Any HTTP response counts as reachable: this detects network blocking, not service health.
+probeEgressEndpoint() {
+    local url=$1 output
+    shift
+    output=$(curl -sS -I -m 5 --proxy-insecure "$@" "$url" 2>&1 >/dev/null) || echo "${url}: ${output}"
+}
+
+# Probes the regional *.data.mcr.microsoft.com endpoint this node is redirected to. Only the host
+# is kept, because the redirect carries a signed URL that must not reach telemetry. Discovery
+# failures, including a blocked mcr.microsoft.com, stay silent: the root probe reports those.
+# cse_main.sh runs under set -x, so traced assignments would write the signed redirect to
+# provisioning stderr. The capture runs in a subshell with xtrace off and returns only the host.
+probeMcrDataEndpoint() {
+    local host
+    host=$(
+        set +x
+        local redirect_url
+        redirect_url=$(curl -sS -m 5 --proxy-insecure -o /dev/null -w '%{redirect_url}' "$MCR_DATA_DISCOVERY_URL" 2>/dev/null) || exit 0
+        host=${redirect_url#https://}
+        [ "$host" != "$redirect_url" ] || exit 0
+        host=$(echo "${host%%[/?#]*}" | tr '[:upper:]' '[:lower:]')
+        echo "$host" | grep -qE '^[a-z0-9-]+\.data\.mcr\.microsoft\.com$' || exit 0
+        echo "$host"
+    )
+    [ -n "$host" ] || return 0
+    probeEgressEndpoint "https://${host}"
+}
+
+# Mirrors the endpoints that node-problem-detector's EgressBlocked check probes, so a node that
+# boots behind a firewall leaves a record in its provisioning telemetry. It records the result as
+# an event and always succeeds: the outbound check remains the only egress gate on provisioning.
+# Probes run in parallel with a single attempt each to keep provisioning time flat.
+checkEgressEndpoints() {
+    local az_environment start_time results_dir url i blocked level event_file eventsFileName
+    local -a urls pids=()
+    start_time=$(date +"%F %T.%3N")
+    az_environment=$(jq -r '.compute.azEnvironment // empty' "$IMDS_INSTANCE_METADATA_CACHE_FILE" 2>/dev/null | tr '[:lower:]' '[:upper:]')
+    case "$az_environment" in
+        AZURECLOUD | AZUREPUBLICCLOUD)
+            urls=(https://mcr-0001.mcr-msedge.net https://mcr.microsoft.com https://login.microsoftonline.com https://management.azure.com https://packages.microsoft.com https://acs-mirror.azureedge.net/acs-mirror/healthz https://packages.aks.azure.com/acs-mirror/healthz) ;;
+        AZUREUSGOVERNMENT | AZUREUSGOVERNMENTCLOUD)
+            urls=(https://mcr.microsoft.com https://login.microsoftonline.us https://management.usgovcloudapi.net https://packages.microsoft.com https://acs-mirror.azureedge.net/acs-mirror/healthz https://packages.aks.azure.com/acs-mirror/healthz) ;;
+        AZURECHINACLOUD)
+            urls=(https://mcr.azk8s.cn https://login.chinacloudapi.cn https://management.chinacloudapi.cn https://packages.microsoft.com https://mirror.azk8s.cn) ;;
+        AZUREGERMANCLOUD)
+            urls=(https://mcr.microsoft.com https://login.microsoftonline.de https://management.microsoftazure.de https://packages.microsoft.com https://acs-mirror.azureedge.net/acs-mirror/healthz https://packages.aks.azure.com/acs-mirror/healthz) ;;
+        *)
+            urls=() ;;
+    esac
+
+    results_dir=$(mktemp -d) || return 0
+    for i in "${!urls[@]}"; do
+        if [ "${urls[$i]}" = "https://mcr-0001.mcr-msedge.net" ]; then
+            # The CDN alias serves the registry certificate, so connect through it as mcr.microsoft.com.
+            probeEgressEndpoint https://mcr.microsoft.com --connect-to "mcr.microsoft.com:443:mcr-0001.mcr-msedge.net:443" |
+                sed 's|^https://mcr.microsoft.com|https://mcr-0001.mcr-msedge.net|' > "${results_dir}/${i}" &
+        else
+            probeEgressEndpoint "${urls[$i]}" > "${results_dir}/${i}" &
+        fi
+        pids+=($!)
+    done
+    case " ${urls[*]} " in
+        *" https://mcr.microsoft.com "*) probeMcrDataEndpoint > "${results_dir}/data" & pids+=($!) ;;
+    esac
+    # Wait only for these probes. A bare wait would also block on unrelated background jobs.
+    [ "${#pids[@]}" -eq 0 ] || wait "${pids[@]}"
+
+    blocked=$(cat "${results_dir}"/* 2>/dev/null | jq -R -s -c 'split("\n") | map(select(length > 0))')
+    rm -rf "$results_dir"
+    level=Informational
+    [ "${blocked:-[]}" = "[]" ] || level=Error
+
+    # The name must stay digits-only for WALinuxAgent to collect it.
+    eventsFileName="$(date +%s%N)${BASHPID}"
+    mkdir -p "$EVENTS_LOGGING_DIR" || return 0
+    event_file=$(mktemp "${EVENTS_LOGGING_DIR%/}/../.egress-check.XXXXXX") || return 0
+    if ! jq -cn \
+            --arg Timestamp "$start_time" --arg OperationId "$(date +"%F %T.%3N")" --arg EventLevel "$level" \
+            --arg AzEnvironment "$az_environment" --argjson Checked "$(printf '%s\n' "${urls[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')" \
+            --argjson Blocked "${blocked:-[]}" \
+            '{Timestamp: $Timestamp, OperationId: $OperationId, TaskName: "AKS.CSE.egressCheck", Version: "1.23", EventPid: 0, EventTid: 0,
+              EventLevel: $EventLevel,
+              Message: ({AzEnvironment: $AzEnvironment, Checked: $Checked, Blocked: $Blocked, Skipped: ($Checked | length == 0), SchemaVersion: 1} | tojson)}' > "$event_file" ||
+        ! mv "$event_file" "${EVENTS_LOGGING_DIR%/}/${eventsFileName}.json"; then
+        rm -f "$event_file"
+        echo "WARNING: could not record the egress endpoint check result" >&2
+    fi
+    return 0
+}
+
 # Cache file for IMDS instance metadata to avoid redundant network calls.
 # The IMDS endpoint provides VM metadata that doesn't change during provisioning,
 # so we can safely cache it for the duration of CSE execution.
