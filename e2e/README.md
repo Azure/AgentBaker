@@ -91,21 +91,25 @@ Scenarios specifically covering legacy CLI flags must set
 `CustomLinuxOSConfig` nil. ANC conversion preserves that opt-out. Windows defaults
 are unchanged.
 
-Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
-bootstrap config mutator of six scenarios: `Ubuntu2204_ArtifactStreaming`,
-`AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
-`Ubuntu2204_Early_Failure_Scriptless` (the existing `_Scriptless`-suffix scenario),
-and `Ubuntu2604Minimal_AKSNodeConfig_VHDCaching`.
-The runner converts the NBC, applies the AKSNodeConfig mutator, validates and
+Eligible non-caching scenarios with an `AKSNodeConfigMutator`, or with neither
+`BootstrapConfigMutator` nor `BootstrapConfigMutatorWithError`, default to Phase 3
+provisioning, using AKSNodeConfig instead of the NBC command. A bootstrap config mutator can opt out
+by setting `EnableScriptlessAKSNodeConfig = false`, or explicitly select Phase 3
+without an AKSNodeConfig mutator by setting it to `true`.
+The runner converts the NBC, applies the AKSNodeConfig mutator if present, validates and
 normalizes Phase 3 settings with `nodeconfigutils.Validate`,
 and serializes the result for AgentBaker. The early-failure scenario checks that an
 unsupported version is rejected before VM creation. Common validation checks config-only execution and absence
 of the NBC command and comparison path.
 
-All other scenarios retain their existing provisioning mode, including Phase 2/2.5
-coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
-does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
-VHD-caching generalization remain in effect.
+Scenarios with a bootstrap mutator but no AKSNodeConfig mutator retain their
+existing provisioning mode unless they explicitly select Phase 3. This includes
+empty bootstrap mutators and error-returning bootstrap mutators. A Scriptless tag
+alone does not override this selection. Existing scriptless opt-outs, image
+restrictions, and VHD-caching behavior remain in effect.
+
+VHD-caching scenarios keep their existing mode, including explicit Phase 3
+selection in `Ubuntu2604Minimal_AKSNodeConfig_VHDCaching`.
 
 ### LocalDNS fallback checks
 
