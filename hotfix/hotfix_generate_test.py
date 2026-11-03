@@ -2,7 +2,9 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -56,6 +58,160 @@ TRADITIONAL_TEMPLATE = """- path: {{GetCSEHelpersScriptFilepath}}
 
 
 class HotfixGenerateTests(unittest.TestCase):
+    def test_main_generates_cumulative_dual_delivery_and_preserves_legacy_mode(self):
+        repository = Path(__file__).resolve().parents[1]
+        run = subprocess.run
+        original_directory = Path.cwd()
+        legacy_payloads = {}
+
+        for use_anc in (False, True):
+            with self.subTest(use_anc=use_anc), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+
+                def git(*args):
+                    return run(
+                        ["git", *args], cwd=root, check=True, capture_output=True,
+                        text=True,
+                    )
+
+                for relative in (
+                    hotfix_generate.TEMPLATE,
+                    hotfix_generate.LINUX_SIG_VERSION_FILE,
+                ):
+                    target = root / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(repository / relative, target)
+                with mock.patch.object(
+                    hotfix_generate, "TEMPLATE", str(root / hotfix_generate.TEMPLATE)
+                ), mock.patch("sys.stderr", new_callable=io.StringIO):
+                    hotfix_generate.update_nodecustomdata(set())
+                generated = root / hotfix_generate.GENERATED_DIR
+                generated.mkdir(parents=True)
+                (generated / "README").write_text("No script hotfix payloads.\n")
+                (root / hotfix_generate.LINUX_SIG_VERSION_FILE).write_text(
+                    '{"version": "202608.14.0"}\n'
+                )
+                (root / hotfix_generate.ARTIFACTS_DIR).mkdir()
+                sources = ("cse_helpers.sh", "cse_main.sh")
+                for source in sources:
+                    (root / hotfix_generate.ARTIFACTS_DIR / source).write_text(
+                        "#!/bin/bash\n"
+                    )
+                git("init", "--quiet")
+                git("config", "user.name", "Hotfix Test")
+                git("config", "user.email", "hotfix-test@example.invalid")
+                git("config", "commit.gpgsign", "false")
+                git("config", "tag.gpgsign", "false")
+                git("config", "core.autocrlf", "false")
+                git("add", ".")
+                git("commit", "--quiet", "-m", "VHD baseline")
+                baseline = "v0.20260814.0"
+                git("tag", baseline)
+                original_template = (root / hotfix_generate.TEMPLATE).read_text()
+
+                def run_local(command, **kwargs):
+                    # Network/tag publication is never part of this fixture.
+                    if command[:2] == ["git", "fetch"]:
+                        return subprocess.CompletedProcess(command, 0)
+                    if command[0] == "go":
+                        command = list(command)
+                        for flag in ("--template", "--output-dir"):
+                            index = command.index(flag) + 1
+                            command[index] = str(root / command[index])
+                        kwargs["cwd"] = repository
+                        kwargs["capture_output"] = True
+                    return run(command, **kwargs)
+
+                def generate(base_ref):
+                    args = ["hotfix_generate.py", base_ref]
+                    if use_anc:
+                        args.append("--use-anc-for-scripts")
+                    with mock.patch.object(
+                        sys, "argv", args
+                    ), mock.patch.object(
+                        hotfix_generate.subprocess, "run", side_effect=run_local
+                    ), mock.patch(
+                        "sys.stdout", new_callable=io.StringIO
+                    ), mock.patch("sys.stderr", new_callable=io.StringIO):
+                        hotfix_generate.main()
+
+                def snapshot():
+                    paths = [
+                        root / hotfix_generate.TEMPLATE,
+                        root / hotfix_generate.TARGET_FILE,
+                        *(root / hotfix_generate.GENERATED_DIR).iterdir(),
+                    ]
+                    return {str(path.relative_to(root)): path.read_bytes()
+                            for path in paths if path.is_file()}
+
+                try:
+                    os.chdir(root)
+                    generate(baseline)
+                    self.assertFalse(Path(hotfix_generate.TARGET_FILE).exists())
+                    self.assertEqual(
+                        {"README"},
+                        {path.name for path in Path(hotfix_generate.GENERATED_DIR).iterdir()},
+                    )
+                    for patch, source in enumerate(sources, start=1):
+                        shutil.copyfile(
+                            repository / hotfix_generate.ARTIFACTS_DIR / source,
+                            root / hotfix_generate.ARTIFACTS_DIR / source,
+                        )
+                        generate("HEAD")
+                        version = f"202608.14.{patch}"
+                        expected = {"scripts_version": version}
+                        if use_anc:
+                            expected["hotfixes"] = {"202608.14": version}
+                        self.assertEqual(
+                            expected,
+                            json.loads(Path(hotfix_generate.TARGET_FILE).read_text()),
+                        )
+                        generated = Path(hotfix_generate.GENERATED_DIR)
+                        self.assertEqual(
+                            {f"rendered_nodecustomdata_{os_name}.yml"
+                             for os_name in ("ubuntu", "mariner")},
+                            {path.name for path in generated.iterdir()},
+                        )
+                        for payload in generated.iterdir():
+                            content = payload.read_text()
+                            self.assertNotIn("{{", content)
+                            self.assertEqual(1, content.count(
+                                "- path: /opt/azure/containers/provision_source.sh"
+                            ))
+                            self.assertIn("ERR_SYSTEMCTL_START_FAIL=4", content)
+                            if patch == 2:
+                                self.assertEqual(1, content.count(
+                                    "- path: /opt/azure/containers/provision.sh"
+                                ))
+                                self.assertIn("ERR_FILE_WATCH_TIMEOUT=6", content)
+                        template = Path(hotfix_generate.TEMPLATE).read_text()
+                        injected = template.split(hotfix_generate.SCRIPTS_BEGIN, 1)[1]
+                        injected = injected.split(hotfix_generate.SCRIPTS_END, 1)[0]
+                        self.assertIn('"provisionSource"', injected)
+                        if patch == 2:
+                            self.assertIn('"provisionScript"', injected)
+                        before = snapshot()
+                        payloads = {path: content for path, content in before.items()
+                                    if path != str(Path(hotfix_generate.TARGET_FILE))}
+                        if use_anc:
+                            self.assertEqual(legacy_payloads[patch], payloads)
+                        else:
+                            legacy_payloads[patch] = payloads
+                        generate("HEAD")
+                        self.assertEqual(before, snapshot())
+                        git("add", ".")
+                        git("commit", "--quiet", "-m", f"Script hotfix {patch}")
+                        git("tag", f"v0.20260814.{patch}")
+                        generate("HEAD")
+                        self.assertEqual(before, snapshot())
+
+                    hotfix_generate.update_nodecustomdata(set())
+                    self.assertEqual(
+                        original_template, Path(hotfix_generate.TEMPLATE).read_text()
+                    )
+                finally:
+                    os.chdir(original_directory)
+
     def test_workflow_enables_dual_script_delivery(self):
         repository = Path(__file__).resolve().parents[1]
         workflow = repository / ".github/workflows/hotfix-generate.yml"
