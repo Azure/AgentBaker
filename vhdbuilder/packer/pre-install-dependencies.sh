@@ -74,10 +74,11 @@ enableTridentACLAgent() {
   systemctlEnableAndStart trident-acl-agent.path 30
 }
 
-if isACL "$OS" "$OS_VARIANT"; then
-  enableTridentACLAgent || exit 1
-  capture_benchmark "${SCRIPT_NAME}_enable_trident_acl_agent"
-fi
+# Uncomment Trident ACL Agent enablement below to enable A/B updates.
+# if isACL "$OS" "$OS_VARIANT"; then
+#   enableTridentACLAgent || exit 1
+#   capture_benchmark "${SCRIPT_NAME}_enable_trident_acl_agent"
+# fi
 
 if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
