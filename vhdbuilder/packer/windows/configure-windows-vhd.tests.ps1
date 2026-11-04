@@ -1,11 +1,119 @@
 BeforeAll {
     # Load only function definitions: the provisioning entry point also cleans host temp files.
     $ast = [System.Management.Automation.Language.Parser]::ParseFile(
-        "$PSScriptRoot\configure-windows-vhd.ps1", [ref]$null, [ref]$null)
+        (Join-Path $PSScriptRoot 'configure-windows-vhd.ps1'), [ref]$null, [ref]$null)
     foreach ($statement in $ast.EndBlock.Statements) {
         if ($statement -is [System.Management.Automation.Language.FunctionDefinitionAst]) {
             Invoke-Expression $statement.Extent.Text
         }
+    }
+}
+
+Describe 'Download-File' {
+    BeforeAll {
+        function global:curl.exe {}
+    }
+
+    AfterAll {
+        $ExecutionContext.SessionState.InvokeProvider.Item.Remove("Function:\curl.exe", $false)
+    }
+
+    BeforeEach {
+        $script:originalCacheDir = $global:cacheDir
+        $global:cacheDir = $null
+        $script:downloadAttempts = 0
+        $script:curlExitCodes = @(0)
+
+        Mock Write-Log {}
+        Mock Log-VHDFreeSize {}
+        Mock Get-ChildItem {}
+        Mock Start-Sleep {}
+        Mock curl.exe {
+            if ($args -contains '--version') {
+                $global:LASTEXITCODE = 0
+                return
+            }
+            $global:LASTEXITCODE = $script:curlExitCodes[$script:downloadAttempts]
+            $script:downloadAttempts++
+        }
+    }
+
+    AfterEach {
+        $global:cacheDir = $script:originalCacheDir
+    }
+
+    It 'retries transport error <ExitCode> and returns after a successful download' -ForEach @(
+        @{ ExitCode = 5 }
+        @{ ExitCode = 6 }
+        @{ ExitCode = 7 }
+        @{ ExitCode = 16 }
+        @{ ExitCode = 18 }
+        @{ ExitCode = 35 }
+        @{ ExitCode = 52 }
+        @{ ExitCode = 55 }
+        @{ ExitCode = 56 }
+        @{ ExitCode = 92 }
+        @{ ExitCode = 95 }
+        @{ ExitCode = 96 }
+    ) {
+        $script:curlExitCodes = @($ExitCode, 0)
+
+        { Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' } | Should -Not -Throw
+
+        $script:downloadAttempts | Should -Be 2
+        Should -Invoke Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 1 }
+        Should -Invoke Get-ChildItem -Times 1 -Exactly
+    }
+
+    It 'stops after the transport retry budget and preserves the download exit code' {
+        $script:curlExitCodes = @(18, 18, 18)
+
+        { Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' -retryCount 2 } | Should -Throw "*Curl exited with '18'*"
+
+        $script:downloadAttempts | Should -Be 3
+        Should -Invoke Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 1 }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 2 }
+        Should -Invoke Get-ChildItem -Times 0 -Exactly
+    }
+
+    It 'uses the configured delay between transport retries' {
+        $script:curlExitCodes = @(18, 56, 0)
+
+        Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' -retryDelay 3
+
+        $script:downloadAttempts | Should -Be 3
+        Should -Invoke Start-Sleep -Times 2 -Exactly -ParameterFilter { $Seconds -eq 3 }
+    }
+
+    It 'does not retry transport errors when retries are disabled' {
+        $script:curlExitCodes = @(18)
+
+        { Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' -retryCount 0 } | Should -Throw "*Curl exited with '18'*"
+
+        $script:downloadAttempts | Should -Be 1
+        Should -Invoke Start-Sleep -Times 0 -Exactly
+    }
+
+    It 'does not add retries for permanent errors or exhausted native retries (exit <ExitCode>)' -ForEach @(
+        @{ ExitCode = 3 }
+        @{ ExitCode = 22 }
+        @{ ExitCode = 23 }
+        @{ ExitCode = 28 }
+        @{ ExitCode = 60 }
+    ) {
+        $script:curlExitCodes = @($ExitCode)
+
+        { Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' } | Should -Throw "*Curl exited with '$ExitCode'*"
+
+        $script:downloadAttempts | Should -Be 1
+        Should -Invoke Start-Sleep -Times 0 -Exactly
+    }
+
+    It 'retains the out-of-space diagnostic and redacts the final error URL' {
+        $script:curlExitCodes = @(23)
+
+        { Download-File -URL 'https://example.com/file.zip?token=secret' -Dest 'out.zip' -redactUrl } |
+            Should -Throw "Curl exited with '23' while attempting to download 'https://example.com/file.zip' to 'out.zip'. This often means VHD out of space."
     }
 }
 
