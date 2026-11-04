@@ -40,6 +40,9 @@ if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
   # crond.service is enabled by the azurelinux-release systemd preset.
   dnf_install 30 1 600 authselect cronie cronie-anacron libselinux-utils rsyslog || exit "$ERR_APT_INSTALL_TIMEOUT"
   # AKS owns forwarding rules and retains the POC's permissive SELinux policy.
+  # The build always runs permissive, including after its reboots. With the
+  # selinux-enforcing feature flag, post-install-dependencies.sh relabels the
+  # image and makes nodes boot enforcing.
   if [ "$(getenforce)" != "Disabled" ]; then
     setenforce 0 || exit 1
     sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config || exit 1
