@@ -49,6 +49,18 @@ Describe 'custom kernel packages'
     The output should equal "$RELEASE"
   End
 
+  It 'accepts matching tools and cloud-tools with their ABI dependencies'
+    create_package "linux-tools-$RELEASE" "$VERSION" amd64 tools.deb
+    create_package "linux-cloud-tools-$RELEASE" "$VERSION" amd64 cloud-tools.deb
+    create_package "linux-azure-tools-${RELEASE%-azure}" "$VERSION" amd64 abi-tools.deb
+    create_package "linux-azure-cloud-tools-${RELEASE%-azure}" "$VERSION" amd64 abi-cloud-tools.deb
+    write_manifest
+
+    When call validate_kernel_manifest "$PACKAGE_DIR"
+    The status should be success
+    The output should equal "$RELEASE"
+  End
+
   Describe 'invalid package sets'
     Parameters
       'missing modules' 'Supply linux-modules'
@@ -57,6 +69,8 @@ Describe 'custom kernel packages'
       'changed payload' 'SHA256SUMS does not match'
       'extra unhashed package' 'SHA256SUMS does not match'
       'wrong release' 'kernel-release does not match'
+      'wrong tools ABI' 'Unexpected package'
+      'mismatched tools version' 'Package versions must match'
     End
 
     It "rejects $1"
@@ -67,6 +81,8 @@ Describe 'custom kernel packages'
         'changed payload') printf '\n' >> "$PACKAGE_DIR/modules.deb" ;;
         'extra unhashed package') create_package "linux-modules-extra-$RELEASE" "$VERSION" amd64 extra.deb ;;
         'wrong release') echo 7.0.0-9999-azure > "$PACKAGE_DIR/kernel-release" ;;
+        'wrong tools ABI') create_package linux-tools-7.0.0-9999-azure "$VERSION" amd64 tools.deb ;;
+        'mismatched tools version') create_package "linux-tools-$RELEASE" 7.0.0-1018.19 amd64 tools.deb ;;
       esac
 
       When call validate_kernel_manifest "$PACKAGE_DIR"
@@ -181,18 +197,49 @@ Describe 'custom kernel packages'
     When call install_kernel_packages "$PACKAGE_DIR"
     The status should be failure
     The output should include '--reinstall --allow-downgrades'
+    The output should include "linux-tools-$RELEASE"
+    The output should include "linux-cloud-tools-$RELEASE"
     The output should not include 'unexpected package hold'
   End
 
-  It 'fails before installing if the running-kernel headers would be unavailable'
+  Describe 'unavailable matching kernel dependencies'
+    Parameters
+      linux-headers
+      linux-tools
+      linux-cloud-tools
+    End
+
+    It "fails before installing if $1 would be unavailable"
+      MISSING_PACKAGE="$1-$RELEASE"
+      require_test_kernel_host() { return 0; }
+      apt-cache() { [ "$2" != "$MISSING_PACKAGE" ]; }
+      apt-get() { echo 'unexpected installation'; return 1; }
+
+      When call install_kernel_packages "$PACKAGE_DIR"
+      The status should be failure
+      The error should include "Matching $MISSING_PACKAGE is unavailable"
+      The output should not include 'unexpected installation'
+    End
+  End
+
+  It 'uses supplied headers and tools even when their packages are absent from apt'
+    create_package "linux-azure-headers-${RELEASE%-azure}" "$VERSION" all common-headers.deb
+    create_package "linux-headers-$RELEASE" "$VERSION" amd64 headers.deb
+    create_package "linux-tools-$RELEASE" "$VERSION" amd64 tools.deb
+    create_package "linux-cloud-tools-$RELEASE" "$VERSION" amd64 cloud-tools.deb
+    create_package "linux-azure-tools-${RELEASE%-azure}" "$VERSION" amd64 abi-tools.deb
+    create_package "linux-azure-cloud-tools-${RELEASE%-azure}" "$VERSION" amd64 abi-cloud-tools.deb
+    write_manifest
     require_test_kernel_host() { return 0; }
     apt-cache() { return 1; }
-    apt-get() { echo 'unexpected installation'; return 1; }
+    apt-get() { echo "apt-get $*"; return 1; }
 
     When call install_kernel_packages "$PACKAGE_DIR"
     The status should be failure
-    The error should include "Matching linux-headers-$RELEASE is unavailable"
-    The output should not include 'unexpected installation'
+    The error should equal ''
+    The output should include "$PACKAGE_DIR/abi-cloud-tools.deb"
+    The output should include "linux-tools-$RELEASE"
+    The output should include "linux-cloud-tools-$RELEASE"
   End
 
   It 'rejects a boot into the stock kernel'
@@ -205,11 +252,23 @@ Describe 'custom kernel packages'
 
   It 'records the running kernel and package checksums after reboot'
     uname() { echo "$RELEASE"; }
+    systemctl() { return 0; }
     tee() { cat; }
 
     When call verify_kernel_boot "$PACKAGE_DIR"
     The status should be success
     The output should include "CUSTOM_KERNEL_VERIFIED=$RELEASE"
     The output should include "$(cat "$PACKAGE_DIR/SHA256SUMS")"
+  End
+
+  It 'does not record a verified kernel when the KVP daemon fails after reboot'
+    uname() { echo "$RELEASE"; }
+    systemctl() { return 1; }
+    tee() { cat; }
+
+    When call verify_kernel_boot "$PACKAGE_DIR"
+    The status should be failure
+    The error should include "hv-kvp-daemon.service is not active for kernel $RELEASE"
+    The output should not include 'CUSTOM_KERNEL_VERIFIED'
   End
 End

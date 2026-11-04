@@ -3,8 +3,9 @@
 This is a test-only workflow for Ubuntu 26.04 Minimal AMD64 Gen2 VHDs. It
 supports a matching `linux-image-<release>` (or
 `linux-image-unsigned-<release>`) and `linux-modules-<release>` package pair,
-plus optional `linux-modules-extra-<release>` and matching versioned header
-packages. All packages must have the same version and use the `*-azure`
+plus optional `linux-modules-extra-<release>`, matching versioned headers,
+and matching tools/cloud-tools packages with their ABI dependencies.
+All supplied packages must have the same version and use the `*-azure`
 kernel flavor. Image/modules packages must be for `amd64`; common headers
 may use architecture `all`. ARM64, FIPS, Trusted Launch/Secure Boot, CVM and
 production publishing are intentionally not supported.
@@ -36,11 +37,31 @@ and `sha256sum`. Obtain the packages and patch confirmation directly from the
 kernel provider. Checksums below preserve the uploaded bytes; they do not
 prove that a package contains the requested fix.
 
-The normal Ubuntu dependency step requires `linux-headers-<release>`.
-If this is not available in Ubuntu's configured repositories, request that
-package and its versioned common-header dependencies from the kernel provider
-and put them in the same directory. The installer checks availability before
-installing and does not skip the normal header requirement.
+The installer requires `linux-headers-<release>`, `linux-tools-<release>`,
+and `linux-cloud-tools-<release>`. It installs these for the selected kernel,
+not the newer kernel that may already be in the base image. If they are
+unavailable in Ubuntu's configured repositories, obtain their matching `.deb`
+files and dependencies from the kernel provider and put them in the same
+directory. The installer checks availability before installing.
+
+For example, a self-contained Ubuntu 26.04 `7.0.0-1017-azure` package set
+contains the following eight packages, all at version `7.0.0-1017.17`:
+
+```text
+linux-image-7.0.0-1017-azure (or linux-image-unsigned-7.0.0-1017-azure)
+linux-modules-7.0.0-1017-azure
+linux-azure-headers-7.0.0-1017
+linux-headers-7.0.0-1017-azure
+linux-azure-tools-7.0.0-1017
+linux-tools-7.0.0-1017-azure
+linux-azure-cloud-tools-7.0.0-1017
+linux-cloud-tools-7.0.0-1017-azure
+```
+
+APT still resolves shared dependencies such as `linux-tools-common` and
+`linux-cloud-tools-common`. The ABI cloud-tools package supplies
+`hv_kvp_daemon`; omitting it can leave `hv-kvp-daemon.service` failed after
+booting the custom kernel.
 
 The uploader needs **Storage Blob Data Contributor**. To create a container,
 it needs that permission at storage-account scope (or have an administrator
@@ -136,7 +157,8 @@ The pipeline downloads and validates the package set, then Packer:
    (including when their version already exists), marks them manual/held,
    and pins the GRUB entry.
 3. Uses the existing reboot and fails unless `uname -r` matches the requested
-   kernel. This happens before the main dependency-install step.
+   kernel and `hv-kvp-daemon.service` is active. This happens before the main
+   dependency-install step.
 4. Verifies the running kernel again after the second reboot and post-install
    cleanup. `CUSTOM_KERNEL_VERIFIED=<release>` and the checksums are recorded
    in `/opt/azure/vhd-install.complete` and the downloaded release notes.
