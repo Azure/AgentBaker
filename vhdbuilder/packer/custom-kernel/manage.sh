@@ -44,7 +44,8 @@ inspect_kernel_packages() {
       { custom_kernel_error "Duplicate package: $package"; return 1; }
     seen[$package]=1
     case "$package" in
-      "$image"|"linux-modules-extra-$release") ;;
+      "$image"|"linux-modules-extra-$release"|"linux-tools-$release"|"linux-cloud-tools-$release") ;;
+      "linux-azure-tools-$abi"|"linux-azure-cloud-tools-$abi") ;;
       "linux-modules-$release") modules_count=$((modules_count + 1)) ;;
       "linux-headers-$release"|"linux-headers-$abi"|"linux-azure-headers-$abi"|linux-azure-*-headers-"$abi")
         if [ "$architecture" = all ]; then continue; fi
@@ -160,21 +161,24 @@ require_test_kernel_host() {
 
 install_kernel_packages() {
   local directory="$1" release file package
-  local packages=()
+  local packages=() required_packages=()
   release=$(validate_kernel_manifest "$directory") || return 1
   require_test_kernel_host || return 1
   for file in "$directory/"*.deb; do
     package=$(dpkg-deb -f "$file" Package) || return 1
     packages+=("$package")
   done
-  if [[ " ${packages[*]} " != *" linux-headers-$release "* ]] &&
-    ! apt-cache show "linux-headers-$release" >/dev/null 2>&1; then
-    custom_kernel_error "Matching linux-headers-$release is unavailable. Request its .deb and common header dependencies from the kernel provider."
-    return 1
-  fi
+  required_packages=("linux-headers-$release" "linux-tools-$release" "linux-cloud-tools-$release")
+  for package in "${required_packages[@]}"; do
+    if [[ " ${packages[*]} " != *" $package "* ]] &&
+      ! apt-cache show "$package" >/dev/null 2>&1; then
+      custom_kernel_error "Matching $package is unavailable. Request its .deb and matching dependencies from the kernel provider."
+      return 1
+    fi
+  done
   DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install \
     -y --reinstall --allow-downgrades --no-install-recommends "$directory/"*.deb \
-    "linux-headers-$release" || return 1
+    "${required_packages[@]}" || return 1
   apt-mark manual "${packages[@]}" || return 1
   apt-mark hold "${packages[@]}" || return 1
   mkdir -p /etc/default/grub.d
@@ -193,6 +197,8 @@ verify_kernel_boot() {
   running=$(uname -r)
   [ "$running" = "$release" ] ||
     { custom_kernel_error "Expected running kernel $release, got $running"; return 1; }
+  systemctl is-active --quiet hv-kvp-daemon.service ||
+    { custom_kernel_error "hv-kvp-daemon.service is not active for kernel $release"; return 1; }
   printf 'CUSTOM_KERNEL_VERIFIED=%s\n' "$running" | tee -a /opt/azure/vhd-install.complete
   tee -a /opt/azure/vhd-install.complete < "$directory/SHA256SUMS"
 }
