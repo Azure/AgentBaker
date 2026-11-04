@@ -64,13 +64,6 @@ COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
 # Path to systemd resolv.
 RESOLV_CONF="/run/systemd/resolve/resolv.conf"
 
-# Curl check if localdns is running.
-# This is used by start_localdns_watchdog and wait_for_localdns_ready.
-# Declared as an array so it expands with correct word-splitting/quoting; --noproxy ensures
-# the request to the node-local listener bypasses any system-wide HTTP proxy (inherited via
-# systemd DefaultEnvironment on http-proxy clusters), which cannot route to a link-local address.
-CURL_COMMAND=(curl -s --noproxy "${LOCALDNS_NODE_LISTENER_IP}" --connect-timeout 5 --max-time 10 "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")
-
 # Constant for networkctl reload command.
 # This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
 NETWORKCTL_RELOAD_CMD="networkctl reload"
@@ -95,8 +88,8 @@ AKS_NODE_CONTROLLER_BINARY="${AKS_NODE_CONTROLLER_BINARY:-/opt/azure/containers/
 LOCALDNS_PENDING_COREFILE_VERSION=""
 
 # Shared with the runtime live-patching handler and installed next to this script: CPU and memory
-# limit live patching, plus rendering the served Corefile and exporting its forward IPs. Without it a
-# start cannot render the served Corefile and fails; cleanup still works.
+# limit live patching, rendering the served Corefile and exporting its forward IPs, and the CoreDNS
+# readiness check. Without it a start cannot render the served Corefile and fails; cleanup still works.
 # Its functions log what they do on stderr, which the calls below fold into this script's output.
 LOCALDNS_LIMITS_SCRIPT="${LOCALDNS_LIMITS_SCRIPT:-${LOCALDNS_SCRIPT_PATH}/localdns-limits.sh}"
 if [ -f "${LOCALDNS_LIMITS_SCRIPT}" ]; then
@@ -637,33 +630,6 @@ start_localdns() {
 
     COREDNS_PID="$(cat ${LOCALDNS_PID_FILE})"
     echo "Localdns PID is ${COREDNS_PID}."
-    return 0
-}
-
-# Wait for localdns to be ready to serve traffic.
-wait_for_localdns_ready() {
-    local maxattempts=$1
-    local timeout_duration=$2
-    declare -i attempts=0
-    local starttime=$(date +%s)
-
-    echo "Waiting for localdns to start and be able to serve traffic."
-    until [ "$("${CURL_COMMAND[@]}")" = "OK" ]; do
-        if [ $attempts -ge $maxattempts ]; then
-            echo "Localdns failed to come online after $maxattempts attempts."
-            return 1
-        fi
-        # Check for timeout based on elapsed time.
-        currenttime=$(date +%s)
-        elapsedtime=$((currenttime - starttime))
-        if [ $elapsedtime -ge $timeout_duration ]; then
-            echo "Localdns failed to come online after $timeout_duration seconds (timeout)."
-            return 1
-        fi
-        sleep 1
-        ((attempts++))
-    done
-    echo "Localdns is online and ready to serve traffic."
     return 0
 }
 
@@ -1224,7 +1190,7 @@ start_localdns_watchdog() {
         # If health check failed 5 consecutive times or failed 10 times in a 10 minute sliding window, watchdog restarts the systemd unit.
         while true; do
             health_check_passed=true
-            if [ "$("${CURL_COMMAND[@]}")" != "OK" ]; then
+            if ! localdns_ready; then
                 echo "Health check failed: HTTP ready endpoint not responding."
                 health_check_passed=false
             fi

@@ -16,7 +16,6 @@ Describe 'localdns-livepatch-handler.sh'
         LOCALDNS_RELOAD_TIMEOUT_SECONDS=5
         LOCALDNS_RELOAD_POLL_SECONDS=0
         LOCALDNS_READY_TIMEOUT_SECONDS=1
-        LOCALDNS_READY_POLL_SECONDS=0
         LOCALDNS_LIMITS_SCRIPT=./parts/linux/cloud-init/artifacts/localdns-limits.sh
         Include ./parts/linux/cloud-init/artifacts/localdns-livepatch-handler.sh
         Include ./spec/parts/linux/cloud-init/artifacts/localdns_limits_fakes.sh

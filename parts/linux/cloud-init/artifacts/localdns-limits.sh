@@ -2,8 +2,8 @@
 #
 # LocalDNS CPU and memory limit live patching, shared by localdns.sh (bootstrap) and
 # localdns-livepatch-handler.sh (runtime). Both source this file; it only defines functions. It also
-# holds the two Corefile steps both of them run: rendering the served Corefile and exporting its
-# forward targets as metrics (at the end of this file).
+# holds the steps both of them run on the Corefile CoreDNS serves: rendering it, exporting its
+# forward targets as metrics, and checking CoreDNS is ready (at the end of this file).
 #
 # corefileVersion, the RP's hash of a pool's LocalDNS profile, covers the CPU and memory limits as
 # well as the Corefile, so version X is only applied once localdns.slice runs with X's limits too.
@@ -37,8 +37,9 @@ LOCALDNS_LIMITS_BAKED_SLICE_FILE="${LOCALDNS_LIMITS_BAKED_SLICE_FILE:-/etc/syste
 LOCALDNS_LIMITS_CGROUP_DIR="${LOCALDNS_LIMITS_CGROUP_DIR:-/sys/fs/cgroup/localdns.slice}"
 # Where `systemctl set-property` (without --runtime) saves each property, as 50-<property>.conf.
 LOCALDNS_LIMITS_SAVED_DIR="${LOCALDNS_LIMITS_SAVED_DIR:-/etc/systemd/system.control/localdns.slice.d}"
-# CoreDNS's ready plugin (ready 169.254.10.10:8181 in the health-check block of the template).
-LOCALDNS_READY_URL="${LOCALDNS_READY_URL:-http://169.254.10.10:8181/ready}"
+# CoreDNS's node listener, where its ready plugin answers on port 8181. localdns.sh sets it before
+# sourcing this file.
+LOCALDNS_NODE_LISTENER_IP="${LOCALDNS_NODE_LISTENER_IP:-169.254.10.10}"
 
 # Prints a CPUQuota= value (150%, 150.5%) in hundredths of a percent; max when it is empty or infinity.
 localdns_limits_parse_cpu() {
@@ -497,24 +498,42 @@ localdns_write_corefile_version() {
     fi
 }
 
-# Whether CoreDNS reports ready. --noproxy keeps an http-proxy cluster's proxy away from the
-# link-local listener.
+# Whether CoreDNS reports ready. localdns.sh checks it when localdns starts and from its watchdog, and
+# the live-patch handler once a patch is committed, so all of them mean the same by ready.
+# --noproxy ensures the request to the node-local listener bypasses any system-wide HTTP proxy
+# (inherited via systemd DefaultEnvironment on http-proxy clusters), which cannot route to a
+# link-local address.
 localdns_ready() {
-    [ "$(curl -s --noproxy '*' --connect-timeout 2 --max-time 5 "${LOCALDNS_READY_URL}" 2>/dev/null)" = "OK" ]
+    [ "$(curl -s --noproxy "${LOCALDNS_NODE_LISTENER_IP}" --connect-timeout 5 --max-time 10 "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")" = "OK" ]
 }
 
-# Waits up to timeout seconds for CoreDNS to report ready, checking every poll seconds.
-localdns_wait_ready() {
-    local timeout="$1"
-    local poll="${2:-2}"
-    local deadline=$((SECONDS + timeout))
+# Waits for CoreDNS to report ready, giving up after maxattempts checks or timeout_duration seconds,
+# whichever comes first.
+wait_for_localdns_ready() {
+    local maxattempts="$1"
+    local timeout_duration="$2"
+    local attempts=0
+    local starttime
+    local elapsedtime
+    starttime=$(date +%s)
 
-    while ! localdns_ready; do
-        if [ "${SECONDS}" -ge "${deadline}" ]; then
+    echo "Waiting for localdns to start and be able to serve traffic."
+    until localdns_ready; do
+        if [ "${attempts}" -ge "${maxattempts}" ]; then
+            echo "Localdns failed to come online after ${maxattempts} attempts."
             return 1
         fi
-        sleep "${poll}"
+        # Check for timeout based on elapsed time.
+        elapsedtime=$(($(date +%s) - starttime))
+        if [ "${elapsedtime}" -ge "${timeout_duration}" ]; then
+            echo "Localdns failed to come online after ${timeout_duration} seconds (timeout)."
+            return 1
+        fi
+        sleep 1
+        attempts=$((attempts + 1))
     done
+    echo "Localdns is online and ready to serve traffic."
+    return 0
 }
 
 # Builds the Corefile CoreDNS serves from a source Corefile. The Corefile is rendered with the Azure DNS
