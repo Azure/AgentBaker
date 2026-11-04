@@ -127,7 +127,10 @@ func TestNBCSamplingCLIEnvironmentAndFailFast(t *testing.T) {
 	t.Setenv("BUILD_ID", "build-id")
 	var stderr bytes.Buffer
 	app := NewApp(&bytes.Buffer{}, &stderr)
-	require.Equal(t, exitUsage, app.Run(t.Context(), []string{"e2e", "run", "Ubuntu2404Gen1"}))
+	require.Equal(t, exitUsage, app.Run(t.Context(), []string{
+		"e2e", "run", "--tags", "", "--skip-tags", "",
+		"--junit-file", filepath.Join(t.TempDir(), "report.xml"), "Ubuntu2404Gen1",
+	}))
 	require.Contains(t, stderr.String(), "NBC sampling requires 2 eligible")
 	opts := runOptionsFromConfig(nil)
 	require.True(t, opts.randomNBCCoverage)
