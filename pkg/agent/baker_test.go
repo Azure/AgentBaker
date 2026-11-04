@@ -138,6 +138,17 @@ write_files:
 	}
 }
 
+func TestRenderCustomizedCVMNodeCustomData(t *testing.T) {
+	config := newNodeCustomDataRenderConfig(datamodel.CustomizedImageCVM)
+	config.OSSKU = datamodel.OSSKUAzureContainerLinux
+	template := []byte(`{{if IsCustomImage}}custom-image{{end}}|{{if IsACL}}acl{{end}}|{{if IsAzlOSGuard}}os-guard{{end}}`)
+
+	rendered, err := RenderLinuxNodeCustomDataTemplate(template, config)
+
+	require.NoError(t, err)
+	require.Equal(t, "custom-image|acl|", rendered)
+}
+
 func newNodeCustomDataRenderConfig(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {
 	profile := &datamodel.AgentPoolProfile{
 		Name:   "hotfix-render-test",
@@ -1148,6 +1159,21 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).NotTo(BeEmpty())
 		Expect(strings.Contains(cseCmd, "\n")).To(BeFalse())
 
+		vars := decodeCSEVars(cseCmd)
+		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
+	})
+
+	It("should set NEEDS_CGROUPV2 for CustomizedImageCVM with AzureContainerLinux OSSKU", func() {
+		config, err := deepcopy.Anything(baseConfig)
+		Expect(err).To(BeNil())
+		typedConfig, ok := config.(*datamodel.NodeBootstrappingConfiguration)
+		Expect(ok).To(BeTrue())
+		typedConfig.AgentPoolProfile.Distro = datamodel.CustomizedImageCVM
+		typedConfig.OSSKU = datamodel.OSSKUAzureContainerLinux
+
+		cseCmd := templateGenerator.getLinuxNodeCSECommand(typedConfig)
+
+		Expect(cseCmd).NotTo(BeEmpty())
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("NEEDS_CGROUPV2", "true"))
 	})
