@@ -65,7 +65,7 @@ class HotfixGenerateTests(unittest.TestCase):
         cases = [
             ("custom cloud only", hotfix_generate.build_hotfix_template(
                 {"initAKSCloud"}, lines[outer_else + 1:end]
-            ), set()),
+            ), {"ubuntu", "mariner"}),
             ("missing", "#cloud-config\n", set()),
             ("null", "write_files:\n", set()),
             ("empty list", "write_files: []\n", set()),
@@ -93,7 +93,7 @@ class HotfixGenerateTests(unittest.TestCase):
                     f"rendered_nodecustomdata_{platform}.yml" for platform in platforms
                 } or {"README"}
                 self.assertEqual(expected, {path.name for path in output.iterdir()})
-                if name == "custom cloud only":
+                if not platforms:
                     probe = Path(directory) / "main.go"
                     probe.write_text('package main\nimport "embed"\n'
                                      '//go:embed generated\nvar files embed.FS\n'
