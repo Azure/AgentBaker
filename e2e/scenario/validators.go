@@ -5004,12 +5004,11 @@ func ValidateRCV1PCertMode(ctx context.Context, s *Scenario) error {
 		ValidateNonEmptyDirectory(ctx, s, "/root/AzureCACertificates"),
 	)
 
-	// Validate trust store was updated (distro-specific path)
-	trustStoreDir := rcv1pTrustStoreDir(s)
+	// Check the downloaded certificates, not unrelated certificates already baked into the image.
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		fmt.Sprintf("sudo bash -c 'ls -1 %s/*.{crt,pem} 2>/dev/null' | grep -q .", trustStoreDir),
-		0, fmt.Sprintf("expected certificates in trust store directory %s", trustStoreDir)); err != nil {
-		errs = append(errs, fmt.Errorf("check certificates in trust store directory %s: %w", trustStoreDir, err))
+		rcv1pCertTrustCommand(s),
+		0, "expected every downloaded RCV1P certificate to be installed and trusted"); err != nil {
+		errs = append(errs, fmt.Errorf("check RCV1P certificate fingerprints and system trust: %w", err))
 	}
 
 	// Validate refresh schedule was created (cron or systemd timer depending on distro)

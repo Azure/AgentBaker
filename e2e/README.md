@@ -82,6 +82,20 @@ node, and checks the ResourceClaim's allocated driver, pool, and device against 
 node's ResourceSlices before deleting the pod. Missing or mismatched type/profile
 attributes fail validation. Non-MIG DRA scenarios retain their existing scheduling checks.
 
+### RCV1P certificate validation
+
+The existing Linux RCV1P scenarios validate certificate bootstrap on an opted-in
+public-cloud subscription. For every downloaded `.crt`, the shared validator
+compares its SHA-256 certificate fingerprint with the distro-specific installed
+copy and uses OpenSSL to verify its chain against the system CA bundle. These
+checks are read-only and preserve the existing refresh-schedule assertions.
+They detect missing or different installed certificates and a trust bundle that
+does not trust the downloaded certificates, rather than accepting unrelated
+certificates already present in the image.
+
+This is not full sovereign-cloud coverage: it does not exercise legacy
+USNat/USSec certificate endpoints, RepoDepot access, or hotfix acquisition ordering.
+
 ### Scriptless provisioning
 
 Linux scenarios use kubelet configuration-file mode by default, for both NBC/CSE
