@@ -91,8 +91,24 @@ function Download-File
     }
 
     Write-Log "Downloading $URL to $Dest"
-    curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    $curlExitCode = $LASTEXITCODE
+    # curl handles HTTP/timeout retries; also retry transient DNS, connection and transfer failures.
+    $retryableCurlExitCodes = @(5, 6, 7, 16, 18, 35, 52, 55, 56, 92, 95, 96)
+    $delay = if ($retryDelay -gt 0) { $retryDelay } else { 1 }
+    for ($attempt = 0; ; $attempt++)
+    {
+        curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
+        $curlExitCode = $LASTEXITCODE
+        if ($curlExitCode -notin $retryableCurlExitCodes -or $attempt -ge $retryCount)
+        {
+            break
+        }
+        Write-Log "Curl exited with '$curlExitCode'; retrying download in $delay seconds (retry $($attempt + 1) of $retryCount)"
+        Start-Sleep -Seconds $delay
+        if ($retryDelay -eq 0)
+        {
+            $delay = [Math]::Min($delay * 2, 600)
+        }
+    }
     if ($curlExitCode)
     {
         $logURL = $URL
