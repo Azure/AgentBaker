@@ -3,6 +3,8 @@
         {
             "file": "/etc/kompli/definitions/ubuntu-24.04-l1.benchmark.json",
             "name": "cis_ubuntu_24.04_1.0.0",
+            "version": "1.0.1",
+            "versionConstraint": "^1.0.1",
             "rules": {
                 "1.1.1.1": {
                     "mode": "audit",
@@ -46,107 +48,178 @@
                 },
                 "1.1.2.1.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/tmp"
+                    }
                 },
                 "1.1.2.1.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/tmp",
+                        "requiredMountOptions": "nodev"
+                    }
                 },
                 "1.1.2.1.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/tmp",
+                        "requiredMountOptions": "nosuid"
+                    }
                 },
                 "1.1.2.1.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/tmp",
+                        "requiredMountOptions": "noexec"
+                    }
                 },
                 "1.1.2.2.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/dev/shm"
+                    }
                 },
                 "1.1.2.2.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/dev/shm",
+                        "requiredMountOptions": "nodev"
+                    }
                 },
                 "1.1.2.2.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/dev/shm",
+                        "requiredMountOptions": "nosuid"
+                    }
                 },
                 "1.1.2.2.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/dev/shm",
+                        "requiredMountOptions": "noexec"
+                    }
                 },
                 "1.1.2.3.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/home"
+                    }
                 },
                 "1.1.2.3.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/home",
+                        "requiredMountOptions": "nodev"
+                    }
                 },
                 "1.1.2.3.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/home",
+                        "requiredMountOptions": "nosuid"
+                    }
                 },
                 "1.1.2.4.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var"
+                    }
                 },
                 "1.1.2.4.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var",
+                        "requiredMountOptions": "nodev"
+                    }
                 },
                 "1.1.2.4.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var",
+                        "requiredMountOptions": "nosuid"
+                    }
                 },
                 "1.1.2.5.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/tmp"
+                    }
                 },
                 "1.1.2.5.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/tmp",
+                        "requiredMountOptions": "nodev"
+                    }
                 },
                 "1.1.2.5.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/tmp",
+                        "requiredMountOptions": "nosuid"
+                    }
                 },
                 "1.1.2.5.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/tmp",
+                        "requiredMountOptions": "noexec"
+                    }
                 },
                 "1.1.2.6.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/log"
+                    }
                 },
                 "1.1.2.6.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/log",
+                        "requiredMountOptions": "nodev"
+                    }
                 },
                 "1.1.2.6.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/log",
+                        "requiredMountOptions": "nosuid"
+                    }
                 },
                 "1.1.2.6.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/log",
+                        "requiredMountOptions": "noexec"
+                    }
                 },
                 "1.1.2.7.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/log/audit"
+                    }
                 },
                 "1.1.2.7.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/log/audit",
+                        "requiredMountOptions": "nodev"
+                    }
                 },
                 "1.1.2.7.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/log/audit",
+                        "requiredMountOptions": "nosuid"
+                    }
                 },
                 "1.1.2.7.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "mountPoint": "/var/log/audit",
+                        "requiredMountOptions": "noexec"
+                    }
                 },
                 "1.2.1.1": {
                     "mode": "audit",
@@ -182,7 +255,12 @@
                 },
                 "1.4.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "filename": "/boot/grub/grub.cfg",
+                        "group": "root",
+                        "mask": "0177",
+                        "owner": "root"
+                    }
                 },
                 "1.5.1": {
                     "mode": "audit",
@@ -218,15 +296,28 @@
                 },
                 "1.6.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0133",
+                        "owner": "root"
+                    }
                 },
                 "1.6.5": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "filename": "/etc/issue",
+                        "group": "root",
+                        "mask": "0133",
+                        "owner": "root"
+                    }
                 },
                 "1.6.6": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0133",
+                        "owner": "root"
+                    }
                 },
                 "1.7.1": {
                     "mode": "audit",
@@ -270,51 +361,117 @@
                 },
                 "2.1.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "autofs",
+                        "unitName": "autofs.service"
+                    }
                 },
                 "2.1.10": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "ypserv",
+                        "unitName": "ypserv.service"
+                    }
                 },
                 "2.1.11": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "cups",
+                        "unitNameCupsService": "cups.service",
+                        "unitNameCupsSocket": "cups.socket"
+                    }
                 },
                 "2.1.12": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "rpcbind",
+                        "unitNameRpcbindService": "rpcbind.service",
+                        "unitNameRpcbindSocket": "rpcbind.socket"
+                    }
                 },
                 "2.1.13": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "rsync",
+                        "unitName": "rsync.service"
+                    }
                 },
                 "2.1.14": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "samba",
+                        "unitName": "smbd.service"
+                    }
                 },
                 "2.1.15": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "snmpd",
+                        "unitName": "snmpd.service"
+                    }
                 },
                 "2.1.16": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "tftpd-hpa",
+                        "unitName": "tftpd-hpa.service"
+                    }
                 },
                 "2.1.17": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "squid",
+                        "unitName": "squid.service"
+                    }
                 },
                 "2.1.18": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageNameApache2": "apache2",
+                        "packageNameNginx": "nginx",
+                        "unitNameApache2Service": "apache2.service",
+                        "unitNameApache2Socket": "apache2.socket",
+                        "unitNameNginxService": "nginx.service"
+                    }
                 },
                 "2.1.19": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "xinetd",
+                        "unitName": "xinetd.service"
+                    }
                 },
                 "2.1.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "avahi-daemon",
+                        "unitNameAvahiDaemonService": "avahi-daemon.service",
+                        "unitNameAvahiDaemonSocket": "avahi-daemon.socket"
+                    }
                 },
                 "2.1.20": {
                     "mode": "audit",
@@ -330,31 +487,69 @@
                 },
                 "2.1.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "isc-dhcp-server",
+                        "unitNameIscDhcpServer6Service": "isc-dhcp-server6.service",
+                        "unitNameIscDhcpServerService": "isc-dhcp-server.service"
+                    }
                 },
                 "2.1.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "bind9",
+                        "serviceName": "named.service"
+                    }
                 },
                 "2.1.5": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "dnsmasq",
+                        "unitName": "dnsmasq.service"
+                    }
                 },
                 "2.1.6": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "vsftpd",
+                        "serviceName": "vsftpd.service"
+                    }
                 },
                 "2.1.7": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "slapd",
+                        "unitName": "slapd.service"
+                    }
                 },
                 "2.1.8": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageNameDovecotImapd": "dovecot-imapd",
+                        "packageNameDovecotPop3d": "dovecot-pop3d",
+                        "unitNameDovecotService": "dovecot.service",
+                        "unitNameDovecotSocket": "dovecot.socket"
+                    }
                 },
                 "2.1.9": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "nfs-kernel-server",
+                        "unitName": "nfs-server.service"
+                    }
                 },
                 "2.2.1": {
                     "mode": "audit",
@@ -370,7 +565,9 @@
                 },
                 "2.2.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "packageName": "telnet"
+                    }
                 },
                 "2.2.5": {
                     "mode": "audit",
@@ -410,35 +607,72 @@
                 },
                 "2.4.1.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0177",
+                        "owner": "root"
+                    }
                 },
                 "2.4.1.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0077",
+                        "owner": "root"
+                    }
                 },
                 "2.4.1.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "alternativePackageName": "cronie",
+                        "group": "root",
+                        "mask": "0077",
+                        "owner": "root",
+                        "packageName": "cron"
+                    }
                 },
                 "2.4.1.5": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0077",
+                        "owner": "root"
+                    }
                 },
                 "2.4.1.6": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "alternativePackageName": "cronie",
+                        "group": "root",
+                        "mask": "0077",
+                        "owner": "root"
+                    }
                 },
                 "2.4.1.7": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0077",
+                        "owner": "root"
+                    }
                 },
                 "2.4.1.8": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "filenameEtcCronAllow": "/etc/cron.allow",
+                        "filenameEtcCronDeny": "/etc/cron.deny",
+                        "group": "root|crontab",
+                        "mask": "0137",
+                        "owner": "root"
+                    }
                 },
                 "2.4.2.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root|daemon",
+                        "mask": "0137",
+                        "owner": "root"
+                    }
                 },
                 "3.1.1": {
                     "mode": "audit",
@@ -450,7 +684,12 @@
                 },
                 "3.1.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "expectedActiveState": "active",
+                        "expectedUnitFileState": "enabled",
+                        "packageName": "bluez",
+                        "unitName": "bluetooth.service"
+                    }
                 },
                 "3.2.1": {
                     "mode": "audit",
@@ -630,7 +869,11 @@
                 },
                 "5.1.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0177",
+                        "owner": "root"
+                    }
                 },
                 "5.1.10": {
                     "mode": "audit",
@@ -642,31 +885,46 @@
                 },
                 "5.1.12": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "kexalgorithmsDisallowedValues": "diffie-hellman-group1-sha1,diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1"
+                    }
                 },
                 "5.1.13": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "logingracetimeThresholdValue0": "0",
+                        "logingracetimeThresholdValue60": "60"
+                    }
                 },
                 "5.1.14": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "loglevelExpectedValue": "verbose,info"
+                    }
                 },
                 "5.1.15": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "macsDisallowedValues": "hmac-md5,hmac-md5-96,hmac-ripemd160,hmac-sha1-96,umac-64@openssh\\.com,hmac-md5-etm@openssh\\.com,hmac-md5-96-etm@openssh\\.com,hmac-ripemd160-etm@openssh\\.com,hmac-sha1-96-etm@openssh\\.com,umac-64-etm@openssh\\.com,umac-128-etm@openssh\\.com"
+                    }
                 },
                 "5.1.16": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "maxauthtriesThreshold": "4"
+                    }
                 },
                 "5.1.17": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "maxsessionsThreshold": "10"
+                    }
                 },
                 "5.1.18": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "maxstartupsExpectedValue": "10:30:60"
+                    }
                 },
                 "5.1.19": {
                     "mode": "audit",
@@ -694,19 +952,32 @@
                 },
                 "5.1.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "allowGroupsValuePattern": "[^ \\t]+",
+                        "allowUsersValuePattern": "[^ \\t]+",
+                        "denyGroupsValuePattern": "[^ \\t]+",
+                        "denyUsersValuePattern": "[^ \\t]+"
+                    }
                 },
                 "5.1.5": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "bannerDisallowedValuesNone": "none",
+                        "bannerExpectedValueT": "\\/[^ \\t]+"
+                    }
                 },
                 "5.1.6": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "ciphersDisallowedValues": "3des-cbc,aes128-cbc,aes192-cbc,aes256-cbc,arcfour,arcfour128,arcfour256,blowfish-cbc,cast128-cbc,rijndael-cbc@lysator\\.liu\\.se"
+                    }
                 },
                 "5.1.7": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "clientalivecountmaxThreshold": "0",
+                        "clientaliveintervalThreshold": "0"
+                    }
                 },
                 "5.1.8": {
                     "mode": "audit",
@@ -846,19 +1117,29 @@
                 },
                 "5.4.1.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "maxDays": "365",
+                        "minDays": "1"
+                    }
                 },
                 "5.4.1.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "minDays": "1"
+                    }
                 },
                 "5.4.1.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "warnDays": "7"
+                    }
                 },
                 "5.4.1.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "fallbackHashAlgorithm": "SHA512",
+                        "hashAlgorithm": "YESCRYPT"
+                    }
                 },
                 "5.4.1.5": {
                     "mode": "audit",
@@ -946,15 +1227,21 @@
                 },
                 "6.1.2.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "forwardToSyslogRegex": "no"
+                    }
                 },
                 "6.1.2.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "compressRegex": "yes"
+                    }
                 },
                 "6.1.2.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "storageRegex": "persistent"
+                    }
                 },
                 "6.1.3.1": {
                     "mode": "audit",
@@ -966,7 +1253,9 @@
                 },
                 "6.1.3.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "forwardToSyslogRegex": "yes"
+                    }
                 },
                 "6.1.3.4": {
                     "mode": "audit",
@@ -1114,7 +1403,15 @@
                 },
                 "6.2.4.10": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "filenameSbinAuditctl": "/sbin/auditctl",
+                        "filenameSbinAuditd": "/sbin/auditd",
+                        "filenameSbinAugenrules": "/sbin/augenrules",
+                        "filenameSbinAureport": "/sbin/aureport",
+                        "filenameSbinAusearch": "/sbin/ausearch",
+                        "filenameSbinAutrace": "/sbin/autrace",
+                        "group": "root"
+                    }
                 },
                 "6.2.4.2": {
                     "mode": "audit",
@@ -1130,23 +1427,54 @@
                 },
                 "6.2.4.5": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "directory": "/etc/audit/",
+                        "filePatternConf": "*.conf",
+                        "filePatternRules": "*.rules",
+                        "mask": "0137"
+                    }
                 },
                 "6.2.4.6": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "directory": "/etc/audit/",
+                        "filePatternConf": "*.conf",
+                        "filePatternRules": "*.rules",
+                        "owner": "root"
+                    }
                 },
                 "6.2.4.7": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "directory": "/etc/audit/",
+                        "filePatternConf": "*.conf",
+                        "filePatternRules": "*.rules",
+                        "group": "root"
+                    }
                 },
                 "6.2.4.8": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "filenameSbinAuditctl": "/sbin/auditctl",
+                        "filenameSbinAuditd": "/sbin/auditd",
+                        "filenameSbinAugenrules": "/sbin/augenrules",
+                        "filenameSbinAureport": "/sbin/aureport",
+                        "filenameSbinAusearch": "/sbin/ausearch",
+                        "filenameSbinAutrace": "/sbin/autrace",
+                        "mask": "0022"
+                    }
                 },
                 "6.2.4.9": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "filenameSbinAuditctl": "/sbin/auditctl",
+                        "filenameSbinAuditd": "/sbin/auditd",
+                        "filenameSbinAugenrules": "/sbin/augenrules",
+                        "filenameSbinAureport": "/sbin/aureport",
+                        "filenameSbinAusearch": "/sbin/ausearch",
+                        "filenameSbinAutrace": "/sbin/autrace",
+                        "owner": "root"
+                    }
                 },
                 "6.3.1": {
                     "mode": "audit",
@@ -1162,11 +1490,19 @@
                 },
                 "7.1.1": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0133",
+                        "owner": "root"
+                    }
                 },
                 "7.1.10": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0177",
+                        "owner": "root"
+                    }
                 },
                 "7.1.11": {
                     "mode": "audit",
@@ -1182,35 +1518,67 @@
                 },
                 "7.1.2": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0133",
+                        "owner": "root"
+                    }
                 },
                 "7.1.3": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0133",
+                        "owner": "root"
+                    }
                 },
                 "7.1.4": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0133",
+                        "owner": "root"
+                    }
                 },
                 "7.1.5": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root|shadow",
+                        "mask": "0137",
+                        "owner": "root"
+                    }
                 },
                 "7.1.6": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root|shadow",
+                        "mask": "0137",
+                        "owner": "root"
+                    }
                 },
                 "7.1.7": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "shadow|root",
+                        "mask": "0137",
+                        "owner": "root"
+                    }
                 },
                 "7.1.8": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "shadow|root",
+                        "mask": "0137",
+                        "owner": "root"
+                    }
                 },
                 "7.1.9": {
                     "mode": "audit",
-                    "parameters": {}
+                    "parameters": {
+                        "group": "root",
+                        "mask": "0133",
+                        "owner": "root"
+                    }
                 },
                 "7.2.1": {
                     "mode": "audit",
