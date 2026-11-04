@@ -1019,23 +1019,6 @@ stop_watchdog_sleep() {
     fi
 }
 
-# Send a notification to systemd, with --no-block when systemd-notify supports it.
-notify_systemd() {
-    if [ "${SYSTEMD_NOTIFY_NO_BLOCK:-false}" = true ]; then
-        systemd-notify --no-block "$@"
-    else
-        systemd-notify "$@"
-    fi
-}
-
-# Returns 0 if systemd-notify supports --no-block.
-systemd_notify_supports_no_block() {
-    case "$(systemd-notify --help 2>&1)" in
-        *--no-block*) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
 start_localdns_watchdog() {
     if [ -n "${NOTIFY_SOCKET:-}" ] && [ -n "${WATCHDOG_USEC:-}" ]; then
         # Health check at 20% of WATCHDOG_USEC; this means that we should check.
@@ -1067,7 +1050,7 @@ start_localdns_watchdog() {
             fi
 
             if [ "$health_check_passed" = true ]; then
-                notify_systemd WATCHDOG=1
+                systemd-notify "${SYSTEMD_NOTIFY_FLAGS[@]}" WATCHDOG=1
             else
                 echo "localdns health check failed - will be restarted if failures persist."
 
@@ -1083,7 +1066,7 @@ start_localdns_watchdog() {
                 # Check if sliding window threshold is exceeded
                 if [ "$sliding_window_failure_count" -ge "$max_sliding_window_failures" ]; then
                     echo "max sliding window failures (${max_sliding_window_failures} in ${sliding_window_duration_in_seconds}s) reached. Triggering restart."
-                    notify_systemd WATCHDOG=trigger
+                    systemd-notify "${SYSTEMD_NOTIFY_FLAGS[@]}" WATCHDOG=trigger
                     exit $ERR_LOCALDNS_FAIL
                 fi
             fi
@@ -1316,12 +1299,14 @@ fi
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
-# Probe --no-block support once at startup.
-SYSTEMD_NOTIFY_NO_BLOCK=false
-if systemd_notify_supports_no_block; then SYSTEMD_NOTIFY_NO_BLOCK=true; fi
+# Pass --no-block where systemd-notify supports it.
+SYSTEMD_NOTIFY_FLAGS=()
+case "$(systemd-notify --help 2>&1)" in
+    *--no-block*) SYSTEMD_NOTIFY_FLAGS=(--no-block) ;;
+esac
 
 if [ -n "${NOTIFY_SOCKET:-}" ]; then
-   notify_systemd --ready
+   systemd-notify "${SYSTEMD_NOTIFY_FLAGS[@]}" --ready
 fi
 
 # Systemd watchdog: send pings so we get restarted if we go unhealthy.
