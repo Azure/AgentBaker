@@ -1,0 +1,160 @@
+# ***********************************************************************************
+# WARNING: Changes to this file will be overwritten and not persisted.
+# ***********************************************************************************
+# whoami (used for health check of DNS)
+health-check.localdns.local:53 {
+    bind 169.254.10.10 169.254.10.11
+    reload
+    whoami
+}
+# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+.:53 {
+    log
+    bind 169.254.10.10
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
+    forward . 168.63.129.16 {
+        force_tcp
+        policy round_robin
+        max_concurrent 500
+        health_check 500ms no_rec domain health.contoso.com
+        failfast_all_unhealthy_upstreams
+    }
+    ready 169.254.10.10:8181
+    cache 1800 {
+        success 9984
+        denial 9984
+        serve_stale 600s immediate
+        serve_stale_policy prefer_positive
+        servfail 0
+    }
+    loadbalance
+    loop
+    nsid localdns
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}
+contoso.internal:53 {
+    errors
+    bind 169.254.10.10
+    forward . 10.2.0.10 {
+        prefer_udp
+        policy random
+        max_concurrent 100
+        health_check 1s
+    }
+    ready 169.254.10.10:8181
+    cache 60 {
+        success 9984
+        denial 9984
+        serve_stale 30s verify
+        servfail 0
+    }
+    loadbalance
+    loop
+    nsid localdns
+    prometheus :9253
+}
+fabrikam.internal:53 {
+    bind 169.254.10.10
+    forward . 168.63.129.16 {
+        policy sequential
+        max_concurrent 10
+    }
+    ready 169.254.10.10:8181
+    cache 5 {
+        success 9984
+        denial 9984
+        servfail 0
+    }
+    loadbalance
+    loop
+    nsid localdns
+    prometheus :9253
+}
+# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+.:53 {
+    errors
+    bind 169.254.10.11
+    # Check /etc/localdns/hosts first for critical AKS FQDNs (mcr.microsoft.com, packages.aks.azure.com, etc.)
+    hosts /etc/localdns/hosts {
+        ttl 5
+        reload 5s
+        fallthrough
+    }
+    forward . 168.63.129.16 {
+        prefer_udp
+        policy random
+        max_concurrent 2000
+        health_check 2s domain kube.contoso.com
+        failfast_all_unhealthy_upstreams
+    }
+    ready 169.254.10.11:8181
+    cache 900 {
+        success 9984
+        denial 9984
+        serve_stale 300s verify
+        serve_stale_policy prefer_positive
+        servfail 0
+    }
+    loadbalance
+    loop
+    nsid localdns-pod
+    prometheus :9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}
+cluster.local:53 {
+    log
+    bind 169.254.10.11
+    forward . 10.2.0.10 {
+        force_tcp
+        policy round_robin
+        max_concurrent 1000
+    }
+    ready 169.254.10.11:8181
+    cache 3600 {
+        success 9984
+        denial 9984
+        serve_stale 3600s immediate
+        servfail 0
+    }
+    loadbalance
+    loop
+    nsid localdns-pod
+    prometheus :9253
+}
+contoso.internal:53 {
+    bind 169.254.10.11
+    forward . 168.63.129.16 {
+        policy sequential
+        max_concurrent 10
+    }
+    ready 169.254.10.11:8181
+    cache 5 {
+        success 9984
+        denial 9984
+        servfail 0
+    }
+    loadbalance
+    loop
+    nsid localdns-pod
+    prometheus :9253
+}
