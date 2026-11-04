@@ -304,6 +304,35 @@ cacheVersionedKubernetesPackageBinary() {
   echo "  - cached ${package_name} binary at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
 }
 
+# TEMP: Azure Linux 4 doesn't publish kubelet/kubectl 1.37.1 yet, and the AKS E2E
+# environment creates 1.37.1 clusters. Cache the Azure Linux 3 build, which is
+# signed with the Azure Linux 4 key, until the Azure Linux 4 build is published.
+AZL4_TEMP_AZL3_K8S_PACKAGE_VERSION="1.37.1-5"
+cacheAzureLinux3KubernetesPackage() {
+  local package_name=${1}
+  local package_version=${2}
+  local download_dir=${3}
+  local rpm_arch rpm_name rpm_path checksig_output
+
+  rpm_arch=$(uname -m)
+  rpm_name="${package_name}-${package_version}.azl3.${rpm_arch}.rpm"
+  rpm_path="${download_dir}/${rpm_name}"
+
+  mkdir -p "${download_dir}"
+  retrycmd_curl_file 10 5 120 "${rpm_path}" \
+    "https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/${rpm_arch}/Packages/${package_name:0:1}/${rpm_name}" || return 1
+
+  rpmkeys --import "/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-4.0-${rpm_arch}" || echo "rpmkeys --import failed; checking against the keys already in the rpm database"
+  if ! checksig_output=$(rpmkeys --checksig "${rpm_path}" 2>&1) || ! grep -q "signatures OK" <<< "${checksig_output}"; then
+    echo "Signature check failed for ${rpm_path}: ${checksig_output}"
+    rm -f "${rpm_path}"
+    return 1
+  fi
+  echo "  - ${package_name} package version ${package_version}.azl3 (TEMP: Azure Linux 3 build)" >> "${VHD_LOGS_FILEPATH}"
+
+  cacheVersionedKubernetesPackageBinary "${package_name}" "${package_version}" "${download_dir}"
+}
+
 # this is for the old package not coming from Dalec, currently fixed at 1.6.2.
 # The binary is expected to be present during bootstrapping, no dynamic download logic exists for this one
 downloadCNIPlugins() {
@@ -886,6 +915,9 @@ cachePackageAndBinaryComponents() {
           fi
           echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
+        if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+          cacheAzureLinux3KubernetesPackage "${name}" "${AZL4_TEMP_AZL3_K8S_PACKAGE_VERSION}" "${downloadDir}" || exit "$ERR_K8S_INSTALL_ERR"
+        fi
         ;;
       "${K8S_DEVICE_PLUGIN_PKG}")
         for version in ${PACKAGE_VERSIONS[@]}; do
