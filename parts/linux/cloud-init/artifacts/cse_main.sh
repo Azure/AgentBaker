@@ -398,7 +398,9 @@ EOF
         fi
     fi
 
-    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+    # Defer ACL artifact streaming to nodePrep: keep sysext services masked
+    # during PIS image preparation and activate them on the real node.
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && ! isACL "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
@@ -620,6 +622,11 @@ function nodePrep {
         checkServiceHealth secure-tls-bootstrap || true
     fi
 
+    # Runs before ensureKubelet so the KMPP node label is in --node-labels at kubelet startup.
+    if [ "${ENABLE_KMPP}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureKMPP" configureKMPP || exit $?
+    fi
+
     # Add localdns-exporter kubelet node label before ensureKubelet so it's
     # included in --node-labels at kubelet startup (~0ms, just a variable append).
     # Only add the label if the exporter socket unit exists on this VHD — otherwise
@@ -627,6 +634,11 @@ function nodePrep {
     # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && systemctl cat localdns-exporter.socket &>/dev/null; then
         addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
+    fi
+
+    # Keep ACL sysexts masked during PIS image preparation; configure them on the real node.
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && isACL "$OS" "$OS_VARIANT"; then
+        logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
