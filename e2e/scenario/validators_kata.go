@@ -162,6 +162,15 @@ func ValidateKataContainerdConfigDump(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
+// ValidateKataRuntimeClassInImageCriApi asserts that AgentBaker defaulted the kubelet RuntimeClassInImageCriApi
+// feature gate on, so PullImage receives the pod's runtime handler and unpacks kata-v2 images straight into erofs.
+func ValidateKataRuntimeClassInImageCriApi(ctx context.Context, s *Scenario) error {
+	if s.KubeletConfigFileEnabled() {
+		return ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", `"RuntimeClassInImageCriApi": true`)
+	}
+	return ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "RuntimeClassInImageCriApi=true")
+}
+
 // ValidateKataHostReadiness asserts the host-side prerequisites that the Kata VHD is expected to
 // ship and that the containerd config references. Without these, the containerd config would be
 // syntactically valid but the kata shim would fail at pod sandbox creation time.

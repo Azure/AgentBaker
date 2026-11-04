@@ -393,29 +393,37 @@ downloadAndInstallCriTools() {
 installAndConfigureArtifactStreaming() {
   local downloadURL="$1"
   local version="$2"
+  if isACL "$OS" "$OS_VARIANT"; then
+    # Cache only: activation is feature-gated during node provisioning.
+    downloadSysextFromVersion artifact-streaming "$downloadURL" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
+    echo "  - artifact-streaming sysext version ${version}" >> "${VHD_LOGS_FILEPATH}"
+    return
+  fi
+
   # The arm64 packages have "-arm64" inserted before the file extension,
   # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
   if [ "$(isARM64)" -eq 1 ]; then
     downloadURL="${downloadURL%.*}-arm64.${downloadURL##*.}"
   fi
   local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
-  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit "${ERR_ARTIFACT_STREAMING_DOWNLOAD}"
+
   case "$downloadURL" in
     *.deb)
-      apt_get_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      apt_get_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
       ;;
     *.rpm)
-      dnf_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+      dnf_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
       ;;
     *)
       echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
-      exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+      exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
       ;;
   esac
   rm "$MIRROR_DOWNLOAD_PATH"
 
   /opt/acr/tools/overlaybd/install.sh
-  # Remove the bundled overlaybd installer packages (~55-58 MB); install.sh already installed them and they're unused at runtime.
+  # Remove the bundled OverlayBD installer packages (~55-58 MB); they're unused at runtime.
   rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
   echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
 }
@@ -783,8 +791,17 @@ cachePackageAndBinaryComponents() {
         ;;
       "oras")
         for version in ${PACKAGE_VERSIONS[@]}; do
-          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-          installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ] && [ -z "${PACKAGE_DOWNLOAD_URL}" ]; then
+            # The Ubuntu DALEC package is named az-oras but contains /usr/bin/oras.
+            downloadPkgFromVersion "az-oras" "${version}" "/opt/oras/downloads" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+            installPackageFromCache "oras" "${version}" "/opt/bin/oras" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+          elif isAzureLinux "${OS}" && [ -z "${PACKAGE_DOWNLOAD_URL}" ]; then
+            downloadPkgFromVersion "oras" "${version}" "/opt/oras/downloads" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+            installRPMPackageFromFile "oras" "${version}" "/opt/bin/oras" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+          else
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          fi
           echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
         ;;
@@ -911,10 +928,23 @@ cachePackageAndBinaryComponents() {
         # node-exporter is installed on the VHD so CSE only needs to enable+start it.
         installNodeExporter "${PACKAGE_VERSIONS[0]}"
         ;;
+      "kmpp-containers")
+        # Azure Linux 3.0 only, excluding OS Guard, Kata and CVM, which have no plan to
+        # enable KMPP. The CVM builder does not ship install-kmpp.sh.
+        # It stays dormant on the VHD; CSE enables it when ENABLE_KMPP=true.
+        if ! isAzureLinux "$OS" "$OS_VARIANT" || [ "${OS_VERSION}" != "3.0" ] || \
+          isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ] || \
+          echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+          echo "INFO: skipping ${name}: KMPP is baked only into Azure Linux 3.0 non-CVM, non-Kata, non-OS Guard images"
+          continue
+        fi
+        source /home/packer/install-kmpp.sh
+        installKMPP "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
+        ;;
       "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
-        # Ubuntu and Azure Linux 3 builders carry this helper. Empty manifest entries
-        # leave other OSes (and unpublished targets) extension-managed.
-        if (isUbuntu || isAzureLinux) && [ "${IS_KATA}" != "true" ]; then
+        # Ubuntu and Azure Linux 3 (including Kata) builders carry this helper. Empty
+        # manifest entries leave other OSes (and unpublished targets) extension-managed.
+        if isUbuntu || isAzureLinux; then
           source /home/packer/install-npd.sh
           installNPDPackage "${name}" "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -1435,30 +1465,6 @@ if isAzureLinux "$OS" "$OS_VARIANT" && [ "$OS_VERSION" = "3.0" ] && ! isAzureLin
 fi
 configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')" || exit $ERR_PACKER_COPY_FILE
 systemctl daemon-reload
-
-# Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
-if ! isMarinerOrAzureLinux "$OS"; then
-  systemctlEnableAndStart cgroup-memory-telemetry.timer 30 || exit 1
-  systemctl enable cgroup-memory-telemetry.service || exit 1
-  systemctl restart cgroup-memory-telemetry.service
-fi
-
-CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
-if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-  systemctlEnableAndStart cgroup-cpu-telemetry.timer 30 || exit 1
-  systemctl enable cgroup-cpu-telemetry.service || exit 1
-  systemctl restart cgroup-cpu-telemetry.service
-
-  systemctlEnableAndStart cgroup-pressure-telemetry.timer 30 || exit 1
-  systemctl enable cgroup-pressure-telemetry.service || exit 1
-  systemctl restart cgroup-pressure-telemetry.service
-fi
-
-if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ "$(ls -A /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/)" ]; then
-  cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
-  rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
-fi
-capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # remove snapd, which is not used by container stack

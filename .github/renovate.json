@@ -110,6 +110,7 @@
       "matchPackageNames": [
         "aks-secure-tls-bootstrap-client",
         "azure-acr-credential-provider",
+        "az-oras",
         "containernetworking-plugins",
         "containerd2",
         "datacenter-gpu-manager-4-core",
@@ -125,7 +126,8 @@
         "node-exporter-kubernetes",
         "node-problem-detector-aks-config",
         "node-problem-detector-kubernetes",
-        "nvidia-device-plugin"
+        "nvidia-device-plugin",
+        "oras"
       ],
       "extractVersion": "^(?:\\d+:)?(?<version>\\d+\\.\\d+\\.\\d+)(?:[-+].*)?$",
       "versioning": "semver"
@@ -649,7 +651,8 @@
       ],
       "matchPackageNames": [
         "oss/v2/kubernetes/*-sysext",
-        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext",
+        "azurecontainerregistry/v2/artifact-streaming-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
       "extractVersion": "^(?<version>.+-azlinux3)-x86-64$",

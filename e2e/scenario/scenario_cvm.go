@@ -102,16 +102,17 @@ func newCVMScenario(
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = cvmUbuntu2004KubernetesVersion
 				}
 			},
+			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+				cfg.VmSize = vmSize
+				if vhd.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
+					cfg.LocalDnsProfile = nil
+					cfg.KubernetesVersion = cvmUbuntu2004KubernetesVersion
+				}
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				configureConfidentialVM(vmss, vmSize, securityEncryptionType)
 			},
 		},
-	}
-	if vhd.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
-		s.AKSNodeConfigMutator = func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
-			cfg.LocalDnsProfile = nil
-			cfg.KubernetesVersion = cvmUbuntu2004KubernetesVersion
-		}
 	}
 	return s
 }

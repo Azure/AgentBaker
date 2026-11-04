@@ -3,6 +3,63 @@
 
 # ShellSpec tests for content-test helpers and call sites
 
+Describe 'Ubuntu 26.04 minimal lshw dependency'
+  BeforeAll "eval \"\$(sed -n '/^testLshwInstalled()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)\""
+  err() { echo "$1:Error: $2" >&2; }
+  dpkg-query() {
+    # shellcheck disable=SC2016
+    [ "$*" = '-W -f=${Status} lshw' ] || return 1
+    printf '%s\n' "$PACKAGE_STATUS"
+    return "$QUERY_STATUS"
+  }
+  Parameters
+    Ubuntu 26.04 minimal 'install ok installed' 0 0
+    Ubuntu 26.04 minimal '' 1 1
+    Ubuntu 26.04 minimal 'deinstall ok config-files' 0 1
+    Ubuntu 26.04 26_04-lts-minimal-cvm '' 1 1
+    Ubuntu 26.04 26_04-lts-gen2 '' 1 0
+    Ubuntu 24.04 minimal '' 1 0
+    AzureLinux 3.0 minimal '' 1 0
+  End
+  It "checks lshw for $1 $2 $3 with package status '$4'"
+    OS_SKU="$1" OS_VERSION="$2" IMG_SKU="$3" PACKAGE_STATUS="$4" QUERY_STATUS="$5"
+    When call testLshwInstalled
+    The status should equal "$6"
+    The output should include 'testLshwInstalled:Start'
+    if [ "$6" -ne 0 ]; then
+      The stderr should include 'testLshwInstalled:Error: lshw is not installed'
+    fi
+  End
+End
+
+Describe 'eMudhra root removal'
+  BeforeAll "eval \"\$(sed -n '/^testEmudhraRootRemoval()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)\""
+  err() { echo "$1:Error: $2" >&2; }
+  openssl() {
+    if [ "$1" = crl2pkcs7 ]; then
+      printf 'subject=CN = %s\n' "$CONTROL" "$ROOT"
+      return "$READ_STATUS"
+    fi
+    cat
+  }
+  Parameters
+    'DigiCert Global Root G2' '' 0 /dev/null 0
+    'DigiCert Global Root G2' 'emSign ECC Root CA - G3' 0 /dev/null 1
+    'DigiCert Global Root G2' 'AAA Certificate Services' 0 /dev/null 1
+    '' '' 0 /dev/null 1
+    'DigiCert Global Root G2' '' 1 /dev/null 1
+    'DigiCert Global Root G2' '' 0 "${SHELLSPEC_WORKDIR}/absent-ca-bundle" 1
+  End
+  It "checks root '$2', read status $3 and bundle $4"
+    CONTROL="$1" ROOT="$2" READ_STATUS="$3"
+    When call testEmudhraRootRemoval "$4"
+    The status should equal "$5"
+    if [ "$5" -ne 0 ]; then
+      The stderr should include 'testEmudhraRootRemoval:Error:'
+    fi
+  End
+End
+
 Describe 'Linux content-test legacy parameters'
   read_legacy_parameters() {
     eval "$(sed -n '/^OS_VERSION=/,/^AGENTBAKER_REPOSITORY_URL=/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)"
