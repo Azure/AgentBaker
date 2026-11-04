@@ -9,10 +9,23 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 )
+
+func (a *App) runCloudPrerequisitesCommand(ctx context.Context, flags ProvisionFlags) error {
+	result, err := a.initializeCloudPrerequisites(ctx, flags)
+	if err != nil {
+		a.reportProvisionStatus(ctx, result, err)
+		a.writeCompleteFileOnError(result, err)
+		now := time.Now()
+		a.eventLogger.LogEvent("Provision", result.Error, helpers.EventLevelError, now, now)
+	}
+	return err
+}
 
 func cloudPrerequisiteSettings(flags ProvisionFlags) (map[string]string, error) {
 	// Match Provision: NBC wins when both inputs are present. Never execute it to read settings.

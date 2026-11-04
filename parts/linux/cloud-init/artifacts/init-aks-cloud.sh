@@ -536,7 +536,10 @@ function init_azurelinux_repo_depot {
         rm -f "$output_file" || return $?
 
         for line in "${repo_content[@]}"; do
-            echo "$line" >> "$output_file" || return $?
+            echo "$line" >> "$output_file" || {
+                local write_status=$?
+                return "$write_status"
+            }
         done
 
         echo "File '$output_file' has been created."

@@ -159,17 +159,10 @@ func (a *App) Run(ctx context.Context, args []string) int {
 					&cli.StringFlag{Name: "nbc-cmd", Usage: "path to the NBC command file"},
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					result, err := a.initializeCloudPrerequisites(ctx, ProvisionFlags{
+					return a.runCloudPrerequisitesCommand(ctx, ProvisionFlags{
 						ProvisionConfig: cmd.String("provision-config"),
 						NBCCmd:          cmd.String("nbc-cmd"),
 					})
-					if err != nil {
-						a.reportProvisionStatus(ctx, result, err)
-						a.writeCompleteFileOnError(result, err)
-						now := time.Now()
-						a.eventLogger.LogEvent("Provision", result.Error, helpers.EventLevelError, now, now)
-					}
-					return err
 				},
 			},
 			{
