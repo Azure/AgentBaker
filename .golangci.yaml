@@ -182,6 +182,8 @@ linters:
       - third_party$
       - builtin$
       - examples$
+      # Copy of Go's compress/flate and compress/gzip, see internal/compress/README.md.
+      - internal/compress/
 issues:
   max-same-issues: 50
 formatters:
@@ -193,3 +195,4 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+      - internal/compress/

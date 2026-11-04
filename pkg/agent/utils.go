@@ -5,7 +5,6 @@ package agent
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/Azure/agentbaker/internal/compress/gzip"
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"

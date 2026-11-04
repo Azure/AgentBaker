@@ -2,7 +2,6 @@ package scenario
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	crand "crypto/rand"
 	"encoding/base64"
@@ -23,6 +22,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/internal/compress/gzip"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -1561,8 +1561,12 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		return "", err
 	}
 
+	// Match pkg/agent so the re-gzipped customData has the same encoding as production.
 	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
+	gw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if err != nil {
+		return "", fmt.Errorf("failed to create gzip writer: %w", err)
+	}
 	_, err = gw.Write([]byte(yamlStr))
 	if err != nil {
 		return "", fmt.Errorf("failed to gzip customData: %w", err)
