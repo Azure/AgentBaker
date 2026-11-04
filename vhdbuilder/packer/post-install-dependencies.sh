@@ -128,6 +128,16 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   echo -e "PUUID: $(efibootmgr -v)" >> ${VHD_LOGS_FILEPATH}
 fi
 
+if isAzureLinux "$OS" && [ "$OS_VERSION" = "4.0" ]; then
+  if grep -q "selinux-enforcing" <<< "$FEATURE_FLAGS"; then
+    # Files the build created got default labels, which don't always match the
+    # policy's file contexts, so relabel everything before nodes boot enforcing.
+    restorecon -R -F -e /dev -e /proc -e /run -e /sys / || exit 1
+    sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config || exit 1
+  fi
+  echo "SELinux mode at boot: $(sed -n 's/^SELINUX=//p' /etc/selinux/config)" >> ${VHD_LOGS_FILEPATH}
+fi
+
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 {
