@@ -1498,6 +1498,30 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		Expect(string(decodedPayload)).To(ContainSubstring(encodedEnabledFeatures))
 	})
 
+	It("should write the prefer-hostgaplugin marker in node custom data only when PREFER_HOSTGAPLUGIN is enabled", func() {
+		templateGenerator := InitializeTemplateGenerator()
+
+		config := newConfig(false)
+		Expect(templateGenerator.getLinuxNodeCustomData(config)).NotTo(ContainSubstring(preferHostGAPluginMarkerFilepath))
+
+		config = newConfig(false)
+		config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
+		Expect(templateGenerator.getLinuxNodeCustomData(config)).NotTo(ContainSubstring(preferHostGAPluginMarkerFilepath))
+
+		config = newConfig(false)
+		config.EnabledFeatures = map[string]string{preferHostGAPluginFeature: "true"}
+		Expect(templateGenerator.getLinuxNodeCustomData(config)).To(ContainSubstring("- path: " + preferHostGAPluginMarkerFilepath))
+	})
+
+	It("should render the default node custom data unchanged when PREFER_HOSTGAPLUGIN is disabled", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		withoutFeature := templateGenerator.getLinuxNodeCustomData(newConfig(false))
+
+		config := newConfig(false)
+		config.EnabledFeatures = map[string]string{preferHostGAPluginFeature: "false"}
+		Expect(templateGenerator.getLinuxNodeCustomData(config)).To(Equal(withoutFeature))
+	})
+
 	It("should render multiple enabled features as sorted KEY=VALUE lines", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(false)
