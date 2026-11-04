@@ -2503,6 +2503,24 @@ testBlobfuse2() {
   return 0
 }
 
+testLshwInstalled() {
+  local test="testLshwInstalled"
+  echo "$test:Start"
+  case "$OS_SKU/$OS_VERSION/$IMG_SKU" in
+    Ubuntu/26.04/*minimal*) ;;
+    *)
+      echo "$test: Skipping, only applicable to Ubuntu 26.04 minimal"
+      return 0
+      ;;
+  esac
+  if ! dpkg-query -W -f='${Status}' lshw 2>/dev/null | grep -q "install ok installed"; then
+    err "$test" "lshw is not installed"
+    return 1
+  fi
+  echo "$test:Finish"
+  return 0
+}
+
 testFuseInstalled() {
   local test="testFuseInstalled"
   echo "$test:Start"
@@ -3055,6 +3073,7 @@ testVHDBuildLogsExist
 testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
+testLshwInstalled
 testFuseInstalled
 if [ "$OS_SKU" = "Ubuntu" ]; then
   testBlobfuse2 "$(getPackageExpectedVersion "blobfuse2")"

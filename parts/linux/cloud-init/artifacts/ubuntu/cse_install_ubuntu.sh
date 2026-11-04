@@ -112,6 +112,8 @@ installDeps() {
         if isMinimalImage; then
             # libc6-dev is needed for GPU driver installation at runtime and is not included on the 26.04 minimal base image
             pkg_list+=(libc6-dev)
+            # DCGM requires lshw, which is not included on the 26.04 minimal base image.
+            pkg_list+=(lshw)
             # cron/crontab is needed by init-aks-cloud.sh (RCV1P) since we create a ca-refresh cron job and is not included on the 26.04 minimal base image
             # init-aks-cloud.sh should be refactored to use systemd timers instead to align with AzureLinux
             pkg_list+=(cron)
