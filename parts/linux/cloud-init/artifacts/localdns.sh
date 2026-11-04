@@ -1019,25 +1019,20 @@ stop_watchdog_sleep() {
     fi
 }
 
-# Send a notification to systemd without waiting for PID 1 to process it.
-#
-# By default systemd-notify (systemd >= 246) sends the message and then waits up to 5s on a
-# barrier for PID 1 to process it. On a busy node PID 1 can take longer than that, and the
-# call fails with "Failed to invoke barrier: Connection timed out" even though the message
-# was delivered. Under 'set -e' that failure ended this script, and the EXIT trap tore down a
-# healthy resolver (Azure/AKS#6063). Nothing here uses the acknowledgement, so skip the wait.
-#
-# Skipping the wait is safe here: the barrier exists so that PID 1 can still attribute a
-# message whose sender has exited, but systemd-notify sends on behalf of its parent -- this
-# script, the unit's main process -- which outlives the message. A real failure to send
-# still fails the call.
-#
-# systemd < 246 (Ubuntu 20.04 ships 245) has neither the barrier nor --no-block, and rejects
-# unknown options, so only pass the flag where systemd-notify supports it.
+# Send a notification to systemd, with --no-block when systemd-notify supports it.
 notify_systemd() {
+    if [ "${SYSTEMD_NOTIFY_NO_BLOCK:-false}" = true ]; then
+        systemd-notify --no-block "$@"
+    else
+        systemd-notify "$@"
+    fi
+}
+
+# Returns 0 if systemd-notify supports --no-block.
+systemd_notify_supports_no_block() {
     case "$(systemd-notify --help 2>&1)" in
-        *--no-block*) systemd-notify --no-block "$@" ;;
-        *) systemd-notify "$@" ;;
+        *--no-block*) return 0 ;;
+        *) return 1 ;;
     esac
 }
 
@@ -1321,6 +1316,10 @@ fi
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
+# Probe --no-block support once at startup.
+SYSTEMD_NOTIFY_NO_BLOCK=false
+if systemd_notify_supports_no_block; then SYSTEMD_NOTIFY_NO_BLOCK=true; fi
+
 if [ -n "${NOTIFY_SOCKET:-}" ]; then
    notify_systemd --ready
 fi

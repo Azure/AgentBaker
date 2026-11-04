@@ -1478,31 +1478,33 @@ EOF
     Describe 'notify_systemd'
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
-        }
-        BeforeEach 'setup'
-
-        It 'should pass --no-block when systemd-notify supports it'
+            # notify_systemd must not probe for support itself; any --help call shows up here.
             systemd-notify() {
                 if [ "$1" = "--help" ]; then
-                    echo "     --no-block        Do not wait until operation finished"
+                    echo "HELP_CALLED"
                     return 0
                 fi
                 echo "systemd-notify $*"
             }
+        }
+        BeforeEach 'setup'
+
+        It 'should pass --no-block when support was detected'
+            SYSTEMD_NOTIFY_NO_BLOCK=true
             When call notify_systemd WATCHDOG=1
             The status should be success
             The output should equal "systemd-notify --no-block WATCHDOG=1"
         End
 
-        It 'should omit --no-block on systemd < 246, which rejects unknown options'
-            # Ubuntu 20.04 ships systemd 245: no --no-block, and no barrier to skip either.
-            systemd-notify() {
-                if [ "$1" = "--help" ]; then
-                    echo "     --ready           Inform the init system about service start-up completion"
-                    return 0
-                fi
-                echo "systemd-notify $*"
-            }
+        It 'should omit --no-block when support was not detected'
+            SYSTEMD_NOTIFY_NO_BLOCK=false
+            When call notify_systemd --ready
+            The status should be success
+            The output should equal "systemd-notify --ready"
+        End
+
+        It 'should fall back to the plain call when support was never probed'
+            unset SYSTEMD_NOTIFY_NO_BLOCK
             When call notify_systemd --ready
             The status should be success
             The output should equal "systemd-notify --ready"
@@ -1510,11 +1512,8 @@ EOF
 
         It 'should still fail when the message cannot be sent'
             # Only the wait for the acknowledgement is skipped; a real send failure must not be masked.
+            SYSTEMD_NOTIFY_NO_BLOCK=true
             systemd-notify() {
-                if [ "$1" = "--help" ]; then
-                    echo "     --no-block        Do not wait until operation finished"
-                    return 0
-                fi
                 echo "Failed to notify init system: No such file or directory" >&2
                 return 1
             }
@@ -1524,15 +1523,39 @@ EOF
         End
     End
 
+# This section tests - systemd_notify_supports_no_block
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'systemd_notify_supports_no_block'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        BeforeEach 'setup'
+
+        It 'should detect --no-block on systemd >= 246'
+            systemd-notify() { echo "     --no-block        Do not wait until operation finished"; }
+            When call systemd_notify_supports_no_block
+            The status should be success
+        End
+
+        It 'should not detect --no-block on systemd < 246, which rejects unknown options'
+            # Ubuntu 20.04 ships systemd 245: no --no-block, and no barrier to skip either.
+            systemd-notify() { echo "     --ready           Inform the init system about service start-up completion"; }
+            When call systemd_notify_supports_no_block
+            The status should be failure
+        End
+    End
+
 # This section tests the watchdog loop against a PID 1 that is too busy to acknowledge pings.
-# It runs the shipped notify_systemd and start_localdns_watchdog under the shipped 'set' line and
-# EXIT trap, so 'set -e' behaves as it does on a node.
+# It runs the shipped notify helpers, startup notification and start_localdns_watchdog under the
+# shipped 'set' line and EXIT trap, so 'set -e' behaves as it does on a node.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'watchdog loop with a busy PID 1'
         LOCALDNS_SRC="./parts/linux/cloud-init/artifacts/localdns.sh"
 
         build_watchdog_harness() {
             harness=$(mktemp)
+            help_count=$(mktemp)
             {
                 echo '#!/bin/bash'
                 grep -m1 -E '^set -' "$LOCALDNS_SRC"
@@ -1548,9 +1571,10 @@ EOF
                 echo 'sleep() { :; }'
                 # systemd >= 246 with a busy PID 1: the message is sent, but waiting for the
                 # acknowledgement times out unless --no-block skips the wait.
+                echo "HELP_COUNT_FILE=$help_count"
                 echo 'systemd-notify() {'
                 echo '    case "$1" in'
-                echo '        --help) echo "     --no-block        Do not wait until operation finished" ;;'
+                echo '        --help) echo x >> "$HELP_COUNT_FILE"; echo "     --no-block        Do not wait until operation finished" ;;'
                 echo '        --no-block) echo "NOTIFY_SENT ${*:2}" ;;'
                 echo '        *) echo "Failed to invoke barrier: Connection timed out" >&2; return 1 ;;'
                 echo '    esac'
@@ -1558,16 +1582,18 @@ EOF
                 echo 'cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 0; }'
                 # Stop after three healthy ticks.
                 echo 'ticks=0'
-                echo 'export_resource_metrics() { ticks=$((ticks + 1)); if [ "$ticks" -ge 3 ]; then echo "LOOP_SURVIVED"; trap - EXIT; exit 0; fi; }'
-                sed -n '/^stop_watchdog_sleep() {/,/^}/p; /^notify_systemd() {/,/^}/p; /^start_localdns_watchdog() {/,/^}/p' "$LOCALDNS_SRC"
+                echo 'export_resource_metrics() { ticks=$((ticks + 1)); if [ "$ticks" -ge 3 ]; then echo "LOOP_SURVIVED"; echo "HELP_CALLS=$(wc -l < "$HELP_COUNT_FILE")"; trap - EXIT; exit 0; fi; }'
+                sed -n '/^stop_watchdog_sleep() {/,/^}/p; /^notify_systemd() {/,/^}/p; /^systemd_notify_supports_no_block() {/,/^}/p; /^start_localdns_watchdog() {/,/^}/p' "$LOCALDNS_SRC"
                 grep -E "^trap .*EXIT$" "$LOCALDNS_SRC"
                 echo 'NOTIFY_SOCKET=/run/systemd/notify'
                 echo 'WATCHDOG_USEC=60000000'
+                # The shipped startup sequence: probe --no-block support once, then send READY=1.
+                sed -n '/^SYSTEMD_NOTIFY_NO_BLOCK=false$/,/^fi$/p' "$LOCALDNS_SRC"
                 echo 'start_localdns_watchdog'
             } > "$harness"
         }
         cleanup_watchdog_harness() {
-            rm -f "$harness"
+            rm -f "$harness" "$help_count"
         }
         BeforeEach 'build_watchdog_harness'
         AfterEach 'cleanup_watchdog_harness'
@@ -1575,8 +1601,11 @@ EOF
         It 'keeps serving when PID 1 is too slow to acknowledge the watchdog ping'
             When run command bash "$harness"
             The status should be success
+            The output should include "NOTIFY_SENT --ready"
             The output should include "NOTIFY_SENT WATCHDOG=1"
             The output should include "LOOP_SURVIVED"
+            # Support is probed once at startup, not on every tick.
+            The output should include "HELP_CALLS=1"
             The output should not include "Executing cleanup function."
             The output should not include "CLEANUP_RAN"
             The stderr should not include "Failed to invoke barrier"
