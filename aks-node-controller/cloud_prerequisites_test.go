@@ -160,3 +160,29 @@ func TestCloudPrerequisiteProcessFailure(t *testing.T) {
 	require.Contains(t, result.Output, "prerequisites:ussec:https://depot")
 	require.Contains(t, result.Output, "certificate installation failed")
 }
+
+func TestLaterLegacyInitializerOverride(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("NBC provisioning executes Linux bash")
+	}
+	dir := t.TempDir()
+	initPath := filepath.Join(dir, "init-aks-cloud.sh")
+	nbcPath := filepath.Join(dir, "nbc.sh")
+	// Model the older initializer's public interface: no action argument and no
+	// knowledge of the new handoff flag. It still performs full initialization.
+	legacy := `#!/bin/bash
+test "$#" -eq 0 || exit 19
+printf 'legacy-full-init:%s:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" "${AKS_CLOUD_PREREQUISITES_DONE:-}"
+`
+	require.NoError(t, os.WriteFile(initPath, []byte(legacy), 0700))
+	nbc := `LOCATION=ussec REPO_DEPOT_ENDPOINT=https://live-depot "` + initPath + `"`
+	require.NoError(t, os.WriteFile(nbcPath, []byte(nbc), 0600))
+	t.Setenv("AKS_CLOUD_PREREQUISITES_DONE", "true")
+	tt := NewTestApp(t, TestAppConfig{RunFunc: cmdRunner})
+	// ANC's early prerequisite step has already succeeded before a later
+	// nodecustomdata override replaces the shared initializer with this version.
+	result, err := tt.App.Provision(t.Context(), ProvisionFlags{NBCCmd: nbcPath})
+	require.NoError(t, err)
+	require.Equal(t, "0", result.ExitCode)
+	require.Contains(t, result.Output, "legacy-full-init:ussec:https://live-depot:true")
+}

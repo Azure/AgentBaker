@@ -66,6 +66,51 @@ Describe 'init-aks-cloud.sh prerequisite certificate phase'
     Mock aptget_update
         echo 'refreshed indexes'
     End
+    Mock lsb_release
+        case "$1" in
+            --release) printf 'Release:\t22.04\n' ;;
+            -c) printf 'Codename:\tjammy\n' ;;
+        esac
+    End
+    Mock init_ubuntu_main_repo_depot
+        echo "ubuntu-main $1"
+    End
+    Mock init_ubuntu_pmc_repo_depot
+        echo "ubuntu-pmc $1"
+    End
+    Mock init_mariner_repo_depot
+        echo "mariner $1"
+    End
+    Mock init_azurelinux_repo_depot
+        echo "azurelinux $1"
+    End
+    Mock dnf_makecache
+        echo 'refreshed RPM indexes'
+    End
+
+    Describe 'legacy no-argument invocation'
+        Parameters
+            1 0 0 ubuntu-main 'refreshed indexes' ussec
+            1 0 0 ubuntu-main 'refreshed indexes' westus2
+            0 1 0 mariner 'refreshed RPM indexes' ussec
+            0 0 1 azurelinux 'refreshed RPM indexes' westus2
+        End
+
+        It 'runs certificates, repositories, indexes, and scheduling without a launcher handoff'
+            IS_UBUNTU=$1
+            IS_MARINER=$2
+            IS_AZURELINUX=$3
+            LOCATION=$6
+            REPO_DEPOT_ENDPOINT=https://depot.example/ubuntu
+
+            When run run_phase
+            The status should be success
+            The output should include 'installed certificates'
+            The output should include "$4 https://depot.example"
+            The output should include "$5"
+            The output should include 'scheduled refresh'
+        End
+    End
 
     Describe 'successful bootstrap'
         Parameters

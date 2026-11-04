@@ -247,6 +247,14 @@ setup but still refreshes repository indexes and schedules certificate refresh.
 There is no on-disk completion marker for PIS to capture; each launcher invocation
 initializes the real node's live settings.
 
+Legacy non-scriptless CSE continues invoking `init-aks-cloud.sh` without arguments.
+Without the launcher handoff, this runs full initialization as before (required
+certificate and repository setup failures now propagate explicitly). Scriptless
+acquisition on a newly built VHD uses the updated baked initializer. If a later
+custom-cloud nodecustomdata application replaces it with an older ABSVC-delivered
+copy, that copy ignores the handoff and may repeat full initialization during
+provisioning; it does not affect the prerequisites already completed before download.
+
 This ordering change requires a newly built VHD. Already-released images still
 acquire hotfixes using their baked launcher and ANC and need an earlier delivered
 bootstrap step or an image upgrade. A downloaded binary cannot initialize the
