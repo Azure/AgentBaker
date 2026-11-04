@@ -19,7 +19,7 @@ func Flags() []cli.Flag {
 		&cli.StringFlag{Name: "mana-vm-sku", Value: defaults.MANAVMSKU, Destination: &Config.MANAVMSKU, Sources: cli.EnvVars("MANA_VM_SKU"), Usage: "VM size for MANA scenarios; must support MANA and NVMe"},
 		&cli.BoolFlag{Name: "disable-scriptless", Value: defaults.DisableScriptless, Destination: &Config.DisableScriptless, Sources: cli.EnvVars("DISABLE_SCRIPTLESS")},
 		&cli.BoolFlag{Name: "disable-scriptless-compilation", Value: defaults.DisableScriptLessCompilation, Destination: &Config.DisableScriptLessCompilation, Sources: cli.EnvVars("DISABLE_SCRIPTLESS_COMPILATION")},
-		&cli.BoolFlag{Name: "random-nbc-coverage", Destination: &Config.RandomNBCCoverage, Sources: cli.EnvVars("E2E_RANDOM_NBC_COVERAGE"), Usage: "Add three random NBC-command variants per active Linux OS/version"},
+		&cli.BoolFlag{Name: "random-nbc-coverage", Destination: &Config.RandomNBCCoverage, Sources: cli.EnvVars("E2E_RANDOM_NBC_COVERAGE"), Usage: "Add two random NBC-command variants per active Linux OS/version"},
 		&cli.StringFlag{Name: "log-dir", Value: defaults.E2ELoggingDir, Destination: &Config.E2ELoggingDir, Sources: cli.EnvVars("LOGGING_DIR")},
 		&cli.BoolFlag{Name: "secure-tls-bootstrapping", Value: defaults.EnableSecureTLSBootstrapping, Destination: &Config.EnableSecureTLSBootstrapping, Sources: cli.EnvVars("ENABLE_SECURE_TLS_BOOTSTRAPPING")},
 		&cli.StringFlag{Name: "extended-tests", Value: defaults.ExtendedTests, Destination: &Config.ExtendedTests, Sources: cli.EnvVars("EXTENDED_TESTS")},

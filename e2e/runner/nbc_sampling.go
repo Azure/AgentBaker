@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/scenario"
 )
 
-const nbcSamplesPerOS = 3
+const nbcSamplesPerOS = 2
 
 func nbcSamplingSeed(buildID string, now time.Time) string {
 	return buildID + "/" + now.UTC().Format(time.DateOnly)

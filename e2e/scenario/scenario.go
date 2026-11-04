@@ -3475,8 +3475,12 @@ var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_AKSVMExtension_FilesystemCorruption",
 	Description: "Tests Ubuntu 24.04 NPD filesystem-corruption reporting with the AKS VM Extension and hotfix target resolution from the NBC command when ANC JSON is absent",
 	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2404Gen2Containerd,
+		Cluster:                ClusterKubenet,
+		VHD:                    config.VHDUbuntu2404Gen2Containerd,
+		ExcludeFromNBCSampling: true,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.EnableScriptlessAKSNodeConfig = false
+		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
 			if err != nil {

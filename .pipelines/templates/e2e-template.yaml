@@ -24,7 +24,7 @@ parameters:
     default: 90
   - name: randomNBCCoverage
     type: boolean
-    displayName: Add three random NBC-command scenarios per active Linux OS/version
+    displayName: Add random NBC-command scenarios per active Linux OS/version
     default: false
   - name: useVhdMetadataArtifacts
     type: boolean

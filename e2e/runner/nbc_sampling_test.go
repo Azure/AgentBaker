@@ -44,7 +44,7 @@ func TestNBCSamplingCoverageAndReproducibility(t *testing.T) {
 	candidates := nbcCandidates()
 	sampled, err := sampleNBCScenarios(candidates, "build-123/2026-11-03")
 	require.NoError(t, err)
-	require.Len(t, sampled, 12)
+	require.Len(t, sampled, 8)
 	counts := map[string]int{}
 	seen := map[string]bool{}
 	for _, s := range sampled {
@@ -55,7 +55,7 @@ func TestNBCSamplingCoverageAndReproducibility(t *testing.T) {
 	}
 	require.Len(t, counts, 4)
 	for _, count := range counts {
-		require.Equal(t, 3, count)
+		require.Equal(t, 2, count)
 	}
 	for _, s := range candidates {
 		require.False(t, s.ForceScriptlessNBCCSECmd)
@@ -74,7 +74,7 @@ func TestNBCSamplingHonorsFiltersAndRequiresEveryOS(t *testing.T) {
 	restoreRunnerConfig(t)
 	candidates := nbcCandidates()
 	for i, s := range candidates {
-		s.Tags.GPU = i%2 == 0
+		s.Tags.GPU = i%4 != 0
 	}
 	runnable, _, err := partitionScenarios(candidates, tagFilter{skip: "gpu=true"})
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestNBCSamplingHonorsFiltersAndRequiresEveryOS(t *testing.T) {
 	}
 	_, err = sampleNBCScenarios(selectScenarios(runnable, []string{runnable[0].Name}), "seed")
 	require.ErrorContains(t, err, "after filtering; found")
-	_, err = sampleNBCScenarios(runnable[:len(runnable)-4], "seed")
+	_, err = sampleNBCScenarios(runnable[:len(runnable)-2], "seed")
 	require.ErrorContains(t, err, "AzureLinuxV3")
 }
 
@@ -112,7 +112,7 @@ func TestNBCSamplingRealLinuxPipelinePool(t *testing.T) {
 	require.NoError(t, err)
 	sampled, err := sampleNBCScenarios(runnable, "189022832/2026-11-03")
 	require.NoError(t, err)
-	require.Len(t, sampled, 12)
+	require.Len(t, sampled, 8)
 	for _, s := range sampled {
 		t.Log(s.Name)
 		require.False(t, s.SkipDefaultValidation)
@@ -128,7 +128,7 @@ func TestNBCSamplingCLIEnvironmentAndFailFast(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&bytes.Buffer{}, &stderr)
 	require.Equal(t, exitUsage, app.Run(t.Context(), []string{"e2e", "run", "Ubuntu2404Gen1"}))
-	require.Contains(t, stderr.String(), "NBC sampling requires 3 eligible")
+	require.Contains(t, stderr.String(), "NBC sampling requires 2 eligible")
 	opts := runOptionsFromConfig(nil)
 	require.True(t, opts.randomNBCCoverage)
 	require.Equal(t, "build-id", config.Config.BuildID)
@@ -164,7 +164,7 @@ func TestNBCSamplesHaveIndependentResultsAndLogs(t *testing.T) {
 	}
 	require.NoError(t, exec.wait(time.Second))
 	results := exec.snapshotResults(nil)
-	require.Len(t, results, 44)
+	require.Len(t, results, 40)
 	for _, result := range results {
 		require.Equal(t, statusPassed, result.Status, result.Name)
 		require.Equal(t, filepath.Join(exec.opts.logDir, result.Name, "attempt-1.log"), result.Attempts[0].LogPath)
