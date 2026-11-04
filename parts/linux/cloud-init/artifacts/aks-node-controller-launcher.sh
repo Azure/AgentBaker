@@ -14,6 +14,7 @@ HOTFIX_BIN="${BIN_PATH}-hotfix"
 HOTFIX_JSON="${HOTFIX_JSON:-/opt/azure/containers/aks-node-controller-hotfix.json}"
 CONFIG_PATH="${CONFIG_PATH:-/opt/azure/containers/aks-node-controller-config.json}"
 NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.sh}"
+CLUSTER_PROVISION_LOG="${CLUSTER_PROVISION_LOG:-/var/log/azure/cluster-provision.log}"
 # FEATURES_PATH is an optional KEY=VALUE feature-flag file and the on-node delivery channel for
 # flags like ENABLE_PROVISIONING_HOTFIX (there is no systemd environment-variable delivery).
 # Writer: the cloud-init boothook (producer side, PR #8717), running as root at provision time,
@@ -56,7 +57,7 @@ fi
 
 # The handoff exists only in this launcher's process tree, never on a PIS-cached disk.
 unset AKS_CLOUD_PREREQUISITES_DONE
-"$BIN_PATH" cloud-prerequisites "${provision_args[@]}"
+"$BIN_PATH" cloud-prerequisites "${provision_args[@]}" >> "$CLUSTER_PROVISION_LOG" 2>&1
 exit_code=$?
 if [ "$exit_code" -ne 0 ]; then
     log "ANC cloud prerequisites failed with code ${exit_code}; stopping before hotfix acquisition"

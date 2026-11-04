@@ -36,6 +36,7 @@ EOF
         export BIN_PATH="${TEST_DIR}/aks-node-controller"
         export CONFIG_PATH="${TEST_DIR}/aks-node-controller-config.json"
         export NBC_CMD_PATH="${TEST_DIR}/aks-node-controller-nbc-cmd.sh"
+        export CLUSTER_PROVISION_LOG="${TEST_DIR}/cluster-provision.log"
         # Point hotfix pointer at a test-local path (absent by default) so tests never
         # touch the production /opt/azure path and can control the download-hotfix branch.
         export HOTFIX_JSON="${TEST_DIR}/aks-node-controller-hotfix.json"
@@ -46,7 +47,7 @@ EOF
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN CLOUD_PREREQUISITES_EXIT AKS_CLOUD_PREREQUISITES_DONE
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH CLUSTER_PROVISION_LOG TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN CLOUD_PREREQUISITES_EXIT AKS_CLOUD_PREREQUISITES_DONE
     }
 
     create_fake_aks_node_controller() {
@@ -66,6 +67,8 @@ EOF
 #!/bin/sh
 printf '%s:%s\n' "$1" "${AKS_CLOUD_PREREQUISITES_DONE:-false}" >>"${TEST_DIR}/workflow"
 if [ "$1" = "cloud-prerequisites" ]; then
+    echo 'certificate bootstrap stdout'
+    echo 'certificate bootstrap stderr' >&2
     printf '%s\n' "$@" >"${TEST_DIR}/prerequisite_args"
     exit "${CLOUD_PREREQUISITES_EXIT:-0}"
 fi
@@ -152,6 +155,19 @@ EOF
     AfterEach cleanup_wrapper_test
 
     Describe 'cloud prerequisites'
+        It 'preserves prerequisite diagnostics in the cluster provisioning log'
+            touch "$CONFIG_PATH"
+            create_recording_aks_node_controller
+            echo 'existing provisioning log' > "$CLUSTER_PROVISION_LOG"
+
+            When run bash "$SCRIPT"
+            The status should be success
+            The output should include 'aks-node-controller completed successfully'
+            The contents of file "$CLUSTER_PROVISION_LOG" should include 'existing provisioning log'
+            The contents of file "$CLUSTER_PROVISION_LOG" should include 'certificate bootstrap stdout'
+            The contents of file "$CLUSTER_PROVISION_LOG" should include 'certificate bootstrap stderr'
+        End
+
         Parameters
             config
             nbc
