@@ -263,7 +263,6 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         LOCALDNS_SERVED_COREFILE="${TEST_DIR}/localdns/updated.localdns.corefile"
         LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/run/vnet-dns-forward-servers"
         LOCALDNS_READY_TIMEOUT_SECONDS=1
-        LOCALDNS_READY_POLL_SECONDS=0
         mkdir -p "${TEST_DIR}/localdns"
         # A running localdns.slice already on the limits the payloads below leave at the baked values.
         Include ./spec/parts/linux/cloud-init/artifacts/localdns_limits_fakes.sh

@@ -61,9 +61,9 @@ LOCALDNS_METRICS_URL="${LOCALDNS_METRICS_URL:-http://127.0.0.1:9253/metrics}"
 # The reload plugin checks every 30s +/- 7.5s of jitter, so a change lands within ~38s.
 LOCALDNS_RELOAD_TIMEOUT_SECONDS="${LOCALDNS_RELOAD_TIMEOUT_SECONDS:-90}"
 LOCALDNS_RELOAD_POLL_SECONDS="${LOCALDNS_RELOAD_POLL_SECONDS:-2}"
-# How long a patch waits for CoreDNS's /ready once it is committed.
+# How long a patch waits for CoreDNS's /ready once it is committed; it checks every second, as
+# localdns.sh does at startup.
 LOCALDNS_READY_TIMEOUT_SECONDS="${LOCALDNS_READY_TIMEOUT_SECONDS:-60}"
-LOCALDNS_READY_POLL_SECONDS="${LOCALDNS_READY_POLL_SECONDS:-2}"
 # The limit functions shared with localdns.sh, installed next to it on every OS.
 # Its functions log what they do on stderr, which the calls below fold into this handler's output.
 LOCALDNS_LIMITS_SCRIPT="${LOCALDNS_LIMITS_SCRIPT:-/opt/azure/containers/localdns/localdns-limits.sh}"
@@ -682,7 +682,7 @@ updateLocalDNS() {
         LOCALDNS_FAILURE_MESSAGE="localdns.service is not running; corefileVersion ${desired_version} applied, readiness checked again on the next run"
         return 1
     fi
-    if ! localdns_wait_ready "${LOCALDNS_READY_TIMEOUT_SECONDS}" "${LOCALDNS_READY_POLL_SECONDS}"; then
+    if ! wait_for_localdns_ready "${LOCALDNS_READY_TIMEOUT_SECONDS}" "${LOCALDNS_READY_TIMEOUT_SECONDS}"; then
         echo "CoreDNS did not report ready within ${LOCALDNS_READY_TIMEOUT_SECONDS}s"
         LOCALDNS_FAILURE_MESSAGE="CoreDNS did not report ready within ${LOCALDNS_READY_TIMEOUT_SECONDS}s; corefileVersion ${desired_version} applied, readiness checked again on the next run"
         return 1

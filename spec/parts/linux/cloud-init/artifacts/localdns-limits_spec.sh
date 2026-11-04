@@ -346,15 +346,41 @@ Describe 'localdns-limits.sh'
     End
 
     Describe 'readiness'
-        It 'is ready when CoreDNS answers OK'
-            When call localdns_wait_ready 1 0
+        It 'asks the node listener ready endpoint past any proxy'
+            curl() {
+                echo "$*" > "${TEST_DIR}/curl.args"
+                echo OK
+            }
+            When call localdns_ready
             The status should be success
+            The contents of file "${TEST_DIR}/curl.args" should equal "-s --noproxy 169.254.10.10 --connect-timeout 5 --max-time 10 http://169.254.10.10:8181/ready"
         End
 
-        It 'gives up when CoreDNS does not answer OK in time'
-            TEST_READY_BODY=""
-            When call localdns_wait_ready 1 0.2
+        It 'is not ready when CoreDNS answers anything but OK'
+            TEST_READY_BODY="NOTOK"
+            When call localdns_ready
             The status should be failure
+        End
+
+        It 'waits for CoreDNS to report ready'
+            When call wait_for_localdns_ready 100 5
+            The status should be success
+            The output should include "Waiting for localdns to start and be able to serve traffic."
+            The output should include "Localdns is online and ready to serve traffic."
+        End
+
+        It 'gives up when CoreDNS is not ready in time'
+            TEST_READY_BODY="NOTOK"
+            When call wait_for_localdns_ready 1000 2
+            The status should be failure
+            The output should include "Localdns failed to come online after 2 seconds (timeout)."
+        End
+
+        It 'gives up when CoreDNS is not ready after max attempts'
+            TEST_READY_BODY="NOTOK"
+            When call wait_for_localdns_ready 2 50
+            The status should be failure
+            The output should include "Localdns failed to come online after 2 attempts."
         End
     End
 

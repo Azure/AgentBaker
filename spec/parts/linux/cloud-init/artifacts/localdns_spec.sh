@@ -1139,45 +1139,6 @@ EOF
     End
 
 
-# This section tests - wait_for_localdns_ready
-# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
-#------------------------------------------------------------------------------------------------------------------------------------
-    Describe 'wait_for_localdns_ready'
-        setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
-        }
-        BeforeEach 'setup'
-    #------------------------- wait_for_localdns_ready -----------------------------------------------------------
-        It 'should return success if localdns is ready'
-            CURL_COMMAND=(echo OK)
-            MAX_ATTEMPTS=100
-            TIMEOUT=5
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
-            The status should be success
-            The output should include "Waiting for localdns to start and be able to serve traffic."
-            The output should include "Localdns is online and ready to serve traffic."
-        End
-
-        It 'should return failure if localdns is not ready, after timeout'
-            CURL_COMMAND=(echo NOTOK)
-            MAX_ATTEMPTS=1000
-            TIMEOUT=2
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
-            The status should be failure
-            The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
-        End
-
-        It 'should return failure if localdns is not ready, after max attempts'
-            CURL_COMMAND=(echo NOTOK)
-            MAX_ATTEMPTS=2
-            TIMEOUT=50
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
-            The status should be failure
-            The output should include "Localdns failed to come online after ${MAX_ATTEMPTS} attempts."
-        End
-    End
-
-
 # This section tests - add_iptable_rules_to_skip_conntrack_from_pods
 # This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
