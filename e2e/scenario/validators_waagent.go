@@ -29,22 +29,37 @@ var waagentEgressLineRe = regexp.MustCompile(`^\s*(\d+)\s+DST=([0-9.]+)\s*$`)
 // which is where goal state, manifest, and extension package downloads happen). A restart makes the
 // agent re-run protocol detection and goal state initialization, which is exactly where the direct
 // storage download is attempted first by default. It prints "<count> DST=<ip>" per destination.
+//
+// The cgroup match binds to the cgroup object at rule insertion time and systemd recreates the unit
+// cgroup on restart, so the rule is installed from a runtime ExecStartPre drop-in, i.e. inside the
+// freshly created cgroup and before the agent process starts.
 const waagentEgressCaptureScript = `set -uo pipefail
 UNIT=walinuxagent.service
 systemctl cat "$UNIT" >/dev/null 2>&1 || UNIT=waagent.service
 CG=$(systemctl show -p ControlGroup --value "$UNIT")
 CG=${CG#/}
-PREFIX="E2E-WAAGENT-SYN: "
+PREFIX="E2EWAAGENTSYN:"
+IPT=$(command -v iptables)
+RULE="OUTPUT -p tcp --syn -m cgroup --path $CG -j LOG --log-prefix $PREFIX"
 LOG="/var/log/waagent.log"
-if ! sudo iptables -I OUTPUT 1 -p tcp --syn -m cgroup --path "$CG" -j LOG --log-prefix "$PREFIX"; then
-  echo "failed to install iptables cgroup LOG rule for $CG" >&2
-  exit 2
-fi
-cleanup() { sudo iptables -D OUTPUT -p tcp --syn -m cgroup --path "$CG" -j LOG --log-prefix "$PREFIX" || true; }
+DROPIN="/run/systemd/system/$UNIT.d/99-e2e-egress-capture.conf"
+cleanup() {
+  sudo rm -f "$DROPIN"
+  sudo systemctl daemon-reload
+  while sudo "$IPT" -C $RULE 2>/dev/null; do sudo "$IPT" -D $RULE; done
+}
 trap cleanup EXIT
+sudo mkdir -p "$(dirname "$DROPIN")"
+printf '[Service]\nExecStartPre=-%s -I %s\n' "$IPT" "${RULE/OUTPUT/OUTPUT 1}" | sudo tee "$DROPIN" >/dev/null
+sudo systemctl daemon-reload
 OFFSET=$(sudo stat -c %s "$LOG")
 START=$(date +%s)
 sudo systemctl restart "$UNIT"
+if ! sudo "$IPT" -C $RULE 2>/dev/null; then
+  echo "iptables cgroup LOG rule for $CG was not installed by the ExecStartPre drop-in" >&2
+  sudo systemctl status "$UNIT" --no-pager >&2 || true
+  exit 2
+fi
 READY=0
 for _ in $(seq 1 72); do
   if sudo tail -c +$((OFFSET + 1)) "$LOG" | grep -q "Goal state initialization completed"; then READY=1; break; fi
