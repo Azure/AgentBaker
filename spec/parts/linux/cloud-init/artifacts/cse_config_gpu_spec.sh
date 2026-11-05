@@ -751,8 +751,6 @@ Describe 'cse_config_gpu.sh'
         AfterEach 'cleanup_cdi_dropin'
 
         Describe 'configureNvidiaCDIRefresh'
-            # The TimeoutStartSec widening is arm64 (Grace-Blackwell) only; default the mock to arm64
-            # so the shared drop-in assertions below exercise the GB path, and override per-test.
             getCPUArch() { echo "${MOCK_CPU_ARCH:-arm64}"; }
 
             It 'treats the known nvidia-ctk failures as success and reloads systemd'
@@ -784,7 +782,7 @@ Describe 'cse_config_gpu.sh'
                 The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "TimeoutStartSec"
             End
 
-            It 'does not write the timeout drop-in on x86 (generates in <1s, default timeout is fine)'
+            It 'writes the 300-second timeout override on amd64, including multi-GPU A100 nodes'
                 MOCK_CPU_ARCH="amd64"
                 systemctl() { return 0; }
 
@@ -792,7 +790,19 @@ Describe 'cse_config_gpu.sh'
 
                 The status should be success
                 The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
-                The path "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should not be exist
+                The contents of file "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should include "TimeoutStartSec=300"
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "TimeoutStartSec"
+            End
+
+            It 'preserves an explicit timeout override on amd64'
+                MOCK_CPU_ARCH="amd64"
+                NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC=600
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The contents of file "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should include "TimeoutStartSec=600"
             End
 
             It 'keeps the units restartable so the .path trigger can still refresh the spec'
