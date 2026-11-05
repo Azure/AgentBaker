@@ -123,6 +123,17 @@ func parseWaagentEgress(stdout string) waagentEgress {
 //  3. across an agent restart, every TCP connection attempt from the agent cgroup goes to
 //     WireServer/HostGAPlugin (168.63.129.16) or IMDS only.
 func ValidateWaagentUsesHostGAPluginOnly(ctx context.Context, s *Scenario) error {
+	// VHDs built before the hook existed (e.g. the standalone E2E pipeline running against the
+	// latest released images) cannot honor PREFER_HOSTGAPLUGIN.
+	hookCheck, err := execScriptOnVMForScenario(ctx, s, "test -f /opt/azure/containers/aks-waagent-prefer-hostgaplugin.py")
+	if err != nil {
+		return fmt.Errorf("check for prefer-hostgaplugin hook: %w", err)
+	}
+	if hookCheck.exitCode != "0" {
+		logging.Logf(ctx, "SKIPPING ValidateWaagentUsesHostGAPluginOnly: VHD does not contain the prefer-hostgaplugin hook")
+		return nil
+	}
+
 	var errs []error
 
 	hook, err := execScriptOnVMForScenario(ctx, s, `sudo journalctl -o cat -u walinuxagent.service -u waagent.service | grep -F "aks-waagent-prefer-hostgaplugin: " || true`)
