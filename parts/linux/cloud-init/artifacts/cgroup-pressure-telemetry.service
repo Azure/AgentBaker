@@ -1,5 +1,7 @@
 [Unit]
 Description=Emit system cgroup pressure telemetry
+After=kubelet.service containerd.service
+ConditionPathExists=/sys/fs/cgroup/cgroup.controllers
 OnSuccess=service-execution-telemetry@cgroup\x2dpressure\x2dtelemetry.service.service
 OnFailure=service-execution-telemetry@cgroup\x2dpressure\x2dtelemetry.service.service
 

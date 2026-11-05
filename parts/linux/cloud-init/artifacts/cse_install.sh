@@ -42,10 +42,6 @@ createManDbAutoUpdateFlagFile() {
     touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
 }
 
-cleanupContainerdDlFiles() {
-    rm -rf $CONTAINERD_DOWNLOADS_DIR
-}
-
 # After the centralized packages changes, the containerd versions are only available in the components.json.
 installContainerdWithComponentsJson() {
     os=${UBUNTU_OS_NAME}
@@ -214,32 +210,6 @@ installCredentialProviderFromUrl() {
     rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
 }
 
-# TODO (alburgess) have oras version managed by dependant or Renovate
-installOras() {
-    ORAS_DOWNLOAD_DIR="/opt/oras/downloads"
-    ORAS_EXTRACTED_DIR=${1} # Use components.json var for /opt/bin for linux-vhd-content-test.sh binary file checks.
-    ORAS_DOWNLOAD_URL=${2}
-    ORAS_VERSION=${3}
-
-    mkdir -p $ORAS_DOWNLOAD_DIR
-
-    echo "Installing Oras version $ORAS_VERSION..."
-    # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    ORAS_TMP=${ORAS_DOWNLOAD_URL##*/}
-    retrycmd_get_tarball 120 5 60 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} 300 || exit $ERR_ORAS_DOWNLOAD_ERROR
-
-    if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
-        echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
-        exit $ERR_ORAS_DOWNLOAD_ERROR
-    fi
-
-    echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
-    # no-same-owner because the files in the tarball are owned by 1001:admin
-    extract_tarball "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" "$ORAS_EXTRACTED_DIR/"
-    rm -r "$ORAS_DOWNLOAD_DIR"
-    echo "Oras version $ORAS_VERSION installed successfully."
-}
-
 # this is called called during node provisioning -
 # if secure TLS bootstrapping is disabled, this will simply remove the client binary from disk.
 # otherwise, if a custom URL is provided, it will use the custom URL to overwrite the existing installation
@@ -380,17 +350,6 @@ installCNILegacy() {
     fi
 
     chown -R root:root $CNI_BIN_DIR
-}
-
-downloadCrictl() {
-    # if $1 is empty, take ${CRICTL_DOWNLOAD_DIR} as default value. Otherwise take $1 as the value
-    downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
-    mkdir -p $downloadDir
-    url=${2}
-    logs_to_events "AKS.CSE.logDownloadURL" "echo $url"
-    url=$(update_base_url $url)
-    crictlTgzTmp=${url##*/}
-    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} 300 || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
 
 installCrictl() {
@@ -642,42 +601,6 @@ installKubeletKubectlFromURL() {
     rm -rf /opt/bin/kubelet-* /opt/bin/kubectl-* /home/hyperkube-downloads &
 }
 
-pullContainerImage() {
-    CLI_TOOL=$1
-    CONTAINER_IMAGE_URL=$2
-    PULL_RETRIES=10
-    PULL_WAIT_SLEEP_SECONDS=1
-    PULL_TIMEOUT_SECONDS=600 # 10 minutes
-
-    echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL} with a timeout of ${PULL_TIMEOUT_SECONDS}s"
-
-    code=0
-    if [ "${CLI_TOOL,,}" = "ctr" ]; then
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS /opt/azure/containers/image-fetcher cache-image --image "$CONTAINER_IMAGE_URL" || code=$?
-    elif [ "${CLI_TOOL,,}" = "crictl" ]; then
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS crictl pull $CONTAINER_IMAGE_URL || code=$?
-    else
-        retrycmd_if_failure $PULL_RETRIES $PULL_WAIT_SLEEP_SECONDS $PULL_TIMEOUT_SECONDS docker pull $CONTAINER_IMAGE_URL || code=$?
-    fi
-
-    if [ "$code" -ne 0 ]; then
-        if [ "$code" -ne 124 ]; then
-            echo "failed to pull image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}, exit code: $code"
-            return $code
-        fi
-        echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ${CLI_TOOL}"
-        if [ "${CLI_TOOL,,}" = "ctr" ]; then
-            return $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT
-        elif [ "${CLI_TOOL,,}" = "crictl" ]; then
-            return $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT
-        else
-            return $ERR_CONTAINERD_DOCKER_IMG_PULL_TIMEOUT
-        fi
-    fi
-
-    echo "successfully pulled image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
-}
-
 retagContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
@@ -758,23 +681,6 @@ cleanUpKubeProxyImages() {
     echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
-cleanupRetaggedImages() {
-    if [ "${TARGET_CLOUD}" != "AzureChinaCloud" ]; then
-        if [ "${CLI_TOOL}" = "crictl" ]; then
-            images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -E '^mcr\.(azk8s|azure)\.cn/' | tr ' ' '\n') # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
-        else
-            images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -E '^mcr\.(azk8s|azure)\.cn/' | tr ' ' '\n')
-        fi
-        if [ -n "${images_to_delete}" ]; then
-            echo "${images_to_delete}" | while read -r image; do
-                removeContainerImage ${CLI_TOOL} ${image}
-            done
-        fi
-    else
-        echo "skipping container cleanup for AzureChinaCloud"
-    fi
-}
-
 cleanUpContainerImages() {
     export KUBERNETES_VERSION
     export CLI_TOOL
@@ -783,10 +689,6 @@ cleanUpContainerImages() {
     export -f cleanUpImages
     export -f cleanUpKubeProxyImages
     bash -c cleanUpKubeProxyImages &
-}
-
-cleanUpContainerd() {
-    rm -Rf $CONTAINERD_DOWNLOADS_DIR
 }
 
 getInstallModeAndCleanupContainerImages() {
@@ -815,17 +717,6 @@ getInstallModeAndCleanupContainerImages() {
     fi
 
     echo "${FULL_INSTALL_REQUIRED,,}"
-}
-
-overrideNetworkConfig() {
-    CONFIG_FILEPATH="/etc/cloud/cloud.cfg.d/80_azure_net_config.cfg"
-    mkdir -p "${CONFIG_FILEPATH%/*}"
-    touch ${CONFIG_FILEPATH}
-    cat <<EOF >>${CONFIG_FILEPATH}
-datasource:
-    Azure:
-        apply_network_config: false
-EOF
 }
 
 # ==== GPU driver functions ====

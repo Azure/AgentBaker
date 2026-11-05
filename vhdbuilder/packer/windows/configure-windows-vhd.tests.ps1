@@ -1,36 +1,119 @@
 BeforeAll {
-    # configure-windows-vhd.ps1 is the real VHD-provisioning script, not a pure function library:
-    # it has a top-level ". c:/k/windows-vhd-configuration.ps1" (only present on a real build VM)
-    # and, at the very end, an unconditional switch on $env:ProvisioningPhase that throws in its
-    # default branch. Both are executed top-to-bottom only *after* every function in the file has
-    # already been defined, so stripping the dot-source line and swallowing the expected trailing
-    # throw is sufficient to safely load every function for testing without needing a real VHD
-    # build context.
-    #
-    # The script also sets $ErrorActionPreference = "Stop" at its top level with no scoping, which
-    # otherwise leaks into the global session (confirmed: $ErrorActionPreference is "Continue"
-    # before this BeforeAll and "Stop" after) and breaks other, unrelated *.tests.ps1 files that
-    # run later in the same Pester/PowerShell process (e.g. in CI, where all of
-    # vhdbuilder/packer/windows/ plus windows-files-check.tests.ps1 run together) - save and
-    # restore it explicitly so this file's loading never has that side effect.
-    $originalErrorActionPreference = $ErrorActionPreference
-    $content = Get-Content "$PSScriptRoot\configure-windows-vhd.ps1" -Raw
-    $content = $content -replace [regex]::Escape(". c:/k/windows-vhd-configuration.ps1"), ""
-    try
-    {
-        Invoke-Expression $content
+    # Load only function definitions: the provisioning entry point also cleans host temp files.
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $PSScriptRoot 'configure-windows-vhd.ps1'), [ref]$null, [ref]$null)
+    foreach ($statement in $ast.EndBlock.Statements) {
+        if ($statement -is [System.Management.Automation.Language.FunctionDefinitionAst]) {
+            Invoke-Expression $statement.Extent.Text
+        }
     }
-    catch
-    {
-        # Expected: the trailing switch on $env:ProvisioningPhase (default branch) throws, and its
-        # own `finally` block calls Get-SystemDriveDiskInfo/Get-DefenderPreferenceInfo, which use
-        # Get-CimInstance and aren't available cross-platform (e.g. on Linux pwsh) - that failure
-        # can override the original exception. Either way, every function above that point in the
-        # file has already been defined by the time we get here, which is all this test file needs.
+}
+
+Describe 'Download-File' {
+    BeforeAll {
+        function global:curl.exe {}
     }
-    finally
-    {
-        $ErrorActionPreference = $originalErrorActionPreference
+
+    AfterAll {
+        $ExecutionContext.SessionState.InvokeProvider.Item.Remove("Function:\curl.exe", $false)
+    }
+
+    BeforeEach {
+        $script:originalCacheDir = $global:cacheDir
+        $global:cacheDir = $null
+        $script:downloadAttempts = 0
+        $script:curlExitCodes = @(0)
+
+        Mock Write-Log {}
+        Mock Log-VHDFreeSize {}
+        Mock Get-ChildItem {}
+        Mock Start-Sleep {}
+        Mock curl.exe {
+            if ($args -contains '--version') {
+                $global:LASTEXITCODE = 0
+                return
+            }
+            $global:LASTEXITCODE = $script:curlExitCodes[$script:downloadAttempts]
+            $script:downloadAttempts++
+        }
+    }
+
+    AfterEach {
+        $global:cacheDir = $script:originalCacheDir
+    }
+
+    It 'retries transport error <ExitCode> and returns after a successful download' -ForEach @(
+        @{ ExitCode = 5 }
+        @{ ExitCode = 6 }
+        @{ ExitCode = 7 }
+        @{ ExitCode = 16 }
+        @{ ExitCode = 18 }
+        @{ ExitCode = 35 }
+        @{ ExitCode = 52 }
+        @{ ExitCode = 55 }
+        @{ ExitCode = 56 }
+        @{ ExitCode = 92 }
+        @{ ExitCode = 95 }
+        @{ ExitCode = 96 }
+    ) {
+        $script:curlExitCodes = @($ExitCode, 0)
+
+        { Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' } | Should -Not -Throw
+
+        $script:downloadAttempts | Should -Be 2
+        Should -Invoke Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 1 }
+        Should -Invoke Get-ChildItem -Times 1 -Exactly
+    }
+
+    It 'stops after the transport retry budget and preserves the download exit code' {
+        $script:curlExitCodes = @(18, 18, 18)
+
+        { Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' -retryCount 2 } | Should -Throw "*Curl exited with '18'*"
+
+        $script:downloadAttempts | Should -Be 3
+        Should -Invoke Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 1 }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 2 }
+        Should -Invoke Get-ChildItem -Times 0 -Exactly
+    }
+
+    It 'uses the configured delay between transport retries' {
+        $script:curlExitCodes = @(18, 56, 0)
+
+        Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' -retryDelay 3
+
+        $script:downloadAttempts | Should -Be 3
+        Should -Invoke Start-Sleep -Times 2 -Exactly -ParameterFilter { $Seconds -eq 3 }
+    }
+
+    It 'does not retry transport errors when retries are disabled' {
+        $script:curlExitCodes = @(18)
+
+        { Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' -retryCount 0 } | Should -Throw "*Curl exited with '18'*"
+
+        $script:downloadAttempts | Should -Be 1
+        Should -Invoke Start-Sleep -Times 0 -Exactly
+    }
+
+    It 'does not add retries for permanent errors or exhausted native retries (exit <ExitCode>)' -ForEach @(
+        @{ ExitCode = 3 }
+        @{ ExitCode = 22 }
+        @{ ExitCode = 23 }
+        @{ ExitCode = 28 }
+        @{ ExitCode = 60 }
+    ) {
+        $script:curlExitCodes = @($ExitCode)
+
+        { Download-File -URL 'https://example.com/file.zip' -Dest 'out.zip' } | Should -Throw "*Curl exited with '$ExitCode'*"
+
+        $script:downloadAttempts | Should -Be 1
+        Should -Invoke Start-Sleep -Times 0 -Exactly
+    }
+
+    It 'retains the out-of-space diagnostic and redacts the final error URL' {
+        $script:curlExitCodes = @(23)
+
+        { Download-File -URL 'https://example.com/file.zip?token=secret' -Dest 'out.zip' -redactUrl } |
+            Should -Throw "Curl exited with '23' while attempting to download 'https://example.com/file.zip' to 'out.zip'. This often means VHD out of space."
     }
 }
 
@@ -101,6 +184,30 @@ Describe 'Download-FileWithAzCopy' {
 
             { Download-FileWithAzCopy -URL "https://privatestorageaccount.blob.core.windows.net/c/f.zip" -Dest (Join-Path $script:tempDir "out.zip") -RequireMSILogin } | Should -Throw "*azcopy copy*failed*"
         }
+    }
+}
+
+Describe 'Get-OrasDownloadUrl' {
+    It 'uses the specified DALEC revision <Revision>' -TestCases @(
+        @{ Revision = '1' }
+        @{ Revision = '12' }
+    ) {
+        param($Revision)
+        Get-OrasDownloadUrl -Version "1.3.6-${Revision}" | Should -Be "https://packages.aks.azure.com/dalec-packages/oras/1.3.6/windows/amd64/oras_1.3.6-${Revision}_amd64.zip"
+    }
+
+    It 'rejects a version without a package revision' {
+        { Get-OrasDownloadUrl -Version '1.3.6' } | Should -Throw '*including the DALEC revision*'
+    }
+
+    It 'matches the Windows component URL and package version' {
+        . "$PSScriptRoot\components_json_helpers.ps1"
+        $components = Get-Content "$PSScriptRoot\..\..\..\parts\common\components.json" -Raw | ConvertFrom-Json
+        $oras = $components.Packages | Where-Object { $_.name -eq 'oras' }
+        $part = $oras.downloadURIs.windows.default
+        $version = $part.versionsV2[0].latestVersion
+        $expectedUrl = ReplaceVarsInUrl -versionString $version -stringToReplace $part.downloadURL
+        Get-OrasDownloadUrl -Version $version | Should -Be $expectedUrl
     }
 }
 

@@ -99,15 +99,16 @@ func newCVMScenario(
 					nbc.AgentPoolProfile.LocalDNSProfile = nil
 				}
 			},
+			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+				cfg.VmSize = vmSize
+				if vhd.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
+					cfg.LocalDnsProfile = nil
+				}
+			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				configureConfidentialVM(vmss, vmSize, securityEncryptionType)
 			},
 		},
-	}
-	if vhd.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
-		s.AKSNodeConfigMutator = func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
-			cfg.LocalDnsProfile = nil
-		}
 	}
 	return s
 }

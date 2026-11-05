@@ -3,6 +3,7 @@ package scenario
 import (
 	"context"
 	"fmt"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -22,7 +23,10 @@ var _ = Register(&Scenario{
 		VHD:                    config.VHDUbuntu2404Gen2Containerd,
 		WaitForSSHAfterReboot:  10 * time.Minute,
 		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-		Validator:              validateNonTemporaryKubeletDiskAfterReboot,
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.KubeletConfig.KubeletDiskType = aksnodeconfigv1.KubeletDisk_KUBELET_DISK_OS_DISK
+		},
+		Validator: validateNonTemporaryKubeletDiskAfterReboot,
 	},
 })
 
@@ -39,6 +43,10 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			setARM64KubeletDiskVMSize(nbc)
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.VmSize = arm64KubeletDiskVMSize
+			cfg.KubeletConfig.KubeletDiskType = aksnodeconfigv1.KubeletDisk_KUBELET_DISK_OS_DISK
+		},
 		Validator: validateNonTemporaryKubeletDiskAfterReboot,
 	},
 })
@@ -53,6 +61,9 @@ var _ = Register(&Scenario{
 		WaitForSSHAfterReboot: 10 * time.Minute,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			setTemporaryKubeletDisk(nbc)
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.KubeletConfig.KubeletDiskType = aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
 		},
 		Validator: validateTemporaryKubeletDiskAfterReboot,
 	},
@@ -73,6 +84,10 @@ var _ = Register(&Scenario{
 			setARM64KubeletDiskVMSize(nbc)
 			setTemporaryKubeletDisk(nbc)
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.VmSize = arm64KubeletDiskVMSize
+			cfg.KubeletConfig.KubeletDiskType = aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
+		},
 		Validator: validateTemporaryKubeletDiskAfterReboot,
 	},
 })
@@ -85,7 +100,10 @@ var _ = Register(&Scenario{
 		VHD:                    config.VHDAzureLinuxV3Gen2,
 		WaitForSSHAfterReboot:  10 * time.Minute,
 		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
-		Validator:              validateNonTemporaryKubeletDiskAfterReboot,
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.KubeletConfig.KubeletDiskType = aksnodeconfigv1.KubeletDisk_KUBELET_DISK_OS_DISK
+		},
+		Validator: validateNonTemporaryKubeletDiskAfterReboot,
 	},
 })
 
@@ -102,6 +120,10 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			setARM64KubeletDiskVMSize(nbc)
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.VmSize = arm64KubeletDiskVMSize
+			cfg.KubeletConfig.KubeletDiskType = aksnodeconfigv1.KubeletDisk_KUBELET_DISK_OS_DISK
+		},
 		Validator: validateNonTemporaryKubeletDiskAfterReboot,
 	},
 })
@@ -116,6 +138,9 @@ var _ = Register(&Scenario{
 		WaitForSSHAfterReboot: 10 * time.Minute,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			setTemporaryKubeletDisk(nbc)
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.KubeletConfig.KubeletDiskType = aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
 		},
 		Validator: validateTemporaryKubeletDiskAfterReboot,
 	},
@@ -135,6 +160,10 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			setARM64KubeletDiskVMSize(nbc)
 			setTemporaryKubeletDisk(nbc)
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.VmSize = arm64KubeletDiskVMSize
+			cfg.KubeletConfig.KubeletDiskType = aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
 		},
 		Validator: validateTemporaryKubeletDiskAfterReboot,
 	},
