@@ -967,8 +967,9 @@ probeEgressEndpoint() {
 # Probes the regional *.data.mcr.microsoft.com endpoint this node is redirected to. Only the host
 # is kept, because the redirect carries a signed URL that must not reach telemetry. Discovery
 # failures, including a blocked mcr.microsoft.com, stay silent: the root probe reports those.
-# cse_main.sh runs under set -x, so traced assignments would write the signed redirect to
-# provisioning stderr. The capture runs in a subshell with xtrace off and returns only the host.
+# Provisioning scripts that source these helpers can run under set -x (cse_main.sh does), and traced
+# assignments would write the signed redirect to stderr. The capture runs in a subshell with xtrace off
+# and returns only the host.
 probeMcrDataEndpoint() {
     local host
     host=$(
@@ -989,11 +990,13 @@ probeMcrDataEndpoint() {
 # boots behind a firewall leaves a record in its provisioning telemetry. It records the result as
 # an event and always succeeds: the outbound check remains the only egress gate on provisioning.
 # Probes run in parallel with a single attempt each to keep provisioning time flat.
+# $1 is IMDS compute.azEnvironment. cse_start.sh passes it in because it calls this after deleting
+# the IMDS cache. An unknown or empty cloud records a skipped check.
 checkEgressEndpoints() {
     local az_environment start_time results_dir url i blocked level event_file eventsFileName
     local -a urls pids=()
     start_time=$(date +"%F %T.%3N")
-    az_environment=$(jq -r '.compute.azEnvironment // empty' "$IMDS_INSTANCE_METADATA_CACHE_FILE" 2>/dev/null | tr '[:lower:]' '[:upper:]')
+    az_environment=$(echo "${1:-}" | tr '[:lower:]' '[:upper:]')
     case "$az_environment" in
         AZURECLOUD | AZUREPUBLICCLOUD)
             urls=(https://mcr-0001.mcr-msedge.net https://mcr.microsoft.com https://login.microsoftonline.com https://management.azure.com https://packages.microsoft.com https://acs-mirror.azureedge.net/acs-mirror/healthz https://packages.aks.azure.com/acs-mirror/healthz) ;;

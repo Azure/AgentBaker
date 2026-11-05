@@ -61,6 +61,9 @@ JSON_STRING=$( jq -n \
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
+# The egress check below runs after this cache is deleted, so keep the cloud name it needs.
+EGRESS_AZ_ENVIRONMENT=$(jq -r '.compute.azEnvironment // empty' /opt/azure/containers/imds_instance_metadata_cache.json 2>/dev/null)
+
 # Cleanup cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json || true
 
@@ -128,6 +131,16 @@ fi
 # reports the result of a pre-provision run as well as a normal one. Image generalization removes
 # it before capture, so a node created from the image never inherits it.
 touch /opt/azure/containers/provision.complete
+
+# Telemetry only: records the endpoints node-problem-detector checks. It runs after provision.complete,
+# so it never delays kubelet or the aks-node-controller result, and `|| true` keeps it from changing
+# EXIT_CODE. A bake has no node to report on, and bootstrap-profile clusters have no outbound path by design.
+if [ "${PRE_PROVISION_ONLY}" != "true" ] && [ -n "${OUTBOUND_COMMAND}" ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
+    (
+        source "${CSE_HELPERS_FILEPATH:-/opt/azure/containers/provision_source.sh}" &&
+            checkEgressEndpoints "${EGRESS_AZ_ENVIRONMENT}"
+    ) >> /var/log/azure/cluster-provision.log 2>&1 || true
+fi
 
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs

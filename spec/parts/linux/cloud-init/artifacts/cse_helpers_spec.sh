@@ -1027,14 +1027,12 @@ EOF
             case "$*" in *redirect_url*) printf '%s' "${REDIRECT_URL-https://eastus.data.mcr.microsoft.com/blob?sig=SECRET}" ;; esac
             return 0
         }
-        # Runs the check against a sandboxed IMDS cache and events directory, then prints its event.
+        # Runs the check for the given cloud against a sandboxed events directory, then prints its event.
         run_check() {
             local root
             root=$(mktemp -d)
-            IMDS_INSTANCE_METADATA_CACHE_FILE="${root}/imds.json"
             EVENTS_LOGGING_DIR="${root}/events/"
-            printf '{"compute":{"azEnvironment":"%s"}}' "$1" > "${IMDS_INSTANCE_METADATA_CACHE_FILE}"
-            checkEgressEndpoints || echo "unexpected failure"
+            checkEgressEndpoints "$1" || echo "unexpected failure"
             jq -c '{level: .EventLevel, task: .TaskName, message: (.Message | fromjson)}' "${root}"/events/*.json
             rm -rf "${root}"
         }
@@ -1050,7 +1048,7 @@ EOF
 
         It 'records a blocked MCR data endpoint by host only, without tracing the signed query'
             FAIL_HOSTS="eastus.data.mcr.microsoft.com"
-            # Trace like cse_main.sh (set -x), but in a subshell so tracing cannot leak into ShellSpec and hang it.
+            # Trace with set -x, but in a subshell so tracing cannot leak into ShellSpec and hang it.
             When call eval '( set -x; run_check AzurePublicCloud )'
             # Under kcov, its PS4 markers can land in the captured curl error, so match the parts that matter.
             The output should include '"level":"Error"'
