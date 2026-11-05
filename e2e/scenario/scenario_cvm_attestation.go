@@ -1,0 +1,791 @@
+package scenario
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha512"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/golang-jwt/jwt/v5"
+)
+
+const (
+	cvmAttestationToolsCommit = "26755c86f5034605d41053bfe0e1a7f8ae68b23b"
+	cvmAttestationIssuer      = "https://sharedwus.wus.attest.azure.net"
+	cvmAttestationTokenMax    = 128 * 1024
+	cvmCollectorSSHTimeout    = 9 * time.Minute
+)
+
+var (
+	cvmDiagnosticJWT  = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b`)
+	cvmDiagnosticBlob = regexp.MustCompile(`[A-Za-z0-9_+/=-]{80,}`)
+)
+
+type cvmAttestationSummary struct {
+	Platform          cvmPlatform    `json:"platform"`
+	Issuer            string         `json:"issuer"`
+	AttestationType   string         `json:"attestationType"`
+	ComplianceStatus  string         `json:"complianceStatus"`
+	SecureBoot        bool           `json:"secureBoot"`
+	VTPM              bool           `json:"vTPM"`
+	IssuedAt          any            `json:"issuedAt"`
+	NotBefore         any            `json:"notBefore"`
+	ExpiresAt         any            `json:"expiresAt"`
+	UserDataDigest    string         `json:"userDataDigest"`
+	AttesterTCBStatus string         `json:"attesterTcbStatus,omitempty"`
+	DebugStatus       any            `json:"debugStatus,omitempty"`
+	PolicyClaims      map[string]any `json:"policyClaims"`
+}
+
+type cvmAttestationError struct {
+	err      error
+	check    string
+	observed any
+}
+
+func (failure *cvmAttestationError) Error() string { return failure.err.Error() }
+func (failure *cvmAttestationError) Unwrap() error { return failure.err }
+
+func cvmAttestationStatus(err error) string {
+	if err == nil {
+		return cvmStatusPassed
+	}
+	var failure *cvmAttestationError
+	if errors.As(err, &failure) {
+		return cvmStatusFailed
+	}
+	return cvmStatusUnableToVerify
+}
+
+//nolint:nonamedreturns // Cleanup errors must augment the result without discarding verified evidence.
+func validateCVMAttestation(ctx context.Context, s *Scenario, platform cvmPlatform) (summary *cvmAttestationSummary, retErr error) {
+	defer logging.LogStep(ctx, "validating CVM attestation")()
+	if platform != cvmPlatformSEVSNP && platform != cvmPlatformTDX {
+		return nil, fmt.Errorf("unsupported CVM platform %q", platform)
+	}
+	if s == nil || s.Runtime == nil || s.Runtime.VM == nil {
+		return nil, errors.New("CVM attestation requires a scenario VM")
+	}
+
+	nonce, err := randomHex(32)
+	if err != nil {
+		return nil, fmt.Errorf("generate attestation nonce: %w", err)
+	}
+	remoteSuffix, err := randomHex(16)
+	if err != nil {
+		return nil, fmt.Errorf("generate attestation workspace name: %w", err)
+	}
+	remoteDir := "/tmp/agentbaker-cvm-attestation-" + remoteSuffix
+	tokenPath := remoteDir + "/token.jwt"
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		if cleanupErr := cleanupCVMWorkspace(cleanupCtx, s, remoteDir, dialScenarioSSHOverBastion); cleanupErr != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("clean up CVM attestation workspace: %w", cleanupErr))
+		}
+	}()
+
+	collectorCtx, cancel := context.WithTimeout(ctx, cvmCollectorSSHTimeout)
+	defer cancel()
+	result, err := execScriptOnVm(collectorCtx, s, s.Runtime.VM, cvmAttestationCollectorScript(platform, nonce, remoteDir))
+	if result != nil {
+		retErr = errors.Join(retErr, writeCVMDiagnosticArtifact(s, "cvm/attestation-output-redacted.log", result.String()))
+	}
+	if err != nil {
+		return nil, errors.Join(retErr, fmt.Errorf("run CVM attestation collector: %w; %s", err, cvmCollectorDiagnostics(result)))
+	}
+	if result == nil {
+		return nil, errors.Join(retErr, errors.New("CVM attestation collector returned no result"))
+	}
+	if result.exitCode != "0" {
+		return nil, errors.Join(retErr, fmt.Errorf("CVM attestation collector exited with code %s: %s; see cvm/attestation-output-redacted.log",
+			result.exitCode, cvmCollectorDiagnostics(result)))
+	}
+
+	tokenBytes, err := copyFileFromVM(ctx, s, tokenPath, cvmAttestationTokenMax)
+	if err != nil {
+		return nil, errors.Join(retErr, fmt.Errorf("retrieve CVM attestation token: %w", err))
+	}
+	defer clear(tokenBytes)
+	token := strings.TrimSpace(string(tokenBytes))
+	if token == "" {
+		return nil, errors.Join(retErr, errors.New("CVM attestation collector returned an empty token"))
+	}
+
+	summary, err = verifyCVMAttestationToken(ctx, &http.Client{Timeout: 30 * time.Second}, token, cvmAttestationIssuer, platform, nonce)
+	if err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("verify CVM attestation token: %w", err))
+	}
+	claimsJSON, err := json.MarshalIndent(summary, "", "  ")
+	if err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("serialize verified CVM attestation claims: %w", err))
+	}
+	if err = writeToFile(s.artifactName, "cvm/attestation-claims.json", string(claimsJSON)+"\n"); err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("write verified CVM attestation claims: %w", err))
+	}
+	summaryJSON, err := json.MarshalIndent(cvmAttestationVerdicts(summary), "", "  ")
+	if err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("serialize CVM attestation summary: %w", err))
+	}
+	if err = writeToFile(s.artifactName, "cvm-attestation-summary.json", string(summaryJSON)+"\n"); err != nil {
+		return summary, errors.Join(retErr, fmt.Errorf("write CVM attestation summary: %w", err))
+	}
+	return summary, retErr
+}
+
+func cleanupCVMWorkspace(ctx context.Context, s *Scenario, remoteDir string, dial func(context.Context, *Scenario) (*SSHClient, error)) error {
+	script := "sudo rm -rf -- " + shellSingleQuote(remoteDir)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, script)
+	if err != nil && ctx.Err() == nil {
+		logging.Logf(ctx, "CVM workspace cleanup SSH failed; reconnecting: %v", err)
+		cleanupBastionTunnel(s.Runtime.VM.SSHClient)
+		s.Runtime.VM.SSHClient = nil
+		if reconnectErr := ensureScenarioSSHClient(ctx, s, dial); reconnectErr != nil {
+			return errors.Join(err, fmt.Errorf("reconnect for CVM workspace cleanup: %w", reconnectErr))
+		}
+		result, err = execScriptOnVm(ctx, s, s.Runtime.VM, script)
+	}
+	if err != nil {
+		return err
+	}
+	if result == nil {
+		return errors.New("remote cleanup returned no result")
+	}
+	if result.exitCode != "0" {
+		return fmt.Errorf("remote cleanup exited with code %s: %s", result.exitCode, redactCVMDiagnostics(result.stderr))
+	}
+	return nil
+}
+
+func redactCVMDiagnostics(output string) string {
+	output = cvmDiagnosticJWT.ReplaceAllString(output, "[redacted JWT]")
+	output = cvmDiagnosticBlob.ReplaceAllString(output, "[redacted encoded data]")
+	return strings.Map(func(r rune) rune {
+		if r < 32 && r != '\n' && r != '\t' || r == 127 {
+			return -1
+		}
+		return r
+	}, output)
+}
+
+func cvmCollectorDiagnostics(result *podExecResult) string {
+	if result == nil {
+		return "no remote output was available"
+	}
+	output := strings.TrimSpace(redactCVMDiagnostics(result.stderr + "\n" + result.stdout))
+	var diagnostics []string
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "[cvm-collector]") || strings.Contains(line, "attestation collector failed:") {
+			diagnostics = append(diagnostics, strings.TrimSpace(line))
+		}
+	}
+	if len(diagnostics) > 0 {
+		output = strings.Join(diagnostics[max(0, len(diagnostics)-3):], "; ")
+	}
+	if output == "" {
+		return "no remote diagnostics were available"
+	}
+	if len(output) > 1200 {
+		output = output[:1200] + " [truncated]"
+	}
+	return output
+}
+
+func randomHex(size int) (string, error) {
+	value := make([]byte, size)
+	if _, err := rand.Read(value); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(value), nil
+}
+
+func cvmAttestationCollectorScript(platform cvmPlatform, nonce, remoteDir string) string {
+	endpoint := cvmAttestationIssuer + "/attest/SevSnpVm?api-version=2022-08-01"
+	if platform == cvmPlatformTDX {
+		endpoint = cvmAttestationIssuer + "/attest/TdxVm?api-version=2023-04-01-preview"
+	}
+	replacer := strings.NewReplacer(
+		"@@PLATFORM@@", string(platform),
+		"@@NONCE@@", nonce,
+		"@@REMOTE_DIR@@", remoteDir,
+		"@@ENDPOINT@@", endpoint,
+		"@@COMMIT@@", cvmAttestationToolsCommit,
+	)
+	return replacer.Replace(cvmAttestationCollectorScriptTemplate)
+}
+
+const cvmAttestationCollectorScriptTemplate = `#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v timeout >/dev/null; then
+  echo '[cvm-collector] phase=prerequisites status=failed: GNU timeout is required' >&2
+  exit 1
+fi
+
+sudo timeout --verbose --signal=TERM --kill-after=10s 480s \
+  bash -s -- "$(id -u):$(id -g)" <<'CVM_COLLECTOR'
+set -euo pipefail
+umask 077
+phase=prerequisites
+trap 'printf "[cvm-collector] phase=%s status=failed exit_code=%s elapsed_seconds=%s\n" "$phase" "$?" "$SECONDS" >&2' ERR
+trap 'printf "[cvm-collector] phase=%s status=timed_out elapsed_seconds=%s\n" "$phase" "$SECONDS" >&2; exit 124' TERM
+mark_phase() {
+  phase="$1"
+  printf '[cvm-collector] phase=%s status=started elapsed_seconds=%s\n' "$phase" "$SECONDS" >&2
+}
+
+work_dir="@@REMOTE_DIR@@"
+repo_dir="${work_dir}/repo"
+deps_dir="${work_dir}/deps"
+token_path="${work_dir}/token.jwt"
+token_owner="$1"
+mkdir -p "${work_dir}"
+chown -- "${token_owner}" "${work_dir}"
+
+mark_phase prerequisites
+if ! command -v git >/dev/null || ! command -v python3 >/dev/null ||
+   ! python3 -m pip --version >/dev/null 2>&1 || ! command -v tpm2_pcrread >/dev/null; then
+  if command -v apt-get >/dev/null; then
+    env DEBIAN_FRONTEND=noninteractive apt-get update -qq
+    env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git python3 python3-pip tpm2-tools ca-certificates coreutils
+  elif command -v dnf >/dev/null; then
+    dnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
+  elif command -v tdnf >/dev/null; then
+    tdnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
+  else
+    echo "no supported package manager found" >&2
+    exit 1
+  fi
+fi
+
+mark_phase tools-download
+git init --quiet "${repo_dir}"
+git -C "${repo_dir}" remote add origin https://github.com/Azure/cvm-attestation-tools.git
+git -C "${repo_dir}" fetch --quiet --depth 1 origin "@@COMMIT@@"
+git -C "${repo_dir}" checkout --quiet --detach FETCH_HEAD
+mark_phase python-dependencies
+python3 -m pip install --quiet --disable-pip-version-check --target "${deps_dir}" \
+  'requests==2.31.0; python_version < "3.10"' \
+  'requests==2.34.2; python_version >= "3.10"' \
+  'PyJWT==2.8.0; python_version < "3.9"' \
+  'PyJWT==2.15.1; python_version >= "3.9"' \
+  'cryptography==42.0.8; python_version < "3.9"' \
+  'cryptography==50.0.2; python_version >= "3.9"' \
+  construct==2.10.70
+
+mark_phase attestation
+# Keep Python in the outer timeout's process group so its deadline kills the entire collector.
+timeout --foreground --verbose --signal=TERM --kill-after=10s 180s env \
+  PYTHONPATH="${deps_dir}:${repo_dir}/cvm-attestation" \
+  python3 - "@@PLATFORM@@" "@@NONCE@@" "${token_path}" "@@ENDPOINT@@" <<'PY'
+import json
+import os
+import re
+import sys
+
+from src.attestation_provider import MAAProvider
+from src.encoder import Encoder
+from src.imds_client import ImdsClient
+from src.isolation import IsolationType
+from src.report_parser import ReportParser
+from src.tpm_wrapper import TssWrapper
+
+
+def safe_text(value):
+    text = re.sub(r"\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b",
+                  "[redacted JWT]", str(value))
+    text = re.sub(r"[A-Za-z0-9_+/=-]{80,}", "[redacted encoded data]", text)
+    text = re.sub(r"[\x00-\x1f\x7f]", " ", text)
+    return " ".join(text.split())[:1024]
+
+
+def report_phase(name):
+    print(f"[cvm-collector] phase={name}", file=sys.stderr, flush=True)
+
+
+class DiagnosticLogger:
+    def debug(self, *_args, **_kwargs):
+        pass
+
+    def info(self, message, *_args, **_kwargs):
+        if message == "Sending attestation request to provider..." or message.startswith("Retrying in "):
+            print(f"[cvm-collector] phase=maa-request {safe_text(message)}",
+                  file=sys.stderr, flush=True)
+
+    def warning(self, message, *_args, **_kwargs):
+        print(f"[cvm-collector] warning: {safe_text(message)}",
+              file=sys.stderr, flush=True)
+
+    def error(self, message, *_args, **_kwargs):
+        if message.startswith("Request payload:"):
+            return
+        if message.startswith("Failed to verify evidence due to invalid collateral, error:"):
+            message = "phase=maa-request HTTP 400: " + message
+        print(f"[cvm-collector] error: {safe_text(message)}",
+              file=sys.stderr, flush=True)
+
+
+def main():
+    platform, nonce, token_path, endpoint = sys.argv[1:]
+    isolation_type = {
+        "sevsnp": IsolationType.SEV_SNP,
+        "tdx": IsolationType.TDX,
+    }[platform]
+    claims = {"user-claims": {"nonce": nonce}}
+    logger = DiagnosticLogger()
+    report_phase("tpm-report")
+    tss = TssWrapper(logger)
+    hcl_report = tss.get_hcl_report(claims)
+    report_type = ReportParser.extract_report_type(hcl_report)
+    if report_type != isolation_type:
+        raise RuntimeError(f"expected {isolation_type.name} report, got {report_type.name}")
+
+    runtime_data = ReportParser.extract_runtimes_data(hcl_report)
+    hardware_report = ReportParser.extract_hw_report(hcl_report)
+    encoded_report = Encoder.base64url_encode(hardware_report)
+    imds = ImdsClient(logger)
+    report_phase("imds-evidence")
+    if isolation_type == IsolationType.TDX:
+        encoded_evidence = imds.get_td_quote(encoded_report)
+    else:
+        cert_chain = imds.get_vcek_certificate()
+        snp_report = json.dumps({
+            "SnpReport": encoded_report,
+            "VcekCertChain": Encoder.base64url_encode(cert_chain),
+        }).encode("utf-8")
+        encoded_evidence = Encoder.base64url_encode(snp_report)
+
+    report_phase("maa-request")
+    provider = MAAProvider(logger, isolation_type, endpoint)
+    token = provider.attest_platform(encoded_evidence, Encoder.base64url_encode(runtime_data))
+    if not token:
+        raise RuntimeError("attestation provider returned no token")
+
+    report_phase("token-write")
+    fd = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as token_file:
+        token_file.write(token)
+        token_file.write("\n")
+
+
+try:
+    main()
+except Exception as exc:
+    print(f"attestation collector failed: {type(exc).__name__}: {safe_text(exc)}", file=sys.stderr)
+    sys.exit(1)
+PY
+
+mark_phase token-ownership
+chown -- "${token_owner}" "${token_path}"
+printf 'attestation collector completed for %s\n' "@@PLATFORM@@"
+printf '[cvm-collector] phase=complete status=passed elapsed_seconds=%s\n' "$SECONDS" >&2
+CVM_COLLECTOR
+`
+
+func verifyCVMAttestationToken(
+	ctx context.Context,
+	client *http.Client,
+	encodedToken string,
+	expectedIssuer string,
+	platform cvmPlatform,
+	nonce string,
+) (*cvmAttestationSummary, error) {
+	issuerURL, err := url.Parse(expectedIssuer)
+	if err != nil || issuerURL.Scheme != "https" || issuerURL.Host == "" || issuerURL.Path != "" {
+		return nil, fmt.Errorf("invalid expected attestation issuer %q", expectedIssuer)
+	}
+
+	unverifiedClaims := jwt.MapClaims{}
+	unverifiedToken, _, err := jwt.NewParser().ParseUnverified(encodedToken, unverifiedClaims)
+	if err != nil {
+		return nil, &cvmAttestationError{err: fmt.Errorf("parse token header: %w", err)}
+	}
+	if unverifiedToken.Method.Alg() != jwt.SigningMethodRS256.Alg() {
+		return nil, &cvmAttestationError{err: fmt.Errorf("unexpected signing algorithm %q", unverifiedToken.Method.Alg())}
+	}
+	keyID, ok := unverifiedToken.Header["kid"].(string)
+	if !ok || keyID == "" {
+		return nil, &cvmAttestationError{err: errors.New("attestation token has no signing key ID")}
+	}
+	expectedJWKSURL := expectedIssuer + "/certs"
+	if jku, ok := unverifiedToken.Header["jku"].(string); !ok || jku != expectedJWKSURL {
+		return nil, &cvmAttestationError{err: errors.New("unexpected attestation signing keys URL")}
+	}
+
+	publicKey, err := fetchMAASigningKey(ctx, client, expectedIssuer, expectedJWKSURL, keyID)
+	if err != nil {
+		return nil, err
+	}
+	claims := jwt.MapClaims{}
+	parsedToken, err := jwt.NewParser(
+		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
+		jwt.WithIssuer(expectedIssuer),
+		jwt.WithExpirationRequired(),
+		jwt.WithIssuedAt(),
+		jwt.WithLeeway(5*time.Minute),
+	).ParseWithClaims(encodedToken, claims, func(*jwt.Token) (any, error) {
+		return publicKey, nil
+	})
+	if err != nil {
+		return nil, &cvmAttestationError{err: fmt.Errorf("validate signature and registered claims: %w", err)}
+	}
+	if !parsedToken.Valid {
+		return nil, &cvmAttestationError{err: errors.New("attestation token is invalid")}
+	}
+
+	return validateCVMAttestationClaims(claims, platform, nonce)
+}
+
+func fetchMAASigningKey(
+	ctx context.Context,
+	client *http.Client,
+	expectedIssuer string,
+	expectedJWKSURL string,
+	keyID string,
+) (*rsa.PublicKey, error) {
+	var metadata struct {
+		Issuer                     string   `json:"issuer"`
+		JWKSURI                    string   `json:"jwks_uri"`
+		SigningAlgorithmsSupported []string `json:"id_token_signing_alg_values_supported"`
+	}
+	metadataURL := expectedIssuer + "/.well-known/openid-configuration?api-version=2025-06-01"
+	if err := getJSON(ctx, client, metadataURL, &metadata); err != nil {
+		return nil, fmt.Errorf("get MAA OpenID metadata: %w", err)
+	}
+	if metadata.Issuer != expectedIssuer {
+		return nil, fmt.Errorf("OpenID metadata issuer %q does not match %q", metadata.Issuer, expectedIssuer)
+	}
+	if metadata.JWKSURI != expectedJWKSURL {
+		return nil, fmt.Errorf("OpenID metadata signing keys URL %q does not match %q", metadata.JWKSURI, expectedJWKSURL)
+	}
+	if !slicesContains(metadata.SigningAlgorithmsSupported, jwt.SigningMethodRS256.Alg()) {
+		return nil, errors.New("OpenID metadata does not advertise RS256")
+	}
+
+	var keySet struct {
+		Keys []struct {
+			KeyID   string   `json:"kid"`
+			KeyType string   `json:"kty"`
+			X5C     []string `json:"x5c"`
+		} `json:"keys"`
+	}
+	if err := getJSON(ctx, client, expectedJWKSURL, &keySet); err != nil {
+		return nil, fmt.Errorf("get MAA signing keys: %w", err)
+	}
+	for _, key := range keySet.Keys {
+		if key.KeyID != keyID {
+			continue
+		}
+		if key.KeyType != "RSA" || len(key.X5C) == 0 {
+			return nil, fmt.Errorf("MAA signing key %q has no RSA certificate", keyID)
+		}
+		certificateDER, err := base64.StdEncoding.DecodeString(key.X5C[0])
+		if err != nil {
+			return nil, fmt.Errorf("decode MAA signing certificate: %w", err)
+		}
+		certificate, err := x509.ParseCertificate(certificateDER)
+		if err != nil {
+			return nil, fmt.Errorf("parse MAA signing certificate: %w", err)
+		}
+		now := time.Now()
+		if now.Before(certificate.NotBefore) || now.After(certificate.NotAfter) {
+			return nil, fmt.Errorf("MAA signing certificate %q is not currently valid", keyID)
+		}
+		publicKey, ok := certificate.PublicKey.(*rsa.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("MAA signing certificate %q does not contain an RSA key", keyID)
+		}
+		return publicKey, nil
+	}
+	return nil, fmt.Errorf("MAA signing key %q was not found", keyID)
+}
+
+func getJSON(ctx context.Context, client *http.Client, endpoint string, output any) error {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 64*1024))
+		return fmt.Errorf("GET %s returned %s", endpoint, response.Status)
+	}
+	decoder := json.NewDecoder(io.LimitReader(response.Body, 1024*1024))
+	if err := decoder.Decode(output); err != nil {
+		return fmt.Errorf("decode response from %s: %w", endpoint, err)
+	}
+	return nil
+}
+
+func validateCVMAttestationClaims(claims jwt.MapClaims, platform cvmPlatform, nonce string) (*cvmAttestationSummary, error) {
+	summary, err := parseCVMAttestationClaims(claims, platform, nonce)
+	if err != nil {
+		var failure *cvmAttestationError
+		if !errors.As(err, &failure) {
+			err = &cvmAttestationError{err: err}
+		}
+	}
+	return summary, err
+}
+
+func parseCVMAttestationClaims(claims jwt.MapClaims, platform cvmPlatform, nonce string) (*cvmAttestationSummary, error) {
+	runtimeData, ok := claims["x-ms-runtime"].(map[string]any)
+	if !ok {
+		return nil, errors.New("attestation token has no x-ms-runtime object")
+	}
+	userDataDigest, ok := runtimeData["user-data"].(string)
+	if !ok || userDataDigest == "" {
+		return nil, errors.New("attestation token has no x-ms-runtime.user-data digest")
+	}
+	expectedDigest := cvmNonceDigest(nonce)
+	if !strings.EqualFold(userDataDigest, expectedDigest) {
+		return nil, errors.New("attestation token user-data digest does not match the scenario nonce")
+	}
+
+	expectedType := expectedCVMAttestationType(platform)
+	attestationType, err := requiredStringClaim(claims, "x-ms-attestation-type")
+	if err != nil {
+		return nil, err
+	}
+	if attestationType != expectedType {
+		return nil, &cvmAttestationError{
+			err:   fmt.Errorf("expected attestation type %q, got %q", expectedType, attestationType),
+			check: cvmCheckAttestationType, observed: attestationType,
+		}
+	}
+	complianceStatus, err := requiredStringClaim(claims, "x-ms-compliance-status")
+	if err != nil {
+		return nil, err
+	}
+	if complianceStatus != "azure-compliant-cvm" {
+		return nil, &cvmAttestationError{
+			err:   fmt.Errorf("unexpected compliance status %q", complianceStatus),
+			check: cvmCheckCompliance, observed: complianceStatus,
+		}
+	}
+	vmConfiguration, ok := runtimeData["vm-configuration"].(map[string]any)
+	if !ok {
+		return nil, errors.New("attestation token has no x-ms-runtime.vm-configuration object")
+	}
+	secureBoot, ok := vmConfiguration["secure-boot"].(bool)
+	if !ok {
+		return nil, errors.New("attestation token does not assert Secure Boot is enabled")
+	}
+	if !secureBoot {
+		return nil, &cvmAttestationError{
+			err:   errors.New("attestation token does not assert Secure Boot is enabled"),
+			check: cvmCheckSecureBoot, observed: false,
+		}
+	}
+	vtpm, ok := vmConfiguration["tpm-enabled"].(bool)
+	if !ok {
+		return nil, errors.New("attestation token does not assert vTPM is enabled")
+	}
+	if !vtpm {
+		return nil, &cvmAttestationError{
+			err:   errors.New("attestation token does not assert vTPM is enabled"),
+			check: cvmCheckVTPM, observed: false,
+		}
+	}
+
+	summary := &cvmAttestationSummary{
+		Platform:         platform,
+		Issuer:           claimString(claims, "iss"),
+		AttestationType:  attestationType,
+		ComplianceStatus: complianceStatus,
+		SecureBoot:       secureBoot,
+		VTPM:             vtpm,
+		IssuedAt:         claims["iat"],
+		NotBefore:        claims["nbf"],
+		ExpiresAt:        claims["exp"],
+		UserDataDigest:   strings.ToUpper(userDataDigest),
+		PolicyClaims:     make(map[string]any),
+	}
+	switch platform {
+	case cvmPlatformSEVSNP:
+		err = validateCVMSNPPolicyClaims(claims, summary)
+	case cvmPlatformTDX:
+		err = validateCVMTDXPolicyClaims(claims, summary)
+	default:
+		return nil, fmt.Errorf("unsupported CVM platform %q", platform)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return summary, nil
+}
+
+func validateCVMSNPPolicyClaims(claims jwt.MapClaims, summary *cvmAttestationSummary) error {
+	debuggable, ok := claims["x-ms-sevsnpvm-is-debuggable"].(bool)
+	if !ok || debuggable {
+		return errors.New("SEV-SNP attestation token does not assert a non-debuggable VM")
+	}
+	if vmpl, err := requiredNumberClaim(claims, "x-ms-sevsnpvm-vmpl"); err != nil || vmpl != 0 {
+		return errors.New("SEV-SNP attestation token must assert VMPL 0")
+	}
+	migrationAllowed, ok := claims["x-ms-sevsnpvm-migration-allowed"].(bool)
+	if !ok || migrationAllowed {
+		return errors.New("SEV-SNP attestation token does not assert migration is disabled")
+	}
+	if _, ok := claims["x-ms-sevsnpvm-smt-allowed"].(bool); !ok {
+		return errors.New("SEV-SNP attestation token has no SMT policy claim")
+	}
+	for _, claim := range []string{
+		"x-ms-sevsnpvm-bootloader-svn",
+		"x-ms-sevsnpvm-guestsvn",
+		"x-ms-sevsnpvm-microcode-svn",
+		"x-ms-sevsnpvm-snpfw-svn",
+		"x-ms-sevsnpvm-tee-svn",
+	} {
+		if _, err := requiredNumberClaim(claims, claim); err != nil {
+			return err
+		}
+		summary.PolicyClaims[claim] = claims[claim]
+	}
+	for _, claim := range []string{"x-ms-sevsnpvm-launchmeasurement", "x-ms-sevsnpvm-reportdata"} {
+		if _, err := requiredStringClaim(claims, claim); err != nil {
+			return err
+		}
+		summary.PolicyClaims[claim] = claims[claim]
+	}
+	summary.PolicyClaims["x-ms-sevsnpvm-vmpl"] = claims["x-ms-sevsnpvm-vmpl"]
+	summary.PolicyClaims["x-ms-sevsnpvm-migration-allowed"] = migrationAllowed
+	summary.PolicyClaims["x-ms-sevsnpvm-smt-allowed"] = claims["x-ms-sevsnpvm-smt-allowed"]
+	summary.PolicyClaims["x-ms-sevsnpvm-is-debuggable"] = debuggable
+	summary.DebugStatus = debuggable
+	return nil
+}
+
+func validateCVMTDXPolicyClaims(claims jwt.MapClaims, summary *cvmAttestationSummary) error {
+	tcbStatus, err := requiredStringClaim(claims, "attester_tcb_status")
+	if err != nil {
+		return err
+	}
+	if tcbStatus != "UpToDate" {
+		return fmt.Errorf("unexpected TDX attester TCB status %q", tcbStatus)
+	}
+	debugStatus, err := requiredStringClaim(claims, "dbgstat")
+	if err != nil {
+		return err
+	}
+	if debugStatus != "disabled" {
+		return fmt.Errorf("unexpected TDX debug status %q", debugStatus)
+	}
+	if debugAttribute, ok := claims["tdx_td_attributes_debug"].(bool); !ok || debugAttribute {
+		return errors.New("TDX attestation token does not assert the TD debug attribute is disabled")
+	}
+	for _, claim := range []string{
+		"tdx_tee_tcb_svn",
+		"tdx_mrseam",
+		"tdx_mrtd",
+		"tdx_report_data",
+		"tdx_rtmr0",
+		"tdx_rtmr1",
+		"tdx_rtmr2",
+		"tdx_rtmr3",
+	} {
+		if _, err := requiredStringClaim(claims, claim); err != nil {
+			return err
+		}
+		summary.PolicyClaims[claim] = claims[claim]
+	}
+	summary.PolicyClaims["attester_tcb_status"] = tcbStatus
+	summary.PolicyClaims["dbgstat"] = debugStatus
+	summary.PolicyClaims["tdx_td_attributes_debug"] = false
+	summary.AttesterTCBStatus = tcbStatus
+	summary.DebugStatus = debugStatus
+	return nil
+}
+
+func cvmAttestationVerdicts(summary *cvmAttestationSummary) []map[string]cvmAttestationVerdict {
+	claimsPath := "cvm/attestation-claims.json"
+	return []map[string]cvmAttestationVerdict{{
+		"attestation": {
+			Passed: new(true),
+			Status: cvmStatusPassed,
+		},
+		cvmCheckCompliance: {
+			Status:   cvmStatusPassed,
+			Passed:   new(summary.ComplianceStatus == "azure-compliant-cvm"),
+			Observed: summary.ComplianceStatus,
+			Evidence: &cvmEvidence{Path: claimsPath, Claim: "/complianceStatus"},
+		},
+		cvmCheckAttestationType: {
+			Status:   cvmStatusPassed,
+			Passed:   new(summary.AttestationType == expectedCVMAttestationType(summary.Platform)),
+			Observed: summary.AttestationType,
+			Evidence: &cvmEvidence{Path: claimsPath, Claim: "/attestationType"},
+		},
+		cvmCheckSecureBoot: {
+			Status:   cvmStatusPassed,
+			Passed:   new(summary.SecureBoot),
+			Observed: summary.SecureBoot,
+			Evidence: &cvmEvidence{Path: claimsPath, Claim: "/secureBoot"},
+		},
+		cvmCheckVTPM: {
+			Status:   cvmStatusPassed,
+			Passed:   new(summary.VTPM),
+			Observed: summary.VTPM,
+			Evidence: &cvmEvidence{Path: claimsPath, Claim: "/vTPM"},
+		},
+	}}
+}
+
+func expectedCVMAttestationType(platform cvmPlatform) string {
+	if platform == cvmPlatformTDX {
+		return "tdxvm"
+	}
+	return "sevsnpvm"
+}
+
+func cvmNonceDigest(nonce string) string {
+	serializedClaims := fmt.Sprintf(`{"user-claims": {"nonce": "%s"}}`, nonce)
+	digest := sha512.Sum512([]byte(serializedClaims))
+	return strings.ToUpper(hex.EncodeToString(digest[:]))
+}
+
+func requiredStringClaim(claims jwt.MapClaims, name string) (string, error) {
+	value, ok := claims[name].(string)
+	if !ok || value == "" {
+		return "", fmt.Errorf("attestation token has no %s claim", name)
+	}
+	return value, nil
+}
+
+func requiredNumberClaim(claims jwt.MapClaims, name string) (float64, error) {
+	value, ok := claims[name].(float64)
+	if !ok {
+		return 0, fmt.Errorf("attestation token has no numeric %s claim", name)
+	}
+	return value, nil
+}
+
+func claimString(claims jwt.MapClaims, name string) string {
+	value, _ := claims[name].(string)
+	return value
+}
+
+func slicesContains(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}

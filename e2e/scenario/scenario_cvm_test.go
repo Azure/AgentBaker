@@ -17,6 +17,7 @@ func TestNewCVMScenarioUsesWestUSAndDefaultValidation(t *testing.T) {
 		config.VHDUbuntu2404CVMGen2Containerd,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	)
@@ -25,7 +26,7 @@ func TestNewCVMScenarioUsesWestUSAndDefaultValidation(t *testing.T) {
 	assert.True(t, s.Tags.CVM)
 	assert.Equal(t, config.VHDUbuntu2404CVMGen2Containerd, s.VHD)
 	assert.False(t, s.SkipDefaultValidation)
-	assert.Nil(t, s.Validator)
+	assert.NotNil(t, s.Validator)
 
 	nbc := &datamodel.NodeBootstrappingConfiguration{
 		AgentPoolProfile: &datamodel.AgentPoolProfile{},
@@ -80,21 +81,30 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 		assert.Equal(t, want.vhd, s.VHD)
 		assert.Equal(t, want.useNVMe, s.UseNVMe)
 		assert.False(t, s.SkipDefaultValidation)
-		assert.Nil(t, s.Validator)
+		if want.vhd == config.VHDACLCVMGen2 {
+			assert.Nil(t, s.Validator, "ACL must retain standard-only validation")
+		} else {
+			assert.NotNil(t, s.Validator)
+		}
 
 		nbc, err := baseTemplateLinux("westus", "1.36.5", "amd64")
 		require.NoError(t, err)
 		s.BootstrapConfigMutator(nil, nbc)
 		nodeConfig, err := nbcToAKSNodeConfigV1(nbc)
 		require.NoError(t, err)
-		if s.AKSNodeConfigMutator != nil {
-			s.AKSNodeConfigMutator(nil, nodeConfig)
-		}
+		require.NotNil(t, s.AKSNodeConfigMutator)
+		nodeConfig.VmSize = ""
+		s.AKSNodeConfigMutator(nil, nodeConfig)
+		assert.Equal(t, nbc.AgentPoolProfile.VMSize, nodeConfig.VmSize)
 		if want.disableLocalDNS {
 			assert.Nil(t, nbc.AgentPoolProfile.LocalDNSProfile)
 			assert.Nil(t, nodeConfig.LocalDnsProfile)
 			assert.True(t, s.VHD.UnsupportedLocalDns)
+			assert.Equal(t, "1.34.11", nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+			assert.Equal(t, "1.34.11", nodeConfig.KubernetesVersion)
 		} else {
+			assert.Equal(t, "1.36.5", nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+			assert.Equal(t, "1.36.5", nodeConfig.KubernetesVersion)
 			require.NotNil(t, nbc.AgentPoolProfile.LocalDNSProfile)
 			assert.True(t, nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS)
 			require.NotNil(t, nodeConfig.LocalDnsProfile)
