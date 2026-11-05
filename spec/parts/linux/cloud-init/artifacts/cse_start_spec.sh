@@ -34,16 +34,30 @@ End
 Describe 'cse_start.sh egress endpoint check'
     CSE_START=./parts/linux/cloud-init/artifacts/cse_start.sh
 
-    # Runs the egress block from cse_start.sh with a stub helpers file and prints its exit code and log.
+    # Runs the egress block from cse_start.sh with a stub helpers file. Prints the block's own exit status,
+    # then waits for the background check and prints its log. The stub waits STUB_DELAY seconds, then
+    # reports the cloud it received and the proxy variables curl would see. With REPORT_RETURN set, it also
+    # reports when the block returned before the check wrote anything.
     egress_check_with() {
         root="$(mktemp -d)"
         mkdir -p "${root}/var/log/azure"
-        echo 'checkEgressEndpoints() { echo "checked cloud=$1"; }' > "${root}/helpers.sh"
-        env CSE_HELPERS_FILEPATH="${root}/helpers.sh" EGRESS_AZ_ENVIRONMENT=AzurePublicCloud OUTBOUND_COMMAND="curl x" "$@" bash -c "$(
+        cat > "${root}/helpers.sh" <<'EOF'
+checkEgressEndpoints() {
+    sleep "${STUB_DELAY:-0}"
+    echo "checked cloud=$1"
+    echo "proxy=${HTTPS_PROXY-}|${https_proxy-}|${HTTP_PROXY-}|${http_proxy-}|${NO_PROXY-}|${no_proxy-}"
+}
+EOF
+        block=$(
             awk '/^# Telemetry only: records the endpoints/{p=1} p{print} p && /^fi$/{exit}' "${CSE_START}" |
                 sed "s|/var/log/azure|${root}/var/log/azure|g"
-        )"
-        echo "exit=$?"
+        )
+        env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy -u NO_PROXY -u no_proxy \
+            CSE_HELPERS_FILEPATH="${root}/helpers.sh" EGRESS_AZ_ENVIRONMENT=AzurePublicCloud OUTBOUND_COMMAND="curl x" "$@" \
+            bash -c "${block}"'
+echo "exit=$?"
+if [ -n "${REPORT_RETURN:-}" ] && [ ! -s "$1" ]; then echo "returned before the check finished"; fi
+wait' _ "${root}/var/log/azure/cluster-provision.log"
         cat "${root}/var/log/azure/cluster-provision.log" 2>/dev/null
         rm -rf "${root}"
     }
@@ -62,6 +76,25 @@ Describe 'cse_start.sh egress endpoint check'
         When call egress_check_with PRE_PROVISION_ONLY=false
         The line 1 of output should equal "exit=0"
         The line 2 of output should equal "checked cloud=AzurePublicCloud"
+        The line 3 of output should equal "proxy=|||||"
+    End
+
+    It 'passes the cluster HTTP proxy settings to the probes'
+        When call egress_check_with PRE_PROVISION_ONLY=false HTTP_PROXY_URLS=http://proxy.example:3128 HTTPS_PROXY_URLS=http://proxy.example:3128 NO_PROXY_URLS=localhost,169.254.169.254
+        The line 1 of output should equal "exit=0"
+        The line 3 of output should equal "proxy=http://proxy.example:3128|http://proxy.example:3128|http://proxy.example:3128|http://proxy.example:3128|localhost,169.254.169.254|localhost,169.254.169.254"
+    End
+
+    It 'skips the check on a rerun, when provision.sh exited before IMDS was cached'
+        When call egress_check_with PRE_PROVISION_ONLY=false EGRESS_AZ_ENVIRONMENT=
+        The output should equal "exit=0"
+    End
+
+    It 'returns before the check finishes, so CSE does not wait for it'
+        When call egress_check_with PRE_PROVISION_ONLY=false STUB_DELAY=2 REPORT_RETURN=1
+        The line 1 of output should equal "exit=0"
+        The line 2 of output should equal "returned before the check finished"
+        The line 3 of output should equal "checked cloud=AzurePublicCloud"
     End
 
     It 'skips the check for a pre-provision bake'
