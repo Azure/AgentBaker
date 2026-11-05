@@ -10,10 +10,45 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNBCSamplingExcludesSpecializedScenarios(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(*Scenario)
+	}{
+		{"missing image", func(s *Scenario) { s.VHD = nil }},
+		{"windows", func(s *Scenario) { s.VHD = config.VHDWindows2022Containerd }},
+		{"ACL", func(s *Scenario) { s.VHD = config.VHDACLGen2TL }},
+		{"frozen Linux", func(s *Scenario) { s.VHD = config.VHDAzureLinuxV2Gen2 }},
+		{"Ubuntu 20.04", func(s *Scenario) { s.VHD = config.VHDUbuntu2004FIPSGen2Containerd }},
+		{"caching", func(s *Scenario) { s.VHDCaching = true }},
+		{"delivery-specific", func(s *Scenario) { s.Tags.Scriptless = true }},
+		{"skip", func(s *Scenario) { s.SkipReason = "disabled" }},
+		{"conditional skip", func(s *Scenario) { s.SkipIf = func(context.Context) string { return "skip" } }},
+		{"expected failure", func(s *Scenario) { s.ExpectedError = "expected" }},
+		{"no validation", func(s *Scenario) { s.SkipDefaultValidation = true }},
+		{"no SSH", func(s *Scenario) { s.SkipSSHConnectivityValidation = true }},
+		{"script hotfix", func(s *Scenario) { s.ScriptHotfixFixture = &ScriptHotfixFixture{} }},
+		{"ANC hotfix", func(s *Scenario) { s.ANCHotfixFlowFixture = true }},
+		{"custom files", func(s *Scenario) { s.CustomDataWriteFiles = []CustomDataWriteFile{{Path: "/test"}} }},
+		{"custom delivery", func(s *Scenario) { s.ExcludeFromNBCSampling = true }},
+		{"already sampled", func(s *Scenario) { s.ForceScriptlessNBCCSECmd = true }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &Scenario{Config: Config{VHD: config.VHDUbuntu2204Gen2Containerd}}
+			require.Equal(t, "Ubuntu2204", s.NBCSamplingOS())
+			tc.change(s)
+			require.Empty(t, s.NBCSamplingOS())
+		})
+	}
+	var missing *Scenario
+	require.Empty(t, missing.NBCSamplingOS())
+}
 
 type executionLogger struct {
 	logs []string

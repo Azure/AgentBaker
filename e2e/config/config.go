@@ -56,6 +56,7 @@ type Configuration struct {
 	MANAVMSKU                              string
 	DisableScriptless                      bool
 	DisableScriptLessCompilation           bool
+	RandomNBCCoverage                      bool
 	E2ELoggingDir                          string
 	EnableSecureTLSBootstrapping           bool
 	ExtendedTests                          string

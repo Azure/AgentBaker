@@ -66,14 +66,6 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
-enableTridentACLAgent() {
-  if ! systemctl cat trident-acl-agent.service >/dev/null 2>&1; then
-    echo "Trident ACL agent is not installed in this base image; skipping startup trigger"
-    return 0
-  fi
-  systemctlEnableAndStart trident-acl-agent.path 30
-}
-
 # Uncomment Trident ACL Agent enablement below to enable A/B updates.
 # if isACL "$OS" "$OS_VARIANT"; then
 #   enableTridentACLAgent || exit 1
