@@ -1,9 +1,7 @@
 #!/bin/bash
 
-# Ubuntu and Azure Linux NPD packages own the binary, monitors, plugins, startup
-# script and unit. Keep both packages in the VHD so the live updaters (npdConfig
-# and npdBinary) can roll back without fetching the old version from a repository
-# that may no longer carry it.
+# The NPD packages own the binary, monitors, plugins, startup script and unit. Both are cached in the VHD so
+# npdConfig and npdBinary can roll back without a repo that may no longer carry the old version.
 NPD_TDNF_LOCK_FILE="/etc/tdnf/locks.d/node-problem-detector.conf"
 
 # Hold a package against unattended updates and security patching. tdnf reads

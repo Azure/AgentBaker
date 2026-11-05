@@ -69,6 +69,23 @@ Describe 'NPD component selection'
         The output should equal ''
     End
 
+    It 'fails when the config source mapping does not match the followed release'
+        npd_select_component npdConfig
+        npd_ubuntu_config_source() { printf '22.04 jammy'; }
+        npd_config_release() { printf '24.04'; }
+        When call npd_apt_conf
+        The status should be failure
+        The stderr should include 'no repository for 24.04 on 26.04'
+    End
+
+    It 'fails when the config source mapping has no codename'
+        npd_select_component npdConfig
+        npd_ubuntu_config_source() { printf '24.04'; }
+        When call npd_apt_conf
+        The status should be failure
+        The stderr should include 'no repository for 24.04 on 26.04'
+    End
+
     It 'uses the 24.04 repository for the config on 26.04'
         npd_select_component npdConfig
         When call npd_apt_conf
