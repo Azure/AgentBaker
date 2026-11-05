@@ -565,6 +565,81 @@ var _ = Register(&Scenario{
 	},
 })
 
+var _ = Register(newUbuntu2404NvidiaDevicePluginNC96Scenario())
+
+// newUbuntu2404NvidiaDevicePluginNC96Scenario covers CDI provisioning and managed
+// GPU operation on the four-GPU x86 A100 size that exceeded the toolkit's 90s timeout.
+func newUbuntu2404NvidiaDevicePluginNC96Scenario() *Scenario {
+	const (
+		vmSize   = "Standard_NC96ads_A100_v4"
+		gpuCount = 4
+	)
+	return &Scenario{
+		Name:        "Ubuntu2404_NvidiaDevicePluginRunning_NC96A100",
+		Description: "Tests CDI refresh with a 300-second timeout and managed GPU workloads on four A100 GPUs",
+		Location:    "westus2",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
+				nbc.EnableManagedGPU = true
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+				cfg.VmSize = vmSize
+				cfg.GpuConfig.ConfigGpuDriver = true
+				cfg.GpuConfig.GpuDevicePlugin = true
+				cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+				cfg.GpuConfig.ManagedGpuExperienceAfecEnabled = true
+				cfg.GpuConfig.EnableManagedGpu = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+			},
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				// A successful oneshot is inactive. Check its result and output, not is-active.
+				const cdiCheck = `set -e
+test "$(systemctl show nvidia-cdi-refresh.service --property=TimeoutStartUSec --value)" = "5min"
+test "$(systemctl show nvidia-cdi-refresh.service --property=Result --value)" = "success"
+test "$(systemctl show nvidia-cdi-refresh.service --property=ExecMainStatus --value)" = "0"
+test -s /var/run/cdi/nvidia.yaml
+nvidia-smi`
+				if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cdiCheck, 0, "CDI refresh must succeed with a 300-second timeout"); err != nil {
+					return err
+				}
+				if err := ValidateNvidiaDevicePluginServiceRunning(ctx, s); err != nil {
+					return err
+				}
+				if err := ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{"nvidia.com/gpu": gpuCount}); err != nil {
+					return err
+				}
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, gpuCount, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+				return errors.Join(
+					validateDCGMPackageVersions(ctx, s, "ubuntu", "r2404"),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				)
+			},
+		},
+	}
+}
+
 var _ = Register(newUbuntu2404NvidiaDevicePluginMIGSingleScenario(
 	"Ubuntu2404_NvidiaDevicePluginRunning_MIG",
 	"Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
