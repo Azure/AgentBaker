@@ -66,7 +66,7 @@ Describe 'AIB deprovision hook installation'
       .properties.customize[] | select(.name == "InstallDeprovisionHook") |
       .inline | join("\n") | gsub("<CVM_BUILD>"; $cvm)
     ' vhdbuilder/prefetch/templates/optimize.json) || return $?
-    bash -eu -c "$script"
+    /bin/sh -eu -c "$script"
   }
 
   run_hook() {
