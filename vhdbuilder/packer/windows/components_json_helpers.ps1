@@ -49,6 +49,30 @@ function GetWindowsDownloadPartForPackage {
     return $part
 }
 
+function GetWindowsDownloadUrlForVersion {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $part,
+        [Parameter(Mandatory = $true)][Object]
+        $windowsVersion
+    )
+
+    # A versionsV2 entry can override the part's URL template, so one SKU can list releases that are
+    # published under different paths (for example containerd bundles under containerd/windows/v2/).
+    # The override applies to both latestVersion and previousLatestVersion of that entry.
+    $downloadUrl = $windowsVersion.windowsDownloadUrl
+    if ([string]::IsNullOrEmpty($downloadUrl)) {
+        $downloadUrl = $part.windowsDownloadUrl
+    }
+
+    # no specific windows download url means fall back to regular windows spots.
+    if ([string]::IsNullOrEmpty($downloadUrl)) {
+        $downloadUrl = $part.downloadUrl
+    }
+
+    return $downloadUrl
+}
+
 function ComponentsJsonHasAnyWindowsDownloadRequiresAzCopy {
     Param(
         [Parameter(Mandatory = $true)][AllowNull()][Object]
@@ -188,15 +212,10 @@ function GetPackagesFromComponentsJson {
         }
 
         $part = GetWindowsDownloadPartForPackage $package
-        $downloadUrl = $part.windowsDownloadUrl
         $items = $part.versionsV2
 
-        # no specific windows download url means fall back to regular windows spots.
-        if ($null -eq $downloadUrl -or $downloadUrl -eq "") {
-            $downloadUrl = $part.downloadUrl
-        }
-
         foreach ($windowsVersion in $items) {
+            $downloadUrl = GetWindowsDownloadUrlForVersion -part $part -windowsVersion $windowsVersion
             $url = ReplaceVarsInUrl -versionString $windowsVersion.latestVersion -stringToReplace $downloadUrl
             $thisList += $url
 
@@ -238,19 +257,13 @@ function GetAzCopyDownloadUrlsFromComponentsJson {
             continue
         }
 
-        $downloadUrl = $part.windowsDownloadUrl
-
-        # no specific windows download url means fall back to regular windows spots, matching
-        # GetPackagesFromComponentsJson's URL resolution.
-        if ($null -eq $downloadUrl -or $downloadUrl -eq "") {
-            $downloadUrl = $part.downloadUrl
-        }
-
-        if ($null -eq $downloadUrl -or $downloadUrl -eq "") {
-            continue
-        }
-
         foreach ($windowsVersion in $part.versionsV2) {
+            # Matches GetPackagesFromComponentsJson's URL resolution, including per-version overrides.
+            $downloadUrl = GetWindowsDownloadUrlForVersion -part $part -windowsVersion $windowsVersion
+            if ([string]::IsNullOrEmpty($downloadUrl)) {
+                continue
+            }
+
             $url = ReplaceVarsInUrl -versionString $windowsVersion.latestVersion -stringToReplace $downloadUrl
             if ($url.Contains("?")) {
                 # This download path is MSI-only (the build VM's managed identity authenticates via

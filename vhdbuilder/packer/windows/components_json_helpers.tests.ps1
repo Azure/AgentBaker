@@ -776,6 +776,28 @@ Describe 'Gets the Binaries' {
         $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.21.zip"
     }
 
+    It 'given a version entry overrides windowsDownloadURL, it uses the override for that entry only' {
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
+            [PSCustomObject]@{
+                latestVersion = "v2.3.7-azure.1"
+                windowsDownloadURL = "https://packages.aks.azure.com/containerd/windows/v2/`${version}/binaries/containerd-`${version}-windows-amd64.tar.gz"
+            },
+            [PSCustomObject]@{
+                latestVersion = "v2.0.4-azure.1"
+                previousLatestVersion = "v1.7.20-azure.1"
+            }
+        )
+        $componentsJson.Packages[0].windowsDownloadLocation = "location"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://packages.aks.azure.com/containerd/windows/`${version}/binaries/containerd-`${version}-windows-amd64.tar.gz"
+
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["location"] | Should -HaveCount 3
+        $packages["location"][0] | Should -Be "https://packages.aks.azure.com/containerd/windows/v2/v2.3.7-azure.1/binaries/containerd-v2.3.7-azure.1-windows-amd64.tar.gz"
+        $packages["location"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
+        $packages["location"] | Should -Contain "https://packages.aks.azure.com/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+    }
+
     It 'skips a package if windowsDownloadLocation is not set' {
         $componentsJson.Packages[0].downloadLocation = "linuxLocation"
         $componentsJson.Packages[0].windowsDownloadLocation = $null
@@ -1088,6 +1110,16 @@ Describe 'GetAzCopyDownloadUrlsFromComponentsJson' {
         $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
 
         { GetAzCopyDownloadUrlsFromComponentsJson $componentsJson } | Should -Throw -ExpectedMessage "*MSI-only*"
+    }
+
+    It 'given a version entry overrides windowsDownloadURL, it collects the override URL' {
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2[0] | Add-Member -NotePropertyName "windowsDownloadURL" -NotePropertyValue "https://privatestorageaccount.blob.core.windows.net/private-container/v2/private-package-v`${version}.zip"
+        $componentsJson.Packages[0].downloadUris.windows.default | Add-Member -NotePropertyName "windowsDownloadRequiresAzCopy" -NotePropertyValue $true
+
+        $azCopyUrls = GetAzCopyDownloadUrlsFromComponentsJson $componentsJson
+
+        $azCopyUrls.ContainsKey("https://privatestorageaccount.blob.core.windows.net/private-container/v2/private-package-v1.0.0.zip") | Should -Be $true
+        $azCopyUrls.ContainsKey("https://privatestorageaccount.blob.core.windows.net/private-container/private-package-v1.0.0.zip") | Should -Be $false
     }
 
     It 'given a DALEC-style version with a leading v and build number, resolves versionNoBuild and buildNumber for latest and previous versions' {
