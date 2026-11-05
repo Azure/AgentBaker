@@ -1555,31 +1555,6 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 	)
 }
 
-// ValidateKubeletActiveFlagsEvent checks that the emit-kubelet-active-flags oneshot service
-// ran successfully and produced a guest agent event file containing kubelet config telemetry.
-// Guarded: skips gracefully on VHDs that don't have the service baked in yet.
-func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
-	// Guard: skip on VHDs that don't have the service
-	serviceCheck, err := execOnVMForScenarioOnUnprivilegedPod(ctx, s,
-		"systemctl cat emit-kubelet-active-flags.service 2>/dev/null")
-	if err != nil {
-		return fmt.Errorf("check whether emit-kubelet-active-flags.service exists: %w", err)
-	}
-	if serviceCheck.exitCode != "0" {
-		logging.Log(ctx, "emit-kubelet-active-flags.service not on this VHD, skipping validation")
-		return nil
-	}
-	command := []string{
-		"set -ex",
-		// Verify service completed successfully via journalctl
-		`journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"`,
-		// Verify the event file was produced with correct TaskName
-		`grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'`,
-	}
-	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate emit-kubelet-active-flags.service")
-	return err
-}
-
 type systemdUnit struct {
 	Name string `json:"unit,omitempty"`
 }
@@ -1604,6 +1579,31 @@ func parseFailedSystemdUnits(output string, distro datamodel.Distro) ([]systemdU
 		units = append(units, systemdUnit{Name: fields[0]})
 	}
 	return units, nil
+}
+
+// ValidateKubeletActiveFlagsEvent checks that the emit-kubelet-active-flags oneshot service
+// ran successfully and produced a guest agent event file containing kubelet config telemetry.
+// Guarded: skips gracefully on VHDs that don't have the service baked in yet.
+func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
+	// Guard: skip on VHDs that don't have the service
+	serviceCheck, err := execOnVMForScenarioOnUnprivilegedPod(ctx, s,
+		"systemctl cat emit-kubelet-active-flags.service 2>/dev/null")
+	if err != nil {
+		return fmt.Errorf("check whether emit-kubelet-active-flags.service exists: %w", err)
+	}
+	if serviceCheck.exitCode != "0" {
+		logging.Log(ctx, "emit-kubelet-active-flags.service not on this VHD, skipping validation")
+		return nil
+	}
+	command := []string{
+		"set -ex",
+		// Verify service completed successfully via journalctl
+		`journalctl -u emit-kubelet-active-flags.service --no-pager | grep -q "Finished\|Deactivated successfully"`,
+		// Verify the event file was produced with correct TaskName
+		`grep -rl 'kubeletActiveFlags' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 | xargs cat | jq -e '.TaskName == "AKS.CSE.ensureKubelet.kubeletActiveFlags"'`,
+	}
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate emit-kubelet-active-flags.service")
+	return err
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
