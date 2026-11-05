@@ -1013,7 +1013,8 @@ EOF
     End
 
     Describe 'checkEgressEndpoints'
-        # Stub curl: hosts in FAIL_HOSTS time out, and MCR discovery redirects to REDIRECT_URL.
+        # Stub curl: hosts in FAIL_HOSTS time out, a --connect-to through the CDN alias counts as that
+        # host, and MCR discovery redirects to a signed regional data endpoint URL.
         curl() {
             # Real curl is a binary that writes no xtrace, so the stub silences its own trace.
             { set +x; } 2>/dev/null
@@ -1024,7 +1025,7 @@ EOF
                 case $arg in *:443:mcr-0001.mcr-msedge.net:443) host=mcr-0001.mcr-msedge.net ;; esac
             done
             case " ${FAIL_HOSTS:-} " in *" ${host} "*) echo "curl: (28) Connection timed out" >&2; return 28 ;; esac
-            case "$*" in *redirect_url*) printf '%s' "${REDIRECT_URL-https://eastus.data.mcr.microsoft.com/blob?sig=SECRET}" ;; esac
+            case "$*" in *redirect_url*) printf '%s' "https://eastus.data.mcr.microsoft.com/blob?sig=SECRET" ;; esac
             return 0
         }
         # Runs the check for the given cloud against a sandboxed events directory, then prints its event.
@@ -1065,6 +1066,14 @@ EOF
             When call run_check USNatCloud
             The status should be success
             The output should include '"Checked":[],"Blocked":[],"Skipped":true'
+        End
+
+        It 'records a blocked CDN alias under its own name, not mcr.microsoft.com'
+            FAIL_HOSTS="mcr-0001.mcr-msedge.net"
+            When call run_check AzurePublicCloud
+            The status should be success
+            The output should include '"level":"Error"'
+            The output should include '"Blocked":["https://mcr-0001.mcr-msedge.net: curl: (28) Connection timed out"]'
         End
     End
 End

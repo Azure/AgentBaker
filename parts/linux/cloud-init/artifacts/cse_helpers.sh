@@ -956,12 +956,13 @@ logs_to_events() {
 # blob GET with a redirect to the regional data endpoint that serves image layers to this node.
 MCR_DATA_DISCOVERY_URL="https://mcr.microsoft.com/v2/oss/kubernetes/pause/blobs/sha256:7b178dc69474dd40a6471673c620079746e086c341b373fa723c09e043a5b911"
 
-# Prints nothing when the endpoint is reachable, or the URL and curl error when it is not.
-# Any HTTP response counts as reachable: this detects network blocking, not service health.
+# Requests $2 and prints nothing when it is reachable, or "$1: <curl error>" when it is not. Further
+# arguments go to curl. Any HTTP response counts as reachable: this detects network blocking, not
+# service health.
 probeEgressEndpoint() {
-    local url=$1 output
-    shift
-    output=$(curl -sS -I -m 5 --proxy-insecure "$@" "$url" 2>&1 >/dev/null) || echo "${url}: ${output}"
+    local label=$1 url=$2 output
+    shift 2
+    output=$(curl -sS -I -m 5 --proxy-insecure "$@" "$url" 2>&1 >/dev/null) || echo "${label}: ${output}"
 }
 
 # Probes the regional *.data.mcr.microsoft.com endpoint this node is redirected to. Only the host
@@ -978,12 +979,13 @@ probeMcrDataEndpoint() {
         redirect_url=$(curl -sS -m 5 --proxy-insecure -o /dev/null -w '%{redirect_url}' "$MCR_DATA_DISCOVERY_URL" 2>/dev/null) || exit 0
         host=${redirect_url#https://}
         [ "$host" != "$redirect_url" ] || exit 0
-        host=$(echo "${host%%[/?#]*}" | tr '[:upper:]' '[:lower:]')
-        echo "$host" | grep -qE '^[a-z0-9-]+\.data\.mcr\.microsoft\.com$' || exit 0
+        host=${host%%[/?#]*}
+        host=${host,,}
+        [[ $host =~ ^[a-z0-9-]+\.data\.mcr\.microsoft\.com$ ]] || exit 0
         echo "$host"
     )
     [ -n "$host" ] || return 0
-    probeEgressEndpoint "https://${host}"
+    probeEgressEndpoint "https://${host}" "https://${host}"
 }
 
 # Mirrors the endpoints that node-problem-detector's EgressBlocked check probes, so a node that
@@ -993,10 +995,11 @@ probeMcrDataEndpoint() {
 # $1 is IMDS compute.azEnvironment. cse_start.sh passes it in because it calls this after deleting
 # the IMDS cache. An unknown or empty cloud records a skipped check.
 checkEgressEndpoints() {
-    local az_environment start_time results_dir url i blocked level event_file eventsFileName
+    local az_environment start_time results_dir i blocked level event_file eventsFileName
     local -a urls pids=()
     start_time=$(date +"%F %T.%3N")
-    az_environment=$(echo "${1:-}" | tr '[:lower:]' '[:upper:]')
+    az_environment=${1:-}
+    az_environment=${az_environment^^}
     case "$az_environment" in
         AZURECLOUD | AZUREPUBLICCLOUD)
             urls=(https://mcr-0001.mcr-msedge.net https://mcr.microsoft.com https://login.microsoftonline.com https://management.azure.com https://packages.microsoft.com https://acs-mirror.azureedge.net/acs-mirror/healthz https://packages.aks.azure.com/acs-mirror/healthz) ;;
@@ -1012,13 +1015,13 @@ checkEgressEndpoints() {
 
     results_dir=$(mktemp -d) || return 0
     for i in "${!urls[@]}"; do
-        if [ "${urls[$i]}" = "https://mcr-0001.mcr-msedge.net" ]; then
+        case "${urls[$i]}" in
             # The CDN alias serves the registry certificate, so connect through it as mcr.microsoft.com.
-            probeEgressEndpoint https://mcr.microsoft.com --connect-to "mcr.microsoft.com:443:mcr-0001.mcr-msedge.net:443" |
-                sed 's|^https://mcr.microsoft.com|https://mcr-0001.mcr-msedge.net|' > "${results_dir}/${i}" &
-        else
-            probeEgressEndpoint "${urls[$i]}" > "${results_dir}/${i}" &
-        fi
+            https://mcr-0001.mcr-msedge.net)
+                probeEgressEndpoint "${urls[$i]}" https://mcr.microsoft.com --connect-to "mcr.microsoft.com:443:mcr-0001.mcr-msedge.net:443" ;;
+            *)
+                probeEgressEndpoint "${urls[$i]}" "${urls[$i]}" ;;
+        esac > "${results_dir}/${i}" &
         pids+=($!)
     done
     case " ${urls[*]} " in
