@@ -283,16 +283,13 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	return validateVM(vmssCtx, s)
 }
 
-func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
-	defer logging.LogStep(ctx, "preparing AKS node")()
-
-	nbc, err := getBaseNBC(ctx, s.Runtime.Cluster, s.VHD)
-	if err != nil {
-		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
-	}
-
+func prepareNodeConfiguration(ctx context.Context, s *Scenario, nbc *datamodel.NodeBootstrappingConfiguration) error {
 	if !config.Config.DisableScriptless {
 		nbc.EnableScriptlessCSECmd = true
+		if !s.VHDCaching {
+			nbc.EnableScriptlessAKSNodeConfig = s.AKSNodeConfigMutator != nil ||
+				(s.BootstrapConfigMutator == nil && s.BootstrapConfigMutatorWithError == nil)
+		}
 	}
 	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
 		nbc.EnableScriptlessNBCCSECmd = true
@@ -309,11 +306,20 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 	if s.BootstrapConfigMutatorWithError != nil {
 		if err := s.BootstrapConfigMutatorWithError(ctx, s.Runtime.Cluster, nbc); err != nil {
-			return nil, fmt.Errorf("mutate bootstrap configuration: %w", err)
+			return fmt.Errorf("mutate bootstrap configuration: %w", err)
 		}
 	}
 	if config.Config.DisableScriptless || scriptlessUnsupported(s) || !s.VHD.SupportsScriptless() {
 		nbc.EnableScriptlessAKSNodeConfig = false
+	}
+	if s.ForceScriptlessNBCCSECmd {
+		if config.Config.DisableScriptless || scriptlessUnsupported(s) || !s.VHD.SupportsScriptless() ||
+			s.VHDCaching || nbc.PreProvisionOnly || nbc.IsCustomDataOnlyProvisioningEnabled() {
+			return fmt.Errorf("scenario %q cannot use forced scriptless NBC-command provisioning", s.Name)
+		}
+		nbc.EnableScriptlessAKSNodeConfig = false
+		nbc.EnableScriptlessNBCCSECmd = true
+		nbc.EnableScriptlessCSECmd = false
 	}
 	if nbc.EnableScriptlessAKSNodeConfig {
 		nbc.EnableScriptlessNBCCSECmd = false
@@ -321,7 +327,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	if nbc.EnableScriptlessAKSNodeConfig || s.AKSNodeConfigMutator != nil {
 		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
 		if err != nil {
-			return nil, fmt.Errorf("convert NBC to AKS node config: %w", err)
+			return fmt.Errorf("convert NBC to AKS node config: %w", err)
 		}
 		if s.AKSNodeConfigMutator != nil {
 			s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
@@ -330,12 +336,12 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 
 		if nbc.EnableScriptlessAKSNodeConfig {
 			if err := nodeconfigutils.Validate(nodeconfig); err != nil {
-				return nil, fmt.Errorf("validate AKS node config: %w", err)
+				return fmt.Errorf("validate AKS node config: %w", err)
 			}
 		}
 		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
 		if err != nil {
-			return nil, fmt.Errorf("marshal AKS node config: %w", err)
+			return fmt.Errorf("marshal AKS node config: %w", err)
 		}
 		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
 
@@ -344,6 +350,19 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 			(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
 			nbc.EnableScriptlessNBCCSECmd = true
 		}
+	}
+	return nil
+}
+
+func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
+	defer logging.LogStep(ctx, "preparing AKS node")()
+
+	nbc, err := getBaseNBC(ctx, s.Runtime.Cluster, s.VHD)
+	if err != nil {
+		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
+	}
+	if err := prepareNodeConfiguration(ctx, s, nbc); err != nil {
+		return nil, err
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
