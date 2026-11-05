@@ -55,7 +55,7 @@ Describe 'cse_install_acl.sh'
             It "retains revision 1 for $2 with registry '$1' without listing tags"
                 BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="$1"
                 retrycmd_silent() { echo "unexpected tag listing" >&2; return 1; }
-                When call matchRemoteSysext "mcr.microsoft.com/azurecontainerregistry/v2/artifact-streaming-sysext" "1.0.0-1-azlinux3" "$2"
+                When call matchRemoteSysext artifact-streaming "mcr.microsoft.com/azurecontainerregistry/v2/artifact-streaming-sysext" "1.0.0-1-azlinux3" "$2"
                 The output should equal "v1.0.0-1-azlinux3-$2"
                 The status should be success
             End
@@ -92,6 +92,64 @@ Describe 'cse_install_acl.sh'
                 The output should equal ""
                 The status should be success
             End
+        End
+    End
+
+    Describe 'ACL GPU sysext tags'
+        retrycmd_silent() { echo "unexpected tag listing" >&2; return 1; }
+        Describe 'supported architectures'
+            Parameters
+                "" "x86-64" "3.0.20261103"
+                "" "arm64" "3.0.20261103-arm64"
+                "cache.azurecr.io/aks-managed-repository" "x86-64" "3.0.20261103"
+                "cache.azurecr.io/aks-managed-repository" "arm64" "3.0.20261103-arm64"
+            End
+            It "resolves $2 with registry '$1' by name without listing tags"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="$1"
+                When call matchRemoteSysext nvidia-driver-cuda-open "${1:-mcr.microsoft.com}/custom/sysext" "3.0.20261103" "$2"
+                The output should equal "$3"
+                The status should be success
+            End
+        End
+
+        It 'rejects unsupported architectures rather than selecting the AMD64 tag'
+            When call matchRemoteSysext nvidia-driver-cuda-open "mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda-open" "3.0.20261103" "unknown"
+            The error should include "Unsupported ACL GPU sysext architecture"
+            The output should equal ""
+            The status should equal "$ERR_ORAS_PULL_SYSEXT_FAIL"
+        End
+    End
+
+    Describe 'ACL GPU sysext installation'
+        getACLVersionID() { echo "3.0.20261103"; }
+        Describe 'registry selection'
+            mergeSysexts() { echo "mergeSysexts $*"; }
+            Parameters
+                "" "" "mcr.microsoft.com"
+                "" "mcr.azure.cn/" "mcr.azure.cn"
+                "cache.azurecr.io/aks-managed-repository/" "mcr.microsoft.com" "cache.azurecr.io/aks-managed-repository"
+            End
+            It "uses $3 with the OS version"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="$1"
+                MCR_REPOSITORY_BASE="$2"
+                When call installACLGPUSysext nvidia-driver-cuda-open
+                The output should equal "mergeSysexts nvidia-driver-cuda-open $3/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda-open 3.0.20261103"
+                The status should be success
+            End
+        End
+
+        It 'requests the ARM64 GPU tag from the bootstrap registry on a local cache miss'
+            getCPUArch() { echo arm64; }
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="cache.azurecr.io/aks-managed-repository"
+            matchLocalSysext() { return 0; }
+            retrycmd_silent() { echo "unexpected tag listing" >&2; return 1; }
+            downloadSysextFromVersion() {
+                echo "downloadSysextFromVersion $*"
+                return 1 # Stop at the download; only the resolved reference is under test.
+            }
+            When run installACLGPUSysext nvidia-driver-cuda-open
+            The output should include "downloadSysextFromVersion nvidia-driver-cuda-open cache.azurecr.io/aks-managed-repository/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda-open:3.0.20261103-arm64"
+            The status should equal "$ERR_ORAS_PULL_SYSEXT_FAIL"
         End
     End
 

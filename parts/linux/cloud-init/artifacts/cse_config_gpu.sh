@@ -216,8 +216,9 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
-    # arm64 GPU is supported in two cases; skip otherwise:
+    # arm64 GPU is supported in these cases; skip otherwise:
     #  - AzureLinux 3.0 arm64 base image (non-FIPS) -- the existing arm64 GPU path.
+    #  - ACL arm64 (non-FIPS), whose VERSION_ID includes the image build date.
     #  - Grace-Blackwell (GB200/GB300): managed install on an AKS-managed Ubuntu VHD when the driver
     #    was requested (CONFIG_GPU_DRIVER_IF_NEEDED = --gpu-driver Install / managed experience).
     #    BYOI/custom images are IS_VHD=false (e.g. MAI's driver-baked GB image) -- skip so we never
@@ -227,6 +228,10 @@ ensureGPUDrivers() {
     # arm64 Ubuntu (GB) is handled first so it isn't caught by the AzureLinux arm64 gate below.
     if [ "$cpu_arch" = "arm64" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" != true ] || [ "${IS_VHD,,}" != "true" ]; then
+            return
+        fi
+    elif [ "$cpu_arch" = "arm64" ] && isACL "$OS" "$OS_VARIANT"; then
+        if [ "${ENABLE_FIPS,,}" = "true" ]; then
             return
         fi
     elif [ "$cpu_arch" = "arm64" ]; then
