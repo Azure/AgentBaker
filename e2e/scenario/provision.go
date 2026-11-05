@@ -33,7 +33,7 @@ func runScenarioFlow(ctx context.Context, name string, s *Scenario) error {
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
-	return s.Config.SkipScriptlessNBCCSECmd || s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
+	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runVHDCachingScenario(ctx context.Context, name string, original *Scenario) error {

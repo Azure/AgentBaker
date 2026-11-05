@@ -27,7 +27,6 @@ func TestNBCSamplingExcludesSpecializedScenarios(t *testing.T) {
 		{"frozen Linux", func(s *Scenario) { s.VHD = config.VHDAzureLinuxV2Gen2 }},
 		{"Ubuntu 20.04", func(s *Scenario) { s.VHD = config.VHDUbuntu2004FIPSGen2Containerd }},
 		{"caching", func(s *Scenario) { s.VHDCaching = true }},
-		{"opt-out", func(s *Scenario) { s.SkipScriptlessNBCCSECmd = true }},
 		{"delivery-specific", func(s *Scenario) { s.Tags.Scriptless = true }},
 		{"skip", func(s *Scenario) { s.SkipReason = "disabled" }},
 		{"conditional skip", func(s *Scenario) { s.SkipIf = func(context.Context) string { return "skip" } }},

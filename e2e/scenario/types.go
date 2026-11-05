@@ -193,9 +193,6 @@ type Config struct {
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
 
-	// SkipScriptlessNBCCSECmd prevents RunScenario from automatically repeating the scenario using scriptless NBC provisioning.
-	SkipScriptlessNBCCSECmd bool
-
 	// ForceScriptlessNBCCSECmd overrides mode selection after scenario mutators for an additive sampled run.
 	ForceScriptlessNBCCSECmd bool
 
