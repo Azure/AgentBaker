@@ -1609,6 +1609,56 @@ func isKnownCVMInitrdFailure(s *Scenario, unitName, errorMessages string) bool {
 	return foundMissingConfig
 }
 
+// ValidateEgressCheckEvent checks that cse_start.sh recorded the egress endpoint check after kubelet started,
+// so the check stays off the boot path. It does not require every endpoint to be reachable, because the E2E
+// firewall allows only the documented AKS domains. It skips nodes whose provision_start.sh predates the check.
+func ValidateEgressCheckEvent(ctx context.Context, s *Scenario) error {
+	if !egressCheckRuns(s) {
+		logging.Log(ctx, "node has no outbound path, so cse_start.sh skips the egress check, skipping validation")
+		return nil
+	}
+	script := `set -eu
+if ! sudo grep -q checkEgressEndpoints /opt/azure/containers/provision_start.sh; then
+	echo "provision_start.sh does not run the egress check, skipping"
+	exit 0
+fi
+# The check runs in the background after provision.complete, so give it time to finish.
+event=""
+for _ in $(seq 1 60); do
+	event=$(sudo grep -rl 'AKS.CSE.egressCheck' /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ | head -1 || true)
+	[ -z "$event" ] || break
+	sleep 1
+done
+[ -n "$event" ] || { echo "no AKS.CSE.egressCheck event found" >&2; exit 1; }
+sudo cat "$event"
+sudo jq -e '.Message | fromjson | .Skipped == false and (.Blocked | type == "array")' "$event" >/dev/null
+started=$(date -d "$(sudo jq -r .Timestamp "$event")" +%s)
+kubelet_started=$(date -d "$(sudo jq -r .BootDatapoints.KubeletStartTime /var/log/azure/aks/provision.json)" +%s)
+[ "$started" -ge "$kubelet_started" ] || { echo "egress check started before kubelet" >&2; exit 1; }`
+	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "failed to validate the AKS.CSE.egressCheck event")
+	return err
+}
+
+// egressCheckRuns mirrors the guard in cse_start.sh, which skips the egress check when the node has no
+// outbound command or pulls images from a bootstrap-profile registry.
+func egressCheckRuns(s *Scenario) bool {
+	if nbc := s.Runtime.NBC; nbc != nil {
+		if strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeBlock) || strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeNone) {
+			return false
+		}
+		if cs := nbc.ContainerService; cs != nil && cs.Properties != nil &&
+			(cs.Properties.FeatureFlags.IsFeatureEnabled(datamodel.BlockOutboundInternet) ||
+				cs.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer() != "") {
+			return false
+		}
+	}
+	if cfg := s.Runtime.AKSNodeConfig; cfg != nil &&
+		(cfg.GetOutboundCommand() == "" || cfg.GetBootstrapProfileContainerRegistryServer() != "") {
+		return false
+	}
+	return true
+}
+
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
 		return nil
