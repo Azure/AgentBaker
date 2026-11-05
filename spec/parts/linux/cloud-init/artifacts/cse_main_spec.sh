@@ -1,5 +1,65 @@
 #!/usr/bin/env shellspec
 
+Describe 'pre-kubelet image-cache ordering'
+    extract_image_cache_step() {
+        sed -n '/^    if \[ "${ENABLE_NETWORKING_IMAGE_CACHE:-}" = "true" \]; then$/,/^    fi$/p' \
+            parts/linux/cloud-init/artifacts/cse_main.sh
+    }
+
+    run_image_cache_step() {
+        export ENABLE_NETWORKING_IMAGE_CACHE ANC_SELECTED_BIN_PATH TEST_ANC_EXIT
+        export -f record_image_cache_call
+        extract_image_cache_step | bash
+    }
+
+    record_image_cache_call() {
+        printf 'called:'
+        printf ' %s' "$@"
+        printf '\n'
+        return "${TEST_ANC_EXIT:-0}"
+    }
+
+    check_image_cache_ordering() {
+        awk '
+            /^function nodePrep / { in_node_prep=1 }
+            /checkServiceHealth containerd/ { containerd=NR }
+            /AKS.CSE.ensureContainerd.ensureArtifactStreaming/ && in_node_prep { streaming=NR }
+            /requesting imageCache\/networking/ { prefetch=NR }
+            /AKS.CSE.ensureKubelet/ { kubelet=NR }
+            END { exit !(containerd < streaming && streaming < prefetch && prefetch < kubelet && in_node_prep) }
+        ' parts/linux/cloud-init/artifacts/cse_main.sh
+    }
+
+    It 'runs after containerd and artifact-streaming setup and before kubelet within nodePrep'
+        When call check_image_cache_ordering
+        The status should be success
+    End
+
+    It 'does nothing when the flag is absent'
+        unset ENABLE_NETWORKING_IMAGE_CACHE
+        When call run_image_cache_step
+        The status should be success
+        The output should equal ''
+    End
+
+    It 'uses the launcher-selected binary and the generic source'
+        ENABLE_NETWORKING_IMAGE_CACHE=true
+        ANC_SELECTED_BIN_PATH=record_image_cache_call
+        When call run_image_cache_step
+        The status should be success
+        The output should include 'called: prepull-images --source networking'
+    End
+
+    It 'continues provisioning when an older selected binary rejects the command'
+        ENABLE_NETWORKING_IMAGE_CACHE=true
+        ANC_SELECTED_BIN_PATH=record_image_cache_call
+        TEST_ANC_EXIT=1
+        When call run_image_cache_step
+        The status should be success
+        The output should include 'continuing (fail-open)'
+    End
+End
+
 # Unit tests for select_localdns_corefile() function
 # select_localdns_corefile() reads globals from the environment:
 #   LOCALDNS_COREFILE_BASE         — base corefile (no hosts plugin)

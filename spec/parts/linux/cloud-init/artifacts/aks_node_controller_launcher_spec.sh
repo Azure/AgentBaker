@@ -46,13 +46,14 @@ EOF
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN ANC_SELECTED_BIN_PATH
     }
 
     create_fake_aks_node_controller() {
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$@" >"${TEST_DIR}/args"
+printf '%s\n' "${ANC_SELECTED_BIN_PATH:-}" >"${TEST_DIR}/selected"
 exit 0
 EOF
         chmod +x "$BIN_PATH"
@@ -79,6 +80,7 @@ EOF
         cat >"${BIN_PATH}-hotfix" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$1" >>"${TEST_DIR}/hotfix_calls"
+printf '%s\n' "${ANC_SELECTED_BIN_PATH:-}" >"${TEST_DIR}/selected"
 exit 0
 EOF
         chmod +x "${BIN_PATH}-hotfix"
@@ -143,6 +145,29 @@ EOF
 
     BeforeEach setup_wrapper_test
     AfterEach cleanup_wrapper_test
+
+    It 'exports the selected VHD binary to the provisioning child'
+        create_fake_aks_node_controller
+        : >"$CONFIG_PATH"
+
+        When run bash "$SCRIPT"
+
+        The status should be success
+        The output should include 'aks-node-controller completed successfully'
+        The contents of file "${TEST_DIR}/selected" should equal "$BIN_PATH"
+    End
+
+    It 'exports the selected hotfix binary to the provisioning child'
+        create_fake_aks_node_controller
+        create_staged_hotfix_binary
+        : >"$CONFIG_PATH"
+
+        When run bash "$SCRIPT"
+
+        The status should be success
+        The output should include 'aks-node-controller completed successfully'
+        The contents of file "${TEST_DIR}/selected" should equal "${BIN_PATH}-hotfix"
+    End
 
     It 'exits successfully without invoking aks-node-controller when config and nbc cmd are absent'
         When run bash "$SCRIPT"

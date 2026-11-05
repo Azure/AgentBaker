@@ -6,6 +6,7 @@ require (
 	github.com/containerd/containerd/v2 v2.2.9
 	github.com/containerd/platforms v1.0.0-rc.2
 	github.com/opencontainers/image-spec v1.1.1
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/urfave/cli/v3 v3.8.0
 	golang.org/x/sync v0.22.0
 )
@@ -42,7 +43,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/opencontainers/selinux v1.13.1 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	go.opencensus.io v0.24.0 // indirect

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"time"
 
 	lpsv1 "github.com/Azure/agentbaker/aks-live-patching/pkg/gen/akslivepatching/v1"
 	"google.golang.org/grpc"
@@ -64,6 +65,14 @@ func (e *lpsGRPCStatusError) Error() string {
 // returns the opaque response bytes for the shared parse/stage path.
 // The gRPC status is mapped onto the benign-vs-fatal taxonomy so handleFetchError is unchanged.
 func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
+	data, err := a.fetchLPSComponentOverGRPC(ctx, ancComponentName, lpsFetchTimeout)
+	if err != nil {
+		return nil, mapGRPCError(err)
+	}
+	return data, nil
+}
+
+func (a *App) fetchLPSComponentOverGRPC(ctx context.Context, componentName string, timeout time.Duration, options ...grpc.CallOption) ([]byte, error) {
 	fqdn, caPEM, err := a.lpsTargetFromNodeConfig()
 	if err != nil {
 		return nil, fmt.Errorf("resolving LPS endpoint: %w", err)
@@ -87,11 +96,11 @@ func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("dialing LPS gRPC: %w", err)
 	}
 	defer conn.Close()
-	slog.Info("check-hotfix LPS gRPC dial", "dialHost", fqdn, "alpn", lpsALPNProto, "component", ancComponentName)
+	slog.Info("LPS gRPC dial", "dialHost", fqdn, "alpn", lpsALPNProto, "component", componentName)
 
 	// Bound the whole round-trip (cold connect + RPC); on expiry we fail open to the cold-start
 	// pointer. See the lpsFetchTimeout const doc for the deadline tradeoff.
-	ctx, cancel := context.WithTimeout(ctx, lpsFetchTimeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Carry the attested-data document that authenticates the node in request metadata, plus
@@ -102,9 +111,12 @@ func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 	}
 
 	client := lpsv1.NewLivePatchingServiceClient(conn)
-	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: ancComponentName})
+	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: componentName}, options...)
 	if err != nil {
-		return nil, mapGRPCError(err)
+		return nil, err
+	}
+	if componentName != ancComponentName && resp.GetComponentName() != componentName {
+		return nil, fmt.Errorf("LPS returned component %q for %q", resp.GetComponentName(), componentName)
 	}
 	// The shared live-patching contract carries the component config as a JSON-encoded UTF-8
 	// string; the parse/stage path operates on bytes, so convert without interpreting.

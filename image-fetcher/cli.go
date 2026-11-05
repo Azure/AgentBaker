@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -23,6 +24,26 @@ func newCommand() *cli.Command {
 			return errors.New("expected cache-image or cache-components command")
 		},
 		Commands: []*cli.Command{
+			{
+				Name:  "pull-image",
+				Usage: "Ensure native-platform image content and CRI snapshots are ready",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "image", Required: true, Usage: "Exact image reference to pull and unpack"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					ref := cmd.String("image")
+					if cmd.Args().Len() != 0 || ref == "" || strings.TrimSpace(ref) != ref {
+						return errors.New("pull-image requires one exact --image and no positional arguments")
+					}
+					return withContainerd(ctx, func(ctx context.Context, client *containerd.Client) error {
+						result, err := pullAndUnpackImage(ctx, client, ref)
+						if err != nil {
+							return err
+						}
+						return json.NewEncoder(cmd.Root().Writer).Encode(result)
+					})
+				},
+			},
 			{
 				Name:  "cache-image",
 				Usage: "Cache one image",

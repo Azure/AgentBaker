@@ -641,6 +641,16 @@ function nodePrep {
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    if [ "${ENABLE_NETWORKING_IMAGE_CACHE:-}" = "true" ]; then
+        image_cache_anc="${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}"
+        echo "ENABLE_NETWORKING_IMAGE_CACHE=true; requesting imageCache/networking"
+        if "${image_cache_anc}" prepull-images --source networking; then
+            echo "ANC image pre-pull returned; outcome is in image-cache-status.json"
+        else
+            echo "ANC image pre-pull command failed; continuing (fail-open)"
+        fi
+    fi
+
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
     # Configure localdns metrics exporter socket after ensureKubelet.

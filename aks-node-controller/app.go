@@ -92,7 +92,12 @@ type App struct {
 	goalStateReporter func(context.Context, bool, string) error
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
-	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
+	checkHotfixFetcher   func(ctx context.Context) ([]byte, error)
+	imageCacheFetcher    func(context.Context, string) ([]byte, error)
+	imageCachePuller     func(context.Context, string) (imageCachePullOutput, error)
+	imageCacheRetryWait  func(context.Context) error
+	imageFetcherPath     string
+	imageCacheStatusPath string
 	// fetchAttestedToken overrides retrieval of the IMDS attested-data token used as the
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
@@ -215,6 +220,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 						slog.Warn("ignoring unexpected check-hotfix arguments", "args", strings.Join(extra, " "))
 					}
 					return a.runCheckHotfixCommand(ctx)
+				},
+			},
+			{
+				Name:  "prepull-images",
+				Usage: "Pull and unpack an LPS image-cache source before kubelet starts (fail-open)",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "source", Value: "networking", Usage: "Configured LPS image-cache source"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					return a.runPrepullImagesCommand(ctx, cmd.String("source"))
 				},
 			},
 		},
