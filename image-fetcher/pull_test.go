@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
+	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/containerd/v2/plugins/content/local"
@@ -16,6 +18,24 @@ import (
 )
 
 func TestStrictContentRejectsMissingLayerDespiteReportedSize(t *testing.T) {
+	ctx, store, matcher, target, layer, layerData := missingNativeLayer(t)
+	image := images.Image{Target: target}
+	if _, err := image.Size(ctx, store, matcher); err != nil {
+		t.Fatalf("manifest-reported size unexpectedly detected missing layer: %v", err)
+	}
+	if err := checkImageContent(ctx, store, target, matcher); err == nil {
+		t.Fatal("strict readiness accepted a missing layer")
+	}
+	if err := content.WriteBlob(ctx, store, "layer", bytes.NewReader(layerData), layer); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkImageContent(ctx, store, target, matcher); err != nil {
+		t.Fatalf("complete native-platform content was rejected: %v", err)
+	}
+}
+
+func missingNativeLayer(t *testing.T) (context.Context, content.Store, platforms.MatchComparer, ocispec.Descriptor, ocispec.Descriptor, []byte) {
+	t.Helper()
 	ctx := context.Background()
 	store, err := local.NewStore(t.TempDir())
 	if err != nil {
@@ -47,18 +67,63 @@ func TestStrictContentRejectsMissingLayerDespiteReportedSize(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	image := images.Image{Target: target}
-	if _, err := image.Size(ctx, store, matcher); err != nil {
-		t.Fatalf("manifest-reported size unexpectedly detected missing layer: %v", err)
-	}
-	if err := checkImageContent(ctx, store, target, matcher); err == nil {
-		t.Fatal("strict readiness accepted a missing layer")
-	}
-	if err := content.WriteBlob(ctx, store, "layer", bytes.NewReader(layerData), layer); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkImageContent(ctx, store, target, matcher); err != nil {
-		t.Fatalf("complete native-platform content was rejected: %v", err)
+	return ctx, store, matcher, target, layer, layerData
+}
+
+type testImagePullClient struct {
+	fetch func(context.Context, string, ...containerd.RemoteOpt) (images.Image, error)
+	pull  func(context.Context, string, ...containerd.RemoteOpt) (containerd.Image, error)
+}
+
+func (c testImagePullClient) Fetch(ctx context.Context, ref string, opts ...containerd.RemoteOpt) (images.Image, error) {
+	return c.fetch(ctx, ref, opts...)
+}
+
+func (c testImagePullClient) Pull(ctx context.Context, ref string, opts ...containerd.RemoteOpt) (containerd.Image, error) {
+	return c.pull(ctx, ref, opts...)
+}
+
+func TestFetchAndPullRepairsMissingNativeContent(t *testing.T) {
+	for _, failure := range []string{"", "fetch", "pull"} {
+		t.Run("failure="+failure, func(t *testing.T) {
+			ctx, store, matcher, target, layer, layerData := missingNativeLayer(t)
+			injected := errors.New("injected registry failure")
+			fetched, pulled := false, false
+			client := testImagePullClient{
+				fetch: func(ctx context.Context, _ string, _ ...containerd.RemoteOpt) (images.Image, error) {
+					fetched = true
+					if failure == "fetch" {
+						return images.Image{}, injected
+					}
+					err := content.WriteBlob(ctx, store, "restored-layer", bytes.NewReader(layerData), layer)
+					return images.Image{Target: target}, err
+				},
+				pull: func(context.Context, string, ...containerd.RemoteOpt) (containerd.Image, error) {
+					pulled = true
+					if failure == "pull" {
+						return nil, injected
+					}
+					// Model an existing-snapshot fast path: Pull downloads no blobs.
+					return containerd.NewImageWithPlatform(nil, images.Image{Target: target}, matcher), nil
+				},
+			}
+			image, err := fetchAndPullImage(ctx, client, "test/image:tag", matcher, "overlayfs")
+			if !fetched || pulled != (failure != "fetch") {
+				t.Fatalf("unexpected fetch/pull sequence: fetched=%t pulled=%t", fetched, pulled)
+			}
+			if failure != "" {
+				if !errors.Is(err, injected) {
+					t.Fatalf("registry failure was not preserved: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := checkImageContent(ctx, store, image.Target(), matcher); err != nil {
+				t.Fatalf("missing native content was not restored: %v", err)
+			}
+		})
 	}
 }
 

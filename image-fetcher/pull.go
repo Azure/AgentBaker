@@ -22,6 +22,11 @@ type pullImageResult struct {
 	Outcome     string `json:"outcome"`
 }
 
+type imagePullClient interface {
+	Fetch(context.Context, string, ...containerd.RemoteOpt) (images.Image, error)
+	Pull(context.Context, string, ...containerd.RemoteOpt) (containerd.Image, error)
+}
+
 func pullAndUnpackImage(ctx context.Context, client *containerd.Client, ref string) (pullImageResult, error) {
 	snapshotter, err := configuredCRISnapshotter(ctx)
 	if err != nil {
@@ -39,13 +44,9 @@ func pullAndUnpackImage(ctx context.Context, client *containerd.Client, ref stri
 		}
 	}
 	if getErr != nil || err != nil {
-		image, err = client.Pull(ctx, ref,
-			containerd.WithPlatformMatcher(matcher),
-			containerd.WithPullSnapshotter(snapshotter),
-			containerd.WithPullUnpack,
-		)
+		image, err = fetchAndPullImage(ctx, client, ref, matcher, snapshotter)
 		if err != nil {
-			return pullImageResult{}, fmt.Errorf("pulling and unpacking image: %w", err)
+			return pullImageResult{}, err
 		}
 		outcome = "pulled"
 	}
@@ -70,6 +71,22 @@ func pullAndUnpackImage(ctx context.Context, client *containerd.Client, ref stri
 		return pullImageResult{}, fmt.Errorf("image is not ready in CRI snapshotter %q: %v", snapshotter, err)
 	}
 	return pullImageResult{Reference: ref, Digest: image.Target().Digest.String(), Snapshotter: snapshotter, Outcome: outcome}, nil
+}
+
+func fetchAndPullImage(ctx context.Context, client imagePullClient, ref string, matcher platforms.MatchComparer, snapshotter string) (containerd.Image, error) {
+	// Pull's unpacker can skip compressed blobs when their snapshots already exist.
+	if _, err := client.Fetch(ctx, ref, containerd.WithPlatformMatcher(matcher)); err != nil {
+		return nil, fmt.Errorf("fetching complete image content: %w", err)
+	}
+	image, err := client.Pull(ctx, ref,
+		containerd.WithPlatformMatcher(matcher),
+		containerd.WithPullSnapshotter(snapshotter),
+		containerd.WithPullUnpack,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("pulling and unpacking image: %w", err)
+	}
+	return image, nil
 }
 
 func checkImageContent(ctx context.Context, provider content.Provider, target ocispec.Descriptor, matcher platforms.MatchComparer) error {
