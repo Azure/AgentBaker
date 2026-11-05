@@ -27,7 +27,8 @@ for cert in "${certs[@]}"; do
         echo "RCV1P certificate fingerprint mismatch: $cert -> $installed" >&2
         exit 1
     fi
-    openssl verify -CAfile "$bundle" -no-CApath "$cert"
+    # Validate trust installation, independently of the platform-supplied certificate's validity dates.
+    openssl verify -no_check_time -CAfile "$bundle" -no-CApath "$cert"
 done`
 
 func rcv1pCertTrustCommand(s *Scenario) string {
