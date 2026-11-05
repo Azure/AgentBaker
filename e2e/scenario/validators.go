@@ -1631,7 +1631,8 @@ for _ in $(seq 1 60); do
 done
 [ -n "$event" ] || { echo "no AKS.CSE.egressCheck event found" >&2; exit 1; }
 sudo cat "$event"
-sudo jq -e '.Message | fromjson | .Skipped == false and (.Blocked | type == "array")' "$event" >/dev/null
+# A skipped event is valid for a cloud without an endpoint list. The cloud name must still be recorded.
+sudo jq -e '.Message | fromjson | (.AzEnvironment | length > 0) and (.Blocked | type == "array")' "$event" >/dev/null
 started=$(date -d "$(sudo jq -r .Timestamp "$event")" +%s)
 kubelet_started=$(date -d "$(sudo jq -r .BootDatapoints.KubeletStartTime /var/log/azure/aks/provision.json)" +%s)
 [ "$started" -ge "$kubelet_started" ] || { echo "egress check started before kubelet" >&2; exit 1; }`
