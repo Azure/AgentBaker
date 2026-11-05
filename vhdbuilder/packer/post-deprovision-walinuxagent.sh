@@ -9,13 +9,8 @@
 # NOTE: -x is intentionally omitted to avoid leaking SAS tokens from
 # wireserver manifest/blob URLs in packer build logs.
 
-# Packer passes the optimization setting and feature flags; AIB uses the defaults.
+# Packer passes the effective optimization setting and feature flags; AIB uses the defaults.
 PREFETCH_OPTIMIZATION="${1:-false}"
-# The flag requests optimization, but the release pipeline skips AIB for ARM64 CVMs.
-# Do not retain helpers for an optimization stage that will not run.
-if [ "$(uname -m)" = "aarch64" ] && printf '%s\n' "${2:-}" | grep -q "cvm"; then
-    PREFETCH_OPTIMIZATION=false
-fi
 
 # ---- resolv.conf state tracking (read by the EXIT trap) ----
 RESOLV_CONF_ORIGINAL_STATE=""      # "symlink", "file", or "absent"; empty = not modified

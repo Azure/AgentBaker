@@ -25,7 +25,8 @@
                 "type": "Shell",
                 "name": "InstallDeprovisionHook",
                 "inline": [
-                    "hook=$(sudo mktemp /tmp/DeprovisioningScript.XXXXXX) && trap 'sudo rm -f -- \"${hook}\"' EXIT && printf '%s\\n' '#!/bin/bash -eu' 'exec sudo /bin/bash -eu /opt/azure/containers/deprovision.sh <CVM_BUILD>' | sudo tee \"${hook}\" > /dev/null && sudo chmod 0755 \"${hook}\" && sudo mv -fT -- \"${hook}\" /tmp/DeprovisioningScript.sh"
+                    "set -o pipefail",
+                    "printf '%s\\n' '#!/bin/bash -eu' 'exec sudo /bin/bash -eu /opt/azure/containers/deprovision.sh <CVM_BUILD>' | sudo install -m 0755 /dev/stdin /tmp/DeprovisioningScript.sh"
                 ]
             }
         ],
