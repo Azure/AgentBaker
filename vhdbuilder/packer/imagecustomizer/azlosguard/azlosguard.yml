@@ -340,7 +340,7 @@ os:
       permissions: 644
     # nftables
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/ipv6_nftables
-      destination: /etc/systemd/system/ipv6_nftables
+      destination: /opt/scripts/ipv6_nftables
       permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/ipv6_nftables.service
       destination: /etc/systemd/system/ipv6_nftables.service
