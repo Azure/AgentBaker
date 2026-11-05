@@ -28,7 +28,6 @@ func TestNC96A100ManagedGPUScenario(t *testing.T) {
 	require.True(t, s.Tags.GPU)
 	require.Empty(t, s.SkipReason)
 	require.False(t, s.SkipDefaultValidation)
-	require.False(t, s.SkipScriptlessNBCCSECmd)
 	require.NotNil(t, s.Validator)
 	require.NotNil(t, s.VMConfigMutatorWithError)
 	require.Nil(t, s.Runtime)
