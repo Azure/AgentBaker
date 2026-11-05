@@ -98,6 +98,8 @@ USNat/USSec certificate endpoints, RepoDepot access, or hotfix acquisition order
 
 `RCV1P_Ubuntu2204` and `RCV1P_AzureLinuxV3` additionally run the real
 `init-aks-cloud.sh prerequisites` against a scenario-local loopback HTTPS fixture.
+The initializer is copied from the tested checkout into a temporary directory,
+so published VHDs do not need to already contain prerequisite-mode support.
 The fixture CA is trusted only by the test's curl/wget invocations. Repository
 output is redirected to temporary directories, leaving active package sources
 unchanged. Assertions check exact repository URLs and signing-key references,
