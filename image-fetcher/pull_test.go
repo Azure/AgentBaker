@@ -1,8 +1,66 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"testing"
+
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/images"
+	"github.com/containerd/containerd/v2/plugins/content/local"
+	"github.com/containerd/platforms"
+	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+func TestStrictContentRejectsMissingLayerDespiteReportedSize(t *testing.T) {
+	ctx := context.Background()
+	store, err := local.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	platform := ocispec.Platform{OS: "linux", Architecture: "amd64"}
+	matcher := platforms.OnlyStrict(platform)
+	configData, err := json.Marshal(ocispec.Image{Platform: platform})
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := ocispec.Descriptor{MediaType: ocispec.MediaTypeImageConfig, Digest: digest.FromBytes(configData), Size: int64(len(configData))}
+	layerData := []byte("test compressed layer content")
+	layer := ocispec.Descriptor{MediaType: ocispec.MediaTypeImageLayerGzip, Digest: digest.FromBytes(layerData), Size: int64(len(layerData))}
+	manifestData, err := json.Marshal(ocispec.Manifest{
+		Versioned: specs.Versioned{SchemaVersion: 2},
+		MediaType: ocispec.MediaTypeImageManifest,
+		Config:    config, Layers: []ocispec.Descriptor{layer},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := ocispec.Descriptor{MediaType: ocispec.MediaTypeImageManifest, Digest: digest.FromBytes(manifestData), Size: int64(len(manifestData))}
+	for index, blob := range []struct {
+		descriptor ocispec.Descriptor
+		data       []byte
+	}{{config, configData}, {target, manifestData}} {
+		if err := content.WriteBlob(ctx, store, string(rune('a'+index)), bytes.NewReader(blob.data), blob.descriptor); err != nil {
+			t.Fatal(err)
+		}
+	}
+	image := images.Image{Target: target}
+	if _, err := image.Size(ctx, store, matcher); err != nil {
+		t.Fatalf("manifest-reported size unexpectedly detected missing layer: %v", err)
+	}
+	if err := checkImageContent(ctx, store, target, matcher); err == nil {
+		t.Fatal("strict readiness accepted a missing layer")
+	}
+	if err := content.WriteBlob(ctx, store, "layer", bytes.NewReader(layerData), layer); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkImageContent(ctx, store, target, matcher); err != nil {
+		t.Fatalf("complete native-platform content was rejected: %v", err)
+	}
+}
 
 func TestSnapshotterFromEffectiveConfig(t *testing.T) {
 	for _, test := range []struct {

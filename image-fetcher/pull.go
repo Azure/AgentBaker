@@ -8,7 +8,10 @@ import (
 	"strings"
 
 	containerd "github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/platforms"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -32,7 +35,7 @@ func pullAndUnpackImage(ctx context.Context, client *containerd.Client, ref stri
 	if getErr == nil {
 		image = containerd.NewImageWithPlatform(client, image.Metadata(), matcher)
 		if err = validateImagePlatform(ctx, image, platform); err == nil {
-			_, err = image.Size(ctx)
+			err = checkImageContent(ctx, client.ContentStore(), image.Target(), matcher)
 		}
 	}
 	if getErr != nil || err != nil {
@@ -59,7 +62,7 @@ func pullAndUnpackImage(ctx context.Context, client *containerd.Client, ref stri
 	if err := validateImagePlatform(ctx, image, platform); err != nil {
 		return pullImageResult{}, err
 	}
-	if _, err := image.Size(ctx); err != nil {
+	if err := checkImageContent(ctx, client.ContentStore(), image.Target(), matcher); err != nil {
 		return pullImageResult{}, fmt.Errorf("validating complete image content: %w", err)
 	}
 	unpacked, err = image.IsUnpacked(ctx, snapshotter)
@@ -67,6 +70,17 @@ func pullAndUnpackImage(ctx context.Context, client *containerd.Client, ref stri
 		return pullImageResult{}, fmt.Errorf("image is not ready in CRI snapshotter %q: %v", snapshotter, err)
 	}
 	return pullImageResult{Reference: ref, Digest: image.Target().Digest.String(), Snapshotter: snapshotter, Outcome: outcome}, nil
+}
+
+func checkImageContent(ctx context.Context, provider content.Provider, target ocispec.Descriptor, matcher platforms.MatchComparer) error {
+	available, _, _, missing, err := images.Check(ctx, provider, target, matcher)
+	if err != nil {
+		return err
+	}
+	if !available || len(missing) != 0 {
+		return fmt.Errorf("image content is incomplete: available=%t missing=%d", available, len(missing))
+	}
+	return nil
 }
 
 func configuredCRISnapshotter(ctx context.Context) (string, error) {
