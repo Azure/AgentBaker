@@ -72,7 +72,7 @@ copyPackerFiles() {
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
   IPV6_NFTABLES_RULES_SRC=/home/packer/ipv6_nftables
-  IPV6_NFTABLES_RULES_DEST=/etc/systemd/system/ipv6_nftables
+  IPV6_NFTABLES_RULES_DEST=/opt/scripts/ipv6_nftables
   IPV6_NFTABLES_SCRIPT_SRC=/home/packer/ipv6_nftables.sh
   IPV6_NFTABLES_SCRIPT_DEST=/opt/scripts/ipv6_nftables.sh
   IPV6_NFTABLES_SERVICE_SRC=/home/packer/ipv6_nftables.service

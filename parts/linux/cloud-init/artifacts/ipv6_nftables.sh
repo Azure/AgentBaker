@@ -4,7 +4,9 @@ set -uo pipefail
 set -x
 set -e
 
-NFTABLES_RULESET_FILE=/etc/systemd/system/ipv6_nftables
+# Keep the ruleset out of /etc/systemd/system: SELinux labels files there as
+# systemd_unit_file_t, which nft (iptables_t) is not allowed to read.
+NFTABLES_RULESET_FILE=/opt/scripts/ipv6_nftables
 
 # query IMDS to check if node has IPv6
 # example interface
