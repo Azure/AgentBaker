@@ -1049,12 +1049,13 @@ EOF
         End
 
         It 'records a blocked MCR data endpoint by host only, without tracing the signed query'
-            # cse_main.sh runs under set -x, so the example traces like production.
-            set -x
             FAIL_HOSTS="eastus.data.mcr.microsoft.com"
-            When call run_check AzurePublicCloud
+            # Trace like cse_main.sh (set -x), but in a subshell so tracing cannot leak into ShellSpec and hang it.
+            When call eval '( set -x; run_check AzurePublicCloud )'
+            # Under kcov, its PS4 markers can land in the captured curl error, so match the parts that matter.
             The output should include '"level":"Error"'
-            The output should include '"Blocked":["https://eastus.data.mcr.microsoft.com: curl: (28) Connection timed out"]'
+            The output should include '"Blocked":["https://eastus.data.mcr.microsoft.com: '
+            The output should include 'curl: (28) Connection timed out'
             The output should not include 'SECRET'
             The output should not include 'sig='
             The stderr should not include 'SECRET'
