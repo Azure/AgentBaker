@@ -36,3 +36,4 @@ jobs:
       name: Linux Tests
       IgnoreScenariosWithMissingVhd: false
       failedTestsRetryCount: ${{ variables.E2E_FAILED_TESTS_RETRY_COUNT }}
+      randomNBCCoverage: true

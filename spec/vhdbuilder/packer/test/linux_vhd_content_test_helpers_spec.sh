@@ -3,6 +3,35 @@
 
 # ShellSpec tests for content-test helpers and call sites
 
+Describe 'Ubuntu 26.04 minimal lshw dependency'
+  BeforeAll "eval \"\$(sed -n '/^testLshwInstalled()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)\""
+  err() { echo "$1:Error: $2" >&2; }
+  dpkg-query() {
+    # shellcheck disable=SC2016
+    [ "$*" = '-W -f=${Status} lshw' ] || return 1
+    printf '%s\n' "$PACKAGE_STATUS"
+    return "$QUERY_STATUS"
+  }
+  Parameters
+    Ubuntu 26.04 minimal 'install ok installed' 0 0
+    Ubuntu 26.04 minimal '' 1 1
+    Ubuntu 26.04 minimal 'deinstall ok config-files' 0 1
+    Ubuntu 26.04 26_04-lts-minimal-cvm '' 1 1
+    Ubuntu 26.04 26_04-lts-gen2 '' 1 0
+    Ubuntu 24.04 minimal '' 1 0
+    AzureLinux 3.0 minimal '' 1 0
+  End
+  It "checks lshw for $1 $2 $3 with package status '$4'"
+    OS_SKU="$1" OS_VERSION="$2" IMG_SKU="$3" PACKAGE_STATUS="$4" QUERY_STATUS="$5"
+    When call testLshwInstalled
+    The status should equal "$6"
+    The output should include 'testLshwInstalled:Start'
+    if [ "$6" -ne 0 ]; then
+      The stderr should include 'testLshwInstalled:Error: lshw is not installed'
+    fi
+  End
+End
+
 Describe 'eMudhra root removal'
   BeforeAll "eval \"\$(sed -n '/^testEmudhraRootRemoval()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)\""
   err() { echo "$1:Error: $2" >&2; }
