@@ -2,6 +2,59 @@
 
 PCI_DEVICES_PATH="${PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
 MANA_OBSERVED_FILE="${MANA_OBSERVED_FILE:-/run/node-exporter-mana-observed}"
+KUBELET_DEFAULT_FILE="${KUBELET_DEFAULT_FILE:-/etc/default/kubelet}"
+# Azure WireServer is always routed through the primary NIC.
+NODE_EXPORTER_ROUTE_PROBE_IP="${NODE_EXPORTER_ROUTE_PROBE_IP:-168.63.129.16}"
+
+isIPv4Address() {
+    printf '%s\n' "$1" | grep -Eqx '[0-9]{1,3}(\.[0-9]{1,3}){3}' || return 1
+    # Unspecified and loopback addresses are not the node IP; 0.0.0.0 would
+    # listen on every interface.
+    case "$1" in
+        0.0.0.0|127.*) return 1 ;;
+    esac
+}
+
+# Prints the value of kubelet's --node-ip flag. Only KUBELET_FLAGS tokens are
+# considered, so a node label containing "--node-ip=" cannot match.
+getKubeletNodeIPFlag() {
+    local flags token value=""
+    local -a tokens
+    flags=$(sed -n 's/^KUBELET_FLAGS=//p' "$KUBELET_DEFAULT_FILE" 2>/dev/null | tail -n 1)
+    flags="${flags#\"}"
+    flags="${flags%\"}"
+    read -ra tokens <<< "$flags"
+    for token in "${tokens[@]}"; do
+        case "$token" in
+            --node-ip=*) value="${token#--node-ip=}" ;;
+        esac
+    done
+    printf '%s\n' "$value"
+}
+
+# Prints the node IPv4 address node-exporter must listen on: the address scrapers
+# use (Node InternalIP / status.hostIP). Never fall back to a wildcard address,
+# which would also expose the unauthenticated endpoint on secondary NICs, IPv6,
+# and bridge addresses.
+getNodeExporterListenIP() {
+    local address
+    # kubelet registers --node-ip (set by CSE from IMDS) as the Node InternalIP.
+    for address in $(getKubeletNodeIPFlag | tr ',' ' '); do
+        if isIPv4Address "$address"; then
+            printf '%s\n' "$address"
+            return 0
+        fi
+    done
+    # Otherwise use the primary NIC's source address, which cloud-node-manager
+    # also assigns as the InternalIP.
+    address=$(ip -4 -o route get "$NODE_EXPORTER_ROUTE_PROBE_IP" 2>/dev/null |
+        awk '{for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit }}')
+    if isIPv4Address "$address"; then
+        printf '%s\n' "$address"
+        return 0
+    fi
+    return 1
+}
 
 getNodeExporterHardwareArgs() {
     if [ -f "$MANA_OBSERVED_FILE" ]; then
@@ -48,10 +101,10 @@ if [ "${1:-}" = "--mana-added" ]; then
     exit $?
 fi
 
-if [ "$(grep ^ID= /etc/os-release | cut -c 4-)" = "flatcar" ]; then
-    NODE_IP=$(ip -o -4 addr show dev eth0 | awk '{print $4}' | cut -d '/' -f 1)
-else
-    NODE_IP=$(hostname -I | awk '{print $1}')
+if ! NODE_IP=$(getNodeExporterListenIP); then
+    # systemd restarts the service; never start listening on all interfaces.
+    echo "Could not determine the node IPv4 address; refusing to listen on all interfaces" >&2
+    exit 1
 fi
 
 TLS_CONFIG_PATH="/etc/node-exporter.d/web-config.yml"
