@@ -269,7 +269,10 @@ var _ = Register(&Scenario{
 		VHD:             config.VHDUbuntu2204Gen2Containerd,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
+			if err := ValidateRCV1PCertMode(ctx, s); err != nil {
+				return err
+			}
+			return ValidateRepoDepotConfiguration(ctx, s)
 		},
 	},
 })
@@ -329,7 +332,10 @@ var _ = Register(&Scenario{
 		VHD:             config.VHDAzureLinuxV3Gen2,
 		VMConfigMutator: rcv1pOptInVMConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateRCV1PCertMode(ctx, s)
+			if err := ValidateRCV1PCertMode(ctx, s); err != nil {
+				return err
+			}
+			return ValidateRepoDepotConfiguration(ctx, s)
 		},
 	},
 })

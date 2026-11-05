@@ -96,6 +96,16 @@ certificates already present in the image.
 This is not full sovereign-cloud coverage: it does not exercise legacy
 USNat/USSec certificate endpoints, RepoDepot access, or hotfix acquisition ordering.
 
+`RCV1P_Ubuntu2204` and `RCV1P_AzureLinuxV3` additionally run the real
+`init-aks-cloud.sh prerequisites` against a scenario-local loopback HTTPS fixture.
+The fixture CA is trusted only by the test's curl/wget invocations. Repository
+output is redirected to temporary directories, leaving active package sources
+unchanged. Assertions check exact repository URLs and signing-key references,
+Ubuntu signing-key fingerprints, and Azure Linux signature/TLS settings.
+Package-index refresh and task-scheduling commands are guarded against execution.
+This tests repository setup after provisioning, not launcher input parsing,
+hotfix ordering, actual sovereign connectivity, or package acquisition.
+
 ### Scriptless provisioning
 
 Linux scenarios use kubelet configuration-file mode by default, for both NBC/CSE
