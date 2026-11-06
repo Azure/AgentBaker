@@ -147,6 +147,9 @@ copyPackerFiles() {
   AKS_CHECK_NETWORK_SCRIPT_DEST=/opt/azure/containers/aks-check-network.sh
   AKS_CHECK_NETWORK_SERVICE_SRC=/home/packer/aks-check-network.service
   AKS_CHECK_NETWORK_SERVICE_DEST=/etc/systemd/system/aks-check-network.service
+  AKS_WAAGENT_PREFER_HGAP_SCRIPT_SRC=/home/packer/aks-waagent-prefer-hostgaplugin.py
+  AKS_WAAGENT_PREFER_HGAP_SCRIPT_DEST=/opt/azure/containers/aks-waagent-prefer-hostgaplugin.py
+  AKS_WAAGENT_PREFER_HGAP_DROPIN_SRC=/home/packer/aks-waagent-prefer-hostgaplugin.conf
   AKS_NODE_CONTROLLER_LAUNCHER_SRC=/home/packer/aks-node-controller-launcher.sh
   AKS_NODE_CONTROLLER_LAUNCHER_DEST=/opt/azure/containers/aks-node-controller-launcher.sh
   AKS_NODE_CONTROLLER_HOTFIX_SRC=/home/packer/aks-node-controller-hotfix.sh
@@ -479,6 +482,13 @@ copyPackerFiles() {
 
   cpAndMode $AKS_CHECK_NETWORK_SCRIPT_SRC $AKS_CHECK_NETWORK_SCRIPT_DEST 755
   cpAndMode $AKS_CHECK_NETWORK_SERVICE_SRC $AKS_CHECK_NETWORK_SERVICE_DEST 644
+
+  # No-op unless the node is bootstrapped with PREFER_HOSTGAPLUGIN (network isolated clusters).
+  # The agent unit is walinuxagent.service on Ubuntu and waagent.service elsewhere.
+  cpAndMode $AKS_WAAGENT_PREFER_HGAP_SCRIPT_SRC $AKS_WAAGENT_PREFER_HGAP_SCRIPT_DEST 755
+  for unit in walinuxagent.service waagent.service; do
+    cpAndMode $AKS_WAAGENT_PREFER_HGAP_DROPIN_SRC /etc/systemd/system/${unit}.d/50-aks-prefer-hostgaplugin.conf 644
+  done
 
   if [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ] || [ "${UBUNTU_RELEASE}" = "26.04" ]; then
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204

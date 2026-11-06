@@ -3014,6 +3014,48 @@ testNetworkdRecoveryArtifacts() {
   fi
 }
 
+testWaagentPreferHostGAPluginHook() {
+  local test="testWaagentPreferHostGAPluginHook"
+  local script="/opt/azure/containers/aks-waagent-prefer-hostgaplugin.py"
+  echo "$test: Start"
+  if [ "$(stat -c '%a' "$script" 2>/dev/null)" != "755" ]; then
+    err "$test" "$script must exist with mode 0755"
+    return 1
+  fi
+  local unit=walinuxagent.service
+  systemctl cat "$unit" >/dev/null 2>&1 || unit=waagent.service
+  if ! systemctl cat "$unit" | grep -Fq "ExecStartPre=-/usr/bin/python3 $script"; then
+    err "$test" "$unit must run $script as ExecStartPre"
+  fi
+  # Dormant without the feature: must not touch the agent on a shared VHD.
+  if [ -n "$(python3 "$script")" ]; then
+    err "$test" "$script must be a no-op when PREFER_HOSTGAPLUGIN is not enabled"
+  fi
+  # The patch pattern must still match the agent version baked into this VHD.
+  if ! python3 - "$script" <<'EOF'
+import glob, importlib.util, sys, zipfile
+spec = importlib.util.spec_from_file_location("hook", sys.argv[1])
+hook = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(hook)
+sources = []
+try:
+    import azurelinuxagent.common.protocol.hostplugin as m
+    sources.append(open(m.__file__, "rb").read())
+except ImportError:
+    pass
+for egg in glob.glob(hook.EGG_GLOB):
+    with zipfile.ZipFile(egg) as z:
+        if hook.MODULE_PATH in z.namelist():
+            sources.append(z.read(hook.MODULE_PATH))
+if not sources or any(hook.patch_source(s)[1] != 1 for s in sources):
+    sys.exit(1)
+EOF
+  then
+    err "$test" "prefer-hostgaplugin patch pattern does not match the guest agent installed on this VHD"
+  fi
+  echo "$test: Finish"
+}
+
 testMarinerLivePatchingArtifacts() {
   local test="testMarinerLivePatchingArtifacts"
   local update_script="/opt/azure/containers/mariner-package-update.sh"
@@ -3127,3 +3169,4 @@ testFileOwnership $OS_SKU
 testDiskQueueServiceIsActive
 testVulnerableKernelModulesDisabled $OS_SKU $OS_VERSION
 testArtifactStreamingPackagesCleanedUp
+testWaagentPreferHostGAPluginHook

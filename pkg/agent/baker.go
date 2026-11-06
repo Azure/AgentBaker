@@ -1619,6 +1619,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return false
 		},
+		"ShouldPreferHostGAPlugin": func() bool {
+			return strings.EqualFold(config.EnabledFeatures[preferHostGAPluginFeature], "true")
+		},
+		"GetPreferHostGAPluginMarkerFilepath": func() string {
+			return preferHostGAPluginMarkerFilepath
+		},
 		"GPUNeedsFabricManager": func() bool {
 			return GPUNeedsFabricManager(profile.VMSize)
 		},

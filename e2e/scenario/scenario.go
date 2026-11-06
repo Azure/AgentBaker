@@ -1176,6 +1176,7 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDAzureLinuxV3Gen2,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.OutboundType = datamodel.OutboundTypeBlock
+			nbc.EnabledFeatures = map[string]string{preferHostGAPluginFeature: "true"}
 			nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 				PrivateEgress: &datamodel.PrivateEgress{
 					Enabled:                 true,
@@ -1193,6 +1194,7 @@ var _ = Register(&Scenario{
 		},
 		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
 			cfg.OutboundCommand = ""
+			cfg.EnabledFeatures = map[string]string{preferHostGAPluginFeature: "true"}
 			cfg.BootstrapProfileContainerRegistryServer = fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation))
 			cfg.AuthConfig.UseManagedIdentityExtension = true
 			cfg.KubeBinaryConfig.LinuxCredentialProviderUrl = fmt.Sprintf("https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", cfg.KubernetesVersion, cfg.KubernetesVersion)
@@ -1200,7 +1202,10 @@ var _ = Register(&Scenario{
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			return errors.Join(
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"}),
+				ValidateWaagentUsesHostGAPluginOnly(ctx, s),
+			)
 		},
 	},
 })
@@ -1264,6 +1269,7 @@ var _ = Register(&Scenario{
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.OutboundType = datamodel.OutboundTypeBlock
+			nbc.EnabledFeatures = map[string]string{preferHostGAPluginFeature: "true"}
 			nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 				PrivateEgress: &datamodel.PrivateEgress{
 					Enabled:                 true,
@@ -1281,6 +1287,7 @@ var _ = Register(&Scenario{
 		},
 		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
 			cfg.OutboundCommand = ""
+			cfg.EnabledFeatures = map[string]string{preferHostGAPluginFeature: "true"}
 			cfg.BootstrapProfileContainerRegistryServer = fmt.Sprintf("%s.azurecr.io/aks-managed-repository", config.PrivateACRNameNotAnon(config.Config.DefaultLocation))
 			cfg.AuthConfig.UseManagedIdentityExtension = true
 			cfg.KubeBinaryConfig.LinuxCredentialProviderUrl = fmt.Sprintf("https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", cfg.KubernetesVersion, cfg.KubernetesVersion)
@@ -1288,7 +1295,10 @@ var _ = Register(&Scenario{
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"})
+			return errors.Join(
+				ValidateDirectoryContent(ctx, s, "/opt/azure", []string{"outbound-check-skipped"}),
+				ValidateWaagentUsesHostGAPluginOnly(ctx, s),
+			)
 		},
 	},
 })
@@ -1626,6 +1636,8 @@ var _ = Register(&Scenario{
 				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service"),
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service"),
 				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service"),
+				// negative control for ValidateWaagentUsesHostGAPluginOnly: PREFER_HOSTGAPLUGIN is not enabled here
+				ValidateWaagentAttemptsDirectStorage(ctx, s),
 			)
 		},
 	},
