@@ -314,6 +314,65 @@ Describe 'Inspektor Gadget version helper functions'
   End
 End
 
+Describe 'testVulnerableKernelModulesDisabled on AzureLinux'
+  BeforeAll "eval \"\$(sed -n '/^testVulnerableKernelModulesDisabled()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  err() { echo "$1:Error: $2" >&2; }
+  # The four Copy Fail / DirtyFrag / Fragnesia deny rules exist only when DENY_RULES_PRESENT=true.
+  # The rest of the CIS module denylist is always present, and no module is loaded.
+  grep() {
+    case "$*" in
+      *'/proc/modules'*) return 1 ;;
+      *'/bin/false|blacklist '*) [ "$DENY_RULES_PRESENT" = true ] ;;
+      *'/etc/modprobe.d/'*) return 0 ;;
+      *) command grep "$@" ;;
+    esac
+  }
+  # algif_aead is built into the kernel (as on AzureLinux 4.0), so modprobe always loads it.
+  modprobe() {
+    echo "modprobe called: $*"
+    case "$1" in
+      -r|algif_aead) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
+
+  Context 'with the deny rules stripped'
+    Parameters
+      3.0
+      4.0
+    End
+
+    It "passes on AzureLinux $1 without probing the modules"
+      DENY_RULES_PRESENT=false
+      When call testVulnerableKernelModulesDisabled AzureLinux "$1"
+      The status should be success
+      The output should include "testVulnerableKernelModulesDisabled: algif_aead blacklist correctly absent on AzureLinux $1"
+      The output should include "testVulnerableKernelModulesDisabled: rxrpc blacklist correctly absent on AzureLinux $1"
+      The output should include "testVulnerableKernelModulesDisabled: CIS modprobe config correctly blocks sctp on AzureLinux $1"
+      The output should not include 'modprobe called'
+      The stderr should equal ''
+    End
+  End
+
+  It 'fails on AzureLinux 4.0 when a deny rule is still baked in'
+    DENY_RULES_PRESENT=true
+    When call testVulnerableKernelModulesDisabled AzureLinux 4.0
+    The status should be failure
+    The output should not include 'modprobe called'
+    The stderr should include 'testVulnerableKernelModulesDisabled:Error: algif_aead blacklist entry unexpectedly present in /etc/modprobe.d/*.conf on AzureLinux 4.0'
+  End
+
+  It 'keeps the presence and load-refusal check on AzureLinux 2.0'
+    DENY_RULES_PRESENT=true
+    When call testVulnerableKernelModulesDisabled AzureLinux 2.0
+    The status should be failure
+    The output should include 'testVulnerableKernelModulesDisabled: modprobe config correctly blocks esp4'
+    The output should include 'testVulnerableKernelModulesDisabled: modprobe esp4 correctly refused to load'
+    The stderr should include 'testVulnerableKernelModulesDisabled:Error: modprobe algif_aead succeeded'
+  End
+End
+
 Describe 'testCronPermissions invocation'
   BeforeAll "eval \"\$(sed -n '/^testCronPermissions()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
 

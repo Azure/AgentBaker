@@ -138,7 +138,9 @@ reconcileVulnerableKernelModuleMitigation() {
     # algif_aead / esp4 / esp6 / rxrpc on the patched kernel. Existing in-support AzL3 VHDs
     # (built before this change) still have the bake-in until they are rolled; no CSE-time active
     # removal is performed, so customers get the unblocked configuration on their next AzL3
-    # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
+    # VHD upgrade. AzureLinux 4.0 is excluded the same way: every AzL4 kernel (6.18.50 and
+    # later) carries the upstream fixes, and AzL4 VHDs never ship the four deny rules.
+    # AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
     # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
     # the affected kernel modules.
     # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
