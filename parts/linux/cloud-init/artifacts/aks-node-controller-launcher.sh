@@ -60,13 +60,12 @@ unset AKS_CLOUD_PREREQUISITES_DONE
 "$BIN_PATH" cloud-prerequisites "${provision_args[@]}" >> "$CLUSTER_PROVISION_LOG" 2>&1
 exit_code=$?
 if [ "$exit_code" -ne 0 ]; then
-    log "ANC cloud prerequisites failed with code ${exit_code}; stopping before hotfix acquisition"
-    exit "$exit_code"
+    log "ANC cloud prerequisites failed with code ${exit_code}; skipping hotfix acquisition and provisioning with baked ANC"
+else
+    export AKS_CLOUD_PREREQUISITES_DONE=true
+    anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
+    BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
 fi
-export AKS_CLOUD_PREREQUISITES_DONE=true
-
-anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
-BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
 command=("$BIN_PATH" provision "${provision_args[@]}")
 
 "${command[@]}" &

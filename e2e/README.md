@@ -98,11 +98,10 @@ USNat/USSec certificate endpoints, RepoDepot access, or hotfix acquisition order
 
 `RCV1P_Ubuntu2204` and `RCV1P_AzureLinuxV3` additionally run the real
 `init-aks-cloud.sh prerequisites` against a scenario-local loopback HTTPS fixture.
-The fixture runs the installed initializer only in lanes selecting explicit VHDs
-(such as the PR VHD-build gate). Lanes using the default
-`branch=refs/heads/main` image selector skip this additional check, but retain
-their existing RCV1P validation. Explicit selections must contain prerequisite-mode
-support; selecting an older build will fail rather than silently skip the assertion.
+The fixture runs the installed initializer in both standalone and VHD-build E2E
+lanes without an image-selector gate. Images whose installed script lacks
+prerequisite-mode support can fail this check; investigate those failures separately
+from failures of the updated script.
 The fixture CA is trusted only by the test's curl/wget invocations. Repository
 output is redirected to temporary directories, leaving active package sources
 unchanged. Assertions check exact repository URLs and signing-key references,

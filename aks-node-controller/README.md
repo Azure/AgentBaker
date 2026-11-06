@@ -237,9 +237,14 @@ The launcher first runs **cloud-prerequisites** using the same inputs as `provis
 (NBC takes precedence when both inputs exist). It parses settings without executing
 NBC and runs `init-aks-cloud.sh prerequisites` to install cloud CAs and configure
 RepoDepot repositories and signing keys before `check-hotfix` and `download-hotfix`.
-Required bootstrap failures stop acquisition and use ANC's provisioning failure
-reporting and completion signaling. TLS and repository signature verification stay
-enabled for both direct downloads and package-manager fallback.
+This is best effort: unreadable settings or bootstrap failures are logged and skip
+the entire hotfix flow, including any staged hotfix binary. The baked ANC continues
+normal provisioning without the prerequisite handoff, retrying initialization and
+retaining normal provisioning failure reporting and completion signaling. This
+phase requires a nonblank location but defers full config validation to provisioning;
+unmarshal errors still skip acquisition rather than using partial cloud settings.
+TLS and repository signature verification stay enabled for both direct downloads
+and package-manager fallback.
 
 On success, the launcher passes `AKS_CLOUD_PREREQUISITES_DONE=true` only to its
 process tree. Normal cloud initialization skips duplicate certificate/repository

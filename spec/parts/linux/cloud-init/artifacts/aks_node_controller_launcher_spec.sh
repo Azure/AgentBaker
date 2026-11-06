@@ -196,17 +196,19 @@ EOF
         End
     End
 
-    It 'stops before acquisition and provisioning when required cloud initialization fails'
+    It 'skips acquisition and staged hotfixes but provisions with baked ANC when cloud initialization fails'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         create_recording_aks_node_controller
-        export ENABLE_PROVISIONING_HOTFIX=true CLOUD_PREREQUISITES_EXIT=17
+        create_staged_hotfix_binary
+        export ENABLE_PROVISIONING_HOTFIX=true CLOUD_PREREQUISITES_EXIT=17 AKS_CLOUD_PREREQUISITES_DONE=true
 
         When run bash "$SCRIPT"
-        The status should eq 17
-        The output should include 'stopping before hotfix acquisition'
+        The status should be success
+        The output should include 'skipping hotfix acquisition'
         workflow=$(cat "${TEST_DIR}/workflow")
-        The variable workflow should eq 'cloud-prerequisites:false'
-        The path "${TEST_DIR}/calls" should not be exist
+        The variable workflow should eq "$(printf 'cloud-prerequisites:false\nprovision:false')"
+        The contents of file "${TEST_DIR}/calls" should eq 'provision'
+        The path "${TEST_DIR}/hotfix_calls" should not be exist
     End
 
     It 'exits successfully without invoking aks-node-controller when config and nbc cmd are absent'

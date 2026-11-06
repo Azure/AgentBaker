@@ -5,24 +5,20 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 )
 
 func (a *App) runCloudPrerequisitesCommand(ctx context.Context, flags ProvisionFlags) error {
-	result, err := a.initializeCloudPrerequisites(ctx, flags)
+	_, err := a.initializeCloudPrerequisites(ctx, flags)
 	if err != nil {
-		a.reportProvisionStatus(ctx, result, err)
-		a.writeCompleteFileOnError(result, err)
-		now := time.Now()
-		a.eventLogger.LogEvent("Provision", result.Error, helpers.EventLevelError, now, now)
+		slog.Warn("cloud prerequisites failed; skip hotfix acquisition and defer initialization to provisioning", "error", err)
 	}
 	return err
 }
@@ -58,13 +54,10 @@ func cloudPrerequisiteSettings(flags ProvisionFlags) (map[string]string, error) 
 	if err != nil {
 		return nil, fmt.Errorf("decode cloud provision config: %w", err)
 	}
-	if err := nodeconfigutils.Validate(config); err != nil {
-		return nil, fmt.Errorf("validate cloud provision config: %w", err)
+	if strings.TrimSpace(config.GetClusterConfig().GetLocation()) == "" {
+		return nil, fmt.Errorf("cloud settings must include LOCATION")
 	}
-	return map[string]string{
-		"LOCATION":            config.GetClusterConfig().GetLocation(),
-		"REPO_DEPOT_ENDPOINT": parser.GetRepoDepotEndpoint(config),
-	}, nil
+	return parser.CloudPrerequisiteSettings(config), nil
 }
 
 func (a *App) initializeCloudPrerequisites(ctx context.Context, flags ProvisionFlags) (*ProvisionResult, error) {

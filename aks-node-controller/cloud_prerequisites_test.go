@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -14,6 +13,28 @@ import (
 )
 
 func TestCloudPrerequisiteSettings(t *testing.T) {
+	t.Run("unrelated validation is deferred to provisioning", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "config.json")
+		require.NoError(t, os.WriteFile(path, []byte(`{"cluster_config":{"location":"ussec"},"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":"https://depot/ubuntu"}}`), 0600))
+		settings, err := cloudPrerequisiteSettings(ProvisionFlags{ProvisionConfig: path})
+		require.NoError(t, err)
+		require.Equal(t, "ussec", settings["LOCATION"])
+		require.Equal(t, "https://depot/ubuntu", settings["REPO_DEPOT_ENDPOINT"])
+		_, err = buildCmdFromProvisionConfig(t.Context(), path, "")
+		require.ErrorContains(t, err, "validate provision config")
+	})
+	for _, input := range []string{
+		`{"cluster_config":{"location":" "}}`,
+		`{"cluster_config":{"location":"ussec"},"kubelet_config":123}`,
+		`{"cluster_config":{"location":"ussec"},`,
+	} {
+		t.Run(input, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.json")
+			require.NoError(t, os.WriteFile(path, []byte(input), 0600))
+			_, err := cloudPrerequisiteSettings(ProvisionFlags{ProvisionConfig: path})
+			require.Error(t, err)
+		})
+	}
 	for _, tc := range []struct {
 		name, custom, endpoint string
 	}{
@@ -101,7 +122,7 @@ func TestInitializeCloudPrerequisites(t *testing.T) {
 	}
 }
 
-func TestCloudPrerequisiteFailureSignalsProvisioning(t *testing.T) {
+func TestCloudPrerequisiteFailureDefersProvisioningSignals(t *testing.T) {
 	for _, invalidInput := range []bool{false, true} {
 		t.Run(map[bool]string{false: "certificate failure", true: "invalid config"}[invalidInput], func(t *testing.T) {
 			tt := NewTestApp(t, TestAppConfig{RunFunc: func(*exec.Cmd) error {
@@ -129,16 +150,9 @@ func TestCloudPrerequisiteFailureSignalsProvisioning(t *testing.T) {
 				args = append(args, "--nbc-cmd="+path)
 			}
 			require.NotZero(t, tt.App.Run(t.Context(), args))
-			require.Equal(t, 1, reports)
-			require.FileExists(t, tt.App.provisionStatusFiles.ProvisionCompleteFile)
-			data, err := os.ReadFile(tt.App.provisionStatusFiles.ProvisionJSONFile)
-			require.NoError(t, err)
-			var result ProvisionResult
-			require.NoError(t, json.Unmarshal(data, &result))
-			require.Equal(t, "240", result.ExitCode)
-			require.NotEmpty(t, result.Error)
-			_, err = tt.App.ProvisionWait(t.Context(), *tt.App.provisionStatusFiles)
-			require.Error(t, err)
+			require.Equal(t, 0, reports)
+			require.NoFileExists(t, tt.App.provisionStatusFiles.ProvisionCompleteFile)
+			require.NoFileExists(t, tt.App.provisionStatusFiles.ProvisionJSONFile)
 		})
 	}
 }
