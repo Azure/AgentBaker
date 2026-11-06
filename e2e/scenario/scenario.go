@@ -1240,12 +1240,6 @@ var _ = Register(&Scenario{
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			if vmss.Tags == nil {
-				vmss.Tags = map[string]*string{}
-			}
-			vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
-		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 		},
