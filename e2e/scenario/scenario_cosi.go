@@ -113,10 +113,9 @@ func cosiUpdateAMD64Scenario() *Scenario {
 			COSIUpdate: true,
 		},
 		Config: Config{
-			Cluster:                 ClusterKubenet,
-			VHD:                     config.VHDACLGen2TL,
-			SkipScriptlessNBCCSECmd: true,
-			WaitForSSHAfterReboot:   5 * time.Minute,
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDACLGen2TL,
+			WaitForSSHAfterReboot: 5 * time.Minute,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Properties = aclVMSSSecurityProfile(vmss.Properties, config.Config.ACLBaseImageSigned)
 			},
@@ -162,9 +161,8 @@ func cosiUpdateARM64Scenario() *Scenario {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLArm64Gen2TL,
 			// v6 (Cobalt 100) only supports NVMe disk controllers, not ResourceDisk
-			UseNVMe:                 true,
-			SkipScriptlessNBCCSECmd: true,
-			WaitForSSHAfterReboot:   5 * time.Minute,
+			UseNVMe:               true,
+			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"
@@ -213,10 +211,9 @@ func cosiUpdateAMD64FIPSScenario() *Scenario {
 			COSIUpdate: true,
 		},
 		Config: Config{
-			Cluster:                 ClusterKubenet,
-			VHD:                     config.VHDACLGen2FIPSTL,
-			SkipScriptlessNBCCSECmd: true,
-			WaitForSSHAfterReboot:   5 * time.Minute,
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDACLGen2FIPSTL,
+			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// LocalDNS isn't currently supported on FIPS-enabled VHDs; mirror ACLGen2FIPSTL.
 				nbc.AgentPoolProfile.LocalDNSProfile = nil
@@ -266,9 +263,8 @@ func cosiUpdateARM64FIPSScenario() *Scenario {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDACLArm64Gen2FIPSTL,
 			// v6 (Cobalt 100) only supports NVMe disk controllers, not ResourceDisk
-			UseNVMe:                 true,
-			SkipScriptlessNBCCSECmd: true,
-			WaitForSSHAfterReboot:   5 * time.Minute,
+			UseNVMe:               true,
+			WaitForSSHAfterReboot: 5 * time.Minute,
 			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 				// Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_v6"

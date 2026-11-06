@@ -53,11 +53,17 @@ Describe 'Enable-WindowsCiliumNetworking' {
         $script:LastErrorMessage = $null
         $script:InstallScriptCalled = $false
         $script:InstallScriptArgs = $null
+        $script:CallOrder = [System.Collections.Generic.List[string]]::new()
+
+        Mock Set-WindowsCiliumNetworkingOutboundNatConfig -MockWith {
+            $script:CallOrder.Add('OutboundNatConfig')
+        }
         
         # Mock the new install script function
         Mock Invoke-WindowsCiliumNetworkingInstallScript -MockWith {
             param($Arguments)
             Write-Host "MOCK: Install script called with arguments"
+            $script:CallOrder.Add('Install')
             $script:InstallScriptCalled = $true
             $script:InstallScriptArgs = $Arguments
             
@@ -77,12 +83,32 @@ Describe 'Enable-WindowsCiliumNetworking' {
             $script:InstallScriptCalled | Should -Be $false
             $script:LastExitCode | Should -BeNullOrEmpty
             $global:RebootNeeded | Should -Be $false
+            Should -Invoke Set-WindowsCiliumNetworkingOutboundNatConfig -Times 0 -Exactly
         }
     }
 
     Context 'When Windows Cilium Networking is enabled' {
         BeforeEach {
             $global:EnableWindowsCiliumNetworking = $true
+        }
+
+        It 'Should configure WcnAgent outbound NAT before installation' {
+            Enable-WindowsCiliumNetworking
+
+            Should -Invoke Set-WindowsCiliumNetworkingOutboundNatConfig -Times 1 -Exactly
+            $script:CallOrder | Should -Be @('OutboundNatConfig', 'Install')
+        }
+
+        It 'Should fail installation without running the install script when outbound NAT configuration fails' {
+            Mock Set-WindowsCiliumNetworkingOutboundNatConfig -MockWith {
+                throw "Simulated registry failure"
+            }
+
+            Enable-WindowsCiliumNetworking
+
+            $script:InstallScriptCalled | Should -Be $false
+            $script:LastExitCode | Should -Be 72 # == WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED
+            $script:LastErrorMessage | Should -Match "Simulated registry failure"
         }
 
         Context 'With no configuration specified' {
@@ -177,5 +203,54 @@ Describe 'Enable-WindowsCiliumNetworking' {
                 $global:RebootNeeded | Should -Be $false
             }
         }
+    }
+}
+
+Describe 'Set-WindowsCiliumNetworkingOutboundNatConfig' {
+    BeforeAll {
+        $script:WcnConfigPath = "HKLM:\SYSTEM\CurrentControlSet\Services\HNS\wcna_state\config"
+    }
+
+    BeforeEach {
+        Mock Test-Path -MockWith { $true }
+        Mock New-Item
+        Mock Set-ItemProperty
+    }
+
+    It 'Should write DisableOutboundNat=1 when outbound NAT is disabled and key exists=<KeyExists>' -ForEach @(
+        @{ KeyExists = $true }
+        @{ KeyExists = $false }
+    ) {
+        $global:IsDisableWindowsOutboundNat = $true
+        Mock Test-Path -MockWith { $KeyExists }
+
+        Set-WindowsCiliumNetworkingOutboundNatConfig
+
+        Should -Invoke New-Item -Times ([int](-not $KeyExists)) -Exactly -ParameterFilter {
+            $Path -eq $script:WcnConfigPath
+        }
+        Should -Invoke Set-ItemProperty -Times 1 -Exactly -ParameterFilter {
+            $Path -eq $script:WcnConfigPath -and
+            $Name -eq 'DisableOutboundNat' -and
+            $Type -eq 'DWord' -and
+            $Value -eq 1
+        }
+    }
+
+    It 'Should not touch the registry when outbound NAT is not disabled' {
+        $global:IsDisableWindowsOutboundNat = $false
+
+        Set-WindowsCiliumNetworkingOutboundNatConfig
+
+        Should -Invoke Test-Path -Times 0 -Exactly
+        Should -Invoke New-Item -Times 0 -Exactly
+        Should -Invoke Set-ItemProperty -Times 0 -Exactly
+    }
+
+    It 'Should propagate registry write failures' {
+        $global:IsDisableWindowsOutboundNat = $true
+        Mock Set-ItemProperty -MockWith { throw "Access denied" }
+
+        { Set-WindowsCiliumNetworkingOutboundNatConfig } | Should -Throw "*Access denied*"
     }
 }
