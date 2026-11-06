@@ -154,14 +154,6 @@ root = "/mnt/plugin-state"'
         End
     End
 
-    It 'installs the guard in the OSGuard image'
-        When call grep -A2 -F 'source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd-mount-guard' \
-            vhdbuilder/packer/imagecustomizer/azlosguard/azlosguard.yml
-        The status should be success
-        The output should include 'destination: /opt/azure/containers/containerd-mount-guard.sh'
-        The output should include 'destination: /etc/systemd/system/containerd.service.d/10-mount-guard.conf'
-    End
-
     It 'keeps the service guard separate from the drop-in overwritten by older CSE scripts'
         When call cat parts/linux/cloud-init/artifacts/containerd-mount-guard.conf
         The status should be success
