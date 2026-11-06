@@ -365,6 +365,20 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should support customized CVM image without image lookup", func() {
+			config.AgentPoolProfile.Distro = datamodel.CustomizedImageCVM
+			config.OSSKU = datamodel.OSSKUAzureContainerLinux
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.CustomData).NotTo(BeEmpty())
+			Expect(result.CSE).NotTo(BeEmpty())
+			Expect(result.OSImageConfig).To(BeNil())
+			Expect(result.SigImageConfig).To(BeNil())
+		})
+
 		It("should not return an error for customized trusted launch image", func() {
 			config.AgentPoolProfile.Distro = datamodel.CustomizedImageTrustedLaunch
 			agentBaker, err := NewAgentBaker()

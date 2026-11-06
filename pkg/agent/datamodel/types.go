@@ -229,6 +229,7 @@ const (
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
 	AKSWindows2019PIR            Distro = "aks-windows-2019-pir"
 	CustomizedImage              Distro = "CustomizedImage"
+	CustomizedImageCVM           Distro = "CustomizedImageCVM"
 	CustomizedImageKata          Distro = "CustomizedImageKata"
 	CustomizedImageLinuxGuard    Distro = "CustomizedImageLinuxGuard"
 	CustomizedImageTrustedLaunch Distro = "CustomizedImageTrustedLaunch"
