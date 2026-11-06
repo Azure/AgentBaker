@@ -80,7 +80,7 @@ $global:IsIMDSRestrictionEnabled=$true
 $global:CredentialProviderURL="https://packages.aks.azure.com/cloud-provider-azure/v1.33.2/binaries/azure-acr-credential-provider-windows-amd64-v1.33.2.tar.gz"
 
 # CSI Proxy settings
-$global:EnableCsiProxy=[System.Convert]::ToBoolean("true");
+$global:EnableCsiProxy=[System.Convert]::ToBoolean("false");
 $global:CsiProxyUrl="https://packages.aks.azure.com/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz";
 
 # Hosts Config Agent settings
@@ -131,7 +131,7 @@ $global:HNSRemediatorIntervalInMinutes=[System.Convert]::ToUInt32("1");
 # Log generator
 $global:LogGeneratorIntervalInMinutes=[System.Convert]::ToUInt32("5");
 
-$global:IsSkipCleanupNetwork=[System.Convert]::ToBoolean("true");
+$global:IsSkipCleanupNetwork=[System.Convert]::ToBoolean("false");
 $PreProvisionOnly=[System.Convert]::ToBoolean("true");
 
 $global:EnableKubeletServingCertificateRotation=[System.Convert]::ToBoolean("true")
