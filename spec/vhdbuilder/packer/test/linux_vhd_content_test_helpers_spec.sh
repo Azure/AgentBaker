@@ -285,6 +285,90 @@ Describe 'Inspektor Gadget version helper functions'
   End
 End
 
+Describe 'IG diagnostics NPD config-package compatibility'
+  BeforeAll "eval \"\$(sed -n '/^testIgDiagnosticsReaderCompatibility()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  err() { echo "$1:Error: $2" >&2; }
+
+  setup_reader() {
+    READER_DIRECTORY="./.ig-reader-spec-$$-${RANDOM}"
+    mkdir -m 700 "$READER_DIRECTORY"
+    READER_PATH="$READER_DIRECTORY/reader.py"
+    cat > "$READER_PATH" <<'PY'
+import json
+import os
+from pathlib import Path
+import sys
+import time
+
+mode = os.environ.get("TEST_READER_MODE", "compatible")
+runtime = Path(os.environ["IG_DIAGNOSTICS_RUNTIME_DIR"])
+assert "IG_DIAGNOSTICS_LOG_FILE" not in os.environ
+assert (runtime / "boot-id").read_text()
+if mode == "hang":
+    time.sleep(30)
+if sys.argv[1] == "--check-startup":
+    if mode == "no-startup":
+        sys.exit("unsupported startup option")
+    assert not (runtime / "collectors.json").exists()
+    assert json.loads(Path(sys.argv[2]).read_text())["version"] == 1
+paths = [runtime / ("gadget.log" if mode == "legacy-path" else "reports.ndjson")]
+if mode != "no-rotation":
+    paths += list(runtime.glob("reports-*.ndjson"))
+events = [json.loads(line) for path in paths if path.exists()
+          for line in path.read_text().splitlines()]
+assert len(events) == 3, "runtime reports not found"
+if sys.argv[1] != "--check-startup":
+    kind = sys.argv[1]
+    manifest = json.loads((runtime / "collectors.json").read_text())
+    event = next(event for event in events
+                 if event["instanceID"] == manifest["collectors"][kind])
+    print(json.dumps([] if mode == "wrong-data" else event["data"]))
+PY
+  }
+  cleanup_reader() { rm -rf "$READER_DIRECTORY"; }
+  BeforeEach setup_reader
+  AfterEach cleanup_reader
+
+  It 'accepts startup and active/rotated runtime reports without a logfile override'
+    export TEST_READER_MODE=compatible IG_DIAGNOSTICS_LOG_FILE=/must-not-be-used
+    When call testIgDiagnosticsReaderCompatibility "$READER_PATH"
+    The status should be success
+    The output should equal ''
+    The stderr should equal ''
+  End
+
+  It 'fails explicitly when the independently packaged reader is missing'
+    When call testIgDiagnosticsReaderCompatibility "$READER_DIRECTORY/missing.py"
+    The status should be failure
+    The stderr should include 'NPD config-package reader missing or unreadable'
+  End
+
+  It 'fails explicitly when python3 is unavailable'
+    command() {
+      if [ "$*" = '-v python3' ]; then return 1; fi
+      builtin command "$@"
+    }
+    When call testIgDiagnosticsReaderCompatibility "$READER_PATH"
+    The status should be failure
+    The stderr should include 'python3 is required to validate the NPD config-package reader'
+  End
+
+  Parameters
+    no-startup
+    legacy-path
+    no-rotation
+    wrong-data
+    hang
+  End
+  It "rejects an incompatible reader ($1) within the probe deadline"
+    export TEST_READER_MODE="$1"
+    When call testIgDiagnosticsReaderCompatibility "$READER_PATH"
+    The status should be failure
+    The stderr should include 'NPD config-package reader lacks capability-1 runtime/startup compatibility'
+  End
+End
+
 Describe 'testCronPermissions invocation'
   BeforeAll "eval \"\$(sed -n '/^testCronPermissions()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
 

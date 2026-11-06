@@ -104,10 +104,15 @@ collector. CPU and memory use separate process sorts; throttle uses its own
 cgroup datasource. These settings and the combined resource budget still need
 representative AKS validation with the pinned IG 0.57.0 package.
 
-Reports are root-restricted under `/var/log/ig-diagnostics`, with a 20 MB active
-file and two rotations, maximum age one day, uncompressed. This is a disk budget,
-not a guaranteed retention duration. NPD reads at most 8 MiB across the active
-file and two rotations. `/run/ig-diagnostics/collectors.json` atomically identifies
+Reports are root-restricted at `/run/ig-diagnostics/reports.ndjson`, with a 1 MiB
+active file and one uncompressed backup, maximum age one day. The buffer uses
+the host's `/run` tmpfs and is removed when the service stops or the node reboots;
+it is not persistent troubleshooting history. Rotation limits retention, not
+the size of the shared tmpfs, and cleanup can temporarily retain an extra backup.
+The reader also supports older images' `/var/log/ig-diagnostics/gadget.log` when
+no runtime report files exist. It reads at most 8 MiB across the selected active
+file and up to two rotations, matching the file's suffix.
+`/run/ig-diagnostics/collectors.json` atomically identifies
 the boot, reconciliation generation and exact instance IDs. Initial, incomplete,
 stale (over ten seconds), future or mismatched reports are rejected. Fresh empty
 throttle data stays empty. Successful telemetry is explicitly described as
@@ -122,8 +127,8 @@ checks Python 3 and jq rather than installing dependencies at first boot.
 The package must deliver the reader beside the pressure helper under
 `/etc/node-problem-detector.d/plugin`. AgentBaker must not overlay package-owned
 plugins. The daemon's startup check also requires this reader, including its
-`--check-startup` mode; publish and bake the compatible package before shipping
-the image that starts the daemon by default.
+`--check-startup` mode and runtime `.ndjson` path/rotation support; publish and bake
+the compatible package before shipping the image that starts the daemon by default.
 
 **Publication gate:** local companion changes do not update the PMC
 `node-problem-detector-aks-config` package. The extension's checked-in
@@ -135,7 +140,11 @@ here. The existing `npdConfig` updater can deliver the compatible NPD reader, bu
 cannot deliver the IG daemon, binary and images as an atomic feature update.
 
 Absent capability, NPD intentionally uses the one-shot IG path (with its minimum
-version check for CPU throttling). On supported, capable images, an unavailable
+version check for CPU throttling). Legacy process collection selects the CPU and
+memory sort fields for the installed IG version: `cpuUsageRelative` and
+`memoryRelative` before 0.57.0, `cpuRelative` and `memRelative` from 0.57.0 onward.
+Failed or unrecognized version queries warn and skip legacy IG collection rather
+than guessing a schema. On supported, capable images, an unavailable
 or stale collector produces
 an explicit diagnostic warning, **not** a hidden cold-IG fallback. Pressure
 thresholds, event names, redaction, chunking and diagnostic-only exit semantics
@@ -154,6 +163,12 @@ command -v jq
 sudo systemctl status ig-diagnostics.service --no-pager
 sudo cat /run/ig-diagnostics/collectors.json
 ```
+
+The common Linux E2E validators include `ValidateIGDiagnostics`. On supported
+capability-1, cgroup-v2 nodes it requires the service to be enabled, waits for it
+to become active, and uses the packaged reader to verify fresh reports from all
+three current collectors. Older images and unsupported environments are skipped.
+The validator does not start or repair the service.
 
 NPD rechecks capability at each diagnostic invocation. Stopping or failing the
 daemon does not silently select cold collection on a capable image; it produces

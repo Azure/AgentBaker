@@ -13,8 +13,6 @@ RuntimeDirectory=ig-diagnostics
 RuntimeDirectoryMode=0700
 StateDirectory=ig-diagnostics/gadgets
 StateDirectoryMode=0700
-LogsDirectory=ig-diagnostics
-LogsDirectoryMode=0700
 # IG's persistent-instance path is fixed; isolate it from other IG users.
 BindPaths=/var/lib/ig-diagnostics/gadgets:/var/lib/ig/gadgets
 ExecStart=/usr/bin/ig --config /etc/ig.d/diagnostics.yaml daemon --host unix:///run/ig-diagnostics/ig.socket --group 0 --tls-insecure

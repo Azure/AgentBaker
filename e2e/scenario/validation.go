@@ -73,6 +73,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 		ValidateAKSLogDirectory,
 		ValidateKubeletNodeIPIfSupported,
 		ValidateInspektorGadget,
+		ValidateIGDiagnostics,
 		ValidateKubeletDynamicConfigDisabled,
 		ValidateWireServerReachable,
 		ValidateWireServerBlocked,

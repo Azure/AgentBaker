@@ -4,10 +4,10 @@ operator:
   logs:
     enabled: true
     channel: file
-    filename: /var/log/ig-diagnostics/gadget.log
+    filename: /run/ig-diagnostics/reports.ndjson
     format: json
     mode: all
-    max-size-mb: 20
+    max-size-mb: 1
     max-age-days: 1
-    max-backups: 2
+    max-backups: 1
     compress: false
