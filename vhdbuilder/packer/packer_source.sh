@@ -513,6 +513,8 @@ copyPackerFiles() {
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
+  cpAndMode /home/packer/containerd-mount-guard.sh /opt/azure/containers/containerd-mount-guard.sh 744
+  cpAndMode /home/packer/containerd-mount-guard.conf /etc/systemd/system/containerd.service.d/10-mount-guard.conf 644
   cpAndMode $DISK_QUEUE_SCRIPT_SRC $DISK_QUEUE_SCRIPT_DEST 755
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SERVICE_SRC $CGROUP_MEMORY_TELEMETRY_SERVICE_DEST 644

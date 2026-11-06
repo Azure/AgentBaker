@@ -130,6 +130,12 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd_exec_start.conf
       destination: /etc/systemd/system/containerd.service.d/exec_start.conf
       permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd-mount-guard.sh
+      destination: /opt/azure/containers/containerd-mount-guard.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/containerd-mount-guard.conf
+      destination: /etc/systemd/system/containerd.service.d/10-mount-guard.conf
+      permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cloud-init-status-check.sh
       destination: /opt/azure/containers/cloud-init-status-check.sh
       permissions: 755

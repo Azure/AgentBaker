@@ -3,6 +3,24 @@ For tutorial for the descriptions of components.json, please refer to this [doc]
 For CA refresh logging and Linux opt-in certificate diagnostics, see
 [CA refresh diagnostics](../../../../doc/ca-refresh.md).
 
+## Containerd temporary-disk startup
+
+`10-mount-guard.conf` runs `containerd-mount-guard.sh` before containerd starts,
+including asynchronous node-controller startup, PIS-cached images, and reboots.
+The guard reads the effective root using `containerd config dump`. Roots at or
+under `/mnt` require an actual mount at `/mnt`; OS-disk roots do not wait.
+Cloud-init's mount unit alone is insufficient because it can be condition-skipped
+before resource-disk setup finishes. Waiting for all of cloud-init would introduce
+a dependency cycle on provisioning paths that cloud-init itself invokes.
+
+The guard waits up to 120 seconds, then fails startup with a journal diagnostic
+rather than allowing snapshotter state to be created underneath the mount.
+The unit allows 150 seconds for configuration parsing and the mount wait.
+The script and dedicated drop-in are baked into Linux images and delivered by
+script-based custom data for older images. Scriptless provisioning uses the
+baked files. This prevents the startup race; it does not repair already-hidden
+snapshotter state on an affected running node.
+
 ## SSH-disable telemetry
 
 When `DISABLE_SSH=true` and `basePrep` runs, `disableSSH` emits structured

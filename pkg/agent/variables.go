@@ -30,6 +30,8 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"provisionInstallsFlatcar":              getCustomScript(kubernetesCSEInstallFlatcar, config),
 			"provisionInstallsACL":                  getCustomScript(kubernetesCSEInstallACL, config),
 			"provisionConfigs":                      getCustomScript(kubernetesCSEConfig, config),
+			"containerdMountGuardScript":            getCustomScript(containerdMountGuardScript, config),
+			"containerdMountGuardDropin":            getCustomScript(containerdMountGuardDropin, config),
 			"provisionConfigsGPU":                   getCustomScript(kubernetesCSEConfigGPU, config),
 			"provisionConfigsLocalDNS":              getCustomScript(kubernetesCSEConfigLocalDNS, config),
 			"provisionConfigsKubelet":               getCustomScript(kubernetesCSEConfigKubelet, config),
