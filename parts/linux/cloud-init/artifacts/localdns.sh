@@ -24,7 +24,16 @@ LOCALDNS_CGROUP_DIR="/sys/fs/cgroup/localdns.slice/localdns.service"
 LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
 
 # This is the localdns corefile that has updated UpstreamDNSServerIPs and will be used by the localdns systemd unit.
+LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
+
 UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
+
+# What the Azure DNS placeholder resolved to in UPDATED_LOCALDNS_CORE_FILE on this start: the VNet DNS
+# servers when they were substituted, or 168.63.129.16 itself when no substitution applied. The runtime
+# live-patching handler (localdns-livepatch-handler.sh) rebuilds the served corefile with exactly these
+# servers instead of re-reading resolv.conf, which lists the localdns listener while localdns runs.
+# Under /run so a value from an earlier boot can never outlive the start that wrote it.
+LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="/run/localdns/vnet-dns-forward-servers"
 
 # This is slice file used by localdns systemd unit.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
@@ -55,13 +64,6 @@ COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
 # Path to systemd resolv.
 RESOLV_CONF="/run/systemd/resolve/resolv.conf"
 
-# Curl check if localdns is running.
-# This is used by start_localdns_watchdog and wait_for_localdns_ready.
-# Declared as an array so it expands with correct word-splitting/quoting; --noproxy ensures
-# the request to the node-local listener bypasses any system-wide HTTP proxy (inherited via
-# systemd DefaultEnvironment on http-proxy clusters), which cannot route to a link-local address.
-CURL_COMMAND=(curl -s --noproxy "${LOCALDNS_NODE_LISTENER_IP}" --connect-timeout 5 --max-time 10 "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")
-
 # Constant for networkctl reload command.
 # This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
 NETWORKCTL_RELOAD_CMD="networkctl reload"
@@ -76,6 +78,26 @@ START_LOCALDNS_TIMEOUT=10
 # DNS health check timeout.
 DNS_HEALTH_CHECK_TIMEOUT=2
 DNS_HEALTH_CHECK_TRIES=2
+
+# Overridable so the LPS e2e scenarios can point the bootstrap fetch at a fake LPS through a unit drop-in.
+AKS_NODE_CONTROLLER_BINARY="${AKS_NODE_CONTROLLER_BINARY:-/opt/azure/containers/aks-node-controller}"
+
+# The corefileVersion this start fetched from LPS and applied the limits of. Written to the .version
+# file only once CoreDNS is ready on it (commit_localdns_corefile_version); a start that fetched
+# nothing leaves it empty, so a plain restart never writes the .version file.
+LOCALDNS_PENDING_COREFILE_VERSION=""
+
+# Shared with the runtime live-patching handler and installed next to this script: CPU and memory
+# limit live patching, rendering the served Corefile and exporting its forward IPs, and the CoreDNS
+# readiness check. Without it a start cannot render the served Corefile and fails; cleanup still works.
+# Its functions log what they do on stderr, which the calls below fold into this script's output.
+LOCALDNS_LIMITS_SCRIPT="${LOCALDNS_LIMITS_SCRIPT:-${LOCALDNS_SCRIPT_PATH}/localdns-limits.sh}"
+if [ -f "${LOCALDNS_LIMITS_SCRIPT}" ]; then
+    # shellcheck source=parts/linux/cloud-init/artifacts/localdns-limits.sh
+    source "${LOCALDNS_LIMITS_SCRIPT}"
+else
+    echo "WARNING: ${LOCALDNS_LIMITS_SCRIPT} not found; localdns cannot start or be live patched."
+fi
 
 # Function definitions used in this file.
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -165,8 +187,45 @@ regenerate_localdns_corefile() {
     return 0
 }
 
+localdns_source_corefile() {
+    if [ -s "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
+        echo "${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+        return 0
+    fi
+    echo "${LOCALDNS_CORE_FILE}"
+}
+
+# Record which servers the Azure DNS placeholder now resolves to in the served corefile (see
+# LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE). Best effort: without the record the runtime handler falls
+# back to restarting localdns.service, which redoes the substitution here, so a failed write must not
+# fail startup.
+record_vnet_dns_forward_servers() {
+    local forward_servers="$1"
+    local record_file="${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE:-}"
+    local tmp
+
+    if [ -z "${record_file}" ]; then
+        return 0
+    fi
+    if ! mkdir -p "$(dirname "${record_file}")" || ! tmp="$(mktemp "${record_file}.XXXXXX")"; then
+        echo "WARNING: Failed to record VNet DNS forward servers at ${record_file}."
+        return 0
+    fi
+    if ! printf '%s\n' "${forward_servers}" > "${tmp}" || ! chmod 0644 "${tmp}" || ! mv -f "${tmp}" "${record_file}"; then
+        rm -f "${tmp}"
+        echo "WARNING: Failed to record VNet DNS forward servers at ${record_file}."
+        return 0
+    fi
+    echo "Recorded VNet DNS forward servers at ${record_file}: ${forward_servers}"
+    return 0
+}
+
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs if necessary.
 replace_azurednsip_in_corefile() {
+    # Drop the previous record first: the served corefile is being rebuilt, so a record that outlived
+    # a failed substitution would describe a corefile that no longer exists.
+    rm -f "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE:-}" 2>/dev/null || true
+
     if [ -z "${RESOLV_CONF:-}" ]; then
         echo "RESOLV_CONF is not set or is empty."
         return 1
@@ -195,20 +254,24 @@ replace_azurednsip_in_corefile() {
     # and also not equal to the localdns node listener IP to avoid creating a circular dependency.
     # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
     # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
-    cp "${LOCALDNS_CORE_FILE}" "${UPDATED_LOCALDNS_CORE_FILE}" || {
-        echo "Failed to copy ${LOCALDNS_CORE_FILE} to ${UPDATED_LOCALDNS_CORE_FILE}"
-        return 1
-    }
+    local source_corefile
+    source_corefile="$(localdns_source_corefile)"
 
+    local forward_servers="${AZURE_DNS_IP}"
     if [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ] && [ "${UPSTREAM_VNET_DNS_SERVERS}" != "${LOCALDNS_NODE_LISTENER_IP}" ]; then
         echo "Replacing Azure DNS IP ${AZURE_DNS_IP} with upstream VNET DNS servers ${UPSTREAM_VNET_DNS_SERVERS} in corefile ${UPDATED_LOCALDNS_CORE_FILE}"
-        sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${UPDATED_LOCALDNS_CORE_FILE}" || {
-            echo "Replacing AzureDNSIP in corefile failed."
-            return 1
-        }
-        echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+        forward_servers="${UPSTREAM_VNET_DNS_SERVERS}"
     else
         echo "Skipping DNS IP replacement. Upstream VNET DNS servers (${UPSTREAM_VNET_DNS_SERVERS}) match either Azure DNS IP (${AZURE_DNS_IP}) or localdns node listener IP (${LOCALDNS_NODE_LISTENER_IP})"
+    fi
+    # The same render the live-patch handler uses (localdns-limits.sh). With no replacement,
+    # forward_servers is the Azure DNS IP itself and the source is served as is.
+    localdns_render_served_corefile "${source_corefile}" "${UPDATED_LOCALDNS_CORE_FILE}" "${forward_servers}" "${AZURE_DNS_IP}" || {
+        echo "Failed to render ${UPDATED_LOCALDNS_CORE_FILE} from ${source_corefile}"
+        return 1
+    }
+    if [ "${forward_servers}" != "${AZURE_DNS_IP}" ]; then
+        echo "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
     fi
 
     if [ ! -f "${UPDATED_LOCALDNS_CORE_FILE}" ] || [ ! -s "${UPDATED_LOCALDNS_CORE_FILE}" ]; then
@@ -221,80 +284,13 @@ replace_azurednsip_in_corefile() {
         return 1
     }
 
-    # Export forward IPs to .prom file for metrics exporter (best-effort)
-    # This avoids parsing the corefile on every metrics scrape
-    # Metrics export is non-fatal - if it fails, log warning and continue so DNS service isn't affected
-    local FORWARD_IPS_PROM_FILE="${LOCALDNS_SCRIPT_PATH}/forward_ips.prom"
+    record_vnet_dns_forward_servers "${forward_servers}"
 
-    # Parse forward IPs from ALL server blocks in the corefile.
-    # Each metric line includes a "block" label identifying which zone the forward came from
-    # (e.g., block=".:53", block="cluster.local:53").
-    #
-    # Single-pass awk outputs "bind_ip|zone|forward_ip" triples:
-    #   - Tracks current zone from block headers like ".:53 {" or "cluster.local:53 {"
-    #   - Tracks bind IP from "bind 169.254.10.10" or "bind 169.254.10.11"
-    #   - Extracts forward IPs from "forward . <ip> ..." lines
-    #   - Resets state on block close "}"
-    local forward_entries bind_ip block fwd_ip
-    local vnetdns_found=false kubedns_found=false
-    forward_entries=$(awk '
-        /^[^ #].*:53 / {
-            block = $1
-            bind_ip = ""
-        }
-        /bind / {
-            for (i=2; i<=NF; i++) {
-                if ($i ~ /^169\.254\.10\.(10|11)$/) bind_ip = $i
-            }
-        }
-        /forward \. / && bind_ip != "" {
-            for (i=3; i<=NF; i++) {
-                if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/)
-                    print bind_ip "|" block "|" $i
-            }
-        }
-        /^}/ { block = ""; bind_ip = "" }
-    ' "${UPDATED_LOCALDNS_CORE_FILE}")
-
-    # Write Prometheus metrics to temp file, then atomically rename
-    # This prevents the exporter from reading a partially-written file during scrapes
-    # Generate one metric line per IP+block combination
-    local tmp
-    if ! tmp="$(mktemp "${FORWARD_IPS_PROM_FILE}.XXXXXX")"; then
-        echo "WARNING: Failed to create temp file for ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
-    elif ! {
-        echo "# HELP localdns_vnetdns_forward_info VnetDNS forward plugin IP address from corefile"
-        echo "# TYPE localdns_vnetdns_forward_info gauge"
-        while IFS='|' read -r bind_ip block fwd_ip; do
-            [ "$bind_ip" = "${LOCALDNS_NODE_LISTENER_IP}" ] || continue
-            echo "localdns_vnetdns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
-            vnetdns_found=true
-        done <<< "$forward_entries"
-        if [ "$vnetdns_found" = false ]; then
-            echo 'localdns_vnetdns_forward_info{ip="unknown",block="none",status="missing"} 0'
-        fi
-        echo "# HELP localdns_kubedns_forward_info KubeDNS forward plugin IP address from corefile"
-        echo "# TYPE localdns_kubedns_forward_info gauge"
-        while IFS='|' read -r bind_ip block fwd_ip; do
-            [ "$bind_ip" = "${LOCALDNS_CLUSTER_LISTENER_IP}" ] || continue
-            echo "localdns_kubedns_forward_info{ip=\"${fwd_ip}\",block=\"${block}\",status=\"ok\"} 1"
-            kubedns_found=true
-        done <<< "$forward_entries"
-        if [ "$kubedns_found" = false ]; then
-            echo 'localdns_kubedns_forward_info{ip="unknown",block="none",status="missing"} 0'
-        fi
-    } > "$tmp"; then
-        echo "WARNING: Failed to write metrics to temp file $tmp. Metrics export skipped."
-        rm -f "$tmp"
-    elif ! chmod 0644 "$tmp"; then
-        echo "WARNING: Failed to set permissions on temp file $tmp. Metrics export skipped."
-        rm -f "$tmp"
-    elif ! mv -f "$tmp" "${FORWARD_IPS_PROM_FILE}"; then
-        echo "WARNING: Failed to move temp file to ${FORWARD_IPS_PROM_FILE}. Metrics export skipped."
-        rm -f "$tmp"
-    else
-        echo "Successfully exported forward IPs to ${FORWARD_IPS_PROM_FILE}"
-    fi
+    # Export the forward IPs for the metrics exporter (best-effort; localdns-limits.sh), the same export
+    # the live-patch handler runs after an in-place reload.
+    localdns_export_forward_ips "${UPDATED_LOCALDNS_CORE_FILE}" "${LOCALDNS_SCRIPT_PATH}/forward_ips.prom" \
+        "${LOCALDNS_NODE_LISTENER_IP}" "${LOCALDNS_CLUSTER_LISTENER_IP}" ||
+        echo "WARNING: Failed to export forward IPs. Metrics export skipped."
 
     # Persist the upstream DNS server(s) so aks-localdns-hosts-setup.sh can resolve against them
     # directly, bypassing localdns. Without this, the timer's dig queries would go through
@@ -309,6 +305,191 @@ replace_azurednsip_in_corefile() {
     chmod 0644 "${upstream_dns_file}" 2>/dev/null || true
     echo "Persisted upstream DNS servers to ${upstream_dns_file}: ${UPSTREAM_VNET_DNS_SERVERS}"
 
+    return 0
+}
+
+# Discard the live-patched corefile (and its version sidecar) so localdns_source_corefile falls
+# back to the baked corefile that regenerate_localdns_corefile just rebuilt from live CustomData.
+#
+# This is what keeps a live patch from outliving the config that justified it. The live-patched
+# corefile is written once and never expires on its own, while the baked corefile is regenerated on
+# every startup, so without this a node that was live-patched once would keep serving that frozen
+# corefile forever -- including after the agent pool's DNS config legitimately changed.
+discard_livepatched_localdns_corefile() {
+    local reason="${1:-}"
+    if [ -z "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
+        return 0
+    fi
+    if [ ! -e "${LIVEPATCHED_LOCALDNS_CORE_FILE}" ] && [ ! -e "$(localdns_corefile_version_file)" ]; then
+        return 0
+    fi
+    rm -f "${LIVEPATCHED_LOCALDNS_CORE_FILE}" "$(localdns_corefile_version_file)" || {
+        echo "WARNING: Failed to discard live-patched localdns corefile ${LIVEPATCHED_LOCALDNS_CORE_FILE}."
+        return 1
+    }
+    echo "Discarded live-patched localdns corefile (${reason}); falling back to ${LOCALDNS_CORE_FILE}."
+    return 0
+}
+
+refresh_localdns_corefile_from_lps() {
+    if [ -z "${LIVEPATCHED_LOCALDNS_CORE_FILE:-}" ]; then
+        # Fail open, like every other path in this function. localdns.sh runs under `set -e`
+        # and this is called unguarded, so returning non-zero here aborts startup and costs the
+        # node localdns entirely -- over a variable that is assigned unconditionally at the top
+        # of this file. With no path to write, there is simply no live patch to apply, and
+        # replace_azurednsip_in_corefile falls through to the baked corefile on its own.
+        echo "LIVEPATCHED_LOCALDNS_CORE_FILE is not set or is empty; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+
+    # LPS is only for bootstrap: the node has no usable kubeconfig yet, so it cannot read the
+    # live-patching ConfigMap and asks LPS instead. Once the kubelet kubeconfig exists this is a
+    # restart or a reboot, and the runtime live-patching loop owns the live-patched corefile. Fetching
+    # here as well would let a stale or empty LPS answer overwrite or revoke what that loop applied --
+    # the handler's fallback restart of localdns.service lands right here -- and would block every
+    # restart on IMDS and LPS while node DNS is torn down. CSE starts localdns before kubelet, so the
+    # first start on a node always takes the fetch.
+    local kubeconfig="${KUBECONFIG:-/var/lib/kubelet/kubeconfig}"
+    if [ -e "${kubeconfig}" ]; then
+        echo "Kubelet kubeconfig ${kubeconfig} exists, so this is not a bootstrap start; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+
+    if [ ! -x "${AKS_NODE_CONTROLLER_BINARY}" ]; then
+        echo "AKS node controller binary not found at ${AKS_NODE_CONTROLLER_BINARY}; skipping LocalDNS LPS config fetch."
+        # No binary means live patching cannot be reasserted on this node, so any corefile left
+        # behind by an earlier boot is unverifiable. Drop it rather than serve it indefinitely.
+        discard_livepatched_localdns_corefile "aks-node-controller binary unavailable" || true
+        return 0
+    fi
+    if ! command -v localdns_limits_preflight >/dev/null 2>&1; then
+        echo "LocalDNS limit functions are unavailable; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+
+    # Same order as the runtime handler (localdns-livepatch-handler.sh): preflight, render, limits,
+    # then CoreDNS starts on the result and the version is committed once it is ready. The preflight
+    # comes first so that a node whose limits cannot be managed fetches and writes nothing.
+    local preflight
+    local baked_cpu
+    local baked_memory
+    local previous_cpu
+    local previous_memory
+    if ! preflight="$(localdns_limits_preflight)"; then
+        echo "LocalDNS limits preflight failed: ${preflight}; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+    read -r baked_cpu baked_memory previous_cpu previous_memory <<< "${preflight}"
+
+    # The fetch command is fail-open and always exits successfully. Its final stdout line is the
+    # machine-readable outcome.
+    #
+    # Outcomes split by whether LPS is authoritative about this node:
+    #   rendered/alreadyCurrent - LPS published a corefile; keep the live-patched source and apply
+    #     its limits (apply_lps_localdns_limits).
+    #   notFound/noCorefileData - LPS is reachable and has nothing (or nothing usable) for this
+    #     node. That is authoritative, so any previously live-patched corefile is revoked and the
+    #     baked corefile and limits take over again.
+    #   failed/unexpected - the fetch itself broke, so LPS said nothing either way. Keep the last
+    #     known-good live-patched corefile; discarding on a transient error would flap this node's
+    #     DNS config on every network hiccup.
+    local outcome
+    # `outcome=$(...)` on its own line propagates the command's status, so under `set -e` a
+    # non-zero exit aborts startup -- which the comment above assumes cannot happen. It can:
+    # aks-node-controller is replaceable independently of this script via the hotfix path, so
+    # a binary without this subcommand exits non-zero even though the -x check passed.
+    if ! outcome="$("${AKS_NODE_CONTROLLER_BINARY}" fetch-localdns-config --output "${LIVEPATCHED_LOCALDNS_CORE_FILE}")"; then
+        # A non-zero exit is not one of the documented outcomes -- the binary never got far
+        # enough to report one. Behave like `failed` (keep whatever corefile we have), but log
+        # it distinctly so a broken or version-mismatched binary is not read as LPS trouble.
+        echo "LocalDNS LPS config fetch command exited non-zero; continuing with existing corefile."
+        return 0
+    fi
+    case "$(printf '%s\n' "${outcome}" | tail -n 1)" in
+        rendered|alreadyCurrent)
+            echo "LocalDNS LPS config fetch outcome: ${outcome}"
+            apply_lps_localdns_limits "${outcome}" "${baked_cpu}" "${baked_memory}" "${previous_cpu}" "${previous_memory}"
+            ;;
+        notFound|noCorefileData)
+            echo "LocalDNS LPS config fetch outcome: ${outcome}; LPS has no corefile for this node."
+            discard_livepatched_localdns_corefile "LPS outcome ${outcome}" || true
+            reset_localdns_limits_to_baked "${baked_cpu}" "${baked_memory}"
+            ;;
+        failed)
+            echo "LocalDNS LPS config fetch outcome: ${outcome}; continuing with existing corefile."
+            ;;
+        *)
+            echo "Unexpected LocalDNS LPS config fetch outcome: ${outcome}; continuing with existing corefile."
+            ;;
+    esac
+    return 0
+}
+
+localdns_corefile_version_file() {
+    echo "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version"
+}
+
+# Applies the CPU and memory limits of the corefileVersion LPS returned, before CoreDNS starts.
+# A failure must not fail localdns.service or provisioning: the limits go back to what the slice ran
+# with, the live-patched corefile is discarded, and CoreDNS starts on the baked corefile and limits.
+# The runtime handler retries the patch once the node has joined. On success, records the version for
+# commit_localdns_corefile_version.
+apply_lps_localdns_limits() {
+    local outcome="$1"
+    local baked_cpu="$2"
+    local baked_memory="$3"
+    local previous_cpu="$4"
+    local previous_memory="$5"
+    local desired
+    local desired_version
+    local desired_cpu
+    local desired_memory
+    local limits_error
+    local reverted
+
+    if ! desired="$(localdns_limits_from_anc_output "${outcome}" "${baked_cpu}" "${baked_memory}")"; then
+        echo "WARNING: ${desired}; discarding the LPS corefile."
+        discard_livepatched_localdns_corefile "unreadable aks-node-controller output" || true
+        return 0
+    fi
+    read -r desired_version desired_cpu desired_memory <<< "${desired}"
+    if ! { limits_error="$(localdns_limits_apply "${desired_cpu}" "${desired_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
+        echo "WARNING: live patching ${limits_error}."
+        if { reverted="$(localdns_limits_revert "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
+            echo "Reverted the localdns.slice limits to ${reverted}."
+        else
+            echo "WARNING: Reverting the localdns.slice limits also failed; ${reverted}."
+        fi
+        discard_livepatched_localdns_corefile "limits of corefileVersion ${desired_version} could not be applied" || true
+        return 0
+    fi
+    LOCALDNS_PENDING_COREFILE_VERSION="${desired_version}"
+    return 0
+}
+
+# Resets the limits to the baked ones when LPS revokes the live patch. Best effort, like the revoke.
+reset_localdns_limits_to_baked() {
+    local baked_cpu="$1"
+    local baked_memory="$2"
+    local state
+
+    if ! { state="$(localdns_limits_revert "${baked_cpu}" "${baked_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
+        echo "WARNING: Resetting the localdns.slice limits to the baked ones failed; ${state}."
+    fi
+    return 0
+}
+
+# Commits the LPS patch this start applied: the .version file says its corefile and limits are in
+# effect. Called once CoreDNS is ready; a start that fetched nothing has no version to write.
+commit_localdns_corefile_version() {
+    if [ -z "${LOCALDNS_PENDING_COREFILE_VERSION}" ]; then
+        return 0
+    fi
+    if ! localdns_write_corefile_version "$(localdns_corefile_version_file)" "${LOCALDNS_PENDING_COREFILE_VERSION}"; then
+        echo "WARNING: Failed to write $(localdns_corefile_version_file); the runtime live patching retries it."
+        return 0
+    fi
+    echo "Committed LocalDNS corefileVersion ${LOCALDNS_PENDING_COREFILE_VERSION}."
     return 0
 }
 
@@ -449,33 +630,6 @@ start_localdns() {
 
     COREDNS_PID="$(cat ${LOCALDNS_PID_FILE})"
     echo "Localdns PID is ${COREDNS_PID}."
-    return 0
-}
-
-# Wait for localdns to be ready to serve traffic.
-wait_for_localdns_ready() {
-    local maxattempts=$1
-    local timeout_duration=$2
-    declare -i attempts=0
-    local starttime=$(date +%s)
-
-    echo "Waiting for localdns to start and be able to serve traffic."
-    until [ "$("${CURL_COMMAND[@]}")" = "OK" ]; do
-        if [ $attempts -ge $maxattempts ]; then
-            echo "Localdns failed to come online after $maxattempts attempts."
-            return 1
-        fi
-        # Check for timeout based on elapsed time.
-        currenttime=$(date +%s)
-        elapsedtime=$((currenttime - starttime))
-        if [ $elapsedtime -ge $timeout_duration ]; then
-            echo "Localdns failed to come online after $timeout_duration seconds (timeout)."
-            return 1
-        fi
-        sleep 1
-        ((attempts++))
-    done
-    echo "Localdns is online and ready to serve traffic."
     return 0
 }
 
@@ -1036,7 +1190,7 @@ start_localdns_watchdog() {
         # If health check failed 5 consecutive times or failed 10 times in a 10 minute sliding window, watchdog restarts the systemd unit.
         while true; do
             health_check_passed=true
-            if [ "$("${CURL_COMMAND[@]}")" != "OK" ]; then
+            if ! localdns_ready; then
                 echo "Health check failed: HTTP ready endpoint not responding."
                 health_check_passed=false
             fi
@@ -1206,6 +1360,14 @@ if ! wait_for_localdns_removed_from_resolv_conf 5; then
     exit $ERR_LOCALDNS_FAIL
 fi
 
+# Fetch LocalDNS config from LPS on a bootstrap start. This is fail-open: no config or fetch errors keep
+# the locally generated corefile. If LPS returns a usable profile/corefile, LIVEPATCHED_LOCALDNS_CORE_FILE
+# is written and its CPU/memory limits applied to localdns.slice before VNET DNS replacement builds
+# UPDATED_LOCALDNS_CORE_FILE for CoreDNS. Later starts skip the fetch and reuse whatever live-patched
+# corefile is on disk.
+# ---------------------------------------------------------------------------------------------------------------------
+refresh_localdns_corefile_from_lps
+
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs.
 # ---------------------------------------------------------------------------------------------------------------------
 replace_azurednsip_in_corefile || exit $ERR_LOCALDNS_FAIL
@@ -1268,6 +1430,9 @@ start_localdns || exit $ERR_LOCALDNS_FAIL
 
 # Wait to direct traffic to localdns until it's ready.
 wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
+
+# Commit the LPS patch this start applied, now that CoreDNS is ready on it.
+commit_localdns_corefile_version
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
