@@ -4,9 +4,8 @@ set -eux
 # kompli-report.sh
 #
 # Runs kompli (the compliance scanner) on the scan VM against a committed
-# plan over one or more benchmark definitions, and uploads the native JSON result
-# to the scanning storage account. This is the benchmark-agnostic successor to
-# the CIS-CAT based cis-report.sh: the same kompli binary scans CIS today and
+# plan over one or more benchmark definitions, and uploads JSON, stderr and
+# the engine exit status separately. This succeeds the CIS-CAT based cis-report.sh: the same kompli binary scans CIS today and
 # STIG (and any future benchmark) tomorrow, driven by the committed plan and the
 # *.benchmark.json definitions it references. It emits JSON only (no HTML report
 # yet).
@@ -24,16 +23,17 @@ set -eux
 # passed to --parameters), matching cis-report.sh.
 #
 # This scan is intentionally NON-BLOCKING: a NonCompliant result still produces a
-# JSON report and the script exits 0. Only the caller decides how to surface
-# findings; here we never fail the build on compliance content.
+# JSON report with engine exit 0. An engine error (including partial JSON) is
+# recorded as nonzero status, not mistaken for completed compliance findings.
 #
 # Parameters (environment variables):
 #   KOMPLI_BLOB_NAME          Blob holding the kompli binary
 #   PLAN_BLOB_NAME            Blob holding the committed kompli plan file to run
-#   DEFS_TAR_BLOB_NAME        Blob holding a tar of the benchmark definitions the
+#   DEFS_TAR_BLOB_NAME        Blob holding only the benchmark definitions the
 #                             plan references (installed into /etc/kompli/definitions/)
 #   RESULT_BLOB_NAME          Blob name to upload the JSON result to
 #   LOG_BLOB_NAME             Blob name to upload the kompli stderr log to
+#   STATUS_BLOB_NAME          Blob name for decimal kompli run exit code + newline
 #   STORAGE_ACCOUNT_NAME      Scanning storage account
 #   SIG_CONTAINER_NAME        Container holding the blobs above
 #   AZURE_MSI_RESOURCE_STRING User-assigned MSI resource ID for `az login`
@@ -46,6 +46,7 @@ PLAN_BLOB_NAME=${PLAN_BLOB_NAME:-""}
 DEFS_TAR_BLOB_NAME=${DEFS_TAR_BLOB_NAME:-""}
 RESULT_BLOB_NAME=${RESULT_BLOB_NAME:-""}
 LOG_BLOB_NAME=${LOG_BLOB_NAME:-""}
+STATUS_BLOB_NAME=${STATUS_BLOB_NAME:-""}
 STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME:-""}
 SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME:-""}
 AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING:-""}
@@ -83,94 +84,154 @@ login_with_user_assigned_managed_identity "--resource-id" "$AZURE_MSI_RESOURCE_S
 # satisfies kompli's root-owned, non-world-writable parent-directory checks. This
 # script runs as root under RunShellScript, so /root is writable.
 #
-# The benchmark DEFINITIONS the plan references must live in
-# /etc/kompli/definitions/: a plan records only each definition's BARE FILENAME,
-# and `kompli run` re-resolves those against the fixed /etc/kompli/definitions/
-# tree (ADR-0004) — a definition staged only in the work dir would not be found
-# at run time. We create the tree root-owned (no `kompli` group exists on the
-# scan VM without komplid, so root:root; the parent stays non-group/world-writable,
-# satisfying the input hardening) and install the definitions there.
+# The plan records absolute definition paths under /etc/kompli/definitions/.
+# Only its selected flat entries are installed there; no existing definition or
+# directory permissions are changed. All installed files are removed at exit.
 KOMPLI_DEFS_DIR="/etc/kompli/definitions"
 WORK_DIR="$(mktemp -d /root/kompli.XXXXXX)"
 chmod 0700 "$WORK_DIR"
+installed_defs=()
+installed_inodes=()
 cleanup() {
-    rm -rf "$WORK_DIR" || true
-    # Remove only the definitions this run installed (leave the tree itself).
-    rm -rf "${KOMPLI_DEFS_DIR:?}/"* || true
+    local index target current
+    for index in "${!installed_defs[@]}"; do
+        target="${KOMPLI_DEFS_DIR}/${installed_defs[index]}"
+        # Never delete a replacement created by another run. Identity was
+        # recorded from our open descriptor immediately after exclusive create.
+        current=$(stat -c %d:%i -- "$target" 2>/dev/null) || continue
+        if [ ! -L "$target" ] && [ "$current" = "${installed_inodes[index]}" ]; then
+            rm -f -- "$target" || true
+        else
+            echo "kompli: leaving replaced definition: $target" >&2
+        fi
+    done
+    rm -rf -- "$WORK_DIR" || true
 }
 trap cleanup EXIT
 
 KOMPLI_BIN="${WORK_DIR}/kompli"
 PLAN_PATH="${WORK_DIR}/plan.json"
 DEFS_TAR="${WORK_DIR}/definitions.tar"
+STAGE_DIR="${WORK_DIR}/definitions"
 RESULT_PATH="${WORK_DIR}/result.json"
 LOG_PATH="${WORK_DIR}/kompli.log"
+STATUS_PATH="${WORK_DIR}/run.status"
 
-# Download the kompli binary, the committed plan, and the tar of definitions the
-# plan references — all staged by vhd-scanning.sh running on the agent.
 az storage blob download --container-name "$SIG_CONTAINER_NAME" --name "$KOMPLI_BLOB_NAME" --file "$KOMPLI_BIN" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login
 az storage blob download --container-name "$SIG_CONTAINER_NAME" --name "$PLAN_BLOB_NAME" --file "$PLAN_PATH" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login
 az storage blob download --container-name "$SIG_CONTAINER_NAME" --name "$DEFS_TAR_BLOB_NAME" --file "$DEFS_TAR" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login
-
 chmod 0755 "$KOMPLI_BIN"
 
-# Install the definitions into the fixed /etc/kompli/definitions/ tree, root-owned
-# and non-group/world-writable, where `kompli run` resolves each plan block's
-# bare filename. Extract without restoring archived ownership/modes, then set the
-# ADR-0004-compatible modes (root:root here — no `kompli` group on a komplid-less
-# scan VM).
-install -d -o root -g root -m 0755 "$KOMPLI_DEFS_DIR"
-tar --no-same-owner --no-same-permissions -xf "$DEFS_TAR" -C "$KOMPLI_DEFS_DIR"
-chown -R root:root "$KOMPLI_DEFS_DIR"
-find "$KOMPLI_DEFS_DIR" -type f -exec chmod 0644 {} +
-
-# Execute the committed plan. Verified against kompli source
-# (robertwoj/unified-definitions, 2026-09-18): `kompli run` opens each plan
-# block's `file` string exactly as given (InputSecurity.cpp's OpenVerifiedInput
-# -> raw open(), no search path) — there is no implicit resolution against
-# /etc/kompli/definitions/ (that fixed-directory lookup is `komplid`-only,
-# RequestHandler.cpp). The committed plan's `file` must therefore be the
-# absolute installed path (`/etc/kompli/definitions/<key>.benchmark.json`,
-# matching kompli's own PlanTest.cpp fixtures), which is what the plan files
-# under vhdbuilder/packer/kompli-plans/ now contain — no cwd dependency. kompli
-# logs to stderr (there is no --log-file), captured to the log.
-# --continue-on-error keeps `run` going past a single rule's procedure error so
-# a partial JSON is still emitted. A NonCompliant result is expected and must
-# never fail the (shadow, non-blocking) scan. Plan GENERATION is out of scope
-# here — the plan is a committed artifact (ADR-0001).
-run_rc=0
-if [ -s "$PLAN_PATH" ]; then
-    set +e
-    "$KOMPLI_BIN" --verbose --continue-on-error run "$PLAN_PATH" > "$RESULT_PATH" 2> "$LOG_PATH"
-    run_rc=$?
-    set -e
-    echo "kompli run exited with code: ${run_rc}"
-else
-    echo "WARNING: no committed plan file downloaded; skipping run"
+# Validate the downloaded plan and flat archive again on the target: neither
+# a changed blob nor tar metadata may place files outside the approved tree.
+if ! jq -e -s 'length == 1 and (.[0] | type == "object" and (.benchmarks | type == "array" and length > 0) and all(.[]; type == "object" and (.file | type == "string")))' "$PLAN_PATH" >/dev/null 2>&1; then
+    echo "kompli: invalid downloaded plan" >&2
+    exit 1
 fi
+mapfile -t plan_paths < <(jq -r '.benchmarks[].file' "$PLAN_PATH")
+plan_names=()
+for path in "${plan_paths[@]}"; do
+    if [[ ! "$path" =~ ^/etc/kompli/definitions/([A-Za-z0-9][A-Za-z0-9._-]*\.benchmark\.json)$ ]]; then
+        echo "kompli: unsafe downloaded plan path: ${path}" >&2
+        exit 1
+    fi
+    name="${BASH_REMATCH[1]}"
+    if [[ "$name" == *..* ]]; then
+        echo "kompli: unsafe downloaded plan name: ${name}" >&2
+        exit 1
+    fi
+    plan_names+=("$name")
+done
+expected=$(printf '%s\n' "${plan_names[@]}" | LC_ALL=C sort -u)
+if [ "$(printf '%s\n' "${plan_names[@]}" | wc -l)" -ne "$(printf '%s\n' "$expected" | wc -l)" ]; then
+    echo "kompli: duplicate downloaded plan paths" >&2
+    exit 1
+fi
+archive_names=$(tar -tf "$DEFS_TAR") || exit 1
+if [ "$(printf '%s\n' "$archive_names" | LC_ALL=C sort)" != "$expected" ]; then
+    echo "kompli: archive entries do not match referenced plan definitions" >&2
+    exit 1
+fi
+mkdir -m 0700 "$STAGE_DIR"
+tar --no-same-owner --no-same-permissions -xf "$DEFS_TAR" -C "$STAGE_DIR"
+# Refuse symlinks, directories, special files, and repeated archive entries.
+if [ "$(find "$STAGE_DIR" -mindepth 1 | wc -l)" -ne "${#plan_names[@]}" ]; then
+    echo "kompli: unexpected extracted definition entries" >&2
+    exit 1
+fi
+for name in "${plan_names[@]}"; do
+    if [ -L "$STAGE_DIR/$name" ] || [ ! -f "$STAGE_DIR/$name" ]; then
+        echo "kompli: unsafe extracted definition: ${name}" >&2
+        exit 1
+    fi
+done
 
-# Surface the reason for a failure or empty result inline (the log carries
-# "benchmark is not applicable for the current distribution", a rule's procedure
-# error, etc.) so the pipeline output shows the cause without opening the
-# published log artifact.
-if [ "${run_rc}" -ne 0 ] || [ ! -s "$RESULT_PATH" ]; then
-    echo "----- kompli log: error lines -----"
-    grep -iE 'error|abort|not applicable|exception|fatal' "$LOG_PATH" 2>/dev/null | tail -n 40 || true
+# Check each parent before installing a definition. Never chmod/chown an
+# existing directory. InputSecurity requires root ownership and no group/world
+# write permission throughout the target path.
+kompli_check_definition_dir() {
+    local dir="$1" create_missing="${2:-true}" owner mode
+    if [ -L "$dir" ]; then
+        echo "kompli: definition path is a symlink: $dir" >&2
+        return 1
+    fi
+    if [ ! -e "$dir" ] && [ "$create_missing" = true ]; then
+        install -d -o root -g root -m 0755 "$dir" || return 1
+    fi
+    if [ ! -d "$dir" ]; then
+        echo "kompli: definition path is not a real directory: $dir" >&2
+        return 1
+    fi
+    owner=$(stat -c %u -- "$dir") || return 1
+    mode=$(stat -c %a -- "$dir") || return 1
+    if [ "$owner" -ne 0 ] || (( (8#$mode & 8#022) != 0 )); then
+        echo "kompli: definition path is not root-owned and non-writable: $dir" >&2
+        return 1
+    fi
+}
+kompli_check_definition_dir /etc false
+kompli_check_definition_dir /etc/kompli
+kompli_check_definition_dir "$KOMPLI_DEFS_DIR"
+# Cleanup checks identity before unlinking, but a check-then-remove race with
+# a competing root actor on this dedicated scan VM remains accepted.
+# The directory is not writable by untrusted users, but a second root scan
+# could still choose the same name. Noclobber uses exclusive creation, unlike
+# install(1), and the held descriptor keeps writes on our own inode. Mode 0600
+# under umask 077 is root-owned and never group/world-writable.
+umask 077
+for name in "${plan_names[@]}"; do
+    target="$KOMPLI_DEFS_DIR/$name"
+    set -C
+    if exec {definition_fd}>"$target"; then
+        set +C
+    else
+        set +C
+        echo "kompli: definition already exists: $name" >&2
+        exit 1
+    fi
+    inode=$(stat -Lc %d:%i "/proc/$$/fd/$definition_fd") || exit 1
+    installed_defs+=("$name")
+    installed_inodes+=("$inode")
+    cat -- "$STAGE_DIR/$name" >&"$definition_fd"
+    exec {definition_fd}>&-
+done
+
+# One committed-plan execution. A failure with partial JSON still carries its
+# nonzero status; diagnostics and status are transferred as independent blobs.
+set +e
+"$KOMPLI_BIN" --verbose --continue-on-error run "$PLAN_PATH" > "$RESULT_PATH" 2> "$LOG_PATH"
+run_rc=$?
+set -e
+printf '%s\n' "$run_rc" > "$STATUS_PATH"
+echo "kompli run exited with code: ${run_rc}"
+if [ "$run_rc" -ne 0 ] || [ ! -s "$RESULT_PATH" ]; then
     echo "----- kompli log: tail -----"
-    tail -n 40 "$LOG_PATH" 2>/dev/null || true
-    echo "------------------------------------------------------"
+    tail -n 40 "$LOG_PATH" || true
+    echo "----------------------------"
 fi
-
-# Upload the JSON result and the kompli log even if the scan reported
-# NonCompliant or failed, so the agent always has something to publish.
-if [ -s "$RESULT_PATH" ]; then
-    az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$RESULT_PATH" --name "$RESULT_BLOB_NAME" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login --overwrite
-else
-    echo "WARNING: kompli produced no JSON result on stdout"
-fi
-if [ -s "$LOG_PATH" ]; then
-    az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$LOG_PATH" --name "$LOG_BLOB_NAME" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login --overwrite
-fi
-
-echo "kompli report script completed for plan blob ${PLAN_BLOB_NAME}"
+# Upload even empty stdout/stderr so transfer failure is distinguishable from
+# a valid empty stream; only CI decides whether a result is publishable.
+az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$RESULT_PATH" --name "$RESULT_BLOB_NAME" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login --overwrite
+az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$LOG_PATH" --name "$LOG_BLOB_NAME" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login --overwrite
+az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$STATUS_PATH" --name "$STATUS_BLOB_NAME" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login --overwrite
 exit 0

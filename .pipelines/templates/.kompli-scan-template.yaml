@@ -143,10 +143,16 @@ steps:
 
     bench_count=$(jq -r '(.benchmarks // {}) | length' "${manifest}")
     [ "${bench_count}" -ge 1 ] || { echo "##[error]'benchmarks' must contain at least one entry in ${manifest}"; exit 1; }
-    declare -A bench_name bench_ver
+    declare -A bench_name bench_ver version_by_package
     for key in $(jq -r '.benchmarks | keys[]' "${manifest}"); do
         b_pin=$(jq -r --arg k "$key" '.benchmarks[$k]' "${manifest}")
         split_pin "${key}" "${b_pin}"
+        package_id="${_name,,}"
+        if [ -n "${version_by_package[$package_id]:-}" ] && [ "${version_by_package[$package_id]}" != "${_ver}" ]; then
+            echo "##[error]Benchmark keys request different versions of package ${_name}"
+            exit 1
+        fi
+        version_by_package["$package_id"]="${_ver}"
         bench_name["${key}"]="${_name}"; bench_ver["${key}"]="${_ver}"
         warn_if_stale "${key}" "${_ver}"
     done
@@ -212,19 +218,27 @@ steps:
         local pin="$1"
         _name="${pin%@*}"; _ver="${pin##*@}"
     }
-    # Finds the (single) restored version directory NuGet created for a
-    # lowercased package id under tmp_dir, since NuGet's own folder-name
-    # version normalization needn't be reimplemented here.
+    # NuGet stores package ids and normalized versions in lowercase. Require
+    # the exact requested directory, never whichever version find sees first.
     restored_dir() {
-        local id_lower="$1"
-        find "${tmp_dir}/${id_lower}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1
+        local directory="${tmp_dir}/${1,,}/${2,,}"
+        if [ -d "$directory" ] && [ ! -L "$directory" ]; then
+            printf '%s\n' "$directory"
+        fi
     }
 
-    a_pin=$(jq -r '.kompli' "${manifest}"); split_pin "${a_pin}"; a_name="${_name}"
-    declare -A bench_name
+    a_pin=$(jq -r '.kompli' "${manifest}"); split_pin "${a_pin}"; a_name="${_name}"; a_ver="${_ver}"
+    declare -A bench_name bench_ver version_by_package
     for key in $(jq -r '.benchmarks | keys[]' "${manifest}"); do
         b_pin=$(jq -r --arg k "$key" '.benchmarks[$k]' "${manifest}")
-        split_pin "${b_pin}"; bench_name["${key}"]="${_name}"
+        split_pin "${b_pin}"
+        package_id="${_name,,}"
+        if [ -n "${version_by_package[$package_id]:-}" ] && [ "${version_by_package[$package_id]}" != "${_ver}" ]; then
+            echo "##[error]Benchmark keys request different versions of package ${_name}"
+            exit 1
+        fi
+        version_by_package["$package_id"]="${_ver}"
+        bench_name["${key}"]="${_name}"; bench_ver["${key}"]="${_ver}"
     done
 
     # The package ships multiarch runtimes/<rid>/native/kompli (ADR-0003 in
@@ -238,9 +252,9 @@ steps:
         X86_64|AMD64) kompli_rid=linux-x64 ;;
         *) echo "##[error]Unrecognized ARCHITECTURE '${ARCHITECTURE}' for kompli RID selection"; exit 1 ;;
     esac
-    a_dir=$(restored_dir "${a_name,,}")
+    a_dir=$(restored_dir "${a_name}" "${a_ver}")
     if [ -z "${a_dir}" ]; then
-        echo "##[error]kompli package ${a_name} was not restored under ${tmp_dir}/${a_name,,}"
+        echo "##[error]kompli package ${a_name}@${a_ver} was not restored under ${tmp_dir}/${a_name,,}/${a_ver,,}"
         exit 1
     fi
     kompli_bin="${a_dir}/runtimes/${kompli_rid}/native/kompli"
@@ -256,23 +270,28 @@ steps:
     chmod +x "${download_root}/kompli"
     echo "Kompli staged at ${download_root}/kompli (RID ${kompli_rid})"
 
-    # Benchmark definitions: one per key under .benchmarks (each value a
-    # '<package>@<version>' pin), renamed to definitions/<key>.benchmark.json.
+    # Benchmark definitions: resolve one JSON per acquired package (MOFs are
+    # not definitions). A shared package can map to multiple manifest keys;
+    # cache the validated source so every staged key uses that exact file.
+    declare -A source_by_dir
     for key in "${!bench_name[@]}"; do
         b_name="${bench_name[$key]}"
-        b_dir=$(restored_dir "${b_name,,}")
+        b_dir=$(restored_dir "${b_name}" "${bench_ver[$key]}")
         if [ -z "${b_dir}" ]; then
-            echo "##[error]benchmark package ${b_name} (key ${key}) was not restored under ${tmp_dir}/${b_name,,}"
+            echo "##[error]benchmark package ${b_name}@${bench_ver[$key]} (key ${key}) was not restored under ${tmp_dir}/${b_name,,}/${bench_ver[$key],,}"
             exit 1
         fi
-        def=$(find "${b_dir}" -name '*.benchmark.json' -type f | head -1)
-        if [ -z "${def}" ]; then
-            echo "##[error]No *.benchmark.json found in benchmark package ${b_name} (key ${key})"
-            find "${b_dir}" -type f || true
-            exit 1
+        if [ -z "${source_by_dir[$b_dir]:-}" ]; then
+            mapfile -d '' -t definitions < <(find "${b_dir}" -type f -name '*.benchmark.json' -print0)
+            if [ "${#definitions[@]}" -ne 1 ]; then
+                echo "##[error]Expected exactly one *.benchmark.json in package ${b_name}; found ${#definitions[@]}"
+                exit 1
+            fi
+            source_by_dir["$b_dir"]="${definitions[0]}"
         fi
-        cp "${def}" "${def_dir}/${key}.benchmark.json"
-        echo "Definition for ${key} staged at ${def_dir}/${key}.benchmark.json"
+        def="${source_by_dir[$b_dir]}"
+        cp -- "${def}" "${def_dir}/${key}.benchmark.json"
+        echo "Verified definition ${def} mapped to key ${key} at ${def_dir}/${key}.benchmark.json"
     done
 
     rm -rf "${tmp_dir}" "${proj_dir}"
