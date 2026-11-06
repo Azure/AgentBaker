@@ -160,6 +160,36 @@ configureKubeletAndKubectl() {
     fi
 }
 
+preparePodInfraContainerImageForSnapshotter() (
+    local snapshotter="$1" image="$2" base_name="${3:-}" tar_file="${4:-}"
+
+    # A tar file for the requested image already exists. Re-use it to import with the specified snapshotter.
+    if [ -n "${tar_file:-}" ]; then
+        ctr -n k8s.io images import --local --snapshotter "$snapshotter" --base-name "$base_name" "$tar_file"
+        return
+    fi
+
+    # Image already exists locally. Export it to a temporary archive and re-import it with the specified snapshotter.
+    local archive_dir
+    archive_dir=$(mktemp -d) || return
+    trap 'rm -rf "$archive_dir"' EXIT
+    ctr -n k8s.io images export "${archive_dir}/image.tar" "$image" &&
+        ctr -n k8s.io images import --local --snapshotter "$snapshotter" "${archive_dir}/image.tar"
+)
+
+ensurePodInfraContainerImageForSnapshotter() {
+    local extra_snapshotter
+    if isACL; then
+        extra_snapshotter="erofs"
+    else
+        return 0
+    fi
+    if ! preparePodInfraContainerImageForSnapshotter "$extra_snapshotter" "$1" "${2:-}" "${3:-}"; then
+        echo "Failed to prepare pod infra image: $1 for snapshotter: $extra_snapshotter"
+        exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
+    fi
+}
+
 ensurePodInfraContainerImage() {
     POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR="/opt/pod-infra-container-image/downloads"
     POD_INFRA_CONTAINER_IMAGE_TAR="/opt/pod-infra-container-image/pod-infra-container-image.tar"
@@ -176,6 +206,7 @@ ensurePodInfraContainerImage() {
     echo "Checking if $pod_infra_container_image already exists locally..."
     if ctr -n k8s.io images list -q | grep -q "^${pod_infra_container_image}$"; then
         echo "Image $pod_infra_container_image already exists locally, skipping pull"
+        ensurePodInfraContainerImageForSnapshotter "${pod_infra_container_image}"
         return 0
     fi
     base_name="${pod_infra_container_image%@:*}"
@@ -202,6 +233,7 @@ ensurePodInfraContainerImage() {
         exit $ERR_PULL_POD_INFRA_CONTAINER_IMAGE
     fi
 
+    ensurePodInfraContainerImageForSnapshotter "${pod_infra_container_image}" "${base_name}" "${POD_INFRA_CONTAINER_IMAGE_TAR}"
     rm -rf ${POD_INFRA_CONTAINER_IMAGE_DOWNLOAD_DIR}
     rm -f ${POD_INFRA_CONTAINER_IMAGE_TAR}
 }
