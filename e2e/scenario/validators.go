@@ -718,6 +718,75 @@ func ValidateEmptyDirectory(ctx context.Context, s *Scenario, dirName string) er
 	return err
 }
 
+const validateIGDiagnosticsScript = `
+set -eu
+config_dir="${IG_DIAGNOSTICS_CONFIG_DIR:-/etc/ig.d}"
+runtime_dir="${IG_DIAGNOSTICS_RUNTIME_DIR:-/run/ig-diagnostics}"
+reader="${IG_DIAGNOSTICS_READER:-/etc/node-problem-detector.d/plugin/ig_report_reader.py}"
+if [ ! -f "${SYS_DIR:-/sys}/fs/cgroup/cgroup.controllers" ]; then
+    echo "SKIP: continuous IG diagnostics requires cgroup v2"
+    exit 0
+fi
+if [ ! -f "${config_dir}/diagnostics-version" ]; then
+    echo "SKIP: image has no continuous IG diagnostics capability"
+    exit 0
+fi
+version="$(cat "${config_dir}/diagnostics-version")"
+if [ "${version}" != 1 ]; then
+    echo "SKIP: unsupported continuous IG diagnostics capability ${version}"
+    exit 0
+fi
+if [ ! -f "${config_dir}/skip_vhd_ig" ]; then
+    echo "FAIL: capability-1 image is missing IG ownership marker" >&2
+    exit 1
+fi
+if ! command -v python3 >/dev/null || [ ! -r "${reader}" ]; then
+    echo "FAIL: continuous IG diagnostics requires Python and the packaged reader" >&2
+    exit 1
+fi
+if ! timeout -k 1s 5s systemctl is-enabled --quiet ig-diagnostics.service; then
+    echo "FAIL: ig-diagnostics.service must be enabled" >&2
+    exit 1
+fi
+deadline=$((SECONDS + 120))
+until timeout -k 1s 5s systemctl is-active --quiet ig-diagnostics.service; do
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+        echo "FAIL: ig-diagnostics.service did not become active within 120s" >&2
+        timeout -k 1s 5s systemctl show ig-diagnostics.service -p ActiveState -p SubState -p Result
+        exit 1
+    fi
+    sleep 2
+done
+if [ ! -r "${runtime_dir}/collectors.json" ]; then
+    echo "FAIL: active IG diagnostics service has no readable collector manifest" >&2
+    exit 1
+fi
+# Reuse the packaged reader's boot/generation/schema/freshness checks for all three collectors.
+if ! timeout -k 1s 35s python3 "${reader}" --check-startup "${runtime_dir}/collectors.json"; then
+    echo "FAIL: CPU, memory and throttle collectors must all have fresh non-initial reports" >&2
+    exit 1
+fi
+echo "PASS: IG diagnostics is enabled, active and producing fresh reports for all three collectors"
+`
+
+func ValidateIGDiagnostics(ctx context.Context, s *Scenario) error {
+	distro := s.VHD.Distro
+	if (!distro.IsUbuntuDistro() && !distro.IsAzureLinuxV3Distro()) ||
+		distro.IsKataDistro() || distro.IsAzureLinuxOSGuardDistro() {
+		logging.Logf(ctx, "SKIP: continuous IG diagnostics is unsupported on %s", distro)
+		return nil
+	}
+
+	command := "sudo /bin/bash <<'IG_DIAGNOSTICS_VALIDATION'\n" + validateIGDiagnosticsScript + "\nIG_DIAGNOSTICS_VALIDATION\n"
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0,
+		"continuous IG diagnostics must be enabled, active and producing fresh reports")
+	if err != nil {
+		return fmt.Errorf("validate continuous IG diagnostics: %w", err)
+	}
+	logging.Logf(ctx, "IG diagnostics validation: %s", strings.TrimSpace(result.stdout))
+	return nil
+}
+
 func ValidateInspektorGadget(ctx context.Context, s *Scenario) error {
 	skipFile := "/etc/ig.d/skip_vhd_ig"
 	serviceName := "ig-import-gadgets.service"

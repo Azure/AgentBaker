@@ -229,6 +229,23 @@ ig_log_version() {
     fi
 }
 
+ig_prepare_diagnostics() {
+    if [[ "${OS}" == "${AZURELINUX_KATA_OS_NAME:-AZURELINUXKATA}" || "${IS_KATA:-false}" == true ]]; then
+        return 0
+    fi
+    local unit="/usr/lib/systemd/system/ig-diagnostics.service"
+    if ! test -s "${unit}" ||
+       ! test -x /usr/share/inspektor-gadget/diagnostics.sh ||
+       ! test -s /etc/ig.d/diagnostics.yaml; then
+        echo "[ig] Required continuous diagnostics assets are missing" >&2
+        return 1
+    fi
+    systemctl daemon-reload || return 1
+    systemctl disable --now ig-diagnostics.service || return 1
+    printf '1\n' > /etc/ig.d/diagnostics-version || return 1
+    chmod 0644 /etc/ig.d/diagnostics-version
+}
+
 installIG() {
     local version="$1"
     local download_dir="$2"
@@ -281,6 +298,7 @@ installIG() {
     mkdir -p /etc/ig.d
     touch "${IG_SKIP_FILE}"
     chmod 644 "${IG_SKIP_FILE}"
+    ig_prepare_diagnostics || return 1
 
     ig_log_version
     ig_cleanup_build_artifacts
