@@ -197,11 +197,14 @@ removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
 #
 # The vulnerable-module block is removed on fixed Ubuntu 22.04 / 24.04 kernels,
 # by default on future Ubuntu releases that are not explicitly in mitigation scope,
-# and on AzureLinux 3.0 (non-OSGuard) because:
+# and on AzureLinux 3.0 and 4.0 (non-OSGuard) because:
 #   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
 #      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
 #      at runtime if it detects an older vulnerable Ubuntu kernel.
-#   2. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
+#   2. The upstream kernel fixes supersede the modprobe blacklist: AzL3 has them from
+#      6.6.139.1-1.azl3, and every AzL4 kernel (6.18.50 and later) is past the last
+#      6.18.y fix (6.18.33). The AzL4 kernel also builds algif_aead in
+#      (CONFIG_CRYPTO_USER_API_AEAD=y), so a deny rule could not block it anyway.
 #   3. Customer workloads require those kernel modules; the bake-in actively blocks
 #      legitimate use cases on fixed kernels.
 # See https://github.com/Azure/AKS/issues/5753.
@@ -212,8 +215,8 @@ configureVulnerableKernelModuleDenyRules() {
 
   if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
     context_message="on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
-  elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-    context_message="on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the full bake-in)"
+  elif isAzureLinux "$OS" "$OS_VARIANT" && { [ "${OS_VERSION}" = "3.0" ] || [ "${OS_VERSION}" = "4.0" ]; } && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    context_message="on AzureLinux ${OS_VERSION} (kernels 6.6.139.1-1.azl3+ and all AzL4 kernels have the upstream fixes; OSGuard intentionally retains the full bake-in)"
   else
     return 0
   fi
