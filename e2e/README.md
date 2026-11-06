@@ -156,6 +156,24 @@ provisioning path, such as CustomData-only delivery. Sampling cannot be combined
 with `--disable-scriptless` or `--test-pre-provision`. Runtime failures and skips
 remain visible through normal per-scenario reporting.
 
+### Fixed NBC/ANC parity regressions
+
+Six additional scenarios suffixed `_NBCANCParity` cover the Ubuntu 22.04/26.04
+kube-reserved CLI-flags payload, Ubuntu 24.04/Azure Linux 3 temporary disk configs,
+Ubuntu 26.04 custom containerd ulimits, and Azure Linux 3 Kata VHD classification.
+They retain the original scenario validators and force NBC-command execution with
+ANC comparison. Original Phase 3 scenarios are unchanged.
+
+These six VM runs require PR VHD metadata and skip before creating resources in
+standalone E2E, scriptless-disabled, and pre-provision runs. They are not randomly
+sampled. The Linux VHD check-in gate already supplies the required metadata and
+selects these non-GPU Linux scenarios. E2E-only changes still require manually
+queuing that gate; this coverage does not broaden its path filters.
+
+`go test ./scenario -run '^TestNBCANC'` checks the same configuration regressions
+without VMs, using the current NBC/ANC renderers and a fixed containerd version.
+It supplements, rather than replaces, comparison on the PR-built VHD.
+
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node

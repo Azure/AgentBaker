@@ -193,7 +193,7 @@ type Config struct {
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
 
-	// ForceScriptlessNBCCSECmd overrides mode selection after scenario mutators for an additive sampled run.
+	// ForceScriptlessNBCCSECmd overrides mode selection after scenario mutators for an additive NBC-command run.
 	ForceScriptlessNBCCSECmd bool
 
 	// ExcludeFromNBCSampling preserves scenarios that specifically require a different provisioning path.
