@@ -349,8 +349,7 @@ const (
 
 // ensureSharedFirewall creates or retrieves the shared Azure Firewall and returns its private IP.
 // The firewall is shared across all clusters in the RG, so its rules persist beyond the lifetime
-// of any single cluster. Reconcile the per-sub blob storage FQDN and NTP network rule so existing
-// firewalls allow CSE artifact downloads and public NTP synchronization.
+// of any single cluster. Reconcile CSE and CVM validation destinations and the NTP network rule.
 func ensureSharedFirewall(ctx context.Context, rg, location string) (string, error) {
 	existing, err := config.Azure.AzureFirewall.Get(ctx, rg, SharedFirewallName, nil)
 	if err == nil {
@@ -437,34 +436,50 @@ func getFirewallPrivateIP(fw armnetwork.AzureFirewall) (string, error) {
 	return "", fmt.Errorf("firewall has no private IP address")
 }
 
-// firewallAppRulesUpToDate returns true when the existing firewall already allows the current
-// per-sub blob storage FQDN. We only check the blob-storage-fqdn rule because that's the only
-// rule whose target depends on dynamic config — the rest (aks-fqdn, mooncake-mar, dmc) use
-// static values. If the storage FQDN changed (e.g. sub-suffix added), the rule is stale.
+// Check both the per-sub blob storage FQDN and CVM destinations so shared firewalls
+// created before CVM validation was added are updated.
 func firewallAppRulesUpToDate(fw armnetwork.AzureFirewall) bool {
 	if fw.Properties == nil {
 		return false
 	}
 	expectedFqdn := config.Config.BlobStorageAccount() + ".blob.core.windows.net"
+	expectedCVMRule := getCVMFirewallRule()
+	var hasBlobRule, hasCVMRule bool
 	for _, coll := range fw.Properties.ApplicationRuleCollections {
-		if coll == nil || coll.Properties == nil {
+		if coll == nil || coll.Properties == nil || coll.Properties.Action == nil || coll.Properties.Action.Type == nil ||
+			*coll.Properties.Action.Type != armnetwork.AzureFirewallRCActionTypeAllow {
 			continue
 		}
 		for _, rule := range coll.Properties.Rules {
-			if rule == nil || rule.Name == nil || *rule.Name != "blob-storage-fqdn" {
+			if rule == nil || rule.Name == nil {
 				continue
 			}
-			// Found the dynamic rule; match means firewall is current.
-			for _, fqdn := range rule.TargetFqdns {
-				if fqdn != nil && *fqdn == expectedFqdn {
-					return true
+			if *rule.Name == "blob-storage-fqdn" {
+				hasBlobRule = hasBlobRule || slices.ContainsFunc(rule.TargetFqdns, func(s *string) bool {
+					return s != nil && *s == expectedFqdn
+				})
+			}
+			if *rule.Name != *expectedCVMRule.Name {
+				continue
+			}
+			hasSource := slices.ContainsFunc(rule.SourceAddresses, func(s *string) bool {
+				return s != nil && *s == SharedVNetCIDR
+			})
+			hasHTTPS := slices.ContainsFunc(rule.Protocols, func(p *armnetwork.AzureFirewallApplicationRuleProtocol) bool {
+				return p != nil && p.ProtocolType != nil && *p.ProtocolType == armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS &&
+					p.Port != nil && *p.Port == 443
+			})
+			hasFqdns := true
+			for _, expected := range expectedCVMRule.TargetFqdns {
+				if !slices.ContainsFunc(rule.TargetFqdns, func(s *string) bool { return s != nil && *s == *expected }) {
+					hasFqdns = false
+					break
 				}
 			}
-			return false
+			hasCVMRule = hasCVMRule || (hasSource && hasHTTPS && hasFqdns)
 		}
 	}
-	// Rule not found at all → firewall predates this rule, treat as stale.
-	return false
+	return hasBlobRule && hasCVMRule
 }
 
 func firewallNetworkRulesUpToDate(fw armnetwork.AzureFirewall) bool {

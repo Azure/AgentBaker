@@ -1,13 +1,102 @@
 package scenario
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
 )
+
+func TestUbuntu2004CVMProxyFailureException(t *testing.T) {
+	previousLogDir := config.Config.E2ELoggingDir
+	config.Config.E2ELoggingDir = t.TempDir()
+	t.Cleanup(func() { config.Config.E2ELoggingDir = previousLogDir })
+	key, _ := newTestSigningCertificate(t)
+	signer, err := ssh.NewSignerFromKey(key)
+	require.NoError(t, err)
+	for _, tt := range []struct {
+		name    string
+		vhd     *config.Image
+		cvm     bool
+		units   []string
+		wantErr string
+	}{
+		{"2004 CVM proxy only", config.VHDUbuntu2004CVMGen2Containerd, true, []string{"azurefile-proxy.service"}, ""},
+		{"2004 CVM other failure", config.VHDUbuntu2004CVMGen2Containerd, true, []string{"azurefile-proxy.service", "kubelet.service"}, "kubelet.service"},
+		{"non-CVM scenario", config.VHDUbuntu2004CVMGen2Containerd, false, []string{"azurefile-proxy.service"}, "azurefile-proxy.service"},
+		{"non-CVM image", config.VHDUbuntu2004FIPSGen2Containerd, true, []string{"azurefile-proxy.service"}, "azurefile-proxy.service"},
+		{"2404 CVM", config.VHDUbuntu2404CVMGen2Containerd, true, []string{"azurefile-proxy.service"}, "azurefile-proxy.service"},
+		{"different unit", config.VHDUbuntu2004CVMGen2Containerd, true, []string{"azurefile-proxy-other.service"}, "azurefile-proxy-other.service"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var units []systemdUnit
+			var legacyOutput strings.Builder
+			for _, unit := range tt.units {
+				units = append(units, systemdUnit{Name: unit})
+				fmt.Fprintf(&legacyOutput, "%s loaded failed failed Test service\n", unit)
+			}
+			data, err := json.Marshal(units)
+			require.NoError(t, err)
+			var script string
+			address, _, done := startCVMCommandSSHServer(t, signer, func(_ *ssh.ServerConn, channel ssh.Channel, command string) {
+				switch {
+				case strings.HasPrefix(command, "umask"):
+					uploaded, _ := io.ReadAll(channel)
+					script = string(uploaded)
+				case strings.Contains(script, "systemctl list-units") && strings.Contains(script, "--output json"):
+					_, _ = channel.Write(data)
+				case strings.Contains(script, "systemctl list-units"):
+					_, _ = channel.Write([]byte(legacyOutput.String()))
+				default:
+					_, _ = channel.Write([]byte("GLIBC_2.32 not found\nGLIBC_2.34 not found\n"))
+				}
+				_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
+				_ = channel.Close()
+			})
+			client, err := ssh.Dial("tcp", address, &ssh.ClientConfig{
+				User: "azureuser", HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second,
+			})
+			require.NoError(t, err)
+			sshClient := newSSHClient(client)
+			t.Cleanup(func() { _ = sshClient.Close(); <-done })
+			vhd := *tt.vhd
+			vhd.SkipOldVHDValidations = false
+			s := &Scenario{
+				artifactName: tt.name,
+				Tags:         Tags{CVM: tt.cvm},
+				Config:       Config{VHD: &vhd},
+				Runtime:      &ScenarioRuntime{VM: &ScenarioVM{SSHClient: sshClient}},
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			err = ValidateNoFailedSystemdUnits(ctx, s)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tt.wantErr)
+			}
+			if tt.wantErr == "kubelet.service" {
+				require.NotContains(t, err.Error(), "unexpectedly entered a failed state: azurefile-proxy.service")
+			}
+			for _, unit := range tt.units {
+				log, err := os.ReadFile(filepath.Join(config.Config.E2ELoggingDir, tt.name, unit+".log"))
+				require.NoError(t, err)
+				require.Contains(t, string(log), "GLIBC_2.34 not found")
+			}
+		})
+	}
+}
 
 func TestParseFailedSystemdUnits(t *testing.T) {
 	tests := []struct {

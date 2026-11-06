@@ -27,6 +27,7 @@ const (
 	cvmAttestationIssuer      = "https://sharedwus.wus.attest.azure.net"
 	cvmAttestationTokenMax    = 128 * 1024
 	cvmCollectorSSHTimeout    = 9 * time.Minute
+	cvmPlatformReportPrefix   = "[cvm-collector] platform-report: "
 )
 
 var (
@@ -50,6 +51,51 @@ type cvmAttestationSummary struct {
 	PolicyClaims      map[string]any `json:"policyClaims"`
 }
 
+type cvmPlatformReport struct {
+	ReportType string `json:"reportType"`
+}
+
+func parseCVMPlatformReport(output string) (*cvmPlatformReport, error) {
+	var report *cvmPlatformReport
+	for _, line := range strings.Split(output, "\n") {
+		if !strings.HasPrefix(line, cvmPlatformReportPrefix) {
+			continue
+		}
+		if report != nil {
+			return nil, errors.New("collector returned multiple CVM platform reports")
+		}
+		payload := strings.TrimPrefix(line, cvmPlatformReportPrefix)
+		if len(payload) > cvmEvidenceLimit {
+			return nil, errors.New("CVM platform report exceeds maximum size")
+		}
+		decoder := json.NewDecoder(strings.NewReader(payload))
+		decoder.DisallowUnknownFields()
+		var observed cvmPlatformReport
+		if err := decoder.Decode(&observed); err != nil {
+			return nil, fmt.Errorf("parse CVM platform report: %w", err)
+		}
+		if err := decoder.Decode(new(any)); err != io.EOF {
+			return nil, errors.New("CVM platform report contains trailing data")
+		}
+		if observed.ReportType == "" {
+			return nil, errors.New("CVM platform report is missing reportType")
+		}
+		report = &observed
+	}
+	if report == nil {
+		return nil, errors.New("collector returned no CVM platform report")
+	}
+	return report, nil
+}
+
+func recordCVMCollectorEvidence(s *Scenario, result *podExecResult) (*cvmPlatformReport, error) {
+	if result == nil {
+		return nil, errors.New("CVM attestation collector returned no result")
+	}
+	report, err := parseCVMPlatformReport(result.stdout)
+	return report, errors.Join(err, writeCVMDiagnosticArtifact(s, "cvm/attestation-output-redacted.log", result.String()))
+}
+
 type cvmAttestationError struct {
 	err      error
 	check    string
@@ -71,22 +117,22 @@ func cvmAttestationStatus(err error) string {
 }
 
 //nolint:nonamedreturns // Cleanup errors must augment the result without discarding verified evidence.
-func validateCVMAttestation(ctx context.Context, s *Scenario, platform cvmPlatform) (summary *cvmAttestationSummary, retErr error) {
+func validateCVMAttestation(ctx context.Context, s *Scenario, platform cvmPlatform) (summary *cvmAttestationSummary, platformReport *cvmPlatformReport, retErr error) {
 	defer logging.LogStep(ctx, "validating CVM attestation")()
 	if platform != cvmPlatformSEVSNP && platform != cvmPlatformTDX {
-		return nil, fmt.Errorf("unsupported CVM platform %q", platform)
+		return nil, nil, fmt.Errorf("unsupported CVM platform %q", platform)
 	}
 	if s == nil || s.Runtime == nil || s.Runtime.VM == nil {
-		return nil, errors.New("CVM attestation requires a scenario VM")
+		return nil, nil, errors.New("CVM attestation requires a scenario VM")
 	}
 
 	nonce, err := randomHex(32)
 	if err != nil {
-		return nil, fmt.Errorf("generate attestation nonce: %w", err)
+		return nil, nil, fmt.Errorf("generate attestation nonce: %w", err)
 	}
 	remoteSuffix, err := randomHex(16)
 	if err != nil {
-		return nil, fmt.Errorf("generate attestation workspace name: %w", err)
+		return nil, nil, fmt.Errorf("generate attestation workspace name: %w", err)
 	}
 	remoteDir := "/tmp/agentbaker-cvm-attestation-" + remoteSuffix
 	tokenPath := remoteDir + "/token.jwt"
@@ -101,49 +147,47 @@ func validateCVMAttestation(ctx context.Context, s *Scenario, platform cvmPlatfo
 	collectorCtx, cancel := context.WithTimeout(ctx, cvmCollectorSSHTimeout)
 	defer cancel()
 	result, err := execScriptOnVm(collectorCtx, s, s.Runtime.VM, cvmAttestationCollectorScript(platform, nonce, remoteDir))
-	if result != nil {
-		retErr = errors.Join(retErr, writeCVMDiagnosticArtifact(s, "cvm/attestation-output-redacted.log", result.String()))
-	}
+	platformReport, retErr = recordCVMCollectorEvidence(s, result)
 	if err != nil {
-		return nil, errors.Join(retErr, fmt.Errorf("run CVM attestation collector: %w; %s", err, cvmCollectorDiagnostics(result)))
+		return nil, platformReport, errors.Join(retErr, fmt.Errorf("run CVM attestation collector: %w; %s", err, cvmCollectorDiagnostics(result)))
 	}
 	if result == nil {
-		return nil, errors.Join(retErr, errors.New("CVM attestation collector returned no result"))
+		return nil, nil, retErr
 	}
 	if result.exitCode != "0" {
-		return nil, errors.Join(retErr, fmt.Errorf("CVM attestation collector exited with code %s: %s; see cvm/attestation-output-redacted.log",
+		return nil, platformReport, errors.Join(retErr, fmt.Errorf("CVM attestation collector exited with code %s: %s; see cvm/attestation-output-redacted.log",
 			result.exitCode, cvmCollectorDiagnostics(result)))
 	}
 
 	tokenBytes, err := copyFileFromVM(ctx, s, tokenPath, cvmAttestationTokenMax)
 	if err != nil {
-		return nil, errors.Join(retErr, fmt.Errorf("retrieve CVM attestation token: %w", err))
+		return nil, platformReport, errors.Join(retErr, fmt.Errorf("retrieve CVM attestation token: %w", err))
 	}
 	defer clear(tokenBytes)
 	token := strings.TrimSpace(string(tokenBytes))
 	if token == "" {
-		return nil, errors.Join(retErr, errors.New("CVM attestation collector returned an empty token"))
+		return nil, platformReport, errors.Join(retErr, errors.New("CVM attestation collector returned an empty token"))
 	}
 
 	summary, err = verifyCVMAttestationToken(ctx, &http.Client{Timeout: 30 * time.Second}, token, cvmAttestationIssuer, platform, nonce)
 	if err != nil {
-		return summary, errors.Join(retErr, fmt.Errorf("verify CVM attestation token: %w", err))
+		return summary, platformReport, errors.Join(retErr, fmt.Errorf("verify CVM attestation token: %w", err))
 	}
 	claimsJSON, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
-		return summary, errors.Join(retErr, fmt.Errorf("serialize verified CVM attestation claims: %w", err))
+		return summary, platformReport, errors.Join(retErr, fmt.Errorf("serialize verified CVM attestation claims: %w", err))
 	}
 	if err = writeToFile(s.artifactName, "cvm/attestation-claims.json", string(claimsJSON)+"\n"); err != nil {
-		return summary, errors.Join(retErr, fmt.Errorf("write verified CVM attestation claims: %w", err))
+		return summary, platformReport, errors.Join(retErr, fmt.Errorf("write verified CVM attestation claims: %w", err))
 	}
 	summaryJSON, err := json.MarshalIndent(cvmAttestationVerdicts(summary), "", "  ")
 	if err != nil {
-		return summary, errors.Join(retErr, fmt.Errorf("serialize CVM attestation summary: %w", err))
+		return summary, platformReport, errors.Join(retErr, fmt.Errorf("serialize CVM attestation summary: %w", err))
 	}
 	if err = writeToFile(s.artifactName, "cvm-attestation-summary.json", string(summaryJSON)+"\n"); err != nil {
-		return summary, errors.Join(retErr, fmt.Errorf("write CVM attestation summary: %w", err))
+		return summary, platformReport, errors.Join(retErr, fmt.Errorf("write CVM attestation summary: %w", err))
 	}
-	return summary, retErr
+	return summary, platformReport, retErr
 }
 
 func cleanupCVMWorkspace(ctx context.Context, s *Scenario, remoteDir string, dial func(context.Context, *Scenario) (*SSHClient, error)) error {
@@ -349,6 +393,8 @@ def main():
     tss = TssWrapper(logger)
     hcl_report = tss.get_hcl_report(claims)
     report_type = ReportParser.extract_report_type(hcl_report)
+    print("[cvm-collector] platform-report: " + json.dumps({"reportType": report_type.name}),
+          flush=True)
     if report_type != isolation_type:
         raise RuntimeError(f"expected {isolation_type.name} report, got {report_type.name}")
 

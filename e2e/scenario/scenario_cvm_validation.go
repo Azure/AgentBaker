@@ -82,7 +82,7 @@ func validateCVM(platform cvmPlatform, securityEncryptionType armcompute.Securit
 			validationErrors = append(validationErrors, err)
 		}
 
-		attestationSummary, attestationErr := validateCVMAttestation(ctx, s, platform)
+		attestationSummary, platformReport, attestationErr := validateCVMAttestation(ctx, s, platform)
 		attestationCheck := newCVMCheck(
 			"attestation.verified",
 			"valid MAA signature, freshness, nonce, compliance, platform, and policy claims",
@@ -103,7 +103,7 @@ func validateCVM(platform cvmPlatform, securityEncryptionType armcompute.Securit
 			}
 		}
 
-		guestChecks, err := validateCVMGuestEvidence(ctx, s, platform)
+		guestChecks, err := validateCVMGuestEvidence(ctx, s, platform, platformReport)
 		checks = append(checks, guestChecks...)
 		if err != nil {
 			validationErrors = append(validationErrors, err)
@@ -289,23 +289,49 @@ func readObservedCVMModel(vmss *armcompute.VirtualMachineScaleSet) observedCVMMo
 	return model
 }
 
-func validateCVMGuestEvidence(ctx context.Context, s *Scenario, platform cvmPlatform) ([]cvmCheck, error) {
+func validateCVMPlatformReport(platform cvmPlatform, report *cvmPlatformReport) (cvmCheck, error) {
+	expectedType := "SEV_SNP"
+	if platform == cvmPlatformTDX {
+		expectedType = "TDX"
+	}
+	if report == nil {
+		check := newCVMCheck("guest.platform", expectedType, "no readable HCL attestation report", false,
+			"cvm/attestation-output-redacted.log", "")
+		check.Status = cvmStatusUnableToVerify
+		return check, errors.New("unable to verify guest.platform: no readable HCL attestation report")
+	}
+	check := newCVMCheck("guest.platform", expectedType, report.ReportType,
+		(platform == cvmPlatformSEVSNP || platform == cvmPlatformTDX) && report.ReportType == expectedType,
+		"cvm/platform-report.json", "/reportType")
+	return check, failedCVMChecks([]cvmCheck{check})
+}
+
+func validateCVMGuestEvidence(ctx context.Context, s *Scenario, platform cvmPlatform, report *cvmPlatformReport) ([]cvmCheck, error) {
 	var checks []cvmCheck
 	var validationErrors []error
 
-	platformOutput, platformErr := collectCVMEvidence(ctx, s, "cvm/platform-evidence.log", `
+	platformCheck, err := validateCVMPlatformReport(platform, report)
+	checks = append(checks, platformCheck)
+	if err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+	if report != nil {
+		reportJSON, err := json.MarshalIndent(report, "", "  ")
+		if err == nil {
+			err = writeToFile(s.artifactName, "cvm/platform-report.json", string(reportJSON)+"\n")
+		}
+		if err != nil {
+			validationErrors = append(validationErrors, fmt.Errorf("write CVM platform report: %w", err))
+		}
+	}
+
+	_, platformErr := collectCVMEvidence(ctx, s, "cvm/platform-evidence.log", `
 set -u
 printf '%s\n' 'systemd-detect-virt --cvm:'
 systemd-detect-virt --cvm 2>&1 || true
 printf '%s\n' 'kernel CVM messages:'
 sudo dmesg 2>/dev/null | grep -Ei -m 80 'sev|snp|tdx|confidential' || true
 `)
-	expectedMarker := "sev"
-	if platform == cvmPlatformTDX {
-		expectedMarker = "tdx"
-	}
-	platformPassed := platformErr == nil && strings.Contains(strings.ToLower(platformOutput), expectedMarker)
-	checks = append(checks, newCVMCheck("guest.platform", expectedMarker, strings.TrimSpace(platformOutput), platformPassed, "cvm/platform-evidence.log", ""))
 	if platformErr != nil {
 		validationErrors = append(validationErrors, platformErr)
 	}

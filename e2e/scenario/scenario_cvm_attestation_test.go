@@ -36,6 +36,162 @@ func TestCVMNonceDigestMatchesAttestationToolsSerialization(t *testing.T) {
 	)
 }
 
+func TestParseCVMPlatformReport(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		output  string
+		want    string
+		wantErr bool
+	}{
+		{"SNP", "progress\n" + cvmPlatformReportPrefix + `{"reportType":"SEV_SNP"}` + "\n", "SEV_SNP", false},
+		{"TDX", cvmPlatformReportPrefix + `{"reportType":"TDX"}`, "TDX", false},
+		{"missing report", "sev-snp\n", "", true},
+		{"empty report type", cvmPlatformReportPrefix + `{"reportType":""}`, "", true},
+		{"null report", cvmPlatformReportPrefix + `null`, "", true},
+		{"invalid JSON", cvmPlatformReportPrefix + `{`, "", true},
+		{"unknown fields", cvmPlatformReportPrefix + `{"reportType":"SEV_SNP","other":true}`, "", true},
+		{"trailing data", cvmPlatformReportPrefix + `{"reportType":"SEV_SNP"} {}`, "", true},
+		{"multiple reports", cvmPlatformReportPrefix + `{"reportType":"SEV_SNP"}` + "\n" + cvmPlatformReportPrefix + `{"reportType":"TDX"}`, "", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := parseCVMPlatformReport(tt.output)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Nil(t, report)
+				return
+			}
+			require.NoError(t, err)
+			platform := cvmPlatformSEVSNP
+			if tt.want == "TDX" {
+				platform = cvmPlatformTDX
+			}
+			check, err := validateCVMPlatformReport(platform, report)
+			require.NoError(t, err)
+			require.True(t, check.Passed)
+			require.Equal(t, tt.want, report.ReportType)
+		})
+	}
+}
+
+func TestCVMAttestationRetainsPlatformReportOnCollectorFailure(t *testing.T) {
+	previousLogDir := config.Config.E2ELoggingDir
+	config.Config.E2ELoggingDir = t.TempDir()
+	t.Cleanup(func() { config.Config.E2ELoggingDir = previousLogDir })
+	key, _ := newTestSigningCertificate(t)
+	signer, err := ssh.NewSignerFromKey(key)
+	require.NoError(t, err)
+	for _, reportType := range []string{"SEV_SNP", "TDX", ""} {
+		t.Run("report="+reportType, func(t *testing.T) {
+			var script string
+			address, _, done := startCVMCommandSSHServer(t, signer, func(_ *ssh.ServerConn, channel ssh.Channel, command string) {
+				var status uint32
+				if strings.HasPrefix(command, "umask") {
+					data, _ := io.ReadAll(channel)
+					script = string(data)
+				} else if !strings.HasPrefix(script, "sudo rm -rf") {
+					if reportType != "" {
+						_, _ = fmt.Fprintf(channel, "%s{\"reportType\":%q}\n", cvmPlatformReportPrefix, reportType)
+					}
+					_, _ = channel.Stderr().Write([]byte("[cvm-collector] phase=attestation status=failed\n"))
+					status = 1
+				}
+				_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{status}))
+				_ = channel.Close()
+			})
+			client, err := ssh.Dial("tcp", address, &ssh.ClientConfig{
+				User: "azureuser", HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second,
+			})
+			require.NoError(t, err)
+			sshClient := newSSHClient(client)
+			t.Cleanup(func() { _ = sshClient.Close(); <-done })
+			s := &Scenario{
+				artifactName: "report-" + reportType,
+				Config:       Config{VHD: config.VHDUbuntu2004CVMGen2Containerd},
+				Runtime:      &ScenarioRuntime{VM: &ScenarioVM{SSHClient: sshClient}},
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			summary, report, err := validateCVMAttestation(ctx, s, cvmPlatformSEVSNP)
+			require.ErrorContains(t, err, "collector exited with code 1")
+			require.Nil(t, summary, "report detection must not imply accepted MAA attestation")
+			if reportType == "" {
+				require.Nil(t, report)
+				require.ErrorContains(t, err, "no CVM platform report")
+			} else {
+				require.Equal(t, &cvmPlatformReport{ReportType: reportType}, report)
+			}
+			diagnostics, err := os.ReadFile(filepath.Join(config.Config.E2ELoggingDir, s.artifactName, "cvm/attestation-output-redacted.log"))
+			require.NoError(t, err)
+			require.Contains(t, string(diagnostics), "phase=attestation status=failed")
+		})
+	}
+}
+
+func TestCVMCollectorReportsObservedPlatformBeforeRejectingMismatch(t *testing.T) {
+	script := cvmAttestationCollectorScript(cvmPlatformSEVSNP, "nonce", "/tmp/test")
+	_, embedded, ok := strings.Cut(script, "<<'PY'\n")
+	require.True(t, ok)
+	python, _, ok := strings.Cut(embedded, "\nPY\n")
+	require.True(t, ok)
+	command := exec.Command("python3", "-c", `
+import ast
+import contextlib
+import io
+import json
+import sys
+from types import SimpleNamespace
+
+tree = ast.parse(sys.stdin.read())
+selected = [node for node in tree.body if isinstance(node, ast.FunctionDef)
+            and node.name in ("main", "report_phase")]
+snp = SimpleNamespace(name="SEV_SNP")
+tdx = SimpleNamespace(name="TDX")
+class TPM:
+    def __init__(self, _logger):
+        pass
+    def get_hcl_report(self, _claims):
+        if report_type is None:
+            raise RuntimeError("TPM report unreadable")
+        return b"report"
+
+def stop_after_type(_report):
+    raise RuntimeError("past platform check")
+
+namespace = {
+    "json": json, "sys": sys, "DiagnosticLogger": lambda: None, "TssWrapper": TPM,
+    "IsolationType": SimpleNamespace(SEV_SNP=snp, TDX=tdx),
+    "ReportParser": SimpleNamespace(extract_report_type=lambda _report: report_type,
+                                  extract_runtimes_data=stop_after_type),
+}
+exec(compile(ast.Module(body=selected, type_ignores=[]), "<collector>", "exec"), namespace)
+for platform, report_type, expected_error in (
+    ("sevsnp", snp, "past platform check"),
+    ("tdx", tdx, "past platform check"),
+    ("sevsnp", tdx, "expected SEV_SNP report, got TDX"),
+    ("sevsnp", None, "TPM report unreadable"),
+):
+    sys.argv = ["collector", platform, "nonce", "unused-token-path", "endpoint"]
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+        try:
+            namespace["main"]()
+        except RuntimeError as error:
+            assert str(error) == expected_error, str(error)
+        else:
+            raise AssertionError("expected test sentinel or rejection")
+    if report_type is None:
+        assert output.getvalue() == "", output.getvalue()
+    else:
+        line = output.getvalue().strip()
+        prefix = "[cvm-collector] platform-report: "
+        assert line.startswith(prefix), line
+        assert json.loads(line[len(prefix):]) == {"reportType": report_type.name}, line
+`)
+	command.Stdin = strings.NewReader(python)
+	output, err := command.CombinedOutput()
+	require.NoError(t, err, string(output))
+}
+
 func TestCVMAttestationCollectorIsPinnedAndDoesNotUseUpstreamRunner(t *testing.T) {
 	script := cvmAttestationCollectorScript(cvmPlatformSEVSNP, "nonce", "/tmp/test")
 

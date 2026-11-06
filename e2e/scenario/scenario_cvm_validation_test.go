@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -20,9 +21,83 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
 )
 
 const cvmTestImageID = "/subscriptions/test/resourceGroups/rg/providers/Microsoft.Compute/galleries/test/images/cvm/versions/1.2.3"
+
+func TestCVMPlatformUsesHCLReportNotSystemdDiagnostics(t *testing.T) {
+	previousLogDir := config.Config.E2ELoggingDir
+	config.Config.E2ELoggingDir = t.TempDir()
+	t.Cleanup(func() { config.Config.E2ELoggingDir = previousLogDir })
+	key, _ := newTestSigningCertificate(t)
+	signer, err := ssh.NewSignerFromKey(key)
+	require.NoError(t, err)
+	for _, tt := range []struct {
+		name        string
+		report      *cvmPlatformReport
+		diagnostics string
+		wantStatus  string
+	}{
+		{"legacy systemd", &cvmPlatformReport{ReportType: "SEV_SNP"}, "systemd-detect-virt: unrecognized option '--cvm'\n", cvmStatusPassed},
+		{"different diagnostic marker", &cvmPlatformReport{ReportType: "SEV_SNP"}, "tdx\n", cvmStatusPassed},
+		{"missing report", nil, "sev-snp\n", cvmStatusUnableToVerify},
+		{"wrong report type", &cvmPlatformReport{ReportType: "TDX"}, "sev-snp\n", cvmStatusFailed},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var script string
+			address, _, done := startCVMCommandSSHServer(t, signer, func(_ *ssh.ServerConn, channel ssh.Channel, command string) {
+				switch {
+				case strings.HasPrefix(command, "umask"):
+					data, _ := io.ReadAll(channel)
+					script = string(data)
+				case strings.Contains(script, "tpm2_pcrread"):
+					_, _ = fmt.Fprintln(channel, "sha256:")
+					for index := range 24 {
+						_, _ = fmt.Fprintf(channel, "  %d : 0x%s\n", index, strings.Repeat("AB", 32))
+					}
+				default:
+					_, _ = channel.Write([]byte(tt.diagnostics))
+				}
+				_, _ = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
+				_ = channel.Close()
+			})
+			client, err := ssh.Dial("tcp", address, &ssh.ClientConfig{
+				User: "azureuser", HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second,
+			})
+			require.NoError(t, err)
+			sshClient := newSSHClient(client)
+			t.Cleanup(func() { _ = sshClient.Close(); <-done })
+			s := &Scenario{
+				artifactName: tt.name,
+				Config:       Config{VHD: config.VHDUbuntu2004CVMGen2Containerd},
+				Runtime:      &ScenarioRuntime{VM: &ScenarioVM{SSHClient: sshClient}},
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			checks, err := validateCVMGuestEvidence(ctx, s, cvmPlatformSEVSNP, tt.report)
+			require.Len(t, checks, 2)
+			require.Equal(t, tt.wantStatus, checks[0].Status)
+			if tt.wantStatus == cvmStatusPassed {
+				require.NoError(t, err)
+				require.True(t, checks[0].Passed)
+			} else {
+				require.ErrorContains(t, err, "guest.platform")
+				require.False(t, checks[0].Passed)
+			}
+			diagnostics, err := os.ReadFile(filepath.Join(config.Config.E2ELoggingDir, tt.name, "cvm/platform-evidence.log"))
+			require.NoError(t, err)
+			require.Contains(t, string(diagnostics), tt.diagnostics)
+			if tt.report != nil {
+				data, err := os.ReadFile(filepath.Join(config.Config.E2ELoggingDir, tt.name, "cvm/platform-report.json"))
+				require.NoError(t, err)
+				var observed cvmPlatformReport
+				require.NoError(t, json.Unmarshal(data, &observed))
+				require.Equal(t, *tt.report, observed)
+			}
+		})
+	}
+}
 
 func cvmModelTestScenario(name string, vmss *armcompute.VirtualMachineScaleSet) *Scenario {
 	return &Scenario{
