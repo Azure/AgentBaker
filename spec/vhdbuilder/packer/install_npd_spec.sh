@@ -79,10 +79,11 @@ Describe 'NPD VHD installation helper'
     getLatestRPMPackageVersion() { printf '%s-16.azl3' "$2"; }
     logResolvedPackageVersion() { echo "resolved $*" >> "${TEST_CALLS}"; }
 
-    It 'resolves the newest revision, installs and locks the Azure Linux binary without caching it'
+    It 'resolves the newest revision, caches, installs and locks the Azure Linux binary'
         When call installNPDPackage node-problem-detector-kubernetes 0.8.25
         The status should be success
         The contents of file "${TEST_CALLS}" should equal 'resolved node-problem-detector-kubernetes 0.8.25 0.8.25-16.azl3
+tdnf install -y --downloadonly --downloaddir /opt/node-problem-detector/downloads node-problem-detector-kubernetes-0.8.25-16.azl3
 dnf_install 30 1 600 node-problem-detector-kubernetes-0.8.25-16.azl3'
         The contents of file "${NPD_TDNF_LOCK_FILE}" should equal 'node-problem-detector-kubernetes'
     End
@@ -190,5 +191,6 @@ Describe 'NPD VHD installation helper for releases sharing a config package'
         The status should be success
         The contents of file "${TEST_CALLS}" should include 'resolve APT_CONFIG= node-problem-detector-kubernetes 0.8.25'
         The contents of file "${TEST_CALLS}" should include 'apt_get_install 30 1 600 node-problem-detector-kubernetes=0.8.25-ubuntu24.04u2'
+        The contents of file "${TEST_CALLS}" should include 'apt-get download node-problem-detector-kubernetes=0.8.25-ubuntu24.04u2'
     End
 End
