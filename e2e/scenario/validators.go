@@ -4612,13 +4612,13 @@ func ValidateCollectWindowsLogsScript(ctx context.Context, s *Scenario) error {
 //     Ubuntu 20.04 also removes the mitigation on 5.4 Azure FIPS kernels at ABI 1164 or newer.
 //   - Other Ubuntu 20.04 and vulnerable/unknown 22.04 / 24.04 kernels / Mariner: full check —
 //     modprobe config entries are present, modules are NOT loaded, and modprobe refuses to load them.
-//   - AzureLinux 3.0: assert ABSENCE of the four modprobe blacklist entries. AzL3 is
-//     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later fix all
-//     three CVEs upstream, AND customer workloads on AzL3 require those modules (the
-//     blacklist actively blocks legitimate use cases). Only those four lines are stripped
-//     from modprobe-CIS.conf on newly-built AzL3 VHDs — the rest of the CIS module denylist
-//     (dccp/sctp/rds/tipc/cramfs/etc.) is still baked in and asserted present below, so
-//     AzL3 keeps the same CIS hardening as every other OS stream. E2E runs against
+//   - AzureLinux 3.0 and 4.0: assert ABSENCE of the four modprobe blacklist entries. They are
+//     descoped from the mitigation because kernel 6.6.139.1-1.azl3 and later, and every AzL4
+//     kernel (6.18.50 and later), fix all three CVEs upstream, AND customer workloads require
+//     those modules (the blacklist actively blocks legitimate use cases). Only those four lines
+//     are stripped from modprobe-CIS.conf on newly-built AzL3/AzL4 VHDs — the rest of the CIS
+//     module denylist (dccp/sctp/rds/tipc/cramfs/etc.) is still baked in and asserted present
+//     below, so they keep the same CIS hardening as every other OS stream. E2E runs against
 //     freshly-built VHDs. See https://github.com/Azure/AKS/issues/5753.
 //
 // To add a new CVE mitigation, append the module name to BOTH lists below —
@@ -4629,10 +4629,10 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) e
 		return nil
 	}
 
-	// AzureLinux 3.0 (regular, NOT OSGuard): kernel 6.6.139.1-1.azl3+ supersedes the modprobe
-	// blacklist for algif_aead/esp4/esp6/rxrpc, so only those four lines are stripped because
-	// customers need those modules. Assert the four CVE-related entries are NOT present, but
-	// the rest of the CIS module denylist (e.g. sctp, which AKS documents as a supported
+	// AzureLinux 3.0 and 4.0 (regular, NOT OSGuard): their kernels (6.6.139.1-1.azl3+, 6.18.50+)
+	// supersede the modprobe blacklist for algif_aead/esp4/esp6/rxrpc, so only those four lines are
+	// stripped because customers need those modules. Assert the four CVE-related entries are NOT
+	// present, but the rest of the CIS module denylist (e.g. sctp, which AKS documents as a supported
 	// service protocol) must remain intact — it was previously lost entirely because the
 	// whole modprobe-CIS.conf file was skipped on AzL3. AzureLinux OSGuard is intentionally
 	// kept in-scope (falls through to the full presence + load-refusal check below).
@@ -4641,25 +4641,25 @@ func ValidateVulnerableKernelModulesDisabled(ctx context.Context, s *Scenario) e
 			`failed=0`,
 			`for mod in algif_aead esp4 esp6 rxrpc; do`,
 			`  if grep -qsE "^(install ${mod} /bin/false|blacklist ${mod})" /etc/modprobe.d/*.conf 2>/dev/null; then`,
-			`    echo "FAIL: ${mod} blacklist entry unexpectedly present on AzureLinux 3.0 (only these four CVE-related lines should be stripped; kernel 6.6.139.1-1.azl3+ supersedes)"`,
+			`    echo "FAIL: ${mod} blacklist entry unexpectedly present on AzureLinux 3.0/4.0 (only these four CVE-related lines should be stripped; the AzL3/AzL4 kernels supersede them)"`,
 			`    failed=1`,
 			`  else`,
-			`    echo "PASS: ${mod} blacklist correctly absent on AzureLinux 3.0"`,
+			`    echo "PASS: ${mod} blacklist correctly absent on AzureLinux 3.0/4.0"`,
 			`  fi`,
 			`done`,
 			`for mod in dccp sctp rds tipc; do`,
 			`  if ! grep -qsE "^install ${mod} /bin/true" /etc/modprobe.d/*.conf 2>/dev/null; then`,
-			`    echo "FAIL: ${mod} CIS disable rule unexpectedly missing on AzureLinux 3.0 (only algif_aead/esp4/esp6/rxrpc should be stripped from modprobe-CIS.conf)"`,
+			`    echo "FAIL: ${mod} CIS disable rule unexpectedly missing on AzureLinux 3.0/4.0 (only algif_aead/esp4/esp6/rxrpc should be stripped from modprobe-CIS.conf)"`,
 			`    failed=1`,
 			`  else`,
-			`    echo "PASS: ${mod} CIS modprobe denylist correctly retained on AzureLinux 3.0"`,
+			`    echo "PASS: ${mod} CIS modprobe denylist correctly retained on AzureLinux 3.0/4.0"`,
 			`  fi`,
 			`done`,
 			`exit $failed`,
 		}, "\n")
 		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0,
-			"AzureLinux 3.0 modprobe blacklist should only omit algif_aead/esp4/esp6/rxrpc while retaining the rest of the CIS module denylist (dccp/sctp/rds/tipc/etc.)"); err != nil {
-			return fmt.Errorf("check that the AzureLinux 3.0 modprobe blacklist is correctly scoped: %w", err)
+			"AzureLinux 3.0/4.0 modprobe blacklist should only omit algif_aead/esp4/esp6/rxrpc while retaining the rest of the CIS module denylist (dccp/sctp/rds/tipc/etc.)"); err != nil {
+			return fmt.Errorf("check that the AzureLinux 3.0/4.0 modprobe blacklist is correctly scoped: %w", err)
 		}
 		return nil
 	}

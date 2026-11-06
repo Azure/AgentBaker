@@ -552,6 +552,16 @@ Describe 'CVE kernel module mitigation OS gate'
         The output should not include "APPLY"
     End
 
+    It 'skips on AzureLinux 4.0 regular (every AzL4 kernel has the upstream fixes)'
+        OS="${AZURELINUX_OS_NAME}"
+        OS_VERSION="4.0"
+        OS_VARIANT=""
+        When call gate
+        The output should include "SKIP"
+        The output should not include "APPLY"
+        The output should not include "REMOVE"
+    End
+
     It 'skips on ACL (Flatcar-based; never in scope)'
         OS="${ACL_OS_NAME}"
         OS_VARIANT=""
