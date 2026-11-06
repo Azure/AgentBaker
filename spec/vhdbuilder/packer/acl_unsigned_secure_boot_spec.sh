@@ -1,20 +1,20 @@
 #!/bin/bash
 # shellcheck disable=SC2016,SC2034
 
-Describe 'Trusted Launch Secure Boot for unsigned ACL base images'
-  run_test_options() (
-    set -eu
-    ENABLE_TRUSTED_LAUNCH=True TARGET_COMMAND_STRING="--size Standard_D2pds_v5"
-    eval "$(sed -n '/^if \[ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" \]; then$/,/^fi$/p' vhdbuilder/packer/test/run-test.sh)"
-    printf '%s\n' "$TARGET_COMMAND_STRING"
-  )
-  vhd_scanning_options() (
-    set -eu
-    OS_TYPE=Linux ENABLE_TRUSTED_LAUNCH=True VM_OPTIONS="--size Standard_D8pds_v6"
-    eval "$(sed -n '/^if \[ "${OS_TYPE}" = "Linux" \] && \[ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" \]; then$/,/^fi$/p' vhdbuilder/packer/vhd-scanning.sh)"
-    printf '%s\n' "$VM_OPTIONS"
-  )
+run_test_options() (
+  set -eu
+  ENABLE_TRUSTED_LAUNCH=True TARGET_COMMAND_STRING="--size Standard_D2pds_v5"
+  eval "$(sed -n '/^if \[ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" \]; then$/,/^fi$/p' vhdbuilder/packer/test/run-test.sh)"
+  printf '%s\n' "$TARGET_COMMAND_STRING"
+)
+vhd_scanning_options() (
+  set -eu
+  OS_TYPE=Linux ENABLE_TRUSTED_LAUNCH=True VM_OPTIONS="--size Standard_D8pds_v6"
+  eval "$(sed -n '/^if \[ "${OS_TYPE}" = "Linux" \] && \[ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" \]; then$/,/^fi$/p' vhdbuilder/packer/vhd-scanning.sh)"
+  printf '%s\n' "$VM_OPTIONS"
+)
 
+Describe 'Trusted Launch Secure Boot for unsigned ACL base images'
   Parameters
     run_test_options unset 'enable-secure-boot true'
     run_test_options true 'enable-secure-boot true'
@@ -32,5 +32,25 @@ Describe 'Trusted Launch Secure Boot for unsigned ACL base images'
     When run "$1"
     The status should be success
     The output should include "--security-type TrustedLaunch --$3 --enable-vtpm true"
+  End
+End
+
+Describe 'Trusted Launch vTPM switch for unsigned ACL base images'
+  Parameters
+    run_test_options unset 'enable-vtpm true'
+    run_test_options False 'enable-vtpm false'
+    vhd_scanning_options unset 'enable-vtpm true'
+    vhd_scanning_options False 'enable-vtpm false'
+  End
+  It "$1 with ACL_BASE_IMAGE_SIGNED=false and ENABLE_VTPM=$2 uses --$3"
+    export ACL_BASE_IMAGE_SIGNED=false
+    if [ "$2" = unset ]; then
+      unset ENABLE_VTPM
+    else
+      export ENABLE_VTPM="$2"
+    fi
+    When run "$1"
+    The status should be success
+    The output should include "--security-type TrustedLaunch --enable-secure-boot false --$3"
   End
 End
