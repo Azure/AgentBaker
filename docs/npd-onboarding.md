@@ -157,6 +157,9 @@ mapping does not apply to the binary.
 
 Binary-specific checks:
 
+- The binary is updated only when the config package is also installed: it owns the unit and startup script,
+  so without it NPD can't be restarted or rolled back. This matches the provisioning check.
+
 - Before installing, the staged package must contain the NPD executables, and the
   new `node-problem-detector --version` must run on the node.
 - After restarting NPD, `/healthz` is not enough: a binary can stay active and
@@ -173,7 +176,8 @@ post-install cleanup and the post-restart check). An unknown component fails
 before any package operation.
 
 The VHD caches both packages in `/opt/node-problem-detector/downloads` for offline
-rollback (about 20 MB for the binary).
+rollback (about 20 MB for the binary). After a successful update the installed version is the only rollback
+target, so the handler removes that component's other cached versions.
 
 ## Validation
 

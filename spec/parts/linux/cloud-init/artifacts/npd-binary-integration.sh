@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091,SC2034,SC2317
-# Run only in a disposable Ubuntu or Azure Linux 3 container with jq installed
+# Run only in a disposable Ubuntu or Azure Linux 3 container with jq and the NPD config package installed
 # (Azure Linux also needs tar and the cloud-native repo), with Microsoft PMC configured:
 # bash spec/parts/linux/cloud-init/artifacts/npd-binary-integration.sh <old-binary-pkg> <new-version>
 # Installs a real older NPD binary package, then drives updateNPDBinary to a newer
@@ -9,6 +9,12 @@
 set -euo pipefail
 
 source ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+# The config package owns the NPD unit; npdBinary is a no-op without it.
+if ! (npd_select_component npdConfig && npd_installed_version >/dev/null); then
+    echo 'install node-problem-detector-aks-config first' >&2
+    exit 1
+fi
 
 old_package="$(realpath "$1")"
 new_version="$2"
@@ -50,8 +56,14 @@ case "${format}" in
     rpm) grep -qsx node-problem-detector-kubernetes "${NPD_TDNF_LOCK_FILE}" ;;
 esac
 new_package="$(npd_find_cached_package "${new_version}")"
+# Only the installed version stays cached as the rollback target.
+if npd_find_cached_package "${old_version}" >/dev/null; then
+    echo 'expected the old binary to be removed from the cache' >&2
+    exit 1
+fi
 
 # Simulate an interrupted binary update: recovery restores the cached old binary.
+cp "${old_package}" "${NPD_PACKAGE_CACHE}/"
 printf '%s\n' "${old_version}" > "${NPD_UPDATE_DIR}/pending-binary"
 updateNPDBinary '{}' '{}'
 test "$(npd_installed_version)" = "${old_version}"

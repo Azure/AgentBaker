@@ -25,6 +25,7 @@
 NPD_COMPONENT=""
 NPD_PACKAGE=""
 NPD_PENDING_FILE=""
+NPD_REQUIRED_PACKAGES=""
 NPD_RELEASE_HOOK=""
 NPD_VALIDATE_HOOK=""
 NPD_POST_INSTALL_HOOK=""
@@ -32,6 +33,8 @@ NPD_ACTIVATION_CHECK=""
 
 # Selects the component for this subshell: package, transaction marker and hooks. Does no work itself.
 # Returns 1, never exits (this file is sourced into the updaters), on an unknown component or missing hook.
+#   NPD_REQUIRED_PACKAGES  other packages that must be installed; the config package owns the unit and startup
+#                          script, so the binary can't be restarted or rolled back without it
 #   NPD_RELEASE_HOOK       <distro> <node release> -> release whose payload entry and repo this node follows
 #   NPD_VALIDATE_HOOK      <extracted package dir> -> success when the content is usable
 #   NPD_POST_INSTALL_HOOK  runs after every install, including rollback
@@ -43,6 +46,7 @@ npd_select_component() {
         npdConfig)
             NPD_PACKAGE=node-problem-detector-aks-config
             NPD_PENDING_FILE="${NPD_UPDATE_DIR}/pending"
+            NPD_REQUIRED_PACKAGES=""
             NPD_RELEASE_HOOK=npd_config_release
             NPD_VALIDATE_HOOK=npd_validate_config_stage
             NPD_POST_INSTALL_HOOK=npd_remove_obsolete_configs
@@ -51,6 +55,7 @@ npd_select_component() {
         npdBinary)
             NPD_PACKAGE=node-problem-detector-kubernetes
             NPD_PENDING_FILE="${NPD_UPDATE_DIR}/pending-binary"
+            NPD_REQUIRED_PACKAGES=node-problem-detector-aks-config
             NPD_RELEASE_HOOK=npd_node_release
             NPD_VALIDATE_HOOK=npd_validate_binary_stage
             NPD_POST_INSTALL_HOOK=:
@@ -214,6 +219,31 @@ npd_find_cached_package() {
         fi
     done
     return 1
+}
+
+# Prints the first required package that isn't installed; fails when all are.
+npd_missing_required_package() (
+    local required
+    for required in ${NPD_REQUIRED_PACKAGES}; do
+        NPD_PACKAGE="${required}"
+        npd_installed_version >/dev/null || { printf '%s' "${required}"; return 0; }
+    done
+    return 1
+)
+
+# After a successful update only the installed version is a rollback target. Best effort: removes the selected
+# component's other cached versions, matched on package fields so the other component's packages are untouched.
+npd_remove_other_cached_packages() {
+    local keep="$1" format arch package name version package_arch
+    format="$(npd_package_format)" || return 1
+    arch="$(npd_native_arch 2>/dev/null)" || return 1
+    for package in "${NPD_PACKAGE_CACHE}"/*."${format}"; do
+        [ -f "${package}" ] || continue
+        IFS=$'\t' read -r name version package_arch <<< "$(npd_package_fields "${package}" 2>/dev/null)" || continue
+        if [ "${name}" = "${NPD_PACKAGE}" ] && [ "${package_arch}" = "${arch}" ] && [ "${version}" != "${keep}" ]; then
+            rm -f -- "${package}" || return 1
+        fi
+    done
 }
 
 # The tdnf lock holds NPD against security patching. tdnf reads locks.d next to its config, so downloads use a
@@ -432,7 +462,7 @@ npd_component_is_current() {
 npd_update_component() {
     # Ubuntu securityPatch shares this process and exports APT_CONFIG; keep its snapshot repos out of NPD.
     unset APT_CONFIG
-    local payload="$1" node_json="${2:-}" platform distro release desired installed package since
+    local payload="$1" node_json="${2:-}" platform distro release desired installed package since missing
     if [ ! -f "${NPD_SKIP_FILE}" ] || ! platform="$(npd_platform)"; then
         echo "${NPD_COMPONENT}: no action for an unsupported or extension-managed node"
         knead_emit_npd_event NoAction 'Node does not own baked NPD'
@@ -442,6 +472,11 @@ npd_update_component() {
     # Require the baked package, unless a pending transaction left package state partial.
     if [ ! -f "${NPD_PENDING_FILE}" ] && ! npd_installed_version >/dev/null; then
         echo "${NPD_COMPONENT}: no AgentBaker ${NPD_PACKAGE} package; no action"
+        return 0
+    fi
+    if missing="$(npd_missing_required_package)"; then
+        echo "${NPD_COMPONENT}: required ${missing} package is not installed; no action"
+        knead_emit_npd_event NoAction "Required ${missing} package is not installed"
         return 0
     fi
     mkdir -p "${NPD_UPDATE_DIR}" "${NPD_PACKAGE_CACHE}" || { npd_fail WorkDirectory; return 1; }
@@ -484,6 +519,7 @@ npd_update_component() {
         return 1
     fi
     rm -f "${NPD_PENDING_FILE}" || { npd_fail TransactionState; return 1; }
+    npd_remove_other_cached_packages "${desired}" || echo "${NPD_COMPONENT}: failed to remove older cached packages"
     echo "${NPD_COMPONENT} updated successfully: ${desired}"
     knead_emit_npd_event Succeeded "Installed ${desired}"
 }

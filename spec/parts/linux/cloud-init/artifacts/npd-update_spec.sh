@@ -595,7 +595,7 @@ Describe 'NPD binary handler'
     npd_installed_version() {
         case "${NPD_PACKAGE}" in
             node-problem-detector-kubernetes) printf '%s' "${BINARY_INSTALLED}" ;;
-            *) printf '%s' "${CONFIG_INSTALLED}" ;;
+            *) [ -n "${CONFIG_INSTALLED}" ] || return 1; printf '%s' "${CONFIG_INSTALLED}" ;;
         esac
     }
     npd_find_cached_package() {
@@ -698,6 +698,14 @@ Describe 'NPD binary handler'
         The contents of file "${TEST_CALLS}" should equal ''
     End
 
+    It 'does nothing without the config package that owns the NPD unit'
+        export CONFIG_INSTALLED=''
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be success
+        The output should include 'required node-problem-detector-aks-config package is not installed; no action'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
     It 'keeps binary and config transactions separate'
         printf '%s' "${CONFIG_INSTALLED}" > "${NPD_UPDATE_DIR}/pending"
         When call npdBinaryIsCurrent '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{}'
@@ -760,6 +768,69 @@ Describe 'NPD binary handler'
         for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\nexit 1\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
         When call npd_validate_binary_stage "${stage}"
         The status should be failure
+    End
+End
+
+Describe 'NPD cached package cleanup'
+    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_OS_RELEASE_FILE="${TEST_DIR}/os-release"
+        NPD_UPDATE_DIR="${TEST_DIR}/work"
+        NPD_PACKAGE_CACHE="${TEST_DIR}/cache"
+        printf 'ID=ubuntu\nVERSION_ID="24.04"\n' > "${NPD_OS_RELEASE_FILE}"
+        mkdir -p "${NPD_PACKAGE_CACHE}"
+        for f in bin-u25 bin-u26 bin-u27 bin-u26-arm64 cfg-u2; do touch "${NPD_PACKAGE_CACHE}/${f}.deb"; done
+        npd_select_component npdBinary
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    npd_native_arch() { printf amd64; }
+    npd_package_fields() {
+        case "$(basename "$1" .deb)" in
+            bin-u25) printf 'node-problem-detector-kubernetes\t0.8.25-ubuntu24.04u25\tamd64' ;;
+            bin-u26) printf 'node-problem-detector-kubernetes\t0.8.25-ubuntu24.04u26\tamd64' ;;
+            bin-u27) printf 'node-problem-detector-kubernetes\t0.8.25-ubuntu24.04u27\tamd64' ;;
+            bin-u26-arm64) printf 'node-problem-detector-kubernetes\t0.8.25-ubuntu24.04u26\tarm64' ;;
+            cfg-u2) printf 'node-problem-detector-aks-config\t1.0.0-ubuntu24.04u2\tamd64' ;;
+        esac
+    }
+
+    It 'keeps only the installed version of the selected package'
+        When call npd_remove_other_cached_packages 0.8.25-ubuntu24.04u27
+        The status should be success
+        The path "${NPD_PACKAGE_CACHE}/bin-u27.deb" should be exist
+        The path "${NPD_PACKAGE_CACHE}/bin-u25.deb" should not be exist
+        The path "${NPD_PACKAGE_CACHE}/bin-u26.deb" should not be exist
+        The path "${NPD_PACKAGE_CACHE}/cfg-u2.deb" should be exist
+        The path "${NPD_PACKAGE_CACHE}/bin-u26-arm64.deb" should be exist
+    End
+
+    It 'runs after a successful update and keeps the new rollback target'
+        npd_installed_version() { printf '0.8.25-ubuntu24.04u26'; }
+        npd_find_cached_package() {
+            case "$1" in
+                0.8.25-ubuntu24.04u26) printf '%s' "${NPD_PACKAGE_CACHE}/bin-u26.deb" ;;
+                0.8.25-ubuntu24.04u27) printf '%s' "${NPD_PACKAGE_CACHE}/bin-u27.deb" ;;
+                *) return 1 ;;
+            esac
+        }
+        npd_missing_required_package() { return 1; }
+        npd_validate_package() { :; }
+        npd_install_package() { :; }
+        npd_stop_for_reporting_baseline() { date +%s; }
+        npd_restart_and_check() { :; }
+        npd_check_reporting() { :; }
+        NPD_SKIP_FILE="${TEST_DIR}/skip"; touch "${NPD_SKIP_FILE}"
+        When call npd_update_component '{"ubuntuPackageVersions":{"24.04":"0.8.25-ubuntu24.04u27"}}' '{}'
+        The status should be success
+        The output should include 'npdBinary updated successfully: 0.8.25-ubuntu24.04u27'
+        The path "${NPD_PACKAGE_CACHE}/bin-u27.deb" should be exist
+        The path "${NPD_PACKAGE_CACHE}/bin-u26.deb" should not be exist
+        The path "${NPD_PACKAGE_CACHE}/cfg-u2.deb" should be exist
     End
 End
 

@@ -85,8 +85,12 @@ test ! -f "${removed}"
 test -f "${added}"
 test -f "${NPD_SKIP_FILE}"
 test ! -f "${NPD_UPDATE_DIR}/pending"
+# Only the installed version stays cached as the rollback target.
+test ! -f "${NPD_PACKAGE_CACHE}/old.${format}"
+test -f "${NPD_PACKAGE_CACHE}/new.${format}"
 
 # Simulate interrupted application: recovery must restore the package and monitor set.
+cp "${package}" "${NPD_PACKAGE_CACHE}/old.${format}"
 printf '%s\n' "${old_version}" > "${NPD_UPDATE_DIR}/pending"
 updateNPDConfigs "${old_goal}" '{}'
 test "$(npd_installed_version)" = "${old_version}"
@@ -99,6 +103,7 @@ test -f "${NPD_SKIP_FILE}"
 # versions in its database. Recovery must repair that state and restore the old package.
 updateNPDConfigs "${desired}" '{}'
 test "$(npd_installed_version)" = "${new_version}"
+cp "${package}" "${NPD_PACKAGE_CACHE}/old.${format}"
 case "${format}" in
     deb)
         mkdir -p /var/lib/dpkg/updates
