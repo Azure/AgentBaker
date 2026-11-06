@@ -1,0 +1,7 @@
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 144
+stepping        : 8
+flags           : fpu sse2 avx xsave avx2 arch_capabilities
+address sizes   : 46 bits physical, 48 bits virtual
