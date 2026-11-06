@@ -225,92 +225,9 @@ if [ "$OS_VERSION" = "3.0" ] && [ "${ENABLE_FIPS,,}" != "true" ] && isAzureLinux
 fi
 capture_benchmark "${SCRIPT_NAME}_install_kernel_hwe_arm64"
 
-installPinnedUbuntuKernel() (
-  local suite version abi archive source_file preferences_file flavor=azure
-  local -a packages
-  case "$UBUNTU_RELEASE" in
-    22.04) suite=jammy; version=5.15.0-1126.135 ;;
-    24.04) suite=noble; version=6.8.0-1073.82 ;;
-    26.04) suite=resolute; version=7.0.0-1020.21 ;;
-    *) echo "No pinned Azure kernel for Ubuntu ${UBUNTU_RELEASE}" >&2; return 1 ;;
-  esac
-  if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-    flavor=azure-fde
-    case "$UBUNTU_RELEASE:$CPU_ARCH" in
-      24.04:amd64) version=6.8.0-1071.78 ;;
-      26.04:amd64) version=7.0.0-1019.19 ;;
-      *) echo "No pinned FDE kernel for Ubuntu ${UBUNTU_RELEASE} ${CPU_ARCH}" >&2; return 1 ;;
-    esac
-  fi
-  case "$CPU_ARCH" in
-    amd64) archive=https://archive.ubuntu.com/ubuntu ;;
-    arm64) archive=https://ports.ubuntu.com/ubuntu-ports ;;
-    *) echo "Unsupported Azure kernel architecture: ${CPU_ARCH}" >&2; return 1 ;;
-  esac
-  abi="${version%.*}"
-  packages=(
-    "linux-image-${abi}-${flavor}=${version}"
-    "linux-modules-${abi}-${flavor}=${version}"
-    "linux-headers-${abi}-${flavor}=${version}"
-    "linux-tools-${abi}-${flavor}=${version}"
-    "linux-cloud-tools-${abi}-${flavor}=${version}"
-  )
-  if [ "$UBUNTU_RELEASE" = "26.04" ]; then
-    packages+=("linux-main-modules-zfs-${abi}-${flavor}=${version}")
-  else
-    packages+=("linux-modules-extra-${abi}-${flavor}=${version}")
-  fi
-
-  source_file=$(mktemp /etc/apt/sources.list.d/aks-kernel-XXXXXX.list) || return 1
-  trap 'rm -f "$source_file" "${preferences_file:-}"' EXIT
-  preferences_file=$(mktemp /etc/apt/preferences.d/aks-kernel-XXXXXX) || return 1
-  # Only this ABI at this exact build may come from proposed.
-  cat > "$preferences_file" <<EOF
-Package: linux-*${abi}*
-Pin: version ${version}
-Pin-Priority: 1001
-
-Package: *
-Pin: release a=${suite}-proposed
-Pin-Priority: -1
-EOF
-  echo "deb [arch=${CPU_ARCH} signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] ${archive} ${suite}-proposed main" > "$source_file" || return 1
-  chmod 644 "$source_file" "$preferences_file" || return 1
-  apt_get_update || return "$ERR_APT_UPDATE_TIMEOUT"
-
-  echo "Installing pinned ${flavor} kernel ${version} for Ubuntu ${UBUNTU_RELEASE} ${CPU_ARCH}"
-  # Resolve and download everything before removing the currently installed kernel.
-  wait_for_apt_locks
-  DEBIAN_FRONTEND=noninteractive apt-get install --download-only --no-remove --no-install-recommends -y "${packages[@]}" || return "$ERR_APT_INSTALL_TIMEOUT"
-  if [ "$flavor" = "azure-fde" ]; then
-    wait_for_apt_locks
-    DEBIAN_FRONTEND=noninteractive apt-get install --download-only --reinstall --no-remove --no-install-recommends -y nullboot || return "$ERR_APT_INSTALL_TIMEOUT"
-    wait_for_apt_locks
-    DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y --allow-remove-essential nullboot || return "$ERR_APT_INSTALL_TIMEOUT"
-  fi
-  wait_for_apt_locks
-  DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s) || return "$ERR_APT_INSTALL_TIMEOUT"
-  wait_for_apt_locks
-  DEBIAN_FRONTEND=noninteractive apt-get install --no-remove --no-install-recommends -y "${packages[@]}" || return "$ERR_APT_INSTALL_TIMEOUT"
-  dpkg-query -W -f='${Package} ${Version}\n' "${packages[@]%%=*}" || return 1
-  if [ "$flavor" = "azure-fde" ]; then
-    wait_for_apt_locks
-    DEBIAN_FRONTEND=noninteractive apt-get install --no-remove --no-install-recommends -y nullboot || return "$ERR_APT_INSTALL_TIMEOUT"
-  fi
-
-  rm -f "$source_file" "$preferences_file" || return 1
-  apt_get_update || return "$ERR_APT_UPDATE_TIMEOUT"
-  wait_for_apt_locks
-  DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && DEBIAN_FRONTEND=noninteractive apt-get clean
-)
-
 # shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
 
-  if { ! grep -q "cvm" <<< "$FEATURE_FLAGS" && [ "$UBUNTU_RELEASE" = "22.04" ]; } ||
-    [ "$UBUNTU_RELEASE" = "24.04" ] || [ "$UBUNTU_RELEASE" = "26.04" ]; then
-    installPinnedUbuntuKernel || exit "$ERR_APT_INSTALL_TIMEOUT"
-  else
   # Choose kernel packages based on Ubuntu version and architecture
   if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     KERNEL_IMAGE="linux-azure-fde-lts-${UBUNTU_RELEASE}"
@@ -372,7 +289,6 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     DEBIAN_FRONTEND=noninteractive apt-get autoremove -y && DEBIAN_FRONTEND=noninteractive apt-get clean
   else
     echo "Kernel packages for Ubuntu ${UBUNTU_RELEASE} are not available. Skipping purging and subsequent installation."
-  fi
   fi
   NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
   if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
