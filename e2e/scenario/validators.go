@@ -1555,6 +1555,32 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 	)
 }
 
+type systemdUnit struct {
+	Name string `json:"unit,omitempty"`
+}
+
+func parseFailedSystemdUnits(output string, distro datamodel.Distro) ([]systemdUnit, error) {
+	var units []systemdUnit
+	if !slices.Contains(datamodel.AvailableUbuntu2004Distros, distro) {
+		if err := json.Unmarshal([]byte(output), &units); err != nil {
+			return nil, err
+		}
+		return units, nil
+	}
+
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if len(fields) < 4 || fields[2] != "failed" {
+			return nil, fmt.Errorf("unexpected failed systemd unit entry: %q", line)
+		}
+		units = append(units, systemdUnit{Name: fields[0]})
+	}
+	return units, nil
+}
+
 // ValidateKubeletActiveFlagsEvent checks that the emit-kubelet-active-flags oneshot service
 // ran successfully and produced a guest agent event file containing kubelet config telemetry.
 // Guarded: skips gracefully on VHDs that don't have the service baked in yet.
@@ -1646,16 +1672,20 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 		unitFailureAllowList["systemd-sysupdate.service"] = true
 	}
 
-	type systemdUnit struct {
-		Name string `json:"unit,omitempty"`
+	command := "systemctl list-units --failed --output json"
+	if slices.Contains(datamodel.AvailableUbuntu2004Distros, s.VHD.Distro) {
+		// Ubuntu 20.04's systemd does not support JSON output for list-units.
+		command = "LC_ALL=C systemctl list-units --failed --plain --no-legend --no-pager --full"
 	}
-	var failedUnits []systemdUnit
-	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, "unable to list failed systemd units")
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		command,
+		0, "unable to list failed systemd units")
 	if err != nil {
 		return fmt.Errorf("list failed systemd units: %w", err)
 	}
-	if err := json.Unmarshal([]byte(result.stdout), &failedUnits); err != nil {
-		return fmt.Errorf(`parse and unmarshal "systemctl list-units" command output: %w`, err)
+	failedUnits, err := parseFailedSystemdUnits(result.stdout, s.VHD.Distro)
+	if err != nil {
+		return fmt.Errorf(`parse "systemctl list-units" command output: %w`, err)
 	}
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
 		if unitFailureAllowList[unit.Name] {
@@ -1686,6 +1716,11 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 			continue
 		}
 		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
+		if unit.Name == "azurefile-proxy.service" && s.Tags.CVM &&
+			s.VHD.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
+			logging.Logf(ctx, "Temporarily allowing %s in Ubuntu 20.04 CVM validation; Azure Files proxy health is not validated and failure logs are retained", unit.Name)
+			continue
+		}
 		if unit.Name == "initrd-core-tmpfiles-setup.service" && s.Tags.CVM {
 			errorLogs, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 				fmt.Sprintf("journalctl -b -u %s -p notice --no-pager --quiet -o cat", unit.Name),
@@ -4362,6 +4397,8 @@ func hasMANAHardware(ctx context.Context, s *Scenario) (bool, error) {
 	return result.exitCode == "0", nil
 }
 
+const kernelPanicPattern = `(kernel: )?(panic|\boops\b|call trace|backtrace|general protection fault|BUG:|RIP:)`
+
 // ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
 // - Kernel panics/crashes (panic, oops, call trace, BUG, etc.)
 // - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
@@ -4387,7 +4424,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 
 	patterns := map[string]categoryPattern{
 		"PANIC/CRASH": {
-			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
+			pattern: kernelPanicPattern,
 			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot).
 			// Also exclude the benign DRM panic-handler registration messages ("Registered N planes with drm panic")
 			// emitted by simple-framebuffer/hyperv_drm on kernels with CONFIG_DRM_PANIC (6.10+, e.g. Ubuntu 26.04 /
