@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Exercise prerequisite repository setup without changing active package sources."""
 
-import base64
 import configparser
 import functools
 import http.server
@@ -9,7 +8,6 @@ import os
 from pathlib import Path
 import ssl
 import subprocess
-import sys
 import tempfile
 import threading
 
@@ -98,9 +96,6 @@ def main():
     require(distro in ("ubuntu", "azurelinux"), f"Unsupported fixture distro: {distro}")
     with tempfile.TemporaryDirectory(prefix="ab-repodepot-e2e-") as directory:
         work = Path(directory)
-        # Published VHDs may predate prerequisite mode; exercise this checkout's script.
-        initializer = work / "init-aks-cloud.sh"
-        initializer.write_text(base64.b64decode(sys.argv[1], validate=True).decode().replace("\r\n", "\n"))
         for name in ("www/keys", "sources", "keyrings", "repos", "backup", "gnupg", "bin"):
             (work / name).mkdir(parents=True, mode=0o700)
         # Fail explicitly if prerequisite mode ever starts refreshing package indexes.
@@ -159,7 +154,7 @@ def main():
             # Only this invocation trusts the fixture CA; never change the system trust store for the server.
             run("curl", "--fail", "--silent", "--show-error", endpoint + "/", env=env)
             result = subprocess.run(
-                ["bash", str(initializer), "prerequisites"],
+                ["bash", "/opt/azure/containers/init-aks-cloud.sh", "prerequisites"],
                 env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180,
             )
             print(result.stdout, flush=True)
