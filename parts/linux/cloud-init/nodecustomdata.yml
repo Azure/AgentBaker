@@ -40,7 +40,7 @@ write_files:
   owner: root
   content: {{GetVariableProperty "cloudInitData" "containerdMountGuardScript" | GetCloudInitFileContent}}
 
-- path: /etc/systemd/system/containerd.service.d/10-mount-guard.conf
+- path: /opt/azure/containers/containerd-mount-guard.conf
   permissions: "0644"
   {{GetCloudInitFileEncodingLine}}
   owner: root

@@ -5,10 +5,18 @@ For CA refresh logging and Linux opt-in certificate diagnostics, see
 
 ## Containerd temporary-disk startup
 
-`10-mount-guard.conf` runs `containerd-mount-guard.sh` before containerd starts,
-including asynchronous node-controller startup, PIS-cached images, and reboots.
-The guard reads the effective root using `containerd config dump`. Roots at or
-under `/mnt` require an actual mount at `/mnt`; OS-disk roots do not wait.
+The script and drop-in template are installed under `/opt/azure/containers`,
+not activated globally. After writing or preserving `/etc/containerd/config.toml`,
+the shared CSE/ANC `ensureContainerd` path installs `10-mount-guard.conf` only
+when the provisioned top-level root is at or under `/mnt`. It removes that
+drop-in for OS roots, which never execute the guard or `containerd config dump`.
+Root overrides and preserved NVIDIA configs are selected from the installed
+config rather than `KubeletDiskType` alone.
+
+The activated drop-in runs `containerd-mount-guard.sh` before every containerd
+start, including asynchronous node-controller startup and reboots. The guard
+reads the effective root using `containerd config dump` and requires an actual
+mount at `/mnt` before initializing temporary-root state.
 Cloud-init's mount unit alone is insufficient because it can be condition-skipped
 before resource-disk setup finishes. Waiting for all of cloud-init would introduce
 a dependency cycle on provisioning paths that cloud-init itself invokes.
@@ -18,8 +26,14 @@ rather than allowing snapshotter state to be created underneath the mount.
 The unit allows 150 seconds for configuration parsing and the mount wait.
 The script and dedicated drop-in are baked into Linux images and delivered by
 script-based custom data for older images. Scriptless provisioning uses the
-baked files. This prevents the startup race; it does not repair already-hidden
-snapshotter state on an affected running node.
+baked files. PIS bakes retain the conditionally activated drop-in alongside the
+containerd config, but do not retain a mount-readiness marker. Existing caches
+without the activated guard need rebuilding. Older CSE scripts remain compatible,
+but cannot activate the new guard merely because its template is on the VHD.
+Activation requires the updated shared configuration script. This prevents the
+startup race; it does not repair already-hidden snapshotter state on an affected
+running node. Activation follows the provisioner's top-level root; independently
+changing that root through config imports requires corresponding guard activation.
 
 ## SSH-disable telemetry
 
