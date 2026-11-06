@@ -71,9 +71,32 @@ recursively deleting directories or removing installed system-trust certificates
 `AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only diagnostics;
 parsing for logging does not gate installation.
 
-These are internal capabilities only. No certificate-retrieval flow, standalone
-refresh command, refresh schedule, or native provisioning hook is enabled here.
-Existing provisioning still uses `init-aks-cloud.sh`.
+These are internal capabilities only. Existing provisioning still uses
+`init-aks-cloud.sh`.
+
+### Azure cloud certificate retrieval capabilities
+
+WireServer helpers retrieve legacy certificate packages and RCV1P root/intermediate
+operation groups. Requests preserve the shell's `comp=acmspackage&type=...&ext=...`
+parameter order and raw values without additional URL escaping. WireServer's
+special-character decoding contract is not verified. Request/retry bounds, flat
+download caching, and per-certificate download skipping are preserved.
+
+RCV1P manifests are decoded as JSON from `OperationsInfo[].ResouceFileName`;
+the field's misspelling is part of the protocol. JSON whitespace does not affect
+parsing, and same-named fields at other levels are ignored. Invalid JSON or an
+incompatible `OperationsInfo` structure returns an error rather than falling back
+to text matching.
+
+HTTP 2xx responses must also be read without errors. Detectable transfer
+truncation, such as a body shorter than `Content-Length`, is retried rather than
+returning partial certificate bytes, unlike the shell's status-only success
+check. This is not certificate-content validation: a close-delimited response
+without a length or chunk-framing error can still contain incomplete content.
+
+Retrieval does not install certificates or make opt-in decisions. Refresh
+orchestration, the standalone refresh command, scheduling, and native provisioning
+activation are supplied by later layers; they are not enabled here.
 
 ### Validating and normalizing AKSNodeConfig
 
