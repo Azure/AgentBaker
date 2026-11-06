@@ -3,6 +3,7 @@ package scenario
 import (
 	"testing"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
@@ -85,11 +86,12 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 		nbc, err := baseTemplateLinux("westus", "1.36.5", "amd64")
 		require.NoError(t, err)
 		s.BootstrapConfigMutator(nil, nbc)
-		nodeConfig, err := nbcToAKSNodeConfigV1(nbc)
+		nodeConfig, err := createAKSNodeConfig(nodeConfigTestCluster("1.36.5"), s.VHD,
+			func(cluster *Cluster, cfg *aksnodeconfigv1.Configuration) error {
+				s.AKSNodeConfigMutator(cluster, cfg)
+				return nil
+			})
 		require.NoError(t, err)
-		if s.AKSNodeConfigMutator != nil {
-			s.AKSNodeConfigMutator(nil, nodeConfig)
-		}
 		if want.disableLocalDNS {
 			assert.Nil(t, nbc.AgentPoolProfile.LocalDNSProfile)
 			assert.Nil(t, nodeConfig.LocalDnsProfile)
