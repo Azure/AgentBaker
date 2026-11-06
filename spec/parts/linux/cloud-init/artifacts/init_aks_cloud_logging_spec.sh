@@ -167,6 +167,14 @@ Describe 'init-aks-cloud.sh certificate logging'
             install_certs_to_trust_store
         }
 
+        It 'stops immediately when creating the certificate directory fails'
+            mkdir() { echo 'mkdir failed' >&2; return 1; }
+            When call install_with_diagnostics
+            The status should eq 1
+            The stdout should be blank
+            The stderr should eq 'mkdir failed'
+        End
+
         It 'logs public PEMs through the actual installation path when opted in'
             make_certificate
             mkdir "${TEST_DIR}/certs"

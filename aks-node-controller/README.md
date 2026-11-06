@@ -54,6 +54,27 @@ the provisioning config in CustomData; the automatic size fallback uses the same
 config-only payload. Leaving the new flag false preserves legacy, Phase 2, and
 Phase 2.5 behavior.
 
+### Azure cloud trust-store capabilities
+
+The shared cloud runtime provides platform detection, bounded HTTP and command
+execution, public-file writes, and guest-agent events. The trust-store helpers
+write downloaded contents without PEM/X.509 filtering, update the platform's
+existing CA tools, and preserve Ubuntu's OpenSSL bundle/symlink behavior.
+
+Cloud commands run in their own process groups with a two-minute timeout, or
+the caller's earlier cancellation. Cancellation kills the entire group. A
+five-second `WaitDelay` bounds output draining after cancellation or command
+exit, including when a descendant leaves the group but retains an output pipe.
+
+Cache cleanup removes flat staging files, including hidden files, without
+recursively deleting directories or removing installed system-trust certificates.
+`AKS_CLOUD_LOG_CERTIFICATES=true` enables public-certificate-only diagnostics;
+parsing for logging does not gate installation.
+
+These are internal capabilities only. No certificate-retrieval flow, standalone
+refresh command, refresh schedule, or native provisioning hook is enabled here.
+Existing provisioning still uses `init-aks-cloud.sh`.
+
 ### Validating and normalizing AKSNodeConfig
 
 Before serializing a typed config, producers such as RP should call:
