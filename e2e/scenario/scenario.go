@@ -1726,6 +1726,10 @@ func customNodeConfig(vhd *config.Image, cluster func(context.Context, ClusterRe
 					NoFile:          to.Ptr("1048"),
 				},
 			}
+			// Match NBC's GetContainerdUlimitString omission on these Ubuntu images.
+			if vhd.Distro.Is2404VHDDistro() || vhd.Distro.Is2604VHDDistro() {
+				cfg.CustomLinuxOsConfig.UlimitConfig.NoFile = nil
+			}
 			cfg.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
