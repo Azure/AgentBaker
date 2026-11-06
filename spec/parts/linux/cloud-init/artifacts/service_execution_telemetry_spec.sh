@@ -269,7 +269,7 @@ EOF
         The status should be success
     End
 
-    It 'uses an asynchronous ExecStopPost fallback before systemd 249'
+    It 'preserves escaped service names in the asynchronous ExecStopPost fallback before systemd 249'
         CGROUP_MEMORY_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-memory-telemetry.service"
         CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-pressure-telemetry.service"
         AKS_LOG_COLLECTOR_SERVICE_DEST="${TEST_ROOT}/aks-log-collector.service"
@@ -281,9 +281,9 @@ EOF
         The status should be success
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "OnSuccess="
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "OnFailure="
-        The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should include 'ExecStopPost=-/bin/systemctl --no-block start service-execution-telemetry@cgroup\x2dmemory\x2dtelemetry.service.service'
-        The contents of file "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}" should include 'ExecStopPost=-/bin/systemctl --no-block start service-execution-telemetry@cgroup\x2dpressure\x2dtelemetry.service.service'
-        The contents of file "${AKS_LOG_COLLECTOR_SERVICE_DEST}" should include 'ExecStopPost=-/bin/systemctl --no-block start service-execution-telemetry@aks\x2dlog\x2dcollector.service.service'
+        The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should include 'ExecStopPost=-/bin/systemctl --no-block start service-execution-telemetry@cgroup\\x2dmemory\\x2dtelemetry.service.service'
+        The contents of file "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}" should include 'ExecStopPost=-/bin/systemctl --no-block start service-execution-telemetry@cgroup\\x2dpressure\\x2dtelemetry.service.service'
+        The contents of file "${AKS_LOG_COLLECTOR_SERVICE_DEST}" should include 'ExecStopPost=-/bin/systemctl --no-block start service-execution-telemetry@aks\\x2dlog\\x2dcollector.service.service'
     End
 
     It 'keeps completion handlers on systemd 249 and newer'
