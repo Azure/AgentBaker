@@ -34,18 +34,6 @@ write_files:
 {{end}}
 
 {{- else }}
-- path: /opt/azure/containers/containerd-mount-guard.sh
-  permissions: "0744"
-  {{GetCloudInitFileEncodingLine}}
-  owner: root
-  content: {{GetVariableProperty "cloudInitData" "containerdMountGuardScript" | GetCloudInitFileContent}}
-
-- path: /opt/azure/containers/containerd-mount-guard.conf
-  permissions: "0644"
-  {{GetCloudInitFileEncodingLine}}
-  owner: root
-  content: {{GetVariableProperty "cloudInitData" "containerdMountGuardDropin" | GetCloudInitFileContent}}
-
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
   {{GetCloudInitFileEncodingLine}}

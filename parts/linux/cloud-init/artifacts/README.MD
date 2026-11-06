@@ -5,35 +5,29 @@ For CA refresh logging and Linux opt-in certificate diagnostics, see
 
 ## Containerd temporary-disk startup
 
-The script and drop-in template are installed under `/opt/azure/containers`,
-not activated globally. After writing or preserving `/etc/containerd/config.toml`,
-the shared CSE/ANC `ensureContainerd` path installs `10-mount-guard.conf` only
-when the provisioned top-level root is at or under `/mnt`. It removes that
-drop-in for OS roots, which never execute the guard or `containerd config dump`.
-Root overrides and preserved NVIDIA configs are selected from the installed
-config rather than `KubeletDiskType` alone.
+For `KubeletDiskType=Temporary`, the shared CSE/ANC `ensureContainerd` path
+waits for an actual `/mnt` mount using the existing bounded retry helper.
+It also writes a separate `10-mount-guard.conf` drop-in with an inline
+`ExecStartPre` check. Every containerd start, including reboots and PIS cache
+boots that skip basePrep, must confirm the mount before initializing runtime
+state. The check uses standard image utilities, not additional artifacts or
+`containerd config dump`. OS-disk configurations remove a stale drop-in and
+do not acquire a mount wait or new service-start dependency.
 
-The activated drop-in runs `containerd-mount-guard.sh` before every containerd
-start, including asynchronous node-controller startup and reboots. The guard
-reads the effective root using `containerd config dump` and requires an actual
-mount at `/mnt` before initializing temporary-root state.
-Cloud-init's mount unit alone is insufficient because it can be condition-skipped
-before resource-disk setup finishes. Waiting for all of cloud-init would introduce
-a dependency cycle on provisioning paths that cloud-init itself invokes.
+The per-start check is bounded by `timeout 120` and fails with a journal
+diagnostic; guarded services allow 150 seconds for startup. A dependency on
+`mnt.mount` alone does not assert mount readiness when a unit is
+condition-skipped. Waiting for all of cloud-init would risk a dependency cycle.
 
-The guard waits up to 120 seconds, then fails startup with a journal diagnostic
-rather than allowing snapshotter state to be created underneath the mount.
-The unit allows 150 seconds for configuration parsing and the mount wait.
-The script and dedicated drop-in are baked into Linux images and delivered by
-script-based custom data for older images. Scriptless provisioning uses the
-baked files. PIS bakes retain the conditionally activated drop-in alongside the
-containerd config, but do not retain a mount-readiness marker. Existing caches
-without the activated guard need rebuilding. Older CSE scripts remain compatible,
-but cannot activate the new guard merely because its template is on the VHD.
-Activation requires the updated shared configuration script. This prevents the
-startup race; it does not repair already-hidden snapshotter state on an affected
-running node. Activation follows the provisioner's top-level root; independently
-changing that root through config imports requires corresponding guard activation.
+Protection requires the updated shared configuration script. Traditional CSE
+can deliver it to older images; scriptless provisioning uses the baked script.
+Updated PIS bakes retain the drop-in but no mount-readiness marker. Existing
+unguarded caches need rebuilding. This prevents new hidden snapshotter state;
+it does not repair an already-affected running node.
+
+Selection follows the AKS disk-placement setting. AgentBaker can internally
+render a `dataDir` override, but this is not a documented public AKS setting;
+independent custom-root placement is outside this guard's scope.
 
 ## SSH-disable telemetry
 

@@ -60,8 +60,6 @@ const (
 	kubernetesCSEInstallFlatcar           = "linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh"
 	kubernetesCSEInstallACL               = "linux/cloud-init/artifacts/acl/cse_install_acl.sh"
 	kubernetesCSEConfig                   = "linux/cloud-init/artifacts/cse_config.sh"
-	containerdMountGuardScript            = "linux/cloud-init/artifacts/containerd-mount-guard.sh"
-	containerdMountGuardDropin            = "linux/cloud-init/artifacts/containerd-mount-guard.conf"
 	kubernetesCSEConfigGPU                = "linux/cloud-init/artifacts/cse_config_gpu.sh"
 	kubernetesCSEConfigLocalDNS           = "linux/cloud-init/artifacts/cse_config_localdns.sh"
 	kubernetesCSEConfigKubelet            = "linux/cloud-init/artifacts/cse_config_kubelet.sh"

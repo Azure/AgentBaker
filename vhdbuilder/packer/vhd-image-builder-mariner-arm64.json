@@ -220,16 +220,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-mount-guard.sh",
-      "destination": "/home/packer/containerd-mount-guard.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-mount-guard.conf",
-      "destination": "/home/packer/containerd-mount-guard.conf"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/kubelet.service",
       "destination": "/home/packer/kubelet.service"
     },

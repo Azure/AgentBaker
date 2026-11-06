@@ -542,32 +542,25 @@ EOF
 }
 
 configureContainerdMountGuard() {
-  local config
   local dropin="/etc/systemd/system/containerd.service.d/10-mount-guard.conf"
-  if ! config=$(sed '/^[[:space:]]*\[/,$d' /etc/containerd/config.toml); then
-    echo "Unable to inspect the provisioned containerd root for mount-guard configuration" >&2
-    return 1
-  fi
-
-  # Select from the installed config, including a preserved NVIDIA config.
-  # OS roots must not acquire a mandatory mount-guard startup dependency.
-  if grep -E "^[[:space:]]*root[[:space:]]*=[[:space:]]*['\"]/mnt(/|['\"])" <<< "$config" >/dev/null; then
-    if ! test -r /opt/azure/containers/containerd-mount-guard.sh; then
-      echo "Containerd temporary root requires the mount-guard script" >&2
+  if [ "${HAS_KUBELET_DISK_TYPE}" = "true" ]; then
+    if ! retrycmd_if_failure 120 1 5 mountpoint -q /mnt; then
+      echo "Timed out waiting for /mnt before configuring containerd" >&2
       return 1
     fi
-    if ! install -m 0644 /opt/azure/containers/containerd-mount-guard.conf "$dropin"; then
-      echo "Unable to install the containerd temporary-root mount guard" >&2
+    # Persist a live check for reboot/PIS starts that do not rerun basePrep.
+    if ! tee "$dropin" > /dev/null <<'EOF'
+[Service]
+ExecStartPre=/bin/sh -c 'timeout 120 /bin/sh -c "until mountpoint -q /mnt; do sleep 1; done" || { echo "Unable to confirm /mnt mount before starting containerd" >&2; exit 1; }'
+TimeoutStartSec=150
+EOF
+    then
+      echo "Unable to configure the containerd temporary-disk mount guard" >&2
       return 1
     fi
   else
-    local root_match_status=$?
-    if [ "$root_match_status" -ne 1 ]; then
-      echo "Unable to classify the provisioned containerd root" >&2
-      return "$root_match_status"
-    fi
     if ! rm -f "$dropin"; then
-      echo "Unable to remove the containerd mount guard for an OS root" >&2
+      echo "Unable to remove the containerd mount guard for an OS disk" >&2
       return 1
     fi
   fi
