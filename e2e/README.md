@@ -64,6 +64,11 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
 - Set bootstrap inputs through `NodeBootstrappingConfiguration`. Mirror RP's
   agent-pool settings in both `nbc.ContainerService.Properties.AgentPoolProfiles[0]`
   and `nbc.AgentPoolProfile` where required.
+- Pair Linux bootstrap mutators with an equivalent `AKSNodeConfigMutator`,
+  including GPU, network, kubelet, and OS settings, so Phase 3 exercises the same
+  scenario inputs. Keep Windows, frozen Azure Linux V2, VHD-caching-only scenarios,
+  and the explicit `ScriptlessCSECmd_Hotfix` delivery check on their existing
+  provisioning paths.
 - Set VMSS properties through `VMConfigMutator`; keep its SKU and
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
@@ -91,20 +96,65 @@ Scenarios specifically covering legacy CLI flags must set
 `CustomLinuxOSConfig` nil. ANC conversion preserves that opt-out. Windows defaults
 are unchanged.
 
-Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
-bootstrap config mutator of five scenarios: `Ubuntu2204_ArtifactStreaming`,
-`AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
-and `Ubuntu2204_Early_Failure_Scriptless` (the existing `_Scriptless`-suffix scenario).
-The runner converts the NBC, applies the AKSNodeConfig mutator, validates and
+Eligible non-caching scenarios with an `AKSNodeConfigMutator`, or with neither
+`BootstrapConfigMutator` nor `BootstrapConfigMutatorWithError`, default to Phase 3
+provisioning, using AKSNodeConfig instead of the NBC command. A bootstrap config mutator can opt out
+by setting `EnableScriptlessAKSNodeConfig = false`, or explicitly select Phase 3
+without an AKSNodeConfig mutator by setting it to `true`.
+The runner converts the NBC, applies the AKSNodeConfig mutator if present, validates and
 normalizes Phase 3 settings with `nodeconfigutils.Validate`,
 and serializes the result for AgentBaker. The early-failure scenario checks that an
 unsupported version is rejected before VM creation. Common validation checks config-only execution and absence
 of the NBC command and comparison path.
 
-All other scenarios retain their existing provisioning mode, including Phase 2/2.5
-coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
-does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
-VHD-caching behavior remain in effect.
+Scenarios with a bootstrap mutator but no AKSNodeConfig mutator retain their
+existing provisioning mode unless they explicitly select Phase 3. This includes
+empty bootstrap mutators and error-returning bootstrap mutators. A Scriptless tag
+alone does not override this selection. Existing scriptless opt-outs, image
+restrictions, and VHD-caching behavior remain in effect.
+
+VHD-caching scenarios keep their existing mode, including explicit Phase 3
+selection in `Ubuntu2604Minimal_AKSNodeConfig_VHDCaching`.
+
+### Random additional NBC-command coverage
+
+The Linux E2E pipeline adds three randomly selected scenarios for each active
+OS/version: Ubuntu 22.04, Ubuntu 24.04, Ubuntu 26.04, and Azure Linux 3. These are
+12 **additional VM runs**, not replacements for the original scenarios. Original
+names, configuration and validators remain unchanged.
+
+The runner's `--random-nbc-coverage` (`E2E_RANDOM_NBC_COVERAGE`) is disabled
+outside that pipeline. The sample size is fixed at three per OS/version.
+Sampling occurs after name and tag filtering, without replacement within each
+OS/version. It fails before Azure initialization if any group has fewer than
+three eligible scenarios, rather than silently losing OS coverage. Leave sampling
+disabled for narrowly filtered runs.
+
+The seed is generated automatically from the build ID and current UTC date
+(`build-id/YYYY-MM-DD`); neither the sample size nor seed is configurable.
+The pipeline supplies `$(Build.BuildId)` as the runner's build ID. The same
+revision, filters, build ID and UTC date reproduce the selection; a new build or
+date changes the seed. Retries within a run use the original selection, even if
+the date changes. The seed and selected names are printed.
+To enable the same fixed-size sampling locally:
+
+```sh
+go run . run --random-nbc-coverage \
+  --skip-tags 'os=windows,gpu=true,cvm=true'
+```
+
+Additional runs are named `<original>/ScriptlessNBCCSECmd`, with separate logs,
+JUnit results and attempt-owned resources. The runner forces NBC-command mode
+after bootstrap mutators, retains ANC mutators for existing Phase 2.5 comparisons,
+and runs the original validators plus common NBC execution checks.
+
+Sampling excludes unsupported images (including Windows, ACL and frozen Azure
+Linux 2), VHD caching, known/conditional skips, expected failures, specialized
+scriptless/hotfix tests, and scenarios without common SSH validation. Set
+`ExcludeFromNBCSampling` for a scenario whose assertions require another
+provisioning path, such as CustomData-only delivery. Sampling cannot be combined
+with `--disable-scriptless` or `--test-pre-provision`. Runtime failures and skips
+remain visible through normal per-scenario reporting.
 
 ### LocalDNS fallback checks
 

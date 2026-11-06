@@ -1799,7 +1799,7 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
-	// EnableKMPP enables the KMPP key isolation service and its filtered D-Bus proxy on the node.
+	// EnableKMPP enables the KMPP key isolation service on the node and exposes it through /var/run/kmpp/dbus.
 	// Set by RP when the Azure Key Vault Secrets Store addon runs in KMPP mode. Azure Linux 3.0 only.
 	EnableKMPP bool
 	// EnabledFeatures is a generic set of feature toggles delivered to the node as KEY=VALUE
@@ -1830,7 +1830,9 @@ type NodeBootstrappingConfiguration struct {
 	// EnableScriptlessAKSNodeConfig enables Phase 3 provisioning using only AKSNodeConfigJSON.
 	// It takes precedence over EnableScriptlessNBCCSECmd and EnableScriptlessCSECmd:
 	// no NBC command is rendered or delivered, and ANC does not enter comparison mode.
-	// Requires a non-empty serialized JSON object. Windows and PreProvisionOnly are unsupported.
+	// Requires a non-empty serialized JSON object. Windows is unsupported.
+	// AKSNodeConfigJSON owns the provisioning phase and is passed through unchanged.
+	// For pre-provisioning, the caller must set PreProvisionOnly in AKSNodeConfigJSON.
 	EnableScriptlessAKSNodeConfig bool
 
 	// ScriptlessCSEProvisionMode specifies the delivery mode for scriptless phases 2 and 3,

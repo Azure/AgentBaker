@@ -69,7 +69,7 @@ fi`
        "files": [{
          "path": "/opt/azure/containers/aks-node-controller-config.json",
          "mode": 384,
-         "contents": { "source": "data:;base64,%s" }
+         "contents": { "source": "data:;base64,%[1]s" }
        }]
      }
     }`

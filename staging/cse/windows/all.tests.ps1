@@ -12,7 +12,7 @@ Describe 'Windows CSE bundle imports' {
         foreach ($helper in @(
             'helpers', 'azurecnifunc', 'calicofunc', 'configfunc', 'containerdfunc',
             'kubeletfunc', 'kubernetesfunc', 'nvidiagpudriverfunc', 'securetlsbootstrapfunc',
-            'windowsciliumnetworkingfunc', 'networkisolatedclusterfunc'
+            'windowsciliumnetworkingfunc', 'networkisolatedclusterfunc', 'windowsexporterfunc'
         )) {
             New-Item -Path "$WINDOWS_SCRIPTS_DIRECTORY\$helper.ps1" -ItemType File | Out-Null
         }
