@@ -36,6 +36,7 @@ EOF
         export BIN_PATH="${TEST_DIR}/aks-node-controller"
         export CONFIG_PATH="${TEST_DIR}/aks-node-controller-config.json"
         export NBC_CMD_PATH="${TEST_DIR}/aks-node-controller-nbc-cmd.sh"
+        export CLUSTER_PROVISION_LOG="${TEST_DIR}/cluster-provision.log"
         # Point hotfix pointer at a test-local path (absent by default) so tests never
         # touch the production /opt/azure path and can control the download-hotfix branch.
         export HOTFIX_JSON="${TEST_DIR}/aks-node-controller-hotfix.json"
@@ -46,7 +47,7 @@ EOF
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH CLUSTER_PROVISION_LOG TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN CLOUD_PREREQUISITES_EXIT AKS_CLOUD_PREREQUISITES_DONE
     }
 
     create_fake_aks_node_controller() {
@@ -64,6 +65,13 @@ EOF
     create_recording_aks_node_controller() {
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+printf '%s:%s\n' "$1" "${AKS_CLOUD_PREREQUISITES_DONE:-false}" >>"${TEST_DIR}/workflow"
+if [ "$1" = "cloud-prerequisites" ]; then
+    echo 'certificate bootstrap stdout'
+    echo 'certificate bootstrap stderr' >&2
+    printf '%s\n' "$@" >"${TEST_DIR}/prerequisite_args"
+    exit "${CLOUD_PREREQUISITES_EXIT:-0}"
+fi
 printf '%s\n' "$1" >>"${TEST_DIR}/calls"
 if [ "$1" = "check-hotfix" ]; then
     exit "${CHECK_HOTFIX_EXIT:-0}"
@@ -89,6 +97,7 @@ EOF
     create_failing_download_aks_node_controller() {
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+if [ "$1" = "cloud-prerequisites" ]; then exit 0; fi
 printf '%s\n' "$1" >>"${TEST_DIR}/calls"
 if [ "$1" = "download-hotfix" ]; then
     exit 1
@@ -109,6 +118,7 @@ EOF
 
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+if [ "$1" = "cloud-prerequisites" ]; then exit 0; fi
 printf '%s\n' "$1" >>"${TEST_DIR}/calls"
 if [ "$1" = "download-hotfix" ]; then
     cp "${TEST_DIR}/hotfix-template" "${BIN_PATH}-hotfix"
@@ -143,6 +153,63 @@ EOF
 
     BeforeEach setup_wrapper_test
     AfterEach cleanup_wrapper_test
+
+    Describe 'cloud prerequisites'
+        It 'preserves prerequisite diagnostics in the cluster provisioning log'
+            touch "$CONFIG_PATH"
+            create_recording_aks_node_controller
+            echo 'existing provisioning log' > "$CLUSTER_PROVISION_LOG"
+
+            When run bash "$SCRIPT"
+            The status should be success
+            The output should include 'aks-node-controller completed successfully'
+            The contents of file "$CLUSTER_PROVISION_LOG" should include 'existing provisioning log'
+            The contents of file "$CLUSTER_PROVISION_LOG" should include 'certificate bootstrap stdout'
+            The contents of file "$CLUSTER_PROVISION_LOG" should include 'certificate bootstrap stderr'
+        End
+
+        Parameters
+            config
+            nbc
+            both
+        End
+
+        It 'initializes live inputs before checking, downloading, and provisioning'
+            if [ "$1" != "nbc" ]; then touch "$CONFIG_PATH"; fi
+            if [ "$1" != "config" ]; then touch "$NBC_CMD_PATH"; fi
+            touch "$HOTFIX_JSON"
+            create_recording_aks_node_controller
+            export ENABLE_PROVISIONING_HOTFIX=true AKS_CLOUD_PREREQUISITES_DONE=true
+
+            When run bash "$SCRIPT"
+            The status should be success
+            The output should include 'ANC download-hotfix completed'
+            workflow=$(cat "${TEST_DIR}/workflow")
+            The variable workflow should eq "$(printf 'cloud-prerequisites:false\ncheck-hotfix:true\ndownload-hotfix:true\nprovision:true')"
+            prerequisite_args=$(cat "${TEST_DIR}/prerequisite_args")
+            if [ "$1" != "nbc" ]; then
+                The variable prerequisite_args should include "--provision-config=${CONFIG_PATH}"
+            fi
+            if [ "$1" != "config" ]; then
+                The variable prerequisite_args should include "--nbc-cmd=${NBC_CMD_PATH}"
+            fi
+        End
+    End
+
+    It 'skips acquisition and staged hotfixes but provisions with baked ANC when cloud initialization fails'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+        export ENABLE_PROVISIONING_HOTFIX=true CLOUD_PREREQUISITES_EXIT=17 AKS_CLOUD_PREREQUISITES_DONE=true
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'skipping hotfix acquisition'
+        workflow=$(cat "${TEST_DIR}/workflow")
+        The variable workflow should eq "$(printf 'cloud-prerequisites:false\nprovision:false')"
+        The contents of file "${TEST_DIR}/calls" should eq 'provision'
+        The path "${TEST_DIR}/hotfix_calls" should not be exist
+    End
 
     It 'exits successfully without invoking aks-node-controller when config and nbc cmd are absent'
         When run bash "$SCRIPT"

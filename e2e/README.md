@@ -82,6 +82,34 @@ node, and checks the ResourceClaim's allocated driver, pool, and device against 
 node's ResourceSlices before deleting the pod. Missing or mismatched type/profile
 attributes fail validation. Non-MIG DRA scenarios retain their existing scheduling checks.
 
+### RCV1P certificate validation
+
+The existing Linux RCV1P scenarios validate certificate bootstrap on an opted-in
+public-cloud subscription. For every downloaded `.crt`, the shared validator
+compares its SHA-256 certificate fingerprint with the distro-specific installed
+copy and uses OpenSSL to verify its chain against the system CA bundle. These
+checks are read-only and preserve the existing refresh-schedule assertions.
+They detect missing or different installed certificates and a trust bundle that
+does not trust the downloaded certificates, rather than accepting unrelated
+certificates already present in the image.
+
+This is not full sovereign-cloud coverage: it does not exercise legacy
+USNat/USSec certificate endpoints, RepoDepot access, or hotfix acquisition ordering.
+
+`RCV1P_Ubuntu2204` and `RCV1P_AzureLinuxV3` additionally run the real
+`init-aks-cloud.sh prerequisites` against a scenario-local loopback HTTPS fixture.
+The fixture runs the installed initializer in both standalone and VHD-build E2E
+lanes without an image-selector gate. Images whose installed script lacks
+prerequisite-mode support can fail this check; investigate those failures separately
+from failures of the updated script.
+The fixture CA is trusted only by the test's curl/wget invocations. Repository
+output is redirected to temporary directories, leaving active package sources
+unchanged. Assertions check exact repository URLs and signing-key references,
+Ubuntu signing-key fingerprints, and Azure Linux signature/TLS settings.
+Package-index refresh and task-scheduling commands are guarded against execution.
+This tests repository setup after provisioning, not launcher input parsing,
+hotfix ordering, actual sovereign connectivity, or package acquisition.
+
 ### Scriptless provisioning
 
 Linux scenarios use kubelet configuration-file mode by default, for both NBC/CSE

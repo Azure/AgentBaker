@@ -30,6 +30,14 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 	return buffer.String(), nil
 }
 
+// CloudPrerequisiteSettings returns the live cloud environment needed before hotfix acquisition.
+func CloudPrerequisiteSettings(config *aksnodeconfigv1.Configuration) map[string]string {
+	return map[string]string{
+		"LOCATION":            config.GetClusterConfig().GetLocation(),
+		"REPO_DEPOT_ENDPOINT": getRepoDepotEndpoint(config),
+	}
+}
+
 //nolint:funlen
 func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
