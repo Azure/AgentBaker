@@ -605,6 +605,24 @@ EOF
       fi
   fi
 
+  if [ "${HAS_KUBELET_DISK_TYPE}" = "true" ]; then
+    # A directory is not enough: the temporary disk must be mounted.
+    if ! retrycmd_if_failure 120 1 5 mountpoint -q /mnt; then
+      echo "Temporary disk did not mount at /mnt; refusing to start containerd" >&2
+      exit "$ERR_SYSTEMCTL_START_FAIL"
+    fi
+
+    if ! cat > /etc/systemd/system/containerd.service.d/10-temp-disk.conf <<'EOF'
+[Unit]
+Requires=mnt.mount
+After=mnt.mount
+EOF
+    then
+      echo "Failed to configure containerd temporary-disk dependency" >&2
+      exit "$ERR_SYSTEMCTL_START_FAIL"
+    fi
+  fi
+
   systemctlEnableAndStartNoBlock containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
