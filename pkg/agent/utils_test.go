@@ -4,9 +4,14 @@
 package agent
 
 import (
+	"bytes"
+	stdgzip "compress/gzip"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1889,5 +1894,46 @@ func TestGetSSHPublicKeysPowerShell(t *testing.T) {
 				t.Errorf("getSSHPublicKeysPowerShell()\ngot:  %s\nwant: %s", got, tc.expected)
 			}
 		})
+	}
+}
+
+// customData is gzipped in-process, so its bytes, and its size against MaxCustomDataLength, depend on the
+// compress/flate implementation. pkg/agent uses the copy in internal/compress so the output does not depend on
+// which Go release builds AgentBaker. The digest is the output of Go 1.27's compress/flate. Only change it when
+// deliberately changing the compressor, because that changes customData size for every node.
+func TestGetGzippedBufferFromBytesIsPinned(t *testing.T) {
+	var sb strings.Builder
+	for i := range 2000 {
+		fmt.Fprintf(&sb, "retrycmd_if_failure %d %d %d curl -fsSL https://example.com/%x/pkg-%d.tar.gz -o /tmp/pkg-%d\n",
+			i%7+1, i%13, i*7919%1000, i*40503%65536, i%101, i)
+	}
+	input := []byte(sb.String())
+
+	compressed := GzipCustomData(input)
+	require.Equal(t, getGzippedBufferFromBytes(input), compressed, "public API must match AgentBaker's internal encoding")
+
+	// Nodes decompress customData with other gzip implementations, so check it with the standard library reader.
+	reader, err := stdgzip.NewReader(bytes.NewReader(compressed))
+	require.NoError(t, err)
+	defer reader.Close()
+	decompressed, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(input, decompressed), "standard library gzip reader returned different content")
+
+	digest := sha256.Sum256(compressed)
+	require.Equal(t, "9aedb9672431937db71a6f6037b67612061f2bc49e1c5b75a14b0b6029b751dd", hex.EncodeToString(digest[:]))
+}
+
+func TestGzipCustomDataRoundTrip(t *testing.T) {
+	for _, input := range []string{"", "#cloud-config\nwrite_files:\n", strings.Repeat("node bootstrap\n", 2000)} {
+		compressed := GzipCustomData([]byte(input))
+		// A subsequent call must not overwrite a result retained by a consumer.
+		_ = GzipCustomData([]byte("another node"))
+		reader, err := stdgzip.NewReader(bytes.NewReader(compressed))
+		require.NoError(t, err)
+		decompressed, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		require.NoError(t, reader.Close())
+		require.Equal(t, input, string(decompressed))
 	}
 }

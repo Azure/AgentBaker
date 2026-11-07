@@ -16,6 +16,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -29,6 +30,18 @@ import (
 )
 
 type vmssCreationTestPolicy func(*http.Request) *http.Response
+
+func TestInjectWriteFilesEntriesToCustomDataUsesSharedCompressor(t *testing.T) {
+	input := "#cloud-config\nwrite_files:\n  - path: /etc/original\n    content: original\n"
+	entries := []CustomDataWriteFile{{Path: "/etc/injected", Content: "injected"}}
+	customData := base64.StdEncoding.EncodeToString(agent.GzipCustomData([]byte(input)))
+
+	got, err := injectWriteFilesEntriesToCustomData(customData, entries)
+	require.NoError(t, err)
+	patched, err := injectWriteFilesEntriesToCloudConfigYAML(input, entries)
+	require.NoError(t, err)
+	require.Equal(t, base64.StdEncoding.EncodeToString(agent.GzipCustomData([]byte(patched))), got)
+}
 
 type vmssCreationTestLogger struct {
 	*testing.T

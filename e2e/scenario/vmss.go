@@ -1561,17 +1561,7 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		return "", err
 	}
 
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
-	_, err = gw.Write([]byte(yamlStr))
-	if err != nil {
-		return "", fmt.Errorf("failed to gzip customData: %w", err)
-	}
-	if err := gw.Close(); err != nil {
-		return "", fmt.Errorf("failed to close gzip writer: %w", err)
-	}
-
-	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+	encoded := base64.StdEncoding.EncodeToString(agent.GzipCustomData([]byte(yamlStr)))
 	return encoded, nil
 }
 
