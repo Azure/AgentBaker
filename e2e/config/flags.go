@@ -20,6 +20,7 @@ func Flags() []cli.Flag {
 		&cli.BoolFlag{Name: "disable-scriptless", Value: defaults.DisableScriptless, Destination: &Config.DisableScriptless, Sources: cli.EnvVars("DISABLE_SCRIPTLESS")},
 		&cli.BoolFlag{Name: "disable-scriptless-compilation", Value: defaults.DisableScriptLessCompilation, Destination: &Config.DisableScriptLessCompilation, Sources: cli.EnvVars("DISABLE_SCRIPTLESS_COMPILATION")},
 		&cli.BoolFlag{Name: "random-nbc-coverage", Destination: &Config.RandomNBCCoverage, Sources: cli.EnvVars("E2E_RANDOM_NBC_COVERAGE"), Usage: "Add two random NBC-command variants per active Linux OS/version"},
+		&cli.BoolFlag{Name: "require-nbc-anc-parity", Destination: &Config.RequireNBCANCParity, Sources: cli.EnvVars("E2E_REQUIRE_NBC_ANC_PARITY"), Usage: "Require all six fixed NBC/ANC parity regressions to pass on PR-built VHDs"},
 		&cli.StringFlag{Name: "log-dir", Value: defaults.E2ELoggingDir, Destination: &Config.E2ELoggingDir, Sources: cli.EnvVars("LOGGING_DIR")},
 		&cli.BoolFlag{Name: "secure-tls-bootstrapping", Value: defaults.EnableSecureTLSBootstrapping, Destination: &Config.EnableSecureTLSBootstrapping, Sources: cli.EnvVars("ENABLE_SECURE_TLS_BOOTSTRAPPING")},
 		&cli.StringFlag{Name: "extended-tests", Value: defaults.ExtendedTests, Destination: &Config.ExtendedTests, Sources: cli.EnvVars("EXTENDED_TESTS")},

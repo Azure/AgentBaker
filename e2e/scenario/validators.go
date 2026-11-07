@@ -4108,7 +4108,10 @@ func ValidateScriptlessComparison(ctx context.Context, s *Scenario) error {
 	// 1. AKSNodeConfig not populated
 	// 2. using scriptless phase 1
 	// 3. E2E not run off of PR VHD build
-	if s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) || config.Config.VHDMetadataFile == "" {
+	if s.Runtime == nil || s.Runtime.AKSNodeConfig == nil || !usesScriptlessNBCCSECmd(s) || config.Config.VHDMetadataFile == "" {
+		if s.ForceScriptlessNBCCSECmd {
+			return fmt.Errorf("required NBC/ANC comparison for %q cannot run: node config, NBC-command mode and PR VHD metadata are required", s.Name)
+		}
 		return nil
 	}
 	logFile := "/var/log/azure/aks-node-controller.output"

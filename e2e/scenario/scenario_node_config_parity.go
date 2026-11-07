@@ -2,20 +2,25 @@ package scenario
 
 import (
 	"context"
+	"slices"
 
 	"github.com/Azure/agentbaker/e2e/config"
 )
 
+func NBCANCParityScenarioNames() []string {
+	return []string{
+		"Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags_NBCANCParity",
+		"Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_CLIFlags_NBCANCParity",
+		"Ubuntu2404_TemporaryKubeletDisk_NBCANCParity",
+		"AzureLinuxV3_TemporaryKubeletDisk_NBCANCParity",
+		"Ubuntu2604Minimal_CustomNodeConfig_NBCANCParity",
+		"AzureLinuxV3Gen2Kata_NBCANCParity",
+	}
+}
+
 func init() {
 	for _, original := range List() {
-		switch original.Name {
-		case "Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags",
-			"Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_CLIFlags",
-			"Ubuntu2404_TemporaryKubeletDisk",
-			"AzureLinuxV3_TemporaryKubeletDisk",
-			"Ubuntu2604Minimal_CustomNodeConfig",
-			"AzureLinuxV3Gen2Kata":
-		default:
+		if !slices.Contains(NBCANCParityScenarioNames(), original.Name+"_NBCANCParity") {
 			continue
 		}
 

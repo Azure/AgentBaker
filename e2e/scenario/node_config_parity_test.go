@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/require"
 )
 
@@ -82,6 +84,36 @@ func TestNBCANCConfigurationParityRegressions(t *testing.T) {
 				require.True(t, ok, "ANC must render %s", key)
 				require.Equal(t, expected, actual, "%s must match the NBC rendering", key)
 			}
+		})
+	}
+}
+
+func TestNBCANCComparisonCannotSilentlySkip(t *testing.T) {
+	original := *config.Config
+	t.Cleanup(func() { *config.Config = original })
+	for _, test := range []struct {
+		name   string
+		mutate func(*Scenario)
+	}{
+		{name: "missing runtime", mutate: func(s *Scenario) { s.Runtime = nil }},
+		{name: "missing node config", mutate: func(s *Scenario) { s.Runtime.AKSNodeConfig = nil }},
+		{name: "config-only mode", mutate: func(s *Scenario) { s.Runtime.NBC.EnableScriptlessAKSNodeConfig = true }},
+		{name: "missing PR metadata", mutate: func(_ *Scenario) { config.Config.VHDMetadataFile = "" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config.Config.VHDMetadataFile = "test-pr-vhd.json"
+			s := &Scenario{
+				Name:   "RequiredParity",
+				Config: Config{VHD: config.VHDUbuntu2204Gen2Containerd, ForceScriptlessNBCCSECmd: true},
+				Runtime: &ScenarioRuntime{
+					NBC:           &datamodel.NodeBootstrappingConfiguration{EnableScriptlessNBCCSECmd: true},
+					AKSNodeConfig: &aksnodeconfigv1.Configuration{},
+				},
+			}
+			test.mutate(s)
+			require.ErrorContains(t, ValidateScriptlessComparison(t.Context(), s), "required NBC/ANC comparison")
+			s.ForceScriptlessNBCCSECmd = false
+			require.NoError(t, ValidateScriptlessComparison(t.Context(), s), "ordinary scenarios retain their skip behavior")
 		})
 	}
 }

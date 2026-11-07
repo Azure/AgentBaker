@@ -57,6 +57,7 @@ type Configuration struct {
 	DisableScriptless                      bool
 	DisableScriptLessCompilation           bool
 	RandomNBCCoverage                      bool
+	RequireNBCANCParity                    bool
 	E2ELoggingDir                          string
 	EnableSecureTLSBootstrapping           bool
 	ExtendedTests                          string

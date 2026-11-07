@@ -30,6 +30,89 @@ func TestAppListsRegisteredScenarios(t *testing.T) {
 	assert.Contains(t, stdout.String(), "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC\n", "list did not contain a known scenario")
 }
 
+func TestNBCANCParityRequiredResults(t *testing.T) {
+	names := scenario.NBCANCParityScenarioNames()
+	for _, test := range []struct {
+		name   string
+		mutate func([]scenarioResult) []scenarioResult
+		want   string
+	}{
+		{name: "all required pass and unrelated skips remain allowed"},
+		{name: "missing", mutate: func(r []scenarioResult) []scenarioResult { return r[1:] }, want: "has 0 results"},
+		{name: "duplicate", mutate: func(r []scenarioResult) []scenarioResult { return append(r, r[0]) }, want: "has 2 results"},
+		{name: "skipped", mutate: func(r []scenarioResult) []scenarioResult { r[0].Status = statusSkipped; return r }, want: "did not pass: skipped"},
+		{name: "failed", mutate: func(r []scenarioResult) []scenarioResult { r[0].Status = statusFailed; return r }, want: "did not pass: failed"},
+		{name: "flaky", mutate: func(r []scenarioResult) []scenarioResult { r[0].Status = statusFlaky; return r }, want: "did not pass: flaky"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var results []scenarioResult
+			for _, name := range names {
+				results = append(results, scenarioResult{Name: name, Status: statusPassed})
+			}
+			results = append(results, scenarioResult{Name: "Unrelated", Status: statusSkipped})
+			if test.mutate != nil {
+				results = test.mutate(results)
+			}
+			err := validateNBCANCParityResults(results)
+			if test.want == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.want)
+				require.ErrorContains(t, err, names[0])
+			}
+		})
+	}
+}
+
+func TestNBCANCParityRequiredPreflight(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*runOptions)
+		want   string
+	}{
+		{name: "missing PR metadata", mutate: func(_ *runOptions) { config.Config.VHDMetadataFile = "" }, want: "requires PR VHD metadata"},
+		{name: "scriptless disabled", mutate: func(_ *runOptions) { config.Config.DisableScriptless = true }, want: "requires PR VHD metadata"},
+		{name: "pre-provision", mutate: func(_ *runOptions) { config.Config.TestPreProvision = true }, want: "requires PR VHD metadata"},
+		{name: "missing selected scenario", mutate: func(o *runOptions) { o.selectors = []string{scenario.NBCANCParityScenarioNames()[0]} }, want: "was not selected"},
+		{name: "filtered required scenario", mutate: func(o *runOptions) { o.tagFilter.skip = "name=" + scenario.NBCANCParityScenarioNames()[0] }, want: "was filtered out"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			restoreRunnerConfig(t)
+			config.Config.RequireNBCANCParity = true
+			config.Config.VHDMetadataFile = "test-pr-vhd.json"
+			config.Config.DisableScriptless = false
+			config.Config.TestPreProvision = false
+			opts := runOptionsFromConfig(nil)
+			test.mutate(&opts)
+			app := NewApp(&bytes.Buffer{}, &bytes.Buffer{})
+			// All rejected configurations must fail before Azure initialization.
+			require.ErrorContains(t, app.run(t.Context(), opts), test.want)
+		})
+	}
+}
+
+func TestNBCANCParityRequiredFlag(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		env  string
+		want string
+	}{
+		{name: "ordinary lane", env: "false", want: "no scenarios matched"},
+		{name: "PR VHD lane without metadata", env: "true", want: "requires PR VHD metadata"},
+		{name: "invalid flag", env: "invalid", want: "E2E_REQUIRE_NBC_ANC_PARITY"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			restoreRunnerConfig(t)
+			t.Setenv("E2E_REQUIRE_NBC_ANC_PARITY", test.env)
+			t.Setenv("E2E_VHD_METADATA_FILE", "")
+			var stderr bytes.Buffer
+			app := NewApp(&bytes.Buffer{}, &stderr)
+			require.Equal(t, exitUsage, app.Run(t.Context(), []string{"e2e", "run", "DoesNotExist"}))
+			require.Contains(t, stderr.String(), test.want)
+		})
+	}
+}
+
 func TestAppRejectsUnknownScenario(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
