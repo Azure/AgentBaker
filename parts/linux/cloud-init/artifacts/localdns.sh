@@ -1050,7 +1050,7 @@ start_localdns_watchdog() {
             fi
 
             if [ "$health_check_passed" = true ]; then
-                systemd-notify WATCHDOG=1
+                systemd-notify "${SYSTEMD_NOTIFY_FLAGS[@]}" WATCHDOG=1
             else
                 echo "localdns health check failed - will be restarted if failures persist."
 
@@ -1066,7 +1066,7 @@ start_localdns_watchdog() {
                 # Check if sliding window threshold is exceeded
                 if [ "$sliding_window_failure_count" -ge "$max_sliding_window_failures" ]; then
                     echo "max sliding window failures (${max_sliding_window_failures} in ${sliding_window_duration_in_seconds}s) reached. Triggering restart."
-                    systemd-notify WATCHDOG=trigger
+                    systemd-notify "${SYSTEMD_NOTIFY_FLAGS[@]}" WATCHDOG=trigger
                     exit $ERR_LOCALDNS_FAIL
                 fi
             fi
@@ -1299,8 +1299,14 @@ fi
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
+# Pass --no-block where systemd-notify supports it.
+SYSTEMD_NOTIFY_FLAGS=()
+case "$(systemd-notify --help 2>&1)" in
+    *--no-block*) SYSTEMD_NOTIFY_FLAGS=(--no-block) ;;
+esac
+
 if [ -n "${NOTIFY_SOCKET:-}" ]; then
-   systemd-notify --ready
+   systemd-notify "${SYSTEMD_NOTIFY_FLAGS[@]}" --ready
 fi
 
 # Systemd watchdog: send pings so we get restarted if we go unhealthy.
