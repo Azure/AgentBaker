@@ -910,6 +910,31 @@ testAzureLinuxArm64DualKernel() {
   echo "$test:Finish"
 }
 
+testAzureLinuxSingleKernel() {
+  local test="testAzureLinuxSingleKernel"
+  local os_sku=$1
+
+  echo "$test:Start"
+  if [ "$os_sku" != "CBLMariner" ] && [ "$os_sku" != "AzureLinux" ]; then
+    echo "$test: Skipping for $os_sku"
+    return
+  fi
+
+  local running_kernel_package
+  running_kernel_package=$(rpm -qf --queryformat '%{NAME}' "/boot/vmlinuz-$(uname -r)" 2>/dev/null || true)
+  if [ "$running_kernel_package" != "kernel" ]; then
+    echo "$test: Skipping because the running kernel is provided by ${running_kernel_package:-unknown}"
+    return
+  fi
+
+  local kernel_packages
+  kernel_packages=$(rpm -q --queryformat '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel)
+  if [ "$(echo "$kernel_packages" | wc -l)" -ne 1 ]; then
+    err "$test" "expected only the running kernel package, found: $(echo "$kernel_packages" | tr '\n' ' ')"
+  fi
+  echo "$test:Finish"
+}
+
 # Parse loginctl sessions to find console autologin sessions
 # Console autologin sessions have Remote=no and Service=login
 # Returns: Space-separated list of autologin session IDs
@@ -3117,6 +3142,7 @@ testAKSNodeControllerVersion
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAzureLinuxArm64DualKernel "$OS_VERSION" "$OS_SKU" "$ENABLE_FIPS"
+testAzureLinuxSingleKernel "$OS_SKU"
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs $OS_SKU

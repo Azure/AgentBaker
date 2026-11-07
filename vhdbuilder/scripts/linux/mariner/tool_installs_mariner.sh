@@ -91,6 +91,47 @@ listInstalledPackages() {
     rpm -qa
 }
 
+# The build-time dnf update installs a newer "kernel" next to the base image kernel and reboots into it,
+# leaving the superseded kernel on the VHD where customer scanners report its CVEs.
+# Only older versions of the package named exactly "kernel" are removed, and only when the running kernel
+# is the newest "kernel" package. Images that boot another kernel package (Kata kernel-mshv, OSGuard kernel-ipe)
+# are skipped. kernel-hwe (ARM64 dual boot), kernel-uki (CVM), kernel-uvm and installkernel are never targeted.
+# rpm -e is used instead of dnf so dependencies are not autoremoved; dnf autoremove dropped installkernel in #3196.
+removeOldAzureLinuxKernels() {
+    local running_release running_package running_kernel newest_kernel old_kernel test_output
+
+    running_release=$(uname -r)
+    running_package=$(rpm -qf --queryformat '%{NAME}\n' "/boot/vmlinuz-${running_release}" 2>/dev/null)
+    if [ "$running_package" != "kernel" ]; then
+        echo "Running kernel ${running_release} is provided by '${running_package:-unknown}', not 'kernel'; skipping old kernel removal"
+        return 0
+    fi
+
+    running_kernel=$(rpm -qf --queryformat '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' "/boot/vmlinuz-${running_release}") || return 1
+    newest_kernel=$(rpm -q --queryformat '%{INSTALLTIME} %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel | sort -n | tail -n 1 | cut -d' ' -f2)
+    if [ "$running_kernel" != "$newest_kernel" ]; then
+        echo "Running kernel ${running_kernel} is not the newest installed kernel ${newest_kernel}; skipping old kernel removal"
+        return 0
+    fi
+
+    for old_kernel in $(rpm -q --queryformat '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel); do
+        if [ "$old_kernel" = "$running_kernel" ]; then
+            continue
+        fi
+        if ! test_output=$(rpm -e --test "$old_kernel" 2>&1); then
+            echo "Keeping ${old_kernel} because other packages depend on it: ${test_output}"
+            continue
+        fi
+        echo "Removing superseded kernel ${old_kernel} (running ${running_kernel})"
+        rpm -e "$old_kernel" || return 1
+    done
+
+    if [ ! -f "/boot/vmlinuz-${running_release}" ] || [ "$(rpm -q --queryformat '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel | grep -cxF "$running_kernel")" -ne 1 ]; then
+        echo "Running kernel ${running_kernel} is missing after old kernel removal" >&2
+        return 1
+    fi
+}
+
 # disable and mask all UU timers/services
 disableDNFAutomatic() {
     # Ensure the automatic notifyonly timer is disabled.
