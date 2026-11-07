@@ -91,12 +91,17 @@ listInstalledPackages() {
     rpm -qa
 }
 
-# The build-time dnf update installs a newer "kernel" next to the base image kernel and reboots into it,
+# Azure Linux 3.0 only (Mariner 2.0 reports ID=mariner and is not targeted): the build-time dnf update installs a newer
+# "kernel" next to the base image kernel and reboots into it,
 # leaving the superseded kernel on the VHD where customer scanners report its CVEs.
 # Only older versions of the package named exactly "kernel" are removed, and only when the running kernel
 # is the newest "kernel" package. Images that boot another kernel package (Kata kernel-mshv, OSGuard kernel-ipe)
 # are skipped. kernel-hwe (ARM64 dual boot), kernel-uki (CVM), kernel-uvm and installkernel are never targeted.
-# rpm -e is used instead of dnf so dependencies are not autoremoved; dnf autoremove dropped installkernel in #3196.
+# rpm -e is used instead of dnf so dependencies are not autoremoved. History:
+# - https://github.com/Azure/AgentBaker/pull/3196 added old kernel removal with dnf autoremove.
+# - https://github.com/Azure/AgentBaker/pull/3220 and https://github.com/Azure/AgentBaker/pull/3236 reverted it
+#   because autoremove also removed installkernel and broke provisioning.
+# - https://github.com/Azure/AgentBaker/pull/3223 added the pre-reboot dnf update that installs the newer kernel.
 removeOldAzureLinuxKernels() {
     local running_release running_package running_kernel newest_kernel old_kernel test_output
 

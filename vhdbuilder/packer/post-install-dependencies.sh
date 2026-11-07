@@ -83,7 +83,7 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   capture_benchmark "${SCRIPT_NAME}_log_and_detach_ua"
 fi
 
-if isMarinerOrAzureLinux "$OS" "$OS_VARIANT"; then
+if isAzureLinux "$OS" "$OS_VARIANT" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
   removeOldAzureLinuxKernels || exit 1
   capture_benchmark "${SCRIPT_NAME}_remove_old_azurelinux_kernels"
 fi

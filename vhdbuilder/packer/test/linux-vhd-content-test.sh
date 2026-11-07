@@ -912,11 +912,12 @@ testAzureLinuxArm64DualKernel() {
 
 testAzureLinuxSingleKernel() {
   local test="testAzureLinuxSingleKernel"
-  local os_sku=$1
+  local os_version=$1
+  local os_sku=$2
 
   echo "$test:Start"
-  if [ "$os_sku" != "CBLMariner" ] && [ "$os_sku" != "AzureLinux" ]; then
-    echo "$test: Skipping for $os_sku"
+  if [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "3.0" ]; then
+    echo "$test: Skipping for $os_sku $os_version"
     return
   fi
 
@@ -3142,7 +3143,7 @@ testAKSNodeControllerVersion
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testAzureLinuxArm64DualKernel "$OS_VERSION" "$OS_SKU" "$ENABLE_FIPS"
-testAzureLinuxSingleKernel "$OS_SKU"
+testAzureLinuxSingleKernel "$OS_VERSION" "$OS_SKU"
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs $OS_SKU
