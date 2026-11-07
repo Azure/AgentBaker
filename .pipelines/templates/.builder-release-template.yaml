@@ -92,6 +92,7 @@ steps:
       itemPattern: |
         **/kata-containers.img**
         **/kata-containers-version.txt
+        **/kata-uvm-kernel-version.txt
       downloadPath: $(Build.SourcesDirectory)
 
   - ${{ if eq(parameters.kataCC, true) }}:
@@ -129,6 +130,17 @@ steps:
       fi
       echo "Kata UVM tools RPM version-release: $version"
       echo "##vso[task.setvariable variable=KATA_UVM_VERSION]$version"
+      kernel_version_file="$(Build.SourcesDirectory)/kata-uvm-kernel-version.txt"
+      if [[ ! -s "$kernel_version_file" ]]; then
+        echo "Missing Kata UVM kernel version file. Rebuild pipeline 417429 with kernel metadata." >&2
+        exit 1
+      fi
+      kernel_version=$(cat "$kernel_version_file")
+      if [[ ! "$kernel_version" =~ ^[a-zA-Z0-9._+~^-]+$ ]]; then
+        echo "Invalid Kata UVM kernel version value." >&2
+        exit 1
+      fi
+      echo "##vso[task.setvariable variable=KATA_UVM_KERNEL_VERSION]$kernel_version"
     condition: and(succeeded(), eq(variables.OS_SKU, 'AzureLinux'), eq(variables.IMG_OFFER, 'azure-linux-3'), contains(variables.FEATURE_FLAGS, 'kata'))
     displayName: Read Kata UVM version
 
