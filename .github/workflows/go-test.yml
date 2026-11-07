@@ -68,10 +68,10 @@ jobs:
           (cd aks-live-patching && gocover-cobertura < ../coverage/aks-live-patching.out > ../coverage/aks-live-patching.xml)
         fi
         rm -f coverage/*.out
-    - name: Test GRID driver version validation
+    - name: Test GPU driver validation and NBC/ANC configuration regressions
       run: |
         cd e2e
-        go test -short ./scenario -run '^TestNvidiaDriverVersionValidationScript'
+        go test -short ./scenario -run '^Test(NvidiaDriverVersionValidationScript|NBCANCConfigurationParityRegressions)'
     - name: Upload coverage reports
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: (!cancelled())
