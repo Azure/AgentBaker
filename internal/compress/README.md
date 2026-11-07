@@ -12,6 +12,22 @@ with the Go toolchain and changed in Go 1.27. With the standard library, the sam
 customData when built with Go 1.26 than with Go 1.27, so the size checked in CI was not the size sent by consumers that
 build AgentBaker with an older Go release. With this copy, the output is the same whichever Go release builds AgentBaker.
 
+## Consumer API and RP integration
+
+Consumers must use `agent.GzipCustomData` from `github.com/Azure/agentbaker/pkg/agent` when re-compressing customData.
+It uses the same pinned compressor and `BestCompression` as AgentBaker's internal generation, returning raw gzip bytes;
+base64 encoding remains the caller's responsibility. E2E file injection uses this API as well.
+The `internal/compress` packages are implementation details and cannot be imported by RP.
+
+This change alone does not pin every payload sent by RP. RP's kube-reserved rewrite currently decompresses, patches,
+and re-compresses customData using the Go standard library. A follow-up RP change must upgrade its AgentBaker dependency
+and replace that compression step with `agent.GzipCustomData` in the same PR, preserving base64 encoding and patching.
+Versioned AgentBakerSvc deployments must also adopt a release containing this change; older deployments retain
+their original encoding. End-to-end toolchain independence applies only to paths using the shared compressor.
+
+Go upgrades will not automatically update this copy, including compression optimizations and security fixes.
+Those require reviewing and updating the pinned source and digest explicitly.
+
 ## Updating
 
 Do not edit these files. Changing the compressor changes the customData bytes and size for every node, and

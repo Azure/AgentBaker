@@ -1909,15 +1909,31 @@ func TestGetGzippedBufferFromBytesIsPinned(t *testing.T) {
 	}
 	input := []byte(sb.String())
 
-	compressed := getGzippedBufferFromBytes(input)
+	compressed := GzipCustomData(input)
+	require.Equal(t, getGzippedBufferFromBytes(input), compressed, "public API must match AgentBaker's internal encoding")
 
 	// Nodes decompress customData with other gzip implementations, so check it with the standard library reader.
 	reader, err := stdgzip.NewReader(bytes.NewReader(compressed))
 	require.NoError(t, err)
+	defer reader.Close()
 	decompressed, err := io.ReadAll(reader)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(input, decompressed), "standard library gzip reader returned different content")
 
 	digest := sha256.Sum256(compressed)
 	require.Equal(t, "9aedb9672431937db71a6f6037b67612061f2bc49e1c5b75a14b0b6029b751dd", hex.EncodeToString(digest[:]))
+}
+
+func TestGzipCustomDataRoundTrip(t *testing.T) {
+	for _, input := range []string{"", "#cloud-config\nwrite_files:\n", strings.Repeat("node bootstrap\n", 2000)} {
+		compressed := GzipCustomData([]byte(input))
+		// A subsequent call must not overwrite a result retained by a consumer.
+		_ = GzipCustomData([]byte("another node"))
+		reader, err := stdgzip.NewReader(bytes.NewReader(compressed))
+		require.NoError(t, err)
+		decompressed, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		require.NoError(t, reader.Close())
+		require.Equal(t, input, string(decompressed))
+	}
 }
