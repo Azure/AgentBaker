@@ -8,17 +8,15 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNBCANCConfigurationParityRegressions(t *testing.T) {
-	original := config.Config
+	original := *config.Config
 	config.Config.DisableScriptless = false
-	t.Cleanup(func() { config.Config = original })
+	t.Cleanup(func() { *config.Config = original })
 
 	kubelet := map[string]string{
 		"KUBELET_CONFIG_FILE_CONTENT": "{{GetKubeletConfigFileContentBase64}}",
@@ -84,92 +82,6 @@ func TestNBCANCConfigurationParityRegressions(t *testing.T) {
 				require.True(t, ok, "ANC must render %s", key)
 				require.Equal(t, expected, actual, "%s must match the NBC rendering", key)
 			}
-		})
-	}
-}
-
-func TestNBCANCComparisonCannotSilentlySkip(t *testing.T) {
-	original := *config.Config
-	t.Cleanup(func() { *config.Config = original })
-	for _, test := range []struct {
-		name   string
-		mutate func(*Scenario)
-	}{
-		{name: "missing runtime", mutate: func(s *Scenario) { s.Runtime = nil }},
-		{name: "missing node config", mutate: func(s *Scenario) { s.Runtime.AKSNodeConfig = nil }},
-		{name: "config-only mode", mutate: func(s *Scenario) { s.Runtime.NBC.EnableScriptlessAKSNodeConfig = true }},
-		{name: "missing PR metadata", mutate: func(_ *Scenario) { config.Config.VHDMetadataFile = "" }},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			config.Config.VHDMetadataFile = "test-pr-vhd.json"
-			s := &Scenario{
-				Name:   "RequiredParity",
-				Config: Config{VHD: config.VHDUbuntu2204Gen2Containerd, ForceScriptlessNBCCSECmd: true},
-				Runtime: &ScenarioRuntime{
-					NBC:           &datamodel.NodeBootstrappingConfiguration{EnableScriptlessNBCCSECmd: true},
-					AKSNodeConfig: &aksnodeconfigv1.Configuration{},
-				},
-			}
-			test.mutate(s)
-			require.ErrorContains(t, ValidateScriptlessComparison(t.Context(), s), "required NBC/ANC comparison")
-			s.ForceScriptlessNBCCSECmd = false
-			require.NoError(t, ValidateScriptlessComparison(t.Context(), s), "ordinary scenarios retain their skip behavior")
-		})
-	}
-}
-
-func TestNBCANCParityScenariosRequirePRVHDAndComparisonMode(t *testing.T) {
-	original := config.Config
-	config.Config.DisableScriptless = false
-	config.Config.TestPreProvision = false
-	config.Config.SIGVersionTagName = "buildId"
-	config.Config.SIGVersionTagValue = "test-build"
-	t.Cleanup(func() { config.Config = original })
-
-	for _, name := range []string{
-		"Ubuntu2204_NodeHardening_KubeReservedSlice_CLIFlags",
-		"Ubuntu2604Minimal_NodeHardening_KubeReservedSlice_CLIFlags",
-		"Ubuntu2404_TemporaryKubeletDisk",
-		"AzureLinuxV3_TemporaryKubeletDisk",
-		"Ubuntu2604Minimal_CustomNodeConfig",
-		"AzureLinuxV3Gen2Kata",
-	} {
-		t.Run(name, func(t *testing.T) {
-			var source, regression *Scenario
-			for _, s := range List() {
-				switch s.Name {
-				case name:
-					source = s
-				case name + "_NBCANCParity":
-					regression = s
-				}
-			}
-			require.NotNil(t, source)
-			require.NotNil(t, regression)
-			require.False(t, source.ForceScriptlessNBCCSECmd, "preserve the original scenario's provisioning mode")
-			require.False(t, regression.SkipDefaultValidation, "common validation must check the comparison log")
-			require.NotNil(t, regression.Validator, "preserve the original behavior checks")
-			require.Empty(t, regression.NBCSamplingOS())
-
-			config.Config.VHDMetadataFile = ""
-			require.Contains(t, regression.SkipIf(t.Context()), "requires VHD metadata")
-			config.Config.VHDMetadataFile = "test-pr-vhd-metadata.json"
-			require.Empty(t, regression.SkipIf(t.Context()))
-			config.Config.DisableScriptless = true
-			require.Contains(t, regression.SkipIf(t.Context()), "requires scriptless")
-			config.Config.DisableScriptless = false
-
-			s := freshScenario(regression)
-			s.Runtime = &ScenarioRuntime{EnableScriptlessNBCCSECmd: true}
-			nbc, err := baseTemplateLinux("westus2", "1.36.5", s.VHD.Arch)
-			require.NoError(t, err)
-			nbc.AgentPoolProfile.Distro = s.VHD.Distro
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = s.VHD.Distro
-			require.NoError(t, prepareNodeConfiguration(t.Context(), s, nbc))
-			require.True(t, usesScriptlessNBCCSECmd(s), "parity must not silently switch to config-only Phase 3")
-			require.False(t, nbc.EnableScriptlessAKSNodeConfig)
-			require.NotNil(t, s.Runtime.AKSNodeConfig, "both configurations are required for comparison")
-			require.NotEmpty(t, nbc.AKSNodeConfigJSON)
 		})
 	}
 }

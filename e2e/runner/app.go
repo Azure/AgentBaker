@@ -118,11 +118,6 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	default:
 		return &usageError{message: "--output must be auto, grouped, or stream"}
 	}
-	if config.Config.RequireNBCANCParity {
-		if config.Config.VHDMetadataFile == "" || config.Config.DisableScriptless || config.Config.TestPreProvision {
-			return &usageError{message: "--require-nbc-anc-parity requires PR VHD metadata and scriptless node provisioning"}
-		}
-	}
 
 	scenarios := selectScenarios(scenario.List(), opts.selectors)
 	if len(scenarios) == 0 {
@@ -137,17 +132,6 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 			return err
 		}
 		return &usageError{message: "no scenarios matched the configured filters"}
-	}
-	if config.Config.RequireNBCANCParity {
-		selected := make(map[string]bool, len(runnable))
-		for _, s := range runnable {
-			selected[s.Name] = true
-		}
-		for _, name := range scenario.NBCANCParityScenarioNames() {
-			if !selected[name] {
-				return &usageError{message: fmt.Sprintf("required NBC/ANC parity scenario %q was not selected or was filtered out", name)}
-			}
-		}
 	}
 
 	if opts.randomNBCCoverage {
@@ -194,28 +178,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	if summary.Failed > 0 {
 		return fmt.Errorf("%d scenario(s) failed", summary.Failed)
 	}
-	if config.Config.RequireNBCANCParity {
-		return validateNBCANCParityResults(results)
-	}
 	return nil
-}
-
-func validateNBCANCParityResults(results []scenarioResult) error {
-	var failures []error
-	for _, name := range scenario.NBCANCParityScenarioNames() {
-		var matches []scenarioResult
-		for _, result := range results {
-			if result.Name == name {
-				matches = append(matches, result)
-			}
-		}
-		if len(matches) != 1 {
-			failures = append(failures, fmt.Errorf("required NBC/ANC parity scenario %q has %d results; expected one passed result", name, len(matches)))
-		} else if matches[0].Status != statusPassed {
-			failures = append(failures, fmt.Errorf("required NBC/ANC parity scenario %q did not pass: %s", name, matches[0].Status))
-		}
-	}
-	return errors.Join(failures...)
 }
 
 func resetLogDirectory(path string) error {

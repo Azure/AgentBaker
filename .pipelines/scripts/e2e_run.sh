@@ -96,7 +96,7 @@ fi
 az extension add --name bastion
 
 cd e2e
-E2E_REQUIRE_NBC_ANC_PARITY=false go test -count=1 ./...
+go test -count=1 ./...
 
 go run . run \
   --parallel 60 \

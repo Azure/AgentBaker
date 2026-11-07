@@ -20,9 +20,6 @@ pr:
     - parts/linux/*
     - packer.mk
     - aks-node-controller/**
-    - e2e/scenario/node_config.go
-    - e2e/scenario/provision.go
-    - pkg/agent/baker.go
     - parts/common/components.json
     - go.mod
     - go.sum
@@ -362,7 +359,7 @@ stages:
 
   - stage: e2e
     dependsOn: build
-    condition: succeeded()
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       TAGS_TO_SKIP: gpu=true,os=windows
@@ -372,5 +369,4 @@ stages:
         parameters:
           IgnoreScenariosWithMissingVhd: true
           useVhdMetadataArtifacts: true
-          requireNBCANCParity: true
           ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}

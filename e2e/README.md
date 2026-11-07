@@ -156,32 +156,6 @@ provisioning path, such as CustomData-only delivery. Sampling cannot be combined
 with `--disable-scriptless` or `--test-pre-provision`. Runtime failures and skips
 remain visible through normal per-scenario reporting.
 
-### Fixed NBC/ANC parity regressions
-
-Six additional scenarios suffixed `_NBCANCParity` cover the Ubuntu 22.04/26.04
-kube-reserved CLI-flags payload, Ubuntu 24.04/Azure Linux 3 temporary disk configs,
-Ubuntu 26.04 custom containerd ulimits, and Azure Linux 3 Kata VHD classification.
-They retain the original scenario validators and force NBC-command execution with
-ANC comparison. Original Phase 3 scenarios are unchanged.
-
-These six VM runs require PR VHD metadata and skip before creating resources in
-standalone E2E, scriptless-disabled, and pre-provision runs. They are not randomly
-sampled. The Linux VHD check-in gate enables `--require-nbc-anc-parity` through
-`E2E_REQUIRE_NBC_ANC_PARITY`. All six must be selected and report `passed`;
-missing, skipped, duplicate, failed or flaky results fail acceptance. Forced
-parity validation also requires the on-node comparison success marker.
-`SKIP_E2E_TESTS` cannot skip this required lane after its VHD build succeeds.
-
-The gate adds only `e2e/scenario/node_config.go`, `e2e/scenario/provision.go` and
-`pkg/agent/baker.go` to its existing path includes, not `e2e/**`. Other E2E-only
-changes still require manually queuing the VHD gate. Ordinary E2E lanes leave
-the required-parity flag off and retain their normal skip behavior.
-
-The PR `go-test` check runs `go test -short ./scenario ./runner -run '^TestNBCANC'`
-to check the configuration regressions and required-parity acceptance
-without VMs, using the current NBC/ANC renderers and a fixed containerd version.
-It supplements, rather than replaces, comparison on the PR-built VHD.
-
 ### LocalDNS fallback checks
 
 The existing LocalDNS scenarios use short-lived DNS pods on the scenario node

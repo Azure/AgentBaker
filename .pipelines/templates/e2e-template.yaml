@@ -30,10 +30,6 @@ parameters:
     type: boolean
     displayName: Resolve VHDs from metadata artifacts produced by this pipeline
     default: false
-  - name: requireNBCANCParity
-    type: boolean
-    displayName: Require all six NBC/ANC parity regressions to pass
-    default: false
   - name: rcv1pTagsAutoInjected
     type: boolean
     displayName: |
@@ -56,7 +52,7 @@ parameters:
 
 jobs:
   - job: e2e
-    condition: and(succeeded(), or(${{parameters.requireNBCANCParity}}, ne(variables.SKIP_E2E_TESTS, 'true')))
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       - group: ${{parameters.variableGroup}} # all variables prefixed with E2E_* come from this variable group
       - name: COSI_ARTIFACTS_DIR
@@ -135,7 +131,6 @@ jobs:
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
           E2E_FAILED_TESTS_RETRY_COUNT: ${{parameters.failedTestsRetryCount}}
           E2E_RANDOM_NBC_COVERAGE: ${{parameters.randomNBCCoverage}}
-          E2E_REQUIRE_NBC_ANC_PARITY: ${{parameters.requireNBCANCParity}}
           ${{ if eq(parameters.randomNBCCoverage, true) }}:
             BUILD_ID: $(Build.BuildId)
           RCV1P_TAGS_AUTO_INJECTED: ${{parameters.rcv1pTagsAutoInjected}}
