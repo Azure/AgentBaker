@@ -28,6 +28,13 @@ const (
 	// The payload's VnetDNS "." cache duration differs from node_config.go (3600 everywhere), so the
 	// served Corefile shows whether the patch, not the baked config, is in effect.
 	localDNSPatchedCacheSeconds = 1800
+
+	rejectedLocalDNSVersion     = "e2e-localdns-rejected-corefile-version"
+	localDNSRejectedHealthCheck = "not-a-duration"
+	localDNSLPSRejectedMarker   = "/run/localdns/lps-corefile-rejected"
+	// The provisioning limits from node_config.go (2008 millicores, 128 MB) as the kernel shows them.
+	localDNSBakedCPUMax    = "200800 100000"
+	localDNSBakedMemoryMax = "134217728"
 )
 
 func init() {
@@ -133,6 +140,49 @@ func init() {
 			Validator: validateLocalDNSLPSUnavailableFallback,
 		},
 	})
+
+	// LocalDNSLPSRejectedCorefileFallback validates that a bad LPS payload cannot block provisioning.
+	// The payload renders, but into a Corefile CoreDNS refuses to load (a health_check interval that is
+	// not a duration). Without the fallback every start fetches the same payload and fails, until
+	// systemd stops restarting localdns and CSE fails provisioning. The scenario provisioning at all
+	// shows it does not; the validator checks the node came up on its baked config and why.
+	Register(&Scenario{
+		Name:        "LocalDNSLPSRejectedCorefileFallback",
+		Description: "Tests a LocalDNS LPS Corefile CoreDNS rejects at bootstrap falls back to the baked config without failing provisioning",
+		SkipIf:      skipUnlessBranchVHD,
+		Config: Config{
+			Cluster:                    ClusterKubenet,
+			VHD:                        config.VHDUbuntu2404Gen2Containerd,
+			ForceScriptlessCompilation: true,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.LocalDNSProfile.EnableLocalDNS = true
+			},
+			CustomDataWriteFiles: []CustomDataWriteFile{
+				{
+					Path:        localDNSFetcherDropInPath,
+					Permissions: "0644",
+					Owner:       "root",
+					Content:     localDNSFetcherDropIn(),
+				},
+				{
+					Path:        localDNSPayloadPath,
+					Permissions: "0644",
+					Owner:       "root",
+					Content:     localDNSLPSRejectedPayload(),
+				},
+				{
+					Path:        localDNSFetcherPath,
+					Permissions: "0755",
+					Owner:       "root",
+					Content:     localDNSLPSFetcherWrapper(),
+				},
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
+				config.LocalDnsProfile.EnableLocalDns = true
+			},
+			Validator: validateLocalDNSLPSRejectedCorefileFallback,
+		},
+	})
 }
 
 // skipUnlessBranchVHD skips the LPS scenarios unless the VHD under test was built in this pipeline
@@ -152,6 +202,19 @@ func localDNSFetcherDropIn() string {
 }
 
 func localDNSLPSPayload(version string) string {
+	return localDNSLPSPayloadWithHealthCheck(version, "")
+}
+
+// localDNSLPSPayloadWithHealthCheck sets the VnetDNS "." health check interval to healthCheck, or
+// leaves the health check out when it is empty.
+func localDNSLPSPayloadWithHealthCheck(version, healthCheck string) string {
+	vnetRootHealthCheck := ""
+	if healthCheck != "" {
+		vnetRootHealthCheck = `,
+            "healthCheck": {
+              "duration": "` + healthCheck + `"
+            }`
+	}
 	return `{
   "agentPools": {
     "nodepool2": {
@@ -169,7 +232,7 @@ func localDNSLPSPayload(version string) string {
             "maxConcurrent": 1000,
             "cacheDurationInSeconds": ` + fmt.Sprint(localDNSPatchedCacheSeconds) + `,
             "serveStaleDurationInSeconds": 3600,
-            "serveStale": "Immediate"
+            "serveStale": "Immediate"` + vnetRootHealthCheck + `
           }
         },
         "kubeDnsOverrides": {
@@ -188,6 +251,12 @@ func localDNSLPSPayload(version string) string {
     }
   }
 }`
+}
+
+// localDNSLPSRejectedPayload is the bootstrap payload with a VnetDNS "." health_check interval that
+// is not a duration. aks-node-controller renders it as is, and CoreDNS fails to load the Corefile.
+func localDNSLPSRejectedPayload() string {
+	return localDNSLPSPayloadWithHealthCheck(rejectedLocalDNSVersion, localDNSRejectedHealthCheck)
 }
 
 func localDNSLPSFetcherWrapper() string {
@@ -339,4 +408,47 @@ func validateLocalDNSLPSUnavailableFallback(ctx context.Context, s *Scenario) er
 		return err
 	}
 	return nil
+}
+
+// validateLocalDNSLPSRejectedCorefileFallback runs once the node has provisioned, which is the main
+// check. It then checks that the rejected patch is the reason: localdns.sh abandoned it, left the
+// marker that stops the refetch, and serves the baked Corefile and limits.
+func validateLocalDNSLPSRejectedCorefileFallback(ctx context.Context, s *Scenario) error {
+	if err := ValidateFileExists(ctx, s, localDNSFetcherStamp); err != nil {
+		return err
+	}
+	script := fmt.Sprintf(`set -euo pipefail
+sudo journalctl -u localdns --no-pager | grep -E 'CoreDNS did not (start|become ready) on LPS corefileVersion %[1]s' ||
+    { echo "FAIL: localdns.sh did not abandon corefileVersion %[1]s"; exit 1; }
+sudo journalctl -u localdns --no-pager | grep 'earlier in this boot; skipping LocalDNS LPS config fetch' ||
+    { echo "FAIL: no start skipped the LPS fetch after the rejection"; exit 1; }
+`, rejectedLocalDNSVersion)
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns did not fall back from the rejected LPS corefile"); err != nil {
+		return err
+	}
+	if err := ValidateFileHasContent(ctx, s, localDNSLPSRejectedMarker, rejectedLocalDNSVersion); err != nil {
+		return err
+	}
+	if err := ValidateFileDoesNotExist(ctx, s, localDNSLivepatchedCorefile); err != nil {
+		return err
+	}
+	if err := ValidateFileDoesNotExist(ctx, s, localDNSLivepatchedCorefile+".version"); err != nil {
+		return err
+	}
+	if err := ValidateFileExcludesContent(ctx, s, localDNSUpdatedCorefile, localDNSRejectedHealthCheck); err != nil {
+		return err
+	}
+	if err := ValidateFileExcludesContent(ctx, s, localDNSUpdatedCorefile, fmt.Sprintf("cache %d", localDNSPatchedCacheSeconds)); err != nil {
+		return err
+	}
+	if err := ValidateFileHasContent(ctx, s, "/sys/fs/cgroup/localdns.slice/cpu.max", localDNSBakedCPUMax); err != nil {
+		return err
+	}
+	if err := ValidateFileHasContent(ctx, s, "/sys/fs/cgroup/localdns.slice/memory.max", localDNSBakedMemoryMax); err != nil {
+		return err
+	}
+	if err := ValidateLocalDNSService(ctx, s, "enabled"); err != nil {
+		return err
+	}
+	return ValidateLocalDNSResolution(ctx, s, "169.254.10.10")
 }

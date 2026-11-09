@@ -87,6 +87,11 @@ AKS_NODE_CONTROLLER_BINARY="${AKS_NODE_CONTROLLER_BINARY:-/opt/azure/containers/
 # nothing leaves it empty, so a plain restart never writes the .version file.
 LOCALDNS_PENDING_COREFILE_VERSION=""
 
+# Written when CoreDNS did not come up on an LPS patch earlier in this boot. While it exists, starts
+# skip the LPS fetch and serve the baked corefile; the runtime live-patching handler retries the
+# version once the node has joined. Under /run so a reboot gives LPS another try.
+LOCALDNS_LPS_REJECTED_MARKER="${LOCALDNS_LPS_REJECTED_MARKER:-/run/localdns/lps-corefile-rejected}"
+
 # Shared with the runtime live-patching handler and installed next to this script: CPU and memory
 # limit live patching, rendering the served Corefile and exporting its forward IPs, and the CoreDNS
 # readiness check. Without it a start cannot render the served Corefile and fails; cleanup still works.
@@ -355,6 +360,13 @@ refresh_localdns_corefile_from_lps() {
         return 0
     fi
 
+    # An earlier start in this boot could not bring CoreDNS up on the LPS patch. Fetching again would
+    # get the same patch and fail the same way until CSE gives up and provisioning fails.
+    if [ -e "${LOCALDNS_LPS_REJECTED_MARKER}" ]; then
+        echo "CoreDNS did not come up on LPS corefileVersion $(cat "${LOCALDNS_LPS_REJECTED_MARKER}") earlier in this boot; skipping LocalDNS LPS config fetch."
+        return 0
+    fi
+
     if [ ! -x "${AKS_NODE_CONTROLLER_BINARY}" ]; then
         echo "AKS node controller binary not found at ${AKS_NODE_CONTROLLER_BINARY}; skipping LocalDNS LPS config fetch."
         # No binary means live patching cannot be reasserted on this node, so any corefile left
@@ -490,6 +502,37 @@ commit_localdns_corefile_version() {
         return 0
     fi
     echo "Committed LocalDNS corefileVersion ${LOCALDNS_PENDING_COREFILE_VERSION}."
+    return 0
+}
+
+# Undoes the LPS patch this start applied when CoreDNS did not come up on it, so the restart serves the
+# baked corefile and limits instead of fetching the same patch, failing again, and failing provisioning.
+# A no-op on a start that applied no LPS patch.
+abandon_lps_localdns_patch() {
+    local reason="$1"
+    local version="${LOCALDNS_PENDING_COREFILE_VERSION}"
+    local baked
+    local baked_cpu
+    local baked_memory
+
+    if [ -z "${version}" ]; then
+        return 0
+    fi
+    LOCALDNS_PENDING_COREFILE_VERSION=""
+    echo "CoreDNS ${reason} on LPS corefileVersion ${version}; the next start serves the baked corefile and limits."
+    if ! discard_livepatched_localdns_corefile "CoreDNS ${reason} on corefileVersion ${version}"; then
+        echo "WARNING: corefileVersion ${version} could not be removed, so the next start serves it again."
+    fi
+    if baked="$(localdns_limits_read_baked)"; then
+        read -r baked_cpu baked_memory <<< "${baked}"
+        reset_localdns_limits_to_baked "${baked_cpu}" "${baked_memory}"
+    else
+        echo "WARNING: ${baked}; the localdns.slice limits stay at corefileVersion ${version}'s."
+    fi
+    if ! mkdir -p "$(dirname "${LOCALDNS_LPS_REJECTED_MARKER}")" ||
+        ! printf '%s\n' "${version}" > "${LOCALDNS_LPS_REJECTED_MARKER}"; then
+        echo "WARNING: Failed to write ${LOCALDNS_LPS_REJECTED_MARKER}; the next start fetches from LPS again."
+    fi
     return 0
 }
 
@@ -1426,10 +1469,16 @@ if [ -n "${SYSTEMD_EXEC_PID:-}" ]; then
     COREDNS_COMMAND="systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
 fi
 # Start localdns.
-start_localdns || exit $ERR_LOCALDNS_FAIL
+if ! start_localdns; then
+    abandon_lps_localdns_patch "did not start"
+    exit $ERR_LOCALDNS_FAIL
+fi
 
 # Wait to direct traffic to localdns until it's ready.
-wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
+if ! wait_for_localdns_ready 60 60; then
+    abandon_lps_localdns_patch "did not become ready"
+    exit $ERR_LOCALDNS_FAIL
+fi
 
 # Commit the LPS patch this start applied, now that CoreDNS is ready on it.
 commit_localdns_corefile_version
