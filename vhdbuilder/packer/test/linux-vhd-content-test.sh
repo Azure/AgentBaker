@@ -89,7 +89,32 @@ testEmudhraRootRemoval() {
   [ "$checked" -eq 1 ] || { err testEmudhraRootRemoval "No CA bundle found"; return 1; }
 }
 
+testAzureLinuxCACertificates() {
+  local osRelease="${1:-/etc/os-release}"
+  local ID="" VERSION_ID=""
+  if ! . "$osRelease"; then
+    err testAzureLinuxCACertificates "Cannot read $osRelease"
+    return 1
+  fi
+  if [ "$ID" != "azurelinux" ] || [ "$VERSION_ID" != "3.0" ]; then
+    return 0
+  fi
+
+  local minimumVersion="3.0.0-19.azl3"
+  local installedVersion
+  if ! installedVersion=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}\n' ca-certificates); then
+    err testAzureLinuxCACertificates "Cannot query installed ca-certificates package"
+    return 1
+  fi
+  if [ -z "$installedVersion" ] ||
+    [ "$(printf '%s\n' "$minimumVersion" "$installedVersion" | sort -V | head -n 1)" != "$minimumVersion" ]; then
+    err testAzureLinuxCACertificates "ca-certificates $installedVersion is older than required $minimumVersion"
+    return 1
+  fi
+}
+
 # Check the captured image before test setup can upgrade its CA packages.
+testAzureLinuxCACertificates || exit 1
 testEmudhraRootRemoval /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
   /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem || exit 1
 
