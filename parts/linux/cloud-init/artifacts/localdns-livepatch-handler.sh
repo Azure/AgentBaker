@@ -35,7 +35,8 @@
 #   2 render     aks-node-controller -> rendered | alreadyCurrent; on rendered it has removed .version
 #                (uncommit) before writing the new Corefile
 #   3 limits     skip a limit already in effect, else set-property it; verify kernel and drop-ins
-#   4 serve      reload (or restart) CoreDNS onto the new Corefile; skipped on alreadyCurrent
+#   4 serve      reload (or restart) CoreDNS onto the new Corefile; skipped on alreadyCurrent. Left to
+#                the next run when a localdns start is in progress, since it may serve the old one
 #   5 commit     write .version
 #   6 ready      CoreDNS /ready decides the result; .version stays either way
 # A failure before the commit undoes the run: the limits go back to the ones recorded in step 0 and
@@ -225,10 +226,12 @@ localDNSRestart() {
 }
 
 # Makes CoreDNS serve the Corefile built from source_corefile.
-# Returns 0 once it is served (or will be on the next start), 1 when CoreDNS rejected it and is still
-# serving the previous Corefile, and 2 when a fallback restart failed and localdns may be down.
+# Returns 0 once it is served (or will be on the next start), 1 when it is not served and the caller
+# puts the previous files back (CoreDNS rejected it, or a localdns start was in progress), and 2 when
+# a fallback restart failed and localdns may be down.
 localDNSServe() {
     local source_corefile="$1"
+    local state
     local forward_servers
     local desired
     local metrics
@@ -236,10 +239,26 @@ localDNSServe() {
     local versions_before
     local reload_result
 
-    if ! systemctl is-active --quiet localdns.service; then
-        echo "localdns.service is not running; its next start builds the served corefile from ${source_corefile}"
-        return 0
+    # Only a start that has not begun yet is sure to build the served Corefile from the source on disk.
+    # One already running may have built it before this run wrote the source, so leave this run to the
+    # next one.
+    if ! state="$(systemctl show --property=ActiveState --value localdns.service)"; then
+        LOCALDNS_FAILURE_MESSAGE="could not read the state of localdns.service"
+        return 1
     fi
+    case "${state}" in
+        active|reloading)
+            ;;
+        activating)
+            echo "localdns.service is starting; leaving the patch to the next run"
+            LOCALDNS_FAILURE_MESSAGE="localdns.service was starting; the next run applies the patch"
+            return 1
+            ;;
+        *)
+            echo "localdns.service is ${state}; its next start builds the served corefile from ${source_corefile}"
+            return 0
+            ;;
+    esac
     if [ ! -s "${source_corefile}" ]; then
         echo "source corefile ${source_corefile} is missing; restarting localdns.service to rebuild it"
         localDNSRestart || return 2
@@ -616,9 +635,11 @@ updateLocalDNS() {
             ;;
     esac
 
-    # Step 3: limits. CoreDNS has not been touched yet, so an undo restores the live-patched Corefile
-    # and .version but not the served Corefile. An alreadyCurrent run changed no file and has nothing
-    # to restore; it only drops .version, since that version's limits are no longer in effect.
+    # Step 3: limits. This run has not touched CoreDNS yet, but a localdns start since step 2 may have
+    # built the served Corefile from the new source, so the undo restores that too; when nothing rebuilt
+    # it, the same content goes back and the reload plugin ignores it. An alreadyCurrent run changed no
+    # file and has nothing to restore; it only drops .version, since that version's limits are no
+    # longer in effect.
     if ! { limits_error="$(localdns_limits_apply "${desired_cpu}" "${desired_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
         echo "live patching the localDNS limits failed: ${limits_error}"
         if [ "${apply_outcome}" = alreadyCurrent ]; then
@@ -627,7 +648,7 @@ updateLocalDNS() {
         else
             localDNSUndo "${backup_dir}" true "live patching ${limits_error}" \
                 "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}" \
-                "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+                "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version" "${LOCALDNS_SERVED_COREFILE}"
         fi
         rm -rf "${backup_dir}"
         return 1

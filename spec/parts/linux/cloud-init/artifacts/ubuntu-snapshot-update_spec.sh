@@ -294,6 +294,11 @@ echo rendered
 EOF
         chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
         Mock systemctl
+            # localdns.service's ActiveState, which the handler checks before serving.
+            if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                echo active
+                exit 0
+            fi
             echo "systemctl called with args: $*"
             # localdns.service is running; with no forward servers recorded the handler restarts it.
             true
@@ -321,6 +326,11 @@ echo rendered
 EOF
         chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
         Mock systemctl
+            # localdns.service's ActiveState, which the handler checks before serving.
+            if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                echo active
+                exit 0
+            fi
             echo "systemctl called with args: $*"
             # Running, but no forward servers were recorded, so the handler falls back to a
             # restart -- which fails.
@@ -344,6 +354,11 @@ echo noCorefileData
 EOF
         chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
         Mock systemctl
+            # localdns.service's ActiveState, which the handler checks before serving.
+            if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                echo inactive
+                exit 0
+            fi
             echo "systemctl called with args: $*"
             [ "$1" != "is-active" ]
         End
@@ -389,6 +404,11 @@ echo rendered
 EOF
         chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
         Mock systemctl
+            # localdns.service's ActiveState, which the handler checks before serving.
+            if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                echo active
+                exit 0
+            fi
             echo "systemctl called with args: $*"
             true
         End
@@ -424,6 +444,11 @@ echo rendered
 EOF
         chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
         Mock systemctl
+            # localdns.service's ActiveState, which the handler checks before serving.
+            if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                echo active
+                exit 0
+            fi
             echo "systemctl called with args: $*"
             true
         End
@@ -454,6 +479,11 @@ echo rendered
 EOF
         chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
         Mock systemctl
+            # localdns.service's ActiveState, which the handler checks before serving.
+            if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                echo active
+                exit 0
+            fi
             echo "systemctl called with args: $*"
             true
         End

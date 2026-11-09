@@ -12,6 +12,7 @@
 #
 # Knobs, all read at call time:
 #   FAKE_SYSTEMCTL_DOWN=true            `systemctl show` fails (systemd does not respond)
+#   FAKE_LOCALDNS_SERVICE_STATE=<state> localdns.service's ActiveState (default active)
 #   FAKE_SET_PROPERTY_FAIL=<property>   set-property of that property (or "all") fails
 #   FAKE_SET_PROPERTY_FAIL_FROM=<n>     the n-th set-property call of the test and every later one fail
 #   FAKE_SET_PROPERTY_UNSAVED=<property> set-property of that property (or "all") exits 0 but only
@@ -29,6 +30,7 @@ setup_fake_localdns_slice() {
     LOCALDNS_LIMITS_SAVED_DIR="${dir}/system.control/localdns.slice.d"
     FAKE_SET_PROPERTY_LOG="${dir}/set-property.log"
     FAKE_SYSTEMCTL_DOWN=false
+    FAKE_LOCALDNS_SERVICE_STATE=active
     FAKE_SET_PROPERTY_FAIL=""
     FAKE_SET_PROPERTY_FAIL_FROM=""
     FAKE_SET_PROPERTY_UNSAVED=""
@@ -99,8 +101,13 @@ fake_localdns_systemctl() {
 
     case "$1" in
         show)
-            [ "${FAKE_SYSTEMCTL_DOWN}" != true ]
-            return
+            if [ "${FAKE_SYSTEMCTL_DOWN}" = true ]; then
+                return 1
+            fi
+            if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                echo "${FAKE_LOCALDNS_SERVICE_STATE}"
+            fi
+            return 0
             ;;
         set-property)
             assignment="$3"

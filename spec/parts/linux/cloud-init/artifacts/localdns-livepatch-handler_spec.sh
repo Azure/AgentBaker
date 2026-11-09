@@ -69,6 +69,10 @@ done
 if [ "${TEST_ANC_OUTCOME}" = "rendered" ]; then
     rm -f "${output}.version"
     cp "${TEST_PATCH_SOURCE}" "${output}"
+    if [ "${TEST_SIMULATE_RESTART}" = "true" ]; then
+        # A localdns start right after the write builds the served Corefile from the new source.
+        sed 's|168.63.129.16|10.1.0.4 10.1.0.5|g' "${output}" > "${TEST_SERVED_COREFILE}"
+    fi
 fi
 [ -z "${TEST_ANC_ERROR:-}" ] || echo "error: ${TEST_ANC_ERROR}"
 case "${TEST_ANC_OUTCOME}" in
@@ -89,11 +93,13 @@ EOF
         TEST_ANC_ARGS_FILE="${TEST_DIR}/anc-args"
         TEST_ANC_CPU=""
         TEST_ANC_MEMORY=""
-        TEST_LOCALDNS_ACTIVE="true"
+        TEST_SIMULATE_RESTART=""
+        TEST_SERVED_COREFILE="${LOCALDNS_SERVED_COREFILE}"
         TEST_RESTART_STATUS=0
         TEST_RELOAD_MODE="reload"
         TEST_READY_BODY="OK"
-        export TEST_ANC_OUTCOME TEST_ANC_EXIT TEST_ANC_ERROR TEST_ANC_ARGS_FILE TEST_PATCH_SOURCE TEST_ANC_CPU TEST_ANC_MEMORY
+        export TEST_ANC_OUTCOME TEST_ANC_EXIT TEST_ANC_ERROR TEST_ANC_ARGS_FILE TEST_PATCH_SOURCE TEST_ANC_CPU TEST_ANC_MEMORY \
+            TEST_SIMULATE_RESTART TEST_SERVED_COREFILE
     }
 
     cleanup() {
@@ -129,7 +135,7 @@ EOF
         esac
         echo "systemctl $*"
         case "$1" in
-            is-active) [ "${TEST_LOCALDNS_ACTIVE}" = "true" ] ;;
+            is-active) [ "${FAKE_LOCALDNS_SERVICE_STATE}" = active ] ;;
             restart) return "${TEST_RESTART_STATUS}" ;;
         esac
     }
@@ -350,11 +356,25 @@ EOF
             The output should not include 'systemctl restart'
             Assert served_unchanged
         End
+
+        It 'leaves the revoke to the next run when a localdns start is in progress'
+            echo "earlier-patch" > "${LOCALDNS_LIVEPATCHED_COREFILE}"
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            TEST_ANC_OUTCOME="noCorefileData"
+            FAKE_LOCALDNS_SERVICE_STATE="activating"
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'localdns.service is starting; leaving the patch to the next run'
+            The output should not include 'systemctl restart'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'earlier-patch'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v1'
+            Assert served_unchanged
+        End
     End
 
     Describe 'other outcomes'
         It 'writes and commits the patch for the next start, but fails, when localdns is not running'
-            TEST_LOCALDNS_ACTIVE="false"
+            FAKE_LOCALDNS_SERVICE_STATE="inactive"
             When call updateLocalDNS '{}'
             The status should be failure
             The output should include 'localdns.service is not running'
@@ -504,6 +524,35 @@ EOF
             The variable LOCALDNS_FAILURE_MESSAGE should equal 'live patching the memory limit failed (systemctl set-property MemoryMax=536870912 failed: Failed to set unit properties on localdns.slice: Access denied); previous corefile restored; reverting to the previous limits also failed; in effect: cpu 300%, memory 128M; saved: removed, baked applies after a reboot; baked: cpu 200.8%, memory 128M'
         End
 
+        It 'restores the served corefile a localdns start rebuilt from the patch when a limit fails'
+            write_earlier_patch
+            TEST_SIMULATE_RESTART="true"
+            TEST_ANC_MEMORY="512M"
+            FAKE_SET_PROPERTY_FAIL=MemoryMax
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'live patching the localDNS limits failed'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'earlier-patch'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v1'
+            Assert served_unchanged
+        End
+
+        It 'leaves the patch to the next run and reverts the limits when a localdns start is in progress'
+            write_earlier_patch
+            TEST_ANC_CPU="300.0%"
+            FAKE_LOCALDNS_SERVICE_STATE="activating"
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'localdns.service is starting; leaving the patch to the next run'
+            The output should not include 'systemctl restart'
+            The output should not include 'committed localDNS corefileVersion v2'
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal '400000 100000'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}" should equal 'earlier-patch'
+            The contents of file "${LOCALDNS_LIVEPATCHED_COREFILE}.version" should equal 'v1'
+            Assert served_unchanged
+            The variable LOCALDNS_FAILURE_MESSAGE should equal 'localdns.service was starting; the next run applies the patch; reverted to the previous corefile and limits: cpu 400%, memory 128M'
+        End
+
         It 'reverts the limits too when CoreDNS rejects the corefile'
             write_earlier_patch
             TEST_ANC_CPU="300.0%"
@@ -548,7 +597,7 @@ EOF
         End
 
         It 'reports a not running localdns once the patch is committed'
-            TEST_LOCALDNS_ACTIVE="false"
+            FAKE_LOCALDNS_SERVICE_STATE="inactive"
             updateLocalDNS '{}' > /dev/null || true
             When call localDNSFailureMessage
             The output should equal 'localdns.service is not running; corefileVersion v2 applied, readiness checked again on the next run'
@@ -648,7 +697,7 @@ EOF
     Describe 'node without LocalDNS'
         It 'succeeds when the payload has nothing for it'
             rm -f "${LOCALDNS_LIMITS_BAKED_SLICE_FILE}"
-            TEST_LOCALDNS_ACTIVE="false"
+            FAKE_LOCALDNS_SERVICE_STATE="inactive"
             TEST_ANC_OUTCOME="noCorefileData"
             When call updateLocalDNS '{}'
             The status should be success
