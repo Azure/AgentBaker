@@ -7,6 +7,10 @@ endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
 build-packer:
+ifneq (${BOOT_TRACE_BACKEND},)
+	@python3 -B e2e/boot-trace/prepare_vhd.py --output vhdbuilder/packer/boot-trace.generated.json
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/boot-trace.generated.json
+else
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -70,6 +74,7 @@ else
 endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
+endif
 endif
 endif
 

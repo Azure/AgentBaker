@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+captures/
+reports/
+*.dat
+*.ctf/

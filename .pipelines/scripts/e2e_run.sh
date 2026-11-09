@@ -14,6 +14,7 @@ set -euo pipefail
 # * IGNORE_SCENARIOS_WITH_MISSING_VHD: a true/false flag that indicates if the build should fail if the VHD is missing.
 # * BUILD_SRC_DIR: the src directory for the repository. Probably the same as DefaultWorkingDirectory.
 # * E2E_FAILED_TESTS_RETRY_COUNT: the number of times the runner retries failed scenarios. Defaults to 0.
+# * E2E_PARALLEL: maximum concurrent scenarios. Defaults to 60.
 
 # In addition, the e2e test framework reads a whole lot of environment variables.
 # These are defined in: e2e/config/config.go
@@ -99,7 +100,7 @@ cd e2e
 go test -count=1 ./...
 
 go run . run \
-  --parallel 60 \
+  --parallel "${E2E_PARALLEL:-60}" \
   --suite-timeout "${E2E_GO_TEST_TIMEOUT}" \
   --retries "${E2E_FAILED_TESTS_RETRY_COUNT}" \
   --log-dir "${LOGGING_DIR}" \

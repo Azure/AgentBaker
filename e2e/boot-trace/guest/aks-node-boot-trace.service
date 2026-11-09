@@ -1,0 +1,28 @@
+[Unit]
+Description=Bounded first-boot tracing for a dedicated AKS experiment
+DefaultDependencies=no
+After=local-fs.target
+Requires=sys-kernel-tracing.mount
+After=sys-kernel-tracing.mount
+Before=cloud-init-local.service cloud-init.service cloud-config.service cloud-final.service walinuxagent.service waagent.service containerd.service kubelet.service
+Conflicts=shutdown.target
+Before=shutdown.target
+Before=sysinit.target
+ConditionPathExists=/etc/aks-node-boot-trace.env
+
+[Service]
+Type=notify
+NotifyAccess=main
+EnvironmentFile=/etc/aks-node-boot-trace.env
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/aks-node-boot-trace/capture.py --backend ${BACKEND} --max-seconds ${MAX_SECONDS} --max-mib ${MAX_MIB} --image-label ${IMAGE_LABEL}
+ExecStopPost=/usr/bin/python3 /opt/aks-node-boot-trace/stop_capture.py
+KillSignal=SIGTERM
+TimeoutStartSec=90
+RuntimeMaxSec=12min
+TimeoutStopSec=90
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target

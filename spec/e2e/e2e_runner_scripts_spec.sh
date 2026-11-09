@@ -126,4 +126,18 @@ EOF
     The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <./...>'
     The contents of file "${COMMAND_LOG}" should not include 'go <run>'
   End
+
+  It 'runs boot-trace scenarios sequentially without retries when requested'
+    When run env \
+      SUBSCRIPTION_ID='test-subscription' \
+      DefaultWorkingDirectory="${TEST_REPO}" \
+      BUILD_SRC_DIR="${TEST_REPO}" \
+      E2E_PARALLEL='1' \
+      E2E_FAILED_TESTS_RETRY_COUNT='0' \
+      bash "${ROOT_DIR}/.pipelines/scripts/e2e_run.sh"
+    The status should be success
+    The output should be present
+    The contents of file "${COMMAND_LOG}" should include '<--parallel> <1>'
+    The contents of file "${COMMAND_LOG}" should include '<--retries> <0>'
+  End
 End
