@@ -193,17 +193,8 @@ func createAKSNodeConfig(cluster *Cluster, vhd *config.Image, opts ...aksNodeCon
 		kubeletConfig.KubeletConfigFileConfig.StreamingConnectionIdleTimeout = ""
 	}
 	bootstrappingConfig := &aksnodeconfigv1.BootstrappingConfig{
-		TlsBootstrappingToken:                           to.Ptr(cluster.ClusterParams.BootstrapToken),
-		RemoveBootstrapKubeconfig:                       to.Ptr(vhd.Distro != datamodel.AKSAzureLinuxV2Gen2),
-		SecureTlsBootstrappingValidateKubeconfigTimeout: to.Ptr(""),
-		SecureTlsBootstrappingGetAccessTokenTimeout:     to.Ptr(""),
-		SecureTlsBootstrappingGetInstanceDataTimeout:    to.Ptr(""),
-		SecureTlsBootstrappingGetNonceTimeout:           to.Ptr(""),
-		SecureTlsBootstrappingGetAttestedDataTimeout:    to.Ptr(""),
-		SecureTlsBootstrappingGetCredentialTimeout:      to.Ptr(""),
-		SecureTlsBootstrappingAadResource:               to.Ptr(""),
-		SecureTlsBootstrappingUserAssignedIdentityId:    to.Ptr(""),
-		SecureTlsBootstrappingCustomClientDownloadUrl:   to.Ptr(""),
+		TlsBootstrappingToken:     to.Ptr(cluster.ClusterParams.BootstrapToken),
+		RemoveBootstrapKubeconfig: to.Ptr(vhd.Distro != datamodel.AKSAzureLinuxV2Gen2),
 	}
 	if config.Config.EnableSecureTLSBootstrapping {
 		bootstrappingConfig.BootstrappingAuthMethod = aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
