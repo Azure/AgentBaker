@@ -39,6 +39,7 @@ Describe 'localdns.sh'
             LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/run/localdns/vnet-dns-forward-servers"
+            LOCALDNS_LPS_REJECTED_MARKER="${TEST_DIR}/run/localdns/lps-corefile-rejected"
             # No kubelet kubeconfig yet, i.e. a bootstrap start.
             KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
@@ -598,6 +599,7 @@ EOF
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
             AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/aks-node-controller"
+            LOCALDNS_LPS_REJECTED_MARKER="${TEST_DIR}/run/localdns/lps-corefile-rejected"
             # No kubelet kubeconfig yet, i.e. a bootstrap start, where the LPS fetch runs.
             KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
@@ -847,6 +849,86 @@ EOF
             The output should include "aks-node-controller binary unavailable"
             The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
             The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should not be exist
+        End
+
+        #------------------------ abandon_lps_localdns_patch ------------------------------------------
+        It 'should undo the LPS patch and leave the marker when CoreDNS does not come up on it'
+            stub_aks_node_controller "version: v2" "cpuQuota: 300.0%" "memoryMax: 512M" "rendered"
+            refresh_localdns_corefile_from_lps > /dev/null
+            When call abandon_lps_localdns_patch "did not become ready"
+            The status should be success
+            The output should include "CoreDNS did not become ready on LPS corefileVersion v2; the next start serves the baked corefile and limits."
+            The output should include "systemctl set-property localdns.slice CPUQuota=200.8%"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal "200800 100000"
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/memory.max" should equal "134217728"
+            The contents of file "${LOCALDNS_LPS_REJECTED_MARKER}" should equal "v2"
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal ""
+        End
+
+        It 'should leave nothing for commit_localdns_corefile_version once the patch is abandoned'
+            stub_aks_node_controller "version: v2" "rendered"
+            refresh_localdns_corefile_from_lps > /dev/null
+            abandon_lps_localdns_patch "did not start" > /dev/null
+            When call commit_localdns_corefile_version
+            The status should be success
+            The output should equal ""
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should not be exist
+        End
+
+        It 'should change nothing when this start applied no LPS patch'
+            write_stale_livepatched_corefile
+            When call abandon_lps_localdns_patch "did not start"
+            The status should be success
+            The output should equal ""
+            The contents of file "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should equal "livepatched-from-earlier-boot"
+            The path "${LOCALDNS_LPS_REJECTED_MARKER}" should not be exist
+        End
+
+        It 'should skip the LPS fetch after an LPS patch was rejected earlier in this boot'
+            mkdir -p "$(dirname "${LOCALDNS_LPS_REJECTED_MARKER}")"
+            echo "v2" > "${LOCALDNS_LPS_REJECTED_MARKER}"
+            stub_aks_node_controller "version: v2" "rendered"
+            When call refresh_localdns_corefile_from_lps
+            The status should be success
+            The output should include "CoreDNS did not come up on LPS corefileVersion v2 earlier in this boot; skipping LocalDNS LPS config fetch."
+            The output should not include "LocalDNS LPS config fetch outcome"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
+            The variable LOCALDNS_PENDING_COREFILE_VERSION should equal ""
+        End
+
+        It 'should warn that the next start serves the patch again when it cannot be removed'
+            stub_aks_node_controller "version: v2" "rendered"
+            refresh_localdns_corefile_from_lps > /dev/null
+            discard_livepatched_localdns_corefile() { return 1; }
+            When call abandon_lps_localdns_patch "did not start"
+            The status should be success
+            The output should include "WARNING: corefileVersion v2 could not be removed, so the next start serves it again."
+            The contents of file "${LOCALDNS_LPS_REJECTED_MARKER}" should equal "v2"
+        End
+
+        It 'should warn and leave the limits when the baked limits cannot be read'
+            stub_aks_node_controller "version: v2" "cpuQuota: 300.0%" "rendered"
+            refresh_localdns_corefile_from_lps > /dev/null
+            rm -f "${LOCALDNS_LIMITS_BAKED_SLICE_FILE}"
+            When call abandon_lps_localdns_patch "did not start"
+            The status should be success
+            The output should include "WARNING: cannot read the baked limits from ${LOCALDNS_LIMITS_BAKED_SLICE_FILE}; the localdns.slice limits stay at corefileVersion v2's."
+            The contents of file "${LOCALDNS_LIMITS_CGROUP_DIR}/cpu.max" should equal "300000 100000"
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
+            The contents of file "${LOCALDNS_LPS_REJECTED_MARKER}" should equal "v2"
+        End
+
+        It 'should still succeed when the marker cannot be written'
+            stub_aks_node_controller "version: v2" "rendered"
+            refresh_localdns_corefile_from_lps > /dev/null
+            echo "not a directory" > "${TEST_DIR}/blocker"
+            LOCALDNS_LPS_REJECTED_MARKER="${TEST_DIR}/blocker/lps-corefile-rejected"
+            When call abandon_lps_localdns_patch "did not start"
+            The status should be success
+            The output should include "WARNING: Failed to write ${LOCALDNS_LPS_REJECTED_MARKER}; the next start fetches from LPS again."
+            The stderr should be present
+            The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
         End
     End
 
