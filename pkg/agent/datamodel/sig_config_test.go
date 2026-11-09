@@ -94,6 +94,32 @@ var _ = Describe("Edge Zone SIG image config derivation", func() {
 		Expect(ok).To(BeFalse())
 	})
 
+	DescribeTable("should identify only distros in the generated Edge Zone catalog",
+		func(distro Distro, expected bool) {
+			Expect(IsEdgeZoneDistro(distro)).To(Equal(expected))
+		},
+		Entry("Ubuntu 22.04 Gen1", AKSUbuntuEdgeZoneContainerd2204, true),
+		Entry("Ubuntu 22.04 Gen2", AKSUbuntuEdgeZoneContainerd2204Gen2, true),
+		Entry("Ubuntu 24.04 Gen1", AKSUbuntuEdgeZoneContainerd2404, true),
+		Entry("Ubuntu 24.04 Gen2", AKSUbuntuEdgeZoneContainerd2404Gen2, true),
+		Entry("Azure Linux V3 Gen1", AKSAzureLinuxV3EdgeZone, true),
+		Entry("Azure Linux V3 Gen2", AKSAzureLinuxV3EdgeZoneGen2, true),
+		Entry("regional Ubuntu distro", AKSUbuntuContainerd2404Gen2, false),
+		Entry("regional Azure Linux distro", AKSAzureLinuxV3Gen2, false),
+		Entry("unconfigured future Ubuntu distro", Distro("aks-ubuntu-edgezone-containerd-26.04-gen2"), false),
+		Entry("unconfigured future Azure Linux distro", Distro("aks-azurelinux-v4-edgezone"), false),
+		Entry("Azure Linux V2", Distro("aks-azurelinux-v2-edgezone"), false),
+		Entry("Ubuntu FIPS", Distro("aks-ubuntu-edgezone-fips-containerd-24.04-gen2"), false),
+		Entry("Ubuntu ARM64", Distro("aks-ubuntu-edgezone-arm64-containerd-24.04-gen2"), false),
+		Entry("Ubuntu Trusted Launch", Distro("aks-ubuntu-edgezone-containerd-24.04-tl-gen2"), false),
+		Entry("Ubuntu CVM", Distro("aks-ubuntu-edgezone-containerd-24.04-cvm-gen2"), false),
+		Entry("Ubuntu Minimal", Distro("aks-ubuntu-edgezone-minimal-containerd-26.04-gen2"), false),
+		Entry("Azure Linux Kata", Distro("aks-azurelinux-v3-edgezone-kata-gen2"), false),
+		Entry("case-mismatched distro", Distro("AKS-ubuntu-edgezone-containerd-24.04-gen2"), false),
+		Entry("unknown distro", Distro("unknown"), false),
+		Entry("empty distro", Distro(""), false),
+	)
+
 	DescribeTable("should identify only images in the generated Edge Zone SIG catalogs",
 		func(osSKU, imageDefinitionName string, expected bool) {
 			Expect(IsEdgeZoneSIGImage(osSKU, imageDefinitionName)).To(Equal(expected))

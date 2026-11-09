@@ -1153,6 +1153,12 @@ func buildEdgeZoneSIGImages(configsByOSSKU map[string]map[Distro]SigImageConfig)
 	return images
 }
 
+// IsEdgeZoneDistro reports whether a distro is registered in the generated Edge Zone catalog.
+func IsEdgeZoneDistro(distro Distro) bool {
+	_, ok := regionalDistroForEdgeZone(distro)
+	return ok
+}
+
 // IsEdgeZoneSIGImage reports whether an OS SKU and image definition identify an image
 // generated in the Edge Zone SIG catalogs.
 func IsEdgeZoneSIGImage(osSKU, imageDefinitionName string) bool {
