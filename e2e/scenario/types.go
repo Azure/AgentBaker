@@ -158,6 +158,8 @@ type Config struct {
 	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
 	// AKSNodeConfigMutator customizes the converted config before it is delivered to ANC.
+	// Eligible non-caching scenarios default to Phase 3 when this is set or both bootstrap mutators are nil.
+	// Bootstrap mutators can override the default through EnableScriptlessAKSNodeConfig.
 	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
@@ -191,8 +193,11 @@ type Config struct {
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
 
-	// SkipScriptlessNBCCSECmd prevents RunScenario from automatically repeating the scenario using scriptless NBC provisioning.
-	SkipScriptlessNBCCSECmd bool
+	// ForceScriptlessNBCCSECmd overrides mode selection after scenario mutators for an additive sampled run.
+	ForceScriptlessNBCCSECmd bool
+
+	// ExcludeFromNBCSampling preserves scenarios that specifically require a different provisioning path.
+	ExcludeFromNBCSampling bool
 
 	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
 	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node

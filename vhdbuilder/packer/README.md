@@ -93,7 +93,9 @@ the complete backport in
 is delivered. It is not a general connectivity repair mechanism.
 
 The oneshot service waits for `provision.complete`, so it does not run during VHD
-building or PIS base preparation. It is enabled but not started on the build VM.
+building or unfinished PIS base preparation. It can run after a bake completes;
+image generalization removes the marker before capture. It is enabled but not
+started on the build VM.
 The check is stateless: a persistently failed interface is retried every five
 minutes without an hourly cap. Each D-Bus query is bounded to five seconds and
 each reconfiguration request to twenty seconds. Query errors and recovery

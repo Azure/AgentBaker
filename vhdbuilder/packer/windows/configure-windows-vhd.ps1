@@ -91,8 +91,24 @@ function Download-File
     }
 
     Write-Log "Downloading $URL to $Dest"
-    curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    $curlExitCode = $LASTEXITCODE
+    # curl handles HTTP/timeout retries; also retry transient DNS, connection and transfer failures.
+    $retryableCurlExitCodes = @(5, 6, 7, 16, 18, 35, 52, 55, 56, 92, 95, 96)
+    $delay = if ($retryDelay -gt 0) { $retryDelay } else { 1 }
+    for ($attempt = 0; ; $attempt++)
+    {
+        curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
+        $curlExitCode = $LASTEXITCODE
+        if ($curlExitCode -notin $retryableCurlExitCodes -or $attempt -ge $retryCount)
+        {
+            break
+        }
+        Write-Log "Curl exited with '$curlExitCode'; retrying download in $delay seconds (retry $($attempt + 1) of $retryCount)"
+        Start-Sleep -Seconds $delay
+        if ($retryDelay -eq 0)
+        {
+            $delay = [Math]::Min($delay * 2, 600)
+        }
+    }
     if ($curlExitCode)
     {
         $logURL = $URL
@@ -842,6 +858,76 @@ function Set-WinRmServiceAutoStart
     sc.exe config winrm start=auto
 }
 
+function Install-WindowsExporterOnVHD
+{
+    # Stage windows-exporter assets into C:\k\windows-exporter. The CSE
+    # (staging/cse/windows/windowsexporterfunc.ps1) registers the aks-windows-exporter
+    # service disabled in BasePrep and enables/starts it in NodePrep.
+    #
+    # The baked skip marker disables aks-vm-extension before node provisioning.
+    $exporterCacheDir   = "c:\akse-cache\windows-exporter"
+    $exporterInstallDir = "C:\k\windows-exporter"
+    $exporterConfigSrc  = "c:\k\windows-exporter-config.yml"
+    $exporterAssetsFile = Join-Path $exporterInstallDir "windows-exporter-assets.complete"
+
+    if (-not (Test-Path $exporterCacheDir))
+    {
+        throw "windows-exporter cache directory not found at $exporterCacheDir"
+    }
+
+    $expectedExporterZipName = [IO.Path]::GetFileName($global:windowsExporterPackageUrl.Split('?')[0])
+
+    $exporterZips = @(Get-ChildItem -Path $exporterCacheDir -Filter "windows-exporter_*_amd64.zip" -File)
+    $exporterZip = @($exporterZips | Where-Object { $_.Name -eq $expectedExporterZipName }) | Select-Object -First 1
+    if (-not $exporterZip)
+    {
+        $foundExporterZipNames = @($exporterZips | ForEach-Object { $_.Name })
+        throw "No expected windows-exporter zip found under $exporterCacheDir. Expected: $expectedExporterZipName. Found: $($foundExporterZipNames -join ', ')"
+    }
+    Write-Log "Using windows-exporter package $($exporterZip.Name) resolved from components.json"
+
+    New-Item -ItemType Directory -Path $exporterInstallDir -Force | Out-Null
+
+    Write-Log "Extracting $($exporterZip.FullName) to $exporterInstallDir"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    # Clean any prior extraction to avoid zip-extract "already exists" failures on re-runs
+    Get-ChildItem -Path $exporterInstallDir -Force -ErrorAction SilentlyContinue |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($exporterZip.FullName, $exporterInstallDir)
+
+    $exporterBinary = Join-Path $exporterInstallDir "windows-exporter.exe"
+    if (-not (Test-Path $exporterBinary))
+    {
+        # Some zip payloads nest the binary under a subfolder; flatten into install dir.
+        $nestedBinary = Get-ChildItem -Path $exporterInstallDir -Filter "windows-exporter.exe" -Recurse -File |
+                        Select-Object -First 1
+        if ($nestedBinary)
+        {
+            Move-Item -Path $nestedBinary.FullName -Destination $exporterBinary -Force
+        }
+    }
+    if (-not (Test-Path $exporterBinary))
+    {
+        throw "windows-exporter.exe not found after extracting $($exporterZip.Name)"
+    }
+
+    if (Test-Path $exporterConfigSrc)
+    {
+        Copy-Item -Path $exporterConfigSrc -Destination (Join-Path $exporterInstallDir "windows-exporter-config.yml") -Force
+    }
+    else
+    {
+        throw "windows-exporter config not staged at $exporterConfigSrc"
+    }
+
+    # Commit the markers only after staging is complete. Marker write failures fail the build.
+    New-Item -ItemType File -Path $exporterAssetsFile -Force -ErrorAction Stop | Out-Null
+    New-Item -ItemType File -Path "C:\k\skip_vhd_windows_exporter" -Force -ErrorAction Stop | Out-Null
+
+    LogFilesInDirectory $exporterInstallDir
+    Write-Log "windows-exporter staged on VHD; assets marker $exporterAssetsFile created"
+}
+
 function Set-WinRmServiceDelayedStart
 {
     # Hyper-V messes with networking components on startup after the feature is enabled
@@ -1139,6 +1225,7 @@ try
             Get-FilesToCacheOnVHD
             Get-PrivatePackagesToCacheOnVHD
             Install-WindowsCiliumNetworking
+            Install-WindowsExporterOnVHD
             # Update all the registry keys again in case the steps in between reset them. Ok, some of the steps in between do reset them. But there's a risk that the steps also need
             # the keys set. So we kinda have to do both now :cry:
             Update-Registry

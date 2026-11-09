@@ -619,7 +619,6 @@ func usesScriptlessProvisioning(s *Scenario) bool {
 	}
 	nbc := s.Runtime.NBC
 	return (nbc.EnableScriptlessAKSNodeConfig || nbc.EnableScriptlessNBCCSECmd) &&
-		!nbc.PreProvisionOnly &&
 		s.VHD.SupportsScriptless()
 }
 
@@ -1631,13 +1630,18 @@ func injectWriteFilesEntriesToBoothookCustomData(decoded []byte, entries []Custo
 		return "", err
 	}
 
-	insertPos := strings.Index(boothookStr, "/bin/bash /opt/azure/containers/aks-node-controller-launcher.sh")
+	// Install fixtures outside the conditional so both startup paths see them.
+	insertPos := strings.Index(boothookStr, "if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then")
+	if insertPos == -1 {
+		insertPos = strings.Index(boothookStr, "/bin/bash /opt/azure/containers/aks-node-controller-launcher.sh")
+	}
 	if insertPos == -1 {
 		insertPos = strings.Index(boothookStr, "systemctl start --no-block aks-node-controller.service")
 	}
 	if insertPos == -1 {
 		return "", fmt.Errorf("cloud-boothook customData missing aks-node-controller service start")
 	}
+	insertPos = strings.LastIndex(boothookStr[:insertPos], "\n") + 1
 
 	boothookStr = boothookStr[:insertPos] + entryBlock + boothookStr[insertPos:]
 	return base64.StdEncoding.EncodeToString([]byte(boothookStr)), nil

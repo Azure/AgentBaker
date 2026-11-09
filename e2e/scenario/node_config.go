@@ -242,10 +242,12 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 
 	cfg := &aksnodeconfigv1.Configuration{
 		Version:             "v1",
+		PreProvisionOnly:    nbc.PreProvisionOnly,
 		BootstrappingConfig: bootstrappingConfig,
 		DisableCustomData:   true,
 		LinuxAdminUsername:  "azureuser",
 		VmSize:              config.Config.VMSKU(),
+		IsVhd:               to.Ptr(nbc.AgentPoolProfile.IsVHDDistro()),
 		// The scriptless/aks-node-controller path gates its Kata containerd config blocks on
 		// this field alone, whereas the NBC/baker path derives Kata from the agent pool distro
 		// (see Distro.IsKataDistro and the IsKata template func in pkg/agent/baker.go). Without
@@ -404,14 +406,13 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) (*aksno
 
 	// Populate KubeletConfig fields from NBC that aren't in the static baseKubeletConfig.
 	cfg.KubeletConfig.KubeletClientKey = kubeletClientKey
+	cfg.KubeletConfig.ContainerDataDir = agent.GetDataDir(nbc)
 	kubeletConfigFileEnabled := agent.IsKubeletConfigFileEnabled(cs, nbc.AgentPoolProfile, nbc.EnableKubeletConfigFile)
 	cfg.KubeletConfig.EnableKubeletConfigFile = kubeletConfigFileEnabled
-	if kubeletConfigFileEnabled {
-		// Preserve scenario overrides instead of using the static scriptless defaults.
-		content := agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig)
-		if err := protojson.Unmarshal([]byte(content), cfg.KubeletConfig.KubeletConfigFileConfig); err != nil {
-			return nil, fmt.Errorf("convert kubelet configuration file: %w", err)
-		}
+	// NBC renders this payload even in CLI-flags mode, so preserve it for comparison.
+	content := agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig)
+	if err := protojson.Unmarshal([]byte(content), cfg.KubeletConfig.KubeletConfigFileConfig); err != nil {
+		return nil, fmt.Errorf("convert kubelet configuration file: %w", err)
 	}
 
 	// Build kubelet flags from the NBC's KubeletConfig map, filtering the same way baker.go does.
