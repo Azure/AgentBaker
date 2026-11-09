@@ -32,9 +32,10 @@ const (
 	rejectedLocalDNSVersion     = "e2e-localdns-rejected-corefile-version"
 	localDNSRejectedHealthCheck = "not-a-duration"
 	localDNSLPSRejectedMarker   = "/run/localdns/lps-corefile-rejected"
-	// The provisioning limits from node_config.go (2008 millicores, 128 MB) as the kernel shows them.
-	localDNSBakedCPUMax    = "200800 100000"
-	localDNSBakedMemoryMax = "134217728"
+	// The provisioning limits from node_config.go (2008 millicores, 128 MB): CPU in whole percent, memory
+	// in bytes.
+	localDNSBakedCPUPercent = 200
+	localDNSBakedMemoryMax  = "134217728"
 )
 
 func init() {
@@ -441,10 +442,16 @@ sudo journalctl -u localdns --no-pager | grep 'earlier in this boot; skipping Lo
 	if err := ValidateFileExcludesContent(ctx, s, localDNSUpdatedCorefile, fmt.Sprintf("cache %d", localDNSPatchedCacheSeconds)); err != nil {
 		return err
 	}
-	if err := ValidateFileHasContent(ctx, s, "/sys/fs/cgroup/localdns.slice/cpu.max", localDNSBakedCPUMax); err != nil {
-		return err
-	}
-	if err := ValidateFileHasContent(ctx, s, "/sys/fs/cgroup/localdns.slice/memory.max", localDNSBakedMemoryMax); err != nil {
+	// The limits are back on the baked ones. Resetting them goes through set-property, and systemd saves
+	// CPUQuota truncated to a whole percent, so the restarted slice runs the baked 200.8% as 200%.
+	limits := fmt.Sprintf(`set -euo pipefail
+cgroup=/sys/fs/cgroup/localdns.slice
+cat "$cgroup/cpu.max" "$cgroup/memory.max"
+read -r quota period < "$cgroup/cpu.max"
+test "$((quota * 100 / period))" = %[1]d || { echo "FAIL: expected cpu.max at the baked %[1]d%%"; exit 1; }
+test "$(cat "$cgroup/memory.max")" = %[2]s || { echo "FAIL: expected memory.max at the baked %[2]s"; exit 1; }
+`, localDNSBakedCPUPercent, localDNSBakedMemoryMax)
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, limits, 0, "localdns.slice is not back on the baked limits"); err != nil {
 		return err
 	}
 	if err := ValidateLocalDNSService(ctx, s, "enabled"); err != nil {
