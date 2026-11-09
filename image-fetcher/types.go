@@ -1,10 +1,10 @@
-package image
+package main
 
 import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/containerd/containerd/pkg/progress"
+	"github.com/containerd/containerd/v2/pkg/progress"
 )
 
 type List struct {

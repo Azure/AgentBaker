@@ -1,11 +1,11 @@
-package image
+package main
 
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"slices"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestImage(t *testing.T) {
@@ -120,14 +120,18 @@ func TestImage(t *testing.T) {
 			if c.testFunc != nil {
 				err := c.testFunc(img)
 				if c.err != nil {
-					assert.EqualError(t, err, c.err.Error())
-				} else {
-					assert.NoError(t, err)
+					if err == nil || err.Error() != c.err.Error() {
+						t.Fatalf("error = %v, want %v", err, c.err)
+					}
+				} else if err != nil {
+					t.Fatal(err)
 				}
 			}
 			if c.expectFunc != nil {
 				err := c.expectFunc(img)
-				assert.NoError(t, err)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 		})
 	}
@@ -160,8 +164,29 @@ func TestImageMarshal(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			actual, err := json.Marshal(c.img)
-			assert.NoError(t, err)
-			assert.Equal(t, c.expected, actual)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got, want struct {
+				ID          string   `json:"id"`
+				Bytes       int64    `json:"bytes"`
+				Size        string   `json:"size"`
+				RepoTags    []string `json:"repoTags"`
+				RepoDigests []string `json:"repoDigests"`
+			}
+			if err := json.Unmarshal(actual, &got); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(c.expected, &want); err != nil {
+				t.Fatal(err)
+			}
+			slices.Sort(got.RepoTags)
+			slices.Sort(want.RepoTags)
+			slices.Sort(got.RepoDigests)
+			slices.Sort(want.RepoDigests)
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("JSON = %s, want %s (ignoring tag and digest order)", actual, c.expected)
+			}
 		})
 	}
 }

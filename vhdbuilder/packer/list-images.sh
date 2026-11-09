@@ -11,16 +11,14 @@ if [ -z "${SKU_NAME}" ]; then
     exit 1
 fi
 
-if [ ! -f "/home/packer/lister" ]; then
-    echo "could not find lister binary at /home/packer/lister needed to generate image bom for containerd"
+if [ ! -x "/opt/azure/containers/image-fetcher" ]; then
+    echo "could not find executable image-fetcher at /opt/azure/containers/image-fetcher needed to generate image bom for containerd"
     exit 1
 fi
 
 echo "Generating image-bom with IMAGE_VERSION=${IMAGE_VERSION}"
-pushd /home/packer
-    chmod +x lister
-    ./lister --sku "$SKU_NAME" --node-image-version "$IMAGE_VERSION" --output-path "$IMAGE_BOM_PATH" || exit $?
-popd
+/opt/azure/containers/image-fetcher list-images \
+    --sku "$SKU_NAME" --node-image-version "$IMAGE_VERSION" --output-path "$IMAGE_BOM_PATH"
 
 chmod a+r $IMAGE_BOM_PATH
 chmod a+rx /opt/azure/ /opt/azure/containers/
