@@ -99,7 +99,13 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
     if [ "${ACL_BASE_IMAGE_SIGNED,,}" = "false" ]; then
         SECURE_BOOT="false"
     fi
-    VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot ${SECURE_BOOT} --enable-vtpm true"
+    # Images whose boot chain cannot use a vTPM yet set ENABLE_VTPM=false.
+    VTPM="true"
+    ENABLE_VTPM="${ENABLE_VTPM:-true}"
+    if [ "${ENABLE_VTPM,,}" = "false" ]; then
+        VTPM="false"
+    fi
+    VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot ${SECURE_BOOT} --enable-vtpm ${VTPM}"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then

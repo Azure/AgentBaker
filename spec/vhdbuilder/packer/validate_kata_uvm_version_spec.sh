@@ -75,4 +75,44 @@ Describe 'Kata UVM version validation'
     When run bash vhdbuilder/packer/validate-kata-uvm-version.sh "$version_file.missing"
     The status should be success
   End
+
+  Describe 'Azure Container Linux'
+    setup_acl() {
+      export IMG_OFFER='' OS_SKU=AzureContainerLinux TDNF_VERSION="$HOST_VERSION" TDNF_STATUS=0
+    }
+    BeforeEach 'setup_acl'
+
+    Mock tdnf
+      printf 'kata-containers.x86_64    %s    @System\n' "$TDNF_VERSION"
+      exit "$TDNF_STATUS"
+    End
+
+    It 'reads the host package version through tdnf'
+      When run bash vhdbuilder/packer/validate-kata-uvm-version.sh "$version_file"
+      The status should be success
+      The output should include 'Kata host RPM: 4.1.0.kata0-1.azl3; UVM tools RPM: 4.1.0.kata0-1.azl3'
+    End
+
+    It 'ignores the package epoch'
+      TDNF_VERSION="1:$HOST_VERSION"
+      When run bash vhdbuilder/packer/validate-kata-uvm-version.sh "$version_file"
+      The status should be success
+      The output should include 'Kata host RPM: 4.1.0.kata0-1.azl3'
+    End
+
+    It 'rejects a mismatched host package'
+      TDNF_VERSION=4.1.0.kata0-2.azl3
+      When run bash vhdbuilder/packer/validate-kata-uvm-version.sh "$version_file"
+      The status should be failure
+      The output should include 'Kata host RPM: 4.1.0.kata0-2.azl3'
+      The stderr should include 'Kata host/UVM version mismatch'
+    End
+
+    It 'fails when tdnf cannot list the host package'
+      TDNF_STATUS=243
+      When run bash vhdbuilder/packer/validate-kata-uvm-version.sh "$version_file"
+      The status should be failure
+      The stderr should include 'Cannot determine installed kata-containers host RPM version'
+    End
+  End
 End

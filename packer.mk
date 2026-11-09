@@ -27,6 +27,9 @@ else ifeq (${OS_SKU},AzureContainerLinux)
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
 	@echo "AzureContainerLinux CVM is currently supported only on X86_64" >&2
 	@exit 1
+else ifeq ($(findstring kata,$(FEATURE_FLAGS)),kata)
+	@echo "AzureContainerLinux Kata is currently supported only on X86_64" >&2
+	@exit 1
 else
 	@echo "Using packer template file vhd-image-builder-acl-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl-arm64.json
@@ -64,6 +67,8 @@ endif
 else ifeq (${OS_SKU},AzureContainerLinux)
 ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
 	@./vhdbuilder/packer/build-acl-cvm.sh
+else ifeq ($(findstring kata,$(FEATURE_FLAGS)),kata)
+	@./vhdbuilder/packer/build-acl-kata.sh
 else
 	@echo "Using packer template file vhd-image-builder-acl.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl.json
