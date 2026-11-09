@@ -105,6 +105,7 @@ type ScenarioRuntime struct {
 	VMSSName                  string
 	EnableScriptlessNBCCSECmd bool
 	CSETimingReport           *CSETimingReport // eagerly extracted before GA can sweep events
+	bootTrace                 *bootTraceWatch
 }
 
 type ScenarioVM struct {
@@ -138,6 +139,9 @@ type ScriptHotfixFile struct {
 
 // Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
+	// BootTraceBackend enables the isolated first-boot lifecycle, without creation retries.
+	BootTraceBackend string
+
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, request ClusterRequest) (*Cluster, error)
 

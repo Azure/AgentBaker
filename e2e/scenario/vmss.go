@@ -275,7 +275,7 @@ func createVMSSRecreatingOnOutboundCSEFlake(ctx context.Context, s *Scenario) (*
 		if err == nil {
 			return vm, nil
 		}
-		if attempt >= maxOutboundCSERetries || s.IsWindows() || config.Config.KeepVMSS {
+		if attempt >= maxOutboundCSERetries || s.IsWindows() || config.Config.KeepVMSS || s.BootTraceBackend != "" {
 			return vm, err
 		}
 		// The VMExtensionProvisioningError returned by the create operation does not reliably
@@ -645,7 +645,7 @@ func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) 
 		}
 
 		// not a retryable error
-		if !isRetryableVMSSCreationError(err) {
+		if s.BootTraceBackend != "" || !isRetryableVMSSCreationError(err) {
 			return vm, err
 		}
 
@@ -705,6 +705,18 @@ func createVMSS(
 	dialSSH func(context.Context, *Bastion, string, []byte) (*SSHClient, error),
 ) (*ScenarioVM, error) {
 	vm := &ScenarioVM{}
+	if s.BootTraceBackend != "" {
+		if model.Properties == nil || model.Properties.VirtualMachineProfile == nil ||
+			model.Properties.VirtualMachineProfile.StorageProfile == nil ||
+			model.Properties.VirtualMachineProfile.StorageProfile.ImageReference == nil ||
+			model.Properties.VirtualMachineProfile.StorageProfile.ImageReference.ID == nil {
+			return vm, errors.New("boot-trace VMSS requires an ARM image version reference")
+		}
+		imageID := *model.Properties.VirtualMachineProfile.StorageProfile.ImageReference.ID
+		if !bootTraceImageVersion.MatchString(imageID) {
+			return vm, errors.New("boot-trace VMSS must reference an exact image version, not latest")
+		}
+	}
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
@@ -725,6 +737,17 @@ func createVMSS(
 	vm.PrivateIP, err = getPrivateIPFromVMSSVM(ctx, resourceGroupName, s.Runtime.VMSSName, *vm.VM.InstanceID)
 	if err != nil {
 		return vm, errors.Join(pollVMSSCreation(ctx, operation), fmt.Errorf("failed to get VM private IP address: %w", err))
+	}
+
+	if s.BootTraceBackend != "" {
+		vm.SSHClient, err = dialSSH(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
+		if err != nil {
+			return vm, fmt.Errorf("boot-trace early Bastion connection: %w", err)
+		}
+		imageID := model.Properties.VirtualMachineProfile.StorageProfile.ImageReference.ID
+		if err := collectBootTrace(ctx, s, vm, *imageID); err != nil {
+			return vm, err
+		}
 	}
 
 	// NOTE: teardown (log extraction + VMSS deletion) is registered once by the caller
@@ -756,7 +779,7 @@ func createVMSS(
 		}
 		logRCV1PAwareTags(ctx, s, "VMSS", "creation", s.Runtime.VMSSName, vmssID, vmssResp.Tags, weSetRCV1PTag, false)
 	}
-	if !s.Config.SkipSSHConnectivityValidation && (provisionErr == nil || vmssVMRunningAfterFailure(ctx, s, vm.VM)) {
+	if vm.SSHClient == nil && !s.Config.SkipSSHConnectivityValidation && (provisionErr == nil || vmssVMRunningAfterFailure(ctx, s, vm.VM)) {
 		var bastErr error
 		vm.SSHClient, bastErr = dialSSH(ctx, s.Runtime.Cluster.Bastion, vm.PrivateIP, config.VMSSHPrivateKey)
 		if bastErr != nil {
@@ -781,6 +804,7 @@ func createVMSS(
 	logRCV1PAwareTags(ctx, s, "VM instance", "running", *vm.VM.InstanceID, vmInstanceID, vm.VM.Tags, weSetRCV1PTag, true)
 
 	return &ScenarioVM{
+		KubeName:  vm.KubeName,
 		VMSS:      &vmssResp.VirtualMachineScaleSet,
 		PrivateIP: vm.PrivateIP,
 		VM:        vm.VM,

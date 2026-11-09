@@ -422,6 +422,17 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		}
 	}
 
+	if s.BootTraceBackend != "" {
+		if s.VHDCaching || config.Config.TestPreProvision || s.SkipSSHConnectivityValidation || s.SkipDefaultValidation {
+			return nil, errors.New("boot tracing requires a fresh, SSH-accessible, directly provisioned node")
+		}
+		s.Runtime.bootTrace, err = startBootTraceWatch(ctx, s)
+		if err != nil {
+			return nil, err
+		}
+		defer s.Runtime.bootTrace.stop()
+	}
+
 	start := time.Now()
 	scenarioVM, err := ConfigureAndCreateVMSS(ctx, s)
 	// Expected failures are checked by the runner; cleanup still collects debug information.
@@ -441,7 +452,13 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 		}
 	}
 
-	if !s.Config.SkipDefaultValidation {
+	if s.BootTraceBackend != "" {
+		if err := collectBootTraceCSE(ctx, s, scenarioVM); err != nil {
+			return scenarioVM, err
+		}
+	}
+
+	if !s.Config.SkipDefaultValidation && s.BootTraceBackend == "" {
 		readinessWaitStarted := time.Now()
 		provisioningElapsed := readinessWaitStarted.Sub(start)
 		scenarioVM.KubeName, err = s.Runtime.Kube.WaitUntilNodeReady(ctx, s.Runtime.VMSSName)
