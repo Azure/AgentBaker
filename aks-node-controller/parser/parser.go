@@ -30,6 +30,11 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 	return buffer.String(), nil
 }
 
+// GetCSEEnv returns the generated provisioning environment without inheriting the process environment.
+func GetCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
+	return getCSEEnv(ctx, config, gpuConfig)
+}
+
 //nolint:funlen
 func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.

@@ -30,6 +30,8 @@ func TestBuildCSECmdContainerdImagePullSettings(t *testing.T) {
 echo "containerd containerd.io %s test"
 `, version)), 0755))
 			t.Setenv("PATH", dir)
+			t.Setenv("PARITY_INHERITED_ONLY", "not-generated")
+			t.Setenv("PROVISION_OUTPUT", "/var/log/azure/cluster-provision-cse-output.log")
 			cfg := &aksnodeconfigv1.Configuration{ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 				ImagePullWithSyncFs:      proto.Bool(false),
 				ImagePullProgressTimeout: proto.String("0s"),
@@ -37,6 +39,14 @@ echo "containerd containerd.io %s test"
 			cmd, err := BuildCSECmd(context.Background(), cfg, nil)
 			require.NoError(t, err)
 			env := environToMap(cmd.Env)
+			generated := GetCSEEnv(t.Context(), cfg, nil)
+			require.Equal(t, "not-generated", env["PARITY_INHERITED_ONLY"])
+			require.NotContains(t, generated, "PARITY_INHERITED_ONLY")
+			require.Equal(t, os.Getenv("PROVISION_OUTPUT"), generated["PROVISION_OUTPUT"])
+			for key, value := range generated {
+				require.Contains(t, env, key)
+				require.Equal(t, value, env[key], key)
+			}
 			for _, key := range []string{"CONTAINERD_CONFIG_CONTENT", "CONTAINERD_CONFIG_NO_GPU_CONTENT"} {
 				content, err := base64.StdEncoding.DecodeString(env[key])
 				require.NoError(t, err)
