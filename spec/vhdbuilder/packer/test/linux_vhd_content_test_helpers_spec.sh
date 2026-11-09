@@ -104,7 +104,7 @@ Describe 'Azure Linux CA package minimum'
   End
 
   It 'checks the captured image before test setup installs packages'
-    When call awk '/^testAzureLinuxCACertificates \|\| exit 1$/ {check=NR} /^SKIP_GIT_CLONE=false$/ {setup=NR} END {exit !(check && setup && check < setup)}' vhdbuilder/packer/test/linux-vhd-content-test.sh
+    When call awk '/^testAzureLinuxCACertificates \/etc\/os-release \|\| exit 1$/ {check=NR} /^SKIP_GIT_CLONE=false$/ {setup=NR} END {exit !(check && setup && check < setup)}' vhdbuilder/packer/test/linux-vhd-content-test.sh
     The status should be success
   End
 End

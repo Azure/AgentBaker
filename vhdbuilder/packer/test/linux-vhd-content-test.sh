@@ -114,7 +114,7 @@ testAzureLinuxCACertificates() {
 }
 
 # Check the captured image before test setup can upgrade its CA packages.
-testAzureLinuxCACertificates || exit 1
+testAzureLinuxCACertificates /etc/os-release || exit 1
 testEmudhraRootRemoval /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
   /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem || exit 1
 
