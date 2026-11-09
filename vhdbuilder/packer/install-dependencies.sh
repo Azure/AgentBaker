@@ -35,6 +35,11 @@ source /home/packer/install-ig.sh
 source /home/packer/install-node-exporter.sh
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+LPS_REPRODUCTION_PMC_PINS=false
+if isUbuntu "$OS" && [ "${OS_VERSION}" = "24.04" ] && [ "${CPU_ARCH}" = "amd64" ]; then
+  LPS_REPRODUCTION_PMC_PINS=true
+fi
+export LPS_REPRODUCTION_PMC_PINS
 SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json

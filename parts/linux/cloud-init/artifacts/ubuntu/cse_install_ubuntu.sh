@@ -599,21 +599,31 @@ installPackageFromCache() {
 getLatestDebPackageVersion() {
     local packageName="${1}"
     local desiredVersion="${2}"
-    local desiredVersionNoEpoch="${desiredVersion#*:}"
+    local desiredVersionNoEpoch
+    local exactVersion=false
     local architecture
 
     architecture=$(getCPUArch)
 
+    # Only the isolated VHD builder enables these historical package revisions.
+    case "${LPS_REPRODUCTION_PMC_PINS:-false}:${packageName}:${desiredVersion#*:}" in
+        true:moby-containerd:2.3.6) desiredVersion="2.3.6-ubuntu24.04u1"; exactVersion=true ;;
+        true:moby-runc:1.4.3) desiredVersion="1.4.3-ubuntu24.04u31"; exactVersion=true ;;
+        true:kubelet:1.36.3) desiredVersion="1.36.3-ubuntu24.04u7"; exactVersion=true ;;
+    esac
+    desiredVersionNoEpoch="${desiredVersion#*:}"
+
     apt list "${packageName}" --all-versions 2>/dev/null |
-        awk -v architecture="${architecture}" -v desired="${desiredVersion}" -v desiredNoEpoch="${desiredVersionNoEpoch}" '
+        awk -v architecture="${architecture}" -v desired="${desiredVersion}" -v desiredNoEpoch="${desiredVersionNoEpoch}" -v exact="${exactVersion}" '
             NR > 1 && $3 == architecture {
                 version = $2
                 versionNoEpoch = version
                 sub(/^[0-9]+:/, "", versionNoEpoch)
                 if (version == desired ||
-                    versionNoEpoch == desiredNoEpoch ||
+                    (exact != "true" &&
+                    (versionNoEpoch == desiredNoEpoch ||
                     index(versionNoEpoch, desiredNoEpoch "-") == 1 ||
-                    index(versionNoEpoch, desiredNoEpoch "+") == 1) {
+                    index(versionNoEpoch, desiredNoEpoch "+") == 1))) {
                     print version
                 }
             }

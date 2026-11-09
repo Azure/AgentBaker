@@ -168,6 +168,55 @@ Describe 'cse_install_ubuntu.sh'
     Describe 'getLatestDebPackageVersion'
         getCPUArch() { echo "amd64"; }
 
+        Describe 'frozen reproduction package selection'
+            LPS_REPRODUCTION_PMC_PINS=true
+
+            Parameters
+                moby-containerd 2.3.6 2.3.6-ubuntu24.04u1 2.3.6-ubuntu24.04u5
+                moby-runc 1.4.3 1.4.3-ubuntu24.04u31 1.4.3-ubuntu24.04u40
+                kubelet 1.36.3 1.36.3-ubuntu24.04u7 1.36.3-ubuntu24.04u10
+            End
+
+            It 'selects the original revision rather than newer rebuilds'
+                package_name=$1
+                frozen_revision=$3
+                latest_revision=$4
+                apt() {
+                    printf 'Listing...\n%s/repo %s amd64\n%s/repo %s amd64\n%s/repo %s-future amd64\n' \
+                        "$package_name" "$frozen_revision" "$package_name" "$latest_revision" "$package_name" "$frozen_revision"
+                }
+                When call getLatestDebPackageVersion "$1" "$2"
+                The output should equal "$3"
+            End
+        End
+
+        It 'does not fall back when the frozen package is absent'
+            LPS_REPRODUCTION_PMC_PINS=true
+            apt() {
+                printf 'Listing...\nmoby-containerd/repo 2.3.6-ubuntu24.04u5 amd64\n'
+            }
+            When call getLatestDebPackageVersion moby-containerd 2.3.6
+            The output should equal ""
+        End
+
+        It 'retains ordinary node revision selection when reproduction pins are disabled'
+            LPS_REPRODUCTION_PMC_PINS=false
+            apt() {
+                printf 'Listing...\nmoby-containerd/repo 2.3.6-ubuntu24.04u1 amd64\nmoby-containerd/repo 2.3.6-ubuntu24.04u5 amd64\n'
+            }
+            When call getLatestDebPackageVersion moby-containerd 2.3.6
+            The output should equal "2.3.6-ubuntu24.04u5"
+        End
+
+        It 'leaves unrelated versions unchanged even during reproduction'
+            LPS_REPRODUCTION_PMC_PINS=true
+            apt() {
+                printf 'Listing...\nmoby-containerd/repo 2.3.7-ubuntu24.04u1 amd64\nmoby-containerd/repo 2.3.7-ubuntu24.04u4 amd64\n'
+            }
+            When call getLatestDebPackageVersion moby-containerd 2.3.7
+            The output should equal "2.3.7-ubuntu24.04u4"
+        End
+
         It 'selects the latest revision for the requested upstream version'
             apt() {
                 cat <<'EOF'
