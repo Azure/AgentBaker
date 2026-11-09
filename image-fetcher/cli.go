@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,9 +19,9 @@ import (
 func newCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "image-fetcher",
-		Usage: "Cache container images in containerd",
+		Usage: "Cache and list container images in containerd",
 		Action: func(context.Context, *cli.Command) error {
-			return errors.New("expected cache-image or cache-components command")
+			return errors.New("expected cache-image, cache-components, or list-images command")
 		},
 		Commands: []*cli.Command{
 			{
@@ -55,8 +56,44 @@ func newCommand() *cli.Command {
 				},
 				Action: cacheComponents,
 			},
+			{
+				Name:  "list-images",
+				Usage: "Write the cached container image inventory as a VHD image BOM",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "sku", Required: true, Usage: "The VHD's SKU"},
+					&cli.StringFlag{Name: "node-image-version", Required: true, Usage: "The VHD's node image version"},
+					&cli.StringFlag{Name: "output-path", Required: true, Usage: "Where to write the image BOM JSON"},
+				},
+				Action: listImages,
+			},
 		},
 	}
+}
+
+func listImages(ctx context.Context, cmd *cli.Command) error {
+	if cmd.Args().Len() != 0 {
+		return errors.New("list-images accepts no positional arguments; use --sku, --node-image-version, and --output-path")
+	}
+	for _, name := range []string{"sku", "node-image-version", "output-path"} {
+		if strings.TrimSpace(cmd.String(name)) == "" {
+			return fmt.Errorf("--%s must not be empty", name)
+		}
+	}
+	return withContainerd(ctx, func(ctx context.Context, client *containerd.Client) error {
+		bom, err := ListImages(ctx, client, cmd.String("sku"), cmd.String("node-image-version"))
+		if err != nil {
+			return fmt.Errorf("list images: %w", err)
+		}
+		raw, err := json.MarshalIndent(bom, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal image BOM: %w", err)
+		}
+		path := cmd.String("output-path")
+		if err := os.WriteFile(path, raw, 0644); err != nil {
+			return fmt.Errorf("write image BOM to %s: %w", path, err)
+		}
+		return nil
+	})
 }
 
 func withContainerd(ctx context.Context, action func(context.Context, *containerd.Client) error) error {

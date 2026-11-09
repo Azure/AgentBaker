@@ -1,28 +1,15 @@
-package image
+package main
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
-	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/namespaces"
+	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/platforms"
 )
 
-const (
-	containerdSocketPath = "/run/containerd/containerd.sock"
-
-	k8sNamespace = "k8s.io"
-)
-
-func ListImages(sku, version string) (*List, error) {
-	client, err := containerd.New(containerdSocketPath)
-	if err != nil {
-		return nil, fmt.Errorf("create containerd client over socket %s: %w", containerdSocketPath, err)
-	}
-
-	ctx := namespaces.WithNamespace(context.Background(), k8sNamespace)
+func ListImages(ctx context.Context, client *containerd.Client, sku, version string) (*List, error) {
 	imageStore := client.ImageService()
 	contentStore := client.ContentStore()
 
