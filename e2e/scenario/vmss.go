@@ -694,7 +694,9 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if err != nil {
 		return &ScenarioVM{}, err
 	}
-	return createVMSS(ctx, s, resourceGroupName, model, DialSSHOverBastion)
+	return createVMSSWithGPUQuotaRecovery(ctx, model, func() (*ScenarioVM, error) {
+		return createVMSS(ctx, s, resourceGroupName, model, DialSSHOverBastion)
+	})
 }
 
 func createVMSS(
@@ -1000,6 +1002,10 @@ func shouldSurfaceCapacityError(s *Scenario, err error) bool {
 // still fail on a genuine capacity regression.
 func skipIfSKUNotAvailableErr(err error, scenarioSkipsOnCapacity bool) error {
 	if !config.Config.SkipTestsWithSKUCapacityIssue {
+		return nil
+	}
+	var recoveryErr *gpuQuotaRecoveryError
+	if errors.As(err, &recoveryErr) {
 		return nil
 	}
 	// AllocationFailed is an HTTP-200 async result, not a 409, so it needs its own branch.

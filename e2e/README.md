@@ -28,6 +28,26 @@ The shared `Install-OpenSSH` implementation ships only in the versioned Windows
 CSE bundle, not in CustomData. Older bundles retain their existing SSH behavior
 and require an updated CSE bundle or VHD to receive this fix.
 
+### GPU quota recovery
+
+In the dedicated E2E subscription `8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8`,
+GPU tests take priority over non-AgentBaker standalone GPU VMs and uniform VM scale
+sets. After a confirmed Compute core-quota error, the runner can **delete** one
+such resource with the exact requested VM size in the same region, wait for
+deletion, pause 15 seconds for quota propagation, and retry creation up to three times. It uses
+the final VMSS request size and verifies its GPU capability in Azure's SKU catalogue.
+It does not reclaim other sizes, even within the same quota family, or resources
+using a different Spot/regular priority.
+
+AgentBaker names/resource groups, `buildID` and `KEEP_VMSS` tags, AKS-managed
+resources, managed resource groups, and flexible scale sets are protected.
+Resource properties and ownership tags are rechecked before deletion. Only the
+VM or VMSS is deleted, never its resource group. Recovery is serialized within
+each runner; it is not a subscription-wide lock across separate pipeline runs.
+Other subscriptions, allocation/capacity errors, and non-core quotas retain their
+existing failure/skip behavior. Inventory or deletion failures preserve the
+original quota error and stop recovery as a failure, even in PR gates.
+
 ## Writing and extending scenarios
 
 Extend an existing scenario's `Validator` when its node has the required settings.
