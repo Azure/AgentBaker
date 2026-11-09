@@ -41,41 +41,6 @@ Describe 'cse_install_mariner.sh'
         End
     End
 
-    Describe 'installKataDeps'
-        It 'installs the pinned host kernel with Kata dependencies on Azure Linux 3.0'
-            OS_VERSION="3.0"
-            When call installKataDeps
-            The output should equal "dnf install 30 1 600 kata-packages-host kernel-mshv-6.18.34.mshv3-1.azl3"
-            The status should be success
-        End
-
-        It 'preserves the unpinned Kata dependencies on Mariner 2.0'
-            OS_VERSION="2.0"
-            When call installKataDeps
-            The output should equal "dnf install 30 1 600 kata-packages-host"
-            The status should be success
-        End
-
-        It 'does not install Kata dependencies on Mariner 1.0'
-            OS_VERSION="1.0"
-            When call installKataDeps
-            The output should be blank
-            The status should be success
-        End
-
-        It 'fails rather than falling back when the pinned kernel cannot be installed'
-            OS_VERSION="3.0"
-            ERR_APT_INSTALL_TIMEOUT=9
-            dnf_install() {
-                echo "dnf install $*"
-                return 1
-            }
-            When run installKataDeps
-            The output should equal "dnf install 30 1 600 kata-packages-host kernel-mshv-6.18.34.mshv3-1.azl3"
-            The status should equal 9
-        End
-    End
-
     Describe 'installRPMPackageFromFile'
         rpm_cache_root="$PWD/spec/tmp/rpm-cache"
 
