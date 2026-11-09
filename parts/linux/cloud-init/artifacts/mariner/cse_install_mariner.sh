@@ -67,12 +67,7 @@ installDeps() {
 
 installKataDeps() {
     if [ "$OS_VERSION" != "1.0" ]; then
-      local kataPackages=(kata-packages-host)
-      if [ "$OS_VERSION" = "3.0" ]; then
-        # Keep the known-good host kernel while investigating 6.18.58 networking failures.
-        kataPackages+=("kernel-mshv-6.18.34.mshv3-1.azl3")
-      fi
-      if ! dnf_install 30 1 600 "${kataPackages[@]}"; then
+      if ! dnf_install 30 1 600 kata-packages-host; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     fi
@@ -476,13 +471,13 @@ installCredentialProviderPackageFromBootstrapProfileRegistry() {
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     if ! installToolFromBootstrapProfileRegistry "azure-acr-credential-provider" $bootstrapProfileRegistry "${packageVersion}" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"; then
-        if [ "${SHOULD_ENFORCE_KUBE_PMC_INSTALL}" != "true" ] ; then
-            # SHOULD_ENFORCE_KUBE_PMC_INSTALL will only be set for e2e tests, which should not fallback to reflect result of package installation behavior
+        # credential provider binaries are deprecated for 1.35+, skip the URL fallback.
+        if semverCompare "${k8sVersion:-0.0.0}" 1.35.0; then
+            echo "Failed to install azure-acr-credential-provider ${packageVersion} from bootstrap profile registry"
+            exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
+        else
             echo "Fall back to install credential provider from url installation"
             installCredentialProviderFromUrl
-        else
-            echo "Failed to install credential provider from bootstrap profile registry, and not falling back to package installation"
-            exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
         fi
     fi
 }
