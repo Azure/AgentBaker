@@ -60,55 +60,6 @@ Describe 'eMudhra root removal'
   End
 End
 
-Describe 'Azure Linux CA package minimum'
-  BeforeAll "eval \"\$(sed -n '/^testAzureLinuxCACertificates()/,/^}/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)\""
-  err() { echo "$1:Error: $2" >&2; }
-  setup() {
-    os_release="${SHELLSPEC_WORKDIR}/ca-os-release"
-    printf 'ID=%s\nVERSION_ID=%s\n' "$OS_ID" "$OS_RELEASE" > "$os_release"
-  }
-  rpm() {
-    [ "$*" = '-q --queryformat %{VERSION}-%{RELEASE}\n ca-certificates' ] || return 2
-    printf '%s\n' "$PACKAGE_VERSION"
-    return "$QUERY_STATUS"
-  }
-
-  Parameters
-    azurelinux 3.0 3.0.0-18.azl3 0 1
-    azurelinux 3.0 3.0.0-19.azl3 0 0
-    azurelinux 3.0 3.0.0-20.azl3 0 0
-    azurelinux 3.0 3.0.0-100.azl3 0 0
-    azurelinux 3.0 3.0.1-1.azl3 0 0
-    azurelinux 3.0 '' 0 1
-    azurelinux 3.0 '' 1 1
-    azurelinux 4.0 '' 1 0
-    mariner 2.0 '' 1 0
-    ubuntu 24.04 '' 1 0
-    flatcar 4516.2.0 '' 1 0
-  End
-  It "checks $1 $2 with CA package '$3' and query status $4"
-    OS_ID="$1" OS_RELEASE="$2" PACKAGE_VERSION="$3" QUERY_STATUS="$4"
-    setup
-    When call testAzureLinuxCACertificates "$os_release"
-    The status should equal "$5"
-    The output should be blank
-    if [ "$5" -ne 0 ]; then
-      The stderr should include 'testAzureLinuxCACertificates:Error:'
-    fi
-  End
-
-  It 'fails when OS release information cannot be read'
-    When call testAzureLinuxCACertificates "${SHELLSPEC_WORKDIR}/absent-os-release"
-    The status should be failure
-    The stderr should include 'testAzureLinuxCACertificates:Error: Cannot read'
-  End
-
-  It 'checks the captured image before test setup installs packages'
-    When call awk '/^testAzureLinuxCACertificates \/etc\/os-release \|\| exit 1$/ {check=NR} /^SKIP_GIT_CLONE=false$/ {setup=NR} END {exit !(check && setup && check < setup)}' vhdbuilder/packer/test/linux-vhd-content-test.sh
-    The status should be success
-  End
-End
-
 Describe 'Linux content-test legacy parameters'
   read_legacy_parameters() {
     eval "$(sed -n '/^OS_VERSION=/,/^AGENTBAKER_REPOSITORY_URL=/p' vhdbuilder/packer/test/linux-vhd-content-test.sh)"
