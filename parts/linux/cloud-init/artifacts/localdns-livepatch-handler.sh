@@ -71,6 +71,12 @@ LOCALDNS_LIMITS_SCRIPT="${LOCALDNS_LIMITS_SCRIPT:-/opt/azure/containers/localdns
 # Why this run's localDNS patch failed, reported as the component's "message" in the live-patching
 # status. updateLocalDNS clears it on entry and sets it on every path that fails the patch.
 LOCALDNS_FAILURE_MESSAGE=""
+# How this run served the Corefile (reload, restart, unchanged, next start), and the outcome and message of
+# a run that succeeded. updateLocalDNS reports them as the run's guest agent event; a failed run reports
+# LOCALDNS_FAILURE_MESSAGE instead.
+LOCALDNS_SERVED_BY=""
+LOCALDNS_EVENT_OUTCOME=""
+LOCALDNS_EVENT_MESSAGE=""
 
 # Sourced unconditionally like this file itself; updateLocalDNS fails the patch if it is missing.
 # shellcheck source=parts/linux/cloud-init/artifacts/localdns-limits.sh
@@ -223,6 +229,7 @@ localDNSRestart() {
         return 1
     fi
     echo "restarted localdns.service"
+    LOCALDNS_SERVED_BY="restart"
 }
 
 # Makes CoreDNS serve the Corefile built from source_corefile.
@@ -256,6 +263,7 @@ localDNSServe() {
             ;;
         *)
             echo "localdns.service is ${state}; its next start builds the served corefile from ${source_corefile}"
+            LOCALDNS_SERVED_BY="next start"
             return 0
             ;;
     esac
@@ -286,6 +294,7 @@ localDNSServe() {
     if cmp -s "${desired}" "${LOCALDNS_SERVED_COREFILE}"; then
         rm -f "${desired}"
         echo "localDNS served corefile is already current"
+        LOCALDNS_SERVED_BY="unchanged"
         return 0
     fi
 
@@ -321,6 +330,7 @@ localDNSServe() {
             # The patch may add or drop zones, or move one between VNet DNS and CoreDNS, so refresh the
             # forward_info metrics; on a restart localdns.sh does this itself.
             localdns_export_forward_ips "${LOCALDNS_SERVED_COREFILE}" "${LOCALDNS_FORWARD_IPS_PROM_FILE}"
+            LOCALDNS_SERVED_BY="reload"
             return 0
             ;;
         1)
@@ -447,8 +457,14 @@ localDNSRevoke() {
     local state
     local revoke_message=""
     local serve_result
+    local revoked_version
+    local had_patch=false
 
     echo "localDNS has no config applicable to this node; serving the baked corefile"
+    if [ -e "${LOCALDNS_LIVEPATCHED_COREFILE}" ]; then
+        had_patch=true
+        revoked_version="$(localDNSCurrent)"
+    fi
     rm -f "${LOCALDNS_LIVEPATCHED_COREFILE}" "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
     if [ "${managed}" = true ] && ! { limits_error="$(localdns_limits_apply "${baked_cpu}" "${baked_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
         # The control plane no longer publishes a config for this node, so the Corefile revoke goes
@@ -467,6 +483,13 @@ localDNSRevoke() {
                 return 1
             fi
             echo "localDNS update completed successfully"
+            if [ "${had_patch}" = true ]; then
+                LOCALDNS_EVENT_OUTCOME="Revoked"
+                LOCALDNS_EVENT_MESSAGE="corefileVersion=${revoked_version:-uncommitted} revoked; serving the baked corefile; served=${LOCALDNS_SERVED_BY}"
+            else
+                LOCALDNS_EVENT_OUTCOME="NoAction"
+                LOCALDNS_EVENT_MESSAGE="no localDNS config for this node"
+            fi
             return 0
             ;;
         1)
@@ -497,7 +520,40 @@ localDNSRevoke() {
     esac
 }
 
+# Guest agent event for a localDNS run, AKS.LivePatching.localDNS.<outcome>, the convention securityPatch
+# and npdConfig follow. localdns.sh writes the same event for the bootstrap (LPS) path; the message's
+# path= tells them apart. A run outside the reconciler has no knead_emit_event and writes none.
+knead_emit_localdns_event() {
+    local outcome="$1"
+    local message="$2"
+    local level="${3:-Informational}"
+
+    if ! declare -F knead_emit_event > /dev/null; then
+        return 0
+    fi
+    if ! knead_emit_event "AKS.LivePatching.localDNS.${outcome}" "path=runtime ${message}" "${level}"; then
+        echo "failed to write the localDNS ${outcome} event"
+    fi
+}
+
+# The reconciler's localDNS handler: applies the payload (localDNSUpdate) and reports the run as one
+# guest agent event.
 updateLocalDNS() {
+    local status=0
+
+    LOCALDNS_SERVED_BY=""
+    LOCALDNS_EVENT_OUTCOME=""
+    LOCALDNS_EVENT_MESSAGE=""
+    localDNSUpdate "$@" || status=$?
+    if [ "${status}" -ne 0 ]; then
+        knead_emit_localdns_event Failed "${LOCALDNS_FAILURE_MESSAGE:-the localDNS update failed}" Error
+    else
+        knead_emit_localdns_event "${LOCALDNS_EVENT_OUTCOME:-Succeeded}" "${LOCALDNS_EVENT_MESSAGE}"
+    fi
+    return "${status}"
+}
+
+localDNSUpdate() {
     local component_payload="${1:-}"
     local node_json="${2:-}"
     local agent_pool
@@ -709,5 +765,11 @@ updateLocalDNS() {
         return 1
     fi
     echo "localDNS update completed successfully"
+    LOCALDNS_EVENT_OUTCOME="Succeeded"
+    if [ "${apply_outcome}" = alreadyCurrent ]; then
+        LOCALDNS_EVENT_MESSAGE="corefileVersion=${desired_version} served=alreadyCurrent"
+    else
+        LOCALDNS_EVENT_MESSAGE="corefileVersion=${desired_version} served=${LOCALDNS_SERVED_BY}"
+    fi
     return 0
 }
