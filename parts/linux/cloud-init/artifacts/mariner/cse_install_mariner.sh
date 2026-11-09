@@ -55,7 +55,7 @@ EOF
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
     local packages="ca-certificates cifs-utils conntrack-tools cracklib ethtool fuse inotify-tools iproute ipset jq logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat tcpdump traceroute util-linux xz zip nftables iscsi-initiator-utils device-mapper-multipath"
     if [ "$OS_VERSION" = "4.0" ]; then
-      packages+=" iptables-nft iotop-c dnf5-plugins blobfuse2-preview-2.5.5~preview.1-1"
+      packages+=" iptables-nft iotop-c dnf5-plugins dnf5-plugin-automatic blobfuse2-preview-2.5.5~preview.1-1"
     else
       packages+=" check-restart cloud-init-azure-kvp dnf-automatic ebtables iotop iptables blobfuse2"
     fi
