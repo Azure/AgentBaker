@@ -29,6 +29,11 @@ if [ -f "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
   fi
 fi
 
+# Keep the reproduction on the Ubuntu marketplace base pinned in the old source.
+if [ "${IMG_SKU}" = "server" ]; then
+  IMG_VERSION="24.04.202510010"
+fi
+
 # Check if the file exists, if it does, the build is triggered from an official branch
 if [ -f "${VHD_BUILD_TIMESTAMP_JSON}" ]; then
   # Ensure that the file is not empty, this will never happen since automation generates the file after each build but still have this check in place

@@ -124,6 +124,17 @@ else
     sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
   fi
 
+  # Freeze Ubuntu packages for the isolated October 12 baseline reproduction.
+  if isUbuntu "$OS" && [ "${OS_VERSION}" = "24.04" ] && [ "${CPU_ARCH}" = "amd64" ]; then
+    for ubuntu_source in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+      if [ -f "${ubuntu_source}" ]; then
+        sed -Ei 's#https?://(azure\.archive|archive|security)\.ubuntu\.com/ubuntu/?#https://snapshot.ubuntu.com/ubuntu/20261008T000000Z/#g' "${ubuntu_source}"
+      fi
+    done
+    grep -qF 'https://snapshot.ubuntu.com/ubuntu/20261008T000000Z/' \
+      /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || exit "$ERR_APT_UPDATE_TIMEOUT"
+  fi
+
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
