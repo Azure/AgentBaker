@@ -40,6 +40,7 @@ Describe 'localdns.sh'
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
             LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/run/localdns/vnet-dns-forward-servers"
             LOCALDNS_LPS_REJECTED_MARKER="${TEST_DIR}/run/localdns/lps-corefile-rejected"
+            LOCALDNS_EVENTS_DIR="${TEST_DIR}/events"
             # No kubelet kubeconfig yet, i.e. a bootstrap start.
             KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
@@ -600,6 +601,7 @@ EOF
             LIVEPATCHED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/livepatched.localdns.corefile"
             AKS_NODE_CONTROLLER_BINARY="${TEST_DIR}/aks-node-controller"
             LOCALDNS_LPS_REJECTED_MARKER="${TEST_DIR}/run/localdns/lps-corefile-rejected"
+            LOCALDNS_EVENTS_DIR="${TEST_DIR}/events"
             # No kubelet kubeconfig yet, i.e. a bootstrap start, where the LPS fetch runs.
             KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
@@ -624,6 +626,13 @@ EOF
             printf 'echo "%s"\n' "$@" >> "${AKS_NODE_CONTROLLER_BINARY}"
             printf 'exit 0\n' >> "${AKS_NODE_CONTROLLER_BINARY}"
             chmod +x "${AKS_NODE_CONTROLLER_BINARY}"
+        }
+
+        # The guest agent events written so far, one "TaskName|EventLevel|Message" line each.
+        lps_events() {
+            if [ -d "${LOCALDNS_EVENTS_DIR}" ]; then
+                cat "${LOCALDNS_EVENTS_DIR}"/*.json | jq -r '"\(.TaskName)|\(.EventLevel)|\(.Message)"'
+            fi
         }
 
         cleanup() {
@@ -849,6 +858,60 @@ EOF
             The output should include "aks-node-controller binary unavailable"
             The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}" should not be exist
             The path "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should not be exist
+        End
+
+        #------------------------ bootstrap events ----------------------------------------------------
+        It 'should report a committed LPS patch as Succeeded'
+            stub_aks_node_controller "version: v2" "rendered"
+            refresh_localdns_corefile_from_lps > /dev/null
+            commit_localdns_corefile_version > /dev/null
+            When call lps_events
+            The output should equal 'AKS.LivePatching.localDNS.Succeeded|Informational|path=bootstrap corefileVersion=v2'
+        End
+
+        It 'should report limits that could not be applied as Failed'
+            stub_aks_node_controller "version: v2" "cpuQuota: 300.0%" "memoryMax: 512M" "rendered"
+            FAKE_SET_PROPERTY_FAIL=MemoryMax
+            refresh_localdns_corefile_from_lps > /dev/null 2>&1
+            When call lps_events
+            The output should start with 'AKS.LivePatching.localDNS.Failed|Error|path=bootstrap corefileVersion=v2; live patching the memory limit failed'
+            The output should end with 'limits reverted to cpu 200.8%, memory 128M; serving the baked corefile'
+        End
+
+        It 'should report a revoked patch'
+            write_stale_livepatched_corefile
+            stub_aks_node_controller "notFound"
+            refresh_localdns_corefile_from_lps > /dev/null
+            When call lps_events
+            The output should equal 'AKS.LivePatching.localDNS.Revoked|Informational|path=bootstrap corefileVersion=v1 revoked (LPS outcome notFound); serving the baked corefile'
+        End
+
+        It 'should report nothing when LPS has no config and there was no patch'
+            stub_aks_node_controller "noCorefileData"
+            refresh_localdns_corefile_from_lps > /dev/null
+            When call lps_events
+            The output should equal ''
+        End
+
+        It 'should report a patch CoreDNS did not come up on as Failed'
+            stub_aks_node_controller "version: v2" "rendered"
+            refresh_localdns_corefile_from_lps > /dev/null
+            abandon_lps_localdns_patch "did not become ready" > /dev/null
+            When call lps_events
+            The output should equal 'AKS.LivePatching.localDNS.Failed|Error|path=bootstrap corefileVersion=v2; CoreDNS did not become ready on it; the next start serves the baked corefile and limits'
+        End
+
+        It 'should still commit when the event cannot be written'
+            stub_aks_node_controller "version: v2" "rendered"
+            refresh_localdns_corefile_from_lps > /dev/null
+            echo "not a directory" > "${TEST_DIR}/events-blocker"
+            LOCALDNS_EVENTS_DIR="${TEST_DIR}/events-blocker/events"
+            When call commit_localdns_corefile_version
+            The status should be success
+            The output should include 'Committed LocalDNS corefileVersion v2.'
+            The output should include "WARNING: Failed to write the localDNS Succeeded event to ${TEST_DIR}/events-blocker/events."
+            The stderr should be present
+            The contents of file "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version" should equal 'v2'
         End
 
         #------------------------ abandon_lps_localdns_patch ------------------------------------------

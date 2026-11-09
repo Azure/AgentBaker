@@ -92,6 +92,9 @@ LOCALDNS_PENDING_COREFILE_VERSION=""
 # version once the node has joined. Under /run so a reboot gives LPS another try.
 LOCALDNS_LPS_REJECTED_MARKER="${LOCALDNS_LPS_REJECTED_MARKER:-/run/localdns/lps-corefile-rejected}"
 
+# Guest agent events, the directory the CSE and the live-patching reconciler write theirs to.
+LOCALDNS_EVENTS_DIR="${LOCALDNS_EVENTS_DIR:-/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events}"
+
 # Shared with the runtime live-patching handler and installed next to this script: CPU and memory
 # limit live patching, rendering the served Corefile and exporting its forward IPs, and the CoreDNS
 # readiness check. Without it a start cannot render the served Corefile and fails; cleanup still works.
@@ -387,6 +390,8 @@ refresh_localdns_corefile_from_lps() {
     local baked_memory
     local previous_cpu
     local previous_memory
+    local revoked_version
+    local had_patch=false
     if ! preflight="$(localdns_limits_preflight)"; then
         echo "LocalDNS limits preflight failed: ${preflight}; skipping LocalDNS LPS config fetch."
         return 0
@@ -424,7 +429,15 @@ refresh_localdns_corefile_from_lps() {
             ;;
         notFound|noCorefileData)
             echo "LocalDNS LPS config fetch outcome: ${outcome}; LPS has no corefile for this node."
-            discard_livepatched_localdns_corefile "LPS outcome ${outcome}" || true
+            if [ -e "${LIVEPATCHED_LOCALDNS_CORE_FILE}" ]; then
+                had_patch=true
+                revoked_version="$(localdns_committed_corefile_version)"
+            fi
+            if ! discard_livepatched_localdns_corefile "LPS outcome ${outcome}"; then
+                localdns_emit_lps_event Failed "LPS outcome ${outcome}, but the live-patched corefile could not be removed and is still served" Error
+            elif [ "${had_patch}" = true ]; then
+                localdns_emit_lps_event Revoked "corefileVersion=${revoked_version:-uncommitted} revoked (LPS outcome ${outcome}); serving the baked corefile"
+            fi
             reset_localdns_limits_to_baked "${baked_cpu}" "${baked_memory}"
             ;;
         failed)
@@ -439,6 +452,40 @@ refresh_localdns_corefile_from_lps() {
 
 localdns_corefile_version_file() {
     echo "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version"
+}
+
+# Prints the committed corefileVersion, or nothing when no version is committed.
+localdns_committed_corefile_version() {
+    if [ -s "$(localdns_corefile_version_file)" ]; then
+        tr -d '[:space:]' < "$(localdns_corefile_version_file)"
+    fi
+}
+
+# Records what a bootstrap start did with the LPS patch as a guest agent event,
+# AKS.LivePatching.localDNS.<outcome>, the event the runtime live-patching handler writes too; the
+# message's path= tells them apart. A failure to write it is logged and never fails the start.
+localdns_emit_lps_event() {
+    local outcome="$1"
+    local message="$2"
+    local level="${3:-Informational}"
+    local timestamp
+    local event_json
+
+    timestamp="$(date +"%F %T.%3N")"
+    if ! event_json="$(jq -n \
+            --arg Timestamp "${timestamp}" \
+            --arg OperationId "${timestamp}" \
+            --arg Version "1.23" \
+            --arg TaskName "AKS.LivePatching.localDNS.${outcome}" \
+            --arg EventLevel "${level}" \
+            --arg Message "path=bootstrap ${message}" \
+            --arg EventPid "0" \
+            --arg EventTid "0" \
+            '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}')" ||
+        ! mkdir -p "${LOCALDNS_EVENTS_DIR}" ||
+        ! printf '%s\n' "${event_json}" > "${LOCALDNS_EVENTS_DIR%/}/$(date +%s%N)${BASHPID}.json"; then
+        echo "WARNING: Failed to write the localDNS ${outcome} event to ${LOCALDNS_EVENTS_DIR}."
+    fi
 }
 
 # Applies the CPU and memory limits of the corefileVersion LPS returned, before CoreDNS starts.
@@ -458,10 +505,12 @@ apply_lps_localdns_limits() {
     local desired_memory
     local limits_error
     local reverted
+    local revert_state
 
     if ! desired="$(localdns_limits_from_anc_output "${outcome}" "${baked_cpu}" "${baked_memory}")"; then
         echo "WARNING: ${desired}; discarding the LPS corefile."
         discard_livepatched_localdns_corefile "unreadable aks-node-controller output" || true
+        localdns_emit_lps_event Failed "${desired}; serving the baked corefile" Error
         return 0
     fi
     read -r desired_version desired_cpu desired_memory <<< "${desired}"
@@ -469,10 +518,13 @@ apply_lps_localdns_limits() {
         echo "WARNING: live patching ${limits_error}."
         if { reverted="$(localdns_limits_revert "${previous_cpu}" "${previous_memory}" "${baked_cpu}" "${baked_memory}")"; } 2>&1; then
             echo "Reverted the localdns.slice limits to ${reverted}."
+            revert_state="limits reverted to ${reverted}"
         else
             echo "WARNING: Reverting the localdns.slice limits also failed; ${reverted}."
+            revert_state="reverting the limits also failed: ${reverted}"
         fi
         discard_livepatched_localdns_corefile "limits of corefileVersion ${desired_version} could not be applied" || true
+        localdns_emit_lps_event Failed "corefileVersion=${desired_version}; live patching ${limits_error}; ${revert_state}; serving the baked corefile" Error
         return 0
     fi
     LOCALDNS_PENDING_COREFILE_VERSION="${desired_version}"
@@ -499,9 +551,11 @@ commit_localdns_corefile_version() {
     fi
     if ! localdns_write_corefile_version "$(localdns_corefile_version_file)" "${LOCALDNS_PENDING_COREFILE_VERSION}"; then
         echo "WARNING: Failed to write $(localdns_corefile_version_file); the runtime live patching retries it."
+        localdns_emit_lps_event Failed "corefileVersion=${LOCALDNS_PENDING_COREFILE_VERSION} is served, but its .version could not be written; the runtime live patching commits it" Error
         return 0
     fi
     echo "Committed LocalDNS corefileVersion ${LOCALDNS_PENDING_COREFILE_VERSION}."
+    localdns_emit_lps_event Succeeded "corefileVersion=${LOCALDNS_PENDING_COREFILE_VERSION}"
     return 0
 }
 
@@ -520,6 +574,7 @@ abandon_lps_localdns_patch() {
     fi
     LOCALDNS_PENDING_COREFILE_VERSION=""
     echo "CoreDNS ${reason} on LPS corefileVersion ${version}; the next start serves the baked corefile and limits."
+    localdns_emit_lps_event Failed "corefileVersion=${version}; CoreDNS ${reason} on it; the next start serves the baked corefile and limits" Error
     if ! discard_livepatched_localdns_corefile "CoreDNS ${reason} on corefileVersion ${version}"; then
         echo "WARNING: corefileVersion ${version} could not be removed, so the next start serves it again."
     fi

@@ -95,6 +95,7 @@ EOF
         TEST_ANC_MEMORY=""
         TEST_SIMULATE_RESTART=""
         TEST_SERVED_COREFILE="${LOCALDNS_SERVED_COREFILE}"
+        TEST_EVENTS_FILE="${TEST_DIR}/events"
         TEST_RESTART_STATUS=0
         TEST_RELOAD_MODE="reload"
         TEST_READY_BODY="OK"
@@ -124,6 +125,11 @@ EOF
 
     served_unchanged() {
         cmp -s "${TEST_DIR}/initial-served.corefile" "${LOCALDNS_SERVED_COREFILE}"
+    }
+
+    # Stands in for the reconciler's guest agent event writer: one "task|message|level" line per event.
+    knead_emit_event() {
+        printf '%s|%s|%s\n' "$1" "$2" "${3:-Informational}" >> "${TEST_EVENTS_FILE}"
     }
 
     systemctl() {
@@ -809,6 +815,70 @@ EOF
             updateLocalDNS '{}' > /dev/null
             When call localDNSFailureMessage
             The output should equal ''
+        End
+    End
+
+    Describe 'events'
+        It 'reports a patch served by a reload as Succeeded'
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'CoreDNS reloaded the localDNS corefile'
+            The contents of file "${TEST_EVENTS_FILE}" should equal 'AKS.LivePatching.localDNS.Succeeded|path=runtime corefileVersion=v2 served=reload|Informational'
+        End
+
+        It 'reports a patch served by the fallback restart'
+            rm -f "${LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE}"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'systemctl restart localdns.service'
+            The contents of file "${TEST_EVENTS_FILE}" should equal 'AKS.LivePatching.localDNS.Succeeded|path=runtime corefileVersion=v2 served=restart|Informational'
+        End
+
+        It 'reports an already current patch'
+            cp "${TEST_PATCH_SOURCE}" "${LOCALDNS_LIVEPATCHED_COREFILE}"
+            echo "v2" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            TEST_ANC_OUTCOME="alreadyCurrent"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'localDNS update completed successfully'
+            The contents of file "${TEST_EVENTS_FILE}" should equal 'AKS.LivePatching.localDNS.Succeeded|path=runtime corefileVersion=v2 served=alreadyCurrent|Informational'
+        End
+
+        It 'reports a failed patch with its message'
+            TEST_RELOAD_MODE="reject"
+            When call updateLocalDNS '{}'
+            The status should be failure
+            The output should include 'CoreDNS rejected the localDNS corefile'
+            The contents of file "${TEST_EVENTS_FILE}" should equal 'AKS.LivePatching.localDNS.Failed|path=runtime CoreDNS rejected the new corefile and kept serving the previous one; reverted to the previous corefile and limits: cpu 200.8%, memory 128M|Error'
+        End
+
+        It 'reports a revoked patch'
+            echo "earlier-patch" > "${LOCALDNS_LIVEPATCHED_COREFILE}"
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            render_expected "${TEST_PATCH_SOURCE}" "10.1.0.4 10.1.0.5" > "${LOCALDNS_SERVED_COREFILE}"
+            record_initial_served
+            TEST_ANC_OUTCOME="noCorefileData"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'CoreDNS reloaded the localDNS corefile'
+            The contents of file "${TEST_EVENTS_FILE}" should equal 'AKS.LivePatching.localDNS.Revoked|path=runtime corefileVersion=v1 revoked; serving the baked corefile; served=reload|Informational'
+        End
+
+        It 'reports NoAction when there is no patch to revoke'
+            TEST_ANC_OUTCOME="noCorefileData"
+            TEST_RELOAD_MODE="down"
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'localDNS served corefile is already current'
+            The contents of file "${TEST_EVENTS_FILE}" should equal 'AKS.LivePatching.localDNS.NoAction|path=runtime no localDNS config for this node|Informational'
+        End
+
+        It 'writes no event outside the reconciler'
+            unset -f knead_emit_event
+            When call updateLocalDNS '{}'
+            The status should be success
+            The output should include 'localDNS update completed successfully'
+            The path "${TEST_EVENTS_FILE}" should not be exist
         End
     End
 
