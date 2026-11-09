@@ -176,7 +176,8 @@ func mapGRPCError(err error) error {
 		// fallback is allowed (shouldColdStartFallback default).
 		return err
 	}
-	//exhaustive:ignore // benign/authoritative codes handled explicitly; all others fall through to fallback-eligible default.
+	// Benign/authoritative codes handled explicitly; all others fall through to fallback-eligible default.
+	//exhaustive:ignore
 	switch st.Code() {
 	case codes.Unauthenticated, codes.PermissionDenied, codes.NotFound:
 		return fmt.Errorf("%w (code %s: %s)", errLPSUnavailable, st.Code(), st.Message())
