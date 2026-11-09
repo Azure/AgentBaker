@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -336,6 +338,9 @@ func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPo
 	if !profile.GetEnableLocalDns() {
 		return update, nil
 	}
+	if err := checkLocalDNSProfileComplete(profile); err != nil {
+		return localDNSCorefileUpdate{}, err
+	}
 	// The Corefile template reads exactly one field off Configuration outside of LocalDnsProfile:
 	// ClusterConfig.ClusterNetworkConfig.CoreDnsServiceIp. Everything else comes from the profile.
 	nodeConfig := &aksnodeconfigv1.Configuration{
@@ -372,6 +377,61 @@ func (a *App) localDNSCorefileUpdateFromAgentPoolConfig(selected localDNSAgentPo
 	update.corefile = corefile
 	update.hasCorefile = true
 	return update, nil
+}
+
+// checkLocalDNSProfileComplete refuses a profile that lacks a field the RP always sets
+// (ValidateLocalDNSProfile in aks-rp requires all of them on every zone, custom zones included). The
+// payload is parsed with DiscardUnknown so that a field the RP adds later does not break older nodes,
+// which also means a field renamed on either side arrives unset instead of failing the parse. An unset
+// field can render a Corefile CoreDNS accepts but serves differently: "cache <nil>" turns caching off,
+// and no forwardDestination sends ClusterFirst traffic to VNet DNS. Zero is a valid value; only an
+// absent field is refused. This ties the node to the fields the RP requires today: if the RP stops
+// sending one, this node keeps its current config and reports which field is missing.
+func checkLocalDNSProfileComplete(profile *aksnodeconfigv1.LocalDnsProfile) error {
+	for _, m := range []struct {
+		name      string
+		overrides map[string]*aksnodeconfigv1.LocalDnsOverrides
+	}{
+		{name: "vnetDnsOverrides", overrides: profile.GetVnetDnsOverrides()},
+		{name: "kubeDnsOverrides", overrides: profile.GetKubeDnsOverrides()},
+	} {
+		if len(m.overrides) == 0 {
+			return fmt.Errorf("localDNS profile has no %s", m.name)
+		}
+		for _, zone := range slices.Sorted(maps.Keys(m.overrides)) {
+			override := m.overrides[zone]
+			if override == nil {
+				return fmt.Errorf("localDNS profile %s zone %q is empty", m.name, zone)
+			}
+			if missing := missingLocalDNSOverrideFields(override); len(missing) > 0 {
+				return fmt.Errorf("localDNS profile %s zone %q has no %s", m.name, zone, strings.Join(missing, ", "))
+			}
+		}
+	}
+	return nil
+}
+
+// missingLocalDNSOverrideFields names the fields the RP always sets that this override lacks.
+func missingLocalDNSOverrideFields(override *aksnodeconfigv1.LocalDnsOverrides) []string {
+	var missing []string
+	for _, field := range []struct {
+		name string
+		set  bool
+	}{
+		{name: "queryLogging", set: override.GetQueryLogging() != ""},
+		{name: "protocol", set: override.GetProtocol() != ""},
+		{name: "forwardDestination", set: override.GetForwardDestination() != ""},
+		{name: "forwardPolicy", set: override.GetForwardPolicy() != ""},
+		{name: "maxConcurrent", set: override.MaxConcurrent != nil},
+		{name: "cacheDurationInSeconds", set: override.CacheDurationInSeconds != nil},
+		{name: "serveStaleDurationInSeconds", set: override.ServeStaleDurationInSeconds != nil},
+		{name: "serveStale", set: override.GetServeStale() != ""},
+	} {
+		if !field.set {
+			missing = append(missing, field.name)
+		}
+	}
+	return missing
 }
 
 func (a *App) nodeAgentPoolName() (string, error) {

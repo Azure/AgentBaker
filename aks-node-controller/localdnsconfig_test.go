@@ -290,6 +290,82 @@ func TestFetchAndApplyLocalDNSConfig(t *testing.T) {
 		assertNotWritten(t, out)
 	})
 
+	// A field renamed on either side arrives unset, since the payload is parsed with DiscardUnknown.
+	// Every field the RP always sets has to be present on every zone, custom zones included.
+	const wmtZone = `"wmt":{"queryLogging":"Error","protocol":"PreferUDP","forwardDestination":"VnetDNS",` +
+		`"forwardPolicy":"Sequential","maxConcurrent":1000,"cacheDurationInSeconds":3600,` +
+		`"serveStaleDurationInSeconds":3600,"serveStale":"Immediate"},`
+	withWmtZone := func(entry, zone string) string {
+		return strings.Replace(entry, `"vnetDnsOverrides":{`, `"vnetDnsOverrides":{`+zone, 1)
+	}
+	for _, tc := range []struct {
+		name    string
+		entry   string
+		wantErr string
+	}{
+		{
+			name:    "a renamed forwardDestination",
+			entry:   strings.Replace(localDNSTestPoolEntry("v1", 7200), `"forwardDestination"`, `"forwardDestinationX"`, 1),
+			wantErr: `localDNS profile vnetDnsOverrides zone "." has no forwardDestination`,
+		},
+		{
+			name:    "a renamed cacheDurationInSeconds",
+			entry:   strings.Replace(localDNSTestPoolEntry("v1", 7200), `"cacheDurationInSeconds"`, `"cacheDurationInSecondsX"`, 1),
+			wantErr: `localDNS profile vnetDnsOverrides zone "." has no cacheDurationInSeconds`,
+		},
+		{
+			name:    "a renamed override map",
+			entry:   strings.Replace(localDNSTestPoolEntry("v1", 7200), `"kubeDnsOverrides"`, `"kubeDnsOverridesX"`, 1),
+			wantErr: "localDNS profile has no kubeDnsOverrides",
+		},
+		{
+			// protojson refuses a null message, so this one fails while parsing. protobuf-go varies the
+			// spacing of its own errors, so only the end of the message is matched.
+			name:    "an empty zone",
+			entry:   withWmtZone(localDNSTestPoolEntry("v1", 7200), `"wmt":null,`),
+			wantErr: "unexpected token null",
+		},
+		{
+			name:    "a custom zone with a renamed field",
+			entry:   withWmtZone(localDNSTestPoolEntry("v1", 7200), strings.Replace(wmtZone, `"forwardDestination"`, `"forwardDestinationX"`, 1)),
+			wantErr: `localDNS profile vnetDnsOverrides zone "wmt" has no forwardDestination`,
+		},
+	} {
+		t.Run(tc.name+" fails without writing", func(t *testing.T) {
+			app := newApp(t, localDNSTestPayload(map[string]string{"pool1": tc.entry}))
+			out := filepath.Join(t.TempDir(), "localdns.corefile")
+
+			outcome, err := apply(t, app, out)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
+			assert.Equal(t, outcomeLocalDNSConfigFailed, outcome)
+			assertNotWritten(t, out)
+		})
+	}
+
+	t.Run("a complete custom zone is rendered", func(t *testing.T) {
+		app := newApp(t, localDNSTestPayload(map[string]string{"pool1": withWmtZone(localDNSTestPoolEntry("v1", 7200), wmtZone)}))
+		out := filepath.Join(t.TempDir(), "localdns.corefile")
+
+		outcome, err := apply(t, app, out)
+		require.NoError(t, err)
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome)
+		assert.Contains(t, read(t, out), "wmt:53")
+	})
+
+	t.Run("zero is a value, not a missing field", func(t *testing.T) {
+		entry := strings.Replace(localDNSTestPoolEntry("v1", 0), `"maxConcurrent":1000`, `"maxConcurrent":0`, 1)
+		app := newApp(t, localDNSTestPayload(map[string]string{"pool1": entry}))
+		out := filepath.Join(t.TempDir(), "localdns.corefile")
+
+		outcome, err := apply(t, app, out)
+		require.NoError(t, err)
+		assert.Equal(t, outcomeLocalDNSConfigRendered, outcome)
+		got := read(t, out)
+		assert.Contains(t, got, "max_concurrent 0")
+		assert.Contains(t, got, "cache 0 {")
+	})
+
 	t.Run("entry without a localDnsProfile is no corefile data", func(t *testing.T) {
 		app := newApp(t, `{"agentPools":{"pool1":{"corefileVersion":"v1"}}}`)
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
