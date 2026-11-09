@@ -1625,6 +1625,51 @@ testNfsServerService() {
   echo "$test:Finish"
 }
 
+# Azure Linux 4 has no dnf-automatic-install units or check-restart package, so the VHD build installs
+# AKS's own. The install units must be masked until the node-setup script enables them for the
+# Unmanaged node OS upgrade channel, dnf5's own timers must stay masked, and check-restart.timer must
+# be enabled so kured sees pending reboots.
+testUnattendedUpgradeUnits() {
+  local test="testUnattendedUpgradeUnits"
+  local os_sku=$1
+  local os_version=$2
+  echo "$test:Start"
+  if [ "$os_sku" != "AzureLinux" ] || [ "$os_version" != "4.0" ]; then
+    echo "$test: Skipping on ${os_sku} ${os_version}"
+    echo "$test:Finish"
+    return 0
+  fi
+
+  if ! rpm -q dnf5-plugin-automatic >/dev/null 2>&1; then
+    err "$test" "dnf5-plugin-automatic is not installed"
+  fi
+  if ! grep -q '^ExecStart=/usr/bin/dnf5 automatic --timer --installupdates$' /usr/lib/systemd/system/dnf-automatic-install.service 2>/dev/null; then
+    err "$test" "dnf-automatic-install.service is missing or does not run 'dnf5 automatic --timer --installupdates'"
+  fi
+
+  local unit state
+  for unit in dnf-automatic-install.service dnf-automatic-install.timer dnf5-automatic.service dnf5-automatic.timer dnf-automatic.service dnf-automatic.timer; do
+    state=$(systemctl is-enabled "$unit" 2>/dev/null)
+    if [ "$state" = "masked" ]; then
+      echo "$test: $unit is masked"
+    else
+      err "$test" "$unit should be masked on the VHD, but is-enabled reports '${state}'"
+    fi
+  done
+
+  state=$(systemctl is-enabled check-restart.timer 2>/dev/null)
+  if [ "$state" = "enabled" ]; then
+    echo "$test: check-restart.timer is enabled"
+  else
+    err "$test" "check-restart.timer should be enabled, but is-enabled reports '${state}'"
+  fi
+  if ! grep -q 'dnf5 needs-restarting' /usr/local/bin/check-restart.sh 2>/dev/null; then
+    err "$test" "/usr/local/bin/check-restart.sh is missing or does not use dnf5 needs-restarting"
+  fi
+
+  echo "$test:Finish"
+}
+
 # Verify all kernel modules with known LPE vulnerabilities are disabled.
 # Covers: CVE-2026-31431 (algif_aead), DirtyFrag (esp4, esp6, rxrpc),
 # and Fragnesia (esp4, esp6).
@@ -3128,6 +3173,7 @@ testMGLRUDisabled
 testCronPermissions "$IMG_SKU" "$OS_SKU"
 testCoreDumpSettings
 testNfsServerService
+testUnattendedUpgradeUnits $OS_SKU $OS_VERSION
 testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
