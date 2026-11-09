@@ -95,14 +95,94 @@ listInstalledPackages() {
     rpm -qa
 }
 
+# Azure Linux 4 uses dnf5. Its automatic plugin ships dnf5-automatic and dnf-automatic units, but not the
+# dnf-automatic-install units that the node-setup script enables for the Unmanaged node OS upgrade
+# channel. Install them under the Azure Linux 3 names, running dnf5's automatic command with updates
+# applied, so the node-setup script handles both versions the same way.
+installAzureLinux4DnfAutomaticInstallUnits() {
+    local unit_dir="${AZL4_SYSTEMD_UNIT_DIR:-/usr/lib/systemd/system}"
+    mkdir -p "$unit_dir" || return 1
+    cat > "${unit_dir}/dnf-automatic-install.service" <<'EOF' || return 1
+[Unit]
+Description=dnf5 automatic install updates
+ConditionPathExists=!/run/ostree-booted
+After=network-online.target
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=2
+IOSchedulingPriority=7
+ExecStart=/usr/bin/dnf5 automatic --timer --installupdates
+EOF
+    cat > "${unit_dir}/dnf-automatic-install.timer" <<'EOF' || return 1
+[Unit]
+Description=dnf5 automatic install updates timer
+ConditionPathExists=!/run/ostree-booted
+Wants=network-online.target
+
+[Timer]
+OnCalendar=*-*-* 6:00
+RandomizedDelaySec=60m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+    chmod 644 "${unit_dir}/dnf-automatic-install.service" "${unit_dir}/dnf-automatic-install.timer" || return 1
+    systemctl daemon-reload
+}
+
+# Azure Linux 4 has no check-restart package. Install the same service and timer, with a script that
+# asks dnf5 instead of dnf-utils, so kured still finds /var/run/reboot-required after updates.
+installAzureLinux4CheckRestart() {
+    local unit_dir="${AZL4_SYSTEMD_UNIT_DIR:-/usr/lib/systemd/system}"
+    local bin_dir="${AZL4_CHECK_RESTART_BIN_DIR:-/usr/local/bin}"
+    mkdir -p "$unit_dir" "$bin_dir" || return 1
+    cat > "${bin_dir}/check-restart.sh" <<'EOF' || return 1
+#!/bin/bash
+# dnf5 needs-restarting prints this when an updated package needs a reboot to take effect.
+OUTPUT=$(dnf5 needs-restarting 2>&1)
+echo "$OUTPUT"
+if [[ "$OUTPUT" == *"Reboot is required"* ]]; then
+    touch /var/run/reboot-required
+fi
+EOF
+    cat > "${unit_dir}/check-restart.service" <<EOF || return 1
+[Unit]
+Description=Checks if system needs to be restarted due to recent version updates
+Wants=check-restart.timer
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash ${bin_dir}/check-restart.sh
+EOF
+    cat > "${unit_dir}/check-restart.timer" <<'EOF' || return 1
+[Unit]
+Description=Checks if system needs to be restarted due to recent version updates
+
+[Timer]
+Unit=check-restart.service
+OnCalendar=*-*-* 08:00:00
+
+[Install]
+WantedBy=timers.target
+EOF
+    chmod 755 "${bin_dir}/check-restart.sh" || return 1
+    chmod 644 "${unit_dir}/check-restart.service" "${unit_dir}/check-restart.timer" || return 1
+    systemctl daemon-reload
+}
+
 # disable and mask all UU timers/services
 disableDNFAutomatic() {
     if [ "$OS_VERSION" = "4.0" ]; then
-        if rpm -q dnf5-plugin-automatic >/dev/null 2>&1; then
-            systemctl disable --now dnf5-automatic.timer || exit "$ERR_SYSTEMCTL_START_FAIL"
-            systemctl mask dnf5-automatic.service dnf5-automatic.timer || exit "$ERR_SYSTEMCTL_MASK_FAIL"
-        fi
-        echo "Automatic OS updates are disabled for Azure Linux 4 validation"
+        installAzureLinux4DnfAutomaticInstallUnits || exit 1
+        # Keep dnf5's own timers off: AKS manages unattended upgrades through dnf-automatic-install.timer.
+        systemctl disable --now dnf5-automatic.timer dnf-automatic.timer || exit "$ERR_SYSTEMCTL_START_FAIL"
+        systemctl mask dnf5-automatic.service dnf5-automatic.timer dnf-automatic.service dnf-automatic.timer || exit "$ERR_SYSTEMCTL_MASK_FAIL"
+        # As on Azure Linux 3, the install units stay masked until the node-setup script unmasks them and
+        # enables the timer for the Unmanaged channel.
+        systemctl mask dnf-automatic-install.service dnf-automatic-install.timer || exit "$ERR_SYSTEMCTL_MASK_FAIL"
         return 0
     fi
     # Ensure the automatic notifyonly timer is disabled.
@@ -133,8 +213,7 @@ disableTimesyncd() {
 # Regardless of UU mode, ensure check-restart is running
 enableCheckRestart() {
   if [ "$OS_VERSION" = "4.0" ]; then
-    echo "Reboot-required signaling is outside the Azure Linux 4 validation scope"
-    return 0
+    installAzureLinux4CheckRestart || exit 1
   fi
   # Even if UU is disabled, we should still run check-restart so that kured
   # will work as expected if it is installed.
