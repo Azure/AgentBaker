@@ -15,7 +15,9 @@ import (
 func TestCloudPrerequisiteSettings(t *testing.T) {
 	t.Run("unrelated validation is deferred to provisioning", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "config.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"cluster_config":{"location":"ussec"},"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":"https://depot/ubuntu"}}`), 0600))
+		input := `{"cluster_config":{"location":"ussec"},
+			"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":"https://depot/ubuntu"}}`
+		require.NoError(t, os.WriteFile(path, []byte(input), 0600))
 		settings, err := cloudPrerequisiteSettings(ProvisionFlags{ProvisionConfig: path})
 		require.NoError(t, err)
 		require.Equal(t, "ussec", settings["LOCATION"])
