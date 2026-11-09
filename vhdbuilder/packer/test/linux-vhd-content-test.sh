@@ -100,9 +100,9 @@ if [ "$OS_SKU" = "Ubuntu" ]; then
     err 'git-install' "Failed to install git"
     exit 1
   fi
-elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
-  : # Flatcar/ACL comes with git pre-installed
-elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+elif [ "$OS_SKU" = "Flatcar" ]; then
+  : # Flatcar comes with git pre-installed
+elif [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
   SKIP_GIT_CLONE=true
 else
   sudo tdnf install -y git
