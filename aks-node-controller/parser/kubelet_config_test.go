@@ -60,6 +60,21 @@ func TestKubeletConfigFileFieldsRoundTrip(t *testing.T) {
 			}`,
 		},
 		{
+			name: "memory manager preserves NUMA node zero",
+			config: &aksnodeconfigv1.KubeletConfigFileConfig{
+				MemoryManagerPolicy: "Static",
+				ReservedMemory: []*aksnodeconfigv1.KubeletMemoryReservation{
+					{NumaNode: proto.Int32(0), Limits: map[string]string{"memory": "1Gi"}},
+				},
+			},
+			want: `{
+				"memoryManagerPolicy": "Static",
+				"reservedMemory": [
+					{"numaNode": 0, "limits": {"memory": "1Gi"}}
+				]
+			}`,
+		},
+		{
 			name: "windows paths",
 			config: &aksnodeconfigv1.KubeletConfigFileConfig{
 				VolumePluginDir:          `C:\k\volumeplugins`,

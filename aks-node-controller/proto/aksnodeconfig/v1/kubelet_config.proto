@@ -500,6 +500,28 @@ message KubeletConfigFileConfig {
   // This field cannot be set if serializeImagePulls is true.
   // +optional
   optional int32 max_parallel_image_pulls = 60;
+
+  // memoryManagerPolicy is the name of the policy to use by the memory manager.
+  // Valid values on Linux are "None" and "Static".
+  // The "Static" policy requires reservedMemory to match the node allocatable memory reservation.
+  // Default: "None"
+  // +optional
+  string memory_manager_policy = 61;
+
+  // reservedMemory specifies memory and hugepages reservations for each NUMA node.
+  // With the "Static" policy, totals must match kubeReserved + systemReserved + evictionHard.
+  // NUMA node IDs must exist on the target machine and limits must be positive quantities.
+  // Default: nil
+  // +optional
+  repeated KubeletMemoryReservation reserved_memory = 62;
+}
+
+message KubeletMemoryReservation {
+  // numaNode is the NUMA node ID.
+  optional int32 numa_node = 1;
+
+  // limits is a set of ResourceName=ResourceQuantity pairs for "memory" or "hugepages-<size>".
+  map<string, string> limits = 2;
 }
 
 message KubeletTaint {
