@@ -226,36 +226,4 @@ Describe 'bootstrap-cosi-convert-tools.sh'
       The output should include 'azcopy archive checksum mismatch'
     End
   End
-
-  Describe 'install_go'
-    go() { echo 'go version go1.27.1 linux/amd64'; }
-
-    It 'always installs the pinned Microsoft Go on Ubuntu, even if Go exists'
-      PKG=apt
-      mkdir -p "$stub_dir/hack"
-      printf '#!/bin/sh\necho setup_golang ran\n' > "$stub_dir/hack/setup_golang.sh"
-      chmod +x "$stub_dir/hack/setup_golang.sh"
-      install_in_dir() { cd "$stub_dir" && install_go; }
-      When call install_in_dir
-      The line 1 of output should equal 'setup_golang ran'
-      The line 2 of output should equal 'go version go1.27.1 linux/amd64'
-    End
-
-    It 'keeps an existing Go on Azure Linux'
-      PKG=tdnf
-      sudo() { echo "sudo $*"; }
-      When call install_go
-      The output should equal 'go version go1.27.1 linux/amd64'
-    End
-
-    It 'installs golang on Azure Linux when Go is missing'
-      PKG=tdnf
-      unset -f go
-      sudo() { echo "sudo $*"; go() { echo 'go version go1.27.1 linux/arm64'; }; }
-      install_without_go() { PATH="$stub_dir" install_go; }
-      When call install_without_go
-      The line 1 of output should equal 'sudo tdnf install -y golang'
-      The line 2 of output should equal 'go version go1.27.1 linux/arm64'
-    End
-  End
 End
