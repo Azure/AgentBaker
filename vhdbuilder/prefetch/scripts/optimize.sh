@@ -21,11 +21,6 @@ set -uxo pipefail
 [ -z "${ENABLE_TRUSTED_LAUNCH:-}" ] && echo "ENABLE_TRUSTED_LAUNCH is not set" && exit 1
 [ -z "${WORKLOAD_OPTIMIZATION_SCRIPT_URL:-}" ] && echo "WORKLOAD_OPTIMIZATION_SCRIPT_URL is not set" && exit 1
 
-CVM_BUILD=false
-if grep -q "cvm" <<< "${FEATURE_FLAGS}"; then
-    CVM_BUILD=true
-fi
-
 IMAGE_BUILDER_API_VERSION="2025-10-01"
 MANAGED_DISK_API_VERSION="2024-03-02"
 
