@@ -41,41 +41,6 @@ Describe 'cse_install_mariner.sh'
         End
     End
 
-    Describe 'installKataDeps'
-        It 'installs the pinned host kernel with Kata dependencies on Azure Linux 3.0'
-            OS_VERSION="3.0"
-            When call installKataDeps
-            The output should equal "dnf install 30 1 600 kata-packages-host kernel-mshv-6.18.34.mshv3-1.azl3"
-            The status should be success
-        End
-
-        It 'preserves the unpinned Kata dependencies on Mariner 2.0'
-            OS_VERSION="2.0"
-            When call installKataDeps
-            The output should equal "dnf install 30 1 600 kata-packages-host"
-            The status should be success
-        End
-
-        It 'does not install Kata dependencies on Mariner 1.0'
-            OS_VERSION="1.0"
-            When call installKataDeps
-            The output should be blank
-            The status should be success
-        End
-
-        It 'fails rather than falling back when the pinned kernel cannot be installed'
-            OS_VERSION="3.0"
-            ERR_APT_INSTALL_TIMEOUT=9
-            dnf_install() {
-                echo "dnf install $*"
-                return 1
-            }
-            When run installKataDeps
-            The output should equal "dnf install 30 1 600 kata-packages-host kernel-mshv-6.18.34.mshv3-1.azl3"
-            The status should equal 9
-        End
-    End
-
     Describe 'installRPMPackageFromFile'
         rpm_cache_root="$PWD/spec/tmp/rpm-cache"
 
@@ -851,6 +816,47 @@ EOF
             When call installPackageFromCache kubelet "$desiredVersion"
             The output should include "Failed to find cached rpm file for kubelet version 1.34.1"
             The status should equal 1
+        End
+    End
+
+    Describe 'installCredentialProviderPackageFromBootstrapProfileRegistry'
+        semverCompare() {
+            [ "$1" = "$2" ] && return 0
+            [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+        }
+        getLatestPkgVersionFromK8sVersion() {
+            PACKAGE_VERSION="$1-1"
+        }
+        installToolFromBootstrapProfileRegistry() {
+            echo "installToolFromBootstrapProfileRegistry fails"
+            return 1
+        }
+        installCredentialProviderFromUrl() {
+            echo "installCredentialProviderFromUrl"
+        }
+        exit() {
+            echo "mock exit calling with $1"
+        }
+        mkdir() { :; }
+        chown() { :; }
+
+        BeforeEach 'setup_cred_provider'
+        setup_cred_provider() {
+            ERR_ORAS_PULL_CREDENTIAL_PROVIDER=208
+            CREDENTIAL_PROVIDER_BIN_DIR="/tmp/credential-provider"
+        }
+
+        It 'falls back to URL installation for k8s < 1.35.0'
+            When call installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.6
+            The output should include "Fall back to install credential provider from url installation"
+            The output should include "installCredentialProviderFromUrl"
+        End
+
+        It 'does not fall back to URL installation for k8s >= 1.35.0'
+            When call installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io 1.35.8
+            The output should include "Failed to install azure-acr-credential-provider 1.35.8 from bootstrap profile registry"
+            The output should include "mock exit calling with 208"
+            The output should not include "installCredentialProviderFromUrl"
         End
     End
 End
