@@ -261,9 +261,10 @@ removeNvidiaRepos() {
 
 # cleanUpPrebakedGPUDriver removes a CUDA driver pre-baked into the shared VHD on any node that does
 # NOT install the AKS-managed driver -- the cleanUpGPUDrivers path (GPU_NODE != true OR
-# skip_nvidia_driver_install=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
+# SkipGpuDriverInstall=true): non-GPU VMs, and GPU VMs opted out via --gpu-driver None or the
 # skip toggle/tag. There the driver is dead weight (wasted disk; nvidia.ko rebuilt on every kernel
 # patch) and, on an opted-out GPU node, unused attack surface.
+# This runs in basePrep before customer customization, not on PIS-derived nodes.
 # The prebaked module MAY already be loaded when we run: cuda(-lts) prebakes auto-load nvidia.ko at
 # boot (~5s, well before CSE), so on a cuda/cuda-lts SKU opted out via --gpu-driver None the module
 # is resident even though ensureGPUDrivers never ran. (grid prebakes do not auto-load, so grid nodes
@@ -314,8 +315,9 @@ cleanUpPrebakedGPUDriver() {
     # Stage-1 observability + retry: assess completeness BEFORE dropping the marker. status=incomplete
     # means the DKMS registration, the setuid nvidia-modprobe binary, or a still-resident nvidia
     # module lingered (a security-coverage alert). On an incomplete teardown we KEEP the marker so the
-    # next provision re-runs this cleanup (the marker is the "still needs cleanup" flag); on a clean
-    # teardown we drop it. status=cleaned counts toward fleet-wide coverage. Greppable AKS_GPU_PREBAKE.
+    # incomplete teardown stays visible; PIS-derived nodes must not retry cleanup after customer
+    # customization. On a clean teardown we drop it. status=cleaned counts toward fleet-wide
+    # coverage. Greppable AKS_GPU_PREBAKE.
     local dkms_after=false modprobe_after=false marker_after=true status=cleaned
     [ -d /var/lib/dkms/nvidia ] && dkms_after=true
     [ -e /usr/bin/nvidia-modprobe ] && modprobe_after=true
