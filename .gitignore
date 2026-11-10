@@ -30,6 +30,7 @@ _logs/
 *.swp
 
 # test outputs
+.hypothesis/
 cmd/_test_output
 *.test
 *.coverprofile
