@@ -73,6 +73,15 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### PIS GPU coverage
+
+`Ubuntu2404_ManagedGPU_VHDCaching` and `AzureLinuxV3_ManagedGPU_VHDCaching`
+validate managed drivers, device-plugin registration, and a GPU workload on
+nodes created from prepared images. `Ubuntu2404_GPUDriverOptOut_VHDCaching`
+installs a real customer driver after `basePrep` and checks that it survives
+capture and provisioning with AKS driver installation disabled. These use
+separate bake and real-node VMs and the current source CSE scripts in both phases.
+
 ### DRA MIG workload validation
 
 The existing `Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed` scenario uses

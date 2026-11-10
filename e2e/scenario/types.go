@@ -211,6 +211,10 @@ type Config struct {
 	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
 	VHDCaching bool
 
+	// VHDCachingPostBasePrep applies customer customization after a successful
+	// bake and before image capture.
+	VHDCachingPostBasePrep func(context.Context, *Scenario) error
+
 	// ExpectedError, when set, indicates that VMSS creation is expected to fail with an error containing this substring.
 	// The assertion is performed during the scenario run.
 	ExpectedError string
