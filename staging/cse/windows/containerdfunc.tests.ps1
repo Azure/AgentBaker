@@ -610,10 +610,6 @@ Describe "Containerd Functions Tests" {
       Mock Complete-ContainerdInstallation
       Mock Create-Directory -MockWith { New-Item -ItemType Directory -Path $FullPath -Force | Out-Null }
       Mock DownloadFileOverHttp -MockWith { Copy-Item -LiteralPath $script:packages[$Url] -Destination $DestinationPath }
-      Mock Set-ExitCode -MockWith {
-        Param($ExitCode, $ErrorMessage)
-        throw "Set-ExitCode: $ExitCode - $ErrorMessage"
-      }
     }
 
     AfterEach {
@@ -630,34 +626,14 @@ Describe "Containerd Functions Tests" {
       foreach ($exe in @("containerd.exe", "ctr.exe", "containerd-shim-runhcs-v1.exe", "runhcs.exe", "shimdiag.exe", "wclayer.exe", "zapdir.exe", "crictl.exe")) {
         Join-Path $global:ContainerdInstallLocation $exe | Should -Exist
       }
-      Join-Path $global:ContainerdInstallLocation "licenses/hcsshim/runhcs-NOTICE" | Should -Exist
-      Join-Path $global:ContainerdInstallLocation "licenses/moby-containerd/LICENSE" | Should -Exist
-      Join-Path $global:ContainerdInstallLocation "licenses/kubernetes-cri-tools/LICENSE" | Should -Exist
-      Join-Path $global:ContainerdInstallLocation "LICENSE" | Should -Not -Exist
+      Join-Path $global:ContainerdInstallLocation "runhcs-NOTICE" | Should -Exist
       Get-Content -Raw (Join-Path $global:ContainerdInstallLocation "crictl.yaml") | Should -Match ([regex]::Escape('runtime-endpoint: npipe://\\.\pipe\containerd-containerd'))
-      Join-Path $ENV:TEMP "containerd-packages" | Should -Not -Exist
       Assert-MockCalled -CommandName 'Complete-ContainerdInstallation' -Exactly -Times 1 -ParameterFilter {
         $CNIBinDir -eq "cniBin" -and $CNIConfDir -eq "cniConf" -and $KubeDir -eq "kubeDir"
       }
     }
-
-    It 'fails before touching the installation when a package misses a required file' {
-      $script:packages[$script:mobyContainerdUrl] = New-TestPackage -Name "moby-containerd-broken" -Files @("LICENSE", "ctr.exe")
-
-      { Install-ContainerdFromComponentPackages -HcsshimUrl $script:hcsshimUrl -MobyContainerdUrl $script:mobyContainerdUrl -CrictlUrl $script:crictlUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir" } |
-        Should -Throw "*Set-ExitCode: $($global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE) - Invalid moby-containerd package*missing required file containerd.exe*"
-      $global:ContainerdInstallLocation | Should -Not -Exist
-      Assert-MockCalled -CommandName 'Complete-ContainerdInstallation' -Exactly -Times 0
-    }
-
-    It 'fails when two packages provide the same file' {
-      $script:packages[$script:crictlUrl] = New-TestPackage -Name "kubernetes-cri-tools-conflict" -Files @("LICENSE", "crictl.exe", "ctr.exe")
-
-      { Install-ContainerdFromComponentPackages -HcsshimUrl $script:hcsshimUrl -MobyContainerdUrl $script:mobyContainerdUrl -CrictlUrl $script:crictlUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir" } |
-        Should -Throw "*Invalid kubernetes-cri-tools package*ctr.exe conflicts with a file from another package*"
-      $global:ContainerdInstallLocation | Should -Not -Exist
-    }
   }
+
   Describe 'Get-ContainerdVersionFromString' {
     It "Should parse '<VersionString>' as <Expected>" -TestCases @(
       @{ VersionString = "containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8"; Expected = "1.6.21" }

@@ -509,22 +509,10 @@ function Install-Containerd-Based-On-Kubernetes-Version {
         $CrictlUrl = ""
     )
 
-    # The RP sends either all three DALEC package URLs of one component set, or none of them.
-    # Anything else falls back to the combined containerd package.
-    $componentUrlCount = @(@($HcsshimUrl, $MobyContainerdUrl, $CrictlUrl) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count
-    if ($componentUrlCount -eq 3) {
-        if ([string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
-            Write-Log "Install Containerd from component packages. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
-            Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdFromComponentPackages" -TaskMessage "Start to install ContainerD from component packages. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
-            if (-not (Get-Command 'Install-ContainerdFromComponentPackages' -ErrorAction SilentlyContinue)) {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE -ErrorMessage "Install-ContainerdFromComponentPackages is not available. The Windows CSE package is older than the provisioning script."
-            }
-            Install-ContainerdFromComponentPackages -HcsshimUrl $HcsshimUrl -MobyContainerdUrl $MobyContainerdUrl -CrictlUrl $CrictlUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
-            return
-        }
-        Write-Log "Containerd component packages are not supported with a bootstrap profile container registry; using the combined containerd package"
-    } elseif ($componentUrlCount -gt 0) {
-        Write-Log "Incomplete containerd component package URLs ($componentUrlCount of 3); using the combined containerd package. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
+    if (-not [string]::IsNullOrWhiteSpace($HcsshimUrl) -and -not [string]::IsNullOrWhiteSpace($MobyContainerdUrl) -and -not [string]::IsNullOrWhiteSpace($CrictlUrl)) {
+        Write-Log "Install Containerd from component packages. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
+        Install-ContainerdFromComponentPackages -HcsshimUrl $HcsshimUrl -MobyContainerdUrl $MobyContainerdUrl -CrictlUrl $CrictlUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+        return
     }
 
     # Get the current Windows version, this is interim since we are progressively supporting containerd 2.0 for all Windows version. for now only test2025

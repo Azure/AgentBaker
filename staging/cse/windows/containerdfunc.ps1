@@ -384,23 +384,9 @@ function Install-Containerd {
   Complete-ContainerdInstallation -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
 }
 
-# Required files per DALEC Windows package. Other files in a package are copied as-is:
-# executables into the install root, everything else under licenses\<package>.
-$global:ContainerdComponentPackageRequiredFiles = [ordered]@{
-  "hcsshim"              = @("containerd-shim-runhcs-v1.exe")
-  "moby-containerd"      = @("containerd.exe", "ctr.exe")
-  "kubernetes-cri-tools" = @("crictl.exe")
-}
-
-# DALEC kubernetes-cri-tools does not ship crictl.yaml. Content matches the crictl.yaml in the
-# combined Windows containerd packages (for example v2.0.4-azure.1).
-$global:ContainerdCrictlConfig = @"
-runtime-endpoint: npipe://\\.\pipe\containerd-containerd
-image-endpoint: npipe://\\.\pipe\containerd-containerd
-timeout: 0
-debug: false
-"@
-
+# Installs containerd from the DALEC hcsshim, moby-containerd and kubernetes-cri-tools Windows ZIPs.
+# Each ZIP has its files at the root, so extracting all three gives the same flat layout as the
+# combined containerd package, except crictl.yaml, which is written here.
 function Install-ContainerdFromComponentPackages {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -423,80 +409,18 @@ function Install-ContainerdFromComponentPackages {
     $svc | Stop-Service
   }
 
-  $packageUrls = @{
-    "hcsshim"              = $HcsshimUrl
-    "moby-containerd"      = $MobyContainerdUrl
-    "kubernetes-cri-tools" = $CrictlUrl
-  }
-
-  # Build the complete layout in a staging directory first so a bad package never leaves a
-  # partially replaced installation behind.
-  $stagingRoot = [Io.path]::Combine($ENV:TEMP, "containerd-packages")
-  if (Test-Path -LiteralPath $stagingRoot) {
-    Remove-Item -LiteralPath $stagingRoot -Recurse -Force
-  }
-  $layoutDir = [Io.path]::Combine($stagingRoot, "layout")
-  New-Item -ItemType Directory -Path $layoutDir -Force | Out-Null
-
-  foreach ($package in $global:ContainerdComponentPackageRequiredFiles.Keys) {
-    $url = $packageUrls[$package]
-    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadContainerdComponentPackage" -TaskMessage "Start to download $package package. Url: $url"
-    $zipFile = [Io.path]::Combine($stagingRoot, "$package.zip")
-    DownloadFileOverHttp -Url $url -DestinationPath $zipFile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
-
-    $extractDir = [Io.path]::Combine($stagingRoot, $package)
-    AKS-Expand-Archive -Path $zipFile -DestinationPath $extractDir
-
-    try {
-      Copy-ContainerdComponentPackageFiles -Package $package -SourceDir $extractDir -LayoutDir $layoutDir
-    } catch {
-      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE -ErrorMessage "Invalid $package package from $url. Error: $_"
-    }
-  }
-
-  [System.IO.File]::WriteAllText([Io.path]::Combine($layoutDir, "crictl.yaml"), $global:ContainerdCrictlConfig + "`n")
-
   Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
-  Copy-Item -Path ([Io.path]::Combine($layoutDir, "*")) -Destination $global:ContainerdInstallLocation -Recurse -Force
-  Remove-Item -LiteralPath $stagingRoot -Recurse -Force
+  foreach ($url in @($HcsshimUrl, $MobyContainerdUrl, $CrictlUrl)) {
+    $zipFile = [Io.path]::Combine($ENV:TEMP, [IO.Path]::GetFileName($url.Split('?')[0]))
+    DownloadFileOverHttp -Url $url -DestinationPath $zipFile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
+    AKS-Expand-Archive -Path $zipFile -DestinationPath $global:ContainerdInstallLocation
+    Remove-Item -Path $zipFile -Force
+  }
+
+  $crictlConfig = "runtime-endpoint: npipe://\\.\pipe\containerd-containerd`nimage-endpoint: npipe://\\.\pipe\containerd-containerd`ntimeout: 0`ndebug: false`n"
+  [System.IO.File]::WriteAllText([Io.path]::Combine($global:ContainerdInstallLocation, "crictl.yaml"), $crictlConfig)
 
   Complete-ContainerdInstallation -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
-}
-
-function Copy-ContainerdComponentPackageFiles {
-  Param(
-    [Parameter(Mandatory = $true)][string]
-    $Package,
-    [Parameter(Mandatory = $true)][string]
-    $SourceDir,
-    [Parameter(Mandatory = $true)][string]
-    $LayoutDir
-  )
-
-  $directories = @(Get-ChildItem -LiteralPath $SourceDir -Directory)
-  if ($directories.Count -ne 0) {
-    throw "unexpected directories in package: $($directories.Name -join ', ')"
-  }
-
-  foreach ($required in $global:ContainerdComponentPackageRequiredFiles[$Package]) {
-    if (-not (Test-Path -LiteralPath ([Io.path]::Combine($SourceDir, $required)) -PathType Leaf)) {
-      throw "missing required file $required"
-    }
-  }
-
-  $licenseDir = [Io.path]::Combine($LayoutDir, "licenses", $Package)
-  foreach ($file in Get-ChildItem -LiteralPath $SourceDir -File) {
-    if ($file.Extension -eq ".exe") {
-      $destination = [Io.path]::Combine($LayoutDir, $file.Name)
-    } else {
-      New-Item -ItemType Directory -Path $licenseDir -Force | Out-Null
-      $destination = [Io.path]::Combine($licenseDir, $file.Name)
-    }
-    if (Test-Path -LiteralPath $destination) {
-      throw "$($file.Name) conflicts with a file from another package"
-    }
-    Copy-Item -LiteralPath $file.FullName -Destination $destination
-  }
 }
 
 function Complete-ContainerdInstallation {
