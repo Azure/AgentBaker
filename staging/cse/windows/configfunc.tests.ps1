@@ -1060,6 +1060,27 @@ Describe 'Install-CredentialProvider' {
         }
     }
 
+    It 'honors a prefixed hotfix path on stock host <downloadHost>' -TestCases @(
+        @{ downloadHost = 'packages.aks.azure.com' },
+        @{ downloadHost = 'packages.aks.azure.us' },
+        @{ downloadHost = 'acs-mirror.azureedge.net' }
+    ) {
+        param($downloadHost)
+        $global:BootstrapProfileContainerRegistryServer = ""
+        $global:KubeBinariesVersion = "1.33.3"
+        $global:CredentialProviderURL = "https://$downloadHost/hotfix/cloud-provider-azure/v1.33.3/binaries/azure-acr-credential-provider-windows-amd64-v1.33.3.tar.gz"
+
+        Mock Resolve-DalecCredentialProviderPackage -MockWith { throw 'Custom URL must not trigger Dalec selection' }
+
+        Install-CredentialProvider -KubeDir 'c:\k' -CustomCloudContainerRegistryDNSSuffix ''
+        Assert-MockCalled Resolve-DalecCredentialProviderPackage -Times 0
+        Assert-MockCalled Expand-DalecCredentialProviderPackage -Times 0
+        Assert-MockCalled tar -Times 1 -Exactly
+        Assert-MockCalled DownloadFileOverHttp -Times 1 -Exactly -ParameterFilter {
+            $Url -eq $global:CredentialProviderURL
+        }
+    }
+
     It 'uses NI ORAS path unchanged when BootstrapProfileContainerRegistryServer is set' {
         $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
         $global:KubeBinariesVersion = "1.33.3"
@@ -1248,7 +1269,7 @@ Describe 'Resolve-DalecCredentialProviderPackageFromMetadata' {
     BeforeEach {
         $script:metadata = @{
             Packages = @(@{
-                name = 'azure-acr-credential-provider-pmc'
+                name = 'azure-acr-credential-provider'
                 downloadURIs = @{
                     windows = @{
                         default = @{
@@ -1263,7 +1284,13 @@ Describe 'Resolve-DalecCredentialProviderPackageFromMetadata' {
         Mock Get-Content -MockWith { $script:metadata | ConvertTo-Json -Depth 10 -Compress }
     }
 
-    It 'resolves the pinned version and URL from older PMC-hosted Windows metadata' {
+    It 'resolves the pinned version and URL from <name> metadata' -TestCases @(
+        @{ name = 'azure-acr-credential-provider' },
+        @{ name = 'azure-acr-credential-provider-pmc' },
+        @{ name = 'windows credential provider dalec' }
+    ) {
+        param($name)
+        $script:metadata.Packages[0].name = $name
         $result = Resolve-DalecCredentialProviderPackageFromMetadata -KubeVersion '1.33.3'
         $result.Version | Should -Be '1.33.19-1'
         $result.Url | Should -Be 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.19/windows/amd64/azure-acr-credential-provider_1.33.19-1_amd64.zip'
@@ -1282,7 +1309,7 @@ Describe 'Resolve-DalecCredentialProviderPackageFromMetadata' {
         $result.Url | Should -Be 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.19/windows/amd64/azure-acr-credential-provider_1.33.19-10_amd64.zip'
     }
 
-    It 'supports consolidated Windows Dalec metadata alongside Linux-only PMC metadata' {
+    It 'supports older Windows Dalec metadata alongside Linux-only PMC and legacy canonical metadata' {
         $script:metadata.Packages[0].name = 'windows credential provider dalec'
         $script:metadata.Packages[0].downloadURIs.windows.default.versionsV2[0].previousLatestVersion = '1.33.6-1'
         $script:metadata.Packages += @{
@@ -1291,12 +1318,24 @@ Describe 'Resolve-DalecCredentialProviderPackageFromMetadata' {
                 ubuntu = @{ r2204 = @{ versionsV2 = @(@{ latestVersion = '1.33.99' }) } }
             }
         }
+        $script:metadata.Packages += @{
+            name = 'azure-acr-credential-provider'
+            downloadURIs = @{
+                windows = @{
+                    default = @{
+                        versionsV2 = @(@{ latestVersion = '1.33.3' })
+                        downloadURL = 'https://example.invalid/azure-acr-credential-provider-windows-amd64-v${version}.tar.gz'
+                    }
+                }
+            }
+        }
         $result = Resolve-DalecCredentialProviderPackageFromMetadata -KubeVersion '1.33.3'
         $result.Version | Should -Be '1.33.19-1'
         $result.Url | Should -Be 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.19/windows/amd64/azure-acr-credential-provider_1.33.19-1_amd64.zip'
     }
 
     It 'retains PMC Windows precedence when older metadata contains both Dalec blocks' {
+        $script:metadata.Packages[0].name = 'azure-acr-credential-provider-pmc'
         $script:metadata.Packages += @{
             name = 'windows credential provider dalec'
             downloadURIs = @{
@@ -1313,12 +1352,32 @@ Describe 'Resolve-DalecCredentialProviderPackageFromMetadata' {
         $result.Url | Should -Be 'https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/1.33.19/windows/amd64/azure-acr-credential-provider_1.33.19-1_amd64.zip'
     }
 
+    It 'prefers canonical ZIP metadata over historical entries' {
+        foreach ($name in @('azure-acr-credential-provider-pmc', 'windows credential provider dalec')) {
+            $script:metadata.Packages += @{
+                name = $name
+                downloadURIs = @{
+                    windows = @{
+                        default = @{
+                            versionsV2 = @(@{ latestVersion = '1.33.99-1' })
+                            downloadURL = 'https://example.invalid/azure-acr-credential-provider_${version}_amd64.zip'
+                        }
+                    }
+                }
+            }
+        }
+        $result = Resolve-DalecCredentialProviderPackageFromMetadata -KubeVersion '1.33.3'
+        $result.Version | Should -Be '1.33.19-1'
+    }
+
     It 'does not use matching versions from the legacy component <name>' -TestCases @(
         @{ name = 'windows credential provider' },
-        @{ name = 'azure-acr-credential-provider' }
+        @{ name = 'azure-acr-credential-provider' },
+        @{ name = 'azure-acr-credential-provider-legacy' }
     ) {
         param($name)
         $script:metadata.Packages[0].name = $name
+        $script:metadata.Packages[0].downloadURIs.windows.default.downloadURL = 'https://example.invalid/azure-acr-credential-provider-windows-amd64-v${version}.tar.gz'
         Resolve-DalecCredentialProviderPackageFromMetadata -KubeVersion '1.33.3' | Should -Be $null
     }
 

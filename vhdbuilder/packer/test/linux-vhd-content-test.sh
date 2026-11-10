@@ -279,12 +279,15 @@ testPackagesInstalled() {
         testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
         continue
         ;;
-      "azure-acr-credential-provider")
-        # azure-acr-credential-provider is installed in a different way so we test it separately
+      "azure-acr-credential-provider-legacy")
+        # Legacy OCI binaries use a different cache format from native packages.
         testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
         continue
         ;;
-      "azure-acr-credential-provider-pmc"|\
+      "azure-acr-credential-provider")
+        testPkgDownloaded "${name}" "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
+        continue
+        ;;
       "nvidia-device-plugin"|\
       "dra-driver-nvidia-gpu"|\
       "datacenter-gpu-manager-4-core"|\

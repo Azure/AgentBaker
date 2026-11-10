@@ -259,6 +259,117 @@ Describe 'cse_helpers.sh and build helpers'
         End
     End
 
+    Describe 'credential provider metadata compatibility'
+        BeforeEach 'setup_credential_provider_metadata'
+        AfterEach 'cleanup_credential_provider_metadata'
+
+        setup_credential_provider_metadata() {
+            COMPONENTS_FILEPATH=$(mktemp)
+            PACKAGE_VERSION=""
+            provider_metadata='{"Packages":[{
+                "name":"azure-acr-credential-provider",
+                "downloadURIs":{
+                    "ubuntu":{"r2204":{"versionsV2":[{"latestVersion":"1.33.20"}]}},
+                    "azurelinux":{"v3.0":{"versionsV2":[{"latestVersion":"1.33.20"}]}},
+                    "flatcar":{"current":{"versionsV2":[{"latestVersion":"v1.34.16-1-azlinux3"}]}}
+                }
+            }]}'
+            legacy_provider='{
+                "name":"azure-acr-credential-provider",
+                "downloadURIs":{
+                    "default":{"current":{
+                        "versionsV2":[{"latestVersion":"v1.33.7"}],
+                        "downloadURL":"mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"
+                    }},
+                    "ubuntu":{"r2604":{"versionsV2":[]}},
+                    "flatcar":{"current":{"versionsV2":[]}}
+                }
+            }'
+        }
+
+        cleanup_credential_provider_metadata() {
+            rm -f "$COMPONENTS_FILEPATH"
+        }
+
+        resolve_provider_version() {
+            printf '%s\n' "$provider_metadata" > "$COMPONENTS_FILEPATH"
+            getLatestPkgVersionFromK8sVersion "$@"
+        }
+
+        Describe 'supported platforms'
+            Parameters
+                "UBUNTU" "22.04" "" "1.33.0" "1.33.20"
+                "AZURELINUX" "3.0" "" "1.33.0" "1.33.20"
+                "AZURELINUX" "3.0" "OSGUARD" "1.33.0" "1.33.20"
+                "FLATCAR" "current" "" "1.34.0" "v1.34.16-1-azlinux3"
+                "AZURECONTAINERLINUX" "3.0" "" "1.34.0" "v1.34.16-1-azlinux3"
+                "AZURELINUX" "3.0" "AZURECONTAINERLINUX" "1.34.0" "v1.34.16-1-azlinux3"
+            End
+
+            It "resolves canonical packages for $1 $2 $3"
+                When call resolve_provider_version "$4" "azure-acr-credential-provider" "$1" "$2" "$3"
+                The status should be success
+                The output should equal "$5"
+                The variable PACKAGE_VERSION should equal "$5"
+            End
+
+            It "uses historical PMC metadata rather than legacy canonical metadata for $1 $2 $3"
+                provider_metadata=$(jq --argjson legacy "$legacy_provider" '
+                    .Packages[0].name = "azure-acr-credential-provider-pmc" |
+                    .Packages += [$legacy]
+                ' <<< "$provider_metadata")
+                When call resolve_provider_version "$4" "azure-acr-credential-provider" "$1" "$2" "$3"
+                The status should be success
+                The output should equal "$5"
+                The variable PACKAGE_VERSION should equal "$5"
+            End
+        End
+
+        It 'prefers canonical packages when historical PMC metadata is also present'
+            provider_metadata=$(jq '
+                .Packages += [(.Packages[0] |
+                    .name = "azure-acr-credential-provider-pmc" |
+                    .downloadURIs.ubuntu.r2204.versionsV2[0].latestVersion = "1.33.99")]
+            ' <<< "$provider_metadata")
+            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "UBUNTU" "22.04"
+            The status should be success
+            The output should equal "1.33.20"
+        End
+
+        It 'does not use legacy OCI versions when no native package metadata exists'
+            provider_metadata=$(jq -n --argjson legacy "$legacy_provider" '{Packages: [$legacy]}')
+            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "UBUNTU" "22.04"
+            The status should be success
+            The output should include 'package versions array is either empty'
+            The variable PACKAGE_VERSION should equal ""
+        End
+
+        It 'does not resolve native packages for unsupported distros'
+            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "MARINER" "2.0"
+            The status should be success
+            The output should include 'package versions array is either empty'
+            The variable PACKAGE_VERSION should equal ""
+        End
+
+        It 'preserves explicit empty platform versions without falling back to historical metadata'
+            provider_metadata=$(jq '
+                .Packages += [(.Packages[0] | .name = "azure-acr-credential-provider-pmc")] |
+                .Packages[0].downloadURIs.ubuntu.r2204.versionsV2 = []
+            ' <<< "$provider_metadata")
+            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "UBUNTU" "22.04"
+            The status should be success
+            The output should include 'package versions array is either empty'
+            The variable PACKAGE_VERSION should equal ""
+        End
+
+        It 'reports malformed metadata'
+            provider_metadata='{invalid'
+            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "UBUNTU" "22.04"
+            The status should be failure
+            The stderr should include 'parse error'
+        End
+    End
+
     Describe 'addKubeletNodeLabel'
         It 'should perform a no-op when the specified label already exists within the label string'
             KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
