@@ -1001,6 +1001,46 @@ cacheContainerImageComponents() {
     --vhd-log-file "$VHD_LOGS_FILEPATH"
 }
 
+# Prints the toolkit package version bundled in a cached GPU image for CPU_ARCH.
+# Reads archive headers without unpacking the image or running its entrypoint.
+# Returns failure if the cached content cannot be read or the package is absent.
+getNvidiaContainerToolkitVersion() {
+  local image="$1"
+  local manifest_digest manifest layers layer_digest layer_type tar_options toolkit_version
+
+  manifest_digest=$(ctr -n k8s.io images list "name==${image}" | awk 'NR == 2 { print $3 }') || return 1
+  [ -n "$manifest_digest" ] || return 1
+  manifest=$(ctr -n k8s.io content get "$manifest_digest") || return 1
+
+  if jq -e 'has("manifests")' <<< "$manifest" >/dev/null; then
+    manifest_digest=$(jq -er --arg arch "$CPU_ARCH" \
+      '[.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch)][0].digest' \
+      <<< "$manifest") || return 1
+    manifest=$(ctr -n k8s.io content get "$manifest_digest") || return 1
+  fi
+
+  # Newer layers take precedence. The toolkit is cached as a .deb, not installed
+  # in the image's package database; its filename includes the package revision.
+  layers=$(jq -er '.layers | reverse[] | [.digest, .mediaType] | @tsv' <<< "$manifest") || return 1
+  while IFS=$'\t' read -r layer_digest layer_type; do
+    case "$layer_type" in
+      *tar+gzip|*tar.gzip) tar_options="-tzf" ;;
+      *tar) tar_options="-tf" ;;
+      *) echo "Unsupported GPU image layer type: ${layer_type}" >&2; return 1 ;;
+    esac
+    toolkit_version=$(ctr -n k8s.io content get "$layer_digest" | tar "$tar_options" - | \
+      awk -F_ -v arch="$CPU_ARCH" \
+        '$1 ~ /^(\.\/)?opt\/gpu\/nvidia-container-toolkit$/ && $3 == arch ".deb" { print $2 }') || return 1
+    if [ -n "$toolkit_version" ]; then
+      # Multiple toolkit packages would make the version used by CSE ambiguous.
+      case "$toolkit_version" in *$'\n'*) return 1 ;; esac
+      printf '%s\n' "$toolkit_version"
+      return 0
+    fi
+  done <<< "$layers"
+  return 1
+}
+
 cacheGPUContainerImageComponents() {
   # Download/install GPU container image components
   GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
@@ -1052,9 +1092,13 @@ cacheGPUContainerImageComponents() {
 
     /opt/azure/containers/image-fetcher cache-image --image "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
-      cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-EOF
+    local toolkit_version
+    toolkit_version=$(getNvidiaContainerToolkitVersion "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG") || {
+      echo "Error: Unable to read NVIDIA Container Toolkit version from $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG" >&2
+      return 1
+    }
+    printf '  - nvidia-cuda-driver=%s\n    - nvidia-container-toolkit=%s\n' \
+      "$NVIDIA_DRIVER_IMAGE_TAG" "$toolkit_version" >> "$VHD_LOGS_FILEPATH"
   fi
 
   # Add a separate section for runtime-installed components
