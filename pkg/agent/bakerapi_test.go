@@ -158,6 +158,165 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		}
 	})
 
+	Context("Extended Zone image lookup", func() {
+		It("selects different galleries for the same distro only when explicitly requested", func() {
+			baker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			for _, distro := range []datamodel.Distro{
+				datamodel.AKSUbuntuContainerd2204,
+				datamodel.AKSUbuntuContainerd2204Gen2,
+				datamodel.AKSUbuntuContainerd2404,
+				datamodel.AKSUbuntuContainerd2404Gen2,
+				datamodel.AKSAzureLinuxV3,
+				datamodel.AKSAzureLinuxV3Gen2,
+			} {
+				env := &datamodel.EnvironmentInfo{Region: cs.Location}
+				regional, err := baker.GetLatestSigImageConfig(*sigConfig, distro, env)
+				Expect(err).NotTo(HaveOccurred())
+				env.UseEdgeZoneVHD = true
+				edge, err := baker.GetLatestSigImageConfig(*sigConfig, distro, env)
+				Expect(err).NotTo(HaveOccurred())
+				expected := *regional
+				if distro.IsUbuntuDistro() {
+					expected.Gallery = datamodel.AKSUbuntuEdgeZoneGalleryName
+					expected.ResourceGroup = datamodel.AKSUbuntuEdgeZoneResourceGroup
+				} else {
+					expected.Gallery = datamodel.AKSAzureLinuxEdgeZoneGalleryName
+					expected.ResourceGroup = datamodel.AKSAzureLinuxEdgeZoneResourceGroup
+				}
+				Expect(*edge).To(Equal(expected))
+			}
+		})
+
+		It("rejects unsupported images rather than falling back to a regional gallery", func() {
+			baker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			for _, distro := range []datamodel.Distro{
+				datamodel.AKSUbuntuFipsContainerd2204Gen2,
+				datamodel.AKSUbuntuArm64Containerd2404Gen2,
+				datamodel.AKSUbuntuContainerd2404TLGen2,
+				datamodel.AKSAzureLinuxV3CVMGen2,
+				datamodel.AKSAzureLinuxV3Gen2Kata,
+				datamodel.AKSAzureLinuxV2,
+				datamodel.AKSWindows2022Containerd,
+				"unknown",
+			} {
+				image, err := baker.GetLatestSigImageConfig(*sigConfig, distro, &datamodel.EnvironmentInfo{
+					Region: cs.Location, UseEdgeZoneVHD: true,
+				})
+				Expect(err).To(HaveOccurred(), string(distro))
+				Expect(image).To(BeNil())
+			}
+		})
+
+		It("prefers shared configurations and falls back only to legacy Extended Zone configurations", func() {
+			catalog := datamodel.GetAzurePublicSIGConfigForTest()
+			shared := datamodel.AKSUbuntuContainerd2404Gen2
+			legacy := datamodel.AKSUbuntuEdgeZoneContainerd2404Gen2
+			preferred := catalog.SigEdgeZoneImageConfig[shared]
+			preferred.Version = "202611.09.1"
+			catalog.SigEdgeZoneImageConfig[shared] = preferred
+			original := catalog.SigUbuntuEdgeZoneImageConfig[legacy]
+			for _, distro := range []datamodel.Distro{shared, legacy} {
+				Expect(*findSIGImageConfig(catalog, distro, true)).To(Equal(preferred))
+			}
+			Expect(*findSIGImageConfig(catalog, legacy, false)).To(Equal(original))
+			delete(catalog.SigEdgeZoneImageConfig, shared)
+			for _, distro := range []datamodel.Distro{shared, legacy} {
+				Expect(*findSIGImageConfig(catalog, distro, true)).To(Equal(original))
+			}
+			delete(catalog.SigUbuntuEdgeZoneImageConfig, legacy)
+			Expect(findSIGImageConfig(catalog, shared, true)).To(BeNil())
+			Expect(findSIGImageConfig(catalog, legacy, true)).To(BeNil())
+			Expect(findSIGImageConfig(catalog, datamodel.AKSUbuntuArm64Containerd2404Gen2, true)).To(BeNil())
+		})
+
+		It("preserves legacy version overrides while allowing shared overrides when no legacy override exists", func() {
+			const (
+				shared = datamodel.AKSUbuntuContainerd2404Gen2
+				legacy = datamodel.AKSUbuntuEdgeZoneContainerd2404Gen2
+			)
+			for _, tc := range []struct {
+				overrides map[datamodel.Distro]string
+				expected  string
+			}{
+				{map[datamodel.Distro]string{legacy: "202611.01.0"}, "202611.01.0"},
+				{map[datamodel.Distro]string{shared: "202611.02.0"}, "202611.02.0"},
+				{map[datamodel.Distro]string{legacy: "202611.01.0", shared: "202611.02.0"}, "202611.01.0"},
+			} {
+				baker, err := NewAgentBaker()
+				Expect(err).NotTo(HaveOccurred())
+				baker = baker.WithToggles(&testToggles{nodeImageVersionOverrides: tc.overrides})
+				env := &datamodel.EnvironmentInfo{Region: cs.Location, UseEdgeZoneVHD: true}
+				latest, err := baker.GetLatestSigImageConfig(*sigConfig, shared, env)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(latest.Version).To(Equal(tc.expected))
+				all, err := baker.GetDistroSigImageConfig(*sigConfig, env)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(all[shared].Version).To(Equal(tc.expected))
+				env.UseEdgeZoneVHD = false
+				regional, err := baker.GetLatestSigImageConfig(*sigConfig, shared, env)
+				Expect(err).NotTo(HaveOccurred())
+				expectedRegionalVersion := datamodel.LinuxSIGImageVersion
+				if version := tc.overrides[shared]; version != "" {
+					expectedRegionalVersion = version
+				}
+				Expect(regional.Version).To(Equal(expectedRegionalVersion))
+				env.UseEdgeZoneVHD = true
+				edge, err := baker.GetLatestSigImageConfig(*sigConfig, shared, env)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(edge.Version).To(Equal(tc.expected))
+			}
+		})
+
+		It("keeps legacy distro callers on their existing galleries and overrides without opting in", func() {
+			baker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			catalog := datamodel.GetAzurePublicSIGConfigForTest()
+			for _, images := range []map[datamodel.Distro]datamodel.SigImageConfig{
+				catalog.SigUbuntuEdgeZoneImageConfig, catalog.SigAzureLinuxEdgeZoneImageConfig,
+			} {
+				for distro, expected := range images {
+					image, err := baker.GetLatestSigImageConfig(*sigConfig, distro, &datamodel.EnvironmentInfo{Region: cs.Location})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(image.Gallery).To(Equal(expected.Gallery))
+					Expect(image.Definition).To(Equal(expected.Definition))
+				}
+			}
+		})
+
+		It("returns only Extended Zone images for explicit catalog requests without regional key collisions", func() {
+			baker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			env := &datamodel.EnvironmentInfo{Region: cs.Location, UseEdgeZoneVHD: true}
+			images, err := baker.GetDistroSigImageConfig(*sigConfig, env)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(images).To(HaveLen(12))
+			Expect(images).NotTo(HaveKey(datamodel.AKSUbuntuArm64Containerd2404Gen2))
+			for distro, image := range images {
+				resolved, err := baker.GetLatestSigImageConfig(*sigConfig, distro, env)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(image).To(Equal(*resolved))
+				Expect(image.Gallery).To(BeElementOf(datamodel.AKSUbuntuEdgeZoneGalleryName, datamodel.AKSAzureLinuxEdgeZoneGalleryName))
+			}
+		})
+
+		It("uses the Extended Zone SIG during bootstrapping without returning a regional marketplace image", func() {
+			baker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			baker = baker.WithToggles(&testToggles{nodeImageVersionOverrides: map[datamodel.Distro]string{
+				datamodel.AKSUbuntuEdgeZoneContainerd2204Gen2: "202611.01.0",
+			}})
+			config.UseEdgeZoneVHD = true
+			bootstrap, err := baker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(bootstrap.OSImageConfig).To(BeNil())
+			Expect(bootstrap.SigImageConfig.Gallery).To(Equal(datamodel.AKSUbuntuEdgeZoneGalleryName))
+			Expect(bootstrap.SigImageConfig.Definition).To(Equal("2204gen2containerd"))
+			Expect(bootstrap.SigImageConfig.Version).To(Equal("202611.01.0"))
+		})
+	})
+
 	Context("GetNodeBootstrapping", func() {
 		It("resolves and bootstraps the distinct AZL3 Kata-CC identity", func() {
 			config.AgentPoolProfile.Distro = datamodel.AKSAzureLinuxV3Gen2KataCC

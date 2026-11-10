@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -28,6 +29,7 @@ type SIGAzureEnvironmentSpecConfig struct {
 	SigWindowsImageConfig            map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
 	SigUbuntuEdgeZoneImageConfig     map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
 	SigAzureLinuxEdgeZoneImageConfig map[Distro]SigImageConfig `json:"sigAzureLinuxEdgeZoneImageConfig,omitempty"`
+	SigEdgeZoneImageConfig           map[Distro]SigImageConfig `json:"sigEdgeZoneImageConfig,omitempty"`
 	SigFlatcarImageConfig            map[Distro]SigImageConfig `json:"sigFlatcarImageConfig,omitempty"`
 	// TODO(adadilli) add PIR constants as well
 }
@@ -42,6 +44,8 @@ type EnvironmentInfo struct {
 	TenantID string
 	// Region is the customer's region (e.g. eastus).
 	Region string
+	// UseEdgeZoneVHD selects the Extended Zone gallery without changing the distro identity.
+	UseEdgeZoneVHD bool `json:"useEdgeZoneVHD,omitempty"`
 }
 
 // SIGConfig is used to hold configuration parameters to access AKS VHDs stored in a SIG.
@@ -1091,6 +1095,87 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 	}
 }
 
+func getSigEdgeZoneImageConfigMap(ubuntu, azureLinux map[Distro]SigImageConfig) map[Distro]SigImageConfig {
+	configs := make(map[Distro]SigImageConfig)
+	for _, catalog := range []struct {
+		configs       map[Distro]SigImageConfig
+		gallery       string
+		resourceGroup string
+	}{
+		{ubuntu, AKSUbuntuEdgeZoneGalleryName, AKSUbuntuEdgeZoneResourceGroup},
+		{azureLinux, AKSAzureLinuxEdgeZoneGalleryName, AKSAzureLinuxEdgeZoneResourceGroup},
+	} {
+		for distro, config := range catalog.configs {
+			if !isEdgeZoneRegionalDistro(distro) {
+				continue
+			}
+			config.Gallery = catalog.gallery
+			config.ResourceGroup = catalog.resourceGroup
+			configs[distro] = config
+		}
+	}
+	return configs
+}
+
+func isEdgeZoneRegionalDistro(distro Distro) bool {
+	if release, ok := strings.CutPrefix(string(distro), "aks-ubuntu-containerd-"); ok {
+		parts := strings.Split(strings.TrimSuffix(release, "-gen2"), ".")
+		if len(parts) != 2 {
+			return false
+		}
+		for _, part := range parts {
+			if _, err := strconv.Atoi(part); err != nil {
+				return false
+			}
+		}
+		return true
+	}
+	if release, ok := strings.CutPrefix(string(distro), "aks-azurelinux-v"); ok {
+		major, err := strconv.Atoi(strings.TrimSuffix(release, "-gen2"))
+		return err == nil && major >= 3
+	}
+	return false
+}
+
+//nolint:gochecknoglobals
+var edgeZoneImageCatalog = getSigEdgeZoneImageConfigMap(
+	getSigUbuntuImageConfigMapWithOpts(),
+	getSigAzureLinuxImageConfigMapWithOpts(),
+)
+
+//nolint:gochecknoglobals
+var legacyEdgeZoneImageCatalogs = []map[Distro]SigImageConfig{
+	getSigUbuntuEdgeZoneImageConfigMapWithOpts(),
+	getSigAzureLinuxEdgeZoneImageConfigMapWithOpts(),
+}
+
+// IsEdgeZoneDistro reports whether a shared or legacy distro is in the Extended Zone catalog.
+func IsEdgeZoneDistro(distro Distro) bool {
+	if _, ok := edgeZoneImageCatalog[distro]; ok {
+		return true
+	}
+	for _, catalog := range legacyEdgeZoneImageCatalogs {
+		if _, ok := catalog[distro]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// IsEdgeZoneSIGImage reports whether an exact OS SKU and image definition are eligible for Extended Zones.
+func IsEdgeZoneSIGImage(osSKU, imageDefinitionName string) bool {
+	for distro, config := range edgeZoneImageCatalog {
+		if config.Definition != imageDefinitionName {
+			continue
+		}
+		if osSKU == "Ubuntu" && strings.HasPrefix(string(distro), "aks-ubuntu-") ||
+			osSKU == OSSKUAzureLinux && strings.HasPrefix(string(distro), "aks-azurelinux-") {
+			return true
+		}
+	}
+	return false
+}
+
 func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	// This image is using a specific resource group and gallery name for edge zone scenario.
 	sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate := SigImageConfigTemplate{
@@ -1199,6 +1284,7 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 
 	fromACSAzureLinuxEdgeZone := withAzureLinuxEdgeZoneConfig(sigConfig)
 	c.SigAzureLinuxEdgeZoneImageConfig = getSigAzureLinuxEdgeZoneImageConfigMapWithOpts(fromACSAzureLinuxEdgeZone)
+	c.SigEdgeZoneImageConfig = getSigEdgeZoneImageConfigMap(c.SigUbuntuImageConfig, c.SigAzureLinuxImageConfig)
 	return *c, nil
 }
 
@@ -1207,7 +1293,7 @@ GetAzurePublicSIGConfigForTest returns a statically defined sigconfig. This shou
 unit tests and e2es.
 */
 func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
-	return SIGAzureEnvironmentSpecConfig{
+	config := SIGAzureEnvironmentSpecConfig{
 		CloudName:                        AzurePublicCloud,
 		SigTenantID:                      AzurePublicCloudSigTenantID,
 		SubscriptionID:                   AzurePublicCloudSigSubscription,
@@ -1219,6 +1305,8 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigAzureLinuxEdgeZoneImageConfig: getSigAzureLinuxEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigFlatcarImageConfig:            getSigFlatcarImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
+	config.SigEdgeZoneImageConfig = getSigEdgeZoneImageConfigMap(config.SigUbuntuImageConfig, config.SigAzureLinuxImageConfig)
+	return config
 }
 
 // withACSSIGConfigWithDefaults functions the same as withACSSIGConfig, but uses a default gallery and resource group
