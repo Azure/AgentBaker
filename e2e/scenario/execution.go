@@ -52,6 +52,7 @@ func runExecution(ctx context.Context, name, artifactName string, original *Scen
 	s = freshScenario(original)
 	s.artifactName = artifactName
 	s.cleanup = cleanup
+	s.gpuQuotaRecovery = &gpuQuotaRecovery{}
 	if s.SkipReason != "" {
 		runErr = &skipError{message: s.SkipReason}
 		return outcome

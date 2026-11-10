@@ -694,7 +694,10 @@ func CreateVMSS(ctx context.Context, s *Scenario, resourceGroupName string) (*Sc
 	if err != nil {
 		return &ScenarioVM{}, err
 	}
-	return createVMSSWithGPUQuotaRecovery(ctx, model, func() (*ScenarioVM, error) {
+	if s.gpuQuotaRecovery == nil {
+		s.gpuQuotaRecovery = &gpuQuotaRecovery{}
+	}
+	return s.gpuQuotaRecovery.createVMSS(ctx, model, func() (*ScenarioVM, error) {
 		return createVMSS(ctx, s, resourceGroupName, model, DialSSHOverBastion)
 	})
 }

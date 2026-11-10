@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"testing"
@@ -79,6 +80,7 @@ type gpuQuotaTestAzure struct {
 	requests   int
 	failPath   string
 	failMethod string
+	failStatus int
 	paginate   bool
 	async      bool
 	polls      int
@@ -131,6 +133,10 @@ func (a *gpuQuotaTestAzure) respond(t *testing.T, req *http.Request) *http.Respo
 	case req.Method == a.failMethod && req.URL.Path == a.failPath:
 		status = http.StatusForbidden
 		body = map[string]any{"error": map[string]string{"code": "AuthorizationFailed", "message": "denied"}}
+		if a.failStatus == http.StatusNotFound {
+			status = http.StatusNotFound
+			body = map[string]any{"error": map[string]string{"code": "ResourceNotFound", "message": "not found"}}
+		}
 	case req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/operations/delete"):
 		a.polls++
 		state := "InProgress"
@@ -225,7 +231,7 @@ func TestGPUQuotaRecoveryReclaimsExactSKUAndWaitsForDeletion(t *testing.T) {
 				wantVM := &ScenarioVM{}
 				conn := &gpuQuotaTestSSHConn{}
 				failedVM := &ScenarioVM{SSHClient: &SSHClient{Client: &ssh.Client{Conn: conn}}}
-				got, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+				got, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 					calls++
 					if calls == 1 {
 						quotaErr := gpuQuotaTestCoreError()
@@ -267,7 +273,7 @@ func TestGPUQuotaRecoveryRejectsUnrelatedErrorsAndSubscriptions(t *testing.T) {
 				config.Config.SubscriptionID = tc.subscription
 			}
 			calls := 0
-			_, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+			_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 				calls++
 				return nil, tc.err
 			})
@@ -280,7 +286,7 @@ func TestGPUQuotaRecoveryRejectsUnrelatedErrorsAndSubscriptions(t *testing.T) {
 		a := &gpuQuotaTestAzure{gpuCount: "0", vms: []*armcompute.VirtualMachine{gpuQuotaTestVM("scratch", "external")}}
 		a.install(t)
 		quotaErr := gpuQuotaTestCoreError()
-		_, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+		_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 			return nil, quotaErr
 		})
 		require.ErrorIs(t, err, quotaErr)
@@ -333,7 +339,7 @@ func TestGPUQuotaRecoveryProtectsOtherResources(t *testing.T) {
 		a.install(t)
 		calls := 0
 		quotaErr := gpuQuotaTestCoreError()
-		_, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+		_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 			calls++
 			return nil, quotaErr
 		})
@@ -355,7 +361,7 @@ func TestGPUQuotaRecoveryRetriesAtMostThreeTimes(t *testing.T) {
 				a.install(t)
 				calls := 0
 				quotaErr := gpuQuotaTestCoreError()
-				_, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+				_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 					calls++
 					if succeeds && calls == 4 {
 						return &ScenarioVM{}, nil
@@ -376,6 +382,43 @@ func TestGPUQuotaRecoveryRetriesAtMostThreeTimes(t *testing.T) {
 	}
 }
 
+func TestGPUQuotaRecoveryBudgetSurvivesProvisioningRetries(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		a := &gpuQuotaTestAzure{gpuCount: "1", vms: []*armcompute.VirtualMachine{
+			gpuQuotaTestVM("scratch", "one"), gpuQuotaTestVM("scratch", "two"),
+			gpuQuotaTestVM("scratch", "three"), gpuQuotaTestVM("scratch", "four"),
+		}}
+		a.install(t)
+		scenario := &Scenario{gpuQuotaRecovery: new(gpuQuotaRecovery)}
+		model := *gpuQuotaTestVMSS("abe2e-westus3", "test")
+		galleryErr := gpuQuotaTestError(http.StatusNotFound, "GalleryImageNotFound", "image not yet propagated")
+		calls := 0
+		bake := freshScenario(scenario)
+		_, err := bake.gpuQuotaRecovery.createVMSS(t.Context(), model, func() (*ScenarioVM, error) {
+			calls++
+			if calls == 3 {
+				return nil, galleryErr
+			}
+			return nil, gpuQuotaTestCoreError()
+		})
+		require.ErrorIs(t, err, galleryErr)
+		require.Len(t, a.deleted, 2)
+
+		quotaErr := gpuQuotaTestCoreError()
+		calls = 0
+		provision := freshScenario(scenario)
+		_, err = provision.gpuQuotaRecovery.createVMSS(t.Context(), model, func() (*ScenarioVM, error) {
+			calls++
+			return nil, quotaErr
+		})
+		require.ErrorIs(t, err, quotaErr)
+		assert.ErrorContains(t, err, "GPU quota recovery exhausted after 3 attempts")
+		assert.Equal(t, 2, calls, "an outer provisioning retry must not reset the quota budget")
+		assert.Len(t, a.deleted, 3)
+		assert.NotContains(t, a.deleted, gpuQuotaTestID("scratch", "virtualMachines", "four"))
+	})
+}
+
 func TestGPUQuotaRecoveryPropagatesInventoryAndDeletionErrors(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -394,7 +437,7 @@ func TestGPUQuotaRecoveryPropagatesInventoryAndDeletionErrors(t *testing.T) {
 			a.install(t)
 			quotaErr := gpuQuotaTestCoreError()
 			calls := 0
-			_, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+			_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 				calls++
 				return nil, quotaErr
 			})
@@ -427,7 +470,7 @@ func TestGPUQuotaRecoveryRejectsInvalidMetadata(t *testing.T) {
 			a := &gpuQuotaTestAzure{gpuCount: tc.gpuCount, vms: []*armcompute.VirtualMachine{vm}}
 			a.install(t)
 			quotaErr := gpuQuotaTestCoreError()
-			_, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+			_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 				return nil, quotaErr
 			})
 			require.ErrorIs(t, err, quotaErr)
@@ -442,7 +485,7 @@ func TestGPUQuotaRecoveryFindsLaterInventoryPage(t *testing.T) {
 		a := &gpuQuotaTestAzure{gpuCount: "1", paginate: true}
 		a.install(t)
 		calls := 0
-		_, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+		_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 			calls++
 			if calls == 1 {
 				return nil, gpuQuotaTestCoreError()
@@ -462,7 +505,7 @@ func TestGPUQuotaRecoveryStopsOnDeletionPollingFailure(t *testing.T) {
 	a.install(t)
 	quotaErr := gpuQuotaTestCoreError()
 	calls := 0
-	_, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+	_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 		calls++
 		return nil, quotaErr
 	})
@@ -470,6 +513,83 @@ func TestGPUQuotaRecoveryStopsOnDeletionPollingFailure(t *testing.T) {
 	require.ErrorContains(t, err, "AuthorizationFailed")
 	assert.Equal(t, 1, calls, "must not create another VM before deletion is confirmed")
 	assert.Len(t, a.deleted, 1)
+}
+
+func TestGPUQuotaRecoveryDoesNotTreatPolling404AsDeletion(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		a := &gpuQuotaTestAzure{
+			gpuCount: "1", async: true, failMethod: http.MethodGet,
+			failPath: "/operations/delete", failStatus: http.StatusNotFound,
+			vms: []*armcompute.VirtualMachine{
+				gpuQuotaTestVM("scratch", "first"), gpuQuotaTestVM("scratch", "second"),
+			},
+		}
+		a.install(t)
+		calls := 0
+		quotaErr := gpuQuotaTestCoreError()
+		_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+			calls++
+			return nil, quotaErr
+		})
+		require.ErrorIs(t, err, quotaErr)
+		assert.ErrorContains(t, err, "ResourceNotFound")
+		assert.Equal(t, 1, calls, "an unknown deletion result must stop recovery")
+		assert.Equal(t, []string{gpuQuotaTestID("scratch", "virtualMachines", "first")}, a.deleted,
+			"do not delete another resource when the first deletion is unconfirmed")
+	})
+}
+
+func TestGPUQuotaRecoveryRetriesAfterCandidateDisappears(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{name: "resource GET", method: http.MethodGet, path: gpuQuotaTestID("scratch", "virtualMachines", "first")},
+		{name: "resource DELETE", method: http.MethodDelete, path: gpuQuotaTestID("scratch", "virtualMachines", "first")},
+		{name: "resource group GET", method: http.MethodGet, path: "/subscriptions/" + gpuQuotaRecoverySubscription + "/resourcegroups/scratch"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				a := &gpuQuotaTestAzure{
+					gpuCount: "1", failMethod: tc.method,
+					failPath: tc.path, failStatus: http.StatusNotFound,
+					vms: []*armcompute.VirtualMachine{
+						gpuQuotaTestVM("scratch", "first"), gpuQuotaTestVM("scratch", "second"),
+					},
+				}
+				a.install(t)
+				calls := 0
+				_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+					calls++
+					if calls == 1 {
+						return nil, gpuQuotaTestCoreError()
+					}
+					return &ScenarioVM{}, nil
+				})
+				require.NoError(t, err)
+				assert.Empty(t, a.deleted, "a concurrent deletion may already have freed quota; retry before another eviction")
+			})
+		})
+	}
+}
+
+func TestGPUQuotaRecoveryIgnoresQuotaTermsInRequestURL(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		a := &gpuQuotaTestAzure{gpuCount: "1"}
+		a.install(t)
+		err := gpuQuotaTestError(http.StatusConflict, "OperationNotAllowed", "exceeding approved VM count quota")
+		var responseErr *azcore.ResponseError
+		require.ErrorAs(t, err, &responseErr)
+		requestURL, parseErr := url.Parse("https://management.azure.com" + gpuQuotaTestID("scratch", "virtualMachineScaleSets", "gpu-cores-test"))
+		require.NoError(t, parseErr)
+		responseErr.RawResponse.Request = &http.Request{Method: http.MethodPut, URL: requestURL}
+		_, got := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+			return nil, err
+		})
+		require.ErrorIs(t, got, err)
+		assert.Zero(t, a.requests, "quota classification must inspect the ARM error, not tokens in the request URL")
+	})
 }
 
 func TestGPUQuotaRecoveryWaiterRetriesBeforeEvicting(t *testing.T) {
@@ -480,7 +600,7 @@ func TestGPUQuotaRecoveryWaiterRetriesBeforeEvicting(t *testing.T) {
 		done := make(chan error, 1)
 		calls := 0
 		go func() {
-			_, err := createVMSSWithGPUQuotaRecovery(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+			_, err := new(gpuQuotaRecovery).createVMSS(t.Context(), *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 				calls++
 				if calls == 1 {
 					return nil, gpuQuotaTestCoreError()
@@ -506,7 +626,7 @@ func TestGPUQuotaRecoveryCancellationDoesNotDelete(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		done := make(chan error, 1)
 		go func() {
-			_, err := createVMSSWithGPUQuotaRecovery(ctx, *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
+			_, err := new(gpuQuotaRecovery).createVMSS(ctx, *gpuQuotaTestVMSS("abe2e-westus3", "test"), func() (*ScenarioVM, error) {
 				return nil, gpuQuotaTestCoreError()
 			})
 			done <- err

@@ -73,9 +73,10 @@ type Scenario struct {
 	// artifactName isolates files and Azure resource names created by this run.
 	artifactName string
 
-	cleanup      *scenarioCleanup
-	failed       bool
-	adoTestCases []Measurement
+	cleanup          *scenarioCleanup
+	gpuQuotaRecovery *gpuQuotaRecovery
+	failed           bool
+	adoTestCases     []Measurement
 }
 
 // Measurement becomes a separate JUnit test case so ADO can track a focused

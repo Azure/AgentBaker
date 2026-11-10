@@ -34,7 +34,8 @@ In the dedicated E2E subscription `8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8`,
 GPU tests take priority over non-AgentBaker standalone GPU VMs and uniform VM scale
 sets. After a confirmed Compute core-quota error, the runner can **delete** one
 such resource with the exact requested VM size in the same region, wait for
-deletion, pause 15 seconds for quota propagation, and retry creation up to three times. It uses
+deletion, pause 15 seconds for quota propagation, and retry creation up to three times
+per scenario attempt, including across provisioning retries. It uses
 the final VMSS request size and verifies its GPU capability in Azure's SKU catalogue.
 It does not reclaim other sizes, even within the same quota family, or resources
 using a different Spot/regular priority.
@@ -47,6 +48,9 @@ each runner; it is not a subscription-wide lock across separate pipeline runs.
 Other subscriptions, allocation/capacity errors, and non-core quotas retain their
 existing failure/skip behavior. Inventory or deletion failures preserve the
 original quota error and stop recovery as a failure, even in PR gates.
+An error from the asynchronous deletion-status endpoint is not proof of deletion
+and stops recovery. If a candidate disappears concurrently, creation is retried
+before considering another eviction.
 
 ## Writing and extending scenarios
 

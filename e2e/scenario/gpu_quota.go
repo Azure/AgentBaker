@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/samber/lo"
 )
@@ -28,12 +30,16 @@ const (
 // based on quota errors that another scenario has already resolved.
 var gpuQuotaRecoveryLock = make(chan struct{}, 1)
 
+type gpuQuotaRecovery struct {
+	attempts int
+}
+
 // Recovery failures must not be downgraded to quota/capacity skips by the PR gate.
 type gpuQuotaRecoveryError struct{ error }
 
 func (e *gpuQuotaRecoveryError) Unwrap() error { return e.error }
 
-func createVMSSWithGPUQuotaRecovery(
+func (recovery *gpuQuotaRecovery) createVMSS(
 	ctx context.Context,
 	model armcompute.VirtualMachineScaleSet,
 	create func() (*ScenarioVM, error),
@@ -70,12 +76,13 @@ func createVMSSWithGPUQuotaRecovery(
 	}
 	defer func() { <-gpuQuotaRecoveryLock }()
 
-	for attempt := 1; attempt <= maxGPUQuotaRecoveryAttempts; attempt++ {
+	for recovery.attempts < maxGPUQuotaRecoveryAttempts {
 		if ctx.Err() != nil {
 			return vm, &gpuQuotaRecoveryError{errors.Join(err, ctx.Err())}
 		}
+		recovery.attempts++
 		logging.Logf(ctx, "GPU core quota exceeded for %s in %s; recovery attempt %d/%d: %v",
-			target.size, target.location, attempt, maxGPUQuotaRecoveryAttempts, err)
+			target.size, target.location, recovery.attempts, maxGPUQuotaRecoveryAttempts, err)
 		if waited {
 			// A preceding recovery may have freed enough quota. Retry before evicting.
 			waited = false
@@ -102,12 +109,26 @@ func isComputeCoreQuotaError(err error) bool {
 	var responseErr *azcore.ResponseError
 	if !errors.As(err, &responseErr) ||
 		(responseErr.StatusCode != http.StatusConflict && responseErr.StatusCode != http.StatusOK) ||
-		responseErr.ErrorCode != "OperationNotAllowed" {
+		responseErr.ErrorCode != "OperationNotAllowed" || responseErr.RawResponse == nil {
 		return false
 	}
-	message := strings.ToLower(responseErr.Error())
-	return strings.Contains(message, "exceeding approved") && strings.Contains(message, "quota") &&
-		(strings.Contains(message, "cores") || strings.Contains(message, "vcpu"))
+	payload, err := runtime.Payload(responseErr.RawResponse)
+	if err != nil {
+		return false
+	}
+	var body struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(payload, &body) != nil || body.Error.Code != responseErr.ErrorCode {
+		return false
+	}
+	message := strings.ToLower(strings.Join(strings.Fields(body.Error.Message), " "))
+	return strings.Contains(message, "exceeding approved") &&
+		(strings.Contains(message, " cores quota") || strings.Contains(message, " vcpu quota") ||
+			strings.Contains(message, " vcpus quota"))
 }
 
 type gpuQuotaTarget struct {
@@ -253,11 +274,11 @@ func (t gpuQuotaTarget) reclaimOne(ctx context.Context) error {
 	}
 
 	for _, candidate := range candidates {
-		deleted, err := t.deleteCandidate(ctx, candidate)
+		retry, err := t.deleteCandidate(ctx, candidate)
 		if err != nil {
 			return err
 		}
-		if deleted {
+		if retry {
 			return nil
 		}
 	}
@@ -271,7 +292,8 @@ func (t gpuQuotaTarget) deleteCandidate(ctx context.Context, candidate *gpuQuota
 	id := candidate.id
 	group, err := config.Azure.ResourceGroup.Get(ctx, id.ResourceGroupName, nil)
 	if isNotFoundErr(err) {
-		return false, nil
+		logging.Logf(ctx, "GPU candidate resource group %s is already absent; retrying creation before further reclamation", id.ResourceGroupName)
+		return true, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("check GPU resource group %s: %w", id.ResourceGroupName, err)
@@ -297,7 +319,8 @@ func (t gpuQuotaTarget) deleteCandidate(ctx context.Context, candidate *gpuQuota
 		}
 	}
 	if isNotFoundErr(err) {
-		return false, nil
+		logging.Logf(ctx, "GPU candidate %s is already absent; retrying creation before further reclamation", id)
+		return true, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("recheck GPU resource %s: %w", id, err)
@@ -310,21 +333,25 @@ func (t gpuQuotaTarget) deleteCandidate(ctx context.Context, candidate *gpuQuota
 	}
 
 	logging.Logf(ctx, "reclaiming non-AgentBaker GPU resource %s (SKU %s, region %s) for E2E quota", id, t.size, t.location)
+	deleteAccepted := false
 	if candidate.scaleSet {
 		poller, deleteErr := config.Azure.VMSS.BeginDelete(ctx, id.ResourceGroupName, id.Name, nil)
 		err = deleteErr
 		if err == nil {
+			deleteAccepted = true
 			_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		}
 	} else {
 		poller, deleteErr := config.Azure.VMs.BeginDelete(ctx, id.ResourceGroupName, id.Name, nil)
 		err = deleteErr
 		if err == nil {
+			deleteAccepted = true
 			_, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions())
 		}
 	}
-	if isNotFoundErr(err) {
-		return false, nil
+	if !deleteAccepted && isNotFoundErr(err) {
+		logging.Logf(ctx, "GPU candidate %s disappeared before deletion; retrying creation before further reclamation", id)
+		return true, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("delete GPU resource %s: %w", id, err)
