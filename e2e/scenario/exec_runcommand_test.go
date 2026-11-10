@@ -116,6 +116,8 @@ func TestRunCommandCleanup(t *testing.T) {
 		name                string
 		cancelCaller        bool
 		commandFails        bool
+		scriptFails         bool
+		rawCommand          bool
 		deleteStartFails    bool
 		deletePollFails     bool
 		deleteNeverFinishes bool
@@ -135,6 +137,11 @@ func TestRunCommandCleanup(t *testing.T) {
 			name: "preserves command and cleanup failures", commandFails: true, deletePollFails: true,
 			wantErrors: []string{"failed to get RunCommand instance view", "InstanceViewFailed", "CleanupFailed"},
 		},
+		{
+			name: "preserves script and cleanup failures", scriptFails: true, deletePollFails: true,
+			wantErrors: []string{"CleanupFailed", "RunCommand script failed", "executionState=Failed", "exitCode=42", `stdout="done"`, `stderr="script stderr"`},
+		},
+		{name: "raw helper allows expected nonzero exit", scriptFails: true, rawCommand: true},
 		{
 			name: "delete polling timeout", deleteNeverFinishes: true,
 			wantErrors: []string{"failed to delete RunCommand", "context deadline exceeded"},
@@ -169,7 +176,12 @@ func TestRunCommandCleanup(t *testing.T) {
 						if tt.cancelCaller {
 							cancel()
 						}
-						return gcResponse(req, http.StatusOK, `{"properties":{"instanceView":{"executionState":"Succeeded","exitCode":0,"output":"done"}}}`)
+						state, exitCode, stderr := "Succeeded", 0, ""
+						if tt.scriptFails {
+							state, exitCode, stderr = "Failed", 42, "script stderr"
+						}
+						return gcResponse(req, http.StatusOK, fmt.Sprintf(
+							`{"properties":{"instanceView":{"executionState":%q,"exitCode":%d,"output":"done","error":%q}}}`, state, exitCode, stderr))
 					case http.MethodDelete:
 						require.NoError(t, req.Context().Err())
 						if tt.deleteStartFails {
@@ -199,14 +211,24 @@ func TestRunCommandCleanup(t *testing.T) {
 						VM: &ScenarioVM{VM: &armcompute.VirtualMachineScaleSetVM{InstanceID: to.Ptr("0")}},
 					},
 				}
-				view, err := RunCommand(ctx, s, "echo done")
+				command := RunCommand
+				if tt.rawCommand {
+					command = runCommand
+				}
+				view, err := command(ctx, s, "echo done")
 				if len(tt.wantErrors) == 0 {
 					require.NoError(t, err)
 					require.Equal(t, to.Ptr("done"), view.Output)
+					if tt.rawCommand {
+						require.Equal(t, to.Ptr(int32(42)), view.ExitCode)
+					}
 					require.Equal(t, 2, deletePolls, "RunCommand must wait until deletion succeeds")
 				} else {
 					for _, want := range tt.wantErrors {
 						require.ErrorContains(t, err, want)
+					}
+					if !tt.scriptFails {
+						require.NotContains(t, err.Error(), "RunCommand script failed")
 					}
 					if !tt.deleteStartFails {
 						require.Positive(t, deletePolls)

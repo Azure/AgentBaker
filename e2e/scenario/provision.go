@@ -821,10 +821,10 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 // resource on the VM and waits for it to provision.
 func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
 	view, err := runCommand(ctx, s, command)
-	if err != nil {
+	if err != nil && view.ExecutionState == nil && view.ExitCode == nil {
 		return view, err
 	}
-	return view, runCommandScriptError(view)
+	return view, errors.Join(err, runCommandScriptError(view))
 }
 
 // runCommand preserves script exit codes for validators that expect non-zero results.
