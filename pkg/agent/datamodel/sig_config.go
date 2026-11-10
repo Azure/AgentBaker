@@ -44,8 +44,8 @@ type EnvironmentInfo struct {
 	TenantID string
 	// Region is the customer's region (e.g. eastus).
 	Region string
-	// UseEdgeZoneVHD selects the Extended Zone gallery without changing the distro identity.
-	UseEdgeZoneVHD bool `json:"useEdgeZoneVHD,omitempty"`
+	// UseEdgeZoneGallery selects the Extended Zone gallery without changing the distro identity.
+	UseEdgeZoneGallery bool `json:"useEdgeZoneGallery,omitempty"`
 }
 
 // SIGConfig is used to hold configuration parameters to access AKS VHDs stored in a SIG.

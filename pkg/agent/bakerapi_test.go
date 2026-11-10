@@ -173,7 +173,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				env := &datamodel.EnvironmentInfo{Region: cs.Location}
 				regional, err := baker.GetLatestSigImageConfig(*sigConfig, distro, env)
 				Expect(err).NotTo(HaveOccurred())
-				env.UseEdgeZoneVHD = true
+				env.UseEdgeZoneGallery = true
 				edge, err := baker.GetLatestSigImageConfig(*sigConfig, distro, env)
 				Expect(err).NotTo(HaveOccurred())
 				expected := *regional
@@ -202,7 +202,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				"unknown",
 			} {
 				image, err := baker.GetLatestSigImageConfig(*sigConfig, distro, &datamodel.EnvironmentInfo{
-					Region: cs.Location, UseEdgeZoneVHD: true,
+					Region: cs.Location, UseEdgeZoneGallery: true,
 				})
 				Expect(err).To(HaveOccurred(), string(distro))
 				Expect(image).To(BeNil())
@@ -247,14 +247,14 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				baker, err := NewAgentBaker()
 				Expect(err).NotTo(HaveOccurred())
 				baker = baker.WithToggles(&testToggles{nodeImageVersionOverrides: tc.overrides})
-				env := &datamodel.EnvironmentInfo{Region: cs.Location, UseEdgeZoneVHD: true}
+				env := &datamodel.EnvironmentInfo{Region: cs.Location, UseEdgeZoneGallery: true}
 				latest, err := baker.GetLatestSigImageConfig(*sigConfig, shared, env)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(latest.Version).To(Equal(tc.expected))
 				all, err := baker.GetDistroSigImageConfig(*sigConfig, env)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(all[shared].Version).To(Equal(tc.expected))
-				env.UseEdgeZoneVHD = false
+				env.UseEdgeZoneGallery = false
 				regional, err := baker.GetLatestSigImageConfig(*sigConfig, shared, env)
 				Expect(err).NotTo(HaveOccurred())
 				expectedRegionalVersion := datamodel.LinuxSIGImageVersion
@@ -262,7 +262,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 					expectedRegionalVersion = version
 				}
 				Expect(regional.Version).To(Equal(expectedRegionalVersion))
-				env.UseEdgeZoneVHD = true
+				env.UseEdgeZoneGallery = true
 				edge, err := baker.GetLatestSigImageConfig(*sigConfig, shared, env)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(edge.Version).To(Equal(tc.expected))
@@ -288,7 +288,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		It("returns only Extended Zone images for explicit catalog requests without regional key collisions", func() {
 			baker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
-			env := &datamodel.EnvironmentInfo{Region: cs.Location, UseEdgeZoneVHD: true}
+			env := &datamodel.EnvironmentInfo{Region: cs.Location, UseEdgeZoneGallery: true}
 			images, err := baker.GetDistroSigImageConfig(*sigConfig, env)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(images).To(HaveLen(12))
@@ -307,7 +307,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			baker = baker.WithToggles(&testToggles{nodeImageVersionOverrides: map[datamodel.Distro]string{
 				datamodel.AKSUbuntuEdgeZoneContainerd2204Gen2: "202611.01.0",
 			}})
-			config.UseEdgeZoneVHD = true
+			config.UseEdgeZoneGallery = true
 			bootstrap, err := baker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(bootstrap.OSImageConfig).To(BeNil())

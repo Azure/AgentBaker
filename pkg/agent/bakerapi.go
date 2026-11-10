@@ -65,7 +65,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		return nil, fmt.Errorf("don't have settings for cloud %s", config.CloudSpecConfig.CloudName)
 	}
 
-	if osImageConfig, hasImage := osImageConfigMap[distro]; hasImage && !config.UseEdgeZoneVHD {
+	if osImageConfig, hasImage := osImageConfigMap[distro]; hasImage && !config.UseEdgeZoneGallery {
 		nodeBootstrapping.OSImageConfig = &osImageConfig
 	}
 
@@ -74,7 +74,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		return nil, err
 	}
 
-	nodeBootstrapping.SigImageConfig = findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro, config.UseEdgeZoneVHD)
+	nodeBootstrapping.SigImageConfig = findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro, config.UseEdgeZoneGallery)
 	if nodeBootstrapping.SigImageConfig == nil && nodeBootstrapping.OSImageConfig == nil {
 		return nil, fmt.Errorf("can't find image for distro %s", distro)
 	}
@@ -83,7 +83,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		// handle node image version toggle/override
 		e := toggles.NewEntityFromNodeBootstrappingConfiguration(config)
 		imageVersion := agentBaker.getLinuxNodeImageVersion(e, distro, sigAzureEnvironmentSpecConfig,
-			nodeBootstrapping.SigImageConfig, config.UseEdgeZoneVHD)
+			nodeBootstrapping.SigImageConfig, config.UseEdgeZoneGallery)
 		if imageVersion != "" {
 			nodeBootstrapping.SigImageConfig.Version = imageVersion
 		}
@@ -99,14 +99,14 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SI
 		return nil, err
 	}
 
-	sigImageConfig := findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro, envInfo.UseEdgeZoneVHD)
+	sigImageConfig := findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro, envInfo.UseEdgeZoneGallery)
 	if sigImageConfig == nil {
 		return nil, fmt.Errorf("can't find SIG image config for distro %s in region %s", distro, envInfo.Region)
 	}
 
 	if !distro.IsWindowsDistro() {
 		e := toggles.NewEntityFromEnvironmentInfo(envInfo)
-		imageVersion := agentBaker.getLinuxNodeImageVersion(e, distro, sigAzureEnvironmentSpecConfig, sigImageConfig, envInfo.UseEdgeZoneVHD)
+		imageVersion := agentBaker.getLinuxNodeImageVersion(e, distro, sigAzureEnvironmentSpecConfig, sigImageConfig, envInfo.UseEdgeZoneGallery)
 		if imageVersion != "" {
 			sigImageConfig.Version = imageVersion
 		}
@@ -123,7 +123,7 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 
 	e := toggles.NewEntityFromEnvironmentInfo(envInfo)
 
-	if envInfo.UseEdgeZoneVHD {
+	if envInfo.UseEdgeZoneGallery {
 		return agentBaker.getEdgeZoneDistroSigImageConfig(allAzureSigConfig, e), nil
 	}
 
