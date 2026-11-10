@@ -97,13 +97,10 @@ func TestRegisteredCVMScenarios(t *testing.T) {
 				return nil
 			})
 		require.NoError(t, err)
-<<<<<<< HEAD
 		require.NotNil(t, s.AKSNodeConfigMutator)
 		nodeConfig.VmSize = ""
 		s.AKSNodeConfigMutator(nil, nodeConfig)
 		assert.Equal(t, nbc.AgentPoolProfile.VMSize, nodeConfig.VmSize)
-=======
->>>>>>> main
 		if want.disableLocalDNS {
 			assert.Nil(t, nbc.AgentPoolProfile.LocalDNSProfile)
 			assert.Nil(t, nodeConfig.LocalDnsProfile)
