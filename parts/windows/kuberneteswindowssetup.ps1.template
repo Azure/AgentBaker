@@ -72,6 +72,9 @@ $global:KubeBinariesPackageSASURL="{{GetParameter "kubeBinariesSASURL"}}"
 $global:WindowsKubeBinariesURL="{{GetParameter "windowsKubeBinariesURL"}}"
 $global:KubeBinariesVersion="{{GetParameter "kubeBinariesVersion"}}"
 $global:ContainerdUrl="{{GetParameter "windowsContainerdURL"}}"
+$global:WindowsHcsshimUrl="{{GetParameter "windowsHcsshimURL"}}"
+$global:WindowsMobyContainerdUrl="{{GetParameter "windowsMobyContainerdURL"}}"
+$global:WindowsCrictlUrl="{{GetParameter "windowsCrictlURL"}}"
 $global:ContainerdSdnPluginUrl="{{GetParameter "windowsSdnPluginURL"}}"
 
 ## Docker Version
@@ -440,7 +443,7 @@ function BasePrep {
         $cniConfigPath=$global:CNIConfigPath
     }
 
-    Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
+    Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion -HcsshimUrl $global:WindowsHcsshimUrl -MobyContainerdUrl $global:WindowsMobyContainerdUrl -CrictlUrl $global:WindowsCrictlUrl
 
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
 
