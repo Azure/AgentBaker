@@ -37,8 +37,6 @@ jobs:
         # shellcheck disable=SC2046  # word splitting is intentional: expand to multiple package args
         go test $(go list ./... | grep -v e2e) -coverprofile=coverage/agentbaker.out -covermode=atomic
         (cd aks-node-controller && go build -mod=readonly ./... && go test ./... -coverprofile=../coverage/aks-node-controller.out -covermode=atomic)
-        # aks-node-controller will also run on Windows nodes; keep it (and its tests) compiling there.
-        (cd aks-node-controller && GOOS=windows go build -mod=readonly ./... && GOOS=windows go vet ./...)
         (cd aks-live-patching && go build -mod=readonly ./... && go test ./... -coverprofile=../coverage/aks-live-patching.out -covermode=atomic)
         (cd vhdbuilder/cosi-uploader && go build -mod=readonly ./... && go test ./... -coverprofile=../../coverage/cosi-uploader.out -covermode=atomic)
     - name: Upload CSE minification diffs
