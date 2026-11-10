@@ -81,6 +81,8 @@ nodes created from prepared images. `Ubuntu2404_GPUDriverOptOut_VHDCaching`
 installs a real customer driver after `basePrep` and checks that it survives
 capture and provisioning with AKS driver installation disabled. These use
 separate bake and real-node VMs and the current source CSE scripts in both phases.
+The customer-driver case requires the approved CUDA LTS installer image cached
+in the source VHD; it fails rather than downloading a missing installer.
 
 ### DRA MIG workload validation
 

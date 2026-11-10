@@ -78,7 +78,8 @@ test -f /opt/azure/containers/base_prep.complete
 image=%s
 version=%s
 if [ -z "$(sudo ctr -n k8s.io images ls -q "name==${image}")" ]; then
-  sudo ctr -n k8s.io images pull "${image}"
+  echo "Required CUDA installer image is not cached in this VHD: ${image}. Use a VHD built with the matching components.json." >&2
+  exit 1
 fi
 sudo mkdir -p /opt/gpu /opt/actions
 sudo ctr -n k8s.io run --privileged --rm --net-host \
