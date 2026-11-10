@@ -271,7 +271,7 @@ function retrieve_rcv1p_certs {
 }
 
 function install_certs_to_trust_store {
-    mkdir -p /root/AzureCACertificates
+    mkdir -p /root/AzureCACertificates || return 1
 
     # Guard against empty glob: if no *.crt files exist, bash leaves the literal
     # '*.crt', which would fail cp.
@@ -280,7 +280,7 @@ function install_certs_to_trust_store {
         return 1
     fi
 
-    local cert
+    local cert destcert
     for cert in /root/AzureCACertificates/*.crt; do
         log_certificates "$cert"
     done
