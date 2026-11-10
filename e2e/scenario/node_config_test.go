@@ -18,14 +18,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAKSNodeConfigConversionPreservesProvisioningPhase(t *testing.T) {
+func TestCreateAKSNodeConfigPreservesProvisioningPhase(t *testing.T) {
 	for _, bake := range []bool{true, false} {
 		t.Run(fmt.Sprintf("bake=%t", bake), func(t *testing.T) {
 			nbc, err := baseTemplateLinux("westus2", "1.37.1", "amd64")
 			require.NoError(t, err)
 			nbc.EnableScriptlessAKSNodeConfig = true
 			nbc.PreProvisionOnly = bake
-			cfg, err := nbcToAKSNodeConfigV1(nbc)
+			cfg, err := createAKSNodeConfig(nodeConfigTestCluster("1.37.1"), config.VHDUbuntu2404Gen2Containerd,
+				func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) error {
+					cfg.PreProvisionOnly = bake
+					return nil
+				})
 			require.NoError(t, err)
 			require.Equal(t, bake, cfg.PreProvisionOnly)
 			data, err := nodeconfigutils.MarshalConfigurationV1(cfg)
@@ -78,7 +82,7 @@ func TestPrepareNodeConfigurationNBCOptOutPreservesComparison(t *testing.T) {
 						VHD:                      vhd,
 						ForceScriptlessNBCCSECmd: tc.force,
 					},
-					Runtime: &ScenarioRuntime{EnableScriptlessNBCCSECmd: true},
+					Runtime: &ScenarioRuntime{Cluster: nodeConfigTestCluster("1.36.5"), EnableScriptlessNBCCSECmd: true},
 				}
 				if tc.withANC {
 					s.AKSNodeConfigMutator = func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
@@ -141,7 +145,7 @@ func TestPrepareNodeConfigurationPreservesCachingMode(t *testing.T) {
 						VHDCaching:           true,
 						AKSNodeConfigMutator: func(_ *Cluster, _ *aksnodeconfigv1.Configuration) {},
 					},
-					Runtime: &ScenarioRuntime{EnableScriptlessNBCCSECmd: true},
+					Runtime: &ScenarioRuntime{Cluster: nodeConfigTestCluster("1.36.5"), EnableScriptlessNBCCSECmd: true},
 				}
 				if phase3 {
 					s.BootstrapConfigMutator = func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
@@ -194,7 +198,9 @@ func TestLinuxKubeletConfigFileDefaults(t *testing.T) {
 				nbc, err := baseTemplateLinux("westus2", version, arch)
 				require.NoError(t, err)
 				require.True(t, nbc.EnableKubeletConfigFile)
-				cfg, err := nbcToAKSNodeConfigV1(nbc)
+				vhd := *config.VHDUbuntu2404Gen2Containerd
+				vhd.Arch = arch
+				cfg, err := createAKSNodeConfig(nodeConfigTestCluster(version), &vhd)
 				require.NoError(t, err)
 				require.True(t, cfg.KubeletConfig.EnableKubeletConfigFile)
 				require.NotContains(t, cfg.KubeletConfig.KubeletFlags, "--max-pods")
@@ -220,15 +226,17 @@ func TestLinuxKubeletConfigFileDefaults(t *testing.T) {
 	}
 }
 
-func TestKubeletConfigFileConversionPreservesScenarioOverrides(t *testing.T) {
-	nbc, err := baseTemplateLinux("westus2", "1.37.1", "amd64")
-	require.NoError(t, err)
-	nbc.KubeletConfig["--max-pods"] = "73"
-	nbc.KubeletConfig["--kube-reserved"] = "cpu=200m,memory=1Gi"
-	nbc.KubeletConfig["--cluster-dns"] = "169.254.10.11"
-	nbc.KubeletConfig["--rotate-server-certificates"] = "false"
-	nbc.AgentPoolProfile.CustomKubeletConfig = &datamodel.CustomKubeletConfig{FailSwapOn: to.Ptr(false)}
-	cfg, err := nbcToAKSNodeConfigV1(nbc)
+func TestCreateAKSNodeConfigPreservesScenarioOverrides(t *testing.T) {
+	cfg, err := createAKSNodeConfig(nodeConfigTestCluster("1.37.1"), config.VHDUbuntu2404Gen2Containerd,
+		func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) error {
+			file := cfg.KubeletConfig.KubeletConfigFileConfig
+			file.MaxPods = to.Ptr(int32(73))
+			file.KubeReserved = map[string]string{"cpu": "200m", "memory": "1Gi"}
+			file.ClusterDns = []string{"169.254.10.11"}
+			file.ServerTlsBootstrap = false
+			file.FailSwapOn = to.Ptr(false)
+			return nil
+		})
 	require.NoError(t, err)
 	file := cfg.KubeletConfig.KubeletConfigFileConfig
 	require.Equal(t, int32(73), file.GetMaxPods())
@@ -257,7 +265,11 @@ func TestKubeletConfigFileExplicitOptOut(t *testing.T) {
 			require.NoError(t, err)
 			scenario.BootstrapConfigMutator(nil, nbc)
 			require.False(t, nbc.EnableKubeletConfigFile)
-			cfg, err := nbcToAKSNodeConfigV1(nbc)
+			cfg, err := createAKSNodeConfig(nodeConfigTestCluster("1.37.1"), scenario.VHD,
+				func(cluster *Cluster, cfg *aksnodeconfigv1.Configuration) error {
+					scenario.AKSNodeConfigMutator(cluster, cfg)
+					return nil
+				})
 			require.NoError(t, err)
 			require.False(t, cfg.KubeletConfig.EnableKubeletConfigFile)
 			require.Equal(t, "110", cfg.KubeletConfig.KubeletFlags["--max-pods"])
@@ -276,11 +288,14 @@ func TestLocalDNSKubeletSettingsPreserveConfigFileParity(t *testing.T) {
 			nbc, err := baseTemplateLinux("eastus", "1.34.0", "amd64")
 			require.NoError(t, err)
 			registered.BootstrapConfigMutator(nil, nbc)
-			cfg, err := nbcToAKSNodeConfigV1(nbc)
+			cfg, err := createAKSNodeConfig(nodeConfigTestCluster("1.34.0"), registered.VHD,
+				func(cluster *Cluster, cfg *aksnodeconfigv1.Configuration) error {
+					registered.AKSNodeConfigMutator(cluster, cfg)
+					return nil
+				})
 			require.NoError(t, err)
 			require.True(t, cfg.KubeletConfig.EnableKubeletConfigFile)
 			require.NotContains(t, cfg.KubeletConfig.KubeletFlags, "--cluster-dns")
-			registered.AKSNodeConfigMutator(nil, cfg)
 			require.NotContains(t, cfg.KubeletConfig.KubeletFlags, "--cluster-dns",
 				"LocalDNS must not reintroduce a flag translated into the config file")
 			require.Equal(t, []string{localDNSClusterListenerIP},
@@ -317,9 +332,7 @@ func TestLocalDNSForwardsToClusterDNSServiceIP(t *testing.T) {
 	})
 
 	t.Run("ANC", func(t *testing.T) {
-		nbc, err := baseTemplateLinux("eastus", "1.34.0", "amd64")
-		require.NoError(t, err)
-		cfg, err := nbcToAKSNodeConfigV1(nbc)
+		cfg, err := createAKSNodeConfig(nodeConfigTestCluster("1.34.0"), config.VHDUbuntu2404Gen2Containerd)
 		require.NoError(t, err)
 		require.Equal(t, clusterDNSServiceIP, cfg.GetClusterConfig().GetClusterNetworkConfig().GetCoreDnsServiceIp())
 
