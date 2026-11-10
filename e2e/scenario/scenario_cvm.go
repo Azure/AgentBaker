@@ -19,13 +19,6 @@ const (
 	cvmUbuntu2004KubernetesVersion = "1.34.11"
 )
 
-type cvmPlatform string
-
-const (
-	cvmPlatformSEVSNP cvmPlatform = "sevsnp"
-	cvmPlatformTDX    cvmPlatform = "tdx"
-)
-
 var (
 	_ = Register(newCVMScenario(
 		"Ubuntu2004_CVM_SNP",

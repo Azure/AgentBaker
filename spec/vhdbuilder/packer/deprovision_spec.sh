@@ -192,7 +192,7 @@ Describe 'VHD deprovision'
         The output should equal "sudo waagent -force -deprovision+user
 installPinnedWALinuxAgent /
 cleanupNvPCRCredentials $1 /
-rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh /opt/azure/containers/install_walinuxagent.py /opt/azure/containers/deprovision.sh /tmp/DeprovisioningScript.sh
+rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh /opt/azure/containers/install_walinuxagent.py /opt/azure/containers/deprovision.sh /opt/azure/containers/aib-deprovision.sh /tmp/DeprovisioningScript.sh
 sync"
       End
     End

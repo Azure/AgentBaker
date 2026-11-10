@@ -17,6 +17,13 @@ import (
 
 const cvmEvidenceLimit = 128 * 1024
 
+type cvmPlatform string
+
+const (
+	cvmPlatformSEVSNP cvmPlatform = "sevsnp"
+	cvmPlatformTDX    cvmPlatform = "tdx"
+)
+
 const (
 	cvmStatusPassed         = "passed"
 	cvmStatusFailed         = "failed"

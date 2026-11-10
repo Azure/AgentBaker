@@ -133,7 +133,6 @@ run_image_builder_template() {
         sed -e "s#<LOCATION>#${LOCATION}#g" \
             -e "s#<IMAGE_BUILDER_IDENTITY_ID>#${IMAGE_BUILDER_IDENTITY_ID}#g" \
             -e "s#<WORKLOAD_OPTIMIZATION_SCRIPT_URL>#${WORKLOAD_OPTIMIZATION_SCRIPT_URL}#g" \
-            -e "s#<CVM_BUILD>#${CVM_BUILD}#g" \
             -e "s#<SOURCE_TYPE>#${SOURCE_TYPE}#g" \
             -e "s#<SOURCE_ID_KEY>#${SOURCE_ID_KEY}#g" \
             -e "s#<SOURCE_ID>#${SOURCE_ID}#g" \

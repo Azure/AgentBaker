@@ -25,7 +25,7 @@
                 "type": "Shell",
                 "name": "InstallDeprovisionHook",
                 "inline": [
-                    "/bin/bash -o pipefail -c 'printf \"%s\\n\" \"#!/bin/bash -eu\" \"exec sudo /bin/bash -eu /opt/azure/containers/deprovision.sh <CVM_BUILD>\" | sudo install -m 0755 /dev/stdin /tmp/DeprovisioningScript.sh'"
+                    "sudo install -m 0755 /opt/azure/containers/aib-deprovision.sh /tmp/DeprovisioningScript.sh"
                 ]
             }
         ],

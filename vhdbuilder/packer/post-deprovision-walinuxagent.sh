@@ -39,6 +39,19 @@ pruneStaleWALinuxAgentDirs() {
         -exec rm -rf -- {} +
 }
 
+createAIBDeprovisionHook() {
+    local feature_flags="$1"
+    local hook_path="${2:-/opt/azure/containers/aib-deprovision.sh}"
+    local is_cvm=false
+    if printf '%s\n' "${feature_flags}" | grep -q "cvm"; then
+        is_cvm=true
+    fi
+    printf '%s\n' '#!/bin/bash -eu' \
+        "exec sudo /bin/bash -eu /opt/azure/containers/deprovision.sh ${is_cvm}" \
+        > "${hook_path}" || return $?
+    chmod 0755 "${hook_path}"
+}
+
 # Ensure cleanup and sync always run, even if the script errors (bash -e).
 # This guarantees resolv.conf is restored, VHD build files are removed,
 # and writes are flushed before VHD capture regardless of success or failure.
@@ -75,6 +88,7 @@ cleanup() {
         rm -f /opt/azure/containers/install_walinuxagent.py
         rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh
         rm -f /opt/azure/containers/deprovision.sh
+        rm -f /opt/azure/containers/aib-deprovision.sh
     fi
     sync
 }
@@ -174,4 +188,8 @@ if printf '%s\n' "${2:-}" | grep -q "cvm"; then
     # shellcheck source=/dev/null
     . /opt/azure/containers/deprovision.sh
     cleanupNvPCRCredentials true /
+fi
+
+if [ "${PREFETCH_OPTIMIZATION,,}" = "true" ]; then
+    createAIBDeprovisionHook "${2:-}"
 fi
