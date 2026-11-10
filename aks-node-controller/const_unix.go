@@ -1,3 +1,5 @@
+//go:build !windows
+
 package main
 
 // Some options are intentionally non-configurable to avoid customization by users
@@ -7,4 +9,5 @@ const (
 	provisionJSONFilePath     = "/var/log/azure/aks/provision.json"
 	provisionCompleteFilePath = "/opt/azure/containers/provision.complete"
 	readyReportMarkerPath     = "/var/lib/waagent/experimental_skip_ready_report"
+	eventsDirPath             = "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"
 )

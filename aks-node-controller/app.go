@@ -723,6 +723,9 @@ func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult
 	if markerPath == "" {
 		markerPath = readyReportMarkerPath
 	}
+	if markerPath == "" {
+		return
+	}
 	if _, err := os.Stat(markerPath); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			slog.Error("failed to stat Ready reporting handoff marker", "path", markerPath, "error", err)
