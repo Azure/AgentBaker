@@ -253,13 +253,13 @@ Describe 'Ubuntu GPU release notes'
       0 26.04
       1 24.04
     End
-    It "records the toolkit directly below CUDA-LTS for Ubuntu $2 (ARM64=$1)"
+    It "records the toolkit at the same indentation as CUDA-LTS for Ubuntu $2 (ARM64=$1)"
       TEST_ARM64="$1"
       UBUNTU_RELEASE="$2"
       When call cacheGPUContainerImageComponents
       The status should be success
       The contents of file "$VHD_LOGS_FILEPATH" should equal "  - nvidia-cuda-driver=$NVIDIA_DRIVER_IMAGE_TAG
-    - nvidia-container-toolkit=1.20.1-1
+  - nvidia-container-toolkit=1.20.1-1
 Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
   - nvidia-grid-driver=$NVIDIA_GRID_DRIVER_VERSION"
       The variable NVIDIA_DRIVER_IMAGE should equal 'mcr.microsoft.com/aks/aks-gpu-cuda-lts'

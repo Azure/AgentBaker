@@ -1097,7 +1097,7 @@ cacheGPUContainerImageComponents() {
       echo "Error: Unable to read NVIDIA Container Toolkit version from $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG" >&2
       return 1
     }
-    printf '  - nvidia-cuda-driver=%s\n    - nvidia-container-toolkit=%s\n' \
+    printf '  - nvidia-cuda-driver=%s\n  - nvidia-container-toolkit=%s\n' \
       "$NVIDIA_DRIVER_IMAGE_TAG" "$toolkit_version" >> "$VHD_LOGS_FILEPATH"
   fi
 
