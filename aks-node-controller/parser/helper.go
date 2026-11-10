@@ -408,6 +408,10 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		m["net.core.optmem_max"] = s.GetNetCoreOptmemMax()
 	}
 
+	if s.NetCoreBpfJitLimit != nil {
+		m["net.core.bpf_jit_limit"] = s.GetNetCoreBpfJitLimit()
+	}
+
 	if s.NetIpv4TcpMaxTwBuckets != nil {
 		m["net.ipv4.tcp_max_tw_buckets"] = s.GetNetIpv4TcpMaxTwBuckets()
 	}
@@ -418,6 +422,10 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 
 	if s.NetIpv4TcpRmem != nil {
 		m["net.ipv4.tcp_rmem"] = s.GetNetIpv4TcpRmem()
+	}
+
+	if s.NetIpv4TcpWmem != nil {
+		m["net.ipv4.tcp_wmem"] = s.GetNetIpv4TcpWmem()
 	}
 
 	if s.NetIpv4TcpKeepaliveTime != nil {
@@ -493,6 +501,10 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 
 	if s.VmMaxMapCount != nil {
 		m["vm.max_map_count"] = s.GetVmMaxMapCount()
+	}
+
+	if s.VmNrHugepages != nil {
+		m["vm.nr_hugepages"] = s.GetVmNrHugepages()
 	}
 
 	if s.VmSwappiness != nil {

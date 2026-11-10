@@ -62,6 +62,11 @@ message SysctlConfig {
   optional string net_ipv4_ip_local_reserved_ports = 31;
   // TCP receive buffer minimum, default, and maximum, as three whitespace-separated integers.
   optional string net_ipv4_tcp_rmem = 32;
+  optional int32 vm_nr_hugepages = 33;
+  // Global limit in bytes for BPF JIT allocations.
+  optional int64 net_core_bpf_jit_limit = 34;
+  // TCP send buffer minimum, default, and maximum, as three whitespace-separated integers.
+  optional string net_ipv4_tcp_wmem = 35;
 }
 
 message UlimitConfig {
