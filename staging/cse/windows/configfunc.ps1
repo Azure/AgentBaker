@@ -607,9 +607,14 @@ function Resolve-DalecCredentialProviderPackageFromMetadata {
         Write-Log "Invalid Dalec credential provider metadata in '$metadataPath'; falling back to RP URL. Error: $_"
         return $null
     }
-    # Older VHDs placed newer Windows pins under PMC; retain that precedence for their metadata.
-    # Consolidated metadata keeps Windows pins only in the dedicated Dalec component.
-    $package = $metadata.Packages | Where-Object { $_.name -eq 'azure-acr-credential-provider-pmc' } | Select-Object -First 1
+    # On older VHDs the canonical name refers to tarballs, not Dalec ZIPs.
+    $package = $metadata.Packages | Where-Object {
+        $_.name -eq 'azure-acr-credential-provider' -and
+        $_.downloadURIs.windows.default.downloadURL -like '*_amd64.zip'
+    } | Select-Object -First 1
+    if ($null -eq $package.downloadURIs.windows.default) {
+        $package = $metadata.Packages | Where-Object { $_.name -eq 'azure-acr-credential-provider-pmc' } | Select-Object -First 1
+    }
     if ($null -eq $package.downloadURIs.windows.default) {
         $package = $metadata.Packages | Where-Object { $_.name -eq 'windows credential provider dalec' } | Select-Object -First 1
     }
@@ -805,7 +810,7 @@ function Install-CredentialProvider {
             $allowDalecSelection = [string]::IsNullOrEmpty($global:CredentialProviderURL) -or
                 ($isCredentialProviderUri -and
                     $credentialProviderUri.Host -in $stockLegacyHosts -and
-                    $credentialProviderUri.AbsolutePath -match '/cloud-provider-azure/v\d+\.\d+\.\d+/binaries/azure-acr-credential-provider-windows-amd64-v\d+\.\d+\.\d+\.tar\.gz$')
+                    $credentialProviderUri.AbsolutePath -match '^/cloud-provider-azure/v\d+\.\d+\.\d+/binaries/azure-acr-credential-provider-windows-amd64-v\d+\.\d+\.\d+\.tar\.gz$')
             $dalecPackage = if ($allowDalecSelection) {
                 Resolve-DalecCredentialProviderPackage -KubeBinariesVersion $global:KubeBinariesVersion
             } else { $null }

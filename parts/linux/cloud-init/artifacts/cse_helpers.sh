@@ -1228,7 +1228,17 @@ getLatestPkgVersionFromK8sVersion() {
 
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
 
-    package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
+    # Older VHDs used the canonical name for legacy OCI binaries with a default
+    # distro entry. Native packages/sysexts have only explicit distro entries.
+    local package
+    package=$(jq --arg name "$componentName" '
+        if $name == "azure-acr-credential-provider" then
+            ([.Packages[] | select(.name == $name and .downloadURIs.default == null)][0]
+                // [.Packages[] | select(.name == "azure-acr-credential-provider-pmc")][0])
+        else
+            .Packages[] | select(.name == $name)
+        end
+    ' "$COMPONENTS_FILEPATH") || return $?
     updatePackageVersions "${package}" "${@:3}"
 
     # shellcheck disable=SC3010

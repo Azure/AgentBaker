@@ -20,8 +20,10 @@ func credentialProviderTestNBC() *datamodel.NodeBootstrappingConfiguration {
 	return &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			Properties: &datamodel.Properties{
-				OrchestratorProfile: &datamodel.OrchestratorProfile{},
-				WindowsProfile:      &datamodel.WindowsProfile{CseScriptsPackageURL: "published-cse"},
+				OrchestratorProfile: &datamodel.OrchestratorProfile{
+					KubernetesConfig: &datamodel.KubernetesConfig{},
+				},
+				WindowsProfile: &datamodel.WindowsProfile{CseScriptsPackageURL: "published-cse"},
 			},
 		},
 		K8sComponents: &datamodel.K8sComponents{},
@@ -80,7 +82,7 @@ func TestCredentialProviderScenariosRegisteredOnce(t *testing.T) {
 				expected := credentialProviderTestNBC()
 				require.NoError(t, configureWindowsCredentialProvider(expected,
 					components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"),
-					components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), tc.minor))
+					components.GetExpectedPackageVersions("azure-acr-credential-provider-legacy", "windows", "default"), tc.minor))
 				require.Equal(t, expected, nbc)
 				require.True(t, strings.HasPrefix(nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, fmt.Sprintf("1.%d.", tc.minor)))
 				ctx, cancel := context.WithCancel(t.Context())
@@ -239,7 +241,7 @@ func TestCredentialProviderScenarioMetadataSetup(t *testing.T) {
 			})
 			t.Run("Windows missing legacy provider never infers kubelet release", func(t *testing.T) {
 				nbc := credentialProviderTestNBC()
-				require.ErrorContains(t, configureWindowsCredentialProvider(nbc, []string{fmt.Sprintf("v1.%d.12", minor)}, []string{"1.31.8"}, minor), "azure-acr-credential-provider/windows/default")
+				require.ErrorContains(t, configureWindowsCredentialProvider(nbc, []string{fmt.Sprintf("v1.%d.12", minor)}, []string{"1.31.8"}, minor), "azure-acr-credential-provider-legacy/windows/default")
 				require.Equal(t, credentialProviderTestNBC(), nbc)
 			})
 		})
@@ -265,12 +267,56 @@ func TestCredentialProviderWindowsPreservesCSEURL(t *testing.T) {
 			version := nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
 			require.Contains(t, components.GetExpectedPackageVersions("kubernetes-binaries", "windows", "default"), "v"+version)
 			require.Equal(t, fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/windowszip/v%s-1int.zip", version, version), nbc.K8sComponents.WindowsPackageURL)
-			legacyVersion, err := credentialProviderVersion(components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), "azure-acr-credential-provider/windows/default", minor)
+			legacyVersion, err := credentialProviderVersion(components.GetExpectedPackageVersions("azure-acr-credential-provider-legacy", "windows", "default"), "azure-acr-credential-provider-legacy/windows/default", minor)
 			require.NoError(t, err)
 			legacyURL, err := windowsLegacyCredentialProviderURL(legacyVersion)
 			require.NoError(t, err)
 			require.Equal(t, legacyURL, nbc.K8sComponents.WindowsCredentialProviderURL)
 		})
+	}
+}
+
+func TestCredentialProviderUbuntuVersionConsistency(t *testing.T) {
+	var definition *Scenario
+	for _, s := range List() {
+		if s.Name == "Ubuntu2204_Dalec_CredentialProvider_Kubernetes133" {
+			definition = s
+			break
+		}
+	}
+	require.NotNil(t, definition)
+	originalDisableScriptless := config.Config.DisableScriptless
+	t.Cleanup(func() { config.Config.DisableScriptless = originalDisableScriptless })
+
+	for _, clusterVersion := range []string{"1.32.9", "1.33.1", "1.36.5"} {
+		for _, disableScriptless := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/disableScriptless=%t", clusterVersion, disableScriptless), func(t *testing.T) {
+				config.Config.DisableScriptless = disableScriptless
+				cluster := nodeConfigTestCluster(clusterVersion)
+				s := &Scenario{
+					Config:  definition.Config,
+					Runtime: &ScenarioRuntime{Cluster: cluster},
+				}
+				nbc, err := getBaseNBC(t.Context(), cluster, s.VHD)
+				require.NoError(t, err)
+				require.NoError(t, prepareNodeConfiguration(t.Context(), s, nbc))
+
+				version := nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+				require.True(t, strings.HasPrefix(version, "1.33."))
+				require.Equal(t, !disableScriptless, nbc.EnableScriptlessAKSNodeConfig)
+				binaryURL := fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", version, s.VHD.Arch)
+				proxyImage := fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", version)
+				kubernetesConfig := nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig
+				require.Equal(t, binaryURL, kubernetesConfig.CustomKubeBinaryURL)
+				require.Equal(t, proxyImage, kubernetesConfig.CustomKubeProxyImage)
+
+				cfg := s.Runtime.AKSNodeConfig
+				require.Equal(t, version, cfg.KubernetesVersion)
+				require.Equal(t, binaryURL, cfg.KubeBinaryConfig.KubeBinaryUrl)
+				require.Equal(t, proxyImage, cfg.KubeProxyUrl)
+				require.Equal(t, clusterVersion, *cluster.Model.Properties.CurrentKubernetesVersion)
+			})
+		}
 	}
 }
 
@@ -285,7 +331,7 @@ func TestCredentialProviderWindowsCancellation(t *testing.T) {
 }
 
 func TestCredentialProviderWindowsLegacyURLMetadata(t *testing.T) {
-	metadata := []byte(`{"Packages":[{"name":"azure-acr-credential-provider","downloadURIs":{"windows":{"default":{"downloadURL":"https://metadata.example.invalid/releases/${version}/provider-${version}.tar.gz"}}}}]}`)
+	metadata := []byte(`{"Packages":[{"name":"azure-acr-credential-provider","downloadURIs":{"windows":{"default":{"downloadURL":"https://metadata.example.invalid/azure-acr-credential-provider_${version}_amd64.zip"}}}},{"name":"azure-acr-credential-provider-legacy","downloadURIs":{"windows":{"default":{"downloadURL":"https://metadata.example.invalid/releases/${version}/provider-${version}.tar.gz"}}}}]}`)
 	got, err := resolveWindowsLegacyCredentialProviderURL(metadata, "1.32.8")
 	require.NoError(t, err)
 	require.Equal(t, "https://metadata.example.invalid/releases/1.32.8/provider-1.32.8.tar.gz", got)
@@ -296,21 +342,22 @@ func TestCredentialProviderWindowsLegacyURLMetadata(t *testing.T) {
 	}{
 		{"invalid JSON", `{`},
 		{"missing package", `{"Packages":[]}`},
-		{"missing windows", `{"Packages":[{"name":"azure-acr-credential-provider","downloadURIs":{"default":{}}}]}`},
-		{"missing URL", `{"Packages":[{"name":"azure-acr-credential-provider","downloadURIs":{"windows":{"default":{}}}}]}`},
+		{"modern package only", `{"Packages":[{"name":"azure-acr-credential-provider","downloadURIs":{"windows":{"default":{"downloadURL":"https://metadata.example.invalid/azure-acr-credential-provider_${version}_amd64.zip"}}}}]}`},
+		{"missing windows", `{"Packages":[{"name":"azure-acr-credential-provider-legacy","downloadURIs":{"default":{}}}]}`},
+		{"missing URL", `{"Packages":[{"name":"azure-acr-credential-provider-legacy","downloadURIs":{"windows":{"default":{}}}}]}`},
 		{"unversioned URL", strings.ReplaceAll(string(metadata), "${version}", "fixed")},
 		{"unresolved variable", strings.ReplaceAll(string(metadata), "provider-", "${unknown}-")},
 		{"invalid URL", strings.ReplaceAll(string(metadata), "https://metadata.example.invalid", "://broken")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := resolveWindowsLegacyCredentialProviderURL([]byte(tc.data), "1.32.8")
-			require.ErrorContains(t, err, "components.json azure-acr-credential-provider/windows/default/downloadURL")
+			require.ErrorContains(t, err, "components.json azure-acr-credential-provider-legacy/windows/default/downloadURL")
 		})
 	}
 }
 
 func TestCredentialProviderWindowsLegacyLog(t *testing.T) {
-	version, err := credentialProviderVersion(components.GetExpectedPackageVersions("azure-acr-credential-provider", "windows", "default"), "azure-acr-credential-provider/windows/default", 32)
+	version, err := credentialProviderVersion(components.GetExpectedPackageVersions("azure-acr-credential-provider-legacy", "windows", "default"), "azure-acr-credential-provider-legacy/windows/default", 32)
 	require.NoError(t, err)
 	legacyURL, err := windowsLegacyCredentialProviderURL(version)
 	require.NoError(t, err)

@@ -2,6 +2,70 @@
 set -o pipefail
 
 eval "$(sed -n '/^installAndConfigureArtifactStreaming() {/,/^}/p' vhdbuilder/packer/install-dependencies.sh)"
+eval "$(sed -n '/^cachePackageAndBinaryComponents() {/,/^}/p' vhdbuilder/packer/install-dependencies.sh)"
+
+Describe 'credential provider VHD caching'
+  Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+  Include "./vhdbuilder/scripts/linux/tool_installs.sh"
+
+  setup_provider_caching() {
+    COMPONENTS_FILEPATH=$(mktemp)
+    VHD_LOGS_FILEPATH=$(mktemp)
+    jq '{Packages: [.Packages[] | select(
+      .name == "azure-acr-credential-provider" or
+      .name == "azure-acr-credential-provider-legacy"
+    )]}' parts/common/components.json > "$COMPONENTS_FILEPATH"
+    IS_KATA=false
+    CPU_ARCH=amd64
+  }
+  cleanup_provider_caching() {
+    rm -f "$COMPONENTS_FILEPATH" "$VHD_LOGS_FILEPATH"
+  }
+  BeforeEach 'setup_provider_caching'
+  AfterEach 'cleanup_provider_caching'
+
+  downloadCredentialProvider() { echo "legacy: $1 $2"; }
+  downloadPkgFromVersion() { echo "native: $1 $3"; }
+  downloadSysextFromVersion() { echo "sysext: $1 $3 $2"; }
+  capture_benchmark() { :; }
+
+  Parameters
+    "UBUNTU" "22.04" "" "x86-64" native yes
+    "UBUNTU" "26.04" "" "arm64" native no
+    "AZURELINUX" "3.0" "" "x86-64" native yes
+    "AZURELINUX" "3.0" "OSGUARD" "x86-64" native yes
+    "MARINER" "2.0" "" "x86-64" none yes
+    "FLATCAR" "current" "" "x86-64" sysext no
+    "FLATCAR" "current" "" "arm64" sysext no
+    "AZURECONTAINERLINUX" "3.0" "" "x86-64" sysext no
+    "AZURELINUX" "3.0" "AZURECONTAINERLINUX" "arm64" sysext no
+  End
+
+  It "keeps the correct download paths and formats for $1 $2 $3 $4"
+    OS="$1" OS_VERSION="$2" OS_VARIANT="$3" SYSTEMD_ARCH="$4"
+    if [ "$4" = arm64 ]; then CPU_ARCH=arm64; fi
+
+    When call cachePackageAndBinaryComponents
+
+    The status should be success
+    if [ "$5" = native ]; then
+      The output should include 'native: azure-acr-credential-provider /opt/azure-acr-credential-provider/downloads'
+      The output should not include 'sysext:'
+    elif [ "$5" = sysext ]; then
+      The output should include 'sysext: azure-acr-credential-provider /opt/azure-acr-credential-provider/downloads mcr.microsoft.com/oss/v2/kubernetes/azure-acr-credential-provider-sysext:'
+      The output should include "-$4"
+      The output should not include 'native:'
+    else
+      The output should not include 'native:'
+      The output should not include 'sysext:'
+    fi
+    if [ "$6" = yes ]; then
+      The output should include 'legacy: /opt/credentialprovider/downloads mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:'
+    else
+      The output should not include 'legacy:'
+    fi
+  End
+End
 
 Describe 'installAndConfigureArtifactStreaming'
   setup_artifact_streaming() {

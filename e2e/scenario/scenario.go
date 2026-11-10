@@ -4310,6 +4310,8 @@ var _ = Register(&Scenario{
 				return err
 			}
 			cfg.KubernetesVersion = version
+			cfg.KubeBinaryConfig.KubeBinaryUrl = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", version, config.VHDUbuntu2204Gen2Containerd.Arch)
+			cfg.KubeProxyUrl = fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", version)
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			return nil
@@ -4329,6 +4331,9 @@ func configureUbuntuDalecCredentialProvider(nbc *datamodel.NodeBootstrappingConf
 		return err
 	}
 	nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = version
+	kubernetesConfig := nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig
+	kubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf("https://packages.aks.azure.com/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", version, config.VHDUbuntu2204Gen2Containerd.Arch)
+	kubernetesConfig.CustomKubeProxyImage = fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", version)
 	nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 	nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 	return nil
