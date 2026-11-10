@@ -1,5 +1,11 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
-trigger: none
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - parts/common/components.json
 
 pool:
   name: $(POOL_NAME)

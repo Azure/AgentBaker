@@ -603,6 +603,9 @@ The other directories contain helper packages and embedded resources.
 
 Node images are pushed to Shared Image Gallery (SIG). Each image is tagged with branch name and build id.
 By default E2E tests use latest version of images from SIG with `branch=refs/heads/main` tag.
+The schedule daily build runs at 09:00 UTC.
+Changes to [components.json](../parts/common/components.json) on `main` also trigger a new build, refreshing the images used by standalone E2E jobs without waiting for the next
+daily scheduled build.
 
 ## Using VHD Images from Custom ADO Builds
 
