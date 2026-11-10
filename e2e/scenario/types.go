@@ -157,10 +157,13 @@ type Config struct {
 	// so that staleness regressions in the BasePrep->NodePrep split are caught positively.
 	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
-	// AKSNodeConfigMutator customizes the converted config before it is delivered to ANC.
+	// AKSNodeConfigMutator customizes the directly constructed config before it is delivered to ANC.
 	// Eligible non-caching scenarios default to Phase 3 when this is set or both bootstrap mutators are nil.
 	// Bootstrap mutators can override the default through EnableScriptlessAKSNodeConfig.
 	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
+
+	// AKSNodeConfigMutatorWithError runs after AKSNodeConfigMutator when configuration can fail.
+	AKSNodeConfigMutatorWithError func(context.Context, *Cluster, *aksnodeconfigv1.Configuration) error
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)

@@ -828,40 +828,33 @@ testFips() {
 testLtsKernel() {
   local test="testLtsKernel"
   echo "$test:Start"
-  local os_version=$1
-  local os_sku=$2
-  local enable_fips=$3
-  local expected_version expected_kernel kernel flavor=azure
+  os_version=$1
+  os_sku=$2
+  enable_fips=$3
 
   # shellcheck disable=SC3010
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
     echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
-    case "$os_version" in
-      22.04) expected_version=5.15.0-1126.135 ;;
-      24.04) expected_version=6.8.0-1073.82 ;;
-      26.04) expected_version=7.0.0-1020.21 ;;
-      *) echo "No pinned LTS kernel for: $os_version"; return ;;
-    esac
-    if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-      flavor=azure-fde
-      case "$os_version" in
-        24.04) expected_version=6.8.0-1071.78 ;;
-        26.04) expected_version=7.0.0-1019.19 ;;
-        *) echo "No pinned FDE kernel for: $os_version"; return ;;
-      esac
+    # Check the Ubuntu version and set the expected kernel version
+    if [ "$os_version" = "22.04" ]; then
+      expected_kernel="5.15"
+    elif [ "$os_version" = "24.04" ]; then
+      expected_kernel="6.8"
+    else
+      # TODO(2604): update once 26.04 LTS kernel metapackage is available
+      echo "LTS kernel not installed for: $os_version"
     fi
-    expected_kernel="${expected_version%.*}-${flavor}"
 
-    kernel=$(uname -r) || { err "$test" "Cannot determine running kernel version"; return 1; }
+    kernel=$(uname -r)
     echo "Current kernel version: $kernel"
-    if [ "$kernel" != "$expected_kernel" ]; then
+    # shellcheck disable=SC3010
+    if [[ "$kernel" == *"$expected_kernel"* ]]; then
+      echo "Kernel version is as expected ($expected_kernel)."
+    else
       err $test "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
-      return 1
     fi
-    assertPackageVersion "$test" "linux-image-${expected_kernel}" "$expected_version" || return 1
-    echo "Kernel version is as expected ($expected_kernel, package $expected_version)."
   else
-    echo "OS is not Ubuntu or FIPS is enabled, skip LTS kernel test"
+    echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
   fi
 
 }

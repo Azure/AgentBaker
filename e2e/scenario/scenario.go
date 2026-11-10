@@ -1240,12 +1240,6 @@ var _ = Register(&Scenario{
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 		},
-		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-			if vmss.Tags == nil {
-				vmss.Tags = map[string]*string{}
-			}
-			vmss.Tags["ShouldEnforceKubePMCInstall"] = to.Ptr("true")
-		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 		},
@@ -1725,6 +1719,10 @@ func customNodeConfig(vhd *config.Image, cluster func(context.Context, ClusterRe
 					MaxLockedMemory: to.Ptr("75000"),
 					NoFile:          to.Ptr("1048"),
 				},
+			}
+			// Match NBC's GetContainerdUlimitString omission on these Ubuntu images.
+			if vhd.Distro.Is2404VHDDistro() || vhd.Distro.Is2604VHDDistro() {
+				cfg.CustomLinuxOsConfig.UlimitConfig.NoFile = nil
 			}
 			cfg.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
 		},
@@ -2915,6 +2913,10 @@ var _ = Register(&Scenario{
 			cfg.KubeletConfig.KubeletFlags["--system-reserved"] = "cpu=200m,memory=500Mi"
 			cfg.KubeletConfig.KubeletFlags["--kube-reserved-cgroup"] = "/kubelet.slice"
 			cfg.KubeletConfig.KubeletFlags["--system-reserved-cgroup"] = "/kubelet.slice"
+			cfg.KubeletConfig.KubeletConfigFileConfig.EnforceNodeAllocatable = []string{"pods", "kube-reserved", "system-reserved"}
+			cfg.KubeletConfig.KubeletConfigFileConfig.SystemReserved = map[string]string{"cpu": "200m", "memory": "500Mi"}
+			cfg.KubeletConfig.KubeletConfigFileConfig.KubeReservedCgroup = "/kubelet.slice"
+			cfg.KubeletConfig.KubeletConfigFileConfig.SystemReservedCgroup = "/kubelet.slice"
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
@@ -4268,6 +4270,10 @@ var _ = Register(&Scenario{
 			cfg.KubeletConfig.KubeletFlags["--system-reserved"] = "cpu=200m,memory=500Mi"
 			cfg.KubeletConfig.KubeletFlags["--kube-reserved-cgroup"] = "/kubelet.slice"
 			cfg.KubeletConfig.KubeletFlags["--system-reserved-cgroup"] = "/kubelet.slice"
+			cfg.KubeletConfig.KubeletConfigFileConfig.EnforceNodeAllocatable = []string{"pods", "kube-reserved", "system-reserved"}
+			cfg.KubeletConfig.KubeletConfigFileConfig.SystemReserved = map[string]string{"cpu": "200m", "memory": "500Mi"}
+			cfg.KubeletConfig.KubeletConfigFileConfig.KubeReservedCgroup = "/kubelet.slice"
+			cfg.KubeletConfig.KubeletConfigFileConfig.SystemReservedCgroup = "/kubelet.slice"
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
@@ -4296,9 +4302,17 @@ var _ = Register(&Scenario{
 			return configureUbuntuDalecCredentialProvider(nbc,
 				components.GetExpectedPackageVersions("kubernetes-binaries", "default", "current"))
 		},
-		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+		AKSNodeConfigMutatorWithError: func(_ context.Context, _ *Cluster, cfg *aksnodeconfigv1.Configuration) error {
+			version, err := credentialProviderVersion(
+				components.GetExpectedPackageVersions("kubernetes-binaries", "default", "current"),
+				"kubernetes-binaries/default/current", 33)
+			if err != nil {
+				return err
+			}
+			cfg.KubernetesVersion = version
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
 			cfg.KubeletConfig.KubeletFlags["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			return nil
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(

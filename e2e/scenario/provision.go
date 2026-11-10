@@ -99,6 +99,15 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 			original.AKSNodeConfigMutator(cluster, nodeconfig)
 			nodeconfig.PreProvisionOnly = true
 		}
+		if original.AKSNodeConfigMutatorWithError != nil {
+			bakeScenario.AKSNodeConfigMutatorWithError = func(ctx context.Context, cluster *Cluster, nodeconfig *aksnodeconfigv1.Configuration) error {
+				if err := original.AKSNodeConfigMutatorWithError(ctx, cluster, nodeconfig); err != nil {
+					return err
+				}
+				nodeconfig.PreProvisionOnly = true
+				return nil
+			}
+		}
 	}
 
 	err := runScenario(ctx, name, bakeScenario)
@@ -287,7 +296,7 @@ func prepareNodeConfiguration(ctx context.Context, s *Scenario, nbc *datamodel.N
 	if !config.Config.DisableScriptless {
 		nbc.EnableScriptlessCSECmd = true
 		if !s.VHDCaching {
-			nbc.EnableScriptlessAKSNodeConfig = s.AKSNodeConfigMutator != nil ||
+			nbc.EnableScriptlessAKSNodeConfig = s.AKSNodeConfigMutator != nil || s.AKSNodeConfigMutatorWithError != nil ||
 				(s.BootstrapConfigMutator == nil && s.BootstrapConfigMutatorWithError == nil)
 		}
 	}
@@ -324,13 +333,21 @@ func prepareNodeConfiguration(ctx context.Context, s *Scenario, nbc *datamodel.N
 	if nbc.EnableScriptlessAKSNodeConfig {
 		nbc.EnableScriptlessNBCCSECmd = false
 	}
-	if nbc.EnableScriptlessAKSNodeConfig || s.AKSNodeConfigMutator != nil {
-		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
+	if nbc.EnableScriptlessAKSNodeConfig || s.AKSNodeConfigMutator != nil || s.AKSNodeConfigMutatorWithError != nil {
+		nodeconfig, err := createAKSNodeConfig(s.Runtime.Cluster, s.VHD, func(cluster *Cluster, cfg *aksnodeconfigv1.Configuration) error {
+			cfg.PreProvisionOnly = nbc.PreProvisionOnly
+			if s.AKSNodeConfigMutator != nil {
+				s.AKSNodeConfigMutator(cluster, cfg)
+			}
+			if s.AKSNodeConfigMutatorWithError != nil {
+				if err := s.AKSNodeConfigMutatorWithError(ctx, cluster, cfg); err != nil {
+					return fmt.Errorf("mutate AKS node config: %w", err)
+				}
+			}
+			return nil
+		})
 		if err != nil {
-			return fmt.Errorf("convert NBC to AKS node config: %w", err)
-		}
-		if s.AKSNodeConfigMutator != nil {
-			s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
+			return fmt.Errorf("create AKS node config: %w", err)
 		}
 		s.Runtime.AKSNodeConfig = nodeconfig
 
