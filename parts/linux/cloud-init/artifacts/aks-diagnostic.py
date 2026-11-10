@@ -7,18 +7,18 @@ This script uploads a diagnostic log file to an Azure Blob Storage container usi
 Usage:
     AKS_DIAGNOSTIC_SAS_TOKEN=<sas_token> python aks-diagnostic.py <container> <storage_account_url> [--file-path <path>]
 
-    # Positional sas_token is still accepted for backward compatibility, but is deprecated:
-    # any local process able to read this process's command line (e.g. via /proc/<pid>/cmdline)
-    # can see the token. Prefer the AKS_DIAGNOSTIC_SAS_TOKEN environment variable instead.
-    python aks-diagnostic.py <container> <storage_account_url> [sas_token] [--file-path <path>]
+    # Legacy usage remains supported:
+    python aks-diagnostic.py <container> <storage_account_url> <sas_token> [file_path]
+
+Prefer AKS_DIAGNOSTIC_SAS_TOKEN to avoid exposing the token in the process command
+line. The environment variable takes precedence over a positional token.
 
 Arguments:
     container              : Name of the blob container.
     storage_account_url    : Full URL of the Azure storage account (e.g., https://<account>.blob.core.windows.net/).
-    sas_token (deprecated) : Shared Access Signature token for authentication, as a positional argument.
-                              Prefer the AKS_DIAGNOSTIC_SAS_TOKEN environment variable, which does not
-                              appear in the process's command line.
-    --file-path (optional) : Path to the log file to upload (default: /var/lib/waagent/logcollector/logs.zip).
+    sas_token (optional)   : Shared Access Signature token; prefer AKS_DIAGNOSTIC_SAS_TOKEN.
+    file_path (optional)   : Path to the log file (default: /var/lib/waagent/logcollector/logs.zip).
+    --file-path (optional) : Override file_path; use with an environment token and no positional token.
 """
 import requests
 import os
@@ -33,9 +33,6 @@ MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
 MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1000MB
 DEFAULT_LOG_PATH = "/var/lib/waagent/logcollector/logs.zip"
-# Preferred way to pass the SAS token: environment variables are not visible in
-# /proc/<pid>/cmdline the way CLI arguments are, so this avoids exposing the secret
-# to any other local process that can list or read process command lines.
 SAS_TOKEN_ENV_VAR = "AKS_DIAGNOSTIC_SAS_TOKEN"
 
 def parse_arguments():
@@ -49,14 +46,11 @@ def parse_arguments():
         description='Upload diagnostic log files to Azure Blob Storage',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-        Examples (preferred - SAS token via environment variable):
-        AKS_DIAGNOSTIC_SAS_TOKEN="sv=2020-08-04&ss=b&srt=co&sp=rwdlac&se=2023-01-01T00:00:00Z&st=2022-01-01T00:00:00Z&spr=https&sig=..." \\
+        Examples (SAS token via environment variable):
+        AKS_DIAGNOSTIC_SAS_TOKEN="sig=..." \\
             python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net
-        AKS_DIAGNOSTIC_SAS_TOKEN="sv=2020-08-04&ss=b&srt=co&sp=rwdlac&se=2023-01-01T00:00:00Z&st=2022-01-01T00:00:00Z&spr=https&sig=..." \\
+        AKS_DIAGNOSTIC_SAS_TOKEN="sig=..." \\
             python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net --file-path /custom/path/logs.zip
-
-        Examples (deprecated - SAS token as CLI argument, visible via /proc/<pid>/cmdline):
-        python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net "sv=2020-08-04&ss=b&srt=co&sp=rwdlac&se=2023-01-01T00:00:00Z&st=2022-01-01T00:00:00Z&spr=https&sig=..."
         """
     )
     
@@ -68,40 +62,27 @@ def parse_arguments():
         'storage_account_url',
         help='Full URL of the Azure storage account (e.g., https://<account>.blob.core.windows.net/)'
     )
-    # sas_token and file_path are both trailing optional positionals in the original CLI
-    # (sas_token was required, file_path was not), which argparse cannot express directly
-    # once sas_token also becomes optional (two consecutive nargs='?' positionals are
-    # ambiguous). Instead, capture them together via nargs='*' and resolve by count below,
-    # so every pre-existing invocation shape - (), (token,), (token, file_path) - keeps
-    # behaving exactly as before.
     parser.add_argument(
-        'positional',
-        nargs='*',
-        metavar='[sas_token] [file_path]',
-        help=(
-            'Deprecated positional form: [sas_token] [file_path]. sas_token is visible to '
-            f'other local processes via /proc/<pid>/cmdline - prefer the {SAS_TOKEN_ENV_VAR} '
-            'environment variable instead (takes precedence if both are set). file_path '
-            f'defaults to {DEFAULT_LOG_PATH} if omitted.'
-        )
+        'sas_token',
+        nargs='?',
+        help=f'Shared Access Signature token; prefer the {SAS_TOKEN_ENV_VAR} environment variable'
+    )
+    parser.add_argument(
+        'file_path',
+        nargs='?',
+        default=DEFAULT_LOG_PATH,
+        help=f'Path to the log file to upload (default: {DEFAULT_LOG_PATH})'
     )
     parser.add_argument(
         '--file-path',
         dest='file_path_flag',
         default=None,
-        help=(
-            'Path to the log file to upload (default: '
-            f'{DEFAULT_LOG_PATH}). Preferred over the positional file_path form.'
-        )
+        help='Override the positional file_path; use when passing the token via environment'
     )
 
     parsed = parser.parse_args()
-    if len(parsed.positional) > 2:
-        parser.error(f"unrecognized arguments: {' '.join(parsed.positional[2:])}")
-
-    parsed.sas_token = parsed.positional[0] if len(parsed.positional) >= 1 else None
-    positional_file_path = parsed.positional[1] if len(parsed.positional) >= 2 else None
-    parsed.file_path = parsed.file_path_flag or positional_file_path or DEFAULT_LOG_PATH
+    if parsed.file_path_flag is not None:
+        parsed.file_path = parsed.file_path_flag
     return parsed
 
 
@@ -154,24 +135,14 @@ def validate_arguments(args):
         print(f"Error: Invalid container name: {args.container}")
         sys.exit(1)
 
-    # Resolve the SAS token. The environment variable is preferred since it does not appear
-    # in /proc/<pid>/cmdline the way a CLI argument does; it takes precedence if both are set.
-    # The positional CLI argument is kept only for backward compatibility with existing callers.
+    # Prefer the environment token while preserving existing positional callers.
     sas_token = os.environ.get(SAS_TOKEN_ENV_VAR) or args.sas_token
     if not sas_token:
         print(
-            f"Error: No SAS token provided. Set the {SAS_TOKEN_ENV_VAR} environment variable "
-            "(preferred), or pass it as a positional argument (deprecated, visible to other "
-            "local processes via /proc/<pid>/cmdline)."
+            f"Error: No SAS token provided. Set {SAS_TOKEN_ENV_VAR} "
+            "or pass a positional SAS token."
         )
         sys.exit(1)
-    if args.sas_token and not os.environ.get(SAS_TOKEN_ENV_VAR):
-        print(
-            f"Warning: SAS token was passed as a CLI argument; it is visible to other local "
-            f"processes via /proc/<pid>/cmdline. Prefer the {SAS_TOKEN_ENV_VAR} environment "
-            "variable instead.",
-            file=sys.stderr
-        )
 
     # Validate SAS token (basic check)
     if 'sig=' not in sas_token:
@@ -179,6 +150,19 @@ def validate_arguments(args):
         sys.exit(1)
 
     return args.container, args.storage_account_url, sas_token, args.file_path
+
+
+def handleArgs(args):
+    if len(args) < 3:
+        print("Usage: python aks-diagnostic.py <container> <storage_account_url> <sas_token> [file_path]")
+        return None, None, None, None
+
+    container = args[0]
+    storage_account_url = args[1]
+    sas_token = args[2]
+    file_path = args[3] if len(args) > 3 else DEFAULT_LOG_PATH
+
+    return container, storage_account_url, sas_token, file_path
 
 
 def redact_sas_token(url):
