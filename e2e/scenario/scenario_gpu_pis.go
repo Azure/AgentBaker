@@ -67,20 +67,17 @@ func pisGPUScenario(name string, image *config.Image, managed bool) *Scenario {
 }
 
 func installPISCustomerGPUDriver(ctx context.Context, s *Scenario) error {
-	version := datamodel.NvidiaCudaLTSDriverVersion
-	suffix := datamodel.AKSGPUCudaLTSVersionSuffix
-	if version == "" || suffix == "" {
-		return fmt.Errorf("approved CUDA LTS installer version is unavailable")
-	}
-	image := "mcr.microsoft.com/aks/aks-gpu-cuda-lts:" + version + "-" + suffix
-	script := fmt.Sprintf(`set -euo pipefail
+	script := `set -euo pipefail
 test -f /opt/azure/containers/base_prep.complete
-image=%s
-version=%s
-if [ -z "$(sudo ctr -n k8s.io images ls -q "name==${image}")" ]; then
-  echo "Required CUDA installer image is not cached in this VHD: ${image}. Use a VHD built with the matching components.json." >&2
+cached_images=$(sudo ctr -n k8s.io images ls -q)
+mapfile -t images < <(printf '%s\n' "${cached_images}" | awk '/^mcr[.]microsoft[.]com\/aks\/aks-gpu-cuda-lts:[^@]+$/')
+if [ "${#images[@]}" -ne 1 ]; then
+  echo "Expected one cached aks-gpu-cuda-lts installer image in the source VHD; found ${#images[@]}." >&2
   exit 1
 fi
+image="${images[0]}"
+tag="${image##*:}"
+version="${tag%%-*}"
 sudo mkdir -p /opt/gpu /opt/actions
 sudo ctr -n k8s.io run --privileged --rm --net-host \
   --with-ns pid:/proc/1/ns/pid \
@@ -91,7 +88,7 @@ cd "/opt/gpu/NVIDIA-Linux-x86_64-${version}"
 sudo ./nvidia-installer -s -k="$(uname -r)" --no-drm --dkms \
   --utility-prefix=/usr/local/nvidia --utility-libdir=lib64
 sudo /usr/local/nvidia/bin/nvidia-modprobe -u -c0
-`, shellSingleQuote(image), shellSingleQuote(version))
+`
 	if _, err := RunCommand(ctx, s, script); err != nil {
 		return fmt.Errorf("install customer GPU driver after basePrep: %w", err)
 	}
@@ -99,14 +96,18 @@ sudo /usr/local/nvidia/bin/nvidia-modprobe -u -c0
 }
 
 func validatePISCustomerGPUDriver(ctx context.Context, s *Scenario) error {
-	// This real installation lives under GPU_DEST, which the old nodePrep cleanup
+	// The driver utilities live under GPU_DEST, which the old nodePrep cleanup
 	// deleted even without a CUDA prebake marker.
-	script := fmt.Sprintf(`set -euo pipefail
+	script := `set -euo pipefail
+set -- /opt/gpu/NVIDIA-Linux-x86_64-*
+test "$#" -eq 1
+test -x "$1/nvidia-installer"
+installer="${1##*/}"
+expected_version="${installer#NVIDIA-Linux-x86_64-}"
 version=$(sudo /usr/local/nvidia/bin/nvidia-smi --query-gpu=driver_version --format=csv,noheader)
-echo "Customer driver version: ${version}"
-test "${version}" = %s
-test -x "/opt/gpu/NVIDIA-Linux-x86_64-%s/nvidia-installer"
-`, shellSingleQuote(datamodel.NvidiaCudaLTSDriverVersion), datamodel.NvidiaCudaLTSDriverVersion)
+echo "Customer driver version: ${version}; expected: ${expected_version}"
+test "${version}" = "${expected_version}"
+`
 	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "customer GPU driver must work before and after PIS image capture")
 	return err
 }
