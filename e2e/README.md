@@ -84,6 +84,8 @@ separate bake and real-node VMs and the current source CSE scripts in both phase
 The customer-driver case uses the CUDA LTS installer image already cached in
 the source VHD, even when its version differs from the current branch. It fails
 rather than downloading an installer when the cache is missing or ambiguous.
+To run only these cases, queue the Ubuntu and Azure Linux GPU pipelines with
+the `tagsToRun` parameter set to `gpu=true,VHDCaching=true`.
 
 ### DRA MIG workload validation
 

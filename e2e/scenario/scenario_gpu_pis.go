@@ -87,7 +87,7 @@ sudo ctr -n k8s.io run --privileged --rm --net-host \
 cd "/opt/gpu/NVIDIA-Linux-x86_64-${version}"
 sudo ./nvidia-installer -s -k="$(uname -r)" --no-drm --dkms \
   --utility-prefix=/usr/local/nvidia --utility-libdir=lib64
-sudo /usr/local/nvidia/bin/nvidia-modprobe -u -c0
+sudo nvidia-modprobe -u -c0
 `
 	if _, err := RunCommand(ctx, s, script); err != nil {
 		return fmt.Errorf("install customer GPU driver after basePrep: %w", err)
