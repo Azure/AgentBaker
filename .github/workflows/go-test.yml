@@ -62,8 +62,8 @@ jobs:
         set -ex
         gocover-cobertura < coverage/agentbaker.out > coverage/agentbaker.xml
         (cd aks-node-controller && gocover-cobertura < ../coverage/aks-node-controller.out > ../coverage/aks-node-controller.xml)
-        # aks-live-patching currently has no unit tests (only generated gRPC code), so its
-        # profile has no data lines; skip conversion rather than emit an empty/NaN report.
+        # Skip conversion if the aks-live-patching profile has no data lines, rather than
+        # emit an empty/NaN report.
         if [ "$(wc -l < coverage/aks-live-patching.out)" -gt 1 ]; then
           (cd aks-live-patching && gocover-cobertura < ../coverage/aks-live-patching.out > ../coverage/aks-live-patching.xml)
         fi
