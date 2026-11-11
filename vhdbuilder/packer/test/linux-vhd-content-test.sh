@@ -834,6 +834,15 @@ testLtsKernel() {
   os_version=$1
   os_sku=$2
   enable_fips=$3
+  local custom_kernel_release="${4:-}"
+  if [ -n "$custom_kernel_release" ]; then
+    if [ "$(uname -r)" != "$custom_kernel_release" ]; then
+      err "$test" "Expected test kernel $custom_kernel_release, found $(uname -r)."
+      return 1
+    fi
+    echo "$test: validated exact custom kernel instead of the distribution LTS baseline"
+    return
+  fi
 
   # shellcheck disable=SC3010
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
@@ -3120,7 +3129,8 @@ testKMPP
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService
-testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+CUSTOM_KERNEL_RELEASE=$(sed -n 's/^CUSTOM_KERNEL_VERIFIED=//p' /opt/azure/vhd-install.complete | tail -n1)
+testLtsKernel "$OS_VERSION" "$OS_SKU" "$ENABLE_FIPS" "$CUSTOM_KERNEL_RELEASE"
 testAzureLinuxArm64DualKernel "$OS_VERSION" "$OS_SKU" "$ENABLE_FIPS"
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION

@@ -1,14 +1,22 @@
 # Testing a custom Ubuntu kernel
 
-This is a test-only workflow for Ubuntu 26.04 Minimal AMD64 Gen2 VHDs. It
-supports a matching `linux-image-<release>` (or
-`linux-image-unsigned-<release>`) and `linux-modules-<release>` package pair,
-plus optional `linux-modules-extra-<release>`, matching versioned headers,
-and matching tools/cloud-tools packages with their ABI dependencies.
-All supplied packages must have the same version and use the `*-azure`
-kernel flavor. Image/modules packages must be for `amd64`; common headers
-may use architecture `all`. ARM64, FIPS, Trusted Launch/Secure Boot, CVM and
-production publishing are intentionally not supported.
+This opt-in workflow installs private kernel package bundles in AgentBaker's
+Ubuntu test VHDs, on both **amd64 and arm64**.
+
+| Target | Package format | Build variants |
+| --- | --- | --- |
+| Ubuntu 22.04 and 24.04 | `.deb` | AMD64 Gen1/Gen2, ARM64 Gen2 |
+| Ubuntu 26.04 Minimal | `.deb` | AMD64/ARM64 Gen2 |
+
+Azure Linux/Mariner, FIPS, Trusted Launch/Secure Boot, CVM, OSGuard, Azure Container Linux (ACL),
+Flatcar, Image Customizer and production publishing are excluded. This is not
+an arbitrary-distro kernel installer. Adding a new release requires extending
+the target allowlist and its tests, not bypassing target validation.
+
+The original Ubuntu 26.04 Minimal AMD64 implementation was built and
+boot-verified in Azure. This expanded implementation has local mocked-operation
+tests; it needs real VHD builds and fresh-VM verification for each target before
+being considered validated for an experiment.
 
 The feature is off by default. Keep this commit on an experiment branch or
 cherry-pick it onto a future AgentBaker branch. Do not promote the resulting
@@ -42,7 +50,9 @@ and `linux-cloud-tools-<release>`. It installs these for the selected kernel,
 not the newer kernel that may already be in the base image. If they are
 unavailable in Ubuntu's configured repositories, obtain their matching `.deb`
 files and dependencies from the kernel provider and put them in the same
-directory. The installer checks availability before installing.
+directory. The installer checks availability before installing. Other Ubuntu
+flavors require matching headers; supply their runtime tools when needed.
+FIPS/CVM kernel flavors are rejected.
 
 For example, a self-contained Ubuntu 26.04 `7.0.0-1017-azure` package set
 contains the following eight packages, all at version `7.0.0-1017.17`:
@@ -98,19 +108,32 @@ Storage firewalls/private endpoints must permit the pipeline agent's network.
 A reader role does not bypass network restrictions. A subscription name or
 number alone is not a download endpoint.
 
-## 2. Upload a versioned package set
+## 2. Upload a versioned, target-specific package set
 
 From the AgentBaker repository root:
 
 ```bash
 bash vhdbuilder/packer/custom-kernel/manage.sh upload \
-  "$SUBSCRIPTION" "$ACCOUNT" "$CONTAINER" "$PREFIX" "$DEB_DIR"
+  "$SUBSCRIPTION" "$ACCOUNT" "$CONTAINER" "$PREFIX" "$DEB_DIR" ubuntu 26.04
 ```
+
+For example, replace the last arguments with `"$PACKAGE_DIR" ubuntu 24.04`
+for Ubuntu 24.04.
+Architecture is inferred from package metadata, never from the upload host.
+An amd64 workstation can upload arm64 packages.
 
 The helper validates the package metadata before accessing Azure, creates a
 private container if necessary, rejects an existing public container, and uploads
-only the `.deb` files plus a `kernel-release` file and `SHA256SUMS`. Files such as Windows
-`:Zone.Identifier` sidecars are not uploaded.
+only the `.deb` files plus `kernel-release`, `kernel-target` and
+`SHA256SUMS`. RPM packages and mixed architectures are rejected.
+`kernel-target` records `distribution:version:architecture`, for example
+`ubuntu:24.04:arm64`. It is checksummed together with
+the packages. The downloader rejects a bundle intended for another build.
+Files such as Windows `:Zone.Identifier` sidecars are not uploaded.
+
+The original five-argument upload still defaults to Ubuntu 26.04; specify the
+distribution/version for new experiments. Previously uploaded bundles without
+`kernel-target` remain restricted to Ubuntu 26.04 AMD64.
 
 Existing blobs are never overwritten. Use a fresh prefix for every attempt,
 including after a partial upload; do not mutate a prefix while a build is
@@ -124,7 +147,8 @@ it in **Run pipeline** for your test Linux VHD build definition.
 
 | Parameter | Value |
 | --- | --- |
-| `build2604minimalgen2containerd` | `true` |
+| `customKernelBuildTarget` | Selected job name, e.g. `build2604minimalgen2containerd` |
+| Selected job's `build*` parameter | `true` |
 | All other `build*` parameters | `false` |
 | `customKernelStorageAccount` | `$ACCOUNT` |
 | `customKernelContainer` | `$CONTAINER` |
@@ -133,17 +157,23 @@ it in **Run pipeline** for your test Linux VHD build definition.
 
 Use `ENVIRONMENT=test`, `GENERATE_PUBLISHING_INFO=False`, and `DRY_RUN=False`
 (a dry run deletes the output image). Keep normal content tests, scanning,
-kernel validation and temporary-resource cleanup enabled. The custom-kernel
-parameters affect only the Ubuntu 26.04 Minimal AMD64 job; leaving other
-builds selected still spends resources building those other images.
+kernel validation and temporary-resource cleanup enabled. Only `customKernelBuildTarget` receives the override. Selecting a target does
+not enable its build flag or disable other jobs; set those flags explicitly.
+Leaving other builds selected still spends resources building normal images.
+The default target remains `build2604minimalgen2containerd` for compatibility.
+
+Other examples: `build2204gen2containerd`, `build2404arm64gen2containerd`,
+and `build2604minimalarm64gen2containerd`. The pipeline's target dropdown lists allowed jobs
+and omits protected variants.
 
 Custom builds use a separate `${SKU_NAME}-customkernel` gallery image
 definition, so they do not advance the normal image definition's latest version.
 Different experiments can still share this test-only definition; always record
 and consume the exact output version.
 
-The helper rejects production/publishing, ARM64, FIPS, Trusted Launch and
-CVM configurations before downloading anything. A nonempty blob prefix enables
+The helper rejects production/publishing, FIPS, Trusted Launch, Image Customizer,
+CVM and unsupported OS/architecture configurations before downloading anything.
+A nonempty blob prefix enables
 the feature; an empty prefix preserves normal kernel behavior. Downloads use
 the build's `SUBSCRIPTION_ID`; use a storage account in that subscription.
 If a reused agent checkout contains an old ignored
@@ -153,18 +183,25 @@ directory before retrying; the helper refuses to reuse it.
 The pipeline downloads and validates the package set, then Packer:
 
 1. Completes the normal distribution upgrade and kernel replacement.
-2. Installs the custom packages with dependency resolution and `--reinstall`
-   (including when their version already exists), marks them manual/held,
-   and pins the GRUB entry.
-3. Uses the existing reboot and fails unless `uname -r` matches the requested
+2. Installs the custom packages even when their version already exists.
+   APT resolves dependencies, reinstalls/downgrades and marks the supplied
+   packages manual/held.
+3. Checks that kernel/initramfs boot files exist and pins the exact GRUB entry,
+   even when the image contains newer kernels. A final GRUB selector overrides
+   the ARM64 hardware-specific default for this test image only. This means
+   a custom ARM64 test image no longer automatically selects a different
+   kernel track on NVIDIA hardware.
+4. Uses the existing reboot and fails unless `uname -r` matches the requested
    kernel and `hv-kvp-daemon.service` is active. This happens before the main
    dependency-install step.
-4. Verifies the running kernel again after the second reboot and post-install
+5. Verifies the running kernel again after the second reboot and post-install
    cleanup. `CUSTOM_KERNEL_VERIFIED=<release>` and the checksums are recorded
    in `/opt/azure/vhd-install.complete` and the downloaded release notes.
 
 Unsigned images require Secure Boot to remain disabled. The host-side installer
-also rejects an enabled Secure Boot state reported by `mokutil`.
+also checks the host distro/version/architecture, FIPS state, and Secure Boot
+state from EFI variables or `mokutil`. VHD content tests check the exact requested
+kernel instead of the stock LTS expectation; other content checks remain enabled.
 
 ## 4. Validate the fix, not just the image build
 

@@ -27,7 +27,7 @@ parameters:
     type: string
     default: " "
   - name: customKernelStorageAccount
-    displayName: Test kernel storage account (Ubuntu 2604 Minimal AMD64 only)
+    displayName: Test kernel storage account
     type: string
     default: ""
   - name: customKernelContainer
@@ -38,6 +38,20 @@ parameters:
     displayName: Test kernel blob prefix (empty disables custom kernel)
     type: string
     default: ""
+  - name: customKernelBuildTarget
+    displayName: Job receiving the test kernel (enable its build flag separately)
+    type: string
+    default: build2604minimalgen2containerd
+    values:
+      - build2204containerd
+      - build2204gen2containerd
+      - build2204arm64gen2containerd
+      - build2404containerd
+      - build2404gen2containerd
+      - build2404arm64gen2containerd
+      - build2404arm64gbgen2containerd
+      - build2604minimalgen2containerd
+      - build2604minimalarm64gen2containerd
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
@@ -634,6 +648,10 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-arm64-gen2-containerd
+              ${{ if eq(parameters.customKernelBuildTarget, 'build2204arm64gen2containerd') }}:
+                customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+                customKernelContainer: ${{ parameters.customKernelContainer }}
+                customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
       - job: build2404arm64gen2containerd
         condition: eq('${{ parameters.build2404arm64gen2containerd }}', true)
         dependsOn: [ ]
@@ -659,6 +677,10 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gen2-containerd
+              ${{ if eq(parameters.customKernelBuildTarget, 'build2404arm64gen2containerd') }}:
+                customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+                customKernelContainer: ${{ parameters.customKernelContainer }}
+                customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
       - job: build2204containerd
         condition: eq('${{ parameters.build2204containerd }}', true)
         dependsOn: [ ]
@@ -684,6 +706,10 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-containerd
+              ${{ if eq(parameters.customKernelBuildTarget, 'build2204containerd') }}:
+                customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+                customKernelContainer: ${{ parameters.customKernelContainer }}
+                customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
       - job: build2204gen2containerd
         condition: eq('${{ parameters.build2204gen2containerd }}', true)
         dependsOn: [ ]
@@ -709,6 +735,10 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-gen2-containerd
+              ${{ if eq(parameters.customKernelBuildTarget, 'build2204gen2containerd') }}:
+                customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+                customKernelContainer: ${{ parameters.customKernelContainer }}
+                customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
       - job: build2404containerd
         condition: eq('${{ parameters.build2404containerd }}', true)
         dependsOn: [ ]
@@ -734,6 +764,10 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-containerd
+              ${{ if eq(parameters.customKernelBuildTarget, 'build2404containerd') }}:
+                customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+                customKernelContainer: ${{ parameters.customKernelContainer }}
+                customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
       - job: build2404cvmgen2containerd
         condition: eq('${{ parameters.build2404cvmgen2containerd }}', true)
         dependsOn: [ ]
@@ -784,6 +818,10 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-gen2-containerd
+              ${{ if eq(parameters.customKernelBuildTarget, 'build2404gen2containerd') }}:
+                customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+                customKernelContainer: ${{ parameters.customKernelContainer }}
+                customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
       - job: build2404tlgen2containerd
         condition: eq('${{ parameters.build2404tlgen2containerd }}', true)
         dependsOn: [ ]
@@ -884,9 +922,10 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2604-minimal-gen2-containerd
-              customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
-              customKernelContainer: ${{ parameters.customKernelContainer }}
-              customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
+              ${{ if eq(parameters.customKernelBuildTarget, 'build2604minimalgen2containerd') }}:
+                customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+                customKernelContainer: ${{ parameters.customKernelContainer }}
+                customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
       - job: build2604minimalarm64gen2containerd
         condition: eq('${{ parameters.build2604minimalarm64gen2containerd }}', true)
         dependsOn: [ ]
@@ -912,6 +951,10 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2604-minimal-arm64-gen2-containerd
+              ${{ if eq(parameters.customKernelBuildTarget, 'build2604minimalarm64gen2containerd') }}:
+                customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+                customKernelContainer: ${{ parameters.customKernelContainer }}
+                customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
       - job: build2604minimalcvmgen2containerd
         condition: eq('${{ parameters.build2604minimalcvmgen2containerd }}', true)
         dependsOn: [ ]
@@ -1156,6 +1199,10 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gb-gen2-containerd
+              ${{ if eq(parameters.customKernelBuildTarget, 'build2404arm64gbgen2containerd') }}:
+                customKernelStorageAccount: ${{ parameters.customKernelStorageAccount }}
+                customKernelContainer: ${{ parameters.customKernelContainer }}
+                customKernelBlobPrefix: ${{ parameters.customKernelBlobPrefix }}
   - stage: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:

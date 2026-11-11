@@ -28,7 +28,11 @@ Describe 'custom kernel packages'
 
   write_manifest() {
     printf '%s\n' "$RELEASE" > "$PACKAGE_DIR/kernel-release"
-    (cd "$PACKAGE_DIR" && LC_ALL=C sha256sum -- *.deb kernel-release > SHA256SUMS)
+    if [ -f "$PACKAGE_DIR/kernel-target" ]; then
+      (cd "$PACKAGE_DIR" && LC_ALL=C sha256sum -- *.deb kernel-release kernel-target > SHA256SUMS)
+    else
+      (cd "$PACKAGE_DIR" && LC_ALL=C sha256sum -- *.deb kernel-release > SHA256SUMS)
+    fi
   }
 
   BeforeEach 'setup'
@@ -64,7 +68,7 @@ Describe 'custom kernel packages'
   Describe 'invalid package sets'
     Parameters
       'missing modules' 'Supply linux-modules'
-      'wrong architecture' 'Only amd64 packages'
+      'wrong architecture' 'Package architecture must match'
       'mismatched version' 'Package versions must match'
       'changed payload' 'SHA256SUMS does not match'
       'extra unhashed package' 'SHA256SUMS does not match'
@@ -110,11 +114,15 @@ Describe 'custom kernel packages'
     Parameters
       ENVIRONMENT prod
       GENERATE_PUBLISHING_INFO True
-      ARCHITECTURE ARM64
+      ARCHITECTURE RISCV64
       ENABLE_TRUSTED_LAUNCH True
       ENABLE_FIPS True
-      OS_VERSION 24.04
+      OS_VERSION 99.04
+      OS_SKU AzureContainerLinux
+      OS_SKU AzureLinux
+      OS_SKU Mariner
       FEATURE_FLAGS minimal,cvm
+      BUILDER imagecustomizer
     End
 
     It "rejects $1=$2 before accessing Azure"
@@ -123,9 +131,188 @@ Describe 'custom kernel packages'
 
       When call download_kernel_packages subscription account container test/run "$TEST_ROOT/download"
       The status should be failure
-      The error should include 'Only non-publishing test builds'
+      The error should include 'Custom kernel:'
       The output should not include 'unexpected Azure call'
       The path "$TEST_ROOT/download" should not be exist
+    End
+  End
+
+  Describe 'Ubuntu targets'
+    Parameters
+      22.04 amd64 X86_64
+      22.04 arm64 ARM64
+      24.04 amd64 X86_64
+      24.04 arm64 ARM64
+      26.04 arm64 ARM64
+    End
+
+    It "downloads a bundle for Ubuntu $1 $2 only into its matching build"
+      create_package "linux-image-unsigned-$RELEASE" "$VERSION" "$2" image.deb
+      create_package "linux-modules-$RELEASE" "$VERSION" "$2" modules.deb
+      echo "ubuntu:$1:$2" > "$PACKAGE_DIR/kernel-target"
+      write_manifest
+      export OS_VERSION="$1" ARCHITECTURE="$3"
+      az() {
+        local destination
+        while [ "$#" -gt 0 ]; do
+          if [ "$1" = --destination ]; then destination="$2"; fi
+          shift
+        done
+        mkdir -p "$destination/test/run"
+        cp "$PACKAGE_DIR/"* "$destination/test/run/"
+      }
+
+      When call download_kernel_packages subscription account container test/run "$TEST_ROOT/download"
+      The status should be success
+      The output should include "Downloaded and verified test kernel $RELEASE"
+      The contents of file "$TEST_ROOT/download/kernel-target" should equal "ubuntu:$1:$2"
+    End
+  End
+
+  It 'rejects a valid bundle for a different build release before staging it'
+    export OS_VERSION=24.04
+    az() {
+      local destination
+      while [ "$#" -gt 0 ]; do
+        if [ "$1" = --destination ]; then destination="$2"; fi
+        shift
+      done
+      mkdir -p "$destination/test/run"
+      cp "$PACKAGE_DIR/"* "$destination/test/run/"
+    }
+
+    When call download_kernel_packages subscription account container test/run "$TEST_ROOT/download"
+    The status should be failure
+    The error should include 'does not match this build'
+    The path "$TEST_ROOT/download" should not be exist
+  End
+
+  It 'checksums target metadata rather than trusting a changed release declaration'
+    echo ubuntu:24.04:amd64 > "$PACKAGE_DIR/kernel-target"
+    write_manifest
+    echo ubuntu:22.04:amd64 > "$PACKAGE_DIR/kernel-target"
+
+    When call validate_kernel_manifest "$PACKAGE_DIR"
+    The status should be failure
+    The error should include 'SHA256SUMS does not match'
+  End
+
+  It 'rejects a host whose distribution or architecture differs from the bundle'
+    kernel_host_target() { echo ubuntu:24.04:arm64; }
+
+    When call require_test_kernel_host "$PACKAGE_DIR"
+    The status should be failure
+    The error should include 'Installation requires a host matching ubuntu:26.04:amd64'
+  End
+
+  It 'rejects Secure Boot on a host that otherwise matches the bundle'
+    kernel_host_target() { echo ubuntu:26.04:amd64; }
+    mokutil() { echo 'SecureBoot enabled'; }
+
+    When call require_test_kernel_host "$PACKAGE_DIR"
+    The status should be failure
+    The error should include 'Secure Boot enabled'
+  End
+
+  It 'accepts a non-Azure Ubuntu flavor without inventing Azure cloud-tools dependencies'
+    RELEASE=6.8.0-100-generic
+    VERSION=6.8.0-100.100
+    create_package "linux-image-$RELEASE" "$VERSION" arm64 image.deb
+    create_package "linux-modules-$RELEASE" "$VERSION" arm64 modules.deb
+    create_package "linux-headers-$RELEASE" "$VERSION" arm64 headers.deb
+    echo ubuntu:24.04:arm64 > "$PACKAGE_DIR/kernel-target"
+    write_manifest
+    require_test_kernel_host() { return 0; }
+    apt-cache() { return 1; }
+    apt-get() { echo "apt-get $*"; }
+    apt-mark() { return 0; }
+    check_kernel_boot_files() { return 0; }
+    pin_kernel_boot() { return 0; }
+
+    When call install_kernel_packages "$PACKAGE_DIR"
+    The status should be success
+    The output should include "linux-headers-$RELEASE"
+    The output should not include 'linux-cloud-tools'
+    The output should include "Installed test kernel $RELEASE"
+  End
+
+  It 'rejects protected Ubuntu kernel flavors before uploading anything'
+    RELEASE=7.0.0-1018-azure-fips
+    create_package "linux-image-$RELEASE" "$VERSION" amd64 image.deb
+    create_package "linux-modules-$RELEASE" "$VERSION" amd64 modules.deb
+    az() { echo 'unexpected Azure call'; }
+
+    When call upload_kernel_packages subscription account container test/run "$PACKAGE_DIR"
+    The status should be failure
+    The error should include 'Protected kernel flavors are not supported'
+    The output should not include 'unexpected Azure call'
+  End
+
+  Describe 'mixed or invalid package types'
+    It 'rejects a mix of Debian and RPM packages'
+      touch "$PACKAGE_DIR/kernel.rpm"
+
+      When call validate_kernel_manifest "$PACKAGE_DIR"
+      The status should be failure
+      The error should include 'Only Ubuntu .deb packages are supported'
+    End
+
+    It 'rejects an RPM-only bundle before accessing Azure'
+      rm "$PACKAGE_DIR/"*.deb
+      touch "$PACKAGE_DIR/kernel.rpm"
+      az() { echo 'unexpected Azure call'; }
+
+      When call upload_kernel_packages subscription account container test/run "$PACKAGE_DIR"
+      The status should be failure
+      The error should include 'Only Ubuntu .deb packages are supported'
+      The output should not include 'unexpected Azure call'
+    End
+
+    It 'rejects Azure Linux target metadata on Debian packages'
+      echo azurelinux:3.0:amd64 > "$PACKAGE_DIR/kernel-target"
+      write_manifest
+
+      When call validate_kernel_manifest "$PACKAGE_DIR"
+      The status should be failure
+      The error should include 'Unsupported kernel-target'
+    End
+
+    It 'rejects an Azure Linux upload declaration before accessing Azure'
+      az() { echo 'unexpected Azure call'; }
+
+      When call upload_kernel_packages subscription account container test/run "$PACKAGE_DIR" azurelinux 3.0
+      The status should be failure
+      The error should include 'Unsupported kernel-target'
+      The output should not include 'unexpected Azure call'
+    End
+  End
+
+  Describe 'exact boot selection'
+    It 'pins the requested Ubuntu entry after the ARM64 hardware selector'
+      generate_kernel_grub_config() {
+        mkdir -p "$(dirname "$1")"
+        printf "menuentry 'Linux %s' --id 'gnulinux-%s-advanced-testuuid' {\n}\n" "$RELEASE" "$RELEASE" > "$1"
+        echo 'set default="a-different-hardware-selected-kernel"' >> "$1"
+        if [ -x "$TEST_ROOT/etc/grub.d/99_aks_test_kernel" ]; then
+          "$TEST_ROOT/etc/grub.d/99_aks_test_kernel" >> "$1"
+        fi
+      }
+
+      When call pin_kernel_boot "$RELEASE" "$TEST_ROOT"
+      The status should be success
+      The contents of file "$TEST_ROOT/etc/default/grub.d/99-aks-test-kernel.cfg" should include "GRUB_DEFAULT=\"gnulinux-$RELEASE-advanced-testuuid\""
+      The contents of file "$TEST_ROOT/etc/grub.d/99_aks_test_kernel" should include "set default=\"gnulinux-$RELEASE-advanced-testuuid\""
+    End
+
+    It 'fails if GRUB has no exact entry for the requested kernel'
+      generate_kernel_grub_config() {
+        mkdir -p "$(dirname "$1")"
+        printf "menuentry 'stock kernel' --id 'gnulinux-stock-advanced-testuuid' {\n}\n" > "$1"
+      }
+
+      When call pin_kernel_boot "$RELEASE" "$TEST_ROOT"
+      The status should be failure
+      The error should include 'Expected unique kernel entry is absent'
     End
   End
 
@@ -143,6 +330,32 @@ Describe 'custom kernel packages'
     The output should include '--name test/run/SHA256SUMS'
     The output should include "Uploaded $RELEASE"
     The contents of file "$TEST_ROOT/last-azure-command" should include '--name test/run/SHA256SUMS'
+  End
+
+  It 'uploads the declared Ubuntu release and package architecture in the checksummed target'
+    create_package "linux-image-unsigned-$RELEASE" "$VERSION" arm64 image.deb
+    create_package "linux-modules-$RELEASE" "$VERSION" arm64 modules.deb
+    az() {
+      if [ "$3" = show ]; then return 0; fi
+      local name="" file=""
+      while [ "$#" -gt 0 ]; do
+        if [ "$1" = --name ]; then name="$2"; fi
+        if [ "$1" = --file ]; then file="$2"; fi
+        shift
+      done
+      if [ "$name" = test/run/kernel-target ]; then
+        cp "$file" "$TEST_ROOT/uploaded-target"
+      fi
+      if [ "$name" = test/run/SHA256SUMS ]; then
+        cp "$file" "$TEST_ROOT/uploaded-checksums"
+      fi
+    }
+
+    When call custom_kernel_main upload subscription account container test/run "$PACKAGE_DIR" ubuntu 24.04
+    The status should be success
+    The output should include "Uploaded $RELEASE"
+    The contents of file "$TEST_ROOT/uploaded-target" should equal 'ubuntu:24.04:arm64'
+    The contents of file "$TEST_ROOT/uploaded-checksums" should include 'kernel-target'
   End
 
   It 'stops upload if Azure rejects container access'
