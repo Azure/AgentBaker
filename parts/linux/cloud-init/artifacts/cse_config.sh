@@ -813,6 +813,147 @@ createKubeManifestDir() {
     mkdir -p $KUBEMANIFESTDIR
 }
 
+# Prefer socket activation when the distribution enables it; aliases resolve to Id.
+getSSHActivation() {
+    local unit load_state enabled_state active_state id
+    for unit in ssh.socket sshd.socket ssh.service sshd.service; do
+        load_state=$(systemctl show "$unit" --property=LoadState --value) || return 1
+        case "$load_state" in
+            not-found|masked) continue ;;
+            loaded) ;;
+            *) echo "Cannot inspect SSH unit $unit: $load_state" >&2; return 1 ;;
+        esac
+        enabled_state=$(systemctl show "$unit" --property=UnitFileState --value) || return 1
+        if [ "$enabled_state" = enabled ]; then
+            id=$(systemctl show "$unit" --property=Id --value) || return 1
+            printf '%s enabled\n' "$id"
+            return 0
+        fi
+    done
+    for unit in ssh.socket sshd.socket ssh.service sshd.service; do
+        active_state=$(systemctl show "$unit" --property=ActiveState --value) || return 1
+        if [ "$active_state" = active ]; then
+            id=$(systemctl show "$unit" --property=Id --value) || return 1
+            printf '%s disabled\n' "$id"
+            return 0
+        fi
+    done
+    return 0
+}
+
+installSSHDisablePolicy() {
+    local policy_dir="${SSH_POLICY_DIR:-/etc/aks/ssh-policy}"
+    local unit_dir="${SSH_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+    local unit dropin content result=0
+    mkdir -p "$policy_dir" || return 1
+    chmod 0700 "$policy_dir" || return 1
+    if [ ! -f "$policy_dir/activation" ]; then
+        getSSHActivation > "$policy_dir/activation.tmp" &&
+            mv "$policy_dir/activation.tmp" "$policy_dir/activation" || return 1
+    fi
+    touch "$policy_dir/disabled" || return 1
+    # Unlike disable (or a mask undone by openssh package migration), this
+    # condition also blocks dependency and socket starts after a reboot.
+    content="[Unit]
+ConditionPathExists=!$policy_dir/disabled"
+    for unit in ssh.socket sshd.socket ssh.service sshd.service; do
+        dropin="$unit_dir/$unit.d/90-aks-ssh-access.conf"
+        if [ -e "$dropin" ] && [ "$(cat "$dropin")" != "$content" ]; then
+            echo "Refusing to overwrite an existing SSH policy: $dropin" >&2
+            result=1
+            continue
+        fi
+        mkdir -p "$unit_dir/$unit.d" &&
+            printf '%s\n' "$content" > "$dropin.tmp" &&
+            chmod 0644 "$dropin.tmp" &&
+            mv "$dropin.tmp" "$dropin" || result=1
+    done
+    systemctl daemon-reload || result=1
+    return "$result"
+}
+
+validateSSHActivation() {
+    local unit="$1" load_state accept triggers service
+    local -a services=()
+    load_state=$(systemctl show "$unit" --property=LoadState --value) || return 1
+    if [ "$load_state" != loaded ]; then
+        echo "Cannot restore SSH: $unit is $load_state; external masks are not removed" >&2
+        return 1
+    fi
+    case "$unit" in
+        *.service) return 0 ;;
+        *.socket)
+            accept=$(systemctl show "$unit" --property=Accept --value) || return 1
+            case "$accept" in
+                yes)
+                    # Inspect a template instance without starting a connection handler.
+                    services=("${unit%.socket}@internal.service")
+                    ;;
+                no)
+                    triggers=$(systemctl show "$unit" --property=Triggers --value) || return 1
+                    read -r -a services <<< "$triggers"
+                    ;;
+                *) echo "Cannot restore SSH: invalid Accept state for $unit: $accept" >&2; return 1 ;;
+            esac
+            ;;
+        *) echo "Cannot restore SSH: unsupported activation unit $unit" >&2; return 1 ;;
+    esac
+    if [ "${#services[@]}" -eq 0 ]; then
+        echo "Cannot restore SSH: no backing service reported for $unit" >&2
+        return 1
+    fi
+    for service in "${services[@]}"; do
+        case "$service" in
+            *.service) validateSSHActivation "$service" || return 1 ;;
+            *) echo "Cannot restore SSH: invalid backing service for $unit: $service" >&2; return 1 ;;
+        esac
+    done
+}
+
+restoreSSH() {
+    local policy_dir="${SSH_POLICY_DIR:-/etc/aks/ssh-policy}"
+    local unit activation current_activation
+    [ -f "$policy_dir/disabled" ] || return 0
+    if [ ! -f "$policy_dir/activation" ]; then
+        echo "Cannot restore SSH: the owned activation record is missing" >&2
+        return 1
+    fi
+    activation=$(cat "$policy_dir/activation") || return 1
+    if [ -z "$activation" ]; then
+        # An empty snapshot observed no activation; undo only our own block.
+        rm -f "$policy_dir/disabled" || return 1
+        rm -f "$policy_dir/activation"
+        return "$?"
+    fi
+    case "$activation" in
+        "ssh.service enabled"|"sshd.service enabled"|"ssh.socket enabled"|"sshd.socket enabled"|\
+        "ssh.service disabled"|"sshd.service disabled"|"ssh.socket disabled"|"sshd.socket disabled") ;;
+        *) echo "Cannot restore SSH: no valid saved activation mode" >&2; return 1 ;;
+    esac
+    # Package upgrades may have migrated service activation to a socket while
+    # our condition kept it blocked. Respect that mode before the saved mode.
+    current_activation=$(getSSHActivation) || return 1
+    [ -z "$current_activation" ] || activation="$current_activation"
+    read -r unit activation <<< "$activation"
+    case "$unit:$activation" in
+        ssh.service:enabled|sshd.service:enabled|ssh.socket:enabled|sshd.socket:enabled|\
+        ssh.service:disabled|sshd.service:disabled|ssh.socket:disabled|sshd.socket:disabled) ;;
+        *) echo "Cannot restore SSH: no valid saved activation mode" >&2; return 1 ;;
+    esac
+    validateSSHActivation "$unit" || return 1
+    [ "$activation" != enabled ] || systemctl enable "$unit" || return 1
+    rm -f "$policy_dir/disabled" || return 1
+    # Keep the owned drop-ins: without the marker their conditions allow starts.
+    if ! systemctl start "$unit" ||
+        ! systemctl is-active --quiet "$unit"; then
+        touch "$policy_dir/disabled" || return 1
+        systemctl stop "$unit" || return 1
+        echo "Failed to restore SSH activation through $unit" >&2
+        return 1
+    fi
+    rm -f "$policy_dir/activation"
+}
+
 disableSSH() {
     local start_time attempt_id unit result=0
     start_time=$(date -u +"%F %T.%3N")
