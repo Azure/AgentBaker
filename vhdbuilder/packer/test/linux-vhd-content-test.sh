@@ -342,6 +342,9 @@ testPackagesInstalled() {
           "kubernetes-cri-tools")
             testCriCtl "$version" "kubernetes-cri-tools"
             ;;
+          "runc")
+            testRunc "$version"
+            ;;
           "containerd")
             # The deb/rpm package name for containerd varies by OS:
             #   Ubuntu / Mariner 2.0: moby-containerd
@@ -2044,6 +2047,7 @@ testBccTools () {
 #   1. WALinuxAgent-<version> directory exists under /var/lib/waagent/ matching components.json
 #   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
 #   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
+#   4. The expected version is running as ExtHandler
 testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
@@ -2101,7 +2105,18 @@ testWALinuxAgentInstalled() {
     return 1
   fi
 
+  testWALinuxAgentRunningVersion "$expectedVersion" || return 1
+
   echo "$test:Finish"
+}
+
+testWALinuxAgentRunningVersion() {
+  local test="testWALinuxAgentRunningVersion"
+  local expectedVersion="$1"
+  if ! grep -Fq "ExtHandler WALinuxAgent-${expectedVersion} running as process" /var/log/waagent.log; then
+    err "$test" "WALinuxAgent-${expectedVersion} is not running as ExtHandler"
+    return 1
+  fi
 }
 
 testNodeExporter () {
@@ -2328,6 +2343,22 @@ testCriCtl() {
   return 0
 }
 
+testRunc() {
+  local expectedVersion="$1"
+  local test="testRunc"
+  echo "$test:Start"
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for runc version, as expected version is <SKIP>"
+    return 0
+  fi
+  if [ "$OS_SKU" != "Ubuntu" ]; then
+    err "$test" "runc package validation is not implemented for $OS_SKU"
+    return 1
+  fi
+  assertPackageVersion "$test" "moby-runc" "$expectedVersion" true || return 1
+  echo "$test:Finish"
+}
+
 testContainerd() {
   local expectedVersion="${1}"
   local installedPackageName="${2}"
@@ -2446,21 +2477,7 @@ testBlobfuse() {
     echo "$test: Skipping test for blobfuse version, as expected version is <SKIP>"
     return 0
   fi
-  local installed_version
-  installed_version=$(dpkg-query -W -f='${Version}' blobfuse 2>/dev/null) || true
-  if [ -z "$installed_version" ]; then
-    err "$test" "blobfuse is not installed"
-    return 1
-  fi
-  echo "$test: checking if blobfuse version $installed_version matches expected $expectedVersion"
-  case "$installed_version" in
-    "$expectedVersion"*)
-      ;;
-    *)
-      err "$test" "blobfuse version is $installed_version, expected $expectedVersion"
-      return 1
-      ;;
-  esac
+  assertPackageVersion "$test" "blobfuse" "$expectedVersion" true || return 1
   echo "$test:Finish"
   return 0
 }
@@ -2477,21 +2494,7 @@ testBlobfuse2() {
     echo "$test: Skipping test for blobfuse2 version, as expected version is <SKIP>"
     return 0
   fi
-  local installed_version
-  installed_version=$(dpkg-query -W -f='${Version}' blobfuse2 2>/dev/null) || true
-  if [ -z "$installed_version" ]; then
-    err "$test" "blobfuse2 is not installed"
-    return 1
-  fi
-  echo "$test: checking if blobfuse2 version $installed_version matches expected $expectedVersion"
-  case "$installed_version" in
-    "$expectedVersion"*)
-      ;;
-    *)
-      err "$test" "blobfuse2 version is $installed_version, expected $expectedVersion"
-      return 1
-      ;;
-  esac
+  assertPackageVersion "$test" "blobfuse2" "$expectedVersion" true || return 1
   echo "$test:Finish"
   return 0
 }
