@@ -516,7 +516,7 @@ function Install-Containerd-Based-On-Kubernetes-Version {
             Install-ContainerdFromComponentPackages -HcsshimUrl $HcsshimUrl -MobyContainerdUrl $MobyContainerdUrl -CrictlUrl $CrictlUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
             return
         }
-        Write-Log "Install-ContainerdFromComponentPackages is not available on this VHD; using the combined containerd package"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.ContainerdComponentPackagesUnsupported" -TaskMessage "Install-ContainerdFromComponentPackages is not available on this VHD; using the combined containerd package. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
     }
 
     # Get the current Windows version, this is interim since we are progressively supporting containerd 2.0 for all Windows version. for now only test2025

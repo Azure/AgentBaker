@@ -146,10 +146,12 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     }
 
     It 'uses the combined package when the VHD has no component package installer' {
+      Mock Logs-To-Event
       Mock Get-Command -MockWith { $null } -ParameterFilter { $Name -eq 'Install-ContainerdFromComponentPackages' }
       $expectedURL = $ContainerdWindowsPackageDownloadURL + $LatestContainerd2Package
       & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.38.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir" -HcsshimUrl $hcsshimUrl -MobyContainerdUrl $mobyContainerdUrl -CrictlUrl $crictlUrl
       Assert-MockCalled -CommandName "Install-ContainerdFromComponentPackages" -Exactly -Times 0
+      Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter { $TaskName -eq 'AKS.WindowsCSE.ContainerdComponentPackagesUnsupported' }
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
     }
 
