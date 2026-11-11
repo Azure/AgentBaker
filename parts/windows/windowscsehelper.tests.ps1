@@ -145,6 +145,14 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 0
     }
 
+    It 'uses the combined package when the VHD has no component package installer' {
+      Mock Get-Command -MockWith { $null } -ParameterFilter { $Name -eq 'Install-ContainerdFromComponentPackages' }
+      $expectedURL = $ContainerdWindowsPackageDownloadURL + $LatestContainerd2Package
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.38.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir" -HcsshimUrl $hcsshimUrl -MobyContainerdUrl $mobyContainerdUrl -CrictlUrl $crictlUrl
+      Assert-MockCalled -CommandName "Install-ContainerdFromComponentPackages" -Exactly -Times 0
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
+
     It 'uses the combined package when <Case>' -ForEach @(
       @{ Case = 'no URLs are set'; Hcsshim = ''; Moby = ''; Crictl = '' }
       @{ Case = 'only some URLs are set'; Hcsshim = 'https://example.com/hcsshim.zip'; Moby = 'https://example.com/moby-containerd.zip'; Crictl = '' }
