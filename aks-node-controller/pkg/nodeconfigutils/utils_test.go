@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/textproto"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"gopkg.in/yaml.v3"
 )
 
 func TestContainerdImagePullPresenceRoundTrip(t *testing.T) {
@@ -415,15 +417,36 @@ func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t
 	require.NoError(t, err)
 	on := string(decoded)
 
-	require.True(t, strings.HasPrefix(on, "#cloud-boothook\n"))
+	require.True(t, strings.HasPrefix(on, "#cloud-config-archive\n"))
 	require.NotContains(t, on, "MIME-Version:")
 	require.NotContains(t, on, "multipart/mixed")
-	require.Contains(t, on, "# azure-experimental-node-ready")
+	require.NotContains(t, on, "# azure-experimental-node-ready")
+	require.Contains(t, on, "experimental_skip_ready_report: true")
 	require.Contains(t, on, "touch /var/lib/waagent/experimental_skip_ready_report")
 	require.Contains(t, on, "if [ -s /sys/class/dmi/id/product_uuid ]; then")
 	require.Contains(t, on, "cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned")
 	require.Contains(t, on, AKSNodeConfigFilePath)
 	require.Contains(t, on, "systemctl start --no-block aks-node-controller.service")
+	var parts []struct {
+		Type    string `yaml:"type"`
+		Content string `yaml:"content"`
+	}
+	require.NoError(t, yaml.Unmarshal(decoded, &parts))
+	require.Len(t, parts, 2)
+	require.Equal(t, "text/cloud-boothook", parts[0].Type)
+	require.True(t, strings.HasPrefix(parts[0].Content, "#!/bin/bash\n"))
+	require.Contains(t, parts[0].Content, AKSNodeConfigFilePath)
+	require.Contains(t, parts[0].Content, "/var/lib/waagent/provisioned")
+	require.Equal(t, "text/cloud-config", parts[1].Type)
+	var config struct {
+		Datasource map[string]map[string]bool `yaml:"datasource"`
+	}
+	require.NoError(t, yaml.Unmarshal([]byte(parts[1].Content), &config))
+	require.True(t, config.Datasource["Azure"]["experimental_skip_ready_report"])
+	cmd := exec.Command("bash", "-n")
+	cmd.Stdin = strings.NewReader(parts[0].Content)
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
 }
 
 func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {
