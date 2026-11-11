@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC3010
 
 custom_kernel_error() {
   echo "Custom kernel: $*" >&2
@@ -13,27 +14,52 @@ validate_kernel_prefix() {
   fi
 }
 
+kernel_package_architecture() {
+  local directory="$1" file architecture
+  for file in "$directory/"*.deb; do
+    architecture=$(dpkg-deb -f "$file" Architecture) || return 1
+    if [ "$architecture" != all ]; then
+      printf '%s\n' "$architecture"
+      return
+    fi
+  done
+  custom_kernel_error "No architecture-specific kernel package."
+  return 1
+}
+
 inspect_kernel_packages() {
   local directory="$1" file package release="" image="" version="" architecture abi
-  local image_count=0 modules_count=0
+  local flavor="" image_architecture="" image_count=0 modules_count=0
   local -A seen=()
   local files=("$directory/"*.deb)
+  local rpms=("$directory/"*.rpm)
+  [ ! -f "${rpms[0]}" ] ||
+    { custom_kernel_error "Only Ubuntu .deb packages are supported."; return 1; }
   [ -f "${files[0]}" ] || { custom_kernel_error "No .deb files in $directory"; return 1; }
 
   for file in "${files[@]}"; do
     [[ "$(basename "$file")" =~ ^[a-zA-Z0-9._+~-]+\.deb$ ]] ||
       { custom_kernel_error "Unsupported package filename: $file"; return 1; }
     package=$(dpkg-deb -f "$file" Package) || return 1
-    if [[ "$package" =~ ^linux-image-(unsigned-)?([0-9]+\.[0-9]+\.[0-9]+-[0-9]+-azure)$ ]]; then
-      release="${BASH_REMATCH[2]}"
+    if [[ "$package" =~ ^linux-image-(unsigned-)?([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)-([a-z][a-z0-9-]*)$ ]]; then
+      abi="${BASH_REMATCH[2]}"
+      flavor="${BASH_REMATCH[3]}"
+      release="$abi-$flavor"
       image="$package"
       version=$(dpkg-deb -f "$file" Version) || return 1
+      image_architecture=$(dpkg-deb -f "$file" Architecture) || return 1
       image_count=$((image_count + 1))
     fi
   done
   [ "$image_count" -eq 1 ] ||
-    { custom_kernel_error "Supply exactly one versioned Azure kernel image package."; return 1; }
-  abi="${release%-azure}"
+    { custom_kernel_error "Supply exactly one versioned Ubuntu kernel image package."; return 1; }
+  case "$image_architecture" in
+    amd64|arm64) ;;
+    *) custom_kernel_error "Only amd64 or arm64 kernels are supported."; return 1 ;;
+  esac
+  case "$flavor" in
+    *fips*|*cvm*|*mshv*) custom_kernel_error "Protected kernel flavors are not supported."; return 1 ;;
+  esac
 
   for file in "${files[@]}"; do
     package=$(dpkg-deb -f "$file" Package) || return 1
@@ -45,24 +71,43 @@ inspect_kernel_packages() {
     seen[$package]=1
     case "$package" in
       "$image"|"linux-modules-extra-$release"|"linux-tools-$release"|"linux-cloud-tools-$release") ;;
-      "linux-azure-tools-$abi"|"linux-azure-cloud-tools-$abi") ;;
+      "linux-$flavor-tools-$abi"|"linux-$flavor-cloud-tools-$abi") ;;
       "linux-modules-$release") modules_count=$((modules_count + 1)) ;;
-      "linux-headers-$release"|"linux-headers-$abi"|"linux-azure-headers-$abi"|linux-azure-*-headers-"$abi")
+      "linux-headers-$release"|"linux-headers-$abi"|"linux-$flavor-headers-$abi"|linux-"$flavor"-*-headers-"$abi")
         if [ "$architecture" = all ]; then continue; fi
         ;;
       *) custom_kernel_error "Unexpected package: $package"; return 1 ;;
     esac
-    [ "$architecture" = amd64 ] ||
-      { custom_kernel_error "Only amd64 packages (or architecture-independent headers) are supported: $package"; return 1; }
+    [ "$architecture" = "$image_architecture" ] ||
+      { custom_kernel_error "Package architecture must match $image_architecture: $package"; return 1; }
   done
   [ "$modules_count" -eq 1 ] ||
     { custom_kernel_error "Supply linux-modules-$release alongside the image."; return 1; }
   printf '%s\n' "$release"
 }
 
+kernel_target() {
+  local directory="$1" target architecture
+  architecture=$(kernel_package_architecture "$directory") || return 1
+  if [ -f "$directory/kernel-target" ]; then
+    target=$(< "$directory/kernel-target")
+  else
+    # Keep already-uploaded 26.04 AMD64 bundles usable, without guessing other targets.
+    target=ubuntu:26.04:amd64
+  fi
+  case "$target" in
+    ubuntu:22.04:amd64|ubuntu:22.04:arm64|ubuntu:24.04:amd64|ubuntu:24.04:arm64|ubuntu:26.04:amd64|ubuntu:26.04:arm64) ;;
+    *) custom_kernel_error "Unsupported kernel-target: $target"; return 1 ;;
+  esac
+  [ "${target##*:}" = "$architecture" ] ||
+    { custom_kernel_error "kernel-target architecture does not match the packages."; return 1; }
+  printf '%s\n' "$target"
+}
+
 validate_kernel_manifest() {
   local directory="$1" release expected actual
   release=$(inspect_kernel_packages "$directory") || return 1
+  kernel_target "$directory" >/dev/null || return 1
   if [ ! -f "$directory/kernel-release" ] || [ ! -f "$directory/SHA256SUMS" ]; then
     custom_kernel_error "Missing kernel-release or SHA256SUMS."
     return 1
@@ -70,6 +115,9 @@ validate_kernel_manifest() {
   [ "$(< "$directory/kernel-release")" = "$release" ] ||
     { custom_kernel_error "kernel-release does not match the image package."; return 1; }
   expected=$(cd "$directory" && LC_ALL=C sha256sum -- *.deb kernel-release) || return 1
+  if [ -f "$directory/kernel-target" ]; then
+    expected=$(cd "$directory" && LC_ALL=C sha256sum -- *.deb kernel-release kernel-target) || return 1
+  fi
   actual=$(< "$directory/SHA256SUMS")
   [ "$actual" = "$expected" ] ||
     { custom_kernel_error "SHA256SUMS does not match the complete package set."; return 1; }
@@ -80,30 +128,52 @@ require_test_kernel_build() {
   local fips="${ENABLE_FIPS:-}" trusted_launch="${ENABLE_TRUSTED_LAUNCH:-}"
   local publishing="${GENERATE_PUBLISHING_INFO:-}"
   if [ "${ENVIRONMENT:-}" != test ] ||
-    [ "${OS_SKU:-}" != Ubuntu ] ||
-    [ "${OS_VERSION:-}" != 26.04 ] ||
-    [ "${ARCHITECTURE:-}" != X86_64 ] ||
-    [ "${HYPERV_GENERATION:-}" != V2 ] ||
-    [ "${FEATURE_FLAGS:-}" != minimal ] ||
     [ "${fips,,}" != false ] ||
     [ "${trusted_launch,,}" != false ] ||
     [ "${publishing,,}" != false ] ||
     [ "${BUILDER:-}" = imagecustomizer ]; then
-    custom_kernel_error "Only non-publishing test builds of Ubuntu 26.04 Minimal AMD64 Gen2 are supported."
+    custom_kernel_error "Only non-publishing test builds without FIPS, Trusted Launch or Image Customizer are supported."
     return 1
   fi
+  case "${FEATURE_FLAGS:-}" in
+    None|minimal|NVIDIA_GB) ;;
+    *) custom_kernel_error "Unsupported custom-kernel feature flags (CVM is excluded)."; return 1 ;;
+  esac
+  case "${HYPERV_GENERATION:-}:${ARCHITECTURE:-}" in
+    V1:X86_64|V2:X86_64|V2:ARM64) ;;
+    *) custom_kernel_error "Unsupported kernel build architecture or Hyper-V generation."; return 1 ;;
+  esac
+  build_kernel_target >/dev/null
+}
+
+build_kernel_target() {
+  local architecture distro version="${OS_VERSION:-}"
+  case "${ARCHITECTURE:-}" in
+    X86_64) architecture=amd64 ;;
+    ARM64) architecture=arm64 ;;
+    *) custom_kernel_error "Unsupported build architecture."; return 1 ;;
+  esac
+  case "${OS_SKU:-}:$version" in
+    Ubuntu:22.04|Ubuntu:24.04|Ubuntu:26.04) distro=ubuntu ;;
+    *) custom_kernel_error "Unsupported custom-kernel distribution/version."; return 1 ;;
+  esac
+  echo "$distro:$version:$architecture"
 }
 
 upload_kernel_packages() (
   local subscription="$1" account="$2" container="$3" prefix="$4" directory="$5"
-  local release staging file public_access
+  local distro="${6:-ubuntu}" os_version="${7:-26.04}"
+  local release staging file public_access architecture
   validate_kernel_prefix "$prefix" || return 1
   release=$(inspect_kernel_packages "$directory") || return 1
+  architecture=$(kernel_package_architecture "$directory") || return 1
   staging=$(mktemp -d)
   trap 'rm -rf -- "$staging"' EXIT
   cp -- "$directory/"*.deb "$staging/"
   printf '%s\n' "$release" > "$staging/kernel-release"
-  (cd "$staging" && LC_ALL=C sha256sum -- *.deb kernel-release > SHA256SUMS)
+  printf '%s:%s:%s\n' "$distro" "$os_version" "$architecture" > "$staging/kernel-target"
+  kernel_target "$staging" >/dev/null || return 1
+  (cd "$staging" && LC_ALL=C sha256sum -- *.deb kernel-release kernel-target > SHA256SUMS)
 
   az storage container create --subscription "$subscription" --account-name "$account" \
     --name "$container" --public-access off --auth-mode login --only-show-errors --output none || return 1
@@ -112,7 +182,7 @@ upload_kernel_packages() (
     --only-show-errors --output tsv) || return 1
   [ -z "$public_access" ] ||
     { custom_kernel_error "Refusing to upload to a public container."; return 1; }
-  for file in "$staging/"*.deb "$staging/kernel-release" "$staging/SHA256SUMS"; do
+  for file in "$staging/"*.deb "$staging/kernel-release" "$staging/kernel-target" "$staging/SHA256SUMS"; do
     az storage blob upload --subscription "$subscription" --account-name "$account" \
       --container-name "$container" --name "$prefix/$(basename "$file")" \
       --file "$file" --overwrite false --auth-mode login --only-show-errors --output none || return 1
@@ -123,7 +193,7 @@ upload_kernel_packages() (
 
 download_kernel_packages() (
   local subscription="$1" account="$2" container="$3" prefix="$4" destination="$5"
-  local staging release
+  local staging release target
   require_test_kernel_build || return 1
   if [ -z "$subscription" ] || [ -z "$account" ] || [ -z "$container" ]; then
     custom_kernel_error "Subscription, storage account and container are required."
@@ -138,37 +208,65 @@ download_kernel_packages() (
     --source "$container" --destination "$staging" --pattern "$prefix/*" \
     --auth-mode login --only-show-errors --output none || return 1
   release=$(validate_kernel_manifest "$staging/$prefix") || return 1
+  target=$(kernel_target "$staging/$prefix") || return 1
+  [ "$target" = "$(build_kernel_target)" ] ||
+    { custom_kernel_error "Bundle target $target does not match this build."; return 1; }
   mkdir -p "$destination"
   cp -- "$staging/$prefix/"*.deb "$staging/$prefix/kernel-release" \
     "$staging/$prefix/SHA256SUMS" "$destination/"
+  if [ -f "$staging/$prefix/kernel-target" ]; then
+    cp -- "$staging/$prefix/kernel-target" "$destination/"
+  fi
   echo "Downloaded and verified test kernel $release"
 )
 
-require_test_kernel_host() {
+kernel_host_target() {
   local ID VERSION_ID
   # shellcheck disable=SC1091
   source /etc/os-release
-  if [ "$ID" != ubuntu ] || [ "$VERSION_ID" != 26.04 ] ||
-    [ "$(dpkg --print-architecture)" != amd64 ]; then
-    custom_kernel_error "Installation requires Ubuntu 26.04 amd64."
+  local architecture
+  case "$(uname -m)" in
+    x86_64) architecture=amd64 ;;
+    aarch64) architecture=arm64 ;;
+    *) custom_kernel_error "Unsupported host architecture."; return 1 ;;
+  esac
+  echo "$ID:$VERSION_ID:$architecture"
+}
+
+require_test_kernel_host() {
+  local target secure_boot
+  target=$(kernel_target "$1") || return 1
+  [ "$(kernel_host_target)" = "$target" ] ||
+    { custom_kernel_error "Installation requires a host matching $target."; return 1; }
+  if [ -r /proc/sys/crypto/fips_enabled ] && [ "$(< /proc/sys/crypto/fips_enabled)" = 1 ]; then
+    custom_kernel_error "Test kernels must not be installed on a FIPS host."
     return 1
   fi
+  for secure_boot in /sys/firmware/efi/efivars/SecureBoot-*; do
+    [ -f "$secure_boot" ] || continue
+    if [ "$(od -An -j4 -N1 -t u1 "$secure_boot" | tr -d ' ')" = 1 ]; then
+      custom_kernel_error "Test kernels must not be installed with Secure Boot enabled."
+      return 1
+    fi
+  done
   if command -v mokutil >/dev/null && mokutil --sb-state | grep -qi 'SecureBoot enabled'; then
     custom_kernel_error "Test kernels must not be installed with Secure Boot enabled."
     return 1
   fi
 }
 
-install_kernel_packages() {
+install_deb_kernel_packages() {
   local directory="$1" release file package
   local packages=() required_packages=()
-  release=$(validate_kernel_manifest "$directory") || return 1
-  require_test_kernel_host || return 1
+  release=$(inspect_kernel_packages "$directory") || return 1
   for file in "$directory/"*.deb; do
     package=$(dpkg-deb -f "$file" Package) || return 1
     packages+=("$package")
   done
-  required_packages=("linux-headers-$release" "linux-tools-$release" "linux-cloud-tools-$release")
+  required_packages=("linux-headers-$release")
+  if [[ "$release" = *-azure ]]; then
+    required_packages+=("linux-tools-$release" "linux-cloud-tools-$release")
+  fi
   for package in "${required_packages[@]}"; do
     if [[ " ${packages[*]} " != *" $package "* ]] &&
       ! apt-cache show "$package" >/dev/null 2>&1; then
@@ -181,13 +279,47 @@ install_kernel_packages() {
     "${required_packages[@]}" || return 1
   apt-mark manual "${packages[@]}" || return 1
   apt-mark hold "${packages[@]}" || return 1
-  mkdir -p /etc/default/grub.d
-  # Pin the boot entry even when the base image already has a newer kernel.
-  printf 'GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux %s"\nGRUB_DISABLE_SUBMENU=false\nGRUB_SAVEDEFAULT=false\n' "$release" \
-    > /etc/default/grub.d/99-aks-test-kernel.cfg
+}
+
+check_kernel_boot_files() {
+  local release="$1" initrd="/boot/initrd.img-$1"
+  if [ ! -s "/boot/vmlinuz-$release" ] || [ ! -s "$initrd" ]; then
+    custom_kernel_error "Missing kernel or initramfs boot files for $release."
+    return 1
+  fi
+}
+
+generate_kernel_grub_config() {
   update-grub
-  grep -Fq "menuentry 'Ubuntu, with Linux $release'" /boot/grub/grub.cfg ||
-    { custom_kernel_error "Expected kernel entry is absent from grub.cfg."; return 1; }
+}
+
+pin_kernel_boot() {
+  local release="$1" root="${2:-}" config entry
+  config="$root/boot/grub/grub.cfg"
+  mkdir -p "$root/etc/default/grub.d" "$root/etc/grub.d"
+  printf 'GRUB_DISABLE_SUBMENU=true\nGRUB_SAVEDEFAULT=false\n' > "$root/etc/default/grub.d/99-aks-test-kernel.cfg"
+  generate_kernel_grub_config "$config" || return 1
+  entry=$(awk -F "'" -v prefix="gnulinux-$release-advanced-" '
+    /^[[:space:]]*menuentry / { for (i=1; i<=NF; i++) if (index($i, prefix)==1) print $i }
+  ' "$config") || return 1
+  [[ "$entry" =~ ^[a-zA-Z0-9._+-]+$ ]] ||
+    { custom_kernel_error "Expected unique kernel entry is absent from grub.cfg."; return 1; }
+  printf 'GRUB_DEFAULT="%s"\n' "$entry" >> "$root/etc/default/grub.d/99-aks-test-kernel.cfg"
+  # Run after hardware-specific selectors, which otherwise override GRUB_DEFAULT on ARM64.
+  printf '#!/bin/sh\necho '\''set default="%s"'\''\n' "$entry" > "$root/etc/grub.d/99_aks_test_kernel"
+  chmod 755 "$root/etc/grub.d/99_aks_test_kernel"
+  generate_kernel_grub_config "$config" || return 1
+  grep -Fxq "set default=\"$entry\"" "$config" ||
+    { custom_kernel_error "Custom kernel boot selector is absent from grub.cfg."; return 1; }
+}
+
+install_kernel_packages() {
+  local directory="$1" release
+  release=$(validate_kernel_manifest "$directory") || return 1
+  require_test_kernel_host "$directory" || return 1
+  install_deb_kernel_packages "$directory" || return 1
+  check_kernel_boot_files "$release" || return 1
+  pin_kernel_boot "$release" || return 1
   echo "Installed test kernel $release; verification follows the existing Packer reboot."
 }
 
@@ -207,10 +339,11 @@ custom_kernel_main() {
   local action="${1:-}" enabled directory
   case "$action" in
     upload|download)
-      [ "$#" -eq 6 ] || {
-        echo "Usage: bash $0 $action SUBSCRIPTION ACCOUNT CONTAINER PREFIX DIRECTORY" >&2
+      if { [ "$action" = upload ] && [ "$#" -ne 6 ] && [ "$#" -ne 8 ]; } ||
+        { [ "$action" = download ] && [ "$#" -ne 6 ]; }; then
+        echo "Usage: bash $0 $action SUBSCRIPTION ACCOUNT CONTAINER PREFIX DIRECTORY [ubuntu OS_VERSION]" >&2
         return 1
-      }
+      fi
       "${action}_kernel_packages" "${@:2}"
       ;;
     install|verify)
