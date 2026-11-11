@@ -58,39 +58,51 @@ func (e *lpsGRPCStatusError) Error() string {
 	return fmt.Sprintf("LPS gRPC call failed with code %s: %s", e.code, e.message)
 }
 
-// fetchHotfixOverGRPC performs the GetComponentConfig call against the live-patching service: it
-// resolves the apiserver FQDN + cluster CA from the available node bootstrap input, carries the
-// IMDS attested-data document (and, when available, the VM resource ID) in gRPC metadata, and
-// returns the opaque response bytes for the shared parse/stage path.
+// fetchHotfixOverGRPC fetches the check-hotfix component config for the shared parse/stage path.
 // The gRPC status is mapped onto the benign-vs-fatal taxonomy so handleFetchError is unchanged.
 func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
+	config, err := a.getLPSComponentConfig(ctx, ancComponentName)
+	if err != nil {
+		return nil, err
+	}
+	// The shared live-patching contract carries the component config as a JSON-encoded UTF-8
+	// string; the parse/stage path operates on bytes, so convert without interpreting.
+	return []byte(config), nil
+}
+
+// getLPSComponentConfig performs the GetComponentConfig call against the live-patching service for
+// one component: it resolves the apiserver FQDN + cluster CA from the available node bootstrap
+// input, carries the IMDS attested-data document (and, when available, the VM resource ID) in gRPC
+// metadata, and returns the component's config string. A gRPC error is returned through
+// mapGRPCError, so isLPSUnavailable tells "nothing for this node" from a failure.
+func (a *App) getLPSComponentConfig(ctx context.Context, component string) (string, error) {
 	fqdn, caPEM, err := a.lpsTargetFromNodeConfig()
 	if err != nil {
-		return nil, fmt.Errorf("resolving LPS endpoint: %w", err)
+		return "", fmt.Errorf("resolving LPS endpoint: %w", err)
 	}
 
 	token, err := a.attestedToken(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("imds attested token: %w", err)
+		return "", fmt.Errorf("imds attested token: %w", err)
 	}
 
 	// The resource ID only speeds up the service's VM lookup, so a failure here is not fatal:
 	// send the request without it and let the service fall back to its slower path.
 	resourceID, err := a.vmResourceID(ctx)
 	if err != nil {
-		slog.Info("check-hotfix could not read VM resource ID from IMDS; sending request without it", "error", err)
+		slog.Info("could not read VM resource ID from IMDS; sending the LPS request without it", "component", component, "error", err)
 		resourceID = ""
 	}
 
 	conn, err := a.dialLPSGRPC(fqdn, caPEM)
 	if err != nil {
-		return nil, fmt.Errorf("dialing LPS gRPC: %w", err)
+		return "", fmt.Errorf("dialing LPS gRPC: %w", err)
 	}
 	defer conn.Close()
-	slog.Info("check-hotfix LPS gRPC dial", "dialHost", fqdn, "alpn", lpsALPNProto, "component", ancComponentName)
+	slog.Info("LPS gRPC dial", "dialHost", fqdn, "alpn", lpsALPNProto, "component", component)
 
-	// Bound the whole round-trip (cold connect + RPC); on expiry we fail open to the cold-start
-	// pointer. See the lpsFetchTimeout const doc for the deadline tradeoff.
+	// Bound the whole round-trip (cold connect + RPC); on expiry the caller fails open. See the
+	// lpsFetchTimeout const doc for the deadline tradeoff.
 	ctx, cancel := context.WithTimeout(ctx, lpsFetchTimeout)
 	defer cancel()
 
@@ -102,13 +114,11 @@ func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
 	}
 
 	client := lpsv1.NewLivePatchingServiceClient(conn)
-	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: ancComponentName})
+	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: component})
 	if err != nil {
-		return nil, mapGRPCError(err)
+		return "", mapGRPCError(err)
 	}
-	// The shared live-patching contract carries the component config as a JSON-encoded UTF-8
-	// string; the parse/stage path operates on bytes, so convert without interpreting.
-	return []byte(resp.GetConfig()), nil
+	return resp.GetConfig(), nil
 }
 
 // dialLPSGRPC builds the gRPC client connection to the live-patching service: it dials the cluster

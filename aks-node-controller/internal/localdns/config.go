@@ -1,15 +1,14 @@
 // Package localdns renders a node's LocalDNS Corefile from its live-patching payload: the localDNS
 // component's nodeConfig, which LPS serves at bootstrap and LPC hands the reconciler at runtime. It
 // picks this node's agent pool entry, checks the profile, renders the Corefile with the same
-// template CSE uses, and writes it next to its .version file. aks-node-controller's
-// `localdns fetch-config` and `localdns apply-config` commands are thin wrappers around Apply.
+// template CSE uses, and writes it next to its .version file. FetchConfig and ApplyConfig are
+// aks-node-controller's `localdns fetch-config` and `localdns apply-config` commands.
 package localdns
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -51,10 +50,6 @@ const (
 // Fetcher returns the localDNS payload: from LPS at bootstrap, or the payload the reconciler
 // dispatched at runtime.
 type Fetcher func(context.Context) (string, error)
-
-// ErrNotPublished, returned (or wrapped) by a Fetcher, means LPS has no localDNS config for this
-// node: the notFound outcome rather than a failure.
-var ErrNotPublished = errors.New("localDNS config is not published")
 
 // Sources says where this node's bootstrap values are read from: the agent pool, the CoreDNS service
 // IP and whether the hosts plugin is on. Empty paths fall back to the defaults.
@@ -145,10 +140,10 @@ func (r Result) Lines() []string {
 	return append(lines, string(r.Outcome))
 }
 
-// WriteResult prints a result the way the localDNS handler parses it: the outcome is always the last
+// writeResult prints a result the way the localDNS handler parses it: the outcome is always the last
 // line, and on failure the reason is printed on the line before it as "error: <reason>", which the
 // handler reports as the component's message in live-patching-status.
-func WriteResult(w io.Writer, result Result, err error) {
+func writeResult(w io.Writer, result Result, err error) {
 	if err != nil {
 		_, _ = fmt.Fprintf(w, "error: %s\n", err)
 	}
@@ -157,8 +152,8 @@ func WriteResult(w io.Writer, result Result, err error) {
 	}
 }
 
-// ReadConfig reads a payload from configPath, or from stdin when configPath is empty or "-".
-func ReadConfig(configPath string) (string, error) {
+// readConfig reads a payload from configPath, or from stdin when configPath is empty or "-".
+func readConfig(configPath string) (string, error) {
 	if configPath == "" || configPath == "-" {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
@@ -173,19 +168,22 @@ func ReadConfig(configPath string) (string, error) {
 	return string(data), nil
 }
 
-// Apply renders this node's Corefile from the fetched payload and writes it to outputPath. agentPool
-// selects this node's entry; empty reads it from the provisioning files. It never writes the
+// fetchAndApply renders this node's Corefile from the fetched payload and writes it to outputPath.
+// notPublished, when set, reports which fetch errors mean nothing is published for this node (the
+// notFound outcome). agentPool selects this node's entry; empty reads it from the provisioning
+// files. It never writes the
 // .version file next to the Corefile: the caller writes that once it has also applied the limits and
 // CoreDNS serves the Corefile. Before a changed Corefile is written the old .version is removed, so a
 // node is never left claiming a version whose Corefile it does not have.
-func Apply(ctx context.Context, fetch Fetcher, outputPath, agentPool string, src Sources) (Result, error) {
+func fetchAndApply(ctx context.Context, fetch Fetcher, notPublished func(error) bool, outputPath, agentPool string,
+	src Sources) (Result, error) {
 	failed := Result{Outcome: OutcomeFailed}
 	if outputPath == "" {
 		outputPath = DefaultCorefilePath
 	}
 	config, err := fetch(ctx)
 	if err != nil {
-		if errors.Is(err, ErrNotPublished) {
+		if notPublished != nil && notPublished(err) {
 			return Result{Outcome: OutcomeNotFound}, nil
 		}
 		return failed, err

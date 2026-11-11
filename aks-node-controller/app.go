@@ -106,13 +106,6 @@ type App struct {
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
-	// fetchLocalDNSConfigFn overrides the real LPS LocalDNS config fetch for tests.
-	fetchLocalDNSConfigFn localdns.Fetcher
-	// localDNSBakedCorefilePath overrides the baked localdns.corefile path for testing. The LocalDNS
-	// render reads bootstrap's CoreDNS service IP and hosts plugin choice back from it.
-	localDNSBakedCorefilePath string
-	// localDNSHostsFilePath overrides the /etc/localdns/hosts path for testing.
-	localDNSHostsFilePath string
 }
 
 // provision.json values are emitted as strings by the shell jq invocation.
@@ -235,7 +228,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 // localDNSCommand is the `localdns` command group: `fetch-config` pulls the LocalDNS config from LPS
 // during bootstrap, `apply-config` applies the payload the knead reconciler already has in hand at
-// runtime. The rendering itself lives in internal/localdns.
+// runtime. The implementation lives in internal/localdns; the App supplies the LPS client and the
+// provisioning file paths it shares with check-hotfix.
 func (a *App) localDNSCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "localdns",
@@ -251,7 +245,16 @@ func (a *App) localDNSCommand() *cli.Command {
 					if extra := cmd.Args().Slice(); len(extra) > 0 {
 						slog.Warn("ignoring unexpected localdns fetch-config arguments", "args", strings.Join(extra, " "))
 					}
-					return a.runFetchLocalDNSConfigCommand(ctx, cmd.String("output"))
+					return localdns.FetchConfig(ctx, localdns.FetchParams{
+						Fetch: func(ctx context.Context) (string, error) {
+							return a.getLPSComponentConfig(ctx, localdns.ComponentName)
+						},
+						NotPublished: isLPSUnavailable,
+						Events:       a.eventLogger,
+						OutputPath:   cmd.String("output"),
+						Sources:      a.localDNSSources(),
+						Stdout:       cmd.Root().Writer,
+					})
 				},
 			},
 			{
@@ -266,10 +269,24 @@ func (a *App) localDNSCommand() *cli.Command {
 					if extra := cmd.Args().Slice(); len(extra) > 0 {
 						return fmt.Errorf("unexpected localdns apply-config arguments: %s", strings.Join(extra, " "))
 					}
-					return a.runApplyLocalDNSConfigCommand(ctx, cmd.String("config-file"), cmd.String("output"), cmd.String("agent-pool"), cmd.Root().Writer)
+					return localdns.ApplyConfig(ctx, localdns.ApplyParams{
+						ConfigPath: cmd.String("config-file"),
+						OutputPath: cmd.String("output"),
+						AgentPool:  cmd.String("agent-pool"),
+						Sources:    a.localDNSSources(),
+						Stdout:     cmd.Root().Writer,
+					})
 				},
 			},
 		},
+	}
+}
+
+// localDNSSources points the LocalDNS render at the provisioning files check-hotfix also reads.
+func (a *App) localDNSSources() localdns.Sources {
+	return localdns.Sources{
+		NodeConfigPath: a.getNodeConfigPath(),
+		NBCCmdVars:     a.nbcCmdVars,
 	}
 }
 

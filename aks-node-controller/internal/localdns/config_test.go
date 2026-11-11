@@ -3,6 +3,7 @@ package localdns
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -133,7 +134,7 @@ func fetched(payload string) Fetcher {
 	return func(context.Context) (string, error) { return payload, nil }
 }
 
-func TestApply(t *testing.T) {
+func TestFetchAndApply(t *testing.T) {
 	// newNode is a node in pool1 whose bootstrap Corefile forwards cluster.local to 10.20.0.10.
 	newNode := func(t *testing.T) *Sources {
 		t.Helper()
@@ -144,7 +145,7 @@ func TestApply(t *testing.T) {
 	}
 	apply := func(t *testing.T, src *Sources, payload, out string) (Outcome, error) {
 		t.Helper()
-		result, err := Apply(context.Background(), fetched(payload), out, "", *src)
+		result, err := fetchAndApply(context.Background(), fetched(payload), nil, out, "", *src)
 		return result.Outcome, err
 	}
 	// commit stands in for the caller, which writes the .version file once the patch is in effect.
@@ -257,12 +258,12 @@ func TestApply(t *testing.T) {
 		src, payload := newNode(t), testPayload(map[string]string{"pool1": entry})
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		result, err := Apply(context.Background(), fetched(payload), out, "", *src)
+		result, err := fetchAndApply(context.Background(), fetched(payload), nil, out, "", *src)
 		require.NoError(t, err)
 		assert.Equal(t, []string{"version: v1", "cpuQuota: 150.5%", "memoryMax: 768M", "rendered"}, result.Lines())
 
 		commit(t, out, "v1")
-		result, err = Apply(context.Background(), fetched(payload), out, "", *src)
+		result, err = fetchAndApply(context.Background(), fetched(payload), nil, out, "", *src)
 		require.NoError(t, err)
 		assert.Equal(t, []string{"version: v1", "cpuQuota: 150.5%", "memoryMax: 768M", "alreadyCurrent"}, result.Lines())
 	})
@@ -273,7 +274,7 @@ func TestApply(t *testing.T) {
 			`"enableLocalDns":true,"memoryLimitInMb":768,`, 1)
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
 
-		result, err := Apply(context.Background(), fetched(testPayload(map[string]string{"pool1": entry})), out, "", *newNode(t))
+		result, err := fetchAndApply(context.Background(), fetched(testPayload(map[string]string{"pool1": entry})), nil, out, "", *newNode(t))
 		require.NoError(t, err)
 		assert.Equal(t, []string{"version: v1", "memoryMax: 768M", "rendered"}, result.Lines())
 	})
@@ -285,21 +286,21 @@ func TestApply(t *testing.T) {
 		}
 	})
 
-	t.Run("a fetch that finds nothing published is not found", func(t *testing.T) {
+	t.Run("a fetch error that means nothing is published is not found", func(t *testing.T) {
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
-		result, err := Apply(context.Background(), func(context.Context) (string, error) {
-			return "", fmt.Errorf("wrapped: %w", ErrNotPublished)
-		}, out, "", *newNode(t))
+		result, err := fetchAndApply(context.Background(), func(context.Context) (string, error) {
+			return "", assert.AnError
+		}, func(err error) bool { return errors.Is(err, assert.AnError) }, out, "", *newNode(t))
 		require.NoError(t, err)
 		assert.Equal(t, OutcomeNotFound, result.Outcome)
 		assertNotWritten(t, out)
 	})
 
-	t.Run("a fetch that fails is a failure", func(t *testing.T) {
+	t.Run("any other fetch error is a failure", func(t *testing.T) {
 		out := filepath.Join(t.TempDir(), "localdns.corefile")
-		result, err := Apply(context.Background(), func(context.Context) (string, error) {
+		result, err := fetchAndApply(context.Background(), func(context.Context) (string, error) {
 			return "", assert.AnError
-		}, out, "", *newNode(t))
+		}, func(error) bool { return false }, out, "", *newNode(t))
 		require.ErrorIs(t, err, assert.AnError)
 		assert.Equal(t, OutcomeFailed, result.Outcome)
 		assertNotWritten(t, out)
@@ -425,7 +426,7 @@ func TestRenderReusesBootstrapValues(t *testing.T) {
 	render := func(t *testing.T, src *Sources) (string, Outcome, error) {
 		t.Helper()
 		out := filepath.Join(t.TempDir(), "livepatched.localdns.corefile")
-		result, err := Apply(context.Background(), fetched(testProfilePayload), out, "", *src)
+		result, err := fetchAndApply(context.Background(), fetched(testProfilePayload), nil, out, "", *src)
 		got, _ := os.ReadFile(out)
 		return string(got), result.Outcome, err
 	}
@@ -530,7 +531,7 @@ func TestApplyAgentPool(t *testing.T) {
 	apply := func(t *testing.T, src *Sources, agentPool string) (string, Result, error) {
 		t.Helper()
 		out := filepath.Join(t.TempDir(), "livepatched.localdns.corefile")
-		result, err := Apply(context.Background(), fetched(payload), out, agentPool, *src)
+		result, err := fetchAndApply(context.Background(), fetched(payload), nil, out, agentPool, *src)
 		got, _ := os.ReadFile(out)
 		return string(got), result, err
 	}

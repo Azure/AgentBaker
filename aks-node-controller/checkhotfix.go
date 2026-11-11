@@ -603,17 +603,25 @@ func (a *App) getNBCCmdPath() string {
 	return defaultNBCCmdPath
 }
 
+// nbcCmdVars reads and parses the command-scoped environment variables out of nbc-cmd.sh, and
+// returns them with the file's path.
+func (a *App) nbcCmdVars() (map[string]string, string, error) {
+	path := a.getNBCCmdPath()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, path, fmt.Errorf("reading nbc-cmd %s: %w", path, err)
+	}
+	return parseEnvVarsFromNBCCmdContent(string(raw)), path, nil
+}
+
 // lpsTargetFromNBCCmd reads the apiserver FQDN and cluster CA from the existing nbc-cmd.sh file.
 // This is the fallback path when the full AKSNodeConfig JSON is not present (e.g. Staging
 // Phase 2). Reuse the parser used by env comparison for the flattened NBC command.
 func (a *App) lpsTargetFromNBCCmd() (string, []byte, error) {
-	path := a.getNBCCmdPath()
-	raw, err := os.ReadFile(path)
+	vars, path, err := a.nbcCmdVars()
 	if err != nil {
-		return "", nil, fmt.Errorf("reading nbc-cmd %s: %w", path, err)
+		return "", nil, err
 	}
-
-	vars := parseEnvVarsFromNBCCmdContent(string(raw))
 	fqdn := vars["API_SERVER_NAME"]
 	if fqdn == "" {
 		return "", nil, fmt.Errorf("nbc-cmd %s has no API_SERVER_NAME", path)
