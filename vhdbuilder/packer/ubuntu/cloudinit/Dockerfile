@@ -24,10 +24,11 @@ RUN apt-get build-dep -y --no-install-recommends .
 COPY runtime-datasource-options.patch /build/
 RUN patch --batch --fuzz=0 -p1 < /build/runtime-datasource-options.patch
 RUN python3 -m pytest -q tests/unittests/sources/test_azure.py \
-    tests/unittests/sources/test_azure_runtime_options.py
+    tests/unittests/sources/test_azure_runtime_options.py \
+    tests/unittests/sources/test_azure_runtime_schema.py
 RUN DEBFULLNAME='AKS Node Lifecycle' DEBEMAIL='aks-node-lifecycle@users.noreply.github.com' \
-    dch --newversion "$(dpkg-parsechangelog --show-field Version)+aks2" \
-    'Allow boolean skip-ready overrides in Azure cloud-config and cloud-config-archive CustomData.'
+    dch --newversion "$(dpkg-parsechangelog --show-field Version)+aks3" \
+    'Validate allowlisted Azure skip-ready CustomData options against the cloud-config schema.'
 RUN DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b
 RUN mkdir /output && cp /build/*.deb /output/ && \
     cd /output && sha256sum ./*.deb > SHA256SUMS

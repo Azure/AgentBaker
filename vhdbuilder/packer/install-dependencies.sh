@@ -54,9 +54,9 @@ installPatchedCloudInit() {
   local -a names=(cloud-init)
   [ "$os" = "UBUNTU" ] || return 0
   case "$release" in
-    24.04) version="26.2-0ubuntu1~24.04.2+aks2" ;;
+    24.04) version="26.2-0ubuntu1~24.04.2+aks3" ;;
     26.04)
-      version="26.2-0ubuntu1~26.04.1+aks2"
+      version="26.2-0ubuntu1~26.04.1+aks3"
       names+=(cloud-init-base cloud-init-azure cloud-init-cloud-sigma cloud-init-smart-os)
       ;;
     *) return 0 ;;

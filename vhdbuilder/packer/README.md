@@ -107,7 +107,11 @@ Ready reporting is not disabled image-wide. Ubuntu 20.04/22.04 packages are
 unchanged and Ubuntu CustomData-only requests for those releases are rejected.
 Existing Ubuntu images without the patch must not enable this experimental mode.
 
-The packages use a `+aks2` version suffix and are not held against distro updates.
+The packages use a `+aks3` version suffix and are not held against distro updates.
+The runtime patch and user-data schema both accept only the boolean
+`datasource.Azure.experimental_skip_ready_report` override. This avoids the
+recoverable schema warning (`cloud-init status` exit 2) seen with `+aks2`, without
+allowing arbitrary datasource settings in user-data.
 A later cloud-init update may replace the patch; production rollout requires an
 upstreamed override or a maintained package-delivery policy. Validate normal CSE,
 CustomData-only success/failure, and PIS provisioning on rebuilt images before

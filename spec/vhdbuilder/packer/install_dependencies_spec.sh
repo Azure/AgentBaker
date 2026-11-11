@@ -7,7 +7,7 @@ Describe 'installPatchedCloudInit'
   setup() {
     TEST_DIR=$(mktemp -d)
     mkdir -p "${TEST_DIR}/24.04" "${TEST_DIR}/26.04"
-    MOCK_VERSION="26.2-0ubuntu1~24.04.2+aks2"
+    MOCK_VERSION="26.2-0ubuntu1~24.04.2+aks3"
   }
 
   cleanup() {
@@ -39,12 +39,12 @@ Describe 'installPatchedCloudInit'
     When call installPatchedCloudInit UBUNTU 24.04 "$TEST_DIR"
     The status should be success
     The output should include "verify ${TEST_DIR}/24.04"
-    The output should include "install ${TEST_DIR}/24.04/cloud-init_26.2-0ubuntu1~24.04.2+aks2_all.deb"
+    The output should include "install ${TEST_DIR}/24.04/cloud-init_26.2-0ubuntu1~24.04.2+aks3_all.deb"
     The output should include 'verify runtime override'
   End
 
   It 'installs the split Ubuntu 26.04 packages together'
-    MOCK_VERSION="26.2-0ubuntu1~26.04.1+aks2"
+    MOCK_VERSION="26.2-0ubuntu1~26.04.1+aks3"
     When call installPatchedCloudInit UBUNTU 26.04 "$TEST_DIR"
     The status should be success
     The output should include "install ${TEST_DIR}/26.04/cloud-init-base_${MOCK_VERSION}_all.deb"

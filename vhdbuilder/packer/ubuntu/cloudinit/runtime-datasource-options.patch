@@ -285,3 +285,75 @@
 +    assert _ds_cfg_overrides_from_customdata(payload) == {
 +        "experimental_skip_ready_report": True
 +    }
+--- a/cloudinit/config/schemas/schema-cloud-config-v1.json
++++ b/cloudinit/config/schemas/schema-cloud-config-v1.json
+@@ -4209,2 +4209,18 @@
+     "create_hostname_file": {},
++    "datasource": {
++      "type": "object",
++      "additionalProperties": false,
++      "properties": {
++        "Azure": {
++          "type": "object",
++          "additionalProperties": false,
++          "properties": {
++            "experimental_skip_ready_report": {
++              "type": "boolean",
++              "description": "Allow the Azure datasource to hand Ready reporting to the node provisioner before user-data commands run."
++            }
++          }
++        }
++      }
++    },
+     "device_aliases": {},
+--- /dev/null
++++ b/tests/unittests/sources/test_azure_runtime_schema.py
+@@ -0,0 +1,48 @@
++import pytest
++import yaml
++
++from cloudinit.config.schema import SchemaValidationError, validate_cloudconfig_schema
++from cloudinit.sources.DataSourceAzure import _ds_cfg_overrides_from_customdata
++from cloudinit.user_data import UserDataProcessor
++
++
++@pytest.mark.parametrize("enabled", [True, False])
++@pytest.mark.parametrize("archive", [True, False])
++def test_runtime_override_schema(enabled, archive):
++    config = {
++        "datasource": {"Azure": {"experimental_skip_ready_report": enabled}},
++        "bootcmd": [["/bin/bash", "-c", "echo provisioning"]],
++    }
++    if archive:
++        payload = "#cloud-config-archive\n" + yaml.safe_dump([
++            {"type": "text/cloud-boothook", "content": "#!/bin/bash\necho provisioning\n"},
++            {"type": "text/cloud-config", "content": yaml.safe_dump(config)},
++        ])
++    else:
++        payload = "#cloud-config\n" + yaml.safe_dump(config)
++    assert _ds_cfg_overrides_from_customdata(payload) == {
++        "experimental_skip_ready_report": enabled
++    }
++    parts = UserDataProcessor(None).process(payload).walk()
++    configs = [yaml.safe_load(part.get_payload()) for part in parts
++               if part.get_content_type() == "text/cloud-config"]
++    assert configs == [config]
++    for content in configs:
++        assert validate_cloudconfig_schema(content, strict=True)
++
++
++@pytest.mark.parametrize("datasource", [
++    None,
++    [],
++    {"Other": {}},
++    {"Azure": None},
++    {"Azure": []},
++    {"Azure": {"experimental_skip_ready_report": "true"}},
++    {"Azure": {"experimental_skip_ready_report": 1}},
++    {"Azure": {"experimental_skip_ready_report": None}},
++    {"Azure": {"data_dir": "/untrusted"}},
++    {"Azure": {"apply_network_config": False}},
++])
++def test_runtime_override_schema_rejects_unsupported_options(datasource):
++    with pytest.raises(SchemaValidationError):
++        validate_cloudconfig_schema({"datasource": datasource}, strict=True)
