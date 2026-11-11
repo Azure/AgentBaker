@@ -2,10 +2,13 @@ package scenario
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -16,6 +19,92 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSSHDisabledAcrossRebootUsesARM(t *testing.T) {
+	for _, test := range []struct {
+		name            string
+		invalidBootID   bool
+		unchangedBootID bool
+		failAfterReboot bool
+		wantError       string
+		wantRestarts    int
+	}{
+		{name: "same instance rebooted without SSH", wantRestarts: 1},
+		{name: "invalid boot evidence prevents restart", invalidBootID: true, wantError: "invalid boot ID before"},
+		{name: "ARM success without a reboot is rejected", unchangedBootID: true, wantError: "wait for SSH-disabled VM reboot", wantRestarts: 1},
+		{name: "guest validation fails after reboot", failAfterReboot: true, wantError: "RunCommand script failed", wantRestarts: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			restarts := 0
+			script := ""
+			respond := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+				require.Contains(t, req.URL.Path, "/virtualMachines/0/")
+				switch req.Method {
+				case http.MethodPost:
+					require.True(t, strings.HasSuffix(req.URL.Path, "/restart"))
+					restarts++
+					return gcResponse(req, http.StatusOK, "")
+				case http.MethodPut:
+					var command armcompute.VirtualMachineRunCommand
+					require.NoError(t, json.NewDecoder(req.Body).Decode(&command))
+					script = *command.Properties.Source.Script
+					return gcResponse(req, http.StatusOK, `{"properties":{"provisioningState":"Succeeded"}}`)
+				case http.MethodGet:
+					output := "SUCCESS: SSH units are disabled and stopped"
+					state, exitCode := "Succeeded", 0
+					if script == "cat /proc/sys/kernel/random/boot_id" {
+						output = "00000000-0000-4000-8000-000000000001"
+						if test.invalidBootID {
+							output = strings.Repeat("x", 36)
+						} else if restarts > 0 && !test.unchangedBootID {
+							output = "00000000-0000-4000-8000-000000000002"
+						}
+					} else if restarts > 0 && test.failAfterReboot && script == validateSSHServiceDisabledScript {
+						state, exitCode, output = "Failed", 1, "FAILED: sshd.service is active"
+					}
+					return gcResponse(req, http.StatusOK, fmt.Sprintf(
+						`{"properties":{"instanceView":{"executionState":%q,"exitCode":%d,"output":%q}}}`, state, exitCode, output))
+				case http.MethodDelete:
+					return gcResponse(req, http.StatusNoContent, "")
+				default:
+					t.Fatalf("unexpected VM request: %s %s", req.Method, req.URL)
+					return nil
+				}
+			})
+			options := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{respond}}}
+			runCommands, err := armcompute.NewVirtualMachineScaleSetVMRunCommandsClient("test", nil, options)
+			require.NoError(t, err)
+			vms, err := armcompute.NewVirtualMachineScaleSetVMsClient("test", nil, options)
+			require.NoError(t, err)
+			previousAzure := config.Azure
+			config.Azure = &config.AzureClient{VMSSVMRunCommands: runCommands, VMSSVM: vms}
+			t.Cleanup(func() { config.Azure = previousAzure })
+			s := &Scenario{
+				Config: Config{VHD: &config.Image{OS: config.OSUbuntu}, SkipSSHConnectivityValidation: true},
+				Runtime: &ScenarioRuntime{
+					VMSSName: "vmss",
+					Cluster: &Cluster{Model: &armcontainerservice.ManagedCluster{
+						Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr("rg")},
+					}},
+					VM: &ScenarioVM{VM: &armcompute.VirtualMachineScaleSetVM{InstanceID: to.Ptr("0")}},
+				},
+			}
+			ctx := t.Context()
+			if test.unchangedBootID {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, 300*time.Millisecond)
+				defer cancel()
+			}
+			err = ValidateSSHDisabledAcrossReboot(ctx, s)
+			if test.wantError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.wantError)
+			}
+			require.Equal(t, test.wantRestarts, restarts)
+		})
+	}
+}
 
 func TestWindowsGuestValidationWithoutSSH(t *testing.T) {
 	state, exitCode, commands, deletes := "Succeeded", 0, 0, 0
