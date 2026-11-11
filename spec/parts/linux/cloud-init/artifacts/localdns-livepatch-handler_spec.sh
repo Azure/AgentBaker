@@ -769,14 +769,14 @@ EOF
             TEST_ANC_ERROR="no bootstrap source on this node carries the CoreDNS service IP"
             updateLocalDNS '{}' > /dev/null || true
             When call localDNSFailureMessage
-            The output should equal 'aks-node-controller apply-localdns-config failed: no bootstrap source on this node carries the CoreDNS service IP'
+            The output should equal 'aks-node-controller localdns apply-config failed: no bootstrap source on this node carries the CoreDNS service IP'
         End
 
         It 'reports the apply failure when aks-node-controller gives no reason'
             TEST_ANC_EXIT=1
             updateLocalDNS '{}' > /dev/null || true
             When call localDNSFailureMessage
-            The output should equal 'aks-node-controller apply-localdns-config failed'
+            The output should equal 'aks-node-controller localdns apply-config failed'
         End
 
         It 'reports that CoreDNS rejected the corefile'
@@ -887,14 +887,14 @@ EOF
             When call updateLocalDNS '{}' '{"metadata":{"labels":{"kubernetes.azure.com/agentpool":"ap1"}}}'
             The status should be success
             The output should include 'localDNS update completed successfully'
-            The contents of file "${TEST_ANC_ARGS_FILE}" should equal "apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE} --agent-pool ap1"
+            The contents of file "${TEST_ANC_ARGS_FILE}" should equal "localdns apply-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE} --agent-pool ap1"
         End
 
         It 'leaves the agent pool to aks-node-controller when the Node object has no label'
             When call updateLocalDNS '{}' '{"metadata":{"labels":{}}}'
             The status should be success
             The output should include 'localDNS update completed successfully'
-            The contents of file "${TEST_ANC_ARGS_FILE}" should equal "apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE}"
+            The contents of file "${TEST_ANC_ARGS_FILE}" should equal "localdns apply-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE}"
         End
     End
 

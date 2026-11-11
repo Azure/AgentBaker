@@ -41,8 +41,8 @@ const (
 func init() {
 	// LocalDNSLPSBootstrapPatch validates the node-side LocalDNS live-patching bootstrap
 	// path. It simulates LPS by temporarily wrapping aks-node-controller's
-	// fetch-localdns-config command so it returns a LocalDNS nodeConfig payload, then
-	// delegates to the real apply-localdns-config implementation. The scenario verifies
+	// `localdns fetch-config` command so it returns a LocalDNS nodeConfig payload, then
+	// delegates to the real `localdns apply-config` implementation. The scenario verifies
 	// that localdns.sh:
 	//  1. invokes the fetcher before CoreDNS starts,
 	//  2. renders the supplied LocalDNS profile payload into updated.localdns.corefile,
@@ -96,7 +96,7 @@ func init() {
 	})
 
 	// LocalDNSLPSUnavailableFallback validates the unhappy bootstrap path: when LPS has no
-	// LocalDNS config published for the node (fetch-localdns-config fails open with no
+	// LocalDNS config published for the node (`localdns fetch-config` fails open with no
 	// livepatched Corefile written), localdns.sh must fall back to the baked/CSE-generated
 	// localdns.corefile and CoreDNS must still come up and serve DNS. This is the
 	// failure-mode counterpart to LocalDNSLPSBootstrapPatch, exercised end-to-end on a
@@ -264,13 +264,13 @@ func localDNSLPSFetcherWrapper() string {
 	return `#!/bin/bash
 set -euo pipefail
 # Prefer the locally-compiled aks-node-controller (delivered via the hotfix path by
-# ForceScriptlessCompilation) so apply-localdns-config matches the branch under test;
+# ForceScriptlessCompilation) so "localdns apply-config" matches the branch under test;
 # fall back to the VHD baked-in binary otherwise.
 ANC_BIN=/opt/azure/containers/aks-node-controller
 if [ -x /opt/azure/containers/aks-node-controller-hotfix ]; then
     ANC_BIN=/opt/azure/containers/aks-node-controller-hotfix
 fi
-if [ "${1:-}" != "fetch-localdns-config" ]; then
+if [ "${1:-} ${2:-}" != "localdns fetch-config" ]; then
     exec "$ANC_BIN" "$@"
 fi
 output=""
@@ -290,12 +290,12 @@ if [ -z "$output" ]; then
     exit 1
 fi
 touch ` + localDNSFetcherStamp + `
-exec "$ANC_BIN" apply-localdns-config --config-file ` + localDNSPayloadPath + ` --output "$output"
+exec "$ANC_BIN" localdns apply-config --config-file ` + localDNSPayloadPath + ` --output "$output"
 `
 }
 
 // localDNSLPSUnavailableFetcherWrapper simulates LPS having no LocalDNS config for the node.
-// It records that fetch-localdns-config was invoked, then exits 0 without writing the output
+// It records that `localdns fetch-config` was invoked, then exits 0 without writing the output
 // Corefile -- the same fail-open behavior aks-node-controller exhibits when LPS returns a
 // benign "unavailable" status (NotFound/PermissionDenied/Unauthenticated). Non-fetch
 // subcommands are delegated to the real binary so the rest of provisioning is unaffected.
@@ -306,7 +306,7 @@ ANC_BIN=/opt/azure/containers/aks-node-controller
 if [ -x /opt/azure/containers/aks-node-controller-hotfix ]; then
     ANC_BIN=/opt/azure/containers/aks-node-controller-hotfix
 fi
-if [ "${1:-}" != "fetch-localdns-config" ]; then
+if [ "${1:-} ${2:-}" != "localdns fetch-config" ]; then
     exec "$ANC_BIN" "$@"
 fi
 # LPS has nothing published for this node: record the call and fail open without writing a

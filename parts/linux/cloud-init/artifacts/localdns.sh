@@ -415,7 +415,7 @@ refresh_localdns_corefile_from_lps() {
     # non-zero exit aborts startup -- which the comment above assumes cannot happen. It can:
     # aks-node-controller is replaceable independently of this script via the hotfix path, so
     # a binary without this subcommand exits non-zero even though the -x check passed.
-    if ! outcome="$("${AKS_NODE_CONTROLLER_BINARY}" fetch-localdns-config --output "${LIVEPATCHED_LOCALDNS_CORE_FILE}")"; then
+    if ! outcome="$("${AKS_NODE_CONTROLLER_BINARY}" localdns fetch-config --output "${LIVEPATCHED_LOCALDNS_CORE_FILE}")"; then
         # A non-zero exit is not one of the documented outcomes -- the binary never got far
         # enough to report one. Behave like `failed` (keep whatever corefile we have), but log
         # it distinctly so a broken or version-mismatched binary is not read as LPS trouble.

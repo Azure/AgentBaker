@@ -625,7 +625,7 @@ localDNSUpdate() {
 
     # Step 2: render. On rendered, aks-node-controller has removed .version before writing the new
     # Corefile, so a run that stops anywhere before the commit never claims the new version.
-    apply_args=(apply-localdns-config --config-file - --output "${LOCALDNS_LIVEPATCHED_COREFILE}")
+    apply_args=(localdns apply-config --config-file - --output "${LOCALDNS_LIVEPATCHED_COREFILE}")
     # Without the label, aks-node-controller falls back to the node's provisioning files.
     if agent_pool="$(localDNSNodeAgentPool "${node_json}")"; then
         apply_args+=(--agent-pool "${agent_pool}")
@@ -635,7 +635,7 @@ localDNSUpdate() {
         [ -z "${outcome}" ] || printf '%s\n' "${outcome}"
         # aks-node-controller prints the reason as "error: <reason>" before its outcome line.
         apply_error="$(printf '%s\n' "${outcome}" | sed -n 's/^error: //p' | tail -n 1)"
-        LOCALDNS_FAILURE_MESSAGE="aks-node-controller apply-localdns-config failed${apply_error:+: ${apply_error}}"
+        LOCALDNS_FAILURE_MESSAGE="aks-node-controller localdns apply-config failed${apply_error:+: ${apply_error}}"
         localDNSRestore "${backup_dir}"
         rm -rf "${backup_dir}"
         return 1

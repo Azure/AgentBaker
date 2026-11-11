@@ -195,7 +195,7 @@ EOF
             When call main
             The status should be success
             The output should include 'applying component: localDNS'
-            The output should include "aks-node-controller called with args: apply-localdns-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE} --agent-pool ap1"
+            The output should include "aks-node-controller called with args: localdns apply-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE} --agent-pool ap1"
             The contents of file "${TEST_DIR}/localdns-livepatch-payload" should include '"corefileVersion":"localdns-v1"'
             The output should include 'committed localDNS corefileVersion localdns-v1'
             The output should include 'localDNS update completed successfully'
@@ -305,7 +305,7 @@ EOF
             When call main
             The status should be success
             The output should not include 'component is already current: localDNS'
-            The output should include 'aks-node-controller called with args: apply-localdns-config'
+            The output should include 'aks-node-controller called with args: localdns apply-config'
             The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"v2"}'
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include 'v2'
         End
@@ -412,7 +412,7 @@ EOF
             When call main
             The status should be failure
             The output should include 'component failed: localDNS'
-            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Failed","message":"aks-node-controller apply-localdns-config failed: no bootstrap source on this node carries the CoreDNS service IP","current":"v1"}'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Failed","message":"aks-node-controller localdns apply-config failed: no bootstrap source on this node carries the CoreDNS service IP","current":"v1"}'
         End
 
         It 'reads kubeletVersion from the generic securityPatch profile'

@@ -425,8 +425,8 @@ EOF
 
             When run refresh_localdns_corefile_from_lps
             The status should be success
-            The output should include "anc args: fetch-localdns-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
-            The output should include "LocalDNS LPS config fetch outcome: anc args: fetch-localdns-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+            The output should include "anc args: localdns fetch-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
+            The output should include "LocalDNS LPS config fetch outcome: anc args: localdns fetch-config --output ${LIVEPATCHED_LOCALDNS_CORE_FILE}"
             The output should include "rendered"
         End
 
@@ -619,7 +619,7 @@ EOF
             echo "v1" > "${LIVEPATCHED_LOCALDNS_CORE_FILE}.version"
         }
 
-        # Stub aks-node-controller so fetch-localdns-config prints the given lines, the last being the
+        # Stub aks-node-controller so localdns fetch-config prints the given lines, the last being the
         # outcome, matching the real command's fail-open contract (always exit 0).
         stub_aks_node_controller() {
             printf '#!/bin/bash\n' > "${AKS_NODE_CONTROLLER_BINARY}"
