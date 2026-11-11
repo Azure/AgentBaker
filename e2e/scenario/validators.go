@@ -3784,8 +3784,15 @@ func ValidateSSHDisabledAcrossReboot(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		return fmt.Errorf("wait for SSH-disabled VM reboot: %w", err)
 	}
-	if _, err := RunCommand(ctx, s, "systemctl is-active --quiet kubelet"); err != nil {
-		return fmt.Errorf("kubelet is not active after SSH-disabled reboot: %w", err)
+	err = wait.PollUntilContextTimeout(ctx, 15*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		if _, err := RunCommand(ctx, s, "systemctl is-active --quiet kubelet"); err != nil {
+			logging.Logf(ctx, "waiting for kubelet after SSH-disabled reboot: %v", err)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("wait for kubelet to become active after SSH-disabled reboot: %w", err)
 	}
 	return ValidateSSHServiceDisabled(ctx, s)
 }

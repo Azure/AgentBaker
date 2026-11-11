@@ -22,20 +22,26 @@ import (
 
 func TestSSHDisabledAcrossRebootUsesARM(t *testing.T) {
 	for _, test := range []struct {
-		name            string
-		invalidBootID   bool
-		unchangedBootID bool
-		failAfterReboot bool
-		wantError       string
-		wantRestarts    int
+		name                  string
+		invalidBootID         bool
+		unchangedBootID       bool
+		failAfterReboot       bool
+		kubeletNotReadyChecks int
+		kubeletNeverReady     bool
+		wantError             string
+		wantRestarts          int
+		wantSSHChecks         int
 	}{
-		{name: "same instance rebooted without SSH", wantRestarts: 1},
-		{name: "invalid boot evidence prevents restart", invalidBootID: true, wantError: "invalid boot ID before"},
-		{name: "ARM success without a reboot is rejected", unchangedBootID: true, wantError: "wait for SSH-disabled VM reboot", wantRestarts: 1},
-		{name: "guest validation fails after reboot", failAfterReboot: true, wantError: "RunCommand script failed", wantRestarts: 1},
+		{name: "same instance rebooted without SSH", wantRestarts: 1, wantSSHChecks: 2},
+		{name: "invalid boot evidence prevents restart", invalidBootID: true, wantError: "invalid boot ID before", wantSSHChecks: 1},
+		{name: "ARM success without a reboot is rejected", unchangedBootID: true, wantError: "wait for SSH-disabled VM reboot", wantRestarts: 1, wantSSHChecks: 1},
+		{name: "guest validation fails after reboot", failAfterReboot: true, wantError: "RunCommand script failed", wantRestarts: 1, wantSSHChecks: 2},
+		{name: "waits for kubelet to become active", kubeletNotReadyChecks: 2, wantRestarts: 1, wantSSHChecks: 2},
+		{name: "kubelet readiness timeout blocks final SSH validation", kubeletNeverReady: true, wantError: "wait for kubelet to become active after SSH-disabled reboot", wantRestarts: 1, wantSSHChecks: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			restarts := 0
+			kubeletChecks, sshChecks := 0, 0
 			script := ""
 			respond := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
 				require.Contains(t, req.URL.Path, "/virtualMachines/0/")
@@ -52,15 +58,27 @@ func TestSSHDisabledAcrossRebootUsesARM(t *testing.T) {
 				case http.MethodGet:
 					output := "SUCCESS: SSH units are disabled and stopped"
 					state, exitCode := "Succeeded", 0
-					if script == "cat /proc/sys/kernel/random/boot_id" {
+					switch script {
+					case "cat /proc/sys/kernel/random/boot_id":
 						output = "00000000-0000-4000-8000-000000000001"
 						if test.invalidBootID {
 							output = strings.Repeat("x", 36)
 						} else if restarts > 0 && !test.unchangedBootID {
 							output = "00000000-0000-4000-8000-000000000002"
 						}
-					} else if restarts > 0 && test.failAfterReboot && script == validateSSHServiceDisabledScript {
-						state, exitCode, output = "Failed", 1, "FAILED: sshd.service is active"
+					case "systemctl is-active --quiet kubelet":
+						kubeletChecks++
+						if test.kubeletNeverReady || kubeletChecks <= test.kubeletNotReadyChecks {
+							state, exitCode, output = "Failed", 3, "activating"
+						}
+					case validateSSHServiceDisabledScript:
+						sshChecks++
+						if restarts > 0 {
+							require.Greater(t, kubeletChecks, test.kubeletNotReadyChecks, "final SSH validation must wait for kubelet")
+						}
+						if restarts > 0 && test.failAfterReboot {
+							state, exitCode, output = "Failed", 1, "FAILED: sshd.service is active"
+						}
 					}
 					return gcResponse(req, http.StatusOK, fmt.Sprintf(
 						`{"properties":{"instanceView":{"executionState":%q,"exitCode":%d,"output":%q}}}`, state, exitCode, output))
@@ -89,19 +107,28 @@ func TestSSHDisabledAcrossRebootUsesARM(t *testing.T) {
 					VM: &ScenarioVM{VM: &armcompute.VirtualMachineScaleSetVM{InstanceID: to.Ptr("0")}},
 				},
 			}
-			ctx := t.Context()
-			if test.unchangedBootID {
-				var cancel context.CancelFunc
-				ctx, cancel = context.WithTimeout(ctx, 300*time.Millisecond)
-				defer cancel()
-			}
-			err = ValidateSSHDisabledAcrossReboot(ctx, s)
-			if test.wantError == "" {
-				require.NoError(t, err)
-			} else {
-				require.ErrorContains(t, err, test.wantError)
-			}
+			synctest.Test(t, func(t *testing.T) {
+				ctx := t.Context()
+				if test.unchangedBootID {
+					var cancel context.CancelFunc
+					ctx, cancel = context.WithTimeout(ctx, 300*time.Millisecond)
+					defer cancel()
+				}
+				err = ValidateSSHDisabledAcrossReboot(ctx, s)
+				if test.wantError == "" {
+					require.NoError(t, err)
+				} else {
+					require.ErrorContains(t, err, test.wantError)
+				}
+				if test.kubeletNeverReady {
+					require.ErrorIs(t, err, context.DeadlineExceeded)
+					require.Greater(t, kubeletChecks, 1)
+				} else if !test.invalidBootID && !test.unchangedBootID {
+					require.Equal(t, test.kubeletNotReadyChecks+1, kubeletChecks)
+				}
+			})
 			require.Equal(t, test.wantRestarts, restarts)
+			require.Equal(t, test.wantSSHChecks, sshChecks)
 		})
 	}
 }
