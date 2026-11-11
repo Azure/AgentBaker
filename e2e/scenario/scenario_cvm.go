@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -18,31 +19,41 @@ const (
 	cvmUbuntu2004KubernetesVersion = "1.34.11"
 )
 
+type cvmPlatform string
+
+const (
+	cvmPlatformSEVSNP cvmPlatform = "sevsnp"
+	cvmPlatformTDX    cvmPlatform = "tdx"
+)
+
 var (
 	_ = Register(newCVMScenario(
 		"Ubuntu2004_CVM_SNP",
-		"Tests that an Ubuntu 20.04 Confidential VM node can be provisioned and pass standard node validation",
+		"Tests that an Ubuntu 20.04 Confidential VM node passes standard node validation and CVM security and attestation checks",
 		config.VHDUbuntu2004CVMGen2Containerd,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"Ubuntu2404_CVM_SNP",
-		"Tests that an Ubuntu 24.04 Confidential VM node can be provisioned and pass standard node validation",
+		"Tests that an Ubuntu 24.04 Confidential VM node passes standard node validation and CVM security and attestation checks",
 		config.VHDUbuntu2404CVMGen2Containerd,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"AzureLinuxV3_CVM_SNP",
-		"Tests that an Azure Linux V3 Confidential VM node can be provisioned and pass standard node validation",
+		"Tests that an Azure Linux V3 Confidential VM node passes standard node validation and CVM security and attestation checks",
 		config.VHDAzureLinuxV3CVMGen2,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
@@ -52,24 +63,27 @@ var (
 		config.VHDACLCVMGen2,
 		ClusterKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesVMGuestStateOnly,
 	))
 	_ = Register(newCVMScenario(
 		"Ubuntu2604Minimal_CVM_SNP",
-		"Tests that an Ubuntu 26.04 minimal Confidential VM node can be provisioned on SEV-SNP and pass standard node validation",
+		"Tests that an Ubuntu 26.04 minimal SEV-SNP node passes standard node validation and CVM security and attestation checks",
 		config.VHDUbuntu2604MinimalCVMGen2Containerd,
 		ClusterLatestKubernetesVersionKubenet,
 		cvmSNPSKU,
+		cvmPlatformSEVSNP,
 		false,
 		armcompute.SecurityEncryptionTypesDiskWithVMGuestState,
 	))
 	_ = Register(newCVMScenario(
 		"Ubuntu2604Minimal_CVM_TDX",
-		"Tests that an Ubuntu 26.04 minimal Confidential VM node can be provisioned on TDX and pass standard node validation",
+		"Tests that an Ubuntu 26.04 minimal TDX node passes standard node validation and CVM security and attestation checks",
 		config.VHDUbuntu2604MinimalCVMGen2Containerd,
 		ClusterLatestKubernetesVersionKubenet,
 		cvmTDXSKU,
+		cvmPlatformTDX,
 		true,
 		armcompute.SecurityEncryptionTypesDiskWithVMGuestState,
 	))
@@ -81,6 +95,7 @@ func newCVMScenario(
 	vhd *config.Image,
 	cluster func(context.Context, ClusterRequest) (*Cluster, error),
 	vmSize string,
+	platform cvmPlatform,
 	useNVMe bool,
 	securityEncryptionType armcompute.SecurityEncryptionTypes,
 ) *Scenario {
@@ -113,6 +128,11 @@ func newCVMScenario(
 				configureConfidentialVM(vmss, vmSize, securityEncryptionType)
 			},
 		},
+	}
+	// ACL retains standard validation until the collector supports its immutable OS.
+	if vhd.Distro != datamodel.AKSACLCVMGen2 {
+		s.Validator = validateCVM(platform, securityEncryptionType)
+		s.ValidationTimeout = 12 * time.Minute
 	}
 	return s
 }
