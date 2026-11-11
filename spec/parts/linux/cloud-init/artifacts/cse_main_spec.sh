@@ -139,7 +139,7 @@ Describe 'networking image pre-pull ordering'
     It 'runs after containerd is healthy and before kubelet starts'
         ordering_is_valid() {
             containerd_line="$(grep -n 'checkServiceHealth containerd' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
-            prepull_line="$(grep -n 'prepull-networking-images' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
+            prepull_line="$(grep -n -m1 'prepull-networking-images' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
             kubelet_line="$(grep -n 'logs_to_events "AKS.CSE.ensureKubelet"' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
             [ "${containerd_line}" -lt "${prepull_line}" ] && [ "${prepull_line}" -lt "${kubelet_line}" ]
         }

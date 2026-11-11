@@ -622,7 +622,53 @@ function nodePrep {
     if [ "${ENABLE_NETWORKING_IMAGE_CACHE:-}" = "true" ]; then
         networking_image_cache_anc="${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}"
         echo "ENABLE_NETWORKING_IMAGE_CACHE=true; pulling and unpacking synth-rendered networking images"
-        if "${networking_image_cache_anc}" prepull-networking-images; then
+        # Experiment-only pools share one immutable VHD; every other pool keeps the original path.
+        networking_image_cache_experiment_mode=""
+        case "$(hostname)" in
+            aks-lpssy11-*) networking_image_cache_experiment_mode=sync ;;
+            aks-lpsas11-*) networking_image_cache_experiment_mode=async ;;
+        esac
+        if [ -n "${networking_image_cache_experiment_mode}" ]; then
+            cat > /opt/azure/containers/lps-prefetch-experiment.sh <<'EXPERIMENT'
+#!/bin/bash
+set -uo pipefail
+out=/opt/azure/containers/lps-prefetch-experiment
+mkdir -p "$out"
+printf '{"mode":"%s","startedAt":"%s","pid":%s}\n' "$2" "$(date -u +%FT%T.%NZ)" "$$" > "$out/started.json"
+logger -t lps-prefetch-experiment "mode=$2 prefetch-start"
+"$1" prepull-networking-images &
+worker=$!
+(
+    while kill -0 "$worker" 2>/dev/null; do
+        printf 'SAMPLE %s\n' "$(date -u +%FT%T.%NZ)"
+        cat /proc/diskstats /proc/net/dev /proc/pressure/io
+        sleep 1
+    done
+) > "$out/io-network-samples.txt" &
+sampler=$!
+wait "$worker"
+result=$?
+kill "$sampler" 2>/dev/null || true
+wait "$sampler" 2>/dev/null || true
+printf '{"mode":"%s","finishedAt":"%s","exitCode":%s}\n' "$2" "$(date -u +%FT%T.%NZ)" "$result" > "$out/completed.json"
+logger -t lps-prefetch-experiment "mode=$2 prefetch-end exit=$result"
+exit "$result"
+EXPERIMENT
+            networking_image_cache_experiment_wait=()
+            if [ "${networking_image_cache_experiment_mode}" = sync ]; then
+                networking_image_cache_experiment_wait=(--wait)
+            fi
+            if systemd-run --unit=aks-lps-prefetch-experiment \
+                --property=Type=exec --property=RuntimeMaxSec=330 \
+                --property=TimeoutStopSec=10 --property=KillMode=control-group \
+                "${networking_image_cache_experiment_wait[@]}" \
+                /bin/bash /opt/azure/containers/lps-prefetch-experiment.sh \
+                "${networking_image_cache_anc}" "${networking_image_cache_experiment_mode}"; then
+                echo "ANC networking image experiment ${networking_image_cache_experiment_mode} dispatched/completed"
+            else
+                echo "ANC networking image experiment failed; continuing (fail-open)"
+            fi
+        elif "${networking_image_cache_anc}" prepull-networking-images; then
             echo "ANC networking image pre-pull completed"
         else
             echo "ANC networking image pre-pull failed; continuing (fail-open)"
