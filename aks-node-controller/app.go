@@ -85,14 +85,12 @@ type App struct {
 	gpuComponentsFilePath string
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
-	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
-	// networkingImageCacheFetcher overrides the LPS networking image config fetch for tests.
-	networkingImageCacheFetcher func(ctx context.Context) ([]byte, error)
-	networkingImagePuller       func(ctx context.Context, reference string) (networkingImagePullOutput, error)
-	networkingImageRetryWait    func(ctx context.Context) error
-	// imageFetcherPath and networkingImageCacheStatusPath override node paths for tests.
-	imageFetcherPath               string
-	networkingImageCacheStatusPath string
+	checkHotfixFetcher   func(ctx context.Context) ([]byte, error)
+	imageCacheFetcher    func(context.Context, string) ([]byte, error)
+	imageCachePuller     func(context.Context, string) (imageCachePullOutput, error)
+	imageCacheRetryWait  func(context.Context) error
+	imageFetcherPath     string
+	imageCacheStatusPath string
 	// fetchAttestedToken overrides retrieval of the IMDS attested-data token used as the
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
@@ -215,13 +213,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				},
 			},
 			{
-				Name:  "prepull-networking-images",
-				Usage: "Pull and unpack the synth-rendered Cilium/CNS images before kubelet starts (fail-open)",
+				Name:  "prepull-images",
+				Usage: "Ensure images from a configured LPS source are ready (fail-open)",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "source", Required: true},
+				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					if extra := cmd.Args().Slice(); len(extra) > 0 {
-						slog.Warn("ignoring unexpected prepull-networking-images arguments", "args", strings.Join(extra, " "))
+					if cmd.Args().Len() != 0 {
+						return errors.New("prepull-images accepts no positional arguments")
 					}
-					return a.runPrepullNetworkingImagesCommand(ctx)
+					return a.runPrepullImagesCommand(ctx, cmd.String("source"))
 				},
 			},
 		},
@@ -719,10 +720,20 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 		}
 	}
 
+	mode, input := imageCacheModeJSON, flags.ProvisionConfig
+	if flags.NBCCmd != "" {
+		mode, input = imageCacheModeNBC, flags.NBCCmd
+	}
+	input, err := filepath.Abs(input)
+	if err != nil {
+		return provisionResult, fmt.Errorf("resolving bootstrap path: %w", err)
+	}
+	cmd.Env = append(cmd.Env, "ANC_IMAGE_CACHE_MODE="+mode, "ANC_IMAGE_CACHE_INPUT="+input)
+
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err := a.cmdRun(cmd)
+	err = a.cmdRun(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()

@@ -427,6 +427,20 @@ EOF
 # This stage performs cluster-specific operations and hardware configurations.
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
+prepullImages() {
+    if [ "${ENABLE_NETWORKING_IMAGE_CACHE:-}" != "true" ] ||
+       { [ "${ANC_IMAGE_CACHE_MODE:-}" != "json" ] && [ "${ANC_IMAGE_CACHE_MODE:-}" != "nbc" ]; }; then
+        return 0
+    fi
+    local image_cache_anc="${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}"
+    echo "ENABLE_NETWORKING_IMAGE_CACHE=true; requesting imageCache/networking"
+    if "${image_cache_anc}" prepull-images --source networking; then
+        echo "ANC image pre-pull returned; outcome is in image-cache-status.json"
+    else
+        echo "ANC image pre-pull failed; continuing (fail-open)"
+    fi
+}
+
 function nodePrep {
     logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
     logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
@@ -619,15 +633,7 @@ function nodePrep {
         checkServiceHealth secure-tls-bootstrap || true
     fi
 
-    if [ "${ENABLE_NETWORKING_IMAGE_CACHE:-}" = "true" ]; then
-        networking_image_cache_anc="${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}"
-        echo "ENABLE_NETWORKING_IMAGE_CACHE=true; pulling and unpacking synth-rendered networking images"
-        if "${networking_image_cache_anc}" prepull-networking-images; then
-            echo "ANC networking image pre-pull completed"
-        else
-            echo "ANC networking image pre-pull failed; continuing (fail-open)"
-        fi
-    fi
+    prepullImages
 
     # Add localdns-exporter kubelet node label before ensureKubelet so it's
     # included in --node-labels at kubelet startup (~0ms, just a variable append).

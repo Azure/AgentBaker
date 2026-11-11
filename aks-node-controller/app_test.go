@@ -414,6 +414,40 @@ func TestApp_Provision_DryRun(t *testing.T) {
 	}
 }
 
+func TestProvisionSetsActiveImageCacheContext(t *testing.T) {
+	for _, mode := range []string{"json", "nbc", "both"} {
+		t.Run(mode, func(t *testing.T) {
+			nbc := configureImageCacheTestBootstrap(t, "nbc", "nbc-pool")
+			t.Setenv("ANC_IMAGE_CACHE_MODE", "stale")
+			t.Setenv("ANC_IMAGE_CACHE_INPUT", "/stale/path")
+			flags := ProvisionFlags{}
+			if mode != "nbc" {
+				flags.ProvisionConfig = "parser/testdata/test_aksnodeconfig.json"
+			}
+			if mode != "json" {
+				flags.NBCCmd = nbc
+			}
+			expectedMode, expectedInput := "json", flags.ProvisionConfig
+			if flags.NBCCmd != "" {
+				expectedMode, expectedInput = "nbc", flags.NBCCmd
+			}
+			expectedInput, err := filepath.Abs(expectedInput)
+			require.NoError(t, err)
+			called := false
+			tt := NewTestApp(t, TestAppConfig{RunFunc: func(cmd *exec.Cmd) error {
+				called = true
+				env := envSliceToMap(cmd.Env)
+				require.Equal(t, expectedMode, env["ANC_IMAGE_CACHE_MODE"])
+				require.Equal(t, expectedInput, env["ANC_IMAGE_CACHE_INPUT"])
+				return nil
+			}})
+			_, err = tt.App.Provision(context.Background(), flags)
+			require.NoError(t, err)
+			require.True(t, called)
+		})
+	}
+}
+
 func TestApp_ProvisionWait(t *testing.T) {
 	testData := `{"ExitCode": "0", "Output": "hello world", "Error": ""}`
 
