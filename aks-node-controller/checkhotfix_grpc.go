@@ -65,15 +65,22 @@ func (e *lpsGRPCStatusError) Error() string {
 // returns the opaque response bytes for the shared parse/stage path.
 // The gRPC status is mapped onto the benign-vs-fatal taxonomy so handleFetchError is unchanged.
 func (a *App) fetchHotfixOverGRPC(ctx context.Context) ([]byte, error) {
-	return a.fetchLPSComponentOverGRPC(ctx, ancComponentName, lpsFetchTimeout)
+	data, err := a.fetchLPSComponentOverGRPC(ctx, ancComponentName, lpsFetchTimeout)
+	if err != nil {
+		return nil, mapGRPCError(err)
+	}
+	return data, nil
 }
 
-func (a *App) fetchLPSComponentOverGRPC(ctx context.Context, componentName string, timeout time.Duration) ([]byte, error) {
+func (a *App) fetchLPSComponentOverGRPC(ctx context.Context, componentName string, timeout time.Duration, options ...grpc.CallOption) ([]byte, error) {
 	fqdn, caPEM, err := a.lpsTargetFromNodeConfig()
 	if err != nil {
 		return nil, fmt.Errorf("resolving LPS endpoint: %w", err)
 	}
+	return a.fetchLPSComponentAt(ctx, componentName, timeout, fqdn, caPEM, options...)
+}
 
+func (a *App) fetchLPSComponentAt(ctx context.Context, componentName string, timeout time.Duration, fqdn string, caPEM []byte, options ...grpc.CallOption) ([]byte, error) {
 	token, err := a.attestedToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("imds attested token: %w", err)
@@ -107,9 +114,12 @@ func (a *App) fetchLPSComponentOverGRPC(ctx context.Context, componentName strin
 	}
 
 	client := lpsv1.NewLivePatchingServiceClient(conn)
-	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: componentName})
+	resp, err := client.GetComponentConfig(ctx, &lpsv1.GetComponentConfigRequest{ComponentName: componentName}, options...)
 	if err != nil {
-		return nil, mapGRPCError(err)
+		return nil, err
+	}
+	if componentName != ancComponentName && resp.GetComponentName() != componentName {
+		return nil, fmt.Errorf("LPS returned component %q for %q", resp.GetComponentName(), componentName)
 	}
 	// The shared live-patching contract carries the component config as a JSON-encoded UTF-8
 	// string; the parse/stage path operates on bytes, so convert without interpreting.

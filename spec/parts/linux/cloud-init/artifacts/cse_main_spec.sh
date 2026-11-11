@@ -135,11 +135,26 @@ Describe 'NVIDIA Fabric Manager startup timeout'
     End
 End
 
-Describe 'networking image pre-pull ordering'
+Describe 'image pre-pull integration'
+    setup() {
+        eval "$(sed -n '/^prepullImages()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
+        ENABLE_NETWORKING_IMAGE_CACHE=true
+        ANC_IMAGE_CACHE_MODE=json
+        ANC_SELECTED_BIN_PATH=selected_anc
+        ANC_TEST_EXIT=0
+    }
+
+    selected_anc() {
+        echo "selected:$*"
+        return "${ANC_TEST_EXIT}"
+    }
+
+    BeforeEach 'setup'
+
     It 'runs after containerd is healthy and before kubelet starts'
         ordering_is_valid() {
             containerd_line="$(grep -n 'checkServiceHealth containerd' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
-            prepull_line="$(grep -n 'prepull-networking-images' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
+            prepull_line="$(grep -n '^    prepullImages$' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
             kubelet_line="$(grep -n 'logs_to_events "AKS.CSE.ensureKubelet"' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
             [ "${containerd_line}" -lt "${prepull_line}" ] && [ "${prepull_line}" -lt "${kubelet_line}" ]
         }
@@ -148,11 +163,39 @@ Describe 'networking image pre-pull ordering'
         The status should be success
     End
 
-    It 'uses the hotfix-selected ANC binary and remains fail-open'
-        When run sed -n '/ENABLE_NETWORKING_IMAGE_CACHE/,/^    fi$/p' parts/linux/cloud-init/artifacts/cse_main.sh
-        The output should include '${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}'
-        The output should include '"${networking_image_cache_anc}" prepull-networking-images'
+    It 'uses the selected ANC in JSON provisioning'
+        When call prepullImages
+        The output should include 'selected:prepull-images --source networking'
+        The output should include 'image-cache-status.json'
+        The status should be success
+    End
+
+    It 'uses the selected ANC in NBC provisioning'
+        ANC_IMAGE_CACHE_MODE=nbc
+        When call prepullImages
+        The output should include 'selected:prepull-images --source networking'
+        The status should be success
+    End
+
+    It 'remains fail-open when the selected binary fails'
+        ANC_TEST_EXIT=7
+        When call prepullImages
+        The output should include 'selected:prepull-images --source networking'
         The output should include 'continuing (fail-open)'
+        The status should be success
+    End
+
+    It 'makes no invocation in classic provisioning despite an enabled flag'
+        ANC_IMAGE_CACHE_MODE=
+        When call prepullImages
+        The output should be blank
+        The status should be success
+    End
+
+    It 'makes no invocation when the feature is disabled'
+        ENABLE_NETWORKING_IMAGE_CACHE=false
+        When call prepullImages
+        The output should be blank
         The status should be success
     End
 End
