@@ -2002,6 +2002,8 @@ EOF
                 echo 'ticks=0'
                 echo 'export_resource_metrics() { ticks=$((ticks + 1)); if [ "$ticks" -ge 3 ]; then echo "LOOP_SURVIVED"; echo "HELP_CALLS=$(wc -l < "$HELP_COUNT_FILE")"; trap - EXIT; exit 0; fi; }'
                 sed -n '/^stop_watchdog_sleep() {/,/^}/p; /^start_localdns_watchdog() {/,/^}/p' "$LOCALDNS_SRC"
+                # The watchdog's health check, which localdns.sh sources from localdns-limits.sh.
+                sed -n '/^localdns_ready() {/,/^}/p' ./parts/linux/cloud-init/artifacts/localdns-limits.sh
                 grep -E "^trap .*(ERR|EXIT)" "$LOCALDNS_SRC"
                 echo 'NOTIFY_SOCKET=/run/systemd/notify'
                 echo 'WATCHDOG_USEC=60000000'
