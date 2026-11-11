@@ -42,6 +42,21 @@ Describe 'Kata default release notes'
     The stderr should include 'Invalid Kata UVM kernel metadata'
   End
 
+  Describe 'invalid kernel values'
+    Parameters
+      ''
+      '6.18.52 mshv1'
+      '6.18.52;other'
+    End
+    It 'rejects empty or unsafe values without appending notes'
+      printf '%s\n' "$1" > "$kernel_file"
+      When run bash vhdbuilder/packer/write-kata-release-notes.sh "$kernel_file" "$notes_file"
+      The status should be failure
+      The stderr should include 'Invalid Kata UVM kernel metadata'
+      The contents of file "$notes_file" should equal ''
+    End
+  End
+
   Describe 'other image variants'
     Parameters
       'AZURELINUX' 'None'

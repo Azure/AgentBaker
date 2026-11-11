@@ -18,10 +18,12 @@ if [ ! -s "$kernel_file" ]; then
   exit 1
 fi
 uvm_kernel=$(cat "$kernel_file")
-if [[ ! "$uvm_kernel" =~ ^[a-zA-Z0-9._+~^-]+$ ]]; then
-  echo "Invalid Kata UVM kernel metadata" >&2
-  exit 1
-fi
+case "$uvm_kernel" in
+  ''|*[!a-zA-Z0-9._+~^-]*)
+    echo "Invalid Kata UVM kernel metadata" >&2
+    exit 1
+    ;;
+esac
 host_kernel=$(uname -r)
 runtime=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}\n' kata-containers)
 {
