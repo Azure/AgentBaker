@@ -821,14 +821,14 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 // resource on the VM and waits for it to provision.
 func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
 	view, err := runCommand(ctx, s, command)
-	if err != nil {
+	if err != nil && view.ExecutionState == nil && view.ExitCode == nil {
 		return view, err
 	}
-	return view, runCommandScriptError(view)
+	return view, errors.Join(err, runCommandScriptError(view))
 }
 
 // runCommand preserves script exit codes for validators that expect non-zero results.
-func runCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
+func runCommand(ctx context.Context, s *Scenario, command string) (result armcompute.VirtualMachineRunCommandInstanceView, err error) {
 	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
 		s.Runtime.VM == nil || s.Runtime.VM.VM == nil || s.Runtime.VM.VM.InstanceID == nil {
@@ -838,7 +838,7 @@ func runCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	instanceID := *s.Runtime.VM.VM.InstanceID
 	// VirtualMachineRunCommand resources persist on the VM until explicitly deleted;
 	// use a unique name per call so concurrent / repeated calls don't collide, and
-	// best-effort delete it on the way out below.
+	// delete it before returning below.
 	runCommandName := fmt.Sprintf("e2e-runcmd-%d", time.Now().UnixNano())
 	start := time.Now()
 	defer func() {
@@ -860,13 +860,16 @@ func runCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to start RunCommand on VMSS VM: %w", err)
 	}
 	defer func() {
-		// Best-effort cleanup: VirtualMachineRunCommand resources persist on the VM
-		// otherwise and can accumulate across many RunCommand calls in a single run.
+		// Finish deletion before subsequent VM operations, such as a restart.
 		// Use a fresh context so we still clean up if the caller's ctx is cancelled.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		if _, derr := config.Azure.VMSSVMRunCommands.BeginDelete(cleanupCtx, rg, s.Runtime.VMSSName, instanceID, runCommandName, nil); derr != nil {
-			logging.Logf(ctx, "best-effort RunCommand %s delete failed: %v", runCommandName, derr)
+		deletePoller, deleteErr := config.Azure.VMSSVMRunCommands.BeginDelete(cleanupCtx, rg, s.Runtime.VMSSName, instanceID, runCommandName, nil)
+		if deleteErr == nil {
+			_, deleteErr = deletePoller.PollUntilDone(cleanupCtx, config.PollUntilDoneOptions())
+		}
+		if deleteErr != nil {
+			err = errors.Join(err, fmt.Errorf("failed to delete RunCommand %s: %w", runCommandName, deleteErr))
 		}
 	}()
 	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {

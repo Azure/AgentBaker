@@ -969,13 +969,10 @@ var _ = Register(&Scenario{
 			return nil
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
 				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
 				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
 			); err != nil {
 				return err
@@ -1023,13 +1020,10 @@ var _ = Register(&Scenario{
 			return nil
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
 				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
 				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
 			); err != nil {
 				return err
@@ -1080,9 +1074,6 @@ var _ = Register(&Scenario{
 			return nil
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-
 			if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
 				return err
 			}
@@ -1095,8 +1086,7 @@ var _ = Register(&Scenario{
 			if err := errors.Join(
 				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
 				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
 			); err != nil {
 				return err
