@@ -80,10 +80,11 @@ Describe 'cse_main.sh PIS-safe configuration'
             The line 2 of output should equal "1"
         End
 
-        It 'writes azure.json and ca.crt before other nodePrep event calls'
+        It 'applies live SSH policy before writing azure.json and ca.crt'
             When call node_prep_event_calls
-            The line 1 of output should equal "configureAzureJson"
-            The line 2 of output should equal "ensureKubeCACert"
+            The line 1 of output should equal "disableSSHPubkeyAuth"
+            The line 2 of output should equal "configureAzureJson"
+            The line 3 of output should equal "ensureKubeCACert"
         End
 
         It 'writes azure.json before secure TLS bootstrap consumes it'
@@ -125,6 +126,47 @@ Describe 'cse_main.sh PIS-safe configuration'
             The line 1 of output should equal "1"
             The line 2 of output should equal "0"
             The line 3 of output should equal "1"
+        End
+    End
+
+    It 'does not apply SSH access policy during image preparation'
+        When call phase_count basePrep disableSSH
+        The output should equal "0"
+    End
+
+    Describe 'SSH access'
+        prepare_node_prep() {
+            NODE_PREP_SCRIPT=$(mktemp)
+            phase_body nodePrep > "$NODE_PREP_SCRIPT"
+        }
+        cleanup_node_prep() { rm -f "$NODE_PREP_SCRIPT"; }
+        BeforeEach prepare_node_prep
+        AfterEach cleanup_node_prep
+
+        disableSSH() { echo disabled; }
+        disableSSHPubkeyAuth() { echo entra; }
+        logs_to_events() {
+            [ "$2" != configureAzureJson ] || exit 0
+            shift
+            "$@"
+        }
+        run_node_prep() {
+            . "$NODE_PREP_SCRIPT"
+            nodePrep
+        }
+
+        Parameters
+            true false disabled
+            true true disabled
+            false true entra
+            false false ''
+        End
+        It "applies live SSH policy in nodePrep for disabled=$1 and entra=$2"
+            DISABLE_SSH="$1"
+            DISABLE_PUBKEY_AUTH="$2"
+            When run run_node_prep
+            The status should be success
+            The output should equal "$3"
         End
     End
 
