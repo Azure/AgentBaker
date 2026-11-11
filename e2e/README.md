@@ -222,6 +222,21 @@ which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SK
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
 
+## ACL IPE audit scenarios
+
+`ACL_IPEAudit` and `ACL_ARM64_IPEAudit` use separate ACL nodes so
+`acl-node-security-profile=ipe=audit` is set before boot. Standard node/pod
+checks still run.
+
+The tests check the active IPE policy, signed `/usr` with the boot-selected root
+hash, and containerd's EROFS configuration. A base executable from `/usr` must
+run without IPE denials.
+Its copy in writable storage must also run, but produce a matching audit denial.
+Audit mode logs violations without blocking execution.
+
+The existing `ACL` and `ACL_ARM64` scenarios also check that containerd's
+effective default remains overlayfs when the IPE profile is not requested.
+
 ## ACL COSI Validation
 
 The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg` or
