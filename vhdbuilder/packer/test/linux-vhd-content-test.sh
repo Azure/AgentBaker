@@ -2660,6 +2660,7 @@ checkLocaldnsScriptsAndConfigs() {
 
   declare -A localdnsfiles=(
     ["/opt/azure/containers/localdns/localdns.sh"]=755
+    ["/opt/azure/containers/localdns/localdns-limits.sh"]=644
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
     ["/opt/azure/containers/localdns/localdns-fallback.sh"]=755
@@ -2785,6 +2786,7 @@ testKneadSecurityPatchingAssets() {
     ["/etc/systemd/system/snapshot-update.timer"]=644
     ["/opt/azure/containers/security-update.sh"]=544
     ["/opt/azure/containers/npd-update.sh"]=544
+    ["/opt/azure/containers/localdns-livepatch-handler.sh"]=544
     ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=544
   )
 
@@ -3022,6 +3024,7 @@ testMarinerLivePatchingArtifacts() {
   local update_script="/opt/azure/containers/mariner-package-update.sh"
   local security_script="/opt/azure/containers/security-update.sh"
   local npd_script="/opt/azure/containers/npd-update.sh"
+  local localdns_handler="/opt/azure/containers/localdns-livepatch-handler.sh"
   local service="/etc/systemd/system/snapshot-update.service"
   local timer="/etc/systemd/system/snapshot-update.timer"
 
@@ -3039,6 +3042,10 @@ testMarinerLivePatchingArtifacts() {
   fi
   if [ "$(stat -c '%a' "$npd_script" 2>/dev/null)" != "544" ]; then
     err $test "$npd_script must exist with mode 0544"
+  fi
+  # Both reconcilers source the localDNS handler unconditionally, so a missing file breaks every component.
+  if [ "$(stat -c '%a' "$localdns_handler" 2>/dev/null)" != "544" ]; then
+    err $test "$localdns_handler must exist with mode 0544"
   fi
   if [ "$(stat -c '%a' "$service" 2>/dev/null)" != "644" ]; then
     err $test "$service must exist with mode 0644"

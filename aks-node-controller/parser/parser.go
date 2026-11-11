@@ -202,8 +202,8 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"ENABLE_KMPP":                                          fmt.Sprintf("%v", config.GetEnableKmpp()),
 		"SHOULD_ENABLE_LOCALDNS":                               shouldEnableLocalDns(config),
 		"SHOULD_ENABLE_HOSTS_PLUGIN":                           shouldEnableHostsPlugin(config),
-		"LOCALDNS_CPU_LIMIT":                                   getLocalDnsCpuLimitInPercentage(config),
-		"LOCALDNS_MEMORY_LIMIT":                                getLocalDnsMemoryLimitInMb(config),
+		"LOCALDNS_CPU_LIMIT":                                   GetLocalDnsCpuLimitInPercentage(config),
+		"LOCALDNS_MEMORY_LIMIT":                                GetLocalDnsMemoryLimitInMb(config),
 		"LOCALDNS_CRITICAL_FQDNS":                              getLocalDnsCriticalFqdns(config),
 		"LOCALDNS_HOSTS_PLUGIN_REFRESH_INTERVAL_IN_SECONDS":    getLocalDnsHostsPluginRefreshIntervalInSeconds(config),
 		// LOCALDNS_GENERATED_COREFILE is the legacy key read by older VHDs that predate the hosts plugin.

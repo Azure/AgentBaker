@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
+	"github.com/Azure/agentbaker/aks-node-controller/internal/localdns"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
@@ -217,11 +218,76 @@ func (a *App) Run(ctx context.Context, args []string) int {
 					return a.runCheckHotfixCommand(ctx)
 				},
 			},
+			a.localDNSCommand(),
 		},
 	}
 
 	err := cmd.Run(ctx, args)
 	return errToExitCode(err)
+}
+
+// localDNSCommand is the `localdns` command group: `fetch-config` pulls the LocalDNS config from LPS
+// during bootstrap, `apply-config` applies the payload the knead reconciler already has in hand at
+// runtime. The implementation lives in internal/localdns; the App supplies the LPS client and the
+// provisioning file paths it shares with check-hotfix.
+func (a *App) localDNSCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "localdns",
+		Usage: "LocalDNS live patching",
+		Commands: []*cli.Command{
+			{
+				Name:  "fetch-config",
+				Usage: "Read the LocalDNS config from the live-patching-service and update the Corefile (fail-open)",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if extra := cmd.Args().Slice(); len(extra) > 0 {
+						slog.Warn("ignoring unexpected localdns fetch-config arguments", "args", strings.Join(extra, " "))
+					}
+					return localdns.FetchConfig(ctx, localdns.FetchParams{
+						Fetch: func(ctx context.Context) (string, error) {
+							return a.getLPSComponentConfig(ctx, localdns.ComponentName)
+						},
+						NotPublished: isLPSUnavailable,
+						Events:       a.eventLogger,
+						OutputPath:   cmd.String("output"),
+						Sources:      a.localDNSSources(),
+						Stdout:       cmd.Root().Writer,
+					})
+				},
+			},
+			{
+				Name:  "apply-config",
+				Usage: "Apply a dispatched LocalDNS live-patching config slice to the Corefile",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "config-file", Usage: "path to the LocalDNS config JSON; reads stdin when omitted or '-'"},
+					&cli.StringFlag{Name: "output", Usage: "path to write the LocalDNS Corefile"},
+					&cli.StringFlag{Name: "agent-pool", Usage: "this node's agent pool; read from the node config files when omitted"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if extra := cmd.Args().Slice(); len(extra) > 0 {
+						return fmt.Errorf("unexpected localdns apply-config arguments: %s", strings.Join(extra, " "))
+					}
+					return localdns.ApplyConfig(ctx, localdns.ApplyParams{
+						ConfigPath: cmd.String("config-file"),
+						OutputPath: cmd.String("output"),
+						AgentPool:  cmd.String("agent-pool"),
+						Sources:    a.localDNSSources(),
+						Stdout:     cmd.Root().Writer,
+					})
+				},
+			},
+		},
+	}
+}
+
+// localDNSSources points the LocalDNS render at the provisioning files check-hotfix also reads.
+func (a *App) localDNSSources() localdns.Sources {
+	return localdns.Sources{
+		NodeConfigPath: a.getNodeConfigPath(),
+		NBCCmdVars:     a.nbcCmdVars,
+	}
 }
 
 func (a *App) runProvisionCommand(ctx context.Context, flags ProvisionFlags, dryRun bool) error {

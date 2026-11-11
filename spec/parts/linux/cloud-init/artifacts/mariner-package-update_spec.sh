@@ -37,6 +37,10 @@ EOF
     setup() {
         Include "./parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh"
         Include "./parts/linux/cloud-init/artifacts/mariner/security-update.sh"
+        # The handler sources the limit functions from next to it on a node; here, from the repo.
+        LOCALDNS_LIMITS_SCRIPT=./parts/linux/cloud-init/artifacts/localdns-limits.sh
+        # Sourced at runtime after the ${__SOURCED__:+return} guard, like security-update.sh.
+        Include "./parts/linux/cloud-init/artifacts/localdns-livepatch-handler.sh"
         TEST_DIR="/tmp/live-patching-test"
         mkdir -p ${TEST_DIR}
         KNEAD_EVENTS_LOGGING_DIR="${TEST_DIR}/events"
@@ -119,6 +123,10 @@ EOF
 
         It 'dispatches a generic securityPatch profile on Azure Linux 3'
             set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+            # A localDNS patch is applied on this node; securityPatch must not report its version.
+            LOCALDNS_LIVEPATCHED_COREFILE="${TEST_DIR}/localdns/livepatched.localdns.corefile"
+            mkdir -p "${TEST_DIR}/localdns"
+            echo "v9" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
 
             When call main
             The status should be success
@@ -127,7 +135,284 @@ EOF
             The output should include 'tdnf mock called with args: --snapshottime 1786752000 update'
             The contents of file "${TEST_CALLS_FILE}" should include 'live-patching-current-timestamp=20260815T000000Z'
             The contents of file "${TEST_CALLS_FILE}" should include 'live-patching-status={"currentHash"'
+            # securityPatch registers no reporter, so its status entry stays {code}.
+            The contents of file "${TEST_CALLS_FILE}" should include '"components":{"securityPatch":{"code":"Succeeded"}}}'
             The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '20260815T000000Z'
+        End
+
+        # Points the real localDNS handler at this test's directory. The handler's own behavior
+        # (reload, fallback restart, revocation) is covered by localdns-livepatch-handler_spec.sh;
+        # these cases only pin how the reconciler dispatches to it and records the result.
+        use_test_localdns_paths() {
+            LOCALDNS_AKS_NODE_CONTROLLER="${TEST_DIR}/aks-node-controller"
+            LOCALDNS_LIVEPATCHED_COREFILE="${TEST_DIR}/localdns/livepatched.localdns.corefile"
+            LOCALDNS_BAKED_COREFILE="${TEST_DIR}/localdns/localdns.corefile"
+            LOCALDNS_SERVED_COREFILE="${TEST_DIR}/localdns/updated.localdns.corefile"
+            LOCALDNS_VNET_DNS_FORWARD_SERVERS_FILE="${TEST_DIR}/run/vnet-dns-forward-servers"
+            LOCALDNS_READY_TIMEOUT_SECONDS=1
+            mkdir -p "${TEST_DIR}/localdns"
+            # A running localdns.slice already on the limits the payloads below leave at the baked values.
+            Include ./spec/parts/linux/cloud-init/artifacts/localdns_limits_fakes.sh
+            setup_fake_localdns_slice "${TEST_DIR}/slice"
+            # localdns-limits.sh's systemctl calls go to the fake slice, the handler's to the test's Mock.
+            systemctl() {
+                case "$1" in
+                    show|set-property) fake_localdns_systemctl "$@" ;;
+                    *) command systemctl "$@" ;;
+                esac
+            }
+            # CoreDNS's /ready.
+            curl() {
+                case "$*" in
+                    */ready) echo OK ;;
+                    *) command curl "$@" ;;
+                esac
+            }
+        }
+
+        It 'dispatches localDNS and writes successful status'
+            use_test_localdns_paths
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<EOF
+#!/bin/bash
+echo "aks-node-controller called with args: \$*"
+cat > "${TEST_DIR}/localdns-livepatch-payload"
+echo "version: localdns-v1"
+echo rendered
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            Mock systemctl
+                # localdns.service's ActiveState, which the handler checks before serving.
+                if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                    echo active
+                    exit 0
+                fi
+                echo "systemctl called with args: $*"
+                # localdns.service is running; with no forward servers recorded the handler restarts it.
+                true
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"localdns-v1\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'applying component: localDNS'
+            The output should include "aks-node-controller called with args: localdns apply-config --config-file - --output ${LOCALDNS_LIVEPATCHED_COREFILE} --agent-pool ap1"
+            The contents of file "${TEST_DIR}/localdns-livepatch-payload" should include '"corefileVersion":"localdns-v1"'
+            The output should include 'committed localDNS corefileVersion localdns-v1'
+            The output should include 'localDNS update completed successfully'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"localdns-v1"}'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include '"localDNS"'
+        End
+
+        It 'marks localDNS failed when the fallback restart fails'
+            use_test_localdns_paths
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo "version: localdns-v1"
+echo rendered
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            Mock systemctl
+                # localdns.service's ActiveState, which the handler checks before serving.
+                if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                    echo active
+                    exit 0
+                fi
+                echo "systemctl called with args: $*"
+                # Running, but no forward servers were recorded, so the handler falls back to a
+                # restart -- which fails.
+                [ "$1" != "restart" ]
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"localdns-v1\"}}}"}]}'
+
+            When call main
+            The status should be failure
+            The output should include 'failed to restart localdns.service'
+            The output should include 'component failed: localDNS'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Failed","message":"localdns.service restart failed; reverted to the previous corefile and limits: cpu 200.8%, memory 128M"}'
+        End
+
+        It 'converges localDNS when no config applies to this node'
+            use_test_localdns_paths
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo noCorefileData
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            Mock systemctl
+                # localdns.service's ActiveState, which the handler checks before serving.
+                if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                    echo inactive
+                    exit 0
+                fi
+                echo "systemctl called with args: $*"
+                [ "$1" != "is-active" ]
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"other-pool\":{\"corefileVersion\":\"localdns-v1\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'localDNS has no config applicable to this node'
+            The output should not include 'systemctl called with args: restart localdns.service'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded"}'
+        End
+
+        # The localDNS payload carries every agent pool, so a change to another pool must be
+        # filtered out by the comparator before the handler runs on this node.
+        It 'does not rerun localDNS when only another agent pool changes'
+            use_test_localdns_paths
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo "aks-node-controller called with args: $*"
+echo "version: v2"
+echo rendered
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"},\"ap2\":{\"corefileVersion\":\"v2\"}}}"}]}'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            jq -n --arg nodeConfig '{"agentPools":{"ap1":{"corefileVersion":"v1"},"ap2":{"corefileVersion":"v1"}}}' \
+                '{components:[{name:"localDNS",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call main
+            The status should be success
+            The output should include 'component is already current: localDNS'
+            The output should not include 'aks-node-controller called'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded"}'
+        End
+
+        It 'reruns localDNS when this agent pool changes'
+            use_test_localdns_paths
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo "aks-node-controller called with args: $*"
+echo "version: v2"
+echo rendered
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            Mock systemctl
+                # localdns.service's ActiveState, which the handler checks before serving.
+                if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                    echo active
+                    exit 0
+                fi
+                echo "systemctl called with args: $*"
+                true
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"},\"ap2\":{\"corefileVersion\":\"v1\"}}}"}]}'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            jq -n --arg nodeConfig '{"agentPools":{"ap1":{"corefileVersion":"v1"},"ap2":{"corefileVersion":"v1"}}}' \
+                '{components:[{name:"localDNS",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call main
+            The status should be success
+            The output should not include 'component is already current: localDNS'
+            The output should include 'aks-node-controller called with args: localdns apply-config'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"v2"}'
+            The contents of file "${LIVE_PATCHING_STATE_FILE}" should include 'v2'
+        End
+
+        # localDNS reports "current" from the .version file the handler writes once a patch is in effect.
+        It 'reports the applied corefileVersion as localDNS current'
+            use_test_localdns_paths
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+cat > /dev/null
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output) output="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+echo "patched-corefile" > "${output}"
+echo "version: v2"
+echo rendered
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            Mock systemctl
+                # localdns.service's ActiveState, which the handler checks before serving.
+                if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                    echo active
+                    exit 0
+                fi
+                echo "systemctl called with args: $*"
+                true
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'localDNS update completed successfully'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"v2"}'
+        End
+
+        # LPC renders localDNS before npdConfig, so npdConfig must not inherit localDNS's reporters.
+        It 'does not report localDNS current or message for npdConfig dispatched after it'
+            use_test_localdns_paths
+            updateNPDConfigs() { echo "updateNPDConfigs called"; }
+            npdConfigsIsCurrent() { return 1; }
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+cat > /dev/null
+output=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output) output="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+echo "patched-corefile" > "${output}"
+echo "version: v2"
+echo rendered
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            Mock systemctl
+                # localdns.service's ActiveState, which the handler checks before serving.
+                if [ "$*" = "show --property=ActiveState --value localdns.service" ]; then
+                    echo active
+                    exit 0
+                fi
+                echo "systemctl called with args: $*"
+                true
+            End
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"}}}"},{"name":"npdConfig","nodeConfig":"{}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'updateNPDConfigs called'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"v2"}'
+            The contents of file "${TEST_CALLS_FILE}" should include '"npdConfig":{"code":"Succeeded"}'
+        End
+
+        It 'reports localDNS current when the handler is skipped as already current'
+            use_test_localdns_paths
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v1\"}}}"}]}'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            jq -n --arg nodeConfig '{"agentPools":{"ap1":{"corefileVersion":"v1"}}}' \
+                '{components:[{name:"localDNS",nodeConfig:$nodeConfig}]}' > "${LIVE_PATCHING_STATE_FILE}"
+
+            When call main
+            The status should be success
+            The output should include 'component is already current: localDNS'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Succeeded","current":"v1"}'
+        End
+
+        It 'reports the failure reason and the previous localDNS current when the patch fails'
+            use_test_localdns_paths
+            echo "v1" > "${LOCALDNS_LIVEPATCHED_COREFILE}.version"
+            cat > "${LOCALDNS_AKS_NODE_CONTROLLER}" <<'EOF'
+#!/bin/bash
+echo "error: no bootstrap source on this node carries the CoreDNS service IP"
+echo failed
+exit 1
+EOF
+            chmod +x "${LOCALDNS_AKS_NODE_CONTROLLER}"
+            set_generic_payload '{"components":[{"name":"localDNS","nodeConfig":"{\"agentPools\":{\"ap1\":{\"corefileVersion\":\"v2\"}}}"}]}'
+
+            When call main
+            The status should be failure
+            The output should include 'component failed: localDNS'
+            The contents of file "${TEST_CALLS_FILE}" should include '"localDNS":{"code":"Failed","message":"aks-node-controller localdns apply-config failed: no bootstrap source on this node carries the CoreDNS service IP","current":"v1"}'
         End
 
         It 'reads kubeletVersion from the generic securityPatch profile'

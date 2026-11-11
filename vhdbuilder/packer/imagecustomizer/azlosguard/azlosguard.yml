@@ -360,6 +360,9 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns.sh
       destination: /opt/azure/containers/localdns/localdns.sh
       permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-limits.sh
+      destination: /opt/azure/containers/localdns/localdns-limits.sh
+      permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
       destination: /etc/systemd/system/localdns.service.d/delegate.conf
       permissions: 644
