@@ -203,51 +203,16 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     # Uncomment if we have trouble finding the kernel package.
     # add-apt-repository ppa:canonical-kernel-team/ppa
     if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
-      add-apt-repository ppa:canonical-kernel-team/ppa
       apt-get update
       BOM_PATH="gb-mai-bom.json"
       if [ -n "$(jq -r '.["kernel-versions"] | keys[]' $BOM_PATH)" ]; then
         NVIDIA_KERNEL_PACKAGE=$(jq -r '.["kernel-versions"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
       fi
-      if apt-get install -s "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
-      	echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
-      	  wait_for_apt_locks
-      	  apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
-      	  echo "after installation:"
-      	  dpkg -l | grep "linux-.*-azure-nvidia" || true
-    	else
-    	  # NOTE: version 6.14.0-1003.3 was superseded and purged from the ports.ubuntu.com
-    	  # archive pool, so the .debs are no longer fetchable from there. They are still
-    	  # served (indefinitely, independent of archive pruning) from the Launchpad build
-    	  # that produced them:
-    	  # https://launchpad.net/~canonical-kernel-team/+archive/ubuntu/ppa/+build/31036310
-    	  HOST="https://launchpad.net/~canonical-kernel-team/+archive/ubuntu/ppa/+build/31036310/+files"
-
-    	  echo "ARM64 image. NVIDIA kernel not available from repo, fetching and installing dpkgs by hand"
-    	  curl -fsSL "${HOST}/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL "${HOST}/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb" > /tmp/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL "${HOST}/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb" > /tmp/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb
-    	  curl -fsSL "${HOST}/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb" > /tmp/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb
-    	  curl -fsSL "${HOST}/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb" > /tmp/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL "${HOST}/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL "${HOST}/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  curl -fsSL "${HOST}/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-
-    	  curl -fsSL "${HOST}/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb" > /tmp/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-
-    	  dpkg -i /tmp/linux-modules-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  dpkg -i /tmp/linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
-    	  dpkg -i /tmp/linux-azure-nvidia-6.14-cloud-tools-common_6.14.0-1003.3_all.deb
-    	  dpkg -i /tmp/linux-azure-nvidia-6.14-headers-6.14.0-1003_6.14.0-1003.3_all.deb
-    	  dpkg -i /tmp/linux-azure-nvidia-6.14-tools-6.14.0-1003_6.14.0-1003.3_arm64.deb
-    	  dpkg -i /tmp/linux-cloud-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  dpkg -i /tmp/linux-headers-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  dpkg -i /tmp/linux-tools-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-    	  dpkg -i /tmp/linux-image-unsigned-6.14.0-1003-azure-nvidia_6.14.0-1003.3_arm64.deb
-
-    	  rm /tmp/*.deb
-      fi
-      add-apt-repository --remove ppa:canonical-kernel-team/ppa
+      echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
+      wait_for_apt_locks
+      apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
+      echo "after installation:"
+      dpkg -l | grep "linux-.*-azure-nvidia" || true
     else
       apt-get update
       if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
