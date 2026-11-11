@@ -117,8 +117,8 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 	}
 
 	bakeScenario.failed = true
-	if original.VHDCachingPostBasePrep != nil {
-		if err := original.VHDCachingPostBasePrep(ctx, bakeScenario); err != nil {
+	if original.PISCustomizationScript != nil {
+		if err := original.PISCustomizationScript(ctx, bakeScenario); err != nil {
 			return fmt.Errorf("customize prepared image: %w", err)
 		}
 	}

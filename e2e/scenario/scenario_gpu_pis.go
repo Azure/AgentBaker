@@ -60,7 +60,7 @@ func pisGPUScenario(name string, image *config.Image, managed bool) *Scenario {
 	}
 	if !managed {
 		s.Description = "Installs a customer NVIDIA driver after basePrep and verifies it works after PIS capture with AKS driver installation disabled"
-		s.VHDCachingPostBasePrep = installPISCustomerGPUDriver
+		s.PISCustomizationScript = installPISCustomerGPUDriver
 		s.Validator = validatePISCustomerGPUDriver
 	}
 	return s
