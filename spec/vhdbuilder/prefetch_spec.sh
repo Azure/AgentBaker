@@ -42,16 +42,19 @@ Describe 'Prefetch optimization handoff'
 End
 
 Describe 'AIB deprovision hook installation'
+  BeforeAll "eval \"\$(sed -n '/^createAIBDeprovisionHook()/,/^}$/p' vhdbuilder/packer/post-deprovision-walinuxagent.sh)\""
+
   setup() {
     TEST_ROOT=$(mktemp -d "${SHELLSPEC_WORKDIR}/deprovision-hook.XXXXXX")
     export HOOK_PATH="${TEST_ROOT}/DeprovisioningScript.sh" INSTALL_STATUS=0
+    export HOOK_SOURCE="${TEST_ROOT}/aib-deprovision.sh"
   }
   BeforeEach 'setup'
 
   Mock sudo
-    if [ "$1" = install ] && [ "$5" = /tmp/DeprovisioningScript.sh ]; then
+    if [ "$1" = install ] && [ "$4" = /opt/azure/containers/aib-deprovision.sh ] && [ "$5" = /tmp/DeprovisioningScript.sh ]; then
       [ "$INSTALL_STATUS" -eq 0 ] || exit "$INSTALL_STATUS"
-      command install "$2" "$3" "$4" "$HOOK_PATH"
+      command install "$2" "$3" "$HOOK_SOURCE" "$HOOK_PATH"
     elif [ "$1" = /bin/bash ]; then
       printf '%s\n' "$*"
     else
@@ -62,28 +65,31 @@ Describe 'AIB deprovision hook installation'
 
   install_hook() {
     local script
-    script=$(jq -r --arg cvm "$1" '
+    script=$(jq -r '
       .properties.customize[] | select(.name == "InstallDeprovisionHook") |
-      .inline | join("\n") | gsub("<CVM_BUILD>"; $cvm)
+      .inline | join("\n")
     ' vhdbuilder/prefetch/templates/optimize.json) || return $?
     /bin/sh -eu -c "$script"
   }
 
   run_hook() {
-    install_hook "$1" || return $?
+    createAIBDeprovisionHook "$1" "$HOOK_SOURCE" || return $?
+    install_hook || return $?
     "$HOOK_PATH"
   }
 
   Describe 'CVM argument forwarding'
     Parameters
-      true
-      false
+      cvm true
+      None false
+      cvm,gpu true
     End
 
-    It "installs an executable hook forwarding CVM=$1"
+    It "installs the Packer-created hook for flags=$1 forwarding CVM=$2"
       When call run_hook "$1"
       The status should be success
-      The output should equal "/bin/bash -eu /opt/azure/containers/deprovision.sh $1"
+      The output should equal "/bin/bash -eu /opt/azure/containers/deprovision.sh $2"
+      The value "$(stat -c %a "$HOOK_SOURCE")" should equal 755
       The value "$(stat -c %a "$HOOK_PATH")" should equal 755
     End
   End
@@ -92,16 +98,32 @@ Describe 'AIB deprovision hook installation'
     printf 'untouched\n' > "${TEST_ROOT}/target"
     ln -s "${TEST_ROOT}/target" "$HOOK_PATH"
 
-    When call run_hook true
+    When call run_hook cvm
     The status should be success
     The output should equal '/bin/bash -eu /opt/azure/containers/deprovision.sh true'
     The path "$HOOK_PATH" should not be symlink
     The contents of file "${TEST_ROOT}/target" should equal untouched
   End
 
+  It 'replaces an existing regular hook from the Packer-created file'
+    printf 'default hook\n' > "$HOOK_PATH"
+
+    When call run_hook None
+    The status should be success
+    The output should equal '/bin/bash -eu /opt/azure/containers/deprovision.sh false'
+    The contents of file "$HOOK_PATH" should equal "$(cat "$HOOK_SOURCE")"
+  End
+
+  It 'fails visibly if the Packer-created hook is missing'
+    When call install_hook
+    The status should be failure
+    The stderr should not equal ""
+    The path "$HOOK_PATH" should not be exist
+  End
+
   It 'propagates installation failure'
     INSTALL_STATUS=7
-    When call install_hook false
+    When call run_hook None
     The status should equal 7
     The path "$HOOK_PATH" should not be exist
   End

@@ -153,6 +153,28 @@ Describe 'pruneStaleWALinuxAgentDirs'
 End
 
 Describe 'Post-deprovision helper retention'
+  prepare_hook() (
+    export PREFETCH_OPTIMIZATION="$1"
+    createAIBDeprovisionHook() { printf 'hook flags=%s\n' "$1"; }
+    local script=./vhdbuilder/packer/post-deprovision-walinuxagent.sh
+    eval "$(sed -n '/^if .*PREFETCH_OPTIMIZATION/,/^fi$/p' "$script")"
+  )
+
+  Describe 'Packer hook preparation'
+    Parameters
+      true cvm 'hook flags=cvm'
+      True None 'hook flags=None'
+      False cvm ''
+      false None ''
+    End
+
+    It "prepares the hook only when optimization=$1 with flags=$2"
+      When call prepare_hook "$1" "$2"
+      The status should be success
+      The output should equal "$3"
+    End
+  End
+
   cleanup_helpers() (
     # Test the flag handling and cleanup without running the agent installer.
     set -- "$@"
@@ -178,11 +200,13 @@ Describe 'Post-deprovision helper retention'
     The output should include '-f /opt/azure/containers/install_walinuxagent.py'
     The output should include '-f /opt/azure/containers/post-deprovision-walinuxagent.sh'
     The output should include '-f /opt/azure/containers/deprovision.sh'
+    The output should include '-f /opt/azure/containers/aib-deprovision.sh'
   End
 
   It 'defaults to removing helpers for the argument-free AIB call'
     When call cleanup_helpers
     The status should be success
     The output should include '-f /opt/azure/containers/deprovision.sh'
+    The output should include '-f /opt/azure/containers/aib-deprovision.sh'
   End
 End

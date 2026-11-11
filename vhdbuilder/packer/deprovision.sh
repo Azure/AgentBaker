@@ -65,6 +65,7 @@ main() {
     rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh \
         /opt/azure/containers/install_walinuxagent.py \
         /opt/azure/containers/deprovision.sh \
+        /opt/azure/containers/aib-deprovision.sh \
         /tmp/DeprovisioningScript.sh || return $?
     sync
 }
