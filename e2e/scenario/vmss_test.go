@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,6 +28,89 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
+
+func TestCloudConfigScriptlessMutations(t *testing.T) {
+	const payload = `#cloud-config
+datasource:
+  Azure:
+    experimental_skip_ready_report: true
+bootcmd:
+- - /bin/bash
+  - -c
+  - |
+    #!/bin/bash
+    set -euo pipefail
+    mkdir -p /opt/azure/containers
+    nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
+    #hotfix-marker
+    systemctl start --no-block aks-node-controller.service
+`
+	for _, tt := range []struct {
+		name   string
+		mutate func(string) (string, error)
+		want   string
+	}{
+		{
+			name: "NBC binary",
+			mutate: func(data string) (string, error) {
+				return CustomDataWithNBCCmdHack(data, "https://example.test/anc")
+			},
+			want: "https://example.test/anc",
+		},
+		{
+			name: "ANC hotfix fixture",
+			mutate: func(data string) (string, error) {
+				return CustomDataWithANCHotfixFlowFixture(data, "https://example.test/anc")
+			},
+			want: ancNBCCmdMarker,
+		},
+		{
+			name: "file fixtures",
+			mutate: func(data string) (string, error) {
+				return injectWriteFilesEntriesToCustomData(data, []CustomDataWriteFile{
+					{Path: "/opt/azure/containers/fixture", Content: "first\nsecond"},
+				})
+			},
+			want: "/opt/azure/containers/fixture",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := tt.mutate(base64.StdEncoding.EncodeToString([]byte(payload)))
+			require.NoError(t, err)
+			decoded, err := base64.StdEncoding.DecodeString(encoded)
+			require.NoError(t, err)
+			var config struct {
+				Datasource map[string]map[string]bool `yaml:"datasource"`
+				BootCmd    [][]string                 `yaml:"bootcmd"`
+			}
+			require.True(t, strings.HasPrefix(string(decoded), "#cloud-config\n"))
+			require.NoError(t, yaml.Unmarshal(decoded, &config))
+			require.Len(t, config.BootCmd, 1)
+			require.Len(t, config.BootCmd[0], 3)
+			require.Equal(t, []string{"/bin/bash", "-c"}, config.BootCmd[0][:2])
+			script := config.BootCmd[0][2]
+			require.True(t, config.Datasource["Azure"]["experimental_skip_ready_report"])
+			require.Contains(t, script, tt.want)
+			cmd := exec.Command("bash", "-n")
+			cmd.Stdin = strings.NewReader(script)
+			output, err := cmd.CombinedOutput()
+			require.NoError(t, err, string(output))
+		})
+	}
+}
+
+func TestCloudConfigScriptlessMutationRejectsInvalidBootcmd(t *testing.T) {
+	for _, payload := range []string{
+		"#cloud-config\ndatasource: {}\n",
+		"#cloud-config\nbootcmd: []\n",
+		"#cloud-config\nbootcmd:\n- echo test\n",
+		"#cloud-config\nbootcmd:\n- [sh, -c, echo]\n",
+		"#cloud-config\nbootcmd:\n- [/bin/bash, -c, 42]\n",
+	} {
+		_, err := CustomDataWithNBCCmdHack(base64.StdEncoding.EncodeToString([]byte(payload)), "https://example.test/anc")
+		require.Error(t, err)
+	}
+}
 
 type vmssCreationTestPolicy func(*http.Request) *http.Response
 

@@ -34,6 +34,19 @@ not yet been validated and requires a rebuilt VHD containing this ANC binary.
 
 ## Usage
 
+### CustomData-only cloud-config delivery
+
+With `CustomDataOnlyProvisioning` enabled, Ubuntu CustomData uses `#cloud-config`
+and an argv-form `/bin/bash -c` `bootcmd`. The outer
+`datasource.Azure.experimental_skip_ready_report: true` flag is read before
+provisioning by the separately patched cloud-init datasource. The embedded script
+hands WALinuxAgent reporting to ANC and retains the provisioning-complete guard.
+
+Use only Ubuntu 24.04/26.04 images carrying both the runtime override and its
+schema fix. This PR does not change cloud-init packages or image builds. Stock
+cloud-init and the old boothook-marker patch are insufficient. Non-CustomData-only
+MIME delivery and AgentBaker's oversized CSE fallback are unchanged.
+
 ### Phase 3 through AgentBaker
 
 Set `NodeBootstrappingConfiguration.EnableScriptlessAKSNodeConfig = true` and supply

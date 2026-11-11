@@ -50,12 +50,22 @@ runcmd:
 - echo "AKS Node Controller cloud-init completed at $(date)"
 `
 
-	readyReportHandoffTemplate = `# azure-experimental-node-ready
+	// bootcmd strings use /bin/sh; explicitly select bash for provisioning.
+	cloudConfigBootcmdTemplate = `#cloud-config
+datasource:
+  Azure:
+    experimental_skip_ready_report: true
+bootcmd:
+- - /bin/bash
+  - -c
+  - |
+    %s
+`
 
-touch /var/lib/waagent/experimental_skip_ready_report
+	readyReportHandoffTemplate = `touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
-# The VHD-baked cloud-init setting stands down cloud-init. WALinuxAgent reports Ready
+# The patched datasource reads the cloud-config flag before bootcmd. WALinuxAgent reports Ready
 # independently once ovf-env.xml and the SSH host key exist. A sentinel matching this
 # instance's id makes it skip that report, leaving aks-node-controller as the only reporter.
 if [ -s /sys/class/dmi/id/product_uuid ]; then
@@ -75,10 +85,9 @@ fi`
     }`
 )
 
-// CustomData builds base64-encoded VM custom data for cloud-init. The boothook writes the node
-// configuration and starts aks-node-controller. CustomData-only provisioning uses a plain boothook
-// so patched cloud-init recognizes the top-level Ready reporting marker. Other modes pair the
-// boothook with a cloud-config part in a MIME multipart document.
+// CustomData builds base64-encoded VM custom data for cloud-init. CustomData-only provisioning
+// requires patched cloud-init and uses plain cloud-config with a datasource override and bootcmd.
+// Other modes retain the boothook and cloud-config parts in a MIME multipart document.
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
@@ -95,7 +104,10 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	)
 
 	if cfg.GetCustomDataOnlyProvisioning() {
-		return base64.StdEncoding.EncodeToString([]byte(boothook)), nil
+		script := strings.TrimPrefix(boothook, "#cloud-boothook\n")
+		indentedScript := strings.ReplaceAll(strings.TrimSuffix(script, "\n"), "\n", "\n    ")
+		customData := fmt.Sprintf(cloudConfigBootcmdTemplate, indentedScript)
+		return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 	}
 
 	var customData bytes.Buffer

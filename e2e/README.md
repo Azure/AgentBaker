@@ -84,6 +84,18 @@ attributes fail validation. Non-MIG DRA scenarios retain their existing scheduli
 
 ### Scriptless provisioning
 
+CustomData-only Ubuntu provisioning uses `#cloud-config` with a Bash `bootcmd`.
+It requires an Ubuntu 24.04 or 26.04 image with the separately delivered cloud-init
+runtime datasource override and matching schema fix; stock cloud-init does not
+provide the early Ready-report handoff. This format change does not install or
+upgrade cloud-init. Do not enable it on images lacking that prerequisite.
+Normal CSE provisioning and oversized-payload fallback retain their existing formats.
+
+The success scenario is renamed from `Ubuntu2204_CustomDataOnlyProvisioning` to
+`Ubuntu2404_CustomDataOnlyProvisioning`. The negative
+`Ubuntu2404_CustomDataOnlyProvisioning_Failure` scenario checks error 161 without
+a CSE extension. Both require the patched image; update external selectors.
+
 Linux scenarios use kubelet configuration-file mode by default, for both NBC/CSE
 and AKSNodeConfig/scriptless provisioning. NBC conversion preserves the effective
 kubelet settings, including scenario overrides and custom kubelet configuration.
