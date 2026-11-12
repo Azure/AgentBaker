@@ -1,6 +1,7 @@
 #!/bin/bash
 
 Describe 'Kata UVM version validation'
+  # shellcheck disable=SC2329
   setup() {
     export IMG_OFFER=azure-linux-3 FEATURE_FLAGS=kata
     export HOST_VERSION=4.1.0.kata0-1.azl3 RPM_STATUS=0

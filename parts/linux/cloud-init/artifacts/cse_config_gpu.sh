@@ -193,7 +193,7 @@ validateGPUDrivers() {
     fi
     SMI_STATUS=$?
     if [ "$SMI_STATUS" -ne 0 ]; then
-        # shellcheck disable=SC3010
+        # shellcheck disable=SC3010,SC3014
         if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
             exit $ERR_GPU_INFO_ROM_CORRUPTED
         else
