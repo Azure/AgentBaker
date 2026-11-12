@@ -216,7 +216,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
   # Test failures as specifically written to stderr in the form of "testname:Error: message", thus we specifically check to see if there was at least
   # one test failure via the following regex comparison on errMsg. Otherwise, transient errors not produced by a test case
   # (such as "sudo: unable to resolve host vhd-test-vm: Name or service not known") will cause the entire run-test step to fail.
-  # shellcheck disable=SC3010
+  # shellcheck disable=SC3010,SC3014
   if [[ "$errMsg" == *":Error:"* ]]; then
     echo "Tests failed."
     echo "Extracted error message: $errMsg"

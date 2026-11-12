@@ -590,7 +590,7 @@ function ensure_sig_vhd_exists() {
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		# The following conditionals do not require NVMe tagging on disk controller type
-		# shellcheck disable=SC3010
+		# shellcheck disable=SC3010,SC3014
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
 				# This path must be used for images that are built on VMs with TrustedLaunch enabled (e.g. images that ONLY are designed to run on VMs with TrustedLaunch enabled).

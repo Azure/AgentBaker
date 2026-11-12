@@ -18,11 +18,13 @@ schedules:
     branches:
       include:
         - main
+        - dev
     always: true
 trigger:
   branches:
     include:
       - main
+      - dev
   paths:
     include:
       - e2e/**
@@ -33,6 +35,7 @@ pr:
       - official/*
       - windows/*
       - main
+      - dev
   paths:
     include:
       - e2e/**
