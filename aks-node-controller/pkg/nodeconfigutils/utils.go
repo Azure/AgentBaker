@@ -21,6 +21,7 @@ const (
 
 	// EnabledFeaturesFilePath is read by the wrapper; must match its FEATURES_PATH.
 	EnabledFeaturesFilePath = "/opt/azure/containers/enabled_features.sh"
+	CloudSettingsFilePath   = "/opt/azure/containers/aks-node-controller-cloud-settings.sh"
 
 	boothookTemplate = `#cloud-boothook
 #!/bin/bash
@@ -37,6 +38,7 @@ cat <<'EOF' | base64 -d >%[2]s
 EOF
 chmod 0600 %[2]s
 %[4]s
+%[5]s
 logger -t aks-boothook "launching aks-node-controller $(date -Ins)"
 if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then
 	nohup /bin/bash /opt/azure/containers/aks-node-controller-launcher.sh > /var/log/azure/aks-node-controller.output 2>&1 &
@@ -70,6 +72,10 @@ fi`
          "path": "/opt/azure/containers/aks-node-controller-config.json",
          "mode": 384,
          "contents": { "source": "data:;base64,%[1]s" }
+       }, {
+         "path": "%[2]s",
+         "mode": 384,
+         "contents": { "source": "data:;base64,%[3]s" }
        }]
      }
     }`
@@ -92,6 +98,7 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 		AKSNodeConfigFilePath,
 		encodedAksNodeConfigJSON,
 		enabledFeaturesBlock(cfg),
+		cloudSettingsBlock(cfg),
 	)
 
 	if cfg.GetCustomDataOnlyProvisioning() {
@@ -137,8 +144,36 @@ func CustomDataFlatcar(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	}
 
 	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
-	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON)
+	encodedCloudSettings := base64.StdEncoding.EncodeToString([]byte(cloudSettings(cfg)))
+	customDataYAML := fmt.Sprintf(flatcarTemplate, encodedAksNodeConfigJSON, CloudSettingsFilePath, encodedCloudSettings)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
+}
+
+func cloudSettings(cfg *aksnodeconfigv1.Configuration) string {
+	location := cfg.GetClusterConfig().GetLocation()
+	if location == "" || strings.ContainsRune(location, 0) {
+		return "return 1\n"
+	}
+	endpoint := ""
+	customCloud := cfg.GetCustomCloudConfig()
+	if strings.EqualFold(customCloud.GetCustomCloudEnvName(), "akscustom") {
+		endpoint = customCloud.GetRepoDepotEndpoint()
+	}
+	if strings.ContainsRune(endpoint, 0) {
+		return "return 1\n"
+	}
+	return "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION=" + shellQuote(location) + "\nREPO_DEPOT_ENDPOINT=" + shellQuote(endpoint) + "\n"
+}
+
+func cloudSettingsBlock(cfg *aksnodeconfigv1.Configuration) string {
+	return fmt.Sprintf(`cat <<'EOF' >%[1]s
+%[2]sEOF
+chmod 0600 %[1]s
+`, CloudSettingsFilePath, cloudSettings(cfg))
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
 // writeMIMEPart writes a single part to a MIME multipart message. Cloud-init expects custom data

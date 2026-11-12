@@ -77,10 +77,12 @@ if [ -f "$CLOUD_SETTINGS_PATH" ]; then
 fi
 
 # Older VHDs lack the generated settings file and retain their existing hotfix flow.
-if [ "$run_hotfix" = true ]; then
-    anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
-    BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
+skip_hotfix_acquisition=false
+if [ "$run_hotfix" = false ]; then
+    skip_hotfix_acquisition=true
 fi
+anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH" "$skip_hotfix_acquisition"
+BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
 
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then

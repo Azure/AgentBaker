@@ -1391,7 +1391,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 				config.EnableScriptlessAKSNodeConfig = true
 				config.EnableScriptlessNBCCSECmd = false
 				config.ScriptlessCSEProvisionMode = cseDelivery
-				config.AKSNodeConfigJSON = `{"version":"v1","kubernetes_version":"1.34.0","cluster_config":{"location":"usnat"},"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":"https://repo"}}`
+				config.AKSNodeConfigJSON = `{
+					"version":"v1",
+					"kubernetes_version":"1.34.0",
+					"cluster_config":{"location":"usnat"},
+					"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":"https://repo"}
+				}`
 				config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
 				generator := InitializeTemplateGenerator()
 

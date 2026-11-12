@@ -259,7 +259,11 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 		},
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			ResourceGroup: "test-rg",
-			Location:      "eastus",
+			Location:      "usnat",
+		},
+		CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+			CustomCloudEnvName: "AKSCustom",
+			RepoDepotEndpoint:  `https://repo.example/'$(echo injected)`,
 		},
 		ApiServerConfig: &aksnodeconfigv1.ApiServerConfig{
 			ApiServerName: "test-api-server",
@@ -297,6 +301,11 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(string(boothook), "#cloud-boothook\n"))
 	require.Contains(t, string(boothook), "/opt/azure/containers/aks-node-controller-config.json")
+	require.Contains(t, string(boothook), "cat <<'EOF' >"+CloudSettingsFilePath)
+	require.Contains(t, string(boothook), "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig")
+	require.Contains(t, string(boothook), "LOCATION='usnat'")
+	require.Contains(t, string(boothook), `REPO_DEPOT_ENDPOINT='https://repo.example/'"'"'$(echo injected)'`)
+	require.Contains(t, string(boothook), "chmod 0600 "+CloudSettingsFilePath)
 	require.Contains(t, string(boothook), "launching aks-node-controller")
 	require.Contains(t, string(boothook), "aks-node-controller.service")
 	require.Contains(t, string(boothook), "/opt/azure/containers/aks-node-controller-launcher.sh")
@@ -336,6 +345,28 @@ func TestCustomDataFlatcarDefersArtifactStreamingToProvisioning(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, enabled, decoded.GetEnableArtifactStreaming())
 	}
+}
+
+func TestCustomDataFlatcarIncludesCloudSettings(t *testing.T) {
+	cfg := &aksnodeconfigv1.Configuration{
+		ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "usnat"},
+		CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+			CustomCloudEnvName: "akscustom",
+			RepoDepotEndpoint:  "https://repo.example",
+		},
+	}
+	ignition := decodeFlatcarCustomData(t, cfg)
+	storage := ignition["storage"].(map[string]any)
+	files := storage["files"].([]any)
+	require.Len(t, files, 2)
+
+	settingsFile := files[1].(map[string]any)
+	require.Equal(t, CloudSettingsFilePath, settingsFile["path"])
+	contents := settingsFile["contents"].(map[string]any)
+	source := contents["source"].(string)
+	settings, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(source, "data:;base64,"))
+	require.NoError(t, err)
+	require.Equal(t, "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo.example'\n", string(settings))
 }
 
 // decodeBoothook extracts the decoded cloud-boothook part from the base64-encoded custom data.

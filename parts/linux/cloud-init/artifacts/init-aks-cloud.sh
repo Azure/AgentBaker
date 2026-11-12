@@ -702,7 +702,10 @@ if [ "$action" = "init" ]; then
             init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
             init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
             echo "Running apt-get update"
-            aptget_update
+            if ! aptget_update && [ "${ANC_EARLY_CLOUD_INIT:-}" = "true" ]; then
+                echo "ERROR: apt-get update failed during early cloud initialization" >&2
+                exit 1
+            fi
         elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
             if [ "$IS_MARINER" -eq 1 ]; then
                 echo "Initializing Mariner repo depot settings..."
@@ -712,7 +715,10 @@ if [ "$action" = "init" ]; then
                 init_azurelinux_repo_depot ${rootRepoDepotEndpoint}
             fi
             echo "Running dnf_makecache"
-            dnf_makecache
+            if ! dnf_makecache && [ "${ANC_EARLY_CLOUD_INIT:-}" = "true" ]; then
+                echo "ERROR: dnf_makecache failed during early cloud initialization" >&2
+                exit 1
+            fi
         fi
     fi
 fi

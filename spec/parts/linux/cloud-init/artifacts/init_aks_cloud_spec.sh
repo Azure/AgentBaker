@@ -263,6 +263,45 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
             The status should be success
         End
     End
+
+    Describe 'RepoDepot package cache failures during early initialization'
+        script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+        setup_repo_dispatch() {
+            IS_UBUNTU=0
+            IS_MARINER=0
+            IS_AZURELINUX=0
+            install_ca_refresh_schedule=0
+            REPO_DEPOT_ENDPOINT='https://repodepot.example.com/ubuntu'
+        }
+        BeforeEach 'setup_repo_dispatch'
+
+        run_repo_dispatch() {
+            . <(sed -n '/^action=/,/^if \[ "\$IS_UBUNTU"/p' "$script_path" | sed '$d') "$@"
+            echo 'refresh scheduling reached'
+        }
+
+        It 'fails early initialization when apt-get update fails'
+            IS_UBUNTU=1
+            aptget_update() { return 1; }
+            ANC_EARLY_CLOUD_INIT=true
+
+            When run run_repo_dispatch init
+            The status should be failure
+            The stderr should include 'apt-get update failed during early cloud initialization'
+            The output should not include 'refresh scheduling reached'
+        End
+
+        It 'fails early initialization when dnf makecache fails'
+            IS_MARINER=1
+            dnf_makecache() { return 1; }
+            ANC_EARLY_CLOUD_INIT=true
+
+            When run run_repo_dispatch init
+            The status should be failure
+            The stderr should include 'dnf_makecache failed during early cloud initialization'
+            The output should not include 'refresh scheduling reached'
+        End
+    End
 End
 
 Describe 'legacy CA certificate filenames'

@@ -182,10 +182,11 @@ type encodedFile struct {
 }
 
 const cloudSettingsFilepath = "/opt/azure/containers/aks-node-controller-cloud-settings.sh"
+const jsonNull = "null"
 
 // cloudConfigObject reads the two proto JSON spellings while rejecting ambiguous input.
 func cloudConfigObject(data json.RawMessage, names ...string) (json.RawMessage, error) {
-	if string(data) == "null" {
+	if string(data) == jsonNull {
 		return nil, nil
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
@@ -196,9 +197,9 @@ func cloudConfigObject(data json.RawMessage, names ...string) (json.RawMessage, 
 	var result json.RawMessage
 	found := false
 	for decoder.More() {
-		key, err := decoder.Token()
-		if err != nil {
-			return nil, err
+		key, tokenErr := decoder.Token()
+		if tokenErr != nil {
+			return nil, tokenErr
 		}
 		var value json.RawMessage
 		if err := decoder.Decode(&value); err != nil {
@@ -218,11 +219,11 @@ func cloudConfigObject(data json.RawMessage, names ...string) (json.RawMessage, 
 }
 
 func cloudConfigString(data json.RawMessage, names ...string) (string, error) {
-	if len(data) == 0 || string(data) == "null" {
+	if len(data) == 0 || string(data) == jsonNull {
 		return "", nil
 	}
 	value, err := cloudConfigObject(data, names...)
-	if err != nil || len(value) == 0 || string(value) == "null" {
+	if err != nil || len(value) == 0 || string(value) == jsonNull {
 		return "", err
 	}
 	var result string
@@ -232,27 +233,34 @@ func cloudConfigString(data json.RawMessage, names ...string) (string, error) {
 	return result, nil
 }
 
+func aksNodeConfigCloudSettings(data []byte) (string, string, error) {
+	cluster, err := cloudConfigObject(data, "cluster_config", "clusterConfig")
+	if err != nil {
+		return "", "", err
+	}
+	location, err := cloudConfigString(cluster, "location")
+	if err != nil {
+		return "", "", err
+	}
+	cloud, err := cloudConfigObject(data, "custom_cloud_config", "customCloudConfig")
+	if err != nil {
+		return "", "", err
+	}
+	name, err := cloudConfigString(cloud, "custom_cloud_env_name", "customCloudEnvName")
+	if err != nil || !strings.EqualFold(name, "akscustom") {
+		return location, "", err
+	}
+	endpoint, err := cloudConfigString(cloud, "repo_depot_endpoint", "repoDepotEndpoint")
+	return location, endpoint, err
+}
+
 func scriptlessCloudSettings(config *datamodel.NodeBootstrappingConfiguration) string {
 	var location, endpoint string
 	var err error
 	input := "nbc"
 	if config.EnableScriptlessAKSNodeConfig {
 		input = "aksnodeconfig"
-		var cluster, cloud json.RawMessage
-		cluster, err = cloudConfigObject([]byte(config.AKSNodeConfigJSON), "cluster_config", "clusterConfig")
-		if err == nil {
-			location, err = cloudConfigString(cluster, "location")
-		}
-		if err == nil {
-			cloud, err = cloudConfigObject([]byte(config.AKSNodeConfigJSON), "custom_cloud_config", "customCloudConfig")
-		}
-		var name string
-		if err == nil {
-			name, err = cloudConfigString(cloud, "custom_cloud_env_name", "customCloudEnvName")
-		}
-		if err == nil && strings.EqualFold(name, "akscustom") {
-			endpoint, err = cloudConfigString(cloud, "repo_depot_endpoint", "repoDepotEndpoint")
-		}
+		location, endpoint, err = aksNodeConfigCloudSettings([]byte(config.AKSNodeConfigJSON))
 	} else {
 		location = config.ContainerService.Location
 		if config.ContainerService.IsAKSCustomCloud() {

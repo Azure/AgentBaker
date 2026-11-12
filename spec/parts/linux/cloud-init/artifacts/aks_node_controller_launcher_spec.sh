@@ -217,6 +217,30 @@ EOF
         The path "$CLOUD_SETTINGS_PATH" should not be exist
     End
 
+    It 'uses a staged hotfix after early initialization fails without acquiring another'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        export ENABLE_PROVISIONING_HOTFIX=true
+        printf "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
+        printf '#!/bin/bash\nexit 1\n' > "$INIT_AKS_CLOUD_PATH"
+        hotfix_bin="${BIN_PATH}-hotfix"
+        cat > "$BIN_PATH" <<'EOF'
+#!/bin/bash
+printf 'base:%s\n' "$1" >> "$TEST_DIR/calls"
+EOF
+        cat > "$hotfix_bin" <<'EOF'
+#!/bin/bash
+printf 'hotfix:%s\n' "$1" >> "$TEST_DIR/calls"
+EOF
+        chmod +x "$BIN_PATH" "$hotfix_bin" "$INIT_AKS_CLOUD_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Skipping ANC hotfix acquisition'
+        The output should include "Using hotfix binary: $hotfix_bin"
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq "$(printf 'hotfix:apply-embedded-hotfix\nhotfix:provision')"
+    End
+
     It 'does not acquire a hotfix when settings are invalid or the initializer is missing'
         touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
         printf 'return 1\n' > "$CLOUD_SETTINGS_PATH"
