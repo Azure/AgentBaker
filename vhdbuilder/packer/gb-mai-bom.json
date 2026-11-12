@@ -1,10 +1,10 @@
 {
   "versions-wave1": {
-    "librdmacm-dev": "2507mlnx58-1.2507097.0214",
-    "libibverbs-dev": "2507mlnx58-1.2507097.0214",
-    "libibverbs1": "2507mlnx58-1.2507097.0214",
-    "ibverbs-providers": "2507mlnx58-1.2507097.0214",
-    "doca-ofed": "3.1.0-091513"
+    "librdmacm-dev": "2607.0.8-1",
+    "libibverbs-dev": "2607.0.8-1",
+    "libibverbs1": "2607.0.8-1",
+    "ibverbs-providers": "2607.0.8-1",
+    "doca-ofed": "3.5.0-082000"
   },
   "versions-wave2": {
     "libxnvctrl0": "580.159.04-1ubuntu1",
@@ -41,7 +41,7 @@
     "k8s-device-plugin": "0.17.3-ubuntu24.04u5",
     "nvidia-imex": "580.159.04-1ubuntu1"
   },
-  "doca-custom-repo": "https://linux.mellanox.com/public/repo/doca/3.1.0-091513/ubuntu24.04/arm64-sbsa/",
+  "doca-custom-repo": "https://linux.mellanox.com/public/repo/doca/3.5.0/ubuntu24.04/arm64-sbsa/",
   "kernel-versions": {
     "linux-azure-nvidia": "7.0.0-1020.21~24.04.1"
   }
