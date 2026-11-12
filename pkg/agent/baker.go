@@ -1173,6 +1173,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage ||
+				profile.Distro == datamodel.CustomizedImageCVM ||
 				profile.Distro == datamodel.CustomizedImageKata ||
 				profile.Distro == datamodel.CustomizedImageLinuxGuard ||
 				profile.Distro == datamodel.CustomizedImageTrustedLaunch
