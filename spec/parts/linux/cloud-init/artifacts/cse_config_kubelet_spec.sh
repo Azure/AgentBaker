@@ -756,8 +756,8 @@ providers:
 
         Describe 'on Ubuntu'
             OS="UBUNTU"
-            Include "./parts/root/ubuntu/opt/azure/containers/provision_source_distro.sh"
-            Include "./parts/root/ubuntu/opt/azure/containers/provision_installs_distro.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_source_distro.ubuntu.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_installs_distro.ubuntu.sh"
 
             It 'installs the credential provider from URL below Kubernetes 1.33'
                 installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
@@ -787,8 +787,8 @@ providers:
         Describe 'on Azure Linux'
             OS="AZURELINUX"
             OS_VERSION="3.0"
-            Include "./parts/root/mariner/opt/azure/containers/provision_source_distro.sh"
-            Include "./parts/root/mariner/opt/azure/containers/provision_installs_distro.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_source_distro.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_installs_distro.sh"
 
             It 'installs the credential provider from PMC at Kubernetes 1.33'
                 installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
@@ -944,8 +944,8 @@ providers:
 
         Describe 'on Ubuntu'
             OS="UBUNTU"
-            Include "./parts/root/ubuntu/opt/azure/containers/provision_source_distro.sh"
-            Include "./parts/root/ubuntu/opt/azure/containers/provision_installs_distro.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_source_distro.ubuntu.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_installs_distro.ubuntu.sh"
 
             # Test cases for URL installation (first condition)
             It 'should install from URL if CUSTOM_KUBE_BINARY_DOWNLOAD_URL is set'
@@ -1107,8 +1107,8 @@ providers:
 
         Describe 'on Mariner'
             OS="MARINER"
-            Include "./parts/root/mariner/opt/azure/containers/provision_source_distro.sh"
-            Include "./parts/root/mariner/opt/azure/containers/provision_installs_distro.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_source_distro.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_installs_distro.sh"
 
             It 'should install from PMC if k8s version >= 1.34 and OS_VERSION != 2.0'
                 installKubeletKubectlFromPkg() {
@@ -1147,8 +1147,8 @@ providers:
 
         Describe 'on Azure Linux'
             OS="AZURELINUX"
-            Include "./parts/root/mariner/opt/azure/containers/provision_source_distro.sh"
-            Include "./parts/root/mariner/opt/azure/containers/provision_installs_distro.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_source_distro.sh"
+            Include "./parts/root/shared/opt/azure/containers/provision_installs_distro.sh"
 
             It 'should install from PMC if k8s version >= 1.34 and OS_VERSION != 2.0'
                 installKubeletKubectlFromPkg() {

@@ -36,8 +36,8 @@ not yet been validated and requires a rebuilt VHD containing this ANC binary.
 
 ### Embedded image files
 
-ANC embeds `parts/root` as the final filesystem, with shared files and OS-specific
-layers. The same command is used by image builders, E2E and hotfixes:
+ANC embeds `parts/root` as the final filesystem. The same command is used by
+image builders, E2E and hotfixes:
 
 ```sh
 aks-node-controller unpack-scripts
@@ -48,9 +48,33 @@ Packer staging directory, installation manifest, file selection list, or generat
 step. Build tools live in `/opt/azure/image-build`. Generated payloads and compiled
 binaries remain separate image-builder inputs.
 
+Unpacking applies `common/`, then **one** OS tree selected from `/etc/os-release`.
+The OS tree overrides common files. Ubuntu 18.04/20.04 and Azure Linux 3.0 have
+their own complete trees because their contents differ; they do not inherit
+another OS tree.
+
+Files reused by several systems are stored once in `shared/`. An OS tree can
+contain a plain-text reference such as:
+
+```text
+ubuntu/etc/systemd/system/node-exporter.service.link
+    contents: shared/etc/systemd/system/node-exporter.service
+```
+
+ANC copies the referenced bytes to `/etc/systemd/system/node-exporter.service`.
+The `.link` suffix is removed; the installed file is a regular file. Reference
+paths are relative to `root/` and must point directly to regular files under
+`shared/`. Reference chains, directories and paths outside `shared/` are rejected.
+`shared/` itself is never unpacked.
+
+The complete file set is resolved before any writes. A file and a `.link` with
+the same destination in one tree, file/directory conflicts, missing references,
+and two image overlays writing the same destination are errors. Common-to-OS
+and OS-to-image-overlay replacements are intentional.
+
 New scripts get `0755`, other files get `0644`; existing permissions are preserved.
 `--destination` selects an alternate root for inspection or tests. Image builders
-can select a small number of variant layers with repeatable `--overlay` arguments
+can select a small number of image variants with repeatable `--overlay` arguments
 (e.g. `gb` or `ubuntu2204-fips`). The selection is recorded in
 `/etc/aks/image-overlays`, so subsequent hotfixes apply the same variants.
 

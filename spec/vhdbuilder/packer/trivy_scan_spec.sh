@@ -3,8 +3,8 @@
 
 Describe 'install_trivy'
   BeforeAll "eval \"\$(sed -n '/^install_trivy()/,/^}$/p' vhdbuilder/packer/trivy-scan.sh)\""
-  Include './parts/root/ubuntu/opt/azure/containers/provision_installs_distro.sh'
-  Include './parts/root/mariner/opt/azure/containers/provision_installs_distro.sh'
+  Include './parts/root/shared/opt/azure/containers/provision_installs_distro.ubuntu.sh'
+  Include './parts/root/shared/opt/azure/containers/provision_installs_distro.sh'
 
   TRIVY_PMC_VERSION=0.72.0
 

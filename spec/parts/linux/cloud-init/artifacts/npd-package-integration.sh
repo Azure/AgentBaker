@@ -5,7 +5,7 @@
 # Uses real apt/dpkg or tdnf/rpm and the published package. Only NPD restart is stubbed.
 set -euo pipefail
 
-source ./parts/root/packages/opt/azure/containers/npd-update.sh
+source ./parts/root/shared/opt/azure/containers/npd-update.sh
 
 package="$(realpath "$1")"
 format="$(npd_package_format)"

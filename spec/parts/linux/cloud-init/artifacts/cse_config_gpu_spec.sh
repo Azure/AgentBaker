@@ -1377,7 +1377,7 @@ EXPECTED
         End
     End
     Describe 'managedGPUPackageList on Ubuntu'
-        Include "./parts/root/ubuntu/opt/azure/containers/provision_installs_distro.sh"
+        Include "./parts/root/shared/opt/azure/containers/provision_installs_distro.ubuntu.sh"
 
         BeforeEach 'setup'
         setup() {

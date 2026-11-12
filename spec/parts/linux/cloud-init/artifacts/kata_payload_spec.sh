@@ -2,7 +2,7 @@
 
 Describe 'Azure Linux 3 Kata payload copies'
     Include './parts/root/common/opt/azure/containers/provision_source.sh'
-    Include './parts/root/linux/opt/azure/image-build/packer_source.sh'
+    Include './parts/root/shared/opt/azure/image-build/packer_source.sh'
 
     setup() {
         TEST_ROOT=$(mktemp -d)

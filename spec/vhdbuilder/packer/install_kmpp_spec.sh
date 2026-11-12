@@ -36,7 +36,7 @@ Describe 'KMPP package selection'
 End
 
 Describe 'KMPP VHD installation helpers'
-    Include ./parts/root/mariner/opt/azure/image-build/install-kmpp.sh
+    Include ./parts/root/shared/opt/azure/image-build/install-kmpp.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"

@@ -2,7 +2,7 @@
 # shellcheck disable=SC2317
 
 Describe 'NPD config handler'
-    Include ./parts/root/packages/opt/azure/containers/npd-update.sh
+    Include ./parts/root/shared/opt/azure/containers/npd-update.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -236,7 +236,7 @@ restart"
 End
 
 Describe 'NPD config handler on Ubuntu 26.04 (shared 24.04 config)'
-    Include ./parts/root/packages/opt/azure/containers/npd-update.sh
+    Include ./parts/root/shared/opt/azure/containers/npd-update.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -303,7 +303,7 @@ Describe 'NPD config handler on Ubuntu 26.04 (shared 24.04 config)'
 End
 
 Describe 'NPD config handler on Azure Linux 3'
-    Include ./parts/root/packages/opt/azure/containers/npd-update.sh
+    Include ./parts/root/shared/opt/azure/containers/npd-update.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -456,7 +456,7 @@ Describe 'NPD config handler on Azure Linux 3'
     End
 
     It 'is safe under the Azure Linux dispatcher nounset and errexit options'
-        When run env NPD_OS_RELEASE_FILE="${NPD_OS_RELEASE_FILE}" bash -euc 'source ./parts/root/packages/opt/azure/containers/npd-update.sh; npd_platform; echo; npd_desired_version "$1" azurelinux 3.0' _ "${TEST_DESIRED}"
+        When run env NPD_OS_RELEASE_FILE="${NPD_OS_RELEASE_FILE}" bash -euc 'source ./parts/root/shared/opt/azure/containers/npd-update.sh; npd_platform; echo; npd_desired_version "$1" azurelinux 3.0' _ "${TEST_DESIRED}"
         The status should be success
         The output should include '1.1.0-1.azl3'
     End

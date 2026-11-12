@@ -4,7 +4,7 @@
 Describe 'MGLRU image default'
   load_helpers() {
     . ./parts/root/common/opt/azure/containers/provision_source.sh >/dev/null
-    . ./parts/root/linux/opt/azure/image-build/packer_source.sh
+    . ./parts/root/shared/opt/azure/image-build/packer_source.sh
   }
   BeforeAll 'load_helpers'
 
@@ -40,7 +40,7 @@ Describe 'MGLRU image default'
     setup_validation() {
       TEST_ROOT="${SHELLSPEC_TMPBASE}/mglru-validation"
       mkdir -p "$TEST_ROOT/etc/tmpfiles.d" "$TEST_ROOT/sys/kernel/mm/lru_gen"
-      cp parts/root/current/etc/tmpfiles.d/aks-mglru.conf "$TEST_ROOT/etc/tmpfiles.d/aks-mglru.conf"
+      cp parts/root/shared/etc/tmpfiles.d/aks-mglru.conf "$TEST_ROOT/etc/tmpfiles.d/aks-mglru.conf"
       printf '0x0000\n' > "$TEST_ROOT/sys/kernel/mm/lru_gen/enabled"
       unset OS OS_VARIANT
       OS_SKU=Ubuntu OS_VERSION=24.04 FEATURE_FLAGS=''
@@ -191,7 +191,7 @@ Describe 'MGLRU image default'
     }
     apply_tmpfiles() {
       systemd-tmpfiles --create --root="$TEST_ROOT" "$@" - \
-        < parts/root/current/etc/tmpfiles.d/aks-mglru.conf
+        < parts/root/shared/etc/tmpfiles.d/aks-mglru.conf
     }
     BeforeEach 'setup_tmpfiles'
     AfterEach 'cleanup_tmpfiles'

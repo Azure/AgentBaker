@@ -35,8 +35,8 @@ EOF
     }
 
     setup() {
-        Include "./parts/root/mariner/opt/azure/containers/mariner-package-update.sh"
-        Include "./parts/root/mariner/opt/azure/containers/security-update.sh"
+        Include "./parts/root/shared/opt/azure/containers/mariner-package-update.sh"
+        Include "./parts/root/shared/opt/azure/containers/security-update.sh"
         TEST_DIR="/tmp/live-patching-test"
         mkdir -p ${TEST_DIR}
         KNEAD_EVENTS_LOGGING_DIR="${TEST_DIR}/events"

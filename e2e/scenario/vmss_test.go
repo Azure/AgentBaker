@@ -402,8 +402,12 @@ func (tt *vmssCreationTestCase) respond(t *testing.T, req *http.Request) *http.R
 
 func TestWriteScriptHotfixFixture(t *testing.T) {
 	root := t.TempDir()
+	target := filepath.Join(root, "parts/root/ubuntu/opt/azure/containers/provision_configs.sh")
+	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
+	require.NoError(t, os.WriteFile(target+".link", []byte("shared/provision_configs.sh\n"), 0o644))
 	fixture := ScriptHotfixFixture{Platform: "ubuntu", Files: []ScriptHotfixFile{{Destination: "/opt/azure/containers/provision_configs.sh", Payload: []byte("#!/bin/bash\necho e2e\n")}}}
 	require.NoError(t, writeScriptHotfixFixture(root, fixture))
+	require.NoFileExists(t, target+".link")
 	data, err := os.ReadFile(filepath.Join(root, "parts/root/ubuntu/opt/azure/containers/provision_configs.sh"))
 	require.NoError(t, err)
 	require.Equal(t, fixture.Files[0].Payload, data)

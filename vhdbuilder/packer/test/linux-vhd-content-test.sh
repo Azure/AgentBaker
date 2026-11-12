@@ -153,10 +153,10 @@ else
   fi
 fi
 
-source ./AgentBaker/parts/root/ubuntu/opt/azure/containers/provision_installs_distro.sh 2>/dev/null
+source ./AgentBaker/parts/root/shared/opt/azure/containers/provision_installs_distro.ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/root/common/opt/azure/containers/provision_source.sh 2>/dev/null
 source ./AgentBaker/parts/root/common/opt/azure/image-build/tool_installs.sh
-source ./AgentBaker/parts/root/linux/opt/azure/image-build/packer_source.sh
+source ./AgentBaker/parts/root/shared/opt/azure/image-build/packer_source.sh
 
 validateDownloadPackage() {
   local downloadURL=$1

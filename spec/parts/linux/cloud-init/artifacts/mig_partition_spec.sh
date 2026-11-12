@@ -2,7 +2,7 @@
 # shellcheck disable=SC2329 # mock functions are invoked by the script under test.
 
 Describe 'mig-partition.sh'
-    SCRIPT_PATH="./parts/root/linux/opt/azure/containers/mig-partition.sh"
+    SCRIPT_PATH="./parts/root/shared/opt/azure/containers/mig-partition.sh"
 
     nvidia-smi() {
         echo "nvidia-smi $*"

@@ -4,7 +4,7 @@
 
 Describe 'attachUA'
   # Extract only the functions under test; never execute the image-build script.
-  BeforeAll "eval \"\$(sed -n '/^ubuntuProESMState()/,/^}$/p;/^attachUA()/,/^}$/p' parts/root/ubuntu/opt/azure/image-build/tool_installs_distro.sh)\""
+  BeforeAll "eval \"\$(sed -n '/^ubuntuProESMState()/,/^}$/p;/^attachUA()/,/^}$/p' parts/root/shared/opt/azure/image-build/tool_installs_distro.ubuntu.sh)\""
 
   setup_ua() {
     TEST_DIR="$(mktemp -d)"
@@ -542,7 +542,7 @@ enable esm-apps esm-infra"
       installFIPS() { echo install-fips >> "${TRACE}"; }
       # Extract only the Ubuntu upgrade branch, including its final closing fi.
       # All mutating commands in this branch are mocked; no full script is sourced.
-      phase_script="$(sed -n '/^  # Enable ESM only/,/^fi$/p' parts/root/linux/opt/azure/image-build/pre-install-dependencies.sh)"
+      phase_script="$(sed -n '/^  # Enable ESM only/,/^fi$/p' parts/root/shared/opt/azure/image-build/pre-install-dependencies.sh)"
       [ -n "${phase_script}" ] || return 99
       eval "if false; then :; else
 ${phase_script}"

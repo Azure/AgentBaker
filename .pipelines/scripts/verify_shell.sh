@@ -32,9 +32,9 @@ BASH_ONLY_LIST=$(cat <<'EOF'
 ./e2e/scenario/validate_anc_hotfix.sh
 ./parts/root/common/opt/azure/image-build/install-ig.sh
 ./vhdbuilder/packer/publish-generalized-cvm-if-required.sh
-./parts/root/linux/opt/azure/image-build/trim-2604-cvm-packages.sh
-./parts/root/packages/opt/azure/containers/npd-update.sh
-./parts/root/hosts/opt/azure/containers/aks-localdns-hosts-setup.sh
+./parts/root/shared/opt/azure/image-build/trim-2604-cvm-packages.sh
+./parts/root/shared/opt/azure/containers/npd-update.sh
+./parts/root/shared/opt/azure/containers/aks-localdns-hosts-setup.sh
 EOF
 )
 

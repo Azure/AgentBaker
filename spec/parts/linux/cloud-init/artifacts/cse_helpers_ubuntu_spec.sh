@@ -7,7 +7,7 @@ Describe 'apt_get_install budget timeout'
     BeforeEach apt_install_precheck
 
     Include "./parts/root/common/opt/azure/containers/provision_source.sh"
-    Include "./parts/root/ubuntu/opt/azure/containers/provision_source_distro.sh"
+    Include "./parts/root/shared/opt/azure/containers/provision_source_distro.ubuntu.sh"
 
     Describe '_apt_get_install with budget'
         # Mock apt-related commands and timeout to isolate budget logic

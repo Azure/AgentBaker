@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/stretchr/testify/require"
@@ -13,6 +14,7 @@ import (
 
 func TestUnpackImage(t *testing.T) {
 	for _, release := range []string{
+		"ID=ubuntu\nVERSION_ID=18.04\n",
 		"ID=ubuntu\nVERSION_ID=22.04\n",
 		"ID=ubuntu\nVERSION_ID=20.04\n",
 		"ID=azurelinux\nVERSION_ID=3.0\n",
@@ -80,6 +82,78 @@ func TestUnpackImage(t *testing.T) {
 			info, err := os.Stat(path)
 			require.NoError(t, err)
 			require.Equal(t, fs.FileMode(0o600), info.Mode().Perm())
+		})
+	}
+}
+
+func TestImageReferencesAndPrecedence(t *testing.T) {
+	source := fstest.MapFS{
+		"root/common/etc/config":             {Data: []byte("common")},
+		"root/ubuntu/etc/config.link":        {Data: []byte("shared/config\n")},
+		"root/ubuntu/opt/bin/helper.sh.link": {Data: []byte("shared/helper")},
+		"root/shared/config":                 {Data: []byte("ubuntu")},
+		"root/shared/helper":                 {Data: []byte("#!/bin/sh\nexit 0\n")},
+		"root/overlays/example/etc/config":   {Data: []byte("variant")},
+	}
+	root := t.TempDir()
+	require.NoError(t, unpackRoot(source, []string{"common", "ubuntu"}, root))
+	data, err := os.ReadFile(filepath.Join(root, "etc/config"))
+	require.NoError(t, err)
+	require.Equal(t, "ubuntu", string(data))
+	info, err := os.Stat(filepath.Join(root, "opt/bin/helper.sh"))
+	require.NoError(t, err)
+	require.True(t, info.Mode().IsRegular())
+	require.Equal(t, fs.FileMode(0o755), info.Mode().Perm())
+	require.NoFileExists(t, filepath.Join(root, "opt/bin/helper.sh.link"))
+	require.NoDirExists(t, filepath.Join(root, "shared"))
+
+	require.NoError(t, unpackRoot(source, []string{"common", "ubuntu", "overlays/example"}, root))
+	data, err = os.ReadFile(filepath.Join(root, "etc/config"))
+	require.NoError(t, err)
+	require.Equal(t, "variant", string(data))
+}
+
+func TestInvalidImagePlansWriteNothing(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		files fstest.MapFS
+		roots []string
+		want  string
+	}{
+		{"missing target", fstest.MapFS{"root/ubuntu/z.link": {Data: []byte("shared/missing")}}, []string{"ubuntu"}, "resolve shared/missing"},
+		{"traversal", fstest.MapFS{"root/ubuntu/z.link": {Data: []byte("shared/../secret")}}, []string{"ubuntu"}, "invalid shared reference"},
+		{"outside shared", fstest.MapFS{"root/ubuntu/z.link": {Data: []byte("common/a")}}, []string{"ubuntu"}, "invalid shared reference"},
+		{"reference chain", fstest.MapFS{
+			"root/ubuntu/z.link":    {Data: []byte("shared/next.link")},
+			"root/shared/next.link": {Data: []byte("shared/data")},
+		}, []string{"ubuntu"}, "invalid shared reference"},
+		{"directory reference", fstest.MapFS{
+			"root/ubuntu/z.link":         {Data: []byte("shared/directory")},
+			"root/shared/directory/file": {Data: []byte("data")},
+		}, []string{"ubuntu"}, "not a regular file"},
+		{"duplicate destination", fstest.MapFS{
+			"root/ubuntu/z":      {Data: []byte("local")},
+			"root/ubuntu/z.link": {Data: []byte("shared/data")},
+			"root/shared/data":   {Data: []byte("shared")},
+		}, []string{"ubuntu"}, "conflicts between root/ubuntu/z and root/ubuntu/z.link"},
+		{"parent conflict", fstest.MapFS{
+			"root/common/etc":        {Data: []byte("file")},
+			"root/ubuntu/etc/config": {Data: []byte("nested")},
+		}, []string{"ubuntu"}, "file/directory conflict"},
+		{"overlapping variants", fstest.MapFS{
+			"root/ubuntu/z":          {Data: []byte("OS")},
+			"root/overlays/first/z":  {Data: []byte("first")},
+			"root/overlays/second/z": {Data: []byte("second")},
+		}, []string{"ubuntu", "overlays/first", "overlays/second"}, "conflicts between root/overlays/first/z and root/overlays/second/z"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.files["root/common/a"] = &fstest.MapFile{Data: []byte("must not be written")}
+			root := t.TempDir()
+			err := unpackRoot(tc.files, append([]string{"common"}, tc.roots...), root)
+			require.ErrorContains(t, err, tc.want)
+			entries, err := os.ReadDir(root)
+			require.NoError(t, err)
+			require.Empty(t, entries)
 		})
 	}
 }

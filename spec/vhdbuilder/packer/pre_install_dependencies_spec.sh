@@ -2,7 +2,7 @@
 # shellcheck disable=SC2329
 
 Describe 'installAzureLinuxArm64DualKernel'
-  BeforeAll "eval \"\$(sed -n '/^installAzureLinuxArm64DualKernel()/,/^}/p' './parts/root/linux/opt/azure/image-build/pre-install-dependencies.sh')\""
+  BeforeAll "eval \"\$(sed -n '/^installAzureLinuxArm64DualKernel()/,/^}/p' './parts/root/shared/opt/azure/image-build/pre-install-dependencies.sh')\""
 
   setup_dual_kernel() {
     TEST_DIR=$(mktemp -d)

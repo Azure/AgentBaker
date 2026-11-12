@@ -203,6 +203,9 @@ func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) erro
 		if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 			return err
 		}
+		if err := os.Remove(outputPath + ".link"); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("replace fixture reference: %w", err)
+		}
 		if err := os.WriteFile(outputPath, file.Payload, 0o644); err != nil {
 			return fmt.Errorf("write embedded fixture: %w", err)
 		}
