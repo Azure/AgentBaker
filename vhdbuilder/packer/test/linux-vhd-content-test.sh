@@ -378,7 +378,7 @@ testPackagesInstalled() {
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
       # Validate whether package proxy path exists in Azure China cloud.
-      # shellcheck disable=SC3010
+      # shellcheck disable=SC3010,SC3014
       if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
         testPackageInAzureChinaCloud "$downloadURL"
       fi
@@ -578,16 +578,16 @@ testImagesRetagged() {
   mooncakeMcrImagesNumber=0
   mooncakeLegacyMcrImagesNumber=0
   while IFS= read -r pulledImage; do
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ $pulledImage == "mcr.azure.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
     fi
     # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
       mooncakeLegacyMcrImagesNumber=$((${mooncakeLegacyMcrImagesNumber} + 1))
     fi
@@ -802,7 +802,7 @@ testFips() {
           current_provider="${BASH_REMATCH[2]}"
           continue
         fi
-        # shellcheck disable=SC3010
+        # shellcheck disable=SC3010,SC3014
         if [[ "${current_provider}" == fips* || "${current_provider}" == symcrypt* ]] \
           && [[ "${line}" =~ ^([\ $'\t']+)status:[\ $'\t']+active ]]; then
           if [ ${#BASH_REMATCH[1]} -gt ${header_indent} ]; then
@@ -835,7 +835,7 @@ testLtsKernel() {
   os_sku=$2
   enable_fips=$3
 
-  # shellcheck disable=SC3010
+  # shellcheck disable=SC3010,SC3014
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
     echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
@@ -850,7 +850,7 @@ testLtsKernel() {
 
     kernel=$(uname -r)
     echo "Current kernel version: $kernel"
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ "$kernel" == *"$expected_kernel"* ]]; then
       echo "Kernel version is as expected ($expected_kernel)."
     else
@@ -1068,7 +1068,7 @@ testCloudInit() {
       echo "Cloud-init log exists. Checking its content..."
       grep 'WARNING\|ERROR' $FILE | while read -r msg; do
         for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
-            # shellcheck disable=SC3010
+            # shellcheck disable=SC3010,SC3014
             if [[ "$msg" == *"$pattern"* ]]; then
                 echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
             else
