@@ -813,27 +813,197 @@ createKubeManifestDir() {
     mkdir -p $KUBEMANIFESTDIR
 }
 
+# Prefer socket activation when the distribution enables it; aliases resolve to Id.
+getSSHActivation() {
+    local unit load_state enabled_state active_state id candidate=""
+    for unit in ssh.socket sshd.socket ssh.service sshd.service; do
+        load_state=$(systemctl show "$unit" --property=LoadState --value) || return 1
+        case "$load_state" in
+            not-found|masked) continue ;;
+            loaded) ;;
+            *) echo "Cannot inspect SSH unit $unit: $load_state" >&2; return 1 ;;
+        esac
+        enabled_state=$(systemctl show "$unit" --property=UnitFileState --value) || return 1
+        if [ "$enabled_state" = enabled ]; then
+            id=$(systemctl show "$unit" --property=Id --value) || return 1
+            printf '%s enabled\n' "$id"
+            return 0
+        fi
+    done
+    for unit in ssh.socket sshd.socket ssh.service sshd.service; do
+        active_state=$(systemctl show "$unit" --property=ActiveState --value) || return 1
+        if [ "$active_state" = active ]; then
+            id=$(systemctl show "$unit" --property=Id --value) || return 1
+            printf '%s disabled\n' "$id"
+            return 0
+        fi
+    done
+    [ "${1:-false}" = true ] || return 0
+    # Legacy stop+disable leaves no enabled or active endpoint. Capture only
+    # an unambiguous unmasked unit, without inventing enabled boot links.
+    for unit in ssh.socket sshd.socket ssh.service sshd.service; do
+        load_state=$(systemctl show "$unit" --property=LoadState --value) || return 1
+        [ "$load_state" = loaded ] || continue
+        id=$(systemctl show "$unit" --property=Id --value) || return 1
+        if [ -n "$candidate" ] && [ "$candidate" != "$id" ]; then
+            return 0
+        fi
+        candidate="$id"
+    done
+    [ -z "$candidate" ] || printf '%s disabled\n' "$candidate"
+}
+
 installSSHDisablePolicy() {
     local policy_dir="${SSH_POLICY_DIR:-/etc/aks/ssh-policy}"
     local unit_dir="${SSH_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
-    local unit dropin content
-    mkdir -p "$policy_dir" && chmod 0700 "$policy_dir" || return 1
+    local unit dropin content result=0
+    mkdir -p "$policy_dir" || return 1
+    chmod 0700 "$policy_dir" || return 1
+    if [ ! -f "$policy_dir/activation" ]; then
+        getSSHActivation true > "$policy_dir/activation.tmp" &&
+            mv "$policy_dir/activation.tmp" "$policy_dir/activation" || return 1
+    fi
     touch "$policy_dir/disabled" || return 1
-    # Package scripts can undo masks. A separate condition also blocks dependency starts.
+    # Unlike disable (or a mask undone by openssh package migration), this
+    # condition also blocks dependency and socket starts after a reboot.
     content="[Unit]
 ConditionPathExists=!$policy_dir/disabled"
     for unit in ssh.socket sshd.socket ssh.service sshd.service; do
         dropin="$unit_dir/$unit.d/90-aks-ssh-access.conf"
         if [ -e "$dropin" ] && [ "$(cat "$dropin")" != "$content" ]; then
             echo "Refusing to overwrite an existing SSH policy: $dropin" >&2
-            return 1
+            result=1
+            continue
         fi
         mkdir -p "$unit_dir/$unit.d" &&
             printf '%s\n' "$content" > "$dropin.tmp" &&
             chmod 0644 "$dropin.tmp" &&
-            mv "$dropin.tmp" "$dropin" || return 1
+            mv "$dropin.tmp" "$dropin" || result=1
     done
-    systemctl daemon-reload
+    systemctl daemon-reload || result=1
+    return "$result"
+}
+
+validateSSHActivation() {
+    local unit="$1" load_state accept triggers service
+    local -a services=()
+    load_state=$(systemctl show "$unit" --property=LoadState --value) || return 1
+    if [ "$load_state" != loaded ]; then
+        echo "Cannot restore SSH: $unit is $load_state; external masks are not removed" >&2
+        return 1
+    fi
+    case "$unit" in
+        *.service) return 0 ;;
+        *.socket)
+            accept=$(systemctl show "$unit" --property=Accept --value) || return 1
+            case "$accept" in
+                yes)
+                    # Inspect a template instance without starting a connection handler.
+                    services=("${unit%.socket}@internal.service")
+                    ;;
+                no)
+                    triggers=$(systemctl show "$unit" --property=Triggers --value) || return 1
+                    read -r -a services <<< "$triggers"
+                    ;;
+                *) echo "Cannot restore SSH: invalid Accept state for $unit: $accept" >&2; return 1 ;;
+            esac
+            ;;
+        *) echo "Cannot restore SSH: unsupported activation unit $unit" >&2; return 1 ;;
+    esac
+    if [ "${#services[@]}" -eq 0 ]; then
+        echo "Cannot restore SSH: no backing service reported for $unit" >&2
+        return 1
+    fi
+    for service in "${services[@]}"; do
+        case "$service" in
+            *.service) validateSSHActivation "$service" || return 1 ;;
+            *) echo "Cannot restore SSH: invalid backing service for $unit: $service" >&2; return 1 ;;
+        esac
+    done
+}
+
+restoreSSH() {
+    local policy_dir="${SSH_POLICY_DIR:-/etc/aks/ssh-policy}"
+    local unit activation load_state id candidate="" owned_policy=false legacy_activation=false
+    [ ! -f "$policy_dir/disabled" ] || owned_policy=true
+    if [ "$owned_policy" = true ] && [ ! -f "$policy_dir/activation" ]; then
+        echo "Cannot restore SSH: the owned activation record is missing" >&2
+        return 1
+    fi
+    # Package upgrades may have migrated service activation to a socket while
+    # our condition kept it blocked. Respect that mode before the saved mode.
+    activation=$(getSSHActivation) || return 1
+    if [ -z "$activation" ] && [ "$owned_policy" = true ]; then
+        activation=$(cat "$policy_dir/activation") || return 1
+    fi
+    # Legacy CSE discarded the original service/socket mode. An explicit enable
+    # may select a unique unmasked service, but never invent the previous mode.
+    if [ -z "$activation" ]; then
+        for unit in ssh.service sshd.service; do
+            load_state=$(systemctl show "$unit" --property=LoadState --value) || return 1
+            case "$load_state" in
+                not-found) continue ;;
+                loaded) ;;
+                *) echo "Cannot restore SSH: $unit is $load_state; external masks are not removed" >&2; return 1 ;;
+            esac
+            id=$(systemctl show "$unit" --property=Id --value) || return 1
+            if [ -n "$candidate" ] && [ "$candidate" != "$id" ]; then
+                echo "Cannot restore SSH: multiple distinct services are installed" >&2
+                return 1
+            fi
+            candidate="$id"
+        done
+        if [ -n "$candidate" ]; then
+            activation="$candidate enabled"
+            legacy_activation=true
+        fi
+    fi
+    read -r unit activation <<< "$activation"
+    case "$unit:$activation" in
+        ssh.service:enabled|sshd.service:enabled|ssh.socket:enabled|sshd.socket:enabled|\
+        ssh.service:disabled|sshd.service:disabled|ssh.socket:disabled|sshd.socket:disabled) ;;
+        *) echo "Cannot restore SSH: no valid saved activation mode" >&2; return 1 ;;
+    esac
+    validateSSHActivation "$unit" || return 1
+    if [ "$owned_policy" = true ] || [ "$legacy_activation" = true ]; then
+        [ "$activation" != enabled ] || systemctl enable "$unit" || return 1
+    fi
+    if [ "$owned_policy" = true ]; then
+        rm -f "$policy_dir/disabled" || return 1
+    fi
+    # Keep the owned drop-ins: without the marker their conditions allow starts.
+    if ! systemctl start "$unit" ||
+        ! systemctl is-active --quiet "$unit"; then
+        if [ "$owned_policy" = true ]; then
+            touch "$policy_dir/disabled" || return 1
+            systemctl stop "$unit" || return 1
+        fi
+        echo "Failed to restore SSH activation through $unit" >&2
+        return 1
+    fi
+    [ "$owned_policy" != true ] || rm -f "$policy_dir/activation"
+}
+
+applySSHPolicy() {
+    local policy_dir="${SSH_POLICY_DIR:-/etc/aks/ssh-policy}"
+    if [ "${DISABLE_SSH:-}" = true ]; then
+        disableSSH
+    elif [ "${DISABLE_PUBKEY_AUTH:-}" = true ]; then
+        logs_to_events "AKS.CSE.disableSSHPubkeyAuth" disableSSHPubkeyAuth
+    elif [ "${SHOULD_RESTORE_SSH:-}" = true ]; then
+        if [ -f "$policy_dir/pubkey-auth" ]; then
+            local pubkey_auth
+            pubkey_auth=$(cat "$policy_dir/pubkey-auth") || return "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+            configureSSHPubkeyAuth "$pubkey_auth" || return "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+            if [ -f "$policy_dir/disabled" ]; then
+                restoreSSH || return "$ERR_DISABLE_SSH"
+            fi
+            reloadSSHAuthentication false || return "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+            rm -f "$policy_dir/pubkey-auth" || return "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+        elif [ -f "$policy_dir/disabled" ]; then
+            restoreSSH || return "$ERR_DISABLE_SSH"
+        fi
+    fi
 }
 
 disableSSH() {
@@ -845,20 +1015,49 @@ disableSSH() {
     installSSHDisablePolicy || { echo "Failed to install persistent SSH disable policy" >&2; result=$ERR_DISABLE_SSH; }
     # Ubuntu uses ssh, Azure Linux uses sshd, and ACL also uses sshd.socket.
     # Close the listening socket first so no new connection is accepted mid-teardown.
-    # Keep going after a failure so a later unit still gets stopped; on ACL the
+    # Keep going after a failure so a later unit still gets disabled, on ACL the
     # socket owns port 22 and skipping it would leave SSH reachable.
+    local load_state active_state
     for unit in ssh.socket sshd.socket ssh sshd; do
-        systemctlStop "$unit" "$attempt_id" || result=$ERR_DISABLE_SSH
+        if ! load_state=$(systemctl show "$unit" --property=LoadState --value); then
+            echo "Failed to inspect SSH unit $unit" >&2
+            result=$ERR_DISABLE_SSH
+            continue
+        fi
+        case "$load_state" in
+            loaded|not-found)
+                systemctlDisableAndStop "$unit" "$attempt_id" || result=$ERR_DISABLE_SSH
+                ;;
+            masked)
+                # A masked unit can still be running. Never remove external masks.
+                systemctl_stop 20 5 25 "$unit" || result=$ERR_DISABLE_SSH
+                ;;
+            *)
+                echo "Cannot disable SSH unit $unit: $load_state" >&2
+                result=$ERR_DISABLE_SSH
+                ;;
+        esac
+        [ "$load_state" != not-found ] || continue
+        active_state=$(systemctl show "$unit" --property=ActiveState --value) || result=$ERR_DISABLE_SSH
+        if [ "$active_state" != inactive ]; then
+            echo "SSH unit $unit is not inactive: $active_state" >&2
+            result=$ERR_DISABLE_SSH
+        fi
     done
     emitSSHDisableEvent "$attempt_id" Completed "" "$start_time" "$result" '{}' ||
         echo "WARNING: SSH disable telemetry failed" >&2
     [ "$result" -eq 0 ] || exit "$result"
 }
 
-disableSSHPubkeyAuth() {
+configureSSHPubkeyAuth() {
+  local desired="$1"
+  case "$desired" in
+    yes|no) ;;
+    *) echo "Invalid SSH public-key authentication policy: $desired" >&2; return 1 ;;
+  esac
   local SSHD_CONFIG="${SSHD_CONFIG_FILE:-/etc/ssh/sshd_config}"
   local TMP
-  TMP="$(mktemp)"
+  TMP="$(mktemp)" || return 1
 
   # AAD SSH extension will append following section to the end of sshd_config,
   # so we need to check the "Match" section, and only update "PubkeyAuthentication" outside of it.
@@ -867,7 +1066,7 @@ disableSSHPubkeyAuth() {
   # PubkeyAuthentication yes
   # AuthorizedKeysCommand /usr/sbin/aad_certhandler %u %k
   # AuthorizedKeysCommandUser root
-  awk -v desired="no" '
+  awk -v desired="$desired" '
     BEGIN { in_match=0; replaced=0; inserted=0 }
     /^Match([[:space:]]|$)/ {
       if (!replaced && !inserted) { print "PubkeyAuthentication " desired; inserted=1 }
@@ -878,24 +1077,64 @@ disableSSHPubkeyAuth() {
     }
     { print }
     END { if (!replaced && !inserted) print "PubkeyAuthentication " desired }
-  ' "$SSHD_CONFIG" > "$TMP"
+  ' "$SSHD_CONFIG" > "$TMP" || { rm -f "$TMP"; return 1; }
 
-  local ssh_service="sshd.service"
-  if systemctl cat ssh.service >/dev/null 2>&1; then
-    ssh_service="ssh.service"
+  # Ubuntu removes this runtime directory when ssh.service stops. Validation
+  # must not start the server merely to recreate its privilege-separation path.
+  install -d -m 0755 -o root -g root /run/sshd || { rm -f "$TMP"; return 1; }
+
+  # Validate syntax and the effective global policy, including Include files.
+  sshd -t -f "$TMP" || { rm -f "$TMP"; return 1; }
+  local effective
+  effective=$(sshd -T -f "$TMP") || { rm -f "$TMP"; return 1; }
+  if [ "$(awk 'tolower($1) == "pubkeyauthentication" { print $2 }' <<< "$effective")" != "$desired" ]; then
+    echo "SSH configuration does not enforce the requested public-key policy" >&2
+    rm -f "$TMP"
+    return 1
   fi
-  systemctl is-active --quiet "$ssh_service" || systemctl start "$ssh_service" || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
-
-  # Validate the candidate config
-  sshd -t -f "$TMP" || { rm -f "$TMP"; exit $ERR_CONFIG_PUBKEY_AUTH_SSH; }
 
   # Replace the original with the candidate (permissions 600, owned by root)
   # Mode 0600 is required by CIS Benchmark control 5.1.1
-  install -m 0600 -o root -g root "$TMP" "$SSHD_CONFIG"
+  install -m 0600 -o root -g root "$TMP" "$SSHD_CONFIG" || { rm -f "$TMP"; return 1; }
   rm -f "$TMP"
+}
 
-  # Reload or restart ssh service
-  systemctl reload-or-restart "$ssh_service" || exit $ERR_CONFIG_PUBKEY_AUTH_SSH
+reloadSSHAuthentication() {
+  local start_if_inactive="${1:-true}"
+  local ssh_service=sshd.service
+  if systemctl cat ssh.service >/dev/null 2>&1; then
+    ssh_service=ssh.service
+  fi
+  if ! systemctl is-active --quiet "$ssh_service"; then
+    [ "$start_if_inactive" != false ] || return 0
+    if ! systemctl is-active --quiet ssh.socket &&
+        ! systemctl is-active --quiet sshd.socket; then
+      systemctl start "$ssh_service" || return 1
+    else
+      return 0
+    fi
+  fi
+  systemctl reload-or-restart "$ssh_service"
+}
+
+disableSSHPubkeyAuth() {
+  local policy_dir="${SSH_POLICY_DIR:-/etc/aks/ssh-policy}"
+  local original
+  mkdir -p "$policy_dir" || exit "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+  chmod 0700 "$policy_dir" || exit "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+  if [ ! -f "$policy_dir/pubkey-auth" ]; then
+    install -d -m 0755 -o root -g root /run/sshd || exit "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+    original=$(sshd -T -f "${SSHD_CONFIG_FILE:-/etc/ssh/sshd_config}") || exit "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+    original=$(awk 'tolower($1) == "pubkeyauthentication" { print $2 }' <<< "$original")
+    case "$original" in
+      yes|no) ;;
+      *) echo "Cannot determine the original SSH public-key policy" >&2; exit "$ERR_CONFIG_PUBKEY_AUTH_SSH" ;;
+    esac
+    printf '%s\n' "$original" > "$policy_dir/pubkey-auth" || exit "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+  fi
+  configureSSHPubkeyAuth no || exit "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+  restoreSSH || exit "$ERR_CONFIG_PUBKEY_AUTH_SSH"
+  reloadSSHAuthentication || exit "$ERR_CONFIG_PUBKEY_AUTH_SSH"
 }
 
 get_compute_sku() {

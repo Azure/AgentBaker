@@ -21,6 +21,32 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func TestBuildCSECmdSSHPolicy(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		enable    *bool
+		pubkeyOff bool
+		disable   string
+		restore   string
+	}{
+		{name: "unspecified", disable: "false", restore: "false"},
+		{name: "disabled", enable: proto.Bool(false), disable: "true", restore: "false"},
+		{name: "explicitly enabled", enable: proto.Bool(true), disable: "false", restore: "true"},
+		{name: "explicit Entra authentication", pubkeyOff: true, disable: "false", restore: "true"},
+		{name: "disabled takes precedence", enable: proto.Bool(false), pubkeyOff: true, disable: "true", restore: "false"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cmd, err := BuildCSECmd(context.Background(), &aksnodeconfigv1.Configuration{
+				EnableSsh: test.enable, DisablePubkeyAuth: proto.Bool(test.pubkeyOff),
+			}, nil)
+			require.NoError(t, err)
+			env := environToMap(cmd.Env)
+			require.Equal(t, test.disable, env["DISABLE_SSH"])
+			require.Equal(t, test.restore, env["SHOULD_RESTORE_SSH"])
+		})
+	}
+}
+
 func TestBuildCSECmdContainerdImagePullSettings(t *testing.T) {
 	for _, version := range []string{"1.7.22", "2.2.4"} {
 		t.Run(version, func(t *testing.T) {

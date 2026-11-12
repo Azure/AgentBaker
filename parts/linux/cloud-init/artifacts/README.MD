@@ -7,10 +7,10 @@ For CA refresh logging and Linux opt-in certificate diagnostics, see
 
 When `DISABLE_SSH=true` and `nodePrep` runs, `disableSSH` emits structured
 guest-agent events. A persistent systemd condition blocks future starts; existing
-listeners are stopped without changing unit enablement. Stop retry parameters and
-missing-unit handling are unchanged. Policy-installation and stop failures surface
-as CSE exit code 172 after every SSH unit has been attempted. A successful stop
-does not have to clear a unit's existing `failed` state.
+listeners are stopped and disabled after their activation policy is recorded.
+Stop retry parameters and missing-unit handling are unchanged. Policy-installation,
+inspection, stop, disable, or inactive-state verification failures surface as CSE
+exit code 172 after every SSH unit has been attempted.
 Telemetry failures remain warnings, not new
 provisioning failures. Other `systemctlDisableAndStop` callers and
 `logs_to_events` keep their existing telemetry behavior.
@@ -18,7 +18,7 @@ provisioning failures. Other `systemctlDisableAndStop` callers and
 | TaskName | Scope |
 | --- | --- |
 | `AKS.CSE.disableSSH` | One `Started` and one `Completed` event per SSH-disable attempt |
-| `AKS.CSE.disableSSH.unit` | `Started` and `Completed` for each unit reached: `ssh.socket`, `sshd.socket`, `ssh`, `sshd` |
+| `AKS.CSE.disableSSH.unit` | `Started` and `Completed` for each unit handled by `systemctlDisableAndStop`: `ssh.socket`, `sshd.socket`, `ssh`, `sshd` |
 
 The event envelope's `Message` is a JSON string, available as `Context1` in
 `GuestAgentGenericLogs`. Parse it with `parse_json(Context1)`.
@@ -31,13 +31,14 @@ The event envelope's `Message` is a JSON string, available as `Context1` in
 | `ExitCode` | Null for starts; 0/1 for completed units; 0/172 for the completed attempt |
 | `CatExitCode`, `Skipped` | Whether the unit was readable; nonzero `systemctl cat` preserves the existing skip behavior |
 | `StopExitCode` | Stop retry-helper result; null when skipped, not the raw systemctl exit code |
-| `DisableExitCode` | Always null for this stop-only SSH path; retained for schema compatibility |
+| `DisableExitCode` | Disable retry-helper result; null when skipped |
 
 The last three rows apply to completed unit events. The envelope's `Timestamp` and
 `OperationId` contain start and emission times. The schema is kept compact to fit
 the custom-data size limit. A skipped unit can be absent or unreadable;
-it is not evidence of a successful stop. Readable masked units are stopped and
-emit per-unit events without removing their masks. Command exit 0 alone does not prove port
+it is not evidence of a successful stop. Externally masked units are stopped without
+removing their masks and emit only the attempt-level events. Other readable units
+emit per-unit events. Command exit 0 alone does not prove port
 22 is closed: inspect the unit states and use the reboot E2E validation for
 listener checks.
 
