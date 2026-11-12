@@ -71,7 +71,7 @@ func TestScriptlessCloudSettings(t *testing.T) {
 		Name: "AKSCustom", RepoDepotEndpoint: "https://repo.example/'$(touch nope)",
 	}
 	config.AKSNodeConfigJSON = `{"cluster_config":{"location":"different"},"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":"different"}}`
-	require.Equal(t, "ANC_CLOUD_SETTINGS_INPUT=nbc\nLOCATION='ussec'\"'\"'o'\nREPO_DEPOT_ENDPOINT='https://repo.example/'\"'\"'$(touch nope)'\n", scriptlessCloudSettings(config))
+	require.Equal(t, "LOCATION='ussec'\"'\"'o'\nREPO_DEPOT_ENDPOINT='https://repo.example/'\"'\"'$(touch nope)'\n", scriptlessCloudSettings(config))
 
 	config.EnableScriptlessAKSNodeConfig = true
 	for _, input := range []string{
@@ -79,10 +79,10 @@ func TestScriptlessCloudSettings(t *testing.T) {
 		`{"clusterConfig":{"location":"usnat"},"customCloudConfig":{"customCloudEnvName":"AKSCUSTOM","repoDepotEndpoint":"https://repo"}}`,
 	} {
 		config.AKSNodeConfigJSON = input
-		require.Equal(t, "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo'\n", scriptlessCloudSettings(config))
+		require.Equal(t, "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo'\n", scriptlessCloudSettings(config))
 	}
 	config.AKSNodeConfigJSON = `{"clusterConfig":{"location":"eastus"},"customCloudConfig":{"customCloudEnvName":"public","repoDepotEndpoint":"ignored"}}`
-	require.Equal(t, "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='eastus'\nREPO_DEPOT_ENDPOINT=''\n", scriptlessCloudSettings(config))
+	require.Equal(t, "LOCATION='eastus'\nREPO_DEPOT_ENDPOINT=''\n", scriptlessCloudSettings(config))
 	for _, input := range []string{
 		`{"cluster_config":{"location":"one"},"clusterConfig":{"location":"two"}}`,
 		`{"cluster_config":{"location":123}}`,
@@ -1429,7 +1429,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 				Expect(provisioningPayload).To(ContainSubstring(aksNodeConfigFilepath))
 				Expect(provisioningPayload).To(ContainSubstring(cloudSettingsFilepath))
 				Expect(provisioningPayload).To(ContainSubstring(getBase64EncodedGzippedCustomScriptFromStr(
-					"ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo'\n")))
+					"LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo'\n")))
 				Expect(provisioningPayload).To(ContainSubstring(getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)))
 				Expect(provisioningPayload).NotTo(ContainSubstring(aksNbcCmdFilepath))
 				Expect(provisioningPayload).NotTo(ContainSubstring("--nbc-cmd"))

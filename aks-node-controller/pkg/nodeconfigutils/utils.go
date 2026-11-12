@@ -162,7 +162,7 @@ func cloudSettings(cfg *aksnodeconfigv1.Configuration) string {
 	if strings.ContainsRune(endpoint, 0) {
 		return "return 1\n"
 	}
-	return "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION=" + shellQuote(location) + "\nREPO_DEPOT_ENDPOINT=" + shellQuote(endpoint) + "\n"
+	return "LOCATION=" + shellQuote(location) + "\nREPO_DEPOT_ENDPOINT=" + shellQuote(endpoint) + "\n"
 }
 
 func cloudSettingsBlock(cfg *aksnodeconfigv1.Configuration) string {

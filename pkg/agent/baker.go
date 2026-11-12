@@ -258,9 +258,7 @@ func aksNodeConfigCloudSettings(data []byte) (string, string, error) {
 func scriptlessCloudSettings(config *datamodel.NodeBootstrappingConfiguration) string {
 	var location, endpoint string
 	var err error
-	input := "nbc"
 	if config.EnableScriptlessAKSNodeConfig {
-		input = "aksnodeconfig"
 		location, endpoint, err = aksNodeConfigCloudSettings([]byte(config.AKSNodeConfigJSON))
 	} else {
 		location = config.ContainerService.Location
@@ -271,7 +269,7 @@ func scriptlessCloudSettings(config *datamodel.NodeBootstrappingConfiguration) s
 	if err != nil || location == "" || strings.ContainsRune(location, 0) || strings.ContainsRune(endpoint, 0) {
 		return "return 1\n"
 	}
-	return "ANC_CLOUD_SETTINGS_INPUT=" + input + "\nLOCATION=" + shellQuote(location) + "\nREPO_DEPOT_ENDPOINT=" + shellQuote(endpoint) + "\n"
+	return "LOCATION=" + shellQuote(location) + "\nREPO_DEPOT_ENDPOINT=" + shellQuote(endpoint) + "\n"
 }
 
 // getScriptlessBoothook builds custom data for scriptless provisioning.
@@ -354,6 +352,8 @@ func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrapp
 func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBootstrappingConfiguration) []encodedFile {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
+	// Duplicate location and RepoDepot in a temporary settings file so the launcher can
+	// initialize the cloud before acquisition without executing NBC or parsing AKSNodeConfig.
 	if config.EnableScriptlessAKSNodeConfig {
 		return []encodedFile{
 			{aksNodeConfigFilepath, getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)},

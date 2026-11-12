@@ -369,7 +369,7 @@ func TestCustomDataFlatcarIncludesCloudSettings(t *testing.T) {
 	require.True(t, ok)
 	settings, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(source, "data:;base64,"))
 	require.NoError(t, err)
-	require.Equal(t, "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo.example'\n", string(settings))
+	require.Equal(t, "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo.example'\n", string(settings))
 }
 
 func TestCloudSettingsBlockEncodesUntrustedValues(t *testing.T) {

@@ -150,7 +150,7 @@ EOF
     It 'initializes cloud before acquisition and hands success to provisioning'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         export ENABLE_PROVISIONING_HOTFIX=true
-        printf "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='usnat test'\nREPO_DEPOT_ENDPOINT='https://repo.example'\n" > "$CLOUD_SETTINGS_PATH"
+        printf "LOCATION='usnat test'\nREPO_DEPOT_ENDPOINT='https://repo.example'\n" > "$CLOUD_SETTINGS_PATH"
         cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
 #!/bin/bash
 printf 'init:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" >> "$TEST_DIR/calls"
@@ -169,21 +169,9 @@ EOF
         The path "$CLOUD_SETTINGS_PATH" should not be exist
     End
 
-    It 'does not acquire using config settings if a preferred NBC command exists'
-        touch "$CONFIG_PATH" "$NBC_CMD_PATH" "$HOTFIX_JSON"
-        printf "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='eastus'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
-        create_recording_aks_node_controller
-
-        When run bash "$SCRIPT"
-        The status should be success
-        The output should include 'Cloud settings do not match the selected provisioning input'
-        calls=$(cat "$TEST_DIR/calls")
-        The variable calls should eq 'provision'
-    End
-
     It 'uses NBC settings when both provisioning inputs exist'
         touch "$CONFIG_PATH" "$NBC_CMD_PATH" "$HOTFIX_JSON"
-        printf "ANC_CLOUD_SETTINGS_INPUT=nbc\nLOCATION='nbc-location'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
+        printf "LOCATION='nbc-location'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
         cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
 #!/bin/bash
 printf 'init:%s\n' "$LOCATION" >> "$TEST_DIR/calls"
@@ -201,7 +189,7 @@ EOF
     It 'skips acquisition and success handoff after early initialization fails'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         export ENABLE_PROVISIONING_HOTFIX=true ANC_CLOUD_INIT_COMPLETE=true
-        printf "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
+        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
         printf '#!/bin/bash\nexit 1\n' > "$INIT_AKS_CLOUD_PATH"
         cat > "$BIN_PATH" <<'EOF'
 #!/bin/bash
@@ -220,7 +208,7 @@ EOF
     It 'uses a staged hotfix after early initialization fails without acquiring another'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         export ENABLE_PROVISIONING_HOTFIX=true
-        printf "ANC_CLOUD_SETTINGS_INPUT=aksnodeconfig\nLOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
+        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
         printf '#!/bin/bash\nexit 1\n' > "$INIT_AKS_CLOUD_PATH"
         hotfix_bin="${BIN_PATH}-hotfix"
         cat > "$BIN_PATH" <<'EOF'

@@ -55,15 +55,6 @@ if [ -f "$CLOUD_SETTINGS_PATH" ]; then
     source "$CLOUD_SETTINGS_PATH" || settings_ok=false
     # These settings are node-specific; never leave them behind for a PIS image to bake in.
     rm -f "$CLOUD_SETTINGS_PATH" || settings_ok=false
-    # Use settings only when they belong to the input ANC will actually provision from.
-    case "${ANC_CLOUD_SETTINGS_INPUT:-}" in
-        nbc) [ -f "$NBC_CMD_PATH" ] || settings_ok=false ;;
-        aksnodeconfig) [ -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ] || settings_ok=false ;;
-        *) settings_ok=false ;;
-    esac
-    if [ "$settings_ok" != true ]; then
-        log "Cloud settings do not match the selected provisioning input"
-    fi
     # Prepare trust and RepoDepot before ANC downloads its hotfix. Mark success only
     # in this process so ANC can skip the duplicate initializer during provisioning.
     if [ "$settings_ok" = true ] && [ -f "$INIT_AKS_CLOUD_PATH" ] &&
