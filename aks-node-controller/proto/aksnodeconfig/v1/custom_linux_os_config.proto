@@ -24,6 +24,9 @@ message CustomLinuxOsConfig {
   // Valid values are "always", "madvise" and "never"
   // If it's unset or set to empty string, it will use the default value in the VHD "madvise"
   string transparent_defrag = 6;
+
+  // Sysfs settings for Linux agent nodes
+  SysfsConfig sysfs_config = 7;
 }
 
 message SysctlConfig {
@@ -73,4 +76,9 @@ message UlimitConfig {
   // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
   optional string no_file = 1;
   optional string max_locked_memory = 2;
+}
+
+message SysfsConfig {
+  // Enable or disable Multi-Gen LRU. If unset, preserve the node image default.
+  optional bool mglru_enabled = 1;
 }
