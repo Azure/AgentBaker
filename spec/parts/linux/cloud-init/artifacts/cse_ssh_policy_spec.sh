@@ -32,14 +32,22 @@ Describe 'persistent SSH disablement'
     AfterEach cleanup
 
     systemctl() {
-        local action="$1" unit="$2" property
+        local action="$1" unit="$2"
         printf '%s\n' "$*" >> "$TEST_ROOT/commands"
         [ "$action" != daemon-reload ] || return 0
         case "$unit" in ssh|sshd) unit="$unit.service" ;; esac
         case "$action" in
-            show) property="${3#--property=}"; cat "$MODEL/$unit.$property" ;;
-            cat) [ "$(cat "$MODEL/$unit.LoadState")" = loaded ] ;;
-            stop) printf inactive > "$MODEL/$unit.ActiveState" ;;
+            cat)
+                case "$(cat "$MODEL/$unit.LoadState")" in
+                    loaded|masked) return 0 ;;
+                    *) return 1 ;;
+                esac
+                ;;
+            stop)
+                # systemctl stop succeeds without clearing an existing failed state.
+                [ "$(cat "$MODEL/$unit.ActiveState")" = failed ] ||
+                    printf inactive > "$MODEL/$unit.ActiveState"
+                ;;
             start)
                 [ "$(cat "$MODEL/$unit.LoadState")" = loaded ] || return 1
                 if [ -f "$SSH_POLICY_DIR/disabled" ] &&
@@ -96,6 +104,19 @@ Describe 'persistent SSH disablement'
         The contents of file "$MODEL/ssh.socket.UnitFileState" should equal enabled
     End
 
+    It 'accepts a successful stop of an already-failed SSH service'
+        stop_failed() {
+            printf loaded > "$MODEL/sshd.service.LoadState"
+            printf failed > "$MODEL/sshd.service.ActiveState"
+            disableSSH
+        }
+        When run stop_failed
+        The status should be success
+        The file "$SSH_POLICY_DIR/disabled" should be exist
+        The contents of file "$MODEL/sshd.service.ActiveState" should equal failed
+        The contents of file "$TEST_ROOT/commands" should include 'stop sshd'
+    End
+
     It 'stops an active masked service without removing its mask'
         stop_masked() {
             printf masked > "$MODEL/sshd.service.LoadState"
@@ -103,11 +124,18 @@ Describe 'persistent SSH disablement'
             printf active > "$MODEL/sshd.service.ActiveState"
             disableSSH
         }
+        masked_stop_event() {
+            jq -se '[.[].Message | fromjson |
+                select(.Unit == "sshd" and .Phase == "Completed")] |
+                length == 1 and .[0].Skipped == false and .[0].StopExitCode == 0' \
+                "$EVENTS_LOGGING_DIR"/*.json
+        }
         When call stop_masked
         The status should be success
         The contents of file "$MODEL/sshd.service.ActiveState" should equal inactive
         The contents of file "$MODEL/sshd.service.UnitFileState" should equal masked
         The contents of file "$TEST_ROOT/commands" should not include 'unmask '
+        The result of function masked_stop_event should equal true
     End
 
     It 'stops listeners but fails rather than overwriting an administrator drop-in'

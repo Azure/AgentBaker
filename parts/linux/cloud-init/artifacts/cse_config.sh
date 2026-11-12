@@ -847,24 +847,8 @@ disableSSH() {
     # Close the listening socket first so no new connection is accepted mid-teardown.
     # Keep going after a failure so a later unit still gets stopped; on ACL the
     # socket owns port 22 and skipping it would leave SSH reachable.
-    local load_state active_state
     for unit in ssh.socket sshd.socket ssh sshd; do
-        if ! load_state=$(systemctl show "$unit" --property=LoadState --value); then
-            echo "Failed to inspect SSH unit $unit" >&2
-            result=$ERR_DISABLE_SSH
-            continue
-        fi
-        case "$load_state" in
-            loaded|not-found) systemctlStop "$unit" "$attempt_id" || result=$ERR_DISABLE_SSH ;;
-            masked) systemctl_stop 20 5 25 "$unit" || result=$ERR_DISABLE_SSH ;;
-            *) echo "Cannot stop SSH unit $unit: $load_state" >&2; result=$ERR_DISABLE_SSH ;;
-        esac
-        [ "$load_state" != not-found ] || continue
-        active_state=$(systemctl show "$unit" --property=ActiveState --value) || result=$ERR_DISABLE_SSH
-        if [ "$active_state" != inactive ]; then
-            echo "SSH unit $unit is not inactive: $active_state" >&2
-            result=$ERR_DISABLE_SSH
-        fi
+        systemctlStop "$unit" "$attempt_id" || result=$ERR_DISABLE_SSH
     done
     emitSSHDisableEvent "$attempt_id" Completed "" "$start_time" "$result" '{}' ||
         echo "WARNING: SSH disable telemetry failed" >&2
