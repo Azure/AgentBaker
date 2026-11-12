@@ -166,10 +166,8 @@ func cloudSettings(cfg *aksnodeconfigv1.Configuration) string {
 }
 
 func cloudSettingsBlock(cfg *aksnodeconfigv1.Configuration) string {
-	return fmt.Sprintf(`cat <<'EOF' >%[1]s
-%[2]sEOF
-chmod 0600 %[1]s
-`, CloudSettingsFilePath, cloudSettings(cfg))
+	encodedSettings := base64.StdEncoding.EncodeToString([]byte(cloudSettings(cfg)))
+	return fmt.Sprintf("printf '%%s' '%s' | base64 -d >%s\nchmod 0600 %s\n", encodedSettings, CloudSettingsFilePath, CloudSettingsFilePath)
 }
 
 func shellQuote(value string) string {
