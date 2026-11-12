@@ -596,7 +596,7 @@ function nodePrep {
     if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         API_SERVER_CONN_RETRIES=34
         API_SERVER_DNS_RETRY_TIMEOUT=300
-        # shellcheck disable=SC3010
+        # shellcheck disable=SC3010,SC3014
         if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
            API_SERVER_CONN_RETRIES=68
            API_SERVER_DNS_RETRY_TIMEOUT=600
@@ -609,7 +609,7 @@ function nodePrep {
         fi
         if [ "$STS" -ne 0 ]; then
             time nslookup ${API_SERVER_NAME}
-            # shellcheck disable=SC3010
+            # shellcheck disable=SC3010,SC3014
             if [[ $RES == *"168.63.129.16"*  ]]; then
                 VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
             else

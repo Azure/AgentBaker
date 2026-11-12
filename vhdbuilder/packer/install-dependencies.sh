@@ -1325,7 +1325,7 @@ EOF
 capture_benchmark "${SCRIPT_NAME}_install_deps_and_set_configs"
 
 if [ "$(isARM64)" -eq 1 ]; then
-  # shellcheck disable=SC3010
+  # shellcheck disable=SC3010,SC3014
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
     exit 1
