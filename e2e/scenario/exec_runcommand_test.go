@@ -20,12 +20,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSSHDisabledAcrossRebootUsesARM(t *testing.T) {
+func TestSSHDisabledAcrossReboot(t *testing.T) {
 	for _, test := range []struct {
 		name                  string
 		invalidBootID         bool
 		unchangedBootID       bool
 		failAfterReboot       bool
+		failRebootSchedule    bool
 		kubeletNotReadyChecks int
 		kubeletNeverReady     bool
 		wantError             string
@@ -34,7 +35,8 @@ func TestSSHDisabledAcrossRebootUsesARM(t *testing.T) {
 	}{
 		{name: "same instance rebooted without SSH", wantRestarts: 1, wantSSHChecks: 2},
 		{name: "invalid boot evidence prevents restart", invalidBootID: true, wantError: "invalid boot ID before", wantSSHChecks: 1},
-		{name: "ARM success without a reboot is rejected", unchangedBootID: true, wantError: "wait for SSH-disabled VM reboot", wantRestarts: 1, wantSSHChecks: 1},
+		{name: "successful scheduling without a reboot is rejected", unchangedBootID: true, wantError: "wait for SSH-disabled VM reboot", wantRestarts: 1, wantSSHChecks: 1},
+		{name: "reboot scheduling failure is reported", failRebootSchedule: true, wantError: "schedule SSH-disabled VM reboot", wantRestarts: 1, wantSSHChecks: 1},
 		{name: "guest validation fails after reboot", failAfterReboot: true, wantError: "RunCommand script failed", wantRestarts: 1, wantSSHChecks: 2},
 		{name: "waits for kubelet to become active", kubeletNotReadyChecks: 2, wantRestarts: 1, wantSSHChecks: 2},
 		{name: "kubelet readiness timeout blocks final SSH validation", kubeletNeverReady: true, wantError: "wait for kubelet to become active after SSH-disabled reboot", wantRestarts: 1, wantSSHChecks: 1},
@@ -46,19 +48,22 @@ func TestSSHDisabledAcrossRebootUsesARM(t *testing.T) {
 			respond := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
 				require.Contains(t, req.URL.Path, "/virtualMachines/0/")
 				switch req.Method {
-				case http.MethodPost:
-					require.True(t, strings.HasSuffix(req.URL.Path, "/restart"))
-					restarts++
-					return gcResponse(req, http.StatusOK, "")
 				case http.MethodPut:
 					var command armcompute.VirtualMachineRunCommand
 					require.NoError(t, json.NewDecoder(req.Body).Decode(&command))
 					script = *command.Properties.Source.Script
+					if script == fmt.Sprintf(rebootSSHDisabledNodeScript, "00000000-0000-4000-8000-000000000001") {
+						restarts++
+					}
 					return gcResponse(req, http.StatusOK, `{"properties":{"provisioningState":"Succeeded"}}`)
 				case http.MethodGet:
 					output := "SUCCESS: SSH units are disabled and stopped"
 					state, exitCode := "Succeeded", 0
 					switch script {
+					case fmt.Sprintf(rebootSSHDisabledNodeScript, "00000000-0000-4000-8000-000000000001"):
+						if test.failRebootSchedule {
+							state, exitCode, output = "Failed", 1, "failed to schedule reboot"
+						}
 					case "cat /proc/sys/kernel/random/boot_id":
 						output = "00000000-0000-4000-8000-000000000001"
 						if test.invalidBootID {
@@ -92,10 +97,8 @@ func TestSSHDisabledAcrossRebootUsesARM(t *testing.T) {
 			options := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{respond}}}
 			runCommands, err := armcompute.NewVirtualMachineScaleSetVMRunCommandsClient("test", nil, options)
 			require.NoError(t, err)
-			vms, err := armcompute.NewVirtualMachineScaleSetVMsClient("test", nil, options)
-			require.NoError(t, err)
 			previousAzure := config.Azure
-			config.Azure = &config.AzureClient{VMSSVMRunCommands: runCommands, VMSSVM: vms}
+			config.Azure = &config.AzureClient{VMSSVMRunCommands: runCommands}
 			t.Cleanup(func() { config.Azure = previousAzure })
 			s := &Scenario{
 				Config: Config{VHD: &config.Image{OS: config.OSUbuntu}, SkipSSHConnectivityValidation: true},
@@ -123,7 +126,7 @@ func TestSSHDisabledAcrossRebootUsesARM(t *testing.T) {
 				if test.kubeletNeverReady {
 					require.ErrorIs(t, err, context.DeadlineExceeded)
 					require.Greater(t, kubeletChecks, 1)
-				} else if !test.invalidBootID && !test.unchangedBootID {
+				} else if !test.invalidBootID && !test.unchangedBootID && !test.failRebootSchedule {
 					require.Equal(t, test.kubeletNotReadyChecks+1, kubeletChecks)
 				}
 			})

@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,27 @@ import (
 	"testing"
 	"time"
 )
+
+func TestSSHRebootScriptDoesNotRebootAgainAfterBoot(t *testing.T) {
+	const before = "00000000-0000-4000-8000-000000000001"
+	for _, current := range []string{before, "00000000-0000-4000-8000-000000000002"} {
+		t.Run(current, func(t *testing.T) {
+			mocks := fmt.Sprintf("cat() { echo %s; }\nsystemd-run() { echo scheduled; }\n", current)
+			command := exec.CommandContext(t.Context(), "bash", "-c", mocks+fmt.Sprintf(rebootSSHDisabledNodeScript, before))
+			output, err := command.CombinedOutput()
+			if err != nil {
+				t.Fatalf("reboot script failed: %v: %s", err, output)
+			}
+			expected := ""
+			if current == before {
+				expected = "scheduled\n"
+			}
+			if string(output) != expected {
+				t.Fatalf("output = %q, want %q", output, expected)
+			}
+		})
+	}
+}
 
 func TestSSHServiceDisabledScript(t *testing.T) {
 	if _, err := exec.LookPath("bash"); err != nil {

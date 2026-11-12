@@ -1,5 +1,13 @@
 package scenario
 
+// Leave time for RunCommand to report and clean up. Its script may be replayed after boot.
+const rebootSSHDisabledNodeScript = `#!/bin/bash
+set -euo pipefail
+if [[ "$(cat /proc/sys/kernel/random/boot_id)" == "%s" ]]; then
+    systemd-run --unit=aks-e2e-ssh-reboot --on-active=2min /usr/bin/systemctl reboot
+fi
+`
+
 const validateSSHServiceDisabledScript = `#!/bin/bash
 set -euo pipefail
 . /etc/os-release

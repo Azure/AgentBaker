@@ -3733,8 +3733,8 @@ func ValidateSSHDisabledAcrossReboot(ctx context.Context, s *Scenario) error {
 	if !bootIDPattern.MatchString(bootID) {
 		return fmt.Errorf("invalid boot ID before SSH-disabled reboot: %q", bootID)
 	}
-	if err := RestartVMSSVM(ctx, s); err != nil {
-		return err
+	if _, err := RunCommand(ctx, s, fmt.Sprintf(rebootSSHDisabledNodeScript, bootID)); err != nil {
+		return fmt.Errorf("schedule SSH-disabled VM reboot: %w", err)
 	}
 	err = wait.PollUntilContextTimeout(ctx, 15*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		after, err := RunCommand(ctx, s, "cat /proc/sys/kernel/random/boot_id")
