@@ -116,8 +116,13 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 		return err
 	}
 
-	logging.Log(ctx, "=== Creating VHD Image ===")
 	bakeScenario.failed = true
+	if original.PISCustomizationScript != nil {
+		if err := original.PISCustomizationScript(ctx, bakeScenario); err != nil {
+			return fmt.Errorf("customize prepared image: %w", err)
+		}
+	}
+	logging.Log(ctx, "=== Creating VHD Image ===")
 	customVHD, err := CreateImage(ctx, bakeScenario)
 	if err != nil {
 		return fmt.Errorf("create VHD image: %w", err)
@@ -1137,6 +1142,10 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 					},
 				},
 				ReplicaCount: to.Ptr[int32](1),
+			},
+			// Temporary scenario images must remain deletable before their end-of-life date.
+			SafetyProfile: &armcompute.GalleryImageVersionSafetyProfile{
+				BlockDeletionBeforeEndOfLife: to.Ptr(false),
 			},
 		},
 	}, nil)

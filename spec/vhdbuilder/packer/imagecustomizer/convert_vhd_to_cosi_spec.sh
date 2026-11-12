@@ -241,8 +241,6 @@ Describe 'COSI artifact names'
     convert_script="$(pwd)/vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh"
     upload_script="$(pwd)/vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh"
     test_dir="$(mktemp -d)"
-    mkdir -p "$test_dir/bin"
-    ln -s /bin/echo "$test_dir/bin/cosi-uploader"
     export CAPTURED_SIG_VERSION=202609.21.0
     export IMAGE_VERSION=202609.21.0
     export DESTINATION_STORAGE_CONTAINER=https://storage.invalid/vhds
@@ -255,16 +253,33 @@ Describe 'COSI artifact names'
     export COSI_CONTAINER=cosi
     export ARCHITECTURE=X86_64
     export MOCK_AZ_TENANT_STATUS=0
+    export MOCK_AZCOPY_UPLOAD_STATUS=0
     unset AZCOPY_TENANT_ID
 
     az() {
-      [ "$*" = 'account show --query tenantId --output tsv' ] || return 1
-      [ "$MOCK_AZ_TENANT_STATUS" = 0 ] || return 1
-      echo mock-tenant
+      case "$*" in
+        'account show --query tenantId --output tsv')
+          [ "$MOCK_AZ_TENANT_STATUS" = 0 ] || return 1
+          echo mock-tenant
+          ;;
+        *) return 1 ;;
+      esac
     }
     # Read the login settings from a child process, as the real azcopy would.
     azcopy() {
-      bash -c 'printf "%s %s %s\n" "${AZCOPY_AUTO_LOGIN_TYPE:-}" "${AZCOPY_TENANT_ID:-}" "$1"' _ "$2" > "$PWD/azcopy-call"
+      case "$2" in
+        https://*)
+          bash -c 'printf "%s %s %s\n" "${AZCOPY_AUTO_LOGIN_TYPE:-}" "${AZCOPY_TENANT_ID:-}" "$1"' _ "$2" > "$PWD/azcopy-call"
+          ;;
+        *)
+          echo "azcopy $*"
+          bash -c 'printf "%s %s %s\n" "${AZCOPY_AUTO_LOGIN_TYPE:-}" "${AZCOPY_TENANT_ID:-}" "${AZCOPY_CONCURRENCY_VALUE:-}"' > "$PWD/azcopy-upload-login"
+          if [ "$MOCK_AZCOPY_UPLOAD_STATUS" != 0 ]; then
+            echo 'Upload failed' >&2
+          fi
+          return "$MOCK_AZCOPY_UPLOAD_STATUS"
+          ;;
+      esac
     }
     docker() {
       if [ "$1" = pull ] && [ "$4" = "$IMG_CUSTOMIZER_CONTAINER" ] && [ "$MOCK_PRIMARY_PULL_FAIL" = 1 ]; then
@@ -288,6 +303,16 @@ Describe 'COSI artifact names'
   run_convert() {
     cd "$test_dir" || return 1
     bash "$convert_script"
+  }
+
+  run_upload() {
+    cd "$test_dir" || return 1
+    bash "$upload_script"
+  }
+
+  check_upload_login() {
+    run_upload >/dev/null || return $?
+    cat azcopy-upload-login
   }
 
   check_vhd_download() {
@@ -407,7 +432,7 @@ Describe 'COSI artifact names'
       When call check_artifact_name
       The status should be success
       The line 1 of output should equal "https://download.invalid/cosi/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
-      The line 2 of output should include "--blob ${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi --file ${test_dir}/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+      The line 3 of output should include "azcopy copy ${test_dir}/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi https://upload.invalid/cosi/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
     End
   End
 
@@ -423,5 +448,67 @@ Describe 'COSI artifact names'
     When run bash "$upload_script"
     The status should be failure
     The output should equal 'SKU_NAME was not set!'
+  End
+
+  It 'uploads through the trusted AFD host with 16 MiB blocks and overwrite enabled'
+    export SKU_NAME=aclgen2TL AFD_UPLOAD_ENDPOINT=https://upload.invalid/
+    touch "$test_dir/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+    When call run_upload
+    The status should be success
+    The line 1 of output should equal "Uploading ${test_dir}/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi to https://upload.invalid/cosi/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+    The line 2 of output should equal "azcopy copy ${test_dir}/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi https://upload.invalid/cosi/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi --from-to LocalBlob --blob-type BlockBlob --block-size-mb 16 --overwrite true --trusted-microsoft-suffixes upload.invalid"
+    The line 3 of output should equal "Successfully uploaded https://upload.invalid/cosi/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+  End
+
+  It 'uses the current CLI tenant and exports login settings to AzCopy'
+    export SKU_NAME=aclgen2TL AZCOPY_TENANT_ID=previous-tenant
+    touch "$test_dir/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+    When call check_upload_login
+    The status should be success
+    The output should equal 'AZCLI mock-tenant 8'
+  End
+
+  It 'stops before uploading when the Azure CLI tenant is unavailable'
+    export SKU_NAME=aclgen2TL MOCK_AZ_TENANT_STATUS=1
+    touch "$test_dir/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+    When call run_upload
+    The status should be failure
+    The output should include 'Unable to read the Azure CLI tenant for the azcopy login'
+    The output should not include 'azcopy copy'
+  End
+
+  Describe 'invalid upload endpoints'
+    Parameters
+      http://upload.invalid
+      'https://*.invalid'
+      'https://upload.invalid;other.invalid'
+      https://upload.invalid/path
+    End
+    It 'rejects endpoints that are not a single HTTPS hostname'
+      export SKU_NAME=aclgen2TL AFD_UPLOAD_ENDPOINT="$1"
+      touch "$test_dir/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+      When call run_upload
+      The status should be failure
+      The output should include 'AFD_UPLOAD_ENDPOINT must be an HTTPS hostname'
+      The output should not include 'azcopy copy'
+    End
+  End
+
+  It 'propagates AzCopy upload failures'
+    export SKU_NAME=aclgen2TL MOCK_AZCOPY_UPLOAD_STATUS=17
+    touch "$test_dir/${SKU_NAME}-${CAPTURED_SIG_VERSION}.cosi"
+    When call run_upload
+    The status should equal 17
+    The output should include 'azcopy copy'
+    The output should not include 'Successfully uploaded'
+    The error should equal 'Upload failed'
+  End
+
+  It 'rejects upload when the staged COSI is missing'
+    export SKU_NAME=aclgen2TL
+    When call run_upload
+    The status should be failure
+    The output should include 'Staged COSI not found'
+    The output should not include 'azcopy copy'
   End
 End

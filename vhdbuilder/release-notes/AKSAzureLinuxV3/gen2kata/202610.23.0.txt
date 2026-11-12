@@ -537,3 +537,11 @@ Ubuntu version:
 Hyperv generation: V2
 Feature flags: kata
 FIPS enabled: false
+
+Historical metadata supplement: the following defaults were verified from this VHD's build records and its consumed UVM build. This documents the existing image; it does not change its contents.
+=== Kata Default Versions Begin
+Applies only to the Azure Linux 3 Gen2 Kata VHD (not standard Azure Linux or Kata-CC). These are the defaults shipped with this VHD.
+Kata host kernel: 6.18.34.mshv3-1.azl3
+Kata UVM kernel: 6.18.52.mshv1-1.azl3
+Kata runtime: 4.1.0.kata1-1.azl3
+=== Kata Default Versions End
