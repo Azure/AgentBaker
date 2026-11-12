@@ -398,17 +398,6 @@ $cpu_pressure_commands"
         systemctl() {
             case "$1" in
                 daemon-reload) [ "$*" != "${FAIL_COMMAND:-}" ] ;;
-                show)
-                    case "$3" in
-                        --property=LoadState)
-                            case " ${MISSING_UNITS:-} " in
-                                *" $2 "*) echo not-found ;;
-                                *) echo loaded ;;
-                            esac ;;
-                        --property=ActiveState) echo inactive ;;
-                        *) return 1 ;;
-                    esac
-                    ;;
                 cat)
                     # MISSING_UNITS simulates a distro where the unit isn't installed.
                     case " ${MISSING_UNITS:-} " in
