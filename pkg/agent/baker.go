@@ -202,7 +202,8 @@ func cloudConfigObject(data json.RawMessage, names ...string) (json.RawMessage, 
 			return nil, tokenErr
 		}
 		var value json.RawMessage
-		if err := decoder.Decode(&value); err != nil {
+		err = decoder.Decode(&value)
+		if err != nil {
 			return nil, err
 		}
 		for _, name := range names {
