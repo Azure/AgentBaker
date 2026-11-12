@@ -31,9 +31,6 @@ os:
     - source: /AgentBaker/vhdbuilder/packer/imagecustomizer/azlosguard/scripts/tool_installs_osguard.sh
       destination: /opt/azure/containers/tool_installs_distro.sh
       permissions: 744
-    - source: /AgentBaker/vhdbuilder/lister/bin/lister
-      destination: /opt/azure/containers/lister
-      permissions: 744
     - source: /AgentBaker/vhdbuilder/packer/list-images.sh
       destination: /opt/azure/containers/list-images.sh
       permissions: 744
@@ -73,6 +70,9 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh
       destination: /opt/azure/containers/aks-node-controller-launcher.sh
       permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh
+      destination: /opt/azure/containers/aks-node-controller-hotfix.sh
+      permissions: 755
     # Fix systemd resolved caching
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/resolv-uplink-override.service
       destination: /etc/systemd/system/resolv-uplink-override.service
@@ -96,6 +96,21 @@ os:
       permissions: 744
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config.sh
       destination: /opt/azure/containers/provision_configs.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_gpu.sh
+      destination: /opt/azure/containers/provision_configs_gpu.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_localdns.sh
+      destination: /opt/azure/containers/provision_configs_localdns.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_kubelet.sh
+      destination: /opt/azure/containers/provision_configs_kubelet.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_network.sh
+      destination: /opt/azure/containers/provision_configs_network.sh
+      permissions: 744
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_config_chrony.sh
+      destination: /opt/azure/containers/provision_configs_chrony.sh
       permissions: 744
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh
       destination: /opt/azure/containers/provision_source.sh
@@ -121,6 +136,9 @@ os:
       permissions: 600
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh
       destination: /opt/azure/containers/validate-kubelet-credentials.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh
+      destination: /opt/azure/containers/remove-bootstrap-kubeconfig.sh
       permissions: 755
     # network lockdown
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/block_wireserver.sh
@@ -182,6 +200,9 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
       destination: /etc/sysctl.d/60-CIS.conf
       permissions: 644
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-mglru.conf
+      destination: /etc/tmpfiles.d/aks-mglru.conf
+      permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/sshd_config
       destination: /etc/ssh/sshd_config
       permissions: 600
@@ -226,7 +247,26 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer
       destination: /etc/systemd/system/cgroup-memory-telemetry.timer
       permissions: 600
+    # cgroup-cpu
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh
+      destination: /opt/scripts/cgroup-cpu-telemetry.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/service-execution-telemetry.sh
+      destination: /opt/scripts/service-execution-telemetry.sh
+      permissions: 755
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/service-execution-telemetry@.service
+      destination: /etc/systemd/system/service-execution-telemetry@.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.service
+      destination: /etc/systemd/system/cgroup-cpu-telemetry.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.timer
+      destination: /etc/systemd/system/cgroup-cpu-telemetry.timer
+      permissions: 600
     # cgroup-pressure
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+      destination: /opt/scripts/cgroup-telemetry-events.sh
+      permissions: 644
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh
       destination: /opt/scripts/cgroup-pressure-telemetry.sh
       permissions: 755
@@ -323,6 +363,15 @@ os:
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-delegate.conf
       destination: /etc/systemd/system/localdns.service.d/delegate.conf
       permissions: 644
+    # localdns pod-DNS fallback. localdns.service carries OnFailure= and an
+    # ExecStartPre= stop for this unit, so omitting it ships a dangling reference
+    # and silently leaves OSGuard nodes with no fallback.
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-fallback.service
+      destination: /etc/systemd/system/localdns-fallback.service
+      permissions: 600
+    - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns-fallback.sh
+      destination: /opt/azure/containers/localdns/localdns-fallback.sh
+      permissions: 755
     # localdns exporter
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/localdns_exporter.sh
       destination: /opt/azure/containers/localdns/localdns_exporter.sh

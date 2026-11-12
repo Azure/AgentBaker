@@ -6,7 +6,88 @@ AKS Node Controller is a go binary that is responsible for bootstrapping AKS nod
 
 AKS Node Controller relies on two Azure mechanisms for injecting the necessary bootstrap data during provisioning: [`Custom Script Extension (CSE)`](https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-linux) and [`Custom Data`](https://learn.microsoft.com/en-us/azure/virtual-machines/custom-data}). The bootstrapper should use `GetNodeBootstrapping` which returns the corresponding `CustomData` and `CSE` based on the given `AKSNodeConfig`. For guidance on populating the config, please refer to this [doc](https://github.com/Azure/AgentBaker/tree/master/aks-node-controller/proto).
 
+### Repository hotfix acquisition telemetry
+
+ANC keeps its local `slog` logs and adds guest-agent events through the existing
+Custom Script Extension events directory and WALA upload infrastructure. No new
+uploader or Azure Monitor Agent is required. Task names use the prefix
+`AKS.AKSNodeController.`:
+
+| Task suffix | Meaning |
+| --- | --- |
+| `RepositoryDownloadRetry` | A second attempt starts for the actual repository file, with the previous attempt's error and elapsed time. |
+| `RepositoryDownloadFallback` | Fast-path acquisition failed; package-manager fallback starts. `reason` is `integrity` or `unavailable`, not a claim of tampering or a network root cause. |
+| `RepositoryDownloadOutcome` | One final outcome after staging: `success` or `failed`, via `fastpath` or `packageManager` (apt/dnf/tdnf). Version-gated skips do not emit acquisition events. |
+
+Messages contain a JSON object followed by the existing EventLogger timing suffix.
+Fields include `target`, `file` (raw download URL, distinguishing packages from
+InRelease/Packages/RPM metadata), `attempt` (the attempt starting), `maxAttempts`,
+`error`, `route`, `outcome`, `reason`, and `durationMs` where applicable. Retry duration
+covers the preceding attempt; fallback duration covers the failed fast path; final
+duration covers the entire acquisition including fallback and staging. Messages stay
+below 3 KiB including timing; strings may be truncated. The `file` field retains the
+raw URL without path extraction or redaction. Error diagnostics retain URLs, with
+query strings and fragments redacted before guest-agent emission.
+
+Unit tests validate local event files only. End-to-end guest-agent/Kusto ingestion has
+not yet been validated and requires a rebuilt VHD containing this ANC binary.
+
 ## Usage
+
+### Phase 3 through AgentBaker
+
+Set `NodeBootstrappingConfiguration.EnableScriptlessAKSNodeConfig = true` and supply
+the serialized AKSNodeConfig in `AKSNodeConfigJSON` when calling `GetNodeBootstrapping`.
+This opt-in mode takes precedence over `EnableScriptlessNBCCSECmd` and
+`EnableScriptlessCSECmd`: AgentBaker never renders or delivers `nbc-cmd.sh`.
+The launcher receives only the config file and invokes ANC with `--provision-config`,
+without NBC execution or Phase 2.5 comparison.
+
+AgentBaker rejects empty, whitespace-only, malformed, or non-object JSON before
+generating artifacts. The caller remains responsible for the AKSNodeConfig schema
+and supported version; the serialized input is passed through unchanged.
+Windows and `PreProvisionOnly` are not supported in this mode.
+
+Existing boothook and Ignition delivery, supporting files, and CSE `provision-wait`
+are retained. `ScriptlessCSEProvisionMode` selects CSE delivery instead of embedding
+the provisioning config in CustomData; the automatic size fallback uses the same
+config-only payload. Leaving the new flag false preserves legacy, Phase 2, and
+Phase 2.5 behavior.
+
+### Validating and normalizing AKSNodeConfig
+
+Before serializing a typed config, producers such as RP should call:
+
+```go
+if err := nodeconfigutils.Validate(config); err != nil {
+    return err
+}
+payload, err := nodeconfigutils.MarshalConfigurationV1(config)
+```
+
+`Validate` checks required fields, then updates the config in place; it is
+idempotent. It validates the
+contract version, transparent-huge-page values, and (when kubelet settings are
+present) Kubernetes version and command-line feature-gate syntax. It removes
+obsolete kubelet flags, normalizes version-dependent feature gates and serving
+certificate rotation, selects the reserved cgroup slices, and removes
+`streamingConnectionIdleTimeout` for Kubernetes 1.34+. Both command-line and
+config-file settings are handled, with command-line enforcement taking precedence.
+This is provisioning-settings validation, not exhaustive validation of every
+AKSNodeConfig field.
+
+ANC invokes `Validate` after decoding `--provision-config` and before
+rendering. Invalid serialized input is rejected; unknown protobuf fields remain
+allowed for forward compatibility. NBC execution is unchanged. Phase 2.5 still
+executes NBC and compares against the normalized AKSNodeConfig path.
+The root AgentBaker module does not depend on ANC.
+
+Phase 2.5 accepts comparison differences for `GPU_IMAGE_SHA`, `SUBNET`
+(`SubnetName`), `ROUTE_TABLE` (`RouteTableName`), and `VM_TYPE`, including variables present
+only in NBC. This suppresses comparison diffs; it does not correct source values
+or change rendering. Variables present only in provision-config are still reported.
+
+### Direct config delivery
 
 Here is an example of how to retrieve node bootstrapping parameters and use the returned `CSE` and `CustomData` for creating a Virtual Machine Scale Set (VMSS) instance via the CRP API.
 
@@ -141,6 +222,8 @@ Key components:
 2. `aks-node-controller` go binary with two modes:
 
 - **provision**: Parses the node configuration and starts the bootstrap sequence.
+    - When `/var/lib/waagent/experimental_skip_ready_report` marks an active readiness handoff, ANC reports provisioning status directly in Go (`goal_state.go`), without a Python script. It writes Hyper-V KVP diagnostics and sends a GoalState health report to Azure wireserver: `Ready` on success, or `NotReady` with `ProvisioningFailed` on failure, including failures before the provisioning command starts. HTTP reporting uses three attempts with five-second retry delays and 30-second request timeouts, without a proxy. KVP and HTTP reporting errors are logged without replacing the original provisioning result, and dry runs do not send reports.
+    - Failure descriptions include the structured CSE JSON emitted by the current command, including `Output` and boot-timing fields. If no matching CSE JSON was emitted, ANC reports its captured `ExitCode`, `Error`, and `Output` instead. WireServer descriptions are limited to 4,096 bytes after XML escaping: oversized output retains its tail and sets `OutputTruncated`; oversized metadata also sets `DetailsTruncated` and falls back to the core result fields. The complete captured output remains in ANC's local logs. Hyper-V KVP diagnostics retain their existing smaller limits.
     - The controller performs a tolerant (forward‑compatible) parse of `aksnodeconfigv1.Configuration`: unknown fields, additional enum values, or future‑version knobs are ignored (and may be logged) so that a newer control‑plane can talk to an older VHD image.
     - If the config cannot be safely interpreted (e.g. unsupported `Version`, malformed required field, or incompatible schema change), the controller fails fast. It writes the sentinel file `provision.complete` early so the `provision-wait` process stops polling and can surface an error instead of hanging indefinitely.
     - In a fail‑fast path the normal bootstrap scripts never run, therefore `provision.json` (which would contain the serialized `CSEStatus`) is never created. A typical error looks like:
@@ -149,3 +232,56 @@ Key components:
         ```
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
+
+### Provisioning script hotfix payloads
+
+Patched ANC binaries can embed selected Linux provisioning scripts generated from
+`parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC writes the
+rendered nodecustomdata matching the local platform to
+`/opt/azure/containers/embedded-nodecustomdata.yml` (mode `0600` on creation)
+and calls the existing `applyNodeCustomData` function before constructing the
+normal CSE command. This file is retained for debugging, separate from the legacy
+`nodecustomdata.yml`. It contains the most recently written payload, including
+when application fails; the `applied embedded hotfix payload` log confirms
+successful application. If no payload is selected, any previously retained file
+is left untouched. Application errors are logged and provisioning continues.
+
+The embedded nodecustomdata coordinator distinguishes these script hotfixes from
+updates to the ANC binary itself. The generated files live under
+`aks-node-controller/generated/` as
+`rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
+hotfixable entries from `nodecustomdata.yml`, then renders only Ubuntu and
+standard Azure Linux variants through AgentBaker's production Go-template
+functions. Azure Linux retains the `mariner` payload filename; the legacy
+`ID=mariner` OS is no longer supported. OS Guard, ACL, and Flatcar are explicitly skipped during embedded
+application, including variants that share the `azurelinux` OS ID. Their
+distro-specific source changes do not trigger payload generation.
+
+The repository keeps a README placeholder so `go:embed` builds without any
+script hotfix payloads. Generation omits any rendered YAML with no `write_files`
+entries (including missing, null, or empty lists) and logs the skipped platform.
+If all platforms are empty, it writes a README placeholder to keep `go:embed` valid.
+This does not add support for non-distro template conditions.
+ANC skips application when the local platform's YAML is absent; no separate
+activation flag is needed. Other payload read errors are logged.
+
+When a PR has no new script hotfix, generation leaves the existing rendered
+payload unchanged. The active ANC version pointer is likewise retained until it
+is retired explicitly.
+
+The existing applier writes entries sequentially and creates missing destination
+files and parent directories. There is no transactional rollback: if an entry
+fails, earlier writes remain. Generation selects by distro only; hotfix authors
+must separately account for non-distro template conditions such as custom-image
+exclusions.
+
+`cse_start.sh` (`provision_start.sh` on the node) is excluded from embedded
+hotfixes to preserve custom-image wrappers. Generation fails explicitly if this
+script differs from the VHD baseline, even when other scripts also changed.
+Wrapper fixes require a new node image until runtime eligibility is available.
+
+Script hotfix delivery is package-only. The existing base-to-version hotfix map
+selects the ANC package for the node's baked `YYYYMM.DD` version base; the package
+contains its corresponding rendered scripts. If the package cannot be installed,
+provisioning fails open to the original VHD scripts. The operational fallback is
+to upgrade the node image.

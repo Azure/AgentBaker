@@ -1,0 +1,1928 @@
+#!/bin/bash
+
+Describe 'cse_config_gpu.sh'
+    CSE_CONFIG_GPU_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_gpu.sh"
+    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
+    CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
+    CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
+    Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
+    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'pullGPUDriverImage'
+        BeforeEach setup_gpu_image_pull
+        setup_gpu_image_pull() {
+            NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-grid"
+            NVIDIA_DRIVER_IMAGE_PULL_REF="$NVIDIA_DRIVER_IMAGE"
+            NVIDIA_DRIVER_IMAGE_TAG="570.237-20260817204535"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
+            ORAS_REGISTRY_CONFIG_FILE="/etc/oras/config.yaml"
+            USER_ASSIGNED_IDENTITY_ID="live-kubelet-client"
+            TENANT_ID="live-node-tenant"
+            MOCK_LOGIN_RESULT=0
+            MOCK_LOGOUT_RESULT=0
+            export MOCK_AUTH_STATE="not-required"
+            export MOCK_CPU_ARCH="amd64"
+            export MOCK_ORAS_RESULT=0 MOCK_TAR_RESULT=0 MOCK_IMPORT_RESULT=0
+            MOCK_RETRY_RESULT=0
+            MOCK_TAG_RESULT=0
+            MOCK_RM_RESULT=0
+            unset CSE_STARTTIME_SECONDS CSE_MAX_DURATION_SECONDS
+            export -f mkdir oras tar ctr getCPUArch
+        }
+
+        mktemp() { echo "/tmp/aks-gpu-driver-test"; }
+        mkdir() { echo "mkdir $*"; }
+        getCPUArch() { echo "$MOCK_CPU_ARCH"; }
+        oras() {
+            echo "oras $*"
+            if [ "$1" = "logout" ]; then
+                if [ "$MOCK_LOGOUT_RESULT" -eq 0 ]; then
+                    export MOCK_AUTH_STATE="anonymous"
+                fi
+                return "$MOCK_LOGOUT_RESULT"
+            fi
+            if [ "$MOCK_AUTH_STATE" = "missing" ] || [ "$MOCK_AUTH_STATE" = "stale-baked" ]; then
+                echo "ORAS copy attempted without fresh node credentials" >&2
+                return 1
+            fi
+            return "$MOCK_ORAS_RESULT"
+        }
+        oras_login_with_kubelet_identity() {
+            echo "refresh_login $*"
+            if [ "$MOCK_LOGIN_RESULT" -ne 0 ]; then
+                return "$MOCK_LOGIN_RESULT"
+            fi
+            export MOCK_AUTH_STATE="live-node"
+        }
+        logs_to_events() { shift; ${@}; }
+        tar() { echo "tar $*"; return "$MOCK_TAR_RESULT"; }
+        rm() { echo "rm $*"; return "$MOCK_RM_RESULT"; }
+        ctr() {
+            echo "ctr $*"
+            case "$3 $4" in
+                "image import") return "$MOCK_IMPORT_RESULT" ;;
+                "image tag") return "${MOCK_TAG_RESULT:-0}" ;;
+                "image rm") return "${MOCK_RM_RESULT:-0}" ;;
+            esac
+        }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $1 $2 $3 $4"
+            shift 3
+            if [ "$MOCK_RETRY_RESULT" -ne 0 ]; then
+                return "$MOCK_RETRY_RESULT"
+            fi
+            "$@"
+        }
+
+        It 'preserves the bounded direct MCR pull when no bootstrap registry is set'
+            When call pullGPUDriverImage
+
+            The status should be success
+            The output should include "retrycmd_if_failure 3 5 120 ctr"
+            The output should include "ctr -n k8s.io image pull mcr.microsoft.com/aks/aks-gpu-grid:570.237-20260817204535"
+            The output should not include "oras"
+            The output should not include "image import"
+            The output should not include "image tag"
+            The output should not include "refresh_login"
+        End
+
+        It 'retags the sovereign MCR pull to the canonical install reference'
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.microsoft.us/aks/aks-gpu-grid"
+
+            When call pullGPUDriverImage
+
+            The status should be success
+            The output should include "ctr -n k8s.io image pull mcr.microsoft.us/aks/aks-gpu-grid:570.237-20260817204535"
+            The output should include "ctr -n k8s.io image tag mcr.microsoft.us/aks/aks-gpu-grid:570.237-20260817204535 mcr.microsoft.com/aks/aks-gpu-grid:570.237-20260817204535"
+            The output should include "ctr -n k8s.io image rm mcr.microsoft.us/aks/aks-gpu-grid:570.237-20260817204535"
+            The output should not include "oras"
+        End
+
+        It 'does not tag an image after a failed direct pull'
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.microsoft.us/aks/aks-gpu-grid"
+            MOCK_RETRY_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should not include "image tag"
+            The output should not include "image rm"
+        End
+
+        It 'does not remove the sovereign reference if canonical tagging fails'
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.microsoft.us/aks/aks-gpu-grid"
+            MOCK_TAG_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "image tag"
+            The output should not include "image rm"
+        End
+
+        Context 'authenticated bootstrap registries'
+            Parameters
+                "grid" "amd64" "myacr.azurecr.io/aks-managed-repository"
+                "grid" "amd64" "myacr.azurecr.io/aks-managed-repository/"
+                "cuda-lts" "arm64" "myacr.azurecr.cn/custom-cache"
+            End
+
+            It "uses authenticated bootstrap acquisition for $1 on $2 with registry $3"
+                NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-$1"
+                NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.microsoft.us/aks/aks-gpu-$1"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="$3"
+                MOCK_CPU_ARCH="$2"
+
+                When call pullGPUDriverImage
+
+                The status should be success
+                The output should include "retrycmd_if_failure 3 5 120 bash"
+                The output should include "oras cp ${3%/}/aks/aks-gpu-$1:570.237-20260817204535 /tmp/aks-gpu-driver-test/layout:570.237-20260817204535"
+                The output should include "--from-registry-config /etc/oras/config.yaml"
+                The output should include "refresh_login ${3%%/*} live-kubelet-client live-node-tenant"
+                The output should include "--platform linux/$2"
+                The output should include "tar -cf /tmp/aks-gpu-driver-test/driver-image.tar -C /tmp/aks-gpu-driver-test/layout ."
+                The output should include "ctr -n k8s.io image import --base-name mcr.microsoft.com/aks/aks-gpu-$1 /tmp/aks-gpu-driver-test/driver-image.tar"
+                The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+                The output should not include "image pull"
+                The output should not include "oras login"
+                The output should not include "image tag"
+            End
+        End
+
+        Context 'PIS nodePrep without basePrep login'
+            Parameters
+                "missing"
+                "stale-baked"
+            End
+
+            It "refreshes $1 credentials from the live node before copying the driver"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                MOCK_AUTH_STATE="$1"
+
+                When call pullGPUDriverImage
+
+                The status should be success
+                The line 1 of output should equal "refresh_login myacr.azurecr.io live-kubelet-client live-node-tenant"
+                The output should include "oras cp myacr.azurecr.io/aks-managed-repository/aks/aks-gpu-grid:"
+                The output should include "ctr -n k8s.io image import"
+                The output should not include "image pull"
+            End
+        End
+
+        Context 'PIS nodePrep with incomplete live identity'
+            Parameters
+                "" "live-node-tenant"
+                "live-kubelet-client" ""
+                "" ""
+            End
+
+            # Exercise the real helper's early return without replacing the caller's retry mock.
+            oras_login_with_kubelet_identity() (
+                . "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                oras_login_with_kubelet_identity "$@"
+            )
+
+            It "clears baked credentials before an anonymous pull with client=$1 tenant=$2"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                USER_ASSIGNED_IDENTITY_ID="$1"
+                TENANT_ID="$2"
+                MOCK_AUTH_STATE="stale-baked"
+
+                When call pullGPUDriverImage
+
+                The status should be success
+                The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+                The output should include "client_id or tenant_id are not set"
+                The output should include "oras cp myacr.azurecr.io/aks-managed-repository/aks/aks-gpu-grid:"
+                The output should include "ctr -n k8s.io image import"
+                The output should not include "image pull"
+            End
+
+            It "does not import or fall back when anonymous access is denied with client=$1 tenant=$2"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                USER_ASSIGNED_IDENTITY_ID="$1"
+                TENANT_ID="$2"
+                MOCK_AUTH_STATE="stale-baked"
+                MOCK_ORAS_RESULT=1
+
+                When call pullGPUDriverImage
+
+                The status should be failure
+                The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+                The output should include "oras cp"
+                The output should not include "image import"
+                The output should not include "image pull"
+            End
+        End
+
+        It 'propagates credential-clearing failure before allowing an identity-free copy'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            USER_ASSIGNED_IDENTITY_ID=""
+            MOCK_AUTH_STATE="stale-baked"
+            MOCK_LOGOUT_RESULT=67
+
+            When call pullGPUDriverImage
+
+            The status should equal 67
+            The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+            The output should not include "refresh_login"
+            The output should not include "retrycmd_if_failure"
+            The output should not include "oras cp"
+            The output should not include "image import"
+            The output should not include "image pull"
+        End
+
+        Context 'live login within the remaining CSE budget'
+            BeforeEach setup_gpu_login_budget
+            AfterEach cleanup_gpu_login_budget
+
+            setup_gpu_login_budget() {
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+                CSE_STARTTIME_SECONDS=$(date +%s)
+                CSE_MAX_DURATION_SECONDS=780
+                GPU_TEST_HELPER_FILE=$(command mktemp)
+                CSE_HELPERS_FILEPATH="$GPU_TEST_HELPER_FILE"
+                export GPU_TEST_LOGIN_DELAY=0 GPU_TEST_LOGIN_STATUS=0
+                cat > "$CSE_HELPERS_FILEPATH" <<'EOF'
+ORAS_REGISTRY_CONFIG_FILE="/fixture-default"
+ARM_RESOURCE_ENDPOINT="/fixture-default"
+oras_login_with_kubelet_identity() {
+    printf 'fixture_login %s %s %s config=%s arm=%s\n' "$1" "$2" "$3" "$ORAS_REGISTRY_CONFIG_FILE" "$ARM_RESOURCE_ENDPOINT"
+    sleep "$GPU_TEST_LOGIN_DELAY"
+    return "$GPU_TEST_LOGIN_STATUS"
+}
+EOF
+            }
+            cleanup_gpu_login_budget() { command rm -f -- "$GPU_TEST_HELPER_FILE"; }
+            retrycmd_if_failure() (
+                . "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                retrycmd_if_failure "$@"
+            )
+
+            It 'does not begin login or staging with no CSE budget remaining'
+                CSE_STARTTIME_SECONDS=$(( $(date +%s) - 3 ))
+                CSE_MAX_DURATION_SECONDS=2
+
+                When call pullGPUDriverImage
+
+                The status should equal 2
+                The stderr should include "CSE timeout"
+                The output should not include "refresh_login"
+                The output should not include "fixture_login"
+                The output should not include "mkdir"
+                The output should not include "oras cp"
+            End
+
+            It 'bounds a blocking login to the two seconds remaining rather than the outer timeout'
+                CSE_MAX_DURATION_SECONDS=2
+                GPU_TEST_LOGIN_DELAY=8
+                verify_login_deadline() {
+                    local started result=0 elapsed
+                    started=$(date +%s)
+                    pullGPUDriverImage || result=$?
+                    elapsed=$(( $(date +%s) - started ))
+                    echo "login_elapsed_seconds=$elapsed"
+                    [ "$result" -ne 0 ] && [ "$elapsed" -le 3 ]
+                }
+
+                When call verify_login_deadline
+
+                The status should be success
+                The stderr should be present
+                The output should include "fixture_login"
+                The output should not include "oras cp"
+                The output should not include "image import"
+                The output should not include "image pull"
+            End
+
+            It 'caps a fresh CSE login at 120 seconds and preserves shared config and sovereign ARM endpoint'
+                ORAS_REGISTRY_CONFIG_FILE="/tmp/live-oras.yaml"
+                ARM_RESOURCE_ENDPOINT="https://management.chinacloudapi.cn/"
+                timeout() { echo "timeout $1"; shift; "$@"; }
+
+                When call pullGPUDriverImage
+
+                The status should be success
+                The line 1 of output should equal "timeout 120"
+                The output should include "fixture_login myacr.azurecr.io live-kubelet-client live-node-tenant config=/tmp/live-oras.yaml arm=https://management.chinacloudapi.cn/"
+                The output should include "oras cp"
+            End
+
+            It 'reports bounded-login failure without attempting image acquisition'
+                GPU_TEST_LOGIN_STATUS=67
+
+                When call pullGPUDriverImage
+
+                The status should be failure
+                The stderr should include "last exit status: 67"
+                The output should include "fixture_login"
+                The output should not include "oras cp"
+                The output should not include "image import"
+                The output should not include "image pull"
+            End
+
+            Context 'anonymous access through the bounded real helper'
+                Parameters
+                    "" "live-node-tenant"
+                    "live-kubelet-client" ""
+                    "" ""
+                End
+
+                It "clears baked credentials with budgeted client=$1 tenant=$2"
+                    CSE_HELPERS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                    USER_ASSIGNED_IDENTITY_ID="$1"
+                    TENANT_ID="$2"
+                    MOCK_AUTH_STATE="stale-baked"
+
+                    When call pullGPUDriverImage
+
+                    The status should be success
+                    The output should include "oras logout myacr.azurecr.io --registry-config /etc/oras/config.yaml"
+                    The output should include "client_id or tenant_id are not set"
+                    The output should include "oras cp"
+                    The output should include "image import"
+                    The output should not include "image pull"
+                End
+            End
+        End
+
+        It 'propagates live identity login failure without staging or copying the driver'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_LOGIN_RESULT=67
+
+            When call pullGPUDriverImage
+
+            The status should equal 67
+            The output should equal "refresh_login myacr.azurecr.io live-kubelet-client live-node-tenant"
+            The output should not include "retrycmd_if_failure"
+            The output should not include "oras cp"
+            The output should not include "image import"
+            The output should not include "image pull"
+        End
+
+        It 'does not import or fall back to public MCR when the authenticated copy fails'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_ORAS_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "oras cp"
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+            The output should not include "tar -cf"
+            The output should not include "image import"
+            The output should not include "image pull"
+        End
+
+        It 'does not import an incomplete archive when tar fails'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_TAR_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "tar -cf"
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+            The output should not include "image import"
+            The output should not include "image pull"
+        End
+
+        It 'reports import failure and removes only the temporary driver layout'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_IMPORT_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "image import"
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+            The output should not include "image pull"
+        End
+
+        It 'honors exhausted CSE budget without attempting the copy or import'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_RETRY_RESULT=2
+
+            When call pullGPUDriverImage
+
+            The status should equal 2
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+            The output should not include "oras cp"
+            The output should not include "image import"
+        End
+
+        It 'reports failure if the temporary staging directory cannot be created'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            mktemp() { return 1; }
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should equal "refresh_login myacr.azurecr.io live-kubelet-client live-node-tenant"
+        End
+
+        It 'reports a staging cleanup failure instead of returning success'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            MOCK_RM_RESULT=1
+
+            When call pullGPUDriverImage
+
+            The status should be failure
+            The output should include "image import"
+            The output should include "rm -rf -- /tmp/aks-gpu-driver-test"
+        End
+    End
+
+    Describe 'GPU driver dispatch'
+        getCPUArch() { echo "$MOCK_CPU_ARCH"; }
+        logs_to_events() {
+            shift
+            eval "$@"
+        }
+        configGPUDrivers() { echo "configGPUDrivers called"; }
+        validateGPUDrivers() { echo "validateGPUDrivers called"; }
+        cleanUpGridNodeCudaPrebake() { :; }
+        systemctlEnableAndStart() { :; }
+        logGPUDriverPrebakeReadiness() { :; }
+
+        Parameters
+            "$AZURELINUX_OS_NAME" "3.0" "" false true  "configGPUDrivers called"   "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" false false "validateGPUDrivers called" "arm64"
+            # arm64 Ubuntu (Grace-Blackwell) is IS_VHD-gated -- covered by the dedicated
+            # "ensureGPUDrivers arm64 GB (Ubuntu VHD) gate" block below (this block sets no IS_VHD).
+            "$AZURELINUX_OS_NAME" "2.0" "" false true "" "arm64"
+            "$AZURELINUX_OS_NAME" "2.0" "" false false "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false true "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false false "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "$ACL_OS_VARIANT" false true "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" true true "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" TRUE false "" "arm64"
+            "$AZURELINUX_OS_NAME" "3.0" "" false true  "configGPUDrivers called"   "amd64"
+            "$AZURELINUX_OS_NAME" "3.0" "" false false "validateGPUDrivers called" "amd64"
+            "$AZURELINUX_OS_NAME" "2.0" "" false true  "configGPUDrivers called"   "amd64"
+            "$AZURELINUX_OS_NAME" "3.0" "$AZURELINUX_OSGUARD_OS_VARIANT" false true "configGPUDrivers called" "amd64"
+            "$AZURELINUX_OS_NAME" "3.0" "" true false "validateGPUDrivers called" "amd64"
+            "$UBUNTU_OS_NAME"     "24.04" "" false true  "configGPUDrivers called"   "amd64"
+            "$UBUNTU_OS_NAME"     "24.04" "" false false "validateGPUDrivers called" "amd64"
+        End
+
+        It "dispatches driver setup for OS=$1 version=$2 variant=$3 fips=$4 install=$5 arch=$7"
+            OS=$1
+            OS_VERSION=$2
+            OS_VARIANT=$3
+            ENABLE_FIPS=$4
+            CONFIG_GPU_DRIVER_IF_NEEDED=$5
+            MOCK_CPU_ARCH=$7
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should equal "$6"
+        End
+    End
+
+    Describe 'ARM64 GPU driver validation'
+        isARM64() { echo 1; }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $*" >&2
+            return 0
+        }
+        which() { return 0; }
+
+        It 'checks modprobe and nvidia-smi'
+            When call validateGPUDrivers
+
+            The status should be success
+            The output should include "gpu driver loaded"
+            The stderr should include "retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0"
+            The stderr should include "retrycmd_if_failure 24 5 30 nvidia-smi"
+        End
+    End
+
+    Describe 'logGPUDriverPrebakeReadiness'
+        It 'reports marker_present=false when no prebake marker exists'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "AKS_GPU_PREBAKE event=managed_gpu"
+            The output should include "marker_present=false"
+            The output should include "driver_kind_match=false"
+        End
+
+        It 'reports marker_present=true driver_kind_match=true when the marker matches the node driver kind'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=true"
+            rm -f "$marker"
+        End
+
+        It 'matches a cuda marker for a cuda-lts (R580 LTS) node: driver-type maps to the aks-gpu driver_kind'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=true"
+            The output should include "driver_type=cuda-lts"
+            rm -f "$marker"
+        End
+
+        It 'reports driver_kind_match=false when a CUDA marker is on a GRID node (not skip-ready)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=false"
+            rm -f "$marker"
+        End
+
+        It 'does not false-positive when the marker lacks driver_kind and the driver type is unset (both empty)'
+            marker="$(mktemp)"
+            printf 'kernel=5.15.0-1114-azure\n' > "$marker"   # no driver_kind= line
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE=""
+            When call logGPUDriverPrebakeReadiness
+            The output should include "marker_present=true"
+            The output should include "driver_kind_match=false"
+            rm -f "$marker"
+        End
+    End
+    Describe 'ensureArtifactStreaming'
+        Include "./parts/linux/cloud-init/artifacts/acl/cse_helpers_acl.sh"
+        # ensureArtifactStreaming runs the version-appropriate enablement path
+        # before enabling the acr-mirror/overlaybd services:
+        #   - acr-mirror 1.0.0+ -> setup.sh aks
+        #   - older packages    -> acr-config --enable-containerd
+        # The enablement binary paths are overridable (ACR_MIRROR_SETUP_SCRIPT /
+        # ACR_CONFIG_BIN), so the stubs live in a temp dir instead of mutating /opt.
+        setup_streaming() {
+            TEST_ACR_DIR="$(mktemp -d)"
+            ACR_MIRROR_SETUP_SCRIPT="${TEST_ACR_DIR}/setup.sh"
+            ACR_CONFIG_BIN="${TEST_ACR_DIR}/acr-config"
+            ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE="${TEST_ACR_DIR}/node-security-profile"
+            ARTIFACT_STREAMING_SECURITYFS_ROOT="${TEST_ACR_DIR}/security"
+            touch "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE"
+            mkdir -p "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies"
+            OS="$UBUNTU_OS_NAME"
+            OS_VARIANT=""
+        }
+        cleanup_streaming() {
+            rm -rf "${TEST_ACR_DIR}"
+        }
+        BeforeEach 'setup_streaming'
+        AfterEach 'cleanup_streaming'
+
+        waitForContainerdReady() {
+            return "${CONTAINERD_READY_RC:-0}"
+        }
+        findmnt() {
+            [ "$*" = "-n -t securityfs --mountpoint ${ARTIFACT_STREAMING_SECURITYFS_ROOT}" ] || return 1
+            return "${FINDMNT_RC:-0}"
+        }
+        systemctl() {
+            if [ "${FAIL_SYSTEMCTL:-}" = "$*" ]; then
+                return 1
+            fi
+            echo "systemctl $@"
+        }
+        installArtifactStreamingSysext() {
+            echo "installArtifactStreamingSysext"
+            return "${SYSEXT_RC:-0}"
+        }
+        retrycmd_if_failure() {
+            echo "retrycmd_if_failure $@"
+            return "${RETRYCMD_RC:-0}"
+        }
+
+        install_setup_sh() {
+            printf '#!/bin/sh\necho "setup.sh $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_MIRROR_SETUP_SCRIPT}"
+            chmod +x "${ACR_MIRROR_SETUP_SCRIPT}"
+        }
+        install_acr_config() {
+            printf '#!/bin/sh\necho "acr-config $@"\nexit %s\n' "${SETUP_RC:-0}" > "${ACR_CONFIG_BIN}"
+            chmod +x "${ACR_CONFIG_BIN}"
+        }
+
+        Describe 'best-effort ACL IPE compatibility'
+            BeforeEach 'install_setup_sh'
+
+            set_cached_profile() {
+                case "$1" in
+                    missing) rm "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE" ;;
+                    unreadable) PROFILE_READ_FAIL=true ;;
+                    *) printf '%s' "$1" > "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE" ;;
+                esac
+            }
+            cat() {
+                if [ "$1" = "$ARTIFACT_STREAMING_SECURITY_PROFILE_CACHE" ] && [ "${PROFILE_READ_FAIL:-false}" = true ]; then
+                    return 1
+                fi
+                command cat "$@"
+            }
+            write_ipe_policy() {
+                mkdir -p "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies/$1"
+                printf '%s\n' "$2" > "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies/$1/active"
+            }
+
+            Describe 'cached intent conflicts'
+                Parameters
+                    "$ACL_OS_NAME" "" "ipe=audit" 0 audit
+                    "$ACL_OS_NAME" "" "selinux=enforcing,ipe=enforcing" 1 enforcing
+                    "$AZURELINUX_OS_NAME" "$ACL_OS_VARIANT" "ipe=audit,selinux=permissive" 1 audit
+                End
+
+                It "rejects '$3' before side effects even with inactive or unavailable kernel state"
+                    OS="$1"
+                    OS_VARIANT="$2"
+                    set_cached_profile "$3"
+                    FINDMNT_RC="$4"
+                    write_ipe_policy "inactive" 0
+
+                    When run ensureArtifactStreaming
+
+                    The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                    The output should be blank
+                    The stderr should include "boot-time tag requests acl-node-security-profile=ipe=$5"
+                    The stderr should include "set ipe=disabled in acl-node-security-profile (preserving other entries)"
+                End
+            End
+
+            Describe 'active kernel policies'
+                Parameters
+                    "ipe=disabled" 0
+                    "ipe=off" 1
+                    missing 0
+                    unreadable 1
+                    "ipe=unknown" 0
+                End
+
+                It "rejects active IPE with cache='$1' and enforce=$2"
+                    OS="$ACL_OS_NAME"
+                    set_cached_profile "$1"
+                    printf '%s\n' "$2" > "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/enforce"
+                    write_ipe_policy "a_inactive" 0
+                    write_ipe_policy ".active" 1
+
+                    When run ensureArtifactStreaming
+
+                    The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                    The output should be blank
+                    The stderr should include "ACL IPE is active and requires EROFS"
+                    The stderr should include "for example, enabled with acl-node-security-profile=ipe=audit"
+                    The stderr should include "set ipe=disabled in acl-node-security-profile (preserving other entries)"
+                End
+            End
+
+            Describe 'available nonconflicting state'
+                Parameters
+                    "ipe=disabled"
+                    "selinux=enforcing,ipe=off"
+                    ""
+                    "selinux=enforcing"
+                    "ipe=off,ipe=audit"
+                End
+
+                It "allows '$1' with loaded but inactive IPE"
+                    OS="$ACL_OS_NAME"
+                    set_cached_profile "$1"
+                    printf '1\n' > "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/enforce"
+                    write_ipe_policy "inactive" 0
+
+                    When run ensureArtifactStreaming
+
+                    The status should be success
+                    The output should include "setup.sh aks"
+                    The stderr should be blank
+                End
+            End
+
+            Describe 'unavailable or unknown sources'
+                Parameters
+                    missing 0 "No cached ACL security profile"
+                    missing 1 "skipping the kernel IPE check"
+                    unreadable 0 "skipping the IPE tag check"
+                    unreadable 1 "skipping the kernel IPE check"
+                    "ipe=disabled" 1 "skipping the kernel IPE check"
+                    "ipe=unknown" 0 "Unrecognized cached IPE mode"
+                End
+
+                It "warns and continues for cache='$1' and kernel lookup status=$2"
+                    OS="$ACL_OS_NAME"
+                    set_cached_profile "$1"
+                    FINDMNT_RC="$2"
+
+                    When run ensureArtifactStreaming
+
+                    The status should be success
+                    The output should include "setup.sh aks"
+                    The stderr should include "WARNING:"
+                    The stderr should include "$3"
+                End
+            End
+
+            It 'warns and continues when policies cannot be enumerated'
+                OS="$ACL_OS_NAME"
+                rmdir "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies"
+
+                When run ensureArtifactStreaming
+
+                The status should be success
+                The output should include "setup.sh aks"
+                The stderr should include "WARNING: Cannot enumerate"
+            End
+
+            It 'allows older kernels without IPE on mounted securityfs'
+                OS="$ACL_OS_NAME"
+                rmdir "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies" "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe"
+
+                When run ensureArtifactStreaming
+
+                The status should be success
+                The output should include "setup.sh aks"
+                The stderr should be blank
+            End
+
+            Describe 'individual policy read failures'
+                Parameters
+                    0 0
+                    1 "$ERR_ARTIFACT_STREAMING_INSTALL"
+                End
+
+                It "continues past unreadable and invalid entries to a later policy with active=$1"
+                    OS="$ACL_OS_NAME"
+                    mkdir -p "${ARTIFACT_STREAMING_SECURITYFS_ROOT}/ipe/policies/a_unreadable"
+                    write_ipe_policy "b_invalid" unexpected
+                    write_ipe_policy ".later" "$1"
+
+                    When run ensureArtifactStreaming
+
+                    The status should equal "$2"
+                    The stderr should include "WARNING: Cannot read"
+                    The stderr should include "WARNING: Invalid IPE policy state"
+                    if [ "$1" = 1 ]; then
+                        The output should be blank
+                        The stderr should include "ACL IPE is active and requires EROFS"
+                    else
+                        The output should include "setup.sh aks"
+                    fi
+                End
+            End
+
+            It 'does not apply ACL checks to Ubuntu'
+                set_cached_profile "ipe=audit"
+                write_ipe_policy "active" 1
+
+                When run ensureArtifactStreaming
+
+                The status should be success
+                The output should include "setup.sh aks"
+                The stderr should be blank
+            End
+
+            Describe 'nodePrep activation on PIS nodes'
+                logs_to_events() {
+                    shift
+                    "$@"
+                }
+                ensureKubelet() { echo "ensureKubelet"; }
+                run_node_prep_streaming() {
+                    eval "$(sed -n '/# Keep ACL sysexts masked during PIS image preparation/,/logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet/p' \
+                        ./parts/linux/cloud-init/artifacts/cse_main.sh)"
+                }
+
+                It 'propagates a detected conflict before kubelet starts'
+                    OS="$ACL_OS_NAME"
+                    ARTIFACT_STREAMING_ENABLED=true
+                    write_ipe_policy "active" 1
+
+                    When run run_node_prep_streaming
+
+                    The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+                    The output should be blank
+                    The stderr should include "ACL IPE is active and requires EROFS"
+                End
+
+                It 'does not reject IPE when streaming is disabled'
+                    OS="$ACL_OS_NAME"
+                    ARTIFACT_STREAMING_ENABLED=false
+                    set_cached_profile "ipe=audit"
+                    write_ipe_policy "active" 1
+
+                    When run run_node_prep_streaming
+
+                    The status should be success
+                    The output should equal "ensureKubelet"
+                    The stderr should be blank
+                End
+            End
+        End
+
+        It 'uses setup.sh aks when acr-mirror 1.0.0+ is installed'
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The line 1 of output should equal "setup.sh aks"
+            The line 2 of output should equal "retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter"
+            The output should not include "Older acr-mirror package"
+            The status should be success
+        End
+
+        It 'falls back to acr-config enablement when setup.sh is absent (older package)'
+            install_acr_config
+            When run ensureArtifactStreaming
+            The output should include "Older acr-mirror package is detected"
+            The line 2 of output should equal "acr-config --enable-containerd azurecr.io"
+            The line 3 of output should equal "retrycmd_if_failure 120 5 25 systemctl --quiet enable --now acr-mirror overlaybd-tcmu overlaybd-snapshotter"
+            The status should be success
+        End
+
+        Describe 'initializes the ACL sysext before unmasking consumers'
+            Parameters
+                "AZURECONTAINERLINUX" ""
+                "AZURELINUX" "AZURECONTAINERLINUX"
+            End
+            It "orders initialization on $1 $2"
+                OS="$1"
+                OS_VARIANT="$2"
+                install_setup_sh
+                When run ensureArtifactStreaming
+                The output should equal "$(cat <<'EXPECTED'
+systemctl mask acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service artifact-streaming-setup.service
+installArtifactStreamingSysext
+systemctl daemon-reload
+systemctl unmask artifact-streaming-setup.service
+systemctl start artifact-streaming-setup.service
+setup.sh aks
+systemctl unmask acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+systemctl enable acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+retrycmd_if_failure 120 5 25 systemctl restart acr-mirror.service overlaybd-tcmu.service overlaybd-snapshotter.service
+systemctl restart containerd
+EXPECTED
+)"
+                The status should be success
+            End
+        End
+
+        It 'materializes a preserved ACL containerd config before configuring ACR'
+            OS="$ACL_OS_NAME"
+            install_setup_sh
+            test() {
+                if [ "$*" = "-L /etc/containerd/config.toml" ]; then
+                    return 0
+                fi
+                builtin test "$@"
+            }
+            readlink() { echo "/usr/share/containerd/config.toml"; }
+            cp() { echo "cp $*"; }
+            When run ensureArtifactStreaming
+            The output should include "cp --remove-destination /usr/share/containerd/config.toml /etc/containerd/config.toml"
+            The output should include "setup.sh aks"
+            The status should be success
+        End
+
+        It 'leaves consumers masked when sysext initialization fails'
+            OS="$ACL_OS_NAME"
+            FAIL_SYSTEMCTL="start artifact-streaming-setup.service"
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should not include "setup.sh aks"
+            The output should not include "systemctl unmask acr-mirror.service"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'leaves consumers masked when ACR configuration fails'
+            OS="$ACL_OS_NAME"
+            export SETUP_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "setup.sh aks"
+            The output should not include "systemctl unmask acr-mirror.service"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'fails before initialization if the sysext cannot be merged'
+            OS="$ACL_OS_NAME"
+            SYSEXT_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should not include "systemctl daemon-reload"
+            The output should not include "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'fails fast when enabling the streaming services fails'
+            RETRYCMD_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should include "retrycmd_if_failure"
+            The line 1 of output should equal "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not configure or start streaming when containerd is not ready'
+            CONTAINERD_READY_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should be blank
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not start streaming services when setup.sh fails'
+            SETUP_RC=1
+            install_setup_sh
+            When run ensureArtifactStreaming
+            The output should equal "setup.sh aks"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+
+        It 'does not start streaming services when legacy acr-config fails'
+            SETUP_RC=1
+            install_acr_config
+            When run ensureArtifactStreaming
+            The output should include "acr-config --enable-containerd azurecr.io"
+            The output should not include "retrycmd_if_failure"
+            The status should equal "$ERR_ARTIFACT_STREAMING_INSTALL"
+        End
+    End
+    Describe 'cleanUpGridNodeCudaPrebake'
+        # Stub the actual removal so tests assert the keep-vs-teardown DECISION without touching the
+        # real filesystem. OS defaults to Ubuntu (the only path this function acts on).
+        OS="$UBUNTU_OS_NAME"
+        # shellcheck disable=SC2329 # invoked dynamically by cleanUpGridNodeCudaPrebake.
+        cleanUpPrebakedGPUDriver() { echo "STUB_TEARDOWN_CALLED"; }
+
+        It 'tears down a cuda prebake before installing a GRID driver (A10/GRID outage path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=cuda"
+            The output should include "node_kind=grid"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'tears down for a grid-v20 node whose driver-type maps to grid'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid-v20"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'treats a legacy marker without driver_kind as a cuda prebake and tears down on a GRID node'
+            marker="$(mktemp)"
+            printf 'kernel=5.15.0-1114-azure\n' > "$marker"   # no driver_kind= line
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should include "action=teardown"
+            The output should include "marker_kind=none"
+            The output should include "STUB_TEARDOWN_CALLED"
+            rm -f "$marker"
+        End
+
+        It 'is a no-op on a CUDA node (leaves the cuda prebake for the version-match/library-bump path)'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="cuda-lts"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when the prebake is already grid (matches the grid node)'
+            marker="$(mktemp)"
+            printf 'driver_kind=grid\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            rm -f "$marker"
+        End
+
+        It 'is a no-op when no prebake marker exists'
+            GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+        End
+
+        It 'is a no-op on a non-Ubuntu OS even when a mismatched marker is present'
+            marker="$(mktemp)"
+            printf 'driver_kind=cuda\n' > "$marker"
+            GPU_DKMS_MARKER_FILE="$marker"
+            OS="MARINER"   # override the Ubuntu default set at the Describe level
+            NVIDIA_GPU_DRIVER_TYPE="grid"
+            When call cleanUpGridNodeCudaPrebake
+            The output should not include "STUB_TEARDOWN_CALLED"
+            The status should be success
+            OS="$UBUNTU_OS_NAME"   # restore for any subsequent examples
+            rm -f "$marker"
+        End
+    End
+    Describe 'configureManagedGPUExperience'
+        # Mock the helper functions
+        logs_to_events() {
+            echo "logs_to_events $*"
+            shift
+            # Match the real wrapper: split arguments, but do not eval shell quotes.
+            ${@}
+        }
+
+        configureNvidiaGPUDriverMode() {
+            echo "configureNvidiaGPUDriverMode mode=${1:-}"
+            return "${MODE_WRITE_STATUS}"
+        }
+
+        installNvidiaManagedExpPkgFromCache() {
+            echo "installNvidiaManagedExpPkgFromCache called"
+            return "${INSTALL_STATUS}"
+        }
+
+        startNvidiaManagedExpServices() {
+            echo "startNvidiaManagedExpServices called"
+            return 0
+        }
+
+        systemctlDisableAndStop() {
+            echo "systemctlDisableAndStop $1"
+            return 0
+        }
+        systemctlDisableStopAndResetFailed() {
+            echo "systemctlDisableStopAndResetFailed $1"
+            return 0
+        }
+
+        addKubeletNodeLabel() {
+            echo "addKubeletNodeLabel $1"
+            if [[ -z "$KUBELET_NODE_LABELS" ]]; then
+                KUBELET_NODE_LABELS="$1"
+            else
+                KUBELET_NODE_LABELS="$KUBELET_NODE_LABELS,$1"
+            fi
+        }
+
+        mkdir() {
+            echo "mkdir $@"
+        }
+
+        touch() {
+            echo "touch $@"
+        }
+
+        rm() {
+            echo "rm $@"
+        }
+
+        setup_managed_gpu() {
+            GPU_NODE=true
+            skip_nvidia_driver_install=false
+            ENABLE_MANAGED_GPU_EXPERIENCE=false
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=false
+            ENABLE_MANAGED_GPU_DRA=false
+            MODE_WRITE_STATUS=0
+            INSTALL_STATUS=0
+            KUBELET_NODE_LABELS=""
+        }
+
+        BeforeEach 'setup_managed_gpu'
+
+        It 'should not enable managed GPU experience if not GPU node'
+            GPU_NODE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'should not enable managed GPU experience when skip_nvidia_driver_install is true'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="true"
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should not include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            The output should not include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'does not write a driver mode when GPU driver installation is skipped'
+            skip_nvidia_driver_install="true"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "systemctlDisableAndStop"
+        End
+
+        It 'should not enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is unspecified'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE=""
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        Describe 'neither managed mode selected'
+            Parameters
+                false false
+                '' ''
+                false ''
+                '' false
+                unset unset
+            End
+
+            It "succeeds without calling the mode writer for DevicePlugin='$1', DRA='$2'"
+                if [ "$1" = unset ]; then
+                    unset ENABLE_MANAGED_GPU_EXPERIENCE
+                else
+                    ENABLE_MANAGED_GPU_EXPERIENCE=$1
+                fi
+                if [ "$2" = unset ]; then
+                    unset ENABLE_MANAGED_GPU_EXPERIENCE_DRA
+                else
+                    ENABLE_MANAGED_GPU_EXPERIENCE_DRA=$2
+                fi
+                MODE_WRITE_STATUS=1
+
+                When call configureManagedGPUExperience
+
+                The status should be success
+                The output should not include "configureNvidiaGPUDriverMode"
+                The output should not include "installNvidiaManagedExpPkgFromCache called"
+                The output should not include "startNvidiaManagedExpServices called"
+            End
+        End
+
+        It 'should enable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is true'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DevicePlugin"
+            The output should include "installNvidiaManagedExpPkgFromCache called"
+            The output should include "startNvidiaManagedExpServices called"
+            The output should include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/dcgm-exporter=enabled'
+            The output should include "mkdir -p /opt/azure/containers"
+            The output should include "touch /opt/azure/containers/managed-gpu-experience.enabled"
+            # device-plugin and DRA flavors are immutable (RP rejects a switch), so compute-domain
+            # is NOT torn down here -- mirrors dra-driver-nvidia-gpu, which also has no cleanup here
+            The output should not include "compute-domain"
+        End
+
+        It 'installs the package and defers service start in DRA mode'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DRA"
+            The line 3 of output should include "AKS.CSE.installNvidiaManagedExpPkgFromCache"
+            The output should include "installNvidiaManagedExpPkgFromCache called"
+            # DRA defers service start (incl the compute-domain override) to startNvidiaManagedExpServices
+            The output should not include "startNvidiaManagedExpServices called"
+            The output should not include "compute-domain"
+        End
+
+        It 'should disable managed GPU experience when ENABLE_MANAGED_GPU_EXPERIENCE is false'
+            GPU_NODE="true"
+            skip_nvidia_driver_install="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should include "systemctlDisableAndStop nvidia-device-plugin"
+            The output should include "systemctlDisableAndStop nvidia-dcgm"
+            The output should include "systemctlDisableAndStop nvidia-dcgm-exporter"
+            # the compute-domain kubelet plugin is torn down here too, mirroring the dra-driver teardown
+            The output should include "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
+            The output should not include "addKubeletNodeLabel kubernetes.azure.com/dcgm-exporter=enabled"
+            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'does not publish DRA from the raw flag when managed DRA is not selected'
+            ENABLE_MANAGED_GPU_DRA="true"
+
+            When call configureManagedGPUExperience
+
+            The status should be success
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should include "rm -f /opt/azure/containers/managed-gpu-experience.enabled"
+        End
+
+        It 'fails without writing a mode when both managed modes are selected'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When run configureManagedGPUExperience
+
+            The status should equal "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
+            The output should not include "configureNvidiaGPUDriverMode"
+            The output should include "cannot both be true"
+            The output should not include "installNvidiaManagedExpPkgFromCache called"
+            The output should not include "startNvidiaManagedExpServices called"
+        End
+
+        Describe 'mode write failures'
+            Parameters
+                true false DRA
+                false true DevicePlugin
+            End
+
+            It "fails before package or service changes when writing $3"
+                ENABLE_MANAGED_GPU_EXPERIENCE_DRA=$1
+                ENABLE_MANAGED_GPU_EXPERIENCE=$2
+                MODE_WRITE_STATUS=1
+
+                When run configureManagedGPUExperience
+
+                The status should equal "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
+                The line 2 of output should equal "configureNvidiaGPUDriverMode mode=$3"
+                The output should not include "installNvidiaManagedExpPkgFromCache called"
+                The output should not include "startNvidiaManagedExpServices called"
+                The output should not include "systemctlDisableAndStop"
+            End
+        End
+
+        It 'publishes the selected DRA mode before a managed package installation failure'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            INSTALL_STATUS=1
+
+            When run configureManagedGPUExperience
+
+            The status should equal "${ERR_NVIDIA_DCGM_INSTALL}"
+            The line 2 of output should equal "configureNvidiaGPUDriverMode mode=DRA"
+            The line 3 of output should include "AKS.CSE.installNvidiaManagedExpPkgFromCache"
+            The output should not include "startNvidiaManagedExpServices called"
+        End
+    End
+    Describe 'startNvidiaManagedExpServices'
+        logs_to_events() {
+            echo "logs_to_events $1"
+            eval "$2"
+        }
+        systemctlEnableAndStart() {
+            echo "systemctlEnableAndStart $@"
+        }
+        systemctlEnableAndStartNoBlock() {
+            echo "systemctlEnableAndStartNoBlock $@"
+        }
+        mkdir() {
+            echo "mkdir $@"
+        }
+        tee() {
+            cat > /dev/null
+            echo "tee $@"
+        }
+        systemctl() {
+            echo "systemctl $@"
+        }
+        systemctlDisableAndStop() {
+            echo "systemctlDisableAndStop $@"
+        }
+        systemctlDisableStopAndResetFailed() {
+            echo "systemctlDisableStopAndResetFailed $@"
+        }
+
+        BeforeEach 'MIG_NODE="false"; ENABLE_MANAGED_GPU_EXPERIENCE="true"; ENABLE_MANAGED_GPU_EXPERIENCE_DRA="false"'
+
+        It 'starts the device-plugin blocking but dcgm and dcgm-exporter off the critical path'
+            When call startNvidiaManagedExpServices
+
+            # device-plugin gates GPU scheduling, so it must stay blocking.
+            The output should include "systemctlEnableAndStart nvidia-device-plugin 30"
+            # dcgm/dcgm-exporter are telemetry only and must not block provisioning.
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
+        End
+
+        It 'does not fail when dcgm telemetry services cannot be enqueued'
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                return 1
+            }
+
+            When call startNvidiaManagedExpServices
+
+            The status should be success
+            The output should include "warning: nvidia-dcgm could not be enqueued"
+            The output should include "warning: nvidia-dcgm-exporter could not be enqueued"
+        End
+
+        It 'starts the DRA driver blocking but dcgm and dcgm-exporter off the critical path in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call startNvidiaManagedExpServices
+
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm 30"
+            The output should include "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30"
+            The output should not include "systemctlEnableAndStart nvidia-device-plugin 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm 30"
+            The output should not include "systemctlEnableAndStart nvidia-dcgm-exporter 30"
+        End
+
+        It 'overrides and starts the compute-domain kubelet plugin on arm64 (GB) in DRA mode'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="gbnode0"
+            CD_CONF=$(mktemp)
+            tee() { cat >> "$CD_CONF"; echo "tee $1"; }
+
+            When call startNvidiaManagedExpServices
+
+            # the gpu-kubelet-plugin still comes up for all DRA nodes
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # we override the deb's vendor unit in place (same pattern as dra-driver) and start it
+            The output should include "mkdir -p /etc/systemd/system/compute-domain-kubelet-plugin.service.d"
+            # clear any start-limit/failed state from the vendor unit's crash-loop before enqueueing --
+            # the non-blocking start can't observe/retry an async start-limit failure
+            The output should include "systemctl reset-failed compute-domain-kubelet-plugin"
+            # off the critical path -- enqueue (non-blocking) so a persistently-failing optional unit
+            # can't consume the CSE provisioning budget via the blocking 100x/5s restart retry
+            The output should include "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30"
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
+            # the override targets the controller extension's pinned namespace + this node, and resets ExecStart
+            The contents of file "$CD_CONF" should include "ExecStart="
+            The contents of file "$CD_CONF" should include "--namespace kube-system"
+            The contents of file "$CD_CONF" should include "--node-name=gbnode0"
+            The contents of file "$CD_CONF" should include 'NVIDIA_VISIBLE_DEVICES=void'
+        End
+
+        It 'lowercases --node-name for both DRA plugins when the VMSS hostname is uppercase'
+            # Azure sets the VMSS computer name (hostname) uppercased for base-36 instance
+            # suffixes with a letter (instance index >= 10, e.g. instance 19 -> ...vmss00000J),
+            # but kubelet registers the Node lowercased (RFC-1123) and authenticates as
+            # system:node:<lowercase>. The ResourceSlice NodeRestriction authorizer only lets a
+            # node publish slices whose spec.nodeName matches its own (lowercase) name, so both
+            # kubelet-plugins must receive the lowercased --node-name. Guards the regression:
+            # with an uppercase NODE_NAME this fails unless the normalization is present.
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="aks-gb300-28447045-vmss00000J"
+            CD_CONF=$(mktemp)
+            tee() { cat >> "$CD_CONF"; echo "tee $1"; }
+
+            When call startNvidiaManagedExpServices
+
+            # the gpu-kubelet-plugin (dra-driver) service still comes up for all DRA nodes
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # both plugin overrides are generated
+            The contents of file "$CD_CONF" should include "/usr/bin/gpu-kubelet-plugin"
+            The contents of file "$CD_CONF" should include "/usr/bin/compute-domain-kubelet-plugin"
+            # both receive the lowercased node name, and the uppercase form never leaks through
+            The contents of file "$CD_CONF" should include "--node-name=aks-gb300-28447045-vmss00000j"
+            The contents of file "$CD_CONF" should not include "vmss00000J"
+        End
+
+        It 'does not block provisioning when the compute-domain plugin cannot be enqueued (arm64)'
+            # Command-failure path: the optional compute-domain start fails on every attempt. It must
+            # stay off the critical path -- using the non-blocking enqueue (not the blocking
+            # systemctlEnableAndStart whose restart retries 100x/5s with no CSE-budget check) and
+            # treating the failure as non-fatal, so it cannot consume the provisioning window.
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 1; }
+            NODE_NAME="gbnode0"
+            tee() { cat > /dev/null; echo "tee $1"; }
+            # only the optional compute-domain start fails; required services still succeed
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $@"
+                case "$1" in compute-domain-kubelet-plugin) return 1 ;; esac
+            }
+
+            When call startNvidiaManagedExpServices
+
+            The status should be success
+            The output should include "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30"
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin 30"
+            The output should include "warning: compute-domain-kubelet-plugin could not be enqueued"
+        End
+
+        It 'stops the vendor compute-domain plugin on non-arm64 DRA nodes (GB-only)'
+            ENABLE_MANAGED_GPU_EXPERIENCE="false"
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+            isARM64() { echo 0; }
+
+            When call startNvidiaManagedExpServices
+
+            The output should include "systemctlEnableAndStart dra-driver-nvidia-gpu 30"
+            # the 0.5.0 deb auto-starts an args-less vendor unit on x86 too -- stop it (compute-domain is GB-only)
+            The output should include "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
+            # but we do not configure or start our override on non-arm64
+            The output should not include "systemctlEnableAndStart compute-domain-kubelet-plugin"
+            The output should not include "compute-domain-kubelet-plugin.service.d"
+        End
+    End
+    Describe 'nvidia-cdi-refresh handling'
+        setup_cdi_dropin() {
+            CDI_TEST_DIR=$(mktemp -d)
+            NVIDIA_CDI_REFRESH_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+            # The timeout override is a separate, higher-sorted drop-in so it beats the toolkit's own
+            # 10-container-engines.conf (TimeoutStartSec=90s) in systemd's lexical drop-in merge.
+            NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN="${CDI_TEST_DIR}/nvidia-cdi-refresh.service.d/90-aks-cdi-refresh-timeout.conf"
+        }
+        cleanup_cdi_dropin() {
+            rm -rf "${CDI_TEST_DIR}"
+        }
+        BeforeEach 'setup_cdi_dropin'
+        AfterEach 'cleanup_cdi_dropin'
+
+        Describe 'configureNvidiaCDIRefresh'
+            getCPUArch() { echo "${MOCK_CPU_ARCH:-arm64}"; }
+
+            It 'treats the known nvidia-ctk failures as success and reloads systemd'
+                systemctl() { echo "systemctl $*"; return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The output should include "systemctl daemon-reload"
+                # 1 = MIG mode enabled with no MIG instances, 2 = nvidia-ctk panic before the
+                # driver userspace is ready, 127 = nvidia-smi missing on pre-reorder aks-gpu images.
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "[Service]"
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+            End
+
+            It 'writes the timeout override to a 90- drop-in on arm64 (must out-sort toolkit 10-container-engines.conf)'
+                MOCK_CPU_ARCH="arm64"
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                # The 90- prefix is load-bearing: systemd merges drop-ins in lexical order (last wins),
+                # and the toolkit's own 10-container-engines.conf pins TimeoutStartSec=90s. A 10-aks-*
+                # name sorts before it and loses, so the override must sort after it.
+                The path "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should be file
+                The contents of file "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should include "TimeoutStartSec=300"
+                # the tolerate-failure drop-in stays free of the timeout (separation keeps ordering clear)
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "TimeoutStartSec"
+            End
+
+            It 'writes the 300-second timeout override on amd64, including multi-GPU A100 nodes'
+                MOCK_CPU_ARCH="amd64"
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+                The contents of file "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should include "TimeoutStartSec=300"
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "TimeoutStartSec"
+            End
+
+            It 'preserves an explicit timeout override on amd64'
+                MOCK_CPU_ARCH="amd64"
+                NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC=600
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The contents of file "${NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN}" should include "TimeoutStartSec=600"
+            End
+
+            It 'keeps the units restartable so the .path trigger can still refresh the spec'
+                systemctl() { return 0; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                # Overriding Restart= or the start limit would suppress the toolkit's own retry and
+                # its path-triggered refresh, which is what eventually generates a valid spec once
+                # the driver is fully installed.
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "Restart="
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "StartLimit"
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should not include "ExecCondition"
+            End
+
+            It 'still installs the drop-in when systemd cannot be reloaded'
+                # Drop-ins are read when the unit is first loaded, which happens after the toolkit
+                # post-install runs its own daemon-reload, so this reload is only belt and braces.
+                systemctl() { return 1; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be success
+                The contents of file "${NVIDIA_CDI_REFRESH_DROP_IN}" should include "SuccessExitStatus=1 2 127"
+            End
+
+            It 'fails when the drop-in directory cannot be created'
+                systemctl() { return 0; }
+                mkdir() { return 1; }
+
+                When call configureNvidiaCDIRefresh
+
+                The status should be failure
+            End
+        End
+    End
+    Describe 'configGPUDrivers'
+        # Assert the per-step CSE timing event names emitted via logs_to_events,
+        # without running the real (hardware/daemon) driver steps. logs_to_events
+        # is mocked to print only the event name so the wrapped commands never run.
+        logs_to_events() {
+            echo "logs_to_events $1"
+        }
+        waitForContainerdReady() { return 0; }
+        retrycmd_if_failure() { return 0; }
+        ctr() { return 0; }
+        mkdir() { return 0; }
+        enableNvidiaPersistenceMode() { return 0; }
+        createNvidiaSymlinkToAllDeviceNodes() { return 0; }
+        systemctlEnableAndStart() { return 0; }
+        systemctl() { return 0; }
+        configureNvidiaCDIRefresh() { return 0; }
+
+        UBUNTU_OS_NAME="UBUNTU"
+        NVIDIA_DRIVER_IMAGE="mcr.example/nvidia/driver"
+        NVIDIA_DRIVER_IMAGE_TAG="000.00"
+        NVIDIA_GPU_DRIVER_TYPE="cuda"
+        OS_VARIANT=""
+        ERR_GPU_DRIVERS_START_FAIL=88
+
+        It 'times the image pull and install steps on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.pullGPUDriverImage"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverImage"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.configureNvidiaCDIRefresh"
+        End
+
+        It 'installs the CDI refresh drop-in before the driver install runs on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            # eval so the string-form wrapped commands (e.g. "retrycmd_if_failure ... nvidia-smi")
+            # resolve to their mocks instead of being treated as one command name.
+            logs_to_events() { shift; eval "$@"; }
+            NVIDIA_DRIVER_IMAGE_PULL_REF="mcr.example/nvidia/driver"
+            configureNvidiaCDIRefresh() { echo "CONFIGURE_RAN"; return 0; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            # The toolkit starts nvidia-cdi-refresh from inside the install container, so the
+            # drop-in must already be on disk by then.
+            The line 1 of output should equal "CONFIGURE_RAN"
+            The output should include "INSTALL_RAN"
+        End
+
+        It 'exits without installing the driver when the CDI drop-in cannot be installed'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            logs_to_events() { shift; eval "$@"; }
+            configureNvidiaCDIRefresh() { return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should not include "INSTALL_RAN"
+        End
+
+        It 'exits at the cache-miss pull step and skips install when the pull fails on Ubuntu'
+            OS="UBUNTU"
+            isMarinerOrAzureLinux() { return 1; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+            # Run the wrapped command so pullGPUDriverImage's failure propagates through the guard;
+            # the default logs_to_events mock only echoes the event name and never runs the command.
+            logs_to_events() { shift; "$@"; }
+            # ctr images ls returns empty -> cache miss -> pull path taken. The pull fails; install
+            # would otherwise succeed, so a missing guard would let INSTALL_RAN leak into the output.
+            pullGPUDriverImage() { return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should not include "INSTALL_RAN"
+        End
+
+        It 'does not acquire a driver image when the canonical reference is already cached'
+            OS="UBUNTU"
+            logs_to_events() { shift; eval "$@"; }
+            ctr() {
+                if [ "$3 $4" = "images ls" ]; then
+                    echo "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+                fi
+            }
+            pullGPUDriverImage() { echo "PULL_RAN"; return 1; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "INSTALL_RAN"
+            The output should not include "PULL_RAN"
+        End
+
+        It 'exits with the GPU driver failure code when refreshing live ACR login fails'
+            OS="UBUNTU"
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myacr.azurecr.io/aks-managed-repository"
+            USER_ASSIGNED_IDENTITY_ID="live-kubelet-client"
+            TENANT_ID="live-node-tenant"
+            logs_to_events() { shift; eval "$@"; }
+            oras_login_with_kubelet_identity() { echo "LOGIN_FAILED"; return 67; }
+            installGPUDriverImage() { echo "INSTALL_RAN"; return 0; }
+
+            When run configGPUDrivers
+
+            The status should equal 88
+            The output should include "LOGIN_FAILED"
+            The output should not include "INSTALL_RAN"
+        End
+
+        It 'times the driver download and toolkit install on Mariner/AzureLinux'
+            OS="AZURELINUX"
+            isMarinerOrAzureLinux() { return 0; }
+            isAzureLinuxOSGuard() { return 1; }
+            isACL() { return 1; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.downloadGPUDrivers"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installNvidiaContainerToolkit"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+
+        It 'times the sysext pulls on Azure Container Linux (ACL)'
+            OS="AZURELINUX"
+            OS_VARIANT="acl"
+            isMarinerOrAzureLinux() { return 0; }
+            isAzureLinuxOSGuard() { return 0; }
+            isACL() { return 0; }
+
+            When call configGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installNvidiaContainerToolkitSysext"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.installGPUDriverSysext"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaModprobe"
+            The output should include "logs_to_events AKS.CSE.configGPUDrivers.waitForNvidiaSmi"
+        End
+    End
+    Describe 'ensureGPUDrivers arm64 gate'
+        # ensureGPUDrivers no-ops on arm64 EXCEPT for Ubuntu with the managed driver install
+        # requested (CONFIG_GPU_DRIVER_IF_NEEDED=true) -- the Grace-Blackwell (GB200/GB300) path.
+        # RP collapses both --gpu-driver Install and the managed GPU experience into that flag.
+        # logs_to_events is mocked to print only the event name, so the branch targets never run;
+        # the tests assert the DISPATCH decision (configGPUDrivers vs validateGPUDrivers vs return).
+        logs_to_events() { echo "logs_to_events $1"; }
+        # observability-only; called directly at the end on Ubuntu -- silence it.
+        logGPUDriverPrebakeReadiness() { :; }
+        UBUNTU_OS_NAME="UBUNTU"
+        ERR_GPU_DRIVERS_START_FAIL=88
+        # default to an AKS-managed VHD; the BYOI example overrides this.
+        BeforeEach 'IS_VHD="true"'
+
+        It 'installs on an AKS-managed arm64 Ubuntu VHD when the managed install is requested (GB200/GB300)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            IS_VHD="true"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+            # GB nodes now fall into the full Ubuntu install sequence, not just the dispatch:
+            # the prebake cleanup runs before, and nvidia-modprobe is enabled after.
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake"
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.nvidia-modprobe"
+        End
+
+        It 'skips on arm64 Ubuntu when IS_VHD is empty/unset (fail-safe: do not install without a confirmed AKS VHD)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            IS_VHD=""
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'skips on a BYOI/custom arm64 image (IS_VHD=false) to preserve a customer-baked driver (MAI dedicated GB VHD)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+            # UseCustomizedOSImage header -> Distro=CustomizedImage -> IsVHDDistro()=false -> IS_VHD=false.
+            IS_VHD="false"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'no-ops on arm64 Ubuntu when driver install is not requested (BYOI / --gpu-driver none)'
+            getCPUArch() { echo "arm64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            # early return: neither the prebake cleanup nor either driver dispatch is reached.
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.cleanUpGridNodeCudaPrebake"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+        End
+
+        It 'no-ops on non-Ubuntu arm64 even when driver install is requested (no arm64 GPU path there)'
+            getCPUArch() { echo "arm64"; }
+            OS="MARINER"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+
+            When call ensureGPUDrivers
+
+            The status should be success
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+
+        It 'is unaffected on x86 Ubuntu: installs when driver install is requested'
+            getCPUArch() { echo "amd64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="true"
+
+            When call ensureGPUDrivers
+
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+
+        It 'is unaffected on x86 Ubuntu: validates (not installs) when driver install is off (prebaked VHD path)'
+            getCPUArch() { echo "amd64"; }
+            OS="UBUNTU"
+            CONFIG_GPU_DRIVER_IF_NEEDED="false"
+
+            When call ensureGPUDrivers
+
+            The output should include "logs_to_events AKS.CSE.ensureGPUDrivers.validateGPUDrivers"
+            The output should not include "logs_to_events AKS.CSE.ensureGPUDrivers.configGPUDrivers"
+        End
+    End
+    Describe 'managedGPUPackageList on Ubuntu'
+        Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+
+        BeforeEach 'setup'
+        setup() {
+            ENABLE_MANAGED_GPU_EXPERIENCE=""
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA=""
+        }
+
+        It 'returns base managed GPU packages by default'
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should equal 'datacenter-gpu-manager-4-core datacenter-gpu-manager-4-proprietary dcgm-exporter'
+            The output should not include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes nvidia-device-plugin when managed GPU experience is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'nvidia-device-plugin'
+            The output should not include 'dra-driver-nvidia-gpu'
+        End
+
+        It 'includes dra-driver-nvidia-gpu when DRA mode is enabled'
+            ENABLE_MANAGED_GPU_EXPERIENCE_DRA="true"
+
+            When call managedGPUPackageList
+
+            The status should be success
+            The output should include 'datacenter-gpu-manager-4-core'
+            The output should include 'datacenter-gpu-manager-4-proprietary'
+            The output should include 'dcgm-exporter'
+            The output should include 'dra-driver-nvidia-gpu'
+            The output should not include 'nvidia-device-plugin'
+        End
+    End
+    Describe "setupAmdAma"
+
+        uname() {
+            echo "6.6.139.1-1.azl3"
+        }
+
+        find() {
+            echo -n "1"
+        }
+
+        dnf_install() {
+            return 0
+        }
+
+        dnf_install_amd_ama_core_package() {
+            return 0
+        }
+
+        systemctl() {
+            return 0
+        }
+
+        sh() {
+            return 0
+        }
+
+        BeforeEach 'OS=AZURELINUX'
+
+        It "selects the newest matching AMD AMA driver package"
+            dnf() {
+                cat <<EOF
+amd-ama-driver-0:1.4.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+amd-ama-driver-0:1.4.1_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm
+EOF
+            }
+
+            When call setupAmdAma
+
+            The status should be success
+            The variable AMD_AMA_DRIVER_PACKAGE should equal \
+                "amd-ama-driver-0:1.5.0_20260424092403-1_6.6.139.1.1.azl3.x86_64.rpm"
+            The variable AMD_AMA_DRIVER_VERSION should equal "1.5.0"
+        End
+    End
+End

@@ -16,33 +16,312 @@ From a high-level, for each scenario,
 3. Liveness and health checks and then run to make sure the new VM's kubelet is posting NodeReady, and that workload
    pods can successfully be scheduled and run on the new node.
 
-To write an E2E scenario,
+Windows VHD-caching scenarios retain SSH access during the bake when enabled:
+`BasePrep` installs and configures OpenSSH. When the bundled `Install-OpenSSH`
+function supports the `Enabled` parameter, `NodePrep` reapplies the current policy
+and keys, including on cached images. Only Windows scenarios that explicitly
+skip SSH connectivity validation use VMSS RunCommand for guest checks in both
+the bake and real-node stages. Linux behavior is unchanged.
+OpenSSH remains stopped and disabled while the live authorized keys and ACLs are
+prepared; provisioning only re-enables it after those steps succeed.
+The shared `Install-OpenSSH` implementation ships only in the versioned Windows
+CSE bundle, not in CustomData. Older bundles retain their existing SSH behavior
+and require an updated CSE bundle or VHD to receive this fix.
 
-- Choose a test cluster. The cluster definitions are in [cache.go](scenario/cache.go).
-    - ClusterKubenet
-    - ClusterAzureNetwork
-    - ClusterAzureOverlayNetwork
-    - ClusterAzureOverlayNetworkDualStack
-    - ClusterCiliumNetwork
-    - ClusterLatestKubernetesVersion
-    - ClusterAzureBootstrapProfileCache (private ACR)
-    - ClusterAzureNetworkIsolated (no internet access)
-- use `NodeBootstrappingConfiugration` (`nbc`) to setup your scenario. it is used to invoke the primary
-  node-bootstrapping
-  API [GetLatestNodeBootstrapping](https://github.com/Azure/AgentBaker/blob/2e730b5a498c5be9b082d912fd08ac9346582db9/pkg/agent/bakerapi.go#L14).
-  to modify agentpool properties, usually you need to set both`nbc.containerService.properties.AgentPoolProfiles[0].xxx`
-  as well as `nbc.agentPoolProfile`. It is because when RP invokes AgentBaker, it will set the properties in this way
-  and in e2e we follow the pattern.
-- use `VMConfigMutator` to set VMSS properties such as SKU when needed.
-  Read [vmss.go](scenario/vmss.go) for other configuration values.
-  it is necessary to set `nbc.agentPoolProfile.VMSize` to match the VMSS SKU if you choose to change.
-- use `Validator` to include your own verification of the VM's live state, such as file existsnce, sysctl settings, etc.
+## Writing and extending scenarios
+
+Extend an existing scenario's `Validator` when its node has the required settings.
+Each separate scenario creates test VM resources; the runner does not combine them.
+
+1. Compare actual inputs: image, architecture, VM size, network, NBC/ANC settings,
+   VMSS tags, and direct provisioning or VHD caching. Preserve required default
+   and custom input cases.
+2. Keep configuration and checks together. Identify each check's errors, validate
+   provisioning state before changing it, and capture timing before disruptive work.
+   Keep reboot/corruption steps ordered; restore state and clean up test resources.
+3. Add a scenario only for different required inputs or a separate-node lifecycle.
+   Explain the reason in the PR.
+
+### Scenario names
+
+Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
+`Ubuntu2204_CustomLinuxOSConfig_Taints_ANC` or
+`AzureLinuxV3_CustomLinuxOSConfig_ANC_Reboot`.
+
+- Name the configuration or lifecycle; put assertions and disruptive steps in
+  `Description`. Adding a check alone does not require a rename.
+- Include hardware, network, architecture, or provisioning mode when relevant.
+  Reserve OS-only names for nodes without distinguishing custom settings.
+- `PreinstalledBinaries` means source-VHD binaries, not `VHDCaching`'s bake/real-node
+  lifecycle. Preserve performance-test timing extraction and isolation.
+- Renames affect selectors, logs, and report history; there are no aliases.
+  Update repository references, list old/new names in the PR, and flag external
+  exact-name selectors for update.
+
+### Configuring a separate scenario
+
+- Choose a cluster from [cache.go](scenario/cache.go).
+- Set bootstrap inputs through `NodeBootstrappingConfiguration`. Mirror RP's
+  agent-pool settings in both `nbc.ContainerService.Properties.AgentPoolProfiles[0]`
+  and `nbc.AgentPoolProfile` where required.
+- Pair Linux bootstrap mutators with an equivalent `AKSNodeConfigMutator`,
+  including GPU, network, kubelet, and OS settings, so Phase 3 exercises the same
+  scenario inputs. Keep Windows, frozen Azure Linux V2, VHD-caching-only scenarios,
+  and the explicit `ScriptlessCSECmd_Hotfix` delivery check on their existing
+  provisioning paths.
+- Set VMSS properties through `VMConfigMutator`; keep its SKU and
+  `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
+- Use `Validator` to check the resulting node state.
+
+### PIS GPU coverage
+
+`Ubuntu2404_ManagedGPU_VHDCaching` and `AzureLinuxV3_ManagedGPU_VHDCaching`
+validate managed drivers, device-plugin registration, and a GPU workload on
+nodes created from prepared images. `Ubuntu2404_GPUDriverOptOut_VHDCaching`
+installs a real customer driver after `basePrep` and checks that it survives
+capture and provisioning with AKS driver installation disabled. These use
+separate bake and real-node VMs and the current source CSE scripts in both phases.
+The customer-driver case uses the CUDA LTS installer image already cached in
+the source VHD, even when its version differs from the current branch. It fails
+rather than downloading an installer when the cache is missing or ambiguous.
+To run only these cases, queue the Ubuntu and Azure Linux GPU pipelines with
+the `tagsToRun` parameter set to `gpu=true,VHDCaching=true`.
+
+### DRA MIG workload validation
+
+The existing `Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed` scenario uses
+`ValidateDRAWithMIGWorkloadSchedulable` with the advertised profile `1g.10gb`.
+It selects NVIDIA MIG devices of that profile, runs a consuming pod on the scenario
+node, and checks the ResourceClaim's allocated driver, pool, and device against that
+node's ResourceSlices before deleting the pod. Missing or mismatched type/profile
+attributes fail validation. Non-MIG DRA scenarios retain their existing scheduling checks.
+
+### Scriptless provisioning
+
+Linux scenarios use kubelet configuration-file mode by default, for both NBC/CSE
+and AKSNodeConfig/scriptless provisioning. NBC conversion preserves the effective
+kubelet settings, including scenario overrides and custom kubelet configuration.
+Common Linux validation checks that the running kubelet uses
+`--config /etc/default/kubeletconfig.json` and that the file contains a valid
+`KubeletConfiguration`.
+
+Scenarios specifically covering legacy CLI flags must set
+`nbc.EnableKubeletConfigFile = false` and leave both `CustomKubeletConfig` and
+`CustomLinuxOSConfig` nil. Their ANC mutator must independently set
+`KubeletConfig.EnableKubeletConfigFile = false` and supply any flag overrides.
+Windows defaults are unchanged.
+
+Eligible non-caching scenarios with an `AKSNodeConfigMutator` or
+`AKSNodeConfigMutatorWithError`, or with neither
+`BootstrapConfigMutator` nor `BootstrapConfigMutatorWithError`, default to Phase 3
+provisioning, using AKSNodeConfig instead of the NBC command. A bootstrap config mutator can opt out
+by setting `EnableScriptlessAKSNodeConfig = false`, or explicitly select Phase 3
+without an AKSNodeConfig mutator by setting it to `true`.
+The runner constructs AKSNodeConfig directly from the cluster and VHD using
+`createAKSNodeConfig`, applies the ANC mutators, validates and
+normalizes Phase 3 settings with `nodeconfigutils.Validate`,
+and serializes the result for AgentBaker. The early-failure scenario checks that an
+unsupported version is rejected before VM creation. Common validation checks config-only execution and absence
+of the NBC command and comparison path.
+
+ANC provisioning inputs do not inherit bootstrap-mutator changes. Set ANC settings
+through `AKSNodeConfigMutator`, or `AKSNodeConfigMutatorWithError` when resolving an
+input can fail; the error-returning mutator runs after the ordinary mutator.
+The constructor applies options before filtering kubelet flags for config-file
+mode and resolving the temporary-disk container-data path. NBC remains only for
+legacy provisioning and AgentBaker artifact delivery; its provisioning-mode and
+pre-provision lifecycle selections are still honored.
+
+Scenarios with a bootstrap mutator but no AKSNodeConfig mutator retain their
+existing provisioning mode unless they explicitly select Phase 3. This includes
+empty bootstrap mutators and error-returning bootstrap mutators. A Scriptless tag
+alone does not override this selection. Existing scriptless opt-outs, image
+restrictions, and VHD-caching behavior remain in effect.
+
+VHD-caching scenarios keep their existing mode, including explicit Phase 3
+selection in `Ubuntu2604Minimal_AKSNodeConfig_VHDCaching`.
+
+### Random additional NBC-command coverage
+
+The Linux E2E pipeline adds three randomly selected scenarios for each active
+OS/version: Ubuntu 22.04, Ubuntu 24.04, Ubuntu 26.04, and Azure Linux 3. These are
+12 **additional VM runs**, not replacements for the original scenarios. Original
+names, configuration and validators remain unchanged.
+
+The runner's `--random-nbc-coverage` (`E2E_RANDOM_NBC_COVERAGE`) is disabled
+outside that pipeline. The sample size is fixed at three per OS/version.
+Sampling occurs after name and tag filtering, without replacement within each
+OS/version. It fails before Azure initialization if any group has fewer than
+three eligible scenarios, rather than silently losing OS coverage. Leave sampling
+disabled for narrowly filtered runs.
+
+The seed is generated automatically from the build ID and current UTC date
+(`build-id/YYYY-MM-DD`); neither the sample size nor seed is configurable.
+The pipeline supplies `$(Build.BuildId)` as the runner's build ID. The same
+revision, filters, build ID and UTC date reproduce the selection; a new build or
+date changes the seed. Retries within a run use the original selection, even if
+the date changes. The seed and selected names are printed.
+To enable the same fixed-size sampling locally:
+
+```sh
+go run . run --random-nbc-coverage \
+  --skip-tags 'os=windows,gpu=true,cvm=true'
+```
+
+Additional runs are named `<original>/ScriptlessNBCCSECmd`, with separate logs,
+JUnit results and attempt-owned resources. The runner forces NBC-command mode
+after bootstrap mutators, retains ANC mutators for existing Phase 2.5 comparisons,
+and runs the original validators plus common NBC execution checks.
+
+Sampling excludes unsupported images (including Windows, ACL and frozen Azure
+Linux 2), VHD caching, known/conditional skips, expected failures, specialized
+scriptless/hotfix tests, and scenarios without common SSH validation. Set
+`ExcludeFromNBCSampling` for a scenario whose assertions require another
+provisioning path, such as CustomData-only delivery. Sampling cannot be combined
+with `--disable-scriptless` or `--test-pre-provision`. Runtime failures and skips
+remain visible through normal per-scenario reporting.
+
+### LocalDNS fallback checks
+
+The existing LocalDNS scenarios use short-lived DNS pods on the scenario node
+before failure, after the fallback becomes active, and after LocalDNS recovers.
+Each pod has `restartPolicy: Never`. The validator waits for `Succeeded`, not
+`Running` or `Ready`; failures include pod diagnostics.
+
+Commands query `169.254.10.10` for an external name and `169.254.10.11` for both
+cluster and external names. Explicit server addresses prevent a new pod from
+bypassing the failed listener through its inherited VNet resolver. These probes
+do not check that an existing pod retains its original `resolv.conf`.
+
+Go controls polling and cleanup. Short SSH commands inspect systemd, resolver,
+and NAT state; ShellSpec covers static rule construction. The fallback validator
+requires the baked artifacts, including when the image selector points at main.
+
+### Setup scheduling
+
+After image and resource-group checks, VM identity/storage preparation runs
+alongside cluster preparation. Setup, validators, and cleanup batches share
+`scenario/concurrent.go`, which waits for every task without canceling peers on failure.
+Each caller decides whether an already-canceled context prevents its tasks from starting.
+
+## Shared Windows Gen2 images
+
+The ordinary WS2022 and WS2025 Gen2 images are published as `TrustedLaunchSupported`.
+Each has a separate scenario that enables Secure Boot and vTPM on the VMSS:
+
+| Image | Standard scenario | Trusted Launch scenario |
+| --- | --- | --- |
+| `windows-2022-containerd-gen2` | `Windows2022Gen2AzureNetwork` | `Windows2022Gen2_TrustedLaunch_SharedImage` |
+| `windows-2025-gen2` | `Windows2025Gen2` | `Windows2025Gen2_TrustedLaunch_SharedImage` |
+
+Separate nodes are needed because their VM security profiles differ. These direct
+image tests do not change AKS RP's OS eligibility checks.
+
+The builder reuses already-capable staging definitions without `startsAtVersion`
+without modifying them. Explicit boundaries must be valid and at or below the
+build version; new capability migrations still establish and verify a boundary.
+The VHD-build gate validates the actual build's image, not historical versions.
+Production publication and RP image-version admission remain separate checks.
+
+`Windows2025Gen2TrustedLaunch` continues to validate the dedicated
+`windows-2025-gen2-tl` image during the shared-image rollout.
+The shared-image scenarios run in both the Windows VHD-build gate, using that
+build's image, and the general Windows E2E job, using the main-tagged test image.
+
+## VM size configuration
+
+Resource SKU catalogues are loaded once per location using the runner's single
+Azure client. Gen2, NVMe, and fallback-size checks share all pages of that catalogue.
+
+The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or
+`DEFAULT_VM_SKU`.
+
+The Gen1/SCSI fallback defaults to `Standard_D2ds_v5`. Set it with
+`--gen1-scsi-vm-sku` or `GEN1_SCSI_VM_SKU`. The runner uses it when the selected VM
+requires Gen2 but the image does not support Gen2, or when the selected VM supports
+NVMe but the image does not support NVMe. Choose a size that supports Gen1 and Gen2
+boot with SCSI disks. MANA and NVMe support are not required.
+
+The four MANA (Microsoft Azure Network Adapter) scenarios use a separate VM size,
+which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SKU`.
+Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
+configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
+
+## ACL COSI Validation
+
+The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg` or
+`acldevel`) and optional `ACL_BASE_IMAGE_VERSION_AMD64` and
+`ACL_BASE_IMAGE_VERSION_ARM64` gallery-version overrides. Each takes precedence
+over the existing shared `ACL_BASE_IMAGE_VERSION` fallback. Use separate values
+when the selected architectures have different gallery versions. The overrides
+default to a single space, because the Run pipeline form treats an empty default
+as required; leave that space in all three to keep the pinned versions. Values
+are trimmed. Both the PR and release pipelines expose these parameters.
+The production ACG source is the default. Secure Boot stays enabled for signed sources;
+selecting `acldevel` disables Secure Boot only for ACL test VMs. Older base images
+without `trident-acl-agent` still build; images containing the agent enable its
+kubeconfig-triggered startup.
+
+The dev source uses `acldevel` for AMD64 and `acldevel-arm64` for ARM64, with
+architecture-specific version pins in the
+[base-image template](../.pipelines/templates/.acl-base-image-vars.yaml).
+The pipeline resolves `IMAGE_VERSION` once; the ACL image-stamping step fails
+if it does not receive that value.
+
+The stamp records the original provisioning image and survives A/B updates of
+`/usr`. Until Trident has an updatable current-version source, the agent reads
+`/dev/null` with a `0.0.0` fallback rather than treating the stamp as the active
+version. This deliberately disables current-version-based `AlreadyAtTarget`
+shortcuts. Nebraska affinity cookie handling is enabled for annotation-driven
+updates, including cookie persistence across reboot.
+
+ACL CVM builds keep the production ACG source and are not part of the
+four-variant COSI validation.
+
+TME publishing runs convert the selected ACL variants in architecture-matched
+jobs and produce `cosi-publishing-info-*` artifacts with a base64
+`metadata_sha384` value. The E2E job downloads only those variants' artifacts.
+Non-publishing and non-TME runs do not convert, download, or validate COSI
+artifacts. Cold Azure Linux/Mariner convert agents install the native signed
+Microsoft OSS repository package before installing Azure CLI.
+
+`ACL_COSIUpdate_AMD64`, `ACL_COSIUpdate_ARM64`, and their `_FIPS` variants use
+separate nodes because they stage, finalize, reboot, and commit an A/B update.
+They verify node identity, readiness, and a post-update workload. The COSI is
+staged in a unique test-owned blob on the already-allowed E2E storage endpoint;
+cleanup deletes that blob. These scenarios do not change shared firewall rules.
+They exercise the Trident update path, not annotation-driven agent orchestration.
+
+When COSI artifacts are enabled, the TME publishing E2E job defaults
+`TEST_TIMEOUT_VMSS` to `30m` for staging, provisioning, validation, and reboot.
+Explicit timeout overrides are preserved. Ordinary runs retain the `17m`
+VM lifecycle default. The separate `30m` COSI download limit cannot extend
+the enclosing VM lifecycle deadline.
+
+Run offline unit tests with `go test -short ./...` from this directory. Live
+four-variant builds and update scenarios require the pipeline service connections.
+
+## Gallery replication
+
+When selecting a gallery image by version or tag, the runner adds the test region
+if needed and waits for that region's replication status to reach `Completed`.
+The region does not need to be known at VHD build time.
+
+Each update preserves the live target list and disables region deletion. After a
+rejected update, the runner logs the error, waits, and re-reads the image before
+trying again. Polling uses `--poll-interval` and the caller's deadline. A persistent
+write failure returns at the deadline with the last update error. Authentication
+and authorization failures (HTTP 401/403) return immediately.
 
 ## Infrastructure Architecture
 
 All E2E clusters share a single VNet and Azure Bastion in the `abe2e-{location}` resource group. This
 avoids creating a per-cluster Bastion (~10 min each) and ensures all clusters are reachable from a
 single SSH entry point.
+
+Shared-infrastructure setup does not garbage-collect cluster subnets. A subnet
+without an AKS cluster may belong to another run that is still creating it.
+Remove genuinely orphaned subnets separately, after confirming no run uses them.
 
 ```mermaid
 graph TB
@@ -51,8 +330,8 @@ graph TB
             BASTION_SUBNET["AzureBastionSubnet<br/>10.0.0.0/26"]
             FW_SUBNET["AzureFirewallSubnet<br/>10.0.1.0/24"]
             PE_SUBNET["abe2e-pe-subnet<br/>10.0.2.0/24<br/>(shared private endpoints)"]
-            KUBENET_SUBNET["aks-subnet-abe2e-kubenet-v5<br/>10.x.x.0/20"]
-            AZNET_SUBNET["aks-subnet-abe2e-azure-network-v4<br/>10.x.x.0/20"]
+            KUBENET_SUBNET["aks-subnet-abe2e-kubenet-*<br/>10.x.x.0/20"]
+            AZNET_SUBNET["aks-subnet-abe2e-azure-networkisolated-*<br/>10.x.x.0/20"]
             MORE_SUBNETS["... more cluster subnets"]
         end
         BASTION["abe2e-shared-bastion<br/>(Standard SKU, Tunneling)"]
@@ -64,13 +343,13 @@ graph TB
         ACR_NONANON["abe2eprivatenonanon{location}<br/>(Non-anonymous Private ACR)"]
     end
 
-    subgraph MC_KUBENET["MC_abe2e-kubenet-v5 Resource Group"]
+    subgraph MC_KUBENET["MC_*_abe2e-kubenet-* Resource Group"]
         VMSS_K["VMSS (system pool)"]
         VMSS_K_TEST["VMSS (test VMs)"]
         RT_K["Route Table<br/>(pod routes + firewall)"]
     end
 
-    subgraph MC_NI["MC_abe2e-azure-networkisolated-v2 Resource Group"]
+    subgraph MC_NI["MC_*_abe2e-azure-networkisolated-* Resource Group"]
         VMSS_NI["VMSS (system pool)"]
         NSG_NI["NSG<br/>(blocks internet)"]
     end
@@ -94,6 +373,16 @@ graph TB
 The shared infrastructure is created **automatically** on first test run via cached idempotent
 functions — no separate setup script is needed.
 
+Shared setup does not delete cluster subnets: an empty subnet with no AKS cluster may belong
+to another runner that is still creating its cluster. The external resource-group garbage
+collector owns cleanup of abandoned subnets.
+
+Bastion and Firewall provisioning run concurrently after sequential subnet setup.
+Windows Server Core and Nano Server pod checks run concurrently on the scenario node.
+
+Cluster setup keeps three Konnectivity agents to avoid scale-down interruptions during pod exec.
+See [Azure's autoscaler configuration](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/connectivity/tunnel-connectivity-issues#solution-6-cluster-proportional-autoscaler-for-konnectivity-agent).
+
 | Resource | Name | Details |
 |----------|------|---------|
 | VNet | `abe2e-shared-vnet` | `10.0.0.0/8` — supports ~4096 `/20` cluster subnets |
@@ -111,18 +400,19 @@ avoid collisions.
 ### Cluster Types
 
 All clusters use BYOV (Bring Your Own VNet) with the shared VNet. They differ in networking
-plugin, isolation level, and whether private ACR is needed.
+plugin, isolation level, and whether private ACR is needed. Current cluster names and versions
+are defined in [`scenario/cache.go`](scenario/cache.go).
 
-| Cluster | Network Plugin | Special Features | Private ACR |
+| Cluster Name Pattern | Network Plugin | Special Features | Private ACR |
 |---------|---------------|-----------------|:-----------:|
-| `abe2e-kubenet-v5` | Kubenet | Basic pod routing via route table | ❌ |
-| `abe2e-azure-network-v4` | Azure CNI | Pods get IPs from subnet (MaxPods=30) | ❌ |
-| `abe2e-azure-overlay-network-v4` | Azure CNI Overlay | Pods in virtual overlay, not subnet | ❌ |
-| `abe2e-azure-overlay-dualstack-v4` | Azure CNI Overlay | IPv4+IPv6 dual-stack | ❌ |
-| `abe2e-cilium-network-v4` | Azure CNI + Cilium | eBPF dataplane, replaces kube-proxy | ❌ |
-| `abe2e-latest-kubernetes-version-v2` | Kubenet | Auto-discovers latest GA K8s version | ❌ |
-| `abe2e-azure-bootstrapprofile-cache-v2` | Azure CNI | Bootstrap artifact caching from private ACR | ✅ |
-| `abe2e-azure-networkisolated-v2` | Azure CNI | NSG blocks all internet except allowlist | ✅ |
+| `abe2e-kubenet-v*` | Kubenet | Basic pod routing via route table | ❌ |
+| `abe2e-azure-network-v*` | Azure CNI | Pods get IPs from subnet (MaxPods=30) | ❌ |
+| `abe2e-azure-overlay-network-v*` | Azure CNI Overlay | Pods in virtual overlay, not subnet | ❌ |
+| `abe2e-azure-overlay-dualstack-v*` | Azure CNI Overlay | IPv4+IPv6 dual-stack | ❌ |
+| `abe2e-cilium-network-v*` | Azure CNI + Cilium | eBPF dataplane, replaces kube-proxy | ❌ |
+| `abe2e-latest-k8s-v*` | Kubenet | Auto-discovers latest GA K8s version | ❌ |
+| `abe2e-azure-bootstrapprofile-cache-v*` | Azure CNI | Bootstrap artifact caching from private ACR | ✅ |
+| `abe2e-azure-networkisolated-v*` | Azure CNI | NSG blocks all internet except allowlist | ✅ |
 
 **Network-isolated cluster** adds an NSG to its subnet that blocks all outbound traffic except
 `management.azure.com`, the cluster FQDN, and `packages.aks.azure.com`. Private endpoints for
@@ -215,7 +505,7 @@ To run one scenario, give its name to the script:
 Give more than one name to run multiple scenarios:
 
 ```bash
-./e2e-local.sh AzureLinuxV2 Ubuntu2204
+./e2e-local.sh AzureLinuxV2 Ubuntu2204_CustomLinuxOSConfig_Taints_ANC
 ```
 
 ### Debugging
@@ -243,10 +533,46 @@ The runner writes plain-text scenario logs. It does not write a JUnit file by de
 
 ADO uses `--output grouped`. Local runs stream prefixed logs when three or fewer scenario entry points are selected.
 
+After the suite's shutdown allowance expires, the runner stops waiting for blocked
+scenarios and publishes their collected logs with a timeout failure. JUnit retains
+log attachments, elapsed time, and prior attempts. The runner ignores later writes
+to finalized logs. Blocked operations and guest cleanup may remain unfinished.
+
+### Logging
+
+Use `logging.Log(ctx, ...)` or `logging.Logf(ctx, ...)` from `e2e/logging`.
+The runner attaches a logger to each attempt's context before it calls the scenario.
+Pass that context through skip checks, provisioning, validation, and cleanup. Do not
+store a logger on a scenario or pass a separate logger argument.
+
+For timed steps, use `defer logging.LogStep(ctx, "creating VMSS")()` or
+`defer logging.LogStepf(ctx, "creating VMSS %s", name)()`.
+Use `logging.LogDuration` to emit a warning when a duration exceeds its threshold.
+
+The runner owns log files and console output. The logging package falls back to the
+standard logger when a context has no logger. In unit tests, use
+`logging.WithLogger(t.Context(), t)` to send messages to the test log.
+For cleanup that must continue after cancellation, derive its context with
+`context.WithoutCancel(ctx)` and set a timeout. This preserves the attempt logger.
+
 ### Cleanup
 
 Azure resources are deleted periodically by an external garbage collector. Locally stopped tests attempt a graceful
 shutdown to clean up resources. Old VMs are deleted on startup unless created with `KEEP_VMSS=true`.
+
+In Azure DevOps runs (`TF_BUILD=True`), setup checks `deletion_due_time` on both shared
+`abe2e-{location}` resource groups and the selected clusters' node resource groups. An existing
+UTC Saturday deadline stays unchanged, even if it has expired, falls within the suite, or has a
+time other than 08:00. Repeated runs do not postpone Saturday expiry.
+
+For missing or non-Saturday deadlines, setup selects the first Saturday at **08:00 UTC** at or
+after the suite-and-cleanup window and any existing deadline. This is outside normal weekday
+office hours in the US, New Zealand, and Australia. Updates are best-effort and preserve unrelated
+tags. The external garbage collector can delete expired groups later, including during office
+hours or an active test run.
+
+Outside Azure DevOps, setup does not renew GC deadlines on shared or node resource groups.
+Local runs leave existing deadlines unchanged and do not add missing deadline tags.
 
 ## Package Structure
 
@@ -256,10 +582,34 @@ The executable entry point is [main.go](main.go). It handles signals and starts 
 |---------|----------------|
 | [runner](runner/) | CLI, selection, concurrency, retries, logs, and JUnit reports |
 | [scenario](scenario/) | Scenario definitions, registration, provisioning, validation, and cleanup |
+| [logging](logging/) | Logging interface, context helpers, and timed steps |
 
 The runner calls the scenario package to execute a scenario once. The scenario package
 cleans up that execution and returns its outcome. The runner decides whether to retry.
 The scenario package does not depend on the runner.
+
+Cleanup callbacks run concurrently. Register only independent work with `Scenario.Cleanup`;
+keep dependent operations in one callback, such as collecting VM logs before deleting that VM.
+Linux log collection runs commands concurrently in one remote Bash script and returns one
+compressed archive through the shared SSH execution layer. Each log retains its stdout,
+stderr, and exit code. Commands have a timeout that reserves time to return partial output.
+Collection errors are saved in the affected log files; the console reports failed file names.
+
+SSH uses `websocket.NetConn` for Bastion tunneling. Dial and handshake contexts bound
+connection setup; an established connection remains available for cleanup. Canceling
+an active SSH operation closes its shared connection, including other active commands,
+to interrupt blocked channel opens and script uploads. Canceling a queued operation does
+not close the connection.
+
+Commands are uploaded through SSH stdin to unique script files, then executed in a
+separate session on the same connection. Linux uses Bash; Windows uses PowerShell.
+The Bastion transport bounds outgoing WebSocket messages independently of script size.
+Uploads have a 10-second timeout. Files remain until VM deletion, including when
+`KEEP_VMSS=true` preserves the VM.
+
+Bastion token deletion runs asynchronously after a failed dial or tunnel closure.
+It has a separate 30-second timeout and logs failures without delaying cancellation.
+This cleanup is best effort and can be interrupted by process exit.
 
 The other directories contain helper packages and embedded resources.
 

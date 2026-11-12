@@ -1,0 +1,99 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MARKED_FOR_REMOVAL_PACKAGES_FILE="${SCRIPT_DIR}/2604-minimal-cvm-marked-for-removal-packages.txt"
+REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/2604-minimal-cvm-required-packages.txt"
+FINAL_REQUIRED_PACKAGES_FILE="${SCRIPT_DIR}/2604-minimal-cvm-final-required-packages.txt"
+FINAL_FORBIDDEN_PACKAGES_FILE="${SCRIPT_DIR}/2604-minimal-cvm-final-forbidden-packages.txt"
+
+readPackageList() {
+    sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"
+}
+
+validatePackageList() {
+    local package_file="$1"
+    local description="$2"
+
+    if [ ! -s "${package_file}" ] || [ -z "$(readPackageList "${package_file}")" ]; then
+        echo "${description} is missing or empty: ${package_file}" >&2
+        return 1
+    fi
+}
+
+verifyRequiredPackagesInstalled() {
+    local package_file="$1"
+    local required
+
+    validatePackageList "${package_file}" "Required package list" || return 1
+
+    while IFS= read -r required; do
+        if ! dpkg-query -W -f='${db:Status-Status}\n' "${required}" 2>/dev/null | grep -Fxq "installed"; then
+            echo "Required CVM package pattern is not installed: ${required}" >&2
+            return 1
+        fi
+    done < <(readPackageList "${package_file}")
+}
+
+verifyForbiddenPackagesAbsent() {
+    local package_file="$1"
+    local forbidden
+
+    validatePackageList "${package_file}" "Forbidden package list" || return 1
+
+    while IFS= read -r forbidden; do
+        if dpkg-query -W -f='${db:Status-Status}\n' "${forbidden}" 2>/dev/null | grep -Fxq "installed"; then
+            echo "Forbidden CVM package pattern is installed: ${forbidden}" >&2
+            return 1
+        fi
+    done < <(readPackageList "${package_file}")
+}
+
+main() {
+    local package
+    local -a manual_packages=(cron curl gpg jq logrotate rsyslog sudo xfsprogs)
+    local -a optional_manual_packages=(libc6 libpcap0.8t64 libssl3t64 systemd tcpdump)
+    local -a purge_packages=()
+
+    case "${1:-}" in
+        --verify-only)
+            verifyRequiredPackagesInstalled "${FINAL_REQUIRED_PACKAGES_FILE}" || return 1
+            verifyForbiddenPackagesAbsent "${FINAL_FORBIDDEN_PACKAGES_FILE}"
+            return
+            ;;
+        "")
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            return 1
+            ;;
+    esac
+
+    validatePackageList "${MARKED_FOR_REMOVAL_PACKAGES_FILE}" "Marked-for-removal package list" || return 1
+
+    while IFS= read -r package; do
+        if [ "$(dpkg-query -W -f='${db:Status-Status}' "${package}" 2>/dev/null || true)" = "installed" ]; then
+            purge_packages+=("${package}")
+        fi
+    done < <(readPackageList "${MARKED_FOR_REMOVAL_PACKAGES_FILE}")
+
+    if [ "${#purge_packages[@]}" -gt 0 ]; then
+        echo "Purging ${#purge_packages[@]} installed server-cvm packages marked for removal"
+        DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 purge -y --no-auto-remove --allow-remove-essential "${purge_packages[@]}"
+    else
+        echo "No installed server-cvm packages marked for removal were found"
+    fi
+
+    for package in "${optional_manual_packages[@]}"; do
+        if [ "$(dpkg-query -W -f='${db:Status-Status}' "${package}" 2>/dev/null || true)" = "installed" ]; then
+            manual_packages+=("${package}")
+        fi
+    done
+
+    apt-mark manual "${manual_packages[@]}"
+    verifyRequiredPackagesInstalled "${REQUIRED_PACKAGES_FILE}"
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    set -euo pipefail
+    main "$@"
+fi

@@ -22,7 +22,7 @@ ifeq ($(UNAME_M),aarch64)
     GOARCH := arm64
 endif
 
-GOLANGCI_LINT_VERSION := v2.8.0
+GOLANGCI_LINT_VERSION := v2.15.0
 
 all: install
 
@@ -41,14 +41,14 @@ $(LOCALBIN)/golangci-lint:
 	rm -f $(LOCALBIN)/golangci-lint.tar.gz
 
 $(LOCALBIN)/cue:
-	GOBIN=$(LOCALBIN) $(GO) install cuelang.org/go/cmd/cue@v0.15.4
+	GOBIN=$(LOCALBIN) $(GO) install cuelang.org/go/cmd/cue@v0.17.1
 
 $(LOCALBIN)/butane:
-	GOBIN=$(LOCALBIN) $(GO) install github.com/coreos/butane/internal@v0.26.0
+	GOBIN=$(LOCALBIN) $(GO) install github.com/coreos/butane/internal@v0.29.0
 	mv $(LOCALBIN)/internal $(LOCALBIN)/butane
 
 $(LOCALBIN)/oras:
-	GOBIN=$(LOCALBIN) $(GO) install oras.land/oras/cmd/oras@v1.2.3
+	GOBIN=$(LOCALBIN) $(GO) install oras.land/oras/cmd/oras@v1.3.6
 
 .PHONY: reload
 reload: clean install

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
@@ -35,6 +35,15 @@ var (
 )
 
 var (
+	VHDUbuntu2004CVMGen2Containerd = &Image{
+		Name:                "2004gen2CVMcontainerd",
+		OS:                  OSUbuntu,
+		Arch:                "amd64",
+		Distro:              datamodel.AKSUbuntuContainerd2004CVMGen2,
+		Gallery:             &Config.GalleryLinux,
+		UnsupportedLocalDns: true,
+	}
+
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
 		Name:    "2204gen2arm64containerd",
 		OS:      OSUbuntu,
@@ -115,6 +124,14 @@ var (
 		Gallery: &Config.GalleryLinux,
 	}
 
+	VHDAzureLinuxV3CVMGen2 = &Image{
+		Name:    "V3gen2CVM",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSAzureLinuxV3CVMGen2,
+		Gallery: &Config.GalleryLinux,
+	}
+
 	// VHDAzureLinuxV3Gen2Kata is the AzureLinux V3 Gen2 VHD built with FEATURE_FLAGS=kata.
 	// The image definition name mirrors the SIG_IMAGE_NAME produced by the VHD builder for
 	// OS_VERSION=V3kata + HYPERV_GENERATION=V2 (SKU_NAME=V3katagen2, prefixed with "AzureLinux").
@@ -126,14 +143,6 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV3Gen2Kata,
 		Gallery: &Config.GalleryLinux,
-	}
-	VHDAzureLinux3OSGuard = &Image{
-		Name:                "AzureLinuxOSGuardOSGuardV3gen2fipsTL",
-		OS:                  OSAzureLinux,
-		Arch:                "amd64",
-		Distro:              datamodel.AKSAzureLinuxV3OSGuardGen2FIPSTL,
-		Gallery:             &Config.GalleryLinux,
-		UnsupportedLocalDns: true,
 	}
 
 	VHDAzureLinuxV3Gen2FIPS = &Image{
@@ -162,6 +171,14 @@ var (
 		Gallery: &Config.GalleryLinux,
 	}
 
+	VHDUbuntu2404CVMGen2Containerd = &Image{
+		Name:    "2404gen2CVMcontainerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuContainerd2404CVMGen2,
+		Gallery: &Config.GalleryLinux,
+	}
+
 	VHDUbuntu2404ArmContainerd = &Image{
 		Name:    "2404gen2arm64containerd",
 		OS:      OSUbuntu,
@@ -175,6 +192,14 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuMinimalContainerd2604Gen2,
+		Gallery: &Config.GalleryLinux,
+	}
+
+	VHDUbuntu2604MinimalCVMGen2Containerd = &Image{
+		Name:    "2604minimalgen2CVMcontainerd",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuMinimalContainerd2604CVMGen2,
 		Gallery: &Config.GalleryLinux,
 	}
 
@@ -200,6 +225,16 @@ var (
 		OS:           OSACL,
 		Arch:         "amd64",
 		Distro:       datamodel.AKSACLGen2TL,
+		Gallery:      &Config.GalleryLinux,
+		Flatcar:      true,
+		OSDiskSizeGB: 60,
+	}
+
+	VHDACLCVMGen2 = &Image{
+		Name:         "aclgen2CVM",
+		OS:           OSACL,
+		Arch:         "amd64",
+		Distro:       datamodel.AKSACLCVMGen2,
 		Gallery:      &Config.GalleryLinux,
 		Flatcar:      true,
 		OSDiskSizeGB: 60,
@@ -299,6 +334,7 @@ type Image struct {
 	Distro                              datamodel.Distro
 	Name                                string
 	OS                                  OS
+	SharedGalleryImageID                VHDResourceID
 	Version                             string
 	Gallery                             *Gallery
 	UnsupportedKubeletNodeIP            bool
@@ -327,7 +363,7 @@ func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourc
 		if err != nil {
 			return "", err
 		}
-		toolkit.Logf(ctx, "Got image from E2E VHD metadata: %s", vhd)
+		logging.Logf(ctx, "Got image from E2E VHD metadata: %s", vhd)
 		return vhd, nil
 	}
 
@@ -337,7 +373,7 @@ func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourc
 		if err != nil {
 			return "", fmt.Errorf("failed to ensure image version %s: %w", i.Version, err)
 		}
-		toolkit.Logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
+		logging.Logf(ctx, "Got image by version: %s", i.azurePortalImageVersionUrl())
 		return vhd, nil
 	default:
 		vhd, err := Azure.LatestSIGImageVersionByTag(ctx, &i, Config.SIGVersionTagName, Config.SIGVersionTagValue, location)
@@ -345,9 +381,9 @@ func GetVHDResourceID(ctx context.Context, i Image, location string) (VHDResourc
 			return "", fmt.Errorf("failed to get latest image by tag %s=%s: %w", Config.SIGVersionTagName, Config.SIGVersionTagValue, err)
 		}
 		if vhd != "" {
-			toolkit.Logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
+			logging.Logf(ctx, "got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
 		} else {
-			toolkit.Logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
+			logging.Logf(ctx, "Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
 		}
 		return vhd, nil
 	}

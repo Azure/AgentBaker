@@ -29,7 +29,6 @@ Describe 'long running cse helper functions'
             "systemctl_stop"    1 1 1 1 "nonexistent.service"
             "systemctl_disable" 1 1 1 1 "nonexistent.service"
             "_systemctl_retry_svc_operation" 1 1 1 1 "nonexistent.service" "restart"
-            "sysctl_reload" 1 1 1 1
             "retrycmd_get_aad_access_token" $ERR_ORAS_IMDS_TIMEOUT 1 1 "http://nonexistent.local/token"
             "retrycmd_get_refresh_token_for_oras" $ERR_ORAS_PULL_NETWORK_TIMEOUT 1 1 "dummy.registry" "tenant-id" "fake-token"
             "retrycmd_curl_file"    1 1 1 1 "/tmp/nonexistent" "https://dummy.url/file"
@@ -113,6 +112,21 @@ Describe 'long running cse helper functions'
                 # Ensure stdout/stderr are empty
                 The stdout should eq ""
                 The stderr should eq ""
+            End
+
+            It "still retries when the caller runs under errexit"
+                # Runs in a real `bash -eu` subprocess: VHD build scripts set `set -euo pipefail`,
+                # which previously aborted the retry loop after the first failed attempt.
+                probe_dir="$(mktemp -d)"
+                printf '' > "$probe_dir/attempts"
+                printf '#!/bin/bash\nprintf x >> %s/attempts\nexit 1\n' "$probe_dir" > "$probe_dir/failing-cmd"
+                chmod +x "$probe_dir/failing-cmd"
+                When run bash -eu -c "source ./parts/linux/cloud-init/artifacts/cse_helpers.sh; retrycmd_if_failure 3 0 5 $probe_dir/failing-cmd"
+                The status should eq 1
+                The stdout should be defined
+                The stderr should be defined
+                Assert [ "$(wc -c < "$probe_dir/attempts")" -eq 3 ]
+                rm -rf "$probe_dir"
             End
             It "returns 2 before running the command when CSE timeout is already exceeded"
                 # Simulate CSE started 800 seconds ago (past the 780s limit)

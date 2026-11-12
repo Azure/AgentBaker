@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -28,14 +29,16 @@ type mockLPSServer struct {
 	err  error
 
 	// captured request state for assertions.
-	gotComponent string
-	gotToken     []string
+	gotComponent  string
+	gotToken      []string
+	gotResourceID []string
 }
 
 func (m *mockLPSServer) GetComponentConfig(ctx context.Context, req *lpsv1.GetComponentConfigRequest) (*lpsv1.GetComponentConfigResponse, error) {
 	m.gotComponent = req.GetComponentName()
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		m.gotToken = md.Get(lpsAttestedMetadataKey)
+		m.gotResourceID = md.Get(lpsVMResourceIDMetadataKey)
 	}
 	if m.err != nil {
 		return nil, m.err
@@ -60,8 +63,12 @@ func startMockLPS(t *testing.T, srv *mockLPSServer) func(context.Context, string
 	}
 }
 
-// newGRPCTestApp wires an App for the gRPC transport: a node config carrying the apiserver FQDN, a
-// stub attested token (so no real IMDS call), and the bufconn dialer for the given mock server.
+// testVMResourceID is the stub IMDS compute resourceId newGRPCTestApp injects.
+const testVMResourceID = "/subscriptions/sub/resourceGroups/MC_rg/providers/Microsoft.Compute/virtualMachines/aks-nodepool1-12345678-vms1"
+
+// newGRPCTestApp wires an App for the gRPC transport: a node config carrying the apiserver FQDN,
+// stub attested token and VM resource ID (so no real IMDS call), and the bufconn dialer for the
+// given mock server.
 func newGRPCTestApp(t *testing.T, srv *mockLPSServer) *TestApp {
 	t.Helper()
 	tt := NewTestApp(t, TestAppConfig{})
@@ -75,6 +82,9 @@ func newGRPCTestApp(t *testing.T, srv *mockLPSServer) *TestApp {
 	tt.App.grpcDialContext = startMockLPS(t, srv)
 	tt.App.fetchAttestedToken = func(context.Context) (string, error) {
 		return "attested-doc-token", nil
+	}
+	tt.App.fetchVMResourceID = func(context.Context) (string, error) {
+		return testVMResourceID, nil
 	}
 	return tt
 }
@@ -91,9 +101,31 @@ func TestFetchHotfixOverGRPC_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, body, got)
 
-	// The request must carry the ANC component name and the attested-data token in metadata.
+	// The request must carry the ANC component name, the attested-data token, and the VM
+	// resource ID in metadata.
 	assert.Equal(t, ancComponentName, srv.gotComponent)
 	assert.Equal(t, []string{"attested-doc-token"}, srv.gotToken)
+	assert.Equal(t, []string{testVMResourceID}, srv.gotResourceID)
+}
+
+func TestFetchHotfixOverGRPC_ResourceIDUnavailableStillSends(t *testing.T) {
+	// The resource ID is only a lookup hint: an IMDS compute failure must not fail the fetch,
+	// and the request goes out with the token but without the resource ID key.
+	body := lpsPointerBody(t, map[string]string{"202604.01": "202604.01.1"})
+	srv := &mockLPSServer{resp: &lpsv1.GetComponentConfigResponse{
+		ComponentName: ancComponentName,
+		Config:        string(body),
+	}}
+	tt := newGRPCTestApp(t, srv)
+	tt.App.fetchVMResourceID = func(context.Context) (string, error) {
+		return "", errors.New("imds compute down")
+	}
+
+	got, err := tt.App.fetchHotfixOverGRPC(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, body, got)
+	assert.Equal(t, []string{"attested-doc-token"}, srv.gotToken)
+	assert.Empty(t, srv.gotResourceID)
 }
 
 func TestCheckHotfix_GRPCSuccessReadAndWrite(t *testing.T) {

@@ -4,17 +4,21 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	scp "github.com/bramvdbogaerde/go-scp"
+	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
+	"github.com/samber/lo"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/klog/v2"
 )
 
 type podExecResult struct {
@@ -33,73 +37,101 @@ func (r podExecResult) String() string {
 `, r.exitCode, r.stderr, r.stdout)
 }
 
-func cleanupBastionTunnel(sshClient *ssh.Client) {
-	// We have to do this because az network tunnel creates a new detached process for tunnel
+func cleanupBastionTunnel(sshClient *SSHClient) {
 	if sshClient != nil {
 		_ = sshClient.Close()
 	}
 }
 
-func runSSHCommand(
-	ctx context.Context,
-	client *ssh.Client,
-	command string,
-	isWindows bool,
-) (*podExecResult, error) {
-	return runSSHCommandWithPrivateKeyFile(ctx, client, command, isWindows)
-}
-
-func copyScriptToRemoteIfRequired(ctx context.Context, client *ssh.Client, command string, isWindows bool) (string, error) {
-	if !strings.Contains(command, "\n") && !isWindows {
-		return command, nil
-	}
-
+func uploadSSHScript(ctx context.Context, client *ssh.Client, command string, isWindows bool) (remoteCommand string, err error) {
 	randBytes := make([]byte, 16)
 	if _, err := rand.Read(randBytes); err != nil {
 		return "", fmt.Errorf("generate remote script path: %w", err)
 	}
 
-	var remotePath, remoteCommand string
+	var remotePath, uploadCommand string
 	if isWindows {
 		remotePath = fmt.Sprintf("c:/script_file_%x.ps1", randBytes)
-		remoteCommand = fmt.Sprintf("powershell %s", remotePath)
+		remoteCommand = fmt.Sprintf("powershell -NoProfile -NonInteractive -File %s", remotePath)
+		// Copy raw bytes so PowerShell does not change the script's encoding or line endings.
+		uploadCommand = fmt.Sprintf(`powershell -NoProfile -NonInteractive -Command "$ErrorActionPreference='Stop'; $file=[IO.File]::Open('%s',[IO.FileMode]::CreateNew); try { [Console]::OpenStandardInput().CopyTo($file) } finally { $file.Dispose() }"`, remotePath)
 	} else {
 		remotePath = filepath.Join("/home/azureuser", fmt.Sprintf("remote_script_%x.sh", randBytes))
-		remoteCommand = remotePath
+		remoteCommand = "bash " + remotePath
+		uploadCommand = fmt.Sprintf("umask 077; set -C; cat > %s", remotePath)
 	}
 
-	scpClient, err := scp.NewClientBySSH(client)
-	if err != nil {
-		return "", err
-	}
-	defer scpClient.Close()
-
-	copyCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	copyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	stop := context.AfterFunc(copyCtx, func() { _ = client.Close() })
+	defer func() {
+		stop()
+		if copyCtx.Err() != nil {
+			err = fmt.Errorf("upload script: %w", copyCtx.Err())
+		}
+	}()
 
-	return remoteCommand, scpClient.Copy(copyCtx,
-		strings.NewReader(command),
-		remotePath,
-		"0755",
-		int64(len(command)))
+	var session *ssh.Session
+	err = retrySSHSessionOpen(copyCtx, func() error {
+		var openErr error
+		session, openErr = client.NewSession()
+		return openErr
+	})
+	if err != nil {
+		return "", fmt.Errorf("open script upload session: %w", err)
+	}
+	defer session.Close()
+	session.Stdin = strings.NewReader(command)
+	var stderr bytes.Buffer
+	session.Stderr = &stderr
+	if err := session.Run(uploadCommand); err != nil {
+		return "", fmt.Errorf("upload script: %w; stderr: %s", err, stderr.String())
+	}
+	return remoteCommand, nil
 }
 
-func runSSHCommandWithPrivateKeyFile(
+func runSSHCommand(
 	ctx context.Context,
-	client *ssh.Client,
+	client *SSHClient,
 	command string,
 	isWindows bool,
-) (*podExecResult, error) {
+) (result *podExecResult, err error) {
 	if client == nil {
 		return nil, fmt.Errorf("Permission denied: ssh client is nil")
 	}
-	var err error
-	command, err = copyScriptToRemoteIfRequired(ctx, client, command, isWindows)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	select {
+	case client.operations <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-client.operations }()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	// Closing the transport also interrupts channel opens and uploads, which ignore contexts.
+	stop := context.AfterFunc(ctx, func() { _ = client.Close() })
+	defer func() {
+		stop()
+		if ctx.Err() != nil {
+			result = nil
+			err = fmt.Errorf("SSH command canceled or timed out: %w", ctx.Err())
+		}
+	}()
+	command, err = uploadSSHScript(ctx, client.Client, command, isWindows)
 	if err != nil {
 		return nil, err
 	}
 
-	session, err := client.NewSession()
+	var session *ssh.Session
+	err = retrySSHSessionOpen(ctx, func() error {
+		var openErr error
+		session, openErr = client.NewSession()
+		return openErr
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -110,31 +142,14 @@ func runSSHCommandWithPrivateKeyFile(
 	session.Stdout = &stdout
 	session.Stderr = &stderr
 
-	runErr := make(chan error, 1)
-	go func() {
-		runErr <- session.Run(command)
-	}()
-	select {
-	case err = <-runErr:
-	case <-ctx.Done():
-		_ = session.Close()
-		_ = client.Close()
-		select {
-		case <-runErr:
-		case <-time.After(5 * time.Second):
-		}
-		return nil, fmt.Errorf("SSH command canceled or timed out: %w", ctx.Err())
-	}
-
+	err = session.Run(command)
 	exitCode := 0
 	if err != nil {
-		if exitErr, ok := err.(*ssh.ExitError); ok {
+		var exitErr *ssh.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitStatus()
-		} else if _, ok := err.(*ssh.ExitMissingError); ok {
-			// Bastion closed channel early – ignore
-			err = nil
 		} else {
-			return nil, err // real SSH failure
+			return nil, err
 		}
 	}
 
@@ -148,6 +163,26 @@ func runSSHCommandWithPrivateKeyFile(
 func execScriptOnVm(ctx context.Context, s *Scenario, vm *ScenarioVM, script string) (*podExecResult, error) {
 	if vm == nil {
 		return nil, fmt.Errorf("cannot execute script on a nil VM")
+	}
+	// SSH-disabled Windows scenarios still need guest validation in both PIS stages.
+	if s.IsWindows() && s.Config.SkipSSHConnectivityValidation {
+		view, err := runCommand(ctx, s, script)
+		if err != nil {
+			return nil, err
+		}
+		if view.ExitCode == nil {
+			return nil, errors.New("RunCommand result missing exit code")
+		}
+		state := lo.FromPtr(view.ExecutionState)
+		if state != armcompute.ExecutionStateSucceeded &&
+			(state != armcompute.ExecutionStateFailed || *view.ExitCode == 0) {
+			return nil, runCommandScriptError(view)
+		}
+		return &podExecResult{
+			exitCode: strconv.Itoa(int(*view.ExitCode)),
+			stdout:   lo.FromPtr(view.Output),
+			stderr:   lo.FromPtr(view.Error),
+		}, nil
 	}
 	return runSSHCommand(ctx, vm.SSHClient, script, s.IsWindows())
 }
@@ -185,7 +220,7 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 
 	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
 	if expectedExitCodeStr != execResult.exitCode {
-		s.Logger.Logf("Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
+		logging.Logf(ctx, "Command: %s\nStdout: %s\nStderr: %s", cmd, execResult.stdout, execResult.stderr)
 		return execResult, fmt.Errorf("expected exit code %s, got %s for command %q: %s", expectedExitCodeStr, execResult.exitCode, cmd, additionalErrorMessage)
 	}
 	return execResult, nil
@@ -194,7 +229,11 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 // isRetryableConnectionError checks if the error is a transient connection issue that should be retried
 func isRetryableConnectionError(err error) bool {
 	errorMsg := err.Error()
-	return strings.Contains(errorMsg, "error dialing backend") ||
+	// client-go flattens proxy failures received after HTTP 101 into plain text.
+	proxy502 := strings.Contains(errorMsg, "proxy error from ") &&
+		strings.Contains(errorMsg, "while dialing ") &&
+		strings.Contains(errorMsg, ", code 502:")
+	return proxy502 || strings.Contains(errorMsg, "error dialing backend") ||
 		strings.Contains(errorMsg, "connection refused") ||
 		strings.Contains(errorMsg, "dial tcp") ||
 		strings.Contains(errorMsg, "i/o timeout") ||
@@ -230,6 +269,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 }
 
 func attemptExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
+	ctx = klog.NewContext(ctx, klog.FromContext(ctx).WithValues("operation", "pod exec", "namespace", namespace, "pod", podName))
 	req := kube.Typed.CoreV1().RESTClient().Get().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{

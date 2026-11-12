@@ -61,6 +61,9 @@ parameters:
   - name: enableTrustedLaunch
     type: boolean
     displayName: Enable Trusted Launch on the SIG image definition.
+  - name: trustedLaunchSupported
+    type: boolean
+    displayName: Determines if the image is capable of supporting Trusted Launch
 
 steps:
   - bash: |
@@ -130,6 +133,7 @@ steps:
       SIG_FOR_PRODUCTION: $(SIG_FOR_PRODUCTION)
       HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
       ENABLE_TRUSTED_LAUNCH: ${{ parameters.enableTrustedLaunch }}
+      TRUSTED_LAUNCH_SUPPORTED: ${{ parameters.trustedLaunchSupported }}
       VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
       WINDOWS_PATCH_URL: $(WINDOWS_PATCH_URL)
       WINDOWS_BASE_IMAGE_URL: ${{ parameters.windowsBaseImageUrl }}
@@ -180,6 +184,7 @@ steps:
       SKIPVALIDATEREOFFERUPDATE: $(SKIPVALIDATEREOFFERUPDATE)
       OS_TYPE: "Windows"
       ENABLE_TRUSTED_LAUNCH: ${{ parameters.enableTrustedLaunch }}
+      TRUSTED_LAUNCH_SUPPORTED: ${{ parameters.trustedLaunchSupported }}
       MODE: $(MODE)
       FEATURE_FLAGS: $(FEATURE_FLAGS)
       VHD_DEBUG: ${{ parameters.vhddebug }}
@@ -280,6 +285,7 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       OS_TYPE: "Windows"
       ENABLE_TRUSTED_LAUNCH: ${{ parameters.enableTrustedLaunch }}
+      TRUSTED_LAUNCH_SUPPORTED: ${{ parameters.trustedLaunchSupported }}
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
@@ -440,6 +446,7 @@ steps:
           export OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)";
           export VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)";
         fi
+        export SECURITY_TYPE_FEATURE="$(cat vhdbuilder/packer/settings.json | grep "security_type_feature" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
         export SKU_NAME="windows-$WINDOWS_SKU";
 
         make -f packer.mk generate-publishing-info

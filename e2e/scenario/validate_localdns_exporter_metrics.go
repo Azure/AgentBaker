@@ -2,21 +2,16 @@ package scenario
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/localdns"
+	"github.com/Azure/agentbaker/e2e/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ValidateLocalDNSExporterMetrics checks if the localdns metrics exporter is working
 // and exports the expected VnetDNS and KubeDNS forward IP metrics.
-//
-// The validation script is too large (~18KB) to send as a single command over
-// bastion SSH tunnels which have an 8KB WebSocket buffer limit. To work around
-// this, we encode the script in base64, upload it in small chunks via multiple
-// SSH commands, then decode and execute it on the VM.
 func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 	// Check if the node has the localdns-exporter label. This label is only set by CSE
 	// when the VHD has localdns-exporter.socket installed (see cse_main.sh). If the label
@@ -30,47 +25,15 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 	}
 
 	if _, exists := node.Labels[exporterLabelKey]; !exists {
-		s.Logger.Logf("WARNING: node %q does not have label %q — localdns exporter not installed on this VHD, skipping exporter validation",
+		logging.Logf(ctx, "WARNING: node %q does not have label %q — localdns exporter not installed on this VHD, skipping exporter validation",
 			s.Runtime.VM.KubeName, exporterLabelKey)
 		return nil
 	}
-	s.Logger.Logf("node %q has label %q — proceeding with full exporter validation", s.Runtime.VM.KubeName, exporterLabelKey)
+	logging.Logf(ctx, "node %q has label %q — proceeding with full exporter validation", s.Runtime.VM.KubeName, exporterLabelKey)
 
-	encoded := base64.StdEncoding.EncodeToString([]byte(localdns.ExporterMetricsScript()))
-	remotePath := "/home/azureuser/validate_localdns_exporter_metrics.sh"
-	remoteB64 := remotePath + ".b64"
-
-	// Upload base64-encoded script in chunks small enough for the bastion tunnel buffer.
-	// Each chunk appends to the previous one, so a failed chunk leaves a truncated script:
-	// abort rather than continue.
-	const chunkSize = 4096
-	for i := 0; i < len(encoded); i += chunkSize {
-		end := i + chunkSize
-		if end > len(encoded) {
-			end = len(encoded)
-		}
-		chunk := encoded[i:end]
-
-		var cmd string
-		if i == 0 {
-			cmd = fmt.Sprintf("echo -n '%s' > %s", chunk, remoteB64)
-		} else {
-			cmd = fmt.Sprintf("echo -n '%s' >> %s", chunk, remoteB64)
-		}
-		if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cmd, 0,
-			fmt.Sprintf("failed to upload script chunk (offset %d)", i)); err != nil {
-			return err
-		}
-	}
-
-	// Decode the base64 file into the actual script and make it executable.
-	decodeCmd := fmt.Sprintf("base64 -d %s > %s && chmod +x %s && rm -f %s", remoteB64, remotePath, remotePath, remoteB64)
-	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, decodeCmd, 0, "failed to decode uploaded script"); err != nil {
-		return err
-	}
-
-	// Execute the script.
-	result, err := execScriptOnVMForScenario(ctx, s, "sudo "+remotePath)
+	command := "sudo /bin/bash <<'LOCALDNS_EXPORTER_VALIDATION'\n" +
+		localdns.ExporterMetricsScript() + "\nLOCALDNS_EXPORTER_VALIDATION\n"
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VM, command)
 	if err != nil {
 		return fmt.Errorf("failed to run localdns exporter metrics validation script: %w", err)
 	}
@@ -78,6 +41,6 @@ func ValidateLocalDNSExporterMetrics(ctx context.Context, s *Scenario) error {
 		"localdns exporter metrics validation failed\nstdout: %s\nstderr: %s", result.stdout, result.stderr); err != nil {
 		return err
 	}
-	s.Logger.Logf("localdns exporter metrics validation output:\n%s", result.stdout)
+	logging.Logf(ctx, "localdns exporter metrics validation output:\n%s", result.stdout)
 	return nil
 }

@@ -1,4 +1,4 @@
-
+. $PSScriptRoot\helpers.ps1
 
 # Set the service telemetry GUID. This is used with Windows Analytics https://docs.microsoft.com/en-us/sccm/core/clients/manage/monitor-windows-analytics
 function Set-TelemetrySetting
@@ -106,8 +106,11 @@ function Update-ServiceFailureActions
     Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateServiceFailureActions" -TaskMessage "Start to update service failure actions"
 
     sc.exe failure "kubelet" actions= restart/60000/restart/60000/restart/60000 reset= 900
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe failed to set failure actions for kubelet (exit code $LASTEXITCODE)" }
     sc.exe failure "kubeproxy" actions= restart/60000/restart/60000/restart/60000 reset= 900
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe failed to set failure actions for kubeproxy (exit code $LASTEXITCODE)" }
     sc.exe failure "containerd" actions= restart/60000/restart/60000/restart/60000 reset= 900
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe failed to set failure actions for containerd (exit code $LASTEXITCODE)" }
 }
 
 function Add-SystemPathEntry
@@ -195,6 +198,154 @@ function Enable-Privilege {
     $type[0]::EnablePrivilege($processHandle, $Privilege)
 }
 
+function Test-GmsaPluginRegistry {
+    try {
+        $interfacePath = "HKLM:\SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}"
+        $proxyStubPath = "$interfacePath\ProxyStubClsid32"
+        $appIdPath = "HKLM:\SOFTWARE\Classes\AppID\{557110E1-88BC-4583-8281-6AAC6F708584}"
+        $classPath = "HKLM:\SOFTWARE\Classes\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}"
+        $inprocServerPath = "$classPath\InprocServer32"
+        $ccgClassPath = "HKLM:\SYSTEM\CurrentControlSet\Control\CCG\COMClasses\{CCC2A336-D7F3-4818-A213-272B7924213E}"
+        $expectedPluginPath = [Io.path]::Combine($env:SystemRoot, "System32", "CCGAKVPlugin.dll")
+        $expectedPermissionHex = "01000480440000005400000000000000140000000200300002000000000014000B000000010100000000000512000000000014000B00000001010000000000050B0000000102000000000005200000002002000001020000000000052000000020020000"
+        $accessPermission = Get-ItemPropertyValue -Path $appIdPath -Name "AccessPermission"
+        $launchPermission = Get-ItemPropertyValue -Path $appIdPath -Name "LaunchPermission"
+        $accessPermissionHex = [BitConverter]::ToString([byte[]]$accessPermission).Replace("-", "")
+        $launchPermissionHex = [BitConverter]::ToString([byte[]]$launchPermission).Replace("-", "")
+
+        return (Test-Path $interfacePath) `
+            -and (Get-ItemPropertyValue -Path $interfacePath -Name "(default)") -eq "ICcgDomainAuthCredentials" `
+            -and (Test-Path $proxyStubPath) `
+            -and (Get-ItemPropertyValue -Path $proxyStubPath -Name "(default)") -eq "{A6FF50C0-56C0-71CA-5732-BED303A59628}" `
+            -and (Test-Path $appIdPath) `
+            -and $accessPermissionHex -eq $expectedPermissionHex `
+            -and $launchPermissionHex -eq $expectedPermissionHex `
+            -and (Get-ItemPropertyValue -Path $appIdPath -Name "DllSurrogate") -eq "" `
+            -and (Test-Path $classPath) `
+            -and (Get-ItemPropertyValue -Path $classPath -Name "AppID") -eq "{557110E1-88BC-4583-8281-6AAC6F708584}" `
+            -and (Test-Path $inprocServerPath) `
+            -and (Get-ItemPropertyValue -Path $inprocServerPath -Name "(default)") -eq $expectedPluginPath `
+            -and (Get-ItemPropertyValue -Path $inprocServerPath -Name "ThreadingModel") -eq "Both" `
+            -and (Test-Path -Path $expectedPluginPath -PathType Leaf) `
+            -and (Test-Path $ccgClassPath) `
+            -and (Get-ItemPropertyValue -Path $ccgClassPath -Name "(default)") -eq ""
+    } catch {
+        Write-Log "Failed to validate GMSA plugin registry values: $_"
+        return $false
+    }
+}
+
+function Set-GmsaPluginRegistryKeyPermission {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String] $RegistryKeyPath
+    )
+
+    $owner = [System.Security.Principal.NTAccount]"BUILTIN\Administrators"
+    $key = $null
+
+    try {
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $RegistryKeyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::TakeOwnership)
+        if ($null -eq $key) {
+            Write-Log "GMSA plugin registry key '$RegistryKeyPath' does not exist; reg.exe will create it"
+            return
+        }
+
+        $acl = $key.GetAccessControl()
+        $acl.SetOwner($owner)
+        $key.SetAccessControl($acl)
+        $key.Dispose()
+        $key = $null
+
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $RegistryKeyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::ChangePermissions)
+        $acl = $key.GetAccessControl()
+        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+            $owner,
+            [System.Security.AccessControl.RegistryRights]::FullControl,
+            [System.Security.AccessControl.InheritanceFlags]::ContainerInherit,
+            [System.Security.AccessControl.PropagationFlags]::None,
+            [System.Security.AccessControl.AccessControlType]::Allow)
+        $acl.SetAccessRule($rule)
+        $key.SetAccessControl($acl)
+    } finally {
+        if ($null -ne $key) {
+            $key.Dispose()
+        }
+    }
+}
+
+function Repair-GmsaPluginRegistryPermissions {
+    $registryKeyPaths = @(
+        "SOFTWARE\Classes\Interface\{6ECDA518-2010-4437-8BC3-46E752B7B172}",
+        "SOFTWARE\Classes\AppID\{557110E1-88BC-4583-8281-6AAC6F708584}",
+        "SOFTWARE\Classes\CLSID\{CCC2A336-D7F3-4818-A213-272B7924213E}",
+        "SYSTEM\CurrentControlSet\Control\CCG\COMClasses"
+    )
+
+    $repairFailures = @()
+    foreach ($registryKeyPath in $registryKeyPaths) {
+        try {
+            Set-GmsaPluginRegistryKeyPermission -RegistryKeyPath $registryKeyPath
+        } catch {
+            $repairFailure = "${registryKeyPath}: $_"
+            Write-Log "Failed to repair GMSA plugin registry key permissions for '$registryKeyPath': $_"
+            $repairFailures += $repairFailure
+        }
+    }
+
+    return $repairFailures
+}
+
+function Import-GmsaPluginRegistry {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String] $RegistryFilePath
+    )
+
+    Write-Log "Setting the appropriate GMSA plugin registry values"
+    $registryImportOutput = & reg.exe import $RegistryFilePath 2>&1
+    $registryImportExitCode = $LASTEXITCODE
+
+    if (Test-GmsaPluginRegistry) {
+        if ($registryImportExitCode -ne 0) {
+            Write-Log "reg.exe import returned exit code $registryImportExitCode, but the GMSA plugin registry values are valid. Output: $registryImportOutput"
+        }
+        return
+    }
+
+    Write-Log "reg.exe import did not produce a valid GMSA plugin registration; repairing plugin registry permissions before retry"
+    try {
+        $repairFailures = @(Repair-GmsaPluginRegistryPermissions)
+    } catch {
+        $repairFailures = @("Unexpected permission repair failure: $_")
+        Write-Log $repairFailures[0]
+    }
+
+    $retryImportOutput = & reg.exe import $RegistryFilePath 2>&1
+    $retryImportExitCode = $LASTEXITCODE
+    if (Test-GmsaPluginRegistry) {
+        if ($retryImportExitCode -ne 0) {
+            Write-Log "reg.exe import retry returned exit code $retryImportExitCode, but the GMSA plugin registry values are valid. Output: $retryImportOutput"
+        }
+        return
+    }
+
+    $repairFailureMessage = if ($repairFailures.Count -gt 0) {
+        " Permission repair failures: $($repairFailures -join '; ')."
+    } else {
+        ""
+    }
+    Set-ExitCode `
+        -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES `
+        -ErrorMessage "Failed to validate GMSA plugin registration after reg.exe import '$RegistryFilePath' returned exit code $registryImportExitCode and retry returned exit code $retryImportExitCode. Initial output: $registryImportOutput. Retry output: $retryImportOutput.$repairFailureMessage"
+}
+
 function Install-GmsaPlugin {
     Param(
         [Parameter(Mandatory=$true)]
@@ -232,39 +383,12 @@ function Install-GmsaPlugin {
     # Set the registry permissions.
     Write-Log "Setting GMSA plugin registry permissions"
     try {
-        $ccgKeyPath = "System\CurrentControlSet\Control\CCG\COMClasses"
-        $owner = [System.Security.Principal.NTAccount]"BUILTIN\Administrators"
-
-        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
-            $ccgKeyPath,
-            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
-            [System.Security.AccessControl.RegistryRights]::TakeOwnership)
-        $acl = $key.GetAccessControl()
-        $acl.SetOwner($owner)
-        $key.SetAccessControl($acl)
-
-        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
-            $ccgKeyPath,
-            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
-            [System.Security.AccessControl.RegistryRights]::ChangePermissions)
-        $acl = $key.GetAccessControl()
-        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
-            $owner,
-            [System.Security.AccessControl.RegistryRights]::FullControl,
-            [System.Security.AccessControl.AccessControlType]::Allow)
-        $acl.SetAccessRule($rule)
-        $key.SetAccessControl($acl)
+        Set-GmsaPluginRegistryKeyPermission -RegistryKeyPath "SYSTEM\CurrentControlSet\Control\CCG\COMClasses"
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION -ErrorMessage "Failed to set GMSA plugin registry permissions. $_"
     }
 
-    # Set the appropriate registry values.
-    try {
-        Write-Log "Setting the appropriate GMSA plugin registry values"
-        reg.exe import "$tempInstallPackageFoler\registerplugin.reg" 2>$null 1>$null
-    } catch {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES -ErrorMessage  "Failed to set GMSA plugin registry values. $_"
-    }
+    Import-GmsaPluginRegistry -RegistryFilePath "$tempInstallPackageFoler\registerplugin.reg"
 
     # Enable the logging manifest.
     Write-Log "Importing the CCGEvents manifest file"
@@ -289,66 +413,6 @@ function Install-GmsaPlugin {
     Remove-Item -Path $tempInstallPackageFoler -Force -Recurse
 
     Write-Log "Successfully installed the GMSA plugin"
-}
-
-function Install-OpenSSH {
-    Param(
-        [Parameter(Mandatory = $true)][string[]]
-        $SSHKeys
-    )
-    Logs-To-Event -TaskName "AKS.WindowsCSE.InstallOpenSSH" -TaskMessage "Start to install OpenSSH"
-
-    $adminpath = "c:\ProgramData\ssh"
-    $adminfile = "administrators_authorized_keys"
-
-    $sshdService = Get-Service | ? Name -like 'sshd'
-    if ($sshdService.Count -eq 0)
-    {
-        Write-Log "Installing OpenSSH"
-        $isAvailable = Get-WindowsCapability -Online | ? Name -like 'OpenSSH*'
-
-        if (!$isAvailable) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED -ErrorMessage "OpenSSH is not available on this machine"
-        }
-
-        Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
-    }
-    else
-    {
-        Write-Log "OpenSSH Server service detected - skipping online install..."
-    }
-
-    Start-Service sshd
-
-    if (!(Test-Path "$adminpath")) {
-        Write-Log "Created new file and text content added"
-        New-Item -path $adminpath -name $adminfile -type "file" -value ""
-    }
-
-    Write-Log "$adminpath found."
-    Write-Log "Adding keys to: $adminpath\$adminfile ..."
-    $SSHKeys | foreach-object {
-        Add-Content $adminpath\$adminfile $_
-    }
-
-    Write-Log "Setting required permissions..."
-    icacls $adminpath\$adminfile /remove "NT AUTHORITY\Authenticated Users"
-    icacls $adminpath\$adminfile /inheritance:r
-    icacls $adminpath\$adminfile /grant SYSTEM:`(F`)
-    icacls $adminpath\$adminfile /grant BUILTIN\Administrators:`(F`)
-
-    Write-Log "Restarting sshd service..."
-    Restart-Service sshd
-    # OPTIONAL but recommended:
-    Set-Service -Name sshd -StartupType 'Automatic'
-
-    # Confirm the Firewall rule is configured. It should be created automatically by setup.
-    $firewall = Get-NetFirewallRule -Name *ssh*
-
-    if (!$firewall) {
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED -ErrorMessage "OpenSSH's firewall is not configured properly"
-    }
-    Write-Log "OpenSSH installed and configured successfully"
 }
 
 function Config-CredentialProvider {
@@ -436,6 +500,266 @@ function Validate-CredentialProviderConfigFlags {
     }
 }
 
+# Returns $null for malformed or incompatible package versions so resolvers can skip them.
+function ConvertTo-DalecCredentialProviderVersion {
+    Param(
+        [Parameter(Mandatory=$true)][AllowNull()][AllowEmptyString()][string]$PackageVersion,
+        [Parameter(Mandatory=$true)][version]$KubeVersion
+    )
+    $match = [regex]::Match($PackageVersion, '\A(?<version>(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))-(?<revision>0|[1-9][0-9]*)\z')
+    # A four-part System.Version compares patch and package revision numerically.
+    $candidateVersion = $null
+    if (-not $match.Success -or
+        -not [version]::TryParse("$($match.Groups['version'].Value).$($match.Groups['revision'].Value)", [ref]$candidateVersion) -or
+        $candidateVersion.Major -ne $KubeVersion.Major -or $candidateVersion.Minor -ne $KubeVersion.Minor) {
+        return $null
+    }
+    return $candidateVersion
+}
+
+function Resolve-DalecCredentialProviderPackage {
+    <#
+    .SYNOPSIS
+    Selects a cached Dalec credential provider ZIP for k8s >= 1.33, consulting
+    baked metadata for a download only when no matching archive is cached.
+    Matches the Kubernetes major/minor and selects the highest patch, then package revision.
+    Returns $null when neither source applies; cache access errors throw.
+    #>
+    Param(
+        [Parameter(Mandatory=$true)][string]$KubeBinariesVersion
+    )
+
+    $kubeVersion = $null
+    if (-not [version]::TryParse($KubeBinariesVersion.TrimStart('v'), [ref]$kubeVersion)) {
+        Write-Log "Invalid Kubernetes version '$KubeBinariesVersion'; cannot select a cached Dalec credential provider, falling back to RP URL"
+        return $null
+    }
+    if ($kubeVersion -lt [version]"1.33.0") {
+        Write-Log "Kubernetes $KubeBinariesVersion is below the Dalec credential provider gate; using RP URL"
+        return $null
+    }
+
+    # PROCESSOR_ARCHITEW6432 identifies the native architecture in a 32-bit process.
+    $architecture = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+    if ($architecture -ne 'AMD64') {
+        Write-Log "No supported cached Dalec credential provider architecture for '$architecture'; falling back to RP URL"
+        return $null
+    }
+    $files = @()
+    if ([string]::IsNullOrEmpty($global:CacheDir)) {
+        Write-Log "Dalec credential provider cache root is not configured; checking baked metadata"
+    } else {
+        $cacheDir = Join-Path $global:CacheDir 'azure-acr-credential-provider'
+        try {
+            if (Test-Path -LiteralPath $cacheDir -PathType Container -ErrorAction Stop) {
+                $files = Get-ChildItem -LiteralPath $cacheDir -File -ErrorAction Stop
+            } else {
+                Write-Log "Dalec credential provider cache directory '$cacheDir' is missing; checking baked metadata"
+            }
+        } catch {
+            throw "Failed to inspect Dalec credential provider cache '$cacheDir': $_"
+        }
+    }
+
+    $selectedFile = $null
+    $selectedVersion = $null
+    $selectedPackageVersion = $null
+    foreach ($file in $files) {
+        $match = [regex]::Match($file.Name, '\Aazure-acr-credential-provider_(?<packageVersion>.+)_amd64\.zip\z')
+        if ($file.PSIsContainer -or -not $match.Success) {
+            continue
+        }
+        $candidateVersion = ConvertTo-DalecCredentialProviderVersion -PackageVersion $match.Groups['packageVersion'].Value -KubeVersion $kubeVersion
+        if ($null -eq $candidateVersion) {
+            continue
+        }
+        if ($null -eq $selectedVersion -or $candidateVersion -gt $selectedVersion) {
+            $selectedVersion = $candidateVersion
+            $selectedFile = $file.FullName
+            $selectedPackageVersion = $match.Groups['packageVersion'].Value
+        }
+    }
+    if ($null -eq $selectedFile) {
+        Write-Log "No cached Dalec credential provider for Kubernetes $($kubeVersion.Major).$($kubeVersion.Minor) on $architecture; checking baked metadata"
+        return Resolve-DalecCredentialProviderPackageFromMetadata -KubeVersion $kubeVersion
+    }
+    Write-Log "Selected cached Dalec credential provider v$selectedPackageVersion from '$selectedFile'"
+    return @{
+        Version = $selectedPackageVersion
+        CachedFile = $selectedFile
+    }
+}
+
+# Called only after cache discovery misses, so cached packages do not depend on metadata.
+function Resolve-DalecCredentialProviderPackageFromMetadata {
+    Param(
+        [Parameter(Mandatory=$true)][version]$KubeVersion
+    )
+    $metadataPath = 'c:\k\components.json'
+    if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf -ErrorAction Stop)) {
+        Write-Log "Dalec credential provider metadata not found at '$metadataPath'; falling back to RP URL"
+        return $null
+    }
+    $content = Get-Content -LiteralPath $metadataPath -ErrorAction Stop | Out-String
+    try {
+        $metadata = $content | ConvertFrom-Json -ErrorAction Stop
+    } catch [System.ArgumentException] {
+        Write-Log "Invalid Dalec credential provider metadata in '$metadataPath'; falling back to RP URL. Error: $_"
+        return $null
+    }
+    # Older VHDs placed newer Windows pins under PMC; retain that precedence for their metadata.
+    # Consolidated metadata keeps Windows pins only in the dedicated Dalec component.
+    $package = $metadata.Packages | Where-Object { $_.name -eq 'azure-acr-credential-provider-pmc' } | Select-Object -First 1
+    if ($null -eq $package.downloadURIs.windows.default) {
+        $package = $metadata.Packages | Where-Object { $_.name -eq 'windows credential provider dalec' } | Select-Object -First 1
+    }
+    $windowsPackage = $package.downloadURIs.windows.default
+    $selectedVersion = $null
+    $selectedPackageVersion = $null
+    foreach ($entry in $windowsPackage.versionsV2) {
+        $candidateVersion = ConvertTo-DalecCredentialProviderVersion -PackageVersion ([string]$entry.latestVersion) -KubeVersion $KubeVersion
+        if ($null -eq $candidateVersion) {
+            continue
+        }
+        if ($null -eq $selectedVersion -or $candidateVersion -gt $selectedVersion) {
+            $selectedVersion = $candidateVersion
+            $selectedPackageVersion = $entry.latestVersion
+        }
+    }
+    if ($null -eq $selectedVersion -or $windowsPackage.downloadURL -isnot [string] -or [string]::IsNullOrEmpty($windowsPackage.downloadURL)) {
+        Write-Log "No Dalec credential provider download in baked metadata for Kubernetes $($KubeVersion.Major).$($KubeVersion.Minor); falling back to RP URL"
+        return $null
+    }
+    # Substitute the supported template tokens literally; never evaluate metadata as PowerShell.
+    $resolvedUrl = $windowsPackage.downloadURL.Replace('${version}', $selectedPackageVersion)
+    $resolvedUrl = $resolvedUrl.Replace('$($version.Split(''-'')[0])', $selectedPackageVersion.Split('-')[0])
+    $uri = $null
+    if ($resolvedUrl.Contains('$') -or -not [uri]::TryCreate($resolvedUrl, [UriKind]::Absolute, [ref]$uri) -or
+        $uri.Scheme -ne 'https' -or
+        [IO.Path]::GetFileName($uri.AbsolutePath) -cne "azure-acr-credential-provider_${selectedPackageVersion}_amd64.zip") {
+        Write-Log "Invalid Dalec credential provider download URL in baked metadata; falling back to RP URL"
+        return $null
+    }
+    Write-Log "Selected Dalec credential provider v$selectedPackageVersion from baked metadata for download"
+    return @{
+        Version = $selectedPackageVersion
+        CachedFile = $null
+        Url = $uri.AbsoluteUri
+    }
+}
+
+# Invoke-RestMethod -TimeoutSec on Windows PowerShell only bounds receiving response headers; a
+# stalled body can still block for ReadWriteTimeout (300s) per read. TimeoutSec > 0 bounds the whole
+# attempt (connect, headers and body) by waiting on async operations against one deadline and aborting
+# the request when it passes. TimeoutSec = 0 keeps the synchronous .NET defaults used by Invoke-RestMethod.
+function Save-DalecCredentialProviderHttpResponse {
+    Param(
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$Url,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$DestinationPath,
+        [Parameter(Mandatory=$true)][ValidateRange(0, 2147483)][int]$TimeoutSec
+    )
+    $path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DestinationPath)
+    $timeoutMs = [long]$TimeoutSec * 1000
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $request = [System.Net.WebRequest]::Create($Url)
+    $request.Method = 'GET'
+    $waitForTask = {
+        param($Task)
+        $remainingMs = $timeoutMs - $timer.ElapsedMilliseconds
+        # WaitAny does not throw for faulted tasks; GetResult then surfaces the original exception.
+        if ($remainingMs -le 0 -or [System.Threading.Tasks.Task]::WaitAny(@($Task), [int]$remainingMs) -lt 0) {
+            $request.Abort()
+            throw [System.TimeoutException]::new("Download of '$Url' exceeded $TimeoutSec seconds.")
+        }
+        return $Task.GetAwaiter().GetResult()
+    }
+    $response = $null
+    $source = $null
+    $target = $null
+    try {
+        $response = if ($timeoutMs -gt 0) { & $waitForTask $request.GetResponseAsync() } else { $request.GetResponse() }
+        $source = $response.GetResponseStream()
+        $target = [System.IO.File]::Create($path)
+        $buffer = New-Object byte[] 81920
+        $totalBytes = [long]0
+        while ($true) {
+            $read = if ($timeoutMs -gt 0) {
+                & $waitForTask $source.ReadAsync($buffer, 0, $buffer.Length)
+            } else {
+                $source.Read($buffer, 0, $buffer.Length)
+            }
+            if ($read -le 0) {
+                break
+            }
+            $target.Write($buffer, 0, $read)
+            $totalBytes += $read
+        }
+        if ($response.ContentLength -ge 0 -and $totalBytes -ne $response.ContentLength) {
+            throw "Download of '$Url' was truncated: received $totalBytes of $($response.ContentLength) bytes."
+        }
+    } catch {
+        if ($null -ne $target) {
+            $target.Dispose()
+            $target = $null
+            Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+        }
+        throw
+    } finally {
+        if ($null -ne $target) { $target.Dispose() }
+        if ($null -ne $source) { $source.Dispose() }
+        if ($null -ne $response) { $response.Dispose() }
+    }
+}
+
+# Throws rather than exiting so the caller can fall back to the RP cache/URL.
+# Defaults match DownloadFileOverHttp; pass a smaller budget only when a fallback exists.
+function Get-DalecCredentialProviderPackage {
+    Param(
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$Url,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$DestinationPath,
+        [Parameter(Mandatory=$false)][ValidateRange(1, 100)][int]$Retries = 5,
+        [Parameter(Mandatory=$false)][ValidateRange(0, 3600)][int]$RetryDelaySeconds = 10,
+        [Parameter(Mandatory=$false)][ValidateRange(0, 3600)][int]$TimeoutSec = 0
+    )
+    # Match the shared downloader for Windows PowerShell's .NET Framework HTTP stack.
+    $secureProtocols = @()
+    $insecureProtocols = @([System.Net.SecurityProtocolType]::SystemDefault, [System.Net.SecurityProtocolType]::Ssl3)
+    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) {
+        if ($insecureProtocols -notcontains $protocol) {
+            $secureProtocols += $protocol
+        }
+    }
+    [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
+
+    $mappedUrl = Update-BaseUrl -InitialUrl $Url
+    Write-Log "Downloading dalec credential provider $Url -> $mappedUrl to $DestinationPath (attempts: $Retries, per-attempt timeout: $(if ($TimeoutSec -gt 0) { "$TimeoutSec s" } else { 'default' }), retry delay: $RetryDelaySeconds s)"
+    $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        $arglist = @{ Url = $mappedUrl; DestinationPath = $DestinationPath; TimeoutSec = $TimeoutSec }
+        Retry-Command -Command "Save-DalecCredentialProviderHttpResponse" -Args $arglist -Retries $Retries -RetryDelaySeconds $RetryDelaySeconds
+    } finally {
+        $downloadTimer.Stop()
+        Write-Log "Dalec credential provider download elapsed time: $($downloadTimer.ElapsedMilliseconds) ms ($mappedUrl)"
+    }
+
+    if ($null -ne $global:AppInsightsClient) {
+        $evt = New-Object "Microsoft.ApplicationInsights.DataContracts.EventTelemetry"
+        $evt.Name = "FileDownload"
+        $evt.Properties["FileName"] = [IO.Path]::GetFileName(([uri]$mappedUrl).AbsolutePath)
+        $evt.Metrics["DurationMs"] = $downloadTimer.ElapsedMilliseconds
+        $global:AppInsightsClient.TrackEvent($evt)
+    }
+}
+
+# Throws on extraction failure so installation can fall back to the RP URL.
+function Expand-DalecCredentialProviderPackage {
+    Param(
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$Path,
+        [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$DestinationPath
+    )
+    Expand-Archive -Path $Path -DestinationPath $DestinationPath -Force -ErrorAction Stop
+}
+
 function Install-CredentialProvider {
     Param(
         [Parameter(Mandatory=$true)][string]
@@ -459,14 +783,78 @@ function Install-CredentialProvider {
         Write-Log "Create credential provider configuration file"
         Config-CredentialProvider -KubeDir $KubeDir -CredentialProviderConfPath $global:credentialProviderConfigPath -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
 
-        Write-Log "Download credential provider binary from $global:CredentialProviderURL to $global:credentialProviderBinDir"
+        Write-Log "Preparing credential provider installation in $global:credentialProviderBinDir"
         $tempDir = New-TemporaryDirectory
         if ([string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer)) {
-            $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
-            DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
-            tar -xzf $credentialproviderbinaryPackage -C $tempDir
-            if ($LASTEXITCODE -ne 0) {
-                throw "Failed to extract the '$credentialproviderbinaryPackage' archive."
+            # Only select Dalec when the RP URL is empty or matches a stock legacy URL.
+            # If the caller provided a custom/hotfix URL, honor it as-is.
+            $credentialProviderUri = $null
+            $isCredentialProviderUri = $false
+            if (-not [string]::IsNullOrEmpty($global:CredentialProviderURL)) {
+                $isCredentialProviderUri = [Uri]::TryCreate(
+                    [string]$global:CredentialProviderURL,
+                    [UriKind]::Absolute,
+                    [ref]$credentialProviderUri
+                )
+            }
+            $stockLegacyHosts = @(
+                'packages.aks.azure.com',
+                'packages.aks.azure.us',
+                'acs-mirror.azureedge.net'
+            )
+            $allowDalecSelection = [string]::IsNullOrEmpty($global:CredentialProviderURL) -or
+                ($isCredentialProviderUri -and
+                    $credentialProviderUri.Host -in $stockLegacyHosts -and
+                    $credentialProviderUri.AbsolutePath -match '/cloud-provider-azure/v\d+\.\d+\.\d+/binaries/azure-acr-credential-provider-windows-amd64-v\d+\.\d+\.\d+\.tar\.gz$')
+            $dalecPackage = if ($allowDalecSelection) {
+                Resolve-DalecCredentialProviderPackage -KubeBinariesVersion $global:KubeBinariesVersion
+            } else { $null }
+
+            $useLegacyPackage = $null -eq $dalecPackage
+            if (-not $useLegacyPackage) {
+                Write-Log "Using dalec credential provider v$($dalecPackage.Version)"
+                try {
+                    if ($dalecPackage.CachedFile) {
+                        Write-Log "Using cached dalec package: $($dalecPackage.CachedFile)"
+                        $credentialproviderbinaryPackage = $dalecPackage.CachedFile
+                    } else {
+                        $credentialproviderbinaryPackage = "$tempDir\credentialprovider.zip"
+                        $dalecUri = [UriBuilder]::new($dalecPackage.Url)
+                        if ($isCredentialProviderUri) {
+                            $dalecUri.Host = $credentialProviderUri.Host
+                        }
+                        $downloadBudget = if ([string]::IsNullOrEmpty($global:CredentialProviderURL)) {
+                            # No RP fallback: a failed download fails provisioning, so keep the shared downloader's budget.
+                            @{ Retries = 5; RetryDelaySeconds = 10; TimeoutSec = 0 }
+                        } else {
+                            # RP fallback exists: cap the Dalec attempt at two 15-second tries before falling back.
+                            @{ Retries = 2; RetryDelaySeconds = 1; TimeoutSec = 15 }
+                        }
+                        Get-DalecCredentialProviderPackage -Url $dalecUri.Uri.AbsoluteUri -DestinationPath $credentialproviderbinaryPackage @downloadBudget
+                    }
+                    Expand-DalecCredentialProviderPackage -Path $credentialproviderbinaryPackage -DestinationPath $tempDir
+                    if (-not (Test-Path -LiteralPath "$tempDir\azure-acr-credential-provider.exe" -PathType Leaf -ErrorAction Stop)) {
+                        throw "Dalec credential provider archive '$credentialproviderbinaryPackage' does not contain azure-acr-credential-provider.exe."
+                    }
+                } catch {
+                    if ([string]::IsNullOrEmpty($global:CredentialProviderURL)) {
+                        throw
+                    }
+                    Write-Log "Failed to install dalec credential provider, falling back to RP URL. Error: $_"
+                    $useLegacyPackage = $true
+                }
+            }
+            if ($useLegacyPackage) {
+                # If neither Dalec source works, the shared helper checks the RP cache before downloading.
+                if ([string]::IsNullOrEmpty($global:CredentialProviderURL)) {
+                    throw "No credential provider source: CredentialProviderURL is empty and neither a cached Dalec package nor a matching download in baked metadata is available for Kubernetes $global:KubeBinariesVersion on this node."
+                }
+                $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
+                DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+                tar -xzf $credentialproviderbinaryPackage -C $tempDir
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to extract the '$credentialproviderbinaryPackage' archive."
+                }
             }
         } else {
             # network isolated cluster
@@ -501,10 +889,10 @@ function Install-CredentialProvider {
         }
 
         Create-Directory -FullPath $global:credentialProviderBinDir
-        cp "$tempDir\azure-acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider.exe"
+        Copy-Item "$tempDir\azure-acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider.exe" -ErrorAction Stop
         # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
         # so we copy the exe file to acr-credential-provider to make all 1.29 release work.
-        cp "$global:credentialProviderBinDir\acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider"
+        Copy-Item "$global:credentialProviderBinDir\acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider" -ErrorAction Stop
         del $tempDir -Recurse
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER -ErrorMessage "Error installing credential provider. Error: $_"
@@ -531,26 +919,31 @@ function New-CsiProxyService {
         throw "Failed to extract the '$binaryPackage' archive."
     }
 
-    cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"
+    $stagedCsiProxyPath = "$KubeDir\csi-proxy.exe.new"
+    $csiProxyPath = "$KubeDir\csi-proxy.exe"
+    Copy-Item -Force -ErrorAction Stop -Path "$tempdir\bin\csi-proxy.exe" -Destination $stagedCsiProxyPath
 
+    Remove-ServiceIfExists -ServiceName "csi-proxy"
+
+    Move-Item -Force -ErrorAction Stop -Path $stagedCsiProxyPath -Destination $csiProxyPath
     del $tempdir -Recurse
 
-    & "$KubeDir\nssm.exe" install csi-proxy "$KubeDir\csi-proxy.exe" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppDirectory "$KubeDir" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRestartDelay 5000 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy Description csi-proxy | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStdout "$KubeDir\csi-proxy.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStderr "$KubeDir\csi-proxy.err.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStdoutCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppStderrCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set csi-proxy AppRotateBytes 10485760 | RemoveNulls
+    Invoke-Nssm -KubeDir $KubeDir install csi-proxy $csiProxyPath
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppDirectory "$KubeDir"
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRestartDelay 5000
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy Description csi-proxy
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy Start SERVICE_DEMAND_START
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy ObjectName LocalSystem
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy Type SERVICE_WIN32_OWN_PROCESS
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppThrottle 1500
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppStdout "$KubeDir\csi-proxy.log"
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppStderr "$KubeDir\csi-proxy.err.log"
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppStdoutCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppStderrCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRotateFiles 1
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRotateOnline 1
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRotateSeconds 86400
+    Invoke-Nssm -KubeDir $KubeDir set csi-proxy AppRotateBytes 10485760
 }
 
 function New-HostsConfigService {
@@ -558,23 +951,25 @@ function New-HostsConfigService {
 
     $HostsConfigParameters = [io.path]::Combine($KubeDir, "hostsconfigagent.ps1")
 
-    & "$KubeDir\nssm.exe" install hosts-config-agent C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppDirectory "$KubeDir" | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppParameters $HostsConfigParameters | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRestartDelay 5000 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent Description hosts-config-agent | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent Start SERVICE_DEMAND_START | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent ObjectName LocalSystem | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent Type SERVICE_WIN32_OWN_PROCESS | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppThrottle 1500 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStdout "$KubeDir\hosts-config-agent.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStderr "$KubeDir\hosts-config-agent.err.log" | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStdoutCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppStderrCreationDisposition 4 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateFiles 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateOnline 1 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateSeconds 86400 | RemoveNulls
-    & "$KubeDir\nssm.exe" set hosts-config-agent AppRotateBytes 10485760 | RemoveNulls
+    Remove-ServiceIfExists -ServiceName "hosts-config-agent"
+
+    Invoke-Nssm -KubeDir $KubeDir install hosts-config-agent C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppDirectory "$KubeDir"
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppParameters $HostsConfigParameters
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRestartDelay 5000
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent Description hosts-config-agent
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent Start SERVICE_DEMAND_START
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent ObjectName LocalSystem
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent Type SERVICE_WIN32_OWN_PROCESS
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppThrottle 1500
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppStdout "$KubeDir\hosts-config-agent.log"
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppStderr "$KubeDir\hosts-config-agent.err.log"
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppStdoutCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppStderrCreationDisposition 4
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRotateFiles 1
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRotateOnline 1
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRotateSeconds 86400
+    Invoke-Nssm -KubeDir $KubeDir set hosts-config-agent AppRotateBytes 10485760
 }
 
 function Register-LogCollectorScriptTask {

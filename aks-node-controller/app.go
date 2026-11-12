@@ -30,10 +30,14 @@ func isExpectedDiffCSEVar(key string) bool {
 	switch key {
 	case "CLOUD_INIT_STATUS_SCRIPT",
 		"HYPERKUBE_URL",
-		"MCR_REPOSITORY_BASE",
 		"BLOCK_OUTBOUND_NETWORK",
 		"REPO_DEPOT_ENDPOINT",
-		"SKIP_WAAGENT_HOLD":
+		"SKIP_WAAGENT_HOLD",
+		"GPU_IMAGE_SHA",
+		"SUBNET",
+		"ROUTE_TABLE",
+		"VM_TYPE",
+		"PROXY_VARS":
 		return true
 	}
 	return false
@@ -50,8 +54,26 @@ type App struct {
 	hotfixVersionPath string
 	// aptSourcesDir overrides the default APT sources directory for testing.
 	aptSourcesDir string
+	// aptTrustedKeyringsDir overrides the default APT trusted keyrings directory for testing.
+	aptTrustedKeyringsDir string
+	// yumReposDir overrides the default RPM repositories directory for testing.
+	yumReposDir string
 	// osReleasePath overrides the default /etc/os-release path for testing.
 	osReleasePath string
+	// goArch overrides runtime.GOARCH for repository-path tests.
+	goArch string
+	// repositoryTempDir overrides where repository downloads and extraction are staged.
+	repositoryTempDir string
+	// vhdBinaryPath, hotfixBinaryPath, and pkgBinaryPath override ANC binary paths for testing.
+	vhdBinaryPath    string
+	hotfixBinaryPath string
+	pkgBinaryPath    string
+	// verifyRepositorySignature overrides gpgv-backed repository signature verification.
+	verifyRepositorySignature func(ctx context.Context, signedPath, signaturePath string, keyrings []string) error
+	// verifyRPMPackageSignature overrides rpmkeys-backed package signature verification.
+	verifyRPMPackageSignature func(ctx context.Context, packagePath string) error
+	// extractRepositoryPackage overrides package extraction for deterministic unit tests.
+	extractRepositoryPackage func(ctx context.Context, format, packagePath, destination string) error
 	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
 	nodeCustomDataPath string
 	// nodeConfigPath overrides the default AKSNodeConfig path for testing. It is the
@@ -64,6 +86,10 @@ type App struct {
 	nbcCmdPath string
 	// gpuComponentsFilePath overrides the default GPU components.json location for testing.
 	gpuComponentsFilePath string
+	// readyReportMarkerPath overrides the readiness handoff marker location for testing.
+	readyReportMarkerPath string
+	// goalStateReporter overrides native provisioning status reporting for testing.
+	goalStateReporter func(context.Context, bool, string) error
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
 	// unit tests inject a canned pointer body or errors without real networking.
 	checkHotfixFetcher func(ctx context.Context) ([]byte, error)
@@ -71,6 +97,11 @@ type App struct {
 	// Authorization header for the check-hotfix LPS fetch. When nil, the real IMDS endpoint
 	// is queried.
 	fetchAttestedToken func(ctx context.Context) (string, error)
+	// fetchVMResourceID overrides retrieval of the VM's ARM resource ID from IMDS compute
+	// metadata, sent to the LPS as a lookup hint. When nil, the real IMDS endpoint is queried.
+	fetchVMResourceID func(ctx context.Context) (string, error)
+	// applyEmbeddedHotfix overrides embedded script application for tests.
+	applyEmbeddedHotfix func(string) error
 	// grpcDialContext overrides how the gRPC LPS client dials, letting tests point the client at
 	// an in-process (bufconn) server. When nil, the real TLS dial to the apiserver front is used.
 	grpcDialContext func(ctx context.Context, target string) (net.Conn, error)
@@ -164,6 +195,16 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				},
 			},
 			{
+				Name:  "apply-embedded-hotfix",
+				Usage: "Apply embedded hotfix scripts",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if len(cmd.Args().Slice()) > 0 {
+						return fmt.Errorf("unexpected apply-embedded-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return a.runApplyHotfixCommand(ctx)
+				},
+			},
+			{
 				Name:  "check-hotfix",
 				Usage: "Read the hotfix pointer from the live-patching-service and stage it (fail-open)",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -217,7 +258,7 @@ func (a *App) runProvisionWaitCommand(ctx context.Context, provisionStatusFiles 
 		a.eventLogger.LogEvent("ProvisionWait", "Completed", helpers.EventLevelInformational, startTime, endTime)
 		slog.Info("aks-node-controller finished successfully.")
 	}
-	slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+	slog.Info("provision-wait finished")
 	return provisionOutput, err
 }
 
@@ -229,6 +270,23 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 		return err
 	}
 	slog.Info("aks-node-controller hotfix download finished")
+	return nil
+}
+
+func (a *App) runApplyHotfixCommand(context.Context) error {
+	slog.Info("aks-node-controller hotfix apply started")
+	applyHotfix := a.applyEmbeddedHotfix
+	if applyHotfix == nil {
+		applyHotfix = func(osReleasePath string) error {
+			return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath)
+		}
+	}
+	if err := applyHotfix(a.osReleasePath); err != nil {
+		slog.Error("aks-node-controller failed to apply embedded hotfix payload", "error", err)
+		return err
+	}
+
+	slog.Info("aks-node-controller apply embedded hotfix payload finished")
 	return nil
 }
 
@@ -261,22 +319,12 @@ func buildCmdFromProvisionConfig(ctx context.Context, path string, gpuComponents
 
 	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
 	if err != nil {
-		// We try our best to continue unmarshal even if there are unexpected situations such as unknown fields.
-		// It usually happens when a newer version of aksNodeConfig is being parsed by an older version of aks-node-controller.
-		// This allows older versions of aks-node-controller to read configurations that may have fields added in newer versions.
-		// Log the error and continue processing.
-		// Feature owner should be aware that any unrecognized fields will be ignored in older versions of VHD image.
-
-		slog.Info("Unmarshalling aksNodeConfigv1 encounters error but the process will continue."+
-			"This may be due to version mismatch. "+
-			"Usually it is newer aksNodeConfig being parsed by older aks-node-controller. "+
-			"Continuing with partial configuration, but unrecognized fields will be ignored.",
-			"error", err)
+		return nil, fmt.Errorf("decode provision config: %w", err)
 	}
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
-	if config.Version != "v0" && config.Version != "v1" {
-		return nil, fmt.Errorf("unsupported version: %s", config.Version)
+	if err = nodeconfigutils.Validate(config); err != nil {
+		return nil, fmt.Errorf("validate provision config: %w", err)
 	}
 
 	if config.Version == "v0" {
@@ -633,31 +681,24 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	provisionResult := &ProvisionResult{}
 
 	var cmd *exec.Cmd
-	if flags.NBCCmd != "" {
-		var err error
-		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
-		if err != nil {
-			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = err.Error()
-			return provisionResult, err
-		}
-	}
+	var err error
 
 	// If NBC command is provided, we prioritize it over the aks node config for provisioning.
-	if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
-		var err error
+	if flags.NBCCmd != "" {
+		cmd, err = buildCmdFromNBCCmd(ctx, flags.NBCCmd)
+	} else if flags.ProvisionConfig != "" && flags.NBCCmd == "" {
 		cmd, err = buildCmdFromProvisionConfig(ctx, flags.ProvisionConfig, a.getGPUComponentsFilePath())
-		if err != nil {
-			provisionResult.ExitCode = strconv.Itoa(240)
-			provisionResult.Error = err.Error()
-			return provisionResult, err
-		}
+	}
+	if err != nil {
+		provisionResult.ExitCode = strconv.Itoa(240)
+		provisionResult.Error = err.Error()
+		return provisionResult, err
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err := a.cmdRun(cmd)
+	err = a.cmdRun(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
@@ -677,33 +718,70 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
+func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult, provisionErr error) {
+	markerPath := a.readyReportMarkerPath
+	if markerPath == "" {
+		markerPath = readyReportMarkerPath
+	}
+	if _, err := os.Stat(markerPath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			slog.Error("failed to stat Ready reporting handoff marker", "path", markerPath, "error", err)
+		}
+		return
+	}
+
+	description := ""
+	if provisionErr != nil {
+		var err error
+		description, err = provisionFailureDescription(result)
+		if err != nil {
+			slog.Error("failed to format CSE failure description", "error", err)
+			description = fmt.Sprintf("ExitCode: %s, %s", result.ExitCode, result.Error)
+		}
+	}
+	reporter := a.goalStateReporter
+	if reporter == nil {
+		reporter = reportGoalState
+	}
+	if err := reporter(ctx, provisionErr != nil, description); err != nil {
+		slog.Error("failed to report provisioning status to Azure fabric", "error", err)
+	}
+}
+
 // runProvision encapsulates execution for the "provision" subcommand after CLI parsing.
 // It returns an error describing any failure; callers should pass that error to
 // writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
-func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (*ProvisionResult, error) {
-	// Handle panics gracefully to ensure we always return a valid result
-	provisionResult := &ProvisionResult{}
-	var err error
+//
+//nolint:nonamedreturns // Deferred panic recovery must update the returned result and error.
+func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (provisionResult *ProvisionResult, provisionErr error) {
+	provisionResult = &ProvisionResult{}
 
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("panic recovered in runProvision", "panic", r)
 			provisionResult.ExitCode = strconv.Itoa(240)
 			provisionResult.Error = fmt.Sprintf("panic during provisioning: %v", r)
-			err = fmt.Errorf("panic during provisioning: %v", r)
-			a.writeCompleteFileOnError(provisionResult, err)
+			provisionErr = fmt.Errorf("panic during provisioning: %v", r)
+			a.writeCompleteFileOnError(provisionResult, provisionErr)
+		}
+		if !dryRun {
+			a.reportProvisionStatus(ctx, provisionResult, provisionErr)
 		}
 	}()
 
 	if flags.ProvisionConfig == "" && flags.NBCCmd == "" {
 		provisionResult.ExitCode = strconv.Itoa(240)
 		provisionResult.Error = "--provision-config or --nbc-cmd is required"
-		return provisionResult, errors.New(provisionResult.Error)
+		provisionErr = errors.New(provisionResult.Error)
+		return provisionResult, provisionErr
 	}
+
 	if dryRun {
 		a.cmdRun = cmdRunnerDryRun
 	}
-	return a.Provision(ctx, flags)
+	provisionResult, provisionErr = a.Provision(ctx, flags)
+
+	return provisionResult, provisionErr
 }
 
 // writeCompleteFileOnError writes the provision.complete sentinel if err is non-nil,
@@ -791,7 +869,10 @@ func evaluateProvisionStatus(data []byte) error {
 	}
 	if code != 0 {
 		outSnippet := result.Output
-		return fmt.Errorf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet)
+		return cli.Exit(
+			fmt.Sprintf("provision failed: exitCode=%d error=%s output=%q", code, result.Error, outSnippet),
+			code,
+		)
 	}
 	return nil
 }

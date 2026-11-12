@@ -127,6 +127,8 @@ func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 		return helpers.NetworkPolicyAzure
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO:
 		return helpers.NetworkPolicyCalico
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CILIUM:
+		return helpers.NetworkPolicyCilium
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE:
 		// The scriptful (NBC/CSE) path emits the raw "none" string for the network
 		// policy; mirror it here so NETWORK_POLICY matches when policy is "none".
@@ -207,8 +209,9 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	// Select the appropriate containerd config template based on version and GPU presence.
 	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
 	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
+	// Like NBC's IsContainerdV2Distro, keep Kata on the v1 template even with a 2.x binary.
 	var _template *template.Template
-	if isContainerdV2(containerdVersion) {
+	if !aksnodeconfig.GetIsKata() && isContainerdV2(containerdVersion) {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
@@ -294,6 +297,26 @@ func getCSEConfigFilepath() string {
 	return cseConfigScriptFilepath
 }
 
+func getCSEConfigGPUFilepath() string {
+	return cseConfigGPUScriptFilepath
+}
+
+func getCSEConfigLocalDNSFilepath() string {
+	return cseConfigLocalDNSScriptFilepath
+}
+
+func getCSEConfigKubeletFilepath() string {
+	return cseConfigKubeletScriptFilepath
+}
+
+func getCSEConfigNetworkFilepath() string {
+	return cseConfigNetworkScriptFilepath
+}
+
+func getCSEConfigChronyFilepath() string {
+	return cseConfigChronyScriptFilepath
+}
+
 func getCustomSearchDomainFilepath() string {
 	return customSearchDomainsCSEScriptFilepath
 }
@@ -309,7 +332,7 @@ func getDHCPV6ConfigFilepath() string {
 // getSysctlContent converts aksnodeconfigv1.SysctlConfig to a string with key=value pairs, with default values.
 //
 //gocyclo:ignore
-//nolint:funlen,gocognit,cyclop // This function is long because it has to handle all the sysctl values.
+//nolint:funlen,gocognit // This function is long because it has to handle all the sysctl values.
 func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 	// This is a partial workaround to this upstream Kubernetes issue:
 	// https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
@@ -321,6 +344,9 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 
 	m := make(map[string]interface{})
 	m["net.ipv4.tcp_retries2"] = defaultNetIpv4TcpRetries2
+	if s.NetIpv4TcpRetries2 != nil {
+		m["net.ipv4.tcp_retries2"] = s.GetNetIpv4TcpRetries2()
+	}
 	m["net.core.message_burst"] = defaultNetCoreMessageBurst
 	m["net.core.message_cost"] = defaultNetCoreMessageCost
 
@@ -390,6 +416,10 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		m["net.ipv4.tcp_fin_timeout"] = s.GetNetIpv4TcpFinTimeout()
 	}
 
+	if s.NetIpv4TcpRmem != nil {
+		m["net.ipv4.tcp_rmem"] = s.GetNetIpv4TcpRmem()
+	}
+
 	if s.NetIpv4TcpKeepaliveTime != nil {
 		m["net.ipv4.tcp_keepalive_time"] = s.GetNetIpv4TcpKeepaliveTime()
 	}
@@ -410,11 +440,23 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		}
 	}
 
+	if s.NetIpv4IpLocalReservedPorts != nil {
+		m["net.ipv4.ip_local_reserved_ports"] = s.GetNetIpv4IpLocalReservedPorts()
+	}
+
 	if s.GetNetIpv4IpLocalPortRange() != "" {
 		m["net.ipv4.ip_local_port_range"] = s.GetNetIpv4IpLocalPortRange()
-		if getPortRangeEndValue(s.GetNetIpv4IpLocalPortRange()) > ipLocalReservedPorts {
-			m["net.ipv4.ip_local_reserved_ports"] = ipLocalReservedPorts
+	}
+
+	if s.GetNetIpv4IpLocalPortRange() != "" && getPortRangeEndValue(s.GetNetIpv4IpLocalPortRange()) > ipLocalReservedPorts {
+		ports := s.GetNetIpv4IpLocalReservedPorts()
+		if !reservedPortsContain(ports, ipLocalReservedPorts) {
+			if ports != "" {
+				ports += ","
+			}
+			ports += strconv.Itoa(ipLocalReservedPorts)
 		}
+		m["net.ipv4.ip_local_reserved_ports"] = ports
 	}
 
 	if s.NetNetfilterNfConntrackMax != nil {
@@ -427,6 +469,10 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 
 	if s.FsInotifyMaxUserWatches != nil {
 		m["fs.inotify.max_user_watches"] = s.GetFsInotifyMaxUserWatches()
+	}
+
+	if s.FsInotifyMaxUserInstances != nil {
+		m["fs.inotify.max_user_instances"] = s.GetFsInotifyMaxUserInstances()
 	}
 
 	if s.FsFileMax != nil {
@@ -458,6 +504,32 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n") + "\n"))
+}
+
+func reservedPortsContain(ports string, port int) bool {
+	if ports == "" {
+		return false
+	}
+	for _, entry := range strings.Split(ports, ",") {
+		startText, endText, isRange := strings.Cut(strings.TrimSpace(entry), "-")
+		start, err := strconv.Atoi(startText)
+		if err != nil {
+			log.Printf("invalid reserved port %q: %v", entry, err)
+			continue
+		}
+		end := start
+		if isRange {
+			end, err = strconv.Atoi(endText)
+			if err != nil {
+				log.Printf("invalid reserved port range %q: %v", entry, err)
+				continue
+			}
+		}
+		if start <= port && port <= end {
+			return true
+		}
+	}
+	return false
 }
 
 func getShouldConfigContainerdUlimits(u *aksnodeconfigv1.UlimitConfig) bool {
@@ -594,6 +666,25 @@ func getShouldConfigureHTTPProxyCA(httpProxyConfig *aksnodeconfigv1.HttpProxyCon
 
 func getIsAksCustomCloud(customCloudConfig *aksnodeconfigv1.CustomCloudConfig) bool {
 	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), helpers.AksCustomCloudName)
+}
+
+func getMCRRepositoryBase(config *aksnodeconfigv1.Configuration) string {
+	// Match RP's GetCloudName/GetMCRBaseUrl and the trailing slash in its cloud specs.
+	location := getCloudLocation(config)
+	switch {
+	case strings.HasPrefix(location, "china"):
+		return "mcr.azure.cn/"
+	case strings.HasPrefix(location, "usnat"):
+		return "mcr.microsoft.eaglex.ic.gov/"
+	case strings.HasPrefix(location, "ussec"):
+		return "mcr.microsoft.scloud/"
+	case strings.HasPrefix(location, "bleu"):
+		return "mcr.sovcloud-azure.fr/"
+	case strings.HasPrefix(location, "deloscloud"):
+		return "mcr.sovcloud-azure.de/"
+	default:
+		return "mcr.microsoft.com/"
+	}
 }
 
 func getCloudLocation(v *aksnodeconfigv1.Configuration) string {
@@ -752,19 +843,18 @@ func getShouldConfigTransparentHugePage(v *aksnodeconfigv1.CustomLinuxOsConfig) 
 }
 
 func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
-	proxyVars := ""
-	if proxyConfig.GetHttpProxy() != "" {
-		// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-		proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", proxyConfig.GetHttpProxy())
+	if proxyConfig == nil {
+		return ""
 	}
-	if proxyConfig.GetHttpsProxy() != "" {
-		proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", proxyConfig.GetHttpsProxy(), proxyVars)
+	if proxyConfig.GetHttpProxy() == "" && proxyConfig.GetHttpsProxy() == "" && proxyConfig.GetNoProxyEntries() == nil {
+		return ""
 	}
-	if proxyConfig.GetNoProxyEntries() != nil {
-		proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(proxyConfig.GetNoProxyEntries(), ","), proxyVars)
-	}
-	return proxyVars
+
+	// Older VHDs evaluate PROXY_VARS. Keep this payload free of customer-controlled values;
+	// those values are passed through the dedicated *_PROXY_URLS environment variables.
+	return `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi; ` +
+		`if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi; ` +
+		`if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi`
 }
 
 func getHasDataDir(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {

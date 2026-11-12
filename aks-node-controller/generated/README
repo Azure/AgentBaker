@@ -1,0 +1,3 @@
+This placeholder keeps go:embed valid when no script hotfix payloads exist.
+hotfix/hotfix_generate.py replaces this directory with rendered distro YAMLs.
+An absent rendered_nodecustomdata_<platform>.yml means no hotfix for that platform.

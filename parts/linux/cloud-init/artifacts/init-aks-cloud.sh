@@ -1,4 +1,7 @@
 #!/bin/bash
+# Never trace expanded WireServer responses, even when invoked with bash -x.
+set +x
+
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/init_aks_cloud_spec.sh.
 
@@ -7,6 +10,25 @@
 # base image), so functions in this script use it without an explicit install
 # step. Do not flag jq usage here as "used before install" — matches the
 # established pattern in cse_main.sh.
+
+log_certificates() {
+    [ "${AKS_CLOUD_LOG_CERTIFICATES:-false}" = "true" ] || return 0
+    local public_certs
+    # Re-encode certificates only: never print raw input, which may also contain
+    # private keys or non-certificate data. Support bundles as well as single CAs.
+    if ! public_certs=$(
+        set -o pipefail
+        openssl crl2pkcs7 -nocrl -certfile "$1" 2>/dev/null |
+            openssl pkcs7 -print_certs 2>/dev/null
+    ) || [ -z "$public_certs" ]; then
+        echo "Warning: could not decode public certificates: $1" >&2
+        return 0
+    fi
+    # Syslog priority applies to every input line under both cron and systemd.
+    printf '%s\n' "$public_certs" |
+        logger -p user.debug -t azure-ca-refresh ||
+        echo "Warning: failed to log certificates" >&2
+}
 
 # GA events directory — Azure Guest Agent monitors this directory and forwards
 # JSON event files to Geneva/Kusto for off-node telemetry.
@@ -18,7 +40,10 @@ EVENTS_LOGGING_DIR="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/event
 logs_to_events() {
     local task=$1; shift
     local eventsFileName
-    eventsFileName=$(date +%s%3N)
+    # The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+    # timestamp plus the emitting process's PID is unique by construction: two live
+    # processes cannot share a PID, and two forks of date cannot share a nanosecond.
+    eventsFileName="$(date +%s%N)${BASHPID}"
 
     local startTime
     startTime=$(date +"%F %T.%3N")
@@ -54,7 +79,10 @@ emit_event() {
     local message=$2
     local level=${3:-Informational}
     local eventsFileName
-    eventsFileName=$(date +%s%3N)
+    # The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+    # timestamp plus the emitting process's PID is unique by construction: two live
+    # processes cannot share a PID, and two forks of date cannot share a nanosecond.
+    eventsFileName="$(date +%s%N)${BASHPID}"
     local timestamp
     timestamp=$(date +"%F %T.%3N")
 
@@ -111,15 +139,12 @@ function make_request_with_retry {
             return 0
         else
             echo "wireserver request failed (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
-            if [ -n "$response" ]; then
-                echo "wireserver error response: ${response}" >&2
-            fi
             sleep $retry_delay
             attempt=$((attempt + 1))
         fi
     done
 
-    echo "exhausted all retries for ${url} (last HTTP ${http_code}), last response: $response" >&2
+    echo "exhausted all retries for ${url} (last HTTP ${http_code})" >&2
     return 1
 }
 
@@ -127,7 +152,6 @@ function make_request_with_retry {
 #   0 - opted in (wireserver confirmed IsOptedInForRootCerts=true)
 #   1 - not opted in (wireserver responded with false; valid, skip certs)
 #   2 - wireserver unreachable after retries (caller must treat as fatal)
-#
 # Wireserver unreachable must be fatal (return 2) rather than silently skipping certs.
 # If the subscription is opted in for hardened root certs but we silently fall back to
 # the distro's default trust store, we leave a security hole — the node would trust CAs
@@ -138,7 +162,6 @@ function is_opted_in_for_root_certs {
 
     opt_in_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/acms/isOptedInForRootCerts")
     local request_status=$?
-    echo "is_opted_in_for_root_certs: wireserver response (status=${request_status}): '${opt_in_response}'"
 
     if [ $request_status -ne 0 ] || [ -z "$opt_in_response" ]; then
         echo "ERROR: wireserver unreachable after retries for IsOptedInForRootCerts check"
@@ -154,30 +177,12 @@ function is_opted_in_for_root_certs {
     return 1
 }
 
-function get_trust_store_dir {
-    if [ "$IS_ACL" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-        echo "/etc/pki/ca-trust/source/anchors"
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        echo "/etc/ssl/certs"
-    else
-        echo "/usr/local/share/ca-certificates"
-    fi
-}
-
-function debug_print_trust_store {
-    local stage="$1"
-    local trust_store_dir
-
-    trust_store_dir=$(get_trust_store_dir)
-    echo "Trust store contents ${stage} cert copy: ${trust_store_dir}"
-    ls -al "$trust_store_dir" || true
-}
-
 function retrieve_legacy_certs {
     local certs
-    local cert_names
-    local cert_bodies
-    local i
+    local certificate
+    local cert_name
+    local cert_body
+    local sanitized_filename
 
     certs=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=cacertificates&ext=json")
     if [ -z "$certs" ]; then
@@ -185,21 +190,39 @@ function retrieve_legacy_certs {
         return 1
     fi
 
-    IFS_backup=$IFS
-    IFS=$'\r\n'
-    cert_names=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
-    cert_bodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
-    for i in ${!cert_bodies[@]}; do
-        echo ${cert_bodies[$i]} | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${cert_names[$i]} | sed 's/.cer/.crt/g')"
-    done
-    IFS=$IFS_backup
+    if ! certs=$(jq -cs '
+        if length == 1 and (.[0].Certificates | type == "array")
+        then .[0].Certificates[]
+        else error("invalid certificate response")
+        end' <<< "$certs" 2>/dev/null); then
+        echo "Warning: failed to parse legacy custom cloud certificates"
+        return 1
+    fi
+
+    while IFS= read -r certificate; do
+        [ -n "$certificate" ] || continue
+        if ! cert_name=$(jq -r '.Name // "" | strings | select(index("\u0000") == null)' <<< "$certificate" 2>/dev/null); then
+            echo "Warning: failed to parse legacy certificate name"
+            return 1
+        fi
+        sanitized_filename=$(basename -- "$cert_name")
+        if [ "$sanitized_filename" != "$cert_name" ] || [ -z "$sanitized_filename" ] || \
+           [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
+            echo "Warning: rejecting invalid certificate filename: '$cert_name'"
+            continue
+        fi
+        if ! cert_body=$(jq -er '.CertBody | strings' <<< "$certificate" 2>/dev/null); then
+            echo "Warning: failed to parse legacy certificate body: '$cert_name'"
+            return 1
+        fi
+        printf '%s\n' "${cert_body//$'\r\n'/$'\n'}" > "/root/AzureCACertificates/$(echo "$sanitized_filename" | sed 's/.cer/.crt/g')"
+    done <<< "$certs"
 }
 
 function process_cert_operations {
     local endpoint_type="$1"
     local operation_response
 
-    echo "Retrieving certificate operations for type: $endpoint_type"
     operation_response=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$endpoint_type&ext=json")
     local request_status=$?
     if [ -z "$operation_response" ] || [ $request_status -ne 0 ]; then
@@ -216,8 +239,6 @@ function process_cert_operations {
     fi
 
     for cert_filename in "${cert_filenames[@]}"; do
-        echo "Processing certificate file: $cert_filename"
-
         # Defense-in-depth: reject filenames containing path separators or ".." to
         # prevent path traversal via a malformed wireserver ResouceFileName value.
         # Windows performs the equivalent sanitization via [IO.Path]::GetFileName.
@@ -241,7 +262,6 @@ function process_cert_operations {
         fi
 
         echo "$cert_content" > "/root/AzureCACertificates/$sanitized_filename"
-        echo "Successfully saved certificate: $sanitized_filename"
     done
 }
 
@@ -253,16 +273,19 @@ function retrieve_rcv1p_certs {
 function install_certs_to_trust_store {
     mkdir -p /root/AzureCACertificates
 
-    debug_print_trust_store "before"
-
     # Guard against empty glob: if no *.crt files exist, bash leaves the literal
-    # '*.crt', which would silently fail cp and could mask the failure since
-    # debug_print_trust_store below always returns 0.
+    # '*.crt', which would fail cp.
     if ! compgen -G "/root/AzureCACertificates/*.crt" > /dev/null; then
         echo "ERROR: no *.crt files in /root/AzureCACertificates to install" >&2
         return 1
     fi
 
+    local cert
+    for cert in /root/AzureCACertificates/*.crt; do
+        log_certificates "$cert"
+    done
+
+    echo "Refreshing CA trust store"
     local rc=0
     if [ "$IS_ACL" -eq 1 ] || [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
         cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/ || rc=$?
@@ -287,7 +310,6 @@ function install_certs_to_trust_store {
         fi
     fi
 
-    debug_print_trust_store "after"
     return $rc
 }
 function init_ubuntu_main_repo_depot {
@@ -425,13 +447,23 @@ function add_ms_keys {
 function aptget_update {
     echo "apt-get updating..."
     echo "note: depending on how many sources have been added this may take a couple minutes..."
-    if apt-get update | grep -q "404 Not Found"; then
-        echo "ERROR: apt-get update failed to find all sources. Please validate the sources or remove bad sources from your sources and try again."
-        emit_event "AKS.CSE.customCloudRepoInit.aptgetUpdateFailed" "apt-get update returned 404 for one or more sources" "Error"
-        exit 1
-    else
-        echo "apt-get update complete!"
-    fi
+    local retries=10
+    local i
+    for i in $(seq 1 "$retries"); do
+        echo "Running apt-get update (attempt $i/$retries)"
+        if apt-get update; then
+            echo "apt-get update complete!"
+            return 0
+        fi
+
+        if [ "$i" -lt "$retries" ]; then
+            sleep 5
+        fi
+    done
+
+    echo "ERROR: apt-get update failed after $retries attempts" >&2
+    emit_event "AKS.CSE.customCloudRepoInit.aptgetUpdateFailed" "apt-get update failed after $retries attempts" "Error"
+    return 1
 }
 
 function init_ubuntu_pmc_repo_depot {
@@ -514,16 +546,22 @@ function dnf_makecache {
     local dnf_makecache_output=/tmp/dnf-makecache.out
     local i
     for i in $(seq 1 $retries); do
-        ! (dnf makecache -y 2>&1 | tee $dnf_makecache_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
-        cat $dnf_makecache_output && break || \
-        cat $dnf_makecache_output
-        if [ $i -eq $retries ]; then
-            return 1
-        else
+        dnf makecache -y > "$dnf_makecache_output" 2>&1
+        cat "$dnf_makecache_output"
+
+        if ! grep -Eq "^([WE]:.*)|([eE]rr.*)$" "$dnf_makecache_output"; then
+            echo "Executed dnf makecache -y $i times"
+            return 0
+        fi
+
+        if [ "$i" -lt "$retries" ]; then
             sleep 5
         fi
     done
-    echo "Executed dnf makecache -y $i times"
+
+    echo "ERROR: dnf_makecache failed after retries; Please validate the sources or remove bad sources from your sources and try again" >&2
+    emit_event "AKS.CSE.customCloudRepoInit.dnfMakecacheFailed" "dnf_makecache failed after retries" "Error"
+    return 1
 }
 
 # Determines the certificate endpoint mode based on location.
@@ -543,7 +581,6 @@ function determine_cert_endpoint_mode {
 
 # shellcheck disable=SC2317
 ${__SOURCED__:+return}
-set -x
 
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then
@@ -569,7 +606,6 @@ else
 fi
 
 echo "Running on $NAME"
-
 
 # Certificate refresh behavior summary:
 # - legacy mode directly attempts certificate download from wireserver and only in ussec and usnat regions.
@@ -637,6 +673,32 @@ fi
 # - init (default): full provisioning path
 # - ca-refresh <location>: periodic refresh path; location is passed as arg to avoid env dependency
 action=${1:-init}
+if [ "$action" = "init" ]; then
+    rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
+    if [ -z "$rootRepoDepotEndpoint" ]; then
+        echo "repo depot endpoint empty, skipping repodepot initialization"
+    else
+        if [ "$IS_UBUNTU" -eq 1 ]; then
+            ubuntuRel=$(lsb_release --release | awk '{print $2}')
+            ubuntuDist=$(lsb_release -c | awk '{print $2}')
+            init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
+            init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
+            echo "Running apt-get update"
+            aptget_update
+        elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
+            if [ "$IS_MARINER" -eq 1 ]; then
+                echo "Initializing Mariner repo depot settings..."
+                init_mariner_repo_depot ${rootRepoDepotEndpoint}
+            else
+                echo "Initializing Azure Linux repo depot settings..."
+                init_azurelinux_repo_depot ${rootRepoDepotEndpoint}
+            fi
+            echo "Running dnf_makecache"
+            dnf_makecache
+        fi
+    fi
+fi
+
 if [ "$action" = "ca-refresh" ] || [ "$install_ca_refresh_schedule" -eq 0 ]; then
     exit 0
 fi
@@ -691,140 +753,3 @@ EOF
     systemctl daemon-reload
     systemctl enable --now azure-ca-refresh.timer
 fi
-
-if [ "$IS_UBUNTU" -eq 1 ]; then
-    rootRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-    if [ -n "$rootRepoDepotEndpoint" ]; then
-        cloud-init status --wait
-        ubuntuRel=$(lsb_release --release | awk '{print $2}')
-        ubuntuDist=$(lsb_release -c | awk '{print $2}')
-        init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
-        init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
-        echo "Running apt-get update"
-        aptget_update
-    else
-        echo "REPO_DEPOT_ENDPOINT empty, skipping Ubuntu RepoDepot initialization"
-    fi
-elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-    cloud-init status --wait
-
-    marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-    if [ -z "$marinerRepoDepotEndpoint" ]; then
-        >&2 echo "repo depot endpoint empty while running custom-cloud init script"
-    else
-        if [ "$IS_MARINER" -eq 1 ]; then
-            echo "Initializing Mariner repo depot settings..."
-            init_mariner_repo_depot ${marinerRepoDepotEndpoint}
-            dnf_makecache || { echo "ERROR: dnf_makecache failed after retries; aborting custom cloud repo init (Mariner)"; emit_event "AKS.CSE.customCloudRepoInit.dnfMakecacheFailed" "dnf_makecache failed after retries (Mariner)" "Error"; exit 1; }
-        else
-            echo "Initializing Azure Linux repo depot settings..."
-            init_azurelinux_repo_depot ${marinerRepoDepotEndpoint}
-            dnf_makecache || { echo "ERROR: dnf_makecache failed after retries; aborting custom cloud repo init (Azure Linux)"; emit_event "AKS.CSE.customCloudRepoInit.dnfMakecacheFailed" "dnf_makecache failed after retries (Azure Linux)" "Error"; exit 1; }
-        fi
-    fi
-fi
-
-# Disable systemd-timesyncd and install chrony and uses local time source
-# ACL has PTP clock config compiled into chronyd with no config file or sourcedir directives,
-# so it uses only the local PTP clock and has no DHCP-injectable NTP sources.
-if [ "$IS_ACL" -eq 1 ]; then
-    echo "Skipping chrony configuration for ACL (PTP clock baked into chronyd, no external NTP sources)"
-elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
-    cat > /etc/chrony.conf <<EOF
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
-keyfile /etc/chrony.keys
-
-# This directive specify the file into which chronyd will store the rate
-# information.
-driftfile /var/lib/chrony/drift
-
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
-logdir /var/log/chrony
-
-# Stop bad estimates upsetting machine clock.
-maxupdateskew 100.0
-
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
-rtcsync
-
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-    systemctl restart chronyd
-else
-    chrony_conf="/etc/chrony/chrony.conf"
-    if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl stop systemd-timesyncd
-        systemctl disable systemd-timesyncd
-
-        if [ ! -e "$chrony_conf" ]; then
-            apt-get update
-            apt-get install chrony -y
-        fi
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        rm -f ${chrony_conf}
-    fi
-
-    cat > $chrony_conf <<EOF
-# Welcome to the chrony configuration file. See chrony.conf(5) for more
-# information about usuable directives.
-
-# This will use (up to):
-# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
-# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
-# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
-# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
-# sources will be used.
-# At the same time it retains some protection against one of the entries being
-# down (compare to just using one of the lines). See (LP: #1754358) for the
-# discussion.
-#
-# About using servers from the NTP Pool Project in general see (LP: #104525).
-# Approved by Ubuntu Technical Board on 2011-02-08.
-# See http://www.pool.ntp.org/join.html for more information.
-#pool ntp.ubuntu.com        iburst maxsources 4
-#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
-
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
-keyfile /etc/chrony/chrony.keys
-
-# This directive specify the file into which chronyd will store the rate
-# information.
-driftfile /var/lib/chrony/chrony.drift
-
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
-logdir /var/log/chrony
-
-# Stop bad estimates upsetting machine clock.
-maxupdateskew 100.0
-
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
-rtcsync
-
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-    if [ "$IS_UBUNTU" -eq 1 ]; then
-        systemctl restart chrony
-    elif [ "$IS_FLATCAR" -eq 1 ]; then
-        systemctl restart chronyd
-    fi
-fi
-
-#EOF

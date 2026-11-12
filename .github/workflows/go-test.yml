@@ -1,6 +1,13 @@
 name: Go Unit Tests
 on: pull_request
 
+# Cancel a superseded run when a new commit is pushed to the same PR, so its (now stale)
+# results never race the newer push's publisher for the coverage comment - see
+# go-test-publish.yml for the belt-and-braces check on the publishing side too.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   go-test:
     runs-on: ubuntu-latest
@@ -16,8 +23,61 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version: '1.25'
-    - run: |
+        go-version: '1.27'
+    - name: Run unit tests for go code in the repository (with coverage)
+      env:
+        CSE_SCRIPT_DIFF_DIR: ${{ runner.temp }}/cse-minification-diffs
+      # Single instrumented pass instead of `make test` followed by a second coverage run:
+      # this builds and tests each module once, mirroring what `make test` does, while also
+      # producing coverage profiles.
+      run: |
         set -ex
-        make test
-      name: Run unit tests for go code in the repository
+        mkdir -p coverage
+        go build -mod=readonly ./...
+        # shellcheck disable=SC2046  # word splitting is intentional: expand to multiple package args
+        go test $(go list ./... | grep -v e2e) -coverprofile=coverage/agentbaker.out -covermode=atomic
+        (cd aks-node-controller && go build -mod=readonly ./... && go test ./... -coverprofile=../coverage/aks-node-controller.out -covermode=atomic)
+        (cd aks-live-patching && go build -mod=readonly ./... && go test ./... -coverprofile=../coverage/aks-live-patching.out -covermode=atomic)
+    - name: Upload CSE minification diffs
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      if: (!cancelled())
+      with:
+        name: cse-minification-diffs
+        path: ${{ runner.temp }}/cse-minification-diffs
+        if-no-files-found: error
+        retention-days: 5
+    - name: Strip generated/mock code from coverage profiles
+      run: |
+        set -ex
+        for f in coverage/*.out; do
+          sed -i -e '/mocks.go/d' -e '/\.pb\.go/d' "$f"
+        done
+    - name: Install gocover-cobertura
+      run: |
+        go install github.com/boumenot/gocover-cobertura@v1.5.0
+        echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+    - name: Convert coverage profiles to Cobertura XML
+      run: |
+        set -ex
+        gocover-cobertura < coverage/agentbaker.out > coverage/agentbaker.xml
+        (cd aks-node-controller && gocover-cobertura < ../coverage/aks-node-controller.out > ../coverage/aks-node-controller.xml)
+        # Skip conversion if the aks-live-patching profile has no data lines, rather than
+        # emit an empty/NaN report.
+        if [ "$(wc -l < coverage/aks-live-patching.out)" -gt 1 ]; then
+          (cd aks-live-patching && gocover-cobertura < ../coverage/aks-live-patching.out > ../coverage/aks-live-patching.xml)
+        fi
+        rm -f coverage/*.out
+    - name: Test GRID driver version validation
+      run: |
+        cd e2e
+        go test -short ./scenario -run '^TestNvidiaDriverVersionValidationScript'
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      if: (!cancelled())
+      with:
+        name: go-coverage
+        path: coverage/*.xml
+        retention-days: 5
+
+# Coverage is published by go-test-publish.yml, a separate workflow_run-triggered workflow -
+# see that file for why this can't just be a second job here.

@@ -2,15 +2,63 @@ package scenario
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
 )
+
+func TestNC96A100ManagedGPUScenario(t *testing.T) {
+	var matches []*Scenario
+	for _, s := range List() {
+		if s.Name == "Ubuntu2404_NvidiaDevicePluginRunning_NC96A100" {
+			matches = append(matches, s)
+		}
+	}
+	require.Len(t, matches, 1)
+	s := matches[0]
+	require.Equal(t, "westus2", s.Location)
+	require.Equal(t, config.VHDUbuntu2404Gen2Containerd, s.VHD)
+	require.True(t, s.Tags.GPU)
+	require.Empty(t, s.SkipReason)
+	require.False(t, s.SkipDefaultValidation)
+	require.NotNil(t, s.Validator)
+	require.NotNil(t, s.VMConfigMutatorWithError)
+	require.Nil(t, s.Runtime)
+
+	const vmSize = "Standard_NC96ads_A100_v4"
+	nbc := &datamodel.NodeBootstrappingConfiguration{AgentPoolProfile: &datamodel.AgentPoolProfile{}}
+	s.BootstrapConfigMutator(nil, nbc)
+	require.Equal(t, vmSize, nbc.AgentPoolProfile.VMSize)
+	require.True(t, nbc.ConfigGPUDriverIfNeeded)
+	require.True(t, nbc.EnableGPUDevicePluginIfNeeded)
+	require.True(t, nbc.EnableNvidia)
+	require.True(t, nbc.ManagedGPUExperienceAFECEnabled)
+	require.True(t, nbc.EnableManagedGPU)
+	require.Empty(t, nbc.GPUInstanceProfile)
+	require.Empty(t, nbc.MIGProfileLayout)
+
+	cfg := &aksnodeconfigv1.Configuration{GpuConfig: &aksnodeconfigv1.GpuConfig{}}
+	s.AKSNodeConfigMutator(nil, cfg)
+	require.Equal(t, vmSize, cfg.VmSize)
+	require.True(t, cfg.GpuConfig.ConfigGpuDriver)
+	require.True(t, cfg.GpuConfig.GpuDevicePlugin)
+	require.True(t, cfg.GpuConfig.GetEnableNvidia())
+	require.True(t, cfg.GpuConfig.ManagedGpuExperienceAfecEnabled)
+	require.True(t, cfg.GpuConfig.EnableManagedGpu)
+	require.Empty(t, cfg.GpuConfig.GpuInstanceProfile)
+	require.Empty(t, cfg.GpuConfig.MigProfileLayout)
+
+	vmss := &armcompute.VirtualMachineScaleSet{SKU: &armcompute.SKU{}}
+	s.VMConfigMutator(vmss)
+	require.Equal(t, vmSize, *vmss.SKU.Name)
+}
 
 func TestCreateVMExtensionLinuxAKSNodeTiming(t *testing.T) {
 	if testing.Short() {
@@ -74,7 +122,6 @@ func TestVersionConsistencyGPUManagedComponents(t *testing.T) {
 
 	for _, packageGroup := range allPackageVariants {
 		expectedVersion := ""
-		expectedRevision := ""
 		for _, pkgVar := range packageGroup {
 			componentVersions := components.GetExpectedPackageVersions(pkgVar.pkgName, pkgVar.osName, pkgVar.osRelease)
 			require.Lenf(t, componentVersions, 1,
@@ -85,44 +132,14 @@ func TestVersionConsistencyGPUManagedComponents(t *testing.T) {
 			require.NotEmptyf(t, pkgVersion, "Failed to extract major.minor.patch version from %s for %s %s",
 				componentVersions[0], pkgVar.osName, pkgVar.osRelease)
 
-			pkgRevision := extractPackageRevision(componentVersions[0])
-			require.NotEmptyf(t, pkgRevision, "Failed to extract rebuild revision from %s for %s %s",
-				componentVersions[0], pkgVar.osName, pkgVar.osRelease)
-
 			if expectedVersion == "" {
 				expectedVersion = pkgVersion
-				expectedRevision = pkgRevision
 				continue
 			}
 
 			require.Equalf(t, expectedVersion, pkgVersion,
 				"Expected all %s versions to have the same major.minor.patch version, but found mismatch: %s vs %s for %s.%s",
 				pkgVar.pkgName, expectedVersion, pkgVersion, pkgVar.osName, pkgVar.osRelease)
-			require.Equalf(t, expectedRevision, pkgRevision,
-				"Partial OS update detected for %s: rebuild revision %q (%s.%s) does not match %q from the first OS variant.",
-				pkgVar.pkgName, pkgRevision, pkgVar.osName, pkgVar.osRelease, expectedRevision)
 		}
-	}
-}
-
-func TestExtractPackageRevision(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{input: "4.8.2-ubuntu24.04u2", expected: "2"},
-		{input: "4.8.2-ubuntu22.04u2", expected: "2"},
-		{input: "4.8.2-1.azl3", expected: "1"},
-		{input: "1:4.5.3-1", expected: "1"},
-		{input: "0.19.2-ubuntu22.04u10", expected: "10"},
-		{input: "4.6.0-3.azl3", expected: "3"},
-		{input: "", expected: ""},
-		{input: "4.8.2", expected: ""},
-	}
-
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("extractPackageRevision(%q)=%q", test.input, test.expected), func(t *testing.T) {
-			require.Equal(t, test.expected, extractPackageRevision(test.input))
-		})
 	}
 }

@@ -91,8 +91,24 @@ function Download-File
     }
 
     Write-Log "Downloading $URL to $Dest"
-    curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    $curlExitCode = $LASTEXITCODE
+    # curl handles HTTP/timeout retries; also retry transient DNS, connection and transfer failures.
+    $retryableCurlExitCodes = @(5, 6, 7, 16, 18, 35, 52, 55, 56, 92, 95, 96)
+    $delay = if ($retryDelay -gt 0) { $retryDelay } else { 1 }
+    for ($attempt = 0; ; $attempt++)
+    {
+        curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
+        $curlExitCode = $LASTEXITCODE
+        if ($curlExitCode -notin $retryableCurlExitCodes -or $attempt -ge $retryCount)
+        {
+            break
+        }
+        Write-Log "Curl exited with '$curlExitCode'; retrying download in $delay seconds (retry $($attempt + 1) of $retryCount)"
+        Start-Sleep -Seconds $delay
+        if ($retryDelay -eq 0)
+        {
+            $delay = [Math]::Min($delay * 2, 600)
+        }
+    }
     if ($curlExitCode)
     {
         $logURL = $URL
@@ -110,11 +126,39 @@ function Download-File
     Get-ChildItem "$Dest"
 }
 
+function Invoke-AzCopyLogin
+{
+    # Thin wrapper around the native azcopy.exe invocation so tests can Mock this function instead
+    # of needing a real azcopy.exe binary. Sets $LASTEXITCODE as a side effect, same as the direct
+    # call would.
+    .\azcopy.exe login --login-type=MSI
+}
+
+function Invoke-AzCopyCopy
+{
+    # Thin wrapper around the native azcopy.exe invocation so tests can Mock this function instead
+    # of needing a real azcopy.exe binary. Sets $LASTEXITCODE as a side effect, same as the direct
+    # call would.
+    param (
+        $URL,
+        $Dest
+    )
+    .\azcopy.exe copy "$URL" "$Dest"
+}
+
 function Download-FileWithAzCopy
 {
     param (
         $URL,
-        $Dest
+        $Dest,
+        # RequireMSILogin: only the new windowsDownloadRequiresAzCopy component path (via
+        # Invoke-PackageDownload) sets this - that path is explicitly MSI-only, so a failed login
+        # must stop the download outright. Pre-existing callers (Get-PrivatePackagesToCacheOnVHD,
+        # the servercore/nanoserver base image override in Get-ContainerImages) may pass a
+        # SAS-bearing URL that `azcopy copy` can still authenticate with directly even if
+        # `azcopy login` fails (e.g. no managed identity attached at all) - don't break that
+        # existing fallback behavior for them.
+        [Switch]$RequireMSILogin = $false
     )
 
 
@@ -133,28 +177,84 @@ function Download-FileWithAzCopy
     }
 
     pushd "$global:aksTempDir"
-    $env:AZCOPY_JOB_PLAN_LOCATION = "$global:aksTempDir\azcopy"
-    $env:AZCOPY_LOG_LOCATION = "$global:aksTempDir\azcopy"
-
-    mkdir -Force $env:AZCOPY_LOG_LOCATION
-    if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log")
+    try
     {
-        rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        $env:AZCOPY_JOB_PLAN_LOCATION = "$global:aksTempDir\azcopy"
+        $env:AZCOPY_LOG_LOCATION = "$global:aksTempDir\azcopy"
+
+        mkdir -Force $env:AZCOPY_LOG_LOCATION
+        if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log")
+        {
+            rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        }
+
+        Write-Log "Logging in to AzCopy"
+        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+        Invoke-AzCopyLogin
+        if ($LASTEXITCODE)
+        {
+            if ($RequireMSILogin)
+            {
+                throw "azcopy login --login-type=MSI failed with exit code $LASTEXITCODE. This download path is MSI-only: ensure the build VM has the managed identity attached and it has read access to the source storage account."
+            }
+            Write-Log "azcopy login --login-type=MSI failed with exit code $LASTEXITCODE - continuing, since $URL may carry its own credential (e.g. a SAS token) that 'azcopy copy' can use directly without a successful login."
+        }
+
+        Write-Log "Copying $URL to $Dest"
+        Invoke-AzCopyCopy -URL $URL -Dest $Dest
+        if ($LASTEXITCODE)
+        {
+            throw "azcopy copy '$URL' '$Dest' failed with exit code $LASTEXITCODE"
+        }
+
+        dir "$Dest"
+    }
+    finally
+    {
+        Write-Log "--- START AzCopy Log"
+        Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" -ErrorAction SilentlyContinue | Write-Log
+        Write-Log "--- END AzCopy Log"
+        popd
+    }
+}
+
+function Invoke-PackageDownload
+{
+    # Shared dispatcher: routes a resolved package URL to AzCopy (MSI-authenticated) if it was
+    # flagged with windowsDownloadRequiresAzCopy in components.json, otherwise the default
+    # unauthenticated curl-based download. Every call site that downloads a components.json
+    # package URL (cached packages, containerd, ...) must go through this so the AzCopy set
+    # (populated once in windows-vhd-configuration.ps1) is consistently honored.
+    param (
+        $URL,
+        $Dest
+    )
+
+    if ($global:azCopyUrls -and $global:azCopyUrls.ContainsKey($URL))
+    {
+        # This is the new, explicitly MSI-only component path - require azcopy login to succeed.
+        Download-FileWithAzCopy -URL $URL -Dest $Dest -RequireMSILogin
+    }
+    else
+    {
+        Download-File -URL $URL -Dest $Dest
+    }
+}
+
+function Get-OrasDownloadUrl
+{
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Version
+    )
+
+    if ($Version -notmatch '^(?<upstream>\d+\.\d+\.\d+)-\d+$') {
+        throw "Expected an ORAS package version including the DALEC revision, got '${Version}'"
     }
 
-    Write-Log "Logging in to AzCopy"
-    # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
-    .\azcopy.exe login --login-type=MSI
-
-    Write-Log "Copying $URL to $Dest"
-    .\azcopy.exe copy "$URL" "$Dest"
-
-    dir "$Dest"
-
-    Write-Log "--- START AzCopy Log"
-    Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
-    Write-Log "--- END AzCopy Log"
-    popd
+    $upstreamVersion = $Matches.upstream
+    $orasZip = "oras_${Version}_amd64.zip"
+    return "https://packages.aks.azure.com/dalec-packages/oras/${upstreamVersion}/windows/amd64/${orasZip}"
 }
 
 function Pull-OCIArtifact
@@ -177,8 +277,8 @@ function Pull-OCIArtifact
             throw "Unable to resolve ORAS version from components.json"
         }
 
-        $orasZip = "oras_${orasVersion}_windows_amd64.zip"
-        $orasUrl = "https://github.com/oras-project/oras/releases/download/v${orasVersion}/${orasZip}"
+        $orasUrl = Get-OrasDownloadUrl -Version $orasVersion
+        $orasZip = Split-Path -Path $orasUrl -Leaf
 
         Write-Log "Downloading oras v${orasVersion}"
         Invoke-WebRequest -UseBasicParsing $orasUrl -OutFile "$global:aksTempDir\$orasZip"
@@ -378,6 +478,8 @@ function Get-ContainerImages
     $crictlPath = (Get-Command crictl.exe -ErrorAction SilentlyContinue).Path
     $configPath = Join-Path (Split-Path -Parent $crictlPath) "crictl.yaml"
 
+    # Every servercore/nanoserver entry maps to the same tarballs, so import each one once.
+    $importedBaseImageUrls = @{}
     foreach ($image in $imagesToPull)
     {
         $imagePrefix = $image.Split(":")[0]
@@ -402,6 +504,13 @@ function Get-ContainerImages
 
             foreach ($url in $containerBaseImageurls)
             {
+                if ($importedBaseImageUrls.ContainsKey($url))
+                {
+                    Write-Log "Skipping $url for $image, already imported"
+                    continue
+                }
+                $importedBaseImageUrls[$url] = $true
+
                 $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
                 $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
                 Write-Log "Downloading image $image to $tmpDest"
@@ -446,7 +555,7 @@ function Get-PackagesToCacheOnVHD
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
-            Download-File -URL $URL -Dest $dest
+            Invoke-PackageDownload -URL $URL -Dest $dest
         }
     }
 
@@ -497,21 +606,6 @@ function LogFilesInDirectory
         $sizeKB = [math]::Round($_.Length / 1KB, 2)
         Write-Host "$( $_.Name ) - $sizeKB KB"
     }
-}
-
-function Get-ToolsToVHD
-{
-    if (!(Test-Path -Path $global:aksToolsDir))
-    {
-        New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
-    }
-
-    Write-Log "Getting DU (Windows Disk Usage)"
-    Download-File -URL "https://download.sysinternals.com/files/DU.zip" -Dest "$global:aksToolsDir\DU.zip"
-    Expand-Archive -Path "$global:aksToolsDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
-    Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
-
-    LogFilesInDirectory "$global:aksToolsDir\DU"
 }
 
 function Register-ExpandVolumeTask
@@ -606,7 +700,7 @@ function Install-ContainerD
 
     $containerdFilename = [IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
     $containerdTmpDest = [IO.Path]::Combine($installDir, $containerdFilename)
-    Download-File -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
+    Invoke-PackageDownload -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
     # The released containerd package format is either zip or tar.gz
     if ( $containerdFilename.endswith(".zip"))
     {
@@ -762,6 +856,76 @@ function Set-WinRmServiceAutoStart
 {
     Write-Log "Setting WinRM service start to auto"
     sc.exe config winrm start=auto
+}
+
+function Install-WindowsExporterOnVHD
+{
+    # Stage windows-exporter assets into C:\k\windows-exporter. The CSE
+    # (staging/cse/windows/windowsexporterfunc.ps1) registers the aks-windows-exporter
+    # service disabled in BasePrep and enables/starts it in NodePrep.
+    #
+    # The baked skip marker disables aks-vm-extension before node provisioning.
+    $exporterCacheDir   = "c:\akse-cache\windows-exporter"
+    $exporterInstallDir = "C:\k\windows-exporter"
+    $exporterConfigSrc  = "c:\k\windows-exporter-config.yml"
+    $exporterAssetsFile = Join-Path $exporterInstallDir "windows-exporter-assets.complete"
+
+    if (-not (Test-Path $exporterCacheDir))
+    {
+        throw "windows-exporter cache directory not found at $exporterCacheDir"
+    }
+
+    $expectedExporterZipName = [IO.Path]::GetFileName($global:windowsExporterPackageUrl.Split('?')[0])
+
+    $exporterZips = @(Get-ChildItem -Path $exporterCacheDir -Filter "windows-exporter_*_amd64.zip" -File)
+    $exporterZip = @($exporterZips | Where-Object { $_.Name -eq $expectedExporterZipName }) | Select-Object -First 1
+    if (-not $exporterZip)
+    {
+        $foundExporterZipNames = @($exporterZips | ForEach-Object { $_.Name })
+        throw "No expected windows-exporter zip found under $exporterCacheDir. Expected: $expectedExporterZipName. Found: $($foundExporterZipNames -join ', ')"
+    }
+    Write-Log "Using windows-exporter package $($exporterZip.Name) resolved from components.json"
+
+    New-Item -ItemType Directory -Path $exporterInstallDir -Force | Out-Null
+
+    Write-Log "Extracting $($exporterZip.FullName) to $exporterInstallDir"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    # Clean any prior extraction to avoid zip-extract "already exists" failures on re-runs
+    Get-ChildItem -Path $exporterInstallDir -Force -ErrorAction SilentlyContinue |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($exporterZip.FullName, $exporterInstallDir)
+
+    $exporterBinary = Join-Path $exporterInstallDir "windows-exporter.exe"
+    if (-not (Test-Path $exporterBinary))
+    {
+        # Some zip payloads nest the binary under a subfolder; flatten into install dir.
+        $nestedBinary = Get-ChildItem -Path $exporterInstallDir -Filter "windows-exporter.exe" -Recurse -File |
+                        Select-Object -First 1
+        if ($nestedBinary)
+        {
+            Move-Item -Path $nestedBinary.FullName -Destination $exporterBinary -Force
+        }
+    }
+    if (-not (Test-Path $exporterBinary))
+    {
+        throw "windows-exporter.exe not found after extracting $($exporterZip.Name)"
+    }
+
+    if (Test-Path $exporterConfigSrc)
+    {
+        Copy-Item -Path $exporterConfigSrc -Destination (Join-Path $exporterInstallDir "windows-exporter-config.yml") -Force
+    }
+    else
+    {
+        throw "windows-exporter config not staged at $exporterConfigSrc"
+    }
+
+    # Commit the markers only after staging is complete. Marker write failures fail the build.
+    New-Item -ItemType File -Path $exporterAssetsFile -Force -ErrorAction Stop | Out-Null
+    New-Item -ItemType File -Path "C:\k\skip_vhd_windows_exporter" -Force -ErrorAction Stop | Out-Null
+
+    LogFilesInDirectory $exporterInstallDir
+    Write-Log "windows-exporter staged on VHD; assets marker $exporterAssetsFile created"
 }
 
 function Set-WinRmServiceDelayedStart
@@ -1059,9 +1223,9 @@ try
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
-            Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
             Install-WindowsCiliumNetworking
+            Install-WindowsExporterOnVHD
             # Update all the registry keys again in case the steps in between reset them. Ok, some of the steps in between do reset them. But there's a risk that the steps also need
             # the keys set. So we kinda have to do both now :cry:
             Update-Registry

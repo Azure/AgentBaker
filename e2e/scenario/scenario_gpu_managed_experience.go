@@ -5,16 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
+	"slices"
 	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/assert"
 	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
 func getDCGMPackageNames(os string) []string {
@@ -122,38 +123,6 @@ func extractMajorMinorPatchVersion(version string) string {
 	return ""
 }
 
-// extractPackageRevision returns the distro rebuild-revision counter from a
-// version string. This is the integer that MUST stay in lockstep across OS
-// variants of the same package: a Renovate bump is expected to move Ubuntu and
-// Azure Linux together, so a divergence here means only one OS was updated.
-//
-// Examples:
-//
-//	"4.8.2-ubuntu24.04u2" -> "2"  (Ubuntu PMC rebuild counter)
-//	"4.8.2-1.azl3"        -> "1"  (Azure Linux rebuild counter)
-//	"1:4.5.3-1"           -> "1"  (handles epoch prefix)
-func extractPackageRevision(version string) string {
-	// Remove epoch prefix (e.g., "1:" in "1:4.4.1-1")
-	version = regexp.MustCompile(`^\d+:`).ReplaceAllString(version, "")
-
-	// The rebuild revision lives in the trailing token after the last "-".
-	idx := strings.LastIndex(version, "-")
-	if idx == -1 {
-		return ""
-	}
-	rev := version[idx+1:] // e.g. "ubuntu24.04u2", "1.azl3", "1"
-
-	// Ubuntu scheme: "...uN" at the end of the token.
-	if m := regexp.MustCompile(`u(\d+)$`).FindStringSubmatch(rev); m != nil {
-		return m[1]
-	}
-	// Azure Linux / plain scheme: leading integer (e.g. "1.azl3", "1").
-	if m := regexp.MustCompile(`^(\d+)`).FindStringSubmatch(rev); m != nil {
-		return m[1]
-	}
-	return ""
-}
-
 type packageOSVariant struct {
 	pkgName   string
 	osName    string
@@ -167,7 +136,9 @@ func init() {
 		os             string
 		osVersion      string
 		description    string
-		downloadCmd    string
+		packageDir     string
+		packagePattern string
+		packagePath    string
 		extractDepsCmd string
 		coreRegex      string
 		propRegex      string
@@ -180,7 +151,9 @@ func init() {
 			os:             "ubuntu",
 			osVersion:      "r2404",
 			description:    "Tests that DCGM Exporter is compatible with its dependencies on Ubuntu 24.04 GPU nodes",
-			downloadCmd:    "curl -fL --retry 3 --retry-all-errors -o /tmp/dcgm-exporter.deb 'https://packages.microsoft.com/repos/microsoft-ubuntu-noble-prod/pool/main/d/dcgm-exporter/dcgm-exporter_%s_amd64.deb'",
+			packageDir:     "https://packages.microsoft.com/repos/microsoft-ubuntu-noble-prod/pool/main/d/dcgm-exporter",
+			packagePattern: `dcgm-exporter_%s-ubuntu24\.04u[0-9]+_amd64\.deb`,
+			packagePath:    "/tmp/dcgm-exporter.deb",
 			extractDepsCmd: "dpkg-deb -f /tmp/dcgm-exporter.deb Depends",
 
 			// Parse output like: "..., datacenter-gpu-manager-4-core (= 1:4.4.2-1), datacenter-gpu-manager-4-proprietary (= 1:4.4.2-1), ..."
@@ -193,7 +166,9 @@ func init() {
 			os:             "azurelinux",
 			osVersion:      "v3.0",
 			description:    "Tests that DCGM Exporter is compatible with its dependencies on Azure Linux 3.0 GPU nodes",
-			downloadCmd:    "curl -fL --retry 3 --retry-all-errors -o /tmp/dcgm-exporter.rpm 'https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/Packages/d/dcgm-exporter-%s.x86_64.rpm'",
+			packageDir:     "https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/Packages/d",
+			packagePattern: `dcgm-exporter-%s-[0-9]+\.azl3\.x86_64\.rpm`,
+			packagePath:    "/tmp/dcgm-exporter.rpm",
 			extractDepsCmd: "rpm -qpR /tmp/dcgm-exporter.rpm | grep datacenter-gpu-manager",
 
 			// Parse output like: "...\ndatacenter-gpu-manager-4-core = 1:4.5.1-1\ndatacenter-gpu-manager-4-proprietary = 1:4.5.1-1\n..."
@@ -202,7 +177,7 @@ func init() {
 		},
 	}
 
-	getVersions := func(s *Scenario, tc testCase) (string, string, string, error) {
+	getVersions := func(tc testCase) (string, string, string, error) {
 		dcgmExporterVersion, err := expectedPackageVersion("dcgm-exporter", tc.os, tc.osVersion)
 		if err != nil {
 			return "", "", "", err
@@ -216,15 +191,10 @@ func init() {
 			return "", "", "", err
 		}
 
-		s.Logger.Logf("Expected versions from components.json:")
-		s.Logger.Logf("  dcgm-exporter: %s", dcgmExporterVersion)
-		s.Logger.Logf("  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
-		s.Logger.Logf("  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
-
 		return dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, nil
 	}
 
-	parseVersions := func(s *Scenario, tc testCase, cmdLineOutput string) (string, string, error) {
+	parseVersions := func(tc testCase, cmdLineOutput string) (string, string, error) {
 		coreRegex := regexp.MustCompile(tc.coreRegex)
 		coreMatches := coreRegex.FindStringSubmatch(cmdLineOutput)
 
@@ -239,10 +209,6 @@ func init() {
 		}
 		actualCoreVersion := coreMatches[1]
 		actualPropVersion := propMatches[1]
-
-		s.Logger.Logf("Actual versions from dcgm-exporter package:")
-		s.Logger.Logf("  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
-		s.Logger.Logf("  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
 
 		return actualCoreVersion, actualPropVersion, nil
 	}
@@ -260,47 +226,62 @@ func init() {
 				SkipDefaultValidation: true,
 				Validator: func(ctx context.Context, s *Scenario) error {
 					// Step 1: Get expected versions from components.json
-					dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, err := getVersions(s, tc)
+					dcgmExporterVersion, expectedCoreVersion, expectedPropVersion, err := getVersions(tc)
 					if err != nil {
 						return err
 					}
 
+					logging.Logf(ctx, "Expected versions from components.json:")
+					logging.Logf(ctx, "  dcgm-exporter: %s", dcgmExporterVersion)
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-core: %s", expectedCoreVersion)
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-proprietary: %s", expectedPropVersion)
+
 					// Step 2: Download dcgm-exporter package from PMC
-					s.Logger.Logf("Downloading dcgm-exporter package from PMC...")
-					downloadCmd := fmt.Sprintf(tc.downloadCmd, dcgmExporterVersion)
+					logging.Logf(ctx, "Downloading dcgm-exporter package from PMC...")
+					packagePattern := fmt.Sprintf(tc.packagePattern, regexp.QuoteMeta(dcgmExporterVersion))
+					downloadCmd := fmt.Sprintf(`set -o pipefail
+package=$(curl -fsSL --retry 3 --retry-all-errors '%s/' | grep -oE '%s' | sort -V | tail -n1)
+test -n "$package"
+echo "Resolved dcgm-exporter package version %s -> $package"
+curl -fL --retry 3 --retry-all-errors -o '%s' "%s/$package"`,
+						tc.packageDir, packagePattern, dcgmExporterVersion, tc.packagePath, tc.packageDir)
 					if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, downloadCmd, 0, "Failed to download dcgm-exporter package"); err != nil {
 						return err
 					}
 
 					// Step 3: Extract dependency versions from the package
-					s.Logger.Logf("Extracting dependency versions from package...")
+					logging.Logf(ctx, "Extracting dependency versions from package...")
 					result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, tc.extractDepsCmd, 0, "Failed to extract dependencies from package")
 					if err != nil {
 						return err
 					}
 
 					dependsOutput := result.stdout
-					s.Logger.Logf("Package dependencies: %s", dependsOutput)
+					logging.Logf(ctx, "Package dependencies: %s", dependsOutput)
 
 					// Step 4: Parse and verify versions match components.json
-					actualCoreVersion, actualPropVersion, err := parseVersions(s, tc, dependsOutput)
+					actualCoreVersion, actualPropVersion, err := parseVersions(tc, dependsOutput)
 					if err != nil {
 						return err
 					}
 
+					logging.Logf(ctx, "Actual versions from dcgm-exporter package:")
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-core: %s", actualCoreVersion)
+					logging.Logf(ctx, "  datacenter-gpu-manager-4-proprietary: %s", actualPropVersion)
+
 					// Verify versions match
 					if err := errors.Join(
-						assert.Equal(actualCoreVersion, expectedCoreVersion,
+						assert.Equal(extractMajorMinorPatchVersion(actualCoreVersion), extractMajorMinorPatchVersion(expectedCoreVersion),
 							"datacenter-gpu-manager-4-core version mismatch: components.json has %s but dcgm-exporter requires %s",
 							expectedCoreVersion, actualCoreVersion),
-						assert.Equal(actualPropVersion, expectedPropVersion,
+						assert.Equal(extractMajorMinorPatchVersion(actualPropVersion), extractMajorMinorPatchVersion(expectedPropVersion),
 							"datacenter-gpu-manager-4-proprietary version mismatch: components.json has %s but dcgm-exporter requires %s",
 							expectedPropVersion, actualPropVersion),
 					); err != nil {
 						return err
 					}
 
-					s.Logger.Logf("✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
+					logging.Logf(ctx, "✅ Version compatibility verified: dcgm-exporter %s is compatible with DCGM packages %s",
 						dcgmExporterVersion, expectedCoreVersion)
 					return nil
 				},
@@ -309,89 +290,136 @@ func init() {
 	}
 }
 
-var _ = Register(&Scenario{
-	Name:        "Ubuntu2404_NvidiaDevicePluginRunning",
-	Description: "Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 24.04 via NBC EnableManagedGPU without a VMSS tag",
-	Tags: Tags{
-		GPU: true,
-	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2404Gen2Containerd,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-			nbc.ConfigGPUDriverIfNeeded = true
-			nbc.EnableGPUDevicePluginIfNeeded = true
-			nbc.EnableNvidia = true
-			nbc.ManagedGPUExperienceAFECEnabled = true
-			nbc.EnableManagedGPU = true
+var _ = Register(newUbuntuNvidiaDevicePluginScenario(
+	"Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag",
+	"Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 22.04 via bootstrap and provisioning config without a VMSS tag",
+	ClusterKubenet,
+	config.VHDUbuntu2204Gen2Containerd,
+	"r2204",
+	"Standard_NV6ads_A10_v5",
+	true,
+))
+
+var _ = Register(newUbuntuNvidiaDevicePluginScenario(
+	"Ubuntu2404_NvidiaDevicePluginRunning",
+	"Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 24.04 via bootstrap and provisioning config without a VMSS tag",
+	ClusterKubenet,
+	config.VHDUbuntu2404Gen2Containerd,
+	"r2404",
+	"Standard_NV6ads_A10_v5",
+	true,
+))
+
+var _ = Register(newUbuntuNvidiaDevicePluginScenario(
+	"Ubuntu2604Minimal_NvidiaDevicePluginRunning",
+	"Tests that NVIDIA device plugin and DCGM Exporter work on Ubuntu 26.04 minimal via bootstrap and provisioning config without a VMSS tag",
+	ClusterLatestKubernetesVersionKubenet,
+	config.VHDUbuntu2604MinimalGen2Containerd,
+	"r2604",
+	"Standard_NC24ads_A100_v4",
+	false,
+))
+
+func newUbuntuNvidiaDevicePluginScenario(name, description string, cluster func(context.Context, ClusterRequest) (*Cluster, error),
+	vhd *config.Image, osVersion, vmSize string, isGRIDDriver bool) *Scenario {
+	return &Scenario{
+		Name:        name,
+		Description: description,
+		Tags: Tags{
+			GPU: true,
 		},
-		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
-			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-			// Do not set EnableManagedGPUExperience: this test verifies that
-			// the NBC EnableManagedGPU field activates the managed GPU path.
+		Config: Config{
+			Cluster: cluster,
+			VHD:     vhd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
+				nbc.EnableManagedGPU = true
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+				cfg.VmSize = vmSize
+				cfg.GpuConfig.ConfigGpuDriver = true
+				cfg.GpuConfig.GpuDevicePlugin = true
+				cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+				cfg.GpuConfig.ManagedGpuExperienceAfecEnabled = true
+				cfg.GpuConfig.EnableManagedGpu = true
+			},
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+				vmss.SKU.Name = to.Ptr(vmSize)
+				// Do not set EnableManagedGPUExperience: these scenarios verify that
+				// the managed GPU configuration activates the managed GPU path.
 
-			// Enable the AKS VM extension for GPU nodes
-			extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
-			if err != nil {
-				return fmt.Errorf("create AKS VM extension: %w", err)
-			}
-			vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			return nil
+				// Enable the AKS VM extension for GPU nodes
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				os := "ubuntu"
+
+				// Validate that the NVIDIA device plugin binary was installed correctly
+				devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
+				if err != nil {
+					return err
+				}
+				if err := errors.Join(
+					ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+					ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DevicePlugin"),
+					ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
+					// Validate that the NVIDIA device plugin systemd service is running
+					ValidateNvidiaDevicePluginServiceRunning(ctx, s),
+				); err != nil {
+					return err
+				}
+				// Resource advertisement depends on the device plugin service.
+				if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
+				// resources above are advertised, otherwise the pod simply never gets scheduled.
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+
+				// Validate that the NVIDIA DCGM packages were installed correctly
+				if err := errors.Join(
+					validateDCGMPackageVersions(ctx, s, os, osVersion),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				); err != nil {
+					return err
+				}
+
+				// Let's run the NPD validation tests to verify that the nvidia
+				// device plugin & DCGM services are reporting status correctly
+				if err := ValidateNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				// Restart NPD to ensure it picks up the managed GPU experience marker file,
+				// which may have been created after NPD's initial startup during provisioning.
+				if err := RestartNodeProblemDetector(ctx, s); err != nil {
+					return err
+				}
+				if err := validateNPDNvidiaConditions(ctx, s); err != nil {
+					return err
+				}
+
+				// If the node is not using the GRID driver, we can skip the GRID license validation.
+				if isGRIDDriver {
+					// Verify NVIDIA GRID license status checks are reporting status correctly.
+					return validateNPDNvidiaGridLicense(ctx, s)
+				}
+				return nil
+			},
 		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			os := "ubuntu"
-			osVersion := "r2404"
-
-			// Validate that the NVIDIA device plugin binary was installed correctly
-			devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
-			if err != nil {
-				return err
-			}
-			if err := errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s),
-			); err != nil {
-				return err
-			}
-			// Resource advertisement depends on the device plugin service.
-			if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
-			// resources above are advertised, otherwise the pod simply never gets scheduled.
-			if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that the NVIDIA DCGM packages were installed correctly
-			if err := errors.Join(
-				validateDCGMPackageVersions(ctx, s, os, osVersion),
-				validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
-			); err != nil {
-				return err
-			}
-
-			// Let's run the NPD validation tests to verify that the nvidia
-			// device plugin & DCGM services are reporting status correctly
-			if err := ValidateNodeProblemDetector(ctx, s); err != nil {
-				return err
-			}
-			// Restart NPD to ensure it picks up the managed GPU experience marker file,
-			// which may have been created after NPD's initial startup during provisioning.
-			if err := RestartNodeProblemDetector(ctx, s); err != nil {
-				return err
-			}
-			if err := validateNPDNvidiaConditions(ctx, s); err != nil {
-				return err
-			}
-			// Verify NVIDIA GRID license status checks are reporting status correctly.
-			return validateNPDNvidiaGridLicense(ctx, s)
-		},
-	},
-})
+	}
+}
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_NvidiaDevicePluginRunning",
@@ -408,6 +436,13 @@ var _ = Register(&Scenario{
 			nbc.EnableGPUDevicePluginIfNeeded = true
 			nbc.EnableNvidia = true
 			nbc.ManagedGPUExperienceAFECEnabled = true
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.VmSize = "Standard_NV6ads_A10_v5"
+			cfg.GpuConfig.ConfigGpuDriver = true
+			cfg.GpuConfig.GpuDevicePlugin = true
+			cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+			cfg.GpuConfig.ManagedGpuExperienceAfecEnabled = true
 		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
@@ -495,6 +530,13 @@ var _ = Register(&Scenario{
 			nbc.EnableNvidia = true
 			nbc.ManagedGPUExperienceAFECEnabled = true
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.VmSize = "Standard_NC4as_T4_v3"
+			cfg.GpuConfig.ConfigGpuDriver = true
+			cfg.GpuConfig.GpuDevicePlugin = true
+			cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+			cfg.GpuConfig.ManagedGpuExperienceAfecEnabled = true
+		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 			if vmss.Tags == nil {
@@ -560,23 +602,94 @@ var _ = Register(&Scenario{
 	},
 })
 
+var _ = Register(newUbuntu2404NvidiaDevicePluginNC96Scenario())
+
+// newUbuntu2404NvidiaDevicePluginNC96Scenario covers CDI provisioning and managed
+// GPU operation on the four-GPU x86 A100 size that exceeded the toolkit's 90s timeout.
+func newUbuntu2404NvidiaDevicePluginNC96Scenario() *Scenario {
+	const (
+		vmSize   = "Standard_NC96ads_A100_v4"
+		gpuCount = 4
+	)
+	return &Scenario{
+		Name:        "Ubuntu2404_NvidiaDevicePluginRunning_NC96A100",
+		Description: "Tests CDI refresh with a 300-second timeout and managed GPU workloads on four A100 GPUs",
+		Location:    "westus2",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = vmSize
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableNvidia = true
+				nbc.ManagedGPUExperienceAFECEnabled = true
+				nbc.EnableManagedGPU = true
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+				cfg.VmSize = vmSize
+				cfg.GpuConfig.ConfigGpuDriver = true
+				cfg.GpuConfig.GpuDevicePlugin = true
+				cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+				cfg.GpuConfig.ManagedGpuExperienceAfecEnabled = true
+				cfg.GpuConfig.EnableManagedGpu = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr(vmSize)
+			},
+			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+				extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+				if err != nil {
+					return fmt.Errorf("create AKS VM extension: %w", err)
+				}
+				vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+				return nil
+			},
+			Validator: func(ctx context.Context, s *Scenario) error {
+				// A successful oneshot is inactive. Check its result and output, not is-active.
+				const cdiCheck = `set -e
+test "$(systemctl show nvidia-cdi-refresh.service --property=TimeoutStartUSec --value)" = "5min"
+test "$(systemctl show nvidia-cdi-refresh.service --property=Result --value)" = "success"
+test "$(systemctl show nvidia-cdi-refresh.service --property=ExecMainStatus --value)" = "0"
+test -s /var/run/cdi/nvidia.yaml
+nvidia-smi`
+				if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cdiCheck, 0, "CDI refresh must succeed with a 300-second timeout"); err != nil {
+					return err
+				}
+				if err := ValidateNvidiaDevicePluginServiceRunning(ctx, s); err != nil {
+					return err
+				}
+				if err := ValidateNodeAdvertisesExactGPUResources(ctx, s, map[string]int64{"nvidia.com/gpu": gpuCount}); err != nil {
+					return err
+				}
+				if err := ValidateGPUWorkloadSchedulable(ctx, s, gpuCount, "nvidia.com/gpu"); err != nil {
+					return err
+				}
+				return errors.Join(
+					validateDCGMPackageVersions(ctx, s, "ubuntu", "r2404"),
+					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				)
+			},
+		},
+	}
+}
+
 var _ = Register(newUbuntu2404NvidiaDevicePluginMIGSingleScenario(
 	"Ubuntu2404_NvidiaDevicePluginRunning_MIG",
 	"Tests that NVIDIA device plugin and DCGM Exporter work with MIG enabled on Ubuntu 24.04 GPU nodes",
-	func(nbc *datamodel.NodeBootstrappingConfiguration) {
-		nbc.GPUInstanceProfile = "MIG2g"
-	},
+	"MIG2g", nil,
 ))
 
 var _ = Register(newUbuntu2404NvidiaDevicePluginMIGSingleScenario(
 	"Ubuntu2404_NvidiaDevicePluginRunning_MIGProfileLayout_Single",
 	"Tests that NVIDIA device plugin and DCGM Exporter work with MIGProfileLayout and the Single MIG strategy",
-	func(nbc *datamodel.NodeBootstrappingConfiguration) {
-		nbc.MIGProfileLayout = []string{"MIG2g", "MIG2g", "MIG2g"}
-	},
+	"", []string{"MIG2g", "MIG2g", "MIG2g"},
 ))
 
-func newUbuntu2404NvidiaDevicePluginMIGSingleScenario(name, description string, setMIGProfile func(*datamodel.NodeBootstrappingConfiguration)) *Scenario {
+func newUbuntu2404NvidiaDevicePluginMIGSingleScenario(name, description, gpuInstanceProfile string, migProfileLayout []string) *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
@@ -593,9 +706,20 @@ func newUbuntu2404NvidiaDevicePluginMIGSingleScenario(name, description string, 
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
-				setMIGProfile(nbc)
+				nbc.GPUInstanceProfile = gpuInstanceProfile
+				nbc.MIGProfileLayout = slices.Clone(migProfileLayout)
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+				cfg.VmSize = "Standard_NC24ads_A100_v4"
+				cfg.GpuConfig.ConfigGpuDriver = true
+				cfg.GpuConfig.GpuDevicePlugin = true
+				cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+				cfg.GpuConfig.GpuInstanceProfile = gpuInstanceProfile
+				cfg.GpuConfig.MigProfileLayout = slices.Clone(migProfileLayout)
+				cfg.GpuConfig.EnableManagedGpu = true
+				cfg.GpuConfig.MigStrategy = "Single"
 			},
 			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
@@ -691,6 +815,15 @@ func newUbuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPUScenario() *Scenario {
 				nbc.EnableManagedGPU = true
 				nbc.MigStrategy = "Single"
 			},
+			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+				cfg.VmSize = multiGPUA100VMSize
+				cfg.GpuConfig.ConfigGpuDriver = true
+				cfg.GpuConfig.GpuDevicePlugin = true
+				cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+				cfg.GpuConfig.GpuInstanceProfile = "MIG2g"
+				cfg.GpuConfig.EnableManagedGpu = true
+				cfg.GpuConfig.MigStrategy = "Single"
+			},
 			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr(multiGPUA100VMSize)
 
@@ -729,90 +862,6 @@ func newUbuntu2404_NvidiaDevicePluginRunning_MIG_MultiGPUScenario() *Scenario {
 }
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_NvidiaDevicePluginRunning_WithoutVMSSTag",
-	Description: "Tests that NVIDIA device plugin and DCGM Exporter work via NBC EnableManagedGPU field without VMSS tag",
-	Tags: Tags{
-		GPU: true,
-	},
-	Config: Config{
-		Cluster: ClusterKubenet,
-		VHD:     config.VHDUbuntu2204Gen2Containerd,
-		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-			nbc.ConfigGPUDriverIfNeeded = true
-			nbc.EnableGPUDevicePluginIfNeeded = true
-			nbc.EnableNvidia = true
-			nbc.ManagedGPUExperienceAFECEnabled = true
-			nbc.EnableManagedGPU = true
-		},
-		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
-			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-			// Explicitly DO NOT set the EnableManagedGPUExperience VMSS tag
-			// to test that NBC EnableManagedGPU field works independently
-
-			// Enable the AKS VM extension for GPU nodes
-			extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
-			if err != nil {
-				return fmt.Errorf("create AKS VM extension: %w", err)
-			}
-			vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
-			return nil
-		},
-		Validator: func(ctx context.Context, s *Scenario) error {
-			os := "ubuntu"
-			osVersion := "r2204"
-
-			// Validate that the NVIDIA device plugin binary was installed correctly
-			devicePluginVersion, err := expectedPackageVersion("nvidia-device-plugin", os, osVersion)
-			if err != nil {
-				return err
-			}
-			if err := errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "nvidia-device-plugin", devicePluginVersion),
-				// Validate that the NVIDIA device plugin systemd service is running
-				ValidateNvidiaDevicePluginServiceRunning(ctx, s),
-			); err != nil {
-				return err
-			}
-			// Resource advertisement depends on the device plugin service.
-			if err := ValidateNodeAdvertisesGPUResources(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that GPU workloads can be scheduled. Only meaningful once the GPU
-			// resources above are advertised, otherwise the pod simply never gets scheduled.
-			if err := ValidateGPUWorkloadSchedulable(ctx, s, 1, "nvidia.com/gpu"); err != nil {
-				return err
-			}
-
-			// Validate that the NVIDIA DCGM packages were installed correctly
-			if err := errors.Join(
-				validateDCGMPackageVersions(ctx, s, os, osVersion),
-				validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
-			); err != nil {
-				return err
-			}
-
-			// Let's run the NPD validation tests to verify that the nvidia
-			// device plugin & DCGM services are reporting status correctly
-			if err := ValidateNodeProblemDetector(ctx, s); err != nil {
-				return err
-			}
-			// Restart NPD to ensure it picks up the managed GPU experience marker file,
-			// which may have been created after NPD's initial startup during provisioning.
-			if err := RestartNodeProblemDetector(ctx, s); err != nil {
-				return err
-			}
-			if err := validateNPDNvidiaConditions(ctx, s); err != nil {
-				return err
-			}
-			// Verify NVIDIA GRID license status checks are reporting status correctly.
-			return validateNPDNvidiaGridLicense(ctx, s)
-		},
-	},
-})
-
-var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_NvidiaDevicePluginRunning_MIG_Mixed",
 	Description: "Tests that NVIDIA device plugin work with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
 	Location:    "westus2",
@@ -831,6 +880,15 @@ var _ = Register(&Scenario{
 			nbc.GPUInstanceProfile = "MIG1g"
 			nbc.EnableManagedGPU = true
 			nbc.MigStrategy = "Mixed"
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.VmSize = "Standard_NC24ads_A100_v4"
+			cfg.GpuConfig.ConfigGpuDriver = true
+			cfg.GpuConfig.GpuDevicePlugin = true
+			cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+			cfg.GpuConfig.GpuInstanceProfile = "MIG1g"
+			cfg.GpuConfig.EnableManagedGpu = true
+			cfg.GpuConfig.MigStrategy = "Mixed"
 		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
@@ -879,7 +937,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_DraDriverNvidiaGpuRunning",
-	Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2",
+	Description: "Tests DRA driver and persisted driver mode on Ubuntu 24.04 VHD with containerd v2",
 	Tags: Tags{
 		GPU: true,
 	},
@@ -893,6 +951,12 @@ var _ = Register(&Scenario{
 			nbc.EnableNvidia = true
 			nbc.EnableManagedGPUDRA = true
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.VmSize = "Standard_NV6ads_A10_v5"
+			cfg.GpuConfig.ConfigGpuDriver = true
+			cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+			cfg.GpuConfig.EnableManagedGpuDra = true
+		},
 		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 			vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 
@@ -905,11 +969,10 @@ var _ = Register(&Scenario{
 			return nil
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
 			); err != nil {
 				return err
@@ -924,7 +987,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_DraDriverNvidiaGpuRunning_AKSNodeController",
-	Description: "Tests DRA driver works on Ubuntu 24.04 VHD with containerd v2 using aks-node-controller",
+	Description: "Tests DRA driver and persisted driver mode on Ubuntu 24.04 VHD with containerd v2 using aks-node-controller",
 	Tags: Tags{
 		GPU:        true,
 		Scriptless: true,
@@ -957,11 +1020,10 @@ var _ = Register(&Scenario{
 			return nil
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			if err := errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
 			); err != nil {
 				return err
@@ -970,6 +1032,66 @@ var _ = Register(&Scenario{
 				return err
 			}
 			return ValidateDRAWorkloadSchedulable(ctx, s)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed",
+	Description: "Tests DRA driver and workload allocation of MIG 1g.10gb devices with MIG Mixed mode on Ubuntu 24.04 GPU nodes",
+	Location:    "westus2",
+	Tags: Tags{
+		GPU: true,
+	},
+	Config: Config{
+		Cluster:               ClusterKubenet,
+		VHD:                   config.VHDUbuntu2404Gen2Containerd,
+		WaitForSSHAfterReboot: 5 * time.Minute,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
+			nbc.ConfigGPUDriverIfNeeded = true
+			nbc.EnableNvidia = true
+			nbc.EnableManagedGPUDRA = true
+			nbc.GPUInstanceProfile = "MIG1g"
+			nbc.MigStrategy = "Mixed"
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.VmSize = "Standard_NC24ads_A100_v4"
+			cfg.GpuConfig.ConfigGpuDriver = true
+			cfg.GpuConfig.EnableNvidia = to.Ptr(true)
+			cfg.GpuConfig.EnableManagedGpuDra = true
+			cfg.GpuConfig.GpuInstanceProfile = "MIG1g"
+			cfg.GpuConfig.MigStrategy = "Mixed"
+		},
+		VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
+			vmss.SKU.Name = to.Ptr("Standard_NC24ads_A100_v4")
+
+			extension, err := createVMExtensionLinuxAKSNode(ctx, vmss.Location)
+			if err != nil {
+				return fmt.Errorf("create AKS VM extension: %w", err)
+			}
+			vmss.Properties = addVMExtensionToVMSS(vmss.Properties, extension)
+			return nil
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			if err := ValidateMIGModeEnabled(ctx, s, 1); err != nil {
+				return err
+			}
+			if err := ValidateMIGInstancesCreated(ctx, s, "MIG 1g.10gb", 7); err != nil {
+				return err
+			}
+			if err := ValidateDraDriverNvidiaGpuServiceRunning(ctx, s); err != nil {
+				return err
+			}
+			if err := errors.Join(
+				ValidateFileExists(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode"),
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/nvidia-gpu-driver-mode", "DRA"),
+				ValidateContainerdConfigDump(ctx, s),
+				ValidateContainerRuntimePlugins(ctx, s),
+			); err != nil {
+				return err
+			}
+			return ValidateDRAWithMIGWorkloadSchedulable(ctx, s, "1g.10gb")
 		},
 	},
 })

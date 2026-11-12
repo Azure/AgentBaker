@@ -8,21 +8,28 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
-func TestScenarioCleanupRunsLIFOAndIncludesNestedCleanups(t *testing.T) {
+func TestScenarioCleanupIncludesNestedCleanups(t *testing.T) {
 	cleanup := &scenarioCleanup{}
 	s := &Scenario{cleanup: cleanup}
 	var order []string
+	var mu sync.Mutex
+	record := func(name string) {
+		mu.Lock()
+		defer mu.Unlock()
+		order = append(order, name)
+	}
 
 	s.Cleanup(func(context.Context) error {
-		order = append(order, "first")
+		record("first")
 		return nil
 	})
 	s.Cleanup(func(ctx context.Context) error {
-		order = append(order, "second")
+		record("second")
 		s.Cleanup(func(context.Context) error {
-			order = append(order, "nested")
+			record("nested")
 			return nil
 		})
 		return nil
@@ -35,26 +42,28 @@ func TestScenarioCleanupRunsLIFOAndIncludesNestedCleanups(t *testing.T) {
 		t.Fatalf("second runCleanups() error = %v", err)
 	}
 
-	if expected := []string{"second", "nested", "first"}; !slices.Equal(order, expected) {
-		t.Fatalf("cleanup order = %v, want %v", order, expected)
+	slices.Sort(order)
+	if expected := []string{"first", "nested", "second"}; !slices.Equal(order, expected) {
+		t.Fatalf("cleanups = %v, want %v", order, expected)
 	}
 }
 
 func TestScenarioCleanupJoinsErrorsAndContinuesAfterPanic(t *testing.T) {
 	cleanup := &scenarioCleanup{}
 	s := &Scenario{cleanup: cleanup}
-	var order []string
+	var ran atomic.Int32
+	firstErr := errors.New("delete first resource")
 
 	s.Cleanup(func(context.Context) error {
-		order = append(order, "first")
-		return errors.New("delete first resource")
+		ran.Add(1)
+		return firstErr
 	})
 	s.Cleanup(func(context.Context) error {
-		order = append(order, "panic")
+		ran.Add(1)
 		panic("delete second resource")
 	})
 	s.Cleanup(func(context.Context) error {
-		order = append(order, "last")
+		ran.Add(1)
 		return nil
 	})
 
@@ -62,14 +71,55 @@ func TestScenarioCleanupJoinsErrorsAndContinuesAfterPanic(t *testing.T) {
 	if err == nil {
 		t.Fatal("runCleanups() error = nil")
 	}
-	for _, message := range []string{"delete first resource", "scenario cleanup panicked: delete second resource"} {
+	for _, message := range []string{"delete first resource", "panic: delete second resource"} {
 		if !strings.Contains(err.Error(), message) {
 			t.Errorf("runCleanups() error = %q, want it to contain %q", err, message)
 		}
 	}
 
-	if expected := []string{"last", "panic", "first"}; !slices.Equal(order, expected) {
-		t.Fatalf("cleanup order = %v, want %v", order, expected)
+	if !errors.Is(err, firstErr) {
+		t.Errorf("runCleanups() error = %v, want wrapped %v", err, firstErr)
+	}
+	if got := ran.Load(); got != 3 {
+		t.Fatalf("ran %d cleanups, want 3", got)
+	}
+}
+
+func TestScenarioCleanupRunsConcurrentlyAndWaits(t *testing.T) {
+	cleanup := &scenarioCleanup{}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	const count = 10
+	started := make(chan struct{}, count)
+	release := make(chan struct{})
+	for range count {
+		cleanup.add(func(ctx context.Context) error {
+			started <- struct{}{}
+			select {
+			case <-release:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		})
+	}
+	done := make(chan error, 1)
+	go func() { done <- cleanup.runCleanups(ctx) }()
+	for range count {
+		select {
+		case <-started:
+		case <-ctx.Done():
+			t.Fatal("cleanups did not all start concurrently")
+		}
+	}
+	select {
+	case err := <-done:
+		t.Fatalf("cleanup returned before callbacks completed: %v", err)
+	default:
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("runCleanups() error = %v", err)
 	}
 }
 
@@ -97,5 +147,27 @@ func TestScenarioCleanupSupportsConcurrentRegistration(t *testing.T) {
 	}
 	if got := ran.Load(); got != cleanupCount {
 		t.Fatalf("ran %d cleanups, want %d", got, cleanupCount)
+	}
+}
+
+func TestScenarioCleanupRunsWithCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	cleanup := &scenarioCleanup{}
+	wantErr := errors.New("cleanup still ran")
+	var called atomic.Int32
+	cleanup.add(func(actual context.Context) error {
+		called.Add(1)
+		if actual != ctx {
+			t.Error("cleanup did not receive the original context")
+		}
+		return wantErr
+	})
+	err := cleanup.runCleanups(ctx)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("runCleanups() error = %v, want %v", err, wantErr)
+	}
+	if got := called.Load(); got != 1 {
+		t.Fatalf("ran %d cleanups, want 1", got)
 	}
 }

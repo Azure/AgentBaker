@@ -15,9 +15,11 @@ OS_VERSION="$1"
 ENABLE_FIPS="$2"
 OS_SKU="$3"
 GIT_BRANCH="$4"
-IMG_SKU="$5"
-FEATURE_FLAGS="$6"
+# Strip transport prefixes while accepting legacy unprefixed arguments.
+IMG_SKU="${5#img-sku:}"
+FEATURE_FLAGS="${6#feature-flags:}"
 GIT_COMMIT_HASH="$7"
+AGENTBAKER_REPOSITORY_URL="${8:-https://github.com/Azure/AgentBaker.git}"
 
 systemctl daemon-reload && systemctl restart containerd
 
@@ -34,14 +36,14 @@ err() {
 }
 
 # assertPackageVersion verifies that the installed deb/rpm package version matches
-# the expected full version string from components.json (including hotfix suffix).
-# This catches drift between what the package manager installs and what components.json
-# specifies at VHD build time rather than in e2e.
+# either the exact expected version or, when allowed, that upstream version plus
+# a distro package revision.
 # shellcheck disable=SC2016
 assertPackageVersion() {
   local test="$1"
   local packageName="$2"
   local expectedVersion="$3"
+  local allowRevision="${4:-false}"
 
   local installedVersion=""
   if command -v dpkg-query >/dev/null 2>&1 && dpkg-query -W -f='${Status}' "$packageName" 2>/dev/null | grep -q "install ok installed"; then
@@ -55,29 +57,52 @@ assertPackageVersion() {
   fi
 
   echo "$test: checking if installed $packageName version '$installedVersion' matches expected '$expectedVersion'"
-  if [ "$installedVersion" != "$expectedVersion" ]; then
+  local versionMatches=false
+  if [ "$installedVersion" = "$expectedVersion" ]; then
+    versionMatches=true
+  elif [ "$allowRevision" = "true" ]; then
+    case "$installedVersion" in
+      "${expectedVersion}-"*|"${expectedVersion}+"*) versionMatches=true ;;
+    esac
+  fi
+
+  if [ "$versionMatches" != "true" ]; then
     err "$test" "installed $packageName version '$installedVersion' does not match expected '$expectedVersion' from components.json"
     return 1
   fi
   return 0
 }
 
-# Clone the repo and checkout the branch provided.
-# Simply clone with just the branch doesn't work for pull requests, but this technique works
-# with everything we've tested so far.
-#
-# Strategy is to clone the repo, fetch the remote branch by ref into a local branch, and then checkout the local branch.
-# The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
-# for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
-LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
+testEmudhraRootRemoval() {
+  local bundle subjects checked=0
+  for bundle in "$@"; do
+    [ -e "$bundle" ] || [ -L "$bundle" ] || continue
+    subjects=$(set -o pipefail; openssl crl2pkcs7 -nocrl -certfile "$bundle" | openssl pkcs7 -print_certs -noout) ||
+      { err testEmudhraRootRemoval "Cannot read $bundle"; return 1; }
+    if ! grep -Eq '^subject=.*CN ?= ?DigiCert Global Root G2(,|$)' <<< "$subjects" ||
+      grep -Eq '^subject=.*CN ?= ?(emSign ECC Root CA - G3|AAA Certificate Services)(,|$)' <<< "$subjects"; then
+      err testEmudhraRootRemoval "$bundle: control root missing, or emSign/AAA root still trusted"
+      return 1
+    fi
+    checked=1
+  done
+  [ "$checked" -eq 1 ] || { err testEmudhraRootRemoval "No CA bundle found"; return 1; }
+}
+
+# Check the captured image before test setup can upgrade its CA packages.
+testEmudhraRootRemoval /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
+  /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem || exit 1
 
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
-elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
-  : # Flatcar/ACL comes with git pre-installed
-elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git; then
+    err 'git-install' "Failed to install git"
+    exit 1
+  fi
+elif [ "$OS_SKU" = "Flatcar" ]; then
+  : # Flatcar comes with git pre-installed
+elif [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
   SKIP_GIT_CLONE=true
 else
   sudo tdnf install -y git
@@ -90,8 +115,9 @@ if [ "$SKIP_GIT_CLONE" = "true" ]; then
   fi
   echo "Skipping git clone and pulling .tar.gz artifact for commit $GIT_COMMIT_HASH"
 
-  if ! curl -fLsS -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}; then
-    err 'curl' "Failed to download https://codeload.github.com/azure/agentbaker/tar.gz/${GIT_COMMIT_HASH}"
+  AGENTBAKER_ARCHIVE_URL="${AGENTBAKER_REPOSITORY_URL%.git}/archive/${GIT_COMMIT_HASH}.tar.gz"
+  if ! curl -fLsS -o AgentBaker-${GIT_COMMIT_HASH}.tar.gz "$AGENTBAKER_ARCHIVE_URL"; then
+    err 'curl' "Failed to download $AGENTBAKER_ARCHIVE_URL"
     exit 1
   fi
   if ! tar -xf AgentBaker-${GIT_COMMIT_HASH}.tar.gz; then
@@ -100,12 +126,9 @@ if [ "$SKIP_GIT_CLONE" = "true" ]; then
   fi
   mv AgentBaker-${GIT_COMMIT_HASH} AgentBaker
 else
-  # Clone the AgentBaker repo and checkout the branch provided.
-  echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-  COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
-  if ! ${COMMAND}; then
+  echo "Cloning configured AgentBaker repo and checking out commit '${GIT_COMMIT_HASH}' from '${GIT_BRANCH}'"
+  if ! git clone --quiet "$AGENTBAKER_REPOSITORY_URL" AgentBaker; then
     err 'git-clone' "Failed to clone AgentBaker repo"
-    err 'git-clone' "Used command '${COMMAND}'"
     exit 1
   fi
   if ! pushd ./AgentBaker; then
@@ -114,16 +137,12 @@ else
     err 'git-clone' "Contents of current directory: $(ls -al)"
     exit 1
   fi
-  COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
-  if ! ${COMMAND}; then
-    err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
-    err 'git-clone' "Used command '${COMMAND}'"
+  if ! git fetch --quiet origin "$GIT_COMMIT_HASH"; then
+    err 'git-clone' "Failed to fetch AgentBaker commit '${GIT_COMMIT_HASH}'"
     exit 1
   fi
-  COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
-  if ! ${COMMAND}; then
-    err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
-    err 'git-clone' "Used command '${COMMAND}'"
+  if ! git checkout --quiet "$GIT_COMMIT_HASH"; then
+    err 'git-clone' "Failed to checkout AgentBaker commit '${GIT_COMMIT_HASH}'"
     exit 1
   fi
   if ! popd; then
@@ -136,6 +155,8 @@ fi
 
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
+source ./AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
+source ./AgentBaker/vhdbuilder/packer/packer_source.sh
 
 validateDownloadPackage() {
   local downloadURL=$1
@@ -265,6 +286,7 @@ testPackagesInstalled() {
         ;;
       "azure-acr-credential-provider-pmc"|\
       "nvidia-device-plugin"|\
+      "dra-driver-nvidia-gpu"|\
       "datacenter-gpu-manager-4-core"|\
       "datacenter-gpu-manager-4-proprietary"|\
       "dcgm-exporter")
@@ -282,6 +304,20 @@ testPackagesInstalled() {
           testVersionedKubernetesPackageBinariesPresent "${name}" "${PACKAGE_VERSIONS[@]}"
         else
           echo "Skipping testVersionedKubernetesPackageBinariesPresent for ${OS}${OS_VARIANT:+ ${OS_VARIANT}}"
+        fi
+        continue
+        ;;
+      "oras")
+        if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
+          continue
+        fi
+        local oras_version_output
+        if ! oras_version_output=$(oras version 2>&1); then
+          err "$test" "Failed to run oras version: ${oras_version_output}"
+          continue
+        fi
+        if ! grep -Fq "${PACKAGE_VERSIONS[0]}" <<< "$oras_version_output"; then
+          err "$test" "Expected oras version ${PACKAGE_VERSIONS[0]}, got: ${oras_version_output}"
         fi
         continue
         ;;
@@ -305,6 +341,9 @@ testPackagesInstalled() {
         case "$name" in
           "kubernetes-cri-tools")
             testCriCtl "$version" "kubernetes-cri-tools"
+            ;;
+          "runc")
+            testRunc "$version"
             ;;
           "containerd")
             # The deb/rpm package name for containerd varies by OS:
@@ -606,6 +645,9 @@ testChrony() {
   local test="testChrony"
   echo "$test:Start"
 
+  # Known issue: ACL CVM can fail Chrony validation; keep these checks enabled.
+  # Base-image fix: https://github.com/microsoft/azure-container-linux/pull/61.
+
   # ---- Test Setup ----
   # Test ntp is not active
   status=$(systemctl show -p SubState --value ntp)
@@ -636,6 +678,8 @@ testChrony() {
   fi
   initialDate=$(date +%s)
   date --set "27 Feb 2021"
+  # Request fresh measurements after the artificial time jump.
+  chronyc burst 4/4
   for i in $(seq 1 10); do
     newDate=$(date +%s)
     if (($newDate > $initialDate)); then
@@ -816,6 +860,57 @@ testLtsKernel() {
     echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
   fi
 
+}
+
+testAzureLinuxArm64DualKernel() {
+  local test="testAzureLinuxArm64DualKernel"
+  local os_version=$1
+  local os_sku=$2
+  local enable_fips=$3
+
+  echo "$test:Start"
+  if [ "$os_version" != "3.0" ] || [ "${enable_fips,,}" = "true" ] || ! isAzureLinuxArm64BaseImage "${os_sku^^}" "$(getCPUArch)" "$OS_VARIANT"; then
+    echo "$test: Skipping for non-FIPS AzureLinux 3 ARM64 image"
+    return
+  fi
+
+  local package
+  for package in kernel kernel-hwe grub2 grub2-efi-binary grub2-efi; do
+    if ! rpm -q "$package" >/dev/null 2>&1; then
+      err "$test" "$package is not installed"
+    fi
+  done
+
+  local grub_version
+  local grub_efi_binary_version
+  local grub_efi_modules_version
+  grub_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2 2>/dev/null || true)
+  grub_efi_binary_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi-binary 2>/dev/null || true)
+  grub_efi_modules_version=$(rpm -q --queryformat '%{VERSION}-%{RELEASE}' grub2-efi 2>/dev/null || true)
+  if [ -z "$grub_version" ] || [ "$grub_version" != "$grub_efi_binary_version" ] || [ "$grub_version" != "$grub_efi_modules_version" ]; then
+    err "$test" "GRUB package versions do not match: grub2=$grub_version, binary=$grub_efi_binary_version, modules=$grub_efi_modules_version"
+  fi
+
+  if [ ! -s /usr/lib/grub/arm64-efi/smbios.mod ]; then
+    err "$test" "/usr/lib/grub/arm64-efi/smbios.mod is missing or empty"
+  fi
+
+  if [ ! -x /etc/grub.d/10_azure_nvidia ] || [ ! -f /etc/default/grub.d/51-azure-nvidia.cfg ]; then
+    err "$test" "NVIDIA GRUB selector files are missing"
+  fi
+  if ! grub2-script-check /boot/grub2/grub.cfg; then
+    err "$test" "generated grub.cfg is invalid"
+  fi
+  if ! grep -q 'smbios --type 4 --get-string 7 --set cpu_manufacturer' /boot/grub2/grub.cfg; then
+    err "$test" "generated grub.cfg does not contain NVIDIA SMBIOS detection"
+  fi
+
+  local running_kernel_package
+  running_kernel_package=$(rpm -qf --queryformat '%{NAME}' "/boot/vmlinuz-$(uname -r)" 2>/dev/null || true)
+  if [ "$running_kernel_package" != "kernel" ]; then
+    err "$test" "standard ARM64 test VM booted $running_kernel_package instead of kernel"
+  fi
+  echo "$test:Finish"
 }
 
 # Parse loginctl sessions to find console autologin sessions
@@ -1158,19 +1253,26 @@ testPkgDownloaded() {
   echo "$test:Start"
   local packageName=$1 downloadLocation=$2; shift 2
   local packageVersions=("$@")
-  local seArch seFile
+  local seArch seFile versionRegex
   seArch=$(getSystemdArch)
   for packageVersion in "${packageVersions[@]}"; do
     echo "checking package version: $packageVersion ..."
     # Strip epoch (e.g., 1:4.4.1-1 -> 4.4.1-1)
     packageVersion="${packageVersion#*:}"
+    versionRegex="${packageVersion//./\\.}"
     if [ $OS = $UBUNTU_OS_NAME ]; then
-      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_${packageVersion}*" -print -quit 2>/dev/null) || debFile=""
+      debFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}_*" -print 2>/dev/null |
+        grep -E "/${packageName}_${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || debFile=""
       if [ -z "${debFile}" ]; then
         err $test "Package ${packageName}_${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
     elif [ $OS = $AZURELINUX_OS_NAME ] && [ $OS_VERSION = "3.0" ]; then
-      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-${packageVersion}*" -print -quit 2>/dev/null) || rpmFile=""
+      rpmFile=$(find "${downloadLocation}" -maxdepth 1 -name "${packageName}-*" -print 2>/dev/null |
+        grep -E "/${packageName}-${versionRegex}([^0-9]|$)" |
+        sort -V |
+        tail -n 1) || rpmFile=""
       if [ -z "${rpmFile}" ]; then
         err $test "Package ${packageName}-${packageVersion} does not exist, content of downloads dir is $(ls -al ${downloadLocation})"
       fi
@@ -1330,6 +1432,40 @@ testUserAdd() {
   echo "$test: useradd is using INACTIVE=30 from $settings_file"
 
   echo "$test:Finish"
+}
+
+testMGLRUDisabled() {
+  local test="testMGLRUDisabled"
+  local config_file="/etc/tmpfiles.d/aks-mglru.conf"
+  local enabled_file="/sys/kernel/mm/lru_gen/enabled"
+  local resolvedOSAndVariant
+  resolvedOSAndVariant=$(getCurrentPackageTestOS)
+  local targetOS="${resolvedOSAndVariant%%|*}"
+  local targetOSVariant="${resolvedOSAndVariant#*|}"
+
+  if ! isMGLRUDefaultDisabled "$targetOS" "$targetOSVariant"; then
+    if [ -e "$config_file" ]; then
+      err "$test" "MGLRU override must not be installed on $targetOS $OS_VERSION ($targetOSVariant)"
+      return 1
+    fi
+    echo "$test: Skipping $targetOS $OS_VERSION ($targetOSVariant)"
+    return 0
+  fi
+
+  if ! grep -qx 'w! /sys/kernel/mm/lru_gen/enabled - - - - 0' "$config_file"; then
+    err "$test" "Missing or incorrect boot-time MGLRU override in $config_file"
+    return 1
+  fi
+  if [ ! -e "$enabled_file" ]; then
+    echo "$test: Kernel does not expose MGLRU; boot-time override is installed"
+    return 0
+  fi
+  # Read the state after boot without applying the rule here, to test persistence.
+  if ! grep -Eq '^(0x)?0+$' "$enabled_file"; then
+    err "$test" "MGLRU is not disabled after boot: $enabled_file"
+    return 1
+  fi
+  echo "$test: MGLRU is disabled after boot"
 }
 
 testNetworkSettings() {
@@ -1911,6 +2047,7 @@ testBccTools () {
 #   1. WALinuxAgent-<version> directory exists under /var/lib/waagent/ matching components.json
 #   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
 #   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
+#   4. The expected version is running as ExtHandler
 testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
@@ -1968,7 +2105,18 @@ testWALinuxAgentInstalled() {
     return 1
   fi
 
+  testWALinuxAgentRunningVersion "$expectedVersion" || return 1
+
   echo "$test:Finish"
+}
+
+testWALinuxAgentRunningVersion() {
+  local test="testWALinuxAgentRunningVersion"
+  local expectedVersion="$1"
+  if ! grep -Fq "ExtHandler WALinuxAgent-${expectedVersion} running as process" /var/log/waagent.log; then
+    err "$test" "WALinuxAgent-${expectedVersion} is not running as ExtHandler"
+    return 1
+  fi
 }
 
 testNodeExporter () {
@@ -1979,8 +2127,8 @@ testNodeExporter () {
   echo "$test: checking if node-exporter was successfully installed"
 
   # Skip check for OS variants that don't have node-exporter, but verify the skip file is NOT present
-  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 gets node-exporter
-  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ] || echo "$FEATURE_FLAGS" | grep -q "kata"; then
+  # Mariner/CBLMariner is skipped - only AzureLinux 3.0 (including Kata) gets node-exporter
+  if [ "$os_sku" = "AzureLinuxOSGuard" ] || [ "$os_sku" = "Flatcar" ] || [ "$os_sku" = "AzureContainerLinux" ] || [ "$os_sku" = "CBLMariner" ]; then
     if [ -f "$skip_file" ]; then
       err "$test" "Skip file $skip_file should NOT exist on $os_sku (FEATURE_FLAGS=$FEATURE_FLAGS)"
       return 1
@@ -2003,7 +2151,7 @@ testNodeExporter () {
     err "$test" "node-exporter expected version is <SKIP> on supported OS $os_sku"
     return 1
   fi
-  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "node-exporter-kubernetes" "$expectedVersion" true || return 1
 
   local expectedBinaryVersion="v${expectedVersion%%-*}"
   local binaryVersion
@@ -2172,12 +2320,12 @@ testCriCtl() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream cri-tools version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch
@@ -2195,6 +2343,22 @@ testCriCtl() {
   return 0
 }
 
+testRunc() {
+  local expectedVersion="$1"
+  local test="testRunc"
+  echo "$test:Start"
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for runc version, as expected version is <SKIP>"
+    return 0
+  fi
+  if [ "$OS_SKU" != "Ubuntu" ]; then
+    err "$test" "runc package validation is not implemented for $OS_SKU"
+    return 1
+  fi
+  assertPackageVersion "$test" "moby-runc" "$expectedVersion" true || return 1
+  echo "$test:Finish"
+}
+
 testContainerd() {
   local expectedVersion="${1}"
   local installedPackageName="${2}"
@@ -2207,12 +2371,12 @@ testContainerd() {
     return 0
   fi
 
-  # Strict match: verify the full deb/rpm package version matches components.json
+  # components.json stores the upstream containerd version; the installed package adds a distro revision.
   if [ -z "$installedPackageName" ]; then
     err "$test" "installed package name was not provided"
     return 1
   fi
-  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" || return 1
+  assertPackageVersion "$test" "$installedPackageName" "$expectedVersion" true || return 1
 
   # Verify the containerd binary reports the expected major.minor.patch version.
   local expectedMajorMinorPatch
@@ -2313,21 +2477,7 @@ testBlobfuse() {
     echo "$test: Skipping test for blobfuse version, as expected version is <SKIP>"
     return 0
   fi
-  local installed_version
-  installed_version=$(dpkg-query -W -f='${Version}' blobfuse 2>/dev/null) || true
-  if [ -z "$installed_version" ]; then
-    err "$test" "blobfuse is not installed"
-    return 1
-  fi
-  echo "$test: checking if blobfuse version $installed_version matches expected $expectedVersion"
-  case "$installed_version" in
-    "$expectedVersion"*)
-      ;;
-    *)
-      err "$test" "blobfuse version is $installed_version, expected $expectedVersion"
-      return 1
-      ;;
-  esac
+  assertPackageVersion "$test" "blobfuse" "$expectedVersion" true || return 1
   echo "$test:Finish"
   return 0
 }
@@ -2344,21 +2494,25 @@ testBlobfuse2() {
     echo "$test: Skipping test for blobfuse2 version, as expected version is <SKIP>"
     return 0
   fi
-  local installed_version
-  installed_version=$(dpkg-query -W -f='${Version}' blobfuse2 2>/dev/null) || true
-  if [ -z "$installed_version" ]; then
-    err "$test" "blobfuse2 is not installed"
-    return 1
-  fi
-  echo "$test: checking if blobfuse2 version $installed_version matches expected $expectedVersion"
-  case "$installed_version" in
-    "$expectedVersion"*)
-      ;;
+  assertPackageVersion "$test" "blobfuse2" "$expectedVersion" true || return 1
+  echo "$test:Finish"
+  return 0
+}
+
+testLshwInstalled() {
+  local test="testLshwInstalled"
+  echo "$test:Start"
+  case "$OS_SKU/$OS_VERSION/$IMG_SKU" in
+    Ubuntu/26.04/*minimal*) ;;
     *)
-      err "$test" "blobfuse2 version is $installed_version, expected $expectedVersion"
-      return 1
+      echo "$test: Skipping, only applicable to Ubuntu 26.04 minimal"
+      return 0
       ;;
   esac
+  if ! dpkg-query -W -f='${Status}' lshw 2>/dev/null | grep -q "install ok installed"; then
+    err "$test" "lshw is not installed"
+    return 1
+  fi
   echo "$test:Finish"
   return 0
 }
@@ -2508,7 +2662,23 @@ checkLocaldnsScriptsAndConfigs() {
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
+    ["/opt/azure/containers/localdns/localdns-fallback.sh"]=755
+    ["/etc/systemd/system/localdns-fallback.service"]=644
   )
+
+  # OSGuard images are built by imagecustomizer from azlosguard.yml, which installs
+  # units 0600 where packer_source.sh uses 0644. That has been azlosguard's
+  # convention since the file was authored (#6784) and covers 26 of its 36 unit
+  # entries, so it is recorded here rather than reconciled: systemd reads unit files
+  # as root either way, which makes this a read-access difference only, and the
+  # convention belongs to the OSGuard image owners, not to this test.
+  #
+  # Without this branch the assertion is wrong for every OSGuard build -- as it has
+  # been for localdns.service since that entry was added.
+  if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
+    localdnsfiles["/etc/systemd/system/localdns.service"]=600
+    localdnsfiles["/etc/systemd/system/localdns-fallback.service"]=600
+  fi
 
   # Flatcar is EOL (June 2026) — exporter files are not installed on Flatcar VHDs
   if [ "$os_sku" != "Flatcar" ]; then
@@ -2538,6 +2708,107 @@ checkLocaldnsScriptsAndConfigs() {
 
 #------------------------ End of test code related to localdns ------------------------
 
+testNodeProblemDetector() {
+  local test="testNodeProblemDetector" os_sku="$1" os_version="$2" version package executable
+  case "${os_sku}" in
+    Ubuntu) ;;
+    AzureLinux) [ "${os_version}" = 3.0 ] || return 0 ;;
+    *) return 0 ;;
+  esac
+  for executable in /usr/bin/node-problem-detector /usr/bin/npd-log-counter /usr/bin/npd-health-checker /opt/bin/node-problem-detector-startup.sh; do
+    [ -x "${executable}" ] || err "$test" "Missing executable ${executable}"
+  done
+  [ -f /etc/node-problem-detector.d/skip_vhd_npd ] || err "$test" "Missing NPD skip marker"
+  [ -s /etc/node-problem-detector.d/custom-plugin-monitor/custom-kubelet-monitor.json ] || err "$test" "Missing NPD monitors"
+  local npd_package
+  for npd_package in node-problem-detector-kubernetes node-problem-detector-aks-config; do
+    # Both packages are cached so npdBinary and npdConfig can roll back offline.
+    if [ "${os_sku}" = Ubuntu ]; then
+      version="$(dpkg-query -W -f='${Version}' "${npd_package}")" || err "$test" "Missing ${npd_package} package"
+      package="/opt/node-problem-detector/downloads/${npd_package}_${version}_$(dpkg --print-architecture).deb"
+    else
+      version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' "${npd_package}")" || err "$test" "Missing ${npd_package} package"
+      package="/opt/node-problem-detector/downloads/${npd_package}-${version}.$(uname -m).rpm"
+      grep -qsx "${npd_package}" /etc/tdnf/locks.d/node-problem-detector.conf || err "$test" "Missing tdnf lock for ${npd_package}"
+    fi
+    [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
+  done
+  [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
+}
+
+testKMPP() {
+  local test="testKMPP"
+  local kmppVersion unit state
+  echo "$test:Start"
+
+  kmppVersion=$(getPackageExpectedVersion "kmpp-containers" "" "" "")
+  # CVM resolves the Azure Linux 3.0 entries but install-dependencies.sh skips it.
+  if [ "$kmppVersion" = "<SKIP>" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    if command -v rpm >/dev/null 2>&1 && rpm -q kmpp-containers >/dev/null 2>&1; then
+      err "$test" "kmpp-containers is installed but KMPP is not baked for this image (OS_SKU=$OS_SKU FEATURE_FLAGS=$FEATURE_FLAGS)"
+    fi
+    echo "$test: Skipping, KMPP is not baked for this image"
+    return 0
+  fi
+
+  assertPackageVersion "$test" "kmpp-containers" "$kmppVersion" true
+  [ -f /etc/kmpp/disableDefaultProvider ] || err "$test" "Missing /etc/kmpp/disableDefaultProvider"
+  if grep -qi kmpp /etc/pki/tls/openssl.cnf; then
+    err "$test" "/etc/pki/tls/openssl.cnf must not load the KMPP provider"
+  fi
+  for unit in dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service; do
+    state=$(systemctl is-enabled "$unit" 2>/dev/null)
+    [ "$state" = "masked" ] || err "$test" "$unit must be masked on the VHD, got '$state'"
+    if systemctl is-active --quiet "$unit"; then
+      err "$test" "$unit must not be running on the VHD"
+    fi
+  done
+  if grep -q DeviceAllow /usr/lib/systemd/system/dbus-com.microsoft.kmpp.service; then
+    err "$test" "dbus-com.microsoft.kmpp.service is the TPM variant, expected the package default"
+  fi
+  if id -nG kmpp 2>/dev/null | tr ' ' '\n' | grep -qx tss; then
+    err "$test" "kmpp user must not be in the tss group"
+  fi
+  if [ -e /var/opt/msft/ap/data/kmpp-private ]; then
+    err "$test" "/var/opt/msft/ap/data/kmpp-private must not be baked into the VHD"
+  fi
+  grep -qsx kmpp-containers /etc/tdnf/locks.d/kmpp.conf || err "$test" "Missing tdnf lock for kmpp-containers"
+
+  echo "$test:Finish"
+}
+
+testKneadSecurityPatchingAssets() {
+  local test="testKneadSecurityPatchingAssets"
+  local os_sku="$1"
+  local file
+  local permissions
+  local -A expected_files=(
+    ["/etc/systemd/system/snapshot-update.service"]=644
+    ["/etc/systemd/system/snapshot-update.timer"]=644
+    ["/opt/azure/containers/security-update.sh"]=544
+    ["/opt/azure/containers/npd-update.sh"]=544
+    ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=544
+  )
+
+  if [ "$os_sku" != "Ubuntu" ]; then
+    return 0
+  fi
+
+  for file in "${!expected_files[@]}"; do
+    if [ ! -f "$file" ]; then
+      err "$test" "Expected file not found: $file"
+    fi
+    permissions=$(stat -c "%a" "$file")
+    if [ "$permissions" != "${expected_files[$file]}" ]; then
+      err "$test" "Incorrect permissions for $file. Expected ${expected_files[$file]}, got $permissions"
+    fi
+  done
+
+  if ! grep -Fxq 'ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh' /etc/systemd/system/snapshot-update.service; then
+    err "$test" "snapshot-update.service does not execute the generic reconciler"
+  fi
+}
+
 # Basic sanity check for Inspektor Gadget artifacts baked into the image.
 testInspektorGadgetAssets() {
   local test="testInspektorGadgetAssets"
@@ -2550,16 +2821,12 @@ testInspektorGadgetAssets() {
   local unit_file="/usr/lib/systemd/system/${service_name}"
   local tracking_file="/var/lib/ig/imported-gadgets.txt"
 
-  # Flatcar, OSGuard, Kata, and CBLMariner (Mariner 2.0) do not include IG files in VHD
-  local is_kata=false
-  if echo "$FEATURE_FLAGS" | grep -q "kata"; then
-    is_kata=true
-  fi
+  # Flatcar, OSGuard, and CBLMariner (Mariner 2.0) do not include IG files in VHD.
+  # Azure Linux 3 Kata does.
+  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ]; then
+    echo "$test: Verifying $OS_SKU has no IG files in VHD"
 
-  if [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ] || [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "CBLMariner" ] || [ "$is_kata" = "true" ]; then
-    echo "$test: Verifying $OS_SKU (kata=$is_kata) has no IG files in VHD"
-
-    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner/Kata
+    # Verify that IG files do NOT exist for Flatcar/OSGuard/CBLMariner
     if [ -f "$skip_file" ]; then
       err $test "Skip file should not exist for $OS_SKU but found at $skip_file"
     fi
@@ -2726,6 +2993,67 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
+testNetworkdRecoveryArtifacts() {
+  local test="testNetworkdRecoveryArtifacts"
+  if [ "$OS_SKU" != "AzureLinux" ] || [ "$OS_VERSION" != "3.0" ]; then
+    return 0
+  fi
+
+  local path
+  for path in /etc/systemd/system/aks-networkd-recovery.service /etc/systemd/system/aks-networkd-recovery.timer; do
+    if [ "$(stat -c '%a' "$path" 2>/dev/null)" != "644" ]; then
+      err "$test" "$path must exist with mode 0644"
+    fi
+  done
+  if [ "$(stat -c '%a' /opt/azure/containers/aks-networkd-recovery.sh 2>/dev/null)" != "755" ]; then
+    err "$test" "networkd recovery script must exist with mode 0755"
+  fi
+  if ! systemctl is-enabled --quiet aks-networkd-recovery.timer; then
+    err "$test" "networkd recovery timer must be enabled"
+  fi
+  if ! grep -Fxq 'OnCalendar=*:0/5' /etc/systemd/system/aks-networkd-recovery.timer; then
+    err "$test" "networkd recovery timer must check every five minutes"
+  fi
+  if ! grep -Fxq 'ConditionPathExists=/opt/azure/containers/provision.complete' /etc/systemd/system/aks-networkd-recovery.service; then
+    err "$test" "networkd recovery must wait for node provisioning to finish"
+  fi
+}
+
+testMarinerLivePatchingArtifacts() {
+  local test="testMarinerLivePatchingArtifacts"
+  local update_script="/opt/azure/containers/mariner-package-update.sh"
+  local security_script="/opt/azure/containers/security-update.sh"
+  local npd_script="/opt/azure/containers/npd-update.sh"
+  local service="/etc/systemd/system/snapshot-update.service"
+  local timer="/etc/systemd/system/snapshot-update.timer"
+
+  echo "$test: Start"
+  if [ "$OS_SKU" != "CBLMariner" ] && [ "$OS_SKU" != "AzureLinux" ]; then
+    echo "$test: Skipping for non-Mariner/AzureLinux image"
+    return 0
+  fi
+
+  if [ "$(stat -c '%a' "$update_script" 2>/dev/null)" != "544" ]; then
+    err $test "$update_script must exist with mode 0544"
+  fi
+  if [ "$(stat -c '%a' "$security_script" 2>/dev/null)" != "544" ]; then
+    err $test "$security_script must exist with mode 0544"
+  fi
+  if [ "$(stat -c '%a' "$npd_script" 2>/dev/null)" != "544" ]; then
+    err $test "$npd_script must exist with mode 0544"
+  fi
+  if [ "$(stat -c '%a' "$service" 2>/dev/null)" != "644" ]; then
+    err $test "$service must exist with mode 0644"
+  fi
+  if [ "$(stat -c '%a' "$timer" 2>/dev/null)" != "644" ]; then
+    err $test "$timer must exist with mode 0644"
+  fi
+  if [ "$(grep -E '^ExecStart=' "$service" 2>/dev/null)" != "ExecStart=/opt/azure/containers/mariner-package-update.sh" ]; then
+    err $test "$service must execute the Mariner package update script"
+  fi
+  echo "$test: Finish"
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -2743,6 +3071,7 @@ testVHDBuildLogsExist
 testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
+testLshwInstalled
 testFuseInstalled
 if [ "$OS_SKU" = "Ubuntu" ]; then
   testBlobfuse2 "$(getPackageExpectedVersion "blobfuse2")"
@@ -2775,21 +3104,28 @@ testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings
-testCronPermissions $IMG_SKU $OS_SKU
+testMGLRUDisabled
+testCronPermissions "$IMG_SKU" "$OS_SKU"
 testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
+testMarinerLivePatchingArtifacts
+testNetworkdRecoveryArtifacts
 testNodeExporter $OS_SKU
+testNodeProblemDetector $OS_SKU $OS_VERSION
+testKMPP
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testAzureLinuxArm64DualKernel "$OS_VERSION" "$OS_SKU" "$ENABLE_FIPS"
 testAutologinDisabled $OS_SKU
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs $OS_SKU
+testKneadSecurityPatchingAssets $OS_SKU
 testInspektorGadgetAssets
 testPackageDownloadURLFallbackLogic
 testFileOwnership $OS_SKU

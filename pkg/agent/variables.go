@@ -4,76 +4,80 @@
 package agent
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-// getCustomDataVariables returns cloudinit data used by Linux.
+// getCustomDataVariables returns rendered, unencoded file contents used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
-			"provisionStartScript":                  getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
-			"provisionScript":                       getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
-			"provisionSource":                       getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
-			"provisionSourceUbuntu":                 getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
-			"provisionSourceMariner":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
-			"provisionSourceAzlOSGuard":             getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptAzlOSGuard, config),
-			"provisionSourceFlatcar":                getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptFlatcar, config),
-			"provisionSourceACL":                    getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptACL, config),
-			"provisionInstalls":                     getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
-			"provisionInstallsUbuntu":               getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
-			"provisionInstallsMariner":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
-			"provisionInstallsAzlOSGuard":           getBase64EncodedGzippedCustomScript(kubernetesCSEInstallAzlOSGuard, config),
-			"provisionInstallsFlatcar":              getBase64EncodedGzippedCustomScript(kubernetesCSEInstallFlatcar, config),
-			"provisionInstallsACL":                  getBase64EncodedGzippedCustomScript(kubernetesCSEInstallACL, config),
-			"provisionConfigs":                      getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
-			"provisionSendLogs":                     getBase64EncodedGzippedCustomScript(kubernetesCSESendLogs, config),
-			"provisionRedactCloudConfig":            getBase64EncodedGzippedCustomScript(kubernetesCSERedactCloudConfig, config),
-			"customSearchDomainsScript":             getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
-			"dhcpv6SystemdService":                  getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
-			"dhcpv6ConfigurationScript":             getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
-			"kubeletSystemdService":                 getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
-			"reconcilePrivateHostsScript":           getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
-			"reconcilePrivateHostsService":          getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
-			"ensureNoDupEbtablesScript":             getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
-			"ensureNoDupEbtablesService":            getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
-			"bindMountScript":                       getBase64EncodedGzippedCustomScript(bindMountScript, config),
-			"bindMountSystemdService":               getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
-			"migPartitionSystemdService":            getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
-			"migPartitionScript":                    getBase64EncodedGzippedCustomScript(migPartitionScript, config),
-			"ensureIMDSRestrictionScript":           getBase64EncodedGzippedCustomScript(ensureIMDSRestrictionScript, config),
-			"snapshotUpdateScript":                  getBase64EncodedGzippedCustomScript(snapshotUpdateScript, config),
-			"snapshotUpdateService":                 getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdService, config),
-			"snapshotUpdateTimer":                   getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdTimer, config),
-			"packageUpdateScriptMariner":            getBase64EncodedGzippedCustomScript(packageUpdateScriptMariner, config),
-			"packageUpdateServiceMariner":           getBase64EncodedGzippedCustomScript(packageUpdateSystemdServiceMariner, config),
-			"packageUpdateTimerMariner":             getBase64EncodedGzippedCustomScript(packageUpdateSystemdTimerMariner, config),
-			"componentManifestFile":                 getBase64EncodedGzippedCustomScript(componentManifestFile, config),
-			"validateKubeletCredentialsScript":      getBase64EncodedGzippedCustomScript(validateKubeletCredentialsScript, config),
-			"secureTLSBootstrapService":             getBase64EncodedGzippedCustomScript(secureTLSBootstrapService, config),
-			"cloudInitStatusCheckScript":            getBase64EncodedGzippedCustomScript(cloudInitStatusCheckScript, config),
-			"measureTLSBootstrappingLatencyScript":  getBase64EncodedGzippedCustomScript(measureTLSBootstrappingLatencyScript, config),
-			"measureTLSBootstrappingLatencyService": getBase64EncodedGzippedCustomScript(measureTLSBootstrappingLatencyService, config),
-			"configureAzureNetworkScript":           getBase64EncodedGzippedCustomScript(configureAzureNetworkScript, config),
-			"azureNetworkUdevRule":                  getBase64EncodedGzippedCustomScript(azureNetworkUdevRule, config),
+			"provisionStartScript":                  getCustomScript(kubernetesCSEStartScript, config),
+			"provisionScript":                       getCustomScript(kubernetesCSEMainScript, config),
+			"provisionSource":                       getCustomScript(kubernetesCSEHelpersScript, config),
+			"provisionSourceUbuntu":                 getCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
+			"provisionSourceMariner":                getCustomScript(kubernetesCSEHelpersScriptMariner, config),
+			"provisionSourceAzlOSGuard":             getCustomScript(kubernetesCSEHelpersScriptAzlOSGuard, config),
+			"provisionSourceFlatcar":                getCustomScript(kubernetesCSEHelpersScriptFlatcar, config),
+			"provisionSourceACL":                    getCustomScript(kubernetesCSEHelpersScriptACL, config),
+			"provisionInstalls":                     getCustomScript(kubernetesCSEInstall, config),
+			"provisionInstallsUbuntu":               getCustomScript(kubernetesCSEInstallUbuntu, config),
+			"provisionInstallsMariner":              getCustomScript(kubernetesCSEInstallMariner, config),
+			"provisionInstallsAzlOSGuard":           getCustomScript(kubernetesCSEInstallAzlOSGuard, config),
+			"provisionInstallsFlatcar":              getCustomScript(kubernetesCSEInstallFlatcar, config),
+			"provisionInstallsACL":                  getCustomScript(kubernetesCSEInstallACL, config),
+			"provisionConfigs":                      getCustomScript(kubernetesCSEConfig, config),
+			"provisionConfigsGPU":                   getCustomScript(kubernetesCSEConfigGPU, config),
+			"provisionConfigsLocalDNS":              getCustomScript(kubernetesCSEConfigLocalDNS, config),
+			"provisionConfigsKubelet":               getCustomScript(kubernetesCSEConfigKubelet, config),
+			"provisionConfigsNetwork":               getCustomScript(kubernetesCSEConfigNetwork, config),
+			"provisionConfigsChrony":                getCustomScript(kubernetesCSEConfigChrony, config),
+			"provisionSendLogs":                     getCustomScript(kubernetesCSESendLogs, config),
+			"provisionRedactCloudConfig":            getCustomScript(kubernetesCSERedactCloudConfig, config),
+			"customSearchDomainsScript":             getCustomScript(kubernetesCustomSearchDomainsScript, config),
+			"dhcpv6SystemdService":                  getCustomScript(dhcpv6SystemdService, config),
+			"dhcpv6ConfigurationScript":             getCustomScript(dhcpv6ConfigurationScript, config),
+			"kubeletSystemdService":                 getCustomScript(kubeletSystemdService, config),
+			"reconcilePrivateHostsScript":           getCustomScript(reconcilePrivateHostsScript, config),
+			"reconcilePrivateHostsService":          getCustomScript(reconcilePrivateHostsService, config),
+			"ensureNoDupEbtablesScript":             getCustomScript(ensureNoDupEbtablesScript, config),
+			"ensureNoDupEbtablesService":            getCustomScript(ensureNoDupEbtablesService, config),
+			"bindMountScript":                       getCustomScript(bindMountScript, config),
+			"bindMountSystemdService":               getCustomScript(bindMountSystemdService, config),
+			"migPartitionSystemdService":            getCustomScript(migPartitionSystemdService, config),
+			"migPartitionScript":                    getCustomScript(migPartitionScript, config),
+			"ensureIMDSRestrictionScript":           getCustomScript(ensureIMDSRestrictionScript, config),
+			"snapshotUpdateScript":                  getCustomScript(snapshotUpdateScript, config),
+			"snapshotUpdateService":                 getCustomScript(snapshotUpdateSystemdService, config),
+			"snapshotUpdateTimer":                   getCustomScript(snapshotUpdateSystemdTimer, config),
+			"packageUpdateScriptMariner":            getCustomScript(packageUpdateScriptMariner, config),
+			"packageUpdateServiceMariner":           getCustomScript(packageUpdateSystemdServiceMariner, config),
+			"packageUpdateTimerMariner":             getCustomScript(packageUpdateSystemdTimerMariner, config),
+			"componentManifestFile":                 getCustomScript(componentManifestFile, config),
+			"validateKubeletCredentialsScript":      getCustomScript(validateKubeletCredentialsScript, config),
+			"secureTLSBootstrapService":             getCustomScript(secureTLSBootstrapService, config),
+			"cloudInitStatusCheckScript":            getCustomScript(cloudInitStatusCheckScript, config),
+			"measureTLSBootstrappingLatencyScript":  getCustomScript(measureTLSBootstrappingLatencyScript, config),
+			"measureTLSBootstrappingLatencyService": getCustomScript(measureTLSBootstrappingLatencyService, config),
+			"configureAzureNetworkScript":           getCustomScript(configureAzureNetworkScript, config),
+			"azureNetworkUdevRule":                  getCustomScript(azureNetworkUdevRule, config),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap) //nolint:errcheck // no error is actually here
-	cloudInitData["initAKSCloud"] = getBase64EncodedGzippedCustomScript(initAKSCloudScript, config)
+	cloudInitData["initAKSCloud"] = getCustomScript(initAKSCloudScript, config)
 
 	if config.IsFlatcar() || config.IsACL() {
 		cloudInitData["provisionRedactCloudConfig"] = "" // Flatcar and ACL do not have cloud-init
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {
-		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, config)
-		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
-		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
+		cloudInitData["kmsSystemdService"] = getCustomScript(kmsSystemdService, config)
+		cloudInitData["aptPreferences"] = getCustomScript(aptPreferences, config)
+		cloudInitData["dockerClearMountPropagationFlags"] = getCustomScript(dockerClearMountPropagationFlags, config)
 	}
 
 	return cloudInitFiles
@@ -87,6 +91,18 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
+	httpProxy, httpsProxy, noProxy := "", "", ""
+	if config.HTTPProxyConfig != nil {
+		if config.HTTPProxyConfig.HTTPProxy != nil {
+			httpProxy = *config.HTTPProxyConfig.HTTPProxy
+		}
+		if config.HTTPProxyConfig.HTTPSProxy != nil {
+			httpsProxy = *config.HTTPProxyConfig.HTTPSProxy
+		}
+		if config.HTTPProxyConfig.NoProxy != nil {
+			noProxy = strings.Join(*config.HTTPProxyConfig.NoProxy, ",")
+		}
+	}
 
 	// this method is called for both windows and linux. If there's no windows profile, then let's just
 	// use a blank one.
@@ -100,17 +116,26 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		agentPoolProfileWindows = &datamodel.AgentPoolWindowsProfile{}
 	}
 
+	subnetName := cs.Properties.GetSubnetName()
+	if config.SubnetName != nil {
+		subnetName = *config.SubnetName
+	}
+	routeTableName := cs.Properties.GetRouteTableName()
+	if config.RouteTableName != nil {
+		routeTableName = *config.RouteTableName
+	}
+
 	return map[string]interface{}{
 		"tenantID":                               config.TenantID,
 		"subscriptionId":                         config.SubscriptionID,
 		"resourceGroup":                          config.ResourceGroupName,
 		"location":                               cs.Location,
 		"vmType":                                 cs.Properties.GetVMType(),
-		"subnetName":                             cs.Properties.GetSubnetName(),
+		"subnetName":                             subnetName,
 		"nsgName":                                cs.Properties.GetNSGName(),
 		"virtualNetworkName":                     cs.Properties.GetVirtualNetworkName(),
 		"virtualNetworkResourceGroupName":        cs.Properties.GetVNetResourceGroupName(),
-		"routeTableName":                         cs.Properties.GetRouteTableName(),
+		"routeTableName":                         routeTableName,
 		"primaryAvailabilitySetName":             cs.Properties.GetPrimaryAvailabilitySetName(),
 		"primaryScaleSetName":                    config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":            useManagedIdentity(cs),
@@ -145,6 +170,9 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"serviceAccountImagePullDefaultClientID": getServiceAccountImagePullDefaultClientID(cs),
 		"serviceAccountImagePullDefaultTenantID": getServiceAccountImagePullDefaultTenantID(cs),
 		"identityBindingsLocalAuthoritySNI":      getServiceAccountImagePullLocalAuthoritySNI(cs),
+		"httpProxyShellQuoted":                   shellQuote(httpProxy),
+		"httpsProxyShellQuoted":                  shellQuote(httpsProxy),
+		"noProxyShellQuoted":                     shellQuote(noProxy),
 	}
 }
 
@@ -230,20 +258,19 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	return connectivityCheckCommand
 }
 
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
+}
+
 func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
-	proxyVars := ""
-	if nbc.HTTPProxyConfig != nil {
-		if nbc.HTTPProxyConfig.HTTPProxy != nil {
-			// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-			proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", *nbc.HTTPProxyConfig.HTTPProxy)
-		}
-		if nbc.HTTPProxyConfig.HTTPSProxy != nil {
-			proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
-		}
-		if nbc.HTTPProxyConfig.NoProxy != nil {
-			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
-		}
+	if nbc.HTTPProxyConfig == nil ||
+		(nbc.HTTPProxyConfig.HTTPProxy == nil && nbc.HTTPProxyConfig.HTTPSProxy == nil && nbc.HTTPProxyConfig.NoProxy == nil) {
+		return ""
 	}
-	return proxyVars
+
+	// Older VHDs evaluate PROXY_VARS. Keep this payload free of customer-controlled values;
+	// those values are shell-quoted separately and referenced only through variables here.
+	return `if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi; ` +
+		`if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi; ` +
+		`if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi`
 }

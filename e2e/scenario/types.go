@@ -11,11 +11,10 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"golang.org/x/crypto/ssh"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
 type Tags struct {
@@ -26,9 +25,11 @@ type Tags struct {
 	NetworkIsolated        bool
 	NonAnonymousACR        bool
 	GPU                    bool
+	CVM                    bool
 	WASM                   bool
 	Kata                   bool
 	BootstrapTokenFallback bool
+	COSIUpdate             bool
 	KubeletCustomConfig    bool
 	Scriptless             bool
 	VHDCaching             bool
@@ -39,10 +40,10 @@ type Tags struct {
 
 // Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
-	// Name is the stable scenario name used by filters, logs, and test reports.
+	// Name: OS/image plus distinguishing configuration or lifecycle; see ../README.md#scenario-names.
 	Name string
 
-	// Description is a short description of what the scenario does and tests for
+	// Description: configured node, checked behaviors, and disruptive steps.
 	Description string
 
 	// Tags are used for filtering scenarios to run based on the tags provided
@@ -68,10 +69,6 @@ type Scenario struct {
 	// SkipIf returns a reason to skip before the scenario creates Azure resources.
 	// An empty reason runs the scenario.
 	SkipIf func(context.Context) string
-
-	// Logger writes the scenario log. It is set by the execution flow before the
-	// scenario starts and carries no test-control capability.
-	Logger toolkit.Logger
 
 	// artifactName isolates files and Azure resource names created by this run.
 	artifactName string
@@ -115,7 +112,7 @@ type ScenarioVM struct {
 	VMSS      *armcompute.VirtualMachineScaleSet
 	VM        *armcompute.VirtualMachineScaleSetVM
 	PrivateIP string
-	SSHClient *ssh.Client
+	SSHClient *SSHClient
 }
 
 // CustomDataWriteFile defines an e2e-only cloud-init write_files entry.
@@ -124,6 +121,19 @@ type CustomDataWriteFile struct {
 	Permissions string
 	Owner       string
 	Content     string
+}
+
+// ScriptHotfixFixture describes script hotfix files embedded into an isolated
+// scenario-specific ANC build.
+type ScriptHotfixFixture struct {
+	Platform string
+	Files    []ScriptHotfixFile
+}
+
+type ScriptHotfixFile struct {
+	Destination string
+	Mode        string
+	Payload     []byte
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
@@ -147,8 +157,13 @@ type Config struct {
 	// so that staleness regressions in the BasePrep->NodePrep split are caught positively.
 	PreProvisionBootstrapConfigMutator func(*Cluster, *datamodel.NodeBootstrappingConfiguration)
 
-	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
+	// AKSNodeConfigMutator customizes the directly constructed config before it is delivered to ANC.
+	// Eligible non-caching scenarios default to Phase 3 when this is set or both bootstrap mutators are nil.
+	// Bootstrap mutators can override the default through EnableScriptlessAKSNodeConfig.
 	AKSNodeConfigMutator func(*Cluster, *aksnodeconfigv1.Configuration)
+
+	// AKSNodeConfigMutatorWithError runs after AKSNodeConfigMutator when configuration can fail.
+	AKSNodeConfigMutatorWithError func(context.Context, *Cluster, *aksnodeconfigv1.Configuration) error
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
@@ -161,6 +176,15 @@ type Config struct {
 	// This is for e2e-only validation scenarios.
 	CustomDataWriteFiles []CustomDataWriteFile
 
+	// ScriptHotfixFixture builds ANC in an isolated temporary module with this
+	// generated script-hotfix payload. It bypasses the shared ANC binary cache.
+	ScriptHotfixFixture *ScriptHotfixFixture
+
+	// ANCHotfixFlowFixture validates the real hotfix download/stage/select flow by seeding the
+	// hotfix pointer and replacing the baked ANC with a PR-built binary stamped to the hotfix
+	// base version. check-hotfix is intentionally not exercised; see scenario_anc_hotfix.go.
+	ANCHotfixFlowFixture bool
+
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario) error
 
@@ -172,6 +196,12 @@ type Config struct {
 	// It shouldn't be used for majority of scenarios, currently only used for scenarios where the node is not expected to be reachable via ssh
 	SkipSSHConnectivityValidation bool
 
+	// ForceScriptlessNBCCSECmd overrides mode selection after scenario mutators for an additive sampled run.
+	ForceScriptlessNBCCSECmd bool
+
+	// ExcludeFromNBCSampling preserves scenarios that specifically require a different provisioning path.
+	ExcludeFromNBCSampling bool
+
 	// WaitForSSHAfterReboot if set to non-zero duration, SSH connectivity validation will retry with exponential backoff
 	// for up to this duration when encountering reboot-related errors. This is useful for scenarios where the node
 	// reboots during provisioning (e.g., MIG-enabled GPU nodes). Default (zero value) means no retry.
@@ -180,6 +210,10 @@ type Config struct {
 	// if VHDCaching is set then a VHD will be created first for the test scenario and then a VM will be created from that VHD.
 	// The main purpose is to validate VHD Caching logic and ensure a reboot step between basePrep and nodePrep doesn't break anything.
 	VHDCaching bool
+
+	// PISCustomizationScript applies customer customization after a successful
+	// bake and before image capture.
+	PISCustomizationScript func(context.Context, *Scenario) error
 
 	// ExpectedError, when set, indicates that VMSS creation is expected to fail with an error containing this substring.
 	// The assertion is performed during the scenario run.
@@ -193,6 +227,12 @@ type Config struct {
 	// This prevents the Guest Agent from sweeping events before they can be read.
 	// Only set this on CSE performance test scenarios.
 	EagerCSETimingExtraction bool
+
+	// SkipOnCapacityError, when set (and SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE is enabled), makes the
+	// scenario skip instead of fail (and not retry) on AllocationFailed — no allocatable capacity for
+	// the SKU in the region. Reserve for scarce brand-new GPU SKUs (e.g. RTX PRO 6000 BSE v6); mainstream
+	// SKUs should leave it unset so a genuine capacity regression still fails the gate.
+	SkipOnCapacityError bool
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
@@ -201,15 +241,9 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 	if s.VHD == nil {
 		return fmt.Errorf("scenario VHD is nil")
 	}
-	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{
-		Image:    *s.VHD,
-		Location: s.Location,
-	})
+	imageReference, err := resolveImageReference(ctx, s.VHD, s.Location)
 	if err != nil {
 		return fmt.Errorf("prepare VHD: %w", err)
-	}
-	if resourceID == "" {
-		return fmt.Errorf("VHD selector returned an empty resource ID")
 	}
 	if vmss == nil {
 		return fmt.Errorf("input virtual machine scale set is nil")
@@ -233,9 +267,7 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 	if vmss.Properties.VirtualMachineProfile.StorageProfile == nil {
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
-	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(resourceID)),
-	}
+	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = imageReference
 
 	// Override OS disk size if the VHD requires a non-default size.
 	if s.VHD.OSDiskSizeGB > 0 {
@@ -247,6 +279,35 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 
 	s.updateTags(ctx, vmss)
 	return nil
+}
+
+func resolveImageReference(ctx context.Context, image *config.Image, location string) (*armcompute.ImageReference, error) {
+	if image.SharedGalleryImageID != "" {
+		logging.Logf(ctx, "Using shared gallery image ID: %s", image.SharedGalleryImageID)
+		return &armcompute.ImageReference{SharedGalleryImageID: to.Ptr(string(image.SharedGalleryImageID))}, nil
+	}
+
+	resourceID, err := CachedPrepareVHD(ctx, GetVHDRequest{Image: *image, Location: location})
+	if err != nil {
+		return nil, err
+	}
+	if resourceID == "" {
+		return nil, fmt.Errorf("VHD selector returned an empty resource ID")
+	}
+	return &armcompute.ImageReference{ID: to.Ptr(string(resourceID))}, nil
+}
+
+func (s *Scenario) RemoveBoostrapKubeconfig() bool {
+	if s.Runtime == nil {
+		return false
+	}
+	if nbc := s.Runtime.NBC; nbc != nil && nbc.RemoveBootstrapKubeconfig {
+		return true
+	}
+	if nodeConfig := s.Runtime.AKSNodeConfig; nodeConfig != nil && nodeConfig.GetBootstrappingConfig().GetRemoveBootstrapKubeconfig() {
+		return true
+	}
+	return false
 }
 
 func (s *Scenario) SecureTLSBootstrappingEnabled() bool {

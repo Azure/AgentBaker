@@ -528,6 +528,10 @@ EOF
                 "PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
                 "PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
                 "PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
+                "OUTPUT -p tcp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p tcp -s 169.254.10.11 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.11 --sport 53 -j NOTRACK"
             )
             all_rules_found=true
             for expected_rule in "${expected_rules[@]}"; do
@@ -546,6 +550,51 @@ EOF
                 fi
             done
             The value "${#IPTABLES_RULES[@]}" should equal "${#expected_rules[@]}"
+        End
+
+        It 'should build NOTRACK rules for both DNS request and response directions'
+            When call build_localdns_iptable_rules
+            The status should be success
+
+            request_rule_count=0
+            response_rule_count=0
+            prerouting_response_rule_count=0
+            for actual_rule in "${IPTABLES_RULES[@]}"; do
+                if [[ "$actual_rule" == *"--dport 53 -j NOTRACK"* ]]; then
+                    request_rule_count=$((request_rule_count + 1))
+                fi
+                if [[ "$actual_rule" == *"--sport 53 -j NOTRACK"* ]]; then
+                    response_rule_count=$((response_rule_count + 1))
+                fi
+                if [[ "$actual_rule" == PREROUTING*"--sport 53 -j NOTRACK"* ]]; then
+                    prerouting_response_rule_count=$((prerouting_response_rule_count + 1))
+                fi
+            done
+
+            The value "$request_rule_count" should equal "8"
+            The value "$response_rule_count" should equal "4"
+            The value "$prerouting_response_rule_count" should equal "0"
+
+            expected_response_rules=(
+                "OUTPUT -p tcp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.10 --sport 53 -j NOTRACK"
+                "OUTPUT -p tcp -s 169.254.10.11 --sport 53 -j NOTRACK"
+                "OUTPUT -p udp -s 169.254.10.11 --sport 53 -j NOTRACK"
+            )
+            for expected_rule in "${expected_response_rules[@]}"; do
+                found=false
+                for actual_rule in "${IPTABLES_RULES[@]}"; do
+                    if [[ "$actual_rule" == "$expected_rule" ]]; then
+                        found=true
+                        break
+                    fi
+                done
+
+                if [[ "$found" == false ]]; then
+                    echo "Missing response rule: $expected_rule"
+                    exit 1
+                fi
+            done
         End
 
         #------------------------- verify_default_route_interface --------------------------------------------------
@@ -986,6 +1035,56 @@ EOF
             The status should be success
             The stdout should include "No existing localdns iptables rules found."
         End
+
+        It 'should remove the known drop-in without deriving network variables'
+            iptables() { mock_iptables "$@"; }
+            NETWORKCTL_RELOAD_CMD="true"
+            touch "$NETWORK_DROPIN_FILE"
+            # Cleanup must not need route/networkctl discovery.
+            unset DEFAULT_ROUTE_INTERFACE
+            unset NETWORK_DROPIN_DIR
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Removing network drop-in file"
+            The file "${NETWORK_DROPIN_FILE}" should not be exist
+        End
+
+        It 'continues DNS cleanup when network variable discovery would fail'
+            iptables() { mock_iptables "$@"; }
+            NETWORK_DROPIN_FILE="/tmp/localdns-cleanup-test/network/10-netplan-eth0.network.d/70-localdns.conf"
+            mkdir -p "$(dirname "$NETWORK_DROPIN_FILE")"
+            touch "$NETWORK_DROPIN_FILE"
+            NETWORKCTL_RELOAD_CMD="true"
+            unset NETWORK_DROPIN_DIR
+            unset DEFAULT_ROUTE_INTERFACE
+            # If the old implementation attempted network discovery here, this
+            # mock would fail. The cleanup path must remove the known drop-in
+            # without attempting discovery.
+            initialize_network_variables() { return 1; }
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Successfully removed existing localdns iptables rule"
+            The stdout should include "Reloading network configuration succeeded."
+            The file "${NETWORK_DROPIN_FILE}" should not be exist
+            rm -rf /tmp/localdns-cleanup-test
+        End
+
+        It 'reports a drop-in removal failure but still reloads the network'
+            iptables() { return 0; }
+            NETWORKCTL_RELOAD_CMD="true"
+            touch "$NETWORK_DROPIN_FILE"
+            rm() {
+                if [ "$1" = "-f" ] && [ "$2" = "$NETWORK_DROPIN_FILE" ]; then
+                    return 1
+                fi
+                command rm "$@"
+            }
+            When call cleanup_iptables_and_dns
+            The status should be failure
+            The stdout should include "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
+            The stdout should include "Reloading network configuration succeeded."
+            The file "${NETWORK_DROPIN_FILE}" should be exist
+        End
     End
 
 
@@ -1278,6 +1377,77 @@ EOF
     End
 
 
+# This section tests the signal traps installed at the bottom of localdns.sh.
+#---------------------------------------------------------------------------------------------------
+# These cannot be reached with Include: they sit below "${__SOURCED__:+return}", which is what
+# stops sourcing from running the main block. The trap wiring is nonetheless the thing that
+# decides what a systemd stop does -- a stop sends SIGTERM, and whether that reaps the watchdog
+# sleep, runs cleanup in-process, and exits 0 is entirely determined by those three lines.
+#
+# So extract the real trap lines out of the shipped script and execute them, rather than
+# restating them here. A spec that restated them would pass even if the traps were deleted,
+# which is the failure mode worth avoiding: it would report healthy while a stop reverted to
+# bash dying on the default action, leaving the watchdog sleep orphaned in the cgroup and
+# cleanup to ExecStopPost alone.
+    Describe 'signal traps'
+        LOCALDNS_SRC="./parts/linux/cloud-init/artifacts/localdns.sh"
+
+        # Build a harness containing the real trap lines plus stubs for what they call, so the
+        # assertions below are about the shipped text and not about a copy of it.
+        build_trap_harness() {
+            harness=$(mktemp)
+            {
+                echo '#!/bin/bash'
+                echo 'cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 0; }'
+                echo 'stop_watchdog_sleep() { echo "WATCHDOG_REAPED"; }'
+                echo 'ERR_LOCALDNS_FAIL=99'
+                grep -E "^trap .*TERM$" "$LOCALDNS_SRC"
+                grep -E "^trap .*EXIT$" "$LOCALDNS_SRC"
+                echo 'kill -TERM $$'
+                # Long enough that the process is unambiguously still here if the signal is
+                # ignored, so a missing trap shows up as a timeout rather than a pass.
+                echo 'sleep 10'
+                echo 'echo "REACHED_AFTER_SIGNAL"'
+            } > "$harness"
+        }
+        cleanup_harness() {
+            rm -f "$harness"
+        }
+        BeforeEach 'build_trap_harness'
+        AfterEach 'cleanup_harness'
+
+        It 'reaps the watchdog sleep and runs cleanup in-process on SIGTERM'
+            # This is what changed a systemd stop: before SIGTERM was trapped, bash died on the
+            # default action and neither of these ran. Both now do, which is what makes a stop
+            # cost the LOCALDNS_SHUTDOWN_DELAY drain and tear the dummy interface down.
+            When run command bash "$harness"
+            The output should include "Received SIGTERM, shutting down."
+            The output should include "WATCHDOG_REAPED"
+            The output should include "Executing cleanup function."
+            The output should include "CLEANUP_RAN"
+            The status should be success
+        End
+
+        It 'exits 0 on SIGTERM so Restart=on-failure does not fire for a requested stop'
+            # A non-zero exit here would make systemd treat every 'systemctl stop' as a failure
+            # and restart the unit, and would also spend a slot of the StartLimitBurst budget.
+            When run command bash "$harness"
+            The status should equal 0
+            The output should not include "REACHED_AFTER_SIGNAL"
+        End
+
+        It 'reports cleanup failure rather than exiting non-zero'
+            # The EXIT trap deliberately swallows a cleanup failure: a best-effort cleanup error
+            # must not turn a requested stop into a systemd failure.
+            sed -i 's/cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 0; }/cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 1; }/' "$harness"
+            When run command bash "$harness"
+            The output should include "CLEANUP_RAN"
+            The output should include "Cleanup failed with error code: 99."
+            The status should equal 0
+        End
+    End
+
+
 # This section tests - start_localdns_watchdog
 # These functions is also defined in parts/linux/cloud-init/artifacts/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
@@ -1295,6 +1465,170 @@ EOF
             export_resource_metrics() { return 0; }
             When call start_localdns_watchdog
             The status should be success
+        End
+    End
+
+# This section tests the systemd notifications against a PID 1 that is too busy to acknowledge them.
+# systemd-notify (systemd >= 246) waits up to 5s by default for PID 1 to acknowledge a message; on a
+# busy node that wait times out, and under 'set -e' the failure used to end the script and tear down
+# a healthy resolver. The harness runs the shipped --no-block probe, --ready and watchdog loop under
+# the shipped 'set' line and traps, so 'set -e' behaves as it does on a node.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'systemd notifications with a busy PID 1'
+        LOCALDNS_SRC="./parts/linux/cloud-init/artifacts/localdns.sh"
+
+        # $1: 246 = systemd-notify has --no-block, and without it the acknowledgement wait times out.
+        #     245 = systemd-notify has no --no-block (Ubuntu 20.04) and no acknowledgement wait.
+        build_notify_harness() {
+            harness=$(mktemp)
+            help_count=$(mktemp)
+            {
+                echo '#!/bin/bash'
+                grep -m1 -E '^set -' "$LOCALDNS_SRC"
+                echo 'ERR_LOCALDNS_FAIL=99'
+                echo 'LOCALDNS_NODE_LISTENER_IP=169.254.10.10'
+                echo 'LOCALDNS_CLUSTER_LISTENER_IP=169.254.10.11'
+                echo 'DNS_HEALTH_CHECK_TIMEOUT=1'
+                echo 'DNS_HEALTH_CHECK_TRIES=1'
+                echo 'CURL_COMMAND=(curl)'
+                # Healthy resolver: every health check passes.
+                echo 'curl() { echo OK; }'
+                echo 'dig() { return 0; }'
+                echo 'sleep() { :; }'
+                echo "HELP_COUNT_FILE=$help_count"
+                echo 'systemd-notify() {'
+                echo '    if [ "$1" = --help ]; then'
+                echo '        echo x >> "$HELP_COUNT_FILE"'
+                if [ "$1" = 246 ]; then
+                    echo '        echo "     --no-block        Do not wait until operation finished"; return 0'
+                    echo '    fi'
+                    echo '    if [ "$1" = --no-block ]; then echo "NOTIFY_SENT ${*:2}"; return 0; fi'
+                    echo '    echo "Failed to invoke barrier: Connection timed out" >&2; return 1'
+                else
+                    echo '        echo "     --ready           Inform the init system about service start-up completion"; return 0'
+                    echo '    fi'
+                    echo '    if [ "$1" = --no-block ]; then echo "systemd-notify: unrecognized option '"'"'--no-block'"'"'" >&2; return 1; fi'
+                    echo '    echo "NOTIFY_SENT $*"'
+                fi
+                echo '}'
+                echo 'cleanup_localdns_configs() { echo "CLEANUP_RAN"; return 0; }'
+                # Stop after three healthy ticks.
+                echo 'ticks=0'
+                echo 'export_resource_metrics() { ticks=$((ticks + 1)); if [ "$ticks" -ge 3 ]; then echo "LOOP_SURVIVED"; echo "HELP_CALLS=$(wc -l < "$HELP_COUNT_FILE")"; trap - EXIT; exit 0; fi; }'
+                sed -n '/^stop_watchdog_sleep() {/,/^}/p; /^start_localdns_watchdog() {/,/^}/p' "$LOCALDNS_SRC"
+                grep -E "^trap .*(ERR|EXIT)" "$LOCALDNS_SRC"
+                echo 'NOTIFY_SOCKET=/run/systemd/notify'
+                echo 'WATCHDOG_USEC=60000000'
+                # The shipped startup sequence: probe --no-block support once, then send READY=1.
+                sed -n '/^SYSTEMD_NOTIFY_FLAGS=()$/,/^fi$/p' "$LOCALDNS_SRC"
+                echo 'start_localdns_watchdog'
+            } > "$harness"
+        }
+        cleanup_notify_harness() {
+            rm -f "$harness" "$help_count"
+        }
+        AfterEach 'cleanup_notify_harness'
+
+        It 'keeps serving when PID 1 is too slow to acknowledge, by passing --no-block'
+            build_notify_harness 246
+            When run command bash "$harness"
+            The status should be success
+            The output should include "NOTIFY_SENT --ready"
+            The output should include "NOTIFY_SENT WATCHDOG=1"
+            The output should include "LOOP_SURVIVED"
+            # Support is probed once at startup, not on every tick.
+            The output should include "HELP_CALLS=1"
+            The output should not include "CLEANUP_RAN"
+            The stderr should not include "Failed to invoke barrier"
+        End
+
+        It 'omits --no-block on systemd < 246, which rejects unknown options'
+            build_notify_harness 245
+            When run command bash "$harness"
+            The status should be success
+            The output should include "NOTIFY_SENT --ready"
+            The output should include "NOTIFY_SENT WATCHDOG=1"
+            The output should include "LOOP_SURVIVED"
+            The output should include "HELP_CALLS=1"
+            The output should not include "CLEANUP_RAN"
+            The stderr should not include "unrecognized option"
+        End
+
+        It 'passes the flags on every systemd-notify call'
+            # A call without "${SYSTEMD_NOTIFY_FLAGS[@]}" would wait for the acknowledgement again.
+            check_notify_calls() {
+                echo "flagged=$(grep -cE '^[^#]*systemd-notify "\$\{SYSTEMD_NOTIFY_FLAGS\[@\]\}" (WATCHDOG=1|WATCHDOG=trigger|--ready)$' "$LOCALDNS_SRC")"
+                grep -nE '^[^#]*systemd-notify ' "$LOCALDNS_SRC" | grep -vF -e '"${SYSTEMD_NOTIFY_FLAGS[@]}"' -e 'systemd-notify --help' || true
+            }
+            When call check_notify_calls
+            The output should equal "flagged=3"
+        End
+    End
+
+# This section tests - stop_watchdog_sleep
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#
+# The watchdog waits by backgrounding 'sleep' so a signal can interrupt the wait. With
+# KillMode=mixed systemd signals only the main process, so the child has to be reaped
+# explicitly or it holds the unit's cgroup open and delays the stop. These use real
+# processes and real signals rather than mocks -- a mocked kill would prove nothing about
+# whether the child actually goes away.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'stop_watchdog_sleep'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        BeforeEach 'setup'
+
+        It 'should kill an in-flight watchdog sleep'
+            start_and_stop_sleep() {
+                sleep 300 &
+                WATCHDOG_SLEEP_PID=$!
+                # Keep our own copy: stop_watchdog_sleep clears WATCHDOG_SLEEP_PID, so
+                # checking that variable afterwards would test 'kill -0 ""' and pass even
+                # if the child were still alive.
+                child_pid=$WATCHDOG_SLEEP_PID
+                # the child must genuinely be running before we try to stop it
+                kill -0 "$child_pid" 2>/dev/null || { echo "child never started"; return 1; }
+                stop_watchdog_sleep
+                # and genuinely gone afterwards
+                if kill -0 "$child_pid" 2>/dev/null; then
+                    echo "child $child_pid survived stop_watchdog_sleep"
+                    kill -9 "$child_pid" 2>/dev/null
+                    return 1
+                fi
+                echo "child reaped"
+                return 0
+            }
+            When call start_and_stop_sleep
+            The status should be success
+            The output should include "child reaped"
+        End
+
+        It 'should clear the recorded pid so a second call is a no-op'
+            stop_twice() {
+                sleep 300 &
+                WATCHDOG_SLEEP_PID=$!
+                stop_watchdog_sleep
+                [ -z "${WATCHDOG_SLEEP_PID}" ] || { echo "pid not cleared"; return 1; }
+                # calling again with nothing in flight must not error
+                stop_watchdog_sleep
+                echo "second call was a no-op"
+            }
+            When call stop_twice
+            The status should be success
+            The output should include "second call was a no-op"
+        End
+
+        It 'should do nothing when no sleep is in flight'
+            no_sleep() {
+                WATCHDOG_SLEEP_PID=""
+                stop_watchdog_sleep
+                echo "no-op ok"
+            }
+            When call no_sleep
+            The status should be success
+            The output should include "no-op ok"
         End
     End
 
@@ -1338,11 +1672,30 @@ EOF
             The stdout should include "Current DNS:"
         End
 
-        It 'should return success if resolv.conf is empty'
+        It 'should keep waiting if resolv.conf has no nameservers'
             > "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
+        End
+
+        It 'should succeed when nameservers appear during wait (async recovery)'
+            # Start empty, then have the upstream nameserver appear mid-wait.
+            # This is the point of the fix: an empty resolver must keep waiting
+            # until the upstream is repopulated, then succeed - not false-succeed
+            # on the empty window.
+            > "$RESOLV_CONF"
+            (sleep 1 && echo "nameserver 10.0.0.1" > "$RESOLV_CONF") &
             When run wait_for_localdns_removed_from_resolv_conf 5
             The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            The stdout should include "Current DNS: 10.0.0.1"
+        End
+
+        It 'should keep waiting if resolv.conf contains only comments'
+            printf '# nameserver 10.0.0.1\n' > "$RESOLV_CONF"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should use default timeout of 5 seconds when not specified'
@@ -1354,11 +1707,11 @@ EOF
             The stdout should include "DNS configuration refreshed successfully"
         End
 
-        It 'should handle resolv.conf not existing gracefully'
+        It 'should fail when resolv.conf does not exist'
             rm -f "$RESOLV_CONF"
-            When run wait_for_localdns_removed_from_resolv_conf 2
-            The status should be success
-            The stdout should include "DNS configuration refreshed successfully"
+            When run wait_for_localdns_removed_from_resolv_conf 1
+            The status should be failure
+            The stdout should include "Timed out waiting for localdns to be removed"
         End
 
         It 'should not match partial IP addresses'
@@ -1446,6 +1799,133 @@ EOF
             When run wait_for_localdns_removed_from_resolv_conf 2
             The status should be success
             The stdout should include "DNS configuration refreshed successfully"
+        End
+    End
+
+#------------------------------------------------------------------------------------------------------------------------------------
+# This section tests - upstream_dns_servers_routable, upstream_dns_servers_listed and wait_for_network_reload_settled
+# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'wait_for_network_reload_settled'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest-$$"
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
+            ROUTE_CALL_COUNT_FILE="${TEST_DIR}/route-calls"
+            mkdir -p "$(dirname "$RESOLV_CONF")"
+            LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
+            NETWORK_DROPIN_FILE="${TEST_DIR}/70-localdns.conf"
+        }
+        cleanup() {
+            rm -rf "$TEST_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        # Stand-ins for 'ip route get'. The script only ever checks the exit status.
+        route_up() { ip() { return 0; }; }
+        route_down() { ip() { return 1; }; }
+        # Unroutable for the first two checks, routable afterwards - the tear-down and
+        # re-acquire that a networkctl reload puts the link through.
+        route_down_then_up() {
+            ip() {
+                local calls
+                calls=$(cat "$ROUTE_CALL_COUNT_FILE" 2>/dev/null || echo 0)
+                calls=$((calls + 1))
+                echo "$calls" > "$ROUTE_CALL_COUNT_FILE"
+                [ "$calls" -gt 2 ]
+            }
+        }
+
+        #------------------------- upstream_dns_servers_routable ------------------------------------------------------
+        It 'should report all upstream servers routable'
+            route_up
+            When call upstream_dns_servers_routable "10.0.0.1 10.0.0.2"
+            The status should be success
+        End
+
+        It 'should report upstream servers unroutable when a route is missing'
+            route_down
+            When call upstream_dns_servers_routable "10.0.0.1"
+            The status should be failure
+        End
+
+        #------------------------- upstream_dns_servers_listed --------------------------------------------------------
+        It 'should detect an upstream server still listed in resolv.conf'
+            When call upstream_dns_servers_listed "10.0.0.1 10.0.0.2" "169.254.10.10 10.0.0.2"
+            The status should be success
+        End
+
+        It 'should not detect an upstream server that has been removed'
+            When call upstream_dns_servers_listed "10.0.0.1 10.0.0.2" "169.254.10.10"
+            The status should be failure
+        End
+
+        It 'should not match an upstream server as a substring of another IP'
+            When call upstream_dns_servers_listed "10.0.0.1" "110.0.0.10"
+            The status should be failure
+        End
+
+        #------------------------- wait_for_network_reload_settled ----------------------------------------------------
+        It 'should skip the wait when there are no upstream servers'
+            route_down
+            When run wait_for_network_reload_settled "" 1
+            The status should be success
+            The stdout should include "No upstream DNS servers to check"
+        End
+
+        It 'should return once resolv.conf lists localdns and upstreams are routable'
+            echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "upstream DNS servers are routable"
+        End
+
+        It 'should keep waiting while an upstream is unroutable and return once it comes back'
+            # resolv.conf is already converged here, so the only thing left to wait on is the
+            # route disappearing and coming back.
+            echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
+            route_down_then_up
+            When run wait_for_network_reload_settled "10.0.0.1" 5
+            The status should be success
+            The stdout should include "upstream DNS servers are routable"
+        End
+
+        It 'should keep waiting while resolv.conf still lists an upstream server'
+            # networkd has not applied the drop-in yet. Returning here would signal ready before
+            # the re-configure that takes the upstream route down has even started.
+            echo "nameserver 10.0.0.1" > "$RESOLV_CONF"
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 1
+            The status should be failure
+            The stdout should include "Timed out after 1 seconds"
+        End
+
+        It 'should keep waiting while resolv.conf is empty'
+            # A reload can leave resolv.conf with no nameservers at all for a moment. Signalling
+            # ready there would release containerd and kubelet onto a node with no resolver.
+            : > "$RESOLV_CONF"
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 1
+            The status should be failure
+            The stdout should include "Timed out after 1 seconds"
+        End
+
+        It 'should keep waiting when resolv.conf is missing entirely'
+            rm -f "$RESOLV_CONF"
+            route_up
+            When run wait_for_network_reload_settled "10.0.0.1" 1
+            The status should be failure
+            The stdout should include "Timed out after 1 seconds"
+        End
+
+        It 'should time out when the upstream never becomes routable'
+            echo "nameserver 169.254.10.10" > "$RESOLV_CONF"
+            route_down
+            When run wait_for_network_reload_settled "10.0.0.1" 1
+            The status should be failure
+            The stdout should include "Timed out after 1 seconds"
         End
     End
 
@@ -1957,6 +2437,110 @@ KUBECTL_EOF
             The status should be success
             The stdout should include "Waiting for node registration"
             The stdout should include "Timeout waiting for node testnode123 to be registered"
+        End
+    End
+
+# This section tests cleanup_iptables_and_dns and the "cleanup" mode contract
+# invoked by localdns.service ExecStopPost. The key guarantees under test:
+#   1. DNS restoration (drop-in removal + network reload) still runs even when
+#      iptables rule deletion fails (no early return).
+#   2. cleanup_iptables_and_dns reports overall failure when any step fails.
+#   3. "cleanup" mode exits 0 whether cleanup succeeds or fails, so a cleanup
+#      error cannot wedge systemd recovery.
+#------------------------------------------------------------------------------------------------------------------------------------
+    Describe 'cleanup_iptables_and_dns'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+
+            TEST_DIR="$(mktemp -d)"
+            DEFAULT_ROUTE_INTERFACE="eth0"
+            NETWORK_DROPIN_DIR="${TEST_DIR}/run/systemd/network/eth0.network.d"
+            NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
+            mkdir -p "${NETWORK_DROPIN_DIR}"
+            cat > "${NETWORK_DROPIN_FILE}" <<'EOF'
+[Network]
+DNS=169.254.10.10
+EOF
+            # No localdns iptables rules by default (empty listing).
+            iptables() { return 0; }
+            # networkctl reload succeeds by default.
+            NETWORKCTL_RELOAD_CMD="networkctl_reload_mock"
+            networkctl_reload_mock() { return 0; }
+        }
+
+        cleanup_dirs() {
+            rm -rf "$TEST_DIR"
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup_dirs'
+
+        It 'removes the DNS drop-in and reloads network on success'
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Successfully removed network drop-in file."
+            The stdout should include "Reloading network configuration succeeded."
+            The path "$NETWORK_DROPIN_FILE" should not be exist
+        End
+
+        It 'removes existing localdns iptables rules and reports success'
+            # Simulate existing localdns rules whose deletion succeeds. The
+            # listing output must contain the "localdns: skip conntrack" comment
+            # so the script's grep keeps it; the rule number is the first field.
+            iptables() {
+                case "$*" in
+                    *"-D "*) return 0 ;;   # deletion succeeds
+                    *"-L "*) echo "1    RETURN  all  --  0.0.0.0/0  0.0.0.0/0  /* localdns: skip conntrack */" ;;
+                    *) return 0 ;;
+                esac
+            }
+            When call cleanup_iptables_and_dns
+            The status should be success
+            The stdout should include "Successfully removed existing localdns iptables rule"
+            The stdout should include "Successfully removed network drop-in file."
+            The stdout should include "Reloading network configuration succeeded."
+            The path "$NETWORK_DROPIN_FILE" should not be exist
+        End
+
+        It 'still removes the DNS drop-in and reloads when iptables deletion fails'
+            # Simulate existing localdns rules whose deletion fails. The listing
+            # output must contain the "localdns: skip conntrack" comment so the
+            # script's grep keeps it; the rule number is the first field.
+            iptables() {
+                case "$*" in
+                    *"-D "*) return 1 ;;   # deletion always fails
+                    *"-L "*) echo "1    RETURN  all  --  0.0.0.0/0  0.0.0.0/0  /* localdns: skip conntrack */" ;;
+                    *) return 0 ;;
+                esac
+            }
+            When call cleanup_iptables_and_dns
+            # Overall status is failure because iptables cleanup failed...
+            The status should be failure
+            # ...but DNS restoration still ran.
+            The stdout should include "Failed to remove existing localdns iptables rule"
+            The stdout should include "Successfully removed network drop-in file."
+            The stdout should include "Reloading network configuration succeeded."
+            The path "$NETWORK_DROPIN_FILE" should not be exist
+        End
+
+        It 'reports failure when network reload fails'
+            networkctl_reload_mock() { return 1; }
+            When call cleanup_iptables_and_dns
+            The status should be failure
+            The stdout should include "Failed to reload network after removing the DNS configuration."
+        End
+
+        It 'cleanup mode exits 0 when cleanup succeeds'
+            cleanup_iptables_and_dns() { return 0; }
+            When run localdns_cleanup_mode
+            The status should be success
+        End
+
+        It 'cleanup mode exits 0 even when cleanup fails'
+            cleanup_iptables_and_dns() { return 1; }
+            When run localdns_cleanup_mode
+            The status should be success
+            The stdout should include "LocalDNS cleanup failed: network drop-in may not have been removed"
         End
     End
 End

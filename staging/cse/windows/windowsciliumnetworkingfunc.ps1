@@ -21,6 +21,7 @@ Installs Windows Cilium Networking using the global configuration settings.
 
 .NOTES
 - Requires $global:EnableWindowsCiliumNetworking to be set to $true to trigger enablement
+- Uses $global:IsDisableWindowsOutboundNat to configure WcnAgent outbound NAT before installation
 - Uses $global:WindowsCiliumNetworkingConfiguration for JSON configuration
 - May set $global:RebootNeeded to $true if a restart is required
 - Sets exit code $global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED on failure
@@ -55,6 +56,9 @@ function Enable-WindowsCiliumNetworking
 
     # Invoke install script
     try {
+        # WcnAgent reads this at startup, so write it before installation starts the agent
+        Set-WindowsCiliumNetworkingOutboundNatConfig
+
         Invoke-WindowsCiliumNetworkingInstallScript -Arguments $installArgs
 
         Write-Log "Windows Cilium Networking installation completed successfully$(if ($isRebootNeeded) { ' (restart required)' })."
@@ -66,6 +70,27 @@ function Enable-WindowsCiliumNetworking
         Write-Log "Failed to install Windows Cilium Networking: $_"
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_WINDOWS_CILIUM_NETWORKING_INSTALL_FAILED -ErrorMessage "$_"
     }
+}
+
+<#
+.SYNOPSIS
+Propagates the AKS disable Windows outbound NAT setting to WcnAgent.
+
+.DESCRIPTION
+When $global:IsDisableWindowsOutboundNat is true, writes DisableOutboundNat=1 (DWORD) under the WcnAgent
+configuration registry key. Otherwise the key is left untouched so WcnAgent keeps its default behavior.
+WCN versions before 1.9.0 ignore this value.
+#>
+function Set-WindowsCiliumNetworkingOutboundNatConfig {
+    if (!$global:IsDisableWindowsOutboundNat) {
+        return
+    }
+    $wcnConfigPath = "HKLM:\SYSTEM\CurrentControlSet\Services\HNS\wcna_state\config"
+    if (!(Test-Path -Path $wcnConfigPath)) {
+        New-Item -Path $wcnConfigPath -Force -ErrorAction Stop | Out-Null
+    }
+    Write-Log "Setting WcnAgent DisableOutboundNat to 1"
+    Set-ItemProperty -Path $wcnConfigPath -Name DisableOutboundNat -Type DWord -Value 1 -ErrorAction Stop
 }
 
 <#

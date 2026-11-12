@@ -63,6 +63,9 @@ Describe "Containerd Functions Tests" {
       return "ltsc2022"
     }
 
+    function Get-Service {}
+
+    . $PSScriptRoot\helpers.ps1
     . $PSScriptRoot\containerdfunc.ps1
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSScriptRoot\networkisolatedclusterfunc.ps1
@@ -72,6 +75,8 @@ Describe "Containerd Functions Tests" {
 
   Describe "ProcessAndWriteContainerdConfig" {
     BeforeAll {
+      Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
+
       Mock Get-Content -ParameterFilter { $Path -like "*kubeclusterconfig.json" } -MockWith {
         return "{`"Cri`":{`"Images`":{`"Pause`":`"$pauseImage`"}}}"
       }
@@ -82,7 +87,7 @@ Describe "Containerd Functions Tests" {
 
     Context 'containerd template v1 ' {
       BeforeAll {
-        $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
+        $containerdDir = Join-Path $TestDrive "containerd-v1"
         $cniBinDir = 'C:/cni/bin'
         $cniConfDir = 'C:/cni/conf'
         $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2'
@@ -115,13 +120,21 @@ Describe "Containerd Functions Tests" {
         $content | Should -Match 'SandboxIsolation = 0'
       }
 
-      It "Should include hyperv runtimes when hyperv is enabled" {
-        $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
+      It "Should include hyperv handlers with <Isolation> default isolation" -ForEach @(
+        @{ Isolation = "process" }
+        @{ Isolation = "hyperv" }
+      ) {
+        $global:DefaultContainerdWindowsSandboxIsolation = $Isolation
         $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
         { ProcessAndWriteContainerdConfig -ContainerDVersion "1.7.9" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
 
         $content = Get-Content -Path $configPath -Raw
-        $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
+        foreach ($buildNumber in @("1234", "5678")) {
+          $runtimePath = "plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-$buildNumber"
+          $content | Should -Match ([regex]::Escape("[$runtimePath]"))
+          $content | Should -Match ([regex]::Escape("[$runtimePath.options]"))
+        }
+        $content | Should -Not -Match ([regex]::Escape("plugins.'io.containerd.cri.v1.runtime'"))
         $content | Should -Match 'SandboxIsolation = 1'
         $content | Should -Not -Match 'version = 3'
       }
@@ -143,7 +156,7 @@ Describe "Containerd Functions Tests" {
     Context 'containerd template v2' {
 
       BeforeAll {
-        $containerdDir = "$PSScriptRoot\containerdfunc.tests.suites"
+        $containerdDir = Join-Path $TestDrive "containerd-v2"
         $cniBinDir = 'C:/cni/bin'
         $cniConfDir = 'C:/cni/conf'
         $pauseImage = 'mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2'
@@ -176,13 +189,22 @@ Describe "Containerd Functions Tests" {
         $content | Should -Match 'SandboxIsolation = 0'
       }
 
-      It "Should include hyperv runtimes when hyperv is enabled" {
-        $global:DefaultContainerdWindowsSandboxIsolation = "hyperv"
+      It "Should include hyperv handlers with <Isolation> default isolation" -ForEach @(
+        @{ Isolation = "process" }
+        @{ Isolation = "hyperv" }
+      ) {
+        $global:DefaultContainerdWindowsSandboxIsolation = $Isolation
         $global:ContainerdWindowsRuntimeHandlers = "1234,5678"
         { ProcessAndWriteContainerdConfig -ContainerDVersion "2.0.5" -CNIBinDir $cniBinDir -CNIConfDir $cniConfDir } | Should -Not -Throw
 
         $content = Get-Content -Path $configPath -Raw
-        $content | Should -Match 'plugins.cri.containerd.runtimes.runhcs-wcow-hypervisor-1234'
+        foreach ($buildNumber in @("1234", "5678")) {
+          $runtimePath = "plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runhcs-wcow-hypervisor-$buildNumber"
+          $content | Should -Match ([regex]::Escape("[$runtimePath]"))
+          $content | Should -Match ([regex]::Escape("[$runtimePath.options]"))
+        }
+        $content | Should -Not -Match ([regex]::Escape("[plugins.cri."))
+        $content | Should -Not -Match ([regex]::Escape("{{"))
         $content | Should -Match 'SandboxIsolation = 1'
         $content | Should -Match 'version = 3'
       }
@@ -547,6 +569,79 @@ Describe "Containerd Functions Tests" {
         Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter {
           $Url -eq $containerdUrl
         }
+      }
+    }
+  }
+
+  Describe 'Get-ContainerdVersionFromString' {
+    It "Should parse '<VersionString>' as <Expected>" -TestCases @(
+      @{ VersionString = "containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8"; Expected = "1.6.21" }
+      @{ VersionString = "containerd github.com/containerd/containerd v1.7.20+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d"; Expected = "1.7.20" }
+      @{ VersionString = "containerd github.com/containerd/containerd/v2 v2.0.4+azure b33f24f7d"; Expected = "2.0.4" }
+      @{ VersionString = "containerd github.com/containerd/containerd/v2 2.3.7-4 6f589cf13dc01a5b493911355427e05b2ff005d7"; Expected = "2.3.7" }
+      @{ VersionString = "containerd github.com/containerd/containerd/v2 v2.3.7-4 6f589cf13dc01a5b493911355427e05b2ff005d7"; Expected = "2.3.7" }
+      @{ VersionString = "containerd github.com/containerd/containerd/v2 v2.3.7 6f589cf13dc01a5b493911355427e05b2ff005d7"; Expected = "2.3.7" }
+    ) {
+      param($VersionString, $Expected)
+      $version = Get-ContainerdVersionFromString -VersionString $VersionString
+      $version | Should -Be $Expected
+      { [version]$version } | Should -Not -Throw
+    }
+
+    It "Should throw when the version cannot be parsed" {
+      { Get-ContainerdVersionFromString -VersionString "containerd github.com/containerd/containerd/v2 unknown" } | Should -Throw "*Unable to parse containerd version*"
+    }
+  }
+
+  Describe 'RegisterContainerDService' {
+    BeforeEach {
+      Mock Assert-FileExists
+      Mock Remove-ServiceIfExists
+      Mock Invoke-Nssm
+      Mock Get-Service -MockWith {
+        return [PSCustomObject]@{Name = 'containerd'; Status = 'Running'}
+      }
+    }
+
+    It 'removes an existing containerd service before registering it' {
+      RegisterContainerDService -kubedir 'C:\k'
+
+      Assert-MockCalled Remove-ServiceIfExists -Exactly -Times 1 -ParameterFilter {
+        $ServiceName -eq 'containerd'
+      }
+    }
+
+    Context 'when the existing containerd service cannot be removed' {
+      BeforeEach {
+        Mock Remove-ServiceIfExists -MockWith { throw 'service removal failed' }
+        Mock Set-ExitCode -MockWith {
+          param($ExitCode, $ErrorMessage)
+          throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+        }
+      }
+
+      It 'reports a containerd installation error' {
+        {
+          RegisterContainerDService -kubedir 'C:\k'
+        } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED):Failed to remove existing containerd service before registration. Error: service removal failed*"
+
+        Assert-MockCalled Invoke-Nssm -Exactly -Times 0
+      }
+    }
+
+    Context 'when nssm fails to register containerd' {
+      BeforeEach {
+        Mock Invoke-Nssm -MockWith { throw 'nssm failed' }
+        Mock Set-ExitCode -MockWith {
+          param($ExitCode, $ErrorMessage)
+          throw "Set-ExitCode:${ExitCode}:${ErrorMessage}"
+        }
+      }
+
+      It 'reports a containerd installation error' {
+        {
+          RegisterContainerDService -kubedir 'C:\k'
+        } | Should -Throw "*Set-ExitCode:$($global:WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED):Failed to register containerd as a service. Error: nssm failed*"
       }
     }
   }

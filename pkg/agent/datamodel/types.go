@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
-	"net"
 	neturl "net/url"
 	"slices"
 	"sort"
@@ -163,6 +162,7 @@ const (
 	AKSCBLMarinerV2Gen2Kata                 Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSAzureLinuxV2Gen2Kata                 Distro = "aks-azurelinux-v2-gen2-kata"
 	AKSAzureLinuxV3Gen2Kata                 Distro = "aks-azurelinux-v3-gen2-kata"
+	AKSAzureLinuxV3Gen2KataCC               Distro = "aks-azurelinux-v3-gen2-kata-cc"
 	AKSCBLMarinerV2Gen2TL                   Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL                   Distro = "aks-azurelinux-v2-gen2-tl"
 	AKSAzureLinuxV3Gen2TL                   Distro = "aks-azurelinux-v3-gen2-tl"
@@ -194,6 +194,7 @@ const (
 	AKSUbuntuContainerd2404Gen2             Distro = "aks-ubuntu-containerd-24.04-gen2"
 	AKSUbuntuMinimalContainerd2604Gen2      Distro = "aks-ubuntu-minimal-containerd-26.04-gen2"
 	AKSUbuntuMinimalArm64Containerd2604Gen2 Distro = "aks-ubuntu-minimal-arm64-containerd-26.04-gen2"
+	AKSUbuntuMinimalContainerd2604CVMGen2   Distro = "aks-ubuntu-minimal-containerd-26.04-cvm-gen2"
 	AKSAzureLinuxV3CVMGen2                  Distro = "aks-azurelinux-v3-cvm-gen2"
 	AKSUbuntuContainerd2404TLGen2           Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 	AKSFlatcarGen2                          Distro = "aks-flatcar-gen2"
@@ -202,6 +203,9 @@ const (
 	AKSACLArm64Gen2TL                       Distro = "aks-acl-arm64-gen2-tl"
 	AKSACLGen2FIPSTL                        Distro = "aks-acl-gen2-fips-tl"
 	AKSACLArm64Gen2FIPSTL                   Distro = "aks-acl-arm64-gen2-fips-tl"
+	AKSACLCVMGen2                           Distro = "aks-acl-cvm-gen2"
+	AKSACLKataGen2TL                        Distro = "aks-acl-kata-gen2-tl"
+	AKSACLCVMGen2FIPS                       Distro = "aks-acl-cvm-gen2-fips"
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -253,6 +257,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV3Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSAzureLinuxV2Gen2Kata,
+	AKSAzureLinuxV3Gen2KataCC,
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
@@ -287,12 +292,16 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2404TLGen2,
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
+	AKSUbuntuMinimalContainerd2604CVMGen2,
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 	AKSACLGen2TL,
 	AKSACLArm64Gen2TL,
 	AKSACLGen2FIPSTL,
 	AKSACLArm64Gen2FIPSTL,
+	AKSACLCVMGen2,
+	AKSACLKataGen2TL,
+	AKSACLCVMGen2FIPS,
 }
 
 type CustomConfigurationComponent string
@@ -324,7 +333,8 @@ func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV3Gen2Kata || d == AKSAzureLinuxV3Gen2KataCC ||
+		d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == AKSACLKataGen2TL || d == CustomizedImageKata
 }
 
 func (d Distro) IsFlatcarDistro() bool {
@@ -341,6 +351,9 @@ func (d Distro) IsAzureLinuxOSGuardDistro() bool {
 
 func (d Distro) IsAzureLinuxV3Distro() bool {
 	return slices.Contains(AvailableAzureLinuxV3Distros, d)
+}
+func (d Distro) IsUbuntuDistro() bool {
+	return slices.Contains(AvailableUbuntuDistros, d)
 }
 
 /*
@@ -785,7 +798,7 @@ type SysctlConfig struct {
 	NetNetfilterNfConntrackMax     *int32 `json:"netNetfilterNfConntrackMax,omitempty"`
 	NetNetfilterNfConntrackBuckets *int32 `json:"netNetfilterNfConntrackBuckets,omitempty"`
 	FsInotifyMaxUserWatches        *int32 `json:"fsInotifyMaxUserWatches,omitempty"`
-	FsFileMax                      *int32 `json:"fsFileMax,omitempty"`
+	FsFileMax                      *int64 `json:"fsFileMax,omitempty"`
 	FsAioMaxNr                     *int32 `json:"fsAioMaxNr,omitempty"`
 	FsNrOpen                       *int32 `json:"fsNrOpen,omitempty"`
 	KernelThreadsMax               *int32 `json:"kernelThreadsMax,omitempty"`
@@ -1172,7 +1185,7 @@ func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%t\", ", key, featureGates[key]))
+		fmt.Fprintf(&buf, "\"%s=%t\", ", key, featureGates[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1250,8 +1263,8 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
 func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
-	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
+	fmt.Fprintf(&buf, "agentpool=%s", a.Name)
+	fmt.Fprintf(&buf, ",kubernetes.azure.com/agentpool=%s", a.Name)
 
 	keys := []string{}
 	for key := range a.CustomNodeLabels {
@@ -1259,7 +1272,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
+		fmt.Fprintf(&buf, ",%s=%s", key, a.CustomNodeLabels[key])
 	}
 	return buf.String()
 }
@@ -1610,32 +1623,9 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeletConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeletConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
-}
-
-// GetKubeletHealthzEndpoint returns the local URL matching the effective Windows kubelet configuration.
-func (config *NodeBootstrappingConfiguration) GetKubeletHealthzEndpoint(customKc *CustomKubeletConfig) string {
-	kubeletConfig := config.getWindowsKubeletConfig(customKc)
-
-	address := kubeletConfig["--healthz-bind-address"]
-	port := kubeletConfig["--healthz-port"]
-	if port == "" {
-		port = "10248"
-	}
-	if port == "0" {
-		return ""
-	}
-
-	switch address {
-	case "", "0.0.0.0":
-		address = "127.0.0.1"
-	case "::":
-		address = "::1"
-	}
-
-	return fmt.Sprintf("http://%s/healthz", net.JoinHostPort(address, port))
 }
 
 /*
@@ -1674,7 +1664,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, kubeproxyConfig[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, kubeproxyConfig[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }
@@ -1785,27 +1775,33 @@ type NodeBootstrappingConfiguration struct {
 	kubeconfig. */
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping.
 	KubeletClientTLSBootstrapToken *string
-	SecureTLSBootstrappingConfig   *SecureTLSBootstrappingConfig
-	FIPSEnabled                    bool
-	HTTPProxyConfig                *HTTPProxyConfig
-	KubeletConfig                  map[string]string
-	KubeproxyConfig                map[string]string
-	EnableRuncShimV2               bool
-	GPUInstanceProfile             string
-	PrimaryScaleSetName            string
-	SIGConfig                      SIGConfig
-	IsARM64                        bool
-	CustomCATrustConfig            *CustomCATrustConfig
-	DisableUnattendedUpgrades      bool
-	SSHStatus                      SSHStatus
-	DisableCustomData              bool
-	OutboundType                   string
-	EnableIMDSRestriction          bool
+	// RemoveBootstrapKubeconfig determines whether we will remove/cleanup kubelet's bootstrap-kubeconfig
+	// after kubelet successfuly bootstraps its initial client certificate via either form of TLS bootstrapping.
+	RemoveBootstrapKubeconfig    bool
+	SecureTLSBootstrappingConfig *SecureTLSBootstrappingConfig
+	FIPSEnabled                  bool
+	HTTPProxyConfig              *HTTPProxyConfig
+	KubeletConfig                map[string]string
+	KubeproxyConfig              map[string]string
+	EnableRuncShimV2             bool
+	GPUInstanceProfile           string
+	PrimaryScaleSetName          string
+	SIGConfig                    SIGConfig
+	IsARM64                      bool
+	CustomCATrustConfig          *CustomCATrustConfig
+	DisableUnattendedUpgrades    bool
+	SSHStatus                    SSHStatus
+	DisableCustomData            bool
+	OutboundType                 string
+	EnableIMDSRestriction        bool
 	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
 	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+	// EnableKMPP enables the KMPP key isolation service on the node and exposes it through /var/run/kmpp/dbus.
+	// Set by RP when the Azure Key Vault Secrets Store addon runs in KMPP mode. Azure Linux 3.0 only.
+	EnableKMPP bool
 	// EnabledFeatures is a generic set of feature toggles delivered to the node as KEY=VALUE
 	// lines in enabled_features.sh, which the aks-node-controller wrapper reads and exports as
 	// environment variables (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true") to gate provisioning
@@ -1831,12 +1827,26 @@ type NodeBootstrappingConfiguration struct {
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
 	EnableScriptlessNBCCSECmd bool
 
-	// ScriptlessCSEProvisionMode specifies the provisioning mode for scriptless phase 2,
+	// EnableScriptlessAKSNodeConfig enables Phase 3 provisioning using only AKSNodeConfigJSON.
+	// It takes precedence over EnableScriptlessNBCCSECmd and EnableScriptlessCSECmd:
+	// no NBC command is rendered or delivered, and ANC does not enter comparison mode.
+	// Requires a non-empty serialized JSON object. Windows is unsupported.
+	// AKSNodeConfigJSON owns the provisioning phase and is passed through unchanged.
+	// For pre-provisioning, the caller must set PreProvisionOnly in AKSNodeConfigJSON.
+	EnableScriptlessAKSNodeConfig bool
+
+	// ScriptlessCSEProvisionMode specifies the delivery mode for scriptless phases 2 and 3,
 	// which uses CSE to provide provision nbc or aks nc configs
 	ScriptlessCSEProvisionMode bool
 
-	// Pass AKSNodeConfig as serialized JSON string to compare generated provisioning with NBC cse cmd for scriptless phase 3
+	// AKSNodeConfigJSON is the serialized provisioning config required by EnableScriptlessAKSNodeConfig.
+	// Otherwise, it is optional and accompanies the NBC command for Phase 2.5 comparison.
 	AKSNodeConfigJSON string
+
+	// CustomDataOnlyProvisioning indicates whether the node should be provisioned using only custom data.
+	// When true, the node will not rely on CSE for reporting provisioning status.
+	// Linux validation disables this for Flatcar, ACL, and Azure Linux, including in scriptless Phase 3.
+	CustomDataOnlyProvisioning bool
 
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
 	// interfaces configured on the agent pool. The node bootstrapping scripts use
@@ -1844,6 +1854,15 @@ type NodeBootstrappingConfiguration struct {
 	// Dynamic-type secondary NICs are not included in this count as they are
 	// configured by CNS rather than the node bootstrapping scripts.
 	StandardSecondaryNICCount int
+
+	// RouteTableName overrides the derived CSE route table name when non-nil, including an empty value.
+	RouteTableName *string
+	// SubnetName overrides the derived CSE subnet name when non-nil, including an empty value.
+	SubnetName *string
+}
+
+func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
+	return c != nil && c.CustomDataOnlyProvisioning
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {
@@ -2376,7 +2395,21 @@ type AKSKubeletConfiguration struct {
 	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
 	// Default: false
 	// +optional
-	SeccompDefault *bool `json:"seccompDefault,omitempty"`
+	SeccompDefault           *bool          `json:"seccompDefault,omitempty"`
+	EnableServer             *bool          `json:"enableServer,omitempty"`
+	VolumePluginDir          string         `json:"volumePluginDir,omitempty"`
+	CgroupDriver             string         `json:"cgroupDriver,omitempty"`
+	RuntimeRequestTimeout    Duration       `json:"runtimeRequestTimeout,omitempty"`
+	ContainerRuntimeEndpoint string         `json:"containerRuntimeEndpoint,omitempty"`
+	RegisterWithTaints       []KubeletTaint `json:"registerWithTaints,omitempty"`
+	HairpinMode              string         `json:"hairpinMode,omitempty"`
+}
+
+type KubeletTaint struct {
+	Key       string `json:"key,omitempty"`
+	Value     string `json:"value,omitempty"`
+	Effect    string `json:"effect,omitempty"`
+	TimeAdded string `json:"timeAdded,omitempty"`
 }
 
 type Duration string
@@ -2669,6 +2702,11 @@ type LocalDNSOverrides struct {
 	FailfastAllUnhealthyUpstreams *bool `json:"failfastAllUnhealthyUpstreams,omitempty"`
 	// Configures CoreDNS forward plugin health checking behavior for upstream servers.
 	HealthCheck *LocalDNSHealthCheck `json:"healthCheck,omitempty"`
+	// Policy applied on top of serve_stale when choosing between a stale
+	// positive answer and a cached negative one, on the default server block
+	// only. Valid values - PreferPositive. Empty leaves CoreDNS on its default.
+	// Requires a node image with CoreDNS >= 1.14.7.
+	ServeStalePolicy string `json:"serveStalePolicy,omitempty"`
 }
 
 // ShouldEnableLocalDNS returns true if AgentPoolProfile, LocalDNSProfile is not nil and

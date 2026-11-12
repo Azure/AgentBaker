@@ -15,8 +15,61 @@ readContainerImage() {
     echo "$containerImage"
 }
 
-Describe 'cse_helpers.sh'
+Describe 'cse_helpers.sh and build helpers'
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./vhdbuilder/scripts/linux/tool_installs.sh"
+
+    Describe 'isAzureLinuxArm64BaseImage'
+        Parameters
+            "AZURELINUX" "arm64" ""        0
+            "UBUNTU"     "arm64" ""        1
+            "AZURELINUX" "amd64" ""        1
+            "AZURELINUX" "arm64" "OSGUARD" 1
+        End
+
+        It "returns $4 for OS=$1 arch=$2 variant=$3"
+            When call isAzureLinuxArm64BaseImage "$1" "$2" "$3"
+
+            The status should equal "$4"
+        End
+    End
+
+    Describe 'systemctlDisableAndStop'
+        systemctl() {
+            [ "$1" = "cat" ] && [ "${UNIT_EXISTS:-true}" = "true" ]
+        }
+
+        systemctl_stop() {
+            [ "${STOP_SUCCEEDS:-true}" = "true" ]
+        }
+
+        systemctl_disable() {
+            DISABLE_CALLED="true"
+            [ "${DISABLE_SUCCEEDS:-true}" = "true" ]
+        }
+
+        It 'succeeds when the unit does not exist'
+            UNIT_EXISTS="false"
+            When call systemctlDisableAndStop missing.service
+            The status should be success
+        End
+
+        It 'still disables the unit but reports failure when stopping fails'
+            STOP_SUCCEEDS="false"
+            When call systemctlDisableAndStop sshd.service
+            The output should equal "sshd.service could not be stopped"
+            The variable DISABLE_CALLED should equal "true"
+            The status should be failure
+        End
+
+        It 'reports failure when disabling fails'
+            DISABLE_SUCCEEDS="false"
+            When call systemctlDisableAndStop sshd.service
+            The output should equal "sshd.service could not be disabled"
+            The status should be failure
+        End
+    End
+
     Describe 'updatePackageVersions'
         It 'returns downloadURIs.ubuntu.r2204.versionsV2 of package pkgVersionsV2 for UBUNTU 22.04'
             package=$(readPackage "pkgVersionsV2")
@@ -32,6 +85,21 @@ Describe 'cse_helpers.sh'
             package=$(readPackage "pkgVersionsV2")
             When call updatePackageVersions "$package" "MARINER" "current"
             The variable PACKAGE_VERSIONS[@] should equal "dummyVersion5 dummyVersion6.1 dummyVersion6.0"
+        End
+        It 'returns the ACL-specific version for Azure Container Linux'
+            package=$(readPackage "pkgVersionsV2")
+            When call updatePackageVersions "$package" "AZURECONTAINERLINUX" "3.0"
+            The variable PACKAGE_VERSIONS[@] should equal "dummyVersionACL"
+        End
+        It 'returns the ACL-specific version for the Azure Linux ACL variant'
+            package=$(readPackage "pkgVersionsV2")
+            When call updatePackageVersions "$package" "AZURELINUX" "3.0" "AZURECONTAINERLINUX"
+            The variable PACKAGE_VERSIONS[@] should equal "dummyVersionACL"
+        End
+        It 'falls back to the Flatcar version when no ACL-specific version exists'
+            package=$(readPackage "pkgVersionsV2" | jq 'del(.downloadURIs.azurecontainerlinux)')
+            When call updatePackageVersions "$package" "AZURECONTAINERLINUX" "3.0"
+            The variable PACKAGE_VERSIONS[@] should equal "dummyVersionFlatcar"
         End
         It 'returns <SKIP> if there is a <SKIP> in latestVersion'
             package=$(readPackage "pkgVersionsV2")
@@ -70,6 +138,11 @@ Describe 'cse_helpers.sh'
             package=$(readPackage "pkgVersionsV2")
             When call updatePackageDownloadURL "$package" "UBUNTU" "dummy_release"
             The variable PACKAGE_DOWNLOAD_URL should equal "https://dummydefaultcurrentpath/v\${version}/dummy_\${version}_linux_\${CPU_ARCH}.tar.gz"
+        End
+        It 'returns the ACL-specific download URL for Azure Container Linux'
+            package=$(readPackage "pkgVersionsV2")
+            When call updatePackageDownloadURL "$package" "AZURECONTAINERLINUX" "3.0"
+            The variable PACKAGE_DOWNLOAD_URL should equal "https://dummypath/dummy-acl.rpm"
         End
     End
 

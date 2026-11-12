@@ -78,4 +78,3 @@ dnf_download() {
     done
     echo Executed dnf download --resolve --downloaddir="\"${downloadDir}\"" "$@" $i times;
 }
-#EOF

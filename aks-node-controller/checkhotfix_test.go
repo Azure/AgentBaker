@@ -6,11 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -249,14 +253,18 @@ func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
 	}
 }
 
-func TestCheckHotfix_FetchErrorFailsOpenWithoutFallback(t *testing.T) {
+// TestCheckHotfix_FetchErrorNoFallbackStagesNothing covers an unreachable LPS with no
+// cold-start pointer available. Nothing may be staged, and the outcome is the benign
+// noColdStartPointer rather than a failure: fail-open worked exactly as designed and the
+// node still provisions from its existing on-disk pointer.
+func TestCheckHotfix_FetchErrorNoFallbackStagesNothing(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
 	// No node config -> no cold-start fallback available.
 	tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent-config.json")
 
-	// Transport-level failures (not benign 401/403/404) with no fallback -> failed.
+	// Transport-level failures (not benign 401/403/404) with no fallback -> benign no-op.
 	cases := map[string]error{
 		"timeout":        context.DeadlineExceeded,
 		"connection err": errors.New("dial tcp: connection refused"),
@@ -268,8 +276,9 @@ func TestCheckHotfix_FetchErrorFailsOpenWithoutFallback(t *testing.T) {
 				return nil, fetchErr
 			}
 			outcome, err := tt.App.checkHotfix(context.Background())
-			assert.Equal(t, outcomeFailed, outcome)
-			assert.Error(t, err)
+			assert.Equal(t, outcomeNoColdStartPointer, outcome)
+			assert.Error(t, err, "the underlying fetch error is still reported for diagnosis")
+			assert.Equal(t, helpers.EventLevelInformational, helpersEventLevel(outcome))
 			// Nothing should be staged.
 			_, statErr := os.Stat(path)
 			assert.True(t, os.IsNotExist(statErr))
@@ -319,7 +328,13 @@ func TestCheckHotfix_ColdStartFallback(t *testing.T) {
 	assert.Equal(t, map[string]string{"202604.01": "202604.01.2"}, cfg.Hotfixes)
 }
 
-func TestCheckHotfix_ColdStartNoPointerFails(t *testing.T) {
+// TestCheckHotfix_ColdStartNoPointerIsBenign verifies that an unreachable LPS combined with a
+// node config carrying no cold-start hotfixes map is treated as benign, not as a failure.
+// Nothing is staged and the existing on-disk pointer is left untouched, so provisioning is
+// unaffected; reporting this at error level would emit misleading error telemetry on every
+// healthy node whose config was seeded without an injected map. The fetch error is still
+// returned so the reason the LPS was unreachable survives into the telemetry message.
+func TestCheckHotfix_ColdStartNoPointerIsBenign(t *testing.T) {
 	tt := NewTestApp(t, TestAppConfig{})
 	path := filepath.Join(t.TempDir(), "hotfix.json")
 	tt.App.hotfixVersionPath = path
@@ -332,8 +347,10 @@ func TestCheckHotfix_ColdStartNoPointerFails(t *testing.T) {
 	}
 
 	outcome, err := tt.App.checkHotfix(context.Background())
-	assert.Equal(t, outcomeFailed, outcome)
+	assert.Equal(t, outcomeNoColdStartPointer, outcome)
 	assert.Error(t, err)
+	assert.Equal(t, helpers.EventLevelInformational, helpersEventLevel(outcome),
+		"a benign no-op must not be reported at error level")
 	_, statErr := os.Stat(path)
 	assert.True(t, os.IsNotExist(statErr))
 }
@@ -390,6 +407,7 @@ func TestCheckHotfix_FallbackOnlyForUnreachableLPS(t *testing.T) {
 // (exit 0) and emits telemetry, regardless of the underlying outcome.
 func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 	t.Run("success path emits informational event and exits 0", func(t *testing.T) {
+		logCap := installLogCapturer(t)
 		origVersion := Version
 		Version = "202604.01.0"
 		defer func() { Version = origVersion }()
@@ -408,9 +426,47 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
 		assert.Equal(t, "Informational", events[0].EventLevel)
 		assert.Contains(t, events[0].Message, string(outcomeLPSRead))
+		assert.Contains(t, logCap.getRecords(), logRecord{
+			Level:   slog.LevelInfo,
+			Message: "check-hotfix completed",
+			Attrs:   map[string]string{"outcome": string(outcomeLPSRead)},
+		})
 	})
 
-	t.Run("failure path emits error event but still exits 0", func(t *testing.T) {
+	t.Run("authoritative client error emits error event but still exits 0", func(t *testing.T) {
+		logCap := installLogCapturer(t)
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
+		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
+		tt.App.checkHotfixFetcher = func(context.Context) ([]byte, error) {
+			return nil, &lpsGRPCStatusError{code: codes.ResourceExhausted, fallbackAllowed: false}
+		}
+
+		err := tt.App.runCheckHotfixCommand(context.Background())
+		require.NoError(t, err)
+
+		events := tt.eventLogger.Events()
+		require.Len(t, events, 1)
+		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
+		assert.Equal(t, "Error", events[0].EventLevel)
+		assert.Contains(t, events[0].Message, string(outcomeFailed))
+		var completions []logRecord
+		for _, record := range logCap.getRecords() {
+			if record.Attrs["outcome"] == string(outcomeFailed) {
+				completions = append(completions, record)
+			}
+		}
+		require.Len(t, completions, 1)
+		assert.Equal(t, slog.LevelWarn, completions[0].Level)
+		assert.Equal(t, "check-hotfix completed with error (fail-open)", completions[0].Message)
+		assert.NotEmpty(t, completions[0].Attrs["error"])
+	})
+
+	// An unreachable LPS on a node with no injected cold-start map is the common healthy case
+	// (it is exactly what a first-boot node sees when the LPS is briefly unavailable). It must
+	// emit an Informational event, not an Error, while still recording why the fetch failed.
+	t.Run("unreachable LPS without a cold-start pointer emits an informational event", func(t *testing.T) {
+		logCap := installLogCapturer(t)
 		tt := NewTestApp(t, TestAppConfig{})
 		tt.App.hotfixVersionPath = filepath.Join(t.TempDir(), "hotfix.json")
 		tt.App.nodeConfigPath = filepath.Join(t.TempDir(), "nonexistent.json")
@@ -424,8 +480,28 @@ func TestRunCheckHotfixCommand_AlwaysFailOpen(t *testing.T) {
 		events := tt.eventLogger.Events()
 		require.Len(t, events, 1)
 		assert.Equal(t, "AKS.AKSNodeController.CheckHotfix", events[0].TaskName)
-		assert.Equal(t, "Error", events[0].EventLevel)
-		assert.Contains(t, events[0].Message, string(outcomeFailed))
+		assert.Equal(t, "Informational", events[0].EventLevel)
+		assert.Contains(t, events[0].Message, string(outcomeNoColdStartPointer))
+		assert.Contains(t, events[0].Message, "LPS returned status 500",
+			"the fetch error must survive into the message for diagnosis")
+
+		records := logCap.getRecords()
+		assert.Contains(t, records, logRecord{
+			Level:   slog.LevelWarn,
+			Message: "failed to reach LPS, attempting cold-start fallback",
+			Attrs:   map[string]string{"error": "LPS returned status 500"},
+		})
+		var completions []logRecord
+		for _, record := range records {
+			if record.Attrs["outcome"] == string(outcomeNoColdStartPointer) {
+				completions = append(completions, record)
+			}
+		}
+		require.Len(t, completions, 1)
+		assert.Equal(t, slog.LevelInfo, completions[0].Level)
+		assert.Equal(t, "check-hotfix completed (fail-open)", completions[0].Message)
+		assert.Contains(t, completions[0].Attrs["reason"], "LPS returned status 500")
+		assert.NotContains(t, completions[0].Attrs, "error")
 	})
 
 	t.Run("cli wiring returns exit code 0 even on fetch failure", func(t *testing.T) {
@@ -491,6 +567,68 @@ func TestAttestedToken_InjectionOverridesIMDS(t *testing.T) {
 		_, err := tt.App.attestedToken(context.Background())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "imds down")
+	})
+}
+
+func TestVMResourceID_InjectionOverridesIMDS(t *testing.T) {
+	t.Run("injected resource ID is returned without networking", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.fetchVMResourceID = func(context.Context) (string, error) {
+			return "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm", nil
+		}
+		rid, err := tt.App.vmResourceID(context.Background())
+		require.NoError(t, err)
+		assert.Equal(t, "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm", rid)
+	})
+
+	t.Run("injected error propagates", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.fetchVMResourceID = func(context.Context) (string, error) {
+			return "", errors.New("imds down")
+		}
+		_, err := tt.App.vmResourceID(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "imds down")
+	})
+}
+
+func TestGetIMDSJSON(t *testing.T) {
+	t.Run("sends Metadata header and decodes the body", func(t *testing.T) {
+		var gotHeader string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotHeader = r.Header.Get("Metadata")
+			_, _ = w.Write([]byte(`{"resourceId":"/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm","name":"vm"}`))
+		}))
+		defer server.Close()
+
+		var compute struct {
+			ResourceID string `json:"resourceId"`
+		}
+		require.NoError(t, getIMDSJSON(context.Background(), server.URL, &compute))
+		assert.Equal(t, "true", gotHeader)
+		assert.Equal(t, "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm", compute.ResourceID)
+	})
+
+	t.Run("non-200 status is an error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		var out map[string]any
+		err := getIMDSJSON(context.Background(), server.URL, &out)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "500")
+	})
+
+	t.Run("malformed body is an error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`not json`))
+		}))
+		defer server.Close()
+
+		var out map[string]any
+		require.Error(t, getIMDSJSON(context.Background(), server.URL, &out))
 	})
 }
 

@@ -1,5 +1,25 @@
 #!/bin/bash
 
+function compute_msi_resource_strings() {
+	# Populates the caller-declared array named by $1 (an explicit output parameter, via
+	# nameref) with the UAMI resource string to attach to the VHD build VM, or leaves it
+	# empty. All other variables here are scratch and kept local to this function.
+	local -n _msi_resource_strings_out="${1:?compute_msi_resource_strings requires the name of the array variable to populate}"
+	local COMPONENTS_JSON="${COMPONENTS_JSON:-./parts/common/components.json}"
+	local windows_azcopy_private_package_present="false"
+	if [ -f "${COMPONENTS_JSON}" ] && jq -e '[.. | objects | select(has("windowsDownloadRequiresAzCopy")) | select(.windowsDownloadRequiresAzCopy == true)] | length > 0' "${COMPONENTS_JSON}" >/dev/null 2>&1; then
+		windows_azcopy_private_package_present="true"
+	fi
+
+	_msi_resource_strings_out=()
+	if [ -n "${AZURE_MSI_RESOURCE_STRING}" ] && { [ -n "${PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ] || [ -n "${WINDOWS_BASE_IMAGE_URL}" ] || [ -n "${WINDOWS_CONTAINERIMAGE_JSON_URL}" ] || [ "${windows_azcopy_private_package_present}" = "true" ]; }; then
+		echo "AZURE_MSI_RESOURCE_STRING is set and at least one of PRIVATE_PACKAGES_URL, WINDOWS_PRIVATE_PACKAGES_URL, WINDOWS_BASE_IMAGE_URL, WINDOWS_CONTAINERIMAGE_JSON_URL is set, or ${COMPONENTS_JSON} has a package with windowsDownloadRequiresAzCopy=true. Assigning UAMI to Packer VM for VHD Build."
+		_msi_resource_strings_out+=(${AZURE_MSI_RESOURCE_STRING})
+	else
+		echo "AZURE_MSI_RESOURCE_STRING is not set, none of PRIVATE_PACKAGES_URL/WINDOWS_PRIVATE_PACKAGES_URL/WINDOWS_BASE_IMAGE_URL is set, and no package in ${COMPONENTS_JSON} sets windowsDownloadRequiresAzCopy=true. Skipping UAMI assignment to Packer VM for VHD Build."
+	fi
+}
+
 function produce_ua_token() {
 	set +x
 	UA_TOKEN="${UA_TOKEN:-}" # used to attach UA when building ESM-enabled Ubuntu SKUs
@@ -17,6 +37,20 @@ function produce_ua_token() {
 	else
 		echo "UA_TOKEN only used for Ubuntu"
 		UA_TOKEN="notused"
+	fi
+}
+
+function resolve_security_type_feature() {
+	if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
+		# TODO: remove once all relevant images have been updated to TrustedLaunchSupported
+		# Note that ordering matters here - ENABLE_TRUSTED_LAUNCH -> TrustedLaunch takes precedence over TRUSTED_LAUNCH_SUPPORTED -> TrustedLaunchSupported
+		SECURITY_TYPE_FEATURE="TrustedLaunch"
+	elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+		SECURITY_TYPE_FEATURE="TrustedLaunchSupported"
+	elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
+		SECURITY_TYPE_FEATURE="ConfidentialVMSupported"
+	else
+		SECURITY_TYPE_FEATURE="Standard"
 	fi
 }
 
@@ -51,7 +85,9 @@ function ensure_sig_image_name_linux() {
 		elif [ "${OS_SKU,,}" = "azurelinuxosguard" ]; then
 			SIG_IMAGE_NAME="AzureLinuxOSGuard${SIG_IMAGE_NAME}"
 		elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
-			SIG_IMAGE_NAME+="Specialized"
+			if [ "${OS_SKU,,}" != "azurecontainerlinux" ]; then
+				SIG_IMAGE_NAME+="Specialized"
+			fi
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
@@ -97,47 +133,56 @@ function download_windows_json_artifact() {
 function extract_windows_image_urls() {
 	echo "Reading image URLs from $artifact_path"
 
-	# Extract image URLs from the artifact JSON using a case statement for WINDOWS_SKU
-	case "${WINDOWS_SKU}" in
-	"2019-containerd")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2019_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2019_CORE_IMAGE_URL") | .value' "$artifact_path")
+	local payload_sku="${WINDOWS_SKU}"
+	local windows_release container_releases base_image_name image_urls tab
+
+	# Trusted Launch uses the same payload.json entries as the Windows 2025 Gen2 build.
+	if [ "${payload_sku}" = "2025-gen2-tl" ]; then
+		payload_sku="2025-gen2"
+	fi
+
+	case "${payload_sku}" in
+	"2022-containerd" | "2022-containerd-gen2")
+		windows_release="2022"
+		container_releases="2022"
 		;;
-	"2022-containerd")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-		;;
-	"2022-containerd-gen2")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2022_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-		;;
-	"2025")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
-		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
-		;;
-	"2025-gen2" | "2025-gen2-tl")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_2025_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_NANO_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")"
-		windows_servercore_image_url="$(jq -r '.images[] | select(.name == "WINDOWS_2025_CORE_IMAGE_URL") | .value' "$artifact_path"),$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")"
-		;;
-	"23H2")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
-		;;
-	"23H2-gen2")
-		WINDOWS_BASE_IMAGE_URL=$(jq -r '.images[] | select(.name == "WINDOWS_23H2_GEN2_BASE_IMAGE_URL") | .value' "$artifact_path")
-		windows_nanoserver_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_NANO_IMAGE_URL") | .value' "$artifact_path")
-		windows_servercore_image_url=$(jq -r '.images[] | select(.name == "WINDOWS_2022_CORE_IMAGE_URL") | .value' "$artifact_path")
+	"2025" | "2025-gen2")
+		windows_release="2025"
+		container_releases="2025,2022"
 		;;
 	*)
 		echo "Unsupported WINDOWS_SKU: ${WINDOWS_SKU}"
+		return 1
 		;;
 	esac
+
+	base_image_name="WINDOWS_${windows_release}_BASE_IMAGE_URL"
+	case "${payload_sku}" in
+	*-gen2*)
+		base_image_name="WINDOWS_${windows_release}_GEN2_BASE_IMAGE_URL"
+		;;
+	esac
+
+	if ! image_urls=$(jq -er \
+		--arg base_image_name "$base_image_name" \
+		--arg container_releases "$container_releases" '
+			(.images | map({key: .name, value: .value}) | from_entries) as $images |
+			def image_url($name): $images[$name] // error("missing required image URL: \($name)");
+			($container_releases | split(",")) as $releases |
+			[
+				image_url($base_image_name),
+				($releases | map(image_url("WINDOWS_\(.)_NANO_IMAGE_URL")) | join(",")),
+				($releases | map(image_url("WINDOWS_\(.)_CORE_IMAGE_URL")) | join(","))
+			] | @tsv
+		' "$artifact_path"); then
+		echo "Failed to read required image URLs for WINDOWS_SKU: ${WINDOWS_SKU}"
+		return 1
+	fi
+
+	tab=$(printf '\t')
+	IFS="$tab" read -r WINDOWS_BASE_IMAGE_URL windows_nanoserver_image_url windows_servercore_image_url <<EOF
+$image_urls
+EOF
 }
 
 function create_windows_storage_account() {
@@ -420,8 +465,62 @@ function prepare_windows_vhd() {
 	fi
 }
 
+function ensure_sig_trusted_launch_supported() {
+	local definition_id="$1"
+	local api_version="2024-03-03"
+	local definition
+	if ! definition=$(az resource show --ids "${definition_id}" --api-version "${api_version}" -o json); then
+		echo "Failed to read image definition ${definition_id} for Trusted Launch support" >&2
+		return 1
+	fi
+
+	local security_type
+	security_type=$(jq -r '(.properties.features // []) | map(select(.name == "SecurityType")) | .[0].value // ""' <<<"${definition}")
+	if [ "${security_type}" = "TrustedLaunchSupported" ]; then
+		# Existing staging definitions may advertise support without a version boundary.
+		if ! jq -e --arg version "${SIG_IMAGE_VERSION:-}" '
+			def gallery_version:
+				if type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+$") then
+					split(".") | map(tonumber) |
+					if all(.[]; . <= 2147483647) then . else error("gallery version component out of range") end
+				else error("invalid gallery image version") end;
+			(.properties.features | map(select(.name == "SecurityType")) | .[0].startsAtVersion) as $start
+			| if $start == null then true
+			  else ($start | gallery_version) <= ($version | gallery_version) end
+		' <<<"${definition}" >/dev/null; then
+			echo "Image definition ${definition_id} cannot support build version ${SIG_IMAGE_VERSION:-}: invalid or newer Trusted Launch boundary" >&2
+			return 1
+		fi
+		return 0
+	fi
+	if [ "$(jq -r '.properties.hyperVGeneration' <<<"${definition}")" != "V2" ]; then
+		echo "Image definition ${definition_id} must be Gen2 to support Trusted Launch" >&2
+		return 1
+	fi
+
+	local features
+	features=$(jq -c --arg version "${SIG_IMAGE_VERSION:?SIG_IMAGE_VERSION is required to update Trusted Launch support}" '
+		((.properties.features // []) | map(select(.name != "SecurityType")))
+		+ [{name: "SecurityType", value: "TrustedLaunchSupported", startsAtVersion: $version}]
+	' <<<"${definition}") || return 1
+	echo "Updating image definition ${definition_id} to TrustedLaunchSupported from version ${SIG_IMAGE_VERSION}"
+	if ! definition=$(az resource update --ids "${definition_id}" --api-version "${api_version}" \
+		--set properties.allowUpdateImage=true "properties.features=${features}" \
+		--remove properties.provisioningState -o json); then
+		echo "Failed to update Trusted Launch support for ${definition_id}" >&2
+		return 1
+	fi
+	if ! jq -e --arg version "${SIG_IMAGE_VERSION}" '.properties.provisioningState == "Succeeded" and
+		any(.properties.features[]; .name == "SecurityType" and .value == "TrustedLaunchSupported" and .startsAtVersion == $version)' \
+		<<<"${definition}" >/dev/null; then
+		echo "Image definition ${definition_id} did not converge to TrustedLaunchSupported from version ${SIG_IMAGE_VERSION}" >&2
+		return 1
+	fi
+}
+
 function ensure_sig_vhd_exists() {
 	echo "SIG existence checking for $MODE"
+	local supported_features="DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
 
 	is_need_create=true
 	state=$(az sig show --resource-group "${AZURE_RESOURCE_GROUP_NAME}" --gallery-name "${SIG_GALLERY_NAME}" | jq -r '.provisioningState') || state=""
@@ -494,7 +593,10 @@ function ensure_sig_vhd_exists() {
 		# shellcheck disable=SC3010
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<<"$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
-				if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+				# This path must be used for images that are built on VMs with TrustedLaunch enabled (e.g. images that ONLY are designed to run on VMs with TrustedLaunch enabled).
+				# At the time of writing, all "TL" images are built using the "Standard" security type, and thus can be snapshotted into image definitions with the "TrustedLaunchSupported" security type.
+				# TODO: revisit whether we can remove this image definition creation path if we plan on continuing to always build trusted launch capable images on standard VMs.
+				if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 						--gallery-name ${SIG_GALLERY_NAME} \
@@ -507,6 +609,19 @@ function ensure_sig_vhd_exists() {
 						--location ${AZURE_LOCATION} \
 						--architecture Arm64 \
 						--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+				elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+					az sig image-definition create \
+						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+						--gallery-name ${SIG_GALLERY_NAME} \
+						--gallery-image-definition ${SIG_IMAGE_NAME} \
+						--publisher microsoft-aks \
+						--offer ${SIG_GALLERY_NAME} \
+						--sku ${SIG_IMAGE_NAME} \
+						--os-type ${OS_TYPE} \
+						--hyper-v-generation ${HYPERV_GENERATION} \
+						--location ${AZURE_LOCATION} \
+						--architecture Arm64 \
+						--features "${supported_features}"
 				else
 					az sig image-definition create \
 						--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -521,6 +636,19 @@ function ensure_sig_vhd_exists() {
 						--architecture Arm64 \
 						--features "DiskControllerTypes=SCSI,NVMe"
 				fi
+			elif [ "${OS_SKU,,}" = "azurecontainerlinux" ] && grep -q "cvm" <<<"$FEATURE_FLAGS"; then
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION} \
+					--os-state Generalized \
+					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchAndConfidentialVmSupported"
 			elif grep -q "cvm" <<<"$FEATURE_FLAGS"; then
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -548,7 +676,10 @@ function ensure_sig_vhd_exists() {
 			fi
 		else
 			# TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
-			if [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
+			# This path must be used for images that are built on VMs with TrustedLaunch enabled (e.g. images that ONLY are designed to run on VMs with TrustedLaunch enabled).
+			# At the time of writing, all "TL" images are built using the "Standard" security type, and thus can be snapshotted into image definitions with the "TrustedLaunchSupported" security type.
+			# TODO: revisit whether we can remove this image definition creation path if we plan on continuing to always build trusted launch capable images on standard VMs.
+			if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
 				az sig image-definition create \
 					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 					--gallery-name ${SIG_GALLERY_NAME} \
@@ -560,6 +691,18 @@ function ensure_sig_vhd_exists() {
 					--hyper-v-generation ${HYPERV_GENERATION} \
 					--location ${AZURE_LOCATION} \
 					--features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+			elif [ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+				az sig image-definition create \
+					--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+					--gallery-name ${SIG_GALLERY_NAME} \
+					--gallery-image-definition ${SIG_IMAGE_NAME} \
+					--publisher microsoft-aks \
+					--offer ${SIG_GALLERY_NAME} \
+					--sku ${SIG_IMAGE_NAME} \
+					--os-type ${OS_TYPE} \
+					--hyper-v-generation ${HYPERV_GENERATION} \
+					--location ${AZURE_LOCATION} \
+					--features "${supported_features}"
 			else
 				# For vanilla Gen2, mark only NVMe
 				az sig image-definition create \
@@ -575,7 +718,18 @@ function ensure_sig_vhd_exists() {
 					--features DiskControllerTypes=SCSI,NVMe
 			fi
 		fi
+		local create_status=$?
+		if [ "${create_status}" -ne 0 ]; then
+			return "${create_status}"
+		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+		if [ "${MODE}" = "windowsVhdMode" ] &&
+			[ "${ENABLE_TRUSTED_LAUNCH,,}" != "true" ] &&
+			[ "${TRUSTED_LAUNCH_SUPPORTED,,}" = "true" ]; then
+			local definition_id
+			definition_id=$(jq -r '.id' <<<"${id}")
+			ensure_sig_trusted_launch_supported "${definition_id}" || return 1
+		fi
 	fi
 }

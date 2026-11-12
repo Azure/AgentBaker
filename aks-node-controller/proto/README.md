@@ -49,12 +49,71 @@ This table is describing the all the `AKSNodeConfig` Fields converted to .go fil
 | `NeedsCgroupv2` | `*bool` | Specifies whether the node needs cgroupv2. Labeled as `optional` (explicit presence) so that we know whether it's set or not. If it's not set, the default value will be nil and it's defaulted to false. Future plan is to get the value from VHD during bootstrapping. | `NEEDS_CGROUPV2` |
 | `BootstrapProfileContainerRegistryServer` | `string` | Bootstrap profile container registry server URI                                                                                                                                                                                                                          | `BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER` |
 | `IMDSRestrictionConfig` | `IMDSRestrictionConfig` | IMDS restriction configuration                                                                                                                                                                                                                                           | `ENABLE_IMDS_RESTRICTION`, `INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE`|
+| `EnableKmpp` | `bool` | Specifies whether the KMPP key isolation service is enabled on the node and reachable through /var/run/kmpp/dbus. Azure Linux 3.0 only. | `ENABLE_KMPP` |
 
 
 Removed old environment variables from cse_cmd.sh:
 `CSE_HELPERS_FILEPATH`, `CSE_DISTRO_HELPERS_FILEPATH`, `CSE_INSTALL_FILEPATH`, `CSE_DISTRO_INSTALL_FILEPATH`, `CSE_CONFIG_FILEPATH`, `DHCPV6_SERVICE_FILEPATH`, `DHCPV6_CONFIG_FILEPATH`, `CLI_TOOL`, `MOBY_VERSION`, `HYPERKUBE_URL`, `SGX_NODE`, `GPU_DRIVER_TYPE` and more.
 
 Many variables are changed to optional and we have a builder function as a helper to provide default values. For example, the builder function defaults `LinuxAdminUsername` to value `azureuser`, `OutboundCommand` to a default outbound command `curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/`.
+
+## MCR repository base
+
+The parser derives `MCR_REPOSITORY_BASE` from `ClusterConfig.Location`, matching
+RP's location-to-cloud MCR selection for the legacy NBC path. Location matching
+ignores case and whitespace. China, USNat, USSec, Bleu, and Delos use their
+respective MCR endpoints; all other locations, including USGov/DoD, legacy
+Germany, GovSG, empty, and unknown locations, use public MCR.
+
+The emitted registry base has no URL scheme and includes a trailing slash,
+matching RP's cloud specifications. This derivation also applies when
+`CustomCloudConfig.CustomCloudEnvName` is the generic custom-cloud marker.
+It does not change other cloud/ARM settings or
+`BootstrapProfileContainerRegistryServer`. No new contract field or RP producer
+change is required.
+
+## Additional kubelet configuration fields
+
+`KubeletConfigFileConfig` can carry the following fields through the node configuration
+payload into the existing kubelet JSON serializer:
+
+| Proto field | Kubelet JSON field | Type |
+| --- | --- | --- |
+| `enable_server` | `enableServer` | Optional boolean |
+| `volume_plugin_dir` | `volumePluginDir` | String |
+| `cgroup_driver` | `cgroupDriver` | String |
+| `runtime_request_timeout` | `runtimeRequestTimeout` | Duration string, such as `2m` |
+| `container_runtime_endpoint` | `containerRuntimeEndpoint` | String |
+| `register_with_taints` | `registerWithTaints` | List of `KubeletTaint` objects |
+| `hairpin_mode` | `hairpinMode` | String |
+
+The Go `datamodel.AKSKubeletConfiguration` in
+[`pkg/agent/datamodel/types.go`](../../pkg/agent/datamodel/types.go) exposes the
+same seven JSON fields for the AgentBaker service. It uses `*bool` for
+`EnableServer`, the existing string-backed `Duration` for `RuntimeRequestTimeout`,
+and `[]KubeletTaint` for `RegisterWithTaints`. Both schemas preserve the same
+presence and serialization behavior for these fields; keep them aligned when
+extending kubelet configuration support.
+
+The JSON names and types match the upstream
+[KubeletConfiguration API](https://github.com/kubernetes/kubelet/blob/v0.37.0/config/v1beta1/types.go).
+`KubeletTaint` preserves `key`, `value`, `effect`, and optional `timeAdded`
+(an RFC3339 timestamp string), matching the upstream
+[Taint type](https://github.com/kubernetes/api/blob/v0.37.0/core/v1/types.go).
+
+Leaving the new fields unset does not change existing serialized output.
+`enable_server` has explicit presence: unset is omitted, while `false` is emitted
+as `"enableServer": false`. Duration values remain strings, including `"0s"`;
+serialization does not apply kubelet defaults or validate runtime settings.
+Empty strings and empty taint lists are omitted, consistent with the existing
+proto3 contract. Taint list order and duplicate keys with different effects are preserved.
+
+This is schema support only: it does not populate these fields from flags, remove
+any flags, or enable config-file delivery. Older node-controller consumers ignore
+unknown fields; successfully decoding a payload does not mean they can apply the
+new settings. Producers must retain existing behavior until compatible consumers
+are available. Any subsequent flag migration must be separately gated to stable
+Kubernetes agent-pool versions >=1.38; versions below 1.38 remain unchanged.
 
 # Guideline to add a new variable to AKSNodeConfig
 ## Why Protobuf? (Feel free to skip)

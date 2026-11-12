@@ -76,6 +76,10 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
     ua status
     detachAndCleanUpUA
   fi
+
+  if [ "${UBUNTU_RELEASE}" = "26.04" ] && isMinimalImage && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    /bin/bash /home/packer/trim-2604-cvm-packages.sh --verify-only || exit 1
+  fi
   capture_benchmark "${SCRIPT_NAME}_log_and_detach_ua"
 fi
 
@@ -103,12 +107,34 @@ echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
 echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
 
+# Record the original node image version for diagnostics.
+# This root-partition stamp is not replaced by an A/B update of /usr.
+# The ACL agent uses a sentinel current version until it has an updatable source.
+if isACL "$OS" "$OS_VARIANT"; then
+  if [ -z "${IMAGE_VERSION:-}" ]; then
+    echo "ERROR: IMAGE_VERSION must be set for ACL image builds" >&2
+    exit 1
+  fi
+  IMAGE_VERSION_FILEPATH=/opt/azure/containers/image-version
+  mkdir -p "$(dirname ${IMAGE_VERSION_FILEPATH})"
+  echo "IMAGE_VERSION=${IMAGE_VERSION}" > ${IMAGE_VERSION_FILEPATH}
+  chmod 0644 ${IMAGE_VERSION_FILEPATH}
+  echo -e "=== image-version Begin" >> ${VHD_LOGS_FILEPATH}
+  cat ${IMAGE_VERSION_FILEPATH} >> ${VHD_LOGS_FILEPATH}
+  echo -e "=== image-version End" >> ${VHD_LOGS_FILEPATH}
+fi
+
 if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   echo -e "PUUID: $(efibootmgr -v)" >> ${VHD_LOGS_FILEPATH}
 fi
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
+if [ "$OS" = "AZURELINUX" ]; then
+  case "$FEATURE_FLAGS" in
+    *kata*) OS="$OS" FEATURE_FLAGS="$FEATURE_FLAGS" /bin/bash /home/packer/write-kata-release-notes.sh ;;
+  esac
+fi
 {
   echo "Install completed successfully on " $(date)
   echo "VSTS Build NUMBER: ${BUILD_NUMBER}"

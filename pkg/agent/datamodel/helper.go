@@ -66,7 +66,7 @@ func GetOrderedEscapedKeyValsString(config map[string]string) string {
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("\"%s=%s\", ", key, config[key]))
+		fmt.Fprintf(&buf, "\"%s=%s\", ", key, config[key])
 	}
 	return strings.TrimSuffix(buf.String(), ", ")
 }

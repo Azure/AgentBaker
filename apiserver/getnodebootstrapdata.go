@@ -14,12 +14,25 @@ import (
 
 const (
 	// RoutePathNodeBootstrapData the route path to get node bootstrapping data.
-	RoutePathNodeBootstrapData string = "/getnodebootstrapdata"
-	defaultTimeout                    = 30 * time.Second
+	RoutePathNodeBootstrapData                string = "/getnodebootstrapdata"
+	defaultTimeout                                   = 30 * time.Second
+	defaultMaxConcurrentNodeBootstrapRequests        = 30
+	defaultOverloadRetryAfterSeconds                 = 3
 )
 
 // GetNodeBootstrapData endpoint for getting node bootstrapping data.
 func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Request) {
+	select {
+	case api.nodeBootstrapLimiter <- struct{}{}:
+		defer func() {
+			<-api.nodeBootstrapLimiter
+		}()
+	default:
+		w.Header().Set("Retry-After", api.overloadRetryAfterSeconds)
+		http.Error(w, "server overloaded", http.StatusServiceUnavailable)
+		return
+	}
+
 	ctx := r.Context()
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()

@@ -3,31 +3,36 @@ package runner
 import (
 	"bytes"
 	"context"
+	"encoding/xml"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/e2e/scenario"
-	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAppListsRegisteredScenarios(t *testing.T) {
+	restoreRunnerConfig(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)
 
 	assert.Equal(t, exitSuccess, app.Run(context.Background(), []string{"e2e", "list"}), stderr.String())
-	assert.Contains(t, stdout.String(), "Ubuntu2204\n", "list did not contain a known scenario")
+	assert.Contains(t, stdout.String(), "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC\n", "list did not contain a known scenario")
 }
 
 func TestAppRejectsUnknownScenario(t *testing.T) {
+	restoreRunnerConfig(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)
@@ -89,36 +94,6 @@ func TestAppRejectsNonPositiveDurations(t *testing.T) {
 	}
 }
 
-func TestRunnerFlagsUseEnvironmentAliases(t *testing.T) {
-	restoreRunnerConfig(t)
-	t.Setenv("PARALLEL", "7")
-	t.Setenv("TEST_TIMEOUT", "3m")
-	t.Setenv("E2E_GO_TEST_TIMEOUT", "4m")
-	t.Setenv("TIMEOUT", "4m")
-	t.Setenv("E2E_FAILED_TESTS_RETRY_COUNT", "2")
-	t.Setenv("LOGGING_DIR", t.TempDir())
-	t.Setenv("E2E_OUTPUT", "grouped")
-	t.Setenv("TAGS_TO_RUN", "gpu=true")
-	t.Setenv("TAGS_TO_SKIP", "os=windows")
-	t.Setenv("GALLERY_NAME", "test-gallery")
-	t.Setenv("KEEP_VMSS", "true")
-	t.Setenv("SUBSCRIPTION_ID", "test-subscription")
-
-	app := NewApp(&bytes.Buffer{}, &bytes.Buffer{})
-	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "DoesNotExist"}))
-	assert.Equal(t, 7, config.Config.Parallel)
-	assert.Equal(t, 3*time.Minute, config.Config.TestTimeout)
-	assert.Equal(t, 2, config.Config.Retries)
-	opts := runOptionsFromConfig(nil)
-	assert.Equal(t, 4*time.Minute, config.Config.SuiteTimeout)
-	assert.Equal(t, "grouped", config.Config.OutputMode)
-	assert.Equal(t, tagFilter{run: "gpu=true", skip: "os=windows"}, opts.tagFilter)
-	assert.Equal(t, "test-gallery", config.Config.GalleryLinux.Name)
-	assert.Equal(t, "test-gallery", config.Config.GalleryWindows.Name)
-	assert.True(t, config.Config.KeepVMSS)
-	assert.Equal(t, "test-subscription", config.Config.SubscriptionID)
-}
-
 func TestAppRejectsUnknownScenarioChild(t *testing.T) {
 	restoreRunnerConfig(t)
 
@@ -126,7 +101,7 @@ func TestAppRejectsUnknownScenarioChild(t *testing.T) {
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)
 
-	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "Ubuntu2204/not-a-scenario"}), "stderr: %s", stderr.String())
+	assert.Equal(t, exitUsage, app.Run(context.Background(), []string{"e2e", "run", "--log-dir", t.TempDir(), "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC/not-a-scenario"}), "stderr: %s", stderr.String())
 }
 
 func TestAppSuggestsMistypedFlag(t *testing.T) {
@@ -186,8 +161,8 @@ func TestExecutorRetriesAndReportsFlakyScenario(t *testing.T) {
 
 	var calls atomic.Int32
 	var artifactNames []string
-	exec.runScenario = func(_ context.Context, _ string, artifactName string, logger toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
-		logger.Log("attempt output")
+	exec.runScenario = func(ctx context.Context, _ string, artifactName string, _ *scenario.Scenario) scenario.Outcome {
+		logging.Log(ctx, "attempt output")
 		artifactNames = append(artifactNames, artifactName)
 		measurement := scenario.Measurement{Name: "Task_example", ClassName: "e2e.cse", Duration: time.Second}
 		if calls.Add(1) == 1 {
@@ -222,8 +197,8 @@ func TestExecutorPrintsPassedLogs(t *testing.T) {
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
 	}, 1)
-	exec.runScenario = func(_ context.Context, _ string, artifactName string, logger toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
-		logger.Log("passing output")
+	exec.runScenario = func(ctx context.Context, _ string, artifactName string, _ *scenario.Scenario) scenario.Outcome {
+		logging.Log(ctx, "passing output")
 		return scenario.Outcome{}
 	}
 
@@ -234,13 +209,88 @@ func TestExecutorPrintsPassedLogs(t *testing.T) {
 	assert.Contains(t, stdout.String(), "##[endgroup]")
 }
 
+func TestExecutorCapturesSkipPredicateLogs(t *testing.T) {
+	exec := newExecutor(t.Context(), &bytes.Buffer{}, runOptions{
+		parallel:   1,
+		logDir:     t.TempDir(),
+		outputMode: "grouped",
+	}, 1)
+	exec.schedule("Skipped", &scenario.Scenario{
+		SkipIf: func(ctx context.Context) string {
+			logging.Log(ctx, "checking prerequisites")
+			return "not supported"
+		},
+	})
+	exec.scenarios.Wait()
+
+	result := exec.results[0].Attempts[0]
+	require.Equal(t, statusSkipped, result.Status)
+	output, err := os.ReadFile(result.LogPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(output), "checking prerequisites\n")
+	assert.Contains(t, string(output), "SKIP: not supported\n")
+	assert.Empty(t, exec.stdout.(*bytes.Buffer).String())
+}
+
+func TestExecutorIsolatesContextLogsAcrossAttempts(t *testing.T) {
+	for _, mode := range []string{"stream", "grouped"} {
+		t.Run(mode, func(t *testing.T) {
+			var stdout bytes.Buffer
+			exec := newExecutor(t.Context(), &stdout, runOptions{
+				parallel:   2,
+				retries:    1,
+				logDir:     t.TempDir(),
+				outputMode: mode,
+			}, 2)
+			exec.runScenario = func(ctx context.Context, _, artifactName string, _ *scenario.Scenario) scenario.Outcome {
+				var workers sync.WaitGroup
+				for worker := range 8 {
+					workers.Go(func() {
+						workerCtx, cancel := context.WithCancel(ctx)
+						defer cancel()
+						logging.Logf(workerCtx, "marker=%s worker=%d", artifactName, worker)
+					})
+				}
+				workers.Wait()
+				if strings.HasSuffix(artifactName, "attempt-1") {
+					return scenario.Outcome{Error: errors.New("retry")}
+				}
+				return scenario.Outcome{}
+			}
+			for _, name := range []string{"First", "Second"} {
+				exec.schedule(name, &scenario.Scenario{})
+			}
+			exec.scenarios.Wait()
+
+			results := exec.snapshotResults(nil)
+			require.Len(t, results, 2)
+			for _, result := range results {
+				assert.Equal(t, statusFlaky, result.Status)
+				require.Len(t, result.Attempts, 2)
+				for _, attempt := range result.Attempts {
+					output, err := os.ReadFile(attempt.LogPath)
+					require.NoError(t, err)
+					text := string(output)
+					assert.Equal(t, 8, strings.Count(text, "marker="))
+					for worker := range 8 {
+						marker := fmt.Sprintf("marker=%s worker=%d\n",
+							filepath.Join(result.Name, fmt.Sprintf("attempt-%d", attempt.Attempt)), worker)
+						assert.Equal(t, 1, strings.Count(text, marker))
+						assert.Equal(t, 1, strings.Count(stdout.String(), marker))
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestExecutorPassesAttemptDeadlineToScenario(t *testing.T) {
 	restoreRunnerConfig(t)
 	config.Config.TestTimeout = time.Second
 	exec := newTestExecutor(t)
 	var deadline time.Time
 	started := time.Now()
-	exec.runScenario = func(ctx context.Context, _, _ string, _ toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
+	exec.runScenario = func(ctx context.Context, _, _ string, _ *scenario.Scenario) scenario.Outcome {
 		deadline, _ = ctx.Deadline()
 		return scenario.Outcome{}
 	}
@@ -252,10 +302,10 @@ func TestExecutorPassesAttemptDeadlineToScenario(t *testing.T) {
 
 func TestExecutorLogFailureOverridesSkippedOutcome(t *testing.T) {
 	exec := newTestExecutor(t)
-	exec.runScenario = func(_ context.Context, _, _ string, logger toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
-		scenarioLog := logger.(*scenarioLogger)
+	exec.runScenario = func(ctx context.Context, _, _ string, _ *scenario.Scenario) scenario.Outcome {
+		scenarioLog := logging.FromContext(ctx).(*scenarioLogger)
 		assert.NoError(t, scenarioLog.file.Close())
-		logger.Log("lost output")
+		logging.Log(ctx, "lost output")
 		return scenario.Outcome{SkipReason: "not supported"}
 	}
 	exec.schedule("LogFailure", &scenario.Scenario{})
@@ -281,7 +331,7 @@ func TestScenarioLogIncludesElapsedTime(t *testing.T) {
 	logger, err := newScenarioLogger(exec, "Example", path)
 	require.NoError(t, err)
 	logger.Log("hello\nworld")
-	require.NoError(t, logger.Close())
+	require.NoError(t, logger.Close(""))
 	content, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Regexp(t, `^\[\d+\.\d{3}s\] hello\n\[\d+\.\d{3}s\] world\n$`, string(content))
@@ -294,7 +344,7 @@ func TestExecutorRecoversScenarioPanic(t *testing.T) {
 		logDir:     t.TempDir(),
 		outputMode: "grouped",
 	}, 2)
-	exec.runScenario = func(_ context.Context, name string, _ string, _ toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
+	exec.runScenario = func(ctx context.Context, name string, _ string, _ *scenario.Scenario) scenario.Outcome {
 		if name == "Panics" {
 			panic("boom")
 		}
@@ -344,7 +394,7 @@ func TestExecutorWaitReturnsGracefulCancellation(t *testing.T) {
 		outputMode: "grouped",
 	}, 1)
 	started := make(chan struct{})
-	exec.runScenario = func(ctx context.Context, _ string, _ string, _ toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
+	exec.runScenario = func(ctx context.Context, _ string, _ string, _ *scenario.Scenario) scenario.Outcome {
 		close(started)
 		<-ctx.Done()
 		return scenario.Outcome{Error: ctx.Err()}
@@ -358,38 +408,259 @@ func TestExecutorWaitReturnsGracefulCancellation(t *testing.T) {
 }
 
 func TestExecutorWaitStopsAfterGracePeriod(t *testing.T) {
+	for _, mode := range []string{"grouped", "stream", "auto"} {
+		for _, retries := range []int{0, 1} {
+			t.Run(fmt.Sprintf("%s/retries=%d", mode, retries), func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				tmp := t.TempDir()
+				var stdout bytes.Buffer
+				exec := newExecutor(ctx, &stdout, runOptions{
+					parallel:   1,
+					retries:    retries,
+					logDir:     filepath.Join(tmp, "logs"),
+					junitFile:  filepath.Join(tmp, "report.xml"),
+					outputMode: mode,
+				}, 4)
+				started := make(chan struct{})
+				release := make(chan struct{})
+				returned := make(chan struct{})
+				var calls int
+				exec.runScenario = func(ctx context.Context, _, _ string, _ *scenario.Scenario) scenario.Outcome {
+					calls++
+					logging.Logf(ctx, "attempt %d output", calls)
+					if calls <= retries {
+						return scenario.Outcome{Error: errors.New("retryable failure")}
+					}
+					defer close(returned)
+					close(started)
+					<-release
+					logging.Log(ctx, "late output")
+					panic("late panic")
+				}
+				var stop sync.Once
+				finish := func() {
+					stop.Do(func() { close(release) })
+					<-returned
+					exec.scenarios.Wait()
+				}
+				defer finish()
+
+				exec.schedule("Stuck", &scenario.Scenario{Name: "Stuck"})
+				<-started
+				cancel()
+
+				const grace = 10 * time.Millisecond
+				require.ErrorContains(t, exec.wait(grace), "did not stop")
+				assert.Equal(t, runSummary{Total: 1, Failed: 1}, exec.summary())
+				results := exec.snapshotResults(nil)
+				require.Len(t, results, 1)
+				require.Len(t, results[0].Attempts, retries+1)
+				last := results[0].Attempts[retries]
+				assert.Equal(t, retries+1, last.Attempt)
+				assert.Equal(t, statusFailed, last.Status)
+				assert.GreaterOrEqual(t, last.Duration, grace)
+				assert.Contains(t, last.Message, "did not stop")
+				assert.Contains(t, stdout.String(), "FAIL: scenarios did not stop")
+				if !exec.stream {
+					assert.Contains(t, stdout.String(), attemptConsoleLabel(statusFailed, retries+1, retries+1, last.Duration))
+				}
+				var total time.Duration
+				for i, attempt := range results[0].Attempts {
+					assert.Equal(t, filepath.Join(exec.opts.logDir, "Stuck", fmt.Sprintf("attempt-%d.log", i+1)), attempt.LogPath)
+					assert.Equal(t, 1, strings.Count(stdout.String(), fmt.Sprintf("attempt %d output", i+1)))
+					total += attempt.Duration
+				}
+				if retries > 0 {
+					assert.Equal(t, "retryable failure", results[0].Attempts[0].Message)
+				}
+				log, err := os.ReadFile(last.LogPath)
+				require.NoError(t, err)
+				assert.Contains(t, string(log), "FAIL: scenarios did not stop")
+				require.NoError(t, writeJUnitReport(exec.opts.junitFile, results))
+				data, err := os.ReadFile(exec.opts.junitFile)
+				require.NoError(t, err)
+				var report junitSuites
+				require.NoError(t, xml.Unmarshal(data, &report))
+				testCase := report.Suites[0].Cases[0]
+				require.NotNil(t, testCase.Failure)
+				assert.Contains(t, testCase.Failure.Message, "did not stop")
+				assert.Contains(t, testCase.Failure.Body, "attached scenario log")
+				for _, attempt := range results[0].Attempts {
+					assert.Contains(t, testCase.SystemOut, "[[ATTACHMENT|"+attempt.LogPath+"]]")
+				}
+				assertJUnitTime(t, testCase.Time, total)
+
+				console := stdout.String()
+				finish()
+				assert.Equal(t, results, exec.snapshotResults(nil), "late completion changed the timeout result")
+				assert.Equal(t, console, stdout.String(), "late completion changed the published console output")
+				lateLog, err := os.ReadFile(last.LogPath)
+				require.NoError(t, err)
+				assert.Equal(t, log, lateLog, "late completion changed the finalized artifact")
+			})
+		}
+	}
+}
+
+func TestExecutorTimeoutKeepsQueuedScenarioWithoutAttachment(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	tmp := t.TempDir()
+	defer cancel()
 	exec := newExecutor(ctx, &bytes.Buffer{}, runOptions{
-		parallel:   1,
-		logDir:     filepath.Join(tmp, "logs"),
-		junitFile:  filepath.Join(tmp, "report.xml"),
-		outputMode: "grouped",
-	}, 1)
+		parallel: 1, logDir: t.TempDir(), outputMode: "grouped",
+	}, 2)
 	started := make(chan struct{})
 	release := make(chan struct{})
-	exec.runScenario = func(context.Context, string, string, toolkit.Logger, *scenario.Scenario) scenario.Outcome {
+	returned := make(chan struct{})
+	exec.runScenario = func(ctx context.Context, name, _ string, _ *scenario.Scenario) scenario.Outcome {
+		defer close(returned)
+		assert.Equal(t, "Stuck", name)
+		logging.Log(ctx, "before blocking")
 		close(started)
 		<-release
 		return scenario.Outcome{}
 	}
+	defer func() {
+		close(release)
+		<-returned
+		exec.scenarios.Wait()
+	}()
+	exec.schedule("Stuck", &scenario.Scenario{})
+	<-started
+	exec.schedule("Queued", &scenario.Scenario{})
+	cancel()
+	require.ErrorContains(t, exec.wait(10*time.Millisecond), "did not stop")
+	results := exec.snapshotResults(nil)
+	require.Len(t, results, 2)
+	for _, result := range results {
+		require.Len(t, result.Attempts, 1)
+		assert.Equal(t, statusFailed, result.Status)
+		if result.Name == "Queued" {
+			assert.Empty(t, result.Attempts[0].LogPath)
+			assert.Zero(t, result.Attempts[0].Duration)
+		} else {
+			assert.NotEmpty(t, result.Attempts[0].LogPath)
+		}
+	}
+}
 
-	exec.schedule("Stuck", &scenario.Scenario{Name: "Stuck"})
+func TestExecutorShutdownRacesWithCompletion(t *testing.T) {
+	for _, mode := range []string{"grouped", "stream"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			var stdout bytes.Buffer
+			exec := newExecutor(ctx, &stdout, runOptions{
+				parallel: 1, logDir: t.TempDir(), outputMode: mode,
+			}, 1)
+			started := make(chan *scenarioLogger)
+			release := make(chan struct{})
+			returned := make(chan struct{})
+			exec.runScenario = func(ctx context.Context, _, _ string, _ *scenario.Scenario) scenario.Outcome {
+				defer close(returned)
+				logging.Log(ctx, "before completion")
+				started <- logging.FromContext(ctx).(*scenarioLogger)
+				<-release
+				for range 100 {
+					logging.Log(ctx, "concurrent output")
+				}
+				return scenario.Outcome{}
+			}
+			exec.schedule("Racing", &scenario.Scenario{})
+			logger := <-started
+			cancel()
+			close(release)
+			if err := exec.wait(0); err != nil {
+				assert.ErrorIs(t, err, context.Canceled)
+			}
+			<-returned
+			results := exec.snapshotResults(nil)
+			require.Len(t, results, 1)
+			require.Len(t, results[0].Attempts, 1)
+			attempt := results[0].Attempts[0]
+			assert.Equal(t, attempt.Status, results[0].Status)
+			assert.Nil(t, logger.file)
+			if mode == "grouped" {
+				assert.Equal(t, 1, strings.Count(stdout.String(), "##[group]"))
+				assert.Contains(t, stdout.String(), attemptConsoleLabel(attempt.Status, 1, 1, attempt.Duration))
+			}
+			assert.Equal(t, 1, strings.Count(stdout.String(), "before completion"))
+			log, err := os.ReadFile(attempt.LogPath)
+			require.NoError(t, err)
+			if attempt.Status == statusFailed {
+				assert.Equal(t, 1, strings.Count(stdout.String(), "FAIL: "+attempt.Message))
+				assert.True(t, strings.HasSuffix(string(log), "FAIL: "+attempt.Message+"\n"))
+			}
+			console := stdout.String()
+			logger.Log("after finalization")
+			assert.Equal(t, console, stdout.String())
+			lateLog, err := os.ReadFile(attempt.LogPath)
+			require.NoError(t, err)
+			assert.Equal(t, log, lateLog)
+		})
+	}
+}
+
+func TestExecutorTimeoutPreservesLogCreationFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	exec := newExecutor(ctx, &bytes.Buffer{}, runOptions{
+		parallel: 1, retries: 1, logDir: t.TempDir(), outputMode: "grouped",
+	}, 1)
+	require.NoError(t, os.MkdirAll(filepath.Join(exec.opts.logDir, "Stuck", "attempt-1.log"), 0o755))
+	started, release, returned := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	exec.runScenario = func(ctx context.Context, _, _ string, _ *scenario.Scenario) scenario.Outcome {
+		defer close(returned)
+		logging.Log(ctx, "retry output")
+		close(started)
+		<-release
+		return scenario.Outcome{}
+	}
+	defer func() { close(release); <-returned }()
+	exec.schedule("Stuck", &scenario.Scenario{})
 	<-started
 	cancel()
+	require.ErrorContains(t, exec.wait(0), "did not stop")
 
-	require.ErrorContains(t, exec.wait(10*time.Millisecond), "did not stop")
-	summary := exec.summary()
-	assert.Equal(t, 1, summary.Total)
-	assert.Equal(t, 1, summary.Failed)
-	require.NoError(t, writeJUnitReport(exec.opts.junitFile, exec.snapshotResults(nil)))
-	report, err := os.ReadFile(exec.opts.junitFile)
-	require.NoError(t, err)
-	assert.Contains(t, string(report), `failure message="scenarios did not stop`, "JUnit report dropped the unfinished scenario")
-	assert.NotContains(t, string(report), "attached scenario log", "JUnit report claimed a missing attachment")
-	close(release)
-	exec.scenarios.Wait()
-	assert.Len(t, exec.results, 1, "late scenario result created a duplicate")
+	results := exec.snapshotResults(nil)
+	require.Len(t, results, 1)
+	require.Len(t, results[0].Attempts, 2)
+	first := results[0].Attempts[0]
+	assert.Equal(t, statusFailed, first.Status)
+	assert.Contains(t, first.Message, "open scenario log")
+	assert.Empty(t, first.LogPath)
+	last := results[0].Attempts[1]
+	assert.Equal(t, 2, last.Attempt)
+	assert.Equal(t, statusFailed, last.Status)
+	assert.NotEmpty(t, last.LogPath)
+	assert.Contains(t, exec.stdout.(*bytes.Buffer).String(), "retry output")
+}
+
+func TestExecutorTimeoutReportsLogWriteFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	exec := newExecutor(ctx, &bytes.Buffer{}, runOptions{
+		parallel: 1, logDir: t.TempDir(), outputMode: "grouped",
+	}, 1)
+	started, release, returned := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	exec.runScenario = func(ctx context.Context, _, _ string, _ *scenario.Scenario) scenario.Outcome {
+		defer close(returned)
+		assert.NoError(t, logging.FromContext(ctx).(*scenarioLogger).file.Close())
+		close(started)
+		<-release
+		return scenario.Outcome{}
+	}
+	defer func() { close(release); <-returned }()
+	exec.schedule("Stuck", &scenario.Scenario{})
+	<-started
+	cancel()
+	require.ErrorContains(t, exec.wait(0), "did not stop")
+
+	result := exec.snapshotResults(nil)[0].Attempts[0]
+	assert.Equal(t, statusFailed, result.Status)
+	assert.Contains(t, result.Message, "did not stop")
+	assert.Contains(t, result.Message, "scenario log")
+	assert.Contains(t, exec.stdout.(*bytes.Buffer).String(), result.Message)
 }
 
 func TestJUnitFailureUsesReadableSummary(t *testing.T) {
@@ -499,7 +770,7 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 	require.Len(t, filtered, 1)
 
 	exec := newExecutor(context.Background(), &stdout, opts, len(runnable))
-	exec.runScenario = func(context.Context, string, string, toolkit.Logger, *scenario.Scenario) scenario.Outcome {
+	exec.runScenario = func(context.Context, string, string, *scenario.Scenario) scenario.Outcome {
 		return scenario.Outcome{Error: nil}
 	}
 	for _, scenario := range runnable {
@@ -520,7 +791,7 @@ func TestFilteredScenariosAreNotScheduled(t *testing.T) {
 	report, err := os.ReadFile(opts.junitFile)
 	require.NoError(t, err)
 	assert.Contains(t, string(report), `name="Excluded"`)
-	assert.Contains(t, string(report), "<skipped message=\"filtered: scenario &#34;Excluded&#34;", "JUnit report dropped the filtered scenario")
+	assert.Contains(t, string(report), "<skipped message=\"filtered: matches skip filter &#34;Name=Excluded&#34;", "JUnit report dropped the filtered scenario")
 	assert.Contains(t, string(report), `name="Kept"`, "JUnit report dropped the runnable scenario")
 }
 
@@ -552,7 +823,7 @@ func TestExecutorDoesNotReadGlobalTagFilters(t *testing.T) {
 	config.Config.TagsToSkip = "Name=Runs"
 
 	exec := newTestExecutor(t)
-	exec.runScenario = func(context.Context, string, string, toolkit.Logger, *scenario.Scenario) scenario.Outcome {
+	exec.runScenario = func(context.Context, string, string, *scenario.Scenario) scenario.Outcome {
 		return scenario.Outcome{}
 	}
 	exec.schedule("Runs", &scenario.Scenario{Name: "Runs"})
@@ -563,12 +834,12 @@ func TestExecutorDoesNotReadGlobalTagFilters(t *testing.T) {
 
 func TestExecutorFailsAttemptOnLogWriteFailure(t *testing.T) {
 	exec := newTestExecutor(t)
-	exec.runScenario = func(_ context.Context, _ string, artifactName string, logger toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
-		scenarioLog := logger.(*scenarioLogger)
+	exec.runScenario = func(ctx context.Context, _ string, artifactName string, _ *scenario.Scenario) scenario.Outcome {
+		scenarioLog := logging.FromContext(ctx).(*scenarioLogger)
 		scenarioLog.mu.Lock()
 		_ = scenarioLog.file.Close()
 		scenarioLog.mu.Unlock()
-		logger.Log("output that cannot be persisted")
+		logging.Log(ctx, "output that cannot be persisted")
 		return scenario.Outcome{}
 	}
 
@@ -588,9 +859,9 @@ func TestScenarioLoggerCloseReportsFailure(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, logger.file.Close())
 
-	closeErr := logger.Close()
+	closeErr := logger.Close("")
 	require.ErrorContains(t, closeErr, "scenario log")
-	require.Error(t, logger.Close(), "Close forgot the sticky log failure")
+	require.Error(t, logger.Close(""), "Close forgot the sticky log failure")
 }
 
 func TestExecutorDoesNotReportMissingLogAttachment(t *testing.T) {
@@ -623,7 +894,7 @@ func TestExecutorKeepsFailureWhenRetrySkips(t *testing.T) {
 	exec := newExecutor(context.Background(), &bytes.Buffer{}, opts, 1)
 
 	var calls atomic.Int32
-	exec.runScenario = func(_ context.Context, _ string, _ string, _ toolkit.Logger, _ *scenario.Scenario) scenario.Outcome {
+	exec.runScenario = func(ctx context.Context, _ string, _ string, _ *scenario.Scenario) scenario.Outcome {
 		if calls.Add(1) == 1 {
 			return scenario.Outcome{Error: errors.New("validation failed")}
 		}

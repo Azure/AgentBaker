@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
-
-	"github.com/Azure/agentbaker/e2e/toolkit"
 )
 
 type Outcome struct {
@@ -15,12 +13,12 @@ type Outcome struct {
 	Measurements []Measurement
 }
 
-func Run(ctx context.Context, name, artifactName string, logger toolkit.Logger, original *Scenario) Outcome {
-	return runExecution(ctx, name, artifactName, logger, original, runScenarioFlow)
+func Run(ctx context.Context, name, artifactName string, original *Scenario) Outcome {
+	return runExecution(ctx, name, artifactName, original, runScenarioFlow)
 }
 
-func runExecution(ctx context.Context, name, artifactName string, logger toolkit.Logger, original *Scenario,
-	run func(context.Context, string, toolkit.Logger, *Scenario) error,
+func runExecution(ctx context.Context, name, artifactName string, original *Scenario,
+	run func(context.Context, string, *Scenario) error,
 ) (outcome Outcome) {
 	cleanup := &scenarioCleanup{}
 	var s *Scenario
@@ -64,7 +62,7 @@ func runExecution(ctx context.Context, name, artifactName string, logger toolkit
 			return outcome
 		}
 	}
-	runErr = run(ctx, name, logger, s)
+	runErr = run(ctx, name, s)
 	return outcome
 }
 
@@ -78,4 +76,28 @@ func (s *Scenario) EffectiveTags() Tags {
 		tags.ImageName = s.VHD.Name
 	}
 	return tags
+}
+
+// NBCSamplingOS identifies ordinary Linux provisioning scenarios whose validations
+// also apply to NBC-command execution. Specialized delivery and caching tests stay unchanged.
+func (s *Scenario) NBCSamplingOS() string {
+	if s == nil || s.VHD == nil || !s.VHD.SupportsScriptless() || scriptlessUnsupported(s) ||
+		s.ExcludeFromNBCSampling || s.ForceScriptlessNBCCSECmd || s.Tags.Scriptless || s.VHDCaching ||
+		s.SkipReason != "" || s.SkipIf != nil || s.ExpectedError != "" ||
+		s.SkipDefaultValidation || s.SkipSSHConnectivityValidation ||
+		s.ScriptHotfixFixture != nil || s.ANCHotfixFlowFixture {
+		return ""
+	}
+	switch {
+	case s.VHD.Distro.Is2204VHDDistro():
+		return "Ubuntu2204"
+	case s.VHD.Distro.Is2404VHDDistro():
+		return "Ubuntu2404"
+	case s.VHD.Distro.Is2604VHDDistro():
+		return "Ubuntu2604"
+	case s.VHD.Distro.IsAzureLinuxV3Distro():
+		return "AzureLinuxV3"
+	default:
+		return ""
+	}
 }

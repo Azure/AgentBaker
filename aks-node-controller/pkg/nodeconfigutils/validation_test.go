@@ -1,0 +1,314 @@
+package nodeconfigutils
+
+import (
+	"testing"
+
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+)
+
+func TestContainerdImagePullValidationWithoutKubelet(t *testing.T) {
+	for _, timeout := range []string{"0", "0s", "30s", "5m", "1m30s"} {
+		cfg := &aksnodeconfigv1.Configuration{
+			Version: "v1",
+			ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
+				ImagePullWithSyncFs:      proto.Bool(false),
+				ImagePullProgressTimeout: proto.String(timeout),
+			},
+		}
+		require.NoError(t, validateAndNormalize(cfg))
+		require.NoError(t, validateAndNormalize(cfg))
+		require.Equal(t, timeout, cfg.ContainerdConfig.GetImagePullProgressTimeout())
+	}
+	for _, timeout := range []string{"", "-1s", "invalid", "5", "999999999999999999999h", "5m\n"} {
+		cfg := &aksnodeconfigv1.Configuration{
+			Version:          "v1",
+			ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{ImagePullProgressTimeout: proto.String(timeout)},
+		}
+		require.ErrorContains(t, validateAndNormalize(cfg), "containerd_config.image_pull_progress_timeout")
+	}
+	require.NoError(t, validateAndNormalize(&aksnodeconfigv1.Configuration{Version: "v1"}))
+}
+
+func TestValidateAndNormalize(t *testing.T) {
+	for _, version := range []string{"1.10.0", "1.11.0", "1.20.0", "1.24.0", "1.25.0", "1.34.0", "1.34.0-rc.1"} {
+		t.Run(version, func(t *testing.T) {
+			cfg := &aksnodeconfigv1.Configuration{
+				Version: "v1", KubernetesVersion: version,
+				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: true,
+					KubeletFlags: map[string]string{
+						"--dynamic-config-dir": "old", "--non-masquerade-cidr": "old",
+						"--cni-bin-dir": "old", "--cni-cache-dir": "old", "--cni-conf-dir": "old",
+						"--docker-endpoint": "old", "--image-pull-progress-deadline": "old",
+						"--network-plugin": "old", "--network-plugin-mtu": "old",
+						"--feature-gates":                     "Other=true,DynamicKubeletConfig=true",
+						"--streaming-connection-idle-timeout": "4h",
+						"--max-pods":                          "30",
+					},
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+						ServerTlsBootstrap:             true,
+						FeatureGates:                   map[string]bool{"Other": true, "DynamicKubeletConfig": true},
+						StreamingConnectionIdleTimeout: "4h",
+					},
+				},
+			}
+			require.NoError(t, validateAndNormalize(cfg))
+			flags := cfg.KubeletConfig.KubeletFlags
+			for _, key := range []string{
+				"--dynamic-config-dir", "--non-masquerade-cidr", "--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir",
+				"--docker-endpoint", "--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu",
+			} {
+				require.NotContains(t, flags, key)
+			}
+			require.Equal(t, "30", flags["--max-pods"])
+			require.Contains(t, flags["--feature-gates"], "Other=true")
+			require.Contains(t, flags["--feature-gates"], "RotateKubeletServerCertificate=true")
+			file := cfg.KubeletConfig.KubeletConfigFileConfig
+			require.True(t, file.FeatureGates["RotateKubeletServerCertificate"])
+			switch version {
+			case "1.10.0":
+				require.True(t, file.FeatureGates["DynamicKubeletConfig"])
+				require.Contains(t, flags["--feature-gates"], "DynamicKubeletConfig=true")
+			case "1.11.0", "1.20.0":
+				require.Contains(t, flags["--feature-gates"], "DynamicKubeletConfig=false")
+				require.Contains(t, file.FeatureGates, "DynamicKubeletConfig")
+				require.False(t, file.FeatureGates["DynamicKubeletConfig"])
+			default:
+				require.NotContains(t, flags["--feature-gates"], "DynamicKubeletConfig")
+				require.NotContains(t, file.FeatureGates, "DynamicKubeletConfig")
+			}
+			if version == "1.20.0" || version == "1.24.0" {
+				require.Contains(t, flags["--feature-gates"], "DisableAcceleratorUsageMetrics=false")
+				require.Contains(t, file.FeatureGates, "DisableAcceleratorUsageMetrics")
+				require.False(t, file.FeatureGates["DisableAcceleratorUsageMetrics"])
+			} else {
+				require.NotContains(t, flags["--feature-gates"], "DisableAcceleratorUsageMetrics")
+			}
+			if version == "1.34.0" {
+				require.NotContains(t, flags, "--streaming-connection-idle-timeout")
+				require.Empty(t, file.StreamingConnectionIdleTimeout)
+			} else {
+				require.Equal(t, "4h", flags["--streaming-connection-idle-timeout"])
+				require.Equal(t, "4h", file.StreamingConnectionIdleTimeout)
+			}
+			before := proto.Clone(cfg)
+			require.NoError(t, validateAndNormalize(cfg))
+			require.True(t, proto.Equal(before, cfg), "normalization must be idempotent")
+		})
+	}
+}
+
+func TestValidateAndNormalizeRuntimeClassInImageCriApi(t *testing.T) {
+	const rpGates = "RotateKubeletServerCertificate=true"
+	for _, tc := range []struct {
+		name      string
+		isKata    bool
+		version   string
+		gates     string
+		wantGates string
+	}{
+		{"kata 1.29 defaults the gate", true, "1.29.0", rpGates, rpGates + ",RuntimeClassInImageCriApi=true"},
+		{"kata 1.36 defaults the gate", true, "1.36.4", rpGates, rpGates + ",RuntimeClassInImageCriApi=true"},
+		{"kata without RP gates defaults the gate", true, "1.36.4", "", "RuntimeClassInImageCriApi=true"},
+		{"kata 1.28 predates the gate", true, "1.28.15", rpGates, rpGates},
+		{"non-kata is unchanged", false, "1.36.4", rpGates, rpGates},
+		{"RP opt-out is preserved", true, "1.36.4", rpGates + ",RuntimeClassInImageCriApi=false", rpGates + ",RuntimeClassInImageCriApi=false"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wantGates, err := parseFeatureGates(tc.wantGates)
+			require.NoError(t, err)
+			fileGates, err := parseFeatureGates(tc.gates)
+			require.NoError(t, err)
+			for _, cfg := range []*aksnodeconfigv1.Configuration{
+				{
+					Version: "v1", KubernetesVersion: tc.version, IsKata: tc.isKata,
+					KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+						KubeletFlags: map[string]string{"--feature-gates": tc.gates},
+					},
+				},
+				{
+					Version: "v1", KubernetesVersion: tc.version, IsKata: tc.isKata,
+					KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+						EnableKubeletConfigFile: true,
+						KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{FeatureGates: fileGates},
+					},
+				},
+			} {
+				require.NoError(t, validateAndNormalize(cfg))
+				kubelet := cfg.KubeletConfig
+				if kubelet.EnableKubeletConfigFile {
+					require.Equal(t, wantGates, kubelet.KubeletConfigFileConfig.FeatureGates)
+					require.NotContains(t, kubelet.KubeletFlags, "--feature-gates")
+				} else {
+					require.Equal(t, tc.wantGates, kubelet.KubeletFlags["--feature-gates"])
+				}
+				before := proto.Clone(cfg)
+				require.NoError(t, validateAndNormalize(cfg))
+				require.True(t, proto.Equal(before, cfg), "normalization must be idempotent")
+			}
+		})
+	}
+}
+
+func TestValidateAndNormalizeRuntimeClassInImageCriApiMixedSources(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		configFile bool
+		flags      map[string]string
+		fileGates  map[string]bool
+		wantFlag   string
+		wantFile   map[string]bool
+	}{
+		{
+			"file opt-out survives unrelated CLI gates", true,
+			map[string]string{"--feature-gates": "Other=true"}, map[string]bool{"RuntimeClassInImageCriApi": false},
+			"Other=true", map[string]bool{"RuntimeClassInImageCriApi": false},
+		},
+		{
+			"file opt-out survives CLI serving rotation", true,
+			map[string]string{"--rotate-server-certificates": "true"}, map[string]bool{"RuntimeClassInImageCriApi": false},
+			"RotateKubeletServerCertificate=true", map[string]bool{"RuntimeClassInImageCriApi": false},
+		},
+		{
+			"CLI opt-out is not contradicted by the file", true,
+			map[string]string{"--feature-gates": "RuntimeClassInImageCriApi=false"}, map[string]bool{},
+			"RuntimeClassInImageCriApi=false", map[string]bool{},
+		},
+		{
+			"default applies to both sources", true,
+			map[string]string{"--feature-gates": "Other=true"}, map[string]bool{},
+			"Other=true,RuntimeClassInImageCriApi=true", map[string]bool{"RuntimeClassInImageCriApi": true},
+		},
+		{
+			"unused config file does not suppress the CLI default", false,
+			map[string]string{"--feature-gates": "Other=true"}, map[string]bool{"RuntimeClassInImageCriApi": false},
+			"Other=true,RuntimeClassInImageCriApi=true", map[string]bool{"RuntimeClassInImageCriApi": false},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &aksnodeconfigv1.Configuration{
+				Version: "v1", KubernetesVersion: "1.36.4", IsKata: true,
+				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: tc.configFile,
+					KubeletFlags:            tc.flags,
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{FeatureGates: tc.fileGates},
+				},
+			}
+			require.NoError(t, validateAndNormalize(cfg))
+			require.Equal(t, tc.wantFlag, cfg.KubeletConfig.KubeletFlags["--feature-gates"])
+			require.Equal(t, tc.wantFile, cfg.KubeletConfig.KubeletConfigFileConfig.FeatureGates)
+			before := proto.Clone(cfg)
+			require.NoError(t, validateAndNormalize(cfg))
+			require.True(t, proto.Equal(before, cfg), "normalization must be idempotent")
+		})
+	}
+}
+
+func TestValidateAndNormalizeErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		cfg  *aksnodeconfigv1.Configuration
+		want string
+	}{
+		{"nil", nil, "AKSNodeConfig is required"},
+		{"version", &aksnodeconfigv1.Configuration{Version: "bad"}, "unsupported version"},
+		{"kubernetes", &aksnodeconfigv1.Configuration{
+			Version: "v1", KubernetesVersion: "bad", KubeletConfig: &aksnodeconfigv1.KubeletConfig{},
+		}, "invalid kubernetes_version"},
+		{"hugepages", &aksnodeconfigv1.Configuration{
+			Version: "v1", CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{TransparentHugepageSupport: "bad"},
+		}, "transparent_hugepage_support"},
+		{"defrag", &aksnodeconfigv1.Configuration{Version: "v1", CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{TransparentDefrag: "bad"}}, "transparent_defrag"},
+		{"gate", &aksnodeconfigv1.Configuration{
+			Version: "v1", KubernetesVersion: "1.34.0",
+			KubeletConfig: &aksnodeconfigv1.KubeletConfig{KubeletFlags: map[string]string{"--feature-gates": "Other=bad"}},
+		}, "invalid kubelet feature gate"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.ErrorContains(t, validateAndNormalize(tc.cfg), tc.want)
+		})
+	}
+	for _, enabled := range []string{"", "always", "madvise", "never"} {
+		for _, defrag := range []string{"", "always", "defer", "defer+madvise", "madvise", "never"} {
+			require.NoError(t, validateAndNormalize(&aksnodeconfigv1.Configuration{
+				Version: "v0",
+				CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOsConfig{
+					TransparentHugepageSupport: enabled, TransparentDefrag: defrag,
+				},
+			}))
+		}
+	}
+}
+
+func TestNormalizeReservedCgroups(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		flags    map[string]string
+		file     bool
+		enforced []string
+		want     bool
+	}{
+		{"flags", map[string]string{"--enforce-node-allocatable": "[pods, kube-reserved, system-reserved]"}, false, nil, true},
+		{"partial", map[string]string{"--enforce-node-allocatable": "pods,kube-reserved"}, false, nil, false},
+		{"file", nil, true, []string{"pods", "kube-reserved", "system-reserved"}, true},
+		{"flags override file", map[string]string{"--enforce-node-allocatable": "pods"}, true, []string{"kube-reserved", "system-reserved"}, false},
+		{"inactive file", nil, false, []string{"kube-reserved", "system-reserved"}, false},
+		{"nil flags", nil, true, nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &aksnodeconfigv1.Configuration{
+				Version: "v1", KubernetesVersion: "1.34.0",
+				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: tc.file,
+					KubeletFlags:            tc.flags,
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+						EnforceNodeAllocatable: tc.enforced,
+						KubeReservedCgroup:     "untrusted", SystemReservedCgroup: "untrusted",
+					},
+				},
+			}
+			if tc.flags != nil {
+				tc.flags["--kube-reserved-cgroup"] = "untrusted"
+				tc.flags["--system-reserved-cgroup"] = "untrusted"
+			}
+			require.NoError(t, validateAndNormalize(cfg))
+			file := cfg.KubeletConfig.KubeletConfigFileConfig
+			if tc.want {
+				require.Equal(t, "/kubereserved.slice", file.KubeReservedCgroup)
+				require.Equal(t, "/system.slice", file.SystemReservedCgroup)
+			} else {
+				require.Empty(t, file.KubeReservedCgroup)
+				require.Empty(t, file.SystemReservedCgroup)
+			}
+			if tc.want && tc.flags != nil {
+				require.Equal(t, "/kubereserved.slice", tc.flags["--kube-reserved-cgroup"])
+				require.Equal(t, "/system.slice", tc.flags["--system-reserved-cgroup"])
+			} else {
+				require.NotContains(t, cfg.KubeletConfig.KubeletFlags, "--kube-reserved-cgroup")
+				require.NotContains(t, cfg.KubeletConfig.KubeletFlags, "--system-reserved-cgroup")
+			}
+		})
+	}
+}
+
+func TestValidateChecksRequiredFieldsThenNormalizes(t *testing.T) {
+	require.ErrorContains(t, Validate(&aksnodeconfigv1.Configuration{Version: "v1"}), "required field")
+
+	cfg := &aksnodeconfigv1.Configuration{
+		Version:         "v1",
+		AuthConfig:      &aksnodeconfigv1.AuthConfig{SubscriptionId: "sub"},
+		ApiServerConfig: &aksnodeconfigv1.ApiServerConfig{ApiServerName: "api"},
+		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+			ResourceGroup: "rg", Location: "westus2",
+			ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{VnetName: "vnet", RouteTable: "rt"},
+		},
+		KubernetesVersion: "1.34.0",
+		KubeletConfig: &aksnodeconfigv1.KubeletConfig{
+			KubeletFlags: map[string]string{"--docker-endpoint": "old"},
+		},
+	}
+	require.NoError(t, Validate(cfg))
+	require.NotContains(t, cfg.KubeletConfig.KubeletFlags, "--docker-endpoint")
+}

@@ -15,6 +15,14 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   enable_tar_index = false
 {{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
+{{- with .GetContainerdConfig }}
+  {{- if ne .ImagePullWithSyncFs nil }}
+  image_pull_with_sync_fs = {{ .GetImagePullWithSyncFs }}
+  {{- end }}
+  {{- if ne .ImagePullProgressTimeout nil }}
+  image_pull_progress_timeout = "{{ .GetImagePullProgressTimeout }}"
+  {{- end }}
+{{- end }}
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if .GetIsKata }}
@@ -60,25 +68,18 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 {{- if .GetIsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
   snapshotter = "overlayfs"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  CriuPath = ""
-  SystemdCgroup = false
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview]
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-preview.options]
-    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-preview.toml"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"

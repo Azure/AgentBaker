@@ -110,7 +110,6 @@ $global:KubeletNodeLabels="{{GetAgentKubernetesLabels .}}"
 $global:KubeletNodeLabels="{{GetAgentKubernetesLabelsDeprecated .}}"
 {{end}}
 $global:KubeletConfigArgs=@( {{GetKubeletConfigKeyValsPsh}} )
-$global:KubeletHealthzEndpoint="{{GetKubeletHealthzEndpoint}}"
 $global:KubeproxyConfigArgs=@( {{GetKubeproxyConfigKeyValsPsh}} )
 
 $global:KubeproxyFeatureGates=@( {{GetKubeProxyFeatureGatesPsh}} )
@@ -348,6 +347,8 @@ function Get-HelperScripts {
         'c:\AzureData\windows\securetlsbootstrapfunc.ps1'
         'c:\AzureData\windows\windowsciliumnetworkingfunc.ps1'
         'c:\AzureData\windows\networkisolatedclusterfunc.ps1'
+        'c:\AzureData\windows\sshfunc.ps1'
+        'c:\AzureData\windows\windowsexporterfunc.ps1'
     )
 
     foreach ($script in $optionalFunctionScripts) {
@@ -451,6 +452,21 @@ function BasePrep {
         New-HostsConfigService
     }
 
+    # Register the VHD-baked exporter disabled here, after Get-KubePackage provides
+    # nssm.exe. NodePrep enables and starts it, so PIS-cached images never start it early.
+    if (Get-Command -Name Register-WindowsExporter -ErrorAction SilentlyContinue) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.RegisterWindowsExporter" -TaskMessage "Register aks-windows-exporter if VHD-baked"
+        try {
+            if (-not (Register-WindowsExporter)) {
+                Write-Log "aks-windows-exporter registration failed; NodePrep will retry registration"
+            }
+        } catch {
+            Write-Log "aks-windows-exporter registration failed: $_; NodePrep will retry registration"
+        }
+    } else {
+        Write-Log "Register-WindowsExporter not available; skipping exporter registration"
+    }
+
     Set-Explorer
     Adjust-PageFileSize
     Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
@@ -486,6 +502,16 @@ function BasePrep {
 # ====== NODE PREP: CLUSTER INTEGRATION ======
 # All operations that should only run when connecting to the actual cluster
 function NodePrep {
+    # Apply the live node policy even when BasePrep was cached in a PIS image.
+    $sshEnabled=[System.Convert]::ToBoolean("{{WindowsSSHEnabled}}")
+    # Older VHD bundles have an enabled-only implementation; preserve their behavior.
+    $installOpenSSH = Get-Command -Name Install-OpenSSH -CommandType Function -ErrorAction SilentlyContinue
+    if ($installOpenSSH -and $installOpenSSH.Parameters.ContainsKey('Enabled')) {
+        Install-OpenSSH -Enabled $sshEnabled -SSHKeys $global:SSHKeys
+    } else {
+        Write-Log "The CSE bundle does not support live SSH policy enforcement; preserving legacy behavior"
+    }
+
     # Write the kubeconfigs here, not in BasePrep: BasePrep is skipped on
     # PIS/VHD-cached nodes, so anything written there is baked with stale
     # bake-time values. Both are only consumed in NodePrep, so write them from
@@ -576,6 +602,21 @@ function NodePrep {
 
     Install-KubernetesServices -KubeDir $global:KubeDir
     Update-ServiceFailureActions
+
+    # BasePrep registers the VHD-baked exporter disabled; enable, start, and
+    # validate it here so PIS nodes only run it on their real first boot.
+    if (Get-Command -Name Enable-WindowsExporter -ErrorAction SilentlyContinue) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableWindowsExporter" -TaskMessage "Enable aks-windows-exporter if VHD-baked"
+        try {
+            if (-not (Enable-WindowsExporter)) {
+                Write-Log "aks-windows-exporter startup failed; continuing node provisioning without enabling extension fallback"
+            }
+        } catch {
+            Write-Log "aks-windows-exporter startup failed: $_; continuing node provisioning without enabling extension fallback"
+        }
+    } else {
+        Write-Log "Enable-WindowsExporter not available; skipping exporter startup (extension skip-marker state was not modified)"
+    }
 
     Write-Log "Starting NodePrep - Cluster integration"
     Logs-To-Event -TaskName "AKS.WindowsCSE.NodePrep" -TaskMessage "Starting NodePrep - Cluster integration"

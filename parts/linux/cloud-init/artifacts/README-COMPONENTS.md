@@ -93,6 +93,7 @@ Please refer to [components.cue](../../../../schemas/components.cue) for the mos
 	mariner?:      #MarinerOSDistro
 	marinerkata?:  #MarinerOSDistro
 	azurelinux?:   #AzureLinuxOSDistro
+	azurecontainerlinux?: #AzureContainerLinuxOSDistro
 }
 ```
 
@@ -113,6 +114,9 @@ Please refer to [components.cue](../../../../schemas/components.cue) for the mos
   "v3.0"?:  #ReleaseDownloadURI
 	"DEFAULT/v3.0"?: #ReleaseDownloadURI
 	"OSGUARD/v3.0"?: #ReleaseDownloadURI
+	current?: #ReleaseDownloadURI
+}
+#AzureContainerLinuxOSDistro: {
 	current?: #ReleaseDownloadURI
 }
 ```
@@ -139,6 +143,7 @@ Here are the explanation of the above schema.
     - In `UbuntuOSDistro`, we can define different OS release versions. For example, `r2404` implies release 24.04.
      - In `MarinerOSDistro`, we only have `current` now, which implies that single configurations will be applied to all Mariner release versions. We can distinguish them in needed. Note, we confirmed with Mariner team, Azure Linux 2.0 is reporting itself as `mariner` in the file `/etc/os-release`. So for Azure Linux 2.0 case, it will still read the package versions from `mariner` block.
     - In `AzureLinuxOSDistro`, `v3.0` is for Azure Linux v3.0. `current` is for otherwise but we are not using it now. Azure Linux 2.0 case is described in the `MarinerOSDistro` above. 
+    - In `AzureContainerLinuxOSDistro`, `current` defines ACL-specific metadata. When it is absent, ACL falls back to `flatcar.current`, then `default.current`.
     - `DefaultOSDistro` means the default case of OS Distro. If an OSDistro metadata is not defined, it will fetch it from `default`. For example, if a node is Ubuntu 20.04, but we don't specify `ubuntu` in components.json, then it will fetch `default.current`. For another example, if only `default.current` is specified in the components.json, No matter what OSDistro is the node running, it will only fetch `default.current` because it's the default metadata. This provides flexibility while elimiating unnecessary duplication when defining the metadata.
 1. The OS release version can optionally be prefixed with the OS variant. `OSGUARD/v3.0` and `DEFAULT/v3.0` are currently supported for `azurelinux`. The latter specifically matches Azure Linux 3.0 without a variant, i.e. not OS Guard.
 1. In `ReleaseDownloadURI`, you can see 2 keys.
@@ -208,6 +213,18 @@ Please note that each minor version can only have 2 patch versions at most, whic
 ```
 
 For a `package`, you will need to add these under `versionsV2`.
+
+Package-backed component entries use revisionless upstream versions whenever the distro revision is not part of the component's compatibility contract. This includes kubelet, kubectl, runc, containerd, CNI plugins, CRI tools, Inspektor Gadget, the ACR credential provider, the secure TLS bootstrap client, managed NVIDIA components, and node exporter. During VHD build and node provisioning, AgentBaker resolves each version to the newest matching DEB or RPM revision available in the configured repository.
+
+The `ig-gadgets` versions remain in `install-ig.sh` because their publication differs from the `ig` package. Renovate tracks their upstream version from the PMC feeds, and the VHD build resolves the latest matching DEB or RPM revision.
+
+Trivy uses one `TRIVY_PMC_VERSION` in `trivy-scan.sh` for Ubuntu and Azure Linux, specified as `major.minor.patch`; scanning resolves the latest matching DEB or RPM revision for the selected distro. Renovate tracks the PMC RPM feed and strips package revisions from updates. The separate GitHub fallback version continues to track actual upstream releases for SKUs without PMC packages.
+
+Each resolution is logged as `requested -> full package version` and written to the VHD release notes. The release notes also include the distro's complete installed-package inventory; explicit resolution entries cover packages that are cached or unpacked without being registered as installed packages.
+
+ORAS uses PMC packages on Ubuntu 22.04, 24.04, and 26.04 and Azure Linux 3.0. The Ubuntu package is named `az-oras` but provides the `oras` executable. Ubuntu 20.04 and other distros without a PMC package entry continue to use the upstream release archive.
+
+The Windows ORAS entry pins the full DALEC package version, including its revision (for example, `1.3.6-1`). Its URL uses `${versionNoBuild}` for the upstream-version directory and `${version}` for the ZIP filename. Like the Windows DALEC credential-provider packages, this entry is updated manually after confirming that the ZIP is published. `packages.aks.azure.com` is backed by a storage account, not a package repository, and no listing or version index is available for its Windows artifacts. Renovate therefore cannot discover published Windows versions there, so the entry uses `<DO_NOT_UPDATE>`.
 
 ## Can I keep only 1 patch version?
 Yes. Just place the latest version of the component in `latestVersion`. `previousLatestVersion` is optional.

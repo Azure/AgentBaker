@@ -47,11 +47,24 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
+# configureEtcEnvironment persists these values, but the current CSE process needs them immediately.
+if [ -n "${HTTP_PROXY_URLS}" ]; then
+    export HTTP_PROXY="${HTTP_PROXY_URLS}"
+    export http_proxy="${HTTP_PROXY_URLS}"
+fi
+if [ -n "${HTTPS_PROXY_URLS}" ]; then
+    export HTTPS_PROXY="${HTTPS_PROXY_URLS}"
+    export https_proxy="${HTTPS_PROXY_URLS}"
+fi
+if [ -n "${NO_PROXY_URLS}" ]; then
+    export NO_PROXY="${NO_PROXY_URLS}"
+    export no_proxy="${NO_PROXY_URLS}"
+fi
+
 # Disable a single kernel module with a known LPE vulnerability.
 # Writes a modprobe blacklist rule and unloads the module if loaded.
 # Safe to run repeatedly during VHD build or provisioning; idempotent (overwrites with same content if already present).
 # Defined in cse_main.sh (not sourced) to support scriptless provisioning.
-#
 # Usage: disableVulnerableKernelModule <module_name> <description>
 disableVulnerableKernelModule() {
     local mod="$1"
@@ -108,7 +121,6 @@ reconcileVulnerableKernelModuleMitigation() {
     # future VHDs, while nodePrep covers PIS-cached or already-released VHDs that may skip
     # basePrep or carry stale modprobe files.
     # To add a new CVE mitigation, add a disableVulnerableKernelModule call below.
-    #
     # Ubuntu 20.04 remains in scope except 5.4.0-1164-azure-fips and newer ABIs in the
     # 5.4 Azure FIPS stream: linux-azure-fips 5.4.0-1164.170+fips1 fixes Copy Fail and
     # DirtyFrag; Focal 5.4 is not affected by Fragnesia. Other 20.04 streams stay blocked.
@@ -119,7 +131,6 @@ reconcileVulnerableKernelModuleMitigation() {
     # 6.8.0-1058-azure (generic fallback 6.8.0-124-generic). Keep the apply for older
     # or unknown 22.04 / 24.04 kernel flavors. Fixed 22.04 / 24.04 kernels remove stale
     # deny rules so in-support VHDs no longer block legitimate module use after the fix.
-    #
     # AzureLinux 3.0 (regular and Kata) is excluded: kernel 6.6.139.1-1.azl3 and later fix Copy
     # Fail / DirtyFrag / Fragnesia upstream, so the modprobe blacklist is no longer
     # required. Newly-built AzL3 VHDs also no longer ship the four entries in modprobe-CIS.conf;
@@ -130,12 +141,10 @@ reconcileVulnerableKernelModuleMitigation() {
     # VHD upgrade. AzureLinux OSGuard (hardened secure-boot variant) is intentionally kept in
     # scope as defense-in-depth: OSGuard workloads are security-sensitive and do not require
     # the affected kernel modules.
-    #
     # Mariner / AzureLinux 2.0 (AzL2) images are frozen (see FrozenCBLMarinerV2AndAzureLinuxV2SIGImageVersion=202512.06.0),
     # so they cannot pick up new modprobe-CIS.conf entries for these 2026 CVEs via VHD refresh.
     # Keep the runtime apply enabled for AzL2/Mariner while those images remain supported.
     # See https://github.com/Azure/AKS/issues/5753.
-    #
     if isUbuntu "$OS"; then
         if ubuntuKernelNeedsVulnerableModuleMitigation; then
             disableVulnerableKernelModule "algif_aead" "CVE-2026-31431 (Copy Fail)"
@@ -182,13 +191,6 @@ function basePrep {
         apt-get -y autoremove chrony
         echo $?
         systemctl restart systemd-timesyncd
-    fi
-
-    # Eval proxy vars to ensure curl commands use proxy if configured.
-    # e.g. PROXY_VARS=`export HTTPS_PROXY="https://proxy.example.com:8080"; export http_proxy="http://proxy.example.com:8080"; export NO_PROXY="127.0.0.1,localhost";`
-    # Setting vars in etc environment (configureEtcEnvironment) won't take effect in current shell session.
-    if [ -n "${PROXY_VARS}" ]; then
-        eval $PROXY_VARS
     fi
 
     resolve_packages_source_url
@@ -396,8 +398,24 @@ EOF
         fi
     fi
 
-    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+    # Defer ACL artifact streaming to nodePrep: keep sysext services masked
+    # during PIS image preparation and activate them on the real node.
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && ! isACL "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+    fi
+
+    # Determine if GPU driver installation should be skipped
+    local skip_gpu_driver_install
+    skip_gpu_driver_install=$(should_skip_nvidia_drivers)
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to determine if nvidia driver install should be skipped"
+        exit $ERR_NVIDIA_DRIVER_INSTALL
+    fi
+
+    # Clean up GPU drivers before customer customization. Derived PIS nodes skip
+    # basePrep, so their customer-installed drivers are preserved.
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_gpu_driver_install}" = "true" ]; then
+        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
     fi
 
     # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
@@ -412,7 +430,7 @@ EOF
     if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
         echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
         createManDbAutoUpdateFlagFile
-        /usr/bin/mandb && echo "man-db finished updates at $(date)" &
+        /usr/bin/mandb >/dev/null 2>&1 && echo "man-db finished updates at $(date)" &
     fi
 }
 
@@ -442,7 +460,7 @@ function nodePrep {
 
     # This function first creates the systemd drop-in directory for kubelet.service.
     # Pay attention to ordering relative to other functions that create kubelet drop-ins.
-    logs_to_events "AKS.CSE.configureK8s" configureK8s
+    logs_to_events "AKS.CSE.configureK8s" configureK8s || exit "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
@@ -450,9 +468,12 @@ function nodePrep {
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
-        if [ -n "${PROXY_VARS}" ]; then
-            eval $PROXY_VARS
-        fi
+        # OUTBOUND_COMMAND is intentionally expanded unquoted here (not a scanner oversight):
+        # it is a full shell command (e.g. `curl -v --insecure --proxy-insecure <url>`) built by
+        # the RP from config.OutboundType/CloudSpecConfig (see GetOutboundCommand in baker.go),
+        # not an arbitrary string from an external caller. Quoting it would break word-splitting
+        # into argv and make the outbound connectivity check fail to execute. Do not add quotes
+        # here without also changing it to an array (e.g. OUTBOUND_COMMAND=(...)) end to end.
         retrycmd_if_failure 20 1 15 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
     fi
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
@@ -503,8 +524,8 @@ function nodePrep {
             elif isACL "$OS" "$OS_VARIANT"; then
                 logs_to_events "AKS.CSE.installNvidiaFabricManagerSysext" installNvidiaFabricManagerSysext
             fi
-            # Start fabric manager service
-            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+            # NVSwitch fabric initialization can exceed 30s; let it finish before retrying.
+            logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 60" || exit $ERR_GPU_DRIVERS_START_FAIL
         else
             # Disable fabric manager service if it's not needed
             # The NVIDIA driver installation may automatically enable this service,
@@ -615,6 +636,11 @@ function nodePrep {
         checkServiceHealth secure-tls-bootstrap || true
     fi
 
+    # Runs before ensureKubelet so the KMPP node label is in --node-labels at kubelet startup.
+    if [ "${ENABLE_KMPP}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureKMPP" configureKMPP || exit $?
+    fi
+
     # Add localdns-exporter kubelet node label before ensureKubelet so it's
     # included in --node-labels at kubelet startup (~0ms, just a variable append).
     # Only add the label if the exporter socket unit exists on this VHD — otherwise
@@ -622,6 +648,11 @@ function nodePrep {
     # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && systemctl cat localdns-exporter.socket &>/dev/null; then
         addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
+    fi
+
+    # Keep ACL sysexts masked during PIS image preparation; configure them on the real node.
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && isACL "$OS" "$OS_VARIANT"; then
+        logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
@@ -637,12 +668,8 @@ function nodePrep {
     fi
 
     logs_to_events "AKS.CSE.configureNodeExporter" configureNodeExporter
+    logs_to_events "AKS.CSE.configureNodeProblemDetector" configureNodeProblemDetector
 
-
-    # Clean up GPU drivers if not a GPU node or if skipping driver install
-    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
-        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-    fi
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
 
@@ -662,6 +689,8 @@ function nodePrep {
             logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
         fi
     fi
+
+    logs_to_events "AKS.CSE.enableAndStartCgroupTelemetry" enableAndStartCgroupTelemetry
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
@@ -726,24 +755,27 @@ function nodePrep {
 }
 
 # The provisioning is split into two stages to support VHD image creation workflows:
-#
 # basePrep: Base image preparation
 #   - Installs and configures all required components (kubelet, containerd, etc.)
 #   - Sets up system configurations that are common across all nodes
 #   - DOES NOT join the node to any cluster
 #   - After this stage, users can add customizations (e.g., pre-pull additional container images)
 #   - The VM can then be captured as a VHD image for use as a node pool base image
-#
 # nodePrep: Cluster integration and hardware setup
 #   - Performs cluster-specific configurations
 #   - Configures hardware-specific components (GPU drivers, MIG partitions, etc.)
 #   - Establishes connection to the API server
 #   - Joins the node to the cluster
 #   - Only runs when actually provisioning a node, not when creating VHD images
-#
 # In typical deployments, both stages run sequentially during node provisioning.
 # For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
 # when nodes are created from that VHD image.
+if declare -F configure_node_time_sync_or_report_error >/dev/null; then
+    logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync_or_report_error || exit $?
+else
+    echo "WARNING: configure_node_time_sync_or_report_error function not found; skipping node time sync configuration"
+fi
+
 if [ ! -f /opt/azure/containers/base_prep.complete ]; then
     basePrep
 else

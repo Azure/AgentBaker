@@ -96,6 +96,43 @@
       "enabled": true
     },
     {
+      "matchDatasources": [
+        "custom.deb2004",
+        "custom.deb2204",
+        "custom.deb2404",
+        "custom.deb2604",
+        "custom.nvidia-deb2204",
+        "custom.nvidia-deb2404",
+        "custom.nvidia-deb2604",
+        "custom.nvidia-rpm-azl3",
+        "rpm"
+      ],
+      "matchPackageNames": [
+        "aks-secure-tls-bootstrap-client",
+        "azure-acr-credential-provider",
+        "az-oras",
+        "containernetworking-plugins",
+        "containerd2",
+        "datacenter-gpu-manager-4-core",
+        "datacenter-gpu-manager-4-proprietary",
+        "dcgm-exporter",
+        "dra-driver-nvidia-gpu",
+        "ig",
+        "kubelet",
+        "kubectl",
+        "kubernetes-cri-tools",
+        "moby-containerd",
+        "moby-runc",
+        "node-exporter-kubernetes",
+        "node-problem-detector-aks-config",
+        "node-problem-detector-kubernetes",
+        "nvidia-device-plugin",
+        "oras"
+      ],
+      "extractVersion": "^(?:\\d+:)?(?<version>\\d+\\.\\d+\\.\\d+)(?:[-+].*)?$",
+      "versioning": "semver"
+    },
+    {
       "matchPackageNames": [
         "moby-runc",
         "moby-containerd",
@@ -199,7 +236,8 @@
     {
       "matchPackageNames": [
         "azure-cni",
-        "containernetworking/azure-cni"
+        "containernetworking/azure-cni",
+        "containernetworking/v2/azure-cni"
       ],
       "groupName": "azure-cni",
       "reviewers": [
@@ -284,7 +322,8 @@
     {
       "matchPackageNames": [
         "azure-cns",
-        "containernetworking/azure-cns"
+        "containernetworking/azure-cns",
+        "containernetworking/v2/azure-cns"
       ],
       "groupName": "azure-cns",
       "reviewers": [
@@ -484,7 +523,9 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes-csi/**"
+        "oss/kubernetes-csi/**",
+        "oss/v2/kubernetes-csi/**",
+        "oss/v2/azure/secrets-store/provider-azure"
       ],
       "groupName": "csi",
       "assignees": [
@@ -610,7 +651,8 @@
       ],
       "matchPackageNames": [
         "oss/v2/kubernetes/*-sysext",
-        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext",
+        "azurecontainerregistry/v2/artifact-streaming-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
       "extractVersion": "^(?<version>.+-azlinux3)-x86-64$",
@@ -671,6 +713,7 @@
       ],
       "groupName": "nvidia-gpu-grid",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?-(?<prerelease>\\d{14})$",
+      "allowedVersions": "/^580\\./",
       "automerge": false,
       "enabled": true,
       "ignoreUnstable": false,
@@ -695,6 +738,7 @@
       ],
       "groupName": "nvidia-gpu-grid-v20",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "allowedVersions": "/^595\\./",
       "automerge": false,
       "enabled": true,
       "ignoreUnstable": false,
@@ -838,6 +882,20 @@
     },
     {
       "customType": "regex",
+      "description": "auto update Nvidia DCGM packages for OS ubuntu 26.04 in components.json",
+      "managerFilePatterns": [
+        "/parts/common/components.json/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>datacenter-gpu-manager-4-core|datacenter-gpu-manager-4-proprietary), repository=nvidia, os=ubuntu, release=26\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.nvidia-deb2604",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, repository=nvidia, os=ubuntu, release=26.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
       "description": "auto update packages for OS ubuntu 24.04 (test registry) in components.json",
       "managerFilePatterns": [
         "/parts/common/components.json/"
@@ -952,18 +1010,20 @@
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*IG_GADGETS_[A-Z_]+_VERSION=\\\"(?<currentValue>[^\\\"]+)\\\""
-      ]
+      ],
+      "extractVersionTemplate": "^(?<version>\\d+\\.\\d+\\.\\d+).*$"
     },
     {
       "customType": "regex",
-      "description": "auto update trivy version in trivy-scan.sh from PMC",
+      "description": "auto update revisionless trivy versions in trivy-scan.sh",
       "managerFilePatterns": [
         "/trivy-scan\\.sh/"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
         "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s*\\n[^\\n]*VERSION=\"(?<currentValue>[^\"]+)\""
-      ]
+      ],
+      "extractVersionTemplate": "^v?(?<version>\\d+\\.\\d+\\.\\d+).*$"
     }
   ],
   "customDatasources": {
@@ -971,35 +1031,42 @@
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "deb2204": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "nvidia-deb2204": {
       "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "deb2404": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "nvidia-deb2404": {
       "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
+      ]
+    },
+    "nvidia-deb2604": {
+      "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "nvidia-rpm-azl3": {
@@ -1013,14 +1080,14 @@
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "deb2604": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/26.04/prod/dists/resolute/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     }
   }

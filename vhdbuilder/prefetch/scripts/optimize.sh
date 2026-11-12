@@ -68,7 +68,22 @@ main() {
     # image builder staging storage account, then copy that VHD into the target storage account
     ensure_image_builder_rg || exit $?
     run_image_builder_template || exit $?
-    copy_optimized_vhd || exit $?
+
+    local artifact_uri storage_pid gallery_pid storage_status=0
+    artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv)" || return $?
+    if [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
+        echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue"
+        return 1
+    fi
+
+    copy_optimized_vhd "${artifact_uri}" &
+    storage_pid=$!
+    copy_optimized_vhd_to_packer_gallery "${artifact_uri}" &
+    gallery_pid=$!
+
+    wait "${storage_pid}" || storage_status=$?
+    wait "${gallery_pid}" || echo "##vso[task.logissue type=warning]Generalized CVM gallery publication failed (exit $?)"
+    return "${storage_status}"
 }
 
 check_for_existing_vhd() {
@@ -173,6 +188,7 @@ need_new_template() {
 }
 
 prepare_source() {
+    # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ] || grep -q "cvm" <<< "$FEATURE_FLAGS"; then
         echo "image ${SKU_NAME} is a TL/CVM flavor, will create managed image source"
         convert_specialized_sig_version_to_managed_image || return $?
@@ -228,6 +244,7 @@ convert_specialized_sig_version_to_managed_image() {
     disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${IMAGE_BUILDER_RG_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
     if [ -z "$(az disk show --ids "${disk_resource_id}" | jq -r '.id')" ]; then
         security_type="ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey"
+        # TODO: remove ENABLE_TRUSTED_LAUNCH check once replaced by TRUSTED_LAUNCH_SUPPORTED
         if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
             security_type="TrustedLaunch"
         fi
@@ -306,6 +323,7 @@ create_temp_storage() {
 # 1. azcopy the optimized VHD into the staging container (STORAGE_ACCOUNT_BLOB_URL_STAGING)
 # 2. perform a single server-side blob copy from the staging container into the immutable vhd container
 copy_optimized_vhd() {
+    local artifact_uri="${1:?Image Builder VHD URI is required}"
     # The staging container should never have an immutability policy, so copying from image builder staging storage is
     # fully retriable. If a previous run already produced a complete staging blob (marked with the
     # prefetched metadata flag) but failed before finishing the server-side copy into the
@@ -321,11 +339,6 @@ copy_optimized_vhd() {
             delete_staging_vhd || return $?
         fi
 
-        artifact_uri="$(az resource show --ids "${IMAGE_BUILDER_TEMPLATE_ID}/runOutputs/${DISTRIBUTE_RUN_OUTPUT_NAME}" --api-version "${IMAGE_BUILDER_API_VERSION}" --query "properties.artifactUri" -o tsv 2>/dev/null)"
-        if [ -z "${artifact_uri}" ] || [ "${artifact_uri,,}" = "null" ] || [ "${artifact_uri,,}" = "none" ]; then
-            echo "unable to determine artifactUri for run output ${DISTRIBUTE_RUN_OUTPUT_NAME}, cannot continue"
-            return 1
-        fi
         echo "setting azcopy environment variables with pool identity: ${IMAGE_BUILDER_IDENTITY_ID}"
         export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
         export AZCOPY_CONCURRENCY_VALUE="AUTO"
@@ -360,6 +373,11 @@ copy_optimized_vhd() {
     delete_staging_vhd true || echo "unable to delete staging VHD ${STAGING_VHD_URI}, will proceed"
 
     echo "optimized VHD has been published to: ${VHD_URI}"
+}
+
+copy_optimized_vhd_to_packer_gallery() {
+    local artifact_uri="${1:?Image Builder VHD URI is required}"
+    "$(dirname "${BASH_SOURCE[0]}")/../../packer/publish-generalized-cvm-if-required.sh" "${artifact_uri}"
 }
 
 wait_for_vhd_copy() {

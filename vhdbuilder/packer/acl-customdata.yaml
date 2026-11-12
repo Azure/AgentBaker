@@ -8,6 +8,7 @@ storage:
   - path: /opt/aks-sysext-rw/usr/local/bin
   files:
   - path: /opt/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
+    overwrite: true
     contents:
       inline: |
         ID=azurelinux
@@ -18,6 +19,7 @@ storage:
       inline: |
         SERVER=disabled
   - path: /etc/systemd/system/containerd.service.d/50-default-config.conf
+    overwrite: true
     contents:
       inline: |
         [Service]
@@ -40,3 +42,13 @@ storage:
 # NOTE: ACL does NOT have update-ca-certificates.service (Flatcar-specific).
 # ACL uses update-ca-trust (Azure Linux style) which is invoked on-demand by CSE scripts.
 # The Flatcar customdata has a dropin for update-ca-certificates.service that is omitted here.
+systemd:
+  units:
+  - name: artifact-streaming-setup.service
+    mask: true
+  - name: acr-mirror.service
+    mask: true
+  - name: overlaybd-tcmu.service
+    mask: true
+  - name: overlaybd-snapshotter.service
+    mask: true

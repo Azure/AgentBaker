@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/agentbaker/e2e/toolkit"
+	"github.com/Azure/agentbaker/e2e/logging"
 )
 
 const (
@@ -67,10 +67,10 @@ func (r *CSETimingReport) TotalCSEDuration() time.Duration {
 }
 
 // LogReport logs all task timings to the test logger.
-func (r *CSETimingReport) LogReport(_ context.Context, logger toolkit.Logger) {
-	logger.Logf("=== CSE Task Timing Report ===")
-	logger.Logf("%-60s %12s %12s", "Task", "Duration", "Start→End")
-	logger.Logf("%s", strings.Repeat("-", 90))
+func (r *CSETimingReport) LogReport(ctx context.Context) {
+	logging.Logf(ctx, "=== CSE Task Timing Report ===")
+	logging.Logf(ctx, "%-60s %12s %12s", "Task", "Duration", "Start→End")
+	logging.Logf(ctx, "%s", strings.Repeat("-", 90))
 
 	sorted := make([]CSETaskTiming, len(r.Tasks))
 	copy(sorted, r.Tasks)
@@ -79,7 +79,7 @@ func (r *CSETimingReport) LogReport(_ context.Context, logger toolkit.Logger) {
 	})
 
 	for _, task := range sorted {
-		logger.Logf("%-60s %10.2fs   %s → %s",
+		logging.Logf(ctx, "%-60s %10.2fs   %s → %s",
 			task.TaskName,
 			task.Duration.Seconds(),
 			task.StartTime.Format("15:04:05.000"),
@@ -88,14 +88,14 @@ func (r *CSETimingReport) LogReport(_ context.Context, logger toolkit.Logger) {
 	}
 
 	if total := r.TotalCSEDuration(); total > 0 {
-		logger.Logf("%s", strings.Repeat("-", 90))
-		logger.Logf("%-60s %10.2fs", "TOTAL (cse_start)", total.Seconds())
+		logging.Logf(ctx, "%s", strings.Repeat("-", 90))
+		logging.Logf(ctx, "%-60s %10.2fs", "TOTAL (cse_start)", total.Seconds())
 	}
 
 	if r.Provision != nil {
-		logger.Logf("\n=== Provision Summary ===")
-		logger.Logf("ExitCode: %s, ExecDuration: %ss", r.Provision.ExitCode, r.Provision.ExecDuration)
-		logger.Logf("KernelStart: %s, CSEStart: %s, GuestAgent: %s",
+		logging.Logf(ctx, "\n=== Provision Summary ===")
+		logging.Logf(ctx, "ExitCode: %s, ExecDuration: %ss", r.Provision.ExitCode, r.Provision.ExecDuration)
+		logging.Logf(ctx, "KernelStart: %s, CSEStart: %s, GuestAgent: %s",
 			r.Provision.KernelStartTime, r.Provision.CSEStartTime, r.Provision.GuestAgentStartTime)
 	}
 }
@@ -134,13 +134,13 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 		startTime, err := parseCSETimestamp(startTimestamp)
 		if err != nil {
 			parseErrors++
-			s.Logger.Logf("WARNING: failed to parse CSE start timestamp for task %s: %v", taskName, err)
+			logging.Logf(ctx, "WARNING: failed to parse CSE start timestamp for task %s: %v", taskName, err)
 			continue
 		}
 		endTime, err := parseCSETimestamp(endTimestamp)
 		if err != nil {
 			parseErrors++
-			s.Logger.Logf("WARNING: failed to parse CSE end timestamp for task %s: %v", taskName, err)
+			logging.Logf(ctx, "WARNING: failed to parse CSE end timestamp for task %s: %v", taskName, err)
 			continue
 		}
 
@@ -153,7 +153,7 @@ func ExtractCSETimings(ctx context.Context, s *Scenario) (*CSETimingReport, erro
 	}
 
 	if parseErrors > 0 {
-		s.Logger.Logf("WARNING: %d CSE timing lines in cluster-provision.log could not be parsed", parseErrors)
+		logging.Logf(ctx, "WARNING: %d CSE timing lines in cluster-provision.log could not be parsed", parseErrors)
 	}
 	if len(report.Tasks) == 0 {
 		return report, fmt.Errorf("no CSE task timings were parsed from cluster-provision.log (%d parse errors)", parseErrors)
@@ -252,7 +252,7 @@ type CSETimingThresholds struct {
 
 // ValidateCSETimings extracts, logs, and validates CSE task timings.
 func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingThresholds) (*CSETimingReport, error) {
-	defer toolkit.LogStep(s.Logger, "validating CSE task timings")()
+	defer logging.LogStep(ctx, "validating CSE task timings")()
 
 	report := s.Runtime.CSETimingReport
 	if report == nil {
@@ -263,7 +263,7 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 		}
 	}
 
-	report.LogReport(ctx, s.Logger)
+	report.LogReport(ctx)
 
 	if len(report.Tasks) == 0 {
 		return report, errors.New("no CSE task timings were parsed; cannot validate performance thresholds")
@@ -277,12 +277,12 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 		totalDuration := report.TotalCSEDuration()
 		var checkErr error
 		if totalDuration > thresholds.TotalCSEThreshold {
-			toolkit.LogDuration(ctx, totalDuration, thresholds.TotalCSEThreshold,
+			logging.LogDuration(ctx, totalDuration, thresholds.TotalCSEThreshold,
 				fmt.Sprintf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold))
 			checkErr = fmt.Errorf("CSE total duration %s exceeds threshold %s", totalDuration, thresholds.TotalCSEThreshold)
 			errs = append(errs, checkErr)
 		}
-		s.Logger.Logf("total CSE duration: %s (threshold: %s)", totalDuration, thresholds.TotalCSEThreshold)
+		logging.Logf(ctx, "total CSE duration: %s (threshold: %s)", totalDuration, thresholds.TotalCSEThreshold)
 		s.recordADOTestCase("TotalCSEDuration", "e2e.cse", totalDuration, checkErr)
 	}
 
@@ -315,12 +315,12 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 				}
 				var checkErr error
 				if task.Duration > maxDuration {
-					toolkit.LogDuration(ctx, task.Duration, maxDuration,
+					logging.LogDuration(ctx, task.Duration, maxDuration,
 						fmt.Sprintf("CSE task %s took %s (threshold: %s)", task.TaskName, task.Duration, maxDuration))
 					checkErr = fmt.Errorf("CSE task %s took %s, exceeds threshold %s", task.TaskName, task.Duration, maxDuration)
 					errs = append(errs, checkErr)
 				}
-				s.Logger.Logf("timing check Task_%s: task %s duration: %s (threshold: %s)", testName, task.TaskName, task.Duration, maxDuration)
+				logging.Logf(ctx, "timing check Task_%s: task %s duration: %s (threshold: %s)", testName, task.TaskName, task.Duration, maxDuration)
 				s.recordADOTestCase("Task_"+testName, "e2e.cse", task.Duration, checkErr)
 				break
 			}
@@ -329,7 +329,7 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 
 	for _, suffix := range sortedSuffixes {
 		if !matchedSuffixes[suffix] {
-			s.Logger.Logf("⚠️  threshold suffix %q did not match any CSE task — task may not fire on this install path, or may have been renamed", suffix)
+			logging.Logf(ctx, "⚠️  threshold suffix %q did not match any CSE task — task may not fire on this install path, or may have been renamed", suffix)
 		}
 	}
 
@@ -359,7 +359,7 @@ func ValidateCSETimings(ctx context.Context, s *Scenario, thresholds CSETimingTh
 					task.TaskName, task.Duration, defaultThreshold)
 				errs = append(errs, checkErr)
 			}
-			s.Logger.Logf("timing check Task_%s: task %s duration: %s (default threshold: %s; no specific threshold configured)",
+			logging.Logf(ctx, "timing check Task_%s: task %s duration: %s (default threshold: %s; no specific threshold configured)",
 				shortName, task.TaskName, task.Duration, defaultThreshold)
 			s.recordADOTestCase("Task_"+shortName, "e2e.cse", task.Duration, checkErr)
 		}

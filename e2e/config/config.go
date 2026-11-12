@@ -18,9 +18,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const (
-	DefaultV5VMSKU = "Standard_D2ds_v5"
-)
+const DEFAULT_VMSKU = "Standard_D2ds_v5"
 
 var (
 	// Config is populated before scenario goroutines start and is immutable after Initialize.
@@ -44,6 +42,7 @@ func PrivateACRName(location string) string {
 }
 
 type Configuration struct {
+	ACLBaseImageSigned                     bool
 	ACRSecretName                          string
 	AzureContainerRegistrytargetRepository string
 	BlobContainer                          string
@@ -53,14 +52,18 @@ type Configuration struct {
 	DefaultPollInterval                    time.Duration
 	DefaultSubnetName                      string
 	DefaultVMSKU                           string
+	Gen1SCSIVMSKU                          string
+	MANAVMSKU                              string
 	DisableScriptless                      bool
 	DisableScriptLessCompilation           bool
+	RandomNBCCoverage                      bool
 	E2ELoggingDir                          string
 	EnableSecureTLSBootstrapping           bool
 	ExtendedTests                          string
 	GalleryLinux                           Gallery
 	GalleryWindows                         Gallery
 	IgnoreScenariosWithMissingVHD          bool
+	InADO                                  bool
 	KeepVMSS                               bool
 	NetworkIsolatedNSGName                 string
 	Parallel                               int
@@ -90,6 +93,7 @@ type Configuration struct {
 
 func DefaultConfiguration() *Configuration {
 	return &Configuration{
+		ACLBaseImageSigned:                     true,
 		ACRSecretName:                          "acr-secret-code2",
 		AzureContainerRegistrytargetRepository: "aks-managed-repository/*",
 		BlobContainer:                          "abe2e",
@@ -98,9 +102,12 @@ func DefaultConfiguration() *Configuration {
 		DefaultLocation:                        "westus3",
 		DefaultPollInterval:                    15 * time.Second,
 		DefaultSubnetName:                      "aks-subnet",
-		DefaultVMSKU:                           "Standard_D2ds_v5",
+		DefaultVMSKU:                           DEFAULT_VMSKU,
+		Gen1SCSIVMSKU:                          DEFAULT_VMSKU,
+		MANAVMSKU:                              "Standard_D2ds_v6",
 		E2ELoggingDir:                          "scenario-logs",
 		EnableSecureTLSBootstrapping:           false,
+		InADO:                                  strings.EqualFold(os.Getenv("TF_BUILD"), "true"),
 		GalleryLinux: Gallery{
 			Name:              "PackerSigGalleryEastUS",
 			ResourceGroupName: "aksvhdtestbuildrg",
@@ -124,6 +131,13 @@ func DefaultConfiguration() *Configuration {
 		TestTimeoutCluster:     30 * time.Minute,
 		TestTimeoutVMSS:        17 * time.Minute,
 	}
+}
+
+func (c *Configuration) VMSKU() string {
+	if c.DefaultVMSKU == "" {
+		return DEFAULT_VMSKU
+	}
+	return c.DefaultVMSKU
 }
 
 func (c *Configuration) BlobStorageAccount() string {

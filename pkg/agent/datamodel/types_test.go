@@ -5,11 +5,13 @@ package datamodel
 
 import (
 	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -38,6 +40,15 @@ func TestHasAadProfile(t *testing.T) {
 	if !p.HasAadProfile() {
 		t.Fatalf("Expected HasAadProfile() to return true")
 	}
+}
+
+func TestSysctlConfigUnmarshalsInt64FsFileMax(t *testing.T) {
+	var config SysctlConfig
+	// The kernel caps fs.file-max at LONG_MAX, which is MaxInt64 on 64-bit nodes.
+	err := json.Unmarshal([]byte(`{"fsFileMax":9223372036854775807}`), &config)
+
+	assert.NoError(t, err)
+	assert.Equal(t, int64(math.MaxInt64), *config.FsFileMax)
 }
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
@@ -1051,6 +1062,13 @@ func TestAgentPoolProfileIs2604VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "26.04 minimal CVM Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuMinimalContainerd2604CVMGen2,
+			},
+			expected: true,
+		},
+		{
 			name: "24.04 VHD distro is not a 2604 distro",
 			ap: AgentPoolProfile{
 				Distro: AKSUbuntuContainerd2404,
@@ -1342,6 +1360,27 @@ func TestAgentPoolProfileIsACL(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "ACL CVM distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLCVMGen2,
+			},
+			expected: true,
+		},
+		{
+			name: "ACL Kata distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLKataGen2TL,
+			},
+			expected: true,
+		},
+		{
+			name: "ACL CVM FIPS distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLCVMGen2FIPS,
+			},
+			expected: true,
+		},
+		{
 			name: "Flatcar distro is not ACL",
 			ap: AgentPoolProfile{
 				Distro: AKSFlatcarGen2,
@@ -1370,6 +1409,54 @@ func TestAgentPoolProfileIsACL(t *testing.T) {
 			isACL := c.ap.IsACL()
 			if c.expected != isACL {
 				t.Fatalf("Got unexpected AgentPoolProfile.IsACL() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expected, isACL)
+			}
+		})
+	}
+}
+
+func TestAgentPoolProfileKataDistro(t *testing.T) {
+	cases := []struct {
+		name                 string
+		ap                   AgentPoolProfile
+		expectedKata         bool
+		expectedContainerdV2 bool
+	}{
+		{
+			name: "AzureLinux V3 Kata distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2Kata,
+			},
+			expectedKata:         true,
+			expectedContainerdV2: false,
+		},
+		{
+			name: "ACL Kata distro",
+			ap: AgentPoolProfile{
+				Distro: AKSACLKataGen2TL,
+			},
+			expectedKata:         true,
+			expectedContainerdV2: false,
+		},
+		{
+			name: "ACL distro is not Kata",
+			ap: AgentPoolProfile{
+				Distro: AKSACLGen2TL,
+			},
+			expectedKata:         false,
+			expectedContainerdV2: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			isKata := c.ap.Distro.IsKataDistro()
+			if c.expectedKata != isKata {
+				t.Fatalf("Got unexpected Distro.IsKataDistro() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expectedKata, isKata)
+			}
+			isContainerdV2 := c.ap.IsContainerdV2Distro()
+			if c.expectedContainerdV2 != isContainerdV2 {
+				t.Fatalf("Got unexpected AgentPoolProfile.IsContainerdV2Distro() result for %s. Expected: %t. Got: %t.", c.ap.Distro, c.expectedContainerdV2, isContainerdV2)
 			}
 		})
 	}
@@ -3086,81 +3173,6 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 	}
 }
 
-func TestGetKubeletHealthzEndpoint(t *testing.T) {
-	cases := []struct {
-		name     string
-		config   *NodeBootstrappingConfiguration
-		expected string
-	}{
-		{
-			name:     "uses kubelet defaults",
-			config:   &NodeBootstrappingConfiguration{},
-			expected: "http://127.0.0.1:10248/healthz",
-		},
-		{
-			name: "uses configured endpoint",
-			config: &NodeBootstrappingConfiguration{
-				KubeletConfig: map[string]string{
-					"--healthz-bind-address": "10.0.0.4",
-					"--healthz-port":         "10255",
-				},
-			},
-			expected: "http://10.0.0.4:10255/healthz",
-		},
-		{
-			name: "uses loopback for IPv4 wildcard",
-			config: &NodeBootstrappingConfiguration{
-				KubeletConfig: map[string]string{"--healthz-bind-address": "0.0.0.0"},
-			},
-			expected: "http://127.0.0.1:10248/healthz",
-		},
-		{
-			name: "uses loopback for IPv6 wildcard",
-			config: &NodeBootstrappingConfiguration{
-				KubeletConfig: map[string]string{"--healthz-bind-address": "::"},
-			},
-			expected: "http://[::1]:10248/healthz",
-		},
-		{
-			name: "returns empty endpoint when disabled",
-			config: &NodeBootstrappingConfiguration{
-				KubeletConfig: map[string]string{"--healthz-port": "0"},
-			},
-			expected: "",
-		},
-		{
-			name: "uses Windows component configuration",
-			config: &NodeBootstrappingConfiguration{
-				ContainerService: &ContainerService{
-					Properties: &Properties{
-						CustomConfiguration: &CustomConfiguration{
-							WindowsKubernetesConfigurations: map[string]*ComponentConfiguration{
-								string(Componentkubelet): {
-									Config: map[string]string{
-										"--healthz-bind-address": "0.0.0.0",
-										"--healthz-port":         "10255",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expected: "http://127.0.0.1:10255/healthz",
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			actual := c.config.GetKubeletHealthzEndpoint(nil)
-			if c.expected != actual {
-				t.Fatalf("expected %q, got %q", c.expected, actual)
-			}
-		})
-	}
-}
-
 func TestSecurityProfileGetProxyAddress(t *testing.T) {
 	testProxyAddress := "https://test-private-egress-proxy"
 	cases := []struct {
@@ -3651,3 +3663,107 @@ func TestShouldEnableHostsPlugin(t *testing.T) {
 }
 
 // ----------------------- End of changes related to localdns ------------------------------------------.
+
+func TestAKSKubeletConfigurationFieldsRoundTrip(t *testing.T) {
+	tests := []struct {
+		name   string
+		config AKSKubeletConfiguration
+		want   string
+	}{
+		{
+			name: "omitted fields",
+			want: `{
+				"authentication": {"x509": {}, "webhook": {}, "anonymous": {}},
+				"authorization": {"webhook": {}}
+			}`,
+		},
+		{
+			name: "explicit false and zero duration",
+			config: AKSKubeletConfiguration{
+				EnableServer:          to.BoolPtr(false),
+				RuntimeRequestTimeout: "0s",
+			},
+			want: `{
+				"authentication": {"x509": {}, "webhook": {}, "anonymous": {}},
+				"authorization": {"webhook": {}},
+				"enableServer": false,
+				"runtimeRequestTimeout": "0s"
+			}`,
+		},
+		{
+			name: "linux fields and taints",
+			config: AKSKubeletConfiguration{
+				EnableServer:             to.BoolPtr(true),
+				VolumePluginDir:          "/etc/kubernetes/volumeplugins",
+				CgroupDriver:             "systemd",
+				RuntimeRequestTimeout:    "2m",
+				ContainerRuntimeEndpoint: "unix:///run/containerd/containerd.sock",
+				RegisterWithTaints: []KubeletTaint{
+					{Key: "workload", Value: "batch", Effect: "NoSchedule"},
+					{Key: "workload", Value: "batch", Effect: "PreferNoSchedule"},
+					{Key: "maintenance", Effect: "NoExecute", TimeAdded: "2026-01-02T03:04:05Z"},
+				},
+				HairpinMode: "promiscuous-bridge",
+			},
+			want: `{
+				"authentication": {"x509": {}, "webhook": {}, "anonymous": {}},
+				"authorization": {"webhook": {}},
+				"enableServer": true,
+				"volumePluginDir": "/etc/kubernetes/volumeplugins",
+				"cgroupDriver": "systemd",
+				"runtimeRequestTimeout": "2m",
+				"containerRuntimeEndpoint": "unix:///run/containerd/containerd.sock",
+				"registerWithTaints": [
+					{"key": "workload", "value": "batch", "effect": "NoSchedule"},
+					{"key": "workload", "value": "batch", "effect": "PreferNoSchedule"},
+					{"key": "maintenance", "effect": "NoExecute", "timeAdded": "2026-01-02T03:04:05Z"}
+				],
+				"hairpinMode": "promiscuous-bridge"
+			}`,
+		},
+		{
+			name: "windows paths",
+			config: AKSKubeletConfiguration{
+				VolumePluginDir:          `C:\k\volumeplugins`,
+				ContainerRuntimeEndpoint: "npipe:////./pipe/containerd-containerd",
+			},
+			want: `{
+				"authentication": {"x509": {}, "webhook": {}, "anonymous": {}},
+				"authorization": {"webhook": {}},
+				"volumePluginDir": "C:\\k\\volumeplugins",
+				"containerRuntimeEndpoint": "npipe:////./pipe/containerd-containerd"
+			}`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			content, err := json.Marshal(test.config)
+			require.NoError(t, err)
+			require.JSONEq(t, test.want, string(content))
+
+			var restored AKSKubeletConfiguration
+			require.NoError(t, json.Unmarshal(content, &restored))
+			require.Equal(t, test.config, restored)
+		})
+	}
+}
+
+func TestAKSKubeletConfigurationLegacyOutputUnchanged(t *testing.T) {
+	config := AKSKubeletConfiguration{
+		Kind:           "KubeletConfiguration",
+		APIVersion:     "kubelet.config.k8s.io/v1beta1",
+		Address:        "0.0.0.0",
+		EventRecordQPS: to.Int32Ptr(0),
+		CPUCFSQuota:    to.BoolPtr(false),
+	}
+	content, err := json.Marshal(config)
+	require.NoError(t, err)
+	require.Equal(t, `{"kind":"KubeletConfiguration","apiVersion":"kubelet.config.k8s.io/v1beta1","address":"0.0.0.0",`+
+		`"authentication":{"x509":{},"webhook":{},"anonymous":{}},`+
+		`"authorization":{"webhook":{}},"eventRecordQPS":0,"cpuCFSQuota":false}`, string(content))
+
+	config.RegisterWithTaints = []KubeletTaint{}
+	withEmptyTaints, err := json.Marshal(config)
+	require.NoError(t, err)
+	require.Equal(t, content, withEmptyTaints)
+}

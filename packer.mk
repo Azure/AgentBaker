@@ -6,7 +6,7 @@ ifeq (${ARCHITECTURE},ARM64)
 endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-build-packer: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+build-packer:
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -24,8 +24,13 @@ else ifeq (${OS_SKU},AzureLinux)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
 else ifeq (${OS_SKU},AzureContainerLinux)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+	@echo "AzureContainerLinux CVM is currently supported only on X86_64" >&2
+	@exit 1
+else
 	@echo "Using packer template file vhd-image-builder-acl-arm64.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl-arm64.json
+endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -57,8 +62,12 @@ else
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 endif
 else ifeq (${OS_SKU},AzureContainerLinux)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+	@./vhdbuilder/packer/build-acl-cvm.sh
+else
 	@echo "Using packer template file vhd-image-builder-acl.json"
 	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-acl.json
+endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -82,27 +91,37 @@ endif
 	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
 
-build-imagecustomizer: setup-golang generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+build-imagecustomizer:
 	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
+
+.PHONY: build-tools
+build-tools: generate-prefetch-scripts build-image-fetcher build-aks-node-controller
 
 az-login:
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
+	@mkdir -p kata-cc # Empty on ordinary builds; populated by the CC signing-artifact download.
 	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-packer: az-login
-	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk -j4 build-packer | tee -a packer-output)
 
 run-imagecustomizer: az-login
-	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-imagecustomizer | tee -a packer-output)
+	@($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk -j4 build-imagecustomizer | tee -a packer-output)
 
 generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
+
+convert-vhd-to-cosi: az-login
+	@./vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh
+
+upload-cosi-to-pmc:
+	@./vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh
 
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
@@ -133,27 +152,22 @@ setup-golang:
 	@echo "Setting up Go environment"
 	@bash ./hack/setup_golang.sh
 
+generate-prefetch-scripts build-image-fetcher build-aks-node-controller: setup-golang
+
 build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"
 	@bash -c 'set -euo pipefail; \
 	cd aks-node-controller; \
-	go test ./...; \
 	ANC_VERSION="$${IMAGE_VERSION:-$$(date +%Y%m.%d.0)}"; \
 	ANC_LDFLAGS="-X main.Version=$${ANC_VERSION}"; \
 	echo "Stamping ANC version: $${ANC_VERSION}"; \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-amd64; \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-arm64'
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -ldflags "$${ANC_LDFLAGS}" -o bin/aks-node-controller-linux-$(GOARCH)'
 
 build-image-fetcher:
 	@echo "Building image-fetcher binaries"
 	@bash -c "pushd image-fetcher && \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/image-fetcher-linux-amd64 && \
-	GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/image-fetcher-linux-arm64 && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/image-fetcher-linux-$(GOARCH) && \
 	popd"
-
-build-lister-binary:
-	@echo "Building lister binary for $(GOARCH)"
-	@bash -c "pushd vhdbuilder/lister && GOEXPERIMENT=ms_nocgo_opensslcrypto CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
 
 generate-acl-customdata: vhdbuilder/packer/acl-customdata.json
 vhdbuilder/packer/acl-customdata.json: vhdbuilder/packer/acl-customdata.yaml | hack/tools/bin/butane
