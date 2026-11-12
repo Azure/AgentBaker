@@ -233,6 +233,30 @@ Key components:
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
 
+### Cloud initialization before hotfix acquisition
+
+The launcher runs `init-cloud` with the same live inputs as `provision` (NBC
+takes precedence, and is parsed rather than executed). This runs the existing
+full `init-aks-cloud.sh` path before hotfix acquisition: cloud certificates,
+repository configuration, package-index refresh, and certificate-refresh scheduling.
+There is no separate prerequisite mode.
+
+On success, stdout contains the initializer's SHA-256 hash, which the launcher
+passes as `AKS_CLOUD_INIT_SHA256` only within its process tree. The later
+initializer invocation exits early only when its contents still match that hash.
+If hotfix application replaces the initializer, the replacement runs normally.
+Periodic `ca-refresh` always runs, and no completion marker is persisted for PIS
+to capture. Older initializers that ignore the handoff may repeat initialization.
+
+On failure, the launcher skips network hotfix acquisition but still selects an
+already-staged hotfix and applies its embedded scripts. Provisioning then retries
+cloud initialization without the handoff and retains its normal failure reporting.
+Package-index refresh keeps its existing best-effort behavior. Moving it before
+acquisition can delay acquisition, but avoids splitting initialization into phases.
+
+The ordering change requires an updated VHD; downloading a new ANC cannot fix
+the prerequisites for its own download on an already-released image.
+
 ### Provisioning script hotfix payloads
 
 Patched ANC binaries can embed selected Linux provisioning scripts generated from

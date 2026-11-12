@@ -36,6 +36,7 @@ EOF
         export BIN_PATH="${TEST_DIR}/aks-node-controller"
         export CONFIG_PATH="${TEST_DIR}/aks-node-controller-config.json"
         export NBC_CMD_PATH="${TEST_DIR}/aks-node-controller-nbc-cmd.sh"
+        export CLUSTER_PROVISION_LOG="${TEST_DIR}/cluster-provision.log"
         # Point hotfix pointer at a test-local path (absent by default) so tests never
         # touch the production /opt/azure path and can control the download-hotfix branch.
         export HOTFIX_JSON="${TEST_DIR}/aks-node-controller-hotfix.json"
@@ -47,6 +48,7 @@ EOF
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
         unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN
+        unset CLUSTER_PROVISION_LOG CLOUD_INIT_EXIT AKS_CLOUD_INIT_SHA256
     }
 
     create_fake_aks_node_controller() {
@@ -64,6 +66,14 @@ EOF
     create_recording_aks_node_controller() {
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+printf '%s:%s\n' "$1" "${AKS_CLOUD_INIT_SHA256:-unset}" >>"${TEST_DIR}/workflow"
+if [ "$1" = "init-cloud" ]; then
+    printf '%s\n' "$@" >"${TEST_DIR}/init_args"
+    echo 'cloud initialization diagnostics' >&2
+    if [ "${CLOUD_INIT_EXIT:-0}" -ne 0 ]; then exit "$CLOUD_INIT_EXIT"; fi
+    echo 'test-hash'
+    exit 0
+fi
 printf '%s\n' "$1" >>"${TEST_DIR}/calls"
 if [ "$1" = "check-hotfix" ]; then
     exit "${CHECK_HOTFIX_EXIT:-0}"
@@ -89,6 +99,7 @@ EOF
     create_failing_download_aks_node_controller() {
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+if [ "$1" = "init-cloud" ]; then exit 0; fi
 printf '%s\n' "$1" >>"${TEST_DIR}/calls"
 if [ "$1" = "download-hotfix" ]; then
     exit 1
@@ -109,6 +120,7 @@ EOF
 
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+if [ "$1" = "init-cloud" ]; then exit 0; fi
 printf '%s\n' "$1" >>"${TEST_DIR}/calls"
 if [ "$1" = "download-hotfix" ]; then
     cp "${TEST_DIR}/hotfix-template" "${BIN_PATH}-hotfix"
@@ -143,6 +155,63 @@ EOF
 
     BeforeEach setup_wrapper_test
     AfterEach cleanup_wrapper_test
+
+    Describe 'full cloud initialization'
+        Parameters
+            config
+            nbc
+            both
+        End
+
+        It 'initializes live inputs once before acquisition and hands off only this invocation'
+            if [ "$1" != "nbc" ]; then touch "$CONFIG_PATH"; fi
+            if [ "$1" != "config" ]; then touch "$NBC_CMD_PATH"; fi
+            touch "$HOTFIX_JSON"
+            create_recording_aks_node_controller
+            export ENABLE_PROVISIONING_HOTFIX=true AKS_CLOUD_INIT_SHA256=inherited
+            echo 'existing log' > "$CLUSTER_PROVISION_LOG"
+
+            When run bash "$SCRIPT"
+            The status should be success
+            The output should include 'aks-node-controller completed successfully'
+            The contents of file "${TEST_DIR}/workflow" should eq "$(printf 'init-cloud:unset\ncheck-hotfix:test-hash\ndownload-hotfix:test-hash\nprovision:test-hash')"
+            The contents of file "$CLUSTER_PROVISION_LOG" should include 'existing log'
+            The contents of file "$CLUSTER_PROVISION_LOG" should include 'cloud initialization diagnostics'
+            args=$(cat "${TEST_DIR}/init_args")
+            if [ "$1" != "nbc" ]; then
+                The variable args should include "--provision-config=${CONFIG_PATH}"
+            fi
+            if [ "$1" != "config" ]; then
+                The variable args should include "--nbc-cmd=${NBC_CMD_PATH}"
+            fi
+        End
+    End
+
+    It 'preserves staged hotfix application and selection when cloud initialization fails'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+        export ENABLE_PROVISIONING_HOTFIX=true CLOUD_INIT_EXIT=17 AKS_CLOUD_INIT_SHA256=inherited
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'skipping hotfix acquisition'
+        The contents of file "${TEST_DIR}/workflow" should eq 'init-cloud:unset'
+        The path "${TEST_DIR}/calls" should not be exist
+        The contents of file "${TEST_DIR}/hotfix_calls" should eq "$(printf 'apply-embedded-hotfix\nprovision')"
+    End
+
+    It 'retries through baked provisioning without a handoff when initialization fails and no hotfix is cached'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_recording_aks_node_controller
+        export ENABLE_PROVISIONING_HOTFIX=true CLOUD_INIT_EXIT=17 AKS_CLOUD_INIT_SHA256=inherited
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'skipping hotfix acquisition'
+        The contents of file "${TEST_DIR}/workflow" should eq "$(printf 'init-cloud:unset\nprovision:unset')"
+        The contents of file "${TEST_DIR}/calls" should eq 'provision'
+    End
 
     It 'exits successfully without invoking aks-node-controller when config and nbc cmd are absent'
         When run bash "$SCRIPT"
