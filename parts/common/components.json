@@ -876,6 +876,57 @@
       }
     },
     {
+      "name": "windows hcsshim dalec",
+      "windowsDownloadLocation": "c:\\akse-cache\\containerd-packages\\hcsshim\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.15.0-1"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/hcsshim/${versionNoBuild}/windows/amd64/hcsshim_${version}_amd64.zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows moby-containerd dalec",
+      "windowsDownloadLocation": "c:\\akse-cache\\containerd-packages\\moby-containerd\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "2.3.7-4"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/moby-containerd/${versionNoBuild}/windows/amd64/moby-containerd_${version}_amd64.zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows kubernetes-cri-tools dalec",
+      "windowsDownloadLocation": "c:\\akse-cache\\containerd-packages\\kubernetes-cri-tools\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.37.0-6"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/kubernetes-cri-tools/${versionNoBuild}/windows/amd64/kubernetes-cri-tools_${version}_amd64.zip"
+          }
+        }
+      }
+    },
+    {
       "name": "windows calico",
       "windowsDownloadLocation": "c:\\akse-cache\\calico\\",
       "downloadURIs": {
