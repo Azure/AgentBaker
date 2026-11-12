@@ -985,7 +985,12 @@ probeMcrDataEndpoint() {
         [ "$host" != "$redirect_url" ] || exit 0
         host=${host%%[/?#]*}
         host=${host,,}
-        [[ $host =~ ^[a-z0-9-]+\.data\.mcr\.microsoft\.com$ ]] || exit 0
+        label=${host%.data.mcr.microsoft.com}
+        [ "$label" != "$host" ] || exit 0
+        LC_ALL=C # keeps [a-z] byte-ranged so only ASCII labels match, as the old anchored regex did
+        case $label in
+            (''|*[!a-z0-9-]*) exit 0 ;;
+        esac
         echo "$host"
     )
     [ -n "$host" ] || return 0
