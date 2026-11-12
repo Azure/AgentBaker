@@ -131,15 +131,15 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     BeforeAll {
       Mock Get-WindowsVersion -MockWith { return $global:WindowsVersion2025 }
       Mock Install-ContainerdFromComponentPackages
-      $hcsshimUrl = "https://packages.aks.azure.com/dalec-packages/hcsshim/0.15.0/windows/amd64/hcsshim_0.15.0-1_amd64.zip"
-      $mobyContainerdUrl = "https://packages.aks.azure.com/dalec-packages/moby-containerd/2.3.7/windows/amd64/moby-containerd_2.3.7-4_amd64.zip"
-      $crictlUrl = "https://packages.aks.azure.com/dalec-packages/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-6_amd64.zip"
+      $expectedHcsshimUrl = "https://packages.aks.azure.com/dalec-packages/hcsshim/0.15.0/windows/amd64/hcsshim_0.15.0-1_amd64.zip"
+      $expectedMobyContainerdUrl = "https://packages.aks.azure.com/dalec-packages/moby-containerd/2.3.7/windows/amd64/moby-containerd_2.3.7-4_amd64.zip"
+      $expectedCrictlUrl = "https://packages.aks.azure.com/dalec-packages/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-6_amd64.zip"
     }
 
     It 'installs from the component packages when all three URLs are set' {
-      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.38.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir" -HcsshimUrl $hcsshimUrl -MobyContainerdUrl $mobyContainerdUrl -CrictlUrl $crictlUrl
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.38.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir" -HcsshimUrl $expectedHcsshimUrl -MobyContainerdUrl $expectedMobyContainerdUrl -CrictlUrl $expectedCrictlUrl
       Assert-MockCalled -CommandName "Install-ContainerdFromComponentPackages" -Exactly -Times 1 -ParameterFilter {
-        $HcsshimUrl -eq $hcsshimUrl -and $MobyContainerdUrl -eq $mobyContainerdUrl -and $CrictlUrl -eq $crictlUrl -and
+        $HcsshimUrl -ceq $expectedHcsshimUrl -and $MobyContainerdUrl -ceq $expectedMobyContainerdUrl -and $CrictlUrl -ceq $expectedCrictlUrl -and
         $CNIBinDir -eq "cniBinPath" -and $CNIConfDir -eq "cniConfigPath" -and $KubeDir -eq "kubeDir"
       }
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 0
@@ -149,7 +149,7 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
       Mock Logs-To-Event
       Mock Get-Command -MockWith { $null } -ParameterFilter { $Name -eq 'Install-ContainerdFromComponentPackages' }
       $expectedURL = $ContainerdWindowsPackageDownloadURL + $LatestContainerd2Package
-      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.38.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir" -HcsshimUrl $hcsshimUrl -MobyContainerdUrl $mobyContainerdUrl -CrictlUrl $crictlUrl
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.38.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir" -HcsshimUrl $expectedHcsshimUrl -MobyContainerdUrl $expectedMobyContainerdUrl -CrictlUrl $expectedCrictlUrl
       Assert-MockCalled -CommandName "Install-ContainerdFromComponentPackages" -Exactly -Times 0
       Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter { $TaskName -eq 'AKS.WindowsCSE.ContainerdComponentPackagesUnsupported' }
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
