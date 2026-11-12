@@ -48,6 +48,7 @@ steps:
 
   - task: UniversalPackages@0
     displayName: Download CIS scanner
+    condition: ne(variables.ENVIRONMENT, 'tme')
     inputs:
       command: download
       vstsFeed: AzCoreLinux-Compliance
@@ -464,7 +465,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
-    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'NVIDIA_GB'))
+    condition: and(ne(variables.ENVIRONMENT, 'tme'), eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'NVIDIA_GB'))
     displayName: Copy CIS Reports
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
