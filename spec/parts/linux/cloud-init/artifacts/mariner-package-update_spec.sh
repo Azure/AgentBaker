@@ -69,6 +69,10 @@ EOF
             export TEST_GOAL TEST_STATUS TEST_LEGACY_GOLDEN
         }
 
+        saved_security_patch_current() {
+            jq -r '.components[] | select(.name == "securityPatch") | .current' "${LIVE_PATCHING_STATE_FILE}"
+        }
+
         set_generic_payload() {
             printf '%s' "$1" > "${TEST_CONFIG_FILE}"
             TEST_GOAL=$(sha256sum "${TEST_CONFIG_FILE}" | awk '{print $1}')
@@ -151,6 +155,48 @@ EOF
             The output should not include 'tdnf mock called'
             The contents of file "${TEST_CALLS_FILE}" should not include 'live-patching-current-timestamp'
             The contents of file "${TEST_CALLS_FILE}" should include '"code":"Succeeded"'
+        End
+
+        It 'reports the applied golden timestamp as securityPatch current'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'tdnf mock called with args: --snapshottime 1786752000 update'
+            The contents of file "${TEST_CALLS_FILE}" should include '"securityPatch":{"code":"Succeeded","current":"20260815T000000Z"}'
+            The result of function saved_security_patch_current should equal '20260815T000000Z'
+        End
+
+        It 'replays securityPatch current from the checkpoint without repatching'
+            mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")"
+            printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}","current":"20260815T000000Z"}]}' > "${LIVE_PATCHING_STATE_FILE}"
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'component is already current: securityPatch'
+            The output should not include 'tdnf mock called'
+            The contents of file "${TEST_CALLS_FILE}" should include '"securityPatch":{"code":"Succeeded","current":"20260815T000000Z"}'
+        End
+
+        It 'omits securityPatch current for an untargeted node'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap2\":{\"goldenTimestamp\":\"20260815T000000Z\"}}}"}]}'
+
+            When call main
+            The status should be success
+            The output should include 'no action needed'
+            The contents of file "${TEST_CALLS_FILE}" should include '"securityPatch":{"code":"Succeeded"}'
+            The contents of file "${TEST_CALLS_FILE}" should not include '"current"'
+        End
+
+        It 'reports the handler failure reason as securityPatch message'
+            set_generic_payload '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20261399T000000Z\"}}}"}]}'
+
+            When call main
+            The status should be failure
+            The output should include 'securityPatch goldenTimestamp is invalid'
+            The contents of file "${TEST_CALLS_FILE}" should include '"securityPatch":{"code":"Failed","message":"GoldenTimestampInvalid"}'
+            The contents of file "${TEST_CALLS_FILE}" should not include '"current"'
         End
 
         It 'rejects malformed envelopes and hash mismatches'
@@ -991,7 +1037,7 @@ KUBELET_EOF
                 The status should be failure
                 The stderr should include 'API unavailable'
                 The output should include 'failed to read custom patching annotation'
-                The output should include '"securityPatch":{"code":"Failed"}'
+                The output should include '"securityPatch":{"code":"Failed","message":"CustomPatchingAnnotationReadFailed"}'
                 The output should not include 'tdnf mock: downloading'
                 The output should not include 'systemctl mock called'
                 The output should not include 'live-patching-current-timestamp='
@@ -1023,7 +1069,7 @@ KUBELET_EOF
                 The status should be failure
                 The stderr should include 'replacement denied'
                 The output should include 'failed to replace kubelet executable'
-                The output should include '"securityPatch":{"code":"Failed"}'
+                The output should include '"securityPatch":{"code":"Failed","message":"KubeletReplacementFailed"}'
                 The output should not include 'systemctl mock called'
                 The output should not include 'live-patching-current-timestamp='
                 The contents of file "${KUBELET_EXECUTABLE}" should include 'Kubernetes v1.29.10'

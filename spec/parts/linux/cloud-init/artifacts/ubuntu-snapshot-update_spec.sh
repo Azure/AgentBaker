@@ -526,4 +526,145 @@ Describe 'ubuntu-snapshot-update.sh generic reconciliation'
         The stderr should include 'parse error'
         The output should not include 'annotate mock called'
     End
+
+    Describe 'handler reported current and message'
+        saved_security_patch_current() {
+            jq -r '.components[] | select(.name == "securityPatch") | .current' "${KNEAD_COMPONENT_STATE_FILE}"
+        }
+
+        set_security_payload() {
+            set_payload_goal '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260623T000000Z\"}}}"}]}'
+        }
+
+        It 'records the reported current on success and saves it with the checkpoint'
+            updateSecurityPatch() {
+                echo "updateSecurityPatch called"
+                knead_report_current '20260623T000000Z'
+            }
+            set_security_payload
+
+            When call knead_main
+            The status should be success
+            The output should include '"components":{"securityPatch":{"code":"Succeeded","current":"20260623T000000Z"}}}'
+            The result of function saved_security_patch_current should equal '20260623T000000Z'
+        End
+
+        It 'replays the saved current when the handler is skipped'
+            mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+            printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260623T000000Z\"}}}","current":"20260623T000000Z"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+            set_security_payload
+
+            When call knead_main
+            The status should be success
+            The output should include 'component is already current: securityPatch'
+            The output should not include 'updateSecurityPatch called'
+            The output should include '"securityPatch":{"code":"Succeeded","current":"20260623T000000Z"}'
+        End
+
+        It 'omits current when an older checkpoint has none'
+            mkdir -p "$(dirname "${KNEAD_COMPONENT_STATE_FILE}")"
+            printf '%s' '{"components":[{"name":"securityPatch","nodeConfig":"{\"agentPools\":{\"ap1\":{\"goldenTimestamp\":\"20260623T000000Z\"}}}"}]}' > "${KNEAD_COMPONENT_STATE_FILE}"
+            set_security_payload
+
+            When call knead_main
+            The status should be success
+            The output should include 'component is already current: securityPatch'
+            The output should include '"securityPatch":{"code":"Succeeded"}'
+        End
+
+        It 'records the reported message on failure and drops a reported current'
+            updateSecurityPatch() {
+                echo "updateSecurityPatch called"
+                knead_report_current 'ignored-on-failure'
+                knead_report_message 'AptMetadataRefreshFailed'
+                return 1
+            }
+            When call knead_apply_components '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}' '{}'
+            The status should be failure
+            The output should include 'component failed: securityPatch'
+            The variable KNEAD_COMPONENT_RESULTS should equal '{"securityPatch":{"code":"Failed","message":"AptMetadataRefreshFailed"}}'
+        End
+
+        It 'keeps the first reported message so the root cause wins'
+            updateSecurityPatch() {
+                knead_report_message 'KubeletReplacementFailed'
+                knead_report_message 'KubeletUpdateFailed'
+                return 1
+            }
+            When call knead_apply_components '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}' '{}'
+            The status should be failure
+            The output should include 'component failed: securityPatch'
+            The variable KNEAD_COMPONENT_RESULTS should equal '{"securityPatch":{"code":"Failed","message":"KubeletReplacementFailed"}}'
+        End
+
+        It 'keeps the last reported current'
+            updateSecurityPatch() {
+                knead_report_current 'first'
+                knead_report_current 'second'
+            }
+            When call knead_apply_components '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}' '{}'
+            The status should be success
+            The output should include 'applying component: securityPatch'
+            The variable KNEAD_COMPONENT_RESULTS should equal '{"securityPatch":{"code":"Succeeded","current":"second"}}'
+        End
+
+        It 'receives reports from a handler that runs in a subshell'
+            updateSecurityPatch() (
+                knead_report_message 'SubshellReason'
+                exit 1
+            )
+            When call knead_apply_components '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}' '{}'
+            The status should be failure
+            The output should include 'component failed: securityPatch'
+            The variable KNEAD_COMPONENT_RESULTS should equal '{"securityPatch":{"code":"Failed","message":"SubshellReason"}}'
+        End
+
+        It 'flattens a multi-line message and cuts it to the length limit'
+            KNEAD_REPORT_MAX_LENGTH=12
+            updateSecurityPatch() {
+                knead_report_message "$(printf 'line one\nline two')"
+                return 1
+            }
+            When call knead_apply_components '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}' '{}'
+            The status should be failure
+            The output should include 'component failed: securityPatch'
+            The variable KNEAD_COMPONENT_RESULTS should equal '{"securityPatch":{"code":"Failed","message":"line one lin"}}'
+        End
+
+        It 'omits current and message when the handler reports nothing'
+            When call knead_apply_components '{"components":[{"name":"npdConfig","nodeConfig":"{}"}]}' '{}'
+            The status should be success
+            The output should include 'updateNPDConfigs called'
+            The variable KNEAD_COMPONENT_RESULTS should equal '{"npdConfig":{"code":"Succeeded"}}'
+        End
+
+        It 'does not carry a reported value over to the next component'
+            updateSecurityPatch() {
+                knead_report_current '20260623T000000Z'
+            }
+            When call knead_apply_components '{"components":[{"name":"securityPatch","nodeConfig":"{}"},{"name":"npdConfig","nodeConfig":"{}"}]}' '{}'
+            The status should be success
+            The output should include 'updateNPDConfigs called'
+            The variable KNEAD_COMPONENT_RESULTS should equal '{"securityPatch":{"code":"Succeeded","current":"20260623T000000Z"},"npdConfig":{"code":"Succeeded"}}'
+        End
+
+        It 'removes the result file after the handler'
+            TMPDIR="${TEST_DIR}/results"
+            mkdir -p "${TMPDIR}"
+            updateSecurityPatch() {
+                knead_report_current 'x'
+            }
+            When call knead_apply_components '{"components":[{"name":"securityPatch","nodeConfig":"{}"}]}' '{}'
+            The status should be success
+            The output should include 'applying component: securityPatch'
+            The variable KNEAD_RESULT_FILE should equal ''
+            The value "$(ls -A "${TMPDIR}")" should equal ''
+        End
+
+        It 'ignores reports outside a handler run'
+            KNEAD_RESULT_FILE=''
+            When call knead_report_message 'outside'
+            The status should be success
+        End
+    End
 End
