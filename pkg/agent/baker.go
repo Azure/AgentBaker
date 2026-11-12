@@ -181,6 +181,90 @@ type encodedFile struct {
 	content string
 }
 
+const cloudSettingsFilepath = "/opt/azure/containers/aks-node-controller-cloud-settings.sh"
+
+// cloudConfigObject reads the two proto JSON spellings while rejecting ambiguous input.
+func cloudConfigObject(data json.RawMessage, names ...string) (json.RawMessage, error) {
+	if string(data) == "null" {
+		return nil, nil
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') {
+		return nil, fmt.Errorf("expected JSON object")
+	}
+	var result json.RawMessage
+	found := false
+	for decoder.More() {
+		key, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			return nil, err
+		}
+		for _, name := range names {
+			if key == name {
+				if found {
+					return nil, fmt.Errorf("duplicate field %s", name)
+				}
+				found, result = true, value
+			}
+		}
+	}
+	_, err = decoder.Token()
+	return result, err
+}
+
+func cloudConfigString(data json.RawMessage, names ...string) (string, error) {
+	if len(data) == 0 || string(data) == "null" {
+		return "", nil
+	}
+	value, err := cloudConfigObject(data, names...)
+	if err != nil || len(value) == 0 || string(value) == "null" {
+		return "", err
+	}
+	var result string
+	if err := json.Unmarshal(value, &result); err != nil {
+		return "", err
+	}
+	return result, nil
+}
+
+func scriptlessCloudSettings(config *datamodel.NodeBootstrappingConfiguration) string {
+	var location, endpoint string
+	var err error
+	input := "nbc"
+	if config.EnableScriptlessAKSNodeConfig {
+		input = "aksnodeconfig"
+		var cluster, cloud json.RawMessage
+		cluster, err = cloudConfigObject([]byte(config.AKSNodeConfigJSON), "cluster_config", "clusterConfig")
+		if err == nil {
+			location, err = cloudConfigString(cluster, "location")
+		}
+		if err == nil {
+			cloud, err = cloudConfigObject([]byte(config.AKSNodeConfigJSON), "custom_cloud_config", "customCloudConfig")
+		}
+		var name string
+		if err == nil {
+			name, err = cloudConfigString(cloud, "custom_cloud_env_name", "customCloudEnvName")
+		}
+		if err == nil && strings.EqualFold(name, "akscustom") {
+			endpoint, err = cloudConfigString(cloud, "repo_depot_endpoint", "repoDepotEndpoint")
+		}
+	} else {
+		location = config.ContainerService.Location
+		if config.ContainerService.IsAKSCustomCloud() {
+			endpoint = config.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint
+		}
+	}
+	if err != nil || location == "" || strings.ContainsRune(location, 0) || strings.ContainsRune(endpoint, 0) {
+		return "return 1\n"
+	}
+	return "ANC_CLOUD_SETTINGS_INPUT=" + input + "\nLOCATION=" + shellQuote(location) + "\nREPO_DEPOT_ENDPOINT=" + shellQuote(endpoint) + "\n"
+}
+
 // getScriptlessBoothook builds custom data for scriptless provisioning.
 // It encodes the node custom data, cse downloader script
 // into the appropriate format (boothook or flatcar ignition).
@@ -264,6 +348,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 	if config.EnableScriptlessAKSNodeConfig {
 		return []encodedFile{
 			{aksNodeConfigFilepath, getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)},
+			{cloudSettingsFilepath, getBase64EncodedGzippedCustomScriptFromStr(scriptlessCloudSettings(config))},
 		}
 	}
 	nbcCMD := t.getLinuxNodeCSECommand(config)
@@ -278,6 +363,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 	encodedFiles := []encodedFile{
 		{aksNbcCmdFilepath, encodedNBCCMD},
 		{aksNodeConfigFilepath, encodedAKSNodeConfig},
+		{cloudSettingsFilepath, getBase64EncodedGzippedCustomScriptFromStr(scriptlessCloudSettings(config))},
 	}
 	return encodedFiles
 }
@@ -758,6 +844,10 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 			return ""
 		}
 		return variables[s]
+	}
+	funcMap["ShellQuote"] = shellQuote
+	funcMap["IsScriptlessProvisioning"] = func() bool {
+		return supportsScriptlessProvisioning(config)
 	}
 
 	funcMap["GetVariableProperty"] = func(v, p string) interface{} {

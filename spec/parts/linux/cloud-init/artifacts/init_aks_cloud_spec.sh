@@ -74,6 +74,34 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 End
 
+Describe 'legacy certificate installation failure'
+    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+
+    run_legacy_certificate_path() {
+        cert_endpoint_mode=legacy
+        logs_to_events() {
+            case "$1" in
+                *retrieveLegacyCerts) return 0 ;;
+                *installCertsToTrustStore) return 1 ;;
+            esac
+        }
+        . <(sed -n '/^if \[ "\$cert_endpoint_mode" = "legacy" \]; then$/,/^elif \[ "\$cert_endpoint_mode" = "rcv1p" \]; then$/p' "$script_path" | sed '$d'; echo fi)
+    }
+
+    It 'returns failure during early initialization rather than proceeding with an uninitialized trust store'
+        ANC_EARLY_CLOUD_INIT=true
+        When run run_legacy_certificate_path
+        The status should be failure
+        The stderr should include 'failed to install legacy CA certificates'
+    End
+
+    It 'preserves legacy non-early initialization behavior'
+        When run run_legacy_certificate_path
+        The status should be success
+        The stderr should include 'failed to install legacy CA certificates'
+    End
+End
+
 Describe 'init-aks-cloud.sh repo initialization dispatch'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
 
@@ -250,6 +278,38 @@ Describe 'legacy CA certificate filenames'
     cleanup_certificates() { rm -rf "${TEST_DIR}"; }
     BeforeEach 'setup_certificates'
     AfterEach 'cleanup_certificates'
+
+    It 'rejects invalid legacy certificate names during early initialization'
+        ANC_EARLY_CLOUD_INIT=true
+        CERT_RESPONSE='{"Certificates":[{"Name":"../bad.cer","CertBody":"body"},{"Name":"valid.cer","CertBody":"body"}]}'
+        When call retrieve_legacy_certs
+        The status should eq 1
+        The stdout should include 'rejecting invalid certificate filename'
+        The path "${TEST_DIR}/certs/valid.crt" should not be exist
+    End
+
+    It 'fails early initialization when an RCV1P certificate download fails'
+        ANC_EARLY_CLOUD_INIT=true
+        make_request_with_retry() {
+            case "$1" in
+                *operationrequestsroot*) echo '{"ResouceFileName": "missing.crt", "other": {"ResouceFileName": "valid.crt"}}' ;;
+                *type=missing*) return 1 ;;
+                *) echo 'valid certificate' ;;
+            esac
+        }
+        When call process_cert_operations operationrequestsroot
+        The status should eq 1
+        The stdout should include 'request failed'
+        The path "${TEST_DIR}/certs/valid.crt" should not be exist
+    End
+
+    It 'rejects an invalid opt-in response during early initialization'
+        ANC_EARLY_CLOUD_INIT=true
+        CERT_RESPONSE='{"IsOptedInForRootCerts":"true"}'
+        When call is_opted_in_for_root_certs
+        The status should eq 2
+        The stdout should include 'invalid IsOptedInForRootCerts response'
+    End
 
     It 'preserves certificate names, extension conversion, contents and IFS'
         CERT_RESPONSE='{"Certificates":[{"Name": "Root CA.cer","CertBody": "first\r\nsecond"},{"Name": "other.crt","CertBody": "other-body"}]}'

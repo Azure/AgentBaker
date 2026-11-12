@@ -22,6 +22,9 @@ NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.
 # producer is the sole trusted writer. Parsed below at wrapper runtime; absent file (default-off,
 # or an older VHD without the producer) is a no-op.
 FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
+CLOUD_SETTINGS_PATH="${CLOUD_SETTINGS_PATH:-/opt/azure/containers/aks-node-controller-cloud-settings.sh}"
+INIT_AKS_CLOUD_PATH="${INIT_AKS_CLOUD_PATH:-/opt/azure/containers/init-aks-cloud.sh}"
+CLOUD_INIT_LOG="${CLOUD_INIT_LOG:-/var/log/azure/cluster-provision.log}"
 LOGGER_TAG="aks-node-controller-launcher"
 
 log() {
@@ -44,8 +47,40 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
-BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
+unset ANC_CLOUD_INIT_COMPLETE
+run_hotfix=true
+if [ -f "$CLOUD_SETTINGS_PATH" ]; then
+    settings_ok=true
+    # shellcheck source=/dev/null
+    source "$CLOUD_SETTINGS_PATH" || settings_ok=false
+    # These settings are node-specific; never leave them behind for a PIS image to bake in.
+    rm -f "$CLOUD_SETTINGS_PATH" || settings_ok=false
+    # Use settings only when they belong to the input ANC will actually provision from.
+    case "${ANC_CLOUD_SETTINGS_INPUT:-}" in
+        nbc) [ -f "$NBC_CMD_PATH" ] || settings_ok=false ;;
+        aksnodeconfig) [ -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ] || settings_ok=false ;;
+        *) settings_ok=false ;;
+    esac
+    if [ "$settings_ok" != true ]; then
+        log "Cloud settings do not match the selected provisioning input"
+    fi
+    # Prepare trust and RepoDepot before ANC downloads its hotfix. Mark success only
+    # in this process so ANC can skip the duplicate initializer during provisioning.
+    if [ "$settings_ok" = true ] && [ -f "$INIT_AKS_CLOUD_PATH" ] &&
+        ANC_EARLY_CLOUD_INIT=true LOCATION="$LOCATION" REPO_DEPOT_ENDPOINT="$REPO_DEPOT_ENDPOINT" "$INIT_AKS_CLOUD_PATH" >> "$CLOUD_INIT_LOG" 2>&1; then
+        export ANC_CLOUD_INIT_COMPLETE=true
+    else
+        # Do not download with incomplete trust; let normal provisioning retry initialization.
+        run_hotfix=false
+        log "Early cloud initialization failed; skipping hotfix acquisition and retrying during provisioning"
+    fi
+fi
+
+# Older VHDs lack the generated settings file and retain their existing hotfix flow.
+if [ "$run_hotfix" = true ]; then
+    anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
+    BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
+fi
 
 command=("$BIN_PATH" provision)
 if [ -f "$CONFIG_PATH" ]; then

@@ -168,6 +168,12 @@ function is_opted_in_for_root_certs {
         return 2
     fi
 
+    if [ "${ANC_EARLY_CLOUD_INIT:-}" = "true" ] &&
+        ! echo "$opt_in_response" | jq -e '(.IsOptedInForRootCerts | type) == "boolean"' > /dev/null 2>&1; then
+        echo "ERROR: invalid IsOptedInForRootCerts response"
+        return 2
+    fi
+
     if echo "$opt_in_response" | jq -e '.IsOptedInForRootCerts == true' > /dev/null 2>&1; then
         echo "IsOptedInForRootCerts=true"
         return 0
@@ -209,13 +215,17 @@ function retrieve_legacy_certs {
         if [ "$sanitized_filename" != "$cert_name" ] || [ -z "$sanitized_filename" ] || \
            [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
             echo "Warning: rejecting invalid certificate filename: '$cert_name'"
+            [ "${ANC_EARLY_CLOUD_INIT:-}" != "true" ] || return 1
             continue
         fi
         if ! cert_body=$(jq -er '.CertBody | strings' <<< "$certificate" 2>/dev/null); then
             echo "Warning: failed to parse legacy certificate body: '$cert_name'"
             return 1
         fi
-        printf '%s\n' "${cert_body//$'\r\n'/$'\n'}" > "/root/AzureCACertificates/$(echo "$sanitized_filename" | sed 's/.cer/.crt/g')"
+        printf '%s\n' "${cert_body//$'\r\n'/$'\n'}" > "/root/AzureCACertificates/$(echo "$sanitized_filename" | sed 's/.cer/.crt/g')" || {
+            [ "${ANC_EARLY_CLOUD_INIT:-}" != "true" ] || return 1
+            false
+        }
     done <<< "$certs"
 }
 
@@ -247,6 +257,7 @@ function process_cert_operations {
         if [ "$sanitized_filename" != "$cert_filename" ] || [ -z "$sanitized_filename" ] || \
            [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
             echo "Warning: rejecting certificate filename with path separators or traversal: '$cert_filename'"
+            [ "${ANC_EARLY_CLOUD_INIT:-}" != "true" ] || return 1
             continue
         fi
 
@@ -258,10 +269,14 @@ function process_cert_operations {
         local request_status=$?
         if [ -z "$cert_content" ] || [ $request_status -ne 0 ]; then
             echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension"
+            [ "${ANC_EARLY_CLOUD_INIT:-}" != "true" ] || return 1
             continue
         fi
 
-        echo "$cert_content" > "/root/AzureCACertificates/$sanitized_filename"
+        echo "$cert_content" > "/root/AzureCACertificates/$sanitized_filename" || {
+            [ "${ANC_EARLY_CLOUD_INIT:-}" != "true" ] || return 1
+            false
+        }
     done
 }
 
@@ -630,7 +645,10 @@ rm -f /root/AzureCACertificates/*
 if [ "$cert_endpoint_mode" = "legacy" ]; then
     install_ca_refresh_schedule=1
     if logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
-        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store
+        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
+            echo "ERROR: failed to install legacy CA certificates into trust store" >&2
+            [ "${ANC_EARLY_CLOUD_INIT:-}" != "true" ] || exit 1
+        }
     else
         echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
         exit 1

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -20,6 +21,43 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
+
+func TestCloudInitHandoff(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires a Unix shell")
+	}
+	dir := t.TempDir()
+	initPath := filepath.Join(dir, "init.sh")
+	require.NoError(t, os.WriteFile(initPath, []byte("#!/bin/sh\nexit 7\n"), 0755))
+	script, err := executeBootstrapTemplate(&aksnodeconfigv1.Configuration{})
+	require.NoError(t, err)
+	script = strings.ReplaceAll(script, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "init.log"))
+	script = strings.ReplaceAll(script, `/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`, "echo provisioned")
+	for _, tt := range []struct {
+		name     string
+		handoff  string
+		exitCode int
+	}{
+		{"retry propagates failure", "", 7},
+		{"successful early init skips retry", "true", 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := exec.Command("/bin/bash", "-c", script)
+			cmd.Env = append(os.Environ(), "INIT_AKS_CLOUD_FILEPATH="+initPath,
+				"PROVISION_OUTPUT="+filepath.Join(dir, "provision.log"), "ANC_CLOUD_INIT_COMPLETE="+tt.handoff)
+			output, err := cmd.CombinedOutput()
+			if tt.exitCode != 0 {
+				var exitErr *exec.ExitError
+				require.ErrorAs(t, err, &exitErr, string(output))
+				require.Equal(t, tt.exitCode, exitErr.ExitCode())
+				require.NotContains(t, string(output), "provisioned")
+			} else {
+				require.NoError(t, err, string(output))
+				require.Contains(t, string(output), "provisioned")
+			}
+		})
+	}
+}
 
 func TestBuildCSECmdContainerdImagePullSettings(t *testing.T) {
 	for _, version := range []string{"1.7.22", "2.2.4"} {

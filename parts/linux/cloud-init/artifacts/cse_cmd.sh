@@ -17,8 +17,8 @@ else
 fi;
 {{end}}
 INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
-if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then
-	REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}" LOCATION={{GetVariable "location"}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
+if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]{{if IsScriptlessProvisioning}} && [ "${ANC_CLOUD_INIT_COMPLETE:-}" != "true" ]{{end}}; then
+	REPO_DEPOT_ENDPOINT={{AKSCustomCloudRepoDepotEndpoint | ShellQuote}} LOCATION={{GetVariable "location" | ShellQuote}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
 fi;
 {{/* Keep the environment assignments below contiguous through the nohup invocation at the end of this file. */ -}}
 {{/* The CSE command is flattened into one shell command, so all assignments below are passed to nohup. */ -}}
@@ -35,7 +35,7 @@ KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
 RESOURCE_GROUP={{GetVariable "resourceGroup"}}
-LOCATION={{GetVariable "location"}}
+LOCATION={{GetVariable "location" | ShellQuote}}
 VM_TYPE={{GetVariable "vmType"}}
 SUBNET={{GetVariable "subnetName"}}
 NETWORK_SECURITY_GROUP={{GetVariable "nsgName"}}
