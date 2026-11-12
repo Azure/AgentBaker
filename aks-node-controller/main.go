@@ -16,7 +16,7 @@ func main() {
 	logCleanup := configureLogging()
 	app := App{
 		cmdRun:      cmdRunner,
-		eventLogger: helpers.NewEventLogger("/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"),
+		eventLogger: helpers.NewEventLogger(osCfg.eventsDirPath),
 	}
 
 	exitCode := app.Run(context.Background(), os.Args)
@@ -54,8 +54,8 @@ func configureLogging() func() {
 
 func setupLogPath() string {
 	// Try to create production directory first
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err == nil {
-		return logPath
+	if err := os.MkdirAll(filepath.Dir(osCfg.logPath), 0755); err == nil {
+		return osCfg.logPath
 	}
 	// If directory creation fails, fallback to current directory
 	return "aks-node-controller.log"
