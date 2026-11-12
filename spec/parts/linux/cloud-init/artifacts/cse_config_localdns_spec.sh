@@ -451,6 +451,8 @@ OVERRIDE_EOF
             mkdir -p "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d"
             echo "[Timer]" > "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf"
             FAIL_UNIT=""
+            SERVICE_STATE="inactive"
+            RESET_FAILED_FAILS=false
 
             # Record calls to a file (rather than stdout) so ordering against rm can be checked.
             systemctlDisableAndStop() {
@@ -459,14 +461,18 @@ OVERRIDE_EOF
             }
             systemctl() {
                 echo "systemctl $*" >> "$SYSTEMCTL_CALLS"
-                return 0
+                case "$1" in
+                    is-failed) [ "$SERVICE_STATE" = "failed" ] ;;
+                    reset-failed) [ "$RESET_FAILED_FAILS" = false ] ;;
+                    *) return 0 ;;
+                esac
             }
             export AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_TIMER
         }
 
         cleanup() {
             rm -rf "$TEST_TEMP_DIR"
-            unset AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_TIMER SYSTEMCTL_CALLS FAIL_UNIT
+            unset AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_TIMER SYSTEMCTL_CALLS FAIL_UNIT SERVICE_STATE RESET_FAILED_FAILS
         }
 
         BeforeEach 'setup'
@@ -480,8 +486,24 @@ OVERRIDE_EOF
             The output should include "disableAKSLocalDNSHostsSetup complete"
             The contents of file "$SYSTEMCTL_CALLS" should include "systemctlDisableAndStop aks-localdns-hosts-setup.timer hosts_present=yes"
             The contents of file "$SYSTEMCTL_CALLS" should include "systemctlDisableAndStop aks-localdns-hosts-setup.service hosts_present=yes"
-            The contents of file "$SYSTEMCTL_CALLS" should include "systemctl reset-failed aks-localdns-hosts-setup.service"
+            The contents of file "$SYSTEMCTL_CALLS" should not include "systemctl reset-failed"
             The file "$AKS_LOCALDNS_HOSTS_FILE" should not be exist
+        End
+
+        It 'should reset failed state when stopping the in-flight run left the service failed'
+            SERVICE_STATE="failed"
+            When call disableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Reset failed state of aks-localdns-hosts-setup.service"
+            The contents of file "$SYSTEMCTL_CALLS" should include "systemctl reset-failed aks-localdns-hosts-setup.service"
+        End
+
+        It 'should warn when resetting the failed state fails'
+            SERVICE_STATE="failed"
+            RESET_FAILED_FAILS=true
+            When call disableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "WARNING: failed to reset failed state of aks-localdns-hosts-setup.service"
         End
 
         It 'should remove temp files left by a terminated refresh run'

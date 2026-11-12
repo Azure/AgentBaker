@@ -313,7 +313,13 @@ disableAKSLocalDNSHostsSetup() {
     done
     # Terminating an in-flight run leaves the oneshot unit in "failed" state; clear it so the
     # intentional stop doesn't show up as a failed unit to node health checks.
-    systemctl reset-failed aks-localdns-hosts-setup.service 2>/dev/null || true
+    if systemctl is-failed --quiet aks-localdns-hosts-setup.service; then
+        if systemctl reset-failed aks-localdns-hosts-setup.service; then
+            echo "Reset failed state of aks-localdns-hosts-setup.service"
+        else
+            echo "WARNING: failed to reset failed state of aks-localdns-hosts-setup.service"
+        fi
+    fi
 
     removeAKSLocalDNSHostsSetupTimerOverride "${hosts_setup_timer_override}"
 
