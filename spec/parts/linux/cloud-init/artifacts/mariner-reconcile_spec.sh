@@ -36,7 +36,7 @@ Describe 'Azure Linux reconciliation failure isolation and events'
         Mock jq
             # shellcheck disable=SC2016
             case "$*" in
-                *'.[$component]={code:$code}'*) exit 1 ;;
+                *'.[$component]=('*) exit 1 ;;
                 *) /usr/bin/jq "$@" ;;
             esac
         End
@@ -66,7 +66,7 @@ Describe 'Azure Linux reconciliation failure isolation and events'
         Mock jq
             # shellcheck disable=SC2016
             case "$*" in
-                *'.[$component]={code:$code}'*) exit 1 ;;
+                *'.[$component]=('*) exit 1 ;;
                 *) /usr/bin/jq "$@" ;;
             esac
         End
