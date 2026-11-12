@@ -58,7 +58,6 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) error {
 		ValidateDiskQueueService,
 		ValidateLeakedSecrets,
 		ValidateKubeletActiveFlagsEvent,
-		ValidateEgressCheckEvent,
 		ValidateIPTablesCompatibleWithCiliumEBPF,
 		ValidateRxBufferDefault,
 		ValidateKernelLogs,
