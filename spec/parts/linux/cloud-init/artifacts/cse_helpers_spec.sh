@@ -259,7 +259,7 @@ Describe 'cse_helpers.sh and build helpers'
         End
     End
 
-    Describe 'credential provider metadata compatibility'
+    Describe 'getCredentialProviderVersion metadata compatibility'
         BeforeEach 'setup_credential_provider_metadata'
         AfterEach 'cleanup_credential_provider_metadata'
 
@@ -293,7 +293,7 @@ Describe 'cse_helpers.sh and build helpers'
 
         resolve_provider_version() {
             printf '%s\n' "$provider_metadata" > "$COMPONENTS_FILEPATH"
-            getLatestPkgVersionFromK8sVersion "$@"
+            getCredentialProviderVersion "$@"
         }
 
         Describe 'supported platforms'
@@ -307,7 +307,7 @@ Describe 'cse_helpers.sh and build helpers'
             End
 
             It "resolves canonical packages for $1 $2 $3"
-                When call resolve_provider_version "$4" "azure-acr-credential-provider" "$1" "$2" "$3"
+                When call resolve_provider_version "$4" "$1" "$2" "$3"
                 The status should be success
                 The output should equal "$5"
                 The variable PACKAGE_VERSION should equal "$5"
@@ -318,7 +318,7 @@ Describe 'cse_helpers.sh and build helpers'
                     .Packages[0].name = "azure-acr-credential-provider-pmc" |
                     .Packages += [$legacy]
                 ' <<< "$provider_metadata")
-                When call resolve_provider_version "$4" "azure-acr-credential-provider" "$1" "$2" "$3"
+                When call resolve_provider_version "$4" "$1" "$2" "$3"
                 The status should be success
                 The output should equal "$5"
                 The variable PACKAGE_VERSION should equal "$5"
@@ -331,21 +331,21 @@ Describe 'cse_helpers.sh and build helpers'
                     .name = "azure-acr-credential-provider-pmc" |
                     .downloadURIs.ubuntu.r2204.versionsV2[0].latestVersion = "1.33.99")]
             ' <<< "$provider_metadata")
-            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "UBUNTU" "22.04"
+            When call resolve_provider_version "1.33.0" "UBUNTU" "22.04"
             The status should be success
             The output should equal "1.33.20"
         End
 
         It 'does not use legacy OCI versions when no native package metadata exists'
             provider_metadata=$(jq -n --argjson legacy "$legacy_provider" '{Packages: [$legacy]}')
-            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "UBUNTU" "22.04"
+            When call resolve_provider_version "1.33.0" "UBUNTU" "22.04"
             The status should be success
             The output should include 'package versions array is either empty'
             The variable PACKAGE_VERSION should equal ""
         End
 
         It 'does not resolve native packages for unsupported distros'
-            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "MARINER" "2.0"
+            When call resolve_provider_version "1.33.0" "MARINER" "2.0"
             The status should be success
             The output should include 'package versions array is either empty'
             The variable PACKAGE_VERSION should equal ""
@@ -356,7 +356,7 @@ Describe 'cse_helpers.sh and build helpers'
                 .Packages += [(.Packages[0] | .name = "azure-acr-credential-provider-pmc")] |
                 .Packages[0].downloadURIs.ubuntu.r2204.versionsV2 = []
             ' <<< "$provider_metadata")
-            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "UBUNTU" "22.04"
+            When call resolve_provider_version "1.33.0" "UBUNTU" "22.04"
             The status should be success
             The output should include 'package versions array is either empty'
             The variable PACKAGE_VERSION should equal ""
@@ -364,9 +364,16 @@ Describe 'cse_helpers.sh and build helpers'
 
         It 'reports malformed metadata'
             provider_metadata='{invalid'
-            When call resolve_provider_version "1.33.0" "azure-acr-credential-provider" "UBUNTU" "22.04"
+            When call resolve_provider_version "1.33.0" "UBUNTU" "22.04"
             The status should be failure
             The stderr should include 'parse error'
+        End
+
+        It 'reports unreadable metadata'
+            rm -f "$COMPONENTS_FILEPATH"
+            When call getCredentialProviderVersion "1.33.0" "UBUNTU" "22.04"
+            The status should be failure
+            The stderr should include 'Could not open file'
         End
     End
 

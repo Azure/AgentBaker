@@ -1228,17 +1228,7 @@ getLatestPkgVersionFromK8sVersion() {
 
     k8sMajorMinorVersion="$(echo "$k8sVersion" | cut -d- -f1 | cut -d. -f1,2)"
 
-    # Older VHDs used the canonical name for legacy OCI binaries with a default
-    # distro entry. Native packages/sysexts have only explicit distro entries.
-    local package
-    package=$(jq --arg name "$componentName" '
-        if $name == "azure-acr-credential-provider" then
-            ([.Packages[] | select(.name == $name and .downloadURIs.default == null)][0]
-                // [.Packages[] | select(.name == "azure-acr-credential-provider-pmc")][0])
-        else
-            .Packages[] | select(.name == $name)
-        end
-    ' "$COMPONENTS_FILEPATH") || return $?
+    package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
     updatePackageVersions "${package}" "${@:3}"
 
     # shellcheck disable=SC3010
@@ -1260,6 +1250,21 @@ getLatestPkgVersionFromK8sVersion() {
         fi
     done
     echo $PACKAGE_VERSION
+}
+
+getCredentialProviderVersion() {
+    local k8sVersion="$1"
+    local componentName
+    # Older VHDs used the canonical name for legacy OCI binaries with a default
+    # distro entry. Native packages/sysexts have only explicit distro entries.
+    componentName=$(jq -r --arg name "azure-acr-credential-provider" '
+        if any(.Packages[]; .name == $name and .downloadURIs.default == null) then
+            $name
+        else
+            "\($name)-pmc"
+        end
+    ' "$COMPONENTS_FILEPATH") || return $?
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "$componentName" "${@:2}"
 }
 
 # installs kube binary if cached
