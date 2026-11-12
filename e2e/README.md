@@ -87,6 +87,15 @@ rather than downloading an installer when the cache is missing or ambiguous.
 To run only these cases, queue the Ubuntu and Azure Linux GPU pipelines with
 the `tagsToRun` parameter set to `gpu=true,VHDCaching=true`.
 
+### DRA MIG workload validation
+
+The existing `Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed` scenario uses
+`ValidateDRAWithMIGWorkloadSchedulable` with the advertised profile `1g.10gb`.
+It selects NVIDIA MIG devices of that profile, runs a consuming pod on the scenario
+node, and checks the ResourceClaim's allocated driver, pool, and device against that
+node's ResourceSlices before deleting the pod. Missing or mismatched type/profile
+attributes fail validation. Non-MIG DRA scenarios retain their existing scheduling checks.
+
 ### CVM validation
 
 The Ubuntu and Azure Linux V3 CVM scenarios run standard node validation plus
@@ -123,15 +132,6 @@ errors). Both failure statuses fail the scenario. The summary records an overall
 disabled. A verified property mismatch records the actual observed value and
 `status: failed`. Previously verified results are retained if later artifact
 publication or cleanup fails.
-
-### DRA MIG workload validation
-
-The existing `Ubuntu2404_NvidiaDRADriver_With_MIG_Mixed` scenario uses
-`ValidateDRAWithMIGWorkloadSchedulable` with the advertised profile `1g.10gb`.
-It selects NVIDIA MIG devices of that profile, runs a consuming pod on the scenario
-node, and checks the ResourceClaim's allocated driver, pool, and device against that
-node's ResourceSlices before deleting the pod. Missing or mismatched type/profile
-attributes fail validation. Non-MIG DRA scenarios retain their existing scheduling checks.
 
 ### Scriptless provisioning
 
