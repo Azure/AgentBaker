@@ -29,7 +29,7 @@ CSE bundle, not in CustomData. Older bundles retain their existing SSH behavior
 and require an updated CSE bundle or VHD to receive this fix.
 
 Linux SSH-disabled scenarios use RunCommand to verify the persistent SSH block,
-restart the same VM through ARM, confirm its boot ID changed, and check the block
+schedule a guest reboot through RunCommand, confirm its boot ID changed, and check the block
 again after kubelet becomes active. CSE stops SSH listeners and uses an AKS-owned
 systemd condition without changing distribution enablement or administrator masks.
 SSH policy runs only in `nodePrep`, so image preparation leaves SSH defaults
