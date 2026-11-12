@@ -19,7 +19,7 @@ Windows VHD is configured through [VHD](./vhdbuilder/packer/windows/windows-vhd-
 
 windows generates its CSE package using [script](./parts/windows/kuberneteswindowssetup.ps1.template).
 
-Both CSE scripts run in two phases — Windows `BasePrep`/`NodePrep` (`kuberneteswindowssetup.ps1.template`) and Linux `basePrep`/`nodePrep` (`cse_main.sh`). `basePrep` is gated only by the `base_prep.complete` marker, so it is **skipped on a PIS-cached VHD** (the marker is baked in); `nodePrep` runs whenever `PreProvisionOnly` is false — every real node. So node-specific, secret, or expiring data (e.g. the TLS bootstrap token / kubeconfig) must be written in `nodePrep`, not `basePrep`, or the baked copy goes stale. On PIS the phases are separate VM runs — variables re-initialize from the real node's live CustomData, so `nodePrep` can't rely on `basePrep` state. (Non-PIS: both run sequentially in one execution, no reboot between phases.)
+Linux and Windows CSE use `basePrep`/`nodePrep` (`BasePrep`/`NodePrep` on Windows). PIS uses the same CSE version as its base VHD. When the base VHD changes, PIS uses a new image. `basePrep` installs static components, including packages selected by CustomData, and is skipped when `base_prep.complete` exists. `nodePrep` refreshes per-node, secret, or expiring data using live inputs, not bake-time variables. A toggle-only change may require a rebake; this existing constraint alone is not a PR regression.
 
 The webserver is also used to determine the latest version of Linux VHDs available for provisioning within AKS clusters.
 
@@ -50,20 +50,14 @@ When opening a pull request against this repository, the PR's head branch must l
 
 ### SRE Guidelines
 
-The operational goals of this project are:
-
-- achieve consistency across different OS as much as possible
-- avoid functional regression when introducing new features (component updates, new drivers, new binaries), ensure that all supported OS / versions are tested
-- avoid VHD build performance regressions when making any changes
-- avoid node provisioning performance regression when making any changes
-
-When making changes, reason whether the file is used in VHD building stage, or provision stage, or both. Make sure the changes are valid in its life stage. as an example, [windows-vhd-configuration.ps1](./vhdbuilder/packer/windows/windows-vhd-configuration.ps1) defines container images to be cached in VHD, while [configure-windows-vhd.ps1](./vhdbuilder/packer/windows/configure-windows-vhd.ps1) executes commands at provision time.
+- Keep behavior consistent across supported OS versions and test affected variants.
+- Avoid regressions in functionality, VHD build time, and node provisioning time.
+- Check whether changed code runs during VHD build, provisioning, or both. For example, [windows-vhd-configuration.ps1](./vhdbuilder/packer/windows/windows-vhd-configuration.ps1) defines cached images; [configure-windows-vhd.ps1](./vhdbuilder/packer/windows/configure-windows-vhd.ps1) runs during provisioning.
+- Use build flags only for system calls, not for OS-specific logic.
 
 ### ShellScripts Guidelines
 
-- use shellcheck for sanity checking
-- use ShellSpec for testing
-- the shell scripts are used on both azure linux/mariner and ubuntu and cross platform portability is critical.
-- when using functions defined in other files, ensure it is sourced properly.
-- use local variables rather than constants when their scoping allows for it.
-- avoid using variables declared inside another function, even they are visible. It is hard to reason and might introduce subtle bugs.
+- Use ShellCheck and ShellSpec.
+- Keep scripts portable across Ubuntu and Azure Linux/Mariner.
+- Source helpers before use.
+- Prefer local variables; do not rely on variables declared inside another function.
