@@ -824,7 +824,7 @@ EOF
             [ "$1" = "$2" ] && return 0
             [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
         }
-        getLatestPkgVersionFromK8sVersion() {
+        getCredentialProviderVersion() {
             PACKAGE_VERSION="$1-1"
         }
         installToolFromBootstrapProfileRegistry() {
@@ -845,6 +845,17 @@ EOF
             ERR_ORAS_PULL_CREDENTIAL_PROVIDER=208
             CREDENTIAL_PROVIDER_BIN_DIR="/tmp/credential-provider"
         }
+
+        It 'stops when credential-provider metadata resolution fails'
+            getCredentialProviderVersion() {
+                echo 'Cannot read credential-provider metadata' >&2
+                return 23
+            }
+            When call installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.6
+            The status should equal 23
+            The stderr should equal 'Cannot read credential-provider metadata'
+            The output should equal ""
+        End
 
         It 'falls back to URL installation for k8s < 1.35.0'
             When call installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.6
