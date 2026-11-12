@@ -226,6 +226,10 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"REPO_DEPOT_ENDPOINT":                          getRepoDepotEndpoint(config),
 	}
 
+	if sysfs := config.GetCustomLinuxOsConfig().GetSysfsConfig(); sysfs != nil && sysfs.MglruEnabled != nil {
+		env["MGLRU_ENABLED"] = fmt.Sprintf("%v", sysfs.GetMglruEnabled())
+	}
+
 	for i, cert := range config.CustomCaCerts {
 		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = removeNewlines(cert)
 	}

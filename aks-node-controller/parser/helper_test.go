@@ -396,6 +396,44 @@ func TestSysctlSettingsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSysfsSettingsRoundTrip(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		json string
+		want string
+	}{
+		{name: "omitted sysfs config", json: `{}`},
+		{name: "empty sysfs config", json: `{"sysfsConfig":{}}`},
+		{name: "enable MGLRU", json: `{"sysfsConfig":{"mglruEnabled":true}}`, want: "true"},
+		{name: "explicitly disable MGLRU", json: `{"sysfsConfig":{"mglruEnabled":false}}`, want: "false"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			payload := []byte(`{"kubernetesVersion":"1.34.0","customLinuxOsConfig":` + test.json + `}`)
+			config, err := nodeconfigutils.UnmarshalConfigurationV1(payload)
+			require.NoError(t, err)
+			encoded, err := nodeconfigutils.MarshalConfigurationV1(config)
+			require.NoError(t, err)
+			restored, err := nodeconfigutils.UnmarshalConfigurationV1(encoded)
+			require.NoError(t, err)
+			require.True(t, proto.Equal(config, restored))
+			wire, err := proto.Marshal(restored)
+			require.NoError(t, err)
+			decoded := &aksnodeconfigv1.Configuration{}
+			require.NoError(t, proto.Unmarshal(wire, decoded))
+			require.True(t, proto.Equal(config, decoded))
+
+			command, err := BuildCSECmd(context.Background(), decoded, nil)
+			require.NoError(t, err)
+			env := environToMap(command.Env)
+			if test.want == "" {
+				require.NotContains(t, env, "MGLRU_ENABLED")
+			} else {
+				require.Equal(t, test.want, env["MGLRU_ENABLED"])
+			}
+		})
+	}
+}
+
 func TestReservedPortsContain(t *testing.T) {
 	for _, test := range []struct {
 		ports string
