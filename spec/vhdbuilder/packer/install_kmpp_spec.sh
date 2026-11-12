@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# ShellSpec invokes hooks and mocks indirectly.
+# shellcheck disable=SC2329
+
 Describe 'KMPP package selection'
     Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
 

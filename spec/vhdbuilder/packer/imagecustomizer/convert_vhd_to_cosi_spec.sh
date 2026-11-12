@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# ShellSpec invokes hooks and mocks indirectly.
+# shellcheck disable=SC2329
+
 # Tests for generate_cosi_package_version in
 # vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh.
 #
