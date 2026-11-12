@@ -5,18 +5,20 @@ For CA refresh logging and Linux opt-in certificate diagnostics, see
 
 ## SSH-disable telemetry
 
-When `DISABLE_SSH=true` and `basePrep` runs, `disableSSH` emits structured
-guest-agent events. Stop/disable retry parameters and missing-unit handling are
-unchanged, a unit that is not installed is still skipped without error. Stop and
-disable failures are now propagated after every SSH unit has been attempted, and
-surface as CSE exit code 172. Telemetry failures remain warnings, not new
+When `DISABLE_SSH=true` and `nodePrep` runs, `disableSSH` emits structured
+guest-agent events. A persistent systemd condition blocks future starts; existing
+listeners are stopped without changing unit enablement. Stop retry parameters and
+missing-unit handling are unchanged. Policy-installation and stop failures surface
+as CSE exit code 172 after every SSH unit has been attempted. A successful stop
+does not have to clear a unit's existing `failed` state.
+Telemetry failures remain warnings, not new
 provisioning failures. Other `systemctlDisableAndStop` callers and
 `logs_to_events` keep their existing telemetry behavior.
 
 | TaskName | Scope |
 | --- | --- |
 | `AKS.CSE.disableSSH` | One `Started` and one `Completed` event per SSH-disable attempt |
-| `AKS.CSE.disableSSH.unit` | `Started` and `Completed` for each unit reached: `ssh`, `sshd`, `sshd.socket` |
+| `AKS.CSE.disableSSH.unit` | `Started` and `Completed` for each unit reached: `ssh.socket`, `sshd.socket`, `ssh`, `sshd` |
 
 The event envelope's `Message` is a JSON string, available as `Context1` in
 `GuestAgentGenericLogs`. Parse it with `parse_json(Context1)`.
@@ -28,12 +30,14 @@ The event envelope's `Message` is a JSON string, available as `Context1` in
 | `Phase`, `Unit` | `Started` or `Completed`; summary events have an empty unit |
 | `ExitCode` | Null for starts; 0/1 for completed units; 0/172 for the completed attempt |
 | `CatExitCode`, `Skipped` | Whether the unit was readable; nonzero `systemctl cat` preserves the existing skip behavior |
-| `StopExitCode`, `DisableExitCode` | Retry-helper results; null when skipped, not raw systemctl exit codes |
+| `StopExitCode` | Stop retry-helper result; null when skipped, not the raw systemctl exit code |
+| `DisableExitCode` | Always null for this stop-only SSH path; retained for schema compatibility |
 
-The last two rows apply to completed unit events. The envelope's `Timestamp` and
+The last three rows apply to completed unit events. The envelope's `Timestamp` and
 `OperationId` contain start and emission times. The schema is kept compact to fit
-the custom-data size limit. A skipped unit can be absent, masked, or unreadable;
-it is not evidence of a successful stop. Command exit 0 alone does not prove port
+the custom-data size limit. A skipped unit can be absent or unreadable;
+it is not evidence of a successful stop. Readable masked units are stopped and
+emit per-unit events without removing their masks. Command exit 0 alone does not prove port
 22 is closed: inspect the unit states and use the reboot E2E validation for
 listener checks.
 
@@ -64,5 +68,6 @@ Use summary events for the denominator, not all CSE completions or the number
 of configured SSH-disabled pools. Missing completions can indicate interruption,
 timeout, ingestion delay, logging failure, or a query-window boundary; do not
 classify them automatically as successes or SSH failures. These events only
-cover nodes running the instrumented scripts. PIS-cached nodes that skip
-`basePrep` do not execute `disableSSH` and will not emit these events.
+cover nodes running the instrumented scripts. Both ordinary nodes and PIS-cached
+nodes execute this policy in `nodePrep`. Image preparation skips `nodePrep`, so
+it does not emit SSH-disable events.

@@ -312,7 +312,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "ACL_DisableSSH",
-	Description: "Tests that a node using ACL VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+	Description: "Tests that ACL boots with SSH disabled and keeps SSH blocked after reboot",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
@@ -328,13 +328,7 @@ var _ = Register(&Scenario{
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
-			if err := ValidateSSHServiceDisabled(ctx, s); err != nil {
-				return err
-			}
-			if err := RestartVMSSVM(ctx, s); err != nil {
-				return err
-			}
-			return ValidateSSHServiceDisabled(ctx, s)
+			return ValidateSSHDisabledAcrossReboot(ctx, s)
 		},
 	},
 })
@@ -1070,7 +1064,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_DisableSSH",
-	Description: "Tests that a node using AzureLinuxV3 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+	Description: "Tests that AzureLinuxV3 boots with SSH disabled and keeps SSH blocked after reboot",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDAzureLinuxV3Gen2,
@@ -1083,15 +1077,14 @@ var _ = Register(&Scenario{
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
-			// Validate SSH daemon is disabled via RunCommand
-			return ValidateSSHServiceDisabled(ctx, s)
+			return ValidateSSHDisabledAcrossReboot(ctx, s)
 		},
 	},
 })
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_DisableSSH",
-	Description: "Tests that a node using Ubuntu 2204 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+	Description: "Tests that Ubuntu 2204 boots with SSH disabled and keeps SSH blocked after reboot",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1104,8 +1097,7 @@ var _ = Register(&Scenario{
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
-			// Validate SSH daemon is disabled via RunCommand
-			return ValidateSSHServiceDisabled(ctx, s)
+			return ValidateSSHDisabledAcrossReboot(ctx, s)
 		},
 	},
 })
@@ -2762,7 +2754,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_DisableSSH",
-	Description: "Tests that a node using Ubuntu 2604 minimal VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
+	Description: "Tests that Ubuntu 2604 minimal boots with SSH disabled and keeps SSH blocked after reboot",
 	Config: Config{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
@@ -2775,8 +2767,7 @@ var _ = Register(&Scenario{
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
-			// Validate SSH daemon is disabled via RunCommand
-			return ValidateSSHServiceDisabled(ctx, s)
+			return ValidateSSHDisabledAcrossReboot(ctx, s)
 		},
 	},
 })
