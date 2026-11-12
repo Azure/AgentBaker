@@ -5,7 +5,6 @@ package agent
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/Azure/agentbaker/internal/compress/gzip"
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -293,6 +293,14 @@ var gzipWriterPool = sync.Pool{
 }
 
 func getGzippedBufferFromBytes(b []byte) []byte {
+	return GzipCustomData(b)
+}
+
+// GzipCustomData returns gzip-compressed bytes using AgentBaker's pinned compressor
+// at BestCompression. Callers re-encoding customData should use this function to
+// match AgentBaker's encoding independently of the Go toolchain.
+// The result is not base64-encoded.
+func GzipCustomData(b []byte) []byte {
 	var gzipB bytes.Buffer
 	w, ok := gzipWriterPool.Get().(*gzip.Writer)
 	if !ok {

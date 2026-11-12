@@ -21,6 +21,7 @@ pr:
     - parts/linux/*
     - packer.mk
     - aks-node-controller/**
+    - e2e/**
     - parts/common/components.json
     - go.mod
     - go.sum
