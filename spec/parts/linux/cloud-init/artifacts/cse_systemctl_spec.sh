@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'systemctlEnableAndStartNoBlock'
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
 
     setup_systemctl() {
         unset CSE_STARTTIME_SECONDS
@@ -172,7 +172,7 @@ systemctl restart --no-block $1"
 End
 
 Describe 'systemctlDisableStopAndResetFailed'
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
 
     systemctl_stop() { echo "systemctl_stop $*"; }
     systemctl_disable() { echo "systemctl_disable $*"; }

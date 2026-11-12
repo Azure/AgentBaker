@@ -4,7 +4,7 @@ This work builds on the generic Ubuntu snapshot updater (#8952) and the generic
 Azure Linux updater (#9567). The AKS resource provider publishes the `npdConfig`
 and `npdBinary` components through the Live Patching Controller.
 
-Ubuntu and Azure Linux 3 share one handler (`parts/linux/cloud-init/artifacts/npd-update.sh`)
+Ubuntu and Azure Linux 3 share one handler (`parts/root/shared/opt/azure/containers/npd-update.sh`)
 and one lifecycle. Only the package primitives differ: dpkg/apt on Ubuntu and
 rpm/tdnf on Azure Linux.
 

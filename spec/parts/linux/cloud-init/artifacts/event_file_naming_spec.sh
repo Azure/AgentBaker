@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'WALinuxAgent event file naming'
-    ARTIFACTS_DIR="./parts/linux/cloud-init/artifacts"
+    ARTIFACTS_DIR="./parts"
     COMPLIANT_NAME='="\$\(date \+%s%N\)\$\{BASHPID\}(\.json)?"$'
 
     emitters() {
@@ -57,7 +57,7 @@ Describe 'WALinuxAgent event file naming'
         BeforeEach 'setup_events_dir'
         AfterEach 'cleanup_events_dir'
 
-        Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+        Include "./parts/root/common/opt/azure/containers/provision_source.sh"
 
         emit_twice_then_count() {
             logs_to_events "AKS.Spec.first" true

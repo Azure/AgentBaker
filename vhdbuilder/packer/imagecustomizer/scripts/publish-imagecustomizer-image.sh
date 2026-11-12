@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+source ./parts/root/common/opt/azure/image-build/provision_source_benchmarks.sh
 
 # Find the absolute path of the directory containing this script
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"

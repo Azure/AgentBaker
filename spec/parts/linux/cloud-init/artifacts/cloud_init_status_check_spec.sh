@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'cloudInitStatusCheck'
-    Include "./parts/linux/cloud-init/artifacts/cloud-init-status-check.sh"
+    Include "./parts/root/common/opt/azure/containers/cloud-init-status-check.sh"
     cleanUpLoggingDirs() {
         # Clean up the logging directories to avoid conflicts in tests
         rm -rf /tmp/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/

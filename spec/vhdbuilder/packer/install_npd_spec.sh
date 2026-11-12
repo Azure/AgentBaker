@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'NPD package selection'
-    Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
+    Include ./parts/root/common/opt/azure/containers/provision_source.sh
 
     select_npd_packages() {
         local os="$1" release="$2" package
@@ -56,7 +56,7 @@ Describe 'NPD package selection'
 End
 
 Describe 'NPD VHD installation helper'
-    Include ./vhdbuilder/packer/install-npd.sh
+    Include ./parts/root/shared/opt/azure/image-build/install-npd.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -106,7 +106,7 @@ dnf_install 30 1 600 node-problem-detector-kubernetes-0.8.25-16.azl3'
 End
 
 Describe 'NPD VHD installation helper on Ubuntu'
-    Include ./vhdbuilder/packer/install-npd.sh
+    Include ./parts/root/shared/opt/azure/image-build/install-npd.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -153,7 +153,7 @@ Describe 'NPD VHD installation helper on Ubuntu'
 End
 
 Describe 'NPD VHD installation helper for releases sharing a config package'
-    Include ./vhdbuilder/packer/install-npd.sh
+    Include ./parts/root/shared/opt/azure/image-build/install-npd.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"

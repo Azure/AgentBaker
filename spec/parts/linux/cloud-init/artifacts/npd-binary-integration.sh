@@ -8,7 +8,7 @@
 # stop, restart and the apiserver reporting check are stubbed.
 set -euo pipefail
 
-source ./parts/linux/cloud-init/artifacts/npd-update.sh
+source ./parts/root/shared/opt/azure/containers/npd-update.sh
 
 # The config package owns the NPD unit; npdBinary is a no-op without it.
 if ! (npd_select_component npdConfig && npd_installed_version >/dev/null); then

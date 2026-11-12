@@ -33,8 +33,8 @@ sleep() {
 CSE_STARTTIME_SECONDS=$(date +%s)
 
 Describe 'cse_install_flatcar.sh'
-    Include "./parts/linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./parts/root/flatcar/opt/azure/containers/provision_installs_distro.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
 
     Describe 'downloadSysextFromVersion'
         It 'downloads sysext with default download directory'

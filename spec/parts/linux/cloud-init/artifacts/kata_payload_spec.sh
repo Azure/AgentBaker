@@ -1,8 +1,8 @@
 #!/bin/bash
 
 Describe 'Azure Linux 3 Kata payload copies'
-    Include './parts/linux/cloud-init/artifacts/cse_helpers.sh'
-    Include './vhdbuilder/packer/packer_source.sh'
+    Include './parts/root/common/opt/azure/containers/provision_source.sh'
+    Include './parts/root/shared/opt/azure/image-build/packer_source.sh'
 
     setup() {
         TEST_ROOT=$(mktemp -d)
@@ -12,7 +12,7 @@ Describe 'Azure Linux 3 Kata payload copies'
         SIGNED_FILES='kata-containers.img kata-containers-cc.img kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose reference-info-base64'
         ORDINARY_GUEST="$TEST_ROOT/usr/share/kata-containers/kata-containers.img"
         CONFIDENTIAL_DIR="$TEST_ROOT/opt/confidential-containers/share/kata-containers"
-        mkdir -p "$TEST_ROOT/home/packer/kata-cc"
+        command mkdir -p "$TEST_ROOT/home/packer/kata-cc"
         printf 'ordinary guest\n' > "$TEST_ROOT/home/packer/kata-containers.img"
         local file
         for file in $SIGNED_FILES; do
@@ -25,18 +25,11 @@ Describe 'Azure Linux 3 Kata payload copies'
         rm -rf "$TEST_ROOT"
     }
 
-    # Exercise the real copy helper against a temporary filesystem, skipping
-    # unrelated VHD assets. Re-source in a subshell to avoid recursive mocking.
-    cpAndMode() {
-        case "$1:$2" in
-            *kata*|*igvm*|*reference-info*)
-                (
-                    # shellcheck disable=SC1091
-                    . ./vhdbuilder/packer/packer_source.sh
-                    cpAndMode "$TEST_ROOT$1" "$TEST_ROOT$2" "$3"
-                ) || exit "$?"
-                ;;
-        esac
+    install() {
+        command install "$1" "$2" "$TEST_ROOT$3" "$TEST_ROOT$4" || exit 1
+    }
+    mkdir() {
+        command mkdir "$1" "$TEST_ROOT$2"
     }
 
 
@@ -57,7 +50,7 @@ Describe 'Azure Linux 3 Kata payload copies'
     AfterEach 'cleanup'
 
     It 'copies all six signed files with mode 0644 and preserves the ordinary guest'
-        When run copyPackerFiles
+        When run installKataPayload
         The status should be success
         The result of function signed_payload_is_intact should equal intact
         The contents of file "$ORDINARY_GUEST" should equal 'ordinary guest'
@@ -67,7 +60,7 @@ Describe 'Azure Linux 3 Kata payload copies'
     It 'copies only the ordinary guest when confidential Kata is disabled'
         FEATURE_FLAGS=kata
         rm -rf "$TEST_ROOT/home/packer/kata-cc"
-        When run copyPackerFiles
+        When run installKataPayload
         The status should be success
         The contents of file "$ORDINARY_GUEST" should equal 'ordinary guest'
         The path "$CONFIDENTIAL_DIR" should not be exist
@@ -85,8 +78,8 @@ Describe 'Azure Linux 3 Kata payload copies'
 
         It "fails when $1 is absent"
             rm "$TEST_ROOT/home/packer/kata-cc/$1"
-            When run copyPackerFiles
-            The status should equal "$ERR_PACKER_COPY_FILE"
+            When run installKataPayload
+            The status should be failure
             The stderr should include "$TEST_ROOT/home/packer/kata-cc/$1"
         End
     End

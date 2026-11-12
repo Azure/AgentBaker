@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Tests for parts/linux/cloud-init/artifacts/init-aks-cloud.sh
+# Tests for parts/root/common/opt/azure/containers/init-aks-cloud.sh
 #
 # Covers three areas:
 # 1. Structural wiring tests (grep-based) for the ca-refresh mode added by #8096.
@@ -11,7 +11,7 @@
 #    - cloud mode selection helper (determine_cert_endpoint_mode)
 
 Describe 'init-aks-cloud.sh refresh mode wiring'
-    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+    script_path='./parts/root/common/opt/azure/containers/init-aks-cloud.sh'
 
     It 'parses action argument after deriving location, with init default'
         When run grep -Eq '^action=\$\{1:-init\}$' "$script_path"
@@ -75,7 +75,7 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
 End
 
 Describe 'init-aks-cloud.sh repo initialization dispatch'
-    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+    script_path='./parts/root/common/opt/azure/containers/init-aks-cloud.sh'
 
     setup_repo_dispatch() {
         IS_UBUNTU=0
@@ -244,7 +244,7 @@ Describe 'legacy CA certificate filenames'
         # Relocate staging so all writes stay inside the test directory.
         # shellcheck disable=SC1090
         __SOURCED__=1 . <(sed "s|/root/AzureCACertificates|${TEST_DIR}/certs|g" \
-            ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh)
+            ./parts/root/common/opt/azure/containers/init-aks-cloud.sh)
         make_request_with_retry() { printf '%s\n' "$CERT_RESPONSE"; }
     }
     cleanup_certificates() { rm -rf "${TEST_DIR}"; }
@@ -365,7 +365,7 @@ Describe 'legacy CA certificate filenames'
 End
 
 Describe 'cse_config_chrony.sh distro routing'
-    script_path='./parts/linux/cloud-init/artifacts/cse_config_chrony.sh'
+    script_path='./parts/root/common/opt/azure/containers/provision_configs_chrony.sh'
 
     chrony_routing_block() {
         sed -n '/^configure_node_time_sync() {$/,/^}$/p' "$script_path"
@@ -411,14 +411,14 @@ Describe 'init-aks-cloud.sh functional tests'
         # ca-certificates.crt is referenced when copying the bundle
         echo "fake-bundle" > "${SSL_CERTS_DIR}/ca-certificates.crt"
         # shellcheck disable=SC1090
-        __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
+        __SOURCED__=1 . "./parts/root/common/opt/azure/containers/init-aks-cloud.sh"
         UBUNTU_OS_NAME="UBUNTU"
         FLATCAR_OS_NAME="FLATCAR"
         ERR_CVM_PLATFORM_DETECTION_FAIL=244
         ERR_CHRONY_NTP_SYNC_FAIL=245
         ERR_CHRONY_CONFIG_FAIL=246
         # shellcheck disable=SC1091
-        . "./parts/linux/cloud-init/artifacts/cse_config_chrony.sh"
+        . "./parts/root/common/opt/azure/containers/provision_configs_chrony.sh"
         logs_to_events() {
             shift
             # Match the production helper's argument expansion.
@@ -447,7 +447,7 @@ Describe 'init-aks-cloud.sh functional tests'
             RETRY_FAILURE_TEXT='Error: 404 Not Found'
             # Keep DNF's output file inside the fixture rather than shared /tmp.
             __SOURCED__=1 . <(sed "s|/tmp/dnf-makecache.out|${TEST_DIR}/dnf-makecache.out|g" \
-                ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh)
+                ./parts/root/common/opt/azure/containers/init-aks-cloud.sh)
         }
         BeforeEach 'setup_cache_retries'
 

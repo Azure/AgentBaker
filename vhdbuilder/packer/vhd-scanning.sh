@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eux
 
-source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+source ./parts/root/common/opt/azure/image-build/provision_source_benchmarks.sh
 
 # This variable is used to determine where we need to deploy the VM on which we'll run trivy.
 # We must be sure this location matches the location used by packer when delivering the output image

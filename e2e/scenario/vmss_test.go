@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -25,10 +26,64 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v10"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
 type vmssCreationTestPolicy func(*http.Request) *http.Response
+
+func TestCustomDataWithScriptBundle(t *testing.T) {
+	const preload = "nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &"
+	original := "#!/bin/bash\nset -euo pipefail\n" + preload + "\n" + hotfixMarker + "\nstart-anc\n"
+	input := base64.StdEncoding.EncodeToString([]byte(original))
+	encoded, err := CustomDataWithScriptBundle(input, "https://example.invalid/anc?sig=test")
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	require.NoError(t, err)
+	actual := string(decoded)
+	require.NotContains(t, actual, hotfixMarker)
+	require.Equal(t, 1, strings.Count(actual, "curl -fSL"))
+	require.Equal(t, 1, strings.Count(actual, "unpack-scripts"))
+	require.Contains(t, actual, "&& /opt/azure/containers/aks-node-controller-hotfix unpack-scripts")
+	require.Contains(t, actual, "unpack-scripts || exit 1")
+	require.Less(t, strings.Index(actual, "unpack-scripts"), strings.Index(actual, "start-anc"))
+	require.Less(t, strings.Index(actual, "unpack-scripts"), strings.Index(actual, preload))
+
+	encoded, err = CustomDataWithNBCCmdHack(input, "https://example.invalid/anc")
+	require.NoError(t, err)
+	decoded, err = base64.StdEncoding.DecodeString(encoded)
+	require.NoError(t, err)
+	require.NotContains(t, string(decoded), "unpack-scripts", "hotfix fixtures must let the launcher apply the embedded tree")
+	_, err = CustomDataWithScriptBundle("not base64", "unused")
+	require.ErrorContains(t, err, "decode custom data")
+	_, err = CustomDataWithScriptBundle(base64.StdEncoding.EncodeToString([]byte("no marker")), "unused")
+	require.ErrorContains(t, err, "not found")
+	_, err = CustomDataWithScriptBundle(base64.StdEncoding.EncodeToString([]byte(hotfixMarker)), "unused")
+	require.ErrorContains(t, err, "preload command not found")
+}
+
+func TestScriptBundleFailureStopsProvisioning(t *testing.T) {
+	bash, err := exec.LookPath("bash")
+	require.NoError(t, err)
+	input := base64.StdEncoding.EncodeToString([]byte("#!/bin/bash\nset -euo pipefail\nnohup /bin/bash /opt/azure/containers/provision_preload.sh &\n" + hotfixMarker + "\nstart-anc\n"))
+	encoded, err := CustomDataWithScriptBundle(input, "https://example.invalid/anc")
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	require.NoError(t, err)
+	script := strings.ReplaceAll(string(decoded), "/opt/azure/containers/aks-node-controller-hotfix", "test-anc")
+	for _, failure := range []string{"download", "unpack"} {
+		t.Run(failure, func(t *testing.T) {
+			downloadCode, unpackCode := 0, 0
+			if failure == "download" {
+				downloadCode = 23
+			} else {
+				unpackCode = 1
+			}
+			mocks := fmt.Sprintf("curl() { return %d; }; chmod() { :; }; test-anc() { return %d; }; start-anc() { echo started; };\n", downloadCode, unpackCode)
+			output, err := exec.Command(bash, "-c", mocks+script).CombinedOutput()
+			require.Error(t, err)
+			require.NotContains(t, string(output), "started")
+		})
+	}
+}
 
 type vmssCreationTestLogger struct {
 	*testing.T
@@ -346,38 +401,16 @@ func (tt *vmssCreationTestCase) respond(t *testing.T, req *http.Request) *http.R
 }
 
 func TestWriteScriptHotfixFixture(t *testing.T) {
-	buildDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "generated"), 0o755))
-	fixture := ScriptHotfixFixture{
-		Platform: "ubuntu",
-		Files: []ScriptHotfixFile{{
-			Destination: "/opt/azure/containers/provision_configs.sh",
-			Mode:        "0744",
-			Payload:     []byte("#!/bin/bash\necho e2e\n"),
-		}},
-	}
-
-	require.NoError(t, writeScriptHotfixFixture(buildDir, fixture))
-	entries, err := os.ReadDir(filepath.Join(buildDir, "generated"))
+	root := t.TempDir()
+	target := filepath.Join(root, "parts/root/ubuntu/opt/azure/containers/provision_configs.sh")
+	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
+	require.NoError(t, os.WriteFile(target+".link", []byte("shared/provision_configs.sh\n"), 0o644))
+	fixture := ScriptHotfixFixture{Platform: "ubuntu", Files: []ScriptHotfixFile{{Destination: "/opt/azure/containers/provision_configs.sh", Payload: []byte("#!/bin/bash\necho e2e\n")}}}
+	require.NoError(t, writeScriptHotfixFixture(root, fixture))
+	require.NoFileExists(t, target+".link")
+	data, err := os.ReadFile(filepath.Join(root, "parts/root/ubuntu/opt/azure/containers/provision_configs.sh"))
 	require.NoError(t, err)
-	require.Len(t, entries, 1)
-	require.Equal(t, "rendered_nodecustomdata_ubuntu.yml", entries[0].Name())
-
-	renderedData, err := os.ReadFile(filepath.Join(
-		buildDir,
-		"generated",
-		"rendered_nodecustomdata_ubuntu.yml",
-	))
-	require.NoError(t, err)
-	var rendered scriptHotfixFixtureNodeCustomData
-	require.NoError(t, yaml.Unmarshal(renderedData, &rendered))
-	require.Len(t, rendered.WriteFiles, 1)
-	require.Equal(t, fixture.Files[0].Destination, rendered.WriteFiles[0].Path)
-	require.Equal(t, fixture.Files[0].Mode, rendered.WriteFiles[0].Permissions)
-	require.Equal(t, "base64", rendered.WriteFiles[0].Encoding)
-	payload, err := base64.StdEncoding.DecodeString(rendered.WriteFiles[0].Content)
-	require.NoError(t, err)
-	require.Equal(t, fixture.Files[0].Payload, payload)
+	require.Equal(t, fixture.Files[0].Payload, data)
 }
 
 func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
@@ -386,7 +419,6 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 			Platform: "ubuntu",
 			Files: []ScriptHotfixFile{{
 				Destination: "/opt/azure/containers/provision_configs.sh",
-				Mode:        "0744",
 				Payload:     []byte("#!/bin/bash\n"),
 			}},
 		}
@@ -401,12 +433,7 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 				fixture.Files[0].Destination = "opt/provision_configs.sh"
 			},
 		},
-		{
-			name: "invalid mode",
-			mutate: func(fixture *ScriptHotfixFixture) {
-				fixture.Files[0].Mode = "0999"
-			},
-		},
+
 		{
 			name: "unsupported platform",
 			mutate: func(fixture *ScriptHotfixFixture) {
@@ -425,14 +452,13 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 			fixture := validFixture()
 			test.mutate(&fixture)
 			buildDir := t.TempDir()
-			require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "generated"), 0o755))
 			require.Error(t, writeScriptHotfixFixture(buildDir, fixture))
 		})
 	}
 }
 
 // TestCSEExitCodeOutboundConnFail pins the exit code constant to the value emitted by
-// ERR_OUTBOUND_CONN_FAIL in parts/linux/cloud-init/artifacts/cse_helpers.sh. If the
+// ERR_OUTBOUND_CONN_FAIL in parts/root/common/opt/azure/containers/provision_source.sh. If the
 // product error code changes, this test forces the harness mitigation to be updated.
 func TestGetBaseVMSSModelUsesScenarioVMSize(t *testing.T) {
 	s := &Scenario{

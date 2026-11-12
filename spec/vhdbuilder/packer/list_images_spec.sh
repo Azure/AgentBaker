@@ -8,7 +8,7 @@ Describe 'image BOM generation'
     export SKU_NAME="test-sku" IMAGE_VERSION="202611.09.0"
     export FETCHER_STATUS=0
     mkdir -p "${TEST_ROOT}/containers"
-    sed "s|/opt/azure|${TEST_ROOT}|g" ./vhdbuilder/packer/list-images.sh > "$TEST_SCRIPT"
+    sed "s|/opt/azure|${TEST_ROOT}|g" ./parts/root/common/opt/azure/image-build/list-images.sh > "$TEST_SCRIPT"
     cat > "${TEST_ROOT}/containers/image-fetcher" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$@" > "$CALLS_FILE"

@@ -2,7 +2,7 @@
 #shellcheck disable=SC2148
 
 Describe 'aks-localdns-hosts-setup.sh'
-    SCRIPT_PATH="parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh"
+    SCRIPT_PATH="parts/root/shared/opt/azure/containers/aks-localdns-hosts-setup.sh"
 
     # Helper to build a test script that uses the real system dig.
     # Overrides only HOSTS_FILE and LOCALDNS_CRITICAL_FQDNS, preserving everything else

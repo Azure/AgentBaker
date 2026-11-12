@@ -2,7 +2,7 @@
 # shellcheck disable=SC2329
 
 Describe 'enableTridentACLAgent'
-  BeforeAll "eval \"\$(sed -n '/^enableTridentACLAgent()/,/^}/p' './vhdbuilder/scripts/linux/acl/tool_installs_acl.sh')\""
+  BeforeAll "eval \"\$(sed -n '/^enableTridentACLAgent()/,/^}/p' './parts/root/acl/opt/azure/image-build/tool_installs_distro.sh')\""
 
   setup_agent() {
     MOCK_SERVICE_STATUS=0

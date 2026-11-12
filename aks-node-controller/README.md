@@ -34,6 +34,55 @@ not yet been validated and requires a rebuilt VHD containing this ANC binary.
 
 ## Usage
 
+### Embedded image files
+
+ANC embeds `parts/root` as the final filesystem. The same command is used by
+image builders, E2E and hotfixes:
+
+```sh
+aks-node-controller unpack-scripts
+```
+
+Files are written directly to their relative paths under `/`. There is no static
+Packer staging directory, installation manifest, file selection list, or generation
+step. Build tools live in `/opt/azure/image-build`. Generated payloads and compiled
+binaries remain separate image-builder inputs.
+
+Unpacking applies `common/`, then **one** OS tree selected from `/etc/os-release`.
+The OS tree overrides common files. Ubuntu 18.04/20.04 and Azure Linux 3.0 have
+their own complete trees because their contents differ; they do not inherit
+another OS tree.
+
+Files reused by several systems are stored once in `shared/`. An OS tree can
+contain a plain-text reference such as:
+
+```text
+ubuntu/etc/systemd/system/node-exporter.service.link
+    contents: shared/etc/systemd/system/node-exporter.service
+```
+
+ANC copies the referenced bytes to `/etc/systemd/system/node-exporter.service`.
+The `.link` suffix is removed; the installed file is a regular file. Reference
+paths are relative to `root/` and must point directly to regular files under
+`shared/`. Reference chains, directories and paths outside `shared/` are rejected.
+`shared/` itself is never unpacked.
+
+The complete file set is resolved before any writes. A file and a `.link` with
+the same destination in one tree, file/directory conflicts, missing references,
+and two image overlays writing the same destination are errors. Common-to-OS
+and OS-to-image-overlay replacements are intentional.
+
+New scripts get `0755`, other files get `0644`; existing permissions are preserved.
+`--destination` selects an alternate root for inspection or tests. Image builders
+can select a small number of image variants with repeatable `--overlay` arguments
+(e.g. `gb` or `ubuntu2204-fips`). The selection is recorded in
+`/etc/aks/image-overlays`, so subsequent hotfixes apply the same variants.
+
+Unpacking intentionally replaces all files in the selected tree, including custom
+copies of provisioning scripts and static configuration. It is not a selective
+patch and does not remove unrelated files. Runtime node configuration and secrets
+are not part of this embedded tree.
+
 ### Phase 3 through AgentBaker
 
 Set `NodeBootstrappingConfiguration.EnableScriptlessAKSNodeConfig = true` and supply
@@ -163,7 +212,7 @@ Here is an example response return by CSE:
 
 ### Provisioning Flow
 
-Here is an indepth explanation of the provisioning flow. Upon first startup, CustomData is made available to the VM, after which cloud-init is able to process the content, in this case, writing the bootstrap config to disk. The binary is triggered by a systemd unit, [`aks-node-controller.service`](https://github.com/Azure/AgentBaker/blob/dev/parts/linux/cloud-init/artifacts/aks-node-controller.service) which is automatically run once cloud-init is complete. In this way, we are ensuring the bootstrapping config is present on the node and can proceeed to run the go binary to start the bootstrapping process.
+Here is an indepth explanation of the provisioning flow. Upon first startup, CustomData is made available to the VM, after which cloud-init is able to process the content, in this case, writing the bootstrap config to disk. The binary is triggered by a systemd unit, [`aks-node-controller.service`](https://github.com/Azure/AgentBaker/blob/dev/parts/root/common/etc/systemd/system/aks-node-controller.service) which is automatically run once cloud-init is complete. In this way, we are ensuring the bootstrapping config is present on the node and can proceeed to run the go binary to start the bootstrapping process.
 
 Clients need to provide CSE and Custom Data. [nodeconfigutils](pkg/nodeconfigutils) module contains helpers for generating these values.
 
@@ -233,55 +282,18 @@ Key components:
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
 
-### Provisioning script hotfix payloads
+### Full-bundle hotfixes
 
-Patched ANC binaries can embed selected Linux provisioning scripts generated from
-`parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC writes the
-rendered nodecustomdata matching the local platform to
-`/opt/azure/containers/embedded-nodecustomdata.yml` (mode `0600` on creation)
-and calls the existing `applyNodeCustomData` function before constructing the
-normal CSE command. This file is retained for debugging, separate from the legacy
-`nodecustomdata.yml`. It contains the most recently written payload, including
-when application fails; the `applied embedded hotfix payload` log confirms
-successful application. If no payload is selected, any previously retained file
-is left untouched. Application errors are logged and provisioning continues.
+A hotfix is one ANC release containing both the binary and the complete filesystem.
+`hotfix/hotfix_generate.py` only updates the base-to-version pointer when ANC code
+or `parts/root` changes. It does not generate script YAML or maintain a second
+script version. Each release already contains all prior file changes.
 
-The embedded nodecustomdata coordinator distinguishes these script hotfixes from
-updates to the ANC binary itself. The generated files live under
-`aks-node-controller/generated/` as
-`rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
-hotfixable entries from `nodecustomdata.yml`, then renders only Ubuntu and
-standard Azure Linux variants through AgentBaker's production Go-template
-functions. Azure Linux retains the `mariner` payload filename; the legacy
-`ID=mariner` OS is no longer supported. OS Guard, ACL, and Flatcar are explicitly skipped during embedded
-application, including variants that share the `azurelinux` OS ID. Their
-distro-specific source changes do not trigger payload generation.
+The launcher retains version targeting and verified binary acquisition, then calls
+`apply-embedded-hotfix`, a compatibility alias that unpacks the same full tree.
+The alias allows existing launchers to use the new payload. New launchers stop if
+unpacking fails and reload systemd unit definitions after a successful unpack.
+Individual files are replaced atomically; the complete tree is not transactional.
 
-The repository keeps a README placeholder so `go:embed` builds without any
-script hotfix payloads. Generation omits any rendered YAML with no `write_files`
-entries (including missing, null, or empty lists) and logs the skipped platform.
-If all platforms are empty, it writes a README placeholder to keep `go:embed` valid.
-This does not add support for non-distro template conditions.
-ANC skips application when the local platform's YAML is absent; no separate
-activation flag is needed. Other payload read errors are logged.
-
-When a PR has no new script hotfix, generation leaves the existing rendered
-payload unchanged. The active ANC version pointer is likewise retained until it
-is retired explicitly.
-
-The existing applier writes entries sequentially and creates missing destination
-files and parent directories. There is no transactional rollback: if an entry
-fails, earlier writes remain. Generation selects by distro only; hotfix authors
-must separately account for non-distro template conditions such as custom-image
-exclusions.
-
-`cse_start.sh` (`provision_start.sh` on the node) is excluded from embedded
-hotfixes to preserve custom-image wrappers. Generation fails explicitly if this
-script differs from the VHD baseline, even when other scripts also changed.
-Wrapper fixes require a new node image until runtime eligibility is available.
-
-Script hotfix delivery is package-only. The existing base-to-version hotfix map
-selects the ANC package for the node's baked `YYYYMM.DD` version base; the package
-contains its corresponding rendered scripts. If the package cannot be installed,
-provisioning fails open to the original VHD scripts. The operational fallback is
-to upgrade the node image.
+Legacy non-scriptless CustomData rendering remains supported independently. The
+separate `scripts_version`/rendered-nodecustomdata hotfix path is removed.

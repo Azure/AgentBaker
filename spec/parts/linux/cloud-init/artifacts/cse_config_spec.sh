@@ -5,12 +5,12 @@ check_test_fstab_permissions() {
 }
 
 Describe 'cse_config.sh'
-    CSE_CONFIG_GPU_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_gpu.sh"
-    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
-    CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
-    CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    CSE_CONFIG_GPU_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_gpu.sh"
+    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_localdns.sh"
+    CSE_CONFIG_KUBELET_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_kubelet.sh"
+    CSE_CONFIG_NETWORK_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_network.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_configs.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
     Describe 'enableAndStartCgroupTelemetry'
         setup_cgroup_telemetry() {
             OS="UBUNTU"
@@ -1025,7 +1025,7 @@ PubkeyAuthentication no"
         # If configureSSHPubkeyAuth ever reverts to a non-compliant mode
         # (e.g. 644, 640, 660, 755) when replacing $SSHD_CONFIG, these
         # tests will fail and flag the regression before it ships.
-        cse_config_path="./parts/linux/cloud-init/artifacts/cse_config.sh"
+        cse_config_path="./parts/root/common/opt/azure/containers/provision_configs.sh"
 
         It 'replaces sshd_config with mode 0600 (CIS Benchmark 5.1.1)'
             When call grep -E '^[[:space:]]*install[[:space:]]+-m[[:space:]]+0?600[[:space:]]+-o[[:space:]]+root[[:space:]]+-g[[:space:]]+root[[:space:]]+"\$TMP"[[:space:]]+"\$SSHD_CONFIG"' "$cse_config_path"

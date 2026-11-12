@@ -1,8 +1,8 @@
 #!/usr/bin/env shellspec
 
 Describe 'aks-node-controller-launcher.sh'
-    SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh"
-    HOTFIX_SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh"
+    SCRIPT="./parts/root/common/opt/azure/containers/aks-node-controller-launcher.sh"
+    HOTFIX_SCRIPT="./parts/root/common/opt/azure/containers/aks-node-controller-hotfix.sh"
 
     setup_wrapper_test() {
         TEST_DIR="${SHELLSPEC_WORKDIR}/aks-node-controller-launcher"
@@ -137,7 +137,7 @@ EOF
     # binary it selected. This is the seam the extraction bought: these cases assert what the
     # flow itself does, so they do not need a config/nbc-cmd file or a provision invocation.
     run_hotfix_flow() {
-        bash -c 'source "$1"; anc_run_hotfix_flow "$2" "$3" "$4" "$5"; printf "%s\n" "$ANC_HOTFIX_SELECTED_BIN"' \
+        bash -c 'source "$1"; anc_run_hotfix_flow "$2" "$3" "$4" "$5" || exit 1; printf "%s\n" "$ANC_HOTFIX_SELECTED_BIN"' \
             _ "$HOTFIX_SCRIPT" "$BIN_PATH" "${BIN_PATH}-hotfix" "$HOTFIX_JSON" "$FEATURES_PATH"
     }
 
@@ -480,18 +480,14 @@ EOF
         The variable calls should eq "download-hotfix"
     End
 
-    # apply-embedded-hotfix is fail-open: a payload that cannot be applied must not unselect the
-    # hotfix binary, because it is still the newer ANC and provisioning has to proceed on it.
-    It 'keeps the hotfix binary selected when apply-embedded-hotfix fails'
+    It 'stops provisioning when the full embedded image cannot be applied'
         create_recording_aks_node_controller
         create_failing_apply_hotfix_binary
 
         When run run_hotfix_flow
-        The status should be success
+        The status should be failure
         The output should include "ANC apply-embedded-hotfix failed"
         The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
-        # The selection is the flow's only output contract, and it must survive the failure.
-        The output should include "${BIN_PATH}-hotfix"
         hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
         The variable hotfixCalls should eq "apply-embedded-hotfix"
     End

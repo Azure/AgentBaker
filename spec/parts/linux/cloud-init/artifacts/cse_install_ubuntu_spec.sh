@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'cse_install_ubuntu.sh'
-    Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+    Include "./parts/root/shared/opt/azure/containers/provision_installs_distro.ubuntu.sh"
 
     Describe 'cleanUpPrebakedGPUDriver'
         It 'is a no-op when the prebake marker is absent'

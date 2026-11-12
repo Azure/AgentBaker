@@ -21,7 +21,7 @@ cat >/dev/null
 EOF
         cat > "${TEST_DIR}/bin/run-script" <<EOF
 #!/bin/bash
-bash ./parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh 2>"${TEST_DIR}/stderr"
+bash ./parts/root/shared/opt/azure/containers/setup-custom-search-domains.sh 2>"${TEST_DIR}/stderr"
 EOF
         chmod +x "${TEST_DIR}/bin/realm" "${TEST_DIR}/bin/tee" "${TEST_DIR}/bin/run-script"
     }

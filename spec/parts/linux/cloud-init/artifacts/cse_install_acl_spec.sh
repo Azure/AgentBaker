@@ -41,8 +41,8 @@ find() {
 CSE_STARTTIME_SECONDS=$(date +%s)
 
 Describe 'cse_install_acl.sh'
-    Include "./parts/linux/cloud-init/artifacts/acl/cse_install_acl.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./parts/root/acl/opt/azure/containers/provision_installs_distro.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
 
     Describe 'pinned DALEC sysext versions'
         Describe 'remote resolution'

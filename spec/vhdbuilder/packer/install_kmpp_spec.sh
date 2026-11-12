@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'KMPP package selection'
-    Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
+    Include ./parts/root/common/opt/azure/containers/provision_source.sh
 
     select_kmpp_packages() {
         local os="$1" release="$2" variant="${3:-}" package
@@ -36,7 +36,7 @@ Describe 'KMPP package selection'
 End
 
 Describe 'KMPP VHD installation helpers'
-    Include ./vhdbuilder/packer/install-kmpp.sh
+    Include ./parts/root/shared/opt/azure/image-build/install-kmpp.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"
