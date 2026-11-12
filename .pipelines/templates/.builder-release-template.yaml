@@ -46,14 +46,25 @@ steps:
         artifactName: agentbaker-sources-${{ parameters.artifactName }}
         targetPath: $(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz
 
-  - task: UniversalPackages@0
+  - task: AzureCLI@2
     displayName: Download CIS scanner
     inputs:
-      command: download
-      vstsFeed: AzCoreLinux-Compliance
-      vstsFeedPackage: cisassessor
-      vstsPackageVersion: '0.0.249'
-      downloadDirectory: vhdbuilder/
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+        token=$(az account get-access-token \
+          --resource 499b84ac-1321-427f-aa17-267ca6975798 \
+          --query accessToken --output tsv)
+
+        AZURE_DEVOPS_EXT_PAT="$token" az artifacts universal download \
+          --organization https://dev.azure.com/msazure \
+          --scope organization \
+          --feed AzCoreLinux-Compliance \
+          --name cisassessor \
+          --version 0.0.249 \
+          --path "$(Build.SourcesDirectory)/vhdbuilder"
 
   - task: DownloadPipelineArtifact@2
     condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'cbl-mariner'))
