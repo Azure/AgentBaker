@@ -33,7 +33,7 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   if [ $CPU_ARCH != "arm64" ] || [ $UBUNTU_RELEASE != "24.04" ]; then
     # shellcheck disable=SC2021
     current_kernel="$(uname -r | cut -d- -f-2)"
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
       dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
     else
@@ -148,7 +148,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_finish_vhd_build_logs"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
-  # shellcheck disable=SC3010
+  # shellcheck disable=SC3010,SC3014
   if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
     relinkResolvConf
   fi

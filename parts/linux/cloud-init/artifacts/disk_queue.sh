@@ -24,7 +24,7 @@ fi
 echo 128 > "/sys/block/$DEV_NAME/queue/nr_requests"
 echo "applied tuning settings to: /sys/block/$DEV_NAME/queue/nr_requests"
 
-# shellcheck disable=SC3010
+# shellcheck disable=SC3010,SC3014
 if [[ "${DEV_NAME,,}" == *"nvme"* ]]; then
     # /device/queue_depth parameter is not settable on NVMe devices
     echo "$DEV_NAME is an NVMe device, will not attempt to tune /sys/block/$DEV_NAME/device/queue_depth"

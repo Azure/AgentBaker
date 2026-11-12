@@ -126,7 +126,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_cleanup_temp_storage"
 
 #delete the SIG version that was created during a dry-run of linuxVhdMode
-# shellcheck disable=SC3010
+# shellcheck disable=SC3010,SC3014
 if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
   echo "running dry-run in mode ${MODE}, attempting to delete output SIG version: ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME}/${CAPTURED_SIG_VERSION}"
   id=$(az sig image-definition show -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${SIG_IMAGE_NAME} | jq '.id')
@@ -138,7 +138,7 @@ if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
 fi
 
 # attempt to clean up managed images and associated SIG versions created over a week ago
-# shellcheck disable=SC3010
+# shellcheck disable=SC3010,SC3014
 if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
   echo "Looking for managed images in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
 
@@ -173,7 +173,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
       image_version_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
 
       # TODO: remove 2404gen2arm64gbcontainerd exemption once released to official production galleries
-      # shellcheck disable=SC3010
+      # shellcheck disable=SC3010,SC3014
       if [ "${image_definition,,}" = "2404gen2arm64gbcontainerd" ] && [[ "$image_version" == "1.1."* ]]; then
         echo "Will not consider garbage collection of image: ${image_version_id}"
         continue

@@ -67,7 +67,7 @@ installContainerdWithComponentsJson() {
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
     fi
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
         echo "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
         return 0
