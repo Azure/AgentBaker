@@ -342,4 +342,45 @@ EOF
             The output should not include "apt_get_install"
         End
     End
+
+    Describe 'installCredentialProviderPackageFromBootstrapProfileRegistry'
+        semverCompare() {
+            [ "$1" = "$2" ] && return 0
+            [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+        }
+        getLatestPkgVersionFromK8sVersion() {
+            PACKAGE_VERSION="$1-1"
+        }
+        installToolFromBootstrapProfileRegistry() {
+            echo "installToolFromBootstrapProfileRegistry fails"
+            return 1
+        }
+        installCredentialProviderFromUrl() {
+            echo "installCredentialProviderFromUrl"
+        }
+        exit() {
+            echo "mock exit calling with $1"
+        }
+        mkdir() { :; }
+        chown() { :; }
+
+        BeforeEach 'setup_cred_provider'
+        setup_cred_provider() {
+            ERR_ORAS_PULL_CREDENTIAL_PROVIDER=208
+            CREDENTIAL_PROVIDER_BIN_DIR="/tmp/credential-provider"
+        }
+
+        It 'falls back to URL installation for k8s < 1.35.0'
+            When call installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.6
+            The output should include "Fall back to install credential provider from url installation"
+            The output should include "installCredentialProviderFromUrl"
+        End
+
+        It 'does not fall back to URL installation for k8s >= 1.35.0'
+            When call installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io 1.35.8
+            The output should include "Failed to install azure-acr-credential-provider 1.35.8 from bootstrap profile registry"
+            The output should include "mock exit calling with 208"
+            The output should not include "installCredentialProviderFromUrl"
+        End
+    End
 End

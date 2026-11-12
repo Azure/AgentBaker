@@ -89,7 +89,13 @@ if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
     # To take care of Mariner Kata TL images
     TARGET_COMMAND_STRING+=" "
   fi
-  TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
+  # Unsigned dev ACL base images (aclBaseImageSource=acldevel) cannot boot with Secure Boot on.
+  SECURE_BOOT="true"
+  ACL_BASE_IMAGE_SIGNED="${ACL_BASE_IMAGE_SIGNED:-true}"
+  if [ "${ACL_BASE_IMAGE_SIGNED,,}" = "false" ]; then
+    SECURE_BOOT="false"
+  fi
+  TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot ${SECURE_BOOT} --enable-vtpm true"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
@@ -210,7 +216,7 @@ if [ "${OS_TYPE,,}" = "linux" ]; then
   # Test failures as specifically written to stderr in the form of "testname:Error: message", thus we specifically check to see if there was at least
   # one test failure via the following regex comparison on errMsg. Otherwise, transient errors not produced by a test case
   # (such as "sudo: unable to resolve host vhd-test-vm: Name or service not known") will cause the entire run-test step to fail.
-  # shellcheck disable=SC3010
+  # shellcheck disable=SC3010,SC3014
   if [[ "$errMsg" == *":Error:"* ]]; then
     echo "Tests failed."
     echo "Extracted error message: $errMsg"

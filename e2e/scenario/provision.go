@@ -29,25 +29,16 @@ func runScenarioFlow(ctx context.Context, name string, s *Scenario) error {
 	if config.Config.TestPreProvision || s.VHDCaching {
 		return runVHDCachingScenario(ctx, name, s)
 	}
-	if config.Config.DisableScriptless || scriptlessUnsupported(s) {
-		return runScenario(ctx, name, s)
-	}
-
-	if s.Runtime == nil {
-		s.Runtime = &ScenarioRuntime{}
-	}
-	s.Runtime.EnableScriptlessNBCCSECmd = true
 	return runScenario(ctx, name, s)
 }
 
 func scriptlessUnsupported(s *Scenario) bool {
-	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || s.VHDCaching || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
+	return s.IsWindows() || len(s.Config.CustomDataWriteFiles) > 0 || config.Config.TestPreProvision || s.VHD.Distro == datamodel.AKSAzureLinuxV2Gen2
 }
 
 func runVHDCachingScenario(ctx context.Context, name string, original *Scenario) error {
 	bakeScenario := freshScenario(original)
 	bakeScenario.artifactName = vhdStageArtifactName(original, name, "vhd-bake")
-
 	bakeScenario.Config.SkipDefaultValidation = true
 	bakeScenario.Config.Validator = func(ctx context.Context, scenario *Scenario) error {
 		var validationErr error
@@ -60,14 +51,16 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				ValidateWindowsFileExcludesBootstrapToken(ctx, scenario, "C:\\AzureData\\CustomDataSetupScript.ps1"),
 				ValidateWindowsServiceIsNotRunning(ctx, scenario, "kubelet"),
 				ValidateWindowsServiceIsRunning(ctx, scenario, "containerd"),
+				ValidateWindowsExporterRegisteredDisabled(ctx, scenario),
 			)
 		} else {
 			validationErr = errors.Join(
 				ValidateFileExists(ctx, scenario, "/etc/containerd/config.toml"),
 				ValidateFileExists(ctx, scenario, "/opt/azure/containers/base_prep.complete"),
-				ValidateFileDoesNotExist(ctx, scenario, "/opt/azure/containers/provision.complete"),
+				ValidateFileExists(ctx, scenario, "/opt/azure/containers/provision.complete"),
 				ValidateSystemdUnitIsRunning(ctx, scenario, "containerd"),
 				ValidateSystemdUnitIsNotRunning(ctx, scenario, "kubelet"),
+				ValidateScriptlessPhase3(ctx, scenario),
 			)
 		}
 		return validationErr
@@ -93,8 +86,6 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 				}
 			}
 			nbc.PreProvisionOnly = true
-			nbc.EnableScriptlessNBCCSECmd = false
-			nbc.EnableScriptlessAKSNodeConfig = false
 			// Bake-only mutation: lets a scenario deliberately diverge bake-time
 			// state from provision-time state (e.g. a stale sentinel bootstrap token).
 			if original.PreProvisionBootstrapConfigMutator != nil {
@@ -108,6 +99,15 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 			original.AKSNodeConfigMutator(cluster, nodeconfig)
 			nodeconfig.PreProvisionOnly = true
 		}
+		if original.AKSNodeConfigMutatorWithError != nil {
+			bakeScenario.AKSNodeConfigMutatorWithError = func(ctx context.Context, cluster *Cluster, nodeconfig *aksnodeconfigv1.Configuration) error {
+				if err := original.AKSNodeConfigMutatorWithError(ctx, cluster, nodeconfig); err != nil {
+					return err
+				}
+				nodeconfig.PreProvisionOnly = true
+				return nil
+			}
+		}
 	}
 
 	err := runScenario(ctx, name, bakeScenario)
@@ -116,8 +116,13 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 		return err
 	}
 
-	logging.Log(ctx, "=== Creating VHD Image ===")
 	bakeScenario.failed = true
+	if original.PISCustomizationScript != nil {
+		if err := original.PISCustomizationScript(ctx, bakeScenario); err != nil {
+			return fmt.Errorf("customize prepared image: %w", err)
+		}
+	}
+	logging.Log(ctx, "=== Creating VHD Image ===")
 	customVHD, err := CreateImage(ctx, bakeScenario)
 	if err != nil {
 		return fmt.Errorf("create VHD image: %w", err)
@@ -132,14 +137,19 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 	provisionScenario.artifactName = vhdStageArtifactName(original, name, "vhd-provision")
 	provisionScenario.Config.VHD = customVHD
 	provisionScenario.Config.Validator = func(ctx context.Context, s *Scenario) error {
-		var markerErr error
+		markerPath := "/opt/azure/containers/provision.complete"
 		if s.IsWindows() {
-			markerErr = ValidateFileExists(ctx, s, "C:\\AzureData\\provision.complete")
-		} else {
-			markerErr = ValidateFileExists(ctx, s, "/opt/azure/containers/provision.complete")
+			markerPath = "C:\\AzureData\\provision.complete"
 		}
-		if markerErr != nil {
-			return markerErr
+		err := ValidateFileExists(ctx, s, markerPath)
+		if err != nil {
+			return err
+		}
+		if !s.IsWindows() {
+			err = ValidateFileHasContent(ctx, s, "/var/log/azure/cluster-provision.log", "Skipping basePrep - base_prep.complete file exists")
+		}
+		if err != nil {
+			return err
 		}
 		if original.Config.Validator != nil {
 			return original.Config.Validator(ctx, s)
@@ -258,6 +268,9 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	if s.Runtime == nil {
 		s.Runtime = &ScenarioRuntime{}
 	}
+	if !config.Config.DisableScriptless && !scriptlessUnsupported(s) {
+		s.Runtime.EnableScriptlessNBCCSECmd = true
+	}
 	s.Runtime.Cluster = cluster
 	s.Runtime.VMSize = config.Config.VMSKU()
 	s.Runtime.VMSSName = generateVMSSName(s)
@@ -284,16 +297,13 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 	return validateVM(vmssCtx, s)
 }
 
-func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
-	defer logging.LogStep(ctx, "preparing AKS node")()
-
-	nbc, err := getBaseNBC(ctx, s.Runtime.Cluster, s.VHD)
-	if err != nil {
-		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
-	}
-
+func prepareNodeConfiguration(ctx context.Context, s *Scenario, nbc *datamodel.NodeBootstrappingConfiguration) error {
 	if !config.Config.DisableScriptless {
 		nbc.EnableScriptlessCSECmd = true
+		if !s.VHDCaching {
+			nbc.EnableScriptlessAKSNodeConfig = s.AKSNodeConfigMutator != nil || s.AKSNodeConfigMutatorWithError != nil ||
+				(s.BootstrapConfigMutator == nil && s.BootstrapConfigMutatorWithError == nil)
+		}
 	}
 	if s.Runtime != nil && s.Runtime.EnableScriptlessNBCCSECmd {
 		nbc.EnableScriptlessNBCCSECmd = true
@@ -310,33 +320,50 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 	}
 	if s.BootstrapConfigMutatorWithError != nil {
 		if err := s.BootstrapConfigMutatorWithError(ctx, s.Runtime.Cluster, nbc); err != nil {
-			return nil, fmt.Errorf("mutate bootstrap configuration: %w", err)
+			return fmt.Errorf("mutate bootstrap configuration: %w", err)
 		}
 	}
 	if config.Config.DisableScriptless || scriptlessUnsupported(s) || !s.VHD.SupportsScriptless() {
 		nbc.EnableScriptlessAKSNodeConfig = false
 	}
+	if s.ForceScriptlessNBCCSECmd {
+		if config.Config.DisableScriptless || scriptlessUnsupported(s) || !s.VHD.SupportsScriptless() ||
+			s.VHDCaching || nbc.PreProvisionOnly || nbc.IsCustomDataOnlyProvisioningEnabled() {
+			return fmt.Errorf("scenario %q cannot use forced scriptless NBC-command provisioning", s.Name)
+		}
+		nbc.EnableScriptlessAKSNodeConfig = false
+		nbc.EnableScriptlessNBCCSECmd = true
+		nbc.EnableScriptlessCSECmd = false
+	}
 	if nbc.EnableScriptlessAKSNodeConfig {
 		nbc.EnableScriptlessNBCCSECmd = false
 	}
-	if nbc.EnableScriptlessAKSNodeConfig || s.AKSNodeConfigMutator != nil {
-		nodeconfig, err := nbcToAKSNodeConfigV1(nbc)
+	if nbc.EnableScriptlessAKSNodeConfig || s.AKSNodeConfigMutator != nil || s.AKSNodeConfigMutatorWithError != nil {
+		nodeconfig, err := createAKSNodeConfig(s.Runtime.Cluster, s.VHD, func(cluster *Cluster, cfg *aksnodeconfigv1.Configuration) error {
+			cfg.PreProvisionOnly = nbc.PreProvisionOnly
+			if s.AKSNodeConfigMutator != nil {
+				s.AKSNodeConfigMutator(cluster, cfg)
+			}
+			if s.AKSNodeConfigMutatorWithError != nil {
+				if err := s.AKSNodeConfigMutatorWithError(ctx, cluster, cfg); err != nil {
+					return fmt.Errorf("mutate AKS node config: %w", err)
+				}
+			}
+			return nil
+		})
 		if err != nil {
-			return nil, fmt.Errorf("convert NBC to AKS node config: %w", err)
-		}
-		if s.AKSNodeConfigMutator != nil {
-			s.AKSNodeConfigMutator(s.Runtime.Cluster, nodeconfig)
+			return fmt.Errorf("create AKS node config: %w", err)
 		}
 		s.Runtime.AKSNodeConfig = nodeconfig
 
 		if nbc.EnableScriptlessAKSNodeConfig {
 			if err := nodeconfigutils.Validate(nodeconfig); err != nil {
-				return nil, fmt.Errorf("validate AKS node config: %w", err)
+				return fmt.Errorf("validate AKS node config: %w", err)
 			}
 		}
 		aksNodeConfigJSON, err := nodeconfigutils.MarshalConfigurationV1(nodeconfig)
 		if err != nil {
-			return nil, fmt.Errorf("marshal AKS node config: %w", err)
+			return fmt.Errorf("marshal AKS node config: %w", err)
 		}
 		s.Runtime.NBC.AKSNodeConfigJSON = string(aksNodeConfigJSON)
 
@@ -345,6 +372,19 @@ func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
 			(s.BootstrapConfigMutator != nil || s.BootstrapConfigMutatorWithError != nil) {
 			nbc.EnableScriptlessNBCCSECmd = true
 		}
+	}
+	return nil
+}
+
+func prepareAKSNode(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
+	defer logging.LogStep(ctx, "preparing AKS node")()
+
+	nbc, err := getBaseNBC(ctx, s.Runtime.Cluster, s.VHD)
+	if err != nil {
+		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
+	}
+	if err := prepareNodeConfiguration(ctx, s, nbc); err != nil {
+		return nil, err
 	}
 
 	publicKeyData := datamodel.PublicKey{KeyData: string(config.VMSSHPublicKey)}
@@ -429,10 +469,7 @@ func annotateVMSSCreateError(s *Scenario, err error) error {
 func maybeSkipScenario(ctx context.Context, name string, s *Scenario) error {
 	s.Tags = s.EffectiveTags()
 
-	_, err := CachedPrepareVHD(ctx, GetVHDRequest{
-		Image:    *s.VHD,
-		Location: s.Location,
-	})
+	_, err := resolveImageReference(ctx, s.VHD, s.Location)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			return &skipError{message: fmt.Sprintf("scenario %q image for VHD %s was not found: %s", name, s.VHD.Distro, err)}
@@ -729,6 +766,22 @@ func addTrustedLaunchToVMSS(properties *armcompute.VirtualMachineScaleSetPropert
 	return properties
 }
 
+// aclVMSSSecurityProfile deploys ACL VMs as TrustedLaunch. ACL builds set
+// ENABLE_TRUSTED_LAUNCH, so their SIG image definitions are created with
+// SecurityType=TrustedLaunch and reject Standard deployments; TrustedLaunch also
+// works once those definitions move to TrustedLaunchSupported. Secure Boot is
+// disabled only when baseImageSigned is false, which unsigned/dev ACL builds
+// (e.g. acldevel-sourced images) need: their kernel/shim is not enrolled in the
+// platform's Secure Boot db, so with Secure Boot on, UEFI firmware returns
+// "Access denied" loading the kernel EFI stub and boot never completes.
+func aclVMSSSecurityProfile(properties *armcompute.VirtualMachineScaleSetProperties, baseImageSigned bool) *armcompute.VirtualMachineScaleSetProperties {
+	properties = addTrustedLaunchToVMSS(properties)
+	if !baseImageSigned {
+		properties.VirtualMachineProfile.SecurityProfile.UefiSettings.SecureBootEnabled = to.Ptr(false)
+	}
+	return properties
+}
+
 func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armcompute.VirtualMachineScaleSetExtension, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -772,6 +825,15 @@ func createVMExtensionLinuxAKSNode(ctx context.Context, location *string) (*armc
 // It is generally slower than SSH because each call creates a VirtualMachineRunCommand
 // resource on the VM and waits for it to provision.
 func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.VirtualMachineRunCommandInstanceView, error) {
+	view, err := runCommand(ctx, s, command)
+	if err != nil && view.ExecutionState == nil && view.ExitCode == nil {
+		return view, err
+	}
+	return view, errors.Join(err, runCommandScriptError(view))
+}
+
+// runCommand preserves script exit codes for validators that expect non-zero results.
+func runCommand(ctx context.Context, s *Scenario, command string) (result armcompute.VirtualMachineRunCommandInstanceView, err error) {
 	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
 		s.Runtime.VM == nil || s.Runtime.VM.VM == nil || s.Runtime.VM.VM.InstanceID == nil {
@@ -781,7 +843,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	instanceID := *s.Runtime.VM.VM.InstanceID
 	// VirtualMachineRunCommand resources persist on the VM until explicitly deleted;
 	// use a unique name per call so concurrent / repeated calls don't collide, and
-	// best-effort delete it on the way out below.
+	// delete it before returning below.
 	runCommandName := fmt.Sprintf("e2e-runcmd-%d", time.Now().UnixNano())
 	start := time.Now()
 	defer func() {
@@ -803,13 +865,16 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 		return armcompute.VirtualMachineRunCommandInstanceView{}, fmt.Errorf("failed to start RunCommand on VMSS VM: %w", err)
 	}
 	defer func() {
-		// Best-effort cleanup: VirtualMachineRunCommand resources persist on the VM
-		// otherwise and can accumulate across many RunCommand calls in a single run.
+		// Finish deletion before subsequent VM operations, such as a restart.
 		// Use a fresh context so we still clean up if the caller's ctx is cancelled.
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		if _, derr := config.Azure.VMSSVMRunCommands.BeginDelete(cleanupCtx, rg, s.Runtime.VMSSName, instanceID, runCommandName, nil); derr != nil {
-			logging.Logf(ctx, "best-effort RunCommand %s delete failed: %v", runCommandName, derr)
+		deletePoller, deleteErr := config.Azure.VMSSVMRunCommands.BeginDelete(cleanupCtx, rg, s.Runtime.VMSSName, instanceID, runCommandName, nil)
+		if deleteErr == nil {
+			_, deleteErr = deletePoller.PollUntilDone(cleanupCtx, config.PollUntilDoneOptions())
+		}
+		if deleteErr != nil {
+			err = errors.Join(err, fmt.Errorf("failed to delete RunCommand %s: %w", runCommandName, deleteErr))
 		}
 	}()
 	if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
@@ -828,8 +893,7 @@ func RunCommand(ctx context.Context, s *Scenario, command string) (armcompute.Vi
 	if getResp.Properties == nil || getResp.Properties.InstanceView == nil {
 		return armcompute.VirtualMachineRunCommandInstanceView{}, errors.New("RunCommand result missing instance view")
 	}
-	view := *getResp.Properties.InstanceView
-	return view, runCommandScriptError(view)
+	return *getResp.Properties.InstanceView, nil
 }
 
 func RestartVMSSVM(ctx context.Context, s *Scenario) error {
@@ -950,6 +1014,20 @@ while ($true) {
 }
 `
 
+// Keep aligned with aks-rp's vhd/generalizelinux.go; basePrep outputs must survive capture.
+const linuxGeneralizeScript = `#!/bin/bash
+set -euo pipefail
+: > /etc/machine-id
+rm -f \
+  /opt/azure/containers/provision.complete \
+  /opt/azure/containers/aks-node-controller-config.json \
+  /opt/azure/containers/aks-node-controller-nbc-cmd.sh \
+  /opt/azure/containers/boothook.sh \
+  /opt/bin/boothook.sh \
+  /var/log/azure/aks/provision.json
+echo "reset /etc/machine-id"
+`
+
 func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
@@ -957,21 +1035,12 @@ func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {
 		return nil, fmt.Errorf("scenario runtime is incomplete for image creation")
 	}
 	if s.IsWindows() {
-		logging.Log(ctx, "Running sysprep on Windows VM...")
-		res, err := RunCommand(ctx, s, windowsSysprepScript)
-		var stdout, stderr string
-		if res.Output != nil {
-			stdout = strings.TrimSpace(*res.Output)
-		}
-		if res.Error != nil {
-			stderr = strings.TrimSpace(*res.Error)
-		}
-		logging.Logf(ctx, "Sysprep stdout: %s", stdout)
-		if stderr != "" {
-			logging.Logf(ctx, "Sysprep stderr: %s", stderr)
-		}
-		if err != nil {
+		if _, err := RunCommand(ctx, s, windowsSysprepScript); err != nil {
 			return nil, fmt.Errorf("failed to run sysprep on Windows VM for image creation: %w", err)
+		}
+	} else {
+		if _, err := RunCommand(ctx, s, linuxGeneralizeScript); err != nil {
+			return nil, fmt.Errorf("failed to generalize Linux VM for image creation: %w", err)
 		}
 	}
 
@@ -1073,6 +1142,10 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 					},
 				},
 				ReplicaCount: to.Ptr[int32](1),
+			},
+			// Temporary scenario images must remain deletable before their end-of-life date.
+			SafetyProfile: &armcompute.GalleryImageVersionSafetyProfile{
+				BlockDeletionBeforeEndOfLife: to.Ptr(false),
 			},
 		},
 	}, nil)
@@ -1258,6 +1331,11 @@ func runScenarioUbuntu2404GPUNPD(name, vmSize, location, k8sSystemPoolSKU string
 				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableNvidia = true
+			},
+			AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+				cfg.VmSize = vmSize
+				cfg.GpuConfig.ConfigGpuDriver = true
+				cfg.GpuConfig.EnableNvidia = to.Ptr(true)
 			},
 			VMConfigMutatorWithError: func(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
 				vmss.SKU.Name = to.Ptr(vmSize)

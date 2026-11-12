@@ -114,6 +114,20 @@ Describe 'cse_main.sh PIS-safe configuration'
         End
     End
 
+    Describe 'GPU driver cleanup'
+        It 'cleans up only in basePrep, before customer customization'
+            cleanup_counts() {
+                phase_count "basePrep" "AKS.CSE.cleanUpGPUDrivers"
+                phase_count "nodePrep" "AKS.CSE.cleanUpGPUDrivers"
+                script_count "AKS.CSE.cleanUpGPUDrivers"
+            }
+            When call cleanup_counts
+            The line 1 of output should equal "1"
+            The line 2 of output should equal "0"
+            The line 3 of output should equal "1"
+        End
+    End
+
     Describe 'NVIDIA GPU driver mode'
         It 'configures managed GPU mode once in nodePrep and never in basePrep'
             mode_writer_counts() {
@@ -174,6 +188,44 @@ Describe 'cse_main.sh PIS-safe configuration'
                 The status should be success
                 The output should equal ''
             End
+        End
+    End
+
+    Describe 'artifact streaming'
+        streaming_call='AKS.CSE.ensureContainerd.ensureArtifactStreaming'
+
+        It 'activates ACL streaming only in nodePrep so PIS images keep sysexts masked'
+            streaming_gates() {
+                phase_count "basePrep" "${streaming_call}"
+                phase_count "nodePrep" "${streaming_call}"
+                script_count "${streaming_call}"
+                phase_body "basePrep" | code_lines | grep -B1 -- "${streaming_call}" | head -1
+                phase_body "nodePrep" | code_lines | grep -B1 -- "${streaming_call}" | head -1
+            }
+            When call streaming_gates
+            The line 1 of output should equal "1"
+            The line 2 of output should equal "1"
+            The line 3 of output should equal "2"
+            The line 4 of output should equal '    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && ! isACL "$OS" "$OS_VARIANT"; then'
+            The line 5 of output should equal '    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && isACL "$OS" "$OS_VARIANT"; then'
+        End
+
+        It 'activates ACL streaming before kubelet startup'
+            streaming_order() {
+                phase_body "nodePrep" | code_lines | grep -E "${streaming_call}|AKS.CSE.ensureKubelet\""
+            }
+            When call streaming_order
+            The line 1 of output should include "${streaming_call}"
+            The line 2 of output should include 'AKS.CSE.ensureKubelet'
+            The lines of output should equal 2
+        End
+
+        It 'fails provisioning when ACL streaming cannot be activated'
+            streaming_call_line() {
+                phase_body "nodePrep" | code_lines | grep -- "${streaming_call}"
+            }
+            When call streaming_call_line
+            The output should include 'ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL'
         End
     End
 

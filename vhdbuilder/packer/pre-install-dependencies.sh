@@ -66,6 +66,12 @@ capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
+# Uncomment Trident ACL Agent enablement below to enable A/B updates.
+# if isACL "$OS" "$OS_VARIANT"; then
+#   enableTridentACLAgent || exit 1
+#   capture_benchmark "${SCRIPT_NAME}_enable_trident_acl_agent"
+# fi
+
 if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}
@@ -136,7 +142,7 @@ else
     /bin/bash /home/packer/trim-2604-cvm-packages.sh
   fi
 
-  # shellcheck disable=SC3010
+  # shellcheck disable=SC3010,SC3014
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
     echo "Install FIPS for Ubuntu SKU"
@@ -147,7 +153,7 @@ capture_benchmark "${SCRIPT_NAME}_upgrade_distro_and_resolve_fips_requirements"
 
 # Handle Azure Linux + CgroupV2
 # CgroupV2 is enabled by default in the AzureLinux 3.0 marketplace image
-# shellcheck disable=SC3010
+# shellcheck disable=SC3010,SC3014
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
 fi
@@ -285,6 +291,7 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     echo "Kernel packages for Ubuntu ${UBUNTU_RELEASE} are not available. Skipping purging and subsequent installation."
   fi
   NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
+  # shellcheck disable=SC3014
   if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
     # This is the ubuntu 2404arm64gen2containerd image or the 2404arm64gb image
     # The Ubuntu PPA has early access to new kernels, such as the one in the GB300 CRD.

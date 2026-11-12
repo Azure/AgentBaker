@@ -85,11 +85,6 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/lister/bin/lister",
-      "destination": "/home/packer/lister"
-    },
-    {
-      "type": "file",
       "source": "image-fetcher/bin/image-fetcher-linux-arm64",
       "destination": "/home/packer/image-fetcher"
     },
@@ -192,11 +187,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_config_network.sh",
       "destination": "/home/packer/provision_configs_network.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config_addons.sh",
-      "destination": "/home/packer/provision_configs_addons.sh"
     },
     {
       "type": "file",
@@ -600,6 +590,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh",
+      "destination": "/home/packer/cgroup-telemetry-events.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service",
       "destination": "/home/packer/cgroup-pressure-telemetry.service"
     },
@@ -762,6 +757,11 @@
       "type": "file",
       "source": "vhdbuilder/packer/install-npd.sh",
       "destination": "/home/packer/install-npd.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/install-kmpp.sh",
+      "destination": "/home/packer/install-kmpp.sh"
     },
     {
       "type": "file",

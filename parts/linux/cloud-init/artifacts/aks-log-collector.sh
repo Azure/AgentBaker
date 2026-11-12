@@ -329,7 +329,7 @@ for file in "${GLOBS[@]}"; do
   fsize=$(stat --printf "%s" "$file")
   if [ "$fsize" -gt "$MAX_COLLECT_SIZE" ]; then
     file_suffix=".${file##*.}"
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ ":$ZIP_STORE_SUFFIXES:" == *":$file_suffix:"* ]]; then
       echo "WARNING: Skipping compressed file $file because its size $fsize exceeds $MAX_COLLECT_SIZE bytes."
       continue

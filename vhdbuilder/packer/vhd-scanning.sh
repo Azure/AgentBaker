@@ -79,7 +79,7 @@ capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
 VM_SIZE="Standard_D8ds_v5"
 VM_OPTIONS="--size $VM_SIZE"
-# shellcheck disable=SC3010
+# shellcheck disable=SC3010,SC3014
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
     # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
@@ -93,7 +93,13 @@ fi
 
 # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
 if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
-    VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
+    # Unsigned dev ACL base images (aclBaseImageSource=acldevel) cannot boot with Secure Boot on.
+    SECURE_BOOT="true"
+    ACL_BASE_IMAGE_SIGNED="${ACL_BASE_IMAGE_SIGNED:-true}"
+    if [ "${ACL_BASE_IMAGE_SIGNED,,}" = "false" ]; then
+        SECURE_BOOT="false"
+    fi
+    VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot ${SECURE_BOOT} --enable-vtpm true"
 fi
 
 if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then

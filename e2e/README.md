@@ -16,6 +16,18 @@ From a high-level, for each scenario,
 3. Liveness and health checks and then run to make sure the new VM's kubelet is posting NodeReady, and that workload
    pods can successfully be scheduled and run on the new node.
 
+Windows VHD-caching scenarios retain SSH access during the bake when enabled:
+`BasePrep` installs and configures OpenSSH. When the bundled `Install-OpenSSH`
+function supports the `Enabled` parameter, `NodePrep` reapplies the current policy
+and keys, including on cached images. Only Windows scenarios that explicitly
+skip SSH connectivity validation use VMSS RunCommand for guest checks in both
+the bake and real-node stages. Linux behavior is unchanged.
+OpenSSH remains stopped and disabled while the live authorized keys and ACLs are
+prepared; provisioning only re-enables it after those steps succeed.
+The shared `Install-OpenSSH` implementation ships only in the versioned Windows
+CSE bundle, not in CustomData. Older bundles retain their existing SSH behavior
+and require an updated CSE bundle or VHD to receive this fix.
+
 ## Writing and extending scenarios
 
 Extend an existing scenario's `Validator` when its node has the required settings.
@@ -52,9 +64,28 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
 - Set bootstrap inputs through `NodeBootstrappingConfiguration`. Mirror RP's
   agent-pool settings in both `nbc.ContainerService.Properties.AgentPoolProfiles[0]`
   and `nbc.AgentPoolProfile` where required.
+- Pair Linux bootstrap mutators with an equivalent `AKSNodeConfigMutator`,
+  including GPU, network, kubelet, and OS settings, so Phase 3 exercises the same
+  scenario inputs. Keep Windows, frozen Azure Linux V2, VHD-caching-only scenarios,
+  and the explicit `ScriptlessCSECmd_Hotfix` delivery check on their existing
+  provisioning paths.
 - Set VMSS properties through `VMConfigMutator`; keep its SKU and
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
+
+### PIS GPU coverage
+
+`Ubuntu2404_ManagedGPU_VHDCaching` and `AzureLinuxV3_ManagedGPU_VHDCaching`
+validate managed drivers, device-plugin registration, and a GPU workload on
+nodes created from prepared images. `Ubuntu2404_GPUDriverOptOut_VHDCaching`
+installs a real customer driver after `basePrep` and checks that it survives
+capture and provisioning with AKS driver installation disabled. These use
+separate bake and real-node VMs and the current source CSE scripts in both phases.
+The customer-driver case uses the CUDA LTS installer image already cached in
+the source VHD, even when its version differs from the current branch. It fails
+rather than downloading an installer when the cache is missing or ambiguous.
+To run only these cases, queue the Ubuntu and Azure Linux GPU pipelines with
+the `tagsToRun` parameter set to `gpu=true,VHDCaching=true`.
 
 ### DRA MIG workload validation
 
@@ -76,23 +107,79 @@ Common Linux validation checks that the running kubelet uses
 
 Scenarios specifically covering legacy CLI flags must set
 `nbc.EnableKubeletConfigFile = false` and leave both `CustomKubeletConfig` and
-`CustomLinuxOSConfig` nil. ANC conversion preserves that opt-out. Windows defaults
-are unchanged.
+`CustomLinuxOSConfig` nil. Their ANC mutator must independently set
+`KubeletConfig.EnableKubeletConfigFile = false` and supply any flag overrides.
+Windows defaults are unchanged.
 
-Phase 3 is explicitly selected with `EnableScriptlessAKSNodeConfig` in the
-bootstrap config mutator of five scenarios: `Ubuntu2204_ArtifactStreaming`,
-`AzureLinuxV3_ArtifactStreaming`, `Ubuntu2204_GPUA10`, `Ubuntu2204_GPUNoDriver`,
-and `Ubuntu2204_Early_Failure_Scriptless` (the existing `_Scriptless`-suffix scenario).
-The runner converts the NBC, applies the AKSNodeConfig mutator, validates and
+Eligible non-caching scenarios with an `AKSNodeConfigMutator` or
+`AKSNodeConfigMutatorWithError`, or with neither
+`BootstrapConfigMutator` nor `BootstrapConfigMutatorWithError`, default to Phase 3
+provisioning, using AKSNodeConfig instead of the NBC command. A bootstrap config mutator can opt out
+by setting `EnableScriptlessAKSNodeConfig = false`, or explicitly select Phase 3
+without an AKSNodeConfig mutator by setting it to `true`.
+The runner constructs AKSNodeConfig directly from the cluster and VHD using
+`createAKSNodeConfig`, applies the ANC mutators, validates and
 normalizes Phase 3 settings with `nodeconfigutils.Validate`,
 and serializes the result for AgentBaker. The early-failure scenario checks that an
 unsupported version is rejected before VM creation. Common validation checks config-only execution and absence
 of the NBC command and comparison path.
 
-All other scenarios retain their existing provisioning mode, including Phase 2/2.5
-coverage matching production. A Scriptless tag or an AKSNodeConfig mutator alone
-does not opt into Phase 3. Existing scriptless opt-outs, image restrictions, and
-VHD-caching behavior remain in effect.
+ANC provisioning inputs do not inherit bootstrap-mutator changes. Set ANC settings
+through `AKSNodeConfigMutator`, or `AKSNodeConfigMutatorWithError` when resolving an
+input can fail; the error-returning mutator runs after the ordinary mutator.
+The constructor applies options before filtering kubelet flags for config-file
+mode and resolving the temporary-disk container-data path. NBC remains only for
+legacy provisioning and AgentBaker artifact delivery; its provisioning-mode and
+pre-provision lifecycle selections are still honored.
+
+Scenarios with a bootstrap mutator but no AKSNodeConfig mutator retain their
+existing provisioning mode unless they explicitly select Phase 3. This includes
+empty bootstrap mutators and error-returning bootstrap mutators. A Scriptless tag
+alone does not override this selection. Existing scriptless opt-outs, image
+restrictions, and VHD-caching behavior remain in effect.
+
+VHD-caching scenarios keep their existing mode, including explicit Phase 3
+selection in `Ubuntu2604Minimal_AKSNodeConfig_VHDCaching`.
+
+### Random additional NBC-command coverage
+
+The Linux E2E pipeline adds three randomly selected scenarios for each active
+OS/version: Ubuntu 22.04, Ubuntu 24.04, Ubuntu 26.04, and Azure Linux 3. These are
+12 **additional VM runs**, not replacements for the original scenarios. Original
+names, configuration and validators remain unchanged.
+
+The runner's `--random-nbc-coverage` (`E2E_RANDOM_NBC_COVERAGE`) is disabled
+outside that pipeline. The sample size is fixed at three per OS/version.
+Sampling occurs after name and tag filtering, without replacement within each
+OS/version. It fails before Azure initialization if any group has fewer than
+three eligible scenarios, rather than silently losing OS coverage. Leave sampling
+disabled for narrowly filtered runs.
+
+The seed is generated automatically from the build ID and current UTC date
+(`build-id/YYYY-MM-DD`); neither the sample size nor seed is configurable.
+The pipeline supplies `$(Build.BuildId)` as the runner's build ID. The same
+revision, filters, build ID and UTC date reproduce the selection; a new build or
+date changes the seed. Retries within a run use the original selection, even if
+the date changes. The seed and selected names are printed.
+To enable the same fixed-size sampling locally:
+
+```sh
+go run . run --random-nbc-coverage \
+  --skip-tags 'os=windows,gpu=true,cvm=true'
+```
+
+Additional runs are named `<original>/ScriptlessNBCCSECmd`, with separate logs,
+JUnit results and attempt-owned resources. The runner forces NBC-command mode
+after bootstrap mutators, retains ANC mutators for existing Phase 2.5 comparisons,
+and runs the original validators plus common NBC execution checks.
+
+Sampling excludes unsupported images (including Windows, ACL and frozen Azure
+Linux 2), VHD caching, known/conditional skips, expected failures, specialized
+scriptless/hotfix tests, and scenarios without common SSH validation. Set
+`ExcludeFromNBCSampling` for a scenario whose assertions require another
+provisioning path, such as CustomData-only delivery. Sampling cannot be combined
+with `--disable-scriptless` or `--test-pre-provision`. Runtime failures and skips
+remain visible through normal per-scenario reporting.
 
 ### LocalDNS fallback checks
 
@@ -159,6 +246,60 @@ The four MANA (Microsoft Azure Network Adapter) scenarios use a separate VM size
 which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SKU`.
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
+
+## ACL COSI Validation
+
+The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg` or
+`acldevel`) and optional `ACL_BASE_IMAGE_VERSION_AMD64` and
+`ACL_BASE_IMAGE_VERSION_ARM64` gallery-version overrides. Each takes precedence
+over the existing shared `ACL_BASE_IMAGE_VERSION` fallback. Use separate values
+when the selected architectures have different gallery versions. The overrides
+default to a single space, because the Run pipeline form treats an empty default
+as required; leave that space in all three to keep the pinned versions. Values
+are trimmed. Both the PR and release pipelines expose these parameters.
+The production ACG source is the default. Secure Boot stays enabled for signed sources;
+selecting `acldevel` disables Secure Boot only for ACL test VMs. Older base images
+without `trident-acl-agent` still build; images containing the agent enable its
+kubeconfig-triggered startup.
+
+The dev source uses `acldevel` for AMD64 and `acldevel-arm64` for ARM64, with
+architecture-specific version pins in the
+[base-image template](../.pipelines/templates/.acl-base-image-vars.yaml).
+The pipeline resolves `IMAGE_VERSION` once; the ACL image-stamping step fails
+if it does not receive that value.
+
+The stamp records the original provisioning image and survives A/B updates of
+`/usr`. Until Trident has an updatable current-version source, the agent reads
+`/dev/null` with a `0.0.0` fallback rather than treating the stamp as the active
+version. This deliberately disables current-version-based `AlreadyAtTarget`
+shortcuts. Nebraska affinity cookie handling is enabled for annotation-driven
+updates, including cookie persistence across reboot.
+
+ACL CVM builds keep the production ACG source and are not part of the
+four-variant COSI validation.
+
+TME publishing runs convert the selected ACL variants in architecture-matched
+jobs and produce `cosi-publishing-info-*` artifacts with a base64
+`metadata_sha384` value. The E2E job downloads only those variants' artifacts.
+Non-publishing and non-TME runs do not convert, download, or validate COSI
+artifacts. Cold Azure Linux/Mariner convert agents install the native signed
+Microsoft OSS repository package before installing Azure CLI.
+
+`ACL_COSIUpdate_AMD64`, `ACL_COSIUpdate_ARM64`, and their `_FIPS` variants use
+separate nodes because they stage, finalize, reboot, and commit an A/B update.
+They verify node identity, readiness, and a post-update workload. The COSI is
+staged in a unique test-owned blob on the already-allowed E2E storage endpoint;
+cleanup deletes that blob. These scenarios do not change shared firewall rules.
+They exercise the Trident update path, not annotation-driven agent orchestration.
+
+When COSI artifacts are enabled, the TME publishing E2E job defaults
+`TEST_TIMEOUT_VMSS` to `30m` for staging, provisioning, validation, and reboot.
+Explicit timeout overrides are preserved. Ordinary runs retain the `17m`
+VM lifecycle default. The separate `30m` COSI download limit cannot extend
+the enclosing VM lifecycle deadline.
+
+Run offline unit tests with `go test -short ./...` from this directory. Live
+four-variant builds and update scenarios require the pipeline service connections.
 
 ## Gallery replication
 

@@ -13,45 +13,6 @@ Describe 'cse_install.sh'
     Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
-    Describe 'pullContainerImage'
-        retrycmd_if_failure() {
-            printf 'retry argument: %s\n' "$@"
-            return "${MOCK_PULL_STATUS:-0}"
-        }
-
-        It 'uses cache-image with the existing retry policy for containerd'
-            When call pullContainerImage ctr 'registry.example/image:v1'
-            The status should be success
-            The output should include 'retry argument: 10'
-            The output should include 'retry argument: 1'
-            The output should include 'retry argument: 600'
-            The output should include 'retry argument: /opt/azure/containers/image-fetcher'
-            The output should include 'retry argument: cache-image'
-            The output should include 'retry argument: --image'
-            The output should include 'retry argument: registry.example/image:v1'
-        End
-
-        It 'propagates image-fetcher failures'
-            MOCK_PULL_STATUS=7
-            When call pullContainerImage ctr 'registry.example/image:v1'
-            The status should equal 7
-            The output should include 'failed to pull image registry.example/image:v1 using ctr, exit code: 7'
-        End
-
-        Parameters
-            crictl
-            docker
-        End
-
-        It "preserves the $1 pull command"
-            When call pullContainerImage "$1" 'registry.example/image:v1'
-            The status should be success
-            The output should include "retry argument: $1"
-            The output should include 'retry argument: pull'
-            The output should not include 'retry argument: cache-image'
-        End
-    End
-
     Describe 'installContainerRuntime'
         logs_to_events() {
             echo "mock logs to events calling with $1"
@@ -370,7 +331,6 @@ Describe 'cse_install.sh'
 
         BeforeEach 'setup'
         setup() {
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="false"
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="myregistry.azurecr.io"
             KUBERNETES_VERSION="1.34.0"
         }
@@ -393,16 +353,28 @@ Describe 'cse_install.sh'
             The output line 2 should include "installKubeletKubectlFromURL"
         End
 
-        It 'should not call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails but SHOULD_ENFORCE_KUBE_PMC_INSTALL is true'
+        It 'should not call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails for k8s >= 1.35.0'
             installToolFromBootstrapProfileRegistry() {
                 echo "installToolFromBootstrapProfileRegistry fails"
                 return 1
             }
-            SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+            KUBERNETES_VERSION="1.35.8"
             When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
             The output line 1 should include "installToolFromBootstrapProfileRegistry fails"
-            The output line 2 should include "Failed to install k8s tools from bootstrap profile registry, and not falling back to binary installation due to SHOULD_ENFORCE_KUBE_PMC_INSTALL=true"
+            The output line 2 should include "Failed to install kubelet 1.35.8 from bootstrap profile registry"
             The output line 3 should include "mock exit calling with 207"
+            The output should not include "installKubeletKubectlFromURL"
+        End
+
+        It 'should not call installKubeletKubectlFromURL if installToolFromBootstrapProfileRegistry fails for k8s 1.35.0'
+            installToolFromBootstrapProfileRegistry() {
+                echo "installToolFromBootstrapProfileRegistry fails"
+                return 1
+            }
+            KUBERNETES_VERSION="1.35.0"
+            When call installKubeletKubectlFromBootstrapProfileRegistry $BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER $KUBERNETES_VERSION
+            The output line 2 should include "Failed to install kubelet 1.35.0 from bootstrap profile registry"
+            The output should not include "installKubeletKubectlFromURL"
         End
     End
 End

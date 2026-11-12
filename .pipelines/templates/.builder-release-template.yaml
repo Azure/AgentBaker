@@ -8,18 +8,47 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: ENABLE_COSI_PUBLISHING
+    type: boolean
+    default: false
   - name: kataCC
     type: boolean
     default: false
 
 steps:
+  # Keep the baked version and publishing metadata identical across UTC midnight.
+  - bash: |
+      set -euo pipefail
+      image_version="${IMAGE_VERSION:-$(date -u +%Y%m.%d.0)}"
+      echo "##vso[task.setvariable variable=IMAGE_VERSION]${image_version}"
+    displayName: Set IMAGE_VERSION
+
   - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
+  # Bundle before downloading scanner binaries into the source tree.
+  - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.SourcesDirectory)"
+        tar --exclude='./.git' \
+            -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
+        ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      displayName: Bundle source for COSI convert
+
+    - task: PublishPipelineArtifact@1
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      displayName: Publish source bundle for COSI convert
+      inputs:
+        artifactName: agentbaker-sources-${{ parameters.artifactName }}
+        targetPath: $(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz
+
   - task: UniversalPackages@0
     displayName: Download CIS scanner
+    condition: False # TODO: re-enable once MSI-based package feed pulls are enabled
     inputs:
       command: download
       vstsFeed: AzCoreLinux-Compliance
@@ -64,6 +93,7 @@ steps:
       itemPattern: |
         **/kata-containers.img**
         **/kata-containers-version.txt
+        **/kata-uvm-kernel-version.txt
       downloadPath: $(Build.SourcesDirectory)
 
   - ${{ if eq(parameters.kataCC, true) }}:
@@ -101,6 +131,17 @@ steps:
       fi
       echo "Kata UVM tools RPM version-release: $version"
       echo "##vso[task.setvariable variable=KATA_UVM_VERSION]$version"
+      kernel_version_file="$(Build.SourcesDirectory)/kata-uvm-kernel-version.txt"
+      if [[ ! -s "$kernel_version_file" ]]; then
+        echo "Missing Kata UVM kernel version file. Rebuild pipeline 417429 with kernel metadata." >&2
+        exit 1
+      fi
+      kernel_version=$(cat "$kernel_version_file")
+      if [[ ! "$kernel_version" =~ ^[a-zA-Z0-9._+~^-]+$ ]]; then
+        echo "Invalid Kata UVM kernel version value." >&2
+        exit 1
+      fi
+      echo "##vso[task.setvariable variable=KATA_UVM_KERNEL_VERSION]$kernel_version"
     condition: and(succeeded(), eq(variables.OS_SKU, 'AzureLinux'), eq(variables.IMG_OFFER, 'azure-linux-3'), contains(variables.FEATURE_FLAGS, 'kata'))
     displayName: Read Kata UVM version
 
@@ -118,6 +159,7 @@ steps:
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: Setup Cue
+    retryCountOnTaskFailure: 3
 
   - bash: |
       SKU_NAME=${OS_VERSION} && \
@@ -158,6 +200,7 @@ steps:
       UA_TOKEN: $(ua-token)
       LOCAL_DOCA_REPO_URL: $(LOCAL_DOCA_REPO_URL)
       CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR: $(CONTINUE_ON_LOCAL_REPO_DOWNLOAD_ERROR)
+      IMAGE_VERSION: $(IMAGE_VERSION)
 
   - task: AzureCLI@2
     inputs:
@@ -214,6 +257,19 @@ steps:
       echo "##vso[task.setvariable variable=VHD_DEBUG]False"
     condition: always()
     displayName: Set Post-Build Variables
+
+  - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
+    - bash: |
+        echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
+      name: exportCapturedSigVersion
+      displayName: Export Captured SIG Version for COSI convert
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+
+    - bash: |
+        echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${IMAGE_VERSION}"
+      name: exportImageVersion
+      displayName: Export Image Version for COSI convert
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   - bash: |
       set -euo pipefail
@@ -302,6 +358,7 @@ steps:
       PACKER_VNET_RESOURCE_GROUP_NAME: $(PACKER_VNET_RESOURCE_GROUP_NAME)
       PACKER_VNET_NAME: $(PACKER_VNET_NAME)
       SKIP_SCANNING: $(SKIP_SCANNING)
+      SKIP_CIS: "true" # TODO - re-enable once we can use MSI-based package feed pulls for cisassesor
       DRY_RUN: $(DRY_RUN)
 
   - task: AzureCLI@2
@@ -409,7 +466,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
-    condition: and(eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'NVIDIA_GB'))
+    condition: and(ne(variables.ENVIRONMENT, 'tme'), eq(variables.OS_SKU, 'Ubuntu'), in(variables.OS_VERSION, '22.04', '24.04'), in(variables.FEATURE_FLAGS, 'None', 'cvm', 'NVIDIA_GB'))
     displayName: Copy CIS Reports
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
@@ -470,12 +527,39 @@ steps:
         succeeded(),
         eq(variables.ENVIRONMENT, 'tme'),
         eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          not(and(eq('${{ parameters.ENABLE_COSI_PUBLISHING }}', true), eq(variables['OS_SKU'], 'AzureContainerLinux'))),
         or(
           eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
           eq(variables.PREFETCH_COMPATIBLE, 'False')
         )
       )
     displayName: Copy to Immutable Storage Container
+
+  # The COSI convert jobs read the ACL VHD from the immutable container.
+  - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          set -euo pipefail
+          bash ./vhdbuilder/packer/imagecustomizer/scripts/copy-vhd-to-immutable.sh
+          echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER]${CLASSIC_BLOB}"
+      condition: |
+        and(
+          succeeded(),
+          eq(variables.ENVIRONMENT, 'tme'),
+          eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
+          eq(variables['OS_SKU'], 'AzureContainerLinux')
+        )
+      displayName: Copy ACL VHD to Immutable Storage Container
+
+    - bash: |
+        echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER;isOutput=true]${DESTINATION_STORAGE_CONTAINER}"
+      name: exportDestinationStorageContainer
+      displayName: Export Destination Storage Container for COSI convert
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   - task: AzureCLI@2
     inputs:
@@ -621,6 +705,7 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
       OFFER_NAME: $(OS_SKU)
+      IMAGE_VERSION: $(IMAGE_VERSION)
 
   - task: PublishPipelineArtifact@1
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))

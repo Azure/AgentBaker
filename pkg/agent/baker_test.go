@@ -57,7 +57,42 @@ func TestScriptlessAKSNodeConfigSkipsNBCRendering(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, config.AKSNodeConfigJSON, string(decoded))
 				require.True(t, supportsScriptlessProvisioning(config))
+				config.PreProvisionOnly = true
+				require.True(t, supportsScriptlessProvisioning(config))
 			})
+		}
+	}
+}
+
+func TestScriptlessAKSNodeConfigPreservesJSONProvisioningPhase(t *testing.T) {
+	generator := InitializeTemplateGenerator()
+	for _, preProvisionOnly := range []bool{true, false} {
+		for _, mixedFlags := range []bool{false, true} {
+			for _, field := range []string{
+				"",
+				`,"pre_provision_only":false`,
+				`,"pre_provision_only":true`,
+				`,"preProvisionOnly":false`,
+				`,"preProvisionOnly":true`,
+			} {
+				t.Run(fmt.Sprintf("nbcBake=%t/mixed=%t/field=%s", preProvisionOnly, mixedFlags, field), func(t *testing.T) {
+					config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+					config.PreProvisionOnly = preProvisionOnly
+					config.EnableScriptlessAKSNodeConfig = true
+					config.EnableScriptlessNBCCSECmd = mixedFlags
+					config.EnableScriptlessCSECmd = mixedFlags
+					input := " \n" + `{"version":"v1","future":{"number":9007199254740993}` + field + "}\n"
+					config.AKSNodeConfigJSON = input
+
+					require.NoError(t, ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config))
+					require.Equal(t, input, config.AKSNodeConfigJSON)
+					payload, err := base64.StdEncoding.DecodeString(generator.getNodeBootstrappingPayload(config))
+					require.NoError(t, err)
+					require.Contains(t, string(payload), getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON))
+					require.NotContains(t, string(payload), aksNbcCmdFilepath)
+					require.Equal(t, "/opt/azure/containers/aks-node-controller provision-wait", generator.getNodeBootstrappingCmd(config))
+				})
+			}
 		}
 	}
 }
@@ -133,6 +168,61 @@ func newNodeCustomDataRenderConfig(distro datamodel.Distro) *datamodel.NodeBoots
 	}
 }
 
+func TestLinuxNodeBootstrappingPayloadSizeBudget(t *testing.T) {
+	for _, distro := range []datamodel.Distro{
+		datamodel.AKSUbuntuContainerd2204Gen2,
+		datamodel.AKSUbuntuContainerd2404Gen2,
+		datamodel.AKSUbuntuMinimalContainerd2604Gen2,
+		datamodel.AKSCBLMarinerV2Gen2,
+		datamodel.AKSAzureLinuxV2Gen2,
+		datamodel.AKSAzureLinuxV3Gen2,
+	} {
+		for _, cloud := range []struct {
+			name   string
+			custom bool
+		}{
+			{name: "public"},
+			{name: "custom", custom: true},
+		} {
+			t.Run(fmt.Sprintf("%s/%s", distro, cloud.name), func(t *testing.T) {
+				config := newNodeCustomDataRenderConfig(distro)
+				// Exercise legacy NPS-style delivery with provisioning scripts in customData.
+				config.EnableKubeletConfigFile = true
+				config.EnableScriptlessCSECmd = false
+				config.EnableScriptlessNBCCSECmd = false
+				config.EnableScriptlessAKSNodeConfig = false
+				config.PreProvisionOnly = false
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{EnableLocalDNS: true}
+				if cloud.custom {
+					config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+						Name: "akscustom",
+					}
+				}
+
+				payload := InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(config)
+				compressed, err := base64.StdEncoding.Strict().DecodeString(payload)
+				require.NoError(t, err)
+				decoded, err := getGzipDecodedValue(compressed)
+				require.NoError(t, err)
+				require.True(t, strings.HasPrefix(string(decoded), "#cloud-config\n"))
+				require.False(t, config.ScriptlessCSEProvisionMode)
+				require.Contains(t, string(decoded), cseConfigLocalDNSScriptFilepath)
+
+				// Ensure the custom-cloud measurement includes its required initializer.
+				if cloud.custom {
+					require.Contains(t, string(decoded), initAKSCloudFilepath)
+				} else {
+					require.NotContains(t, string(decoded), initAKSCloudFilepath)
+				}
+
+				// Check the final base64-encoded payload against Compute's customData limit.
+				t.Logf("customData: %d encoded characters, %d characters remaining", len(payload), MaxCustomDataLength-len(payload))
+				require.LessOrEqual(t, len(payload), MaxCustomDataLength, "legacy customData exceeds Compute's encoded size limit")
+			})
+		}
+	}
+}
+
 func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
 	const bootstrapToken = "bake00.0123456789abcdef"
 
@@ -189,6 +279,42 @@ func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
 	require.Contains(t, bakeCustomData, "Write-BootstrapKubeConfig")
 	require.Contains(t, bakeCustomData, "if (-not $PreProvisionOnly)")
 	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken="%s"`, bootstrapToken))
+}
+
+func TestWindowsCustomDataUsesBundledSSHFunctions(t *testing.T) {
+	for _, preProvisionOnly := range []bool{false, true} {
+		t.Run(fmt.Sprintf("PreProvisionOnly=%t", preProvisionOnly), func(t *testing.T) {
+			config := newNodeCustomDataRenderConfig(datamodel.AKSWindows2022Containerd)
+			config.AgentPoolProfile.OSType = datamodel.Windows
+			config.ContainerService.Properties.WindowsProfile = &datamodel.WindowsProfile{}
+			config.PreProvisionOnly = preProvisionOnly
+			payload := InitializeTemplateGenerator().getWindowsNodeBootstrappingPayload(config)
+			require.LessOrEqual(t, len(payload), MaxCustomDataLength)
+			decoded, err := base64.StdEncoding.DecodeString(payload)
+			require.NoError(t, err)
+			customData := string(decoded)
+			require.Contains(t, customData, `Install-OpenSSH -Enabled $sshEnabled -SSHKeys $global:SSHKeys`)
+			require.Contains(t, customData, `$installOpenSSH.Parameters.ContainsKey('Enabled')`)
+			require.NotContains(t, customData, "Set-SSHAccess")
+			loadHelpers := strings.Index(customData, ". Get-HelperScripts")
+			loadSSH := strings.Index(customData, `'c:\AzureData\windows\sshfunc.ps1'`)
+			require.GreaterOrEqual(t, loadHelpers, 0)
+			require.GreaterOrEqual(t, loadSSH, 0)
+			require.Less(t, loadSSH, loadHelpers)
+
+			matches := regexp.MustCompile(`\$zippedFiles="([^"]+)"`).FindStringSubmatch(customData)
+			require.Len(t, matches, 2)
+			archive, err := base64.StdEncoding.DecodeString(matches[1])
+			require.NoError(t, err)
+			reader, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+			require.NoError(t, err)
+			var names []string
+			for _, file := range reader.File {
+				names = append(names, file.Name)
+			}
+			require.ElementsMatch(t, []string{kubernetesWindowsCSEHelperPS1, kubernetesWindowsSendLogsPS1}, names)
+		})
+	}
 }
 
 func TestWindowsCustomDataOmitsPostResetHealthGate(t *testing.T) {
@@ -344,7 +470,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".supportsScriptlessProvisioning()", func() {
-			It("given EnableScriptlessNBCCSECmd, PreProvisionOnly is true and no CustomCATrustConfig, it returns false", func() {
+			It("given EnableScriptlessNBCCSECmd and PreProvisionOnly, it returns true", func() {
+				config.EnableScriptlessNBCCSECmd = true
+				config.PreProvisionOnly = true
+				Expect(supportsScriptlessProvisioning(config)).To(BeTrue())
+			})
+			It("given PreProvisionOnly without EnableScriptlessNBCCSECmd, it returns false", func() {
 				config.PreProvisionOnly = true
 				Expect(supportsScriptlessProvisioning(config)).To(BeFalse())
 			})
@@ -1265,7 +1396,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 		encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
 
 		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeCustomDataFilepath))
@@ -1479,7 +1610,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1496,7 +1627,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1513,7 +1644,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
@@ -1531,16 +1662,28 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		renderConfig := *config
 		renderConfig.EnableScriptlessCSECmd = true
-		nodeCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(&renderConfig))
+		nodeCustomData := templateGenerator.getLinuxNodeCustomData(&renderConfig)
 
 		Expect(nodeCustomData).To(ContainSubstring(initAKSCloudFilepath))
 		Expect(nodeCustomData).To(ContainSubstring("permissions: \"0744\""))
 		Expect(nodeCustomData).To(ContainSubstring("encoding: gzip"))
 	})
 
-	It("should fall back to regular custom data when pre-provisioning is enabled", func() {
+	It("should use scriptless custom data when pre-provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newConfig(true)
+
+		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
+		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(string(decodedPayload)).To(ContainSubstring(aksNodeCustomDataFilepath))
+	})
+
+	It("should fall back to regular custom data when scriptless provisioning is unsupported", func() {
+		templateGenerator := InitializeTemplateGenerator()
+		config := newConfig(true)
+		config.EnableScriptlessNBCCSECmd = false
 
 		payload := templateGenerator.getLinuxNodeBootstrappingPayload(config)
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
@@ -1549,16 +1692,20 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		decompressedPayload, err := getGzipDecodedValue(decodedPayload)
 		Expect(err).NotTo(HaveOccurred())
 
-		expectedCustomData := getCustomDataFromJSON(templateGenerator.getLinuxNodeCustomDataJSONObject(config))
+		expectedCustomData := templateGenerator.getLinuxNodeCustomData(config)
 
 		Expect(string(decompressedPayload)).To(Equal(expectedCustomData))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNodeCustomDataFilepath))
-		Expect(string(decompressedPayload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+		var cloudConfig cloudInit
+		Expect(yaml.Unmarshal(decompressedPayload, &cloudConfig)).To(Succeed())
+		for _, file := range cloudConfig.WriteFiles {
+			Expect(file.Path).NotTo(Equal(aksNodeCustomDataFilepath))
+			Expect(file.Path).NotTo(Equal(aksNbcCmdFilepath))
+		}
 	})
 })
 
 var _ = Describe("getNodeBootstrappingCmd", func() {
-	It("should use the regular linux CSE command when pre-provisioning is enabled", func() {
+	It("should use the provision-wait CSE command when pre-provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		agentPoolProfile := &datamodel.AgentPoolProfile{
 			Name:   "nodepool1",
@@ -1590,8 +1737,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 			PreProvisionOnly:          true,
 		}
 
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
 
 	newScriptlessCmdTestConfig := func() *datamodel.NodeBootstrappingConfiguration {
@@ -1682,7 +1828,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
 	})
 
-	It("should put provisioning in CustomData and omit CSE when CustomData-only provisioning is enabled", func() {
+	It("should put provisioning in CustomData and retain the CSE wait command when CustomData-only provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()
 		config.CustomDataOnlyProvisioning = true
@@ -1698,10 +1844,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(string(payload)).To(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
 		Expect(string(payload)).To(ContainSubstring("if [ -s /sys/class/dmi/id/product_uuid ]; then"))
 		Expect(string(payload)).To(ContainSubstring("cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned"))
-<<<<<<< Updated upstream
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(BeEmpty())
-=======
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 
 		var cloudConfig struct {
 			Datasource struct {
@@ -1720,7 +1863,6 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		cmd.Stdin = strings.NewReader(cloudConfig.BootCmd[0][2])
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), string(output))
->>>>>>> Stashed changes
 	})
 
 	It("should omit the Ready reporting handoff when CSE delivery is already selected", func() {
@@ -1824,7 +1966,9 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		config.PreProvisionOnly = true
 		config.CustomDataOnlyProvisioning = true
 
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(templateGenerator.getLinuxNodeCSECommand(config)))
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
+		config.EnableScriptlessNBCCSECmd = true
+		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 	})
 
 	It("should disable CustomData-only provisioning for unsupported images", func() {

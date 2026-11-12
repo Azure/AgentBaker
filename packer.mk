@@ -95,7 +95,7 @@ build-imagecustomizer:
 	@./vhdbuilder/packer/imagecustomizer/scripts/build-imagecustomizer-image.sh
 
 .PHONY: build-tools
-build-tools: generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary
+build-tools: generate-prefetch-scripts build-image-fetcher build-aks-node-controller
 
 az-login:
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
@@ -116,6 +116,12 @@ generate-publishing-info: az-login
 
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
+
+convert-vhd-to-cosi: az-login
+	@./vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh
+
+upload-cosi-to-pmc:
+	@./vhdbuilder/packer/imagecustomizer/scripts/upload-cosi-to-pmc.sh
 
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
@@ -146,7 +152,7 @@ setup-golang:
 	@echo "Setting up Go environment"
 	@bash ./hack/setup_golang.sh
 
-generate-prefetch-scripts build-image-fetcher build-aks-node-controller build-lister-binary: setup-golang
+generate-prefetch-scripts build-image-fetcher build-aks-node-controller: setup-golang
 
 build-aks-node-controller:
 	@echo "Building aks-node-controller binaries"
@@ -162,10 +168,6 @@ build-image-fetcher:
 	@bash -c "pushd image-fetcher && \
 	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/image-fetcher-linux-$(GOARCH) && \
 	popd"
-
-build-lister-binary:
-	@echo "Building lister binary for $(GOARCH)"
-	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
 
 generate-acl-customdata: vhdbuilder/packer/acl-customdata.json
 vhdbuilder/packer/acl-customdata.json: vhdbuilder/packer/acl-customdata.yaml | hack/tools/bin/butane

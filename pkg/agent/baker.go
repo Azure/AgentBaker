@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"unicode/utf8"
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -162,14 +163,12 @@ func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.N
 		return t.getScriptlessBoothook(config)
 	}
 
-	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
-	// lots of tests fail.
 	var encoded string
 	if config.IsFlatcar() || config.IsACL() {
 		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
 		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
-		customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+		customData := t.getLinuxNodeCustomData(config)
 		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
 	}
 	return encoded
@@ -186,7 +185,7 @@ type encodedFile struct {
 func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstrappingConfiguration) string {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
-	nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	nodeCustomData := t.getLinuxNodeCustomData(config)
 	encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
 
 	// hotfixJSONFile is optional: only VHDs that bake a static default hotfix
@@ -297,7 +296,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 }
 
 func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return (config.EnableScriptlessAKSNodeConfig || (config.EnableScriptlessNBCCSECmd) || config.IsCustomDataOnlyProvisioningEnabled()) && !config.PreProvisionOnly
+	return config.EnableScriptlessNBCCSECmd || config.EnableScriptlessAKSNodeConfig || config.IsCustomDataOnlyProvisioningEnabled()
 }
 
 func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
@@ -356,20 +355,17 @@ func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator st
 	return fmt.Sprintf(cloudInitTemplate, strings.Join(fileList, separator))
 }
 
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
-// { "customData": "<customData string>" }.
-func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// get parameters
-	parameters := getParameters(config)
-	// get variable cloudInit
-	variables := getCustomDataVariables(config)
-	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
-
-	if e != nil {
-		panic(e)
+func (t *TemplateGenerator) getLinuxNodeCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
+	b, err := parts.Templates.ReadFile(kubernetesNodeCustomDataYaml)
+	if err != nil {
+		panic(err)
+	}
+	str, err := RenderLinuxNodeCustomDataTemplate(b, config)
+	if err != nil {
+		panic(err)
 	}
 
-	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+	return str
 }
 
 const (
@@ -586,9 +582,6 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 		return t.getWindowsNodeCSECommand(config)
 	}
 	if supportsScriptlessProvisioning(config) {
-		if config.IsCustomDataOnlyProvisioningEnabled() {
-			return ""
-		}
 		if config.ScriptlessCSEProvisionMode {
 			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
 			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
@@ -690,6 +683,8 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 // same variables and functions used by the production AgentBaker path.
 // Callers must supply a complete configuration, as required by the production
 // rendering helpers.
+// File entries must use GetCloudInitFileEncodingLine and GetCloudInitFileContent
+// to select the encoding for the delivery mode.
 func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	parameters := getParameters(config)
 	variables := getCustomDataVariables(config)
@@ -707,19 +702,53 @@ func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel
 	return buffer.String(), nil
 }
 
+// Traditional custom data is gzipped as a whole, so its files need no inner encoding.
+func usePlainCloudInit(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return !config.EnableScriptlessCSECmd && !config.IsFlatcar() && !config.IsACL()
+}
+
+func getCloudInitFileEncodingLine(config *datamodel.NodeBootstrappingConfiguration) string {
+	if usePlainCloudInit(config) {
+		return ""
+	}
+	return "encoding: " + encodingGZIP
+}
+
+func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, content string) (string, error) {
+	if usePlainCloudInit(config) {
+		if !utf8.ValidString(content) {
+			return "", fmt.Errorf("cloud-init file content contains invalid UTF-8")
+		}
+		// YAML quoting preserves Unicode line breaks that JSON leaves unescaped.
+		encoded, err := yaml.Marshal(&yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   "!!str",
+			Style: yaml.DoubleQuotedStyle,
+			Value: content,
+		})
+		return strings.TrimSuffix(string(encoded), "\n"), err
+	}
+	return "!!binary |\n    " + getBase64EncodedGzippedCustomScriptFromStr(content), nil
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
+	funcMap["GetCloudInitFileEncodingLine"] = func() string {
+		return getCloudInitFileEncodingLine(config)
+	}
+	funcMap["GetCloudInitFileContent"] = func(content string) (string, error) {
+		return getCloudInitFileContent(config, content)
+	}
+
 	funcMap["GetParameter"] = func(s string) interface{} {
-		if v, ok := params[s].(paramsMap); ok && v != nil {
-			if v["value"] == nil {
-				// return empty string so we don't get <no value> from go template
-				return ""
-			}
-			return v["value"]
+		v, ok := params[s].(paramsMap)
+		if !ok || v["value"] == nil {
+			// return empty string so we don't get <no value> from go template
+			return ""
 		}
-		return ""
+		return v["value"]
 	}
 
 	// TODO: GetParameterPropertyLower
@@ -854,6 +883,15 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
 	}
 
+	// The gate makes kubelet pass the RuntimeClass handler to PullImage, so kata-v2 images unpack straight into erofs.
+	if config.AgentPoolProfile != nil && config.AgentPoolProfile.Distro.IsKataDistro() &&
+		IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.29.0") {
+		// Default only, so the RP can still turn it off.
+		if _, set := strKeyValToMapBool(kubeletFlags["--feature-gates"], ",", "=")["RuntimeClassInImageCriApi"]; !set {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RuntimeClassInImageCriApi", true)
+		}
+	}
+
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
 		kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
 	} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
@@ -955,7 +993,7 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
-//nolint:gocognit, funlen, cyclop, gocyclo
+//nolint:gocognit, funlen
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
@@ -1499,9 +1537,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetCSEConfigNetworkScriptFilepath": func() string {
 			return cseConfigNetworkScriptFilepath
-		},
-		"GetCSEConfigAddonsScriptFilepath": func() string {
-			return cseConfigAddonsScriptFilepath
 		},
 		"GetCSEConfigChronyScriptFilepath": func() string {
 			return cseConfigChronyScriptFilepath

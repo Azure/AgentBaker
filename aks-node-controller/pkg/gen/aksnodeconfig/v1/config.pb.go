@@ -172,7 +172,7 @@ type Configuration struct {
 	// an exported environment variable (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true"). Using a map
 	// lets new toggles be added without producer-side code changes. Empty/absent => no file, no-op.
 	EnabledFeatures map[string]string `protobuf:"bytes,45,rep,name=enabled_features,json=enabledFeatures,proto3" json:"enabled_features,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// Specifies whether the KMPP key isolation service and its filtered D-Bus proxy are enabled on the node.
+	// Specifies whether the KMPP key isolation service is enabled on the node and reachable through /var/run/kmpp/dbus.
 	// Set when the Azure Key Vault Secrets Store addon runs in KMPP mode. Azure Linux 3.0 only.
 	EnableKmpp bool `protobuf:"varint,46,opt,name=enable_kmpp,json=enableKmpp,proto3" json:"enable_kmpp,omitempty"`
 	// Indicates whether the node should be provisioned using only custom data.

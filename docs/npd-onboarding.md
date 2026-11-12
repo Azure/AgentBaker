@@ -2,7 +2,7 @@
 
 This work builds on the generic Ubuntu snapshot updater (#8952) and the generic
 Azure Linux updater (#9567). The AKS resource provider publishes the `npdConfig`
-component through the Live Patching Controller.
+and `npdBinary` components through the Live Patching Controller.
 
 Ubuntu and Azure Linux 3 share one handler (`parts/linux/cloud-init/artifacts/npd-update.sh`)
 and one lifecycle. Only the package primitives differ: dpkg/apt on Ubuntu and
@@ -25,11 +25,16 @@ rpm/tdnf on Azure Linux.
 - CSE starts the baked service in `nodePrep`, after kubelet configuration and GPU
   setup. This also runs on PIS-cached images. No public-settings file is generated;
   monitor defaults and hardware selection come from the config package.
-- Pins exist for Ubuntu 20.04, 22.04, 24.04 and 26.04 and Azure Linux 3.0, amd64
-  and arm64. The config package content is the same on every release, so Ubuntu
-  26.04, which has no config build of its own, uses the 24.04 package (see below).
-  Azure Linux OSGuard, Kata, Azure Container Linux, Mariner 2 and other OSes remain
+- Pins exist for Ubuntu 20.04, 22.04, 24.04 and 26.04 and Azure Linux 3.0 (including
+  Kata), amd64 and arm64. The config package content is the same on every release, so
+  Ubuntu 26.04, which has no config build of its own, uses the 24.04 package (see below).
+  Azure Linux OSGuard, Azure Container Linux, Mariner 2 and other OSes remain
   extension-managed.
+- Azure Linux 3 Kata uses the same packages, tdnf lock and handler as Azure Linux 3.
+  NPD runs on the Kata host, not inside Kata guest VMs. The Kata host kernel lacks PSI,
+  so pressure monitors fall back to load and iowait. LPC config updates change only
+  the held NPD config package; Kata's OS, kernel and Kata packages still update only
+  through images (unattended upgrades and securityPatch stay excluded for Kata).
 
 ## VHD package pins (`components.json`)
 
@@ -134,9 +139,50 @@ the shared event transport with task prefix `AKS.LivePatching.npdConfig`.
 Direct PMC servicing requires egress; RP currently excludes network-isolated
 clusters from NPD publication. Their baked baseline still starts without a pull.
 
+## Live binary updates (`npdBinary`)
+
+`npdBinary` updates the binary package `node-problem-detector-kubernetes` and is a
+separate component from `npdConfig`, with its own RP toggle
+(`npd-binary-package-versions`, not expedited), payload, status and events
+(`AKS.LivePatching.npdBinary.*`). The payload has the same shape, for example
+`{"ubuntuPackageVersions":{"24.04":"0.8.25-ubuntu24.04u24"},"azureLinuxPackageVersions":{"3.0":"0.8.25-24.azl3"}}`.
+
+Both components run the same transaction in `npd-update.sh` (forward-only version
+selection, download, validation, durable marker, held install, restart, health
+check, rollback to the cached prior package, interrupted-transaction recovery), but
+each uses only its own package, marker (`pending` for config, `pending-binary` for
+the binary) and cached rollback package. A config update never moves the binary,
+and the reverse. Every release has its own binary build, so the 26.04 config
+mapping does not apply to the binary.
+
+Binary-specific checks:
+
+- The binary is updated only when the config package is also installed: it owns the unit and startup script,
+  so without it NPD can't be restarted or rolled back. This matches the provisioning check.
+
+- Before installing, the staged package must contain the NPD executables, and the
+  new `node-problem-detector --version` must run on the node.
+- After restarting NPD, `/healthz` is not enough: a binary can stay active and
+  healthy while every apiserver call fails. The handler stops NPD before the
+  restart and requires a node condition heartbeat (`KernelDeadlock` or
+  `ReadonlyFilesystem`) newer than the stop, so a heartbeat from the old process
+  cannot count. Otherwise it rolls back to the cached binary. Rollback itself
+  only requires local health, so an apiserver outage cannot block recovery.
+
+Both components share one transaction in `npd-update.sh`. Each entry point calls
+`npd_select_component`, which sets the package, the transaction marker and the
+hooks where the components differ (release mapping, package validation,
+post-install cleanup and the post-restart check). An unknown component fails
+before any package operation.
+
+The VHD caches both packages in `/opt/node-problem-detector/downloads` for offline
+rollback (about 20 MB for the binary). After a successful update the installed version is the only rollback
+target, so the handler removes that component's other cached versions.
+
 ## Validation
 
-ShellSpec covers package selection, ownership, CSE activation, version/no-action
+ShellSpec covers package selection, ownership, CSE activation, binary/config
+component isolation, the binary reporting check, version/no-action
 logic, dispatch isolation on both updaters, failed downloads, activation failure,
 transaction recovery and Azure Linux lock/config handling. VHD content checks
 require the marker, executables, monitors, cached package, holds, disabled service
@@ -146,7 +192,11 @@ and generic handler. The E2E validator checks baked service startup.
 disposable Ubuntu or Azure Linux 3 container. It uses the published package and
 the real package manager, creates a local test revision, and tests held upgrade,
 local-edit replacement, removed-config cleanup, marker preservation and downgrade
-recovery. Only service restart is stubbed.
+recovery. Only the service stop and restart are stubbed.
+`spec/parts/linux/cloud-init/artifacts/npd-binary-integration.sh` does the same for
+the binary with two published revisions: real held upgrade, interrupted recovery
+and rollback when NPD stops reporting. Only the service stop, restart and the
+reporting check are stubbed.
 
 Like the generic updaters and securityPatch handlers, `npd-update.sh` is delivered
 only by the VHD. It is not written by provisioning CustomData or hotfix delivery,

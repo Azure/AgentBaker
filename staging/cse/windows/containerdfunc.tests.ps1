@@ -573,6 +573,26 @@ Describe "Containerd Functions Tests" {
     }
   }
 
+  Describe 'Get-ContainerdVersionFromString' {
+    It "Should parse '<VersionString>' as <Expected>" -TestCases @(
+      @{ VersionString = "containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8"; Expected = "1.6.21" }
+      @{ VersionString = "containerd github.com/containerd/containerd v1.7.20+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d"; Expected = "1.7.20" }
+      @{ VersionString = "containerd github.com/containerd/containerd/v2 v2.0.4+azure b33f24f7d"; Expected = "2.0.4" }
+      @{ VersionString = "containerd github.com/containerd/containerd/v2 2.3.7-4 6f589cf13dc01a5b493911355427e05b2ff005d7"; Expected = "2.3.7" }
+      @{ VersionString = "containerd github.com/containerd/containerd/v2 v2.3.7-4 6f589cf13dc01a5b493911355427e05b2ff005d7"; Expected = "2.3.7" }
+      @{ VersionString = "containerd github.com/containerd/containerd/v2 v2.3.7 6f589cf13dc01a5b493911355427e05b2ff005d7"; Expected = "2.3.7" }
+    ) {
+      param($VersionString, $Expected)
+      $version = Get-ContainerdVersionFromString -VersionString $VersionString
+      $version | Should -Be $Expected
+      { [version]$version } | Should -Not -Throw
+    }
+
+    It "Should throw when the version cannot be parsed" {
+      { Get-ContainerdVersionFromString -VersionString "containerd github.com/containerd/containerd/v2 unknown" } | Should -Throw "*Unable to parse containerd version*"
+    }
+  }
+
   Describe 'RegisterContainerDService' {
     BeforeEach {
       Mock Assert-FileExists

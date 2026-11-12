@@ -398,8 +398,24 @@ EOF
         fi
     fi
 
-    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
+    # Defer ACL artifact streaming to nodePrep: keep sysext services masked
+    # during PIS image preparation and activate them on the real node.
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && ! isACL "$OS" "$OS_VARIANT"; then
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+    fi
+
+    # Determine if GPU driver installation should be skipped
+    local skip_gpu_driver_install
+    skip_gpu_driver_install=$(should_skip_nvidia_drivers)
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to determine if nvidia driver install should be skipped"
+        exit $ERR_NVIDIA_DRIVER_INSTALL
+    fi
+
+    # Clean up GPU drivers before customer customization. Derived PIS nodes skip
+    # basePrep, so their customer-installed drivers are preserved.
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_gpu_driver_install}" = "true" ]; then
+        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
     fi
 
     # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
@@ -444,7 +460,7 @@ function nodePrep {
 
     # This function first creates the systemd drop-in directory for kubelet.service.
     # Pay attention to ordering relative to other functions that create kubelet drop-ins.
-    logs_to_events "AKS.CSE.configureK8s" configureK8s
+    logs_to_events "AKS.CSE.configureK8s" configureK8s || exit "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         # Depends on configureK8s, ensureKubeCACert, and installSecureTLSBootstrapClient
@@ -452,6 +468,12 @@ function nodePrep {
     fi
 
     if [ -n "${OUTBOUND_COMMAND}" ]; then
+        # OUTBOUND_COMMAND is intentionally expanded unquoted here (not a scanner oversight):
+        # it is a full shell command (e.g. `curl -v --insecure --proxy-insecure <url>`) built by
+        # the RP from config.OutboundType/CloudSpecConfig (see GetOutboundCommand in baker.go),
+        # not an arbitrary string from an external caller. Quoting it would break word-splitting
+        # into argv and make the outbound connectivity check fail to execute. Do not add quotes
+        # here without also changing it to an array (e.g. OUTBOUND_COMMAND=(...)) end to end.
         retrycmd_if_failure 20 1 15 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
     fi
     if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
@@ -574,7 +596,7 @@ function nodePrep {
     if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         API_SERVER_CONN_RETRIES=34
         API_SERVER_DNS_RETRY_TIMEOUT=300
-        # shellcheck disable=SC3010
+        # shellcheck disable=SC3010,SC3014
         if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
            API_SERVER_CONN_RETRIES=68
            API_SERVER_DNS_RETRY_TIMEOUT=600
@@ -587,7 +609,7 @@ function nodePrep {
         fi
         if [ "$STS" -ne 0 ]; then
             time nslookup ${API_SERVER_NAME}
-            # shellcheck disable=SC3010
+            # shellcheck disable=SC3010,SC3014
             if [[ $RES == *"168.63.129.16"*  ]]; then
                 VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
             else
@@ -614,6 +636,11 @@ function nodePrep {
         checkServiceHealth secure-tls-bootstrap || true
     fi
 
+    # Runs before ensureKubelet so the KMPP node label is in --node-labels at kubelet startup.
+    if [ "${ENABLE_KMPP}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureKMPP" configureKMPP || exit $?
+    fi
+
     # Add localdns-exporter kubelet node label before ensureKubelet so it's
     # included in --node-labels at kubelet startup (~0ms, just a variable append).
     # Only add the label if the exporter socket unit exists on this VHD — otherwise
@@ -621,6 +648,11 @@ function nodePrep {
     # The actual socket setup is deferred to after ensureKubelet to avoid delaying kubelet start.
     if [ "${SHOULD_ENABLE_LOCALDNS}" = "true" ] && systemctl cat localdns-exporter.socket &>/dev/null; then
         addKubeletNodeLabel "kubernetes.azure.com/localdns-exporter=enabled"
+    fi
+
+    # Keep ACL sysexts masked during PIS image preparation; configure them on the real node.
+    if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ] && isACL "$OS" "$OS_VARIANT"; then
+        logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
@@ -638,11 +670,6 @@ function nodePrep {
     logs_to_events "AKS.CSE.configureNodeExporter" configureNodeExporter
     logs_to_events "AKS.CSE.configureNodeProblemDetector" configureNodeProblemDetector
 
-
-    # Clean up GPU drivers if not a GPU node or if skipping driver install
-    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
-        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-    fi
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
 
@@ -662,6 +689,8 @@ function nodePrep {
             logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
         fi
     fi
+
+    logs_to_events "AKS.CSE.enableAndStartCgroupTelemetry" enableAndStartCgroupTelemetry
 
     if $REBOOTREQUIRED; then
         echo 'reboot required, rebooting node in 1 minute'
@@ -741,7 +770,11 @@ function nodePrep {
 # In typical deployments, both stages run sequentially during node provisioning.
 # For VHD image creation workflows, only basePrep runs initially, and nodePrep runs later
 # when nodes are created from that VHD image.
-logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync_or_report_error || exit $?
+if declare -F configure_node_time_sync_or_report_error >/dev/null; then
+    logs_to_events "AKS.CSE.configureNodeTimeSync" configure_node_time_sync_or_report_error || exit $?
+else
+    echo "WARNING: configure_node_time_sync_or_report_error function not found; skipping node time sync configuration"
+fi
 
 if [ ! -f /opt/azure/containers/base_prep.complete ]; then
     basePrep

@@ -73,6 +73,26 @@ assertPackageVersion() {
   return 0
 }
 
+testEmudhraRootRemoval() {
+  local bundle subjects checked=0
+  for bundle in "$@"; do
+    [ -e "$bundle" ] || [ -L "$bundle" ] || continue
+    subjects=$(set -o pipefail; openssl crl2pkcs7 -nocrl -certfile "$bundle" | openssl pkcs7 -print_certs -noout) ||
+      { err testEmudhraRootRemoval "Cannot read $bundle"; return 1; }
+    if ! grep -Eq '^subject=.*CN ?= ?DigiCert Global Root G2(,|$)' <<< "$subjects" ||
+      grep -Eq '^subject=.*CN ?= ?(emSign ECC Root CA - G3|AAA Certificate Services)(,|$)' <<< "$subjects"; then
+      err testEmudhraRootRemoval "$bundle: control root missing, or emSign/AAA root still trusted"
+      return 1
+    fi
+    checked=1
+  done
+  [ "$checked" -eq 1 ] || { err testEmudhraRootRemoval "No CA bundle found"; return 1; }
+}
+
+# Check the captured image before test setup can upgrade its CA packages.
+testEmudhraRootRemoval /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
+  /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem || exit 1
+
 SKIP_GIT_CLONE=false
 # Git is not present in the base image, so we need to install or bypass it.
 if [ "$OS_SKU" = "Ubuntu" ]; then
@@ -80,9 +100,9 @@ if [ "$OS_SKU" = "Ubuntu" ]; then
     err 'git-install' "Failed to install git"
     exit 1
   fi
-elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
-  : # Flatcar/ACL comes with git pre-installed
-elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+elif [ "$OS_SKU" = "Flatcar" ]; then
+  : # Flatcar comes with git pre-installed
+elif [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
   SKIP_GIT_CLONE=true
 else
   sudo tdnf install -y git
@@ -135,6 +155,7 @@ fi
 
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
+source ./AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
 source ./AgentBaker/vhdbuilder/packer/packer_source.sh
 
 validateDownloadPackage() {
@@ -286,6 +307,20 @@ testPackagesInstalled() {
         fi
         continue
         ;;
+      "oras")
+        if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
+          continue
+        fi
+        local oras_version_output
+        if ! oras_version_output=$(oras version 2>&1); then
+          err "$test" "Failed to run oras version: ${oras_version_output}"
+          continue
+        fi
+        if ! grep -Fq "${PACKAGE_VERSIONS[0]}" <<< "$oras_version_output"; then
+          err "$test" "Expected oras version ${PACKAGE_VERSIONS[0]}, got: ${oras_version_output}"
+        fi
+        continue
+        ;;
       "cni-plugins")
         testCNIPluginsInstalled "${downloadLocation}" "${PACKAGE_VERSIONS[@]}"
         continue
@@ -306,6 +341,9 @@ testPackagesInstalled() {
         case "$name" in
           "kubernetes-cri-tools")
             testCriCtl "$version" "kubernetes-cri-tools"
+            ;;
+          "runc")
+            testRunc "$version"
             ;;
           "containerd")
             # The deb/rpm package name for containerd varies by OS:
@@ -340,7 +378,7 @@ testPackagesInstalled() {
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
       # Validate whether package proxy path exists in Azure China cloud.
-      # shellcheck disable=SC3010
+      # shellcheck disable=SC3010,SC3014
       if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
         testPackageInAzureChinaCloud "$downloadURL"
       fi
@@ -540,16 +578,16 @@ testImagesRetagged() {
   mooncakeMcrImagesNumber=0
   mooncakeLegacyMcrImagesNumber=0
   while IFS= read -r pulledImage; do
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ $pulledImage == "mcr.azure.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
     fi
     # TODO(fseldow): remove azk8s when mcr.azk8s.cn is fully deprecated
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
       mooncakeLegacyMcrImagesNumber=$((${mooncakeLegacyMcrImagesNumber} + 1))
     fi
@@ -764,7 +802,7 @@ testFips() {
           current_provider="${BASH_REMATCH[2]}"
           continue
         fi
-        # shellcheck disable=SC3010
+        # shellcheck disable=SC3010,SC3014
         if [[ "${current_provider}" == fips* || "${current_provider}" == symcrypt* ]] \
           && [[ "${line}" =~ ^([\ $'\t']+)status:[\ $'\t']+active ]]; then
           if [ ${#BASH_REMATCH[1]} -gt ${header_indent} ]; then
@@ -797,7 +835,7 @@ testLtsKernel() {
   os_sku=$2
   enable_fips=$3
 
-  # shellcheck disable=SC3010
+  # shellcheck disable=SC3010,SC3014
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]] ; then
     echo "OS is Ubuntu, FIPS is not enabled, check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
@@ -812,7 +850,7 @@ testLtsKernel() {
 
     kernel=$(uname -r)
     echo "Current kernel version: $kernel"
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ "$kernel" == *"$expected_kernel"* ]]; then
       echo "Kernel version is as expected ($expected_kernel)."
     else
@@ -1030,7 +1068,7 @@ testCloudInit() {
       echo "Cloud-init log exists. Checking its content..."
       grep 'WARNING\|ERROR' $FILE | while read -r msg; do
         for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
-            # shellcheck disable=SC3010
+            # shellcheck disable=SC3010,SC3014
             if [[ "$msg" == *"$pattern"* ]]; then
                 echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
             else
@@ -2009,6 +2047,7 @@ testBccTools () {
 #   1. WALinuxAgent-<version> directory exists under /var/lib/waagent/ matching components.json
 #   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
 #   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
+#   4. The expected version is running as ExtHandler
 testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
@@ -2066,7 +2105,18 @@ testWALinuxAgentInstalled() {
     return 1
   fi
 
+  testWALinuxAgentRunningVersion "$expectedVersion" || return 1
+
   echo "$test:Finish"
+}
+
+testWALinuxAgentRunningVersion() {
+  local test="testWALinuxAgentRunningVersion"
+  local expectedVersion="$1"
+  if ! grep -Fq "ExtHandler WALinuxAgent-${expectedVersion} running as process" /var/log/waagent.log; then
+    err "$test" "WALinuxAgent-${expectedVersion} is not running as ExtHandler"
+    return 1
+  fi
 }
 
 testNodeExporter () {
@@ -2293,6 +2343,22 @@ testCriCtl() {
   return 0
 }
 
+testRunc() {
+  local expectedVersion="$1"
+  local test="testRunc"
+  echo "$test:Start"
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for runc version, as expected version is <SKIP>"
+    return 0
+  fi
+  if [ "$OS_SKU" != "Ubuntu" ]; then
+    err "$test" "runc package validation is not implemented for $OS_SKU"
+    return 1
+  fi
+  assertPackageVersion "$test" "moby-runc" "$expectedVersion" true || return 1
+  echo "$test:Finish"
+}
+
 testContainerd() {
   local expectedVersion="${1}"
   local installedPackageName="${2}"
@@ -2411,21 +2477,7 @@ testBlobfuse() {
     echo "$test: Skipping test for blobfuse version, as expected version is <SKIP>"
     return 0
   fi
-  local installed_version
-  installed_version=$(dpkg-query -W -f='${Version}' blobfuse 2>/dev/null) || true
-  if [ -z "$installed_version" ]; then
-    err "$test" "blobfuse is not installed"
-    return 1
-  fi
-  echo "$test: checking if blobfuse version $installed_version matches expected $expectedVersion"
-  case "$installed_version" in
-    "$expectedVersion"*)
-      ;;
-    *)
-      err "$test" "blobfuse version is $installed_version, expected $expectedVersion"
-      return 1
-      ;;
-  esac
+  assertPackageVersion "$test" "blobfuse" "$expectedVersion" true || return 1
   echo "$test:Finish"
   return 0
 }
@@ -2442,21 +2494,25 @@ testBlobfuse2() {
     echo "$test: Skipping test for blobfuse2 version, as expected version is <SKIP>"
     return 0
   fi
-  local installed_version
-  installed_version=$(dpkg-query -W -f='${Version}' blobfuse2 2>/dev/null) || true
-  if [ -z "$installed_version" ]; then
-    err "$test" "blobfuse2 is not installed"
-    return 1
-  fi
-  echo "$test: checking if blobfuse2 version $installed_version matches expected $expectedVersion"
-  case "$installed_version" in
-    "$expectedVersion"*)
-      ;;
+  assertPackageVersion "$test" "blobfuse2" "$expectedVersion" true || return 1
+  echo "$test:Finish"
+  return 0
+}
+
+testLshwInstalled() {
+  local test="testLshwInstalled"
+  echo "$test:Start"
+  case "$OS_SKU/$OS_VERSION/$IMG_SKU" in
+    Ubuntu/26.04/*minimal*) ;;
     *)
-      err "$test" "blobfuse2 version is $installed_version, expected $expectedVersion"
-      return 1
+      echo "$test: Skipping, only applicable to Ubuntu 26.04 minimal"
+      return 0
       ;;
   esac
+  if ! dpkg-query -W -f='${Status}' lshw 2>/dev/null | grep -q "install ok installed"; then
+    err "$test" "lshw is not installed"
+    return 1
+  fi
   echo "$test:Finish"
   return 0
 }
@@ -2659,24 +2715,66 @@ testNodeProblemDetector() {
     AzureLinux) [ "${os_version}" = 3.0 ] || return 0 ;;
     *) return 0 ;;
   esac
-  case "${FEATURE_FLAGS}" in *kata*) return 0 ;; esac
   for executable in /usr/bin/node-problem-detector /usr/bin/npd-log-counter /usr/bin/npd-health-checker /opt/bin/node-problem-detector-startup.sh; do
     [ -x "${executable}" ] || err "$test" "Missing executable ${executable}"
   done
   [ -f /etc/node-problem-detector.d/skip_vhd_npd ] || err "$test" "Missing NPD skip marker"
   [ -s /etc/node-problem-detector.d/custom-plugin-monitor/custom-kubelet-monitor.json ] || err "$test" "Missing NPD monitors"
-  if [ "${os_sku}" = Ubuntu ]; then
-    version="$(dpkg-query -W -f='${Version}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
-    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config_${version}_$(dpkg --print-architecture).deb"
-  else
-    version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
-    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config-${version}.$(uname -m).rpm"
-    for executable in node-problem-detector-kubernetes node-problem-detector-aks-config; do
-      grep -qsx "${executable}" /etc/tdnf/locks.d/node-problem-detector.conf || err "$test" "Missing tdnf lock for ${executable}"
-    done
-  fi
-  [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
+  local npd_package
+  for npd_package in node-problem-detector-kubernetes node-problem-detector-aks-config; do
+    # Both packages are cached so npdBinary and npdConfig can roll back offline.
+    if [ "${os_sku}" = Ubuntu ]; then
+      version="$(dpkg-query -W -f='${Version}' "${npd_package}")" || err "$test" "Missing ${npd_package} package"
+      package="/opt/node-problem-detector/downloads/${npd_package}_${version}_$(dpkg --print-architecture).deb"
+    else
+      version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' "${npd_package}")" || err "$test" "Missing ${npd_package} package"
+      package="/opt/node-problem-detector/downloads/${npd_package}-${version}.$(uname -m).rpm"
+      grep -qsx "${npd_package}" /etc/tdnf/locks.d/node-problem-detector.conf || err "$test" "Missing tdnf lock for ${npd_package}"
+    fi
+    [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
+  done
   [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
+}
+
+testKMPP() {
+  local test="testKMPP"
+  local kmppVersion unit state
+  echo "$test:Start"
+
+  kmppVersion=$(getPackageExpectedVersion "kmpp-containers" "" "" "")
+  # CVM resolves the Azure Linux 3.0 entries but install-dependencies.sh skips it.
+  if [ "$kmppVersion" = "<SKIP>" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+    if command -v rpm >/dev/null 2>&1 && rpm -q kmpp-containers >/dev/null 2>&1; then
+      err "$test" "kmpp-containers is installed but KMPP is not baked for this image (OS_SKU=$OS_SKU FEATURE_FLAGS=$FEATURE_FLAGS)"
+    fi
+    echo "$test: Skipping, KMPP is not baked for this image"
+    return 0
+  fi
+
+  assertPackageVersion "$test" "kmpp-containers" "$kmppVersion" true
+  [ -f /etc/kmpp/disableDefaultProvider ] || err "$test" "Missing /etc/kmpp/disableDefaultProvider"
+  if grep -qi kmpp /etc/pki/tls/openssl.cnf; then
+    err "$test" "/etc/pki/tls/openssl.cnf must not load the KMPP provider"
+  fi
+  for unit in dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service; do
+    state=$(systemctl is-enabled "$unit" 2>/dev/null)
+    [ "$state" = "masked" ] || err "$test" "$unit must be masked on the VHD, got '$state'"
+    if systemctl is-active --quiet "$unit"; then
+      err "$test" "$unit must not be running on the VHD"
+    fi
+  done
+  if grep -q DeviceAllow /usr/lib/systemd/system/dbus-com.microsoft.kmpp.service; then
+    err "$test" "dbus-com.microsoft.kmpp.service is the TPM variant, expected the package default"
+  fi
+  if id -nG kmpp 2>/dev/null | tr ' ' '\n' | grep -qx tss; then
+    err "$test" "kmpp user must not be in the tss group"
+  fi
+  if [ -e /var/opt/msft/ap/data/kmpp-private ]; then
+    err "$test" "/var/opt/msft/ap/data/kmpp-private must not be baked into the VHD"
+  fi
+  grep -qsx kmpp-containers /etc/tdnf/locks.d/kmpp.conf || err "$test" "Missing tdnf lock for kmpp-containers"
+
+  echo "$test:Finish"
 }
 
 testKneadSecurityPatchingAssets() {
@@ -2973,6 +3071,7 @@ testVHDBuildLogsExist
 testAzureLinuxNvidiaGPUDriverReleaseNotes
 testCriticalTools
 testPackagesInstalled
+testLshwInstalled
 testFuseInstalled
 if [ "$OS_SKU" = "Ubuntu" ]; then
   testBlobfuse2 "$(getPackageExpectedVersion "blobfuse2")"
@@ -3017,6 +3116,7 @@ testMarinerLivePatchingArtifacts
 testNetworkdRecoveryArtifacts
 testNodeExporter $OS_SKU
 testNodeProblemDetector $OS_SKU $OS_VERSION
+testKMPP
 testAKSNodeControllerBinary
 testAKSNodeControllerVersion
 testAKSNodeControllerService

@@ -209,8 +209,9 @@ func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configurat
 	// Select the appropriate containerd config template based on version and GPU presence.
 	// Containerd 2.x uses different CRI plugin paths (io.containerd.cri.v1.images/runtime)
 	// compared to containerd 1.x (io.containerd.grpc.v1.cri).
+	// Like NBC's IsContainerdV2Distro, keep Kata on the v1 template even with a 2.x binary.
 	var _template *template.Template
-	if isContainerdV2(containerdVersion) {
+	if !aksnodeconfig.GetIsKata() && isContainerdV2(containerdVersion) {
 		_template = containerdV2ConfigTemplate
 		if noGPU {
 			_template = containerdV2ConfigNoGPUTemplate
@@ -312,10 +313,6 @@ func getCSEConfigNetworkFilepath() string {
 	return cseConfigNetworkScriptFilepath
 }
 
-func getCSEConfigAddonsFilepath() string {
-	return cseConfigAddonsScriptFilepath
-}
-
 func getCSEConfigChronyFilepath() string {
 	return cseConfigChronyScriptFilepath
 }
@@ -335,7 +332,7 @@ func getDHCPV6ConfigFilepath() string {
 // getSysctlContent converts aksnodeconfigv1.SysctlConfig to a string with key=value pairs, with default values.
 //
 //gocyclo:ignore
-//nolint:funlen,gocognit,cyclop // This function is long because it has to handle all the sysctl values.
+//nolint:funlen,gocognit // This function is long because it has to handle all the sysctl values.
 func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 	// This is a partial workaround to this upstream Kubernetes issue:
 	// https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731

@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -57,6 +58,12 @@ func TestGalleryImageCleanupPropagatesErrors(t *testing.T) {
 						switch req.Method {
 						case http.MethodPut:
 							assert.True(t, strings.HasSuffix(req.URL.Path, "/galleries/gallery/images/image/versions/1.0.0"))
+							var version armcompute.GalleryImageVersion
+							require.NoError(t, json.NewDecoder(req.Body).Decode(&version))
+							require.NotNil(t, version.Properties)
+							require.NotNil(t, version.Properties.SafetyProfile)
+							require.NotNil(t, version.Properties.SafetyProfile.BlockDeletionBeforeEndOfLife)
+							assert.False(t, *version.Properties.SafetyProfile.BlockDeletionBeforeEndOfLife)
 						case http.MethodDelete:
 							deleted = true
 							status = tc.status

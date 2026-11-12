@@ -9,9 +9,157 @@ Describe 'cse_config.sh'
     CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
     CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
     CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
-    CSE_CONFIG_ADDONS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_addons.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'enableAndStartCgroupTelemetry'
+        setup_cgroup_telemetry() {
+            OS="UBUNTU"
+            OS_VARIANT=""
+            MOCK_CGROUP_VERSION="cgroup2fs"
+            FAILED_TELEMETRY_COMMAND=""
+            MISSING_TELEMETRY_UNITS=""
+            memory_commands="systemctlEnableAndStartNoBlock cgroup-memory-telemetry.timer 30
+systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30"
+            cpu_pressure_commands="systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.timer 30
+systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.service 30
+systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.timer 30
+systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service 30"
+        }
+
+        BeforeEach 'setup_cgroup_telemetry'
+
+        stat() {
+            if [ "$*" != "-fc %T /sys/fs/cgroup" ]; then
+                echo "Unexpected stat arguments: $*" >&2
+                return 1
+            fi
+            echo "$MOCK_CGROUP_VERSION"
+        }
+
+        systemctlEnableAndStartNoBlock() {
+            echo "systemctlEnableAndStartNoBlock $*"
+            [ "systemctlEnableAndStartNoBlock $*" != "$FAILED_TELEMETRY_COMMAND" ]
+        }
+
+        systemctl() {
+            [ "$#" -eq 2 ] && [ "$1" = "cat" ] || return 1
+            case " $MISSING_TELEMETRY_UNITS " in
+                *" $2 "*) return 1 ;;
+            esac
+            return 0
+        }
+
+        Describe 'missing units'
+            Parameters
+                cgroup-memory-telemetry.timer
+                cgroup-memory-telemetry.service
+                cgroup-cpu-telemetry.timer
+                cgroup-cpu-telemetry.service
+                cgroup-pressure-telemetry.timer
+                cgroup-pressure-telemetry.service
+            End
+
+            It "skips absent $1 and starts the remaining eligible units"
+                MISSING_TELEMETRY_UNITS="$1"
+                expected_commands="$memory_commands
+$cpu_pressure_commands"
+                expected_commands="${expected_commands/systemctlEnableAndStartNoBlock $1 30/$1 not found on this VHD, skipping}"
+
+                When run enableAndStartCgroupTelemetry
+
+                The status should be success
+                The output should equal "$expected_commands"
+            End
+        End
+
+        It 'succeeds without starting telemetry when all units are absent'
+            MISSING_TELEMETRY_UNITS="cgroup-memory-telemetry.timer cgroup-memory-telemetry.service cgroup-cpu-telemetry.timer cgroup-cpu-telemetry.service cgroup-pressure-telemetry.timer cgroup-pressure-telemetry.service"
+
+            When run enableAndStartCgroupTelemetry
+
+            The status should be success
+            The output should equal "cgroup-memory-telemetry.timer not found on this VHD, skipping
+cgroup-memory-telemetry.service not found on this VHD, skipping
+cgroup-cpu-telemetry.timer not found on this VHD, skipping
+cgroup-cpu-telemetry.service not found on this VHD, skipping
+cgroup-pressure-telemetry.timer not found on this VHD, skipping
+cgroup-pressure-telemetry.service not found on this VHD, skipping"
+        End
+
+        Describe 'OS and cgroup eligibility'
+            Parameters
+                UBUNTU "" true
+                MARINER "" false
+                MARINERKATA "" false
+                AZURELINUX "" false
+                AZURELINUXKATA "" false
+                AZURELINUX OSGUARD false
+                AZURECONTAINERLINUX "" true
+                AZURELINUX AZURECONTAINERLINUX true
+            End
+
+            It "configures eligible telemetry on cgroup v2 for $1 variant '$2'"
+                OS="$1"
+                OS_VARIANT="$2"
+                expected_commands="$cpu_pressure_commands"
+                if [ "$3" = "true" ]; then
+                    expected_commands="$memory_commands
+$cpu_pressure_commands"
+                fi
+
+                When run enableAndStartCgroupTelemetry
+
+                The status should be success
+                The output should equal "$expected_commands"
+            End
+
+            It "configures only eligible memory telemetry on cgroup v1 for $1 variant '$2'"
+                OS="$1"
+                OS_VARIANT="$2"
+                MOCK_CGROUP_VERSION="tmpfs"
+                expected_commands=""
+                if [ "$3" = "true" ]; then
+                    expected_commands="$memory_commands"
+                fi
+
+                When run enableAndStartCgroupTelemetry
+
+                The status should be success
+                The output should equal "$expected_commands"
+            End
+        End
+
+        Describe 'startup failures'
+            Parameters
+                "systemctlEnableAndStartNoBlock cgroup-memory-telemetry.timer 30" 1
+                "systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30" 2
+                "systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.timer 30" 3
+                "systemctlEnableAndStartNoBlock cgroup-cpu-telemetry.service 30" 4
+                "systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.timer 30" 5
+                "systemctlEnableAndStartNoBlock cgroup-pressure-telemetry.service 30" 6
+            End
+
+            It "exits with the telemetry error and stops setup when '$1' fails"
+                FAILED_TELEMETRY_COMMAND="$1"
+
+                When run enableAndStartCgroupTelemetry
+
+                The status should equal "$ERR_START_CGROUP_TELEMETRY"
+                The lines of output should equal "$2"
+                The line "$2" of output should equal "$1"
+            End
+        End
+
+        It 'exits with the telemetry error when memory service startup fails on cgroup v1'
+            MOCK_CGROUP_VERSION="tmpfs"
+            FAILED_TELEMETRY_COMMAND="systemctlEnableAndStartNoBlock cgroup-memory-telemetry.service 30"
+
+            When run enableAndStartCgroupTelemetry
+
+            The status should equal "$ERR_START_CGROUP_TELEMETRY"
+            The output should equal "$memory_commands"
+        End
+    End
     Describe 'configureTransparentHugePageSystemdService'
         setup_thp_service() {
             THP_ENABLED="never"
@@ -1069,6 +1217,156 @@ PubkeyAuthentication no"
 
             The status should equal "$ERR_SWAP_CREATE_FAIL"
             The output should include "ensureSwapFileFstabEntry /swapfile"
+        End
+    End
+    Describe 'configureK8s client key permissions'
+        # Use a throwaway temp dir rather than the real /etc/kubernetes/certs path: when
+        # ShellSpec is installed natively (spec/README.md's "Option 2") instead of via the
+        # recommended container, tests run directly against the host filesystem, and this
+        # test would otherwise delete/overwrite a real node's kubelet credential.
+        setup_client_key() {
+            CLIENT_KEY_TEST_DIR="$(mktemp -d "${SHELLSPEC_TMPBASE:-${TMPDIR:-/tmp}}/client-key.XXXXXX")"
+            CLIENT_KEY_PATH="${CLIENT_KEY_TEST_DIR}/client.key"
+            APISERVER_PUBLIC_KEY=""
+            ENABLE_SECURE_TLS_BOOTSTRAPPING="false"
+            unset TLS_BOOTSTRAP_TOKEN
+            KUBELET_CLIENT_CONTENT="Y2xpZW50LWtleQ=="
+            KUBELET_CLIENT_CERT_CONTENT=""
+            KUBELET_CONFIG_FILE_ENABLED="false"
+        }
+
+        cleanup_client_key() {
+            set +x
+            command rm -rf "${CLIENT_KEY_TEST_DIR}"
+        }
+
+        invoke_configureK8s() {
+            {
+                configureK8s
+                local status=$?
+                set +x
+                return "${status}"
+            } 2>/dev/null
+        }
+
+        BeforeEach 'setup_client_key'
+        AfterEach 'cleanup_client_key'
+
+        It 'writes the kubelet client private key with mode 0600'
+            When call invoke_configureK8s
+
+            The status should be success
+            The contents of file "${CLIENT_KEY_PATH}" should equal 'client-key'
+            The value "$(stat -c '%a' "${CLIENT_KEY_PATH}")" should equal '600'
+        End
+
+        It 'creates the client key as 0600 at creation time, not only after a later chmod'
+            # Stub chmod as a no-op so the only thing that can have set a restrictive mode
+            # is the umask-scoped touch itself; this proves there is no world-readable window.
+            chmod() { :; }
+
+            When call invoke_configureK8s
+
+            The status should be success
+            The value "$(stat -c '%a' "${CLIENT_KEY_PATH}")" should equal '600'
+        End
+
+        It 'does not write the private key if chmod fails'
+            chmod() { return 1; }
+
+            When call invoke_configureK8s
+
+            The status should equal "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
+            # touch still ran before the guarded chmod, so an empty file may exist;
+            # what matters is the secret content was never written into it.
+            The contents of file "${CLIENT_KEY_PATH}" should not equal 'client-key'
+        End
+
+        It 'does not write the private key if touch fails'
+            touch() { return 1; }
+
+            When call invoke_configureK8s
+
+            The status should equal "$ERR_KUBELET_CLIENT_KEY_PERM_FAIL"
+            The path "${CLIENT_KEY_PATH}" should not be exist
+        End
+    End
+    Describe 'configureKMPP'
+        setup_kmpp() {
+            KMPP_TEST_DIR="$(mktemp -d)"
+            KMPP_UNIT_DIR="${KMPP_TEST_DIR}/unit"
+            KMPP_SYSTEMD_ETC_DIR="${KMPP_TEST_DIR}/etc"
+            KMPP_CALLS="${KMPP_TEST_DIR}/calls"
+            /bin/mkdir -p "${KMPP_UNIT_DIR}" "${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmpp.service.d" "${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmppctrl.service.d"
+            touch "${KMPP_UNIT_DIR}/dbus-com.microsoft.kmpp.service"
+            KUBELET_NODE_LABELS="kubernetes.azure.com/role=agent"
+            unset FAIL_ON
+        }
+        cleanup_kmpp() {
+            rm -rf "${KMPP_TEST_DIR}"
+            unset KMPP_TEST_DIR KMPP_UNIT_DIR KMPP_SYSTEMD_ETC_DIR KMPP_CALLS KUBELET_NODE_LABELS FAIL_ON
+        }
+        record() {
+            echo "$*" >> "${KMPP_CALLS}"
+            case "$*" in *"${FAIL_ON:-__none__}"*) return 1 ;; esac
+            return 0
+        }
+        retrycmd_if_failure() { shift 3; record "$@"; }
+        systemctlEnableAndStart() { record "enable-start $1"; }
+        systemctl() { record "systemctl $*"; }
+        mkdir() { record "mkdir $*"; }
+        chmod() { record "chmod $*"; }
+
+        BeforeEach 'setup_kmpp'
+        AfterEach 'cleanup_kmpp'
+
+        It 'skips and adds no label when the VHD has no KMPP'
+            rm -f "${KMPP_UNIT_DIR}/dbus-com.microsoft.kmpp.service"
+            When call configureKMPP
+            The status should be success
+            The output should include "KMPP is not baked into this VHD"
+            The path "${KMPP_CALLS}" should not be exist
+            The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/role=agent"
+        End
+
+        It 'moves KMPP under system.slice, starts it, bind-mounts the system bus, checks GetVersion and labels the node'
+            When call configureKMPP
+            The status should be success
+            The output should include "adding label kubernetes.azure.com/kmpp=enabled"
+            The contents of file "${KMPP_CALLS}" should equal "mkdir -p ${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmpp.service.d ${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmppctrl.service.d /run/kmpp/dbus
+chmod 0644 ${KMPP_SYSTEMD_ETC_DIR}/system-kmpp.slice ${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmpp.service.d/10-system-slice.conf ${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmppctrl.service.d/10-system-slice.conf ${KMPP_SYSTEMD_ETC_DIR}/run-kmpp-dbus.mount
+systemctl mask kmpp.slice
+systemctl daemon-reload
+systemctl unmask dbus-com.microsoft.kmpp.service dbus-com.microsoft.kmppctrl.service
+enable-start dbus-com.microsoft.kmpp.service
+systemctl start dbus-com.microsoft.kmppctrl.service
+enable-start run-kmpp-dbus.mount
+busctl --address=unix:path=/run/kmpp/dbus/system_bus_socket call com.microsoft.kmpp / com.microsoft.kmpp GetVersion"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/system-kmpp.slice" should include "CPUQuota=50%"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/system-kmpp.slice" should include "MemoryMax=20M"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmpp.service.d/10-system-slice.conf" should include "Slice=system-kmpp.slice"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/dbus-com.microsoft.kmppctrl.service.d/10-system-slice.conf" should include "Slice=system-kmpp.slice"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/run-kmpp-dbus.mount" should include "What=/run/dbus"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/run-kmpp-dbus.mount" should include "Where=/run/kmpp/dbus"
+            The contents of file "${KMPP_SYSTEMD_ETC_DIR}/run-kmpp-dbus.mount" should include "Options=bind"
+            The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/role=agent,kubernetes.azure.com/kmpp=enabled"
+        End
+
+        Parameters
+            "masking kmpp.slice" "systemctl mask kmpp.slice"
+            "unmask" "systemctl unmask"
+            "the KMPP service start" "enable-start dbus-com.microsoft.kmpp.service"
+            "the kmppctrl start" "systemctl start dbus-com.microsoft.kmppctrl.service"
+            "daemon-reload" "systemctl daemon-reload"
+            "the bind mount" "enable-start run-kmpp-dbus.mount"
+            "the GetVersion check" "GetVersion"
+        End
+        It "fails with ERR_KMPP_START_FAIL and adds no label when $1 fails"
+            FAIL_ON="$2"
+            When call configureKMPP
+            The status should equal "$ERR_KMPP_START_FAIL"
+            The output should not include "adding label kubernetes.azure.com/kmpp=enabled"
+            The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/role=agent"
         End
     End
 End

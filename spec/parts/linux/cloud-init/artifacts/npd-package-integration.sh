@@ -2,10 +2,11 @@
 # Run only in a disposable Ubuntu or Azure Linux 3 container with jq installed
 # (Azure Linux also needs tar and rpm-build):
 # bash spec/parts/linux/cloud-init/artifacts/npd-package-integration.sh /tmp/npd.{deb,rpm}
-# Uses real apt/dpkg or tdnf/rpm and the published package. Only NPD restart is stubbed.
+# Uses real apt/dpkg or tdnf/rpm and the published package. Only NPD stop and restart are stubbed.
 set -euo pipefail
 
 source ./parts/linux/cloud-init/artifacts/npd-update.sh
+npd_select_component npdConfig
 
 package="$(realpath "$1")"
 format="$(npd_package_format)"
@@ -67,6 +68,7 @@ esac
 desired="$(jq -nc --arg map "${map}" --arg release "${release}" --arg version "${new_version}" '{($map):{($release):$version}}')"
 old_goal="$(jq -nc --arg map "${map}" --arg release "${release}" --arg version "${old_version}" '{($map):{($release):$version}}')"
 
+npd_stop_for_reporting_baseline() { date +%s; }
 npd_restart_and_check() { return 0; }
 # Equal baked package must not contact repositories.
 npd_refresh_metadata() { echo 'unexpected metadata refresh' >&2; return 1; }
@@ -83,8 +85,12 @@ test ! -f "${removed}"
 test -f "${added}"
 test -f "${NPD_SKIP_FILE}"
 test ! -f "${NPD_UPDATE_DIR}/pending"
+# Only the installed version stays cached as the rollback target.
+test ! -f "${NPD_PACKAGE_CACHE}/old.${format}"
+test -f "${NPD_PACKAGE_CACHE}/new.${format}"
 
 # Simulate interrupted application: recovery must restore the package and monitor set.
+cp "${package}" "${NPD_PACKAGE_CACHE}/old.${format}"
 printf '%s\n' "${old_version}" > "${NPD_UPDATE_DIR}/pending"
 updateNPDConfigs "${old_goal}" '{}'
 test "$(npd_installed_version)" = "${old_version}"
@@ -97,6 +103,7 @@ test -f "${NPD_SKIP_FILE}"
 # versions in its database. Recovery must repair that state and restore the old package.
 updateNPDConfigs "${desired}" '{}'
 test "$(npd_installed_version)" = "${new_version}"
+cp "${package}" "${NPD_PACKAGE_CACHE}/old.${format}"
 case "${format}" in
     deb)
         mkdir -p /var/lib/dpkg/updates

@@ -19,6 +19,7 @@ schedules:
   branches:
     include:
       - main
+      - dev
 
 pool:
   name: $(POOL_NAME)

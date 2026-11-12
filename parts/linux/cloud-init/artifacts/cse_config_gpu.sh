@@ -15,7 +15,59 @@ EOF
     systemctlEnableAndStart mig-partition 300
 }
 
+loginGPUDriverRegistry() {
+    if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+        # Keep the shell body behind a function: logs_to_events splits its command arguments.
+        # Bound all nested login retries by the same CSE-aware guard used for the copy.
+        # shellcheck disable=SC2016
+        retrycmd_if_failure 1 0 120 bash -c '
+            source "$1" || exit $?
+            ORAS_REGISTRY_CONFIG_FILE="$2"
+            ARM_RESOURCE_ENDPOINT="$3"
+            oras_login_with_kubelet_identity "$4" "$5" "$6"
+        ' gpu-driver-login "$CSE_HELPERS_FILEPATH" "$ORAS_REGISTRY_CONFIG_FILE" \
+            "${ARM_RESOURCE_ENDPOINT:-https://management.azure.com/}" \
+            "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}"
+    else
+        oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}"
+    fi
+}
+
 pullGPUDriverImage() {
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ]; then
+        # PIS nodes skip basePrep. The shared helper returns early for incomplete identity,
+        # so clear baked credentials before that anonymous path instead of reusing them.
+        if [ -z "${USER_ASSIGNED_IDENTITY_ID:-}" ] || [ -z "${TENANT_ID:-}" ]; then
+            oras logout "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+                --registry-config "$ORAS_REGISTRY_CONFIG_FILE" || return $?
+        fi
+        logs_to_events "AKS.CSE.configGPUDrivers.orasLogin" loginGPUDriverRegistry || return $?
+
+        local download_dir
+        download_dir=$(mktemp -d /opt/gpu/driver-image.XXXXXX) || return 1
+        local pull_result=0
+        local image="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}/${NVIDIA_DRIVER_IMAGE#*/}:${NVIDIA_DRIVER_IMAGE_TAG}"
+        echo "Pulling GPU driver image with authentication for $image"
+
+        # ctr does not use the CRI mirror or kubelet credentials. Use the refreshed ORAS login
+        # and bound the copy, archive and import together by the existing CSE retry budget.
+        # shellcheck disable=SC2016
+        retrycmd_if_failure 3 5 120 bash -c '
+            mkdir -p "$2/layout" &&
+            oras cp "$1" "$2/layout:$3" --to-oci-layout --platform "$4" --from-registry-config "$5" &&
+            tar -cf "$2/driver-image.tar" -C "$2/layout" . &&
+            ctr -n k8s.io image import --base-name "$6" "$2/driver-image.tar"
+        ' gpu-driver-cache \
+            "$image" \
+            "$download_dir" "$NVIDIA_DRIVER_IMAGE_TAG" "linux/$(getCPUArch)" \
+            "$ORAS_REGISTRY_CONFIG_FILE" "$NVIDIA_DRIVER_IMAGE" || pull_result=$?
+
+        rm -rf -- "$download_dir" || return 1
+        return "$pull_result"
+    fi
+
     # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
     # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
     # also self-caps to the CSE budget, so this can't overrun provisioning.
@@ -41,15 +93,12 @@ installGPUDriverImage() {
 # driver userspace is ready), 127 (nvidia-smi missing on pre-reorder aks-gpu images). Anything else
 # still fails the unit. GPU pods reach the device via containerd's nvidia-container-runtime, not CDI.
 #
-# Grace-Blackwell also needs a wider START timeout. nvidia-container-toolkit 1.19.1 left this
-# Type=oneshot unit at systemd's oneshot default of TimeoutStartSec=infinity; 1.20.1 (aks-gpu #177)
-# ships /usr/lib/systemd/system/nvidia-cdi-refresh.service.d/10-container-engines.conf which orders
-# the container engines after the unit AND pins TimeoutStartSec=90s. On GB200/GB300 the unit's
-# `nvidia-ctk cdi generate` is slow -- ~80s to enumerate the GPUs + driver libs/firmware over the
-# arm64 Grace NVLink/nvml path, plus a cold ~30s `nvidia-smi -L` precheck (>90s total) -- so systemd
-# SIGTERMs it. A timeout is result=timeout (SIGTERM), NOT one of the tolerated SuccessExitStatus
-# codes, so the unit still fails and install.sh's `systemctl restart` returns non-zero (CSE 84).
-# x86 generates in <1s (measured: 8x H200 cdi generate <1s), so it keeps the 90s default.
+# Multi-GPU nodes on both architectures need a wider start timeout. Toolkit 1.20.1 sets
+# TimeoutStartSec=90s in 10-container-engines.conf. CDI discovery can exceed that limit on
+# x86 A100 (Standard_NC96ads_A100_v4) as well as ARM64 Grace-Blackwell nodes while NVML checks
+# GPU peer connectivity. A timeout is result=timeout (SIGTERM), not a tolerated exit code,
+# so install.sh's blocking service restart fails and CSE exits 84. Use the same bounded
+# timeout for every GPU SKU; architecture alone does not predict discovery time.
 #
 # The timeout override lives in a SEPARATE, higher-sorted drop-in. systemd merges drop-ins in lexical
 # filename order (last wins) across all dirs, so to beat the toolkit's 10-container-engines.conf our
@@ -63,11 +112,7 @@ NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC="${NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC:-30
 configureNvidiaCDIRefresh() {
     mkdir -p "$(dirname "$NVIDIA_CDI_REFRESH_DROP_IN")" || return 1
     printf '[Service]\nSuccessExitStatus=1 2 127\n' > "$NVIDIA_CDI_REFRESH_DROP_IN" || return 1
-    # arm64 Grace-Blackwell (GB200/GB300) only: widen the start timeout so the slow cdi generate can
-    # finish. x86 generates in <1s, so leave it at the systemd default (no file written there).
-    if [ "$(getCPUArch)" = "arm64" ]; then
-        printf '[Service]\nTimeoutStartSec=%s\n' "$NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC" > "$NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN" || return 1
-    fi
+    printf '[Service]\nTimeoutStartSec=%s\n' "$NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC" > "$NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN" || return 1
     # Drop-ins are read when systemd loads a unit, so writing these before the toolkit is installed
     # means the unit picks them up on its very first start.
     systemctl daemon-reload || true
@@ -148,7 +193,7 @@ validateGPUDrivers() {
     fi
     SMI_STATUS=$?
     if [ "$SMI_STATUS" -ne 0 ]; then
-        # shellcheck disable=SC3010
+        # shellcheck disable=SC3010,SC3014
         if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
             exit $ERR_GPU_INFO_ROM_CORRUPTED
         else

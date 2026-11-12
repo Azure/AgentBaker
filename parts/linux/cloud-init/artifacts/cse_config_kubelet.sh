@@ -206,44 +206,6 @@ ensurePodInfraContainerImage() {
     rm -f ${POD_INFRA_CONTAINER_IMAGE_TAR}
 }
 
-validateKubeletNodeLabels() {
-    local labels="$1"
-    local validated_labels=""
-    local delimiter=""
-
-    # Return empty if no labels provided
-    if [ -z "$labels" ]; then
-        echo "No labels found in KUBELET_NODE_LABELS"
-        return 0
-    fi
-
-    # Split labels by comma and process each
-    IFS=',' read -ra LABEL_ARRAY <<< "$labels"
-    for label in "${LABEL_ARRAY[@]}"; do
-        # Split each label into key and value
-        # shellcheck disable=SC3010
-        if [[ "$label" == *"="* ]]; then
-            key="${label%%=*}"
-            value="${label#*=}"
-
-            # Check if key length exceeds 63 characters
-            if [ ${#key} -gt 63 ]; then
-                echo "Warning: Label key '$key' exceeds 63 characters, truncating to 63 characters" >&2
-                key="${key:0:63}"
-            fi
-
-            # Rebuild the label with potentially truncated key
-            validated_labels="${validated_labels}${delimiter}${key}=${value}"
-        fi
-
-        # Set delimiter for subsequent labels
-        delimiter=","
-    done
-
-    # Update the global variable with validated labels
-    KUBELET_NODE_LABELS="$validated_labels"
-}
-
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -400,7 +362,7 @@ Environment="INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE=${INSERT_IMDS_RESTRICT
 EOF
 
     # check if kubelet flags contain image-credential-provider-config and image-credential-provider-bin-dir
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
