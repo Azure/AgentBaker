@@ -96,6 +96,7 @@ func (s *Scenario) recordADOTestCase(name, className string, duration time.Durat
 }
 
 type ScenarioRuntime struct {
+	ResolvedVHD               config.VHDResourceID
 	NBC                       *datamodel.NodeBootstrappingConfiguration
 	AKSNodeConfig             *aksnodeconfigv1.Configuration
 	Cluster                   *Cluster
@@ -188,6 +189,9 @@ type Config struct {
 	// Validator is a function where the scenario can perform any extra validation checks
 	Validator func(ctx context.Context, s *Scenario) error
 
+	// ValidationTimeout, when set, gives validation a separate budget within the scenario deadline.
+	ValidationTimeout time.Duration
+
 	// SkipDefaultValidation is a flag to indicate whether the common validation (like spawning a pod) should be skipped.
 	// It shouldn't be used for the majority of scenarios; VHD caching uses it while preparing the image.
 	SkipDefaultValidation bool
@@ -268,6 +272,10 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = imageReference
+	if s.Runtime == nil {
+		s.Runtime = &ScenarioRuntime{}
+	}
+	s.Runtime.ResolvedVHD = config.VHDResourceID(stringValue(imageReference.ID))
 
 	// Override OS disk size if the VHD requires a non-default size.
 	if s.VHD.OSDiskSizeGB > 0 {
