@@ -270,7 +270,7 @@ relinkResolvConf() {
     # /run/systemd/resolve/stub-resolv.conf contains local nameserver 127.0.0.53
     # remove this block after toggle disable-1804-systemd-resolved is enabled prod wide
     resolvconf=$(readlink -f /etc/resolv.conf)
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ "${resolvconf}" == */run/systemd/resolve/stub-resolv.conf ]]; then
         unlink /etc/resolv.conf
         ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf

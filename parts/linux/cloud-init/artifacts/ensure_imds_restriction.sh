@@ -17,7 +17,7 @@ if [ -z "$primaryNicIP" ]; then
 fi
 
 ensureIMDSRestrictionRule() {
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ "${insertRuleToMangleTable,,}" == "true" ]]; then
         echo "Before inserting IMDS restriction rule to mangle table, checking whether the rule already exists..."
         iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP'
@@ -59,7 +59,7 @@ disableIMDSRestriction() {
     fi
 }
 
-# shellcheck disable=SC3010
+# shellcheck disable=SC3010,SC3014
 if [[ "${enableIMDSRestriction,,}" == "true" ]]; then
     ensureIMDSRestrictionRule
 else

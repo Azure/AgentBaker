@@ -23,7 +23,6 @@ if [[ ! "${SOURCE_VHD_URI}" =~ ^https://([a-z0-9]{3,24})\.blob\.[^/]+/.+ ]]; the
 fi
 source_storage_account="${BASH_REMATCH[1]}"
 report_publication_failure() {
-    # The ERR trap supplies the failed command's status through $?.
     # shellcheck disable=SC2319
     local exit_code="${1:-$?}"
     echo "ERROR: Generalized CVM publication failed (exit ${exit_code})" >&2

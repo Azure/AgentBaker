@@ -129,7 +129,7 @@ tdnf_download() {
 
 redact_token() {
     local s="$1"
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ "$s" == *"sig="* ]]; then
         printf '%s\n' "$s" | sed 's/sig=[^&]*/sig=***REDACTED***/g'
     else

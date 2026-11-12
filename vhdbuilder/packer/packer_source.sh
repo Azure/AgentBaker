@@ -240,6 +240,7 @@ copyPackerFiles() {
       KATA_IMAGE_SRC=/home/packer/kata-containers.img
       KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
+      # shellcheck disable=SC3014
       if [[ ",${FEATURE_FLAGS}," == *",kata-cc,"* ]]; then
         # Current signed confidential guest/package layout; separate from the
         # ordinary AZL3 guest installed above.

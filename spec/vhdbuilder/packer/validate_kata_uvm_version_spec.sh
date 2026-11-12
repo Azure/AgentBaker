@@ -1,7 +1,6 @@
 #!/bin/bash
 
 Describe 'Kata UVM version validation'
-  # Invoked by the ShellSpec BeforeEach hook.
   # shellcheck disable=SC2329
   setup() {
     export IMG_OFFER=azure-linux-3 FEATURE_FLAGS=kata
