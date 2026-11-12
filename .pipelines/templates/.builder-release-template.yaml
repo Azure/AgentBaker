@@ -179,6 +179,27 @@ steps:
     displayName: Build Go binaries
     retryCountOnTaskFailure: 3
 
+  - bash: |
+      set -euo pipefail
+      prefetch_compatible=True
+      if [ "${BUILDER:-}" = "imagecustomizer" ]; then
+        echo "builder is imagecustomizer - VHD is not compatible with prefetch optimization"
+        prefetch_compatible=False
+      elif [ "${OS_SKU}" = "AzureContainerLinux" ]; then
+        echo "OS SKU is AzureContainerLinux - VHD is not compatible with prefetch optimization"
+        prefetch_compatible=False
+      elif [ "${ARCHITECTURE,,}" = "arm64" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+        echo "ARM64 with CVM - VHD is incompatible with prefetch optimization"
+        prefetch_compatible=False
+      fi
+      echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]${prefetch_compatible}"
+
+      generate_publishing_info="${GENERATE_PUBLISHING_INFO:-False}"
+      if [ "${generate_publishing_info,,}" != "true" ] || [ "${prefetch_compatible}" != "True" ]; then
+        echo "##vso[task.setvariable variable=RUN_PREFETCH_OPTIMIZATION]False"
+      fi
+    displayName: Determine Prefetch Optimization compatibility
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
@@ -269,31 +290,6 @@ steps:
       name: exportImageVersion
       displayName: Export Image Version for COSI convert
       condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
-
-  - bash: |
-      set -euo pipefail
-      if [ "${BUILDER:-}" = "imagecustomizer" ]; then
-        echo "builder is imagecustomizer - VHD is not compatible with prefetch optimization"
-        echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
-        exit 0
-      fi
-
-      if [ "${OS_SKU}" = "AzureContainerLinux" ]; then
-        echo "OS SKU is AzureContainerLinux - VHD is not compatible with prefetch optimization"
-        echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
-        exit 0
-      fi
-
-      if [ "${ARCHITECTURE,,}" = "arm64" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-        echo "ARM64 with CVM - VHD is incompatible with prefetch optimization"
-        echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]False"
-        exit 0
-      fi
-
-      echo "VHD is compatible with prefetch optimization"
-      echo "##vso[task.setvariable variable=PREFETCH_COMPATIBLE]True"
-    displayName: Determine Prefetch Optimization compatibility
-    condition: eq(variables.GENERATE_PUBLISHING_INFO, 'True')
 
   - task: AzureCLI@2
     inputs:
