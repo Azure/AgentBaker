@@ -288,34 +288,51 @@ EOF
 # This handles the production rollback case where a customer disables the hosts plugin
 # on an existing agentpool and AKS-RP re-runs CSE with SHOULD_ENABLE_HOSTS_PLUGIN=false.
 # All operations are idempotent — safe to call when hosts plugin was never enabled.
+# Returns non-zero if a unit could not be stopped/disabled; the caller treats this as
+# non-fatal (logged via logs_to_events) since a stale hosts file does not affect corefile selection.
 disableAKSLocalDNSHostsSetup() {
     local hosts_file="${AKS_LOCALDNS_HOSTS_FILE:-/etc/localdns/hosts}"
     local hosts_setup_timer="${AKS_LOCALDNS_HOSTS_SETUP_TIMER:-/etc/systemd/system/aks-localdns-hosts-setup.timer}"
     local hosts_setup_timer_override="${hosts_setup_timer}.d/10-refresh-interval.conf"
+    local result=0 unit
 
     echo "disableAKSLocalDNSHostsSetup called, cleaning up hosts plugin state..."
 
-    # Stop and disable the hosts-setup timer if it exists and is active.
-    # This prevents further updates to the hosts file.
-    if [ -f "${hosts_setup_timer}" ]; then
-        systemctl disable --now aks-localdns-hosts-setup.timer 2>/dev/null || true
-        echo "Disabled and stopped aks-localdns-hosts-setup.timer"
-    else
-        echo "aks-localdns-hosts-setup.timer not found on this VHD, skipping"
-    fi
+    # Stop the timer AND the service. Stopping only the timer does not stop a refresh run
+    # that is already in flight (the service is Type=oneshot with TimeoutStartSec=180, and
+    # dig retries can keep it running for a while). That run would then mv a fresh hosts
+    # file into place after we delete it below. Stopping the service terminates the run.
+    # systemctlDisableAndStop skips units that do not exist on this VHD.
+    for unit in aks-localdns-hosts-setup.timer aks-localdns-hosts-setup.service; do
+        if systemctlDisableAndStop "${unit}"; then
+            echo "Disabled and stopped ${unit}"
+        else
+            echo "WARNING: failed to disable and stop ${unit}"
+            result=1
+        fi
+    done
+    # Terminating an in-flight run leaves the oneshot unit in "failed" state; clear it so the
+    # intentional stop doesn't show up as a failed unit to node health checks.
+    systemctl reset-failed aks-localdns-hosts-setup.service 2>/dev/null || true
 
     removeAKSLocalDNSHostsSetupTimerOverride "${hosts_setup_timer_override}"
 
-    # Remove the hosts file to clean up stale data.
+    # Remove the hosts file to clean up stale data, only after the units above are stopped.
     # select_localdns_corefile() selects based on SHOULD_ENABLE_HOSTS_PLUGIN,
     # so removing the file isn't strictly needed for corefile selection, but
     # it prevents CoreDNS from serving stale host entries if the feature is re-enabled later.
+    # Also remove temp files left behind by a refresh run that was terminated before its mv.
     if [ -f "${hosts_file}" ]; then
         rm -f "${hosts_file}"
         echo "Removed ${hosts_file}"
     else
         echo "${hosts_file} does not exist, skipping"
     fi
+    rm -f "${hosts_file}".tmp.*
 
+    if [ "${result}" -ne 0 ]; then
+        echo "WARNING: hosts plugin cleanup finished with errors; a hosts-setup run may still recreate ${hosts_file}"
+        return "${result}"
+    fi
     echo "disableAKSLocalDNSHostsSetup complete"
 }

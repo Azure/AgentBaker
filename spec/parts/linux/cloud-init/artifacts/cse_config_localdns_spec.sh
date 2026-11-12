@@ -439,4 +439,89 @@ OVERRIDE_EOF
             The output should include "aks-localdns-hosts-setup timer enabled successfully."
         End
     End
+
+    Describe 'disableAKSLocalDNSHostsSetup'
+        setup() {
+            TEST_TEMP_DIR=$(mktemp -d)
+            AKS_LOCALDNS_HOSTS_FILE="${TEST_TEMP_DIR}/hosts"
+            AKS_LOCALDNS_HOSTS_SETUP_TIMER="${TEST_TEMP_DIR}/aks-localdns-hosts-setup.timer"
+            SYSTEMCTL_CALLS="${TEST_TEMP_DIR}/systemctl-calls"
+            echo "# stale hosts file" > "$AKS_LOCALDNS_HOSTS_FILE"
+            echo "# partial" > "${AKS_LOCALDNS_HOSTS_FILE}.tmp.1234"
+            mkdir -p "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d"
+            echo "[Timer]" > "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf"
+            FAIL_UNIT=""
+
+            # Record calls to a file (rather than stdout) so ordering against rm can be checked.
+            systemctlDisableAndStop() {
+                echo "systemctlDisableAndStop $1 hosts_present=$([ -f "$AKS_LOCALDNS_HOSTS_FILE" ] && echo yes || echo no)" >> "$SYSTEMCTL_CALLS"
+                [ "$1" != "$FAIL_UNIT" ]
+            }
+            systemctl() {
+                echo "systemctl $*" >> "$SYSTEMCTL_CALLS"
+                return 0
+            }
+            export AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_TIMER
+        }
+
+        cleanup() {
+            rm -rf "$TEST_TEMP_DIR"
+            unset AKS_LOCALDNS_HOSTS_FILE AKS_LOCALDNS_HOSTS_SETUP_TIMER SYSTEMCTL_CALLS FAIL_UNIT
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should stop both the timer and the in-flight service before removing the hosts file'
+            When call disableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Disabled and stopped aks-localdns-hosts-setup.timer"
+            The output should include "Disabled and stopped aks-localdns-hosts-setup.service"
+            The output should include "disableAKSLocalDNSHostsSetup complete"
+            The contents of file "$SYSTEMCTL_CALLS" should include "systemctlDisableAndStop aks-localdns-hosts-setup.timer hosts_present=yes"
+            The contents of file "$SYSTEMCTL_CALLS" should include "systemctlDisableAndStop aks-localdns-hosts-setup.service hosts_present=yes"
+            The contents of file "$SYSTEMCTL_CALLS" should include "systemctl reset-failed aks-localdns-hosts-setup.service"
+            The file "$AKS_LOCALDNS_HOSTS_FILE" should not be exist
+        End
+
+        It 'should remove temp files left by a terminated refresh run'
+            When call disableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "Removed ${AKS_LOCALDNS_HOSTS_FILE}"
+            The file "${AKS_LOCALDNS_HOSTS_FILE}.tmp.1234" should not be exist
+        End
+
+        It 'should remove the timer refresh-interval override'
+            When call disableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "disableAKSLocalDNSHostsSetup complete"
+            The file "${AKS_LOCALDNS_HOSTS_SETUP_TIMER}.d/10-refresh-interval.conf" should not be exist
+        End
+
+        It 'should report failure instead of success when the service cannot be stopped'
+            FAIL_UNIT="aks-localdns-hosts-setup.service"
+            When call disableAKSLocalDNSHostsSetup
+            The status should be failure
+            The output should include "WARNING: failed to disable and stop aks-localdns-hosts-setup.service"
+            The output should include "hosts plugin cleanup finished with errors"
+            The output should not include "disableAKSLocalDNSHostsSetup complete"
+            The file "$AKS_LOCALDNS_HOSTS_FILE" should not be exist
+        End
+
+        It 'should report failure when the timer cannot be stopped but still stop the service'
+            FAIL_UNIT="aks-localdns-hosts-setup.timer"
+            When call disableAKSLocalDNSHostsSetup
+            The status should be failure
+            The output should include "WARNING: failed to disable and stop aks-localdns-hosts-setup.timer"
+            The output should include "Disabled and stopped aks-localdns-hosts-setup.service"
+        End
+
+        It 'should be idempotent when the hosts plugin was never enabled'
+            rm -f "$AKS_LOCALDNS_HOSTS_FILE" "${AKS_LOCALDNS_HOSTS_FILE}".tmp.*
+            When call disableAKSLocalDNSHostsSetup
+            The status should be success
+            The output should include "does not exist, skipping"
+            The output should include "disableAKSLocalDNSHostsSetup complete"
+        End
+    End
 End
