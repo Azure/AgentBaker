@@ -116,8 +116,13 @@ func runVHDCachingScenario(ctx context.Context, name string, original *Scenario)
 		return err
 	}
 
-	logging.Log(ctx, "=== Creating VHD Image ===")
 	bakeScenario.failed = true
+	if original.PISCustomizationScript != nil {
+		if err := original.PISCustomizationScript(ctx, bakeScenario); err != nil {
+			return fmt.Errorf("customize prepared image: %w", err)
+		}
+	}
+	logging.Log(ctx, "=== Creating VHD Image ===")
 	customVHD, err := CreateImage(ctx, bakeScenario)
 	if err != nil {
 		return fmt.Errorf("create VHD image: %w", err)
