@@ -11,6 +11,7 @@ parameters:
     values:
       - acg
       - acldevel
+      - aclstaging
   # The Run pipeline form marks a string parameter whose default is "" as required,
   # so these default to a single space. Leave the space to keep the pinned versions;
   # values are trimmed where they're used.
@@ -187,6 +188,12 @@ variables:
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
   - group: aks-vuln-to-kusto-tme
+  # A candidate (aclstaging) run tests an ACL image that isn't published yet,
+  # so it publishes nothing: its publishing steps, the COSI jobs and the e2e
+  # stage's COSI downloads all need GENERATE_PUBLISHING_INFO True.
+  - ${{ if eq(parameters.ACL_BASE_IMAGE_SOURCE, 'aclstaging') }}:
+      - name: GENERATE_PUBLISHING_INFO
+        value: 'False'
 
 stages:
   - stage: build
@@ -966,10 +973,13 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
+          # As before, an acldevel run builds CVM from the ACG pin; acg and
+          # aclstaging runs build it from the run's image, as the TL jobs do.
           - template: ./templates/.acl-base-image-vars.yaml
             parameters:
-              ACL_BASE_IMAGE_SOURCE: acg
+              ACL_BASE_IMAGE_SOURCE: ${{ iif(eq(parameters.ACL_BASE_IMAGE_SOURCE, 'acldevel'), 'acg', parameters.ACL_BASE_IMAGE_SOURCE) }}
               VARIANT: amd64
+              SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(eq(parameters.ACL_BASE_IMAGE_SOURCE, 'acldevel'), '', iif(ne(trim(parameters.ACL_BASE_IMAGE_VERSION_AMD64), ''), trim(parameters.ACL_BASE_IMAGE_VERSION_AMD64), trim(parameters.ACL_BASE_IMAGE_VERSION))) }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -983,9 +993,6 @@ stages:
           - bash: |
               echo '##vso[task.setvariable variable=OS_SKU]AzureContainerLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]acl'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]ae6ab47f-1fc9-4b67-8f82-4636119119c9-ACL'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-3.0-amd64'
-              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]$(ACL_AMD64_IMAGE_VERSION)'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4ads_v5'
               echo '##vso[task.setvariable variable=CVM_TEST_VM_SIZE]Standard_DC8ads_v5'
@@ -995,6 +1002,13 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
             displayName: Setup Build Variables
+          # As before, an acldevel run builds CVM from the ACG pin; acg and
+          # aclstaging runs build it from the run's image, as the TL jobs do.
+          - template: ./templates/.acl-base-image-vars.yaml
+            parameters:
+              ACL_BASE_IMAGE_SOURCE: ${{ iif(eq(parameters.ACL_BASE_IMAGE_SOURCE, 'acldevel'), 'acg', parameters.ACL_BASE_IMAGE_SOURCE) }}
+              VARIANT: amd64
+              SIG_SOURCE_IMAGE_VERSION_OVERRIDE: ${{ iif(eq(parameters.ACL_BASE_IMAGE_SOURCE, 'acldevel'), '', iif(ne(trim(parameters.ACL_BASE_IMAGE_VERSION_AMD64), ''), trim(parameters.ACL_BASE_IMAGE_VERSION_AMD64), trim(parameters.ACL_BASE_IMAGE_VERSION))) }}
           - template: ./templates/.builder-release-template.yaml
             parameters:
               useOverrides: ${{ parameters.useOverrides }}
@@ -1084,38 +1098,40 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: acl-arm64-fips-tl-gen2
               ENABLE_COSI_PUBLISHING: true
-      - template: ./templates/.builder-cosi-convert-job-template.yaml
-        parameters:
-          JOB_NAME: convertacltlgen2
-          DEPENDS_ON_JOB: buildacltlgen2
-          ARCHITECTURE: X86_64
-          IMG_SKU: azure-linux-3-acl
-          ENABLE_FIPS: false
-          ARTIFACT_NAME: acl-tl-gen2
-      - template: ./templates/.builder-cosi-convert-job-template.yaml
-        parameters:
-          JOB_NAME: convertaclarm64tlgen2
-          DEPENDS_ON_JOB: buildaclarm64tlgen2
-          ARCHITECTURE: ARM64
-          IMG_SKU: azure-linux-3-arm64-gen2-acl
-          ENABLE_FIPS: false
-          ARTIFACT_NAME: acl-arm64-tl-gen2
-      - template: ./templates/.builder-cosi-convert-job-template.yaml
-        parameters:
-          JOB_NAME: convertaclfipstlgen2
-          DEPENDS_ON_JOB: buildaclfipstlgen2
-          ARCHITECTURE: X86_64
-          IMG_SKU: azure-linux-3-acl
-          ENABLE_FIPS: true
-          ARTIFACT_NAME: acl-fips-tl-gen2
-      - template: ./templates/.builder-cosi-convert-job-template.yaml
-        parameters:
-          JOB_NAME: convertaclarm64fipstlgen2
-          DEPENDS_ON_JOB: buildaclarm64fipstlgen2
-          ARCHITECTURE: ARM64
-          IMG_SKU: azure-linux-3-arm64-gen2-acl
-          ENABLE_FIPS: true
-          ARTIFACT_NAME: acl-arm64-fips-tl-gen2
+      # The COSI jobs upload to PMC, so a candidate (aclstaging) run leaves them out.
+      - ${{ if ne(parameters.ACL_BASE_IMAGE_SOURCE, 'aclstaging') }}:
+          - template: ./templates/.builder-cosi-convert-job-template.yaml
+            parameters:
+              JOB_NAME: convertacltlgen2
+              DEPENDS_ON_JOB: buildacltlgen2
+              ARCHITECTURE: X86_64
+              IMG_SKU: azure-linux-3-acl
+              ENABLE_FIPS: false
+              ARTIFACT_NAME: acl-tl-gen2
+          - template: ./templates/.builder-cosi-convert-job-template.yaml
+            parameters:
+              JOB_NAME: convertaclarm64tlgen2
+              DEPENDS_ON_JOB: buildaclarm64tlgen2
+              ARCHITECTURE: ARM64
+              IMG_SKU: azure-linux-3-arm64-gen2-acl
+              ENABLE_FIPS: false
+              ARTIFACT_NAME: acl-arm64-tl-gen2
+          - template: ./templates/.builder-cosi-convert-job-template.yaml
+            parameters:
+              JOB_NAME: convertaclfipstlgen2
+              DEPENDS_ON_JOB: buildaclfipstlgen2
+              ARCHITECTURE: X86_64
+              IMG_SKU: azure-linux-3-acl
+              ENABLE_FIPS: true
+              ARTIFACT_NAME: acl-fips-tl-gen2
+          - template: ./templates/.builder-cosi-convert-job-template.yaml
+            parameters:
+              JOB_NAME: convertaclarm64fipstlgen2
+              DEPENDS_ON_JOB: buildaclarm64fipstlgen2
+              ARCHITECTURE: ARM64
+              IMG_SKU: azure-linux-3-arm64-gen2-acl
+              ENABLE_FIPS: true
+              ARTIFACT_NAME: acl-arm64-fips-tl-gen2
       - job: build2404arm64gbgen2containerd
         condition: eq('${{ parameters.build2404arm64gbgen2containerd }}', true)
         dependsOn: [ ]

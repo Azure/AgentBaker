@@ -10,13 +10,17 @@
 #   acldevel    - the acldevel dev pipeline's unsigned image (see PR #9458).
 #                 See .acl-base-image-signed-vars.yaml for how this affects
 #                 ACL_BASE_IMAGE_SIGNED.
+#   aclstaging  - an ACL release candidate: an ESRP-signed prod build staged
+#                 in the aclstaging gallery's candidate definitions before
+#                 ACL publishes it, so AgentBaker can test it first.
 #
 # SIG_SOURCE_IMAGE_VERSION_OVERRIDE optionally overrides the default
 # SIG_SOURCE_IMAGE_VERSION for the acg/acldevel sources (e.g. to pick up a
 # newer acldevel build without editing this file). Leave empty to use the
 # default: for acg, ACL_AMD64_IMAGE_VERSION / ACL_ARM64_IMAGE_VERSION from
 # acl-image-versions.yaml (callers must include that variables template); for
-# acldevel, the pin below.
+# acldevel, the pin below. aclstaging has no pin, so it requires the
+# override, as a gallery version such as 20261105.1246473.0.
 #
 # IMG_CUSTOMIZER_CONTAINER defaults to the pin every ACL job currently uses,
 # but is exposed as a parameter so a caller can override it (e.g. to test a
@@ -28,6 +32,7 @@ parameters:
     values:
       - acg
       - acldevel
+      - aclstaging
   - name: VARIANT
     type: string
     values:
@@ -89,3 +94,27 @@ steps:
       - ${{ if ne(parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE, '') }}:
           - bash: echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${{ parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE }}'
             displayName: Set SIG_SOURCE_IMAGE_VERSION (acldevel, override)
+
+  - ${{ if eq(parameters.ACL_BASE_IMAGE_SOURCE, 'aclstaging') }}:
+      - ${{ if eq(parameters.VARIANT, 'amd64') }}:
+          - bash: |
+              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]ae6ab47f-1fc9-4b67-8f82-4636119119c9-ACLSTAGING'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-3.0-candidate-amd64'
+            displayName: Set ACL base image vars (aclstaging, amd64)
+      - ${{ if eq(parameters.VARIANT, 'arm64') }}:
+          - bash: |
+              echo '##vso[task.setvariable variable=SIG_SOURCE_GALLERY_UNIQUE_NAME]ae6ab47f-1fc9-4b67-8f82-4636119119c9-ACLSTAGING'
+              echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-3.0-candidate-arm64'
+            displayName: Set ACL base image vars (aclstaging, arm64)
+      # The version reaches the script through env rather than its text, and
+      # must be a gallery version, since there's no pin to fall back to.
+      - bash: |
+          set -euo pipefail
+          if [[ ! "${CANDIDATE_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "##vso[task.logissue type=error]ACL_BASE_IMAGE_SOURCE aclstaging needs the candidate's gallery version as the ACL base image version override, such as 20261105.1246473.0."
+            exit 1
+          fi
+          echo "##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${CANDIDATE_VERSION}"
+        env:
+          CANDIDATE_VERSION: ${{ parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE }}
+        displayName: Set SIG_SOURCE_IMAGE_VERSION (aclstaging)

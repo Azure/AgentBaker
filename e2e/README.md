@@ -249,8 +249,8 @@ configuration and the VMSS SKU. Command-line arguments take precedence over envi
 
 ## ACL COSI Validation
 
-The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg` or
-`acldevel`) and optional `ACL_BASE_IMAGE_VERSION_AMD64` and
+The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg`,
+`acldevel` or `aclstaging`) and optional `ACL_BASE_IMAGE_VERSION_AMD64` and
 `ACL_BASE_IMAGE_VERSION_ARM64` gallery-version overrides. Each takes precedence
 over the existing shared `ACL_BASE_IMAGE_VERSION` fallback. Use separate values
 when the selected architectures have different gallery versions. The overrides
@@ -265,6 +265,15 @@ kubeconfig-triggered startup.
 The dev source uses `acldevel` for AMD64 and `acldevel-arm64` for ARM64, with
 architecture-specific version pins in the
 [base-image template](../.pipelines/templates/.acl-base-image-vars.yaml).
+
+The candidate source, `aclstaging`, builds an ACL release candidate: an
+ESRP-signed prod build staged in the `aclstaging` gallery's
+`acl-3.0-candidate-amd64` and `acl-3.0-candidate-arm64` definitions before ACL
+publishes it. Candidates have no pinned versions, so set the version overrides;
+an ACL build job fails without one. The release pipeline's two CVM builds follow
+`acg` and `aclstaging` runs too, and keep the ACG pin for `acldevel` runs. A
+candidate run publishes nothing: the pipelines set `GENERATE_PUBLISHING_INFO`
+to `False`, and the release pipeline leaves out the COSI jobs, which upload to PMC.
 The pipeline resolves `IMAGE_VERSION` once; the ACL image-stamping step fails
 if it does not receive that value.
 
