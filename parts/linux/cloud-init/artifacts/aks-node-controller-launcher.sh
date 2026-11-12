@@ -48,7 +48,7 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
 fi
 
 unset ANC_CLOUD_INIT_COMPLETE
-run_hotfix=true
+skip_hotfix_acquisition=false
 if [ -f "$CLOUD_SETTINGS_PATH" ]; then
     settings_ok=true
     # shellcheck source=/dev/null
@@ -71,16 +71,12 @@ if [ -f "$CLOUD_SETTINGS_PATH" ]; then
         export ANC_CLOUD_INIT_COMPLETE=true
     else
         # Do not download with incomplete trust; let normal provisioning retry initialization.
-        run_hotfix=false
+        skip_hotfix_acquisition=true
         log "Early cloud initialization failed; skipping hotfix acquisition and retrying during provisioning"
     fi
 fi
 
 # Older VHDs lack the generated settings file and retain their existing hotfix flow.
-skip_hotfix_acquisition=false
-if [ "$run_hotfix" = false ]; then
-    skip_hotfix_acquisition=true
-fi
 anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH" "$skip_hotfix_acquisition"
 BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
 
