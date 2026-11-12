@@ -48,7 +48,7 @@ steps:
 
   - task: UniversalPackages@0
     displayName: Download CIS scanner
-    condition: ne(variables.ENVIRONMENT, 'tme')
+    condition: False # TODO: re-enable once MSI-based package feed pulls are enabled
     inputs:
       command: download
       vstsFeed: AzCoreLinux-Compliance
@@ -358,6 +358,7 @@ steps:
       PACKER_VNET_RESOURCE_GROUP_NAME: $(PACKER_VNET_RESOURCE_GROUP_NAME)
       PACKER_VNET_NAME: $(PACKER_VNET_NAME)
       SKIP_SCANNING: $(SKIP_SCANNING)
+      SKIP_CIS: "true" # TODO - re-enable once we can use MSI-based package feed pulls for cisassesor
       DRY_RUN: $(DRY_RUN)
 
   - task: AzureCLI@2
