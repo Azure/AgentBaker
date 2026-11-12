@@ -2993,29 +2993,22 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
-testNetworkdRecoveryArtifacts() {
-  local test="testNetworkdRecoveryArtifacts"
-  if [ "$OS_SKU" != "AzureLinux" ] || [ "$OS_VERSION" != "3.0" ]; then
+testNetworkdNetlinkTimeout() {
+  local test="testNetworkdNetlinkTimeout"
+  if [ "$OS_SKU" != "Ubuntu" ] || [ "$OS_VERSION" != "24.04" ]; then
     return 0
   fi
 
-  local path
-  for path in /etc/systemd/system/aks-networkd-recovery.service /etc/systemd/system/aks-networkd-recovery.timer; do
-    if [ "$(stat -c '%a' "$path" 2>/dev/null)" != "644" ]; then
-      err "$test" "$path must exist with mode 0644"
-    fi
-  done
-  if [ "$(stat -c '%a' /opt/azure/containers/aks-networkd-recovery.sh 2>/dev/null)" != "755" ]; then
-    err "$test" "networkd recovery script must exist with mode 0755"
+  local drop_in="/etc/systemd/system/systemd-networkd.service.d/10-netlink-timeout.conf"
+  if [ "$(stat -c '%a' "$drop_in" 2>/dev/null)" != "644" ]; then
+    err "$test" "$drop_in must exist with mode 0644"
   fi
-  if ! systemctl is-enabled --quiet aks-networkd-recovery.timer; then
-    err "$test" "networkd recovery timer must be enabled"
+  if ! grep -Fxq 'Environment=SYSTEMD_NETLINK_DEFAULT_TIMEOUT=250s' "$drop_in"; then
+    err "$test" "networkd drop-in must set the default netlink timeout to 250 seconds"
   fi
-  if ! grep -Fxq 'OnCalendar=*:0/5' /etc/systemd/system/aks-networkd-recovery.timer; then
-    err "$test" "networkd recovery timer must check every five minutes"
-  fi
-  if ! grep -Fxq 'ConditionPathExists=/opt/azure/containers/provision.complete' /etc/systemd/system/aks-networkd-recovery.service; then
-    err "$test" "networkd recovery must wait for node provisioning to finish"
+  if ! systemctl show systemd-networkd.service --property=Environment --value |
+    grep -Eq '(^|[[:space:]])SYSTEMD_NETLINK_DEFAULT_TIMEOUT=250s([[:space:]]|$)'; then
+    err "$test" "networkd must load the default netlink timeout of 250 seconds"
   fi
 }
 
@@ -3113,7 +3106,7 @@ testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
 testMarinerLivePatchingArtifacts
-testNetworkdRecoveryArtifacts
+testNetworkdNetlinkTimeout
 testNodeExporter $OS_SKU
 testNodeProblemDetector $OS_SKU $OS_VERSION
 testKMPP
