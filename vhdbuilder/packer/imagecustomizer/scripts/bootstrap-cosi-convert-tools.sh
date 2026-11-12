@@ -1,11 +1,8 @@
 #!/bin/bash
 # Installs the tools the ACL VHD->COSI convert job needs on its build agent:
-# docker (privileged), az CLI, azcopy, make/jq/curl, and Go. The arm64 pool
+# docker (privileged), az CLI, azcopy, and make/jq/curl. The arm64 pool
 # image is minimal Azure Linux and the amd64 pool image is Ubuntu, so every
 # install is guarded by `command -v` and is a no-op when the tool is present.
-#
-# Runs from the root of the extracted AgentBaker source bundle, so the apt
-# path can install the repository's pinned Go through hack/setup_golang.sh.
 set -euo pipefail
 
 AZCOPY_VERSION="10.22.1"
@@ -53,8 +50,6 @@ install_base_utilities() {
     if [ "${PKG}" = apt ]; then
         sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
     fi
-    # cosi-uploader uses Microsoft's cgo-less OpenSSL backend (see packer.mk), so no
-    # C toolchain or OpenSSL development packages are needed.
     pkg_install ca-certificates curl tar gnupg make jq openssl
     # git isn't used by the convert scripts, but agent-side cleanup checkouts need it.
     if ! command -v git >/dev/null 2>&1; then
@@ -158,18 +153,6 @@ install_azcopy() {
     azcopy --version
 }
 
-# packer.mk's build-cosi-uploader rejects Go toolchains without Microsoft system
-# crypto. Ubuntu agents may ship a stock Go, so always install the repository's
-# pinned Microsoft Go there; Azure Linux's golang package is already Microsoft Go.
-install_go() {
-    if [ "${PKG}" = apt ]; then
-        ./hack/setup_golang.sh
-    elif ! command -v go >/dev/null 2>&1; then
-        pkg_install golang
-    fi
-    go version
-}
-
 main() {
     echo "==== Bootstrapping COSI convert tooling on $(uname -a) ===="
     detect_package_manager
@@ -178,7 +161,6 @@ main() {
     install_docker
     install_azure_cli
     install_azcopy
-    install_go
     echo "==== Tooling bootstrap complete ===="
 }
 

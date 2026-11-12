@@ -1,9 +1,7 @@
 #!/bin/bash
 
-# Ubuntu and Azure Linux NPD packages own the binary, monitors, plugins, startup
-# script and unit. Keep the config package in the VHD so the live updater can
-# recover without fetching the old version from a repository that may no longer
-# carry it.
+# The NPD packages own the binary, monitors, plugins, startup script and unit. Both are cached in the VHD so
+# npdConfig and npdBinary can roll back without a repo that may no longer carry the old version.
 NPD_TDNF_LOCK_FILE="/etc/tdnf/locks.d/node-problem-detector.conf"
 
 # Hold a package against unattended updates and security patching. tdnf reads
@@ -23,11 +21,14 @@ holdNPDPackage() {
 # Prints a private apt configuration for releases that use another release's
 # config package (see npd_ubuntu_config_source), or nothing. Shares the mapping
 # with the LPC handler so baked and live-updated configs come from one place.
-npdConfigAptConf() {
+# Runs in a subshell so the handler's variables stay out of the VHD build shell.
+npdConfigAptConf() (
     # shellcheck disable=SC1090,SC1091
     source "${NPD_UPDATE_SCRIPT:-/opt/azure/containers/npd-update.sh}" || return 1
-    NPD_UPDATE_DIR="${NPD_BUILD_DIR:-/tmp/npd-build}" npd_config_apt_conf
-}
+    NPD_UPDATE_DIR="${NPD_BUILD_DIR:-/tmp/npd-build}"
+    npd_select_component npdConfig || return 1
+    npd_apt_conf
+)
 
 installNPDPackage() {
     local package="$1"
@@ -65,14 +66,10 @@ installNPDPackage() {
         rm -rf "${NPD_BUILD_DIR:-/tmp/npd-build}"
     elif isUbuntu; then
         apt_get_install 30 1 600 "${package}=${full_version}" || return 1
-        if [ "${package}" = "node-problem-detector-aks-config" ]; then
-            (cd "${cache_dir}" && apt-get download "${package}=${full_version}") || return 1
-        fi
+        (cd "${cache_dir}" && apt-get download "${package}=${full_version}") || return 1
     else
         # tdnf skips downloading an installed package, so cache before installing.
-        if [ "${package}" = "node-problem-detector-aks-config" ]; then
-            tdnf install -y --downloadonly --downloaddir "${cache_dir}" "${package}-${full_version}" || return 1
-        fi
+        tdnf install -y --downloadonly --downloaddir "${cache_dir}" "${package}-${full_version}" || return 1
         dnf_install 30 1 600 "${package}-${full_version}" || return 1
     fi
     holdNPDPackage "${package}" || return 1

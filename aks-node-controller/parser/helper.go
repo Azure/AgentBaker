@@ -332,7 +332,7 @@ func getDHCPV6ConfigFilepath() string {
 // getSysctlContent converts aksnodeconfigv1.SysctlConfig to a string with key=value pairs, with default values.
 //
 //gocyclo:ignore
-//nolint:funlen,gocognit,cyclop // This function is long because it has to handle all the sysctl values.
+//nolint:funlen,gocognit // This function is long because it has to handle all the sysctl values.
 func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 	// This is a partial workaround to this upstream Kubernetes issue:
 	// https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731

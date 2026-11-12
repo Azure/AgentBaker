@@ -130,6 +130,11 @@ fi
 
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
+if [ "$OS" = "AZURELINUX" ]; then
+  case "$FEATURE_FLAGS" in
+    *kata*) OS="$OS" FEATURE_FLAGS="$FEATURE_FLAGS" /bin/bash /opt/azure/image-build/write-kata-release-notes.sh ;;
+  esac
+fi
 {
   echo "Install completed successfully on " $(date)
   echo "VSTS Build NUMBER: ${BUILD_NUMBER}"

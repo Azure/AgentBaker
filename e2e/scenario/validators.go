@@ -22,12 +22,10 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
-	"github.com/Masterminds/semver/v3"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/assert"
-	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/nodeexporter"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -1902,18 +1900,7 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	return assert.Contains(execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
 }
 
-func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) error {
-	if err := assert.Equal(len(versions), 1, "expected exactly one version for moby-containerd but got %d", len(versions)); err != nil {
-		return err
-	}
-	// assert versions[0] value starts with '2.'
-	if err := assert.Equal(strings.HasPrefix(versions[0], "2."), true, "expected moby-containerd version to start with '2.', got %v", versions[0]); err != nil {
-		return err
-	}
-
-	var errs []error
-	errs = append(errs, ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0]))
-
+func ValidateContainerdConfigDump(ctx context.Context, s *Scenario) error {
 	// TODO: this assertion never actually runs and always passes vacuously.
 	//
 	// execOnVMForScenarioOnUnprivilegedPod executes inside the "debugnonhost" daemonset pod,
@@ -1927,15 +1914,14 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 	// Two changes are needed: run this on the node via execScriptOnVMForScenarioValidateExitCode
 	// (as ValidateKataContainerdConfigDump in validators_kata.go now does), and check stderr as
 	// well as stdout, since containerd logs its warnings to stderr. Fixing it is likely to
-	// surface real warnings at the 11 call sites that use this validator, so it is left as a
+	// surface real warnings at the call sites that use this validator, so it is left as a
 	// follow-up rather than folded into an unrelated change.
 	execResult, err := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
 	if err != nil {
-		return errors.Join(append(errs, fmt.Errorf("dump containerd config: %w", err))...)
+		return fmt.Errorf("dump containerd config: %w", err)
 	}
 	// validate containerd config dump has no warnings
-	errs = append(errs, assert.NotContains(execResult.stdout, "level=warning", "do not expect warning message when converting config file: %s", execResult.stdout))
-	return errors.Join(errs...)
+	return assert.NotContains(execResult.stdout, "level=warning", "do not expect warning message when converting config file: %s", execResult.stdout)
 }
 
 func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) error {
@@ -2200,25 +2186,6 @@ func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context
 		errs = append(errs, fmt.Errorf("restart Nvidia GRID services: %w", err))
 	}
 	return errors.Join(errs...)
-}
-
-func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) error {
-	if err := assert.Equal(len(versions), 1, "expected exactly one version for moby-runc but got %d", len(versions)); err != nil {
-		return err
-	}
-	// check if versions[0] is great than or equal to 1.2.0
-	// check semantic version
-	parsedVersion, err := semver.NewVersion(versions[0])
-	if err != nil {
-		return fmt.Errorf("parse semver from moby-runc version %q: %w", versions[0], err)
-	}
-	if err := errors.Join(
-		assert.Equal(parsedVersion.Major() >= 1, true, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major()),
-		assert.Equal(parsedVersion.Minor() >= 2, true, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor()),
-	); err != nil {
-		return err
-	}
-	return ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
 }
 
 func ValidateKubeletArgs(ctx context.Context, s *Scenario) error {
@@ -4491,7 +4458,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 
 // ValidateWaagentLog checks /var/log/waagent.log for expected agent behavior:
 // - AutoUpdate is disabled as expected
-// - The correct version is running as ExtHandler
+// - An ExtHandler process is running
 // - No errors from ExtHandler
 // Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
 func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
@@ -4500,16 +4467,9 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 		return nil
 	}
 
-	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
-	if len(versions) == 0 || versions[0] == "<SKIP>" {
-		logging.Log(ctx, "Skipping waagent log validation: no walinuxagent version in components.json")
-		return nil
-	}
-	expectedVersion := versions[0]
-
 	const waagentLogFile = "/var/log/waagent.log"
 	autoUpdateMarker := "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation"
-	versionMarker := fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion)
+	extHandlerRunning := regexp.MustCompile(`ExtHandler WALinuxAgent-\S+ running as process`)
 
 	var logContents string
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
@@ -4522,7 +4482,7 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 		}
 		logContents = logResult.stdout
 		return strings.Contains(logContents, autoUpdateMarker) &&
-			strings.Contains(logContents, versionMarker), nil
+			extHandlerRunning.MatchString(logContents), nil
 	})
 	if err != nil {
 		return fmt.Errorf("wait for waagent log initialization: %w", err)
@@ -4532,9 +4492,9 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 		// 1. Verify AutoUpdate is disabled
 		assert.Contains(logContents, autoUpdateMarker,
 			"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False"),
-		// 2. Verify the correct version is running as ExtHandler (PID varies)
-		assert.Contains(logContents, versionMarker,
-			"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion),
+		// 2. Verify ExtHandler is running (version validation belongs to VHD content tests).
+		assert.Equal(extHandlerRunning.MatchString(logContents), true,
+			"waagent.log should confirm an ExtHandler process is running"),
 	}
 
 	// 3. Check for ExtHandler errors
@@ -4573,7 +4533,7 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	logging.Logf(ctx, "waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
+	logging.Log(ctx, "waagent.log validation passed: WALinuxAgent running correctly with no ExtHandler errors")
 	return nil
 }
 

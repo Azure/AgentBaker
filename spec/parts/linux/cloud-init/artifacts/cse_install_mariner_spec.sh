@@ -682,7 +682,7 @@ EOF
         setup_aznfs() {
             mkdir -p "${aznfs_test_dir}/opt/aznfs/downloads"
             # Create a fake aznfs RPM file
-            touch "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+            touch "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.20-1.x86_64.rpm"
         }
 
         cleanup_aznfs() {
@@ -710,7 +710,7 @@ EOF
             OS_VERSION="3.0"
             # Override findAznfsRpm to return our test RPM
             findAznfsRpm() {
-                echo "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+                echo "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.20-1.x86_64.rpm"
             }
             When call installAznfsPackage
             The output should include "Installing aznfs from pre-downloaded RPM"

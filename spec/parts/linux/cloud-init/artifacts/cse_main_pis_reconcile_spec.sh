@@ -114,6 +114,20 @@ Describe 'cse_main.sh PIS-safe configuration'
         End
     End
 
+    Describe 'GPU driver cleanup'
+        It 'cleans up only in basePrep, before customer customization'
+            cleanup_counts() {
+                phase_count "basePrep" "AKS.CSE.cleanUpGPUDrivers"
+                phase_count "nodePrep" "AKS.CSE.cleanUpGPUDrivers"
+                script_count "AKS.CSE.cleanUpGPUDrivers"
+            }
+            When call cleanup_counts
+            The line 1 of output should equal "1"
+            The line 2 of output should equal "0"
+            The line 3 of output should equal "1"
+        End
+    End
+
     Describe 'NVIDIA GPU driver mode'
         It 'configures managed GPU mode once in nodePrep and never in basePrep'
             mode_writer_counts() {

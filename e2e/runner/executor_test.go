@@ -22,6 +22,7 @@ import (
 )
 
 func TestAppListsRegisteredScenarios(t *testing.T) {
+	restoreRunnerConfig(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)
@@ -31,6 +32,7 @@ func TestAppListsRegisteredScenarios(t *testing.T) {
 }
 
 func TestAppRejectsUnknownScenario(t *testing.T) {
+	restoreRunnerConfig(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	app := NewApp(&stdout, &stderr)

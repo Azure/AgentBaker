@@ -100,9 +100,9 @@ if [ "$OS_SKU" = "Ubuntu" ]; then
     err 'git-install' "Failed to install git"
     exit 1
   fi
-elif [ "$OS_SKU" = "Flatcar" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
-  : # Flatcar/ACL comes with git pre-installed
-elif [ "$OS_SKU" = "AzureLinuxOSGuard" ]; then
+elif [ "$OS_SKU" = "Flatcar" ]; then
+  : # Flatcar comes with git pre-installed
+elif [ "$OS_SKU" = "AzureLinuxOSGuard" ] || [ "$OS_SKU" = "AzureContainerLinux" ]; then
   SKIP_GIT_CLONE=true
 else
   sudo tdnf install -y git
@@ -341,6 +341,9 @@ testPackagesInstalled() {
         case "$name" in
           "kubernetes-cri-tools")
             testCriCtl "$version" "kubernetes-cri-tools"
+            ;;
+          "runc")
+            testRunc "$version"
             ;;
           "containerd")
             # The deb/rpm package name for containerd varies by OS:
@@ -2044,6 +2047,7 @@ testBccTools () {
 #   1. WALinuxAgent-<version> directory exists under /var/lib/waagent/ matching components.json
 #   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
 #   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
+#   4. The expected version is running as ExtHandler
 testWALinuxAgentInstalled() {
   local test="testWALinuxAgentInstalled"
   echo "$test:Start"
@@ -2101,7 +2105,18 @@ testWALinuxAgentInstalled() {
     return 1
   fi
 
+  testWALinuxAgentRunningVersion "$expectedVersion" || return 1
+
   echo "$test:Finish"
+}
+
+testWALinuxAgentRunningVersion() {
+  local test="testWALinuxAgentRunningVersion"
+  local expectedVersion="$1"
+  if ! grep -Fq "ExtHandler WALinuxAgent-${expectedVersion} running as process" /var/log/waagent.log; then
+    err "$test" "WALinuxAgent-${expectedVersion} is not running as ExtHandler"
+    return 1
+  fi
 }
 
 testNodeExporter () {
@@ -2328,6 +2343,22 @@ testCriCtl() {
   return 0
 }
 
+testRunc() {
+  local expectedVersion="$1"
+  local test="testRunc"
+  echo "$test:Start"
+  if [ "$expectedVersion" = "<SKIP>" ]; then
+    echo "$test: Skipping test for runc version, as expected version is <SKIP>"
+    return 0
+  fi
+  if [ "$OS_SKU" != "Ubuntu" ]; then
+    err "$test" "runc package validation is not implemented for $OS_SKU"
+    return 1
+  fi
+  assertPackageVersion "$test" "moby-runc" "$expectedVersion" true || return 1
+  echo "$test:Finish"
+}
+
 testContainerd() {
   local expectedVersion="${1}"
   local installedPackageName="${2}"
@@ -2446,21 +2477,7 @@ testBlobfuse() {
     echo "$test: Skipping test for blobfuse version, as expected version is <SKIP>"
     return 0
   fi
-  local installed_version
-  installed_version=$(dpkg-query -W -f='${Version}' blobfuse 2>/dev/null) || true
-  if [ -z "$installed_version" ]; then
-    err "$test" "blobfuse is not installed"
-    return 1
-  fi
-  echo "$test: checking if blobfuse version $installed_version matches expected $expectedVersion"
-  case "$installed_version" in
-    "$expectedVersion"*)
-      ;;
-    *)
-      err "$test" "blobfuse version is $installed_version, expected $expectedVersion"
-      return 1
-      ;;
-  esac
+  assertPackageVersion "$test" "blobfuse" "$expectedVersion" true || return 1
   echo "$test:Finish"
   return 0
 }
@@ -2477,21 +2494,7 @@ testBlobfuse2() {
     echo "$test: Skipping test for blobfuse2 version, as expected version is <SKIP>"
     return 0
   fi
-  local installed_version
-  installed_version=$(dpkg-query -W -f='${Version}' blobfuse2 2>/dev/null) || true
-  if [ -z "$installed_version" ]; then
-    err "$test" "blobfuse2 is not installed"
-    return 1
-  fi
-  echo "$test: checking if blobfuse2 version $installed_version matches expected $expectedVersion"
-  case "$installed_version" in
-    "$expectedVersion"*)
-      ;;
-    *)
-      err "$test" "blobfuse2 version is $installed_version, expected $expectedVersion"
-      return 1
-      ;;
-  esac
+  assertPackageVersion "$test" "blobfuse2" "$expectedVersion" true || return 1
   echo "$test:Finish"
   return 0
 }
@@ -2703,17 +2706,19 @@ testNodeProblemDetector() {
   done
   [ -f /etc/node-problem-detector.d/skip_vhd_npd ] || err "$test" "Missing NPD skip marker"
   [ -s /etc/node-problem-detector.d/custom-plugin-monitor/custom-kubelet-monitor.json ] || err "$test" "Missing NPD monitors"
-  if [ "${os_sku}" = Ubuntu ]; then
-    version="$(dpkg-query -W -f='${Version}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
-    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config_${version}_$(dpkg --print-architecture).deb"
-  else
-    version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' node-problem-detector-aks-config)" || err "$test" "Missing config package"
-    package="/opt/node-problem-detector/downloads/node-problem-detector-aks-config-${version}.$(uname -m).rpm"
-    for executable in node-problem-detector-kubernetes node-problem-detector-aks-config; do
-      grep -qsx "${executable}" /etc/tdnf/locks.d/node-problem-detector.conf || err "$test" "Missing tdnf lock for ${executable}"
-    done
-  fi
-  [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
+  local npd_package
+  for npd_package in node-problem-detector-kubernetes node-problem-detector-aks-config; do
+    # Both packages are cached so npdBinary and npdConfig can roll back offline.
+    if [ "${os_sku}" = Ubuntu ]; then
+      version="$(dpkg-query -W -f='${Version}' "${npd_package}")" || err "$test" "Missing ${npd_package} package"
+      package="/opt/node-problem-detector/downloads/${npd_package}_${version}_$(dpkg --print-architecture).deb"
+    else
+      version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' "${npd_package}")" || err "$test" "Missing ${npd_package} package"
+      package="/opt/node-problem-detector/downloads/${npd_package}-${version}.$(uname -m).rpm"
+      grep -qsx "${npd_package}" /etc/tdnf/locks.d/node-problem-detector.conf || err "$test" "Missing tdnf lock for ${npd_package}"
+    fi
+    [ -f "${package}" ] || err "$test" "Missing NPD recovery package ${package}"
+  done
   [ "$(systemctl is-enabled node-problem-detector.service)" = disabled ] || err "$test" "NPD must be disabled for capture"
 }
 

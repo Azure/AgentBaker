@@ -730,14 +730,12 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	}
 
 	funcMap["GetParameter"] = func(s string) interface{} {
-		if v, ok := params[s].(paramsMap); ok && v != nil {
-			if v["value"] == nil {
-				// return empty string so we don't get <no value> from go template
-				return ""
-			}
-			return v["value"]
+		v, ok := params[s].(paramsMap)
+		if !ok || v["value"] == nil {
+			// return empty string so we don't get <no value> from go template
+			return ""
 		}
-		return ""
+		return v["value"]
 	}
 
 	// TODO: GetParameterPropertyLower
@@ -977,7 +975,7 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
-//nolint:gocognit, funlen, cyclop, gocyclo
+//nolint:gocognit, funlen
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
