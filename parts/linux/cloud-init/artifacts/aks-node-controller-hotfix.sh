@@ -23,14 +23,10 @@ anc_hotfix_read_feature_flags() {
     done <"$features_path"
 }
 
-anc_run_hotfix_flow() {
+anc_acquire_hotfix() {
     local bin_path="$1"
-    local hotfix_bin="$2"
-    local hotfix_json="$3"
-    local features_path="$4"
-    local skip_acquisition="${5:-false}"
-
-    anc_hotfix_read_feature_flags "$features_path"
+    local hotfix_json="$2"
+    local skip_acquisition="$3"
 
     # check-hotfix refreshes the on-disk hotfix pointer (its own default path, mirrored by
     # $hotfix_json) that download-hotfix reads below, so it must run first. Gated default-off
@@ -39,25 +35,37 @@ anc_run_hotfix_flow() {
     # fail-open, but an older ANC binary predating the subcommand exits non-zero.
     if [ "$skip_acquisition" = "true" ]; then
         anc_hotfix_log "Skipping ANC hotfix acquisition; preserving any staged hotfix"
-    else
-        if [ "${ENABLE_PROVISIONING_HOTFIX:-}" = "true" ]; then
-            anc_hotfix_log "ENABLE_PROVISIONING_HOTFIX=true; running check-hotfix to refresh hotfix pointer"
-            if "$bin_path" check-hotfix; then
-                anc_hotfix_log "ANC check-hotfix completed; hotfix pointer refresh attempted"
-            else
-                anc_hotfix_log "ANC check-hotfix failed; continuing (fail-open)"
-            fi
-        fi
+        return 0
+    fi
 
-        if [ -f "$hotfix_json" ]; then
-            anc_hotfix_log "Found ANC hotfix config at ${hotfix_json}; running download-hotfix"
-            if "$bin_path" download-hotfix; then
-                anc_hotfix_log "ANC download-hotfix completed; binary selection follows"
-            else
-                anc_hotfix_log "ANC download-hotfix failed; binary selection follows"
-            fi
+    if [ "${ENABLE_PROVISIONING_HOTFIX:-}" = "true" ]; then
+        anc_hotfix_log "ENABLE_PROVISIONING_HOTFIX=true; running check-hotfix to refresh hotfix pointer"
+        if "$bin_path" check-hotfix; then
+            anc_hotfix_log "ANC check-hotfix completed; hotfix pointer refresh attempted"
+        else
+            anc_hotfix_log "ANC check-hotfix failed; continuing (fail-open)"
         fi
     fi
+
+    if [ -f "$hotfix_json" ]; then
+        anc_hotfix_log "Found ANC hotfix config at ${hotfix_json}; running download-hotfix"
+        if "$bin_path" download-hotfix; then
+            anc_hotfix_log "ANC download-hotfix completed; binary selection follows"
+        else
+            anc_hotfix_log "ANC download-hotfix failed; binary selection follows"
+        fi
+    fi
+}
+
+anc_run_hotfix_flow() {
+    local bin_path="$1"
+    local hotfix_bin="$2"
+    local hotfix_json="$3"
+    local features_path="$4"
+    local skip_acquisition="${5:-false}"
+
+    anc_hotfix_read_feature_flags "$features_path"
+    anc_acquire_hotfix "$bin_path" "$hotfix_json" "$skip_acquisition"
 
     ANC_HOTFIX_SELECTED_BIN="$bin_path"
     if [ -x "$hotfix_bin" ]; then
