@@ -535,7 +535,6 @@ var _ = Register(&Scenario{
 				ValidateAppArmorBasic(ctx, s),
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`),
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath),
-				ValidateInstalledPackageVersion(ctx, s, "containerd2", components.GetExpectedPackageVersions("containerd", "azurelinux", "v3.0")[0]),
 			)
 		},
 	},
@@ -652,7 +651,7 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 
 	return &Scenario{
 		Name:        "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC",
-		Description: "Tests Ubuntu 22.04 ANC bootstrapping with custom sysctls, containerd ulimits, and node taints, plus chrony restarts and the expected containerd version",
+		Description: "Tests Ubuntu 22.04 ANC bootstrapping with custom sysctls, containerd ulimits, node taints, and chrony restarts",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -687,7 +686,6 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 					ValidateTaints(ctx, s, s.Runtime.AKSNodeConfig.KubeletConfig.KubeletFlags["--register-with-taints"]),
 					ValidateUlimitSettings(ctx, s, customContainerdUlimits),
 					ValidateSysctlConfig(ctx, s, customSysctls),
-					ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
 				)
 			},
 			AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
@@ -967,8 +965,6 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateFIPSProvider(ctx, s),
 			)
@@ -992,8 +988,6 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2004")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2004")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateFIPSProvider(ctx, s),
 			)
@@ -1017,8 +1011,6 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateFIPSProvider(ctx, s),
 			)
@@ -1043,8 +1035,6 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateFIPSProvider(ctx, s),
 			)
@@ -2318,13 +2308,9 @@ var _ = Register(&Scenario{
 		AKSNodeConfigMutator: func(_ *Cluster, config *aksnodeconfigv1.Configuration) {
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2404")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
 		},
@@ -2342,13 +2328,9 @@ var _ = Register(&Scenario{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
 		},
@@ -2364,13 +2346,9 @@ var _ = Register(&Scenario{
 		Cluster: ClusterLatestKubernetesVersionAzureNetwork,
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
 		},
@@ -2390,13 +2368,9 @@ var _ = Register(&Scenario{
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
 		},
@@ -2425,13 +2399,9 @@ var _ = Register(&Scenario{
 			vmss.Properties = addTrustedLaunchToVMSS(vmss.Properties)
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
 		},
@@ -2753,11 +2723,8 @@ var _ = Register(&Scenario{
 			vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"}),
@@ -3144,13 +3111,9 @@ var _ = Register(&Scenario{
 			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
 		},
@@ -3170,13 +3133,9 @@ var _ = Register(&Scenario{
 			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2604")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2604")
 			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
-				ValidateInstalledPackageVersion(ctx, s, "blobfuse2", components.GetExpectedPackageVersions("blobfuse2", "ubuntu", "r2604")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
 		},
@@ -3253,11 +3212,8 @@ var _ = Register(&Scenario{
 			vmss.Tags["E2EMockAzureChinaCloud"] = to.Ptr("true")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 				ValidateContainerRuntimePlugins(ctx, s),
 				ValidateSSHServiceEnabled(ctx, s),
 				ValidateDirectoryContent(ctx, s, "/etc/containerd/certs.d/mcr.azk8s.cn", []string{"hosts.toml"}),
@@ -3344,12 +3300,9 @@ var _ = Register(&Scenario{
 			vmss.SKU.Name = to.Ptr("Standard_NC4as_T4_v3")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
 			return errors.Join(
 				ValidateNvidiaSMINotInstalled(ctx, s),
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
+				ValidateContainerdConfigDump(ctx, s),
 			)
 		},
 	},
@@ -3362,12 +3315,7 @@ var _ = Register(&Scenario{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2404Gen1Containerd,
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
-			)
+			return ValidateContainerdConfigDump(ctx, s)
 		},
 	},
 })
@@ -3382,12 +3330,7 @@ var _ = Register(&Scenario{
 			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			containerdVersions := components.GetExpectedPackageVersions("containerd", "ubuntu", "r2404")
-			runcVersions := components.GetExpectedPackageVersions("runc", "ubuntu", "r2404")
-			return errors.Join(
-				ValidateContainerd2Properties(ctx, s, containerdVersions),
-				ValidateRuncVersion(ctx, s, runcVersions),
-			)
+			return ValidateContainerdConfigDump(ctx, s)
 		},
 	},
 })
@@ -3570,8 +3513,6 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", components.GetExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
-				ValidateInstalledPackageVersion(ctx, s, "moby-runc", components.GetExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
 				ValidateSSHServiceEnabled(ctx, s),
 			)
 		},

@@ -404,6 +404,20 @@ EOF
         logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
     fi
 
+    # Determine if GPU driver installation should be skipped
+    local skip_gpu_driver_install
+    skip_gpu_driver_install=$(should_skip_nvidia_drivers)
+    if [ "$?" -ne 0 ]; then
+        echo "Failed to determine if nvidia driver install should be skipped"
+        exit $ERR_NVIDIA_DRIVER_INSTALL
+    fi
+
+    # Clean up GPU drivers before customer customization. Derived PIS nodes skip
+    # basePrep, so their customer-installed drivers are preserved.
+    if [ "${GPU_NODE}" != "true" ] || [ "${skip_gpu_driver_install}" = "true" ]; then
+        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
+    fi
+
     # Enable localdns to handle node and pod DNS traffic via a local CoreDNS instance.
     # If hosts plugin is enabled, enableAKSLocalDNSHostsSetup() was already called at the
     # very start of basePrep (before disableSystemdResolved) to give the timer a head start
@@ -656,11 +670,6 @@ function nodePrep {
     logs_to_events "AKS.CSE.configureNodeExporter" configureNodeExporter
     logs_to_events "AKS.CSE.configureNodeProblemDetector" configureNodeProblemDetector
 
-
-    # Clean up GPU drivers if not a GPU node or if skipping driver install
-    if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
-        logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
-    fi
 
     checkServiceHealth kubelet || exit $ERR_KUBELET_FAIL
 
