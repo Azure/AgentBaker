@@ -711,6 +711,10 @@ func CreateSIGImageVersionFromDisk(ctx context.Context, s *Scenario, version str
 				},
 				ReplicaCount: to.Ptr[int32](1),
 			},
+			// Temporary scenario images must remain deletable before their end-of-life date.
+			SafetyProfile: &armcompute.GalleryImageVersionSafetyProfile{
+				BlockDeletionBeforeEndOfLife: to.Ptr(false),
+			},
 		},
 	}, nil)
 	require.NoError(s.T, err, "Failed to create gallery image version")
