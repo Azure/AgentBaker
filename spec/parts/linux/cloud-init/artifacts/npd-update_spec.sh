@@ -2,7 +2,7 @@
 # shellcheck disable=SC2317
 
 Describe 'NPD config handler'
-    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+    Include ./parts/root/packages/opt/azure/containers/npd-update.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -236,7 +236,7 @@ restart"
 End
 
 Describe 'NPD config handler on Ubuntu 26.04 (shared 24.04 config)'
-    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+    Include ./parts/root/packages/opt/azure/containers/npd-update.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -303,7 +303,7 @@ Describe 'NPD config handler on Ubuntu 26.04 (shared 24.04 config)'
 End
 
 Describe 'NPD config handler on Azure Linux 3'
-    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+    Include ./parts/root/packages/opt/azure/containers/npd-update.sh
 
     setup() {
         TEST_DIR="$(mktemp -d)"
@@ -456,15 +456,15 @@ Describe 'NPD config handler on Azure Linux 3'
     End
 
     It 'is safe under the Azure Linux dispatcher nounset and errexit options'
-        When run env NPD_OS_RELEASE_FILE="${NPD_OS_RELEASE_FILE}" bash -euc 'source ./parts/linux/cloud-init/artifacts/npd-update.sh; npd_platform; echo; npd_desired_version "$1" azurelinux 3.0' _ "${TEST_DESIRED}"
+        When run env NPD_OS_RELEASE_FILE="${NPD_OS_RELEASE_FILE}" bash -euc 'source ./parts/root/packages/opt/azure/containers/npd-update.sh; npd_platform; echo; npd_desired_version "$1" azurelinux 3.0' _ "${TEST_DESIRED}"
         The status should be success
         The output should include '1.1.0-1.azl3'
     End
 End
 
 Describe 'CSE baked NPD activation'
-    Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
-    Include ./parts/linux/cloud-init/artifacts/cse_config.sh
+    Include ./parts/root/common/opt/azure/containers/provision_source.sh
+    Include ./parts/root/common/opt/azure/containers/provision_configs.sh
     setup_activation() {
         NPD_SKIP_FILE="$(mktemp)"
         OS=UBUNTU
@@ -527,7 +527,7 @@ Describe 'CSE baked NPD activation'
 End
 
 Describe 'GPU driver NPD restart'
-    Include ./parts/linux/cloud-init/artifacts/cse_config_gpu.sh
+    Include ./parts/root/common/opt/azure/containers/provision_configs_gpu.sh
     setup_gpu() { NPD_SKIP_FILE="$(mktemp)"; }
     cleanup_gpu() { rm -f "${NPD_SKIP_FILE}"; }
     BeforeEach setup_gpu

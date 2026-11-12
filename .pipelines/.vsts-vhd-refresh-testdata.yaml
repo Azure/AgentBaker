@@ -10,6 +10,7 @@ trigger:
     - vhdbuilder/scripts/linux
     - .pipelines/.vsts-vhd-refresh-testdata.yaml
     - parts/linux/*
+    - parts/root/**
     - packer.mk
     - parts/common/components.json
     exclude:
@@ -36,4 +37,3 @@ stages:
             targetPath: $(Pipeline.Workspace)/s/aks-node-controller/parser/testdata
             artifact: testdata
             publishLocation: pipeline
-

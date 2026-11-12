@@ -1,12 +1,12 @@
 #!/bin/bash
 
 Describe 'cse_config_kubelet.sh'
-    CSE_CONFIG_GPU_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_gpu.sh"
-    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
-    CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
-    CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    CSE_CONFIG_GPU_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_gpu.sh"
+    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_localdns.sh"
+    CSE_CONFIG_KUBELET_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_kubelet.sh"
+    CSE_CONFIG_NETWORK_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_network.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_configs.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
     Describe 'configureKubeletServing'
         preserve_vars() {
             %preserve KUBELET_FLAGS
@@ -756,8 +756,8 @@ providers:
 
         Describe 'on Ubuntu'
             OS="UBUNTU"
-            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
-            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+            Include "./parts/root/ubuntu/opt/azure/containers/provision_source_distro.sh"
+            Include "./parts/root/ubuntu/opt/azure/containers/provision_installs_distro.sh"
 
             It 'installs the credential provider from URL below Kubernetes 1.33'
                 installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
@@ -787,8 +787,8 @@ providers:
         Describe 'on Azure Linux'
             OS="AZURELINUX"
             OS_VERSION="3.0"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+            Include "./parts/root/mariner/opt/azure/containers/provision_source_distro.sh"
+            Include "./parts/root/mariner/opt/azure/containers/provision_installs_distro.sh"
 
             It 'installs the credential provider from PMC at Kubernetes 1.33'
                 installCredentialProviderFromUrl() { echo "installCredentialProviderFromUrl"; }
@@ -944,8 +944,8 @@ providers:
 
         Describe 'on Ubuntu'
             OS="UBUNTU"
-            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
-            Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+            Include "./parts/root/ubuntu/opt/azure/containers/provision_source_distro.sh"
+            Include "./parts/root/ubuntu/opt/azure/containers/provision_installs_distro.sh"
 
             # Test cases for URL installation (first condition)
             It 'should install from URL if CUSTOM_KUBE_BINARY_DOWNLOAD_URL is set'
@@ -1090,8 +1090,8 @@ providers:
 
         Describe 'on Flatcar'
             OS="FLATCAR"
-            Include "./parts/linux/cloud-init/artifacts/flatcar/cse_helpers_flatcar.sh"
-            Include "./parts/linux/cloud-init/artifacts/flatcar/cse_install_flatcar.sh"
+            Include "./parts/root/flatcar/opt/azure/containers/provision_source_distro.sh"
+            Include "./parts/root/flatcar/opt/azure/containers/provision_installs_distro.sh"
 
             installKubeletKubectlFromPkg() {
                 echo "installKubeletKubectlFromPkg $@"
@@ -1107,8 +1107,8 @@ providers:
 
         Describe 'on Mariner'
             OS="MARINER"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+            Include "./parts/root/mariner/opt/azure/containers/provision_source_distro.sh"
+            Include "./parts/root/mariner/opt/azure/containers/provision_installs_distro.sh"
 
             It 'should install from PMC if k8s version >= 1.34 and OS_VERSION != 2.0'
                 installKubeletKubectlFromPkg() {
@@ -1147,8 +1147,8 @@ providers:
 
         Describe 'on Azure Linux'
             OS="AZURELINUX"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh"
-            Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+            Include "./parts/root/mariner/opt/azure/containers/provision_source_distro.sh"
+            Include "./parts/root/mariner/opt/azure/containers/provision_installs_distro.sh"
 
             It 'should install from PMC if k8s version >= 1.34 and OS_VERSION != 2.0'
                 installKubeletKubectlFromPkg() {

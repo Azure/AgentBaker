@@ -36,7 +36,7 @@ import (
 // from VHD_BUILD_ID (.pipelines/scripts/e2e_run.sh:83-88) and therefore tests this PR's own
 // VHDs. Everything else falls back to the default branch=refs/heads/main selector, which
 // resolves a main-built image that legitimately still ships the systemd default 10s/5
-// budget: localdns.service is baked into the VHD (vhdbuilder/packer/packer_source.sh), not
+// budget: localdns.service is baked into the VHD (parts/root/linux/opt/azure/image-build/packer_source.sh), not
 // delivered through CustomData. .pipelines/e2e.yaml triggers on any PR touching e2e/** and
 // runs in exactly that configuration.
 //

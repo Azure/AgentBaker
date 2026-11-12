@@ -153,10 +153,10 @@ else
   fi
 fi
 
-source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
-source ./AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
-source ./AgentBaker/vhdbuilder/packer/packer_source.sh
+source ./AgentBaker/parts/root/ubuntu/opt/azure/containers/provision_installs_distro.sh 2>/dev/null
+source ./AgentBaker/parts/root/common/opt/azure/containers/provision_source.sh 2>/dev/null
+source ./AgentBaker/parts/root/common/opt/azure/image-build/tool_installs.sh
+source ./AgentBaker/parts/root/linux/opt/azure/image-build/packer_source.sh
 
 validateDownloadPackage() {
   local downloadURL=$1
@@ -1388,7 +1388,7 @@ testLoginDefs() {
   # all-caps and include letters and '_'. Values can be anything, so we make sure they're printable.
   testSettingFileFormat $test $settings_file '^[[:space:]]*(#|$)' '^[[:space:]]*[A-Z_]+[[:space:]]+[^[:cntrl:]]+$'
 
-  # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+  # Look for the settings we specifically set in <repo-root>/parts/root/common/opt/azure/image-build/cis.sh
   # and ensure they're set to the values we expect.
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file PASS_MAX_DAYS '^[[:space:]]*PASS_MAX_DAYS[[:space:]]' ' ' 90
@@ -1411,7 +1411,7 @@ testUserAdd() {
   # is pretty loose (any printable character).
   testSettingFileFormat $test $settings_file '^[[:space:]]*(#|$)' '^[A-Z_]+=[^[:cntrl:]]*$'
 
-  # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+  # Look for the settings we specifically set in <repo-root>/parts/root/common/opt/azure/image-build/cis.sh
   # and ensure they're set to the values we expect.
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file INACTIVE '^INACTIVE=' '=' 30
@@ -1481,7 +1481,7 @@ testNetworkSettings() {
 }
 
 # Ensures that the content /etc/profile.d/umask.sh is correct, per code in
-# <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+# <repo-root>/parts/root/common/opt/azure/image-build/cis.sh
 testUmaskSettings() {
     local test="testUmaskSettings"
     local settings_file=/etc/profile.d/umask.sh
@@ -1510,7 +1510,7 @@ testUmaskSettings() {
 }
 
 # Tests that the modes on the cron-related files and directories in /etc are set correctly, per the
-# function assignFilePermissions in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# function assignFilePermissions in <repo-root>/parts/root/common/opt/azure/image-build/cis.sh.
 testCronPermissions() {
   local test="testCronPermissions"
   echo "$test:Start"
@@ -1558,7 +1558,7 @@ testCronPermissions() {
 }
 
 # Tests that /etc/systemd/coredump.conf is set correctly, per the function
-# configureCoreDump in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# configureCoreDump in <repo-root>/parts/root/common/opt/azure/image-build/cis.sh.
 testCoreDumpSettings() {
   local test="testCoreDumpSettings"
   local settings_file=/etc/systemd/coredump.conf
@@ -1572,7 +1572,7 @@ testCoreDumpSettings() {
   #   is pretty loose (more or less any printable character).
   testSettingFileFormat $test $settings_file '^(#|$)' '^\[Coredump\]$' '^[A-Za-z_]+=[^[:cntrl:]]*$'
 
-  # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+  # Look for the settings we specifically set in <repo-root>/parts/root/common/opt/azure/image-build/cis.sh
   # and ensure they're set to the values we expect.
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file 'Storage' '^Storage=' '=' 'none'
@@ -1582,7 +1582,7 @@ testCoreDumpSettings() {
 }
 
 # Tests that the nfs-server systemd service is masked, per the function
-# configuremaskNfsServerNfsServer in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# configuremaskNfsServerNfsServer in <repo-root>/parts/root/common/opt/azure/image-build/cis.sh.
 testNfsServerService() {
   local test="testNfsServerService"
   local service_name="nfs-server.service"
@@ -1776,7 +1776,7 @@ testPamDSettings() {
     #   Whitespace at beginning and end of line, along with around the '=' is ignored.
     testSettingFileFormat $test $settings_file '^(#|$)' '^[[:space:]]*$' '^[[:space:]]*[a-z_][[:space:]]*' '^[[:space:]]*[a-z_]+[[:space::]]*=[^[:cntrl:]]*$'
 
-    # Look for the setting we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+    # Look for the setting we specifically set in <repo-root>/parts/root/common/opt/azure/image-build/cis.sh
     # and ensure it's set to the values we expect.
     echo "$test: Checking specific settings in $settings_file"
     testSetting $test $settings_file 'dir' '^[[:space:]]*dir[[:space:]]*=' '=' '/var/log/faillock'
@@ -2663,20 +2663,6 @@ checkLocaldnsScriptsAndConfigs() {
     ["/etc/systemd/system/localdns-fallback.service"]=644
   )
 
-  # OSGuard images are built by imagecustomizer from azlosguard.yml, which installs
-  # units 0600 where packer_source.sh uses 0644. That has been azlosguard's
-  # convention since the file was authored (#6784) and covers 26 of its 36 unit
-  # entries, so it is recorded here rather than reconciled: systemd reads unit files
-  # as root either way, which makes this a read-access difference only, and the
-  # convention belongs to the OSGuard image owners, not to this test.
-  #
-  # Without this branch the assertion is wrong for every OSGuard build -- as it has
-  # been for localdns.service since that entry was added.
-  if [ "$os_sku" = "AzureLinuxOSGuard" ]; then
-    localdnsfiles["/etc/systemd/system/localdns.service"]=600
-    localdnsfiles["/etc/systemd/system/localdns-fallback.service"]=600
-  fi
-
   # Flatcar is EOL (June 2026) — exporter files are not installed on Flatcar VHDs
   if [ "$os_sku" != "Flatcar" ]; then
     localdnsfiles["/opt/azure/containers/localdns/localdns_exporter.sh"]=755
@@ -2780,9 +2766,9 @@ testKneadSecurityPatchingAssets() {
   local -A expected_files=(
     ["/etc/systemd/system/snapshot-update.service"]=644
     ["/etc/systemd/system/snapshot-update.timer"]=644
-    ["/opt/azure/containers/security-update.sh"]=544
-    ["/opt/azure/containers/npd-update.sh"]=544
-    ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=544
+    ["/opt/azure/containers/security-update.sh"]=755
+    ["/opt/azure/containers/npd-update.sh"]=755
+    ["/opt/azure/containers/ubuntu-snapshot-update.sh"]=755
   )
 
   if [ "$os_sku" != "Ubuntu" ]; then
@@ -3028,14 +3014,14 @@ testMarinerLivePatchingArtifacts() {
     return 0
   fi
 
-  if [ "$(stat -c '%a' "$update_script" 2>/dev/null)" != "544" ]; then
-    err $test "$update_script must exist with mode 0544"
+  if [ "$(stat -c '%a' "$update_script" 2>/dev/null)" != "755" ]; then
+    err $test "$update_script must exist with mode 0755"
   fi
-  if [ "$(stat -c '%a' "$security_script" 2>/dev/null)" != "544" ]; then
-    err $test "$security_script must exist with mode 0544"
+  if [ "$(stat -c '%a' "$security_script" 2>/dev/null)" != "755" ]; then
+    err $test "$security_script must exist with mode 0755"
   fi
-  if [ "$(stat -c '%a' "$npd_script" 2>/dev/null)" != "544" ]; then
-    err $test "$npd_script must exist with mode 0544"
+  if [ "$(stat -c '%a' "$npd_script" 2>/dev/null)" != "755" ]; then
+    err $test "$npd_script must exist with mode 0755"
   fi
   if [ "$(stat -c '%a' "$service" 2>/dev/null)" != "644" ]; then
     err $test "$service must exist with mode 0644"

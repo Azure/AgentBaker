@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'service execution telemetry'
-    eval "$(sed -n '/^configureServiceExecutionTelemetryForSystemdVersion()/,/^}/p' ./vhdbuilder/packer/install-dependencies.sh)"
+    eval "$(sed -n '/^configureServiceExecutionTelemetryForSystemdVersion()/,/^}/p' ./parts/root/common/opt/azure/containers/provision_source.sh)"
 
     setup_service_execution_telemetry_test() {
         TEST_ROOT=$(mktemp -d)
@@ -71,7 +71,7 @@ EOF
             SYSTEMCTL_BIN="${SYSTEMCTL_MOCK}" \
             SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
             EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh cgroup-memory-telemetry.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh cgroup-memory-telemetry.service
         The status should be success
         The result of function emitted_event_file_name_class should equal collectable
     End
@@ -84,7 +84,7 @@ EOF
             SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
             SYSTEMCTL_MEMORY_PEAK=1048576 \
             EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh cgroup-memory-telemetry.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh cgroup-memory-telemetry.service
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"ServiceName\":\"cgroup-memory-telemetry.service\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"DurationUsec\":2500000'
@@ -104,7 +104,7 @@ EOF
             SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
             SYSTEMCTL_MEMORY_PEAK_EXIT_CODE=1 \
             EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh cgroup-pressure-telemetry.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh cgroup-pressure-telemetry.service
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"MemoryPeakAvailable\":false'
         The value "$(jq -r '.Message | fromjson | has("MemoryPeakBytes")' "${EVENTS_ROOT}"/*)" should equal "false"
@@ -121,7 +121,7 @@ EOF
             SYSTEMCTL_BIN="${SYSTEMCTL_MOCK}" \
             SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
             EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh aks-log-collector.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh aks-log-collector.service
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"Result\":\"exit-code\"'
         The contents of file "${EVENTS_ROOT}"/* should include '\"ExecMainStatus\":42'
@@ -137,7 +137,7 @@ EOF
             SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
             SYSTEMCTL_MEMORY_PEAK_EXIT_CODE=1 \
             EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh cgroup-memory-telemetry.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh cgroup-memory-telemetry.service
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"MemoryPeakAvailable\":true'
         The contents of file "${EVENTS_ROOT}"/* should include '\"MemoryPeakBytes\":2097152'
@@ -154,7 +154,7 @@ EOF
             SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
             SYSTEMCTL_MEMORY_PEAK=1048576 \
             EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh cgroup-memory-telemetry.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh cgroup-memory-telemetry.service
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"MemoryPeakBytes\":1048576'
         The path "${PEAK_ROOT}/cgroup-memory-telemetry.service.peak" should not be exist
@@ -166,7 +166,7 @@ EOF
         When run env \
             CGROUP_ROOT="${CGROUP_ROOT_DIR}" \
             CGROUP_PROC_FILE="${CGROUP_PROC}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh --snapshot-memory-peak cgroup-pressure-telemetry.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh --snapshot-memory-peak cgroup-pressure-telemetry.service
         The status should be success
         The contents of file "${PEAK_ROOT}/cgroup-pressure-telemetry.service.peak" should equal 4194304
     End
@@ -177,7 +177,7 @@ EOF
         When run env \
             CGROUP_ROOT="${CGROUP_ROOT_DIR}" \
             CGROUP_PROC_FILE="${CGROUP_PROC}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh --snapshot-memory-peak cgroup-pressure-telemetry.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh --snapshot-memory-peak cgroup-pressure-telemetry.service
         The status should be success
         The path "${PEAK_ROOT}/cgroup-pressure-telemetry.service.peak" should not be exist
     End
@@ -188,7 +188,7 @@ EOF
         When run env \
             CGROUP_ROOT="${CGROUP_ROOT_DIR}" \
             CGROUP_PROC_FILE="${CGROUP_PROC}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh --snapshot-memory-peak some-other.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh --snapshot-memory-peak some-other.service
         The status should be success
         The path "${PEAK_ROOT}/some-other.service.peak" should not be exist
     End
@@ -199,7 +199,7 @@ EOF
             cgroup-pressure-telemetry.service \
             aks-log-collector.service; do
             grep -q '^ExecStopPost=-/opt/scripts/service-execution-telemetry.sh --snapshot-memory-peak %n$' \
-                "./parts/linux/cloud-init/artifacts/${unit}" || exit 1
+                "./parts/root/common/etc/systemd/system/${unit}" || exit 1
         done
 
         When run true
@@ -211,7 +211,7 @@ EOF
             SYSTEMCTL_BIN="${SYSTEMCTL_MOCK}" \
             SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
             EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh ssh.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh ssh.service
         The status should be failure
         The stderr should include "service 'ssh.service' is not allowlisted"
         The path "${EVENTS_ROOT}" should not be exist
@@ -229,7 +229,7 @@ EOF
             SYSTEMCTL_BIN="${SYSTEMCTL_MOCK}" \
             SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
             EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh cgroup-memory-telemetry.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh cgroup-memory-telemetry.service
         The status should be failure
         The stderr should include "invalid execution timestamps"
         The stderr should include "incomplete execution properties"
@@ -245,7 +245,7 @@ EOF
             SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
             SYSTEMCTL_EXIT_CODE=1 \
             EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh cgroup-memory-telemetry.service
+            bash ./parts/root/common/opt/scripts/service-execution-telemetry.sh cgroup-memory-telemetry.service
         The status should be failure
         The stderr should include "failed to read systemd properties"
         The path "${EVENTS_ROOT}" should not be exist
@@ -254,31 +254,37 @@ EOF
     It 'configures all monitored units for accounting and completion-triggered collection'
         When run bash -c '
             while read -r unit escaped_unit; do
-                grep -q "^CPUAccounting=true$" "./parts/linux/cloud-init/artifacts/${unit}" || exit 1
-                grep -q "^MemoryAccounting=true$" "./parts/linux/cloud-init/artifacts/${unit}" || exit 1
-                grep -Fqx "OnSuccess=${escaped_unit}" "./parts/linux/cloud-init/artifacts/${unit}" || exit 1
-                grep -Fqx "OnFailure=${escaped_unit}" "./parts/linux/cloud-init/artifacts/${unit}" || exit 1
+                grep -q "^CPUAccounting=true$" "./parts/root/common/etc/systemd/system/${unit}" || exit 1
+                grep -q "^MemoryAccounting=true$" "./parts/root/common/etc/systemd/system/${unit}" || exit 1
+                grep -Fqx "OnSuccess=${escaped_unit}" "./parts/root/common/etc/systemd/system/${unit}" || exit 1
+                grep -Fqx "OnFailure=${escaped_unit}" "./parts/root/common/etc/systemd/system/${unit}" || exit 1
             done <<EOF
 cgroup-memory-telemetry.service service-execution-telemetry@cgroup\\x2dmemory\\x2dtelemetry.service.service
 cgroup-pressure-telemetry.service service-execution-telemetry@cgroup\\x2dpressure\\x2dtelemetry.service.service
 aks-log-collector.service service-execution-telemetry@aks\\x2dlog\\x2dcollector.service.service
 EOF
             grep -q "^ExecStart=/opt/scripts/service-execution-telemetry.sh %I$" \
-                ./parts/linux/cloud-init/artifacts/service-execution-telemetry@.service
+                ./parts/root/common/etc/systemd/system/service-execution-telemetry@.service
         '
         The status should be success
     End
 
-    It 'preserves escaped service names in the asynchronous ExecStopPost fallback before systemd 249'
+    It 'preserves escaped service names and applies the legacy fallback idempotently'
         CGROUP_MEMORY_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-memory-telemetry.service"
         CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-pressure-telemetry.service"
         AKS_LOG_COLLECTOR_SERVICE_DEST="${TEST_ROOT}/aks-log-collector.service"
-        cp ./parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
-        cp ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
-        cp ./parts/linux/cloud-init/artifacts/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/cgroup-memory-telemetry.service "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
 
-        When call configureServiceExecutionTelemetryForSystemdVersion 245 "${TEST_ROOT}"
+        configure_legacy_twice() {
+            configureServiceExecutionTelemetryForSystemdVersion 245 "${TEST_ROOT}" || return 1
+            configureServiceExecutionTelemetryForSystemdVersion 245 "${TEST_ROOT}" || return 1
+            grep -c '^ExecStopPost=-/bin/systemctl' "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
+        }
+        When call configure_legacy_twice
         The status should be success
+        The output should equal 1
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "OnSuccess="
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "OnFailure="
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should include 'ExecStopPost=-/bin/systemctl --no-block start service-execution-telemetry@cgroup\\x2dmemory\\x2dtelemetry.service.service'
@@ -290,9 +296,9 @@ EOF
         CGROUP_MEMORY_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-memory-telemetry.service"
         CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-pressure-telemetry.service"
         AKS_LOG_COLLECTOR_SERVICE_DEST="${TEST_ROOT}/aks-log-collector.service"
-        cp ./parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
-        cp ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
-        cp ./parts/linux/cloud-init/artifacts/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/cgroup-memory-telemetry.service "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
 
         When call configureServiceExecutionTelemetryForSystemdVersion 249 "${TEST_ROOT}"
         The status should be success
@@ -305,9 +311,9 @@ EOF
         CGROUP_MEMORY_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-memory-telemetry.service"
         CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-pressure-telemetry.service"
         AKS_LOG_COLLECTOR_SERVICE_DEST="${TEST_ROOT}/aks-log-collector.service"
-        cp ./parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
-        cp ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
-        cp ./parts/linux/cloud-init/artifacts/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/cgroup-memory-telemetry.service "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
 
         When call configureServiceExecutionTelemetryForSystemdVersion 258 "${TEST_ROOT}"
         The status should be success
@@ -321,9 +327,9 @@ EOF
         CGROUP_MEMORY_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-memory-telemetry.service"
         CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-pressure-telemetry.service"
         AKS_LOG_COLLECTOR_SERVICE_DEST="${TEST_ROOT}/aks-log-collector.service"
-        cp ./parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
-        cp ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
-        cp ./parts/linux/cloud-init/artifacts/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/cgroup-memory-telemetry.service "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
+        cp ./parts/root/common/etc/systemd/system/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
 
         When call configureServiceExecutionTelemetryForSystemdVersion 256 "${TEST_ROOT}"
         The status should be success

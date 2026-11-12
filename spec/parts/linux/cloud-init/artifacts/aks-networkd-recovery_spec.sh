@@ -2,7 +2,7 @@
 
 Describe 'Azure Linux networkd recovery'
     setup() {
-        Include ./parts/linux/cloud-init/artifacts/mariner/aks-networkd-recovery.sh
+        Include ./parts/root/azurelinux/opt/azure/containers/aks-networkd-recovery.sh
         TEST_DIR="${SHELLSPEC_TMPBASE}/networkd-recovery"
         mkdir -p "$TEST_DIR"
         TEST_STATE='s "failed"'

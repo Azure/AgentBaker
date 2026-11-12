@@ -2,7 +2,7 @@
 
 Describe 'node-exporter-startup.sh hardware arguments'
     NODE_EXPORTER_STARTUP_SOURCE_ONLY=true
-    Include './parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh'
+    Include './parts/root/observability/opt/bin/node-exporter-startup.sh'
 
     setup_pci_devices() {
         PCI_DEVICES_PATH="$(mktemp -d)"
@@ -82,7 +82,7 @@ Describe 'node-exporter-startup.sh hardware arguments'
         NODE_EXPORTER_TLS_ENABLED=false
         hostname() { printf '%s\n' '192.0.2.1'; }
         exec() { printf '%s\n' "$@"; }
-        . ./parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh
+        . ./parts/root/observability/opt/bin/node-exporter-startup.sh
     }
 
     It 'passes the hardware flag to the final exporter invocation'
@@ -151,7 +151,7 @@ Describe 'node-exporter-startup.sh hardware arguments'
 
     run_attach_handler() {
         NODE_EXPORTER_STARTUP_SOURCE_ONLY=false
-        . ./parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh --mana-added
+        . ./parts/root/observability/opt/bin/node-exporter-startup.sh --mana-added
     }
 
     It 'records late attachment and queues only a nonblocking conditional restart'

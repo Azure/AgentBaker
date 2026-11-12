@@ -461,8 +461,17 @@ sequenceDiagram
 
 ## Running Locally
 
-**Note: if you have changed code or artifacts used to generate custom data or custom script extension payloads, you
-should set `DISABLE_SCRIPTLESS=true` in `.env`. Otherwise scriptless provisioning only uses scripts that are built into VHD.**
+Eligible scriptless runs build ANC with the current filesystem from `parts/root`
+and unpack it before preload and provisioning. Scripts, units and static
+configuration therefore do not require a VHD rebuild. There is no generated
+hotfix payload or separate static-file upload.
+
+`DISABLE_SCRIPTLESS_COMPILATION=true`, network-isolated scenarios, and Flatcar
+retain the VHD's ANC and scripts. The embedded-hotfix scenario replaces a file
+in an isolated copy of the full root and verifies that the downloaded ANC
+applies it. Package changes and build-time operations still require a matching
+VHD: unpacking a build tool does not run it. `DISABLE_SCRIPTLESS=true` remains
+available when explicitly testing legacy CSE/CustomData delivery.
 
 Run the E2E suite with `e2e-local.sh`. This script starts the E2E CLI.
 

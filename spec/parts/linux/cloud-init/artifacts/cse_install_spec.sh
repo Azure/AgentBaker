@@ -10,8 +10,8 @@ readPackage() {
 }
 
 Describe 'cse_install.sh'
-    Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_installs.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
 
     Describe 'installContainerRuntime'
         logs_to_events() {

@@ -2,7 +2,7 @@
 set -eux
 : "${CONTAINTER_BASE_URLS_EXISTING:=false}"
 
-source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+source ./parts/root/common/opt/azure/image-build/provision_source_benchmarks.sh
 
 PERFORMANCE_DATA_FILE=vhd-build-performance-data.json
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"

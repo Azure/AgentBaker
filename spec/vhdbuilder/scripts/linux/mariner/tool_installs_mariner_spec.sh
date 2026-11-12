@@ -3,7 +3,7 @@
 Describe 'addMarinerNvidiaRepo'
     setup() {
         TEST_DIR=$(mktemp -d)
-        eval "$(sed -n '/^addMarinerNvidiaRepo()/,/^}/p' './vhdbuilder/scripts/linux/mariner/tool_installs_mariner.sh' | sed "s|/etc/yum.repos.d|${TEST_DIR}|g")"
+        eval "$(sed -n '/^addMarinerNvidiaRepo()/,/^}/p' './parts/root/mariner/opt/azure/image-build/tool_installs_distro.sh' | sed "s|/etc/yum.repos.d|${TEST_DIR}|g")"
     }
 
     cleanup() {

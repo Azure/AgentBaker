@@ -30,11 +30,11 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -
 # Known bash-only scripts that intentionally use bash specific syntax.
 BASH_ONLY_LIST=$(cat <<'EOF'
 ./e2e/scenario/validate_anc_hotfix.sh
-./vhdbuilder/packer/install-ig.sh
+./parts/root/common/opt/azure/image-build/install-ig.sh
 ./vhdbuilder/packer/publish-generalized-cvm-if-required.sh
-./vhdbuilder/packer/ubuntu-2604-cvm/trim-2604-cvm-packages.sh
-./parts/linux/cloud-init/artifacts/npd-update.sh
-./parts/linux/cloud-init/artifacts/aks-localdns-hosts-setup.sh
+./parts/root/linux/opt/azure/image-build/trim-2604-cvm-packages.sh
+./parts/root/packages/opt/azure/containers/npd-update.sh
+./parts/root/hosts/opt/azure/containers/aks-localdns-hosts-setup.sh
 EOF
 )
 

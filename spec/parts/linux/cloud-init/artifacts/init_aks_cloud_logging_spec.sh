@@ -5,7 +5,7 @@ Describe 'init-aks-cloud.sh certificate logging'
         TEST_DIR="$(mktemp -d)"
         unset AKS_CLOUD_LOG_CERTIFICATES JOURNAL_STREAM
         # shellcheck disable=SC1091
-        __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
+        __SOURCED__=1 . "./parts/root/common/opt/azure/containers/init-aks-cloud.sh"
     }
     cleanup() { rm -rf "${TEST_DIR}"; }
     BeforeEach 'setup'
@@ -40,7 +40,7 @@ Describe 'init-aks-cloud.sh certificate logging'
     End
 
     It 'disables inherited tracing without exposing expanded variables'
-        When run bash -xc '__SOURCED__=1 . ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh; response=TRACE_PAYLOAD_SENTINEL; [[ $- != *x* ]]'
+        When run bash -xc '__SOURCED__=1 . ./parts/root/common/opt/azure/containers/init-aks-cloud.sh; response=TRACE_PAYLOAD_SENTINEL; [[ $- != *x* ]]'
         The status should be success
         The stdout should be blank
         The stderr should include 'set +x'
@@ -160,7 +160,7 @@ Describe 'init-aks-cloud.sh certificate logging'
             # Relocate staging only; mock every trust-store write and update.
             # shellcheck disable=SC1090
             __SOURCED__=1 . <(sed "s|/root/AzureCACertificates|${TEST_DIR}/certs|g" \
-                ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh)
+                ./parts/root/common/opt/azure/containers/init-aks-cloud.sh)
             IS_AZURELINUX=1
             cp() { :; }
             update-ca-trust() { return "${INSTALL_STATUS:-0}"; }

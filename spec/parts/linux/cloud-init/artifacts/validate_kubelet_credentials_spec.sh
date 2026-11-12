@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'validate-kubelet-credentials.sh'
-    Include "./parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh"
+    Include "./parts/root/common/opt/azure/containers/validate-kubelet-credentials.sh"
 
     MAX_RETRIES=2
     MOCK_BOOTSTRAP_KUBECONFIG_PATH="mock-bootstrap-kubeconfig"

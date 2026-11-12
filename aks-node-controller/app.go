@@ -74,8 +74,6 @@ type App struct {
 	verifyRPMPackageSignature func(ctx context.Context, packagePath string) error
 	// extractRepositoryPackage overrides package extraction for deterministic unit tests.
 	extractRepositoryPackage func(ctx context.Context, format, packagePath, destination string) error
-	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
-	nodeCustomDataPath string
 	// nodeConfigPath overrides the default AKSNodeConfig path for testing. It is the
 	// source for check-hotfix's LPS endpoint (apiserver FQDN + cluster CA) and the
 	// cold-start fallback pointer.
@@ -149,6 +147,20 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		},
 		Commands: []*cli.Command{
 			{
+				Name:  "unpack-scripts",
+				Usage: "Install the embedded image files for this OS",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "destination", Value: "/", Usage: "root directory in which to unpack the scripts"},
+					&cli.StringSliceFlag{Name: "overlay", Usage: "image variant to apply and remember for future hotfixes (repeatable)"},
+				},
+				Action: func(_ context.Context, cmd *cli.Command) error {
+					if cmd.Args().Len() != 0 {
+						return fmt.Errorf("unexpected unpack-scripts arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return unpackScripts(a.osReleasePath, cmd.String("destination"), cmd.StringSlice("overlay"))
+				},
+			},
+			{
 				Name:  "provision",
 				Usage: "Run node provisioning",
 				Flags: []cli.Flag{
@@ -196,7 +208,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 			},
 			{
 				Name:  "apply-embedded-hotfix",
-				Usage: "Apply embedded hotfix scripts",
+				Usage: "Unpack the complete embedded image (compatibility alias for older launchers)",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					if len(cmd.Args().Slice()) > 0 {
 						return fmt.Errorf("unexpected apply-embedded-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
@@ -273,17 +285,30 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 	return nil
 }
 
-func (a *App) runApplyHotfixCommand(context.Context) error {
+func (a *App) runApplyHotfixCommand(ctx context.Context) error {
 	slog.Info("aks-node-controller hotfix apply started")
 	applyHotfix := a.applyEmbeddedHotfix
 	if applyHotfix == nil {
 		applyHotfix = func(osReleasePath string) error {
-			return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath)
+			return unpackScripts(osReleasePath, "/", nil)
 		}
 	}
 	if err := applyHotfix(a.osReleasePath); err != nil {
 		slog.Error("aks-node-controller failed to apply embedded hotfix payload", "error", err)
 		return err
+	}
+	if _, err := os.Stat("/run/systemd/system"); err == nil {
+		// The same version-dependent unit adjustments are used by the image build.
+		normalize := `source /opt/azure/containers/provision_source.sh &&
+configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')"`
+		if err := a.cmdRun(exec.CommandContext(ctx, "/bin/bash", "-c", normalize)); err != nil {
+			return fmt.Errorf("configure hotfixed systemd units: %w", err)
+		}
+		if err := a.cmdRun(exec.CommandContext(ctx, "systemctl", "daemon-reload")); err != nil {
+			return fmt.Errorf("reload hotfixed systemd units: %w", err)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect systemd runtime: %w", err)
 	}
 
 	slog.Info("aks-node-controller apply embedded hotfix payload finished")
@@ -291,7 +316,7 @@ func (a *App) runApplyHotfixCommand(context.Context) error {
 }
 
 // defaultGPUComponentsFilePath is where the VHD build places components.json (see
-// vhdbuilder/packer/install-dependencies.sh). All scriptless VHDs are expected to have
+// parts/root/common/opt/azure/image-build/install-dependencies.sh). All scriptless VHDs are expected to have
 // this file baked in, so a missing or malformed file indicates a real build/provisioning
 // bug rather than an expected legacy-VHD gap.
 const defaultGPUComponentsFilePath = "/opt/azure/components.json"
@@ -355,13 +380,6 @@ func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {
 	cmd := exec.CommandContext(ctx, "/bin/bash", "--", scriptPath)
 	cmd.Env = os.Environ()
 	return cmd, nil
-}
-
-func (a *App) getNodeCustomDataPath() string {
-	if a.nodeCustomDataPath != "" {
-		return a.nodeCustomDataPath
-	}
-	return defaultNodeCustomDataPath
 }
 
 func (a *App) getGPUComponentsFilePath() string {

@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC2329
 
 Describe 'trim-2604-cvm-packages'
-  TRIM_SCRIPT="./vhdbuilder/packer/ubuntu-2604-cvm/trim-2604-cvm-packages.sh"
+  TRIM_SCRIPT="./parts/root/linux/opt/azure/image-build/trim-2604-cvm-packages.sh"
 
   setup_trim() {
     TEST_DIR="$(mktemp -d)"

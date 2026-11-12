@@ -10,7 +10,7 @@
 # when it gets populated — no polling/waiting is done in this function.
 
 Describe 'select_localdns_corefile()'
-    LOCALDNS_PATH="parts/linux/cloud-init/artifacts/localdns.sh"
+    LOCALDNS_PATH="parts/root/common/opt/azure/containers/localdns/localdns.sh"
 
     # Mock base64-encoded corefiles for testing
     COREFILE_WITH_HOSTS="aG9zdHMgL2V0Yy9sb2NhbGRucy9ob3N0cw=="  # "hosts /etc/localdns/hosts"
@@ -129,7 +129,7 @@ End
 
 Describe 'NVIDIA Fabric Manager startup timeout'
     It 'allows NVSwitch fabric initialization to finish before retrying the service'
-        When run awk -F'"' '/logs_to_events "AKS\.CSE\.nvidia-fabricmanager"/ { print $4 }' parts/linux/cloud-init/artifacts/cse_main.sh
+        When run awk -F'"' '/logs_to_events "AKS\.CSE\.nvidia-fabricmanager"/ { print $4 }' parts/root/common/opt/azure/containers/provision.sh
         The output should equal "systemctlEnableAndStart nvidia-fabricmanager 60"
         The status should be success
     End
@@ -141,7 +141,7 @@ Describe 'proxy environment exports'
         HTTP_PROXY_URLS=""
         HTTPS_PROXY_URLS=""
         NO_PROXY_URLS=""
-        proxy_exports="$(sed -n '/^# configureEtcEnvironment persists/,/^# Disable a single kernel module/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
+        proxy_exports="$(sed -n '/^# configureEtcEnvironment persists/,/^# Disable a single kernel module/p' parts/root/common/opt/azure/containers/provision.sh)"
     }
 
     cleanup() {
@@ -234,7 +234,7 @@ Describe 'connectivity preflight timeouts'
                         print "false"
                     }
                 }
-            ' parts/linux/cloud-init/artifacts/cse_main.sh
+            ' parts/root/common/opt/azure/containers/provision.sh
         }
 
         When call proxy_consumer_order
@@ -242,19 +242,19 @@ Describe 'connectivity preflight timeouts'
     End
 
     It 'does not evaluate PROXY_VARS'
-        When run grep -F 'eval $PROXY_VARS' parts/linux/cloud-init/artifacts/cse_main.sh
+        When run grep -F 'eval $PROXY_VARS' parts/root/common/opt/azure/containers/provision.sh
         The status should be failure
         The output should equal ""
     End
 
     It 'allows DNS failover during the outbound check'
-        When run awk '/retrycmd_if_failure [0-9]+ [0-9]+ [0-9]+ \$OUTBOUND_COMMAND/ { print $2, $3, $4 }' parts/linux/cloud-init/artifacts/cse_main.sh
+        When run awk '/retrycmd_if_failure [0-9]+ [0-9]+ [0-9]+ \$OUTBOUND_COMMAND/ { print $2, $3, $4 }' parts/root/common/opt/azure/containers/provision.sh
         The output should eq "20 1 15"
         The status should be success
     End
 
     It 'allows DNS failover during the API server check'
-        When run grep -F 'retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 15 curl' parts/linux/cloud-init/artifacts/cse_main.sh
+        When run grep -F 'retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 15 curl' parts/root/common/opt/azure/containers/provision.sh
         The output should include 'retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 15 curl'
         The status should be success
     End

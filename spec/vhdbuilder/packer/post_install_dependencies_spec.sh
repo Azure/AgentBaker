@@ -12,7 +12,7 @@ Describe 'ACL image version stamp'
 
     # Run only the stamp block, redirecting its output path away from the host.
     sed -n '/^if isACL "$OS" "$OS_VARIANT"; then$/,/^fi$/p' \
-      ./vhdbuilder/packer/post-install-dependencies.sh |
+      ./parts/root/linux/opt/azure/image-build/post-install-dependencies.sh |
       sed 's|^  IMAGE_VERSION_FILEPATH=/opt/azure/containers/image-version$|  IMAGE_VERSION_FILEPATH="${TEST_IMAGE_VERSION_FILE}"|' \
         > "$TEST_SCRIPT"
 

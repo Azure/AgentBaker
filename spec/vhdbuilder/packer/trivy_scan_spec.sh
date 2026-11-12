@@ -3,8 +3,8 @@
 
 Describe 'install_trivy'
   BeforeAll "eval \"\$(sed -n '/^install_trivy()/,/^}$/p' vhdbuilder/packer/trivy-scan.sh)\""
-  Include './parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh'
-  Include './parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh'
+  Include './parts/root/ubuntu/opt/azure/containers/provision_installs_distro.sh'
+  Include './parts/root/mariner/opt/azure/containers/provision_installs_distro.sh'
 
   TRIVY_PMC_VERSION=0.72.0
 

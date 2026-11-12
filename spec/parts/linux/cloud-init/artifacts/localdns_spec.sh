@@ -7,7 +7,7 @@ lsb_release() {
 Describe 'localdns.sh'
 
 # This section tests - verify_localdns_corefile, verify_localdns_slicefile, verify_localdns_binary, replace_azurednsip_in_corefile.
-# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# These functions are defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'verify_localdns_files'
         check_file_permissions() {
@@ -18,7 +18,7 @@ Describe 'localdns.sh'
         }
 
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
 
             TEST_DIR="/tmp/localdnstest"
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
@@ -472,11 +472,11 @@ EOF
 
 
 # This section tests - build_localdns_iptable_rules, verify_default_route_interface, verify_network_file, verify_network_dropin_dir.
-# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# These functions are defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'build_localdns_iptable_rules_and_verify_network_file'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
             TEST_DIR="/tmp/localdnstest"
             DEFAULT_ROUTE_INTERFACE="eth0"
             NETWORK_FILE_DIR="${TEST_DIR}/etc/systemd/network"
@@ -712,11 +712,11 @@ EOF
 
 
 # This section tests - start_localdns
-# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# This function is defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'start_localdns'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
             LOCALDNS_PID_FILE="/tmp/localdns.pid"
         }
         cleanup() {
@@ -760,11 +760,11 @@ EOF
 
 
 # This section tests - wait_for_localdns_ready
-# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# These functions are defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'wait_for_localdns_ready'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
         }
         BeforeEach 'setup'
     #------------------------- wait_for_localdns_ready -----------------------------------------------------------
@@ -799,11 +799,11 @@ EOF
 
 
 # This section tests - add_iptable_rules_to_skip_conntrack_from_pods
-# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# This function is defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'add_iptable_rules_to_skip_conntrack_from_pods'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
             LOCALDNS_NODE_LISTENER_IP="10.0.0.1"
             LOCALDNS_CLUSTER_LISTENER_IP="10.0.0.2"
             IPTABLES_RULES=("raw -t raw -p udp --dport 53 -j NOTRACK" "raw -t raw -p tcp --dport 53 -j NOTRACK")
@@ -862,7 +862,7 @@ EOF
 
 
 # This section tests - disable_dhcp_use_clusterlistener
-# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# These functions are defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'disable_dhcp_use_clusterlistener'
         setup() {
@@ -870,7 +870,7 @@ EOF
             NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/10-localdns.conf"
             LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
 
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
         }
         cleanup() {
             rm -rf "$NETWORK_DROPIN_DIR"
@@ -898,7 +898,7 @@ EOF
 
 
 # This section tests - cleanup_iptables_and_dns
-# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# This function is defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'cleanup_iptables_and_dns'
         setup() {
@@ -956,7 +956,7 @@ EOF
                 return 0
             }
 
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
         }
         cleanup() {
             rm -rf "/tmp/test-network-dropin.conf"
@@ -1089,7 +1089,7 @@ EOF
 
 
 # This section tests - cleanup_localdns_configs
-# These functions is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# These functions is defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'cleanup_localdns_configs'
         setup() {
@@ -1125,7 +1125,7 @@ EOF
                 fi
             }
 
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
         }
         cleanup() {
             rm -rf "/tmp/test-network-dropin.conf"
@@ -1390,7 +1390,7 @@ EOF
 # bash dying on the default action, leaving the watchdog sleep orphaned in the cgroup and
 # cleanup to ExecStopPost alone.
     Describe 'signal traps'
-        LOCALDNS_SRC="./parts/linux/cloud-init/artifacts/localdns.sh"
+        LOCALDNS_SRC="./parts/root/common/opt/azure/containers/localdns/localdns.sh"
 
         # Build a harness containing the real trap lines plus stubs for what they call, so the
         # assertions below are about the shipped text and not about a copy of it.
@@ -1449,11 +1449,11 @@ EOF
 
 
 # This section tests - start_localdns_watchdog
-# These functions is also defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# These functions is also defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'start_localdns_watchdog'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
         }
         BeforeEach 'setup'
         #------------------------- start_localdns_watchdog ------------------------------------------------------------
@@ -1475,7 +1475,7 @@ EOF
 # the shipped 'set' line and traps, so 'set -e' behaves as it does on a node.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'systemd notifications with a busy PID 1'
-        LOCALDNS_SRC="./parts/linux/cloud-init/artifacts/localdns.sh"
+        LOCALDNS_SRC="./parts/root/common/opt/azure/containers/localdns/localdns.sh"
 
         # $1: 246 = systemd-notify has --no-block, and without it the acknowledgement wait times out.
         #     245 = systemd-notify has no --no-block (Ubuntu 20.04) and no acknowledgement wait.
@@ -1566,7 +1566,7 @@ EOF
     End
 
 # This section tests - stop_watchdog_sleep
-# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# This function is defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #
 # The watchdog waits by backgrounding 'sleep' so a signal can interrupt the wait. With
 # KillMode=mixed systemd signals only the main process, so the child has to be reaped
@@ -1576,7 +1576,7 @@ EOF
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'stop_watchdog_sleep'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
         }
         BeforeEach 'setup'
 
@@ -1634,11 +1634,11 @@ EOF
 
 
 # This section tests - wait_for_localdns_removed_from_resolv_conf
-# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# This function is defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'wait_for_localdns_removed_from_resolv_conf'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
             TEST_DIR="/tmp/localdnstest-$$"
             RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
             mkdir -p "$(dirname "$RESOLV_CONF")"
@@ -1804,11 +1804,11 @@ EOF
 
 #------------------------------------------------------------------------------------------------------------------------------------
 # This section tests - upstream_dns_servers_routable, upstream_dns_servers_listed and wait_for_network_reload_settled
-# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# These functions are defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'wait_for_network_reload_settled'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
             TEST_DIR="/tmp/localdnstest-$$"
             RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
             ROUTE_CALL_COUNT_FILE="${TEST_DIR}/route-calls"
@@ -1931,7 +1931,7 @@ EOF
 
     Describe 'export_resource_metrics'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
             TEST_DIR="/tmp/localdnstest"
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
@@ -1978,11 +1978,11 @@ EOF
     End
 
 # This section tests - annotate_node_with_hosts_plugin_status
-# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# This function is defined in parts/root/common/opt/azure/containers/localdns/localdns.sh file.
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'annotate_node_with_hosts_plugin_status'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
             TEST_DIR="/tmp/localdnstest-$$"
             KUBECONFIG="${TEST_DIR}/var/lib/kubelet/kubeconfig"
             UPDATED_LOCALDNS_CORE_FILE="${TEST_DIR}/opt/azure/containers/localdns/updated.localdns.corefile"
@@ -2450,7 +2450,7 @@ KUBECTL_EOF
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'cleanup_iptables_and_dns'
         setup() {
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            Include "./parts/root/common/opt/azure/containers/localdns/localdns.sh"
 
             TEST_DIR="$(mktemp -d)"
             DEFAULT_ROUTE_INTERFACE="eth0"

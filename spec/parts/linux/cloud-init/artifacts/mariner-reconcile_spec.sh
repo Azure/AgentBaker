@@ -3,8 +3,8 @@
 
 Describe 'Azure Linux reconciliation failure isolation and events'
     setup() {
-        Include ./parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh
-        Include ./parts/linux/cloud-init/artifacts/mariner/security-update.sh
+        Include ./parts/root/mariner/opt/azure/containers/mariner-package-update.sh
+        Include ./parts/root/mariner/opt/azure/containers/security-update.sh
         TEST_DIR=$(mktemp -d)
         LIVE_PATCHING_STATE_FILE="${TEST_DIR}/current.json"
         KNEAD_EVENTS_LOGGING_DIR="${TEST_DIR}/events"

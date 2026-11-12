@@ -16,7 +16,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -29,25 +28,12 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
-	"gopkg.in/yaml.v3"
 )
 
 const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 	hotfixMarker                             = "#hotfix-marker"
 )
-
-type scriptHotfixFixtureNodeCustomData struct {
-	WriteFiles []scriptHotfixFixtureWriteFile `yaml:"write_files"`
-}
-
-type scriptHotfixFixtureWriteFile struct {
-	Path        string `yaml:"path"`
-	Permissions string `yaml:"permissions"`
-	Encoding    string `yaml:"encoding"`
-	Owner       string `yaml:"owner"`
-	Content     string `yaml:"content"`
-}
 
 func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string, error) {
 	binary, err := compileAKSNodeController(ctx, arch)
@@ -86,7 +72,25 @@ func compileAndUploadAKSNodeControllerWithScriptHotfix(
 	if err := os.CopyFS(buildDir, os.DirFS(sourceDir)); err != nil {
 		return "", fmt.Errorf("copy ANC module for isolated script-hotfix build: %w", err)
 	}
-	if err := writeScriptHotfixFixture(buildDir, fixture); err != nil {
+	rootDir := filepath.Join(buildDir, "agentbaker")
+	if err := os.CopyFS(filepath.Join(rootDir, "parts"), os.DirFS(filepath.Join(repoRoot, "parts"))); err != nil {
+		return "", fmt.Errorf("copy embedded root: %w", err)
+	}
+	for _, name := range []string{"go.mod", "go.sum"} {
+		content, err := os.ReadFile(filepath.Join(repoRoot, name))
+		if err != nil {
+			return "", err
+		}
+		if err := os.WriteFile(filepath.Join(rootDir, name), content, 0o600); err != nil {
+			return "", err
+		}
+	}
+	cmd := exec.CommandContext(ctx, "go", "mod", "edit", "-replace=github.com/Azure/agentbaker="+rootDir)
+	cmd.Dir = buildDir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("configure isolated ANC source dependency: %w: %s", err, output)
+	}
+	if err := writeScriptHotfixFixture(rootDir, fixture); err != nil {
 		return "", err
 	}
 
@@ -181,8 +185,6 @@ func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) erro
 		return fmt.Errorf("script-hotfix fixture has no files")
 	}
 
-	generatedDir := filepath.Join(buildDir, "generated")
-	rendered := scriptHotfixFixtureNodeCustomData{}
 	destinations := make(map[string]bool, len(fixture.Files))
 	for _, file := range fixture.Files {
 		if !path.IsAbs(file.Destination) ||
@@ -194,31 +196,16 @@ func writeScriptHotfixFixture(buildDir string, fixture ScriptHotfixFixture) erro
 			return fmt.Errorf("duplicate script-hotfix fixture destination %q", file.Destination)
 		}
 		destinations[file.Destination] = true
-		mode, err := strconv.ParseUint(file.Mode, 8, 32)
-		if err != nil || mode == 0 || mode > 0o777 {
-			return fmt.Errorf("invalid script-hotfix fixture mode %q", file.Mode)
-		}
 		if len(file.Payload) == 0 {
 			return fmt.Errorf("script-hotfix fixture payload for %q is empty", file.Destination)
 		}
-		rendered.WriteFiles = append(rendered.WriteFiles, scriptHotfixFixtureWriteFile{
-			Path:        file.Destination,
-			Permissions: file.Mode,
-			Encoding:    "base64",
-			Owner:       "root",
-			Content:     base64.StdEncoding.EncodeToString(file.Payload),
-		})
-	}
-	data, err := yaml.Marshal(rendered)
-	if err != nil {
-		return fmt.Errorf("marshal rendered script-hotfix fixture: %w", err)
-	}
-	outputPath := filepath.Join(
-		generatedDir,
-		"rendered_nodecustomdata_"+fixture.Platform+".yml",
-	)
-	if err := os.WriteFile(outputPath, data, 0o600); err != nil {
-		return fmt.Errorf("write rendered script-hotfix fixture: %w", err)
+		outputPath := filepath.Join(buildDir, "parts/root", fixture.Platform, strings.TrimPrefix(file.Destination, "/"))
+		if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(outputPath, file.Payload, 0o644); err != nil {
+			return fmt.Errorf("write embedded fixture: %w", err)
+		}
 	}
 	return nil
 }
@@ -362,13 +349,37 @@ func deleteVMSSAndWait(ctx context.Context, s *Scenario) {
 // (check aks-node-controller.service for details).
 // with a coreos.units block to define and start the service instead.
 func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
+	return customDataWithANC(customData, binaryURL, false)
+}
+
+func CustomDataWithScriptBundle(customData, binaryURL string) (string, error) {
+	return customDataWithANC(customData, binaryURL, true)
+}
+
+func customDataWithANC(customData, binaryURL string, unpack bool) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(customData)
 	if err != nil {
 		return "", fmt.Errorf("decode custom data: %w", err)
 	}
 
 	binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
-	customData = strings.Replace(string(decoded), hotfixMarker, binaryDownloadCmd, -1)
+	rendered := string(decoded)
+	if !strings.Contains(rendered, hotfixMarker) {
+		return "", fmt.Errorf("hotfix marker %q not found in custom data", hotfixMarker)
+	}
+	if unpack {
+		binaryDownloadCmd += " && /opt/azure/containers/aks-node-controller-hotfix unpack-scripts || exit 1"
+		// Preload starts before the hotfix marker. Install the bundle before it
+		// can execute an old script from the VHD.
+		const preload = "nohup /bin/bash /opt/azure/containers/provision_preload.sh"
+		index := strings.Index(rendered, preload)
+		if index < 0 {
+			return "", fmt.Errorf("preload command not found in scriptless custom data")
+		}
+		rendered = rendered[:index] + binaryDownloadCmd + "\n\n" + rendered[index:]
+		binaryDownloadCmd = ""
+	}
+	customData = strings.ReplaceAll(rendered, hotfixMarker, binaryDownloadCmd)
 	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 }
 
@@ -515,7 +526,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload aks-node-controller binary: %w", err)
 		}
-		customData, err = CustomDataWithNBCCmdHack(customData, binaryURL)
+		customData, err = CustomDataWithScriptBundle(customData, binaryURL)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with NBC cmd hack: %w", err)
 		}

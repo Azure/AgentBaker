@@ -13,7 +13,12 @@ import (
 
 func main() {
 	// defer calls are not executed on os.Exit
-	logCleanup := configureLogging()
+	logCleanup := func() {}
+	// Packaging commands also run on build hosts; do not create provisioning
+	// logs or require access to /var/log there.
+	if len(os.Args) < 2 || os.Args[1] != "unpack-scripts" {
+		logCleanup = configureLogging()
+	}
 	app := App{
 		cmdRun:      cmdRunner,
 		eventLogger: helpers.NewEventLogger("/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"),

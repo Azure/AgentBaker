@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Tests for detachAndCleanUpUA / disableAndMaskUbuntuProUnit from
-# vhdbuilder/scripts/linux/ubuntu/tool_installs_ubuntu.sh
+# parts/root/ubuntu/opt/azure/image-build/tool_installs_distro.sh
 #
 # Background: the Ubuntu 20.04 / FIPS VHD must ship with Ubuntu Pro made INERT (no phone-home
 # to esm.ubuntu.com or contracts.canonical.com) while preserving the installed FIPS kernel.
@@ -9,7 +9,7 @@
 # background units, and removes the baked-in machine token, without ever running 'ua detach'.
 #
 # tool_installs_ubuntu.sh contains {{/* ... */}} template comments that are sed-stripped at VHD
-# build time (see vhdbuilder/packer/pre-install-dependencies.sh). We reproduce that strip here
+# build time (see parts/root/linux/opt/azure/image-build/pre-install-dependencies.sh). We reproduce that strip here
 # and eval the result so the ERR_* constants are assigned correctly and the functions are
 # defined for the test shell.
 
@@ -18,7 +18,7 @@
 # shellcheck disable=SC2329
 
 Describe 'detachAndCleanUpUA'
-  UBUNTU_TOOL_INSTALLS="./vhdbuilder/scripts/linux/ubuntu/tool_installs_ubuntu.sh"
+  UBUNTU_TOOL_INSTALLS="./parts/root/ubuntu/opt/azure/image-build/tool_installs_distro.sh"
 
   setup_detach_ua() {
     # Strip the build-time template comments, then define the functions and ERR_* constants.

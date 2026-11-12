@@ -25,8 +25,8 @@ Describe 'cse_install_mariner.sh'
         }
     }
     BeforeAll 'setup'
-    Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
-    Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_installs.sh"
+    Include "./parts/root/mariner/opt/azure/containers/provision_installs_distro.sh"
 
     Describe 'installDeps'
         It 'installs the required packages with installDeps for Mariner 2.0'

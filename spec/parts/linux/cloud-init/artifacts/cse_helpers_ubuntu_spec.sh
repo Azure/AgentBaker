@@ -6,8 +6,8 @@ Describe 'apt_get_install budget timeout'
     }
     BeforeEach apt_install_precheck
 
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
-    Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
+    Include "./parts/root/ubuntu/opt/azure/containers/provision_source_distro.sh"
 
     Describe '_apt_get_install with budget'
         # Mock apt-related commands and timeout to isolate budget logic

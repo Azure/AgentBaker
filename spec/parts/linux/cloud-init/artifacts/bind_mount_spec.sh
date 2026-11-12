@@ -3,7 +3,7 @@
 Describe 'bind-mount.sh'
     exec 19>/dev/null
     export BASH_XTRACEFD=19
-    Include './parts/linux/cloud-init/artifacts/bind-mount.sh'
+    Include './parts/root/common/opt/azure/containers/bind-mount.sh'
     set +x
     unset BASH_XTRACEFD
     exec 19>&-

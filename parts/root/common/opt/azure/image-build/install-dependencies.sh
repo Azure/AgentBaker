@@ -1,0 +1,1467 @@
+#!/bin/bash
+set -euo pipefail
+
+K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
+AZURELINUX_KATA_OS_NAME="AZURELINUXKATA"
+AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
+FLATCAR_OS_NAME="FLATCAR"
+ACL_OS_NAME="AZURECONTAINERLINUX"
+
+# Real world examples from the command outputs
+# For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
+# For Azure Linux V2: ID=mariner VERSION_ID="2.0"
+OS=$(sort -r /etc/*-release | sed -n 's/^ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+OS_VARIANT=$(sort -r /etc/*-release | sed -n 's/^VARIANT_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+IS_KATA="false"
+if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+  IS_KATA="true"
+fi
+OS_VERSION=$(sort -r /etc/*-release | sed -n 's/^VERSION_ID=//p' | head -n1 | tr -d '"' | tr '[:lower:]' '[:upper:]')
+
+THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
+
+source /opt/azure/containers/provision_installs.sh
+source /opt/azure/containers/provision_installs_distro.sh
+source /opt/azure/containers/provision_source.sh
+source /opt/azure/image-build/provision_source_benchmarks.sh
+source /opt/azure/containers/provision_source_distro.sh
+source /opt/azure/image-build/tool_installs.sh
+source /opt/azure/image-build/tool_installs_distro.sh
+source /opt/azure/image-build/install-ig.sh
+source /opt/azure/image-build/install-node-exporter.sh
+
+CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+SYSTEMD_ARCH=$(getSystemdArch)  # x86-64 or arm64
+VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+COMPONENTS_FILEPATH=/opt/azure/components.json
+LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
+PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
+GRID_COMPATIBILITY_DATA_FILE=/opt/azure/vhd-grid-compatibility-data.json
+
+string_replace() {
+  echo ${1//\*/$2}
+}
+
+
+VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
+
+kernelVersionGe() {
+  local version_a="$1"
+  local version_b="$2"
+  local sorted
+  local highest_version
+
+  sorted=$(printf "%s\n%s\n" "$version_a" "$version_b" | sort -V)
+  highest_version=$(printf "%s\n" "$sorted" | tail -n 1)
+  [ "$version_a" = "$highest_version" ]
+}
+
+ubuntuKernelIncludesVulnerableModuleFixes() {
+  local kernel_release
+  local fixed_kernel
+  local os_version
+
+  kernel_release="$(uname -r 2>/dev/null || true)"
+  if [ -z "$kernel_release" ]; then
+    return 1
+  fi
+
+  # Prefer the OS_VERSION env var, but fall back to /etc/os-release when it is empty.
+  # VHD build scripts run in environments where OS_VERSION is not always exported, so
+  # relying on it alone made out-of-scope releases (e.g. Ubuntu 26.04) fall through to the
+  # default bake path and ship the deny rules. Reading /etc/os-release keeps this gate
+  # consistent with cleanup-vhd.sh and cse_helpers.sh, which detect the release the same way.
+  os_version="${OS_VERSION}"
+  if [ -z "$os_version" ]; then
+    os_version="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || true)"
+  fi
+  if [ -z "$os_version" ]; then
+    return 1
+  fi
+
+  case "$os_version" in
+    20.04)
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
+    22.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    24.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    # Future Ubuntu releases are not in this mitigation scope by default; if a
+    # future release needs the deny rules, add an explicit case above.
+    *) return 0 ;;
+  esac
+
+  kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
+removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
+  local modprobe_conf
+  local tmp_modprobe_conf
+
+  for modprobe_conf in /etc/modprobe.d/*.conf; do
+    [ -f "$modprobe_conf" ] || continue
+    tmp_modprobe_conf="${modprobe_conf}.tmp.$$"
+    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    cat "$tmp_modprobe_conf" > "$modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    rm -f "$tmp_modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
+  done
+}
+
+# CVE-2026-31431 (Copy Fail), DirtyFrag, Fragnesia mitigation: copyPackerFiles bakes the full
+# modprobe-CIS.conf, including the algif_aead / esp4 / esp6 / rxrpc deny rules. Strip only
+# those rules (and their comments) on OS streams that no longer need them; the rest of the
+# CIS module deny list (dccp/sctp/rds/tipc/cramfs/etc.) stays intact on every OS stream.
+#
+# The vulnerable-module block is removed on fixed Ubuntu 22.04 / 24.04 kernels,
+# by default on future Ubuntu releases that are not explicitly in mitigation scope,
+# and on AzureLinux 3.0 (non-OSGuard) because:
+#   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
+#      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
+#      at runtime if it detects an older vulnerable Ubuntu kernel.
+#   2. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
+#   3. Customer workloads require those kernel modules; the bake-in actively blocks
+#      legitimate use cases on fixed kernels.
+# See https://github.com/Azure/AKS/issues/5753.
+# Other Ubuntu 20.04 kernels, Mariner / AzureLinux 2.0, and AzureLinux OSGuard keep the full bake-in.
+configureVulnerableKernelModuleDenyRules() {
+  local modprobe_cis=/etc/modprobe.d/CIS.conf
+  local context_message
+
+  if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
+    context_message="on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
+  elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    context_message="on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the full bake-in)"
+  else
+    return 0
+  fi
+
+  echo "Removing algif_aead / esp4 / esp6 / rxrpc deny rules from modprobe.d ${context_message}"
+  sed -i -E \
+    -e '/^# CVE-2026-31431 \(Copy Fail\):/d' \
+    -e '/^# until kernel fix is available\. See https:\/\/ubuntu\.com\/blog\/copy-fail-vulnerability-fixes-available$/d' \
+    -e '/^# DirtyFrag \/ CopyFail2:/d' \
+    -e '/^# write LPE vulnerabilities\. rxrpc path bypasses AppArmor userns restrictions\.$/d' \
+    -e '/^# AKS platform components do not require kernel IPsec ESP\/XFRM or AFS\/RxRPC\.$/d' \
+    -e '/^# Disabling these modules prevents workloads that rely on those protocols from working$/d' \
+    -e '/^# on the node\. See https:\/\/github\.com\/V4bel\/dirtyfrag$/d' \
+    "$modprobe_cis" || return 1
+  removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || return 1
+  if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
+    echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d/*.conf"
+    grep -nE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf || true
+    return 1
+  fi
+}
+
+# doing this at vhd allows CSE to be faster with just mv
+unpackTgzToCNIDownloadsDIR() {
+  local download_dir=${1}
+  local url=${2}
+  local cni_tgz_tmp=${url##*/}
+  local cni_dir_tmp=${cni_tgz_tmp%.tgz}
+  mkdir -p "${download_dir}/${cni_dir_tmp}"
+  extract_tarball "${download_dir}/${cni_tgz_tmp}" "${download_dir}/${cni_dir_tmp}"
+  rm -rf "${download_dir:?}/${cni_tgz_tmp}"
+  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
+}
+
+cacheVersionedKubernetesPackageBinary() {
+  local package_name=${1}
+  local package_version=${2}
+  local download_dir=${3}
+  local version_no_epoch
+  local k8s_version
+  local binary_path="/opt/bin/${package_name}"
+
+  version_no_epoch="${package_version#*:}"
+  k8s_version="${version_no_epoch%%-*}"
+  binary_path="${binary_path}-${k8s_version}"
+
+  mkdir -p /opt/bin
+
+  if isUbuntu "$OS"; then
+    local deb_file
+    local tmp_dir
+
+    deb_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}_*" -print 2>/dev/null | grep -E "${package_name}_${version_no_epoch}([^0-9]|$)" | sort -V | tail -n 1) || deb_file=""
+    if [ -z "${deb_file}" ]; then
+      echo "Failed to locate cached ${package_name} deb for ${package_version}"
+      return 1
+    fi
+
+    tmp_dir=$(mktemp -d)
+    if ! dpkg-deb -x "${deb_file}" "${tmp_dir}"; then
+      rm -rf "${tmp_dir}"
+      return 1
+    fi
+
+    if [ ! -f "${tmp_dir}/usr/bin/${package_name}" ]; then
+      echo "Failed to find /usr/bin/${package_name} in ${deb_file}"
+      rm -rf "${tmp_dir}"
+      return 1
+    fi
+
+    install -m0755 "${tmp_dir}/usr/bin/${package_name}" "${binary_path}"
+    rm -rf "${tmp_dir}"
+  elif isMarinerOrAzureLinux "$OS"; then
+    local rpm_file
+
+    rpm_file=$(find "${download_dir}" -maxdepth 1 -name "${package_name}-*" -print 2>/dev/null | grep -E "${package_name}-${version_no_epoch}([^0-9]|$)" | sort -V | tail -n 1) || rpm_file=""
+    if [ -z "${rpm_file}" ]; then
+      echo "Failed to locate cached ${package_name} rpm for ${package_version}"
+      return 1
+    fi
+
+    rpm2cpio "${rpm_file}" | cpio -i --to-stdout "./usr/bin/${package_name}" "./usr/local/bin/${package_name}" | install -m0755 /dev/stdin "${binary_path}"
+  else
+    echo "Skipping versioned binary extraction for unsupported OS ${OS}"
+    return 0
+  fi
+
+  echo "  - cached ${package_name} binary at ${binary_path}" >> "${VHD_LOGS_FILEPATH}"
+}
+
+# this is for the old package not coming from Dalec, currently fixed at 1.6.2.
+# The binary is expected to be present during bootstrapping, no dynamic download logic exists for this one
+downloadCNIPlugins() {
+    local download_dir=${1}
+    mkdir -p "${download_dir}"
+    local cni_plugins_url=${2}
+    local cni_tgz_tmp=${cni_plugins_url##*/}
+    retrycmd_get_tarball 120 5 "${download_dir}/${cni_tgz_tmp}" "${cni_plugins_url}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
+# The version used to be determined by RP/toggle but is now just hardcoded in the VHD as it rarely changes and requires a node image upgrade anyway.
+installCNI() {
+    local downloadDir=${1}
+    local evaluatedURL=${2}
+    local version=${3}
+    local fullPackageVersion
+    local packageName
+
+    echo "installing containernetworking-plugins version ${version}"
+
+    # Create CNI_BIN_DIR for all installation methods
+    mkdir -p "$CNI_BIN_DIR"
+    chown -R root:root "$CNI_BIN_DIR"
+
+    # if downloadDir and evaluatedURL are not empty, download and extract tarball (for flatcar/osguard)
+    if [ -n "${downloadDir}" ] && [ -n "${evaluatedURL}" ]; then
+        mkdir -p "${downloadDir}"
+        chown -R root:root "${downloadDir}"
+
+        echo "Downloading CNI plugins from ${evaluatedURL}"
+        retrycmd_get_tarball 120 5 "${downloadDir}/cni-plugins.tar.gz" "${evaluatedURL}" || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+        extract_tarball "${downloadDir}/cni-plugins.tar.gz" "$CNI_BIN_DIR"
+        rm -f "${downloadDir}/cni-plugins.tar.gz"
+        return 0
+    fi
+
+    # Package manager installation (for Ubuntu/Mariner/AzureLinux)
+    if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+        fullPackageVersion=$(getLatestDebPackageVersion "containernetworking-plugins" "${version}") || fullPackageVersion=""
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid containernetworking-plugins version for ${version}"
+            exit $ERR_CNI_VERSION_INVALID
+        fi
+        logResolvedPackageVersion "containernetworking-plugins" "${version}" "${fullPackageVersion}"
+        packageName="containernetworking-plugins=${fullPackageVersion}"
+        echo "Installing ${packageName} with apt-get"
+        apt_get_install 20 30 120 "${packageName}" || exit $ERR_CNI_VERSION_INVALID
+        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+    elif isMarinerOrAzureLinux "$OS"; then
+        fullPackageVersion=$(getLatestRPMPackageVersion "containernetworking-plugins" "${version}") || fullPackageVersion=""
+        if [ -z "${fullPackageVersion}" ]; then
+            echo "Failed to find valid containernetworking-plugins version for ${version}"
+            exit $ERR_CNI_VERSION_INVALID
+        fi
+        logResolvedPackageVersion "containernetworking-plugins" "${version}" "${fullPackageVersion}"
+        packageName="containernetworking-plugins-${fullPackageVersion}"
+        echo "Installing ${packageName} with dnf"
+        dnf_install 10 2 120 "${packageName}" || exit $ERR_CNI_VERSION_INVALID
+        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR
+    else
+        echo "ERROR: Unsupported OS for containernetworking-plugins installation: ${OS}"
+        exit $ERR_CNI_VERSION_INVALID
+    fi
+}
+
+downloadAndInstallCriTools() {
+  downloadDir=${1}
+  evaluatedURL=${2}
+  version=${3}
+
+  # if downloadDir and evaluatedURL are not empty, download and install crictl by this override, which is the old way to install
+  if [ ! -z "${downloadDir}" ] && [ ! -z "${evaluatedURL}" ]; then
+    downloadCrictl "${downloadDir}" "${evaluatedURL}"
+    echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
+    # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
+    # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
+    CRICTL_VERSION=${version}
+    KUBERNETES_VERSION=$CRICTL_VERSION installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    return 0
+  fi
+
+  # this will call installCriCtlPackage function defined in cse_install_<OS>.sh based on the OS
+  installCriCtlPackage "${version}"
+}
+
+installAndConfigureArtifactStreaming() {
+  local downloadURL="$1"
+  local version="$2"
+  if isACL "$OS" "$OS_VARIANT"; then
+    # Cache only: activation is feature-gated during node provisioning.
+    downloadSysextFromVersion artifact-streaming "$downloadURL" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
+    echo "  - artifact-streaming sysext version ${version}" >> "${VHD_LOGS_FILEPATH}"
+    return
+  fi
+
+  # The arm64 packages have "-arm64" inserted before the file extension,
+  # e.g. acr-mirror-2204-arm64.deb instead of acr-mirror-2204.deb
+  if [ "$(isARM64)" -eq 1 ]; then
+    downloadURL="${downloadURL%.*}-arm64.${downloadURL##*.}"
+  fi
+  local MIRROR_DOWNLOAD_PATH="./$(basename "${downloadURL}")"
+  retrycmd_curl_file 10 5 60 "$MIRROR_DOWNLOAD_PATH" "$downloadURL" || exit "${ERR_ARTIFACT_STREAMING_DOWNLOAD}"
+
+  case "$downloadURL" in
+    *.deb)
+      apt_get_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
+      ;;
+    *.rpm)
+      dnf_install 10 2 120 "$MIRROR_DOWNLOAD_PATH" || exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
+      ;;
+    *)
+      echo "Unsupported acr-mirror package extension in URL: ${downloadURL}" >&2
+      exit "$ERR_ARTIFACT_STREAMING_DOWNLOAD"
+      ;;
+  esac
+  rm "$MIRROR_DOWNLOAD_PATH"
+
+  /opt/acr/tools/overlaybd/install.sh
+  # Remove the bundled OverlayBD installer packages (~55-58 MB); they're unused at runtime.
+  rm -f /opt/acr/tools/overlaybd/bin/*.deb /opt/acr/tools/overlaybd/bin/*.rpm
+  echo "  - acr-mirror version ${version}" >> ${VHD_LOGS_FILEPATH}
+}
+
+retagAKSNodeCAWatcher() {
+  # This function retags the aks-node-ca-watcher image to a static tag
+  # The static tag is used to bootstrap custom CA trust when MCR egress may be intercepted by an untrusted TLS MITM firewall.
+  # The image is never pulled, it is only retagged.
+
+  watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
+  watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
+  watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
+  watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
+
+  # this image will never get pulled, the tag must be the same across different SHAs.
+  # it will only ever be upgraded via node image changes.
+  # we do this because the image is used to bootstrap custom CA trust when MCR egress
+  # may be intercepted by an untrusted TLS MITM firewall.
+  watcherStaticImg=${watcherBaseImg//\*/static}
+
+  retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+}
+
+pinPodSandboxImages() {
+  # This function pins the pod sandbox image(s) to avoid Kubelet's Garbage Collector (GC) from removing them.
+  # This is achieved by setting the "io.cri-containerd.pinned" label on the image with a value of "pinned".
+  # These images are critical for pod startup and aren't supported with private ACR since containerd won't be using azure-acr-credential to fetch them.
+
+  # Get all pause images as individual JSON objects
+  local pause_images
+  pause_images=$(jq -c '.ContainerImages[] | select(.downloadURL | contains("pause"))' $COMPONENTS_FILEPATH)
+
+  if [ -z "$pause_images" ]; then
+    echo "Warning: No pause images found in components.json"
+    return 0
+  fi
+
+  # Process each pause image separately
+  while IFS= read -r podSandbox; do
+    if [ -z "$podSandbox" ]; then
+      continue
+    fi
+
+    local podSandboxBaseImg
+    local podSandboxVersion
+    local podSandboxFullImg
+
+    podSandboxBaseImg=$(echo "$podSandbox" | jq -r '.downloadURL')
+    podSandboxVersion=$(echo "$podSandbox" | jq -r '.multiArchVersionsV2[0].latestVersion')
+
+    # Skip if we couldn't extract the required information
+    if [ "$podSandboxBaseImg" = "null" ] || [ "$podSandboxVersion" = "null" ]; then
+      echo "Warning: Could not extract downloadURL or latestVersion from pause image: $podSandbox"
+      continue
+    fi
+
+    podSandboxFullImg=${podSandboxBaseImg//\*/$podSandboxVersion}
+
+    echo "Pinning pause image: $podSandboxFullImg"
+    labelContainerImage "${podSandboxFullImg}" "io.cri-containerd.pinned" "pinned"
+
+  done <<< "$pause_images"
+}
+
+# download kubernetes package from the given URL using azcopy
+# if it is a kube-proxy package, extract image from the downloaded package
+cacheKubePackageFromPrivateUrl() {
+  local kube_private_binary_url="$1"
+
+  echo "process private package url: $kube_private_binary_url"
+
+  mkdir -p ${K8S_PRIVATE_PACKAGES_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
+
+  # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
+  local k8s_tgz_name
+  k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
+
+  # use azcopy instead of curl to download packages
+  getAzCopyCurrentPath
+
+  export AZCOPY_AUTO_LOGIN_TYPE="AZCLI"
+  export AZCOPY_CONCURRENCY_VALUE="AUTO"
+  export AZCOPY_LOG_LOCATION="$(pwd)/azcopy-log-files/"
+  export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
+  mkdir -p "${AZCOPY_LOG_LOCATION}"
+  mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
+
+  cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
+  echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
+
+  if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
+    # loop through azcopy log files
+    shopt -s nullglob
+    for f in "${AZCOPY_LOG_LOCATION}"/*.log; do
+      echo "Azcopy log file: $f"
+      # upload the log file as an attachment to vso
+      echo "##vso[build.uploadlog]$f"
+      # check if the log file contains any errors
+      if grep -q '"level":"Error"' "$f"; then
+ 	 	echo "log file $f contains errors"
+        echo "##vso[task.logissue type=error]Azcopy log file $f contains errors"
+        # print the log file
+        cat "$f"
+      fi
+    done
+    shopt -u nullglob
+    exit $ERR_PRIVATE_K8S_PKG_ERR
+  fi
+}
+
+startEBPFToolsInstallation() {
+  if [ "$OS_VERSION" = "26.04" ]; then
+    echo "Ubuntu 26.04 - skipping eBPF tools installation"
+    return 0
+  fi
+
+  installBpftrace
+  echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
+
+  PRESENT_DIR=$(pwd)
+  # run installBcc in a subshell asynchronously so we can do other things in the meantime
+  (
+    cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
+    installBcc
+    exit $?
+  ) > /var/log/bcc_installation.log 2>&1 &
+
+  BCC_PID=$!
+}
+
+finishEBPFToolsInstallation() {
+  if [ "$OS_VERSION" = "26.04" ]; then
+    echo "Ubuntu 26.04 - skipping eBPF tools installation"
+    # write out an empty bcc_installation.log since builds currently expect it to be present
+    touch /var/log/bcc_installation.log || true
+    chmod 644 /var/log/bcc_installation.log || true
+    return 0
+  fi
+
+  local BCC_EXIT_CODE=0
+  wait "$BCC_PID" || BCC_EXIT_CODE=$?
+  chmod 644 /var/log/bcc_installation.log || true
+
+  if [ "$BCC_EXIT_CODE" -eq 0 ]; then
+    echo "Bcc tools successfully installed."
+    cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
+  else
+    echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
+    echo "===== BEGIN /var/log/bcc_installation.log =====" >&2
+    cat /var/log/bcc_installation.log >&2 2>/dev/null || echo "(bcc_installation.log missing)" >&2
+    echo "===== END /var/log/bcc_installation.log =====" >&2
+    exit "$BCC_EXIT_CODE"
+  fi
+}
+
+# Configure LSM modules to include BPF
+configureLsmWithBpf() {
+  echo "Configuring LSM modules to include BPF..."
+
+  # Read current LSM modules
+  if [ ! -f /sys/kernel/security/lsm ]; then
+    echo "Warning: /sys/kernel/security/lsm not found, skipping LSM configuration"
+    return 0
+  fi
+
+  local current_lsm
+  current_lsm=$(cat /sys/kernel/security/lsm)
+  echo "Current LSM modules: $current_lsm"
+
+  # Prepend bpf to the LSM list if not already present
+  if ! echo "$current_lsm" | grep -q bpf; then
+    if [ "$IS_KATA" = "true" ] || echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+      echo "Warning: this is a Kata/CVM SKU - will not add BPF to LSM configuration"
+      return 0
+    fi
+
+    if isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+      echo "Warning: Azure Linux OS Guard built with signed UKI, not enabling BPF LSM"
+      return 0
+    fi
+
+    local new_lsm="${current_lsm},bpf"
+    echo "New LSM configuration: $new_lsm"
+
+    if [ "$OS" = "$UBUNTU_OS_NAME" ] && { [ "$OS_VERSION" = "24.04" ] || [ "$OS_VERSION" = "26.04" ]; }; then
+      local grub_cfg="/etc/default/grub.d/50-cloudimg-settings.cfg"
+      if [ -f "$grub_cfg" ]; then
+        if grep -q "lsm=" "$grub_cfg"; then
+          sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" "$grub_cfg"
+        else
+          sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" "$grub_cfg"
+        fi
+        echo "Updating GRUB configuration for Ubuntu..."
+        update-grub2 /boot/grub/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+      else
+        echo "Warning: $grub_cfg not found, skipping LSM configuration"
+      fi
+    elif isMarinerOrAzureLinux "$OS" && [ "$OS_VERSION" = "3.0" ]; then
+      if [ -f /etc/default/grub ]; then
+        if grep -q "lsm=" /etc/default/grub; then
+          sed -i "s/lsm=[^[:space:]]*/lsm=$new_lsm/g" /etc/default/grub
+        else
+          sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"lsm=$new_lsm /" /etc/default/grub
+        fi
+        echo "Updating GRUB configuration for Azure Linux 3.0..."
+        grub2-mkconfig -o /boot/grub2/grub.cfg || echo "Warning: Failed to update GRUB configuration"
+      else
+        echo "Warning: /etc/default/grub not found, skipping LSM configuration"
+      fi
+    else
+      echo "LSM BPF configuration is only enabled for Ubuntu 24.04, Ubuntu 26.04, and Azure Linux 3.0, skipping"
+    fi
+
+    echo "LSM configuration update completed"
+  else
+    echo "BPF LSM already configured, skipping"
+  fi
+}
+
+setUdevRules() {
+  # set udev rules
+  echo "set read ahead size to 15380 KB"
+  AWK_PATH=$(command -v awk)
+  cat > /etc/udev/rules.d/99-nfs.rules <<EOF
+SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1} {if (\$4 == bdi){ret=0}} END{exit ret}' /proc/fs/nfsfs/volumes", ATTR{read_ahead_kb}="15380"
+EOF
+
+  echo "install udev rules for v6 vm sku"
+  cat > /etc/udev/rules.d/80-azure-disk.rules <<EOF
+ACTION!="add|change", GOTO="azure_disk_end"
+SUBSYSTEM!="block", GOTO="azure_disk_end"
+
+KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="Microsoft NVMe Direct Disk", GOTO="azure_disk_nvme_direct_v1"
+KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="Microsoft NVMe Direct Disk v2", GOTO="azure_disk_nvme_direct_v2"
+KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="MSFT NVMe Accelerator v1.0", GOTO="azure_disk_nvme_remote_v1"
+ENV{ID_VENDOR}=="Msft", ENV{ID_MODEL}=="Virtual_Disk", GOTO="azure_disk_scsi"
+GOTO="azure_disk_end"
+
+LABEL="azure_disk_scsi"
+ATTRS{device_id}=="?00000000-0000-*", ENV{AZURE_DISK_TYPE}="os", GOTO="azure_disk_symlink"
+ENV{DEVTYPE}=="partition", PROGRAM="/bin/sh -c 'readlink /sys/class/block/%k/../device|cut -d: -f4'", ENV{AZURE_DISK_LUN}="\$result"
+ENV{DEVTYPE}=="disk", PROGRAM="/bin/sh -c 'readlink /sys/class/block/%k/device|cut -d: -f4'", ENV{AZURE_DISK_LUN}="\$result"
+ATTRS{device_id}=="{f8b3781a-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_LUN}=="0", ENV{AZURE_DISK_TYPE}="os", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781b-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781c-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781d-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
+
+# Use "resource" type for local SCSI because some VM skus offer NVMe local disks in addition to a SCSI resource disk, e.g. LSv3 family.
+# This logic is already in walinuxagent rules but we duplicate it here to avoid an unnecessary dependency for anyone requiring it.
+ATTRS{device_id}=="?00000000-0001-*", ENV{AZURE_DISK_TYPE}="resource", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781a-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_LUN}=="1", ENV{AZURE_DISK_TYPE}="resource", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
+GOTO="azure_disk_end"
+
+LABEL="azure_disk_nvme_direct_v1"
+LABEL="azure_disk_nvme_direct_v2"
+ATTRS{nsid}=="?*", ENV{AZURE_DISK_TYPE}="local", ENV{AZURE_DISK_SERIAL}="\$env{ID_SERIAL_SHORT}"
+GOTO="azure_disk_nvme_id"
+
+LABEL="azure_disk_nvme_remote_v1"
+ATTRS{nsid}=="1", ENV{AZURE_DISK_TYPE}="os", GOTO="azure_disk_nvme_id"
+ATTRS{nsid}=="?*", ENV{AZURE_DISK_TYPE}="data", PROGRAM="/bin/sh -ec 'echo \$\$((%s{nsid}-2))'", ENV{AZURE_DISK_LUN}="\$result"
+
+LABEL="azure_disk_nvme_id"
+ATTRS{nsid}=="?*", IMPORT{program}="/usr/sbin/azure-nvme-id --udev"
+
+LABEL="azure_disk_symlink"
+# systemd v254 ships an updated 60-persistent-storage.rules that would allow
+# these to be deduplicated using \$env{.PART_SUFFIX}
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="os|resource|root", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_INDEX}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-index/\$env{AZURE_DISK_INDEX}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_LUN}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-lun/\$env{AZURE_DISK_LUN}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-name/\$env{AZURE_DISK_NAME}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="os|resource|root", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_INDEX}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-index/\$env{AZURE_DISK_INDEX}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_LUN}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-lun/\$env{AZURE_DISK_LUN}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-name/\$env{AZURE_DISK_NAME}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}-part%n"
+LABEL="azure_disk_end"
+EOF
+  udevadm control --reload
+}
+
+cachePackageAndBinaryComponents() {
+  # Download/cache all declared packages and binaries within components.json that apply to the respective OS SKU
+  packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+  # Iterate over each element in the packages array
+  while IFS= read -r p; do
+    #getting metadata for each package
+    name=$(echo "${p}" | jq .name -r)
+    os=${OS}
+    # TODO(mheberling): Remove this once kata uses standard containerd. This OS is referenced
+    # in file `parts/common/component.json` with the same ${MARINER_KATA_OS_NAME}.
+    if isMariner "${OS}" && [ "${IS_KATA}" = "true" ]; then
+      # This is temporary for kata-cc because it uses a modified version of containerd and
+      # name is referenced in parts/common.json marinerkata.
+      os=${MARINER_KATA_OS_NAME}
+    fi
+    if isAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
+      # This is temporary for kata-cc because it uses a modified version of containerd and
+      # name is referenced in parts/common.json azurelinuxkata.
+      os=${AZURELINUX_KATA_OS_NAME}
+    fi
+    updatePackageVersions "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
+    updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}" "${OS_VARIANT}"
+    echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
+
+    # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
+    if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
+      echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
+      continue
+    fi
+    downloadDir=$(echo "${p}" | jq .downloadLocation -r)
+    #download the package
+    case $name in
+      "kubernetes-cri-tools")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadAndInstallCriTools "${downloadDir}" "${evaluatedURL}" "${version}"
+        done
+        ;;
+      "azure-cni")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
+          unpackTgzToCNIDownloadsDIR "${downloadDir}" "${evaluatedURL}"
+          echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "cni-plugins")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadCNIPlugins "${downloadDir}" "${evaluatedURL}"
+          unpackTgzToCNIDownloadsDIR "${downloadDir}" "${evaluatedURL}"
+          echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "containernetworking-plugins")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          installCNI "${downloadDir}" "${evaluatedURL}" "${version}"
+          echo "  - containernetworking-plugins version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "runc")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
+          echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "containerd")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+            installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
+          elif isMarinerOrAzureLinux "$OS"; then
+            installStandaloneContainerd "${version}"
+          fi
+          echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "oras")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ] && [ -z "${PACKAGE_DOWNLOAD_URL}" ]; then
+            # The Ubuntu DALEC package is named az-oras but contains /usr/bin/oras.
+            downloadPkgFromVersion "az-oras" "${version}" "/opt/oras/downloads" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+            installPackageFromCache "oras" "${version}" "/opt/bin/oras" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+          elif isAzureLinux "${OS}" && [ -z "${PACKAGE_DOWNLOAD_URL}" ]; then
+            downloadPkgFromVersion "oras" "${version}" "/opt/oras/downloads" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+            installRPMPackageFromFile "oras" "${version}" "/opt/bin/oras" || exit "$ERR_ORAS_DOWNLOAD_ERROR"
+          else
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+          fi
+          echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "aks-secure-tls-bootstrap-client")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          # removed at provisioning time if secure TLS bootstrapping is disabled
+          if isUbuntu; then
+            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+            installPackageFromCache "${name}" "${version}" "/opt/bin/${name}" || exit $?
+          elif isMarinerOrAzureLinux; then
+            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+            installRPMPackageFromFile "${name}" "${version}" "/opt/bin/${name}" || exit $?
+          elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+            installSecureTLSBootstrapClientSysext "${version}" || exit $?
+          fi
+          echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "azure-acr-credential-provider")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
+          echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
+          # ORAS will be used to install other packages for network isolated clusters, it must go first.
+        done
+        ;;
+      "inspektor-gadget")
+        # Azure Linux 3 Kata installs IG on the host. Host gadgets observe host
+        # processes and runc pods; workloads inside Kata guest VMs are not visible.
+        if isMariner "$OS" || isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT" || isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+          echo "Skipping inspektor-gadget installation for ${OS} ${OS_VARIANT:-default}"
+        else
+          ig_version="${PACKAGE_VERSIONS[0]}"
+          if isUbuntu "$OS"; then
+            # Ubuntu: download ig deb via apt; ig_install_deb_stack expects it at downloadDir
+            downloadPkgFromVersion "ig" "${ig_version}" "${downloadDir}"
+            installIG "${ig_version}" "${downloadDir}"
+          elif isAzureLinux "$OS"; then
+            # Azure Linux 3.0: ig_install_rpm_stack handles its own RPM downloads
+            installIG "${ig_version}" "${downloadDir}"
+          fi
+        fi
+        ;;
+      "kubernetes-binaries")
+        # kubelet and kubectl
+        # need to cover previously supported version for VMAS scale up scenario
+        # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+        # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
+        # Please do not use the .1 suffix, because that's only for the base image patches
+        # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
+          echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      azure-acr-credential-provider-pmc)
+        name=${name%-pmc}
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          if isMarinerOrAzureLinux || isUbuntu; then
+            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+          elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+          fi
+          echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      kubelet|kubectl)
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          if isMarinerOrAzureLinux || isUbuntu; then
+            downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"
+            cacheVersionedKubernetesPackageBinary "${name}" "${version}" "${downloadDir}" || exit $ERR_K8S_INSTALL_ERR
+          elif isFlatcar || isACL "$OS" "$OS_VARIANT"; then
+            evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+            downloadSysextFromVersion "${name}" "${evaluatedURL}" "${downloadDir}" || exit $?
+          fi
+          echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "${K8S_DEVICE_PLUGIN_PKG}")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isMarinerOrAzureLinux "$OS"; then
+            downloadPkgFromVersion "${K8S_DEVICE_PLUGIN_PKG}" "${version}" "${downloadDir}"
+          fi
+          echo "  - ${K8S_DEVICE_PLUGIN_PKG} version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "dra-driver-nvidia-gpu")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          if [ "${OS}" = "${UBUNTU_OS_NAME}" ] || isAzureLinux "$OS"; then
+            downloadPkgFromVersion "dra-driver-nvidia-gpu" "${version}" "${downloadDir}"
+          fi
+          echo "  - dra-driver-nvidia-gpu version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "datacenter-gpu-manager-4-core")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          downloadPkgFromVersion "datacenter-gpu-manager-4-core" "${version}" "${downloadDir}"
+          echo "  - datacenter-gpu-manager-4-core version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "datacenter-gpu-manager-4-proprietary")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          downloadPkgFromVersion "datacenter-gpu-manager-4-proprietary" "${version}" "${downloadDir}"
+          echo "  - datacenter-gpu-manager-4-proprietary version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "dcgm-exporter")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          downloadPkgFromVersion "dcgm-exporter" "${version}" "${downloadDir}"
+          echo "  - dcgm-exporter version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        ;;
+      "node-exporter")
+        # Skipping is handled by empty versionsV2 arrays in components.json
+        # for mariner, flatcar, acl, and osguard. Azure Linux 3 Kata resolves
+        # through its azurelinuxkata entry. Its host kernel (kernel-mshv) is built
+        # without CONFIG_PSI, so node-exporter exposes no node_pressure_* metrics
+        # there: https://github.com/microsoft/azurelinux/issues/19417
+        # Download and install node-exporter-kubernetes at VHD build time.
+        # node-exporter is installed on the VHD so CSE only needs to enable+start it.
+        installNodeExporter "${PACKAGE_VERSIONS[0]}"
+        ;;
+      "kmpp-containers")
+        # Azure Linux 3.0 only, excluding OS Guard, Kata and CVM, which have no plan to
+        # enable KMPP. The CVM builder does not ship install-kmpp.sh.
+        # It stays dormant on the VHD; CSE enables it when ENABLE_KMPP=true.
+        if ! isAzureLinux "$OS" "$OS_VARIANT" || [ "${OS_VERSION}" != "3.0" ] || \
+          isAzureLinuxOSGuard "$OS" "$OS_VARIANT" || [ "${IS_KATA}" = "true" ] || \
+          echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+          echo "INFO: skipping ${name}: KMPP is baked only into Azure Linux 3.0 non-CVM, non-Kata, non-OS Guard images"
+          continue
+        fi
+        source /opt/azure/image-build/install-kmpp.sh
+        installKMPP "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
+        ;;
+      "node-problem-detector-kubernetes"|"node-problem-detector-aks-config")
+        # Ubuntu and Azure Linux 3 (including Kata) builders carry this helper. Empty
+        # manifest entries leave other OSes (and unpublished targets) extension-managed.
+        if isUbuntu || isAzureLinux; then
+          source /opt/azure/image-build/install-npd.sh
+          installNPDPackage "${name}" "${PACKAGE_VERSIONS[0]}" || exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+        ;;
+      "acr-mirror")
+        # TODO(2604): install acr-mirror for artifact streaming support once acr-mirror is available in resolute PMC repos
+        # Artifact streaming (acr-mirror) - version and URLs resolved from components.json,
+        # OS filtering handled declaratively by components.json entries (<SKIP> for unsupported OSes).
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+          installAndConfigureArtifactStreaming "${evaluatedURL}" "${version}"
+        done
+        ;;
+      "aznfs")
+        for version in ${PACKAGE_VERSIONS[@]}; do
+          evaluatedURL=$(evalPackageDownloadURL "${PACKAGE_DOWNLOAD_URL}")
+          mkdir -p "${downloadDir}"
+          aznfsFilename=$(basename "${evaluatedURL}")
+          echo "Downloading aznfs RPM from ${evaluatedURL} to ${downloadDir}/${aznfsFilename}"
+          retrycmd_curl_file 120 5 25 "${downloadDir}/${aznfsFilename}" "${evaluatedURL}" || exit $ERR_AZNFS_RPM_DOWNLOAD_TIMEOUT
+          echo "  - aznfs version ${version}" >> ${VHD_LOGS_FILEPATH}
+        done
+        installAznfsPackage || exit $ERR_AZNFS_INSTALL_FAIL
+        ;;
+      "blobfuse"|"blobfuse2")
+        for version in "${PACKAGE_VERSIONS[@]}"; do
+          if isUbuntu "$OS"; then
+            if ! apt_get_install 10 2 120 "${name}=${version}"; then
+              journalctl --no-pager -u "${name}" || true
+              tail -n 200 /var/log/apt/term.log || true
+              tail -n 200 /var/log/dpkg.log || true
+              exit $ERR_APT_INSTALL_TIMEOUT
+            fi
+            echo "  - ${name} version ${version}" >> "${VHD_LOGS_FILEPATH}"
+          else
+            echo "  - ${name} installation skipped for ${OS}" >> "${VHD_LOGS_FILEPATH}"
+          fi
+        done
+        ;;
+      *)
+        echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
+        # We can add a common function to download a generic package here.
+        # However, installation could be different for different packages.
+        ;;
+    esac
+    capture_benchmark "${SCRIPT_NAME}_download_${name}"
+  done <<< "$packages"
+}
+
+cacheContainerImageComponents() {
+  /opt/azure/containers/image-fetcher cache-components \
+    --components-file "$COMPONENTS_FILEPATH" \
+    --concurrency "${IMAGE_FETCHER_CONCURRENCY:-20}" \
+    --vhd-log-file "$VHD_LOGS_FILEPATH"
+}
+
+cacheGPUContainerImageComponents() {
+  # Download/install GPU container image components
+  GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
+
+  NVIDIA_DRIVER_IMAGE=""
+  NVIDIA_DRIVER_IMAGE_TAG=""
+  NVIDIA_GRID_DRIVER_VERSION=""
+
+  # Extract GRID driver version for release notes (applicable to all Linux distributions)
+  while IFS= read -r imageToBePulled; do
+    downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+    # shellcheck disable=SC2001
+    imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-grid" ]; then
+      NVIDIA_GRID_DRIVER_VERSION=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
+      # Continue to extract CUDA driver info as well
+    fi
+  done <<< "$GPUContainerImages"
+
+  # For Ubuntu, pre-pull the CUDA driver image so node provisioning is a cache hit instead of an MCR
+  # pull. On arm64 this is limited to 24.04 -- the only arm64 GPU (Grace-Blackwell) target; other
+  # arm64 Ubuntu VHDs (e.g. 22.04, 26.04-minimal) have no GPU consumer and shouldn't carry the image.
+  # x86 keeps caching on all Ubuntu versions as before. The kernel-module PREBAKE below stays x86-only
+  # -- GB has no VHD driver prebake, so this caches the image without baking a driver (no dkms-marker).
+  if [ $OS = $UBUNTU_OS_NAME ] && { [ "$(isARM64)" -ne 1 ] || { [ "$(isARM64)" -eq 1 ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; }; }; then
+    gpu_action="copy"
+
+    while IFS= read -r imageToBePulled; do
+      downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+      # shellcheck disable=SC2001
+      imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+      if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda-lts" ]; then
+        latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
+        NVIDIA_DRIVER_IMAGE="$imageName"
+        NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
+        break  # Exit the loop once we find the image
+      fi
+    done <<< "$GPUContainerImages"
+
+    # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
+    if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
+      echo "Error: Unable to find aks-gpu-cuda-lts image in components.json"
+      exit 1
+    fi
+
+    mkdir -p /opt/{actions,gpu}
+
+    /opt/azure/containers/image-fetcher cache-image --image "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+
+      cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-cuda-driver=${NVIDIA_DRIVER_IMAGE_TAG}
+EOF
+  fi
+
+  # Add a separate section for runtime-installed components
+  # This clearly distinguishes components installed during CSE from VHD build-time components
+  # Only add for Ubuntu
+  if [ -n "$NVIDIA_GRID_DRIVER_VERSION" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+    cat << EOF >> ${VHD_LOGS_FILEPATH}
+Components installed at node provisioning time (CSE) for supported GPU VM sizes (example A10 family):
+  - nvidia-grid-driver=${NVIDIA_GRID_DRIVER_VERSION}
+EOF
+  fi
+}
+
+buildNVIDIAKernelModule() {
+  if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then # No ARM64 SKU with GPU now
+    gpu_action="copy"
+
+    # Opt-in: pre-build the NVIDIA kernel module into the VHD so node provisioning skips the
+    # ~100s in-CSE DKMS compile. The aks-gpu container is run in "build-only" mode: it compiles
+    # and DKMS-registers the kernel module + stages userspace libs against THIS VHD's kernel,
+    # performs NO device access (safe on the GPU-less Packer builder), and writes the marker
+    # /opt/azure/aks-gpu/dkms-marker. At node boot, configGPUDrivers passes "install-skip-build"
+    # when that marker matches, running only the device-dependent steps.
+    # The driver image is intentionally LEFT in the VHD: boot-time device init still sources the
+    # container toolkit debs, fabric manager, containerd runtime config and udev rules from it.
+    # Dropping the image is a separate, deferred size optimization.
+    if grep -q "NVIDIA_CUDA_PREBAKE" <<< "$FEATURE_FLAGS"; then
+      echo "Pre-building NVIDIA CUDA kernel module into the VHD (build-only) for kernel $(uname -r)"
+      # nvidia-installer needs gcc/make + libc6-dev to compile; the builder lacks them here, so install
+      # them. A boot-time fallback recompile (marker mismatch) still has them: the VHD ships
+      # build-essential -> libc6-dev (release-notes manifests) -- the toolchain baseline GPU nodes compile
+      # with at boot (installDeps runs apt --no-install-recommends, so gcc alone doesn't pull libc6-dev).
+      apt_get_install 10 2 300 gcc make libc6-dev || exit 1
+      CTR_GPU_PREBUILD_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
+      retrycmd_if_failure 3 10 600 bash -c "$CTR_GPU_PREBUILD_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuprebuild /entrypoint.sh build-only" || exit 1
+      if [ ! -f /opt/azure/aks-gpu/dkms-marker ]; then
+        echo "Error: NVIDIA CUDA prebake did not produce /opt/azure/aks-gpu/dkms-marker"
+        exit 1
+      fi
+      cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - nvidia-cuda-driver-prebaked=${NVIDIA_DRIVER_IMAGE_TAG} (kernel $(uname -r))
+EOF
+    fi
+  fi
+}
+
+configureGraceBlackwell() {
+  if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
+    # NVIDIA GB setup is only supported on arm64 Ubuntu 24.04.
+    if [ "${CPU_ARCH}" = "arm64" ] && [ "${UBUNTU_RELEASE}" = "24.04" ]; then
+      # Replicate all functionality from github.com/azure/aks-gpu/install.sh.
+      # aks-gpu is designed to run at node boot/join time, whereas the NVIDIA GB VHD is set up
+      # to have all drivers installed at VHD build time.
+
+      # 1. Blacklist nouveau driver
+      cat << EOF >> /etc/modprobe.d/blacklist-nouveau.conf
+blacklist nouveau
+options nouveau modeset=0
+EOF
+      update-initramfs -u
+
+      # 2. install drivers
+      BOM_PATH="/opt/azure/containers/gb-mai-bom.json"
+
+      # Install a custom repository if a doca-custom-repo is specified
+      DOCA_CUSTOM_REPO=$(jq -r '.["doca-custom-repo"]' $BOM_PATH)
+      if [ -n "$DOCA_CUSTOM_REPO" ]; then
+        mv /etc/apt/sources.list.d/doca-net.list /etc/apt/sources.list.d/doca-net.list.backup
+        echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/doca-net.pub] $DOCA_CUSTOM_REPO ./" > /etc/apt/sources.list.d/doca-net.list
+        apt-get update
+      fi
+
+      # Install DOCA/OFED before the GPU driver so nvidia-peermem can build against the RDMA APIs provided by OFED.
+      # Farcically, nvidia-dkms-580-open cannot be installed together with the CUDA toolkit. Something about that package changes the build environment in an incompatible way. I've seen people mention CUDA including an old version of gcc that somehow makes its way onto the PATH...
+      # Therefore we install DOCA/OFED first, the GPU driver and its dependencies second, then all downstream reverse-dependencies (CUDA, DCGM, and so forth) third.
+      sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave1"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+      sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave2"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+      sudo apt-get install -y --allow-downgrades $(jq -r '.["versions-wave3"] | to_entries[] | "\(.key)=\(.value)"' $BOM_PATH)
+
+      # 3. Add char device symlinks for NVIDIA devices
+      mkdir -p "$(dirname /lib/udev/rules.d/71-nvidia-dev-char.rules)"
+      cat << EOF >> /lib/udev/rules.d/71-nvidia-dev-char.rules
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+      # Create systemd drop-in to override nvidia-device-plugin dependencies
+      mkdir -p /etc/systemd/system/nvidia-device-plugin.service.d
+      cat << EOF > /etc/systemd/system/nvidia-device-plugin.service.d/override.conf
+[Unit]
+After=kubelet.service
+
+[Service]
+ExecStartPre=-/usr/bin/mkdir -p /var/lib/kubelet/device-plugins
+EOF
+
+      # Now we are off-piste: enable DCGM, DCGM exporter, container device plugin, and the NVIDIA containerd config.
+      systemctl enable nvidia-dcgm
+      systemctl enable nvidia-dcgm-exporter
+      systemctl enable nvidia-device-plugin
+      systemctl enable openibd
+
+      # One additional request from MAI: signal that NPD is pre-installed on the VHD.
+      # When this file is present, the Azure AKS VM Extension skips installing NPD at provision time.
+      mkdir -p /etc/node-problem-detector.d/
+      touch /etc/node-problem-detector.d/skip_vhd_npd
+    fi
+  fi
+}
+
+# This function extracts CoreDNS binary from cached coredns images (latest version)
+# and copies it to - /opt/azure/containers/localdns/binary/coredns.
+# The binary is later used by localdns systemd unit.
+# The function also handles the cleanup of temporary directories and unmounting of images.
+extractAndCacheCoreDnsBinary() {
+  local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
+  if [ "${#coredns_image_list[@]}" -eq 0 ]; then
+    echo "Error: No coredns images found."
+    exit 1
+  fi
+
+  rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
+  mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
+
+  cleanup_coredns_imports() {
+    set +e
+    if [ -n "${ctr_temp}" ]; then
+      ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+      rm -rf "${ctr_temp}"
+    fi
+  }
+  trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
+
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+
+  # Determine latest version.
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+
+  # Extract the CoreDNS binary for the latest version.
+  for coredns_image_url in "${coredns_image_list[@]}"; do
+    if [ "${coredns_image_url##*:}" != "${latest_coredns_tag}" ]; then
+      continue
+    fi
+
+    ctr_temp="$(mktemp -d)"
+    local max_retries=3
+    local retry_count=0
+    while [ $retry_count -lt $max_retries ]; do
+      if ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
+        break
+      fi
+      echo "Warning: Failed to mount ${coredns_image_url}, retrying..." >> "${VHD_LOGS_FILEPATH}"
+      sleep 2
+      ((retry_count++))
+    done
+
+    if [ "$retry_count" -eq "$max_retries" ]; then
+      echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
+      exit 1
+    fi
+
+    local coredns_binary="${ctr_temp}/usr/bin/coredns"
+    if [ -f "${coredns_binary}" ]; then
+      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
+        echo "Error: Failed to copy coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+        exit 1
+      }
+      echo "Successfully copied coredns binary of ${latest_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+    else
+      echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
+    fi
+
+    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+    rm -rf "${ctr_temp}"
+  done
+
+  # Clear the trap.
+  trap - EXIT ABRT ERR INT PIPE QUIT TERM
+}
+
+# Collect grid compatibility data (placeholder for now - will be extended later)
+collect_grid_compatibility_data() {
+  if [ -z "${GRID_COMPATIBILITY_DATA_FILE}" ] ; then
+    return
+  fi
+
+  # Create basic grid compatibility data structure
+  # This is scaffolding - the actual Kusto query and analysis will be added later
+  local compatibility_data=$(jq -n \
+    --arg os "${OS}" \
+    --arg os_version "${OS_VERSION}" \
+    --arg cpu_arch "${CPU_ARCH}" \
+    --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --arg feature_flags "${FEATURE_FLAGS:-}" \
+    '{
+      "grid_compatibility_check": {
+        "timestamp": $timestamp,
+        "os": $os,
+        "os_version": $os_version,
+        "cpu_architecture": $cpu_arch,
+        "feature_flags": $feature_flags,
+        "compatibility_status": "data_collected",
+        "kusto_query_placeholder": "SELECT * FROM GridCompatibility WHERE timestamp > ago(1d)"
+      }
+    }')
+
+  echo "${compatibility_data}" > "${GRID_COMPATIBILITY_DATA_FILE}"
+  chmod 755 "${GRID_COMPATIBILITY_DATA_FILE}"
+}
+
+# --------------------------------------------------------- INSTALL DEPENDENCIES START ---------------------------------------------------------
+
+# check if COMPONENTS_FILEPATH exists
+if [ ! -f "$COMPONENTS_FILEPATH" ]; then
+  echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
+  exit 1
+fi
+
+resolve_packages_source_url
+
+echo ""
+echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
+capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
+
+echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
+# fix grub issue with cvm by reinstalling before other deps
+# other VHDs use grub-pc, not grub-efi
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && echo "$FEATURE_FLAGS" | grep -q "cvm"; then
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  wait_for_apt_locks
+  apt_get_install 10 2 120 grub-efi || exit 1
+fi
+capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
+
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  # disable and mask all UU timers/services
+  # save some background io/latency
+  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
+
+  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "0";
+EOF
+fi
+
+installDeps
+
+CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
+
+mkdir -p "${CHRONYD_DIR}"
+cat >> "${CHRONYD_DIR}"/10-chrony-restarts.conf <<EOF
+[Service]
+Restart=always
+RestartSec=5
+EOF
+
+tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
+Compress=yes
+Storage=persistent
+SystemMaxUse=1G
+RuntimeMaxUse=1G
+ForwardToSyslog=yes
+EOF
+capture_benchmark "${SCRIPT_NAME}_install_deps_and_set_configs"
+
+if [ "$(isARM64)" -eq 1 ]; then
+  # shellcheck disable=SC3010
+  if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
+    echo "No arm64 support on V1 VM, exiting..."
+    exit 1
+  fi
+fi
+
+# Always override network config and disable NTP + Timesyncd and install Chrony
+# Mariner does this differently, so only do it for Ubuntu
+if ! isMarinerOrAzureLinux "$OS"; then
+  overrideNetworkConfig || exit 1
+  disableNtpAndTimesyncdInstallChrony || exit 1
+fi
+
+# ACL inherits Azure Linux behaviors but isMarinerOrAzureLinux returns false,
+# so these must be called separately (mirrored in the Mariner/AzureLinux block below).
+# Other Mariner functions are safe to skip for ACL:
+#   setMarinerNetworkdConfig — ACL doesn't ship systemd-bootstrap's 99-dhcp-en.network
+#   fixCBLMarinerPermissions — product_uuid already 444; no rsyslog on ACL
+#   addMarinerNvidiaRepo / updateDnfWithNvidiaPkg / disableDNFAutomatic / enableCheckRestart — ACL has no dnf/rpm
+#   activateNfConntrack — nf_conntrack auto-loads via iptables dependency chain
+#   disableTimesyncd — ACL handles chrony separately above via disableNtpAndTimesyncdInstallChrony
+if isACL "$OS" "$OS_VARIANT"; then
+  # ACL's iptables.service loads host firewall rules that conflict with Cilium eBPF routing.
+  disableSystemdIptables || exit 1
+  # Repoint /etc/resolv.conf from the stub (127.0.0.53) to the real upstream file
+  # so DNS queries go directly through localdns.
+  disableSystemdResolvedCache
+fi
+capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
+
+# Configure SSH service during VHD build for Ubuntu 22.10+
+configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warning]SSH Service configuration failed, but continuing VHD build"
+
+CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
+mkdir -p "${CONTAINERD_SERVICE_DIR}"
+# Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
+# On Ubuntu 24.04 (Containerd 2.0), LimitNOFILE is removed upstream and systemd falls back to an implicit soft:hard limit
+# (for example 1024:524288), so containerd inherits a very low soft file descriptor limit (1024) unless we override it here.
+# On Mariner/AzureLinux this is redundant with the base containerd.service unit but harmless.
+# Not removing LimitNOFILE from parts/root/azurelinux/etc/systemd/system/containerd.service,
+# to avoid compatibility issues between new VHDs and old CSE scripts.
+tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
+EOF
+
+tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+capture_benchmark "${SCRIPT_NAME}_set_ip_forwarding"
+
+setUdevRules
+capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
+
+if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    disableSystemdResolvedCache
+    disableSystemdIptables || exit 1
+    setMarinerNetworkdConfig
+    fixCBLMarinerPermissions
+    addMarinerNvidiaRepo
+    updateDnfWithNvidiaPkg
+    overrideNetworkConfig || exit 1
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      installKataDeps
+      if [ "${OS}" != "3.0" ]; then
+        enableMarinerKata
+      fi
+    fi
+    disableTimesyncd
+    disableDNFAutomatic
+    enableCheckRestart
+    activateNfConntrack
+elif [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+  updateAptWithMicrosoftPkg
+  updateAptWithNvidiaPkg
+fi
+capture_benchmark "${SCRIPT_NAME}_handle_os_specific_configurations"
+
+echo "VHD will be built with containerd as the container runtime"
+
+# Cache packages and binaries declared within components.json
+cachePackageAndBinaryComponents
+
+# Delegate ACL AMD64 image fetching to the host containerd Transfer service.
+export IMAGE_FETCHER_USE_TRANSFER="false"
+if isACL "$OS" "$OS_VARIANT" && [ "$CPU_ARCH" = "amd64" ]; then
+  export IMAGE_FETCHER_USE_TRANSFER="true"
+fi
+
+# k8s will use images in the k8s.io namespaces - create it
+ctr namespace create k8s.io
+
+# Fetch and pre-build the NVIDIA CUDA driver BEFORE starting the BCC background build and BEFORE caching
+# the bulk container images. The driver's kernel-module compile and userspace lib install are disk-heavy;
+# running them here (near-empty disk, BCC not yet started) avoids exhausting the 30GB packer build disk.
+# Running them after the container-image cache and/or concurrently with the BCC build fills the disk
+# (worse on 24.04), failing at the nvidia.ko link or the driver lib copy with "No space left on device".
+cacheGPUContainerImageComponents
+buildNVIDIAKernelModule
+capture_benchmark "${SCRIPT_NAME}_caching_gpu_container_images_and_build_nvidia_kernel_module"
+
+# Start eBPF tool installation in the background while we pull container images in the foreground
+startEBPFToolsInstallation
+capture_benchmark "${SCRIPT_NAME}_start_install_ebpf_tools"
+
+# Cache container images declared within components.json
+echo "images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
+cacheContainerImageComponents
+capture_benchmark "${SCRIPT_NAME}_caching_container_images"
+
+configureGraceBlackwell
+if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
+  ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+fi
+
+retagAKSNodeCAWatcher
+capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher"
+
+pinPodSandboxImages
+capture_benchmark "${SCRIPT_NAME}_pin_pod_sandbox_image"
+
+# IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
+if [ $OS = $UBUNTU_OS_NAME ] || isMarinerOrAzureLinux "$OS"; then
+  systemctlEnableAndStart ipv6_nftables 30 || exit 1
+fi
+
+mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
+
+configureVulnerableKernelModuleDenyRules || exit $ERR_PACKER_COPY_FILE
+if isAzureLinux "$OS" "$OS_VARIANT" && [ "$OS_VERSION" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+  # Enable for deployed nodes, without running recovery on the build VM.
+  systemctl enable aks-networkd-recovery.timer || exit 1
+fi
+configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')" || exit $ERR_PACKER_COPY_FILE
+systemctl daemon-reload
+
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  # remove snapd, which is not used by container stack
+  apt_get_purge 20 30 120 snapd || exit 1
+  apt_get_purge 20 30 120 apache2-utils || exit 1
+  # CIS: Ensure telnet (/ftp) client is not installed
+  # CIS: Ufw is not used but interferes with log_martians rule
+  apt_get_purge 20 30 120 telnet ftp ufw tnftp inetutils-telnet || exit 1
+
+  apt-get -y autoclean || exit 1
+  apt-get -y autoremove --purge || exit 1
+  apt-get -y clean || exit 1
+  # update message-of-the-day to start after multi-user.target
+  # multi-user.target usually start at the end of the boot sequence
+  sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+fi
+capture_benchmark "${SCRIPT_NAME}_purge_and_update_ubuntu"
+
+# Ensure eBPF tools installed successfully
+finishEBPFToolsInstallation
+capture_benchmark "${SCRIPT_NAME}_finish_installing_ebpf_tools"
+
+configureLsmWithBpf
+capture_benchmark "${SCRIPT_NAME}_configure_lsm_with_bpf"
+
+# use the private_packages_url to download and cache packages
+if [ -n "${PRIVATE_PACKAGES_URL:-}" ]; then
+  IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
+
+  for private_url in "${PRIVATE_URLS[@]}"; do
+    echo "download kube package from ${private_url}"
+    cacheKubePackageFromPrivateUrl "$private_url"
+  done
+fi
+rm -f ./azcopy # cleanup immediately after usage will return in two downloads
+
+extractAndCacheCoreDnsBinary
+
+collect_grid_compatibility_data
+
+if isAzureLinux "$OS" "$OS_VARIANT" && [ "$(isARM64)" -ne 1 ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+  AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES=$(getAzureLinuxNvidiaDriverReleaseNotes)
+  if [ -n "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" ]; then
+    printf '%s\n' "$AZURELINUX_NVIDIA_DRIVER_RELEASE_NOTES" >> "${VHD_LOGS_FILEPATH}"
+  else
+    echo "Warning: no Azure Linux NVIDIA GPU driver packages found for kernel $(uname -r)" | tee -a "${VHD_LOGS_FILEPATH}" >&2
+  fi
+fi
+
+# nvidia repos are non msft public endpoints and should not be present on VHDs.
+# The installation logic during provisioning time will use the cached rpm/deb files
+# to install extra packages required for the managed gpu experience.
+removeNvidiaRepos
+capture_benchmark "${SCRIPT_NAME}_remove_nvidia_repos"
+
+echo "install-dependencies step completed successfully"
+
+capture_benchmark "${SCRIPT_NAME}_overall" true
+process_benchmarks

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'ig_extract_upstream_version function'
-  Include './vhdbuilder/packer/install-ig.sh'
+  Include './parts/root/common/opt/azure/image-build/install-ig.sh'
 
   It 'returns the upstream version on success'
     When call ig_extract_upstream_version "0.51.0-4.azl3"
@@ -19,7 +19,7 @@ Describe 'ig_extract_upstream_version function'
 End
 
 Describe 'ig-gadgets pinned versions'
-  Include './vhdbuilder/packer/install-ig.sh'
+  Include './parts/root/common/opt/azure/image-build/install-ig.sh'
 
   ig_component_upstream_versions() {
     local current_version ig_versions

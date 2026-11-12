@@ -14,12 +14,12 @@ load_kernel_mitigation_helpers() {
     ACL_OS_VARIANT="AZURECONTAINERLINUX"
     AZURELINUX_OSGUARD_OS_VARIANT="OSGUARD"
 
-    eval "$(sed -n '/^semverCompare()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
-    eval "$(sed -n '/^isACL()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
-    eval "$(sed -n '/^isMarinerOrAzureLinux()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
-    eval "$(sed -n '/^isAzureLinuxOSGuard()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
-    eval "$(sed -n '/^isUbuntu()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
-    eval "$(sed -n '/^ubuntuKernelNeedsVulnerableModuleMitigation()/,/^}/p' parts/linux/cloud-init/artifacts/cse_helpers.sh)"
+    eval "$(sed -n '/^semverCompare()/,/^}/p' parts/root/common/opt/azure/containers/provision_source.sh)"
+    eval "$(sed -n '/^isACL()/,/^}/p' parts/root/common/opt/azure/containers/provision_source.sh)"
+    eval "$(sed -n '/^isMarinerOrAzureLinux()/,/^}/p' parts/root/common/opt/azure/containers/provision_source.sh)"
+    eval "$(sed -n '/^isAzureLinuxOSGuard()/,/^}/p' parts/root/common/opt/azure/containers/provision_source.sh)"
+    eval "$(sed -n '/^isUbuntu()/,/^}/p' parts/root/common/opt/azure/containers/provision_source.sh)"
+    eval "$(sed -n '/^ubuntuKernelNeedsVulnerableModuleMitigation()/,/^}/p' parts/root/common/opt/azure/containers/provision_source.sh)"
 }
 
 Describe 'disableVulnerableKernelModule()'
@@ -30,7 +30,7 @@ Describe 'disableVulnerableKernelModule()'
         MODPROBE_DIR="$(mktemp -d)"
         PROC_MODULES="$(mktemp)"
         # Source only the function by extracting it
-        eval "$(sed -n '/^disableVulnerableKernelModule()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh | \
+        eval "$(sed -n '/^disableVulnerableKernelModule()/,/^}/p' parts/root/common/opt/azure/containers/provision.sh | \
             sed "s|/etc/modprobe.d|${MODPROBE_DIR}|g; s|/proc/modules|${PROC_MODULES}|g")"
     }
 
@@ -96,7 +96,7 @@ Describe 'removeVulnerableKernelModuleDenyRules()'
 
     setup() {
         MODPROBE_DIR="$(mktemp -d)"
-        eval "$(sed -n '/^removeVulnerableKernelModuleDenyRules()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh | \
+        eval "$(sed -n '/^removeVulnerableKernelModuleDenyRules()/,/^}/p' parts/root/common/opt/azure/containers/provision.sh | \
             sed "s|/etc/modprobe.d|${MODPROBE_DIR}|g")"
     }
 
@@ -290,8 +290,8 @@ Describe 'Ubuntu 20.04 Azure FIPS mitigation policy consistency'
         fi
 
         for source_file in \
-            vhdbuilder/packer/install-dependencies.sh \
-            vhdbuilder/packer/cleanup-vhd.sh \
+            parts/root/common/opt/azure/image-build/install-dependencies.sh \
+            parts/root/linux/opt/azure/containers/cleanup-vhd.sh \
             vhdbuilder/packer/test/linux-vhd-content-test.sh; do
             eval "$(sed -n '/^kernelVersionGe()/,/^}/p' "$source_file")"
             eval "$(sed -n '/^ubuntuKernelIncludesVulnerableModuleFixes()/,/^}/p' "$source_file")"
@@ -366,7 +366,7 @@ Describe 'CVE kernel module mitigation OS gate'
         KERNEL_RELEASE=""
         GATE_ACTIONS=""
         load_kernel_mitigation_helpers
-        eval "$(sed -n '/^reconcileVulnerableKernelModuleMitigation()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
+        eval "$(sed -n '/^reconcileVulnerableKernelModuleMitigation()/,/^}/p' parts/root/common/opt/azure/containers/provision.sh)"
     }
 
     BeforeEach 'setup'
@@ -572,7 +572,7 @@ End
 Describe 'CVE kernel module mitigation phase coverage'
     phase_body() {
         local phase="${1}"
-        sed -n "/^function ${phase}/,/^}/p" parts/linux/cloud-init/artifacts/cse_main.sh
+        sed -n "/^function ${phase}/,/^}/p" parts/root/common/opt/azure/containers/provision.sh
     }
 
     It 'reconciles mitigation from basePrep so VHD bakes keep the intended mitigation state'

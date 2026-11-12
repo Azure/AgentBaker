@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
-eval "$(sed -n '/^installAndConfigureArtifactStreaming() {/,/^}/p' vhdbuilder/packer/install-dependencies.sh)"
+eval "$(sed -n '/^installAndConfigureArtifactStreaming() {/,/^}/p' parts/root/common/opt/azure/image-build/install-dependencies.sh)"
 
 Describe 'installAndConfigureArtifactStreaming'
   setup_artifact_streaming() {

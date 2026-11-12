@@ -3,6 +3,12 @@
 Describe 'snapshot update service commands'
     validate_ubuntu_packer_inputs() {
         local packer_file
+        test -f parts/root/ubuntu/opt/azure/containers/security-update.sh || return 1
+        test -f parts/root/ubuntu/opt/azure/containers/ubuntu-snapshot-update.sh || return 1
+        test -f parts/root/packages/opt/azure/containers/npd-update.sh || return 1
+        test -f parts/root/packages/opt/azure/image-build/install-npd.sh || return 1
+        test -f parts/root/linux/etc/systemd/system/snapshot-update.service || return 1
+        test -f parts/root/linux/etc/systemd/system/snapshot-update.timer || return 1
 
         for packer_file in \
             vhdbuilder/packer/vhd-image-builder-base.json \
@@ -12,12 +18,10 @@ Describe 'snapshot update service commands'
         do
             jq -e '
                 [.. | objects | .source? // empty] as $sources |
-                ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/security-update.sh")) != null and
-                ($sources | index("parts/linux/cloud-init/artifacts/npd-update.sh")) != null and
-                ($sources | index("vhdbuilder/packer/install-npd.sh")) != null and
-                ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh")) != null and
-                ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service")) != null and
-                ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.timer")) != null and
+                any($sources[]; startswith("aks-node-controller/bin/")) and
+                ($sources | index("parts/root/packages/opt/azure/image-build/install-npd.sh")) == null and
+                ($sources | index("parts/root/linux/etc/systemd/system/snapshot-update.service")) == null and
+                ($sources | index("parts/root/linux/etc/systemd/system/snapshot-update.timer")) == null and
                 ($sources | index("parts/linux/cloud-init/artifacts/ubuntu/knead-component.sh")) == null
             ' "${packer_file}" > /dev/null || return 1
         done
@@ -25,6 +29,9 @@ Describe 'snapshot update service commands'
 
     validate_mariner_packer_inputs() {
         local packer_file
+        test -f parts/root/mariner/opt/azure/containers/mariner-package-update.sh || return 1
+        test -f parts/root/mariner/etc/systemd/system/snapshot-update.service || return 1
+        test -f parts/root/mariner/etc/systemd/system/snapshot-update.timer || return 1
 
         for packer_file in \
             vhdbuilder/packer/vhd-image-builder-mariner.json \
@@ -33,9 +40,9 @@ Describe 'snapshot update service commands'
         do
             jq -e '
                 [.. | objects | .source? // empty] as $sources |
-                ($sources | index("parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh")) != null and
-                ($sources | index("parts/linux/cloud-init/artifacts/mariner/package-update.service")) != null and
-                ($sources | index("parts/linux/cloud-init/artifacts/mariner/package-update.timer")) != null
+                any($sources[]; startswith("aks-node-controller/bin/")) and
+                ($sources | index("parts/root/mariner/etc/systemd/system/snapshot-update.service")) == null and
+                ($sources | index("parts/root/mariner/etc/systemd/system/snapshot-update.timer")) == null
             ' "${packer_file}" > /dev/null || return 1
         done
     }
@@ -57,13 +64,13 @@ Describe 'snapshot update service commands'
     }
 
     It 'keeps the Ubuntu snapshot service unchanged'
-        When run grep -Fx 'ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh' parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service
+        When run grep -Fx 'ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh' parts/root/linux/etc/systemd/system/snapshot-update.service
         The status should be success
         The output should equal 'ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh'
     End
 
     It 'keeps the Azure Linux package updater'
-        When run grep -Fx 'ExecStart=/opt/azure/containers/mariner-package-update.sh' parts/linux/cloud-init/artifacts/mariner/package-update.service
+        When run grep -Fx 'ExecStart=/opt/azure/containers/mariner-package-update.sh' parts/root/mariner/etc/systemd/system/snapshot-update.service
         The status should be success
         The output should equal 'ExecStart=/opt/azure/containers/mariner-package-update.sh'
     End

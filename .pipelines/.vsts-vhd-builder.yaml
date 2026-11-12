@@ -18,6 +18,7 @@ pr:
     - .pipelines/templates/.template-copy-file.yaml
     - .pipelines/templates/e2e-template.yaml
     - parts/linux/*
+    - parts/root/**
     - packer.mk
     - aks-node-controller/**
     - parts/common/components.json

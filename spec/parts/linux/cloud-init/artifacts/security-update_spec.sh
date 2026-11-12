@@ -10,7 +10,7 @@ Describe 'security-update.sh'
     }
 
     setup() {
-        Include ./parts/linux/cloud-init/artifacts/ubuntu/security-update.sh
+        Include ./parts/root/ubuntu/opt/azure/containers/security-update.sh
         TEST_DIR="/tmp/security-update-test"
         rm -rf "${TEST_DIR}"
         mkdir -p "${TEST_DIR}"
