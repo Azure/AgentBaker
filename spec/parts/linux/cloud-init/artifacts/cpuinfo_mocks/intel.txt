@@ -1,0 +1,19 @@
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 143
+model name      : Intel(R) Xeon(R) Platinum 8473C
+stepping        : 8
+microcode       : 0xffffffff
+cpu MHz         : 2100.000
+flags           : fpu sse2 avx xsave avx2 arch_capabilities
+bugs            : spectre_v1 spectre_v2
+address sizes   : 46 bits physical, 48 bits virtual
+
+processor       : 1
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 143
+stepping        : 8
+flags           : fpu sse2 avx xsave avx2 arch_capabilities
+address sizes   : 46 bits physical, 48 bits virtual
