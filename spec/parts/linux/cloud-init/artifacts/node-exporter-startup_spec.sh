@@ -8,6 +8,8 @@ Describe 'node-exporter-startup.sh hardware arguments'
         PCI_DEVICES_PATH="$(mktemp -d)"
         MANA_OBSERVED_FILE="${PCI_DEVICES_PATH}/mana-observed"
         NODE_EXPORTER_EXTRA_ARGS=''
+        KUBELET_DEFAULT_FILE="${PCI_DEVICES_PATH}/kubelet-default"
+        printf '%s\n' 'KUBELET_FLAGS=--address=0.0.0.0 --node-ip=192.0.2.1 --pod-max-pids=-1' > "$KUBELET_DEFAULT_FILE"
     }
 
     add_pci_device() {
@@ -80,7 +82,6 @@ Describe 'node-exporter-startup.sh hardware arguments'
     run_startup() {
         NODE_EXPORTER_STARTUP_SOURCE_ONLY=false
         NODE_EXPORTER_TLS_ENABLED=false
-        hostname() { printf '%s\n' '192.0.2.1'; }
         exec() { printf '%s\n' "$@"; }
         . ./parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh
     }
@@ -215,5 +216,129 @@ Describe 'node-exporter-startup.sh hardware arguments'
         The status should be success
         The output should equal '--no-block try-restart node-exporter.service'
         The stderr should equal ''
+    End
+End
+
+Describe 'node-exporter-startup.sh listen address'
+    NODE_EXPORTER_STARTUP_SOURCE_ONLY=true
+    Include './parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh'
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        KUBELET_DEFAULT_FILE="${TEST_DIR}/kubelet-default"
+        PCI_DEVICES_PATH="${TEST_DIR}/pci"
+        MANA_OBSERVED_FILE="${TEST_DIR}/mana-observed"
+        NODE_EXPORTER_EXTRA_ARGS=''
+        mkdir "$PCI_DEVICES_PATH"
+    }
+    BeforeEach 'setup'
+    AfterEach 'rm -rf "$TEST_DIR"'
+
+    kubelet_flags() { printf 'KUBELET_FLAGS=--address=0.0.0.0 %s --pod-max-pids=-1\n' "$1" > "$KUBELET_DEFAULT_FILE"; }
+    # Route lookup used when kubelet has no --node-ip.
+    ip() {
+        [ "$*" = '-4 -o route get 168.63.129.16' ] || return 1
+        printf '%s\n' '168.63.129.16 via 10.224.0.1 dev eth0 src 10.224.0.9 uid 0 \    cache '
+    }
+
+    It 'uses the kubelet --node-ip address'
+        kubelet_flags '--node-ip=10.224.0.4'
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.4'
+    End
+
+    It 'uses the IPv4 address of a dual-stack --node-ip in either order'
+        kubelet_flags '--node-ip=fd00:10:224::4,10.224.0.4'
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.4'
+    End
+
+    It 'falls back to the primary NIC source address without --node-ip'
+        kubelet_flags ''
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.9'
+    End
+
+    It 'falls back to the route when --node-ip is IPv6 only'
+        kubelet_flags '--node-ip=fd00:10:224::4'
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.9'
+    End
+
+    It 'falls back to the route when the kubelet defaults file is missing'
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.9'
+    End
+
+    It 'ignores --node-ip text inside node labels'
+        printf '%s\n' 'KUBELET_FLAGS=--address=0.0.0.0 --node-ip=10.224.0.4' \
+            'KUBELET_NODE_LABELS=example.com/custom--node-ip=10.224.0.99,agentpool=x' > "$KUBELET_DEFAULT_FILE"
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.4'
+    End
+
+    It 'falls back to the route when only a label mentions --node-ip'
+        printf '%s\n' 'KUBELET_FLAGS=--address=0.0.0.0' \
+            'KUBELET_NODE_LABELS=example.com/custom--node-ip=10.224.0.99' > "$KUBELET_DEFAULT_FILE"
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.9'
+    End
+
+    It 'reads a quoted KUBELET_FLAGS value'
+        printf '%s\n' 'KUBELET_FLAGS="--address=0.0.0.0 --node-ip=10.224.0.4"' > "$KUBELET_DEFAULT_FILE"
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.4'
+    End
+
+    It 'never uses the unspecified or loopback address from --node-ip'
+        kubelet_flags '--node-ip=0.0.0.0'
+        When call getNodeExporterListenIP
+        The status should be success
+        The output should equal '10.224.0.9'
+    End
+
+    It 'rejects an unspecified route source address'
+        kubelet_flags '--node-ip=127.0.0.1'
+        ip() { printf '%s\n' '168.63.129.16 dev eth0 src 0.0.0.0 uid 0'; }
+        When call getNodeExporterListenIP
+        The status should be failure
+        The output should equal ''
+    End
+
+    It 'fails instead of returning an empty or wildcard address'
+        ip() { return 2; }
+        When call getNodeExporterListenIP
+        The status should be failure
+        The output should equal ''
+    End
+
+    run_startup() {
+        NODE_EXPORTER_STARTUP_SOURCE_ONLY=false
+        NODE_EXPORTER_TLS_ENABLED=false
+        exec() { printf '%s\n' "$@"; }
+        . ./parts/linux/cloud-init/artifacts/node-exporter/node-exporter-startup.sh
+    }
+
+    It 'listens only on the node IP'
+        kubelet_flags '--node-ip=10.224.0.4,fd00:10:224::4'
+        When run run_startup
+        The status should be success
+        The output should include '--web.listen-address=10.224.0.4:19100'
+    End
+
+    It 'exits without starting the exporter when no node IP is available'
+        ip() { return 2; }
+        When run run_startup
+        The status should equal 1
+        The output should equal ''
+        The stderr should include 'refusing to listen on all interfaces'
     End
 End
