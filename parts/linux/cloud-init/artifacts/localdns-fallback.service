@@ -38,7 +38,7 @@ RemainAfterExit=yes
 ExecCondition=/usr/bin/systemctl is-failed localdns.service
 ExecStart=/opt/azure/containers/localdns/localdns-fallback.sh apply
 ExecStop=/opt/azure/containers/localdns/localdns-fallback.sh clear
-Slice=localdns.slice
+Slice=system-localdns.slice
 
 # Deliberately NOT installed / not WantedBy any target: this unit is only ever
 # activated on demand via localdns.service OnFailure=, never enabled at boot.

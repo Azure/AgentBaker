@@ -51,7 +51,7 @@ KillMode=mixed
 # Revert node DNS configuration even when the supervisor exits unexpectedly.
 ExecStopPost=/opt/azure/containers/localdns/localdns.sh cleanup
 TimeoutStopSec=30
-Slice=localdns.slice
+Slice=system-localdns.slice
 EnvironmentFile=-/etc/localdns/environment
 ExecStart=/opt/azure/containers/localdns/localdns.sh
 

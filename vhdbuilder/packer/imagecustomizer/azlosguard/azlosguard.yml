@@ -319,7 +319,7 @@ os:
       destination: /etc/systemd/system/aks-log-collector.service
       permissions: 600
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.slice
-      destination: /etc/systemd/system/aks-log-collector.slice
+      destination: /etc/systemd/system/system-aks-log-collector.slice
       permissions: 600
     - source: /AgentBaker/parts/linux/cloud-init/artifacts/aks-log-collector.timer
       destination: /etc/systemd/system/aks-log-collector.timer
