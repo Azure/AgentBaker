@@ -169,10 +169,13 @@ and omits protected variants.
 Custom builds use a separate `${SKU_NAME}-customkernel` gallery image
 definition, so they do not advance the normal image definition's latest version.
 Different experiments can still share this test-only definition; always record
-and consume the exact output version.
+and consume the exact output version. E2E metadata keeps the normal scenario
+image name as its key but points to the custom image version's resource ID.
 
 The helper rejects production/publishing, FIPS, Trusted Launch, Image Customizer,
 CVM and unsupported OS/architecture configurations before downloading anything.
+Both `run-packer` and `build-packer` repeat the build-host checks before invoking
+Packer, including when packages have already been staged locally.
 A nonempty blob prefix enables
 the feature; an empty prefix preserves normal kernel behavior. Downloads use
 the build's `SUBSCRIPTION_ID`; use a storage account in that subscription.

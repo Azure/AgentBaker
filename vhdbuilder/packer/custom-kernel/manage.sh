@@ -58,7 +58,7 @@ inspect_kernel_packages() {
     *) custom_kernel_error "Only amd64 or arm64 kernels are supported."; return 1 ;;
   esac
   case "$flavor" in
-    *fips*|*cvm*|*mshv*) custom_kernel_error "Protected kernel flavors are not supported."; return 1 ;;
+    *fips*|*cvm*|*mshv*|azure-fde) custom_kernel_error "Protected kernel flavors are not supported."; return 1 ;;
   esac
 
   for file in "${files[@]}"; do
@@ -71,7 +71,7 @@ inspect_kernel_packages() {
     seen[$package]=1
     case "$package" in
       "$image"|"linux-modules-extra-$release"|"linux-tools-$release"|"linux-cloud-tools-$release") ;;
-      "linux-$flavor-tools-$abi"|"linux-$flavor-cloud-tools-$abi") ;;
+      "linux-$flavor-tools-$abi"|"linux-$flavor-cloud-tools-$abi"|linux-"$flavor"-*-tools-"$abi"|linux-"$flavor"-*-cloud-tools-"$abi") ;;
       "linux-modules-$release") modules_count=$((modules_count + 1)) ;;
       "linux-headers-$release"|"linux-headers-$abi"|"linux-$flavor-headers-$abi"|linux-"$flavor"-*-headers-"$abi")
         if [ "$architecture" = all ]; then continue; fi
@@ -338,6 +338,11 @@ verify_kernel_boot() {
 custom_kernel_main() {
   local action="${1:-}" enabled directory
   case "$action" in
+    validate-build)
+      enabled="${2:-false}"
+      [ "${enabled,,}" = true ] || return 0
+      require_test_kernel_build
+      ;;
     upload|download)
       if { [ "$action" = upload ] && [ "$#" -ne 6 ] && [ "$#" -ne 8 ]; } ||
         { [ "$action" = download ] && [ "$#" -ne 6 ]; }; then
@@ -357,7 +362,7 @@ custom_kernel_main() {
       fi
       ;;
     *)
-      echo "Usage: bash $0 {upload|download|install|verify} ..." >&2
+      echo "Usage: bash $0 {upload|download|validate-build|install|verify} ..." >&2
       return 1
       ;;
   esac

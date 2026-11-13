@@ -65,6 +65,23 @@ Describe 'custom kernel packages'
     The output should equal "$RELEASE"
   End
 
+  It 'accepts series-qualified NVIDIA headers, tools and cloud-tools'
+    RELEASE=6.14.0-1003-azure-nvidia
+    VERSION=6.14.0-1003.3
+    create_package "linux-image-$RELEASE" "$VERSION" arm64 image.deb
+    create_package "linux-modules-$RELEASE" "$VERSION" arm64 modules.deb
+    create_package "linux-headers-$RELEASE" "$VERSION" arm64 headers.deb
+    create_package linux-azure-nvidia-6.14-headers-6.14.0-1003 "$VERSION" all common-headers.deb
+    create_package linux-azure-nvidia-6.14-tools-6.14.0-1003 "$VERSION" arm64 abi-tools.deb
+    create_package linux-azure-nvidia-6.14-cloud-tools-6.14.0-1003 "$VERSION" arm64 abi-cloud-tools.deb
+    echo ubuntu:24.04:arm64 > "$PACKAGE_DIR/kernel-target"
+    write_manifest
+
+    When call validate_kernel_manifest "$PACKAGE_DIR"
+    The status should be success
+    The output should equal "$RELEASE"
+  End
+
   Describe 'invalid package sets'
     Parameters
       'missing modules' 'Supply linux-modules'
@@ -75,6 +92,8 @@ Describe 'custom kernel packages'
       'wrong release' 'kernel-release does not match'
       'wrong tools ABI' 'Unexpected package'
       'mismatched tools version' 'Package versions must match'
+      'wrong series tools ABI' 'Unexpected package'
+      'mismatched series tools version' 'Package versions must match'
     End
 
     It "rejects $1"
@@ -87,6 +106,8 @@ Describe 'custom kernel packages'
         'wrong release') echo 7.0.0-9999-azure > "$PACKAGE_DIR/kernel-release" ;;
         'wrong tools ABI') create_package linux-tools-7.0.0-9999-azure "$VERSION" amd64 tools.deb ;;
         'mismatched tools version') create_package "linux-tools-$RELEASE" 7.0.0-1018.19 amd64 tools.deb ;;
+        'wrong series tools ABI') create_package linux-azure-7.0-tools-7.0.0-9999 "$VERSION" amd64 tools.deb ;;
+        'mismatched series tools version') create_package "linux-azure-7.0-tools-${RELEASE%-azure}" 7.0.0-1018.19 amd64 tools.deb ;;
       esac
 
       When call validate_kernel_manifest "$PACKAGE_DIR"
@@ -107,6 +128,79 @@ Describe 'custom kernel packages'
       When call validate_kernel_prefix "$1"
       The status should be failure
       The error should include 'relative blob prefix'
+    End
+  End
+
+  Describe 'Packer build-host validation'
+    BeforeEach 'setup_packer_commands'
+
+    setup_packer_commands() {
+      mkdir -p "$TEST_ROOT/bin"
+      printf '#!/bin/sh\necho "packer $*"\n' > "$TEST_ROOT/bin/packer"
+      printf '#!/bin/sh\nexit 0\n' > "$TEST_ROOT/bin/az"
+      chmod +x "$TEST_ROOT/bin/packer" "$TEST_ROOT/bin/az"
+      export PATH="$TEST_ROOT/bin:$PATH"
+      export CUSTOM_KERNEL_ENABLED=true
+    }
+
+    Describe 'unsupported configurations'
+      Parameters
+        run-packer ENVIRONMENT prod
+        run-packer GENERATE_PUBLISHING_INFO True
+        build-packer ENVIRONMENT prod
+        build-packer GENERATE_PUBLISHING_INFO True
+      End
+
+      It "rejects $2=$3 before $1 invokes Packer"
+        export "$2=$3"
+
+        When run make --no-print-directory -f packer.mk "$1"
+        The status should be failure
+        The error should include 'Only non-publishing test builds'
+        The output should not include 'packer '
+      End
+    End
+
+    Describe 'allowed configurations'
+      Parameters
+        test true
+        test True
+        prod false
+        prod ''
+      End
+
+      It "preserves build-packer with ENVIRONMENT=$1 and CUSTOM_KERNEL_ENABLED=$2"
+        export ENVIRONMENT="$1" CUSTOM_KERNEL_ENABLED="$2"
+
+        When run make --no-print-directory -f packer.mk build-packer
+        The status should be success
+        The output should include 'packer build'
+      End
+    End
+  End
+
+  Describe 'E2E VHD metadata'
+    Parameters
+      2404gen2containerd
+      2404gen2containerd-customkernel
+    End
+
+    It "maps $1 to the scenario name without changing the image resource ID"
+      export BUILD_ARTIFACTSTAGINGDIRECTORY="$TEST_ROOT" VHD_ARTIFACT_NAME=test
+      export SIG_IMAGE_NAME="$1" PACKER_BUILD_LOCATION=eastus
+      export CAPTURED_SIG_VERSION=202611.13.0
+      export MANAGED_SIG_ID="/subscriptions/test/resourceGroups/test/providers/Microsoft.Compute/galleries/test/images/$1/versions/$CAPTURED_SIG_VERSION"
+      export GENERATE_PUBLISHING_INFO=False
+      awk '
+        /^[[:space:]]*metadata_file=/ { copy = 1 }
+        copy && /^    condition:/ { exit }
+        copy { sub(/^        /, ""); print }
+      ' .pipelines/templates/.builder-release-template.yaml > "$TEST_ROOT/metadata.sh"
+
+      When run bash -euo pipefail "$TEST_ROOT/metadata.sh"
+      The status should be success
+      The output should include 'Created E2E VHD metadata'
+      The contents of file "$TEST_ROOT/e2e-vhd-metadata/test.json" should equal "{\"2404gen2containerd\":{\"resourceId\":\"$MANAGED_SIG_ID\",\"version\":\"$CAPTURED_SIG_VERSION\",\"regions\":[\"eastus\"]}}"
     End
   End
 
@@ -236,16 +330,25 @@ Describe 'custom kernel packages'
     The output should include "Installed test kernel $RELEASE"
   End
 
-  It 'rejects protected Ubuntu kernel flavors before uploading anything'
-    RELEASE=7.0.0-1018-azure-fips
-    create_package "linux-image-$RELEASE" "$VERSION" amd64 image.deb
-    create_package "linux-modules-$RELEASE" "$VERSION" amd64 modules.deb
-    az() { echo 'unexpected Azure call'; }
+  Describe 'protected Ubuntu kernel flavors'
+    Parameters
+      azure-fips
+      azure-cvm
+      azure-mshv
+      azure-fde
+    End
 
-    When call upload_kernel_packages subscription account container test/run "$PACKAGE_DIR"
-    The status should be failure
-    The error should include 'Protected kernel flavors are not supported'
-    The output should not include 'unexpected Azure call'
+    It "rejects $1 before uploading anything"
+      RELEASE="7.0.0-1018-$1"
+      create_package "linux-image-$RELEASE" "$VERSION" amd64 image.deb
+      create_package "linux-modules-$RELEASE" "$VERSION" amd64 modules.deb
+      az() { echo 'unexpected Azure call'; }
+
+      When call upload_kernel_packages subscription account container test/run "$PACKAGE_DIR"
+      The status should be failure
+      The error should include 'Protected kernel flavors are not supported'
+      The output should not include 'unexpected Azure call'
+    End
   End
 
   Describe 'mixed or invalid package types'
