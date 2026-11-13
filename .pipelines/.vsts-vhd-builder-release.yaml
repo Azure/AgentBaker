@@ -1163,7 +1163,8 @@ stages:
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       # A candidate's (aclstaging) GPU sysexts reach MCR only when ACL publishes
-      # it, and GPU scenarios pull them from there, so a candidate run skips them.
+      # it, and ACL's GPU scenarios pull them from there, so a candidate run
+      # skips all GPU scenarios, not just ACL's.
       TAGS_TO_SKIP: ${{ iif(eq(parameters.ACL_BASE_IMAGE_SOURCE, 'aclstaging'), 'os=windows,gpu=true', 'os=windows') }}
       # VHD already contains the binary under test; skip the compile+download hack.
       DISABLE_SCRIPTLESS_COMPILATION: true
