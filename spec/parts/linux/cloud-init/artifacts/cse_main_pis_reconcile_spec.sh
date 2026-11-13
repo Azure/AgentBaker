@@ -82,7 +82,7 @@ Describe 'cse_main.sh PIS-safe configuration'
 
         It 'applies live SSH policy before writing azure.json and ca.crt'
             When call node_prep_event_calls
-            The line 1 of output should equal "disableSSHPubkeyAuth"
+            The line 1 of output should equal "applySSHPolicy"
             The line 2 of output should equal "configureAzureJson"
             The line 3 of output should equal "ensureKubeCACert"
         End
@@ -130,7 +130,7 @@ Describe 'cse_main.sh PIS-safe configuration'
     End
 
     It 'does not apply SSH access policy during image preparation'
-        When call phase_count basePrep disableSSH
+        When call phase_count basePrep applySSHPolicy
         The output should equal "0"
     End
 
@@ -138,6 +138,8 @@ Describe 'cse_main.sh PIS-safe configuration'
         prepare_node_prep() {
             NODE_PREP_SCRIPT=$(mktemp)
             phase_body nodePrep > "$NODE_PREP_SCRIPT"
+            sed -n '/^applySSHPolicy() {/,/^}/p' \
+                ./parts/linux/cloud-init/artifacts/cse_config.sh >> "$NODE_PREP_SCRIPT"
         }
         cleanup_node_prep() { rm -f "$NODE_PREP_SCRIPT"; }
         BeforeEach prepare_node_prep

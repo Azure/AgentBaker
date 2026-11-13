@@ -47,6 +47,8 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 	containerdVersion, _ := detectContainerdVersion(ctx)
 	cloudProviderSettings := getCloudProviderSettings(config)
 	isMIGNode := getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())
+	// Explicit SSH disablement wins; otherwise allow explicit SSH or Entra-only access.
+	shouldRestoreSSH := !getDisableSSH(config) && (config.GetEnableSsh() || config.GetDisablePubkeyAuth())
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
 		"CUSTOM_DATA_ONLY_PROVISIONING":                        fmt.Sprintf("%t", config.GetCustomDataOnlyProvisioning()),
@@ -112,6 +114,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"RUNC_PACKAGE_URL":                                     config.GetRuncConfig().GetRuncPackageUrl(),
 		"ENABLE_HOSTS_CONFIG_AGENT":                            fmt.Sprintf("%v", config.GetEnableHostsConfigAgent()),
 		"DISABLE_SSH":                                          fmt.Sprintf("%v", getDisableSSH(config)),
+		"SHOULD_RESTORE_SSH":                                   fmt.Sprintf("%v", shouldRestoreSSH),
 		"SHOULD_CONFIGURE_HTTP_PROXY":                          fmt.Sprintf("%v", getShouldConfigureHTTPProxy(config.GetHttpProxyConfig())),
 		"SHOULD_CONFIGURE_HTTP_PROXY_CA":                       fmt.Sprintf("%v", getShouldConfigureHTTPProxyCA(config.GetHttpProxyConfig())),
 		"HTTP_PROXY_TRUSTED_CA":                                removeNewlines(config.GetHttpProxyConfig().GetProxyTrustedCa()),
