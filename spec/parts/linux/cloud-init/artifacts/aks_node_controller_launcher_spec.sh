@@ -252,7 +252,7 @@ EOF
         The variable calls should eq "$(printf 'hotfix:apply-embedded-hotfix\nhotfix:provision')"
     End
 
-    It 'does not acquire a hotfix when settings are invalid or the initializer is missing'
+    It 'does not acquire a hotfix when fallback settings cannot be sourced'
         touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
         printf 'return 1\n' > "$INIT_AKS_CLOUD_ENV"
         create_recording_aks_node_controller
@@ -262,6 +262,19 @@ EOF
         The output should include 'Early cloud initialization failed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision'
+    End
+
+    It 'does not acquire a hotfix when the initializer is missing'
+        touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
+        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$INIT_AKS_CLOUD_ENV"
+        create_recording_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization failed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq 'provision'
+        The path "$CLOUD_INIT_DONE" should not be exist
     End
 
     It 'does not acquire a hotfix when AKSNodeConfig has no location'

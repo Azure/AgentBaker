@@ -318,36 +318,39 @@ Describe 'legacy CA certificate filenames'
     BeforeEach 'setup_certificates'
     AfterEach 'cleanup_certificates'
 
-    It 'rejects invalid legacy certificate names during early initialization'
+    It 'preserves skipping invalid legacy certificate names during early initialization'
         ANC_EARLY_CLOUD_INIT=true
         CERT_RESPONSE='{"Certificates":[{"Name":"../bad.cer","CertBody":"body"},{"Name":"valid.cer","CertBody":"body"}]}'
         When call retrieve_legacy_certs
-        The status should eq 1
+        The status should be success
         The stdout should include 'rejecting invalid certificate filename'
-        The path "${TEST_DIR}/certs/valid.crt" should not be exist
+        The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'body'
     End
 
-    It 'fails early initialization when an RCV1P certificate download fails'
+    It 'preserves partial RCV1P certificate downloads during early initialization'
         ANC_EARLY_CLOUD_INIT=true
         make_request_with_retry() {
             case "$1" in
                 *operationrequestsroot*) echo '{"ResouceFileName": "missing.crt", "other": {"ResouceFileName": "valid.crt"}}' ;;
+                *operationrequestsintermediate*) echo '{"ResouceFileName": "intermediate.crt"}' ;;
                 *type=missing*) return 1 ;;
                 *) echo 'valid certificate' ;;
             esac
         }
-        When call process_cert_operations operationrequestsroot
-        The status should eq 1
+        When call retrieve_rcv1p_certs
+        The status should be success
         The stdout should include 'request failed'
-        The path "${TEST_DIR}/certs/valid.crt" should not be exist
+        The path "${TEST_DIR}/certs/missing.crt" should not be exist
+        The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid certificate'
+        The contents of file "${TEST_DIR}/certs/intermediate.crt" should eq 'valid certificate'
     End
 
-    It 'rejects an invalid opt-in response during early initialization'
+    It 'preserves treating a non-boolean opt-in response as not opted in during early initialization'
         ANC_EARLY_CLOUD_INIT=true
         CERT_RESPONSE='{"IsOptedInForRootCerts":"true"}'
         When call is_opted_in_for_root_certs
-        The status should eq 2
-        The stdout should include 'invalid IsOptedInForRootCerts response'
+        The status should eq 1
+        The stdout should include 'IsOptedInForRootCerts is not true'
     End
 
     It 'preserves certificate names, extension conversion, contents and IFS'

@@ -48,9 +48,8 @@ write_cloud_settings() {
         | (if ($name | ascii_downcase) == "akscustom" then
                ($cloud.repo_depot_endpoint // "")
            else "" end) as $endpoint
-        | if $location == "" then error("missing location")
-          else "LOCATION=\($location | @sh)",
-               "REPO_DEPOT_ENDPOINT=\($endpoint | @sh)" end
+        | "LOCATION=\($location | @sh)",
+          "REPO_DEPOT_ENDPOINT=\($endpoint | @sh)"
     ' "$config_path" > "$settings_path"
 }
 
@@ -71,7 +70,6 @@ skip_hotfix_acquisition=false
 if [ -s "$CONFIG_PATH" ] || [ -f "$INIT_AKS_CLOUD_ENV" ]; then
     # shellcheck source=/dev/null
     if write_cloud_settings "$CONFIG_PATH" "$INIT_AKS_CLOUD_ENV" 2>> "$CLOUD_INIT_LOG" &&
-        [ -x "$INIT_AKS_CLOUD_PATH" ] &&
         ( set -a; source "$INIT_AKS_CLOUD_ENV" && [ -n "${LOCATION:-}" ] &&
           ANC_EARLY_CLOUD_INIT=true "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1; then
         { mkdir -p "$(dirname "$CLOUD_INIT_DONE")" && touch "$CLOUD_INIT_DONE"; } ||

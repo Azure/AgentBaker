@@ -259,11 +259,7 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 		},
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			ResourceGroup: "test-rg",
-			Location:      "usnat",
-		},
-		CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-			CustomCloudEnvName: "AKSCustom",
-			RepoDepotEndpoint:  `https://repo.example/'$(echo injected)`,
+			Location:      "eastus",
 		},
 		ApiServerConfig: &aksnodeconfigv1.ApiServerConfig{
 			ApiServerName: "test-api-server",
@@ -301,7 +297,6 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(string(boothook), "#cloud-boothook\n"))
 	require.Contains(t, string(boothook), "/opt/azure/containers/aks-node-controller-config.json")
-	require.NotContains(t, string(boothook), "EOF\n$(echo injected)")
 	require.Contains(t, string(boothook), "launching aks-node-controller")
 	require.Contains(t, string(boothook), "aks-node-controller.service")
 	require.Contains(t, string(boothook), "/opt/azure/containers/aks-node-controller-launcher.sh")

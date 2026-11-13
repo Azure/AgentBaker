@@ -187,7 +187,7 @@ func scriptlessCloudSettings(config *datamodel.NodeBootstrappingConfiguration) s
 	if config.ContainerService.IsAKSCustomCloud() {
 		endpoint = config.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint
 	}
-	if location == "" || strings.ContainsRune(location, 0) || strings.ContainsRune(endpoint, 0) {
+	if strings.ContainsRune(location, 0) || strings.ContainsRune(endpoint, 0) {
 		return "return 1\n"
 	}
 	return "LOCATION=" + shellQuote(location) + "\nREPO_DEPOT_ENDPOINT=" + shellQuote(endpoint) + "\n"
