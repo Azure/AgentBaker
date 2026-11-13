@@ -12,7 +12,9 @@
 #                 ACL_BASE_IMAGE_SIGNED.
 #   aclstaging  - an ACL release candidate: an ESRP-signed prod build staged
 #                 in the aclstaging gallery's candidate definitions before
-#                 ACL publishes it, so AgentBaker can test it first.
+#                 ACL publishes it, so AgentBaker can test it first. It also
+#                 sets ACL_CANDIDATE_IMAGE, so .builder-release-template.yaml
+#                 hides the image the job builds from other E2E runs.
 #
 # SIG_SOURCE_IMAGE_VERSION_OVERRIDE optionally overrides the default
 # SIG_SOURCE_IMAGE_VERSION for the acg/acldevel sources (e.g. to pick up a
@@ -107,14 +109,22 @@ steps:
               echo '##vso[task.setvariable variable=SIG_SOURCE_IMAGE_NAME]acl-3.0-candidate-arm64'
             displayName: Set ACL base image vars (aclstaging, arm64)
       # The version reaches the script through env rather than its text, and
-      # must be a gallery version, since there's no pin to fall back to.
+      # must be a gallery version, since there's no pin to fall back to. A bad
+      # value is printed shell-quoted, so it can't run a logging command.
       - bash: |
           set -euo pipefail
-          if [[ ! "${CANDIDATE_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "##vso[task.logissue type=error]ACL_BASE_IMAGE_SOURCE aclstaging needs the candidate's gallery version as the ACL base image version override, such as 20261105.1246473.0."
+          version_params="ACL_BASE_IMAGE_VERSION_${{ upper(parameters.VARIANT) }} or ACL_BASE_IMAGE_VERSION"
+          if [[ -z "${CANDIDATE_VERSION:-}" ]]; then
+            echo "##vso[task.logissue type=error]ACL_BASE_IMAGE_SOURCE aclstaging has no pinned ${{ parameters.VARIANT }} version: set ${version_params} to the candidate's gallery version, such as 20261105.1246473.0."
+            exit 1
+          fi
+          if [[ ! "${CANDIDATE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "##vso[task.logissue type=error]${version_params} must be a gallery version such as 20261105.1246473.0, not $(printf '%q' "${CANDIDATE_VERSION}")."
             exit 1
           fi
           echo "##vso[task.setvariable variable=SIG_SOURCE_IMAGE_VERSION]${CANDIDATE_VERSION}"
         env:
           CANDIDATE_VERSION: ${{ parameters.SIG_SOURCE_IMAGE_VERSION_OVERRIDE }}
         displayName: Set SIG_SOURCE_IMAGE_VERSION (aclstaging)
+      - bash: echo '##vso[task.setvariable variable=ACL_CANDIDATE_IMAGE]true'
+        displayName: Mark the ACL image as a candidate

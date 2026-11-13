@@ -258,6 +258,27 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
+  # A candidate ACL image (ACL_BASE_IMAGE_SOURCE aclstaging) isn't released, so
+  # hide it from E2E runs that pick the newest image tagged with their branch
+  # (noSelectionTagName in e2e/config/vhd.go). This run's own E2E stage takes
+  # its images from the VHD metadata artifact, which ignores tags.
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+        if [ -z "${MANAGED_SIG_ID:-}" ]; then
+          echo "##vso[task.logissue type=error]MANAGED_SIG_ID is empty, so the candidate image can't be hidden from other E2E runs."
+          exit 1
+        fi
+        az tag update --resource-id "${MANAGED_SIG_ID}" --operation Merge --tags abe2e-ignore=true --output none --only-show-errors
+        echo "Tagged ${MANAGED_SIG_ID} with abe2e-ignore=true"
+    condition: and(succeeded(), eq(variables.ACL_CANDIDATE_IMAGE, 'true'))
+    displayName: Hide candidate image from other E2E runs
+    retryCountOnTaskFailure: 3
+
   - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
     - bash: |
         echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"

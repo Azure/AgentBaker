@@ -274,6 +274,10 @@ an ACL build job fails without one. The release pipeline's two CVM builds follow
 `acg` and `aclstaging` runs too, and keep the ACG pin for `acldevel` runs. A
 candidate run publishes nothing: the pipelines set `GENERATE_PUBLISHING_INFO`
 to `False`, and the release pipeline leaves out the COSI jobs, which upload to PMC.
+It also tags the images it saves to the test gallery with `abe2e-ignore`, so E2E
+runs that pick the newest image by branch skip them, and its E2E stage skips GPU
+scenarios, since a candidate's GPU sysexts reach MCR only when ACL publishes it.
+
 The pipeline resolves `IMAGE_VERSION` once; the ACL image-stamping step fails
 if it does not receive that value.
 
@@ -284,8 +288,7 @@ version. This deliberately disables current-version-based `AlreadyAtTarget`
 shortcuts. Nebraska affinity cookie handling is enabled for annotation-driven
 updates, including cookie persistence across reboot.
 
-ACL CVM builds keep the production ACG source and are not part of the
-four-variant COSI validation.
+ACL CVM builds are not part of the four-variant COSI validation.
 
 TME publishing runs convert the selected ACL variants in architecture-matched
 jobs and produce `cosi-publishing-info-*` artifacts with a base64
