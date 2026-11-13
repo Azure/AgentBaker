@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -122,7 +123,6 @@ func DefaultConfiguration() *Configuration {
 		Parallel:               60,
 		OutputMode:             "auto",
 		SIGVersionTagName:      "branch",
-		SIGVersionTagValue:     "refs/heads/main",
 		SubscriptionID:         "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",
 		TestGalleryImagePrefix: "abe2etest",
 		TestGalleryNamePrefix:  "abe2etest",
@@ -248,6 +248,9 @@ func LoadDotEnv() error {
 }
 
 func Initialize() error {
+	if err := Config.resolveSIGVersionTag(context.Background()); err != nil {
+		return err
+	}
 	VMSSHPrivateKey, VMSSHPublicKey, VMSSHPrivateKeyFileName = mustGetNewRSAKeyPair()
 	var err error
 	Config.vhdMetadata = nil
