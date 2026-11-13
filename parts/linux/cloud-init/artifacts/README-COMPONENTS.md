@@ -77,6 +77,19 @@ Please refer to [components.cue](../../../../schemas/components.cue) for the mos
   - `containerImagePrefetch` defines the prefetch optimization for the particular container image, if any. Each `ContainerImagePrefetchOptimizations` object must define a prefetch optimization _at least_ for the `latestVersion`, while optionally defining one of the `previousLatestVersion`. At the end of the day, a prefetch optimization is parameterized by an array of file paths pointing to binaries (relative to the FS of the container image, starting with `/`) to be prefetched during image builder optimization. NOTE: if ever updating prefetch optimizations for container images, please run `make generate` within vhdbuilder/prefetch to update the corresponding test data and re-run prefetch script generation tests.
 
 ### Packages
+
+For Linux credential-provider provisioning, `getCredentialProviderVersion` in
+`cse_helpers.sh` prefers modern `azure-acr-credential-provider` metadata over
+`azure-acr-credential-provider-pmc` when both entries exist. Older VHDs use
+`azure-acr-credential-provider` for legacy OCI binaries (identified by
+`downloadURIs.default`) and `azure-acr-credential-provider-pmc` for native
+packages. The helper excludes that legacy canonical entry and falls back to
+the historical `-pmc` name so current provisioning scripts can still resolve
+native packages on older VHDs. It then delegates distro resolution and version
+selection to the package-agnostic `getLatestPkgVersionFromK8sVersion`.
+Explicit empty platform entries in modern canonical metadata remain
+authoritative; they do not trigger historical fallback.
+
 `Packages` is a list of `Package` where a `package` has the following scehma:
 ``` 
 #Package: {

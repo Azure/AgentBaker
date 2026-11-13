@@ -607,9 +607,14 @@ function Resolve-DalecCredentialProviderPackageFromMetadata {
         Write-Log "Invalid Dalec credential provider metadata in '$metadataPath'; falling back to RP URL. Error: $_"
         return $null
     }
-    # Older VHDs placed newer Windows pins under PMC; retain that precedence for their metadata.
-    # Consolidated metadata keeps Windows pins only in the dedicated Dalec component.
-    $package = $metadata.Packages | Where-Object { $_.name -eq 'azure-acr-credential-provider-pmc' } | Select-Object -First 1
+    # On older VHDs the canonical name refers to tarballs, not Dalec ZIPs.
+    $package = $metadata.Packages | Where-Object {
+        $_.name -eq 'azure-acr-credential-provider' -and
+        $_.downloadURIs.windows.default.downloadURL -like '*_amd64.zip'
+    } | Select-Object -First 1
+    if ($null -eq $package.downloadURIs.windows.default) {
+        $package = $metadata.Packages | Where-Object { $_.name -eq 'azure-acr-credential-provider-pmc' } | Select-Object -First 1
+    }
     if ($null -eq $package.downloadURIs.windows.default) {
         $package = $metadata.Packages | Where-Object { $_.name -eq 'windows credential provider dalec' } | Select-Object -First 1
     }
@@ -713,6 +718,7 @@ function Save-DalecCredentialProviderHttpResponse {
 
 # Throws rather than exiting so the caller can fall back to the RP cache/URL.
 # Defaults match DownloadFileOverHttp; pass a smaller budget only when a fallback exists.
+# Also used for custom legacy archives, which must bypass the shared basename cache.
 function Get-DalecCredentialProviderPackage {
     Param(
         [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$Url,
@@ -732,14 +738,14 @@ function Get-DalecCredentialProviderPackage {
     [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
 
     $mappedUrl = Update-BaseUrl -InitialUrl $Url
-    Write-Log "Downloading dalec credential provider $Url -> $mappedUrl to $DestinationPath (attempts: $Retries, per-attempt timeout: $(if ($TimeoutSec -gt 0) { "$TimeoutSec s" } else { 'default' }), retry delay: $RetryDelaySeconds s)"
+    Write-Log "Downloading credential provider $Url -> $mappedUrl to $DestinationPath (attempts: $Retries, per-attempt timeout: $(if ($TimeoutSec -gt 0) { "$TimeoutSec s" } else { 'default' }), retry delay: $RetryDelaySeconds s)"
     $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         $arglist = @{ Url = $mappedUrl; DestinationPath = $DestinationPath; TimeoutSec = $TimeoutSec }
         Retry-Command -Command "Save-DalecCredentialProviderHttpResponse" -Args $arglist -Retries $Retries -RetryDelaySeconds $RetryDelaySeconds
     } finally {
         $downloadTimer.Stop()
-        Write-Log "Dalec credential provider download elapsed time: $($downloadTimer.ElapsedMilliseconds) ms ($mappedUrl)"
+        Write-Log "Credential provider download elapsed time: $($downloadTimer.ElapsedMilliseconds) ms ($mappedUrl)"
     }
 
     if ($null -ne $global:AppInsightsClient) {
@@ -805,7 +811,7 @@ function Install-CredentialProvider {
             $allowDalecSelection = [string]::IsNullOrEmpty($global:CredentialProviderURL) -or
                 ($isCredentialProviderUri -and
                     $credentialProviderUri.Host -in $stockLegacyHosts -and
-                    $credentialProviderUri.AbsolutePath -match '/cloud-provider-azure/v\d+\.\d+\.\d+/binaries/azure-acr-credential-provider-windows-amd64-v\d+\.\d+\.\d+\.tar\.gz$')
+                    $credentialProviderUri.AbsolutePath -match '^/cloud-provider-azure/v\d+\.\d+\.\d+/binaries/azure-acr-credential-provider-windows-amd64-v\d+\.\d+\.\d+\.tar\.gz$')
             $dalecPackage = if ($allowDalecSelection) {
                 Resolve-DalecCredentialProviderPackage -KubeBinariesVersion $global:KubeBinariesVersion
             } else { $null }
@@ -845,12 +851,20 @@ function Install-CredentialProvider {
                 }
             }
             if ($useLegacyPackage) {
-                # If neither Dalec source works, the shared helper checks the RP cache before downloading.
                 if ([string]::IsNullOrEmpty($global:CredentialProviderURL)) {
                     throw "No credential provider source: CredentialProviderURL is empty and neither a cached Dalec package nor a matching download in baked metadata is available for Kubernetes $global:KubeBinariesVersion on this node."
                 }
                 $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
-                DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+                if ($allowDalecSelection) {
+                    DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+                } else {
+                    # A custom URL may share a stock filename; never substitute the cached stock archive.
+                    try {
+                        Get-DalecCredentialProviderPackage -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage
+                    } catch {
+                        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER -ErrorMessage "Failed downloading custom credential provider. Error: $_"
+                    }
+                }
                 tar -xzf $credentialproviderbinaryPackage -C $tempDir
                 if ($LASTEXITCODE -ne 0) {
                     throw "Failed to extract the '$credentialproviderbinaryPackage' archive."

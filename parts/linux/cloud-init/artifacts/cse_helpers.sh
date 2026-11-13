@@ -1252,6 +1252,21 @@ getLatestPkgVersionFromK8sVersion() {
     echo $PACKAGE_VERSION
 }
 
+getCredentialProviderVersion() {
+    local k8sVersion="$1"
+    local componentName
+    # Older VHDs used the canonical name for legacy OCI binaries with a default
+    # distro entry. Native packages/sysexts have only explicit distro entries.
+    componentName=$(jq -r --arg name "azure-acr-credential-provider" '
+        if any(.Packages[]; .name == $name and .downloadURIs.default == null) then
+            $name
+        else
+            "\($name)-pmc"
+        end
+    ' "$COMPONENTS_FILEPATH") || return $?
+    getLatestPkgVersionFromK8sVersion "$k8sVersion" "$componentName" "${@:2}"
+}
+
 # installs kube binary if cached
 fallbackToKubeBinaryInstall() {
     packageName="${1:-}"
