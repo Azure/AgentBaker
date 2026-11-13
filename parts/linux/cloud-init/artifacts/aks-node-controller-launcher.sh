@@ -22,7 +22,7 @@ NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.
 # producer is the sole trusted writer. Parsed below at wrapper runtime; absent file (default-off,
 # or an older VHD without the producer) is a no-op.
 FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
-CLOUD_SETTINGS_PATH="${CLOUD_SETTINGS_PATH:-/opt/azure/containers/init-aks-cloud.env}"
+INIT_AKS_CLOUD_ENV="${INIT_AKS_CLOUD_ENV:-/opt/azure/containers/init-aks-cloud.env}"
 INIT_AKS_CLOUD_PATH="${INIT_AKS_CLOUD_PATH:-/opt/azure/containers/init-aks-cloud.sh}"
 CLOUD_INIT_LOG="${CLOUD_INIT_LOG:-/var/log/azure/cluster-provision.log}"
 CLOUD_INIT_DONE="${CLOUD_INIT_DONE:-/run/aks/init-aks-cloud.done}"
@@ -68,12 +68,12 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
 fi
 
 skip_hotfix_acquisition=false
-if [ -s "$CONFIG_PATH" ] || [ -f "$CLOUD_SETTINGS_PATH" ]; then
+if [ -s "$CONFIG_PATH" ] || [ -f "$INIT_AKS_CLOUD_ENV" ]; then
     # shellcheck source=/dev/null
     if rm -f "$CLOUD_INIT_DONE" &&
-        write_cloud_settings "$CONFIG_PATH" "$CLOUD_SETTINGS_PATH" 2>> "$CLOUD_INIT_LOG" &&
-        [ -x "$INIT_AKS_CLOUD_PATH" ] && [ -s "$CLOUD_SETTINGS_PATH" ] &&
-        ( set -a; source "$CLOUD_SETTINGS_PATH" && [ -n "${LOCATION:-}" ] &&
+        write_cloud_settings "$CONFIG_PATH" "$INIT_AKS_CLOUD_ENV" 2>> "$CLOUD_INIT_LOG" &&
+        [ -x "$INIT_AKS_CLOUD_PATH" ] && [ -s "$INIT_AKS_CLOUD_ENV" ] &&
+        ( set -a; source "$INIT_AKS_CLOUD_ENV" && [ -n "${LOCATION:-}" ] &&
           ANC_EARLY_CLOUD_INIT=true "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1; then
         { mkdir -p "$(dirname "$CLOUD_INIT_DONE")" && touch "$CLOUD_INIT_DONE"; } ||
             log "Failed to create cloud initialization marker; provisioning will run initialization again"
@@ -83,7 +83,7 @@ if [ -s "$CONFIG_PATH" ] || [ -f "$CLOUD_SETTINGS_PATH" ]; then
         skip_hotfix_acquisition=true
         log "Early cloud initialization failed; skipping hotfix acquisition and retrying during provisioning"
     fi
-    rm -f "$CLOUD_SETTINGS_PATH" || log "Failed to remove cloud settings"
+    rm -f "$INIT_AKS_CLOUD_ENV" || log "Failed to remove cloud settings"
 fi
 
 # Older payloads without cloud settings or AKSNodeConfig retain their existing hotfix flow.

@@ -42,7 +42,7 @@ EOF
         # Feature-flag file is test-local and absent by default; tests that exercise the
         # source path create it explicitly.
         export FEATURES_PATH="${TEST_DIR}/enabled_features.sh"
-        export CLOUD_SETTINGS_PATH="${TEST_DIR}/cloud-settings.sh"
+        export INIT_AKS_CLOUD_ENV="${TEST_DIR}/cloud-settings.sh"
         export INIT_AKS_CLOUD_PATH="${TEST_DIR}/init-aks-cloud.sh"
         export CLOUD_INIT_LOG="${TEST_DIR}/cloud-init.log"
         export CLOUD_INIT_DONE="${TEST_DIR}/run/init-aks-cloud.done"
@@ -50,7 +50,7 @@ EOF
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN CLOUD_SETTINGS_PATH INIT_AKS_CLOUD_PATH CLOUD_INIT_LOG CLOUD_INIT_DONE
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN INIT_AKS_CLOUD_ENV INIT_AKS_CLOUD_PATH CLOUD_INIT_LOG CLOUD_INIT_DONE
     }
 
     create_fake_aks_node_controller() {
@@ -169,7 +169,7 @@ EOF
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq "$(printf 'init:usnat test:https://repo.example:true\ncheck-hotfix:done\ndownload-hotfix:done\nprovision:done')"
         The path "$CLOUD_INIT_DONE" should be exist
-        The path "$CLOUD_SETTINGS_PATH" should not be exist
+        The path "$INIT_AKS_CLOUD_ENV" should not be exist
     End
 
     It 'extracts settings safely when both provisioning inputs exist'
@@ -195,7 +195,7 @@ EOF
         export ENABLE_PROVISIONING_HOTFIX=true
         mkdir -p "$(dirname "$CLOUD_INIT_DONE")"
         touch "$CLOUD_INIT_DONE"
-        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
+        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$INIT_AKS_CLOUD_ENV"
         printf '#!/bin/bash\nexit 1\n' > "$INIT_AKS_CLOUD_PATH"
         cat > "$BIN_PATH" <<'EOF'
 #!/bin/bash
@@ -210,7 +210,7 @@ EOF
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision:unset'
         The path "$CLOUD_INIT_DONE" should not be exist
-        The path "$CLOUD_SETTINGS_PATH" should not be exist
+        The path "$INIT_AKS_CLOUD_ENV" should not be exist
     End
 
     It 'allows acquisition after successful initialization when the completion marker cannot be created'
@@ -227,13 +227,13 @@ EOF
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq "$(printf 'download-hotfix\nprovision')"
         The path "$CLOUD_INIT_DONE" should not be exist
-        The path "$CLOUD_SETTINGS_PATH" should not be exist
+        The path "$INIT_AKS_CLOUD_ENV" should not be exist
     End
 
     It 'uses a staged hotfix after early initialization fails without acquiring another'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         export ENABLE_PROVISIONING_HOTFIX=true
-        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
+        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$INIT_AKS_CLOUD_ENV"
         printf '#!/bin/bash\nexit 1\n' > "$INIT_AKS_CLOUD_PATH"
         hotfix_bin="${BIN_PATH}-hotfix"
         cat > "$BIN_PATH" <<'EOF'
@@ -256,7 +256,7 @@ EOF
 
     It 'does not acquire a hotfix when settings are invalid or the initializer is missing'
         touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
-        printf 'return 1\n' > "$CLOUD_SETTINGS_PATH"
+        printf 'return 1\n' > "$INIT_AKS_CLOUD_ENV"
         create_recording_aks_node_controller
 
         When run bash "$SCRIPT"
@@ -297,7 +297,7 @@ EOF
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision'
         The path "$CLOUD_INIT_DONE" should not be exist
-        The path "$CLOUD_SETTINGS_PATH" should not be exist
+        The path "$INIT_AKS_CLOUD_ENV" should not be exist
     End
 
     It 'ignores the repo endpoint for a non-custom cloud'
@@ -322,7 +322,7 @@ EOF
         # Exercise the default filename without writing to /opt.
         sed 's|/opt/azure/containers/|${TEST_DIR}/|g' "$SCRIPT" > "${TEST_DIR}/aks-node-controller-launcher.sh"
         cp "$HOTFIX_SCRIPT" "${TEST_DIR}/aks-node-controller-hotfix.sh"
-        unset CLOUD_SETTINGS_PATH
+        unset INIT_AKS_CLOUD_ENV
         printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://fallback'\n" > "${TEST_DIR}/init-aks-cloud.env"
         cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
 #!/bin/bash
