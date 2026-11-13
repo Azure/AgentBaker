@@ -174,7 +174,8 @@ ExecStart=/bin/bash /opt/azure/containers/provision_preload.sh
 WantedBy=sysinit.target
 EOF
 
-  systemctl daemon-reload
+  # Package upgrades can temporarily disconnect systemd's control socket.
+  retrycmd_if_failure 30 1 5 systemctl daemon-reload || exit 1
   systemctl enable cache-warmup.service
 fi
 

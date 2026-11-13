@@ -82,3 +82,81 @@ Describe 'installAzureLinuxArm64DualKernel'
     The path "${BOOT_DIR}/grub2/arm64-efi" should not be exist
   End
 End
+
+Describe 'cache-warmup registration after package upgrades'
+  Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
+  setup_cache_warmup() {
+    TEST_DIR=$(mktemp -d)
+    export TEST_DIR
+    export MOCK_RELOAD_FAILURES=1
+    unset CSE_STARTTIME_SECONDS
+    printf '0' > "${TEST_DIR}/reload-count"
+    sed -n '/^if { isUbuntu /,/^fi$/p' ./vhdbuilder/packer/pre-install-dependencies.sh > "${TEST_DIR}/warmup.sh"
+    export -f isUbuntu isAzureLinux tee systemctl timeout sleep retrycmd_if_failure _retrycmd_internal
+  }
+
+  cleanup_cache_warmup() {
+    rm -f -- "${TEST_DIR}/reload-count" "${TEST_DIR}/warmup.sh" \
+      "${TEST_DIR}/cache-warmup.service" "${TEST_DIR}/enabled-service"
+    rmdir -- "$TEST_DIR"
+  }
+
+  isUbuntu() { [ "$1" = "UBUNTU" ]; }
+  isAzureLinux() { [ "$1" = "AZURELINUX" ]; }
+  timeout() { shift; "$@"; }
+  sleep() { :; }
+
+  tee() {
+    if [ "$1" = "-a" ]; then
+      cat > /dev/null
+    else
+      cat > "${TEST_DIR}/cache-warmup.service"
+    fi
+  }
+
+  systemctl() {
+    if [ "$1" = "daemon-reload" ]; then
+      local attempts
+      attempts=$(cat "${TEST_DIR}/reload-count")
+      attempts=$((attempts + 1))
+      printf '%s' "$attempts" > "${TEST_DIR}/reload-count"
+      if [ "$attempts" -le "$MOCK_RELOAD_FAILURES" ]; then
+        echo "Failed to connect to system scope bus via local transport: Connection refused" >&2
+        return 1
+      fi
+    elif [ "$1" = "enable" ]; then
+      printf '%s' "$2" > "${TEST_DIR}/enabled-service"
+    else
+      return 1
+    fi
+  }
+
+  BeforeEach 'setup_cache_warmup'
+  AfterEach 'cleanup_cache_warmup'
+
+  Describe 'transient reload failures'
+    Parameters
+      "UBUNTU"
+      "AZURELINUX"
+    End
+
+    It "enables cache-warmup after systemd recovers on $1"
+      export OS="$1"
+      When run bash -e "${TEST_DIR}/warmup.sh"
+      The status should be success
+      The error should include "Failed to connect to system scope bus"
+      The output should include 'Executed "systemctl daemon-reload" 2 times.'
+      The contents of file "${TEST_DIR}/enabled-service" should equal "cache-warmup.service"
+    End
+  End
+
+  It 'fails without enabling cache-warmup when the systemd manager does not recover'
+    export OS="UBUNTU"
+    export MOCK_RELOAD_FAILURES=100
+    When run bash -e "${TEST_DIR}/warmup.sh"
+    The status should be failure
+    The error should include "Failed to connect to system scope bus"
+    The path "${TEST_DIR}/enabled-service" should not be exist
+  End
+End
