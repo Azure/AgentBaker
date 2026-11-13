@@ -8,6 +8,10 @@ bootcmd:
     [ -e /usr/local/bin/${bin} ] || continue
     ln -s /usr/local/bin/${bin} /opt/bin/
   done
+{{- with GetWaagentSliceBootcmd }}
+- |
+  {{ . }}
+{{- end }}
 
 write_files:
 # IMPORTANT: OSGuard images have /usr/ mounted read-only (dm-verity).

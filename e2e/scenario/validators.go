@@ -5197,12 +5197,42 @@ func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) error {
 // ValidateRootSlices checks the live cgroup hierarchy, not installed or inactive slice units.
 func ValidateRootSlices(ctx context.Context, s *Scenario) error {
 	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		`cgroup_root=/sys/fs/cgroup
+		`set -eu
+cgroup_root=/sys/fs/cgroup
 if [ ! -f "$cgroup_root/cgroup.controllers" ]; then
     cgroup_root=/sys/fs/cgroup/systemd
 fi
-test -d "$cgroup_root" && find "$cgroup_root" -mindepth 1 -maxdepth 1 -type d -name '*.slice' -printf '%f\n'`,
-		0, "could not list root slices in the systemd cgroup hierarchy")
+kubelet_slice=$(systemctl show kubelet.service --property=Slice --value)
+legacy_slice=azure.slice
+legacy_localdns=localdns.slice
+legacy_aks=aks.slice
+if [ "$kubelet_slice" = kubereserved.slice ]; then
+    legacy_slice=
+    legacy_localdns=
+    legacy_aks=
+    waagent_cgroup=
+    for service in walinuxagent.service waagent.service; do
+        if systemctl is-active --quiet "$service"; then
+            waagent_cgroup=$(systemctl show "$service" --property=ControlGroup --value)
+            break
+        fi
+    done
+    case "$waagent_cgroup" in
+        /system.slice/walinuxagent.service|/system.slice/waagent.service) ;;
+        *)
+            echo "expected waagent under /system.slice, got '$waagent_cgroup'" >&2
+            for service in walinuxagent.service waagent.service; do
+                if systemctl is-active --quiet "$service"; then
+                    systemctl show "$service" --property=LoadState --property=ActiveState --property=Slice --property=DropInPaths --property=ControlGroup
+                    break
+                fi
+            done
+            exit 1
+            ;;
+    esac
+fi
+find "$cgroup_root" -mindepth 1 -maxdepth 1 -type d -name '*.slice' ! -name "$legacy_slice" ! -name "$legacy_localdns" ! -name "$legacy_aks" -printf '%f\n'`,
+		0, "could not validate waagent placement and list root slices")
 	if err != nil {
 		return err
 	}

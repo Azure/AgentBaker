@@ -30,7 +30,44 @@ import (
 
 const (
 	MaxCustomDataLength = 87380
+
+	nodeHardeningMarker = "/etc/aks-node-hardening"
+	waagentSliceDropIn  = "[Service]\nSlice=system.slice\n"
+	waagentSliceSetup   = `
+(
+    set -e
+    for service in waagent walinuxagent; do
+        dir="/run/systemd/system/$service.service.d"
+        mkdir -p "$dir"
+        printf '%s\n' '[Service]' 'Slice=system.slice' > "$dir/90-aks-node-hardening.conf"
+    done
+    # The original boot transaction may still have the old slice queued.
+    dir=/run/systemd/system/azure.slice.d
+    mkdir -p "$dir"
+    printf '%s\n' '[Unit]' 'StopWhenUnneeded=yes' > "$dir/90-aks-node-hardening.conf"
+    printf '%s\n' enabled > /etc/aks-node-hardening
+    systemctl daemon-reload
+    for service in waagent walinuxagent; do
+        unit="$service.service"
+        load_state=$(systemctl show "$unit" -p LoadState --value)
+        if [ "$load_state" = loaded ]; then
+            printf 'Node Hardening waagent unit after daemon-reload: %s\n' "$unit"
+            # Requeue a boot-time start transaction that may still reference azure.slice.
+            systemctl restart --no-block "$unit"
+            systemctl show "$unit" -p LoadState -p ActiveState -p Slice -p DropInPaths -p ControlGroup
+            break
+        fi
+    done
 )
+`
+)
+
+func waagentSliceDropInPaths() [2]string {
+	return [2]string{
+		"/etc/systemd/system/waagent.service.d/90-aks-node-hardening.conf",
+		"/etc/systemd/system/walinuxagent.service.d/90-aks-node-hardening.conf",
+	}
+}
 
 // TemplateGenerator represents the object that performs the template generation.
 type TemplateGenerator struct{}
@@ -56,10 +93,11 @@ const (
 		` && chmod 0600 /opt/azure/containers/boothook.sh` +
 		` && { [ -e /opt/bin/boothook.sh ] || /bin/bash /opt/azure/containers/boothook.sh; }` +
 		` && /opt/azure/containers/aks-node-controller provision-wait`
-	boothookTemplate = `#cloud-boothook
+	boothookHeader = `#cloud-boothook
 #!/bin/bash
 set -euo pipefail
-
+`
+	boothookTemplate = `
 [ -e /opt/azure/containers/provision.complete ] && exit 0
 
 logger -t aks-boothook "boothook start $(date -Ins)"
@@ -217,12 +255,17 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 
 	var customData, encodedCustomData string
 	if config.IsFlatcar() || config.IsACL() {
+		encodedFiles = appendScriptlessWaagentDropIns(config, encodedFiles)
 		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
 		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
+		customData = boothookHeader
+		if placeWaagentInSystemSlice(config) {
+			customData += waagentSliceSetup
+		}
+		customData += boothookTemplate
 		provisionCustomData := buildScriptlessCustomData(boothookProvisionTemplate, boothookFileEntry, "\n", encodedFiles)
-		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(boothookTemplate + provisionCustomData + hotfixMarkerTemplate + cseDownloaderTemplate))
-		customData = boothookTemplate
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + provisionCustomData + hotfixMarkerTemplate + cseDownloaderTemplate))
 		if config.IsCustomDataOnlyProvisioningEnabled() {
 			customData += readyReportHandoffTemplate
 		}
@@ -256,6 +299,17 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	config.CustomDataOnlyProvisioning = false
 	config.ScriptlessCSEProvisionMode = true
 	return encodedCustomData
+}
+
+func appendScriptlessWaagentDropIns(config *datamodel.NodeBootstrappingConfiguration, files []encodedFile) []encodedFile {
+	if placeWaagentInSystemSlice(config) {
+		content := getBase64EncodedGzippedCustomScriptFromStr(waagentSliceDropIn)
+		for _, path := range waagentSliceDropInPaths() {
+			files = append(files, encodedFile{path, content})
+		}
+		files = append(files, encodedFile{nodeHardeningMarker, getBase64EncodedGzippedCustomScriptFromStr("enabled\n")})
+	}
+	return files
 }
 
 func buildCloudConfigArchive(script string) (string, error) {
@@ -326,7 +380,58 @@ func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfigur
 	if !json.Valid([]byte(input)) || input[0] != '{' {
 		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires AKSNodeConfigJSON to be a valid JSON object")
 	}
-	return nil
+	_, err := scriptlessWaagentPlacement(input)
+	return err
+}
+
+// Phase 3 uses the JSON kubelet configuration rather than the legacy NBC flags.
+func scriptlessWaagentPlacement(input string) (bool, error) {
+	type object = map[string]json.RawMessage
+	var cfg, kubelet, file object
+	var preProvision, useFile bool
+	var flags map[string]string
+	var enforced []string
+	err := json.Unmarshal([]byte(input), &cfg)
+	// Protobuf JSON accepts both the proto field name and the JSON name.
+	read := func(obj object, protoName, jsonName string, dest any) {
+		if err != nil {
+			return
+		}
+		raw := obj[protoName]
+		if raw == nil {
+			raw = obj[jsonName]
+		}
+		if raw != nil {
+			err = json.Unmarshal(raw, dest)
+		}
+	}
+	read(cfg, "pre_provision_only", "preProvisionOnly", &preProvision)
+	read(cfg, "kubelet_config", "kubeletConfig", &kubelet)
+	read(kubelet, "kubelet_flags", "kubeletFlags", &flags)
+	read(kubelet, "enable_kubelet_config_file", "enableKubeletConfigFile", &useFile)
+	_, hasCLI := flags["--enforce-node-allocatable"]
+	if !hasCLI && useFile {
+		read(kubelet, "kubelet_config_file_config", "kubeletConfigFileConfig", &file)
+		read(file, "enforce_node_allocatable", "enforceNodeAllocatable", &enforced)
+	}
+	if err != nil {
+		return false, fmt.Errorf("invalid AKSNodeConfigJSON kubelet configuration: %w", err)
+	}
+	if !hasCLI && useFile {
+		return !preProvision && slices.Contains(enforced, "kube-reserved") && slices.Contains(enforced, "system-reserved"), nil
+	}
+	return !preProvision && isNodeHardeningEnabled(flags), nil
+}
+
+func placeWaagentInSystemSlice(config *datamodel.NodeBootstrappingConfiguration) bool {
+	if config.EnableScriptlessAKSNodeConfig {
+		place, err := scriptlessWaagentPlacement(config.AKSNodeConfigJSON)
+		if err != nil {
+			panic(err) // The public payload API validates the JSON before rendering.
+		}
+		return place
+	}
+	return !config.PreProvisionOnly && isNodeHardeningEnabled(config.KubeletConfig)
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
@@ -553,6 +658,22 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 		butaneYamlPath = kubernetesACLNodeCustomDataYaml
 	}
 	var butaneconfig = cloudInitToButane(customData, butaneYamlPath)
+	if placeWaagentInSystemSlice(config) {
+		for _, path := range waagentSliceDropInPaths() {
+			butaneconfig.Storage.Files = append(butaneconfig.Storage.Files, base0_5.File{
+				Path:      path,
+				Mode:      to.IntPtr(0o644),
+				Overwrite: to.BoolPtr(true),
+				Contents:  base0_5.Resource{Inline: to.StringPtr(waagentSliceDropIn)},
+			})
+		}
+		butaneconfig.Storage.Files = append(butaneconfig.Storage.Files, base0_5.File{
+			Path:      nodeHardeningMarker,
+			Mode:      to.IntPtr(0o644),
+			Overwrite: to.BoolPtr(true),
+			Contents:  base0_5.Resource{Inline: to.StringPtr("enabled\n")},
+		})
+	}
 	ignition, report, e := butaneconfig.ToIgn3_4(butanecommon.TranslateOptions{})
 	if e != nil {
 		panic(fmt.Errorf("butane -> ignition: error: %w:\n%s", e, report.String()))
@@ -749,10 +870,20 @@ func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, c
 	return "!!binary |\n    " + getBase64EncodedGzippedCustomScriptFromStr(content), nil
 }
 
+func getWaagentSliceBootcmd(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.EnableScriptlessCSECmd || config.IsFlatcar() || config.IsACL() || config.PreProvisionOnly || !isNodeHardeningEnabled(config.KubeletConfig) {
+		return ""
+	}
+	return strings.ReplaceAll(strings.TrimSpace(waagentSliceSetup), "\n", "\n  ")
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
+	funcMap["GetWaagentSliceBootcmd"] = func() string {
+		return getWaagentSliceBootcmd(config)
+	}
 	funcMap["GetCloudInitFileEncodingLine"] = func() string {
 		return getCloudInitFileEncodingLine(config)
 	}
