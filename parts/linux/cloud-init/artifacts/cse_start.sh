@@ -61,6 +61,9 @@ JSON_STRING=$( jq -n \
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
+# The egress check below runs after this cache is deleted, so keep the cloud name it needs.
+EGRESS_AZ_ENVIRONMENT=$(jq -r '.compute.azEnvironment // empty' /opt/azure/containers/imds_instance_metadata_cache.json 2>/dev/null)
+
 # Cleanup cache file
 rm -f /opt/azure/containers/imds_instance_metadata_cache.json || true
 
@@ -128,6 +131,24 @@ fi
 # reports the result of a pre-provision run as well as a normal one. Image generalization removes
 # it before capture, so a node created from the image never inherits it.
 touch /opt/azure/containers/provision.complete
+
+# Telemetry only: records the endpoints node-problem-detector checks. It runs after provision.complete and in
+# the background, so it never delays kubelet, the aks-node-controller result, or the classic CSE exit, and it
+# cannot change EXIT_CODE. It writes to the log rather than this script's stdout and stderr, so a caller that
+# reads those pipes does not wait for it either.
+# A bake has no node to report on, and bootstrap-profile clusters have no outbound path by design.
+# A rerun on a provisioned node exits provision.sh before IMDS is cached, so the empty cloud name skips it.
+if [ "${PRE_PROVISION_ONLY}" != "true" ] && [ -n "${OUTBOUND_COMMAND}" ] && [ -z "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ] && [ -n "${EGRESS_AZ_ENVIRONMENT}" ]; then
+    (
+        # provision.sh exports curl's proxy variables only for itself, so set them here too. Otherwise a
+        # cluster that reaches the internet only through its HTTP proxy records every endpoint as blocked.
+        if [ -n "${HTTP_PROXY_URLS}" ]; then export HTTP_PROXY="${HTTP_PROXY_URLS}" http_proxy="${HTTP_PROXY_URLS}"; fi
+        if [ -n "${HTTPS_PROXY_URLS}" ]; then export HTTPS_PROXY="${HTTPS_PROXY_URLS}" https_proxy="${HTTPS_PROXY_URLS}"; fi
+        if [ -n "${NO_PROXY_URLS}" ]; then export NO_PROXY="${NO_PROXY_URLS}" no_proxy="${NO_PROXY_URLS}"; fi
+        source "${CSE_HELPERS_FILEPATH:-/opt/azure/containers/provision_source.sh}" &&
+            checkEgressEndpoints "${EGRESS_AZ_ENVIRONMENT}"
+    ) >> /var/log/azure/cluster-provision.log 2>&1 &
+fi
 
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs
