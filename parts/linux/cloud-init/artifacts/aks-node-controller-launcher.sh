@@ -54,19 +54,15 @@ rm -f "$CLOUD_INIT_DONE" || settings_ok=false
 if [ -s "$CONFIG_PATH" ]; then
     # AKSNodeConfig is the live source of cloud settings; jq's @sh safely quotes values.
     jq -er '
-        def field($snake; $camel):
-            if has($snake) and has($camel) then error("duplicate field " + $snake)
-            else .[$snake] // .[$camel] end;
         def safe_string:
             if type != "string" then error("invalid cloud settings")
             elif (explode | index(0)) != null then error("NUL in cloud settings")
             else . end;
-        (field("cluster_config"; "clusterConfig") // {}) as $cluster
-        | (field("custom_cloud_config"; "customCloudConfig") // {}) as $cloud
-        | ($cluster.location // "" | safe_string) as $location
-        | ($cloud | field("custom_cloud_env_name"; "customCloudEnvName") // "" | safe_string) as $name
+        (.custom_cloud_config // {}) as $cloud
+        | (.cluster_config.location // "" | safe_string) as $location
+        | ($cloud.custom_cloud_env_name // "" | safe_string) as $name
         | (if ($name | ascii_downcase) == "akscustom" then
-               ($cloud | field("repo_depot_endpoint"; "repoDepotEndpoint") // "" | safe_string)
+               ($cloud.repo_depot_endpoint // "" | safe_string)
            else "" end) as $endpoint
         | if $location == "" then error("missing location")
           else "LOCATION=\($location | @sh)",
