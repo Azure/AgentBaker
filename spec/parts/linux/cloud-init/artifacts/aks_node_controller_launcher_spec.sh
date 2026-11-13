@@ -45,12 +45,12 @@ EOF
         export INIT_AKS_CLOUD_ENV="${TEST_DIR}/cloud-settings.sh"
         export INIT_AKS_CLOUD_PATH="${TEST_DIR}/init-aks-cloud.sh"
         export CLOUD_INIT_LOG="${TEST_DIR}/cloud-init.log"
-        export CLOUD_INIT_STATUS="${TEST_DIR}/run/init-aks-cloud.status"
+        export INIT_AKS_CLOUD_DONE="${TEST_DIR}/run/init-aks-cloud.done"
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN INIT_AKS_CLOUD_ENV INIT_AKS_CLOUD_PATH CLOUD_INIT_LOG CLOUD_INIT_STATUS
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN INIT_AKS_CLOUD_ENV INIT_AKS_CLOUD_PATH CLOUD_INIT_LOG INIT_AKS_CLOUD_DONE
     }
 
     create_fake_aks_node_controller() {
@@ -154,11 +154,12 @@ EOF
         export ENABLE_PROVISIONING_HOTFIX=true
         cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
 #!/bin/bash
+if [ -f "$INIT_AKS_CLOUD_DONE" ]; then exit 1; fi
 printf 'init:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" >> "$TEST_DIR/calls"
 EOF
         cat > "$BIN_PATH" <<'EOF'
 #!/bin/bash
-if [ -f "$CLOUD_INIT_STATUS" ]; then state=done; else state=unset; fi
+if [ -f "$INIT_AKS_CLOUD_DONE" ]; then state=done; else state=unset; fi
 printf '%s:%s\n' "$1" "$state" >> "$TEST_DIR/calls"
 EOF
         chmod +x "$BIN_PATH" "$INIT_AKS_CLOUD_PATH"
@@ -168,7 +169,7 @@ EOF
         The output should include 'ANC download-hotfix completed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq "$(printf 'init:usnat test:https://repo.example\ncheck-hotfix:done\ndownload-hotfix:done\nprovision:done')"
-        The contents of file "$CLOUD_INIT_STATUS" should eq 0
+        The path "$INIT_AKS_CLOUD_DONE" should be exist
         The path "$INIT_AKS_CLOUD_ENV" should not be exist
     End
 
@@ -190,14 +191,14 @@ EOF
         The path injected should not be exist
     End
 
-    It 'skips acquisition and records the failure after early initialization fails'
+    It 'skips acquisition and leaves initialization to provisioning after an early failure'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         export ENABLE_PROVISIONING_HOTFIX=true
         printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$INIT_AKS_CLOUD_ENV"
         printf '#!/bin/bash\nexit 5\n' > "$INIT_AKS_CLOUD_PATH"
         cat > "$BIN_PATH" <<'EOF'
 #!/bin/bash
-if [ -f "$CLOUD_INIT_STATUS" ]; then state=done; else state=unset; fi
+if [ -f "$INIT_AKS_CLOUD_DONE" ]; then state=done; else state=unset; fi
 printf '%s:%s\n' "$1" "$state" >> "$TEST_DIR/calls"
 EOF
         chmod +x "$BIN_PATH" "$INIT_AKS_CLOUD_PATH"
@@ -206,14 +207,14 @@ EOF
         The status should be success
         The output should include 'Early cloud initialization failed with exit code 5'
         calls=$(cat "$TEST_DIR/calls")
-        The variable calls should eq 'provision:done'
-        The contents of file "$CLOUD_INIT_STATUS" should eq 5
+        The variable calls should eq 'provision:unset'
+        The path "$INIT_AKS_CLOUD_DONE" should not be exist
         The path "$INIT_AKS_CLOUD_ENV" should not be exist
     End
 
-    It 'leaves initialization to provisioning when the attempt cannot be recorded'
+    It 'allows acquisition and leaves initialization to provisioning when the marker cannot be created'
         touch "$HOTFIX_JSON" "$TEST_DIR/not-a-dir"
-        export CLOUD_INIT_STATUS="$TEST_DIR/not-a-dir/init-aks-cloud.status"
+        export INIT_AKS_CLOUD_DONE="$TEST_DIR/not-a-dir/init-aks-cloud.done"
         printf '%s\n' '{"cluster_config":{"location":"usnat"}}' > "$CONFIG_PATH"
         printf '#!/bin/sh\necho init >> "$TEST_DIR/calls"\n' > "$INIT_AKS_CLOUD_PATH"
         create_recording_aks_node_controller
@@ -221,31 +222,12 @@ EOF
 
         When run bash "$SCRIPT"
         The status should be success
-        The output should include 'Failed to record cloud initialization attempt'
+        The output should include 'Failed to create cloud initialization marker'
         The stderr should include 'not-a-dir'
         calls=$(cat "$TEST_DIR/calls")
-        The variable calls should eq 'provision'
-        The path "$CLOUD_INIT_STATUS" should not be exist
+        The variable calls should eq "$(printf 'init\ndownload-hotfix\nprovision')"
+        The path "$INIT_AKS_CLOUD_DONE" should not be exist
         The path "$INIT_AKS_CLOUD_ENV" should not be exist
-    End
-
-    running_as_root() { [ "$(id -u)" -eq 0 ]; }
-
-    It 'keeps the recorded attempt when the final status cannot be written'
-        Skip if 'root ignores read-only files' running_as_root
-        touch "$HOTFIX_JSON"
-        printf '%s\n' '{"cluster_config":{"location":"usnat"}}' > "$CONFIG_PATH"
-        printf '#!/bin/sh\nchmod 444 "$CLOUD_INIT_STATUS"\n' > "$INIT_AKS_CLOUD_PATH"
-        create_recording_aks_node_controller
-        chmod +x "$INIT_AKS_CLOUD_PATH"
-
-        When run bash "$SCRIPT"
-        The status should be success
-        The output should include 'Failed to record cloud initialization status'
-        The stderr should include 'Permission denied'
-        calls=$(cat "$TEST_DIR/calls")
-        The variable calls should eq 'provision'
-        The contents of file "$CLOUD_INIT_STATUS" should eq 1
     End
 
     It 'uses a staged hotfix after early initialization fails without acquiring another'
@@ -282,7 +264,7 @@ EOF
         The output should include 'Early cloud initialization failed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision'
-        The contents of file "$CLOUD_INIT_STATUS" should eq 1
+        The path "$INIT_AKS_CLOUD_DONE" should not be exist
     End
 
     It 'does not acquire a hotfix when the initializer is missing'
@@ -295,7 +277,7 @@ EOF
         The output should include 'Early cloud initialization failed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision'
-        The contents of file "$CLOUD_INIT_STATUS" should eq 127
+        The path "$INIT_AKS_CLOUD_DONE" should not be exist
     End
 
     It 'runs initialization with an empty location like provisioning'
@@ -313,7 +295,7 @@ EOF
         The output should include 'Early cloud initialization completed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq "$(printf 'init:\ndownload-hotfix\nprovision')"
-        The contents of file "$CLOUD_INIT_STATUS" should eq 0
+        The path "$INIT_AKS_CLOUD_DONE" should be exist
     End
 
     It 'does not initialize or acquire a hotfix from partially extracted settings'
@@ -331,7 +313,7 @@ EOF
         The output should include 'Early cloud initialization failed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision'
-        The contents of file "$CLOUD_INIT_STATUS" should eq 1
+        The path "$INIT_AKS_CLOUD_DONE" should not be exist
         The path "$INIT_AKS_CLOUD_ENV" should not be exist
     End
 

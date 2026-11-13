@@ -26,32 +26,34 @@ func TestCloudInitHandoff(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires a Unix shell")
 	}
-	dir := t.TempDir()
-	initPath := filepath.Join(dir, "init.sh")
-	require.NoError(t, os.WriteFile(initPath, []byte("#!/bin/sh\nexit 7\n"), 0755))
 	script, err := executeBootstrapTemplate(&aksnodeconfigv1.Configuration{})
 	require.NoError(t, err)
-	script = strings.ReplaceAll(script, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "init.log"))
-	marker := filepath.Join(dir, "init.status")
-	script = strings.ReplaceAll(script, "/run/aks/init-aks-cloud.status", marker)
 	script = strings.ReplaceAll(script, `/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`, "echo provisioned")
 	for _, tt := range []struct {
-		name     string
-		status   string
-		exitCode int
+		name         string
+		handoff      bool
+		initExitCode int
+		exitCode     int
 	}{
-		{"initializes when the launcher did not", "", 7},
-		{"successful early init skips initialization", "0", 0},
-		{"failed early init is reported without rerunning", "5", 5},
+		{"missing marker retries successfully", false, 0, 0},
+		{"retry failure is propagated", false, 7, 7},
+		{"successful early init skips retry", true, 7, 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			_ = os.Remove(marker)
-			if tt.status != "" {
-				require.NoError(t, os.WriteFile(marker, []byte(tt.status+"\n"), 0600))
+			dir := t.TempDir()
+			initPath := filepath.Join(dir, "init.sh")
+			initCalled := filepath.Join(dir, "init-called")
+			initScript := fmt.Sprintf("#!/bin/sh\n: > \"$INIT_CALLED\"\nexit %d\n", tt.initExitCode)
+			require.NoError(t, os.WriteFile(initPath, []byte(initScript), 0755))
+			marker := filepath.Join(dir, "init.done")
+			if tt.handoff {
+				require.NoError(t, os.WriteFile(marker, nil, 0600))
 			}
-			cmd := exec.Command("/bin/bash", "-c", script)
+			testScript := strings.ReplaceAll(script, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "init.log"))
+			testScript = strings.ReplaceAll(testScript, "/run/aks/init-aks-cloud.done", marker)
+			cmd := exec.Command("/bin/bash", "-c", testScript)
 			cmd.Env = append(os.Environ(), "INIT_AKS_CLOUD_FILEPATH="+initPath,
-				"PROVISION_OUTPUT="+filepath.Join(dir, "provision.log"))
+				"PROVISION_OUTPUT="+filepath.Join(dir, "provision.log"), "INIT_CALLED="+initCalled)
 			output, err := cmd.CombinedOutput()
 			if tt.exitCode != 0 {
 				var exitErr *exec.ExitError
@@ -61,6 +63,11 @@ func TestCloudInitHandoff(t *testing.T) {
 			} else {
 				require.NoError(t, err, string(output))
 				require.Contains(t, string(output), "provisioned")
+			}
+			if tt.handoff {
+				require.NoFileExists(t, initCalled)
+			} else {
+				require.FileExists(t, initCalled)
 			}
 		})
 	}

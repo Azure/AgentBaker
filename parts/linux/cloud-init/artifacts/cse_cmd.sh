@@ -17,7 +17,7 @@ else
 fi;
 {{end}}
 INIT_AKS_CLOUD_FILEPATH="{{GetInitAKSCloudFilepath}}";
-if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]{{if IsScriptlessProvisioning}} && [ ! -f /run/aks/init-aks-cloud.status ]{{end}}; then
+if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]{{if IsScriptlessProvisioning}} && [ ! -f /run/aks/init-aks-cloud.done ]{{end}}; then
 	REPO_DEPOT_ENDPOINT={{AKSCustomCloudRepoDepotEndpoint | ShellQuote}} LOCATION={{GetVariable "location" | ShellQuote}} "${INIT_AKS_CLOUD_FILEPATH}" >> /var/log/azure/cluster-provision.log 2>&1;
 fi;
 {{/* Keep the environment assignments below contiguous through the nohup invocation at the end of this file. */ -}}

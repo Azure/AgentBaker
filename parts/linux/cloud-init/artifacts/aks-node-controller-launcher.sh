@@ -25,7 +25,7 @@ FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
 INIT_AKS_CLOUD_ENV="${INIT_AKS_CLOUD_ENV:-/opt/azure/containers/init-aks-cloud.env}"
 INIT_AKS_CLOUD_PATH="${INIT_AKS_CLOUD_PATH:-/opt/azure/containers/init-aks-cloud.sh}"
 CLOUD_INIT_LOG="${CLOUD_INIT_LOG:-/var/log/azure/cluster-provision.log}"
-CLOUD_INIT_STATUS="${CLOUD_INIT_STATUS:-/run/aks/init-aks-cloud.status}"
+INIT_AKS_CLOUD_DONE="${INIT_AKS_CLOUD_DONE:-/run/aks/init-aks-cloud.done}"
 LOGGER_TAG="aks-node-controller-launcher"
 
 log() {
@@ -68,28 +68,17 @@ fi
 
 skip_hotfix_acquisition=false
 if [ -s "$CONFIG_PATH" ] || [ -f "$INIT_AKS_CLOUD_ENV" ]; then
-    init_status=1
-    # Record the attempt before running so provisioning reports this result instead of
-    # running initialization again; without a record, provisioning runs it instead.
-    if mkdir -p "$(dirname "$CLOUD_INIT_STATUS")" && echo "$init_status" > "$CLOUD_INIT_STATUS"; then
-        if write_cloud_settings "$CONFIG_PATH" "$INIT_AKS_CLOUD_ENV" 2>> "$CLOUD_INIT_LOG"; then
-            # shellcheck source=/dev/null
-            ( set -a; source "$INIT_AKS_CLOUD_ENV" && "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1
-            init_status=$?
-        fi
-        if ! echo "$init_status" > "$CLOUD_INIT_STATUS"; then
-            log "Failed to record cloud initialization status; provisioning will report failure"
-            init_status=1
-        fi
-    else
-        log "Failed to record cloud initialization attempt; provisioning will run initialization"
-    fi
-    if [ "$init_status" -eq 0 ]; then
+    # shellcheck source=/dev/null
+    if write_cloud_settings "$CONFIG_PATH" "$INIT_AKS_CLOUD_ENV" 2>> "$CLOUD_INIT_LOG" &&
+        ( set -a; source "$INIT_AKS_CLOUD_ENV" && "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1; then
+        { mkdir -p "$(dirname "$INIT_AKS_CLOUD_DONE")" && touch "$INIT_AKS_CLOUD_DONE"; } ||
+            log "Failed to create cloud initialization marker; provisioning will run initialization again"
         log "Early cloud initialization completed"
     else
-        # Do not download with incomplete trust.
+        init_status=$?
+        # Do not download with incomplete trust; let provisioning retry initialization.
         skip_hotfix_acquisition=true
-        log "Early cloud initialization failed with exit code ${init_status}; skipping hotfix acquisition"
+        log "Early cloud initialization failed with exit code ${init_status}; skipping hotfix acquisition and retrying during provisioning"
     fi
     rm -f "$INIT_AKS_CLOUD_ENV" || log "Failed to remove cloud settings"
 fi
