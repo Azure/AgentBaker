@@ -1,8 +1,28 @@
 #!/bin/bash
 # Script to generate disk usage diagnostics for VHD builds.
+# Pass --failure to also print guest systemd diagnostics during error cleanup.
 # Used by packer provisioner and error-cleanup-provisioner.
 # NOTE: This script is for diagnostic purposes only and is not critical.
 # Failures in this script should not affect the VHD build process.
+
+run_failure_diagnostic() {
+  printf '\n--- %s ---\n' "$*"
+  "$@" 2>&1 || echo "WARNING: diagnostic failed (exit $?): $*"
+}
+
+# Capture volatile failure state before the potentially lengthy disk scan.
+if [ "${1:-}" = "--failure" ]; then
+  echo "=============================================="
+  echo "        SYSTEMD FAILURE DIAGNOSTICS"
+  echo "=============================================="
+  run_failure_diagnostic ps -p 1 -o pid,stat,comm,args
+  run_failure_diagnostic readlink /proc/1/exe
+  run_failure_diagnostic ss -xlpn
+  run_failure_diagnostic ls -ld /run/systemd/private
+  run_failure_diagnostic ls -ld /run/dbus/system_bus_socket
+  run_failure_diagnostic journalctl --boot --since '15 minutes ago' --no-pager -o short-precise
+  run_failure_diagnostic dmesg --ctime --since '15 minutes ago'
+fi
 
 DISK_USAGE_FILE="/opt/azure/disk-usage.txt"
 
