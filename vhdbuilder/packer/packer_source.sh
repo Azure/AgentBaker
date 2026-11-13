@@ -432,6 +432,15 @@ copyPackerFiles() {
     cpAndMode $IG_IMPORT_SCRIPT_SRC $IG_IMPORT_SCRIPT_DEST 755
     cpAndMode $IG_REMOVE_SCRIPT_SRC $IG_REMOVE_SCRIPT_DEST 755
     cpAndMode $IG_SERVICE_SRC $IG_SERVICE_DEST 644
+    if [ "${OS}" != "${AZURELINUX_KATA_OS_NAME}" ] && [ "${IS_KATA:-false}" != true ]; then
+      mkdir -p /etc/ig.d
+      cpAndMode /home/packer/ig-diagnostics.sh /usr/share/inspektor-gadget/diagnostics.sh 755
+      cpAndMode /home/packer/ig-diagnostics-recovery.sh /usr/share/inspektor-gadget/diagnostics-recovery.sh 755
+      cpAndMode /home/packer/ig-diagnostics.yaml /etc/ig.d/diagnostics.yaml 600
+      cpAndMode /home/packer/ig-diagnostics.service /usr/lib/systemd/system/ig-diagnostics.service 644
+      cpAndMode /home/packer/ig-diagnostics-recovery.service /usr/lib/systemd/system/ig-diagnostics-recovery.service 644
+      cpAndMode /home/packer/ig-diagnostics-recovery.timer /usr/lib/systemd/system/ig-diagnostics-recovery.timer 644
+    fi
   fi
 # ---------------------------------------------------------------------------------------
 

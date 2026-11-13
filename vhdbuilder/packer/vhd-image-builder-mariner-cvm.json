@@ -440,6 +440,36 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/share/inspektor-gadget/diagnostics.sh",
+      "destination": "/home/packer/ig-diagnostics.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/etc/ig.d/diagnostics.yaml",
+      "destination": "/home/packer/ig-diagnostics.yaml"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/lib/systemd/system/ig-diagnostics.service",
+      "destination": "/home/packer/ig-diagnostics.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/share/inspektor-gadget/diagnostics-recovery.sh",
+      "destination": "/home/packer/ig-diagnostics-recovery.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/lib/systemd/system/ig-diagnostics-recovery.service",
+      "destination": "/home/packer/ig-diagnostics-recovery.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/inspektor-gadget/baseline/usr/lib/systemd/system/ig-diagnostics-recovery.timer",
+      "destination": "/home/packer/ig-diagnostics-recovery.timer"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
     },
