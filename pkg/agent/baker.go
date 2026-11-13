@@ -181,8 +181,6 @@ type encodedFile struct {
 	content string
 }
 
-const cloudSettingsFilepath = "/opt/azure/containers/aks-node-controller-cloud-settings.sh"
-
 func scriptlessCloudSettings(config *datamodel.NodeBootstrappingConfiguration) string {
 	location := config.ContainerService.Location
 	endpoint := ""
@@ -294,7 +292,7 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 		{aksNodeConfigFilepath, encodedAKSNodeConfig},
 	}
 	if config.AKSNodeConfigJSON == "" {
-		encodedFiles = append(encodedFiles, encodedFile{cloudSettingsFilepath, getBase64EncodedGzippedCustomScriptFromStr(scriptlessCloudSettings(config))})
+		encodedFiles = append(encodedFiles, encodedFile{initAKSCloudEnvFilepath, getBase64EncodedGzippedCustomScriptFromStr(scriptlessCloudSettings(config))})
 	}
 	return encodedFiles
 }

@@ -126,6 +126,7 @@ const (
 	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
 	initAKSCloudFilepath                 = "/opt/azure/containers/init-aks-cloud.sh"
+	initAKSCloudEnvFilepath              = "/opt/azure/containers/init-aks-cloud.env"
 	aksNbcCmdFilepath                    = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 	aksNodeCustomDataFilepath            = "/opt/azure/containers/nodecustomdata.yml"
 	aksNodeConfigFilepath                = "/opt/azure/containers/aks-node-controller-config.json"

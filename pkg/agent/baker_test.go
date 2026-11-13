@@ -89,7 +89,7 @@ func TestScriptlessCloudSettingsFallback(t *testing.T) {
 			files := generator.getScriptlessConfiguration(config)
 			found := false
 			for _, file := range files {
-				if file.path == cloudSettingsFilepath {
+				if file.path == "/opt/azure/containers/init-aks-cloud.env" {
 					found = true
 					compressed, err := base64.StdEncoding.DecodeString(file.content)
 					require.NoError(t, err)
@@ -1446,7 +1446,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 					Expect(cmd).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 				}
 				Expect(provisioningPayload).To(ContainSubstring(aksNodeConfigFilepath))
-				Expect(provisioningPayload).NotTo(ContainSubstring(cloudSettingsFilepath))
+				Expect(provisioningPayload).NotTo(ContainSubstring(initAKSCloudEnvFilepath))
 				Expect(provisioningPayload).To(ContainSubstring(getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)))
 				Expect(provisioningPayload).NotTo(ContainSubstring(aksNbcCmdFilepath))
 				Expect(provisioningPayload).NotTo(ContainSubstring("--nbc-cmd"))
@@ -1695,7 +1695,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 			expectedCount++
 		}
 		Expect(len(files)).To(Equal(expectedCount)) // nbc-cmd, nodecustomdata, aks-node-config (optional hotfix file present)
-		Expect(string(decodedPayload)).NotTo(ContainSubstring(cloudSettingsFilepath))
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(initAKSCloudEnvFilepath))
 
 		payload = templateGenerator.getScriptlessNBCCmd(config)
 

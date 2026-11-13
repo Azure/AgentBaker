@@ -331,7 +331,11 @@ EOF
 
     It 'uses the generated fallback when no AKSNodeConfig is available'
         touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
-        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://fallback'\n" > "$CLOUD_SETTINGS_PATH"
+        # Exercise the default filename without writing to /opt.
+        sed 's|/opt/azure/containers/|${TEST_DIR}/|g' "$SCRIPT" > "${TEST_DIR}/aks-node-controller-launcher.sh"
+        cp "$HOTFIX_SCRIPT" "${TEST_DIR}/aks-node-controller-hotfix.sh"
+        unset CLOUD_SETTINGS_PATH
+        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://fallback'\n" > "${TEST_DIR}/init-aks-cloud.env"
         cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
 #!/bin/bash
 printf 'init:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" >> "$TEST_DIR/calls"
@@ -339,11 +343,12 @@ EOF
         create_recording_aks_node_controller
         chmod +x "$INIT_AKS_CLOUD_PATH"
 
-        When run bash "$SCRIPT"
+        When run bash "${TEST_DIR}/aks-node-controller-launcher.sh"
         The status should be success
         The output should include 'Early cloud initialization completed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq "$(printf 'init:usnat:https://fallback\ndownload-hotfix\nprovision')"
+        The path "${TEST_DIR}/init-aks-cloud.env" should not be exist
     End
 
     It 'exits successfully without invoking aks-node-controller when config and nbc cmd are absent'

@@ -22,7 +22,7 @@ NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.
 # producer is the sole trusted writer. Parsed below at wrapper runtime; absent file (default-off,
 # or an older VHD without the producer) is a no-op.
 FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
-CLOUD_SETTINGS_PATH="${CLOUD_SETTINGS_PATH:-/opt/azure/containers/aks-node-controller-cloud-settings.sh}"
+CLOUD_SETTINGS_PATH="${CLOUD_SETTINGS_PATH:-/opt/azure/containers/init-aks-cloud.env}"
 INIT_AKS_CLOUD_PATH="${INIT_AKS_CLOUD_PATH:-/opt/azure/containers/init-aks-cloud.sh}"
 CLOUD_INIT_LOG="${CLOUD_INIT_LOG:-/var/log/azure/cluster-provision.log}"
 CLOUD_INIT_DONE="${CLOUD_INIT_DONE:-/run/aks/init-aks-cloud.done}"
