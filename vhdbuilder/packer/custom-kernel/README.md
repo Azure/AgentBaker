@@ -1,0 +1,237 @@
+# Testing a custom Ubuntu kernel
+
+This opt-in workflow installs private kernel package bundles in AgentBaker's
+Ubuntu test VHDs, on both **amd64 and arm64**.
+
+| Target | Package format | Build variants |
+| --- | --- | --- |
+| Ubuntu 22.04 and 24.04 | `.deb` | AMD64 Gen1/Gen2, ARM64 Gen2 |
+| Ubuntu 26.04 Minimal | `.deb` | AMD64/ARM64 Gen2 |
+
+Azure Linux/Mariner, FIPS, Trusted Launch/Secure Boot, CVM, OSGuard, Azure Container Linux (ACL),
+Flatcar, Image Customizer and production publishing are excluded. This is not
+an arbitrary-distro kernel installer. Adding a new release requires extending
+the target allowlist and its tests, not bypassing target validation.
+
+The original Ubuntu 26.04 Minimal AMD64 implementation was built and
+boot-verified in Azure. This expanded implementation has local mocked-operation
+tests; it needs real VHD builds and fresh-VM verification for each target before
+being considered validated for an experiment.
+
+The feature is off by default. Keep this commit on an experiment branch or
+cherry-pick it onto a future AgentBaker branch. Do not promote the resulting
+VHD to production: it holds the test packages and pins GRUB to the requested
+kernel, which prevents normal kernel updates from becoming the default.
+
+## 1. Prepare private storage and permissions
+
+Use an approved test storage account. Do not enable public access, use account
+keys, or put SAS tokens in pipeline variables. The download runs on the
+pipeline agent using the existing `VHD_ARM_SERVICE_CONNECTION`; the Packer VM
+receives the files over SSH and needs no additional storage permissions.
+
+Example variables (replace these with your approved resources):
+
+```bash
+SUBSCRIPTION='<test-subscription-id>'
+ACCOUNT='<existing-test-storage-account>'
+CONTAINER='custom-kernel-tests'
+PREFIX='my-experiment/ubuntu2604-amd64/run-001'
+DEB_DIR='/absolute/path/to/canonical-packages'
+```
+
+Prerequisites: Bash, Azure CLI signed into the correct tenant, `dpkg-deb`,
+and `sha256sum`. Obtain the packages and patch confirmation directly from the
+kernel provider. Checksums below preserve the uploaded bytes; they do not
+prove that a package contains the requested fix.
+
+The installer requires `linux-headers-<release>`, `linux-tools-<release>`,
+and `linux-cloud-tools-<release>`. It installs these for the selected kernel,
+not the newer kernel that may already be in the base image. If they are
+unavailable in Ubuntu's configured repositories, obtain their matching `.deb`
+files and dependencies from the kernel provider and put them in the same
+directory. The installer checks availability before installing. Other Ubuntu
+flavors require matching headers; supply their runtime tools when needed.
+FIPS/CVM kernel flavors are rejected.
+
+For example, a self-contained Ubuntu 26.04 `7.0.0-1017-azure` package set
+contains the following eight packages, all at version `7.0.0-1017.17`:
+
+```text
+linux-image-7.0.0-1017-azure (or linux-image-unsigned-7.0.0-1017-azure)
+linux-modules-7.0.0-1017-azure
+linux-azure-headers-7.0.0-1017
+linux-headers-7.0.0-1017-azure
+linux-azure-tools-7.0.0-1017
+linux-tools-7.0.0-1017-azure
+linux-azure-cloud-tools-7.0.0-1017
+linux-cloud-tools-7.0.0-1017-azure
+```
+
+APT still resolves shared dependencies such as `linux-tools-common` and
+`linux-cloud-tools-common`. The ABI cloud-tools package supplies
+`hv_kvp_daemon`; omitting it can leave `hv-kvp-daemon.service` failed after
+booting the custom kernel.
+
+The uploader needs **Storage Blob Data Contributor**. To create a container,
+it needs that permission at storage-account scope (or have an administrator
+create the container first). Azure resource Contributor alone does not grant
+blob data access.
+
+An authorized administrator can pre-create the private container and grant the
+pipeline service connection's **service principal object ID** reader access:
+
+```bash
+az storage container create --subscription "$SUBSCRIPTION" \
+  --account-name "$ACCOUNT" --name "$CONTAINER" \
+  --public-access off --auth-mode login
+
+ACCOUNT_ID=$(az storage account show --subscription "$SUBSCRIPTION" \
+  --name "$ACCOUNT" --query id -o tsv)
+CONTAINER_SCOPE="$ACCOUNT_ID/blobServices/default/containers/$CONTAINER"
+PIPELINE_PRINCIPAL_OBJECT_ID='<service-connection-principal-object-id>'
+
+az role assignment create --subscription "$SUBSCRIPTION" \
+  --assignee-object-id "$PIPELINE_PRINCIPAL_OBJECT_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role 'Storage Blob Data Reader' --scope "$CONTAINER_SCOPE"
+```
+
+Find that principal through Azure DevOps **Project settings > Service
+connections**, using the connection named by `VHD_ARM_SERVICE_CONNECTION`.
+Do not confuse its application/client ID with its service principal object
+ID, or grant access to the Packer VM's managed identity instead. Role assignment
+requires separate RBAC-administration permissions; the upload script does not
+grant roles. Allow time for RBAC propagation.
+
+Storage firewalls/private endpoints must permit the pipeline agent's network.
+A reader role does not bypass network restrictions. A subscription name or
+number alone is not a download endpoint.
+
+## 2. Upload a versioned, target-specific package set
+
+From the AgentBaker repository root:
+
+```bash
+bash vhdbuilder/packer/custom-kernel/manage.sh upload \
+  "$SUBSCRIPTION" "$ACCOUNT" "$CONTAINER" "$PREFIX" "$DEB_DIR" ubuntu 26.04
+```
+
+For example, replace the last arguments with `"$PACKAGE_DIR" ubuntu 24.04`
+for Ubuntu 24.04.
+Architecture is inferred from package metadata, never from the upload host.
+An amd64 workstation can upload arm64 packages.
+
+The helper validates the package metadata before accessing Azure, creates a
+private container if necessary, rejects an existing public container, and uploads
+only the `.deb` files plus `kernel-release`, `kernel-target` and
+`SHA256SUMS`. RPM packages and mixed architectures are rejected.
+`kernel-target` records `distribution:version:architecture`, for example
+`ubuntu:24.04:arm64`. It is checksummed together with
+the packages. The downloader rejects a bundle intended for another build.
+Files such as Windows `:Zone.Identifier` sidecars are not uploaded.
+
+The original five-argument upload still defaults to Ubuntu 26.04; specify the
+distribution/version for new experiments. Previously uploaded bundles without
+`kernel-target` remain restricted to Ubuntu 26.04 AMD64.
+
+Existing blobs are never overwritten. Use a fresh prefix for every attempt,
+including after a partial upload; do not mutate a prefix while a build is
+using it. The checksum manifest is uploaded last. Keep the printed checksums
+with the experiment results.
+
+## 3. Run only the target VHD build
+
+Commit/push the experiment branch to `Azure/AgentBaker` when ready, then select
+it in **Run pipeline** for your test Linux VHD build definition.
+
+| Parameter | Value |
+| --- | --- |
+| `customKernelBuildTarget` | Selected job name, e.g. `build2604minimalgen2containerd` |
+| Selected job's `build*` parameter | `true` |
+| All other `build*` parameters | `false` |
+| `customKernelStorageAccount` | `$ACCOUNT` |
+| `customKernelContainer` | `$CONTAINER` |
+| `customKernelBlobPrefix` | `$PREFIX` |
+| `useOverrides` | `false`, unless separately needed |
+
+Use `ENVIRONMENT=test`, `GENERATE_PUBLISHING_INFO=False`, and `DRY_RUN=False`
+(a dry run deletes the output image). Keep normal content tests, scanning,
+kernel validation and temporary-resource cleanup enabled. Only `customKernelBuildTarget` receives the override. Selecting a target does
+not enable its build flag or disable other jobs; set those flags explicitly.
+Leaving other builds selected still spends resources building normal images.
+The default target remains `build2604minimalgen2containerd` for compatibility.
+
+Other examples: `build2204gen2containerd`, `build2404arm64gen2containerd`,
+and `build2604minimalarm64gen2containerd`. The pipeline's target dropdown lists allowed jobs
+and omits protected variants.
+
+Custom builds use a separate `${SKU_NAME}-customkernel` gallery image
+definition, so they do not advance the normal image definition's latest version.
+Different experiments can still share this test-only definition; always record
+and consume the exact output version. E2E metadata keeps the normal scenario
+image name as its key but points to the custom image version's resource ID.
+
+The helper rejects production/publishing, FIPS, Trusted Launch, Image Customizer,
+CVM and unsupported OS/architecture configurations before downloading anything.
+Both `run-packer` and `build-packer` repeat the build-host checks before invoking
+Packer, including when packages have already been staged locally.
+A nonempty blob prefix enables
+the feature; an empty prefix preserves normal kernel behavior. Downloads use
+the build's `SUBSCRIPTION_ID`; use a storage account in that subscription.
+If a reused agent checkout contains an old ignored
+`vhdbuilder/packer/custom-kernel/packages/` directory, clean that generated
+directory before retrying; the helper refuses to reuse it.
+
+The pipeline downloads and validates the package set, then Packer:
+
+1. Completes the normal distribution upgrade and kernel replacement.
+2. Installs the custom packages even when their version already exists.
+   APT resolves dependencies, reinstalls/downgrades and marks the supplied
+   packages manual/held.
+3. Checks that kernel/initramfs boot files exist and pins the exact GRUB entry,
+   even when the image contains newer kernels. A final GRUB selector overrides
+   the ARM64 hardware-specific default for this test image only. This means
+   a custom ARM64 test image no longer automatically selects a different
+   kernel track on NVIDIA hardware.
+4. Uses the existing reboot and fails unless `uname -r` matches the requested
+   kernel and `hv-kvp-daemon.service` is active. This happens before the main
+   dependency-install step.
+5. Verifies the running kernel again after the second reboot and post-install
+   cleanup. `CUSTOM_KERNEL_VERIFIED=<release>` and the checksums are recorded
+   in `/opt/azure/vhd-install.complete` and the downloaded release notes.
+
+Unsigned images require Secure Boot to remain disabled. The host-side installer
+also checks the host distro/version/architecture, FIPS state, and Secure Boot
+state from EFI variables or `mokutil`. VHD content tests check the exact requested
+kernel instead of the stock LTS expectation; other content checks remain enabled.
+
+## 4. Validate the fix, not just the image build
+
+Record the exact output Compute Gallery image-version resource ID from the
+build. Use that image explicitly in your AgentBaker E2E configuration instead
+of a floating "latest" reference. Normal Linux cleanup retains successful
+non-dry-run gallery outputs initially, but the test environment's retention
+cleanup can remove older images.
+
+On every test VM, confirm `uname -r` and package versions and retain the full
+kernel log. Run the affected scenario repeatedly on fresh VMs and compare with
+an unpatched baseline. A green build or ready node alone does not prove that a
+kernel warning has been fixed. Do not suppress stack-trace validation.
+
+After the experiment, delete only its exact blob prefix and test image version
+through your approved cleanup process; do not delete the shared storage account
+or unrelated prefixes. Emptying the prefix parameter disables custom kernels
+in future builds, but does not unpin kernels in already-created test VHDs.
+Consume a validated, supported fix through the normal release process instead.
+
+## Local checks
+
+These commands use mocked Azure/package-install operations and do not upload
+packages, install a kernel or queue a build:
+
+```bash
+shellcheck vhdbuilder/packer/custom-kernel/manage.sh \
+  spec/vhdbuilder/packer/custom_kernel_spec.sh
+shellspec --shell bash spec/vhdbuilder/packer/custom_kernel_spec.sh
+```

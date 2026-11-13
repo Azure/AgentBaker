@@ -6,7 +6,7 @@ ifeq (${ARCHITECTURE},ARM64)
 endif
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-build-packer:
+build-packer: validate-custom-kernel-build
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -105,7 +105,11 @@ init-packer:
 	@mkdir -p kata-cc # Empty on ordinary builds; populated by the CC signing-artifact download.
 	@./vhdbuilder/packer/produce-packer-settings.sh
 
-run-packer: az-login
+.PHONY: validate-custom-kernel-build
+validate-custom-kernel-build:
+	@bash vhdbuilder/packer/custom-kernel/manage.sh validate-build "${CUSTOM_KERNEL_ENABLED}"
+
+run-packer: validate-custom-kernel-build az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk -j4 build-packer | tee -a packer-output)
 
 run-imagecustomizer: az-login
