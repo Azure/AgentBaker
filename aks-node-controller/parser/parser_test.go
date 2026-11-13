@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -20,6 +21,57 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
+
+func TestCloudInitHandoff(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires a Unix shell")
+	}
+	script, err := executeBootstrapTemplate(&aksnodeconfigv1.Configuration{})
+	require.NoError(t, err)
+	script = strings.ReplaceAll(script, `/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`, "echo provisioned")
+	for _, tt := range []struct {
+		name         string
+		handoff      bool
+		initExitCode int
+		exitCode     int
+	}{
+		{"missing marker retries successfully", false, 0, 0},
+		{"retry failure is propagated", false, 7, 7},
+		{"successful early init skips retry", true, 7, 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			initPath := filepath.Join(dir, "init.sh")
+			initCalled := filepath.Join(dir, "init-called")
+			initScript := fmt.Sprintf("#!/bin/sh\n: > \"$INIT_CALLED\"\nexit %d\n", tt.initExitCode)
+			require.NoError(t, os.WriteFile(initPath, []byte(initScript), 0755))
+			marker := filepath.Join(dir, "init.done")
+			if tt.handoff {
+				require.NoError(t, os.WriteFile(marker, nil, 0600))
+			}
+			testScript := strings.ReplaceAll(script, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "init.log"))
+			testScript = strings.ReplaceAll(testScript, "/run/aks/init-aks-cloud.done", marker)
+			cmd := exec.Command("/bin/bash", "-c", testScript)
+			cmd.Env = append(os.Environ(), "INIT_AKS_CLOUD_FILEPATH="+initPath,
+				"PROVISION_OUTPUT="+filepath.Join(dir, "provision.log"), "INIT_CALLED="+initCalled)
+			output, err := cmd.CombinedOutput()
+			if tt.exitCode != 0 {
+				var exitErr *exec.ExitError
+				require.ErrorAs(t, err, &exitErr, string(output))
+				require.Equal(t, tt.exitCode, exitErr.ExitCode())
+				require.NotContains(t, string(output), "provisioned")
+			} else {
+				require.NoError(t, err, string(output))
+				require.Contains(t, string(output), "provisioned")
+			}
+			if tt.handoff {
+				require.NoFileExists(t, initCalled)
+			} else {
+				require.FileExists(t, initCalled)
+			}
+		})
+	}
+}
 
 func TestBuildCSECmdContainerdImagePullSettings(t *testing.T) {
 	for _, version := range []string{"1.7.22", "2.2.4"} {

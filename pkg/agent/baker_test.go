@@ -64,6 +64,45 @@ func TestScriptlessAKSNodeConfigSkipsNBCRendering(t *testing.T) {
 	}
 }
 
+func TestScriptlessCloudSettings(t *testing.T) {
+	config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+	config.ContainerService.Location = "ussec'o"
+	config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+		Name: "AKSCustom", RepoDepotEndpoint: "https://repo.example/'$(touch nope)",
+	}
+	require.Equal(t, "LOCATION='ussec'\"'\"'o'\nREPO_DEPOT_ENDPOINT='https://repo.example/'\"'\"'$(touch nope)'\n", scriptlessCloudSettings(config))
+}
+
+func TestScriptlessCloudSettingsFallback(t *testing.T) {
+	config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+	generator := InitializeTemplateGenerator()
+	for _, tt := range []struct {
+		name       string
+		nodeConfig string
+		wantFile   bool
+	}{
+		{"NBC only", "", true},
+		{"NBC and AKSNodeConfig", `{"cluster_config":{"location":"usnat"}}`, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			config.AKSNodeConfigJSON = tt.nodeConfig
+			files := generator.getScriptlessConfiguration(config)
+			found := false
+			for _, file := range files {
+				if file.path == "/opt/azure/containers/init-aks-cloud.env" {
+					found = true
+					compressed, err := base64.StdEncoding.DecodeString(file.content)
+					require.NoError(t, err)
+					settings, err := getGzipDecodedValue(compressed)
+					require.NoError(t, err)
+					require.Equal(t, scriptlessCloudSettings(config), string(settings))
+				}
+			}
+			require.Equal(t, tt.wantFile, found)
+		})
+	}
+}
+
 func TestScriptlessAKSNodeConfigPreservesJSONProvisioningPhase(t *testing.T) {
 	generator := InitializeTemplateGenerator()
 	for _, preProvisionOnly := range []bool{true, false} {
@@ -738,6 +777,66 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).To(ContainSubstring("bash"))
 	})
 
+	It("quotes the cloud settings passed to the provisioning initializer", func() {
+		baseConfig.ContainerService.Location = `usnat'$(echo injected)`
+		baseConfig.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom", RepoDepotEndpoint: `https://repo/'$(echo injected)`,
+		}
+		baseConfig.EnableScriptlessNBCCSECmd = true
+		cmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+		Expect(cmd).To(ContainSubstring(`REPO_DEPOT_ENDPOINT=` + shellQuote(baseConfig.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint) +
+			` LOCATION=` + shellQuote(baseConfig.ContainerService.Location) + ` "${INIT_AKS_CLOUD_FILEPATH}"`))
+		Expect(cmd).To(ContainSubstring(`LOCATION=` + shellQuote(baseConfig.ContainerService.Location)))
+	})
+
+	It("runs the NBC initializer unless early initialization succeeded", func() {
+		dir, err := os.MkdirTemp("", "agentbaker-cloud-handoff")
+		Expect(err).NotTo(HaveOccurred())
+		defer os.RemoveAll(dir)
+		initPath := filepath.Join(dir, "init.sh")
+		Expect(os.WriteFile(initPath, []byte("#!/bin/sh\nprintf '%s\\n%s\\n' \"$LOCATION\" \"$REPO_DEPOT_ENDPOINT\" > \"$RESULT\"\nexit 7\n"), 0755)).To(Succeed())
+		baseConfig.ContainerService.Location = `usnat'$(echo injected)`
+		baseConfig.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom", RepoDepotEndpoint: `https://repo/'$(echo injected)`,
+		}
+		baseConfig.EnableScriptlessNBCCSECmd = true
+		cmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+		start := strings.Index(cmd, `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f "/run/aks/init-aks-cloud.done" ]; then`)
+		Expect(start).To(BeNumerically(">=", 0))
+		end := strings.Index(cmd[start:], "fi;")
+		Expect(end).To(BeNumerically(">", 0))
+		block := cmd[start : start+end+3]
+		block = strings.ReplaceAll(block, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "cloud.log"))
+		marker := filepath.Join(dir, "init.done")
+		block = strings.ReplaceAll(block, "/run/aks/init-aks-cloud.done", marker)
+		result := filepath.Join(dir, "result")
+		for _, handoff := range []bool{true, false} {
+			if handoff {
+				Expect(os.WriteFile(marker, nil, 0600)).To(Succeed())
+			} else {
+				Expect(os.Remove(marker)).To(Succeed())
+			}
+			testCmd := exec.Command("/bin/bash", "-c", block+` echo provisioned`)
+			testCmd.Env = append(os.Environ(), "INIT_AKS_CLOUD_FILEPATH="+initPath,
+				"RESULT="+result)
+			output, err := testCmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output)+"\n"+block)
+			Expect(string(output)).To(ContainSubstring("provisioned"))
+			if handoff {
+				Expect(result).NotTo(BeAnExistingFile())
+			} else {
+				data, err := os.ReadFile(result)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(data)).To(Equal(baseConfig.ContainerService.Location + "\n" + baseConfig.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint + "\n"))
+			}
+		}
+
+		baseConfig.EnableScriptlessNBCCSECmd = false
+		legacyCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+		Expect(legacyCmd).To(ContainSubstring(`if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f "" ]; then`))
+		Expect(legacyCmd).NotTo(ContainSubstring("/run/aks/init-aks-cloud.done"))
+	})
+
 	It("should safely preserve proxy values for older VHD scripts in scriptless mode", func() {
 		tempDir, err := os.MkdirTemp("", "agentbaker-proxy-test")
 		Expect(err).NotTo(HaveOccurred())
@@ -1314,7 +1413,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 				config.EnableScriptlessAKSNodeConfig = true
 				config.EnableScriptlessNBCCSECmd = false
 				config.ScriptlessCSEProvisionMode = cseDelivery
-				config.AKSNodeConfigJSON = `{"version":"v1","kubernetes_version":"1.34.0"}`
+				config.AKSNodeConfigJSON = `{
+					"version":"v1",
+					"kubernetes_version":"1.34.0",
+					"cluster_config":{"location":"usnat"},
+					"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":"https://repo"}
+				}`
 				config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
 				generator := InitializeTemplateGenerator()
 
@@ -1345,6 +1449,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 					Expect(cmd).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 				}
 				Expect(provisioningPayload).To(ContainSubstring(aksNodeConfigFilepath))
+				Expect(provisioningPayload).NotTo(ContainSubstring(initAKSCloudEnvFilepath))
 				Expect(provisioningPayload).To(ContainSubstring(getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)))
 				Expect(provisioningPayload).NotTo(ContainSubstring(aksNbcCmdFilepath))
 				Expect(provisioningPayload).NotTo(ContainSubstring("--nbc-cmd"))
@@ -1593,6 +1698,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 			expectedCount++
 		}
 		Expect(len(files)).To(Equal(expectedCount)) // nbc-cmd, nodecustomdata, aks-node-config (optional hotfix file present)
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(initAKSCloudEnvFilepath))
 
 		payload = templateGenerator.getScriptlessNBCCmd(config)
 

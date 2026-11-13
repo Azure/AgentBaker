@@ -28,6 +28,7 @@ anc_run_hotfix_flow() {
     local hotfix_bin="$2"
     local hotfix_json="$3"
     local features_path="$4"
+    local skip_acquisition="${5:-false}"
 
     anc_hotfix_read_feature_flags "$features_path"
 
@@ -36,21 +37,25 @@ anc_run_hotfix_flow() {
     # behind ENABLE_PROVISIONING_HOTFIX (only the literal "true" enables it) - the on-node
     # terminal of the EnableProvisioningHotfix aks-rp region toggle. Wrapped defensively: it is
     # fail-open, but an older ANC binary predating the subcommand exits non-zero.
-    if [ "${ENABLE_PROVISIONING_HOTFIX:-}" = "true" ]; then
-        anc_hotfix_log "ENABLE_PROVISIONING_HOTFIX=true; running check-hotfix to refresh hotfix pointer"
-        if "$bin_path" check-hotfix; then
-            anc_hotfix_log "ANC check-hotfix completed; hotfix pointer refresh attempted"
-        else
-            anc_hotfix_log "ANC check-hotfix failed; continuing (fail-open)"
+    if [ "$skip_acquisition" = "true" ]; then
+        anc_hotfix_log "Skipping ANC hotfix acquisition; preserving any staged hotfix"
+    else
+        if [ "${ENABLE_PROVISIONING_HOTFIX:-}" = "true" ]; then
+            anc_hotfix_log "ENABLE_PROVISIONING_HOTFIX=true; running check-hotfix to refresh hotfix pointer"
+            if "$bin_path" check-hotfix; then
+                anc_hotfix_log "ANC check-hotfix completed; hotfix pointer refresh attempted"
+            else
+                anc_hotfix_log "ANC check-hotfix failed; continuing (fail-open)"
+            fi
         fi
-    fi
 
-    if [ -f "$hotfix_json" ]; then
-        anc_hotfix_log "Found ANC hotfix config at ${hotfix_json}; running download-hotfix"
-        if "$bin_path" download-hotfix; then
-            anc_hotfix_log "ANC download-hotfix completed; binary selection follows"
-        else
-            anc_hotfix_log "ANC download-hotfix failed; binary selection follows"
+        if [ -f "$hotfix_json" ]; then
+            anc_hotfix_log "Found ANC hotfix config at ${hotfix_json}; running download-hotfix"
+            if "$bin_path" download-hotfix; then
+                anc_hotfix_log "ANC download-hotfix completed; binary selection follows"
+            else
+                anc_hotfix_log "ANC download-hotfix failed; binary selection follows"
+            fi
         fi
     fi
 
