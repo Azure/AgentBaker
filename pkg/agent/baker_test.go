@@ -1864,6 +1864,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(yaml.Unmarshal([]byte(parts[1].Content), &cloudConfig)).To(Succeed())
 		Expect(cloudConfig.Datasource.Azure.SkipReady).To(BeTrue())
 		Expect(parts[0].Content).To(HavePrefix("#!/bin/bash\n"))
+		Expect(parts[0].Content).To(HaveSuffix(hotfixMarkerTemplate + serviceStartTemplate))
 		cmd := exec.Command("bash", "-n")
 		cmd.Stdin = strings.NewReader(parts[0].Content)
 		output, err := cmd.CombinedOutput()

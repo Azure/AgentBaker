@@ -248,8 +248,8 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		finalCustomData = customData + t.getScriptlessNBCCmd(config)
 		if config.IsCustomDataOnlyProvisioningEnabled() {
 			script := strings.TrimPrefix(finalCustomData, "#cloud-boothook\n")
-			indentedScript := strings.ReplaceAll(strings.TrimSuffix(script, "\n"), "\n", "\n    ")
-			finalCustomData = fmt.Sprintf(cloudConfigArchiveTemplate, indentedScript)
+			// add indentation for yaml
+			finalCustomData = fmt.Sprintf(cloudConfigArchiveTemplate, strings.ReplaceAll(script, "\n", "\n    "))
 		}
 	}
 	encodedFinalCustomData := base64.StdEncoding.EncodeToString([]byte(finalCustomData))
@@ -833,13 +833,8 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 
 // ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
-	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
-		config.CustomDataOnlyProvisioning = false
-	}
-	if config.IsCustomDataOnlyProvisioningEnabled() &&
-		!config.AgentPoolProfile.Distro.Is2404VHDDistro() &&
-		!config.AgentPoolProfile.Distro.Is2604VHDDistro() {
-		return fmt.Errorf("CustomData-only provisioning requires an Ubuntu 24.04 or 26.04 image with patched cloud-init")
+	if err := validateAndSetCustomDataOnlyProvisioning(config); err != nil {
+		return err
 	}
 
 	if config.EnableScriptlessAKSNodeConfig {
@@ -923,6 +918,18 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	// It must not appear on the command line or in the config file for those versions.
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
 		delete(kubeletFlags, "--streaming-connection-idle-timeout")
+	}
+	return nil
+}
+
+func validateAndSetCustomDataOnlyProvisioning(config *datamodel.NodeBootstrappingConfiguration) error {
+	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
+		config.CustomDataOnlyProvisioning = false
+	}
+	if config.IsCustomDataOnlyProvisioningEnabled() &&
+		!config.AgentPoolProfile.Distro.Is2404VHDDistro() &&
+		!config.AgentPoolProfile.Distro.Is2604VHDDistro() {
+		return fmt.Errorf("CustomData-only provisioning requires an Ubuntu 24.04 or 26.04 image with patched cloud-init")
 	}
 	return nil
 }
