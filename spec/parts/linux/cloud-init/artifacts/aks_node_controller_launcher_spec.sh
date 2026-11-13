@@ -154,6 +154,7 @@ EOF
         export ENABLE_PROVISIONING_HOTFIX=true
         cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
 #!/bin/bash
+[ ! -e "$CLOUD_SETTINGS_PATH" ] || exit 1
 printf 'init:%s:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" "$ANC_EARLY_CLOUD_INIT" >> "$TEST_DIR/calls"
 EOF
         cat > "$BIN_PATH" <<'EOF'
@@ -213,6 +214,23 @@ EOF
         The path "$CLOUD_SETTINGS_PATH" should not be exist
     End
 
+    It 'skips acquisition when the completion marker cannot be created'
+        touch "$HOTFIX_JSON"
+        printf '%s\n' '{"cluster_config":{"location":"usnat"}}' > "$CONFIG_PATH"
+        printf '#!/bin/sh\nexit 0\n' > "$INIT_AKS_CLOUD_PATH"
+        printf '#!/bin/sh\nexit 1\n' > "${BIN_DIR}/touch"
+        create_recording_aks_node_controller
+        chmod +x "$INIT_AKS_CLOUD_PATH" "${BIN_DIR}/touch"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization failed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq 'provision'
+        The path "$CLOUD_INIT_DONE" should not be exist
+        The path "$CLOUD_SETTINGS_PATH" should not be exist
+    End
+
     It 'uses a staged hotfix after early initialization fails without acquiring another'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         export ENABLE_PROVISIONING_HOTFIX=true
@@ -252,6 +270,8 @@ EOF
     It 'does not acquire a hotfix when AKSNodeConfig settings are invalid'
         touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
         printf '%s\n' '{"cluster_config":{"location":123}}' > "$CONFIG_PATH"
+        printf '#!/bin/sh\nexit 0\n' > "$INIT_AKS_CLOUD_PATH"
+        chmod +x "$INIT_AKS_CLOUD_PATH"
         create_recording_aks_node_controller
 
         When run bash "$SCRIPT"
@@ -265,6 +285,23 @@ EOF
     It 'does not acquire a hotfix when AKSNodeConfig contains a NUL in location'
         touch "$HOTFIX_JSON"
         printf '%s\n' '{"cluster_config":{"location":"usnat\u0000other"}}' > "$CONFIG_PATH"
+        printf '#!/bin/sh\nexit 0\n' > "$INIT_AKS_CLOUD_PATH"
+        chmod +x "$INIT_AKS_CLOUD_PATH"
+        create_recording_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization failed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq 'provision'
+        The path "$CLOUD_INIT_DONE" should not be exist
+    End
+
+    It 'rejects conflicting AKSNodeConfig field spellings'
+        touch "$HOTFIX_JSON"
+        printf '%s\n' '{"cluster_config":{"location":"usnat"},"clusterConfig":{"location":"eastus"}}' > "$CONFIG_PATH"
+        printf '#!/bin/sh\nexit 0\n' > "$INIT_AKS_CLOUD_PATH"
+        chmod +x "$INIT_AKS_CLOUD_PATH"
         create_recording_aks_node_controller
 
         When run bash "$SCRIPT"

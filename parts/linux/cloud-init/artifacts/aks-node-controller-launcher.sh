@@ -57,33 +57,31 @@ if [ -s "$CONFIG_PATH" ]; then
         def field($snake; $camel):
             if has($snake) and has($camel) then error("duplicate field " + $snake)
             else .[$snake] // .[$camel] end;
-        if type != "object" then error("invalid configuration") else . end
-        | (field("cluster_config"; "clusterConfig") // {}) as $cluster
+        def safe_string:
+            if type != "string" then error("invalid cloud settings")
+            elif (explode | index(0)) != null then error("NUL in cloud settings")
+            else . end;
+        (field("cluster_config"; "clusterConfig") // {}) as $cluster
         | (field("custom_cloud_config"; "customCloudConfig") // {}) as $cloud
-        | ($cluster.location // "") as $location
-        | ($cloud | field("custom_cloud_env_name"; "customCloudEnvName") // "") as $name
-        | (if ($name | type) != "string" then error("invalid cloud name")
-           elif ($name | ascii_downcase) == "akscustom" then
-               ($cloud | field("repo_depot_endpoint"; "repoDepotEndpoint") // "")
+        | ($cluster.location // "" | safe_string) as $location
+        | ($cloud | field("custom_cloud_env_name"; "customCloudEnvName") // "" | safe_string) as $name
+        | (if ($name | ascii_downcase) == "akscustom" then
+               ($cloud | field("repo_depot_endpoint"; "repoDepotEndpoint") // "" | safe_string)
            else "" end) as $endpoint
-        | if ($location | type) != "string" or ($location | length) == 0
-             or (($location | explode | index(0)) != null)
-             or ($endpoint | type) != "string" or (($endpoint | explode | index(0)) != null)
-          then error("invalid cloud settings")
-          else "LOCATION=\($location | @sh)\nREPO_DEPOT_ENDPOINT=\($endpoint | @sh)" end
+        | if $location == "" then error("missing location")
+          else "LOCATION=\($location | @sh)",
+               "REPO_DEPOT_ENDPOINT=\($endpoint | @sh)" end
     ' "$CONFIG_PATH" > "$CLOUD_SETTINGS_PATH" 2>> "$CLOUD_INIT_LOG" || settings_ok=false
 fi
 if [ -f "$CLOUD_SETTINGS_PATH" ]; then
     # shellcheck source=/dev/null
-    [ "$settings_ok" != true ] || source "$CLOUD_SETTINGS_PATH" || settings_ok=false
-    # These settings are node-specific; never leave them behind for a PIS image to bake in.
-    rm -f "$CLOUD_SETTINGS_PATH" || settings_ok=false
-    if [ "$settings_ok" = true ] && [ -n "${LOCATION:-}" ] &&
-        [ "${REPO_DEPOT_ENDPOINT+x}" = x ] && [ -f "$INIT_AKS_CLOUD_PATH" ] &&
-        ANC_EARLY_CLOUD_INIT=true LOCATION="$LOCATION" REPO_DEPOT_ENDPOINT="$REPO_DEPOT_ENDPOINT" "$INIT_AKS_CLOUD_PATH" >> "$CLOUD_INIT_LOG" 2>&1 &&
+    if [ "$settings_ok" = true ] && [ -x "$INIT_AKS_CLOUD_PATH" ] && [ -s "$CLOUD_SETTINGS_PATH" ] &&
+        ( set -a; source "$CLOUD_SETTINGS_PATH" && rm -f "$CLOUD_SETTINGS_PATH" && [ -n "${LOCATION:-}" ] &&
+          [ "${REPO_DEPOT_ENDPOINT+x}" = x ] && ANC_EARLY_CLOUD_INIT=true "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1 &&
         mkdir -p "$(dirname "$CLOUD_INIT_DONE")" && touch "$CLOUD_INIT_DONE"; then
         log "Early cloud initialization completed"
     else
+        rm -f "$CLOUD_SETTINGS_PATH" || log "Failed to remove cloud settings"
         # Do not download with incomplete trust; let normal provisioning retry initialization.
         skip_hotfix_acquisition=true
         log "Early cloud initialization failed; skipping hotfix acquisition and retrying during provisioning"
