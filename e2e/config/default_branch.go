@@ -14,10 +14,11 @@ func (c *Configuration) resolveSIGVersionTag(ctx context.Context) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 29*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--symref", "origin", "HEAD")
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	cmd.WaitDelay = time.Second
 	output, err := cmd.Output()
 	if err != nil {
 		if ctx.Err() != nil {
