@@ -37,6 +37,81 @@ import (
 - KEY="VALUE WITH WHITSPACE". */
 const cseRegexString = `([^=\s]+)=(\"[^\"]*\"|[^\s]*)`
 
+func waagentSliceTestPayload(t *testing.T, config *datamodel.NodeBootstrappingConfiguration, cloudInitMode bool) []byte {
+	t.Helper()
+	payload, err := base64.StdEncoding.DecodeString(InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(config))
+	require.NoError(t, err)
+	if cloudInitMode {
+		payload, err = getGzipDecodedValue(payload)
+		require.NoError(t, err)
+		var data cloudInit
+		require.NoError(t, yaml.Unmarshal(payload, &data))
+		payload = []byte(strings.Join(data.BootCommands, "\n"))
+	}
+	return payload
+}
+
+func TestWaagentSliceCustomData(t *testing.T) {
+	const enforce = "pods,kube-reserved,system-reserved"
+	for _, tt := range []struct {
+		name       string
+		distro     datamodel.Distro
+		scriptless bool
+		marker     string
+	}{
+		{"cloud-init", datamodel.AKSUbuntuContainerd2204Gen2, false, "Slice=system.slice"},
+		{"boothook", datamodel.AKSAzureLinuxV3Gen2, true, "Slice=system.slice"},
+		{"ignition", datamodel.AKSFlatcarGen2, false, waagentSliceDropInPaths()[0]},
+		{"scriptless ignition", datamodel.AKSACLGen2TL, true, waagentSliceDropInPaths()[1]},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, flags := range []string{"pods", enforce} {
+				for _, preProvision := range []bool{false, true} {
+					config := newNodeCustomDataRenderConfig(tt.distro)
+					config.EnableScriptlessNBCCSECmd = tt.scriptless
+					config.ScriptlessCSEProvisionMode = tt.scriptless
+					config.PreProvisionOnly = preProvision
+					config.KubeletConfig["--enforce-node-allocatable"] = flags
+					payload := waagentSliceTestPayload(t, config, tt.name == "cloud-init")
+					setup := strings.Index(string(payload), tt.marker)
+					require.Equal(t, flags == enforce && !preProvision, setup >= 0)
+					require.Equal(t, flags == enforce && !preProvision, strings.Contains(string(payload), nodeHardeningMarker))
+					restartExpected := flags == enforce && !preProvision && tt.name != "ignition" && tt.name != "scriptless ignition"
+					require.Equal(t, restartExpected, strings.Contains(string(payload), "systemctl restart --no-block"))
+					if tt.name == "boothook" && setup >= 0 {
+						require.Less(t, setup, strings.Index(string(payload), "provision.complete"))
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestScriptlessWaagentPlacement(t *testing.T) {
+	const file = `"enableKubeletConfigFile":true,"kubeletConfigFileConfig":{"enforceNodeAllocatable":["pods","kube-reserved","system-reserved"]}`
+	for _, tc := range []struct {
+		name, input string
+		want        bool
+	}{
+		{"CLI", `{"kubelet_config":{"kubelet_flags":{"--enforce-node-allocatable":"pods,kube-reserved,system-reserved"}}}`, true},
+		{"config file", `{"kubeletConfig":{` + file + `}}`, true},
+		{"CLI overrides file", `{"kubeletConfig":{` + file + `,"kubeletFlags":{"--enforce-node-allocatable":"pods"}}}`, false},
+		{"PIS bake", `{"pre_provision_only":true,"kubeletConfig":{` + file + `}}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			place, err := scriptlessWaagentPlacement(tc.input)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, place)
+			config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+			config.EnableScriptlessAKSNodeConfig = true
+			config.AKSNodeConfigJSON = tc.input
+			payload, err := base64.StdEncoding.DecodeString(InitializeTemplateGenerator().getLinuxNodeBootstrappingPayload(config))
+			require.NoError(t, err)
+			require.Equal(t, tc.want, strings.Contains(string(payload), nodeHardeningMarker))
+		})
+	}
+}
+
 func TestScriptlessAKSNodeConfigSkipsNBCRendering(t *testing.T) {
 	for _, phase1 := range []bool{false, true} {
 		for _, phase2 := range []bool{false, true} {

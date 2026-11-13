@@ -85,8 +85,10 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
 ### Linux root slices
 
 Common Linux validation rejects live root slices other than `system.slice`,
-`kubepods.slice`, `kubereserved.slice`, and `user.slice`, regardless of whether Node
-Hardening is enabled. `user.slice` is allowed for user sessions, including SSH.
+`kubepods.slice`, `kubereserved.slice`, and `user.slice`. `user.slice` is allowed
+for user sessions, including SSH. Without Node Hardening, the legacy root slices
+`azure.slice`, `localdns.slice`, and `aks.slice` are also allowed. With Node
+Hardening, waagent's live cgroup must be under `/system.slice`.
 It does not require these slices to exist. Nested slices are allowed;
 inactive unit files and non-slice cgroups such as `init.scope` are not checked.
 The check uses the unified cgroupv2 root or the cgroupv1 systemd hierarchy.

@@ -76,6 +76,13 @@ if isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; then
     # "copy-on-write"; this starts out as a symlink to a R/O location
     cp /etc/waagent.conf{,.new}
     mv /etc/waagent.conf{.new,}
+else
+    # Cloud-init applies the per-node waagent slice before either service name can start.
+    for service in waagent walinuxagent; do
+        dir="/etc/systemd/system/$service.service.d"
+        mkdir -p "$dir" || exit 1
+        printf '%s\n' '[Unit]' 'After=cloud-init.service cloud-init-network.service' > "$dir/90-aks-cloud-init.conf" || exit 1
+    done
 fi
 # disable AKS log collector and waagent collection
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1

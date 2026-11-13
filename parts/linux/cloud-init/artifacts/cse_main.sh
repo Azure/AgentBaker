@@ -168,6 +168,7 @@ reconcileVulnerableKernelModuleMitigation() {
 # After completion, this VHD can be used as a base image for creating new node pools.
 # Users may add custom configurations or pull additional container images after this stage.
 function basePrep {
+    logs_to_events "AKS.CSE.configureSystemSlicePlacement" configureSystemSlicePlacement || exit $ERR_SYSTEMCTL_START_FAIL
     # Start the hosts-setup timer as the very first action in basePrep.
     # The timer spawns a systemd service (with After=network-online.target) that uses dig
     # to resolve critical AKS FQDNs and populate /etc/localdns/hosts. Starting it first
@@ -440,6 +441,9 @@ function nodePrep {
         logs_to_events "AKS.CSE.disableSSHPubkeyAuth" disableSSHPubkeyAuth
     fi
 
+    logs_to_events "AKS.CSE.configureSystemSlicePlacement" configureSystemSlicePlacement || exit $ERR_SYSTEMCTL_START_FAIL
+    logs_to_events "AKS.CSE.reconcileLocalDNSPlacement" reconcileLocalDNSPlacement || exit $ERR_LOCALDNS_FAIL
+    logs_to_events "AKS.CSE.retireLegacySystemSlices" retireLegacySystemSlices || exit $ERR_SYSTEMCTL_START_FAIL
     logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
     logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 

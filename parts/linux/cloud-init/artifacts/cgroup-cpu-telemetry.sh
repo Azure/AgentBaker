@@ -11,24 +11,6 @@ isNonNegativeInteger() {
     esac
 }
 
-getServiceCgroup() {
-    local service
-    local control_group
-
-    for service in "$@"; do
-        if ! control_group=$(systemctl show "${service}" -p ControlGroup --value 2>/dev/null); then
-            continue
-        fi
-
-        if [ -n "${control_group}" ] && [ "${control_group}" != "/" ]; then
-            echo "${control_group#/}"
-            return
-        fi
-    done
-
-    echo "not-found"
-}
-
 readCounter() {
     local file="$1"
     local key="$2"
@@ -79,6 +61,7 @@ eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
 CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
 KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
 WALINUXAGENT_CGROUP=$(getServiceCgroup walinuxagent.service waagent.service)
+LOCALDNS_CGROUP=$(getServiceCgroup localdns.service)
 
 if [ "${CGROUP_VERSION}" != "cgroup2fs" ]; then
     echo "cgroup v2 is required. Exiting"
@@ -114,7 +97,7 @@ walinuxagent_service_cpu_usage ${WALINUXAGENT_CGROUP}
 node_problem_detector_service_cpu_usage system.slice/node-problem-detector.service
 node_exporter_service_cpu_usage system.slice/node-exporter.service
 sync_container_logs_service_cpu_usage system.slice/sync-container-logs.service
-localdns_service_cpu_usage localdns.slice/localdns.service
+localdns_service_cpu_usage ${LOCALDNS_CGROUP}
 nvidia_persistenced_service_cpu_usage system.slice/nvidia-persistenced.service
 nvidia_gridd_service_cpu_usage system.slice/nvidia-gridd.service
 nvidia_fabricmanager_service_cpu_usage system.slice/nvidia-fabricmanager.service

@@ -9,6 +9,7 @@ Describe 'cgroup telemetry'
         export MOCK_SYSTEMCTL_STATUS=0
         export MOCK_WAAGENT_CGROUP=""
         export MOCK_WAAGENT_SYSTEMCTL_STATUS=0
+        export MOCK_LOCALDNS_CGROUP="/localdns.slice/localdns.service"
         mkdir -p "${CGROUP_ROOT}" "${EVENTS_ROOT}"
         printf 'MemTotal: 1000 kB\n' > "${TEST_ROOT}/meminfo"
     }
@@ -156,6 +157,9 @@ STUB
             "show waagent.service -p ControlGroup --value")
                 printf '%s\n' "${MOCK_WAAGENT_CGROUP}"
                 exit "${MOCK_WAAGENT_SYSTEMCTL_STATUS}"
+                ;;
+            "show localdns.service -p ControlGroup --value")
+                printf '%s\n' "${MOCK_LOCALDNS_CGROUP}"
                 ;;
             *)
                 echo "Unexpected systemctl arguments: $*" >&2
@@ -666,6 +670,47 @@ STUB
         When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
         The status should be success
         The contents of file "${EVENTS_ROOT}"/* should include '\"containerd_service_cpu_usage\":{\"usage_usec\":\"Not Found\",\"user_usec\":\"60\",\"system_usec\":\"Not Found\",\"nr_periods\":\"Not Found\",\"nr_throttled\":\"3\",\"throttled_usec\":\"Not Found\"}'
+    End
+
+    Describe 'nested LocalDNS placement'
+        BeforeEach 'setup_nested_localdns'
+        setup_nested_localdns() {
+            MOCK_LOCALDNS_CGROUP="/system.slice/system-localdns.slice/localdns.service"
+        }
+
+        It 'reads CPU counters from the nested service cgroup'
+            create_cpu_stat_v2 "${MOCK_LOCALDNS_CGROUP#/}"
+            prepare_cpu_script
+            When run bash "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+            The status should be success
+            The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_cpu_usage\":{\"usage_usec\":\"100\"'
+        End
+
+        It 'reads memory from the nested service cgroup'
+            create_memory_stat "${MOCK_LOCALDNS_CGROUP#/}" 20 30
+            prepare_memory_script
+            When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+            The status should be success
+            The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_memory\":\"50\"'
+        End
+
+        It 'reads cgroup v1 memory from the nested service cgroup'
+            create_memory_stat_v1 "${MOCK_LOCALDNS_CGROUP#/}" 20 30
+            prepare_memory_script tmpfs
+            When run bash "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+            The status should be success
+            The contents of file "${EVENTS_ROOT}"/* should include '\"localdns_service_memory\":\"50\"'
+        End
+
+        It 'reads pressure from the nested service cgroup'
+            for cgroup_path in . system.slice azure.slice kubepods.slice "${MOCK_LOCALDNS_CGROUP#/}"; do
+                create_pressure_files "${cgroup_path}"
+            done
+            prepare_pressure_script
+            When run bash "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+            The status should be success
+            The result of function emitted_events should include '\"localdns_service_pressure\":{\"CPUPressure\":{'
+        End
     End
 
     Describe 'fallback WALinuxAgent unit name'
