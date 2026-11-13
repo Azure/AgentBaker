@@ -26,6 +26,17 @@ Describe 'cse_config_localdns.sh'
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
             KUBELET_NODE_LABELS=""
             LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
+            SYSTEM_SLICE_SYSTEMD_DIR="$TMP_DIR"
+            SLICE_RELOADED=false
+            systemctl() {
+                case "$*" in
+                    "daemon-reload") SLICE_RELOADED=true ;;
+                    "cat localdns.slice")
+                        [ "${SLICE_RELOADED}" = true ] || return 1
+                        cat "${LOCALDNS_SLICE_FILE}" ;;
+                    *) echo "Unexpected systemctl call: $*" >&2; return 1 ;;
+                esac
+            }
             LOCALDNS_COREFILE_WITH_HOSTS=$(echo -n "localdns corefile with hosts" | base64)
             LOCALDNS_COREFILE_BASE=$(echo -n "localdns corefile" | base64)
             LOCALDNS_MEMORY_LIMIT="128M"
@@ -102,6 +113,17 @@ Describe 'cse_config_localdns.sh'
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
             LOCALDNS_SLICE_FILE="$TMP_DIR/localdns.slice"
+            SYSTEM_SLICE_SYSTEMD_DIR="$TMP_DIR"
+            SLICE_RELOADED=false
+            systemctl() {
+                case "$*" in
+                    "daemon-reload") SLICE_RELOADED=true ;;
+                    "cat localdns.slice")
+                        [ "${SLICE_RELOADED}" = true ] || return 1
+                        cat "${LOCALDNS_SLICE_FILE}" ;;
+                    *) echo "Unexpected systemctl call: $*" >&2; return 1 ;;
+                esac
+            }
             LOCALDNS_COREFILE_BASE=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
             LOCALDNS_COREFILE_WITH_HOSTS=$(echo "bG9jYWxkbnMgY29yZWZpbGU=") # "localdns corefile" base64
             LOCALDNS_MEMORY_LIMIT="512M"
@@ -168,6 +190,8 @@ Describe 'cse_config_localdns.sh'
             The path "$LOCALDNS_SLICE_FILE" should be file
             The contents of file "$LOCALDNS_SLICE_FILE" should include "MemoryMax=${LOCALDNS_MEMORY_LIMIT}"
             The contents of file "$LOCALDNS_SLICE_FILE" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
+            The contents of file "$TMP_DIR/system-localdns.slice" should include "MemoryMax=${LOCALDNS_MEMORY_LIMIT}"
+            The contents of file "$TMP_DIR/system-localdns.slice" should include "CPUQuota=${LOCALDNS_CPU_LIMIT}"
             The output should include "localdns should be enabled."
             The output should include "Enable localdns succeeded."
         End

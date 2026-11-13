@@ -5,7 +5,7 @@ OnFailure=service-execution-telemetry@aks\x2dlog\x2dcollector.service.service
 
 [Service]
 Type=oneshot
-Slice=aks-log-collector.slice
+Slice=system-aks-log-collector.slice
 CPUAccounting=true
 MemoryAccounting=true
 ExecStart=/opt/azure/containers/aks-log-collector.sh

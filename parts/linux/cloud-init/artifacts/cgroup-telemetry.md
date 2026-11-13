@@ -34,6 +34,9 @@ lookup fails or returns an empty or root cgroup. The metric names remain
 `walinuxagent_service_cpu_usage` and `walinuxagent_service_memory` for either
 unit name.
 
+LocalDNS is also resolved through its actual `ControlGroup`, so CPU, memory,
+and pressure observations work with both legacy and nested slice placement.
+
 For cgroup v2, the CPU and memory collectors discover top-level `.slice`
 directories and report the raw `cpu.max` and `memory.max` contents as
 `<slice>_max_cpu` and `<slice>_max_memory`, respectively. Missing limit files
@@ -69,6 +72,89 @@ Splitting increases event count without changing WALinuxAgent's collection
 quotas; it prevents size truncation, not other ingestion failures. This
 shared `cgroup-telemetry-events.sh` helper is installed in the VHD alongside
 the collectors and can also publish other cgroup observation types.
+
+# AKS-owned slice placement
+
+Placement is independent of Node Memory Hardening, on Ubuntu and Azure
+Linux/Mariner. The service names and their lifecycle dependencies are unchanged:
+
+| Services | Slice | cgroup path |
+| --- | --- | --- |
+| `localdns.service`, `localdns-fallback.service` | `system-localdns.slice` | `/system.slice/system-localdns.slice` |
+| `aks-log-collector.service` | `system-aks-log-collector.slice` | `/system.slice/system-aks.slice/system-aks-log.slice/system-aks-log-collector.slice` |
+
+Systemd derives slice parentage from hyphenated names. `Requires=system.slice`
+and `After=system.slice` alone do not place a slice under `system.slice`.
+The AKS collector's original `aks.slice/aks-log.slice/aks-log-collector.slice`
+hierarchy is retained below `system.slice`, with the existing CPU accounting,
+`CPUShares=100`, `CPUWeight=1`, and `MemoryMax=256M` on the collector slice.
+LocalDNS retains the CPU quota and memory limit provided by provisioning.
+
+New VHDs install the nested AKS collector slice and reference the nested slices
+in the service units, including the OSGuard imagecustomizer path. Scripted
+provisioning additionally installs explicit service drop-ins for older VHDs.
+Both `basePrep` and `nodePrep` reconcile placement, copying the effective legacy
+slice definitions (including overrides) when present. Thus a PIS-cached node
+does not need `basePrep` to run again or retain variables from the image bake.
+The legacy `localdns.slice` configuration file remains installed for older
+LocalDNS scripts; an installed unit file does not imply an active root cgroup.
+The new LocalDNS supervisor also copies that configuration to the nested slice
+before starting CoreDNS, covering new VHDs used with older provisioners.
+
+An already-running legacy LocalDNS instance is restarted only in `nodePrep`
+when LocalDNS is enabled and its actual cgroup is still at the root. This uses
+the existing DNS cleanup and fallback handoff; it is not a manual cgroup move.
+It briefly interrupts DNS during node provisioning, before kubelet is started.
+No other service is restarted. An in-flight legacy AKS log collection is not
+interrupted and moves on its next invocation; its old slices are left alone
+on that provisioning pass. Otherwise `StopWhenUnneeded=yes` lets systemd retire
+legacy slices only when their consumers no longer require them. Nothing is
+masked, and unrelated consumers can keep a legacy slice active.
+Root-slice validation may still observe an in-flight legacy collector or a
+legacy slice required by another workload. A new VHD/reboot avoids the
+in-flight migration case.
+
+Older VHD telemetry scripts/supervisors that hardcode the old LocalDNS cgroup
+path require a VHD refresh to receive the telemetry lookup changes. Scriptless
+provisioning likewise requires a VHD containing these updated provisioning
+helpers; it cannot retrofit them into an older image without script overrides.
+
+## Unresolved Azure hierarchy
+
+**This is a partial migration: `azure.slice` is intentionally unchanged, and
+root-slice validation still fails on nodes where it is active.**
+The pinned WALinuxAgent version is `2.16.0.2` in `parts/common/components.json`.
+Its `CGroupConfigurator._Impl.initialize` accepts the agent only in
+`/azure.slice/<agent>.service` or `/system.slice/<agent>.service`; a nested
+`system-azure.slice` path disables cgroup initialization and resets CPU quota.
+See [the accepted ControlGroup paths](https://github.com/Azure/WALinuxAgent/blob/v2.16.0.2/azurelinuxagent/ga/cgroupconfigurator.py#L151-L155)
+and [the quota-reset finally block](https://github.com/Azure/WALinuxAgent/blob/v2.16.0.2/azurelinuxagent/ga/cgroupconfigurator.py#L199-L206).
+
+The agent also launches extension install/enable commands as transient scopes
+in `azure-vmextensions-<extension>.slice`, below
+`azure.slice/azure-vmextensions.slice`, and hardcodes those names and paths.
+See [extension slice naming](https://github.com/Azure/WALinuxAgent/blob/v2.16.0.2/azurelinuxagent/ga/cgroupapi.py#L75-L83)
+and [`_SystemdCgroupApi.start_extension_command`](https://github.com/Azure/WALinuxAgent/blob/v2.16.0.2/azurelinuxagent/ga/cgroupapi.py#L352-L386).
+The persistent agent service is `walinuxagent.service` on Ubuntu or
+`waagent.service` on RPM-based images; the exact installed distro unit remains
+authoritative. Additional agent operations use the
+`azure-walinuxagent-logcollector.slice` and
+`azure-walinuxagent-pkgsignaturevalidation` names
+([constants](https://github.com/Azure/WALinuxAgent/blob/v2.16.0.2/azurelinuxagent/ga/cgroupconfigurator.py#L59-L70)).
+Agent log collection is disabled by the VHD configuration (`Logs.Collect=n`),
+but this does not disable extension scopes.
+Extension-provided persistent services can also be advertised dynamically by
+their `HandlerManifest.json`; their complete installed inventory cannot be
+established from AgentBaker alone.
+
+No supported parent-slice configuration option was found in the pinned
+[configuration definitions](https://github.com/Azure/WALinuxAgent/blob/v2.16.0.2/azurelinuxagent/common/conf.py#L121-L239).
+The inspected upstream default-branch implementation retains the same
+restriction; no compatible newer version was established.
+Safe Azure relocation needs upstream agent support for nested names and
+resource enforcement, not just a service drop-in, an agent restart during its
+own provisioning extension, disabling its limits, or masking the root slice.
+No agent upgrade or upstream patch is included here.
 
 # Collector unit activation
 

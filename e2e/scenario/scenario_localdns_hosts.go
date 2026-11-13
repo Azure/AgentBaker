@@ -218,8 +218,8 @@ trap restore_localdns_test_state EXIT
 
 sudo systemctl is-active --quiet localdns.service
 control_group=$(sudo systemctl show localdns.service -p ControlGroup --value)
-test "$control_group" = "/localdns.slice/localdns.service" || {
-    echo "FAIL: expected LocalDNS ControlGroup=/localdns.slice/localdns.service, got $control_group"
+test "$control_group" = "/system.slice/system-localdns.slice/localdns.service" || {
+    echo "FAIL: expected LocalDNS ControlGroup=/system.slice/system-localdns.slice/localdns.service, got $control_group"
     exit 1
 }
 

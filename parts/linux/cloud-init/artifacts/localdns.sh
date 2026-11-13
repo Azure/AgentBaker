@@ -16,8 +16,8 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # -------------------------------------------------------------------------------------------------
 # Localdns script path.
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
-# Cgroup v2 directory for the localdns service (matches Slice=localdns.slice in localdns.service).
-LOCALDNS_CGROUP_DIR="/sys/fs/cgroup/localdns.slice/localdns.service"
+# Cgroup v2 directory for the localdns service.
+LOCALDNS_CGROUP_DIR="/sys/fs/cgroup/system.slice/system-localdns.slice/localdns.service"
 
 # Localdns corefile is created only when localdns profile has state enabled.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
@@ -30,6 +30,35 @@ UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
 LOCALDNS_SLICE_PATH="/etc/systemd/system"
 LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
+
+# Old provisioners still write localdns.slice. Apply those same limits to the
+# nested slice before starting CoreDNS, including on PIS-cached images.
+configure_localdns_slice() {
+    local slice_contents
+    local nested_slice="${LOCALDNS_SLICE_PATH}/system-localdns.slice"
+    local temporary_slice
+    temporary_slice=$(mktemp "${nested_slice}.XXXXXX") || return 1
+    if ! slice_contents=$(systemctl cat localdns.slice) ||
+       ! printf '%s\n' "${slice_contents}" > "${temporary_slice}" ||
+       ! chmod 0644 "${temporary_slice}"; then
+        rm -f "${temporary_slice}"
+        echo "Failed to read LocalDNS slice configuration"
+        return 1
+    fi
+    if cmp -s "${temporary_slice}" "${nested_slice}"; then
+        rm -f "${temporary_slice}"
+        return 0
+    fi
+    if ! mv "${temporary_slice}" "${nested_slice}"; then
+        rm -f "${temporary_slice}"
+        echo "Failed to write LocalDNS slice configuration"
+        return 1
+    fi
+    if ! systemctl daemon-reload; then
+        echo "Failed to reload LocalDNS slice configuration"
+        return 1
+    fi
+}
 
 # Azure DNS IP.
 AZURE_DNS_IP="168.63.129.16"
@@ -947,7 +976,7 @@ export_resource_metrics() {
 
     # Read resource values directly from cgroup v2 filesystem (all supported distros use cgroupv2).
     # This avoids the systemctl → D-Bus → systemd → cgroup round-trip.
-    # localdns.service runs in localdns.slice (see localdns.service Slice= directive).
+    # localdns.service runs in system-localdns.slice.
     local cgroup_dir="${LOCALDNS_CGROUP_DIR}"
     raw_cpu=$(awk '/^usage_usec/ {print $2}' "$cgroup_dir/cpu.stat" 2>/dev/null || echo "0")
     raw_mem=$(cat "$cgroup_dir/memory.current" 2>/dev/null || echo "0")
@@ -1179,6 +1208,7 @@ verify_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
 
 # Verify that slice file exists and is not empty.
 verify_localdns_slicefile || exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
+configure_localdns_slice || exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
 
 # Verify that coredns binary is cached in VHD and is executable.
 # Coredns binary is extracted from cached coredns image and pre-installed in the VHD -

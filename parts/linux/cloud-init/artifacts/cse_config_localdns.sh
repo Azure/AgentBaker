@@ -75,6 +75,13 @@ After=system.slice
 MemoryMax=${LOCALDNS_MEMORY_LIMIT}
 CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
+    # The legacy name may already be loaded as an implicit slice. Reload before
+    # reading its newly-written fragment and any installed overrides.
+    if ! systemctl daemon-reload; then
+        echo "Failed to reload generated LocalDNS slice configuration"
+        exit $ERR_LOCALDNS_FAIL
+    fi
+    copySystemSlice localdns.slice || exit $ERR_LOCALDNS_FAIL
 }
 
 # enableLocalDNS creates localdns files and starts the service.

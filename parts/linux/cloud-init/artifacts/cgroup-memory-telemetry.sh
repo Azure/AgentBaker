@@ -4,24 +4,6 @@ set -uo pipefail
 # shellcheck source=./cgroup-telemetry-events.sh
 source /opt/scripts/cgroup-telemetry-events.sh || exit 1
 
-getServiceCgroup() {
-    local service
-    local control_group
-
-    for service in "$@"; do
-        if ! control_group=$(systemctl show "${service}" -p ControlGroup --value 2>/dev/null); then
-            continue
-        fi
-
-        if [ -n "${control_group}" ] && [ "${control_group}" != "/" ]; then
-            echo "${control_group#/}"
-            return
-        fi
-    done
-
-    echo "not-found"
-}
-
 getServiceMemory() {
     local memory_stat="$1"
     local cgroup_version="$2"
@@ -51,6 +33,7 @@ eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
 CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
 KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
 WALINUXAGENT_CGROUP=$(getServiceCgroup walinuxagent.service waagent.service)
+LOCALDNS_CGROUP=$(getServiceCgroup localdns.service)
 
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     VERSION="cgroupv2"
@@ -68,7 +51,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
         --arg NODE_PROBLEM_DETECTOR_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-problem-detector.service/memory.stat" "${VERSION}")" \
         --arg NODE_EXPORTER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-exporter.service/memory.stat" "${VERSION}")" \
         --arg SYNC_CONTAINER_LOGS_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/sync-container-logs.service/memory.stat" "${VERSION}")" \
-        --arg LOCALDNS_MEMORY "$(getServiceMemory "${CGROUP}/localdns.slice/localdns.service/memory.stat" "${VERSION}")" \
+        --arg LOCALDNS_MEMORY "$(getServiceMemory "${CGROUP}/${LOCALDNS_CGROUP}/memory.stat" "${VERSION}")" \
         --arg NVIDIA_PERSISTENCED_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-persistenced.service/memory.stat" "${VERSION}")" \
         --arg NVIDIA_GRIDD_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-gridd.service/memory.stat" "${VERSION}")" \
         --arg NVIDIA_FABRICMANAGER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-fabricmanager.service/memory.stat" "${VERSION}")" \
@@ -98,7 +81,7 @@ elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
         --arg NODE_PROBLEM_DETECTOR_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-problem-detector.service/memory.stat" "${VERSION}")" \
         --arg NODE_EXPORTER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/node-exporter.service/memory.stat" "${VERSION}")" \
         --arg SYNC_CONTAINER_LOGS_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/sync-container-logs.service/memory.stat" "${VERSION}")" \
-        --arg LOCALDNS_MEMORY "$(getServiceMemory "${CGROUP}/localdns.slice/localdns.service/memory.stat" "${VERSION}")" \
+        --arg LOCALDNS_MEMORY "$(getServiceMemory "${CGROUP}/${LOCALDNS_CGROUP}/memory.stat" "${VERSION}")" \
         --arg NVIDIA_PERSISTENCED_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-persistenced.service/memory.stat" "${VERSION}")" \
         --arg NVIDIA_GRIDD_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-gridd.service/memory.stat" "${VERSION}")" \
         --arg NVIDIA_FABRICMANAGER_MEMORY "$(getServiceMemory "${CGROUP}/system.slice/nvidia-fabricmanager.service/memory.stat" "${VERSION}")" \

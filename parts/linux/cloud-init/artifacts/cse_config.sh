@@ -9,6 +9,126 @@ source "${CSE_CONFIG_KUBELET_FILEPATH:-${BASH_SOURCE[0]%.sh}_kubelet.sh}"
 source "${CSE_CONFIG_NETWORK_FILEPATH:-${BASH_SOURCE[0]%.sh}_network.sh}"
 source "${CSE_CONFIG_CHRONY_FILEPATH:-${BASH_SOURCE[0]%.sh}_chrony.sh}"
 
+# Copy the effective legacy slice, including drop-ins, without changing its limits
+# or lifecycle settings. The new hyphenated name supplies the system.slice parent.
+copySystemSlice() {
+    local legacy_slice="$1"
+    local systemd_dir="${SYSTEM_SLICE_SYSTEMD_DIR:-/etc/systemd/system}"
+    local slice_contents temporary_slice
+
+    if ! slice_contents=$(systemctl cat "${legacy_slice}"); then
+        echo "copySystemSlice: failed to read ${legacy_slice}"
+        return 1
+    fi
+    temporary_slice=$(mktemp "${systemd_dir}/system-${legacy_slice}.XXXXXX") || return 1
+    if ! printf '%s\n' "${slice_contents}" > "${temporary_slice}" ||
+       ! chmod 0644 "${temporary_slice}" ||
+       ! mv "${temporary_slice}" "${systemd_dir}/system-${legacy_slice}"; then
+        rm -f "${temporary_slice}"
+        echo "copySystemSlice: failed to write system-${legacy_slice}"
+        return 1
+    fi
+}
+
+# Reconcile both phases so PIS nodes do not depend on basePrep having run on this VM.
+# Only these AKS-owned services are changed; WALinuxAgent owns its Azure hierarchy.
+configureSystemSlicePlacement() {
+    local systemd_dir="${SYSTEM_SLICE_SYSTEMD_DIR:-/etc/systemd/system}"
+    local slice service legacy_slice
+    local load_state unit_files
+
+    mkdir -p "${systemd_dir}" || return 1
+    for slice in localdns aks aks-log aks-log-collector; do
+        legacy_slice="${slice}.slice"
+        load_state=$(systemctl show "${legacy_slice}" -p LoadState --value) || return 1
+        if [ "${load_state}" = "loaded" ]; then
+            # Implicit parent slices have no backing file. Leave those implicit
+            # under the new hierarchy too, but copy any explicit unit/overrides.
+            unit_files=$(systemctl show "${legacy_slice}" -p FragmentPath -p DropInPaths --value) || return 1
+            if [ -n "${unit_files}" ]; then
+                copySystemSlice "${legacy_slice}" || return 1
+            fi
+        elif [ "${load_state}" != "not-found" ]; then
+            echo "configureSystemSlicePlacement: ${legacy_slice} has unexpected LoadState=${load_state}"
+            return 1
+        fi
+    done
+
+    for service in localdns localdns-fallback aks-log-collector; do
+        load_state=$(systemctl show "${service}.service" -p LoadState --value) || return 1
+        if [ "${load_state}" = "not-found" ]; then
+            continue
+        elif [ "${load_state}" != "loaded" ]; then
+            echo "configureSystemSlicePlacement: ${service}.service has unexpected LoadState=${load_state}"
+            return 1
+        fi
+        mkdir -p "${systemd_dir}/${service}.service.d" || return 1
+        case "${service}" in
+            localdns|localdns-fallback) slice=system-localdns.slice ;;
+            aks-log-collector) slice=system-aks-log-collector.slice ;;
+        esac
+        printf '[Service]\nSlice=%s\n' "${slice}" > "${systemd_dir}/${service}.service.d/90-aks-placement.conf" || return 1
+    done
+
+    if ! systemctl daemon-reload; then
+        echo "configureSystemSlicePlacement: failed to reload systemd"
+        return 1
+    fi
+}
+
+reconcileLocalDNSPlacement() {
+    local control_group fallback_control_group
+    [ "${SHOULD_ENABLE_LOCALDNS:-false}" = "true" ] || return 0
+
+    control_group=$(systemctl show localdns.service -p ControlGroup --value) || return 1
+    fallback_control_group=$(systemctl show localdns-fallback.service -p ControlGroup --value) || return 1
+    case "${control_group}:${fallback_control_group}" in
+        /localdns.slice/*:*|*:/localdns.slice/*)
+            # A cached VHD can boot an enabled legacy DNS unit before nodePrep.
+            # Use its normal stop/start handoff, not manual cgroup migration.
+            echo "Recreating LocalDNS in system-localdns.slice"
+            systemctl_restart 3 5 120 localdns || return 1
+            control_group=$(systemctl show localdns.service -p ControlGroup --value) || return 1
+            if [ "${control_group}" != "/system.slice/system-localdns.slice/localdns.service" ]; then
+                echo "reconcileLocalDNSPlacement: unexpected ControlGroup after restart: ${control_group}"
+                return 1
+            fi
+            ;;
+    esac
+}
+
+retireLegacySystemSlices() {
+    local systemd_dir="${SYSTEM_SLICE_SYSTEMD_DIR:-/etc/systemd/system}"
+    local localdns_group fallback_group collector_group slice load_state active_state
+    localdns_group=$(systemctl show localdns.service -p ControlGroup --value) || return 1
+    fallback_group=$(systemctl show localdns-fallback.service -p ControlGroup --value) || return 1
+    collector_group=$(systemctl show aks-log-collector.service -p ControlGroup --value) || return 1
+    for slice in localdns aks aks-log aks-log-collector; do
+        case "${slice}:${localdns_group}:${fallback_group}:${collector_group}" in
+            localdns:/localdns.slice/*|localdns:*:/localdns.slice/*|aks*:*:/aks.slice/*)
+                echo "Keeping ${slice}.slice while a legacy execution still uses it"
+                continue
+                ;;
+        esac
+        load_state=$(systemctl show "${slice}.slice" -p LoadState --value) || return 1
+        if [ "${load_state}" = "not-found" ]; then
+            continue
+        elif [ "${load_state}" != "loaded" ]; then
+            echo "retireLegacySystemSlices: ${slice}.slice has unexpected LoadState=${load_state}"
+            return 1
+        fi
+        active_state=$(systemctl show "${slice}.slice" -p ActiveState --value) || return 1
+        [ "${active_state}" = "active" ] || continue
+        mkdir -p "${systemd_dir}/${slice}.slice.d" || return 1
+        # Let systemd retire only unneeded slices, respecting any other consumers.
+        printf '[Unit]\nStopWhenUnneeded=yes\n' > "${systemd_dir}/${slice}.slice.d/90-aks-placement.conf" || return 1
+    done
+    if ! systemctl daemon-reload; then
+        echo "retireLegacySystemSlices: failed to reload systemd"
+        return 1
+    fi
+}
+
 configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
