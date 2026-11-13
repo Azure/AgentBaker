@@ -20,10 +20,11 @@ func TestValidateRootSlices(t *testing.T) {
 	}{
 		{name: "expected root slices", output: expected},
 		{name: "different order", output: "kubereserved.slice\nsystem.slice\nkubepods.slice\n"},
+		{name: "user sessions allowed", output: expected + "user.slice\n"},
 		{
 			name:    "unexpected root slices",
-			output:  expected + "localdns.slice\nuser.slice\n",
-			wantErr: []string{`unexpected root slice "localdns.slice"`, `unexpected root slice "user.slice"`, "systemReserved.memory"},
+			output:  expected + "localdns.slice\nazure.slice\naks.slice\n",
+			wantErr: []string{`unexpected root slice "localdns.slice"`, `unexpected root slice "azure.slice"`, `unexpected root slice "aks.slice"`, "systemReserved.memory"},
 		},
 		{
 			name:    "similar name is not allowed",

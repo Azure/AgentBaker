@@ -5166,7 +5166,7 @@ test -d "$cgroup_root" && find "$cgroup_root" -mindepth 1 -maxdepth 1 -type d -n
 }
 
 func validateRootSlices(output string) error {
-	allowed := []string{"system.slice", "kubepods.slice", "kubereserved.slice"}
+	allowed := []string{"system.slice", "kubepods.slice", "kubereserved.slice", "user.slice"}
 	actual := strings.Fields(output)
 	var errs []error
 	for _, slice := range actual {
