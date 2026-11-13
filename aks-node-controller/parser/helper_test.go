@@ -223,6 +223,41 @@ func TestSysctlSettingsRoundTrip(t *testing.T) {
 			json: `{"sysctlConfig": {}}`,
 		},
 		{
+			name: "custom hugepage count",
+			json: `{"sysctlConfig": {"vmNrHugepages": 2144}}`,
+			want: map[string]string{"vm.nr_hugepages": "2144"},
+		},
+		{
+			name: "explicit zero hugepages preserves presence",
+			json: `{"sysctlConfig": {"vmNrHugepages": 0}}`,
+			want: map[string]string{"vm.nr_hugepages": "0"},
+		},
+		{
+			name: "BPF JIT limit exceeds int32",
+			json: `{"sysctlConfig": {"netCoreBpfJitLimit": "4294967296"}}`,
+			want: map[string]string{"net.core.bpf_jit_limit": "4294967296"},
+		},
+		{
+			name: "BPF JIT limit numeric JSON",
+			json: `{"sysctlConfig": {"netCoreBpfJitLimit": 1073741824}}`,
+			want: map[string]string{"net.core.bpf_jit_limit": "1073741824"},
+		},
+		{
+			name: "explicit zero BPF JIT limit preserves presence",
+			json: `{"sysctlConfig": {"netCoreBpfJitLimit": 0}}`,
+			want: map[string]string{"net.core.bpf_jit_limit": "0"},
+		},
+		{
+			name: "custom TCP send buffers",
+			json: `{"sysctlConfig": {"netIpv4TcpWmem": "4096 655360 8388608"}}`,
+			want: map[string]string{"net.ipv4.tcp_wmem": "4096 655360 8388608"},
+		},
+		{
+			name: "explicit empty TCP send buffers preserve presence",
+			json: `{"sysctlConfig": {"netIpv4TcpWmem": ""}}`,
+			want: map[string]string{"net.ipv4.tcp_wmem": ""},
+		},
+		{
 			name: "custom settings",
 			json: `{"sysctlConfig": {
 				"fsInotifyMaxUserInstances": 2048,
@@ -357,6 +392,44 @@ func TestSysctlSettingsRoundTrip(t *testing.T) {
 				got[key] = value
 			}
 			require.Equal(t, want, got)
+		})
+	}
+}
+
+func TestSysfsSettingsRoundTrip(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		json string
+		want string
+	}{
+		{name: "omitted sysfs config", json: `{}`},
+		{name: "empty sysfs config", json: `{"sysfsConfig":{}}`},
+		{name: "enable MGLRU", json: `{"sysfsConfig":{"mglruEnabled":true}}`, want: "true"},
+		{name: "explicitly disable MGLRU", json: `{"sysfsConfig":{"mglruEnabled":false}}`, want: "false"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			payload := []byte(`{"kubernetesVersion":"1.34.0","customLinuxOsConfig":` + test.json + `}`)
+			config, err := nodeconfigutils.UnmarshalConfigurationV1(payload)
+			require.NoError(t, err)
+			encoded, err := nodeconfigutils.MarshalConfigurationV1(config)
+			require.NoError(t, err)
+			restored, err := nodeconfigutils.UnmarshalConfigurationV1(encoded)
+			require.NoError(t, err)
+			require.True(t, proto.Equal(config, restored))
+			wire, err := proto.Marshal(restored)
+			require.NoError(t, err)
+			decoded := &aksnodeconfigv1.Configuration{}
+			require.NoError(t, proto.Unmarshal(wire, decoded))
+			require.True(t, proto.Equal(config, decoded))
+
+			command, err := BuildCSECmd(context.Background(), decoded, nil)
+			require.NoError(t, err)
+			env := environToMap(command.Env)
+			if test.want == "" {
+				require.NotContains(t, env, "MGLRU_ENABLED")
+			} else {
+				require.Equal(t, test.want, env["MGLRU_ENABLED"])
+			}
 		})
 	}
 }
