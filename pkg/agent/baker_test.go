@@ -801,11 +801,13 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		}
 		baseConfig.EnableScriptlessNBCCSECmd = true
 		cmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
-		start := strings.Index(cmd, `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]`)
+		start := strings.Index(cmd, `if [ -f /run/aks/init-aks-cloud.done ]`)
 		Expect(start).To(BeNumerically(">=", 0))
-		end := strings.Index(cmd[start:], "fi;")
+		initStart := strings.Index(cmd[start:], `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]`)
+		Expect(initStart).To(BeNumerically(">", 0))
+		end := strings.Index(cmd[start+initStart:], "fi;")
 		Expect(end).To(BeNumerically(">", 0))
-		block := cmd[start : start+end+3]
+		block := cmd[start : start+initStart+end+3]
 		block = strings.ReplaceAll(block, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "cloud.log"))
 		marker := filepath.Join(dir, "init.done")
 		block = strings.ReplaceAll(block, "/run/aks/init-aks-cloud.done", marker)
