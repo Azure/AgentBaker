@@ -68,15 +68,21 @@ fi
 
 skip_hotfix_acquisition=false
 if [ -s "$CONFIG_PATH" ] || [ -f "$INIT_AKS_CLOUD_ENV" ]; then
-    if write_cloud_settings "$CONFIG_PATH" "$INIT_AKS_CLOUD_ENV" 2>> "$CLOUD_INIT_LOG"; then
-        # shellcheck source=/dev/null
-        ( set -a; source "$INIT_AKS_CLOUD_ENV" && "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1
-        init_status=$?
-        # Provisioning reports this result instead of running initialization again.
-        { mkdir -p "$(dirname "$CLOUD_INIT_STATUS")" && echo "$init_status" > "$CLOUD_INIT_STATUS"; } ||
-            log "Failed to record cloud initialization status; provisioning will run initialization"
+    init_status=1
+    # Record the attempt before running so provisioning reports this result instead of
+    # running initialization again; without a record, provisioning runs it instead.
+    if mkdir -p "$(dirname "$CLOUD_INIT_STATUS")" && echo "$init_status" > "$CLOUD_INIT_STATUS"; then
+        if write_cloud_settings "$CONFIG_PATH" "$INIT_AKS_CLOUD_ENV" 2>> "$CLOUD_INIT_LOG"; then
+            # shellcheck source=/dev/null
+            ( set -a; source "$INIT_AKS_CLOUD_ENV" && "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1
+            init_status=$?
+        fi
+        if ! echo "$init_status" > "$CLOUD_INIT_STATUS"; then
+            log "Failed to record cloud initialization status; provisioning will report failure"
+            init_status=1
+        fi
     else
-        init_status=1
+        log "Failed to record cloud initialization attempt; provisioning will run initialization"
     fi
     if [ "$init_status" -eq 0 ]; then
         log "Early cloud initialization completed"

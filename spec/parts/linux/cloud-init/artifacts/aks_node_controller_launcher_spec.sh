@@ -211,22 +211,41 @@ EOF
         The path "$INIT_AKS_CLOUD_ENV" should not be exist
     End
 
-    It 'allows acquisition after successful initialization when the status cannot be recorded'
+    It 'leaves initialization to provisioning when the attempt cannot be recorded'
         touch "$HOTFIX_JSON" "$TEST_DIR/not-a-dir"
         export CLOUD_INIT_STATUS="$TEST_DIR/not-a-dir/init-aks-cloud.status"
         printf '%s\n' '{"cluster_config":{"location":"usnat"}}' > "$CONFIG_PATH"
-        printf '#!/bin/sh\nexit 0\n' > "$INIT_AKS_CLOUD_PATH"
+        printf '#!/bin/sh\necho init >> "$TEST_DIR/calls"\n' > "$INIT_AKS_CLOUD_PATH"
+        create_recording_aks_node_controller
+        chmod +x "$INIT_AKS_CLOUD_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Failed to record cloud initialization attempt'
+        The stderr should include 'not-a-dir'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq 'provision'
+        The path "$CLOUD_INIT_STATUS" should not be exist
+        The path "$INIT_AKS_CLOUD_ENV" should not be exist
+    End
+
+    running_as_root() { [ "$(id -u)" -eq 0 ]; }
+
+    It 'keeps the recorded attempt when the final status cannot be written'
+        Skip if 'root ignores read-only files' running_as_root
+        touch "$HOTFIX_JSON"
+        printf '%s\n' '{"cluster_config":{"location":"usnat"}}' > "$CONFIG_PATH"
+        printf '#!/bin/sh\nchmod 444 "$CLOUD_INIT_STATUS"\n' > "$INIT_AKS_CLOUD_PATH"
         create_recording_aks_node_controller
         chmod +x "$INIT_AKS_CLOUD_PATH"
 
         When run bash "$SCRIPT"
         The status should be success
         The output should include 'Failed to record cloud initialization status'
-        The stderr should include 'not-a-dir'
+        The stderr should include 'Permission denied'
         calls=$(cat "$TEST_DIR/calls")
-        The variable calls should eq "$(printf 'download-hotfix\nprovision')"
-        The path "$CLOUD_INIT_STATUS" should not be exist
-        The path "$INIT_AKS_CLOUD_ENV" should not be exist
+        The variable calls should eq 'provision'
+        The contents of file "$CLOUD_INIT_STATUS" should eq 1
     End
 
     It 'uses a staged hotfix after early initialization fails without acquiring another'
@@ -312,7 +331,7 @@ EOF
         The output should include 'Early cloud initialization failed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision'
-        The path "$CLOUD_INIT_STATUS" should not be exist
+        The contents of file "$CLOUD_INIT_STATUS" should eq 1
         The path "$INIT_AKS_CLOUD_ENV" should not be exist
     End
 
