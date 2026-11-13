@@ -74,6 +74,57 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 End
 
+Describe 'init-aks-cloud.sh process-local handoff'
+    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+
+    setup_handoff() {
+        TEST_DIR=$(mktemp -d)
+        cp "$script_path" "${TEST_DIR}/init.sh"
+        unset AKS_CLOUD_INIT_SHA256
+        __SOURCED__=1 . "$script_path"
+    }
+    cleanup_handoff() {
+        rm -rf "$TEST_DIR"
+        unset AKS_CLOUD_INIT_SHA256
+    }
+    BeforeEach setup_handoff
+    AfterEach cleanup_handoff
+
+    It 'skips all initialization when the exact script already succeeded'
+        hash=$(sha256sum < "$script_path")
+        export AKS_CLOUD_INIT_SHA256="${hash%% *}"
+
+        When run bash "$script_path"
+        The status should be success
+        The output should be blank
+    End
+
+    It 'runs initialization again after a hotfix replaces the script'
+        hash=$(sha256sum < "${TEST_DIR}/init.sh")
+        export AKS_CLOUD_INIT_SHA256="${hash%% *}"
+        printf '\n# replacement\n' >> "${TEST_DIR}/init.sh"
+
+        When call cloud_init_already_done init "${TEST_DIR}/init.sh"
+        The status should be failure
+        The output should be blank
+    End
+
+    It 'does not reuse a handoff for periodic certificate refresh'
+        hash=$(sha256sum < "$script_path")
+        export AKS_CLOUD_INIT_SHA256="${hash%% *}"
+
+        When call cloud_init_already_done ca-refresh "$script_path"
+        The status should be failure
+        The output should be blank
+    End
+
+    It 'does full initialization without a launcher handoff'
+        When call cloud_init_already_done init "$script_path"
+        The status should be failure
+        The output should be blank
+    End
+End
+
 Describe 'init-aks-cloud.sh repo initialization dispatch'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
 
@@ -138,6 +189,17 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
         The output should not include 'dnf cache'
         The output should not include 'refresh scheduling reached'
         The status should be success
+    End
+
+    It 'propagates repository setup failures instead of treating initialization as complete'
+        IS_UBUNTU=1
+        init_ubuntu_pmc_repo_depot() { return 19; }
+
+        When run run_repo_dispatch init
+        The status should eq 19
+        The output should include 'ubuntu-main'
+        The output should not include 'apt update'
+        The output should not include 'refresh scheduling reached'
     End
 
     Describe 'explicit init'
@@ -619,6 +681,26 @@ EOF
             The contents of file "${APT_SOURCES_LIST_D_DIR}/microsoft-prod.sources" should not include "https://packages.microsoft.com"
             The path "${APT_KEYRINGS_DIR}/microsoft.asc.gpg" should be exist
             The path "${APT_KEYRINGS_DIR}/msopentech.asc.gpg" should be exist
+        End
+
+        Describe 'signing key failure'
+            Parameters
+                download
+                conversion
+            End
+
+            It 'does not report successful initialization after a signing key failure'
+                if [ "$1" = "download" ]; then
+                    wget() { return 17; }
+                else
+                    gpg() { cat >/dev/null; return 17; }
+                fi
+
+                When run add_key_ubuntu microsoft.asc https://repodepot.example.com
+                The status should eq 17
+                The output should include 'Adding microsoft.asc'
+                The output should not include 'key added to keyring'
+            End
         End
     End
 
