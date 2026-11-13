@@ -699,7 +699,13 @@ waitForContainerdReady() {
 # A unit that isn't installed is not an error, a unit that resists stop/disable is.
 # The optional second argument enables SSH telemetry without changing other callers.
 systemctlDisableAndStop() {
+    systemctlStop "$1" "${2:-}" true
+}
+
+# SSH uses a persistent condition instead of changing the distribution's boot activation.
+systemctlStop() {
     local unit=$1 attempt_id=${2:-} result=0
+    local disable=${3:-false}
     local cat_result=0 stop_result=null disable_result=null
     local start_time
     if [ -n "$attempt_id" ]; then
@@ -710,8 +716,10 @@ systemctlDisableAndStop() {
     if systemctl cat "$unit" &>/dev/null; then
         stop_result=0
         systemctl_stop 20 5 25 "$unit" || { stop_result=$?; echo "$unit could not be stopped"; result=1; }
-        disable_result=0
-        systemctl_disable 20 5 25 "$unit" || { disable_result=$?; echo "$unit could not be disabled"; result=1; }
+        if [ "$disable" = true ]; then
+            disable_result=0
+            systemctl_disable 20 5 25 "$unit" || { disable_result=$?; echo "$unit could not be disabled"; result=1; }
+        fi
     else
         cat_result=$?
     fi
