@@ -12,6 +12,7 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"google.golang.org/protobuf/encoding/protojson"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -50,15 +51,9 @@ runcmd:
 - echo "AKS Node Controller cloud-init completed at $(date)"
 `
 
-	cloudConfigArchiveTemplate = `#cloud-config-archive
-- type: text/cloud-boothook
-  content: |
-    %s
-- type: text/cloud-config
-  content: |
-    datasource:
-      Azure:
-        experimental_skip_ready_report: true
+	readyReportCloudConfig = `datasource:
+  Azure:
+    experimental_skip_ready_report: true
 `
 
 	readyReportHandoffTemplate = `touch /var/lib/waagent/experimental_skip_ready_report
@@ -105,8 +100,25 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 
 	if cfg.GetCustomDataOnlyProvisioning() {
 		script := strings.TrimPrefix(boothook, "#cloud-boothook\n")
-		indentedScript := strings.ReplaceAll(strings.TrimSuffix(script, "\n"), "\n", "\n    ")
-		customData := fmt.Sprintf(cloudConfigArchiveTemplate, indentedScript)
+		parts := []struct {
+			Type    string    `yaml:"type"`
+			Content yaml.Node `yaml:"content"`
+		}{
+			{
+				Type: "text/cloud-boothook",
+				// Quoting preserves Unicode line separators as script bytes, not YAML line breaks.
+				Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.DoubleQuotedStyle, Value: script},
+			},
+			{
+				Type:    "text/cloud-config",
+				Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.LiteralStyle, Value: readyReportCloudConfig},
+			},
+		}
+		archive, err := yaml.Marshal(parts)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal cloud-config archive: %w", err)
+		}
+		customData := "#cloud-config-archive\n" + string(archive)
 		return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 	}
 

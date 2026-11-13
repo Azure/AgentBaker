@@ -3,6 +3,7 @@ package nodeconfigutils
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -447,6 +448,40 @@ func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t
 	cmd.Stdin = strings.NewReader(parts[0].Content)
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(output))
+}
+
+func TestCustomDataArchivePreservesScriptBytes(t *testing.T) {
+	for _, value := range []string{
+		"quoted: # text \"backslash\\\"\ttab",
+		"Unicode: \u0085\u2028\u2029",
+		"",
+	} {
+		cfg := &aksnodeconfigv1.Configuration{
+			CustomDataOnlyProvisioning: true,
+			EnabledFeatures:            map[string]string{"TEST_FEATURE": value},
+		}
+		customData, err := CustomData(cfg)
+		require.NoError(t, err)
+		decoded, err := base64.StdEncoding.DecodeString(customData)
+		require.NoError(t, err)
+		var parts []struct {
+			Type    string `yaml:"type"`
+			Content string `yaml:"content"`
+		}
+		require.NoError(t, yaml.Unmarshal(decoded, &parts))
+		require.Len(t, parts, 2)
+		configJSON, err := MarshalConfigurationV1(cfg)
+		require.NoError(t, err)
+		boothook := fmt.Sprintf(boothookTemplate, readyReportHandoffBlock(cfg),
+			AKSNodeConfigFilePath, base64.StdEncoding.EncodeToString(configJSON), enabledFeaturesBlock(cfg))
+		require.Equal(t, "text/cloud-boothook", parts[0].Type)
+		require.Equal(t, strings.TrimPrefix(boothook, "#cloud-boothook\n"), parts[0].Content)
+		require.Equal(t, "text/cloud-config", parts[1].Type)
+		require.Equal(t, readyReportCloudConfig, parts[1].Content)
+		repeated, err := CustomData(cfg)
+		require.NoError(t, err)
+		require.Equal(t, customData, repeated)
+	}
 }
 
 func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {
