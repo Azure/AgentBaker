@@ -21,12 +21,21 @@ Windows VHD-caching scenarios retain SSH access during the bake when enabled:
 function supports the `Enabled` parameter, `NodePrep` reapplies the current policy
 and keys, including on cached images. Only Windows scenarios that explicitly
 skip SSH connectivity validation use VMSS RunCommand for guest checks in both
-the bake and real-node stages. Linux behavior is unchanged.
+the bake and real-node stages.
 OpenSSH remains stopped and disabled while the live authorized keys and ACLs are
 prepared; provisioning only re-enables it after those steps succeed.
 The shared `Install-OpenSSH` implementation ships only in the versioned Windows
 CSE bundle, not in CustomData. Older bundles retain their existing SSH behavior
 and require an updated CSE bundle or VHD to receive this fix.
+
+Linux SSH-disabled scenarios use RunCommand to verify the persistent SSH block,
+schedule a guest reboot through RunCommand, confirm its boot ID changed, and check the block
+again after kubelet becomes active. CSE stops SSH listeners and uses an AKS-owned
+systemd condition without changing distribution enablement or administrator masks.
+SSH policy runs only in `nodePrep`, so image preparation leaves SSH defaults
+unchanged. This delays SSH policy enforcement until `nodePrep` on ordinary nodes
+as well. There is no activation history or automatic re-enable path; a code
+rollback alone does not remove a persisted block.
 
 ## Writing and extending scenarios
 

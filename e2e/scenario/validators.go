@@ -3720,7 +3720,51 @@ fi`)
 	return nil
 }
 
-// ValidateSSHServiceDisabled validates that SSH services and sockets are disabled and stopped on the node
+func ValidateSSHDisabledAcrossReboot(ctx context.Context, s *Scenario) error {
+	if err := ValidateSSHServiceDisabled(ctx, s); err != nil {
+		return err
+	}
+	before, err := RunCommand(ctx, s, "cat /proc/sys/kernel/random/boot_id")
+	if err != nil {
+		return fmt.Errorf("read boot ID before SSH-disabled reboot: %w", err)
+	}
+	bootID := strings.TrimSpace(lo.FromPtr(before.Output))
+	bootIDPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	if !bootIDPattern.MatchString(bootID) {
+		return fmt.Errorf("invalid boot ID before SSH-disabled reboot: %q", bootID)
+	}
+	if _, err := RunCommand(ctx, s, fmt.Sprintf(rebootSSHDisabledNodeScript, bootID)); err != nil {
+		return fmt.Errorf("schedule SSH-disabled VM reboot: %w", err)
+	}
+	err = wait.PollUntilContextTimeout(ctx, 15*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		after, err := RunCommand(ctx, s, "cat /proc/sys/kernel/random/boot_id")
+		if err != nil {
+			logging.Logf(ctx, "waiting for VM agent after SSH-disabled reboot: %v", err)
+			return false, nil
+		}
+		afterID := strings.TrimSpace(lo.FromPtr(after.Output))
+		if !bootIDPattern.MatchString(afterID) {
+			return false, fmt.Errorf("invalid boot ID after SSH-disabled reboot: %q", afterID)
+		}
+		return afterID != bootID, nil
+	})
+	if err != nil {
+		return fmt.Errorf("wait for SSH-disabled VM reboot: %w", err)
+	}
+	err = wait.PollUntilContextTimeout(ctx, 15*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		if _, err := RunCommand(ctx, s, "systemctl is-active --quiet kubelet"); err != nil {
+			logging.Logf(ctx, "waiting for kubelet after SSH-disabled reboot: %v", err)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("wait for kubelet to become active after SSH-disabled reboot: %w", err)
+	}
+	return ValidateSSHServiceDisabled(ctx, s)
+}
+
+// ValidateSSHServiceDisabled checks persistent SSH blocking, inactivity and listeners.
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
 	command := validateSSHServiceDisabledScript
 	if s.IsWindows() {
