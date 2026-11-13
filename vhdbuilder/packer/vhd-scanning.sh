@@ -440,6 +440,43 @@ kompli_plan_rule_ids() {
 }
 
 run_kompli_scan() {
+    local output_dir="" plans_snapshot_dir="" defs_snapshot_dir=""
+    local plans_tar="" defs_tar=""
+    local -a plan_ids=() uploaded_blobs=() result_blobs=() log_blobs=() status_blobs=()
+    local vm_invoked=false
+    local rc=0
+    run_kompli_scan_body || rc=$?
+    if [ -n "$output_dir" ]; then
+        local cleanup_name cleanup_i
+        for cleanup_name in "${uploaded_blobs[@]}"; do
+            az storage blob delete --account-name "$STORAGE_ACCOUNT_NAME" --container-name "$SIG_CONTAINER_NAME" --name "$cleanup_name" --auth-mode login || true
+        done
+        if "$vm_invoked"; then
+            for cleanup_i in "${!plan_ids[@]}"; do
+                for cleanup_name in "${result_blobs[cleanup_i]}" "${log_blobs[cleanup_i]}" "${status_blobs[cleanup_i]}"; do
+                    az storage blob delete --account-name "$STORAGE_ACCOUNT_NAME" --container-name "$SIG_CONTAINER_NAME" --name "$cleanup_name" --auth-mode login || true
+                done
+            done
+        fi
+        [ -z "$defs_tar" ] || rm -f -- "$defs_tar"
+        [ -z "$plans_tar" ] || rm -f -- "$plans_tar"
+        rm -rf -- "$plans_snapshot_dir" "$defs_snapshot_dir"
+    fi
+    return "$rc"
+}
+
+# Inner body of run_kompli_scan. ShellSpec runs with functrace (set -T)
+# enabled, which propagates a RETURN trap into the command-substitution
+# subshells backing calls like `selected=$(kompli_plan_definitions ...)`
+# below: a RETURN trap set in run_kompli_scan would fire -- deleting the
+# snapshot directories mid-scan -- when THAT nested function returns, not
+# only when run_kompli_scan itself returns. So no RETURN trap is used here;
+# the wrapper above runs the same cleanup unconditionally once this function
+# returns. The variables that cleanup needs (output/snapshot dirs, tar paths,
+# uploaded_blobs, vm_invoked, plan_ids, result_blobs, log_blobs, status_blobs)
+# are declared as locals in the wrapper and assigned here through ordinary
+# bash dynamic scoping, without redeclaring them as locals in this function.
+run_kompli_scan_body() {
     local key="ubuntu-${OS_VERSION}"
     local skip="${SKIP_KOMPLI:-false}"
     if [ "${skip,,}" = "true" ]; then
@@ -447,7 +484,7 @@ run_kompli_scan() {
         return 0
     fi
     local plan_dir="${KOMPLI_PLAN_DIR}/${key}"
-    local -a plan_files=() plan_ids=()
+    local -a plan_files=()
     local plan_file pid
     if [ -d "$plan_dir" ]; then
         mapfile -t plan_files < <(find "$plan_dir" -maxdepth 1 -type f -name '*.plan.json' -printf '%f\n' | LC_ALL=C sort)
@@ -471,14 +508,12 @@ run_kompli_scan() {
 
     # Keep one private input snapshot and all this invocation's outputs
     # together. The ADO publisher is pointed only at this fresh directory.
-    local output_dir plans_snapshot_dir defs_snapshot_dir selected verified
-    local -a def_names=() uploaded_blobs=()
-    local vm_invoked=false
+    local selected verified
+    local -a def_names=()
     output_dir=$(mktemp -d "$PWD/kompli-scan.XXXXXXXX") || return 1
     echo "##vso[task.setvariable variable=KOMPLI_SCAN_OUTPUT_DIR;]${output_dir}"
     plans_snapshot_dir="$output_dir/plans"
     defs_snapshot_dir="$output_dir/definitions"
-    trap 'rm -rf -- "$plans_snapshot_dir" "$defs_snapshot_dir"' RETURN
     mkdir -m 0700 "$plans_snapshot_dir" || return 1
     mkdir -m 0700 "$defs_snapshot_dir" || return 1
     local def_name known existing
@@ -511,7 +546,6 @@ run_kompli_scan() {
     plans_tar_blob="kompli-plans-${key}-${BUILD_ID}-${run_id}.tar"
     defs_tar_blob="kompli-defs-${key}-${BUILD_ID}-${run_id}.tar"
 
-    local -a result_blobs=() log_blobs=() status_blobs=()
     local -a result_locals=() log_locals=() status_locals=() junit_locals=() render_tmps=() render_logs=()
     for pid in "${plan_ids[@]}"; do
         result_blobs+=("kompli-result-${key}-${pid}-${BUILD_ID}-${run_id}.json")
@@ -525,22 +559,8 @@ run_kompli_scan() {
         render_logs+=("$output_dir/kompli-${key}-${pid}.render.log")
     done
 
-    local plans_tar defs_tar cleanup_name
     plans_tar="$output_dir/plans.tar"
     defs_tar="$output_dir/definitions.tar"
-    # RETURN runs while this invocation's local blob names are in scope.
-    trap 'for cleanup_name in "${uploaded_blobs[@]}"; do
-        az storage blob delete --account-name "$STORAGE_ACCOUNT_NAME" --container-name "$SIG_CONTAINER_NAME" --name "$cleanup_name" --auth-mode login || true
-    done
-    if "$vm_invoked"; then
-        for cleanup_i in "${!plan_ids[@]}"; do
-            for cleanup_name in "${result_blobs[cleanup_i]}" "${log_blobs[cleanup_i]}" "${status_blobs[cleanup_i]}"; do
-                az storage blob delete --account-name "$STORAGE_ACCOUNT_NAME" --container-name "$SIG_CONTAINER_NAME" --name "$cleanup_name" --auth-mode login || true
-            done
-        done
-    fi
-    rm -f -- "$defs_tar" "$plans_tar"
-    rm -rf -- "$plans_snapshot_dir" "$defs_snapshot_dir"' RETURN
     local -a plan_tar_entries=()
     for pid in "${plan_ids[@]}"; do
         plan_tar_entries+=("${pid}.plan.json")

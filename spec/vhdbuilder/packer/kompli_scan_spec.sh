@@ -2,7 +2,7 @@
 
 # Isolate scan functions: sourcing vhd-scanning.sh would create an Azure VM.
 Describe 'AKS committed-plan kompli scan'
-  BeforeAll 'eval "$(sed -n "/^kompli_plan_definitions() {/,/^}/p;/^kompli_plan_rule_ids() {/,/^}/p;/^run_kompli_scan() {/,/^}/p" vhdbuilder/packer/vhd-scanning.sh)"'
+  BeforeAll 'eval "$(sed -n "/^kompli_plan_definitions() {/,/^}/p;/^kompli_plan_rule_ids() {/,/^}/p;/^run_kompli_scan() {/,/^}/p;/^run_kompli_scan_body() {/,/^}/p" vhdbuilder/packer/vhd-scanning.sh)"'
 
   setup_scan() {
     # Fixtures use the real mktemp; only the production mktemp -d call for
@@ -160,37 +160,44 @@ FAKE
       rm "$KOMPLI_DEF_DIR/ubuntu-22.04-l1.benchmark.json"
       When call kompli_plan_definitions "$PLAN_SUBDIR/plan-a.plan.json" "$CDIR/kompli-scan.json" "$KOMPLI_DEF_DIR"
       The status should equal 1
+      The stderr should include 'kompli: missing or unsafe acquired definition: ubuntu-22.04-l1.benchmark.json'
     End
     It 'rejects duplicate plan paths'
       printf '{"benchmarks":[{"file":"/etc/kompli/definitions/ubuntu-22.04-l1.benchmark.json"},{"file":"/etc/kompli/definitions/ubuntu-22.04-l1.benchmark.json"}]}\n' > "$PLAN_SUBDIR/plan-a.plan.json"
       When call kompli_plan_definitions "$PLAN_SUBDIR/plan-a.plan.json" "$CDIR/kompli-scan.json" "$KOMPLI_DEF_DIR"
       The status should equal 1
+      The stderr should include 'kompli: duplicate plan definition: ubuntu-22.04-l1.benchmark.json'
     End
     It 'rejects unsafe parent paths'
       printf '{"benchmarks":[{"file":"/etc/kompli/definitions/../ubuntu-22.04-l1.benchmark.json"}]}\n' > "$PLAN_SUBDIR/plan-a.plan.json"
       When call kompli_plan_definitions "$PLAN_SUBDIR/plan-a.plan.json" "$CDIR/kompli-scan.json" "$KOMPLI_DEF_DIR"
       The status should equal 1
+      The stderr should include 'kompli: unsafe definition path: /etc/kompli/definitions/../ubuntu-22.04-l1.benchmark.json'
     End
     It 'rejects unpinned definition names'
       printf '{"benchmarks":[{"file":"/etc/kompli/definitions/unrelated.benchmark.json"}]}\n' > "$PLAN_SUBDIR/plan-a.plan.json"
       When call kompli_plan_definitions "$PLAN_SUBDIR/plan-a.plan.json" "$CDIR/kompli-scan.json" "$KOMPLI_DEF_DIR"
       The status should equal 1
+      The stderr should include 'kompli: no approved manifest mapping for unrelated.benchmark.json'
     End
     It 'rejects symlinked acquired definitions'
       rm "$KOMPLI_DEF_DIR/ubuntu-22.04-l1.benchmark.json"
       ln -s unrelated.benchmark.json "$KOMPLI_DEF_DIR/ubuntu-22.04-l1.benchmark.json"
       When call kompli_plan_definitions "$PLAN_SUBDIR/plan-a.plan.json" "$CDIR/kompli-scan.json" "$KOMPLI_DEF_DIR"
       The status should equal 1
+      The stderr should include 'kompli: missing or unsafe acquired definition: ubuntu-22.04-l1.benchmark.json'
     End
     It 'rejects multiple plan JSON documents'
       printf '{}\n' >> "$PLAN_SUBDIR/plan-a.plan.json"
       When call kompli_plan_definitions "$PLAN_SUBDIR/plan-a.plan.json" "$CDIR/kompli-scan.json" "$KOMPLI_DEF_DIR"
       The status should equal 1
+      The stderr should include 'kompli: invalid committed plan'
     End
     It 'rejects a benchmarks array with a non-object entry'
       printf '{"benchmarks":["not-an-object"]}\n' > "$PLAN_SUBDIR/plan-a.plan.json"
       When call kompli_plan_definitions "$PLAN_SUBDIR/plan-a.plan.json" "$CDIR/kompli-scan.json" "$KOMPLI_DEF_DIR"
       The status should equal 1
+      The stderr should include 'kompli: invalid committed plan'
     End
   End
 
@@ -257,18 +264,21 @@ FAKE
         When run run_kompli_scan
         The status should be success
         The result of function invoke_count should eq 1
+        The output should include 'KOMPLI_SCAN_OUTPUT_DIR'
       End
       It 'stages the union of referenced definitions once'
         When run run_kompli_scan
         The status should be success
         The result of function defs_tar_entry_count should eq 1
         The result of function plan_tar_entries_sorted should eq 'plan-a.plan.json,plan-b.plan.json,'
+        The output should include 'KOMPLI_SCAN_OUTPUT_DIR'
       End
       It 'filters each plan JUnit render to that plan rule id via --section'
         When run run_kompli_scan
         The status should be success
         The contents of file "$RENDER_TRACE" should include '--suite-name kompli ubuntu-22.04 plan-a --section=1.1.1'
         The contents of file "$RENDER_TRACE" should include '--suite-name kompli ubuntu-22.04 plan-b --section=2.2.2'
+        The output should include 'KOMPLI_SCAN_OUTPUT_DIR'
       End
       It 'renders on success even when findings are NonCompliant'
         When run run_kompli_scan
@@ -293,6 +303,7 @@ FAKE
         The stderr should include 'kompli ubuntu-22.04 plan-b: operational failure (missing or invalid engine status)'
         The path "$TEST_ROOT/kompli-scan.fixed/kompli-ubuntu-22.04-plan-a.junit.xml" should be file
         The path "$TEST_ROOT/kompli-scan.fixed/kompli-ubuntu-22.04-plan-b.junit.xml" should not be exist
+        The output should include 'plan outcomes: plan-a: ok plan-b: failed (status)'
       End
       It 'captures a renderer failure for one plan without blocking the other'
         cat > "$KOMPLI_BIN_LOCAL" <<FAKE
@@ -309,12 +320,14 @@ FAKE
         The stderr should include 'kompli ubuntu-22.04 plan-a: operational failure (JUnit render)'
         The path "$TEST_ROOT/kompli-scan.fixed/kompli-ubuntu-22.04-plan-a.junit.xml" should not be exist
         The path "$TEST_ROOT/kompli-scan.fixed/kompli-ubuntu-22.04-plan-b.junit.xml" should be file
+        The output should include 'plan outcomes: plan-a: failed (render) plan-b: ok'
       End
       It 'fails closed when the VM invocation itself fails'
         INVOKE_RC=1
         When run run_kompli_scan
         The status should equal 1
         The stderr should include 'run-command or result/log transfer'
+        The output should include 'plan outcomes: plan-a: failed (transfer) plan-b: failed (transfer)'
       End
       It 'stays non-blocking and skips cleanly when the scan is skipped'
         SKIP_KOMPLI=true

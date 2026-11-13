@@ -31,8 +31,11 @@ Describe 'kompli target definitions'
     The path "$KOMPLI_DEFS_DIR" should be directory
   End
   It 'leaves a replaced definition untouched (inode no longer matches)'
-    rm "$KOMPLI_DEFS_DIR/selected.benchmark.json"
-    printf 'replaced-by-someone-else\n' > "$KOMPLI_DEFS_DIR/selected.benchmark.json"
+    # Write the replacement to a separate file while the original still
+    # exists, then move it into place: this guarantees a distinct inode,
+    # unlike rm-then-recreate which can reuse the just-freed one.
+    printf 'replaced-by-someone-else\n' > "$KOMPLI_DEFS_DIR/selected.benchmark.json.new"
+    mv -f -- "$KOMPLI_DEFS_DIR/selected.benchmark.json.new" "$KOMPLI_DEFS_DIR/selected.benchmark.json"
     When call cleanup
     The status should be success
     The path "$KOMPLI_DEFS_DIR/selected.benchmark.json" should be file
@@ -43,6 +46,7 @@ Describe 'kompli target definitions'
     ln -s "$KOMPLI_DEFS_DIR" "$TEST_ROOT/linked"
     When call kompli_check_definition_dir "$TEST_ROOT/linked"
     The status should equal 1
+    The stderr should include "kompli: definition path is a symlink: $TEST_ROOT/linked"
     The path "$KOMPLI_DEFS_DIR/unrelated.benchmark.json" should be file
   End
   It 'rejects a writable existing directory without chmod or chown'
@@ -234,6 +238,7 @@ FAKE
     The contents of file "$UPLOAD_TRACE_DIR/result-a" should eq '{"status":"Non'
     The contents of file "$UPLOAD_TRACE_DIR/result-b" should include '"plan":"plan-b"'
     The output should include 'kompli: 2 plan(s) run, 1 with failures'
+    The stderr should be present
   End
   It 'withholds status (without attempting it) when the result upload fails, leaving the other plan intact'
     UPLOAD_FAIL_NAMES="result-a"

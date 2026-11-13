@@ -296,7 +296,7 @@ for name in "${def_names[@]}"; do
         echo "kompli: definition already exists: $name" >&2
         exit 1
     fi
-    inode=$(stat -Lc %d:%i "/proc/$$/fd/$definition_fd") || exit 1
+    inode=$(stat -Lc %d:%i "/dev/fd/$definition_fd") || exit 1
     installed_defs+=("$name")
     installed_inodes+=("$inode")
     cat -- "$STAGE_DIR/$name" >&"$definition_fd"
