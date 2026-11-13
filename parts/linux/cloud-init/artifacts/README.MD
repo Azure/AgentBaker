@@ -3,6 +3,32 @@ For tutorial for the descriptions of components.json, please refer to this [doc]
 For CA refresh logging and Linux opt-in certificate diagnostics, see
 [CA refresh diagnostics](../../../../doc/ca-refresh.md).
 
+## Containerd temporary-disk startup
+
+For `KubeletDiskType=Temporary`, the shared CSE/ANC `ensureContainerd` path
+waits for an actual `/mnt` mount using the existing bounded retry helper.
+It also writes a separate `10-mount-guard.conf` drop-in with an inline
+`ExecStartPre` check. Every containerd start, including reboots and PIS cache
+boots that skip basePrep, must confirm the mount before initializing runtime
+state. The check uses standard image utilities, not additional artifacts or
+`containerd config dump`. OS-disk configurations remove a stale drop-in and
+do not acquire a mount wait or new service-start dependency.
+
+The per-start check is bounded by `timeout 120` and fails with a journal
+diagnostic; guarded services allow 150 seconds for startup. A dependency on
+`mnt.mount` alone does not assert mount readiness when a unit is
+condition-skipped. Waiting for all of cloud-init would risk a dependency cycle.
+
+Protection requires the updated shared configuration script. Traditional CSE
+can deliver it to older images; scriptless provisioning uses the baked script.
+Updated PIS bakes retain the drop-in but no mount-readiness marker. Existing
+unguarded caches need rebuilding. This prevents new hidden snapshotter state;
+it does not repair an already-affected running node.
+
+Selection follows the AKS disk-placement setting. AgentBaker can internally
+render a `dataDir` override, but this is not a documented public AKS setting;
+independent custom-root placement is outside this guard's scope.
+
 ## SSH-disable telemetry
 
 When `DISABLE_SSH=true` and `basePrep` runs, `disableSSH` emits structured
