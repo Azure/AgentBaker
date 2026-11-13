@@ -1828,6 +1828,32 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
 	})
 
+	It("should preserve script bytes when serializing a cloud-config archive", func() {
+		for _, script := range []string{
+			"#!/bin/bash\nprintf '%s\\n' 'quoted: # text'\n\ttrue\n",
+			"#!/bin/bash\ncat <<'EOF'\n  indented text\n\nEOF\n\n",
+			"#!/bin/bash\nprintf '%s' 'Unicode: \u0085\u2028\u2029'\n",
+			"#!/bin/bash\ntrue",
+		} {
+			archive, err := buildCloudConfigArchive(script)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(archive).To(HavePrefix("#cloud-config-archive\n"))
+			var parts []struct {
+				Type    string `yaml:"type"`
+				Content string `yaml:"content"`
+			}
+			Expect(yaml.Unmarshal([]byte(archive), &parts)).To(Succeed())
+			Expect(parts).To(HaveLen(2))
+			Expect(parts[0].Type).To(Equal("text/cloud-boothook"))
+			Expect(parts[0].Content).To(Equal(script))
+			Expect(parts[1].Type).To(Equal("text/cloud-config"))
+			Expect(parts[1].Content).To(Equal(readyReportCloudConfig))
+			repeated, err := buildCloudConfigArchive(script)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(repeated).To(Equal(archive))
+		}
+	})
+
 	It("should put provisioning in CustomData and retain the CSE wait command when CustomData-only provisioning is enabled", func() {
 		templateGenerator := InitializeTemplateGenerator()
 		config := newScriptlessCmdTestConfig()

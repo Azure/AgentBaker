@@ -74,15 +74,9 @@ nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 	hotfixMarkerTemplate = `
 #hotfix-marker
 `
-	cloudConfigArchiveTemplate = `#cloud-config-archive
-- type: text/cloud-boothook
-  content: |
-    %s
-- type: text/cloud-config
-  content: |
-    datasource:
-      Azure:
-        experimental_skip_ready_report: true
+	readyReportCloudConfig = `datasource:
+  Azure:
+    experimental_skip_ready_report: true
 `
 	readyReportHandoffTemplate = `touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
@@ -248,8 +242,11 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		finalCustomData = customData + t.getScriptlessNBCCmd(config)
 		if config.IsCustomDataOnlyProvisioningEnabled() {
 			script := strings.TrimPrefix(finalCustomData, "#cloud-boothook\n")
-			// add indentation for yaml
-			finalCustomData = fmt.Sprintf(cloudConfigArchiveTemplate, strings.ReplaceAll(script, "\n", "\n    "))
+			archive, err := buildCloudConfigArchive(script)
+			if err != nil {
+				panic(fmt.Errorf("failed to marshal cloud-config archive: %w", err))
+			}
+			finalCustomData = archive
 		}
 	}
 	encodedFinalCustomData := base64.StdEncoding.EncodeToString([]byte(finalCustomData))
@@ -259,6 +256,28 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	config.CustomDataOnlyProvisioning = false
 	config.ScriptlessCSEProvisionMode = true
 	return encodedCustomData
+}
+
+func buildCloudConfigArchive(script string) (string, error) {
+	parts := []struct {
+		Type    string    `yaml:"type"`
+		Content yaml.Node `yaml:"content"`
+	}{
+		{
+			Type: "text/cloud-boothook",
+			// Quoting preserves Unicode line separators as script bytes, not YAML line breaks.
+			Content: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Style: yaml.DoubleQuotedStyle, Value: script},
+		},
+		{
+			Type:    "text/cloud-config",
+			Content: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Style: yaml.LiteralStyle, Value: readyReportCloudConfig},
+		},
+	}
+	archive, err := yaml.Marshal(parts)
+	if err != nil {
+		return "", err
+	}
+	return "#cloud-config-archive\n" + string(archive), nil
 }
 
 // getScriptlessNBCCmd builds CSE for scriptless provisioning.
