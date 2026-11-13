@@ -1,6 +1,121 @@
 #!/bin/bash
 # shellcheck disable=SC2329
 
+Describe 'reloadSystemdAfterPackageMaintenance'
+  BeforeAll "eval \"\$(sed -n '/^reloadSystemdAfterPackageMaintenance()/,/^}/p' './vhdbuilder/packer/pre-install-dependencies.sh')\""
+
+  setup_daemon_reload() {
+    TEST_DIR="${SHELLSPEC_WORKDIR}/daemon-reload.${SHELLSPEC_EXAMPLE_NO}"
+    mkdir -p "$TEST_DIR"
+    RELOAD_CALLS="${TEST_DIR}/systemctl"
+    TIMEOUT_CALLS="${TEST_DIR}/timeout"
+    SLEEP_CALLS="${TEST_DIR}/sleep"
+    : > "$RELOAD_CALLS"
+    : > "$TIMEOUT_CALLS"
+    : > "$SLEEP_CALLS"
+    RELOAD_MODE=success
+    unset SECONDS
+    SECONDS=0
+  }
+  BeforeEach 'setup_daemon_reload'
+
+  timeout() {
+    echo "LC_ALL=$LC_ALL timeout $*" >> "$TIMEOUT_CALLS"
+    if [ "$RELOAD_MODE" = "unresponsive" ]; then
+      echo 'mock daemon-reload exceeded its timeout' >&2
+      return "$MOCK_TIMEOUT_STATUS"
+    fi
+    shift 2
+    "$@"
+  }
+
+  systemctl() {
+    echo "$*" >> "$RELOAD_CALLS"
+    case "$RELOAD_MODE" in
+      success) return 0 ;;
+      recovering)
+        if [ "$(wc -l < "$RELOAD_CALLS")" -gt 1 ]; then
+          return 0
+        fi
+        ;;
+      unrelated)
+        echo "$MOCK_FAILURE_MESSAGE" >&2
+        return "$MOCK_FAILURE_STATUS"
+        ;;
+    esac
+    echo 'Failed to connect to system scope bus via local transport: Connection refused' >&2
+    return 1
+  }
+
+  sleep() {
+    echo "sleep $*" >> "$SLEEP_CALLS"
+    SECONDS=$((SECONDS + $1))
+  }
+
+  It 'continues on immediate success without sleeping or retrying'
+    When call reloadSystemdAfterPackageMaintenance
+    The status should be success
+    The output should equal ''
+    The contents of file "$RELOAD_CALLS" should equal 'daemon-reload'
+    The contents of file "$TIMEOUT_CALLS" should equal 'LC_ALL=C timeout --signal=KILL 30s systemctl daemon-reload'
+    The contents of file "$SLEEP_CALLS" should equal ''
+  End
+
+  It 'retries the actual reload after a transient refusal and reports recovery'
+    RELOAD_MODE=recovering
+    When call reloadSystemdAfterPackageMaintenance
+    The status should be success
+    The output should include 'Failed to connect to system scope bus via local transport: Connection refused'
+    The output should include 'attempt 1 failed (exit 1, elapsed 0s)'
+    The output should include 'systemctl daemon-reload recovered on attempt 2 after 1s.'
+    The contents of file "$RELOAD_CALLS" should equal "$(printf 'daemon-reload\ndaemon-reload')"
+    The contents of file "$SLEEP_CALLS" should equal 'sleep 1'
+  End
+
+  Describe 'when the reload fails for an unrelated reason'
+    Parameters
+      1 'Failed to connect to a different bus: Connection refused'
+      42 'Failed to reload daemon: Access denied'
+    End
+    It 'stops immediately and preserves the failure status'
+      RELOAD_MODE=unrelated
+      MOCK_FAILURE_STATUS=$1
+      MOCK_FAILURE_MESSAGE=$2
+      When call reloadSystemdAfterPackageMaintenance
+      The status should equal "$1"
+      The output should include "$2"
+      The output should include "attempt 1 failed (exit $1, elapsed 0s)"
+      The contents of file "$RELOAD_CALLS" should equal 'daemon-reload'
+      The contents of file "$SLEEP_CALLS" should equal ''
+    End
+  End
+
+  It 'exhausts persistent refusals within the deadline and caps the final attempt to the remaining budget'
+    RELOAD_MODE=refused
+    When call reloadSystemdAfterPackageMaintenance
+    The status should equal 124
+    The output should include 'attempt 60 failed (exit 1, elapsed 59s)'
+    The output should include 'exhausted its 60-second window after 60 attempts'
+    The output should not include 'attempt 61'
+    The contents of file "$TIMEOUT_CALLS" should include 'timeout --signal=KILL 1s systemctl daemon-reload'
+    The output should not include 'recovered'
+  End
+
+  Describe 'when the actual reload is unresponsive'
+    Parameters:value 124 137
+    It 'fails on the bounded call without retrying and preserves the timeout status'
+      RELOAD_MODE=unresponsive
+      MOCK_TIMEOUT_STATUS=$1
+      When call reloadSystemdAfterPackageMaintenance
+      The status should equal "$1"
+      The output should include 'mock daemon-reload exceeded its timeout'
+      The output should include "attempt 1 failed (exit $1, elapsed 0s)"
+      The contents of file "$TIMEOUT_CALLS" should equal 'LC_ALL=C timeout --signal=KILL 30s systemctl daemon-reload'
+      The contents of file "$SLEEP_CALLS" should equal ''
+    End
+  End
+End
+
 Describe 'installAzureLinuxArm64DualKernel'
   BeforeAll "eval \"\$(sed -n '/^installAzureLinuxArm64DualKernel()/,/^}/p' './vhdbuilder/packer/pre-install-dependencies.sh')\""
 

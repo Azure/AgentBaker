@@ -159,6 +159,53 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
 fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
+reloadSystemdAfterPackageMaintenance() {
+  local started_at=$SECONDS deadline=$((SECONDS + 60))
+  local attempt=0 remaining attempt_timeout output status
+
+  # Package upgrades can briefly leave the reexecuting manager's private socket unavailable.
+  while true; do
+    remaining=$((deadline - SECONDS))
+    if [ "$remaining" -le 0 ]; then
+      break
+    fi
+    attempt_timeout=30
+    if [ "$remaining" -lt "$attempt_timeout" ]; then
+      attempt_timeout=$remaining
+    fi
+    attempt=$((attempt + 1))
+    status=0
+    output=$(LC_ALL=C timeout --signal=KILL "${attempt_timeout}s" systemctl daemon-reload 2>&1) || status=$?
+    if [ -n "$output" ]; then
+      printf '%s\n' "$output"
+    fi
+
+    if [ "$status" -eq 0 ]; then
+      if [ "$SECONDS" -ge "$deadline" ]; then
+        break
+      fi
+      if [ "$attempt" -gt 1 ]; then
+        echo "systemctl daemon-reload recovered on attempt $attempt after $((SECONDS - started_at))s."
+      fi
+      return 0
+    fi
+
+    echo "WARNING: systemctl daemon-reload attempt $attempt failed (exit $status, elapsed $((SECONDS - started_at))s)."
+    if [ "$status" -ne 1 ] || ! grep -Fxq 'Failed to connect to system scope bus via local transport: Connection refused' <<< "$output"; then
+      echo "ERROR: systemctl daemon-reload failed without a retryable manager connection refusal."
+      return "$status"
+    fi
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      break
+    fi
+    echo "Systemd manager connection refused; retrying daemon-reload in 1 second."
+    sleep 1 || return "$?"
+  done
+
+  echo "ERROR: systemctl daemon-reload exhausted its 60-second window after $attempt attempts."
+  return 124
+}
+
 if { isUbuntu "$OS" || isAzureLinux "$OS"; }; then
   echo "nodelay" | tee -a /etc/dhcpcd.conf
   tee /etc/systemd/system/cache-warmup.service > /dev/null << 'EOF'
@@ -174,7 +221,7 @@ ExecStart=/bin/bash /opt/azure/containers/provision_preload.sh
 WantedBy=sysinit.target
 EOF
 
-  systemctl daemon-reload
+  reloadSystemdAfterPackageMaintenance || exit "$?"
   systemctl enable cache-warmup.service
 fi
 
