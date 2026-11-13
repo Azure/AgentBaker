@@ -38,9 +38,10 @@ func (api *APIServer) GetDistroSigImageConfig(w http.ResponseWriter, r *http.Req
 	}
 
 	allDistros, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
-		SubscriptionID: config.SubscriptionID,
-		TenantID:       config.TenantID,
-		Region:         config.Region,
+		SubscriptionID:     config.SubscriptionID,
+		TenantID:           config.TenantID,
+		Region:             config.Region,
+		UseEdgeZoneGallery: config.UseEdgeZoneGallery,
 	})
 	if err != nil {
 		log.Println(err.Error())

@@ -1739,6 +1739,8 @@ type GetLatestSigImageConfigRequest struct {
 	TenantID       string
 	Region         string
 	Distro         Distro
+	// UseEdgeZoneGallery selects the Extended Zone gallery for the requested distro or catalog.
+	UseEdgeZoneGallery bool `json:"useEdgeZoneGallery,omitempty"`
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
@@ -1799,6 +1801,8 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+	// UseEdgeZoneGallery selects the Extended Zone gallery for the existing distro.
+	UseEdgeZoneGallery bool `json:"useEdgeZoneGallery,omitempty"`
 	// EnableKMPP enables the KMPP key isolation service on the node and exposes it through /var/run/kmpp/dbus.
 	// Set by RP when the Azure Key Vault Secrets Store addon runs in KMPP mode. Azure Linux 3.0 only.
 	EnableKMPP bool
