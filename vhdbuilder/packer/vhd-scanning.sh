@@ -3,6 +3,9 @@ set -eux
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
+# Downstream publication must not inherit a stale output directory on skip.
+echo "##vso[task.setvariable variable=KOMPLI_SCAN_OUTPUT_DIR;]"
+
 # This variable is used to determine where we need to deploy the VM on which we'll run trivy.
 # We must be sure this location matches the location used by packer when delivering the output image
 # version to the staging gallery, as the particular image version will only have a single replica in this region.
@@ -347,6 +350,345 @@ if ! requiresCISScan "${OS_SKU}" "${OS_VERSION}"; then
     exit 0
 fi
 
+# --- kompli scan (shadow, non-blocking) ---
+# Runs the benchmark-agnostic kompli on the same scan VM,
+# alongside (not instead of) the CIS-CAT scan below. Returns JSON, log and
+# engine status per plan; CI renders each plan's JUnit only after that plan's
+# operationally successful run. This runs BEFORE the CIS-CAT block on
+# purpose, so the CIS-CAT skip/license early-exits do not suppress the kompli
+# results. It is fully non-blocking: compliance findings never fail the
+# build, and any operational error here is logged as a failure but cannot
+# abort the CIS-CAT scan that follows.
+#
+# The reusable inputs are laid down on the agent by
+# .pipelines/templates/.kompli-scan-template.yaml at:
+#   vhdbuilder/kompli/kompli
+#   vhdbuilder/kompli/definitions/ubuntu-<version>-<level>.benchmark.json
+# The per-consumer POLICY is every committed plan (which rules/modes/params)
+# under this repo's per-OS-version directory:
+#   vhdbuilder/packer/kompli-plans/ubuntu-<version>/<plan-name>.plan.json
+# Every plan found there runs exactly once per invocation, each with its own
+# result/log/status/JUnit; an empty or missing directory skips the scan
+# (non-blocking), same as before.
+KOMPLI_SCRIPT_PATH="$CDIR/kompli-report.sh"
+KOMPLI_BIN_LOCAL="$CDIR/../kompli/kompli"
+KOMPLI_DEF_DIR="$CDIR/../kompli/definitions"
+KOMPLI_PLAN_DIR="$CDIR/kompli-plans"
+
+# Validate the selected plan against manifest keys and acquired definitions
+# before any blob upload/VM action. Emit only its approved flat filenames.
+kompli_plan_definitions() {
+    local plan="$1" manifest="$2" def_dir="$3" path name key
+    local -a paths=() names=()
+    if ! jq -e -s 'length == 1 and (.[0] | type == "object" and (.benchmarks | type == "array" and length > 0) and all(.benchmarks[]; type == "object" and (.file | type == "string")))' "$plan" >/dev/null 2>&1; then
+        echo "kompli: invalid committed plan" >&2
+        return 1
+    fi
+    mapfile -t paths < <(jq -r '.benchmarks[].file' "$plan")
+    for path in "${paths[@]}"; do
+        if [[ ! "$path" =~ ^/etc/kompli/definitions/([A-Za-z0-9][A-Za-z0-9._-]*\.benchmark\.json)$ ]]; then
+            echo "kompli: unsafe definition path: ${path}" >&2
+            return 1
+        fi
+        name="${BASH_REMATCH[1]}"
+        if [[ "$name" == *..* ]]; then
+            echo "kompli: unsafe definition name: ${name}" >&2
+            return 1
+        fi
+        for key in "${names[@]}"; do
+            if [ "$key" = "$name" ]; then
+                echo "kompli: duplicate plan definition: ${name}" >&2
+                return 1
+            fi
+        done
+        key="${name%.benchmark.json}"
+        if ! jq -e --arg key "$key" '.benchmarks | type == "object" and has($key)' "$manifest" >/dev/null 2>&1; then
+            echo "kompli: no approved manifest mapping for ${name}" >&2
+            return 1
+        fi
+        if [ -L "${def_dir}/${name}" ] || [ ! -f "${def_dir}/${name}" ]; then
+            echo "kompli: missing or unsafe acquired definition: ${name}" >&2
+            return 1
+        fi
+        names+=("$name")
+    done
+    printf '%s\n' "${names[@]}"
+}
+
+# Extract and validate this plan's rule ids, so rendering can be restricted
+# to exactly the rules the plan executed — without this, every rule outside
+# the plan appears as a skipped test in that plan's JUnit.
+kompli_plan_rule_ids() {
+    local plan="$1" id
+    local -a ids=()
+    if ! jq -e -s 'length == 1 and (.[0] | type == "object" and (.benchmarks | type == "array" and length > 0) and all(.benchmarks[]; .rules | type == "object"))' "$plan" >/dev/null 2>&1; then
+        echo "kompli: invalid committed plan (rules)" >&2
+        return 1
+    fi
+    mapfile -t ids < <(jq -r '[.benchmarks[].rules | keys[]] | unique[]' "$plan")
+    if [ "${#ids[@]}" -eq 0 ]; then
+        echo "kompli: committed plan selects no rules" >&2
+        return 1
+    fi
+    for id in "${ids[@]}"; do
+        if [[ ! "$id" =~ ^[0-9A-Za-z._-]+$ ]]; then
+            echo "kompli: unsafe rule id: ${id}" >&2
+            return 1
+        fi
+    done
+    printf '%s\n' "${ids[@]}"
+}
+
+run_kompli_scan() {
+    local output_dir="" plans_snapshot_dir="" defs_snapshot_dir=""
+    local plans_tar="" defs_tar=""
+    local -a plan_ids=() uploaded_blobs=() result_blobs=() log_blobs=() status_blobs=()
+    local vm_invoked=false
+    local rc=0
+    run_kompli_scan_body || rc=$?
+    if [ -n "$output_dir" ]; then
+        local cleanup_name cleanup_i
+        for cleanup_name in "${uploaded_blobs[@]}"; do
+            az storage blob delete --account-name "$STORAGE_ACCOUNT_NAME" --container-name "$SIG_CONTAINER_NAME" --name "$cleanup_name" --auth-mode login || true
+        done
+        if "$vm_invoked"; then
+            for cleanup_i in "${!plan_ids[@]}"; do
+                for cleanup_name in "${result_blobs[cleanup_i]}" "${log_blobs[cleanup_i]}" "${status_blobs[cleanup_i]}"; do
+                    az storage blob delete --account-name "$STORAGE_ACCOUNT_NAME" --container-name "$SIG_CONTAINER_NAME" --name "$cleanup_name" --auth-mode login || true
+                done
+            done
+        fi
+        [ -z "$defs_tar" ] || rm -f -- "$defs_tar"
+        [ -z "$plans_tar" ] || rm -f -- "$plans_tar"
+        rm -rf -- "$plans_snapshot_dir" "$defs_snapshot_dir"
+    fi
+    return "$rc"
+}
+
+# Inner body of run_kompli_scan. ShellSpec runs with functrace (set -T)
+# enabled, which propagates a RETURN trap into the command-substitution
+# subshells backing calls like `selected=$(kompli_plan_definitions ...)`
+# below: a RETURN trap set in run_kompli_scan would fire -- deleting the
+# snapshot directories mid-scan -- when THAT nested function returns, not
+# only when run_kompli_scan itself returns. So no RETURN trap is used here;
+# the wrapper above runs the same cleanup unconditionally once this function
+# returns. The variables that cleanup needs (output/snapshot dirs, tar paths,
+# uploaded_blobs, vm_invoked, plan_ids, result_blobs, log_blobs, status_blobs)
+# are declared as locals in the wrapper and assigned here through ordinary
+# bash dynamic scoping, without redeclaring them as locals in this function.
+run_kompli_scan_body() {
+    local key="ubuntu-${OS_VERSION}"
+    local skip="${SKIP_KOMPLI:-false}"
+    if [ "${skip,,}" = "true" ]; then
+        echo "Skipping kompli scan (SKIP_KOMPLI=true)"
+        return 0
+    fi
+    local plan_dir="${KOMPLI_PLAN_DIR}/${key}"
+    local -a plan_files=()
+    local plan_file pid
+    if [ -d "$plan_dir" ]; then
+        mapfile -t plan_files < <(find "$plan_dir" -maxdepth 1 -type f -name '*.plan.json' -printf '%f\n' | LC_ALL=C sort)
+    fi
+    if [ "${#plan_files[@]}" -eq 0 ]; then
+        echo "No committed kompli plans at ${plan_dir}; skipping (non-blocking)"
+        return 0
+    fi
+    for plan_file in "${plan_files[@]}"; do
+        pid="${plan_file%.plan.json}"
+        if [[ ! "$pid" =~ ^[a-z0-9-]+$ ]]; then
+            echo "kompli: unsafe plan name: ${plan_file}" >&2
+            return 1
+        fi
+        plan_ids+=("$pid")
+    done
+    if [ ! -x "$KOMPLI_BIN_LOCAL" ]; then
+        echo "kompli not found at ${KOMPLI_BIN_LOCAL}" >&2
+        return 1
+    fi
+
+    # Keep one private input snapshot and all this invocation's outputs
+    # together. The ADO publisher is pointed only at this fresh directory.
+    local selected verified
+    local -a def_names=()
+    output_dir=$(mktemp -d "$PWD/kompli-scan.XXXXXXXX") || return 1
+    echo "##vso[task.setvariable variable=KOMPLI_SCAN_OUTPUT_DIR;]${output_dir}"
+    plans_snapshot_dir="$output_dir/plans"
+    defs_snapshot_dir="$output_dir/definitions"
+    mkdir -m 0700 "$plans_snapshot_dir" || return 1
+    mkdir -m 0700 "$defs_snapshot_dir" || return 1
+    local def_name known existing
+    for pid in "${plan_ids[@]}"; do
+        cp -- "${plan_dir}/${pid}.plan.json" "$plans_snapshot_dir/${pid}.plan.json" || return 1
+        selected=$(kompli_plan_definitions "$plans_snapshot_dir/${pid}.plan.json" "$CDIR/kompli-scan.json" "$KOMPLI_DEF_DIR") || return 1
+        while IFS= read -r def_name; do
+            [ -n "$def_name" ] || continue
+            known=false
+            for existing in "${def_names[@]}"; do
+                if [ "$existing" = "$def_name" ]; then
+                    known=true
+                    break
+                fi
+            done
+            if ! "$known"; then
+                def_names+=("$def_name")
+                # Preserve symlinks so validation of the snapshot rejects any swap.
+                cp -P -- "$KOMPLI_DEF_DIR/$def_name" "$defs_snapshot_dir/$def_name" || return 1
+            fi
+        done <<< "$selected"
+        verified=$(kompli_plan_definitions "$plans_snapshot_dir/${pid}.plan.json" "$CDIR/kompli-scan.json" "$defs_snapshot_dir") || return 1
+        [ "$verified" = "$selected" ] || return 1
+    done
+
+    local kompli_ts run_id kompli_blob plans_tar_blob defs_tar_blob
+    kompli_ts=$(date +%s%3N)
+    run_id="${kompli_ts}-${output_dir##*/}"
+    kompli_blob="kompli-${BUILD_ID}-${run_id}"
+    plans_tar_blob="kompli-plans-${key}-${BUILD_ID}-${run_id}.tar"
+    defs_tar_blob="kompli-defs-${key}-${BUILD_ID}-${run_id}.tar"
+
+    local -a result_locals=() log_locals=() status_locals=() junit_locals=() render_tmps=() render_logs=()
+    for pid in "${plan_ids[@]}"; do
+        result_blobs+=("kompli-result-${key}-${pid}-${BUILD_ID}-${run_id}.json")
+        log_blobs+=("kompli-log-${key}-${pid}-${BUILD_ID}-${run_id}.log")
+        status_blobs+=("kompli-status-${key}-${pid}-${BUILD_ID}-${run_id}.status")
+        result_locals+=("$output_dir/kompli-${key}-${pid}.json")
+        log_locals+=("$output_dir/kompli-${key}-${pid}.log")
+        status_locals+=("$output_dir/kompli-${key}-${pid}.status")
+        junit_locals+=("$output_dir/kompli-${key}-${pid}.junit.xml")
+        render_tmps+=("$output_dir/.kompli-${key}-${pid}.junit.part")
+        render_logs+=("$output_dir/kompli-${key}-${pid}.render.log")
+    done
+
+    plans_tar="$output_dir/plans.tar"
+    defs_tar="$output_dir/definitions.tar"
+    local -a plan_tar_entries=()
+    for pid in "${plan_ids[@]}"; do
+        plan_tar_entries+=("${pid}.plan.json")
+    done
+    tar -cf "$plans_tar" -C "$plans_snapshot_dir" "${plan_tar_entries[@]}" || return 1
+    tar -cf "$defs_tar" -C "$defs_snapshot_dir" "${def_names[@]}" || return 1
+
+    echo "Uploading kompli, ${#plan_ids[@]} plan(s) (${key}) and ${#def_names[@]} referenced definitions"
+    # Blob names are random for this invocation. Register before each attempt:
+    # an upload can create a blob yet report an error to its caller.
+    uploaded_blobs+=("$kompli_blob")
+    az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$KOMPLI_BIN_LOCAL" --name "$kompli_blob" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login || return 1
+    uploaded_blobs+=("$plans_tar_blob")
+    az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$plans_tar" --name "$plans_tar_blob" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login || return 1
+    uploaded_blobs+=("$defs_tar_blob")
+    az storage blob upload --container-name "$SIG_CONTAINER_NAME" --file "$defs_tar" --name "$defs_tar_blob" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login || return 1
+
+    local ret invoke_rc=0
+    local plan_names_csv result_blobs_csv log_blobs_csv status_blobs_csv
+    plan_names_csv=$(IFS=,; echo "${plan_ids[*]}")
+    result_blobs_csv=$(IFS=,; echo "${result_blobs[*]}")
+    log_blobs_csv=$(IFS=,; echo "${log_blobs[*]}")
+    status_blobs_csv=$(IFS=,; echo "${status_blobs[*]}")
+    echo "kompli: running ${#plan_ids[@]} committed plan(s): ${plan_ids[*]}"
+    vm_invoked=true
+    ret=$(az vm run-command invoke \
+        --command-id RunShellScript \
+        --name "$SCAN_VM_NAME" \
+        --resource-group "$RESOURCE_GROUP_NAME" \
+        --scripts @"$KOMPLI_SCRIPT_PATH" \
+        --parameters "KOMPLI_BLOB_NAME=${kompli_blob}" \
+            "PLAN_TAR_BLOB_NAME=${plans_tar_blob}" \
+            "PLAN_NAMES=${plan_names_csv}" \
+            "DEFS_TAR_BLOB_NAME=${defs_tar_blob}" \
+            "RESULT_BLOB_NAMES=${result_blobs_csv}" \
+            "LOG_BLOB_NAMES=${log_blobs_csv}" \
+            "STATUS_BLOB_NAMES=${status_blobs_csv}" \
+            "STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME}" \
+            "SIG_CONTAINER_NAME=${SIG_CONTAINER_NAME}" \
+            "AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING}" \
+            "ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}" \
+            "TEST_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
+            "OS_SKU=${OS_SKU}") || invoke_rc=$?
+    echo "$ret"
+
+    local overall_rc=0 pi
+    local -a outcomes=()
+    for pi in "${!plan_ids[@]}"; do
+        pid="${plan_ids[$pi]}"
+        local result_blob="${result_blobs[$pi]}" log_blob="${log_blobs[$pi]}" status_blob="${status_blobs[$pi]}"
+        local result_local="${result_locals[$pi]}" log_local="${log_locals[$pi]}" status_local="${status_locals[$pi]}"
+        local junit_local="${junit_locals[$pi]}" render_tmp="${render_tmps[$pi]}" render_log="${render_logs[$pi]}"
+        local result_rc=0 log_rc=0 status_rc=0 run_rc
+
+        az storage blob download --container-name "$SIG_CONTAINER_NAME" --name "$result_blob" --file "$result_local" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login || result_rc=$?
+        az storage blob download --container-name "$SIG_CONTAINER_NAME" --name "$log_blob" --file "$log_local" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login || log_rc=$?
+        az storage blob download --container-name "$SIG_CONTAINER_NAME" --name "$status_blob" --file "$status_local" --account-name "$STORAGE_ACCOUNT_NAME" --auth-mode login || status_rc=$?
+
+        # Partial JSON from a failed engine is diagnostic, never a successful scan.
+        # The VM withholds (or removes) the status blob unless the result and
+        # log for this plan both uploaded successfully, so a present, valid
+        # status blob is also this plan's proof of complete transfer.
+        if [ "$status_rc" -ne 0 ] || [ ! -s "$status_local" ] || ! [[ $(<"$status_local") =~ ^[0-9]+$ ]]; then
+            echo "kompli ${key} ${pid}: operational failure (missing or invalid engine status)" >&2
+            overall_rc=1
+            outcomes+=("${pid}: failed (status)")
+            continue
+        fi
+        run_rc=$(<"$status_local")
+        if [ "$run_rc" -ne 0 ]; then
+            echo "kompli ${key} ${pid}: operational failure (engine exit ${run_rc}); JSON/log retained" >&2
+            overall_rc=1
+            outcomes+=("${pid}: failed (engine exit ${run_rc})")
+            continue
+        fi
+        if [ "$invoke_rc" -ne 0 ] || [ "$result_rc" -ne 0 ] || [ "$log_rc" -ne 0 ]; then
+            echo "kompli ${key} ${pid}: operational failure (run-command or result/log transfer); diagnostics retained" >&2
+            overall_rc=1
+            outcomes+=("${pid}: failed (transfer)")
+            continue
+        fi
+        if [ ! -s "$result_local" ] || ! jq -e -s 'length == 1 and (.[0] | type == "object")' "$result_local" >/dev/null 2>&1; then
+            echo "kompli ${key} ${pid}: operational failure (missing or invalid JSON); diagnostics retained" >&2
+            overall_rc=1
+            outcomes+=("${pid}: failed (invalid JSON)")
+            continue
+        fi
+        # Restrict rendering to exactly this plan's rules: without --section,
+        # every rule outside the plan appears as a skipped test.
+        local rule_ids
+        rule_ids=$(kompli_plan_rule_ids "$plans_snapshot_dir/${pid}.plan.json") || {
+            echo "kompli ${key} ${pid}: operational failure (rule id extraction); JSON/log retained" >&2
+            overall_rc=1
+            outcomes+=("${pid}: failed (rule ids)")
+            continue
+        }
+        local -a sections=()
+        mapfile -t sections <<< "$rule_ids"
+        local -a render_args=()
+        local rule_id
+        for rule_id in "${sections[@]}"; do
+            render_args+=(--section="$rule_id")
+        done
+        if ! "$KOMPLI_BIN_LOCAL" render --format junit --suite-name "kompli ${key} ${pid}" "${render_args[@]}" "$result_local" > "$render_tmp" 2> "$render_log" || [ ! -s "$render_tmp" ]; then
+            rm -f -- "$render_tmp"
+            echo "kompli ${key} ${pid}: operational failure (JUnit render); JSON/log retained" >&2
+            overall_rc=1
+            outcomes+=("${pid}: failed (render)")
+            continue
+        fi
+        if ! mv -- "$render_tmp" "$junit_local"; then
+            echo "kompli ${key} ${pid}: operational failure (JUnit promotion)" >&2
+            overall_rc=1
+            outcomes+=("${pid}: failed (promotion)")
+            continue
+        fi
+        [ -s "$render_log" ] || rm -f -- "$render_log"
+        echo "kompli ${key} ${pid}: completed scan (engine exit 0); JUnit at ${junit_local}"
+        outcomes+=("${pid}: ok")
+    done
+    echo "kompli ${key}: plan outcomes: ${outcomes[*]}"
+    return "$overall_rc"
+}
+
+# Preserve the non-blocking shadow policy while reporting real scan failure.
+( set +e; run_kompli_scan ) || echo "kompli: FAILED operational scan (shadow policy: continuing CIS-CAT)" >&2
+capture_benchmark "${SCRIPT_NAME}_kompli_scan"
+
 # Set this pipeline variable to true if CIS scanning is broken
 SKIP_CIS=${SKIP_CIS:-false}
 if [ "${SKIP_CIS,,}" = "true" ]; then
@@ -557,7 +899,7 @@ assemble_cis_report "${CIS_REPORT_L1_LOCAL}" "${CIS_REPORT_L2_LOCAL}" "cis-repor
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L1_TXT_NAME}" --auth-mode login
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_L2_TXT_NAME}" --auth-mode login
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CIS_REPORT_HTML_NAME}" --auth-mode login
-# Remove CIS assessor tarball blob from storage
+# Remove CIS kompli tarball blob from storage
 az storage blob delete --account-name "${STORAGE_ACCOUNT_NAME}" --container-name "${SIG_CONTAINER_NAME}" --name "${CISASSESSOR_BLOB_NAME}" --auth-mode login
 
 echo -e "CIS Report Script Completed\n\n\n"
