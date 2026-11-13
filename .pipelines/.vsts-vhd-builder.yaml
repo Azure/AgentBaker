@@ -47,9 +47,11 @@ parameters:
     values:
       - acg
       - acldevel
+      - aclstaging
   # The Run pipeline form marks a string parameter whose default is "" as required,
-  # so these default to a single space. Leave the space to keep the pinned versions;
-  # values are trimmed where they're used.
+  # so these default to a single space. Leave the space to keep the pinned versions
+  # for acg and acldevel; aclstaging has no pins and needs a version. Values are
+  # trimmed where they're used.
   - name: ACL_BASE_IMAGE_VERSION
     displayName: ACL base image version override - shared fallback
     type: string
@@ -75,6 +77,12 @@ variables:
   - group: aks-vuln-to-kusto-tme
   - name: TAGS_TO_SKIP
     value: gpu=true,os=windows
+  # A candidate (aclstaging) run tests an ACL image that isn't published yet,
+  # so it publishes nothing: its publishing steps all need
+  # GENERATE_PUBLISHING_INFO True.
+  - ${{ if eq(parameters.ACL_BASE_IMAGE_SOURCE, 'aclstaging') }}:
+      - name: GENERATE_PUBLISHING_INFO
+        value: 'False'
 
 stages:
   - stage: build

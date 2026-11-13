@@ -249,8 +249,8 @@ configuration and the VMSS SKU. Command-line arguments take precedence over envi
 
 ## ACL COSI Validation
 
-The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg` or
-`acldevel`) and optional `ACL_BASE_IMAGE_VERSION_AMD64` and
+The four ACL Trusted Launch variants accept `ACL_BASE_IMAGE_SOURCE` (`acg`,
+`acldevel` or `aclstaging`) and optional `ACL_BASE_IMAGE_VERSION_AMD64` and
 `ACL_BASE_IMAGE_VERSION_ARM64` gallery-version overrides. Each takes precedence
 over the existing shared `ACL_BASE_IMAGE_VERSION` fallback. Use separate values
 when the selected architectures have different gallery versions. The overrides
@@ -265,6 +265,22 @@ kubeconfig-triggered startup.
 The dev source uses `acldevel` for AMD64 and `acldevel-arm64` for ARM64, with
 architecture-specific version pins in the
 [base-image template](../.pipelines/templates/.acl-base-image-vars.yaml).
+
+The candidate source, `aclstaging`, builds an ACL release candidate: an
+ESRP-signed prod build staged in the `aclstaging` gallery's
+`acl-3.0-candidate-amd64` and `acl-3.0-candidate-arm64` definitions before ACL
+publishes it. Candidates have no pinned versions, so set the version overrides;
+an ACL build job fails without one. The release pipeline's two CVM builds follow
+`acg` and `aclstaging` runs too, and keep the ACG pin for `acldevel` runs. A
+candidate run publishes nothing: the pipelines set `GENERATE_PUBLISHING_INFO`
+to `False`, and the release pipeline leaves out the COSI jobs, which upload to PMC.
+Its ACL jobs also tag the images they save to the test gallery `abe2e-ignore`,
+which every tag-based E2E lookup skips, the default `branch=refs/heads/main` and
+`buildId` included. To rerun a candidate's E2E, set `E2E_VHD_METADATA_FILE` to
+the run's `e2e-vhd-metadata-*` artifacts, merged into one file as the E2E stage
+does. A candidate run's E2E stage skips all GPU scenarios, since a candidate's
+GPU sysexts reach MCR only when ACL publishes it.
+
 The pipeline resolves `IMAGE_VERSION` once; the ACL image-stamping step fails
 if it does not receive that value.
 
@@ -275,8 +291,7 @@ version. This deliberately disables current-version-based `AlreadyAtTarget`
 shortcuts. Nebraska affinity cookie handling is enabled for annotation-driven
 updates, including cookie persistence across reboot.
 
-ACL CVM builds keep the production ACG source and are not part of the
-four-variant COSI validation.
+ACL CVM builds are not part of the four-variant COSI validation.
 
 TME publishing runs convert the selected ACL variants in architecture-matched
 jobs and produce `cosi-publishing-info-*` artifacts with a base64

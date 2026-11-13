@@ -258,6 +258,39 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
+  # A candidate ACL image (ACL_BASE_IMAGE_SOURCE aclstaging) isn't released, so
+  # hide it from every tag-based E2E lookup, such as the default
+  # branch=refs/heads/main or a buildId (noSelectionTagName in
+  # e2e/config/vhd.go). The tag goes on through the image version itself, which
+  # packer created, tags included, under this same connection, so the step needs
+  # no permission the build doesn't already use. This run's own E2E stage takes
+  # its images from the VHD metadata artifact, which ignores tags.
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+        shopt -s nocasematch
+        version_id_re='^/subscriptions/([^/]+)/resourceGroups/([^/]+)/providers/Microsoft\.Compute/galleries/([^/]+)/images/([^/]+)/versions/([^/]+)$'
+        if [[ ! "${MANAGED_SIG_ID:-}" =~ ${version_id_re} ]]; then
+          echo "##vso[task.logissue type=error]MANAGED_SIG_ID isn't a gallery image version ID, so the candidate image can't be hidden from other E2E runs."
+          exit 1
+        fi
+        version_args=(--subscription "${BASH_REMATCH[1]}" --resource-group "${BASH_REMATCH[2]}" --gallery-name "${BASH_REMATCH[3]}"
+          --gallery-image-definition "${BASH_REMATCH[4]}" --gallery-image-version "${BASH_REMATCH[5]}" --only-show-errors)
+        az sig image-version update "${version_args[@]}" --set tags.abe2e-ignore=true --force-string --output none
+        hidden="$(az sig image-version show "${version_args[@]}" --query 'tags."abe2e-ignore"' --output tsv)"
+        if [ "${hidden}" != "true" ]; then
+          echo "##vso[task.logissue type=error]${MANAGED_SIG_ID} has no abe2e-ignore tag after the update, so other E2E runs can still pick it."
+          exit 1
+        fi
+        echo "Tagged ${MANAGED_SIG_ID} with abe2e-ignore=true"
+    condition: and(succeeded(), eq(variables.ACL_CANDIDATE_IMAGE, 'true'))
+    displayName: Hide candidate image from other E2E runs
+    retryCountOnTaskFailure: 3
+
   - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
     - bash: |
         echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
