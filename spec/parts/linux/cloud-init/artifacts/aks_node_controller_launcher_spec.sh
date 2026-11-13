@@ -154,7 +154,6 @@ EOF
         export ENABLE_PROVISIONING_HOTFIX=true
         cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
 #!/bin/bash
-[ ! -e "$CLOUD_SETTINGS_PATH" ] || exit 1
 printf 'init:%s:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" "$ANC_EARLY_CLOUD_INIT" >> "$TEST_DIR/calls"
 EOF
         cat > "$BIN_PATH" <<'EOF'
@@ -214,7 +213,7 @@ EOF
         The path "$CLOUD_SETTINGS_PATH" should not be exist
     End
 
-    It 'skips acquisition when the completion marker cannot be created'
+    It 'allows acquisition after successful initialization when the completion marker cannot be created'
         touch "$HOTFIX_JSON"
         printf '%s\n' '{"cluster_config":{"location":"usnat"}}' > "$CONFIG_PATH"
         printf '#!/bin/sh\nexit 0\n' > "$INIT_AKS_CLOUD_PATH"
@@ -224,9 +223,9 @@ EOF
 
         When run bash "$SCRIPT"
         The status should be success
-        The output should include 'Early cloud initialization failed'
+        The output should include 'Failed to create cloud initialization marker'
         calls=$(cat "$TEST_DIR/calls")
-        The variable calls should eq 'provision'
+        The variable calls should eq "$(printf 'download-hotfix\nprovision')"
         The path "$CLOUD_INIT_DONE" should not be exist
         The path "$CLOUD_SETTINGS_PATH" should not be exist
     End
@@ -280,6 +279,25 @@ EOF
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision'
         The path "$CLOUD_INIT_DONE" should not be exist
+    End
+
+    It 'does not initialize or acquire a hotfix from partially extracted settings'
+        touch "$HOTFIX_JSON"
+        printf '%s\n' '{"cluster_config":{"location":"usnat"},"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":{}}}' > "$CONFIG_PATH"
+        cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
+#!/bin/sh
+printf 'init\n' >> "$TEST_DIR/calls"
+EOF
+        chmod +x "$INIT_AKS_CLOUD_PATH"
+        create_recording_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization failed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq 'provision'
+        The path "$CLOUD_INIT_DONE" should not be exist
+        The path "$CLOUD_SETTINGS_PATH" should not be exist
     End
 
     It 'ignores the repo endpoint for a non-custom cloud'

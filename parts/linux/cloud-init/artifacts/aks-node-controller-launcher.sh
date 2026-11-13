@@ -49,38 +49,33 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
 fi
 
 skip_hotfix_acquisition=false
-settings_ok=true
-rm -f "$CLOUD_INIT_DONE" || settings_ok=false
-if [ -s "$CONFIG_PATH" ]; then
+if [ -s "$CONFIG_PATH" ] || [ -f "$CLOUD_SETTINGS_PATH" ]; then
     # AKSNodeConfig is the live source of cloud settings; jq's @sh safely quotes values.
-    jq -er '
-        (.custom_cloud_config // {}) as $cloud
-        | (.cluster_config.location // "") as $location
-        | ($cloud.custom_cloud_env_name // "") as $name
-        | (if ($name | ascii_downcase) == "akscustom" then
-               ($cloud.repo_depot_endpoint // "")
-           else "" end) as $endpoint
-        | if $location == "" then error("missing location")
-          else "LOCATION=\($location | @sh)",
-               "REPO_DEPOT_ENDPOINT=\($endpoint | @sh)" end
-    ' "$CONFIG_PATH" > "$CLOUD_SETTINGS_PATH" 2>> "$CLOUD_INIT_LOG" || settings_ok=false
-fi
-if [ -f "$CLOUD_SETTINGS_PATH" ]; then
     # shellcheck source=/dev/null
-    if [ "$settings_ok" = true ] && [ -x "$INIT_AKS_CLOUD_PATH" ] && [ -s "$CLOUD_SETTINGS_PATH" ] &&
-        ( set -a; source "$CLOUD_SETTINGS_PATH" && rm -f "$CLOUD_SETTINGS_PATH" && [ -n "${LOCATION:-}" ] &&
-          [ "${REPO_DEPOT_ENDPOINT+x}" = x ] && ANC_EARLY_CLOUD_INIT=true "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1 &&
-        mkdir -p "$(dirname "$CLOUD_INIT_DONE")" && touch "$CLOUD_INIT_DONE"; then
+    if rm -f "$CLOUD_INIT_DONE" &&
+        { [ ! -s "$CONFIG_PATH" ] || jq -er '
+            (.custom_cloud_config // {}) as $cloud
+            | (.cluster_config.location // "") as $location
+            | ($cloud.custom_cloud_env_name // "") as $name
+            | (if ($name | ascii_downcase) == "akscustom" then
+                   ($cloud.repo_depot_endpoint // "")
+               else "" end) as $endpoint
+            | if $location == "" then error("missing location")
+              else "LOCATION=\($location | @sh)",
+                   "REPO_DEPOT_ENDPOINT=\($endpoint | @sh)" end
+        ' "$CONFIG_PATH" > "$CLOUD_SETTINGS_PATH" 2>> "$CLOUD_INIT_LOG"; } &&
+        [ -x "$INIT_AKS_CLOUD_PATH" ] && [ -s "$CLOUD_SETTINGS_PATH" ] &&
+        ( set -a; source "$CLOUD_SETTINGS_PATH" && [ -n "${LOCATION:-}" ] &&
+          ANC_EARLY_CLOUD_INIT=true "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1; then
+        { mkdir -p "$(dirname "$CLOUD_INIT_DONE")" && touch "$CLOUD_INIT_DONE"; } ||
+            log "Failed to create cloud initialization marker; provisioning will run initialization again"
         log "Early cloud initialization completed"
     else
-        rm -f "$CLOUD_SETTINGS_PATH" || log "Failed to remove cloud settings"
         # Do not download with incomplete trust; let normal provisioning retry initialization.
         skip_hotfix_acquisition=true
         log "Early cloud initialization failed; skipping hotfix acquisition and retrying during provisioning"
     fi
-elif [ "$settings_ok" != true ]; then
-    skip_hotfix_acquisition=true
-    log "Early cloud initialization failed; skipping hotfix acquisition and retrying during provisioning"
+    rm -f "$CLOUD_SETTINGS_PATH" || log "Failed to remove cloud settings"
 fi
 
 # Older payloads without cloud settings or AKSNodeConfig retain their existing hotfix flow.
