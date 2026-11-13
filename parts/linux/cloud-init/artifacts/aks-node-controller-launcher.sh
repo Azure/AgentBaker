@@ -35,6 +35,25 @@ log() {
     echo "$message"
 }
 
+write_cloud_settings() {
+    local config_path="$1"
+    local settings_path="$2"
+    [ -s "$config_path" ] || return 0
+
+    # AKSNodeConfig is the live source of cloud settings; jq's @sh safely quotes values.
+    jq -er '
+        (.custom_cloud_config // {}) as $cloud
+        | (.cluster_config.location // "") as $location
+        | ($cloud.custom_cloud_env_name // "") as $name
+        | (if ($name | ascii_downcase) == "akscustom" then
+               ($cloud.repo_depot_endpoint // "")
+           else "" end) as $endpoint
+        | if $location == "" then error("missing location")
+          else "LOCATION=\($location | @sh)",
+               "REPO_DEPOT_ENDPOINT=\($endpoint | @sh)" end
+    ' "$config_path" > "$settings_path"
+}
+
 # Keep the ordering-sensitive hotfix workflow in a separately callable script so tests can cover
 # the sequence without also running the rest of the launcher/provision wrapper.
 # shellcheck source=/dev/null
@@ -50,20 +69,9 @@ fi
 
 skip_hotfix_acquisition=false
 if [ -s "$CONFIG_PATH" ] || [ -f "$CLOUD_SETTINGS_PATH" ]; then
-    # AKSNodeConfig is the live source of cloud settings; jq's @sh safely quotes values.
     # shellcheck source=/dev/null
     if rm -f "$CLOUD_INIT_DONE" &&
-        { [ ! -s "$CONFIG_PATH" ] || jq -er '
-            (.custom_cloud_config // {}) as $cloud
-            | (.cluster_config.location // "") as $location
-            | ($cloud.custom_cloud_env_name // "") as $name
-            | (if ($name | ascii_downcase) == "akscustom" then
-                   ($cloud.repo_depot_endpoint // "")
-               else "" end) as $endpoint
-            | if $location == "" then error("missing location")
-              else "LOCATION=\($location | @sh)",
-                   "REPO_DEPOT_ENDPOINT=\($endpoint | @sh)" end
-        ' "$CONFIG_PATH" > "$CLOUD_SETTINGS_PATH" 2>> "$CLOUD_INIT_LOG"; } &&
+        write_cloud_settings "$CONFIG_PATH" "$CLOUD_SETTINGS_PATH" 2>> "$CLOUD_INIT_LOG" &&
         [ -x "$INIT_AKS_CLOUD_PATH" ] && [ -s "$CLOUD_SETTINGS_PATH" ] &&
         ( set -a; source "$CLOUD_SETTINGS_PATH" && [ -n "${LOCATION:-}" ] &&
           ANC_EARLY_CLOUD_INIT=true "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1; then
