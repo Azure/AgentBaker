@@ -73,6 +73,17 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### Linux root slices
+
+Common Linux validation rejects live root slices other than `system.slice`,
+`kubepods.slice`, and `kubereserved.slice`, regardless of whether Node Hardening
+is enabled. It does not require these slices to exist. Nested slices are allowed;
+inactive unit files and non-slice cgroups such as `init.scope` are not checked.
+The check uses the unified cgroupv2 root or the cgroupv1 systemd hierarchy.
+An unexpected root slice fails validation with its name and a reminder to move
+its system services under `system.slice` and review the `systemReserved.memory`
+budget.
+
 ### PIS GPU coverage
 
 `Ubuntu2404_ManagedGPU_VHDCaching` and `AzureLinuxV3_ManagedGPU_VHDCaching`
