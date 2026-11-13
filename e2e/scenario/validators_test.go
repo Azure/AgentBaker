@@ -11,6 +11,48 @@ import (
 	resourcev1 "k8s.io/api/resource/v1"
 )
 
+func TestValidateRootSlices(t *testing.T) {
+	const expected = "system.slice\nkubepods.slice\nkubereserved.slice\n"
+	tests := []struct {
+		name    string
+		output  string
+		wantErr []string
+	}{
+		{name: "expected root slices", output: expected},
+		{name: "different order", output: "kubereserved.slice\nsystem.slice\nkubepods.slice\n"},
+		{name: "user sessions allowed", output: expected + "user.slice\n"},
+		{
+			name:    "unexpected root slices",
+			output:  expected + "localdns.slice\nazure.slice\naks.slice\n",
+			wantErr: []string{`unexpected root slice "localdns.slice"`, `unexpected root slice "azure.slice"`, `unexpected root slice "aks.slice"`, "systemReserved.memory"},
+		},
+		{
+			name:    "similar name is not allowed",
+			output:  expected + "system-other.slice\n",
+			wantErr: []string{`unexpected root slice "system-other.slice"`},
+		},
+		{
+			name:   "kubereserved absent without hardening",
+			output: "system.slice\nkubepods.slice\n",
+		},
+		{
+			name: "empty output",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateRootSlices(tt.output)
+			if len(tt.wantErr) == 0 {
+				require.NoError(t, err)
+				return
+			}
+			for _, message := range tt.wantErr {
+				require.ErrorContains(t, err, message)
+			}
+		})
+	}
+}
+
 func TestIsKnownCVMInitrdFailure(t *testing.T) {
 	const unit = "initrd-core-tmpfiles-setup.service"
 	const missingConfig = "Failed to open 'core-writable.conf': No such file or directory"

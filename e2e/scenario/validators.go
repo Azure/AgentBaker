@@ -5150,6 +5150,33 @@ func ValidateRCV1PNotOptedInWindows(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
+// ValidateRootSlices checks the live cgroup hierarchy, not installed or inactive slice units.
+func ValidateRootSlices(ctx context.Context, s *Scenario) error {
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		`cgroup_root=/sys/fs/cgroup
+if [ ! -f "$cgroup_root/cgroup.controllers" ]; then
+    cgroup_root=/sys/fs/cgroup/systemd
+fi
+test -d "$cgroup_root" && find "$cgroup_root" -mindepth 1 -maxdepth 1 -type d -name '*.slice' -printf '%f\n'`,
+		0, "could not list root slices in the systemd cgroup hierarchy")
+	if err != nil {
+		return err
+	}
+	return validateRootSlices(result.stdout)
+}
+
+func validateRootSlices(output string) error {
+	allowed := []string{"system.slice", "kubepods.slice", "kubereserved.slice", "user.slice"}
+	actual := strings.Fields(output)
+	var errs []error
+	for _, slice := range actual {
+		if !slices.Contains(allowed, slice) {
+			errs = append(errs, fmt.Errorf("unexpected root slice %q: move its system services under system.slice and review systemReserved.memory", slice))
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // ValidateServiceInSlice asserts that the given systemd service is running in the expected slice.
 func ValidateServiceInSlice(ctx context.Context, s *Scenario, service, expectedSlice string) error {
 	// Avoid accidental shell injection / option smuggling.
