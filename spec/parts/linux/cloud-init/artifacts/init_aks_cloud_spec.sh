@@ -74,34 +74,6 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 End
 
-Describe 'legacy certificate installation failure'
-    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
-
-    run_legacy_certificate_path() {
-        cert_endpoint_mode=legacy
-        logs_to_events() {
-            case "$1" in
-                *retrieveLegacyCerts) return 0 ;;
-                *installCertsToTrustStore) return 1 ;;
-            esac
-        }
-        . <(sed -n '/^if \[ "\$cert_endpoint_mode" = "legacy" \]; then$/,/^elif \[ "\$cert_endpoint_mode" = "rcv1p" \]; then$/p' "$script_path" | sed '$d'; echo fi)
-    }
-
-    It 'returns failure during early initialization rather than proceeding with an uninitialized trust store'
-        ANC_EARLY_CLOUD_INIT=true
-        When run run_legacy_certificate_path
-        The status should be failure
-        The stderr should include 'failed to install legacy CA certificates'
-    End
-
-    It 'preserves legacy non-early initialization behavior'
-        When run run_legacy_certificate_path
-        The status should be success
-        The stderr should include 'failed to install legacy CA certificates'
-    End
-End
-
 Describe 'init-aks-cloud.sh repo initialization dispatch'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
 
@@ -263,45 +235,6 @@ Describe 'init-aks-cloud.sh repo initialization dispatch'
             The status should be success
         End
     End
-
-    Describe 'RepoDepot package cache failures during early initialization'
-        script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
-        setup_repo_dispatch() {
-            IS_UBUNTU=0
-            IS_MARINER=0
-            IS_AZURELINUX=0
-            install_ca_refresh_schedule=0
-            REPO_DEPOT_ENDPOINT='https://repodepot.example.com/ubuntu'
-        }
-        BeforeEach 'setup_repo_dispatch'
-
-        run_repo_dispatch() {
-            . <(sed -n '/^action=/,/^if \[ "\$IS_UBUNTU"/p' "$script_path" | sed '$d') "$@"
-            echo 'refresh scheduling reached'
-        }
-
-        It 'fails early initialization when apt-get update fails'
-            IS_UBUNTU=1
-            aptget_update() { return 1; }
-            ANC_EARLY_CLOUD_INIT=true
-
-            When run run_repo_dispatch init
-            The status should be failure
-            The stderr should include 'apt-get update failed during early cloud initialization'
-            The output should not include 'refresh scheduling reached'
-        End
-
-        It 'fails early initialization when dnf makecache fails'
-            IS_MARINER=1
-            dnf_makecache() { return 1; }
-            ANC_EARLY_CLOUD_INIT=true
-
-            When run run_repo_dispatch init
-            The status should be failure
-            The stderr should include 'dnf_makecache failed during early cloud initialization'
-            The output should not include 'refresh scheduling reached'
-        End
-    End
 End
 
 Describe 'legacy CA certificate filenames'
@@ -317,41 +250,6 @@ Describe 'legacy CA certificate filenames'
     cleanup_certificates() { rm -rf "${TEST_DIR}"; }
     BeforeEach 'setup_certificates'
     AfterEach 'cleanup_certificates'
-
-    It 'preserves skipping invalid legacy certificate names during early initialization'
-        ANC_EARLY_CLOUD_INIT=true
-        CERT_RESPONSE='{"Certificates":[{"Name":"../bad.cer","CertBody":"body"},{"Name":"valid.cer","CertBody":"body"}]}'
-        When call retrieve_legacy_certs
-        The status should be success
-        The stdout should include 'rejecting invalid certificate filename'
-        The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'body'
-    End
-
-    It 'preserves partial RCV1P certificate downloads during early initialization'
-        ANC_EARLY_CLOUD_INIT=true
-        make_request_with_retry() {
-            case "$1" in
-                *operationrequestsroot*) echo '{"ResouceFileName": "missing.crt", "other": {"ResouceFileName": "valid.crt"}}' ;;
-                *operationrequestsintermediate*) echo '{"ResouceFileName": "intermediate.crt"}' ;;
-                *type=missing*) return 1 ;;
-                *) echo 'valid certificate' ;;
-            esac
-        }
-        When call retrieve_rcv1p_certs
-        The status should be success
-        The stdout should include 'request failed'
-        The path "${TEST_DIR}/certs/missing.crt" should not be exist
-        The contents of file "${TEST_DIR}/certs/valid.crt" should eq 'valid certificate'
-        The contents of file "${TEST_DIR}/certs/intermediate.crt" should eq 'valid certificate'
-    End
-
-    It 'preserves treating a non-boolean opt-in response as not opted in during early initialization'
-        ANC_EARLY_CLOUD_INIT=true
-        CERT_RESPONSE='{"IsOptedInForRootCerts":"true"}'
-        When call is_opted_in_for_root_certs
-        The status should eq 1
-        The stdout should include 'IsOptedInForRootCerts is not true'
-    End
 
     It 'preserves certificate names, extension conversion, contents and IFS'
         CERT_RESPONSE='{"Certificates":[{"Name": "Root CA.cer","CertBody": "first\r\nsecond"},{"Name": "other.crt","CertBody": "other-body"}]}'

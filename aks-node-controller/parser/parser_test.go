@@ -32,20 +32,22 @@ func TestCloudInitHandoff(t *testing.T) {
 	script, err := executeBootstrapTemplate(&aksnodeconfigv1.Configuration{})
 	require.NoError(t, err)
 	script = strings.ReplaceAll(script, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "init.log"))
-	marker := filepath.Join(dir, "init.done")
-	script = strings.ReplaceAll(script, "/run/aks/init-aks-cloud.done", marker)
+	marker := filepath.Join(dir, "init.status")
+	script = strings.ReplaceAll(script, "/run/aks/init-aks-cloud.status", marker)
 	script = strings.ReplaceAll(script, `/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`, "echo provisioned")
 	for _, tt := range []struct {
 		name     string
-		handoff  bool
+		status   string
 		exitCode int
 	}{
-		{"retry propagates failure", false, 7},
-		{"successful early init skips retry", true, 0},
+		{"initializes when the launcher did not", "", 7},
+		{"successful early init skips initialization", "0", 0},
+		{"failed early init is reported without rerunning", "5", 5},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.handoff {
-				require.NoError(t, os.WriteFile(marker, nil, 0600))
+			_ = os.Remove(marker)
+			if tt.status != "" {
+				require.NoError(t, os.WriteFile(marker, []byte(tt.status+"\n"), 0600))
 			}
 			cmd := exec.Command("/bin/bash", "-c", script)
 			cmd.Env = append(os.Environ(), "INIT_AKS_CLOUD_FILEPATH="+initPath,

@@ -789,7 +789,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cmd).To(ContainSubstring(`LOCATION=` + shellQuote(baseConfig.ContainerService.Location)))
 	})
 
-	It("skips the NBC initializer only after the launcher handoff", func() {
+	It("skips the NBC initializer after any launcher attempt", func() {
 		dir, err := os.MkdirTemp("", "agentbaker-cloud-handoff")
 		Expect(err).NotTo(HaveOccurred())
 		defer os.RemoveAll(dir)
@@ -801,18 +801,18 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		}
 		baseConfig.EnableScriptlessNBCCSECmd = true
 		cmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
-		start := strings.Index(cmd, `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f /run/aks/init-aks-cloud.done ]; then`)
+		start := strings.Index(cmd, `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f /run/aks/init-aks-cloud.status ]; then`)
 		Expect(start).To(BeNumerically(">=", 0))
 		end := strings.Index(cmd[start:], "fi;")
 		Expect(end).To(BeNumerically(">", 0))
 		block := cmd[start : start+end+3]
 		block = strings.ReplaceAll(block, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "cloud.log"))
-		marker := filepath.Join(dir, "init.done")
-		block = strings.ReplaceAll(block, "/run/aks/init-aks-cloud.done", marker)
+		marker := filepath.Join(dir, "init.status")
+		block = strings.ReplaceAll(block, "/run/aks/init-aks-cloud.status", marker)
 		result := filepath.Join(dir, "result")
 		for _, handoff := range []bool{true, false} {
 			if handoff {
-				Expect(os.WriteFile(marker, nil, 0600)).To(Succeed())
+				Expect(os.WriteFile(marker, []byte("1\n"), 0600)).To(Succeed())
 			} else {
 				Expect(os.Remove(marker)).To(Succeed())
 			}

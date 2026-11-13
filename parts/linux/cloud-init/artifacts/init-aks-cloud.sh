@@ -630,10 +630,7 @@ rm -f /root/AzureCACertificates/*
 if [ "$cert_endpoint_mode" = "legacy" ]; then
     install_ca_refresh_schedule=1
     if logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
-        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || {
-            echo "ERROR: failed to install legacy CA certificates into trust store" >&2
-            [ "${ANC_EARLY_CLOUD_INIT:-}" != "true" ] || exit 1
-        }
+        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store
     else
         echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
         exit 1
@@ -687,10 +684,7 @@ if [ "$action" = "init" ]; then
             init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
             init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
             echo "Running apt-get update"
-            if ! aptget_update && [ "${ANC_EARLY_CLOUD_INIT:-}" = "true" ]; then
-                echo "ERROR: apt-get update failed during early cloud initialization" >&2
-                exit 1
-            fi
+            aptget_update
         elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
             if [ "$IS_MARINER" -eq 1 ]; then
                 echo "Initializing Mariner repo depot settings..."
@@ -700,10 +694,7 @@ if [ "$action" = "init" ]; then
                 init_azurelinux_repo_depot ${rootRepoDepotEndpoint}
             fi
             echo "Running dnf_makecache"
-            if ! dnf_makecache && [ "${ANC_EARLY_CLOUD_INIT:-}" = "true" ]; then
-                echo "ERROR: dnf_makecache failed during early cloud initialization" >&2
-                exit 1
-            fi
+            dnf_makecache
         fi
     fi
 fi
