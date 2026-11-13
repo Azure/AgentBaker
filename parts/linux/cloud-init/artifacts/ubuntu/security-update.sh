@@ -37,8 +37,13 @@ knead_emit_security_patch_event() {
     fi
 }
 
+# Records a failure reason as a Guest Agent event and, when running under the
+# live-patching loop, as this component's status "message".
 knead_emit_security_patch_failure_event() {
     knead_emit_security_patch_event "Failed" "reason=$1" "Error"
+    if declare -F knead_report_message > /dev/null; then
+        knead_report_message "$1"
+    fi
 }
 
 security_patch_no_action() {
@@ -249,6 +254,10 @@ updateSecurityPatch() {
 
     echo "securityPatch update completed successfully: ${golden_timestamp}"
     knead_emit_security_patch_event "Applied" "goldenTimestamp=${golden_timestamp}, agentPool=${agent_pool}"
+    # The applied golden timestamp is this component's status "current" value.
+    if declare -F knead_report_current > /dev/null; then
+        knead_report_current "${golden_timestamp}"
+    fi
 }
 
 ${__SOURCED__:+return}

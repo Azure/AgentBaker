@@ -20,6 +20,9 @@ set -e
 
 KNEAD_COMPONENT_RESULTS='{}'
 KNEAD_COMPONENT_RESULTS_VALID=true
+KNEAD_RESULT_FILE=""
+KNEAD_HANDLER_CURRENT=""
+KNEAD_HANDLER_MESSAGE=""
 
 # Writes a Guest Agent event using the established logs_to_events schema. This
 # remains available to component handlers sourced into this shell process.
@@ -45,6 +48,58 @@ knead_emit_event() {
 
     mkdir -p "${KNEAD_EVENTS_LOGGING_DIR}"
     printf '%s\n' "${event_json}" > "${KNEAD_EVENTS_LOGGING_DIR%/}/${events_file_name}.json"
+}
+
+# Max length of a reported current/message value. The status is a Node annotation,
+# so keep each component's result small; values are flattened to one line and cut.
+: "${KNEAD_REPORT_MAX_LENGTH:=256}"
+
+# Handlers call knead_report_current and knead_report_message to return values to
+# the loop. The loop points KNEAD_RESULT_FILE at a fresh file for each handler run
+# and reads it back afterwards. A file (not a variable) is used because handlers
+# may run in a subshell. Both are no-ops outside a loop-managed handler run, so
+# shared helpers stay safe on other paths. For current the last report wins; for
+# message the first report wins, because nested helpers report the specific
+# root cause before their callers report a generic wrapper reason.
+knead_report_field() {
+    local field="$1"
+    local value="$2"
+    local keep_first="${3:-false}"
+    local updated
+
+    if [ -z "${KNEAD_RESULT_FILE:-}" ] || [ ! -f "${KNEAD_RESULT_FILE}" ]; then
+        return 0
+    fi
+    # Compare the printed value rather than relying on "jq -e" exit codes, which
+    # differ across jq versions when the input is empty.
+    if [ "${keep_first}" = true ] && [ -n "$(jq -r --arg field "${field}" '.[$field] // empty | strings' "${KNEAD_RESULT_FILE}" 2> /dev/null)" ]; then
+        return 0
+    fi
+    value="$(printf '%s' "${value}" | tr '\r\n\t' '   ' | cut -c "1-${KNEAD_REPORT_MAX_LENGTH}")"
+    if ! updated="$(jq -c --arg field "${field}" --arg value "${value}" '.[$field] = $value' "${KNEAD_RESULT_FILE}" 2> /dev/null)" || [ -z "${updated}" ]; then
+        updated="$(jq -nc --arg field "${field}" --arg value "${value}" '{($field): $value}')" || return 0
+    fi
+    printf '%s' "${updated}" > "${KNEAD_RESULT_FILE}" || true
+    return 0
+}
+
+# Reports what this component has applied, recorded as "current" when it succeeds.
+knead_report_current() {
+    knead_report_field current "$1"
+}
+
+# Reports a short reason, recorded as "message" when the component fails. The
+# first reported reason is kept.
+knead_report_message() {
+    knead_report_field message "$1" true
+}
+
+# Prints one field from a handler result file, or nothing when it is absent.
+knead_read_result_field() {
+    local result_file="$1"
+    local field="$2"
+
+    jq -r --arg field "${field}" '.[$field] // empty | strings' "${result_file}" 2> /dev/null || true
 }
 
 # Component scripts should follow this pattern with a uniquely named
@@ -169,11 +224,26 @@ knead_component_is_current() {
     "${component_comparator}" "${component_payload}" "${current_payload}" "${node_json}"
 }
 
+# Prints the "current" value saved with a component's checkpoint, or nothing.
+knead_component_state_current() {
+    local component="$1"
+
+    if [ ! -f "${KNEAD_COMPONENT_STATE_FILE}" ]; then
+        return 0
+    fi
+    jq -r --arg component "${component}" \
+        '.components | map(select(.name == $component)) | last | .current // empty | strings' \
+        "${KNEAD_COMPONENT_STATE_FILE}" 2> /dev/null || true
+}
+
 # Records one successfully applied component without changing sibling
-# state. Missing or malformed state is rebuilt from an empty component list.
+# state, together with the "current" value its handler reported (if any) so a
+# later run that skips the handler can still report it. Missing or malformed
+# state is rebuilt from an empty component list.
 knead_write_component_state() {
     local component="$1"
     local component_payload="$2"
+    local component_current="${3:-}"
     local state='{"components":[]}'
     local state_dir
     local state_tmp
@@ -188,15 +258,16 @@ knead_write_component_state() {
         return 1
     fi
     if [ -f "${KNEAD_COMPONENT_STATE_FILE}" ]; then
-        if ! state="$(jq -c 'select(.components | type == "array") | {components: [.components[] | select(type == "object") | select((.name | type == "string") and (.nodeConfig | type == "string"))]}' "${KNEAD_COMPONENT_STATE_FILE}" 2> /dev/null)" || [ -z "${state}" ]; then
+        if ! state="$(jq -c 'select(.components | type == "array") | {components: [.components[] | select(type == "object") | select((.name | type == "string") and (.nodeConfig | type == "string")) | {name, nodeConfig} + (if (.current | type) == "string" then {current} else {} end)]}' "${KNEAD_COMPONENT_STATE_FILE}" 2> /dev/null)" || [ -z "${state}" ]; then
             state='{"components":[]}'
         fi
     fi
     if ! printf '%s' "${state}" | jq \
         --arg component "${component}" \
         --arg componentPayload "${component_payload}" \
+        --arg componentCurrent "${component_current}" \
         --arg updatedAt "${updated_at}" \
-        '.updatedAt = $updatedAt | .components = ([.components[] | select(.name != $component)] + [{name: $component, nodeConfig: $componentPayload}])' \
+        '.updatedAt = $updatedAt | .components = ([.components[] | select(.name != $component)] + [{name: $component, nodeConfig: $componentPayload} + (if $componentCurrent == "" then {} else {current: $componentCurrent} end)])' \
         > "${state_tmp}"; then
         echo "failed to render knead-component state"
         return 1
@@ -207,22 +278,56 @@ knead_write_component_state() {
     fi
 }
 
-# Adds a component result to the status collection.
+# Adds a component result to the status collection. The optional third argument
+# is "current" (recorded only for Succeeded) or "message" (recorded only for
+# any other code); an empty value is omitted.
 knead_set_component_result() {
     local component="$1"
     local code="$2"
+    local detail="${3:-}"
     local updated_results
 
     if ! updated_results="$(printf '%s' "${KNEAD_COMPONENT_RESULTS}" | jq -ce \
         --arg component "${component}" \
         --arg code "${code}" \
-        '.[$component] = {code: $code}')" || [ -z "${updated_results}" ]; then
+        --arg detail "${detail}" \
+        '.[$component] = ({code: $code} + (if $detail == "" then {} elif $code == "Succeeded" then {current: $detail} else {message: $detail} end))')" || [ -z "${updated_results}" ]; then
         echo "failed to record component result: ${component}=${code}"
         KNEAD_COMPONENT_RESULTS_VALID=false
         return 1
     fi
 
     KNEAD_COMPONENT_RESULTS="${updated_results}"
+}
+
+# Runs one component handler with a fresh result file and saves what it reported
+# in KNEAD_HANDLER_CURRENT and KNEAD_HANDLER_MESSAGE. Returns the handler status.
+# The result file lives only for this call, so a later run can never read it.
+knead_run_component_handler() {
+    local component_handler="$1"
+    local component_payload="$2"
+    local node_json="$3"
+    local result_file
+    local handler_status=0
+
+    KNEAD_HANDLER_CURRENT=""
+    KNEAD_HANDLER_MESSAGE=""
+    if ! result_file="$(mktemp "${TMPDIR:-/tmp}/knead-result.XXXXXX")" || ! printf '{}' > "${result_file}"; then
+        echo "failed to create handler result file; current/message will not be reported"
+        [ -z "${result_file}" ] || rm -f "${result_file}"
+        result_file=""
+    fi
+
+    KNEAD_RESULT_FILE="${result_file}"
+    "${component_handler}" "${component_payload}" "${node_json}" || handler_status=$?
+    KNEAD_RESULT_FILE=""
+
+    if [ -n "${result_file}" ]; then
+        KNEAD_HANDLER_CURRENT="$(knead_read_result_field "${result_file}" current)"
+        KNEAD_HANDLER_MESSAGE="$(knead_read_result_field "${result_file}" message)"
+        rm -f "${result_file}"
+    fi
+    return "${handler_status}"
 }
 
 # Dispatches every known component and returns failure only after all have been attempted.
@@ -299,22 +404,23 @@ knead_apply_components() {
         # Skip previously applied work; otherwise apply the component and checkpoint success.
         if knead_component_is_current "${component}" "${component_payload}" "${node_json}" "${component_comparator}"; then
             echo "component is already current: ${component}"
-            if ! knead_set_component_result "${component}" "Succeeded"; then
+            # The handler is skipped, so replay the "current" saved with its checkpoint.
+            if ! knead_set_component_result "${component}" "Succeeded" "$(knead_component_state_current "${component}")"; then
                 infrastructure_failed=true
             fi
-        elif ! "${component_handler}" "${component_payload}" "${node_json}"; then
+        elif ! knead_run_component_handler "${component_handler}" "${component_payload}" "${node_json}"; then
             failed_components="${failed_components} ${component}"
             echo "component failed: ${component}"
-            if ! knead_set_component_result "${component}" "Failed"; then
+            if ! knead_set_component_result "${component}" "Failed" "${KNEAD_HANDLER_MESSAGE}"; then
                 infrastructure_failed=true
             fi
-        elif ! knead_write_component_state "${component}" "${component_payload}"; then
+        elif ! knead_write_component_state "${component}" "${component_payload}" "${KNEAD_HANDLER_CURRENT}"; then
             failed_components="${failed_components} ${component}"
             echo "failed to persist component state: ${component}"
             if ! knead_set_component_result "${component}" "Failed"; then
                 infrastructure_failed=true
             fi
-        elif ! knead_set_component_result "${component}" "Succeeded"; then
+        elif ! knead_set_component_result "${component}" "Succeeded" "${KNEAD_HANDLER_CURRENT}"; then
             infrastructure_failed=true
         fi
         component_index=$((component_index + 1))

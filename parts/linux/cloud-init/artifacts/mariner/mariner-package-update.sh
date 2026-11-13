@@ -18,6 +18,9 @@ KUBECTL="/opt/bin/kubectl --kubeconfig ${KUBECONFIG}"
 
 LIVE_PATCHING_COMPONENT_RESULTS='{}'
 LIVE_PATCHING_COMPONENT_RESULTS_VALID=true
+KNEAD_RESULT_FILE=""
+KNEAD_HANDLER_CURRENT=""
+KNEAD_HANDLER_MESSAGE=""
 
 # Same Guest Agent transport and schema as the Ubuntu reconciler.
 knead_emit_event() {
@@ -43,6 +46,89 @@ knead_emit_reconcile_event() {
     local reason="$2"
     local level="${3:-Informational}"
     knead_emit_event "AKS.LivePatching.reconcile" "${outcome}: ${reason}" "${level}" || true
+}
+
+# Max length of a reported current/message value. The status is a Node annotation,
+# so keep each component's result small; values are flattened to one line and cut.
+: "${KNEAD_REPORT_MAX_LENGTH:=256}"
+
+# Handlers call knead_report_current and knead_report_message to return values to
+# the loop. Same contract as the Ubuntu reconciler: the loop points
+# KNEAD_RESULT_FILE at a fresh file for each handler run and reads it back
+# afterwards. A file (not a variable) is used because handlers may run in a
+# subshell. Both are no-ops outside a loop-managed handler run, so shared helpers
+# (such as apply_updates on the legacy path) stay safe. For current the last
+# report wins; for message the first report wins, because nested helpers report
+# the specific root cause before their callers report a generic wrapper reason.
+knead_report_field() {
+    local field="$1"
+    local value="$2"
+    local keep_first="${3:-false}"
+    local updated
+
+    if [ -z "${KNEAD_RESULT_FILE:-}" ] || [ ! -f "${KNEAD_RESULT_FILE}" ]; then
+        return 0
+    fi
+    # Compare the printed value rather than relying on "jq -e" exit codes, which
+    # differ across jq versions when the input is empty.
+    if [ "${keep_first}" = true ] && [ -n "$(jq -r --arg field "${field}" '.[$field] // empty | strings' "${KNEAD_RESULT_FILE}" 2> /dev/null)" ]; then
+        return 0
+    fi
+    value=$(printf '%s' "${value}" | tr '\r\n\t' '   ' | cut -c "1-${KNEAD_REPORT_MAX_LENGTH}")
+    if ! updated=$(jq -c --arg field "${field}" --arg value "${value}" '.[$field] = $value' "${KNEAD_RESULT_FILE}" 2> /dev/null) || [ -z "${updated}" ]; then
+        updated=$(jq -nc --arg field "${field}" --arg value "${value}" '{($field): $value}') || return 0
+    fi
+    printf '%s' "${updated}" > "${KNEAD_RESULT_FILE}" || true
+    return 0
+}
+
+# Reports what this component has applied, recorded as "current" when it succeeds.
+knead_report_current() {
+    knead_report_field current "$1"
+}
+
+# Reports a short reason, recorded as "message" when the component fails. The
+# first reported reason is kept.
+knead_report_message() {
+    knead_report_field message "$1" true
+}
+
+# Prints one field from a handler result file, or nothing when it is absent.
+read_result_field() {
+    local result_file="$1"
+    local field="$2"
+
+    jq -r --arg field "${field}" '.[$field] // empty | strings' "${result_file}" 2> /dev/null || true
+}
+
+# Runs one component handler with a fresh result file and saves what it reported
+# in KNEAD_HANDLER_CURRENT and KNEAD_HANDLER_MESSAGE. Returns the handler status.
+# The result file lives only for this call, so a later run can never read it.
+run_component_handler() {
+    local component_handler="$1"
+    local component_payload="$2"
+    local node_json="$3"
+    local result_file
+    local handler_status=0
+
+    KNEAD_HANDLER_CURRENT=""
+    KNEAD_HANDLER_MESSAGE=""
+    if ! result_file=$(mktemp "${TMPDIR:-/tmp}/knead-result.XXXXXX") || ! printf '{}' > "${result_file}"; then
+        echo "failed to create handler result file; current/message will not be reported"
+        [ -z "${result_file}" ] || rm -f "${result_file}"
+        result_file=""
+    fi
+
+    KNEAD_RESULT_FILE="${result_file}"
+    "${component_handler}" "${component_payload}" "${node_json}" || handler_status=$?
+    KNEAD_RESULT_FILE=""
+
+    if [ -n "${result_file}" ]; then
+        KNEAD_HANDLER_CURRENT=$(read_result_field "${result_file}" current)
+        KNEAD_HANDLER_MESSAGE=$(read_result_field "${result_file}" message)
+        rm -f "${result_file}"
+    fi
+    return "${handler_status}"
 }
 
 wait_for_kubeconfig() {
@@ -112,9 +198,22 @@ component_is_current() {
     "${comparator}" "${component_payload}" "${current_payload}" "${node_json}"
 }
 
+# Prints the "current" value saved with a component's checkpoint, or nothing.
+component_checkpoint_current() {
+    local component="$1"
+
+    [ -f "${LIVE_PATCHING_STATE_FILE}" ] || return 0
+    jq -r --arg component "${component}" '.components | map(select(.name == $component)) | last | .current // empty | strings' \
+        "${LIVE_PATCHING_STATE_FILE}" 2> /dev/null || true
+}
+
+# Records one successfully applied component, together with the "current" value
+# its handler reported (if any) so a later run that skips the handler can still
+# report it.
 write_component_checkpoint() {
     local component="$1"
     local component_payload="$2"
+    local component_current="${3:-}"
     local state_tmp="${LIVE_PATCHING_STATE_FILE}.tmp"
     local state='{"components":[]}'
     local updated_at
@@ -122,20 +221,25 @@ write_component_checkpoint() {
 
     mkdir -p "$(dirname "${LIVE_PATCHING_STATE_FILE}")" || return 1
     if [ -f "${LIVE_PATCHING_STATE_FILE}" ]; then
-        state=$(jq -c 'select(.components | type == "array") | {components:[.components[] | select(type == "object") | select((.name | type == "string") and (.nodeConfig | type == "string"))]}' "${LIVE_PATCHING_STATE_FILE}" 2> /dev/null) || state='{"components":[]}'
+        state=$(jq -c 'select(.components | type == "array") | {components:[.components[] | select(type == "object") | select((.name | type == "string") and (.nodeConfig | type == "string")) | {name,nodeConfig} + (if (.current | type) == "string" then {current} else {} end)]}' "${LIVE_PATCHING_STATE_FILE}" 2> /dev/null) || state='{"components":[]}'
         [ -n "${state}" ] || state='{"components":[]}'
     fi
-    printf '%s' "${state}" | jq --arg component "${component}" --arg nodeConfig "${component_payload}" --arg updatedAt "${updated_at}" \
-        '.updatedAt = $updatedAt | .components = ([.components[] | select(.name != $component)] + [{name:$component,nodeConfig:$nodeConfig}])' > "${state_tmp}" || return 1
+    printf '%s' "${state}" | jq --arg component "${component}" --arg nodeConfig "${component_payload}" --arg current "${component_current}" --arg updatedAt "${updated_at}" \
+        '.updatedAt = $updatedAt | .components = ([.components[] | select(.name != $component)] + [{name:$component,nodeConfig:$nodeConfig} + (if $current == "" then {} else {current:$current} end)])' > "${state_tmp}" || return 1
     mv "${state_tmp}" "${LIVE_PATCHING_STATE_FILE}"
 }
 
+# Adds a component result to the status collection. The optional third argument
+# is "current" (recorded only for Succeeded) or "message" (recorded only for
+# any other code); an empty value is omitted.
 set_component_result() {
     local component="$1"
     local code="$2"
+    local detail="${3:-}"
     local results
 
-    if ! results=$(printf '%s' "${LIVE_PATCHING_COMPONENT_RESULTS}" | jq -ce --arg component "${component}" --arg code "${code}" '.[$component]={code:$code}') || [ -z "${results}" ]; then
+    if ! results=$(printf '%s' "${LIVE_PATCHING_COMPONENT_RESULTS}" | jq -ce --arg component "${component}" --arg code "${code}" --arg detail "${detail}" \
+        '.[$component]=({code:$code} + (if $detail == "" then {} elif $code == "Succeeded" then {current:$detail} else {message:$detail} end))') || [ -z "${results}" ]; then
         echo "failed to record component result: ${component}=${code}"
         LIVE_PATCHING_COMPONENT_RESULTS_VALID=false
         return 1
@@ -211,20 +315,21 @@ apply_components() {
         echo "applying component: ${component_name}"
         if component_is_current "${component_name}" "${component_payload}" "${node_json}" "${component_comparator}"; then
             echo "component is already current: ${component_name}"
-            if ! set_component_result "${component_name}" Succeeded; then
+            # The handler is skipped, so replay the "current" saved with its checkpoint.
+            if ! set_component_result "${component_name}" Succeeded "$(component_checkpoint_current "${component_name}")"; then
                 LIVE_PATCHING_COMPONENT_RESULTS_VALID=false
                 failed=true
             fi
-        elif ! "${component_handler}" "${component_payload}" "${node_json}"; then
+        elif ! run_component_handler "${component_handler}" "${component_payload}" "${node_json}"; then
             echo "component failed: ${component_name}"
-            set_component_result "${component_name}" Failed || LIVE_PATCHING_COMPONENT_RESULTS_VALID=false
+            set_component_result "${component_name}" Failed "${KNEAD_HANDLER_MESSAGE}" || LIVE_PATCHING_COMPONENT_RESULTS_VALID=false
             failed=true
-        elif ! write_component_checkpoint "${component_name}" "${component_payload}"; then
+        elif ! write_component_checkpoint "${component_name}" "${component_payload}" "${KNEAD_HANDLER_CURRENT}"; then
             echo "failed to persist component state: ${component_name}"
             knead_emit_reconcile_event Failed "checkpoint write failed: ${component_name}" Error
             set_component_result "${component_name}" Failed || LIVE_PATCHING_COMPONENT_RESULTS_VALID=false
             failed=true
-        elif ! set_component_result "${component_name}" Succeeded; then
+        elif ! set_component_result "${component_name}" Succeeded "${KNEAD_HANDLER_CURRENT}"; then
             LIVE_PATCHING_COMPONENT_RESULTS_VALID=false
             failed=true
         fi
