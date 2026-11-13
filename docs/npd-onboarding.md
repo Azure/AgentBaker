@@ -69,20 +69,41 @@ unsupported variants and cgroup v1 retain their current behavior. No opt-in
 marker, RP rollout field or in-place IG updater is introduced.
 
 AgentBaker owns `ig-diagnostics.service`, `/etc/ig.d/diagnostics.yaml` and
-`/usr/share/inspektor-gadget/diagnostics.sh`. Packer installs these alongside the
-existing IG baseline. `install-ig.sh` disables the service for capture and writes
+`/usr/share/inspektor-gadget/diagnostics.sh`, plus the recovery script and
+`ig-diagnostics-recovery.service`/`.timer`. Packer installs these alongside the
+existing IG baseline. `install-ig.sh` stops diagnostics/recovery and disables the
+daemon and timer for capture, then writes
 `/etc/ig.d/diagnostics-version` containing `1`. No live reports or collector
 definitions may be captured. The import service remains separate;
 stopping it is not part of the diagnostics lifecycle.
 
-`nodePrep` enables and starts diagnostics whenever the image capability matches
-and prerequisites are present. Activation is bounded and nonfatal to
-provisioning; NPD and kubelet
-do not depend on this optional service. Enabling the unit restores it after
-reboot without another CSE run. systemd restarts a failed daemon with a delay and
-start-rate limit; every start reconciles the three owned collectors. Exhausted
-start limits require operator investigation and, after repair,
-`systemctl reset-failed ig-diagnostics.service`.
+`nodePrep` arms the recovery timer independently, before checking daemon
+prerequisites, then enables/starts diagnostics when they are present. Activation
+is bounded and nonfatal to provisioning; NPD and kubelet do not depend on these
+optional units. Enabled units return after reboot without another CSE run.
+systemd retries failed daemon starts after ten seconds, at most three starts
+within ten minutes; every start reconciles the three owned collectors.
+
+The timer checks every five minutes. On an active daemon, it invokes the
+packaged reader against `collectors.json`. Unavailable reports alone do not
+cause a restart: bounded `gadgetctl show` calls must confirm a missing collector
+or an explicit `Error` state. Running collectors with stale reports, unknown
+states, client timeouts and ongoing service transitions are left unchanged with
+an explicit diagnostic message.
+
+For confirmed failures or inactive/failed services, recovery rechecks
+prerequisites and waits fifteen minutes from the first observed eligible failure.
+It allows at most two additional recovery batches per boot, at least fifteen
+minutes apart. Each batch reserves its budget before `reset-failed` and a
+nonblocking start/restart that refuses conflicting systemd jobs. Recovery also
+defers if the service changed state in the last ten minutes or changed generation
+during the check. The timer may request only two additional starts/restarts;
+the daemon's existing automatic restart policy still applies. The root-only
+budget in `/run/ig-diagnostics-recovery` survives daemon and recovery-unit
+restarts and resets on reboot. Healthy reports clear a pending failure's
+cooldown but never replenish the consumed batch count. Budget exhaustion or
+ambiguous failures require operator investigation. These are conservative
+starting limits, not validated pressure-performance guarantees.
 
 `Running` alone is not readiness: IG can report it before gadget initialization
 finishes. After creating the collectors, the bootstrap invokes the packaged
@@ -92,7 +113,8 @@ reader with `--check-startup` and a private candidate manifest. It waits up to
 The reader command has a 35-second timeout, within the unit's existing overall
 120-second startup limit. Missing/incompatible readers or unavailable reports
 fail `ExecStartPost`, so systemd stops the daemon and applies its restart policy.
-This is a startup check, not ongoing collector supervision.
+Every recovery start must pass this same startup gate. The periodic recovery
+check does not add a cold-start fallback to NPD.
 
 The root-only socket is `/run/ig-diagnostics/ig.socket`. The daemon uses its own
 persistent definitions directory, bind-mounted over IG's fixed

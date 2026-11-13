@@ -2969,7 +2969,12 @@ testInspektorGadgetAssets() {
 
   if ! echo "${FEATURE_FLAGS}" | grep -q kata; then
     local asset
-    for asset in /etc/ig.d/diagnostics.yaml /usr/lib/systemd/system/ig-diagnostics.service /usr/share/inspektor-gadget/diagnostics.sh; do
+    for asset in /etc/ig.d/diagnostics.yaml \
+      /usr/lib/systemd/system/ig-diagnostics.service \
+      /usr/lib/systemd/system/ig-diagnostics-recovery.service \
+      /usr/lib/systemd/system/ig-diagnostics-recovery.timer \
+      /usr/share/inspektor-gadget/diagnostics.sh \
+      /usr/share/inspektor-gadget/diagnostics-recovery.sh; do
       if [ ! -s "${asset}" ]; then
         err "$test" "Continuous diagnostics asset missing: ${asset}"
       fi
@@ -2979,11 +2984,18 @@ testInspektorGadgetAssets() {
     else
       testIgDiagnosticsReaderCompatibility /etc/node-problem-detector.d/plugin/ig_report_reader.py
     fi
-    if systemctl is-enabled --quiet ig-diagnostics.service ||
-       systemctl is-active --quiet ig-diagnostics.service; then
-      err "$test" "Continuous diagnostics must be disabled and stopped for capture"
+    local unit
+    for unit in ig-diagnostics.service ig-diagnostics-recovery.timer; do
+      if systemctl is-enabled --quiet "${unit}" ||
+         systemctl is-active --quiet "${unit}"; then
+        err "$test" "Continuous diagnostics unit must be disabled and stopped for capture: ${unit}"
+      fi
+    done
+    if systemctl is-active --quiet ig-diagnostics-recovery.service; then
+      err "$test" "Continuous diagnostics recovery must be stopped for capture"
     fi
     if [ -e /run/ig-diagnostics/collectors.json ] ||
+       [ -e /run/ig-diagnostics-recovery/budget ] ||
        [ -e /run/ig-diagnostics/reports.ndjson ] ||
        compgen -G '/run/ig-diagnostics/reports-*.ndjson' >/dev/null ||
        [ -e /var/log/ig-diagnostics/gadget.log ]; then

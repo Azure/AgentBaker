@@ -235,12 +235,17 @@ ig_prepare_diagnostics() {
     fi
     local unit="/usr/lib/systemd/system/ig-diagnostics.service"
     if ! test -s "${unit}" ||
+       ! test -s /usr/lib/systemd/system/ig-diagnostics-recovery.service ||
+       ! test -s /usr/lib/systemd/system/ig-diagnostics-recovery.timer ||
        ! test -x /usr/share/inspektor-gadget/diagnostics.sh ||
+       ! test -x /usr/share/inspektor-gadget/diagnostics-recovery.sh ||
        ! test -s /etc/ig.d/diagnostics.yaml; then
         echo "[ig] Required continuous diagnostics assets are missing" >&2
         return 1
     fi
     systemctl daemon-reload || return 1
+    systemctl disable --now ig-diagnostics-recovery.timer || return 1
+    systemctl stop ig-diagnostics-recovery.service || return 1
     systemctl disable --now ig-diagnostics.service || return 1
     printf '1\n' > /etc/ig.d/diagnostics-version || return 1
     chmod 0644 /etc/ig.d/diagnostics-version

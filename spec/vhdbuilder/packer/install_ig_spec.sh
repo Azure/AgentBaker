@@ -18,6 +18,35 @@ Describe 'ig_extract_upstream_version function'
   End
 End
 
+Describe 'IG diagnostics capture prerequisites'
+  Include './vhdbuilder/packer/install-ig.sh'
+
+  test() {
+    case "$2" in
+      /usr/lib/systemd/system/ig-diagnostics*|/usr/share/inspektor-gadget/diagnostics*|/etc/ig.d/diagnostics.yaml)
+        [ "$2" != "${MISSING_ASSET}" ]
+        ;;
+      *) builtin test "$@" ;;
+    esac
+  }
+  systemctl() { echo 'Unexpected service change before asset validation' >&2; return 1; }
+
+  Parameters
+    /usr/lib/systemd/system/ig-diagnostics-recovery.service
+    /usr/lib/systemd/system/ig-diagnostics-recovery.timer
+    /usr/share/inspektor-gadget/diagnostics-recovery.sh
+  End
+  It 'rejects incomplete recovery assets before preparing an image for capture'
+    OS=UBUNTU
+    IS_KATA=false
+    MISSING_ASSET="$1"
+    When call ig_prepare_diagnostics
+    The status should be failure
+    The stderr should include 'Required continuous diagnostics assets are missing'
+    The stderr should not include 'Unexpected service change'
+  End
+End
+
 Describe 'ig-gadgets pinned versions'
   Include './vhdbuilder/packer/install-ig.sh'
 

@@ -697,9 +697,18 @@ configureIGDiagnostics() {
         echo "IG continuous diagnostics is unavailable on this VHD; keeping legacy collection"
         return 0
     fi
-    if [ "$(cat "${directory}/diagnostics-version")" != 1 ] ||
-       ! systemctl cat ig-diagnostics.service >/dev/null 2>&1; then
+    if [ "$(cat "${directory}/diagnostics-version")" != 1 ]; then
         echo "WARNING: IG continuous diagnostics is unavailable on this VHD"
+        return 1
+    fi
+    local recovery_result=0
+    if ! timeout -k 1s 10s systemctl enable ig-diagnostics-recovery.timer ||
+       ! timeout -k 1s 10s systemctl start --no-block ig-diagnostics-recovery.timer; then
+        echo "WARNING: Failed to activate IG diagnostics recovery timer"
+        recovery_result=1
+    fi
+    if ! systemctl cat ig-diagnostics.service >/dev/null 2>&1; then
+        echo "WARNING: IG continuous diagnostics service is unavailable on this VHD"
         return 1
     fi
     if ! command -v python3 >/dev/null || ! command -v jq >/dev/null; then
@@ -713,6 +722,7 @@ configureIGDiagnostics() {
         echo "WARNING: Failed to activate IG continuous diagnostics"
         return 1
     fi
+    return "${recovery_result}"
 }
 
 configureNodeProblemDetector() {
