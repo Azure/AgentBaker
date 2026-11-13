@@ -801,7 +801,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		}
 		baseConfig.EnableScriptlessNBCCSECmd = true
 		cmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
-		start := strings.Index(cmd, `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f /run/aks/init-aks-cloud.done ]; then`)
+		start := strings.Index(cmd, `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f "/run/aks/init-aks-cloud.done" ]; then`)
 		Expect(start).To(BeNumerically(">=", 0))
 		end := strings.Index(cmd[start:], "fi;")
 		Expect(end).To(BeNumerically(">", 0))
@@ -833,7 +833,7 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 
 		baseConfig.EnableScriptlessNBCCSECmd = false
 		legacyCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
-		Expect(legacyCmd).To(ContainSubstring(`if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ]; then`))
+		Expect(legacyCmd).To(ContainSubstring(`if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f "" ]; then`))
 		Expect(legacyCmd).NotTo(ContainSubstring("/run/aks/init-aks-cloud.done"))
 	})
 
