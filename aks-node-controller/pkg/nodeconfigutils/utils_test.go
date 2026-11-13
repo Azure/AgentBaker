@@ -301,9 +301,7 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(string(boothook), "#cloud-boothook\n"))
 	require.Contains(t, string(boothook), "/opt/azure/containers/aks-node-controller-config.json")
-	require.Contains(t, string(boothook), cloudSettingsBlock(cfg))
 	require.NotContains(t, string(boothook), "EOF\n$(echo injected)")
-	require.Contains(t, string(boothook), "chmod 0600 "+CloudSettingsFilePath)
 	require.Contains(t, string(boothook), "launching aks-node-controller")
 	require.Contains(t, string(boothook), "aks-node-controller.service")
 	require.Contains(t, string(boothook), "/opt/azure/containers/aks-node-controller-launcher.sh")
@@ -343,53 +341,6 @@ func TestCustomDataFlatcarDefersArtifactStreamingToProvisioning(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, enabled, decoded.GetEnableArtifactStreaming())
 	}
-}
-
-func TestCustomDataFlatcarIncludesCloudSettings(t *testing.T) {
-	cfg := &aksnodeconfigv1.Configuration{
-		ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "usnat"},
-		CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-			CustomCloudEnvName: "akscustom",
-			RepoDepotEndpoint:  "https://repo.example",
-		},
-	}
-	ignition := decodeFlatcarCustomData(t, cfg)
-	storage, ok := ignition["storage"].(map[string]any)
-	require.True(t, ok)
-	files, ok := storage["files"].([]any)
-	require.True(t, ok)
-	require.Len(t, files, 2)
-
-	settingsFile, ok := files[1].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, CloudSettingsFilePath, settingsFile["path"])
-	contents, ok := settingsFile["contents"].(map[string]any)
-	require.True(t, ok)
-	source, ok := contents["source"].(string)
-	require.True(t, ok)
-	settings, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(source, "data:;base64,"))
-	require.NoError(t, err)
-	require.Equal(t, "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo.example'\n", string(settings))
-}
-
-func TestCloudSettingsBlockEncodesUntrustedValues(t *testing.T) {
-	cfg := &aksnodeconfigv1.Configuration{
-		ClusterConfig: &aksnodeconfigv1.ClusterConfig{Location: "usnat"},
-		CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-			CustomCloudEnvName: "akscustom",
-			RepoDepotEndpoint:  "https://repo.example\nEOF\n$(touch /tmp/anc-injected)",
-		},
-	}
-
-	block := cloudSettingsBlock(cfg)
-	encodedSettings := base64.StdEncoding.EncodeToString([]byte(cloudSettings(cfg)))
-	require.Equal(t, "printf '%s' '"+encodedSettings+"' | base64 -d >"+CloudSettingsFilePath+"\nchmod 0600 "+CloudSettingsFilePath+"\n", block)
-	require.NotContains(t, block, "\nEOF\n")
-	require.NotContains(t, block, "touch /tmp/anc-injected")
-
-	decodedSettings, err := base64.StdEncoding.DecodeString(encodedSettings)
-	require.NoError(t, err)
-	require.Equal(t, cloudSettings(cfg), string(decodedSettings))
 }
 
 // decodeBoothook extracts the decoded cloud-boothook part from the base64-encoded custom data.

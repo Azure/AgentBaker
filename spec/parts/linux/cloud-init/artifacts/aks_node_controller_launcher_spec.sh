@@ -45,11 +45,12 @@ EOF
         export CLOUD_SETTINGS_PATH="${TEST_DIR}/cloud-settings.sh"
         export INIT_AKS_CLOUD_PATH="${TEST_DIR}/init-aks-cloud.sh"
         export CLOUD_INIT_LOG="${TEST_DIR}/cloud-init.log"
+        export CLOUD_INIT_DONE="${TEST_DIR}/run/init-aks-cloud.done"
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN CLOUD_SETTINGS_PATH INIT_AKS_CLOUD_PATH CLOUD_INIT_LOG ANC_CLOUD_INIT_COMPLETE
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN CLOUD_SETTINGS_PATH INIT_AKS_CLOUD_PATH CLOUD_INIT_LOG CLOUD_INIT_DONE
     }
 
     create_fake_aks_node_controller() {
@@ -148,16 +149,17 @@ EOF
     AfterEach cleanup_wrapper_test
 
     It 'initializes cloud before acquisition and hands success to provisioning'
-        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        touch "$HOTFIX_JSON"
+        printf '%s\n' '{"cluster_config":{"location":"usnat test"},"custom_cloud_config":{"custom_cloud_env_name":"AKSCUSTOM","repo_depot_endpoint":"https://repo.example"}}' > "$CONFIG_PATH"
         export ENABLE_PROVISIONING_HOTFIX=true
-        printf "LOCATION='usnat test'\nREPO_DEPOT_ENDPOINT='https://repo.example'\n" > "$CLOUD_SETTINGS_PATH"
         cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
 #!/bin/bash
-printf 'init:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" >> "$TEST_DIR/calls"
+printf 'init:%s:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" "$ANC_EARLY_CLOUD_INIT" >> "$TEST_DIR/calls"
 EOF
         cat > "$BIN_PATH" <<'EOF'
 #!/bin/bash
-printf '%s:%s\n' "$1" "${ANC_CLOUD_INIT_COMPLETE:-unset}" >> "$TEST_DIR/calls"
+if [ -f "$CLOUD_INIT_DONE" ]; then state=done; else state=unset; fi
+printf '%s:%s\n' "$1" "$state" >> "$TEST_DIR/calls"
 EOF
         chmod +x "$BIN_PATH" "$INIT_AKS_CLOUD_PATH"
 
@@ -165,16 +167,17 @@ EOF
         The status should be success
         The output should include 'ANC download-hotfix completed'
         calls=$(cat "$TEST_DIR/calls")
-        The variable calls should eq "$(printf 'init:usnat test:https://repo.example\ncheck-hotfix:true\ndownload-hotfix:true\nprovision:true')"
+        The variable calls should eq "$(printf 'init:usnat test:https://repo.example:true\ncheck-hotfix:done\ndownload-hotfix:done\nprovision:done')"
+        The path "$CLOUD_INIT_DONE" should be exist
         The path "$CLOUD_SETTINGS_PATH" should not be exist
     End
 
-    It 'uses NBC settings when both provisioning inputs exist'
-        touch "$CONFIG_PATH" "$NBC_CMD_PATH" "$HOTFIX_JSON"
-        printf "LOCATION='nbc-location'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
+    It 'extracts camelCase settings safely when both provisioning inputs exist'
+        touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
+        printf '%s\n' '{"clusterConfig":{"location":"usnat'\''$(touch injected)"},"customCloudConfig":{"customCloudEnvName":"akscustom","repoDepotEndpoint":"https://repo.example"}}' > "$CONFIG_PATH"
         cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
 #!/bin/bash
-printf 'init:%s\n' "$LOCATION" >> "$TEST_DIR/calls"
+printf 'init:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" >> "$TEST_DIR/calls"
 EOF
         create_recording_aks_node_controller
         chmod +x "$INIT_AKS_CLOUD_PATH"
@@ -183,17 +186,21 @@ EOF
         The status should be success
         The output should include 'ANC download-hotfix completed'
         calls=$(cat "$TEST_DIR/calls")
-        The variable calls should eq "$(printf 'init:nbc-location\ndownload-hotfix\nprovision')"
+        The variable calls should eq "$(printf 'init:usnat'\''$(touch injected):https://repo.example\ndownload-hotfix\nprovision')"
+        The path injected should not be exist
     End
 
     It 'skips acquisition and success handoff after early initialization fails'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
-        export ENABLE_PROVISIONING_HOTFIX=true ANC_CLOUD_INIT_COMPLETE=true
+        export ENABLE_PROVISIONING_HOTFIX=true
+        mkdir -p "$(dirname "$CLOUD_INIT_DONE")"
+        touch "$CLOUD_INIT_DONE"
         printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$CLOUD_SETTINGS_PATH"
         printf '#!/bin/bash\nexit 1\n' > "$INIT_AKS_CLOUD_PATH"
         cat > "$BIN_PATH" <<'EOF'
 #!/bin/bash
-printf '%s:%s\n' "$1" "${ANC_CLOUD_INIT_COMPLETE:-unset}" >> "$TEST_DIR/calls"
+if [ -f "$CLOUD_INIT_DONE" ]; then state=done; else state=unset; fi
+printf '%s:%s\n' "$1" "$state" >> "$TEST_DIR/calls"
 EOF
         chmod +x "$BIN_PATH" "$INIT_AKS_CLOUD_PATH"
 
@@ -202,6 +209,7 @@ EOF
         The output should include 'Early cloud initialization failed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision:unset'
+        The path "$CLOUD_INIT_DONE" should not be exist
         The path "$CLOUD_SETTINGS_PATH" should not be exist
     End
 
@@ -239,6 +247,66 @@ EOF
         The output should include 'Early cloud initialization failed'
         calls=$(cat "$TEST_DIR/calls")
         The variable calls should eq 'provision'
+    End
+
+    It 'does not acquire a hotfix when AKSNodeConfig settings are invalid'
+        touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
+        printf '%s\n' '{"cluster_config":{"location":123}}' > "$CONFIG_PATH"
+        create_recording_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization failed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq 'provision'
+        The path "$CLOUD_INIT_DONE" should not be exist
+    End
+
+    It 'does not acquire a hotfix when AKSNodeConfig contains a NUL in location'
+        touch "$HOTFIX_JSON"
+        printf '%s\n' '{"cluster_config":{"location":"usnat\u0000other"}}' > "$CONFIG_PATH"
+        create_recording_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization failed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq 'provision'
+        The path "$CLOUD_INIT_DONE" should not be exist
+    End
+
+    It 'ignores the repo endpoint for a non-custom cloud'
+        touch "$HOTFIX_JSON"
+        printf '%s\n' '{"cluster_config":{"location":"eastus"},"custom_cloud_config":{"custom_cloud_env_name":"public","repo_depot_endpoint":"https://ignored"}}' > "$CONFIG_PATH"
+        cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
+#!/bin/bash
+printf 'init:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" >> "$TEST_DIR/calls"
+EOF
+        create_recording_aks_node_controller
+        chmod +x "$INIT_AKS_CLOUD_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization completed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq "$(printf 'init:eastus:\ndownload-hotfix\nprovision')"
+    End
+
+    It 'uses the generated fallback when no AKSNodeConfig is available'
+        touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
+        printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://fallback'\n" > "$CLOUD_SETTINGS_PATH"
+        cat > "$INIT_AKS_CLOUD_PATH" <<'EOF'
+#!/bin/bash
+printf 'init:%s:%s\n' "$LOCATION" "$REPO_DEPOT_ENDPOINT" >> "$TEST_DIR/calls"
+EOF
+        create_recording_aks_node_controller
+        chmod +x "$INIT_AKS_CLOUD_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization completed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq "$(printf 'init:usnat:https://fallback\ndownload-hotfix\nprovision')"
     End
 
     It 'exits successfully without invoking aks-node-controller when config and nbc cmd are absent'

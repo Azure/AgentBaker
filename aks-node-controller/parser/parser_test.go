@@ -32,19 +32,24 @@ func TestCloudInitHandoff(t *testing.T) {
 	script, err := executeBootstrapTemplate(&aksnodeconfigv1.Configuration{})
 	require.NoError(t, err)
 	script = strings.ReplaceAll(script, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "init.log"))
+	marker := filepath.Join(dir, "init.done")
+	script = strings.ReplaceAll(script, "/run/aks/init-aks-cloud.done", marker)
 	script = strings.ReplaceAll(script, `/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`, "echo provisioned")
 	for _, tt := range []struct {
 		name     string
-		handoff  string
+		handoff  bool
 		exitCode int
 	}{
-		{"retry propagates failure", "", 7},
-		{"successful early init skips retry", "true", 0},
+		{"retry propagates failure", false, 7},
+		{"successful early init skips retry", true, 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.handoff {
+				require.NoError(t, os.WriteFile(marker, nil, 0600))
+			}
 			cmd := exec.Command("/bin/bash", "-c", script)
 			cmd.Env = append(os.Environ(), "INIT_AKS_CLOUD_FILEPATH="+initPath,
-				"PROVISION_OUTPUT="+filepath.Join(dir, "provision.log"), "ANC_CLOUD_INIT_COMPLETE="+tt.handoff)
+				"PROVISION_OUTPUT="+filepath.Join(dir, "provision.log"))
 			output, err := cmd.CombinedOutput()
 			if tt.exitCode != 0 {
 				var exitErr *exec.ExitError

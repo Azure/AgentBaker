@@ -182,91 +182,14 @@ type encodedFile struct {
 }
 
 const cloudSettingsFilepath = "/opt/azure/containers/aks-node-controller-cloud-settings.sh"
-const jsonNull = "null"
-
-// cloudConfigObject reads the two proto JSON spellings while rejecting ambiguous input.
-func cloudConfigObject(data json.RawMessage, names ...string) (json.RawMessage, error) {
-	if string(data) == jsonNull {
-		return nil, nil
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	token, err := decoder.Token()
-	if err != nil || token != json.Delim('{') {
-		return nil, fmt.Errorf("expected JSON object")
-	}
-	var result json.RawMessage
-	found := false
-	for decoder.More() {
-		key, tokenErr := decoder.Token()
-		if tokenErr != nil {
-			return nil, tokenErr
-		}
-		var value json.RawMessage
-		err = decoder.Decode(&value)
-		if err != nil {
-			return nil, err
-		}
-		for _, name := range names {
-			if key == name {
-				if found {
-					return nil, fmt.Errorf("duplicate field %s", name)
-				}
-				found, result = true, value
-			}
-		}
-	}
-	_, err = decoder.Token()
-	return result, err
-}
-
-func cloudConfigString(data json.RawMessage, names ...string) (string, error) {
-	if len(data) == 0 || string(data) == jsonNull {
-		return "", nil
-	}
-	value, err := cloudConfigObject(data, names...)
-	if err != nil || len(value) == 0 || string(value) == jsonNull {
-		return "", err
-	}
-	var result string
-	if err := json.Unmarshal(value, &result); err != nil {
-		return "", err
-	}
-	return result, nil
-}
-
-func aksNodeConfigCloudSettings(data []byte) (string, string, error) {
-	cluster, err := cloudConfigObject(data, "cluster_config", "clusterConfig")
-	if err != nil {
-		return "", "", err
-	}
-	location, err := cloudConfigString(cluster, "location")
-	if err != nil {
-		return "", "", err
-	}
-	cloud, err := cloudConfigObject(data, "custom_cloud_config", "customCloudConfig")
-	if err != nil {
-		return "", "", err
-	}
-	name, err := cloudConfigString(cloud, "custom_cloud_env_name", "customCloudEnvName")
-	if err != nil || !strings.EqualFold(name, "akscustom") {
-		return location, "", err
-	}
-	endpoint, err := cloudConfigString(cloud, "repo_depot_endpoint", "repoDepotEndpoint")
-	return location, endpoint, err
-}
 
 func scriptlessCloudSettings(config *datamodel.NodeBootstrappingConfiguration) string {
-	var location, endpoint string
-	var err error
-	if config.EnableScriptlessAKSNodeConfig {
-		location, endpoint, err = aksNodeConfigCloudSettings([]byte(config.AKSNodeConfigJSON))
-	} else {
-		location = config.ContainerService.Location
-		if config.ContainerService.IsAKSCustomCloud() {
-			endpoint = config.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint
-		}
+	location := config.ContainerService.Location
+	endpoint := ""
+	if config.ContainerService.IsAKSCustomCloud() {
+		endpoint = config.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint
 	}
-	if err != nil || location == "" || strings.ContainsRune(location, 0) || strings.ContainsRune(endpoint, 0) {
+	if location == "" || strings.ContainsRune(location, 0) || strings.ContainsRune(endpoint, 0) {
 		return "return 1\n"
 	}
 	return "LOCATION=" + shellQuote(location) + "\nREPO_DEPOT_ENDPOINT=" + shellQuote(endpoint) + "\n"
@@ -352,12 +275,9 @@ func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrapp
 func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBootstrappingConfiguration) []encodedFile {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
-	// Duplicate location and RepoDepot in a temporary settings file so the launcher can
-	// initialize the cloud before acquisition without executing NBC or parsing AKSNodeConfig.
 	if config.EnableScriptlessAKSNodeConfig {
 		return []encodedFile{
 			{aksNodeConfigFilepath, getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)},
-			{cloudSettingsFilepath, getBase64EncodedGzippedCustomScriptFromStr(scriptlessCloudSettings(config))},
 		}
 	}
 	nbcCMD := t.getLinuxNodeCSECommand(config)
@@ -372,7 +292,9 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 	encodedFiles := []encodedFile{
 		{aksNbcCmdFilepath, encodedNBCCMD},
 		{aksNodeConfigFilepath, encodedAKSNodeConfig},
-		{cloudSettingsFilepath, getBase64EncodedGzippedCustomScriptFromStr(scriptlessCloudSettings(config))},
+	}
+	if config.AKSNodeConfigJSON == "" {
+		encodedFiles = append(encodedFiles, encodedFile{cloudSettingsFilepath, getBase64EncodedGzippedCustomScriptFromStr(scriptlessCloudSettings(config))})
 	}
 	return encodedFiles
 }

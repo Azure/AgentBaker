@@ -49,7 +49,7 @@ func TestScriptlessAKSNodeConfigSkipsNBCRendering(t *testing.T) {
 					AKSNodeConfigJSON:             " {\"version\":\"v1\"}\n",
 				}
 				files := InitializeTemplateGenerator().getScriptlessConfiguration(config)
-				require.Len(t, files, 2)
+				require.Len(t, files, 1)
 				require.Equal(t, aksNodeConfigFilepath, files[0].path)
 				compressed, err := base64.StdEncoding.DecodeString(files[0].content)
 				require.NoError(t, err)
@@ -70,26 +70,36 @@ func TestScriptlessCloudSettings(t *testing.T) {
 	config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 		Name: "AKSCustom", RepoDepotEndpoint: "https://repo.example/'$(touch nope)",
 	}
-	config.AKSNodeConfigJSON = `{"cluster_config":{"location":"different"},"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":"different"}}`
 	require.Equal(t, "LOCATION='ussec'\"'\"'o'\nREPO_DEPOT_ENDPOINT='https://repo.example/'\"'\"'$(touch nope)'\n", scriptlessCloudSettings(config))
+}
 
-	config.EnableScriptlessAKSNodeConfig = true
-	for _, input := range []string{
-		`{"cluster_config":{"location":"usnat"},"custom_cloud_config":{"custom_cloud_env_name":"AKSCUSTOM","repo_depot_endpoint":"https://repo"}}`,
-		`{"clusterConfig":{"location":"usnat"},"customCloudConfig":{"customCloudEnvName":"AKSCUSTOM","repoDepotEndpoint":"https://repo"}}`,
+func TestScriptlessCloudSettingsFallback(t *testing.T) {
+	config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+	generator := InitializeTemplateGenerator()
+	for _, tt := range []struct {
+		name       string
+		nodeConfig string
+		wantFile   bool
+	}{
+		{"NBC only", "", true},
+		{"NBC and AKSNodeConfig", `{"cluster_config":{"location":"usnat"}}`, false},
 	} {
-		config.AKSNodeConfigJSON = input
-		require.Equal(t, "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo'\n", scriptlessCloudSettings(config))
-	}
-	config.AKSNodeConfigJSON = `{"clusterConfig":{"location":"eastus"},"customCloudConfig":{"customCloudEnvName":"public","repoDepotEndpoint":"ignored"}}`
-	require.Equal(t, "LOCATION='eastus'\nREPO_DEPOT_ENDPOINT=''\n", scriptlessCloudSettings(config))
-	for _, input := range []string{
-		`{"cluster_config":{"location":"one"},"clusterConfig":{"location":"two"}}`,
-		`{"cluster_config":{"location":123}}`,
-		`{"cluster_config":{"location":"\u0000"}}`,
-	} {
-		config.AKSNodeConfigJSON = input
-		require.Equal(t, "return 1\n", scriptlessCloudSettings(config))
+		t.Run(tt.name, func(t *testing.T) {
+			config.AKSNodeConfigJSON = tt.nodeConfig
+			files := generator.getScriptlessConfiguration(config)
+			found := false
+			for _, file := range files {
+				if file.path == cloudSettingsFilepath {
+					found = true
+					compressed, err := base64.StdEncoding.DecodeString(file.content)
+					require.NoError(t, err)
+					settings, err := getGzipDecodedValue(compressed)
+					require.NoError(t, err)
+					require.Equal(t, scriptlessCloudSettings(config), string(settings))
+				}
+			}
+			require.Equal(t, tt.wantFile, found)
+		})
 	}
 }
 
@@ -797,15 +807,22 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(end).To(BeNumerically(">", 0))
 		block := cmd[start : start+end+3]
 		block = strings.ReplaceAll(block, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "cloud.log"))
+		marker := filepath.Join(dir, "init.done")
+		block = strings.ReplaceAll(block, "/run/aks/init-aks-cloud.done", marker)
 		result := filepath.Join(dir, "result")
-		for _, handoff := range []string{"true", ""} {
+		for _, handoff := range []bool{true, false} {
+			if handoff {
+				Expect(os.WriteFile(marker, nil, 0600)).To(Succeed())
+			} else {
+				Expect(os.Remove(marker)).To(Succeed())
+			}
 			testCmd := exec.Command("/bin/bash", "-c", block+` echo provisioned`)
 			testCmd.Env = append(os.Environ(), "INIT_AKS_CLOUD_FILEPATH="+initPath,
-				"RESULT="+result, "ANC_CLOUD_INIT_COMPLETE="+handoff)
+				"RESULT="+result)
 			output, err := testCmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), string(output)+"\n"+block)
 			Expect(string(output)).To(ContainSubstring("provisioned"))
-			if handoff == "true" {
+			if handoff {
 				Expect(result).NotTo(BeAnExistingFile())
 			} else {
 				data, err := os.ReadFile(result)
@@ -1427,9 +1444,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 					Expect(cmd).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 				}
 				Expect(provisioningPayload).To(ContainSubstring(aksNodeConfigFilepath))
-				Expect(provisioningPayload).To(ContainSubstring(cloudSettingsFilepath))
-				Expect(provisioningPayload).To(ContainSubstring(getBase64EncodedGzippedCustomScriptFromStr(
-					"LOCATION='usnat'\nREPO_DEPOT_ENDPOINT='https://repo'\n")))
+				Expect(provisioningPayload).NotTo(ContainSubstring(cloudSettingsFilepath))
 				Expect(provisioningPayload).To(ContainSubstring(getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)))
 				Expect(provisioningPayload).NotTo(ContainSubstring(aksNbcCmdFilepath))
 				Expect(provisioningPayload).NotTo(ContainSubstring("--nbc-cmd"))
@@ -1664,7 +1679,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 
 		files, ok := storage["files"].([]interface{})
 		Expect(ok).To(BeTrue())
-		expectedCount := 4
+		expectedCount := 3
 		foundHotfix := false
 		for _, f := range files {
 			if file, ok := f.(map[string]interface{}); ok {
@@ -1677,8 +1692,8 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		if foundHotfix {
 			expectedCount++
 		}
-		Expect(len(files)).To(Equal(expectedCount)) // nbc-cmd, nodecustomdata, aks-node-config, cloud settings (optional hotfix file present)
-		Expect(string(decodedPayload)).To(ContainSubstring(cloudSettingsFilepath))
+		Expect(len(files)).To(Equal(expectedCount)) // nbc-cmd, nodecustomdata, aks-node-config (optional hotfix file present)
+		Expect(string(decodedPayload)).NotTo(ContainSubstring(cloudSettingsFilepath))
 
 		payload = templateGenerator.getScriptlessNBCCmd(config)
 

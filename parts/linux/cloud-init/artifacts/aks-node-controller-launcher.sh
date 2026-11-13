@@ -25,6 +25,7 @@ FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
 CLOUD_SETTINGS_PATH="${CLOUD_SETTINGS_PATH:-/opt/azure/containers/aks-node-controller-cloud-settings.sh}"
 INIT_AKS_CLOUD_PATH="${INIT_AKS_CLOUD_PATH:-/opt/azure/containers/init-aks-cloud.sh}"
 CLOUD_INIT_LOG="${CLOUD_INIT_LOG:-/var/log/azure/cluster-provision.log}"
+CLOUD_INIT_DONE="${CLOUD_INIT_DONE:-/run/aks/init-aks-cloud.done}"
 LOGGER_TAG="aks-node-controller-launcher"
 
 log() {
@@ -47,27 +48,52 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-unset ANC_CLOUD_INIT_COMPLETE
 skip_hotfix_acquisition=false
+settings_ok=true
+rm -f "$CLOUD_INIT_DONE" || settings_ok=false
+if [ -s "$CONFIG_PATH" ]; then
+    # AKSNodeConfig is the live source of cloud settings; jq's @sh safely quotes values.
+    jq -er '
+        def field($snake; $camel):
+            if has($snake) and has($camel) then error("duplicate field " + $snake)
+            else .[$snake] // .[$camel] end;
+        if type != "object" then error("invalid configuration") else . end
+        | (field("cluster_config"; "clusterConfig") // {}) as $cluster
+        | (field("custom_cloud_config"; "customCloudConfig") // {}) as $cloud
+        | ($cluster.location // "") as $location
+        | ($cloud | field("custom_cloud_env_name"; "customCloudEnvName") // "") as $name
+        | (if ($name | type) != "string" then error("invalid cloud name")
+           elif ($name | ascii_downcase) == "akscustom" then
+               ($cloud | field("repo_depot_endpoint"; "repoDepotEndpoint") // "")
+           else "" end) as $endpoint
+        | if ($location | type) != "string" or ($location | length) == 0
+             or (($location | explode | index(0)) != null)
+             or ($endpoint | type) != "string" or (($endpoint | explode | index(0)) != null)
+          then error("invalid cloud settings")
+          else "LOCATION=\($location | @sh)\nREPO_DEPOT_ENDPOINT=\($endpoint | @sh)" end
+    ' "$CONFIG_PATH" > "$CLOUD_SETTINGS_PATH" 2>> "$CLOUD_INIT_LOG" || settings_ok=false
+fi
 if [ -f "$CLOUD_SETTINGS_PATH" ]; then
-    settings_ok=true
     # shellcheck source=/dev/null
-    source "$CLOUD_SETTINGS_PATH" || settings_ok=false
+    [ "$settings_ok" != true ] || source "$CLOUD_SETTINGS_PATH" || settings_ok=false
     # These settings are node-specific; never leave them behind for a PIS image to bake in.
     rm -f "$CLOUD_SETTINGS_PATH" || settings_ok=false
-    # Prepare trust and RepoDepot before ANC downloads its hotfix. Mark success only
-    # in this process so ANC can skip the duplicate initializer during provisioning.
-    if [ "$settings_ok" = true ] && [ -f "$INIT_AKS_CLOUD_PATH" ] &&
-        ANC_EARLY_CLOUD_INIT=true LOCATION="$LOCATION" REPO_DEPOT_ENDPOINT="$REPO_DEPOT_ENDPOINT" "$INIT_AKS_CLOUD_PATH" >> "$CLOUD_INIT_LOG" 2>&1; then
-        export ANC_CLOUD_INIT_COMPLETE=true
+    if [ "$settings_ok" = true ] && [ -n "${LOCATION:-}" ] &&
+        [ "${REPO_DEPOT_ENDPOINT+x}" = x ] && [ -f "$INIT_AKS_CLOUD_PATH" ] &&
+        ANC_EARLY_CLOUD_INIT=true LOCATION="$LOCATION" REPO_DEPOT_ENDPOINT="$REPO_DEPOT_ENDPOINT" "$INIT_AKS_CLOUD_PATH" >> "$CLOUD_INIT_LOG" 2>&1 &&
+        mkdir -p "$(dirname "$CLOUD_INIT_DONE")" && touch "$CLOUD_INIT_DONE"; then
+        log "Early cloud initialization completed"
     else
         # Do not download with incomplete trust; let normal provisioning retry initialization.
         skip_hotfix_acquisition=true
         log "Early cloud initialization failed; skipping hotfix acquisition and retrying during provisioning"
     fi
+elif [ "$settings_ok" != true ]; then
+    skip_hotfix_acquisition=true
+    log "Early cloud initialization failed; skipping hotfix acquisition and retrying during provisioning"
 fi
 
-# Older VHDs lack the generated settings file and retain their existing hotfix flow.
+# Older payloads without cloud settings or AKSNodeConfig retain their existing hotfix flow.
 anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH" "$skip_hotfix_acquisition"
 BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
 
