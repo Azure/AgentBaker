@@ -573,6 +573,67 @@ Describe "Containerd Functions Tests" {
     }
   }
 
+  Describe 'Install-ContainerdFromComponentPackages' {
+    BeforeAll {
+      $script:hcsshimUrl = "https://packages.aks.azure.com/dalec-packages/hcsshim/0.15.0/windows/amd64/hcsshim_0.15.0-1_amd64.zip"
+      $script:mobyContainerdUrl = "https://packages.aks.azure.com/dalec-packages/moby-containerd/2.3.7/windows/amd64/moby-containerd_2.3.7-4_amd64.zip"
+      $script:crictlUrl = "https://packages.aks.azure.com/dalec-packages/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-6_amd64.zip"
+
+      function New-TestPackage {
+        param($Name, [string[]]$Files)
+        $dir = Join-Path $TestDrive "fixtures/$Name"
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        foreach ($file in $Files) {
+          [System.IO.File]::WriteAllText((Join-Path $dir $file), "$Name/$file")
+        }
+        $zip = Join-Path $TestDrive "fixtures/$Name.zip"
+        Compress-Archive -Path (Join-Path $dir "*") -DestinationPath $zip -Force
+        return $zip
+      }
+    }
+
+    BeforeEach {
+      $script:originalTemp = $ENV:TEMP
+      $ENV:TEMP = Join-Path $TestDrive "temp"
+      New-Item -ItemType Directory -Path $ENV:TEMP -Force | Out-Null
+      $global:ContainerdInstallLocation = Join-Path $TestDrive "containerd"
+      Remove-Item -LiteralPath $global:ContainerdInstallLocation -Recurse -Force -ErrorAction SilentlyContinue
+
+      $script:packages = @{
+        $script:hcsshimUrl        = New-TestPackage -Name "hcsshim" -Files @("LICENSE", "containerd-shim-runhcs-v1.exe", "runhcs-LICENSE", "runhcs-NOTICE", "runhcs.exe", "shimdiag.exe", "wclayer.exe", "zapdir.exe")
+        $script:mobyContainerdUrl = New-TestPackage -Name "moby-containerd" -Files @("LICENSE", "containerd.exe", "ctr.exe")
+        $script:crictlUrl         = New-TestPackage -Name "kubernetes-cri-tools" -Files @("LICENSE", "crictl.exe")
+      }
+
+      Mock Get-Service -MockWith { $null }
+      Mock Logs-To-Event
+      Mock Complete-ContainerdInstallation
+      Mock Create-Directory -MockWith { New-Item -ItemType Directory -Path $FullPath -Force | Out-Null }
+      Mock DownloadFileOverHttp -MockWith { Copy-Item -LiteralPath $script:packages[$Url] -Destination $DestinationPath }
+    }
+
+    AfterEach {
+      $ENV:TEMP = $script:originalTemp
+    }
+
+    It 'installs the three packages into the existing flat containerd layout' {
+      Install-ContainerdFromComponentPackages -HcsshimUrl $script:hcsshimUrl -MobyContainerdUrl $script:mobyContainerdUrl -CrictlUrl $script:crictlUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+
+      Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 3 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE }
+      Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter { $Url -eq $script:hcsshimUrl }
+      Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter { $Url -eq $script:mobyContainerdUrl }
+      Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter { $Url -eq $script:crictlUrl }
+      foreach ($exe in @("containerd.exe", "ctr.exe", "containerd-shim-runhcs-v1.exe", "runhcs.exe", "shimdiag.exe", "wclayer.exe", "zapdir.exe", "crictl.exe")) {
+        Join-Path $global:ContainerdInstallLocation $exe | Should -Exist
+      }
+      Join-Path $global:ContainerdInstallLocation "runhcs-NOTICE" | Should -Exist
+      Get-Content -Raw (Join-Path $global:ContainerdInstallLocation "crictl.yaml") | Should -Match ([regex]::Escape('runtime-endpoint: npipe://\\.\pipe\containerd-containerd'))
+      Assert-MockCalled -CommandName 'Complete-ContainerdInstallation' -Exactly -Times 1 -ParameterFilter {
+        $CNIBinDir -eq "cniBin" -and $CNIConfDir -eq "cniConf" -and $KubeDir -eq "kubeDir"
+      }
+    }
+  }
+
   Describe 'Get-ContainerdVersionFromString' {
     It "Should parse '<VersionString>' as <Expected>" -TestCases @(
       @{ VersionString = "containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8"; Expected = "1.6.21" }

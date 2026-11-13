@@ -317,6 +317,40 @@ func TestWindowsCustomDataUsesBundledSSHFunctions(t *testing.T) {
 	}
 }
 
+func TestWindowsCustomDataPassesContainerdComponentPackageURLs(t *testing.T) {
+	const (
+		hcsshimURL        = "https://packages.aks.azure.com/dalec-packages/hcsshim/0.15.0/windows/amd64/hcsshim_0.15.0-1_amd64.zip"
+		mobyContainerdURL = "https://packages.aks.azure.com/dalec-packages/moby-containerd/2.3.7/windows/amd64/moby-containerd_2.3.7-4_amd64.zip"
+		crictlURL         = "https://packages.aks.azure.com/dalec-packages/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-6_amd64.zip"
+	)
+	render := func(hcsshim, mobyContainerd, crictl string) string {
+		t.Helper()
+		config := newNodeCustomDataRenderConfig(datamodel.AKSWindows2025)
+		config.AgentPoolProfile.OSType = datamodel.Windows
+		config.ContainerService.Properties.WindowsProfile = &datamodel.WindowsProfile{}
+		kubernetesConfig := config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig
+		kubernetesConfig.WindowsHcsshimURL = hcsshim
+		kubernetesConfig.WindowsMobyContainerdURL = mobyContainerd
+		kubernetesConfig.WindowsCrictlURL = crictl
+		payload := InitializeTemplateGenerator().getWindowsNodeBootstrappingPayload(config)
+		require.LessOrEqual(t, len(payload), MaxCustomDataLength)
+		decoded, err := base64.StdEncoding.DecodeString(payload)
+		require.NoError(t, err)
+		return string(decoded)
+	}
+
+	customData := render(hcsshimURL, mobyContainerdURL, crictlURL)
+	require.Contains(t, customData, fmt.Sprintf(`$global:WindowsHcsshimUrl="%s"`, hcsshimURL))
+	require.Contains(t, customData, fmt.Sprintf(`$global:WindowsMobyContainerdUrl="%s"`, mobyContainerdURL))
+	require.Contains(t, customData, fmt.Sprintf(`$global:WindowsCrictlUrl="%s"`, crictlURL))
+	require.Contains(t, customData, "-HcsshimUrl $global:WindowsHcsshimUrl -MobyContainerdUrl $global:WindowsMobyContainerdUrl -CrictlUrl $global:WindowsCrictlUrl")
+
+	legacyCustomData := render("", "", "")
+	require.Contains(t, legacyCustomData, `$global:WindowsHcsshimUrl=""`)
+	require.Contains(t, legacyCustomData, `$global:WindowsMobyContainerdUrl=""`)
+	require.Contains(t, legacyCustomData, `$global:WindowsCrictlUrl=""`)
+}
+
 func TestWindowsCustomDataOmitsPostResetHealthGate(t *testing.T) {
 	for _, preProvisionOnly := range []bool{false, true} {
 		t.Run(fmt.Sprintf("PreProvisionOnly=%t", preProvisionOnly), func(t *testing.T) {

@@ -500,8 +500,24 @@ function Install-Containerd-Based-On-Kubernetes-Version {
         [Parameter(Mandatory=$true)][string]
         $KubeDir,
         [Parameter(Mandatory=$true)][string]
-        $KubernetesVersion
+        $KubernetesVersion,
+        [Parameter(Mandatory=$false)][string]
+        $HcsshimUrl = "",
+        [Parameter(Mandatory=$false)][string]
+        $MobyContainerdUrl = "",
+        [Parameter(Mandatory=$false)][string]
+        $CrictlUrl = ""
     )
+
+    if (-not [string]::IsNullOrWhiteSpace($HcsshimUrl) -and -not [string]::IsNullOrWhiteSpace($MobyContainerdUrl) -and -not [string]::IsNullOrWhiteSpace($CrictlUrl)) {
+        # containerdfunc.ps1 comes from the CSE scripts cached on the VHD, so older VHDs don't have the installer.
+        if (Get-Command -Name Install-ContainerdFromComponentPackages -ErrorAction SilentlyContinue) {
+            Write-Log "Install Containerd from component packages. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
+            Install-ContainerdFromComponentPackages -HcsshimUrl $HcsshimUrl -MobyContainerdUrl $MobyContainerdUrl -CrictlUrl $CrictlUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+            return
+        }
+        Logs-To-Event -TaskName "AKS.WindowsCSE.ContainerdComponentPackagesUnsupported" -TaskMessage "Install-ContainerdFromComponentPackages is not available on this VHD; using the combined containerd package. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
+    }
 
     # Get the current Windows version, this is interim since we are progressively supporting containerd 2.0 for all Windows version. for now only test2025
     $windowsVersion=Get-WindowsVersion
