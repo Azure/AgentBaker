@@ -266,11 +266,11 @@ func buildCloudConfigArchive(script string) (string, error) {
 		{
 			Type: "text/cloud-boothook",
 			// Quoting preserves Unicode line separators as script bytes, not YAML line breaks.
-			Content: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Style: yaml.DoubleQuotedStyle, Value: script},
+			Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.DoubleQuotedStyle, Value: script},
 		},
 		{
 			Type:    "text/cloud-config",
-			Content: yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Style: yaml.LiteralStyle, Value: readyReportCloudConfig},
+			Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.LiteralStyle, Value: readyReportCloudConfig},
 		},
 	}
 	archive, err := yaml.Marshal(parts)
@@ -741,7 +741,6 @@ func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, c
 		// YAML quoting preserves Unicode line breaks that JSON leaves unescaped.
 		encoded, err := yaml.Marshal(&yaml.Node{
 			Kind:  yaml.ScalarNode,
-			Tag:   "!!str",
 			Style: yaml.DoubleQuotedStyle,
 			Value: content,
 		})
