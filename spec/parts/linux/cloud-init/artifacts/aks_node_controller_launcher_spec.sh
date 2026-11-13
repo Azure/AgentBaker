@@ -193,8 +193,6 @@ EOF
     It 'skips acquisition and success handoff after early initialization fails'
         touch "$CONFIG_PATH" "$HOTFIX_JSON"
         export ENABLE_PROVISIONING_HOTFIX=true
-        mkdir -p "$(dirname "$CLOUD_INIT_DONE")"
-        touch "$CLOUD_INIT_DONE"
         printf "LOCATION='usnat'\nREPO_DEPOT_ENDPOINT=''\n" > "$INIT_AKS_CLOUD_ENV"
         printf '#!/bin/bash\nexit 1\n' > "$INIT_AKS_CLOUD_PATH"
         cat > "$BIN_PATH" <<'EOF'

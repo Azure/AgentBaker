@@ -70,8 +70,7 @@ fi
 skip_hotfix_acquisition=false
 if [ -s "$CONFIG_PATH" ] || [ -f "$INIT_AKS_CLOUD_ENV" ]; then
     # shellcheck source=/dev/null
-    if rm -f "$CLOUD_INIT_DONE" &&
-        write_cloud_settings "$CONFIG_PATH" "$INIT_AKS_CLOUD_ENV" 2>> "$CLOUD_INIT_LOG" &&
+    if write_cloud_settings "$CONFIG_PATH" "$INIT_AKS_CLOUD_ENV" 2>> "$CLOUD_INIT_LOG" &&
         [ -x "$INIT_AKS_CLOUD_PATH" ] && [ -s "$INIT_AKS_CLOUD_ENV" ] &&
         ( set -a; source "$INIT_AKS_CLOUD_ENV" && [ -n "${LOCATION:-}" ] &&
           ANC_EARLY_CLOUD_INIT=true "$INIT_AKS_CLOUD_PATH" ) >> "$CLOUD_INIT_LOG" 2>&1; then
