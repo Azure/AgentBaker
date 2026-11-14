@@ -16,20 +16,36 @@
 
 GPU_UUID_LABEL_PATTERN='^kubernetes\.azure\.com/gpu-[0-9]+-uuid='
 
+# Prints the UUIDs of the vGPUs in "nvidia-smi -q" output. Each GPU section lists "GPU UUID" before its
+# "Virtualization Mode", which is VGPU (or Host VGPU) on vGPU guests and None or Pass-Through otherwise.
+vgpu_uuids() {
+    awk '
+        /^[[:space:]]*GPU UUID[[:space:]]*:/ {
+            uuid = $0; sub(/^[^:]*:[[:space:]]*/, "", uuid); sub(/[[:space:]]+$/, "", uuid)
+        }
+        /^[[:space:]]*Virtualization Mode[[:space:]]*:/ {
+            mode = $0; sub(/^[^:]*:[[:space:]]*/, "", mode); sub(/[[:space:]]+$/, "", mode)
+            if (mode == "VGPU" || mode == "Host VGPU") print uuid
+        }'
+}
+
 # Prints the label lines for the GPUs on this VM. Returns 2 without output when nvidia-smi isn't on the host
-# (not an NVIDIA node, or drivers that live in a container). Returns 1 when the driver isn't loaded yet, or
-# when nvidia-smi fails or reports a GPU it can't identify; the GPUs it could read are still printed.
+# (not an NVIDIA node, or drivers that live in a container). Returns 1 when the driver isn't loaded yet,
+# nvidia-smi times out, or nvidia-smi fails or reports a GPU it can't identify; in the last two cases the
+# GPUs it could read are still printed.
 gpu_uuid_labels() {
     local nvidia_smi="nvidia-smi"
     local driver_version_file="${NVIDIA_DRIVER_VERSION_FILE:-/proc/driver/nvidia/version}"
     local query_timeout="${GPU_UUID_QUERY_TIMEOUT_SECONDS:-30}"
     local gpu_list=""
+    local gpu_details=""
+    local vgpus=""
     local smi_status=0
     local incomplete=0
     local labels=""
     local index=""
     local uuid=""
-    local mode=""
+    local extra=""
     local uuid_hex=""
 
     if ! command -v "${nvidia_smi}" >/dev/null 2>&1; then
@@ -47,43 +63,64 @@ gpu_uuid_labels() {
     fi
 
     # -k sends SIGKILL if nvidia-smi ignores SIGTERM, so a wedged GPU cannot stall provisioning or boot.
-    gpu_list=$(timeout -k 5 "${query_timeout}" "${nvidia_smi}" --query-gpu=index,uuid,virtualization_mode --format=csv,noheader 2>/dev/null) || smi_status=$?
-    if [ "${smi_status}" -ne 0 ]; then
-        echo "nvidia-smi GPU UUID query exited with ${smi_status}" >&2
-        incomplete=1
-    fi
+    gpu_list=$(timeout -k 5 "${query_timeout}" "${nvidia_smi}" --query-gpu=index,uuid --format=csv,noheader 2>/dev/null) || smi_status=$?
+    case "${smi_status}" in
+        0) ;;
+        124|137)
+            echo "nvidia-smi GPU UUID query timed out" >&2
+            return 1
+            ;;
+        *)
+            echo "nvidia-smi GPU UUID query exited with ${smi_status}" >&2
+            incomplete=1
+            ;;
+    esac
 
-    # Expect "<index>, GPU-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx, <mode>". A 40 character UUID also keeps the
-    # value within the label value character set and length limit. Any other line, such as nvidia-smi's
-    # "Unable to determine the device handle for GPU..." for a GPU in a bad state, makes the inventory incomplete.
-    while IFS=', ' read -r index uuid mode; do
-        [ -z "${index}${uuid}${mode}" ] && continue
+    # --query-gpu has no virtualization mode field, so read it from the full report.
+    smi_status=0
+    gpu_details=$(timeout -k 5 "${query_timeout}" "${nvidia_smi}" -q 2>/dev/null) || smi_status=$?
+    case "${smi_status}" in
+        0) ;;
+        124|137)
+            echo "nvidia-smi GPU report timed out" >&2
+            return 1
+            ;;
+        *)
+            echo "nvidia-smi GPU report exited with ${smi_status}" >&2
+            incomplete=1
+            ;;
+    esac
+    vgpus=$(printf '%s\n' "${gpu_details}" | vgpu_uuids)
+
+    # Expect "<index>, GPU-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx". A 40 character UUID also keeps the value within
+    # the label value character set and length limit. Any other line, such as nvidia-smi's "Unable to determine
+    # the device handle for GPU..." for a GPU in a bad state, makes the inventory incomplete.
+    while IFS=', ' read -r index uuid extra; do
+        [ -z "${index}${uuid}${extra}" ] && continue
         uuid_hex="${uuid#GPU-}"
         case "${index}" in
             ''|*[!0-9]*)
-                echo "unexpected nvidia-smi GPU line: ${index} ${uuid} ${mode}" >&2
+                echo "unexpected nvidia-smi GPU line: ${index} ${uuid} ${extra}" >&2
                 incomplete=1
                 continue
                 ;;
         esac
         case "${uuid_hex}" in
             "${uuid}"|''|*[!0-9a-fA-F-]*)
-                echo "unexpected nvidia-smi GPU line: ${index} ${uuid} ${mode}" >&2
+                echo "unexpected nvidia-smi GPU line: ${index} ${uuid} ${extra}" >&2
                 incomplete=1
                 continue
                 ;;
         esac
-        if [ "${#uuid}" -ne 40 ]; then
-            echo "unexpected nvidia-smi GPU line: ${index} ${uuid} ${mode}" >&2
+        if [ "${#uuid}" -ne 40 ] || [ -n "${extra}" ]; then
+            echo "unexpected nvidia-smi GPU line: ${index} ${uuid} ${extra}" >&2
             incomplete=1
             continue
         fi
-        case "${mode}" in
-            VGPU|"Host VGPU")
-                echo "skipping vGPU ${index}: vGPU UUIDs don't identify physical GPUs" >&2
-                continue
-                ;;
-        esac
+        if printf '%s\n' "${vgpus}" | grep -qxF "${uuid}"; then
+            echo "skipping vGPU ${index}: vGPU UUIDs don't identify physical GPUs" >&2
+            continue
+        fi
         labels="${labels}kubernetes.azure.com/gpu-${index}-uuid=${uuid}
 "
     done <<EOF

@@ -646,20 +646,31 @@ func ValidateGPUUUIDNodeLabels(ctx context.Context, s *Scenario) error {
 		return nil
 	}
 
-	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo nvidia-smi --query-gpu=index,uuid,virtualization_mode --format=csv,noheader", 0, "could not query GPU UUIDs with nvidia-smi")
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo nvidia-smi --query-gpu=uuid --format=csv,noheader", 0, "could not query GPU UUIDs with nvidia-smi")
 	if err != nil {
 		return err
 	}
+	// --query-gpu has no virtualization mode field; "nvidia-smi -q" lists each GPU's UUID before its Virtualization Mode.
+	vgpuResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `sudo nvidia-smi -q | awk -F': ' '/^[[:space:]]*GPU UUID[[:space:]]*:/ {uuid = $2} /^[[:space:]]*Virtualization Mode[[:space:]]*:/ {print uuid ":" $2}'`, 0, "could not read GPU virtualization modes with nvidia-smi")
+	if err != nil {
+		return err
+	}
+	vgpus := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(vgpuResult.stdout), "\n") {
+		uuid, mode, _ := strings.Cut(line, ":")
+		if mode = strings.TrimSpace(mode); mode == "VGPU" || mode == "Host VGPU" {
+			vgpus[strings.TrimSpace(uuid)] = true
+		}
+	}
 	expected := map[string]bool{}
 	for _, line := range strings.Split(strings.TrimSpace(execResult.stdout), "\n") {
-		fields := strings.Split(line, ",")
-		if len(fields) != 3 {
+		uuid := strings.TrimSpace(line)
+		if !strings.HasPrefix(uuid, "GPU-") {
 			return fmt.Errorf("unexpected nvidia-smi GPU UUID output line %q", line)
 		}
-		if strings.Contains(strings.ToUpper(fields[2]), "VGPU") {
-			continue
+		if !vgpus[uuid] {
+			expected[uuid] = true
 		}
-		expected[strings.TrimSpace(fields[1])] = true
 	}
 
 	if err := checkGPUUUIDNodeLabels(ctx, s, expected); err != nil {

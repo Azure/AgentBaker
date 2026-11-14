@@ -10,9 +10,28 @@ Describe 'gpu-uuid-node-labels.sh'
     LABEL_PREFIX="kubernetes.azure.com/gpu"
     NODE_NAME="aks-gpu-12345678-vmss000000"
 
-    # nvidia-smi output lines, one argument per GPU.
+    # One "<index>, <uuid>, <virtualization mode>" argument per GPU. Writes the --query-gpu=index,uuid output and
+    # the matching "nvidia-smi -q" report. Any other argument is an nvidia-smi error line in the query output.
     gpus() {
-        printf '%s\n' "$@" > "${FAKE_DIR}/smi_output"
+        local gpu index uuid mode
+        : > "${FAKE_DIR}/smi_output"
+        : > "${FAKE_DIR}/smi_report"
+        for gpu in "$@"; do
+            case "${gpu}" in
+                *", "*", "*)
+                    index="${gpu%%, *}"
+                    uuid="${gpu#*, }"
+                    mode="${uuid#*, }"
+                    uuid="${uuid%%, *}"
+                    printf '%s, %s\n' "${index}" "${uuid}" >> "${FAKE_DIR}/smi_output"
+                    printf 'GPU 00000000:00:0%s.0\n    Product Name                          : Fake GPU\n    GPU UUID                              : %s\n    GPU Virtualization Mode\n        Virtualization Mode               : %s\n        Host VGPU Mode                    : N/A\n' \
+                        "${index}" "${uuid}" "${mode}" >> "${FAKE_DIR}/smi_report"
+                    ;;
+                *)
+                    printf '%s\n' "${gpu}" >> "${FAKE_DIR}/smi_output"
+                    ;;
+            esac
+        done
     }
 
     # Current GPU UUID labels on the Node, as "key=value" lines.
@@ -43,6 +62,10 @@ Describe 'gpu-uuid-node-labels.sh'
         cat > "${FAKE_DIR}/bin/nvidia-smi" <<'EOF'
 #!/bin/sh
 echo "$*" >> "${FAKE_DIR}/nvidia-smi.log"
+if [ "$1" = "-q" ]; then
+    cat "${FAKE_DIR}/smi_report"
+    exit "$(cat "${FAKE_DIR}/report_status" 2>/dev/null || echo 0)"
+fi
 failures=$(cat "${FAKE_DIR}/smi_failures" 2>/dev/null || echo 0)
 if [ "${failures}" -gt 0 ]; then
     echo $((failures - 1)) > "${FAKE_DIR}/smi_failures"
@@ -106,10 +129,11 @@ EOF
             The status should be success
             The output should equal "${LABEL_PREFIX}-0-uuid=${UUID_A}
 ${LABEL_PREFIX}-1-uuid=${UUID_B}"
-            The result of function nvidia_smi_calls should equal "--query-gpu=index,uuid,virtualization_mode --format=csv,noheader"
+            The line 1 of result of function nvidia_smi_calls should equal "--query-gpu=index,uuid --format=csv,noheader"
+            The line 2 of result of function nvidia_smi_calls should equal "-q"
         End
 
-        It 'labels GPUs whose virtualization mode is not reported'
+        It 'labels GPUs that are not virtualized'
             gpus "0, ${UUID_A}, None" "1, ${UUID_B}, N/A"
 
             When run bash "$SCRIPT_PATH" labels
@@ -195,13 +219,25 @@ ${LABEL_PREFIX}-1-uuid=${UUID_B}"
         End
 
         It 'kills an nvidia-smi that hangs and ignores SIGTERM'
-            printf '#!/bin/sh\ntrap "" TERM\nwhile :; do sleep 1; done\n' > "${FAKE_DIR}/bin/nvidia-smi"
+            printf '#!/bin/sh\necho "$*" >> "%s/nvidia-smi.log"\ntrap "" TERM\nwhile :; do sleep 1; done\n' "${FAKE_DIR}" > "${FAKE_DIR}/bin/nvidia-smi"
 
             When run env GPU_UUID_QUERY_TIMEOUT_SECONDS=1 bash "$SCRIPT_PATH" labels
 
             The status should equal 1
             The output should equal ""
-            The stderr should include "nvidia-smi GPU UUID query exited with 137"
+            The stderr should include "nvidia-smi GPU UUID query timed out"
+            The result of function nvidia_smi_calls should equal "--query-gpu=index,uuid --format=csv,noheader"
+        End
+
+        It 'reports the inventory as incomplete when the GPU report fails'
+            gpus "0, ${UUID_A}, Pass-Through"
+            echo 9 > "${FAKE_DIR}/report_status"
+
+            When run bash "$SCRIPT_PATH" labels
+
+            The status should equal 1
+            The output should equal "${LABEL_PREFIX}-0-uuid=${UUID_A}"
+            The stderr should include "nvidia-smi GPU report exited with 9"
         End
 
         Parameters
