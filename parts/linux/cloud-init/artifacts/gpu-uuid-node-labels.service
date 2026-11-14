@@ -1,0 +1,14 @@
+[Unit]
+Description=Sync kubernetes.azure.com/gpu-<index>-uuid node labels with this VM's GPUs
+After=kubelet.service nvidia-modprobe.service
+ConditionPathExists=/opt/azure/containers/gpu-uuid-node-labels.sh
+
+[Service]
+# simple, not oneshot: the script waits for node registration and must not hold up boot.
+Type=simple
+ExecStart=/bin/bash /opt/azure/containers/gpu-uuid-node-labels.sh reconcile
+# Backstop only: the script stops waiting after 900 seconds.
+RuntimeMaxSec=1200
+
+[Install]
+WantedBy=multi-user.target

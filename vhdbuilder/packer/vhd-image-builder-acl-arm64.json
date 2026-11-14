@@ -690,6 +690,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/gpu-uuid-node-labels.sh",
+      "destination": "/home/packer/gpu-uuid-node-labels.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/gpu-uuid-node-labels.service",
+      "destination": "/home/packer/gpu-uuid-node-labels.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf",
       "destination": "/home/packer/docker_clear_mount_propagation_flags.conf"
     },
