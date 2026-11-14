@@ -259,7 +259,7 @@ copyPackerFiles() {
 
   GPU_UUID_NODE_LABELS_SERVICE_SRC=/home/packer/gpu-uuid-node-labels.service
   GPU_UUID_NODE_LABELS_SERVICE_DEST=/etc/systemd/system/gpu-uuid-node-labels.service
-  cpAndMode $GPU_UUID_NODE_LABELS_SERVICE_SRC $GPU_UUID_NODE_LABELS_SERVICE_DEST 600
+  cpAndMode $GPU_UUID_NODE_LABELS_SERVICE_SRC $GPU_UUID_NODE_LABELS_SERVICE_DEST 0644
 
   MNT_SH_SRC=/home/packer/bind-mount.sh
   MNT_SH_DEST=/opt/azure/containers/bind-mount.sh
