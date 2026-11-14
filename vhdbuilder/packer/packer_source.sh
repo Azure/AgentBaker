@@ -65,6 +65,8 @@ copyPackerFiles() {
   KMS_SERVICE_DEST=/etc/systemd/system/kms.service
   MIG_PARTITION_SRC=/home/packer/mig-partition.sh
   MIG_PARTITION_DEST=/opt/azure/containers/mig-partition.sh
+  GPU_UUID_NODE_LABELS_SRC=/home/packer/gpu-uuid-node-labels.sh
+  GPU_UUID_NODE_LABELS_DEST=/opt/azure/containers/gpu-uuid-node-labels.sh
   CONTAINERD_EXEC_START_SRC=/home/packer/containerd_exec_start.conf
   CONTAINERD_EXEC_START_DEST=/etc/systemd/system/containerd.service.d/exec_start.conf
   CONTAINERD_SERVICE_SRC=/home/packer/containerd.service
@@ -254,6 +256,10 @@ copyPackerFiles() {
   MIG_PART_SRC=/home/packer/mig-partition.service
   MIG_PART_DEST=/etc/systemd/system/mig-partition.service
   cpAndMode $MIG_PART_SRC $MIG_PART_DEST 600
+
+  GPU_UUID_NODE_LABELS_SERVICE_SRC=/home/packer/gpu-uuid-node-labels.service
+  GPU_UUID_NODE_LABELS_SERVICE_DEST=/etc/systemd/system/gpu-uuid-node-labels.service
+  cpAndMode $GPU_UUID_NODE_LABELS_SERVICE_SRC $GPU_UUID_NODE_LABELS_SERVICE_DEST 600
 
   MNT_SH_SRC=/home/packer/bind-mount.sh
   MNT_SH_DEST=/opt/azure/containers/bind-mount.sh
@@ -513,6 +519,7 @@ copyPackerFiles() {
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
   cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
+  cpAndMode $GPU_UUID_NODE_LABELS_SRC $GPU_UUID_NODE_LABELS_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
   cpAndMode $DISK_QUEUE_SCRIPT_SRC $DISK_QUEUE_SCRIPT_DEST 755
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644

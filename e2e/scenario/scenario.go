@@ -393,6 +393,7 @@ func aclGPUScenario(name, vmSize, location string) *Scenario {
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
 					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateGPUUUIDNodeLabels(ctx, s),
 					ValidateNvidiaPersistencedRunning(ctx, s),
 					ValidateScriptlessCSECmd(ctx, s),
 				)
@@ -431,6 +432,7 @@ func aclGRIDScenario(name, vmSize string) *Scenario {
 			Validator: func(ctx context.Context, s *Scenario) error {
 				return errors.Join(
 					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateGPUUUIDNodeLabels(ctx, s),
 					ValidateNvidiaGRIDLicenseValid(ctx, s),
 					ValidateNvidiaPersistencedRunning(ctx, s),
 					ValidateScriptlessCSECmd(ctx, s),
@@ -1759,6 +1761,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateNvidiaModProbeInstalled(ctx, s),
+				ValidateGPUUUIDNodeLabels(ctx, s),
 				ValidateNvidiaGRIDLicenseValid(ctx, s),
 				ValidateNvidiaDriverVersion(ctx, s, datamodel.NvidiaGridDriverVersion),
 				ValidateKubeletHasNotStopped(ctx, s),
@@ -1800,6 +1803,7 @@ func ubuntu2204GPUScenario(name, vmSize, location string) *Scenario {
 				return errors.Join(
 					// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateGPUUUIDNodeLabels(ctx, s),
 					ValidateKubeletHasNotStopped(ctx, s),
 					ValidateServicesDoNotRestartKubelet(ctx, s),
 				)
@@ -2211,6 +2215,7 @@ func init() {
 				Validator: func(ctx context.Context, s *Scenario) error {
 					return errors.Join(
 						ValidateNvidiaModProbeInstalled(ctx, s),
+						ValidateGPUUUIDNodeLabels(ctx, s),
 						ValidateNvidiaGRIDLicenseValid(ctx, s),
 						ValidateKubeletHasNotStopped(ctx, s),
 						ValidateServicesDoNotRestartKubelet(ctx, s),
@@ -3373,6 +3378,7 @@ func ubuntu2404GRIDScenario(name, vmSize string) *Scenario {
 				return errors.Join(
 					// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateGPUUUIDNodeLabels(ctx, s),
 					ValidateNvidiaGRIDLicenseValid(ctx, s),
 					ValidateNvidiaDriverVersion(ctx, s, datamodel.NvidiaGridDriverVersion),
 					ValidateKubeletHasNotStopped(ctx, s),
@@ -3419,6 +3425,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateNvidiaModProbeInstalled(ctx, s),
+				ValidateGPUUUIDNodeLabels(ctx, s),
 				ValidateNvidiaSMIInstalled(ctx, s),
 				ValidateNvidiaGridV20DriverInstalled(ctx, s),
 				ValidateNvidiaDriverVersion(ctx, s, datamodel.NvidiaGridV20DriverVersion),

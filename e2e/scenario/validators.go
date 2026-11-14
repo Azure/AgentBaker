@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -36,6 +37,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -623,6 +625,124 @@ func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) error {
 	command := []string{"set -ex", "sudo nvidia-smi"}
 	_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not execute nvidia-smi command")
 	return err
+}
+
+const gpuUUIDNodeLabelsScript = "/opt/azure/containers/gpu-uuid-node-labels.sh"
+
+var gpuUUIDNodeLabelKey = regexp.MustCompile(`^kubernetes\.azure\.com/gpu-[0-9]+-uuid$`)
+
+// ValidateGPUUUIDNodeLabels checks that the node's kubernetes.azure.com/gpu-<index>-uuid labels hold exactly the
+// physical GPU UUIDs nvidia-smi reports (vGPUs are excluded), then checks that gpu-uuid-node-labels.service repairs
+// stale labels, as it does on boot after the VM moves to different GPUs. Run it before any step that unbinds or hides
+// a GPU. GPU indexes are not compared because enumeration order may change across reboots.
+func ValidateGPUUUIDNodeLabels(ctx context.Context, s *Scenario) error {
+	// The labels come from scripts baked into the VHD; VHDs built before this change don't add them.
+	vhdCheck, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("if [ -f %s ]; then echo present; else echo absent; fi", gpuUUIDNodeLabelsScript), 0, "could not check the VHD for GPU UUID node label support")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(vhdCheck.stdout) != "present" {
+		logging.Logf(ctx, "SKIP: GPU UUID node label validation, %s is not on this VHD", gpuUUIDNodeLabelsScript)
+		return nil
+	}
+
+	execResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo nvidia-smi --query-gpu=index,uuid,virtualization_mode --format=csv,noheader", 0, "could not query GPU UUIDs with nvidia-smi")
+	if err != nil {
+		return err
+	}
+	expected := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(execResult.stdout), "\n") {
+		fields := strings.Split(line, ",")
+		if len(fields) != 3 {
+			return fmt.Errorf("unexpected nvidia-smi GPU UUID output line %q", line)
+		}
+		if strings.Contains(strings.ToUpper(fields[2]), "VGPU") {
+			continue
+		}
+		expected[strings.TrimSpace(fields[1])] = true
+	}
+
+	if err := checkGPUUUIDNodeLabels(ctx, s, expected); err != nil {
+		return err
+	}
+
+	// Simulate the VM landing on different GPUs: overwrite one label with an unknown UUID and add a label for a GPU
+	// that doesn't exist, then run the reconciler the way it runs on boot.
+	patch, err := json.Marshal(map[string]any{"metadata": map[string]any{"labels": map[string]string{
+		"kubernetes.azure.com/gpu-0-uuid":  "GPU-00000000-0000-0000-0000-000000000000",
+		"kubernetes.azure.com/gpu-99-uuid": "GPU-99999999-9999-9999-9999-999999999999",
+	}}})
+	if err != nil {
+		return fmt.Errorf("marshal stale GPU UUID label patch: %w", err)
+	}
+	if _, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Patch(ctx, s.Runtime.VM.KubeName, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		return fmt.Errorf("add stale GPU UUID labels to node %q: %w", s.Runtime.VM.KubeName, err)
+	}
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo systemctl restart gpu-uuid-node-labels", 0, "could not restart gpu-uuid-node-labels.service"); err != nil {
+		return err
+	}
+	var lastErr error
+	if err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		lastErr = checkGPUUUIDNodeLabels(ctx, s, expected)
+		return lastErr == nil, nil
+	}); err != nil {
+		journal, _ := execScriptOnVMForScenario(ctx, s, "sudo journalctl -u gpu-uuid-node-labels --no-pager | tail -n 50")
+		journalOutput := ""
+		if journal != nil {
+			journalOutput = journal.stdout
+		}
+		return fmt.Errorf("gpu-uuid-node-labels.service did not repair stale GPU UUID labels: %w\njournal:\n%s", lastErr, journalOutput)
+	}
+	return nil
+}
+
+// checkGPUUUIDNodeLabels compares the node's GPU UUID labels and the GPU UUIDs in /etc/default/kubelet with expected.
+func checkGPUUUIDNodeLabels(ctx context.Context, s *Scenario, expected map[string]bool) error {
+	node, err := s.Runtime.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.VM.KubeName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get node %q: %w", s.Runtime.VM.KubeName, err)
+	}
+	var errs []error
+	actual := map[string]bool{}
+	for key, value := range node.Labels {
+		if !strings.HasPrefix(key, "kubernetes.azure.com/gpu-") || !strings.HasSuffix(key, "-uuid") {
+			continue
+		}
+		if !gpuUUIDNodeLabelKey.MatchString(key) {
+			errs = append(errs, fmt.Errorf("node %q has malformed GPU UUID label key %q", s.Runtime.VM.KubeName, key))
+		}
+		if actual[value] {
+			errs = append(errs, fmt.Errorf("node %q has GPU UUID %q on more than one label", s.Runtime.VM.KubeName, value))
+		}
+		actual[value] = true
+	}
+	for uuid := range expected {
+		if !actual[uuid] {
+			errs = append(errs, fmt.Errorf("node %q has no GPU UUID label for GPU %q", s.Runtime.VM.KubeName, uuid))
+		}
+	}
+	for uuid := range actual {
+		if !expected[uuid] {
+			errs = append(errs, fmt.Errorf("node %q has a GPU UUID label for %q, which nvidia-smi does not report as a physical GPU", s.Runtime.VM.KubeName, uuid))
+		}
+	}
+
+	// A later re-registration of the Node uses the labels kubelet reads from /etc/default/kubelet.
+	defaults, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo sed -n 's/^KUBELET_NODE_LABELS=//p' /etc/default/kubelet", 0, "could not read KUBELET_NODE_LABELS from /etc/default/kubelet")
+	if err != nil {
+		return errors.Join(append(errs, err)...)
+	}
+	fileUUIDs := map[string]bool{}
+	for _, label := range strings.Split(strings.TrimSpace(defaults.stdout), ",") {
+		key, value, _ := strings.Cut(label, "=")
+		if gpuUUIDNodeLabelKey.MatchString(key) {
+			fileUUIDs[value] = true
+		}
+	}
+	if !maps.Equal(fileUUIDs, expected) {
+		errs = append(errs, fmt.Errorf("/etc/default/kubelet GPU UUID labels %v do not match the physical GPUs %v", lo.Keys(fileUUIDs), lo.Keys(expected)))
+	}
+	return errors.Join(errs...)
 }
 
 func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) error {
