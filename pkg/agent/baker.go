@@ -74,12 +74,14 @@ nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 	hotfixMarkerTemplate = `
 #hotfix-marker
 `
-	readyReportHandoffTemplate = `# azure-experimental-node-ready
-
-touch /var/lib/waagent/experimental_skip_ready_report
+	readyReportCloudConfig = `datasource:
+  Azure:
+    experimental_skip_ready_report: true
+`
+	readyReportHandoffTemplate = `touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
-# Patched cloud-init consumes the CustomData marker above before this boothook runs.
+# The patched Azure datasource reads the archive's cloud-config flag before the boothook runs.
 # WALinuxAgent reports Ready independently once ovf-env.xml and the SSH host key exist.
 # A sentinel matching this instance's id makes it skip that report, leaving
 # aks-node-controller as the only reporter.
@@ -183,7 +185,7 @@ type encodedFile struct {
 
 // getScriptlessBoothook builds custom data for scriptless provisioning.
 // It encodes the node custom data, cse downloader script
-// into the appropriate format (boothook or flatcar ignition).
+// into the appropriate format (cloud-config, boothook or flatcar ignition).
 func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstrappingConfiguration) string {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
@@ -238,6 +240,14 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		finalCustomData = buildScriptlessCustomData(flatcarAutoTemplate, flatcarFileEntry, ",", encodedFiles)
 	} else {
 		finalCustomData = customData + t.getScriptlessNBCCmd(config)
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			script := strings.TrimPrefix(finalCustomData, "#cloud-boothook\n")
+			archive, err := buildCloudConfigArchive(script)
+			if err != nil {
+				panic(fmt.Errorf("failed to marshal cloud-config archive: %w", err))
+			}
+			finalCustomData = archive
+		}
 	}
 	encodedFinalCustomData := base64.StdEncoding.EncodeToString([]byte(finalCustomData))
 	if len(encodedFinalCustomData) < MaxCustomDataLength {
@@ -246,6 +256,28 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 	config.CustomDataOnlyProvisioning = false
 	config.ScriptlessCSEProvisionMode = true
 	return encodedCustomData
+}
+
+func buildCloudConfigArchive(script string) (string, error) {
+	parts := []struct {
+		Type    string    `yaml:"type"`
+		Content yaml.Node `yaml:"content"`
+	}{
+		{
+			Type: "text/cloud-boothook",
+			// Quoting preserves Unicode line separators as script bytes, not YAML line breaks.
+			Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.DoubleQuotedStyle, Value: script},
+		},
+		{
+			Type:    "text/cloud-config",
+			Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.LiteralStyle, Value: readyReportCloudConfig},
+		},
+	}
+	archive, err := yaml.Marshal(parts)
+	if err != nil {
+		return "", err
+	}
+	return "#cloud-config-archive\n" + string(archive), nil
 }
 
 // getScriptlessNBCCmd builds CSE for scriptless provisioning.
@@ -709,7 +741,6 @@ func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, c
 		// YAML quoting preserves Unicode line breaks that JSON leaves unescaped.
 		encoded, err := yaml.Marshal(&yaml.Node{
 			Kind:  yaml.ScalarNode,
-			Tag:   "!!str",
 			Style: yaml.DoubleQuotedStyle,
 			Value: content,
 		})
@@ -820,8 +851,8 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 
 // ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
-	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
-		config.CustomDataOnlyProvisioning = false
+	if err := validateAndSetCustomDataOnlyProvisioning(config); err != nil {
+		return err
 	}
 
 	if config.EnableScriptlessAKSNodeConfig {
@@ -905,6 +936,18 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	// It must not appear on the command line or in the config file for those versions.
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
 		delete(kubeletFlags, "--streaming-connection-idle-timeout")
+	}
+	return nil
+}
+
+func validateAndSetCustomDataOnlyProvisioning(config *datamodel.NodeBootstrappingConfiguration) error {
+	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
+		config.CustomDataOnlyProvisioning = false
+	}
+	if config.IsCustomDataOnlyProvisioningEnabled() &&
+		!config.AgentPoolProfile.Distro.Is2404VHDDistro() &&
+		!config.AgentPoolProfile.Distro.Is2604VHDDistro() {
+		return fmt.Errorf("CustomData-only provisioning requires an Ubuntu 24.04 or 26.04 image with patched cloud-init")
 	}
 	return nil
 }
