@@ -2993,6 +2993,25 @@ testContainerNetworkingPluginsInstalled() {
   return 0
 }
 
+testNetworkdNetlinkTimeout() {
+  local test="testNetworkdNetlinkTimeout"
+  if [ "$OS_SKU" != "Ubuntu" ] || [ "$OS_VERSION" != "24.04" ]; then
+    return 0
+  fi
+
+  local drop_in="/etc/systemd/system/systemd-networkd.service.d/10-netlink-timeout.conf"
+  if [ "$(stat -c '%a' "$drop_in" 2>/dev/null)" != "644" ]; then
+    err "$test" "$drop_in must exist with mode 0644"
+  fi
+  if ! grep -Fxq 'Environment=SYSTEMD_NETLINK_DEFAULT_TIMEOUT=250s' "$drop_in"; then
+    err "$test" "networkd drop-in must set the default netlink timeout to 250 seconds"
+  fi
+  if ! systemctl show systemd-networkd.service --property=Environment --value |
+    grep -Eq '(^|[[:space:]])SYSTEMD_NETLINK_DEFAULT_TIMEOUT=250s([[:space:]]|$)'; then
+    err "$test" "networkd must load the default netlink timeout of 250 seconds"
+  fi
+}
+
 testNetworkdRecoveryArtifacts() {
   local test="testNetworkdRecoveryArtifacts"
   if [ "$OS_SKU" != "AzureLinux" ] || [ "$OS_VERSION" != "3.0" ]; then
@@ -3114,6 +3133,7 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testMarinerLivePatchingArtifacts
 testNetworkdRecoveryArtifacts
+testNetworkdNetlinkTimeout
 testNodeExporter $OS_SKU
 testNodeProblemDetector $OS_SKU $OS_VERSION
 testKMPP

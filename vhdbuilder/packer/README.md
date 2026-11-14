@@ -77,6 +77,17 @@ disabled state after boot (without applying the rule in the test). Roll out new
 images through the normal canary stages and validate memory-sensitive workloads,
 reclaim CPU, latency, memory pressure, and evictions before broad deployment.
 
+# Ubuntu networkd timeout
+
+Ubuntu 24.04 images set systemd-networkd's default netlink timeout to 250 seconds.
+This gives route requests more time to complete while network devices are being
+removed during live migration.
+
+The image build installs
+`/etc/systemd/system/systemd-networkd.service.d/10-netlink-timeout.conf` with
+`SYSTEMD_NETLINK_DEFAULT_TIMEOUT=250s`. Networkd reads the setting when it starts.
+Successful requests complete as soon as their replies arrive.
+
 # Azure Linux networkd recovery
 
 Azure Linux 3.0 images (AMD64, ARM64, and CVM; excluding OSGuard) enable
