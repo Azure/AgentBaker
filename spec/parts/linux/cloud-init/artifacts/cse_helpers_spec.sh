@@ -336,6 +336,43 @@ Describe 'cse_helpers.sh and build helpers'
             The output should equal "1.33.20"
         End
 
+        It 'resolves modern packages alongside the renamed legacy entry'
+            provider_metadata=$(jq --argjson legacy "$legacy_provider" '
+                .Packages += [($legacy | .name = "azure-acr-credential-provider-legacy")]
+            ' <<< "$provider_metadata")
+            When call resolve_provider_version "1.33.0" "UBUNTU" "22.04"
+            The status should be success
+            The output should equal "1.33.20"
+            The variable PACKAGE_VERSION should equal "1.33.20"
+        End
+
+        Describe 'unchanged repository metadata'
+            Parameters
+                "UBUNTU" "20.04" "" "1.33.0"
+                "UBUNTU" "22.04" "" "1.33.0"
+                "UBUNTU" "24.04" "" "1.34.0"
+                "UBUNTU" "26.04" "" "1.36.0"
+                "AZURELINUX" "3.0" "" "1.33.0"
+                "AZURELINUX" "3.0" "OSGUARD" "1.33.0"
+            End
+
+            It "preserves the existing PMC version selection for $1 $2 $3"
+                jq '{Packages: [.Packages[] | select(
+                    .name == "azure-acr-credential-provider" or
+                    .name == "azure-acr-credential-provider-pmc"
+                )]}' parts/common/components.json > "$COMPONENTS_FILEPATH"
+                getLatestPkgVersionFromK8sVersion "$4" "azure-acr-credential-provider-pmc" "$1" "$2" "$3" > /dev/null
+                expected_version="$PACKAGE_VERSION"
+                PACKAGE_VERSION=""
+
+                When call getCredentialProviderVersion "$4" "$1" "$2" "$3"
+                The status should be success
+                The output should equal "$expected_version"
+                The variable PACKAGE_VERSION should equal "$expected_version"
+                The variable PACKAGE_VERSION should not equal ""
+            End
+        End
+
         It 'does not use legacy OCI versions when no native package metadata exists'
             provider_metadata=$(jq -n --argjson legacy "$legacy_provider" '{Packages: [$legacy]}')
             When call resolve_provider_version "1.33.0" "UBUNTU" "22.04"

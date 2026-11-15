@@ -17,18 +17,20 @@
         - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru`
 1. Watch out different powershell versions. Sometimes JSON parsing works differently in your local powershell and in the pipeline. Which is annoying.
 
-# Credential provider custom URLs
+# Credential provider metadata compatibility
 
-For non-network-isolated nodes, custom credential-provider URLs (including
-prefixed hotfix paths and custom hosts) bypass both automatic Dalec selection
-and the shared filename-only archive cache. A custom archive can have the same
-filename as a stock archive without containing the same binary. Download
-failure fails provisioning rather than substituting the stock cache.
+On a Dalec cache miss, `Resolve-DalecCredentialProviderPackageFromMetadata`
+prefers `azure-acr-credential-provider` only when its Windows download URL is
+a Dalec ZIP. It otherwise checks `azure-acr-credential-provider-pmc`, then
+`windows credential provider dalec`. Older VHDs use the canonical name for
+legacy tarballs, which must not be interpreted as Dalec packages. If both
+modern canonical and historical entries exist, modern canonical metadata wins.
 
-Stock legacy RP URLs retain cache-first fallback behavior. Custom downloads
-reuse the cache-free downloader in `configfunc.ps1`, with the normal retry
-budget and URL mapping, without requiring a new `windowscsehelper.ps1` API on
-older nodes.
+The source metadata retains its existing names during this reader-only rollout.
+CSE and VHD releases are not atomic: compatible readers must reach all supported
+provisioning paths before VHD metadata is renamed. If older readers can still
+consume those VHDs, the metadata change must preserve compatibility entries.
+Adding support for old VHDs to new readers does not update old readers.
 
 # Test with AKS RP
 

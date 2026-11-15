@@ -822,7 +822,7 @@ cachePackageAndBinaryComponents() {
           echo "  - ${name} version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
         ;;
-      "azure-acr-credential-provider-legacy")
+      "azure-acr-credential-provider")
         for version in ${PACKAGE_VERSIONS[@]}; do
           evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
           downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
@@ -860,7 +860,8 @@ cachePackageAndBinaryComponents() {
           echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
         done
         ;;
-      azure-acr-credential-provider)
+      azure-acr-credential-provider-pmc)
+        name=${name%-pmc}
         for version in ${PACKAGE_VERSIONS[@]}; do
           if isMarinerOrAzureLinux || isUbuntu; then
             downloadPkgFromVersion "${name}" "${version}" "${downloadDir}"

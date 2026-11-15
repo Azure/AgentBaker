@@ -90,6 +90,15 @@ selection to the package-agnostic `getLatestPkgVersionFromK8sVersion`.
 Explicit empty platform entries in modern canonical metadata remain
 authoritative; they do not trigger historical fallback.
 
+This is a reader-first migration: `components.json` still uses the existing
+legacy `azure-acr-credential-provider`, modern `azure-acr-credential-provider-pmc`,
+and `windows credential provider dalec` names. The readers also accept the
+planned renamed layout, but publishing that layout is a separate change.
+Compatible readers must reach all supported provisioning paths before VHDs
+with renamed metadata are released. Otherwise, those VHDs must retain
+compatibility entries for old readers; merging the reader change alone is
+not sufficient.
+
 `Packages` is a list of `Package` where a `package` has the following scehma:
 ``` 
 #Package: {
