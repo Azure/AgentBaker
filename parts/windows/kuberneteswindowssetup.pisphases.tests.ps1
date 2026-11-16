@@ -123,12 +123,12 @@ Describe 'Windows CSE PIS phase placement' {
 
     Context 'SSH access policy' {
         It 'applies the live SSH policy and keys in NodePrep' {
-            $script:NodePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)'
+            $script:NodePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\(\{\{WindowsSSHEnabled \| PowerShellLiteral\}\}\)'
             $script:NodePrepBody | Should -Match 'Install-OpenSSH -Enabled \$sshEnabled -SSHKeys \$global:SSHKeys'
         }
 
         It 'preserves SSH configuration in BasePrep only when enabled' {
-            $script:BasePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\("\{\{WindowsSSHEnabled\}\}"\)'
+            $script:BasePrepBody | Should -Match '\$sshEnabled=\[System.Convert\]::ToBoolean\(\{\{WindowsSSHEnabled \| PowerShellLiteral\}\}\)'
             $script:BasePrepBody | Should -Match 'if\s*\(\s*\$sshEnabled\s*\)\s*\{\s*Install-OpenSSH -SSHKeys \$SSHKeys\s*\}'
         }
 
@@ -208,7 +208,7 @@ Describe 'Windows CSE PIS phase placement' {
                     $script:SSHPolicyCall = @{ Enabled = $Enabled; Keys = $SSHKeys }
                 }
 
-                & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', $Enabled)))
+                & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled | PowerShellLiteral}}', "'$Enabled'")))
 
                 $script:SSHPolicyCall.Enabled | Should -Be ([System.Convert]::ToBoolean($Enabled))
                 $script:SSHPolicyCall.Keys | Should -Be @('ssh-rsa live-node-key')
@@ -226,14 +226,14 @@ Describe 'Windows CSE PIS phase placement' {
                     throw 'NodePrep must not call the legacy implementation'
                 }
 
-                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', $Enabled))) } | Should -Not -Throw
+                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled | PowerShellLiteral}}', "'$Enabled'"))) } | Should -Not -Throw
                 Assert-MockCalled Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like '*preserving legacy behavior*' }
             }
 
             It 'skips enforcement when the bundle has no SSH function' {
                 Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Install-OpenSSH' }
 
-                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', 'False'))) } | Should -Not -Throw
+                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled | PowerShellLiteral}}', "'False'"))) } | Should -Not -Throw
                 Assert-MockCalled Write-Log -Times 1 -Exactly
             }
 
@@ -243,7 +243,7 @@ Describe 'Windows CSE PIS phase placement' {
                     throw 'SSH policy enforcement failed'
                 }
 
-                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled}}', 'True'))) } | Should -Throw '*SSH policy enforcement failed*'
+                { & ([scriptblock]::Create($script:SSHPolicyBody.Replace('{{WindowsSSHEnabled | PowerShellLiteral}}', "'True'"))) } | Should -Throw '*SSH policy enforcement failed*'
                 Assert-MockCalled Write-Log -Times 0 -Exactly
             }
         }
