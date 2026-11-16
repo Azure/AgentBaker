@@ -47,6 +47,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 	containerdVersion, _ := detectContainerdVersion(ctx)
 	cloudProviderSettings := getCloudProviderSettings(config)
 	isMIGNode := getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile(), config.GetGpuConfig().GetMigProfileLayout())
+	location, repoDepotEndpoint := CloudInitializationSettings(config)
 	env := map[string]string{
 		"PROVISION_OUTPUT":                                     "/var/log/azure/cluster-provision-cse-output.log",
 		"CUSTOM_DATA_ONLY_PROVISIONING":                        fmt.Sprintf("%t", config.GetCustomDataOnlyProvisioning()),
@@ -74,7 +75,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"APISERVER_PUBLIC_KEY":                                 config.GetApiServerConfig().GetApiServerPublicKey(),
 		"SUBSCRIPTION_ID":                                      config.GetAuthConfig().GetSubscriptionId(),
 		"RESOURCE_GROUP":                                       config.GetClusterConfig().GetResourceGroup(),
-		"LOCATION":                                             config.GetClusterConfig().GetLocation(),
+		"LOCATION":                                             location,
 		"VM_TYPE":                                              getStringFromVMType(config.GetClusterConfig().GetVmType()),
 		"SUBNET":                                               config.GetClusterConfig().GetClusterNetworkConfig().GetSubnet(),
 		"NETWORK_SECURITY_GROUP":                               config.GetClusterConfig().GetClusterNetworkConfig().GetSecurityGroupName(),
@@ -223,7 +224,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"STANDARD_SECONDARY_NIC_COUNT":                 fmt.Sprintf("%d", config.GetNetworkConfig().GetStandardSecondaryNicCount()),
 		"ENABLE_MANAGED_GPU_DRA":                       fmt.Sprintf("%v", config.GetGpuConfig().GetEnableManagedGpuDra()),
 		"INIT_AKS_CLOUD_FILEPATH":                      getInitAKSCloudFilepath(),
-		"REPO_DEPOT_ENDPOINT":                          getRepoDepotEndpoint(config),
+		"REPO_DEPOT_ENDPOINT":                          repoDepotEndpoint,
 	}
 
 	for i, cert := range config.CustomCaCerts {

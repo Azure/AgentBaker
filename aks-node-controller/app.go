@@ -149,6 +149,24 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		},
 		Commands: []*cli.Command{
 			{
+				Name:  "init-cloud",
+				Usage: "Initialize cloud settings before hotfix acquisition",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "provision-config", Usage: "path to the provision config file"},
+					&cli.StringFlag{Name: "nbc-cmd", Usage: "path to the NBC command file"},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					err := a.initializeCloud(ctx, ProvisionFlags{
+						ProvisionConfig: cmd.String("provision-config"),
+						NBCCmd:          cmd.String("nbc-cmd"),
+					}, initCloudScriptPath, initCloudMarkerPath)
+					if err != nil {
+						slog.Error("early cloud initialization failed", "error", err)
+					}
+					return err
+				},
+			},
+			{
 				Name:  "provision",
 				Usage: "Run node provisioning",
 				Flags: []cli.Flag{

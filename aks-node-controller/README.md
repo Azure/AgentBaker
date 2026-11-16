@@ -54,6 +54,14 @@ the provisioning config in CustomData; the automatic size fallback uses the same
 config-only payload. Leaving the new flag false preserves legacy, Phase 2, and
 Phase 2.5 behavior.
 
+The VHD launcher calls `init-cloud` before acquiring a hotfix. ANC uses the NBC
+command when present, otherwise AKSNodeConfig, and records successful initialization
+in `/run/aks/init-aks-cloud.done` so provisioning does not repeat it. Older NBC
+commands that do not support this marker retain the previous hotfix ordering. On
+failure, the launcher skips acquisition and provisioning retries initialization.
+The marker is not script-version-aware, so a hotfix replacing the initializer does
+not rerun it after successful early initialization.
+
 ### Validating and normalizing AKSNodeConfig
 
 Before serializing a typed config, producers such as RP should call:

@@ -181,18 +181,6 @@ type encodedFile struct {
 	content string
 }
 
-func scriptlessCloudSettings(config *datamodel.NodeBootstrappingConfiguration) string {
-	location := config.ContainerService.Location
-	endpoint := ""
-	if config.ContainerService.IsAKSCustomCloud() {
-		endpoint = config.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint
-	}
-	if strings.ContainsRune(location, 0) || strings.ContainsRune(endpoint, 0) {
-		return "return 1\n"
-	}
-	return "LOCATION=" + shellQuote(location) + "\nREPO_DEPOT_ENDPOINT=" + shellQuote(endpoint) + "\n"
-}
-
 // getScriptlessBoothook builds custom data for scriptless provisioning.
 // It encodes the node custom data, cse downloader script
 // into the appropriate format (boothook or flatcar ignition).
@@ -287,14 +275,10 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 
 	// Use an ordered slice (not a map) so the rendered customData is deterministic
 	// across runs/tests instead of depending on Go's randomized map iteration order.
-	encodedFiles := []encodedFile{
+	return []encodedFile{
 		{aksNbcCmdFilepath, encodedNBCCMD},
 		{aksNodeConfigFilepath, encodedAKSNodeConfig},
 	}
-	if config.AKSNodeConfigJSON == "" {
-		encodedFiles = append(encodedFiles, encodedFile{initAKSCloudEnvFilepath, getBase64EncodedGzippedCustomScriptFromStr(scriptlessCloudSettings(config))})
-	}
-	return encodedFiles
 }
 
 func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
