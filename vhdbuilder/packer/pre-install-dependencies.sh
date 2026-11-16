@@ -174,8 +174,7 @@ ExecStart=/bin/bash /opt/azure/containers/provision_preload.sh
 WantedBy=sysinit.target
 EOF
 
-  systemctl daemon-reload
-  systemctl enable cache-warmup.service
+  systemctl_enable 100 5 30 cache-warmup.service || exit 1
 fi
 
 # Remove lockdown=integrity from kernel cmdline for Azure Linux 3.0

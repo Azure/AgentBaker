@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -262,7 +261,7 @@ func writeKVPRecord(path, key, value string) error {
 	}
 	defer f.Close()
 	// Closing the file releases the lock; os.File.Write is unbuffered.
-	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+	if err = lockFileExclusive(f); err != nil {
 		return err
 	}
 	_, err = f.Write(record)
