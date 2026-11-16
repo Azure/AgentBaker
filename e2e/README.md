@@ -616,7 +616,10 @@ The other directories contain helper packages and embedded resources.
 ## E2E VHDs.
 
 Node images are pushed to Shared Image Gallery (SIG). Each image is tagged with branch name and build id.
-By default E2E tests use latest version of images from SIG with `branch=refs/heads/main` tag.
+By default E2E tests use the latest version of images from SIG tagged with `branch=<repository-default-branch>`.
+The default branch is resolved at startup using `git ls-remote --symref origin HEAD`, rather than the checked-out branch or a cached `origin/HEAD`.
+Explicit `SIG_VERSION_TAG_VALUE` / `--sig-version-tag-value` settings and VHD metadata selection take precedence.
+If the default branch cannot be resolved, the run fails with an error instead of falling back to a hardcoded branch.
 
 ## Using VHD Images from Custom ADO Builds
 
